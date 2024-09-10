@@ -20,44 +20,10 @@ class message_queue {
     size_t first;
     size_t last;
     long unsigned int err_count;
+    bool blocking;
     event_msg msg_buf[EVENT_BUF_SIZE];
 
-public:
-    message_queue() : m{}, first{0}, last{0}, err_count{0} { }
-
-    ~message_queue() {
-        // TBD: connect error_count to verbosity > 0
-        // fprintf(stderr, "note: message_queue::error_count: %lu\n", err_count);
-    }
-
-    void fprint(FILE *f) {
-        fprintf(f, "STATE: first: %zu\tlast: %zu\n", first, last);
-    }
-
-    bool push(const event_msg& ev_str) {
-        std::unique_lock<std::mutex> m_lock(m);
-        if (is_full()) {
-            err_count++;
-            //fprintf(stderr, "%s: queue %p is full\n", __func__, (void *)this);
-            return false; // error: no room in queue
-        }
-        //fprintf(stderr, "src_ip = %s, fp = %s, user-agent= %s, dest_info= %s\n", std::get<0>(ev_str).c_str(), std::get<1>(ev_str).c_str(), std::get<2>(ev_str).c_str(), std::get<3>(ev_str).c_str());
-        msg_buf[last] = ev_str;
-        increment(last);
-        return true;
-    }
-
-    bool pop(event_msg &entry) {
-        std::unique_lock<std::mutex> m_lock(m);
-        //fprintf(stderr, "%s: queue size: %zd\n", __func__, size());
-        if (is_empty()) {
-            return false;
-        }
-        entry = msg_buf[first];
-        increment(first);
-        return true;
-    }
-
+private:
     void increment(size_t &idx) {
         idx = next_index(idx);
     }
@@ -79,7 +45,46 @@ public:
         return (first == last);
     }
 
+public:
+    message_queue(bool blocking=false)
+        : m{}, first{0}, last{0}, err_count{0}, blocking{blocking} { }
+
+    ~message_queue() {
+        // TBD: connect error_count to verbosity > 0
+        // fprintf(stderr, "note: message_queue::error_count: %lu\n", err_count);
+    }
+
+    void fprint(FILE *f) {
+        std::unique_lock<std::mutex> m_lock(m);
+        fprintf(f, "STATE: first: %zu\tlast: %zu\n", first, last);
+    }
+
+    bool push(const event_msg& ev_str) {
+        std::unique_lock<std::mutex> m_lock(m);
+        if (is_full()) {
+            err_count++;
+            fprintf(stderr, "%s: queue %p is full\n", __func__, (void *)this);
+            return false; // error: no room in queue
+        }
+        //fprintf(stderr, "src_ip = %s, fp = %s, user-agent= %s, dest_info= %s\n", std::get<0>(ev_str).c_str(), std::get<1>(ev_str).c_str(), std::get<2>(ev_str).c_str(), std::get<3>(ev_str).c_str());
+        msg_buf[last] = ev_str;
+        increment(last);
+        return true;
+    }
+
+    bool pop(event_msg &entry) {
+        std::unique_lock<std::mutex> m_lock(m);
+        //fprintf(stderr, "%s: queue size: %zd\n", __func__, size());
+        if (is_empty()) {
+            return false;
+        }
+        entry = msg_buf[first];
+        increment(first);
+        return true;
+    }
+
     ssize_t size() {
+        std::unique_lock<std::mutex> m_lock(m);
         if (last >= first) {
             return last - first;
         }
