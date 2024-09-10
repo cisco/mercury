@@ -5,15 +5,14 @@
  * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
+#if (!HAVE_GETTID)
+#include <sys/syscall.h>
+#define gettid() syscall(SYS_gettid)
+#else
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE    /* Needed for gettid() definition from unistd.h */
 #endif
 #include <unistd.h>
-
-/* Use system call if gettid() is not available from glibc */
-#if __GLIBC__ == 2 && __GLIBC_MINOR__ < 30
-#include <sys/syscall.h>
-#define gettid() syscall(SYS_gettid)
 #endif
 
 #include <stdlib.h>
