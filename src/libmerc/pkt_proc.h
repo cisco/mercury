@@ -1,8 +1,8 @@
 /*
  * pkt_proc.h
- * 
- * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at 
- * https://github.com/cisco/mercury/blob/master/LICENSE 
+ *
+ * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at
+ * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
 #ifndef PKT_PROC_H
@@ -239,16 +239,16 @@ struct stateful_pkt_proc {
                           struct datum &pkt,
                           struct tcp_packet &tcp_pkt,
                           struct key &k,
-                          struct timespec *ts, 
+                          struct timespec *ts,
                           struct tcp_reassembler *reassembler);
-    
+
     bool process_udp_data (protocol &x,
                           struct datum &pkt,
                           udp &udp_pkt,
                           struct key &k,
                           struct timespec *ts,
                           struct tcp_reassembler *reassembler);
-    
+
     void set_tcp_protocol(protocol &x,
                           struct datum &pkt,
                           bool is_new,

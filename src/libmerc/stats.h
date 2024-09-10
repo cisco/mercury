@@ -74,7 +74,7 @@ public:
                 throw std::runtime_error("error in gzprintf");
             gz_ret = gzprintf(gzf, "{\"src_ip\":\"%s\", \"libmerc_init_time\" : \"%s\",\"libmerc_version\": \"%s\","
                                    " \"build_number\" : \"%u\", \"git_commit_id\": \"%s\", \"fingerprints\":"
-                                   "[{\"str_repr\":\"%s\", \"sessions\": [{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u", 
+                                   "[{\"str_repr\":\"%s\", \"sessions\": [{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u",
                 v[0].c_str(), init_time, version, git_count, git_commit_id, v[1].c_str(), user_agent, v[3].c_str(), count);
             break;
         case 1:
@@ -228,7 +228,7 @@ public:
                 throw std::runtime_error("error: stats dump interrupted");
             } else {
                 return l.first < r.first;
-            } 
+            }
         } );
 
         event_processor_gz ep(f);
