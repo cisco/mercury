@@ -5,7 +5,6 @@ on:
   push:
     branches:
       - main
-      - feature/build-whells # TODO remove dev branch
 
 jobs:
   build-mercury-wheels:
@@ -13,7 +12,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     environment:
       name: pypi
-      url: https://pypi.org/p/mercury-python-test # TODO remove '-test'
+      url: https://pypi.org/p/mercury-python
     permissions:
       id-token: write
     strategy:
