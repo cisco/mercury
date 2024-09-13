@@ -22,6 +22,17 @@ inline void to_lower(std::basic_string<uint8_t> &str, struct datum d) {
 }
 
 void http_request::parse(struct datum &p) {
+    static std::vector<perfect_hash_entry<uint8_t>> header_data_request = {
+        { "user-agent", req_hdrs.index("user-agent") },
+        { "host", req_hdrs.index("host")},
+        { "x-forwarded-for", req_hdrs.index("x-forwarded-for")},
+        { "via", req_hdrs.index("via")},
+        { "upgrade", req_hdrs.index("upgrade")},
+        { "referer", req_hdrs.index("referer")}
+    };
+
+    static perfect_hash<uint8_t> ph{header_data_request};
+
     std::array<uint8_t, 6> proto_string{'H', 'T', 'T', 'P', '/', '1'};
 
     /* parse request line */
@@ -48,31 +59,17 @@ void http_request::parse(struct datum &p) {
         }
 
         httpheader h{p};
-        if (h.name.case_insensitive_match("user-agent")) {
-            if (user_agent.is_null()) {
-                user_agent = h.value;
-            }
-        } else if (h.name.case_insensitive_match("host")) {
-            if (host.is_null()) {
-                host = h.value;
-            }
-        } else if (h.name.case_insensitive_match("x-forwarded-for")) {
-            if (x_forwarded_for.is_null()) {
-                x_forwarded_for = h.value;
-            }
-        } else if (h.name.case_insensitive_match("via")) {
-            if (via.is_null()) {
-                via = h.value;
-            }
-        } else if (h.name.case_insensitive_match("upgrade")) {
-            if (upgrade.is_null()) {
-                upgrade = h.value;
-            }
-        } else if (h.name.case_insensitive_match("referer")) {
-            if (referer.is_null()) {
-                referer = h.value;
+        bool is_header_found = false;
+        uint8_t header_idx = *ph.lookup(h.name.data, h.name.length(), is_header_found);
+        if (is_header_found) {
+            /* Incase of duplicate http headers, index of the first http header
+             * is stored.
+             */
+            if (hdr_indices[header_idx] == UINT8_MAX) {
+                hdr_indices[header_idx] = headers.size();
             }
         }
+ 
         headers.push_back(h);
     }
 
@@ -281,19 +278,22 @@ void http_request::write_json(struct json_object &record, bool output_metadata) 
         if (output_metadata) {
             http_request.print_key_json_string("method", method);
             http_request.print_key_json_string("uri", uri);
-            http_request.print_key_json_string("user-agent", user_agent);
-            http_request.print_key_json_string("host", host);
-            http_request.print_key_json_string("x-forwarded-for", x_forwarded_for);
-            http_request.print_key_json_string("via", via);
-            http_request.print_key_json_string("upgrade", upgrade);
-            http_request.print_key_json_string("referer", referer);
-            json_array hdrs{http_request, "headers"};
-            for (const auto &h: headers) {
-                h.write_json(hdrs);
+            http_request.print_key_json_string("protocol", protocol);
+            http_request.print_key_json_string("user-agent", get_header("user-agent"));
+            http_request.print_key_json_string("host", get_header("host"));
+            http_request.print_key_json_string("x-forwarded-for", get_header("x-forwarded-for"));
+            http_request.print_key_json_string("via", get_header("via"));
+            http_request.print_key_json_string("upgrade", get_header("upgrade"));
+            http_request.print_key_json_string("referer", get_header("referer"));
+            if (headers.size()) {
+                json_array hdrs{http_request, "headers"};
+                for (const auto &h: headers) {
+                    h.write_json(hdrs);
+                }
+                hdrs.close();
             }
-            hdrs.close();
         } else {
-            http_request.print_key_json_string("user-agent", user_agent);
+            http_request.print_key_json_string("user-agent", get_header("user-agent"));
         }
         if (body.is_readable()) {
             datum tmp = body;
@@ -527,7 +527,7 @@ struct datum http_response::get_header(const char *header_name) {
 }
 
 bool http_request::do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
-    analysis_.destination.init(host, user_agent, {nullptr, nullptr}, k_);
+    analysis_.destination.init(get_header("host"), get_header("user-agent"), {nullptr, nullptr}, k_);
 
     return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
 }

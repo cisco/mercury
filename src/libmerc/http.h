@@ -193,34 +193,47 @@ struct http_request : public base_protocol {
     struct datum method;
     struct datum uri;
     struct datum protocol;
-    struct http_headers headers;
     datum body;
-
     static constexpr size_t max_body_length = 512;  // limit on number of bytes reported
 
-    http_request(datum &p) : method{NULL, NULL}, uri{NULL, NULL}, protocol{NULL, NULL}, headers{} { parse(p); }
-    datum user_agent;
-    datum host;
-    datum x_forwarded_for;
-    datum via;
-    datum upgrade;
-    datum referer;
+    static constexpr uint8_t num_headers = 6;
+    static constexpr static_dictionary<num_headers> req_hdrs {
+        {
+            "user-agent",
+            "host",
+            "x-forwarded-for",
+            "via",
+            "upgrade",
+            "referer"
+        }
+    };
+
+    std::array<uint8_t, num_headers> hdr_indices = {
+                UINT8_MAX,
+                UINT8_MAX,
+                UINT8_MAX,
+                UINT8_MAX,
+                UINT8_MAX,
+                UINT8_MAX
+    };
 
     std::vector<httpheader> headers;
 
     http_request(datum &p) :
     method{NULL, NULL},
     uri{NULL, NULL},
-    protocol{NULL, NULL},
-    user_agent{NULL, NULL},
-    host{NULL, NULL},
-    x_forwarded_for{NULL, NULL},
-    via{NULL, NULL},
-    upgrade{NULL, NULL},
-    referer{NULL, NULL} {
+    protocol{NULL, NULL} {
         parse(p);
     }
 
+    datum get_header(const char *name) {
+        size_t idx = hdr_indices[req_hdrs.index(name)];
+        if (idx != UINT8_MAX and idx < headers.size()) {
+            return(headers[idx].value);
+        }
+        return {nullptr, nullptr};
+    }
+ 
     void parse(struct datum &p);
 
     bool is_not_empty() const { return protocol.is_not_empty(); }
