@@ -11,7 +11,7 @@ from libc.stdio cimport *
 from libc.stdint cimport *
 from libc.string cimport memset
 from posix.time cimport timespec
-
+from cython.operator import dereference
 
 ### BUILD INSTRUCTIONS
 # To build in-place:
@@ -478,16 +478,37 @@ def get_cert_prefix(str b64_cert):
     return x.get_hex_string()  # TBD: make it hex
 
 
+
+cdef extern from "../libmerc/datum.h":
+    cdef struct datum:
+        const unsigned char *data
+        const unsigned char *data_end
+
 cdef extern from "../libmerc/ech.hpp":
-    string ech_config_get_json_string(const char *ech_config, ssize_t ech_config_len)
+    cdef cppclass ech_config:
+        ech_config(datum &)
+        string get_json_string()
+
+
+cdef class ECHConfig:
+    cdef ech_config* ech_obj
+
+    def __init__(self, bytes ech_config_str):
+        cdef unsigned int len_ = len(ech_config_str)
+
+        # create reference to ech_config so that it doesn't get garbage collected
+        cdef const unsigned char* c_string_ref = ech_config_str
+
+        cdef datum ech_datum = datum(c_string_ref, c_string_ref + len_)
+        self.ech_obj = new ech_config(ech_datum)
+
+    def get_json_string(self):
+        return json.loads(self.ech_obj.get_json_string().decode())
 
 
 def parse_ech_config(str b64_ech_config):
     cdef bytes ech_config = b64decode(b64_ech_config)
-    cdef unsigned int len_ = len(ech_config)
 
-    # create reference to ech_config so that it doesn't get garbage collected
-    cdef char* c_string_ref = ech_config
+    ech_obj = ECHConfig(ech_config)
 
-    # use mercury's ech_config parser to parse
-    return json.loads(ech_config_get_json_string(c_string_ref, len_).decode())
+    return ech_obj.get_json_string()

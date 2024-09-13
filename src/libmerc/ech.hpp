@@ -236,6 +236,21 @@ public:
         ech_config_json.close();
     }
 
+    // ech_config_get_json_string() is used by the cython library
+    //
+    std::string get_json_string() {
+        char buffer[1024];
+        struct buffer_stream buf(buffer, sizeof(buffer));
+        struct json_object ech_config_json{&buf};
+
+        this->write_json(ech_config_json);
+
+        ech_config_json.close();
+
+        std::string tmp_str(buffer, buf.length());
+        return tmp_str;
+    }
+
 };
 
 
@@ -297,7 +312,5 @@ public:
     }
 
 };
-
-std::string ech_config_get_json_string(const char *ech_config, ssize_t ech_config_len);
 
 #endif // ECH_HPP

@@ -36,7 +36,6 @@ else:
 sources = ['mercury.pyx',
            '../libmerc/asn1/oid.cc',
            '../libmerc/dns.cc',
-           '../libmerc/ech.cc',
            '../libmerc/utils.cc',
            '../libmerc/analysis.cc',
            '../libmerc/libmerc.cc',
