@@ -503,7 +503,9 @@ cdef class ECHConfig:
         self.ech_obj = new ech_config(ech_datum)
 
     def get_json_string(self):
-        return json.loads(self.ech_obj.get_json_string().decode())
+        json_str = self.ech_obj.get_json_string().decode()
+
+        return json.loads(json_str.split('\x00')[0])
 
 
 def parse_ech_config(str b64_ech_config):
