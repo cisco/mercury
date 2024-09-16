@@ -487,7 +487,7 @@ cdef extern from "../libmerc/datum.h":
 cdef extern from "../libmerc/ech.hpp":
     cdef cppclass ech_config:
         ech_config(datum &)
-        string get_json_string()
+        string get_json_string(size_t)
 
 
 cdef class ECHConfig:
@@ -503,9 +503,9 @@ cdef class ECHConfig:
         self.ech_obj = new ech_config(ech_datum)
 
     def get_json_string(self):
-        json_str = self.ech_obj.get_json_string().decode()
+        json_str = self.ech_obj.get_json_string(1024).decode()
 
-        return json.loads(json_str.split('\x00')[0])
+        return json.loads(json_str)
 
 
 def parse_ech_config(str b64_ech_config):
