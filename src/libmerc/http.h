@@ -17,7 +17,6 @@
 #include "analysis.h"
 #include "fingerprint.h"
 #include "perfect_hash.h"
-#include "newhttp.h"
 
 struct http_headers : public datum {
     bool complete;
@@ -71,15 +70,10 @@ struct http_headers : public datum {
     struct datum get_header(const char *header_name);
 };
 
-class token : public one_or_more<token>  {
+class token : public datum {
 public:
-    inline static bool in_class(uint8_t c) {
-        switch (c) {
-        case ':':
-            return false;
-        default:
-            return true;
-        }
+    token (struct datum& d) {
+        datum::parse_up_to_delim(d, ':'); 
     }
 };
 
@@ -93,16 +87,10 @@ public:
     }
 };
 
-class field_value : public one_or_more <field_value> {
+class field_value : public datum {
 public:
-    inline static bool in_class(uint8_t c) {
-        switch (c) {
-        case '\r':
-        case '\n':
-            return false;
-        default:
-            return true;
-        }
+    field_value (struct datum& d) {
+        datum::parse_up_to_delimiters(d, '\r', '\n');
     }
 };
 
@@ -112,16 +100,32 @@ class delimiter {
     unsigned char lf[1] = { '\n' };
 
 public:
-    delimiter(struct datum &p) : delimit{nullptr, nullptr} {
-        parse(p);
+    delimiter(struct datum &p) {
+        delimit.data = p.data;
+        while (p.data < p.data_end and !isalpha(*p.data)) {
+            p.data++;
+        }
+        delimit.data_end = p.data;
     }
 
-    void parse(struct datum &p) {
+    delimiter(struct datum &p, const struct datum& del) : delimit{nullptr, nullptr} {
+        if (p.compare_nbytes(del.data, del.length())) {
+            delimit.parse(p, del.length());
+        } else {
+            check_standard_delim(p);
+        }
+    }
+ 
+    void check_standard_delim(struct datum &p) {
         if (p.compare_nbytes(crlf, sizeof(crlf))) {
             delimit.parse(p, sizeof(crlf));
         } else if (p.compare_nbytes(lf, sizeof(lf))) {
             delimit.parse(p, sizeof(lf));
         }
+    }
+
+    const datum get_delimiter() const {
+        return delimit;
     }
 
     void write_json(json_object &rec) const {
@@ -135,20 +139,22 @@ public:
 };
 
 struct httpheader {
-    datum body;
+    datum hdr_body;
     token name;
     literal_byte<':'> colon;
+    LWS lws;
     field_value value;
     delimiter delim;
     bool valid;
 
-    httpheader(datum &d) :
-    body{d},
+    httpheader(datum &d, datum del) :
+    hdr_body{d},
     name{d},
     colon{d},
+    lws{d},
     value{d},
-    delim{d} {
-        body.data_end = value.data_end;
+    delim{d, del} {
+        hdr_body.data_end = value.data_end;
         valid = d.is_not_null();
     }
 
@@ -162,7 +168,7 @@ struct httpheader {
         if (include_name) {
             if (include_value) {
                 buf.write_char('(');
-                buf.raw_as_hex(body.data, body.length());         // write {name, value}
+                buf.raw_as_hex(hdr_body.data, hdr_body.length());         // write {name, value}
                 buf.write_char(')');
             } else {
                 buf.write_char('(');
@@ -193,9 +199,10 @@ struct http_request : public base_protocol {
     struct datum method;
     struct datum uri;
     struct datum protocol;
+    std::vector<httpheader> headers;
     datum body;
-    static constexpr size_t max_body_length = 512;  // limit on number of bytes reported
 
+    static constexpr size_t max_body_length = 512;  // limit on number of bytes reported
     static constexpr uint8_t num_headers = 6;
     static constexpr static_dictionary<num_headers> req_hdrs {
         {
@@ -217,7 +224,6 @@ struct http_request : public base_protocol {
                 UINT8_MAX
     };
 
-    std::vector<httpheader> headers;
 
     http_request(datum &p) :
     method{NULL, NULL},
@@ -226,7 +232,7 @@ struct http_request : public base_protocol {
         parse(p);
     }
 
-    datum get_header(const char *name) {
+    datum get_header(const char *name) const {
         size_t idx = hdr_indices[req_hdrs.index(name)];
         if (idx != UINT8_MAX and idx < headers.size()) {
             return(headers[idx].value);

@@ -50,15 +50,20 @@ void http_request::parse(struct datum &p) {
     }
  
     delimiter d(p);  //parse the delimiter
+    const datum delim = d.get_delimiter();
 
     /* parse headers */
     while (p.is_not_empty()) {
-        delimiter d(p);
+        delimiter d(p, delim);
         if (d.is_valid()) {
             break;
         }
 
-        httpheader h{p};
+        httpheader h{p, delim};
+        if (!h.is_valid()) {
+            break;
+        }
+
         bool is_header_found = false;
         uint8_t header_idx = *ph.lookup(h.name.data, h.name.length(), is_header_found);
         if (is_header_found) {

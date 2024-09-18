@@ -275,14 +275,13 @@ struct datum {
     }
     void parse_up_to_delim(struct datum &r, uint8_t delim) {
         data = r.data;
-        while (r.data < r.data_end) {
-            if (*r.data == delim) { // found delimiter
-                data_end = r.data;
-                return;
-            }
-            r.data++;
+        const unsigned char* c = static_cast<const unsigned char*>(memchr(r.data, delim, r.length()));
+        if (c) {
+            data_end = r.data = c;
+            return;
         }
-        data_end = r.data;
+
+        data_end = r.data_end;
     }
     uint8_t parse_up_to_delimiters(struct datum &r, uint8_t delim1, uint8_t delim2) {
         data = r.data;
@@ -429,7 +428,6 @@ struct datum {
         return false;
     }
 
-
     /// returns `true` if this is lexicographically less than `p`, and
     /// `false` otherwise.  It is suitable for use in `std::sort()`.
     ///
@@ -450,11 +448,6 @@ struct datum {
     bool operator!=(const datum &p) const {
         return cmp(p) != 0;
      }
-
-    template <size_t N>
-    bool cmp_nbytes(const std::array<uint8_t, N> a) const {
-        return ::memcmp(data, a.data, N) == 0;
-    }
 
     unsigned int bits_in_data() const {                  // for use with (ASN1) integers
         unsigned int bits = (data_end - data) * 8;
@@ -484,6 +477,7 @@ struct datum {
         const unsigned char *tmp_data = data;
         const unsigned char *pattern = delim;
         const unsigned char *pattern_end = delim + length;
+        
         while (pattern < pattern_end && tmp_data < data_end)
         {
             if (*tmp_data != *pattern)
@@ -499,16 +493,15 @@ struct datum {
         }
         return -(tmp_data - data);
     }
+
     int find_delim(uint8_t delim) {
-        const unsigned char *tmp_data = data;
-        while (tmp_data < data_end) {
-            if (*tmp_data == delim) {
-                return tmp_data - data;
-            }
-            tmp_data++;
+        const unsigned char* c = static_cast<const unsigned char*>(memchr(data, delim, length()));
+        if (c) {
+            return c - data;
         }
         return -1;
     }
+
     void skip_up_to_delim(uint8_t delim) {
         while (data < data_end) {
             if (*data == delim) { // found delimiter
