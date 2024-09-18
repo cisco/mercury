@@ -296,6 +296,7 @@ struct datum {
             }
             r.data++;
         }
+        data_end = r.data_end;
         return 0;
     }
     uint8_t parse_up_to_delimiters(struct datum &r, uint8_t delim1, uint8_t delim2, uint8_t delim3) {
