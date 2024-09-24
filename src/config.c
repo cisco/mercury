@@ -99,6 +99,7 @@ static enum status mercury_config_parse_line(struct mercury_config *cfg,
 
     if ((arg = command_get_argument("read=", line)) != NULL) {
         cfg->read_filename = strdup(arg);
+        cfg->output_block = true;
         return status_ok;
 
     } else if ((arg = command_get_argument("write=", line)) != NULL) {
@@ -251,4 +252,3 @@ enum status mercury_config_read_from_file(struct mercury_config &cfg,
 
     return status_ok;
 }
-
