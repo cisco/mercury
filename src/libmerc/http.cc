@@ -1,5 +1,5 @@
 /*
- * http.c
+ i http.c
  *
  * Copyright (c) 2021 Cisco Systems, Inc. All rights reserved.  License at
  * https://github.com/cisco/mercury/blob/master/LICENSE
@@ -52,31 +52,7 @@ void http_request::parse(struct datum &p) {
     delimiter d(p);  //parse the delimiter
     const datum delim = d.get_delimiter();
 
-    /* parse headers */
-    while (p.is_not_empty()) {
-        delimiter d(p, delim);
-        if (d.is_valid()) {
-            break;
-        }
-
-        httpheader h{p, delim};
-        if (!h.is_valid()) {
-            break;
-        }
-
-        bool is_header_found = false;
-        uint8_t header_idx = *ph.lookup(h.name.data, h.name.length(), is_header_found);
-        if (is_header_found) {
-            /* Incase of duplicate http headers, index of the first http header
-             * is stored.
-             */
-            if (hdr_indices[header_idx] == UINT8_MAX) {
-                hdr_indices[header_idx] = headers.size();
-            }
-        }
- 
-        headers.push_back(h);
-    }
+    headers.parse(p, delim, ph, hdr_indices);
 
     body = p;
 
@@ -290,13 +266,7 @@ void http_request::write_json(struct json_object &record, bool output_metadata) 
             http_request.print_key_json_string("via", get_header("via"));
             http_request.print_key_json_string("upgrade", get_header("upgrade"));
             http_request.print_key_json_string("referer", get_header("referer"));
-            if (headers.size()) {
-                json_array hdrs{http_request, "headers"};
-                for (const auto &h: headers) {
-                    h.write_json(hdrs);
-                }
-                hdrs.close();
-            }
+            headers.write_json(http_request);
         } else {
             http_request.print_key_json_string("user-agent", get_header("user-agent"));
         }
@@ -312,17 +282,23 @@ void http_request::write_json(struct json_object &record, bool output_metadata) 
 }
 
 void http_response::parse(struct datum &p) {
-
+    static std::vector<perfect_hash_entry<uint8_t>> header_data_response = {
+        { "content-type", resp_hdrs.index("content-type")},
+        { "content-length", resp_hdrs.index("content-length")},
+        { "server", resp_hdrs.index("server")},
+        { "via", resp_hdrs.index("via")}
+    };
+    static perfect_hash<uint8_t> ph{header_data_response};
     /* process request line */
     version.parse_up_to_delim(p, ' ');
     p.skip(1);
     status_code.parse_up_to_delim(p, ' ');
     p.skip(1);
-    status_reason.parse_up_to_delim(p, '\r');
-    p.skip(2);
+    status_reason.parse_up_to_delimiters(p, '\r', '\n');
+    delimiter d(p);
+    const datum delim = d.get_delimiter();
 
-    /* parse headers */
-    headers.parse(p);
+    headers.parse(p, delim, ph, hdr_indices);
 
     body = p;
 
@@ -334,26 +310,17 @@ void http_response::write_json(struct json_object &record, bool metadata) {
         return;  // TODO: remove this to un-supress output
     }
 
-    static std::vector<perfect_hash_entry<const char*>> header_data_response = {
-        { "content-type: ", "content_type"},
-        { "content-length: ", "content_length"},
-        { "server: ", "server"},
-        { "via: ", "via"}
-    };
-    static perfect_hash<const char*> ph{header_data_response};
-
     struct json_object http{record, "http"};
     struct json_object http_response{http, "response"};
     http_response.print_key_json_string("version", version.data, version.length());
     http_response.print_key_json_string("status_code", status_code.data, status_code.length());
     http_response.print_key_json_string("status_reason", status_reason.data, status_reason.length());
-    //http.print_key_json_string("headers", response.headers.data, response.headers.length());
+    http_response.print_key_json_string("content_type", get_header("content-type"));
+    http_response.print_key_json_string("content_length", get_header("content-length"));
+    http_response.print_key_json_string("server", get_header("server"));
+    http_response.print_key_json_string("via", get_header("via"));
 
-    // run the list of http headers to be printed out against
-    // all headers, and print the values corresponding to each
-    // of the matching names
-    //
-    headers.print_matching_names(http_response, ph);
+    headers.write_json(http_response);
 
     if (body.is_readable()) {
         datum tmp = body;
@@ -401,60 +368,61 @@ void http_request::fingerprint(struct buffer_stream &b) const{
     for (const auto &h: headers) {
         h.fingerprint(b, ph);
     } 
+    headers.fingerprint(b, ph);
     b.write_char(')');
 }
 
 void http_response::fingerprint(struct buffer_stream &buf) const {
     static std::vector<perfect_hash_entry<bool>> fp_data_response = {
-        { "access-control-allow-credentials: ", true },
-        { "access-control-allow-headers: ", true },
-        { "access-control-allow-methods: ", true },
-        { "access-control-expose-headers: ", true },
-        { "cache-control: ", true },
-        { "code: ", true },
-        { "connection: ", true },
-        { "content-language: ", true },
-        { "content-transfer-encoding: ", true },
-        { "p3p: ", true },
-        { "pragma: ", true },
-        { "reason: ", true },
-        { "server: ", true },
-        { "strict-transport-security: ", true },
-        { "version: ", true },
-        { "x-aspnetmvc-version: ", true },
-        { "x-aspnet-version: ", true },
-        { "x-cid: ", true },
-        { "x-ms-version: ", true },
-        { "x-xss-protection: ", true },
-        { "appex-activity-id: ", false },
-        { "cdnuuid: ", false },
-        { "cf-ray: ", false },
-        { "content-range: ", false },
-        { "content-type: ", false },
-        { "date: ", false },
-        { "etag: ", false },
-        { "expires: ", false },
-        { "flow_context: ", false },
-        { "ms-cv: ", false },
-        { "msregion: ", false },
-        { "ms-requestid: ", false },
-        { "request-id: ", false },
-        { "vary: ", false },
-        { "x-amz-cf-pop: ", false },
-        { "x-amz-request-id: ", false },
-        { "x-azure-ref-originshield: ", false },
-        { "x-cache: ", false },
-        { "x-cache-hits: ", false },
-        { "x-ccc: ", false },
-        { "x-diagnostic-s: ", false },
-        { "x-feserver: ", false },
-        { "x-hw: ", false },
-        { "x-msedge-ref: ", false },
-        { "x-ocsp-responder-id: ", false },
-        { "x-requestid: ", false },
-        { "x-served-by: ", false },
-        { "x-timer: ", false },
-        { "x-trace-context: ", false }
+        { "access-control-allow-credentials", true },
+        { "access-control-allow-headers", true },
+        { "access-control-allow-methods", true },
+        { "access-control-expose-headers", true },
+        { "cache-control", true },
+        { "code", true },
+        { "connection", true },
+        { "content-language", true },
+        { "content-transfer-encoding", true },
+        { "p3p", true },
+        { "pragma", true },
+        { "reason", true },
+        { "server", true },
+        { "strict-transport-security", true },
+        { "version", true },
+        { "x-aspnetmvc-version", true },
+        { "x-aspnet-version", true },
+        { "x-cid", true },
+        { "x-ms-version", true },
+        { "x-xss-protection", true },
+        { "appex-activity-id", false },
+        { "cdnuuid", false },
+        { "cf-ray", false },
+        { "content-range", false },
+        { "content-type", false },
+        { "date", false },
+        { "etag", false },
+        { "expires", false },
+        { "flow_context", false },
+        { "ms-cv", false },
+        { "msregion", false },
+        { "ms-requestid", false },
+        { "request-id", false },
+        { "vary", false },
+        { "x-amz-cf-pop", false },
+        { "x-amz-request-id", false },
+        { "x-azure-ref-originshield", false },
+        { "x-cache", false },
+        { "x-cache-hits", false },
+        { "x-ccc", false },
+        { "x-diagnostic-s", false },
+        { "x-feserver", false },
+        { "x-hw", false },
+        { "x-msedge-ref", false },
+        { "x-ocsp-responder-id", false },
+        { "x-requestid", false },
+        { "x-served-by", false },
+        { "x-timer", false },
+        { "x-trace-context", false }
     };
     static perfect_hash<bool> ph{fp_data_response};
     if (is_not_empty() == false) {
@@ -481,46 +449,6 @@ void http_request::compute_fingerprint(class fingerprint &fp) const {
     fp.final();
 }
 
-struct datum http_headers::get_header(const char *location) {
-    struct datum output{NULL, NULL};
-    unsigned char crlf[2] = { '\r', '\n' };
-    unsigned char csp[2] = { ':', ' ' };
-
-    if (this->is_not_readable()) {
-        return output;
-    }
-    struct datum p{this->data, this->data_end};  // create copy, to leave object unmodified
-
-    while (p.length() > 0) {
-        if (p.compare(crlf, sizeof(crlf)) == 0) {
-            break;  /* at end of headers */
-        }
-
-        struct datum keyword{p.data, NULL};
-        if (p.skip_up_to_delim(csp, sizeof(csp)) == false) {
-            return output;
-        }
-        keyword.data_end = p.data;
-        const char *header_name = NULL;
-
-        if (keyword.case_insensitive_match(location)) {
-            header_name = "location";
-        }
-        const uint8_t *value_start = p.data;
-        if (p.skip_up_to_delim(crlf, sizeof(crlf)) == false) {
-            return output;
-        }
-        const uint8_t *value_end = p.data - 2;
-        if (header_name) {
-            output.data = value_start;
-            output.data_end = value_end;
-            break;
-            //o.print_key_json_string(header_name, value_start, value_end - value_start);
-        }
-    }
-    return output;
-}
-
 void http_response::compute_fingerprint(class fingerprint &fp) const {
     fp.set_type(fingerprint_type_http_server);
     fp.add(*this);
@@ -528,11 +456,18 @@ void http_response::compute_fingerprint(class fingerprint &fp) const {
 }
 
 struct datum http_response::get_header(const char *header_name) {
-    return headers.get_header(header_name);
+    size_t idx = hdr_indices[resp_hdrs.index(header_name)];
+    if (idx != UINT8_MAX) {
+        return(headers.get_header(idx));
+    }
+    return {nullptr, nullptr};
 }
 
 bool http_request::do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
-    analysis_.destination.init(get_header("host"), get_header("user-agent"), {nullptr, nullptr}, k_);
+    struct datum host_data = get_header("host");
+    struct datum user_agent_data = get_header("user-agent");
+
+    analysis_.destination.init(host_data, user_agent_data, {nullptr, nullptr}, k_);
 
     return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
 }
