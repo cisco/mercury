@@ -268,7 +268,7 @@ stats:
 	rm -f tmp.json stats.json.gz
 	@echo "running stats rotate test"
 	$(MERCURY) -r data/quic_tls_http.pcap -f tmp.json --metadata -a --resources=../resources/resources.tgz --stats=statsfile --stats-time=1 -p 10
-	bash -c "$(python) ./compare-stats.py -m tmp.json -s statsfile -a"
+	bash -c "$(python) ./compare-stats.py -m tmp.json -s statsfile"
 	@echo $(COLOR_GREEN) "passed stats rotate test" $(COLOR_OFF)
 	rm -f tmp.json tempstats.json statsfile*
 
