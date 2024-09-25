@@ -3,7 +3,7 @@
 
 #include "libmerc.h"
 #include "config_generator.h"
-#include <map>  
+#include <map>
 #include <string>
 #include <algorithm>
 
@@ -47,7 +47,7 @@ public:
     void set_quic_fingerprint_format(size_t format_version) {
         quic_fingerprint_format = format_version;
     }
-        
+
     bool get_protocol_and_set_fp_format(std::string &format_str) {
         std::string protocol;
         std::string format_version;
@@ -62,7 +62,7 @@ public:
         } else {
             protocol = format_str;
         }
-  
+
         if (protocol == "tls") {
             if (format_version == "") {
                 tls_fingerprint_format = 0;
@@ -72,7 +72,7 @@ public:
                 tls_fingerprint_format = 2;
             } else {
                 printf_err(log_warning, "warning: unknown fingerprint format: %s; using default instead\n", format_str.c_str());
-                return false; 
+                return false;
             }
         } else if (protocol == "quic") {
             if (format_version == "") {
