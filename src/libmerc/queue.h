@@ -72,8 +72,8 @@ public:
                     usleep(SLEEP_MICROSEC);
                     m_lock.lock();
                 }
-                fprintf(stderr, "%s: message_queue %p blocked for %lu microseconds\n",
-                        __func__, (void *)this, blocked_count * SLEEP_MICROSEC);
+                //fprintf(stderr, "%s: message_queue %p blocked for %lu microseconds\n",
+                //        __func__, (void *)this, blocked_count * SLEEP_MICROSEC);
             } else {
                 err_count++;
                 //fprintf(stderr, "%s: message_queue %p is full\n", __func__, (void *)this);
