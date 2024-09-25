@@ -104,6 +104,10 @@ public:
         }
         return EVENT_BUF_SIZE - (first - last);
     }
+
+    ssize_t capacity() const {
+        return EVENT_BUF_SIZE - 1;
+    }
 };
 
 

@@ -264,6 +264,7 @@ class data_aggregator {
     std::atomic<bool> shutdown_requested;
     dict addr_dict;
     bool blocking;  // stats event collection: lossless but blocking
+    useconds_t consumer_sleep; // microseconds
     std::thread consumer_thread;
     std::mutex m;
     std::mutex output_mutex;
@@ -290,14 +291,43 @@ class data_aggregator {
         }
     }
 
+    double event_queue_fill_ratio(message_queue *q) {
+        return static_cast<double>(q->size()) / static_cast<double>(q->capacity());
+    }
+
+    void adjust_consumer_sleep(double max_fill_ratio) {
+        // Aim for busiest queue to be between 25% and 50% full before emptying.
+        useconds_t new_sleep;
+        if (max_fill_ratio < 0.25) {
+            new_sleep = consumer_sleep + 1; // additive increase
+        } else if (max_fill_ratio > 0.5) {
+            new_sleep = consumer_sleep / 2; // multiplicative decrease
+        } else {
+            return;                         // no change needed
+        }
+        // Bound the sleep time within [1us, 50us].
+        new_sleep = std::max(new_sleep, (useconds_t)1);
+        new_sleep = std::min(new_sleep, (useconds_t)50);
+        // Replace consumer_sleep with the new value
+        if (new_sleep != consumer_sleep) {
+            //fprintf(stderr, "Max message_queue fill ratio: %3.3f   new_sleep: %u us\n",
+            //        max_fill_ratio, new_sleep);
+            consumer_sleep = new_sleep;
+        }
+    }
+
     void process_event_queues() {
         std::lock_guard m_guard{m};
         //fprintf(stderr, "note: processing event queue of size %zd in %p\n", q.size(), (void *)this);
+        double max_fill_ratio = 0.0;
         if (q.size()) {
             for (auto & qr : q) {
                 //fprintf(stderr, "note: processing event queue %p in %p with size %zd\n", (void *)qr, (void *)this, qr->size());
+                double fill_ratio = event_queue_fill_ratio(qr);
+                max_fill_ratio = std::max(max_fill_ratio, fill_ratio);
                 empty_event_queue(qr);
             }
+            adjust_consumer_sleep(max_fill_ratio);
         }
     }
 
@@ -305,13 +335,13 @@ class data_aggregator {
         //fprintf(stderr, "note: running consumer in %p\n", (void *)this);
         while(shutdown_requested.load() == false) {
             process_event_queues();
-            usleep(10); // sleep for ten microseconds
+            usleep(consumer_sleep); // sleep somewhere between 1us and 50us
         }
     }
 
 public:
 
-    data_aggregator(size_t size_limit=0, bool blocking=false) : q{}, ag1{addr_dict, size_limit}, ag2{addr_dict, size_limit}, ag{&ag1}, shutdown_requested{false}, blocking{blocking} {
+    data_aggregator(size_t size_limit=0, bool blocking=false) : q{}, ag1{addr_dict, size_limit}, ag2{addr_dict, size_limit}, ag{&ag1}, shutdown_requested{false}, blocking{blocking}, consumer_sleep{1} {
         mercury_get_version_string(version, MAX_VERSION_STRING);
         start_processing();
         //fprintf(stderr, "note: constructing data_aggregator %p\n", (void *)this);
