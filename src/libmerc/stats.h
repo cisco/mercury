@@ -263,6 +263,7 @@ class data_aggregator {
     stats_aggregator ag1, ag2, *ag;
     std::atomic<bool> shutdown_requested;
     dict addr_dict;
+    bool blocking;  // stats event collection: lossless but blocking
     std::thread consumer_thread;
     std::mutex m;
     std::mutex output_mutex;
@@ -304,13 +305,13 @@ class data_aggregator {
         //fprintf(stderr, "note: running consumer in %p\n", (void *)this);
         while(shutdown_requested.load() == false) {
             process_event_queues();
-            usleep(50); // sleep for fifty microseconds
+            usleep(10); // sleep for ten microseconds
         }
     }
 
 public:
 
-    data_aggregator(size_t size_limit=0) : q{}, ag1{addr_dict, size_limit}, ag2{addr_dict, size_limit}, ag{&ag1}, shutdown_requested{false} {
+    data_aggregator(size_t size_limit=0, bool blocking=false) : q{}, ag1{addr_dict, size_limit}, ag2{addr_dict, size_limit}, ag{&ag1}, shutdown_requested{false}, blocking{blocking} {
         mercury_get_version_string(version, MAX_VERSION_STRING);
         start_processing();
         //fprintf(stderr, "note: constructing data_aggregator %p\n", (void *)this);
@@ -330,7 +331,7 @@ public:
     message_queue *add_producer() {
         std::lock_guard m_guard{m};
         //fprintf(stderr, "note: adding producer in %p\n", (void *)this);
-        q.push_back(new message_queue);
+        q.push_back(new message_queue(blocking));
         return q.back();
     }
 
@@ -391,8 +392,9 @@ public:
         }
     }
 
-    size_t get_num_entries() const
+    size_t get_num_entries()
     {
+        std::lock_guard m_guard{m};
         return ag->get_num_entries();
     }
 };

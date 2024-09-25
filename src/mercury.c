@@ -619,6 +619,7 @@ int main(int argc, char *argv[]) {
 
     if (cfg.read_filename) {
         cfg.output_block = true;      // use blocking output, so that no packets are lost in copying
+        additional_args.append("stats-blocking;"); // use blocking stats to avoid losing stats events
     }
 
     // setup extended config options

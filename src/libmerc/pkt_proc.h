@@ -52,7 +52,13 @@ struct mercury {
     classifier *c;
     class traffic_selector selector;
 
-    mercury(const struct libmerc_config *vars, int verbosity) : global_vars{*vars}, aggregator{ global_vars.do_stats? (std::make_unique<data_aggregator>(global_vars.max_stats_entries)) : nullptr}, c{nullptr}, selector{global_vars.protocols} {
+    mercury(const struct libmerc_config *vars, int verbosity) :
+                global_vars{*vars},
+                aggregator{ global_vars.do_stats
+                            ? (std::make_unique<data_aggregator>(global_vars.max_stats_entries, global_vars.stats_blocking))
+                            : nullptr },
+                c{nullptr},
+                selector{global_vars.protocols} {
         if (global_vars.do_analysis) {
             c = analysis_init_from_archive(verbosity, global_vars.get_resource_file(),
                                            vars->enc_key, vars->key_type,

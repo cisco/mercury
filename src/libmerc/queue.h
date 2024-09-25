@@ -9,6 +9,7 @@
 #define QUEUE_H
 
 #include <string.h>
+#include <unistd.h>
 #include <mutex>
 #include <tuple>
 
@@ -62,9 +63,22 @@ public:
     bool push(const event_msg& ev_str) {
         std::unique_lock<std::mutex> m_lock(m);
         if (is_full()) {
-            err_count++;
-            fprintf(stderr, "%s: queue %p is full\n", __func__, (void *)this);
-            return false; // error: no room in queue
+            if (blocking) {
+                unsigned long blocked_count = 0;
+                const unsigned long SLEEP_MICROSEC = 2;
+                while (is_full()) {
+                    blocked_count++;
+                    m_lock.unlock();
+                    usleep(SLEEP_MICROSEC);
+                    m_lock.lock();
+                }
+                fprintf(stderr, "%s: message_queue %p blocked for %lu microseconds\n",
+                        __func__, (void *)this, blocked_count * SLEEP_MICROSEC);
+            } else {
+                err_count++;
+                //fprintf(stderr, "%s: message_queue %p is full\n", __func__, (void *)this);
+                return false; // error: no room in queue
+            }
         }
         //fprintf(stderr, "src_ip = %s, fp = %s, user-agent= %s, dest_info= %s\n", std::get<0>(ev_str).c_str(), std::get<1>(ev_str).c_str(), std::get<2>(ev_str).c_str(), std::get<3>(ev_str).c_str());
         msg_buf[last] = ev_str;
