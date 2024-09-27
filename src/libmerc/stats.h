@@ -297,23 +297,20 @@ class data_aggregator {
 
     void adjust_consumer_sleep(double max_fill_ratio) {
         // Aim for busiest queue to be between 25% and 50% full before emptying.
+        // However, always bound the sleep time within [1us, 50us].
         useconds_t new_sleep;
         if (max_fill_ratio < 0.25) {
             new_sleep = consumer_sleep + 1; // additive increase
+            new_sleep = std::min(new_sleep, (useconds_t)50);
         } else if (max_fill_ratio > 0.5) {
             new_sleep = consumer_sleep / 2; // multiplicative decrease
+            new_sleep = std::max(new_sleep, (useconds_t)1);
         } else {
             return;                         // no change needed
         }
-        // Bound the sleep time within [1us, 50us].
-        new_sleep = std::max(new_sleep, (useconds_t)1);
-        new_sleep = std::min(new_sleep, (useconds_t)50);
-        // Replace consumer_sleep with the new value
-        if (new_sleep != consumer_sleep) {
-            //fprintf(stderr, "Max message_queue fill ratio: %3.3f   new_sleep: %u us\n",
-            //        max_fill_ratio, new_sleep);
-            consumer_sleep = new_sleep;
-        }
+        //fprintf(stderr, "Max message_queue fill ratio: %3.3f   new_sleep: %u us\n",
+        //        max_fill_ratio, new_sleep);
+        consumer_sleep = new_sleep;
     }
 
     void process_event_queues() {
