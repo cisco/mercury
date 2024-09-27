@@ -14,7 +14,7 @@
 #include <tuple>
 
 typedef std::tuple<std::string, std::string, std::string, std::string> event_msg;
-#define EVENT_BUF_SIZE 256
+#define EVENT_BUF_SIZE 512
 
 class message_queue {
     std::mutex m;
