@@ -33,7 +33,7 @@ void http_request::parse(struct datum &p) {
 
     static perfect_hash<uint8_t> ph{header_data_request};
 
-    std::array<uint8_t, 6> proto_string{'H', 'T', 'T', 'P', '/', '1'};
+    std::array<uint8_t, 5> proto_string{'H', 'T', 'T', 'P', '/'};
 
     /* parse request line */
     method.parse_up_to_delim(p, ' ');
