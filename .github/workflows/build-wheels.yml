@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - feature/build-whells
 
 jobs:
   build-mercury-wheels:
