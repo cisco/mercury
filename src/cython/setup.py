@@ -37,28 +37,30 @@ if mo:
 else:
     raise RuntimeError("Unable to find version string in %s." % (VERSIONFILE,))
 
-mercury_dir = os.getenv("MERCURY_DIR")
-if mercury_dir == '':
-    mercury_dir = '../../'
+mercury_dir = ""
+if "MERCURY_DIR" in os.environ:
+    mercury_dir = os.getenv("MERCURY_DIR")
+else:
+    mercury_dir = "../../"
 
 sources = [
     "mercury.pyx",
-    f"{mercury_dir}/src/libmerc/asn1/oid.cc",
-    f"{mercury_dir}/src/libmerc/dns.cc",
-    f"{mercury_dir}/src/libmerc/utils.cc",
-    f"{mercury_dir}/src/libmerc/analysis.cc",
-    f"{mercury_dir}/src/libmerc/libmerc.cc",
-    f"{mercury_dir}/src/libmerc/addr.cc",
-    f"{mercury_dir}/src/libmerc/wireguard.cc",
-    f"{mercury_dir}/src/libmerc/ssh.cc",
-    f"{mercury_dir}/src/libmerc/match.cc",
-    f"{mercury_dir}/src/libmerc/http.cc",
-    f"{mercury_dir}/src/libmerc/pkt_proc.cc",
-    f"{mercury_dir}/src/libmerc/tls.cc",
-    f"{mercury_dir}/src/libmerc/asn1.cc",
-    f"{mercury_dir}/src/libmerc/smb2.cc",
-    f"{mercury_dir}/src/libmerc/config_generator.cc",
-    f"{mercury_dir}/src/libmerc/bencode.cc",
+    "{mercury_dir}/src/libmerc/asn1/oid.cc".format(mercury_dir=mercury_dir),
+    "{mercury_dir}/src/libmerc/dns.cc".format(mercury_dir=mercury_dir),
+    "{mercury_dir}/src/libmerc/utils.cc".format(mercury_dir=mercury_dir),
+    "{mercury_dir}/src/libmerc/analysis.cc".format(mercury_dir=mercury_dir),
+    "{mercury_dir}/src/libmerc/libmerc.cc".format(mercury_dir=mercury_dir),
+    "{mercury_dir}/src/libmerc/addr.cc".format(mercury_dir=mercury_dir),
+    "{mercury_dir}/src/libmerc/wireguard.cc".format(mercury_dir=mercury_dir),
+    "{mercury_dir}/src/libmerc/ssh.cc".format(mercury_dir=mercury_dir),
+    "{mercury_dir}/src/libmerc/match.cc".format(mercury_dir=mercury_dir),
+    "{mercury_dir}/src/libmerc/http.cc".format(mercury_dir=mercury_dir),
+    "{mercury_dir}/src/libmerc/pkt_proc.cc".format(mercury_dir=mercury_dir),
+    "{mercury_dir}/src/libmerc/tls.cc".format(mercury_dir=mercury_dir),
+    "{mercury_dir}/src/libmerc/asn1.cc".format(mercury_dir=mercury_dir),
+    "{mercury_dir}/src/libmerc/smb2.cc".format(mercury_dir=mercury_dir),
+    "{mercury_dir}/src/libmerc/config_generator.cc".format(mercury_dir=mercury_dir),
+    "{mercury_dir}/src/libmerc/bencode.cc".format(mercury_dir=mercury_dir),
 ]
 
 
@@ -95,7 +97,7 @@ setup(
         Extension(
             "mercury",
             sources=sources,
-            include_dirs=[f"{mercury_dir}/src/libmerc"],
+            include_dirs=["{mercury_dir}/src/libmerc".format(mercury_dir=mercury_dir)],
             language="c++",
             extra_compile_args=[
                 "-std=c++17",
@@ -105,7 +107,7 @@ setup(
             + additional_flags,
             extra_link_args=["-std=c++17", "-lz"] + additional_flags,
             libraries=["crypto"],
-            runtime_library_dirs=[f"{mercury_dir}/src/"],
+            runtime_library_dirs=["{mercury_dir}/src/".format(mercury_dir=mercury_dir)],
         )
     ],
     cmdclass={"build_ext": build_ext},
