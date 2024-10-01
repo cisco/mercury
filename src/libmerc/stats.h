@@ -316,7 +316,7 @@ class data_aggregator {
     void process_event_queues() {
         std::lock_guard m_guard{m};
         //fprintf(stderr, "note: processing event queue of size %zd in %p\n", q.size(), (void *)this);
-        double max_fill_ratio = 0.0;
+        double max_fill_ratio = 0.0; // max over queues (worker threads) at the current moment
         if (q.size()) {
             for (auto & qr : q) {
                 //fprintf(stderr, "note: processing event queue %p in %p with size %zd\n", (void *)qr, (void *)this, qr->size());
