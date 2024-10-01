@@ -52,7 +52,7 @@ jobs:
           CIBW_ENVIRONMENT: CC='g++' CXX='g++' MERCURY_DIR='./'
           CIBW_SKIP: "*-musllinux_* pp* cp31*" # TODO remove cp31*
           CIBW_BEFORE_ALL: yum install -y openssl-devel make zlib-devel || apt-get install -y zlib1g-dev libssl-dev make || apk add zlib1g-dev libssl-dev make
-          CIBW_TEST_COMMAND: python test.py
+          CIBW_TEST_COMMAND: cd {project} && python test.py && cd -
 
     #  - name: Publish package distributions to PyPI
     #    uses: pypa/gh-action-pypi-publish@release/v1

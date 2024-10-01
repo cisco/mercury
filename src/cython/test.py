@@ -21,8 +21,11 @@ pkts = [
     b'525400123502080027208c4508004510008c1e5040004006b2d80a00020f0a1f5306ea240016a5b9a39b05221b4b5018ffff69b20000b2ed11be42a165f7f062fad4d254e8c47c112d82d748fa2c4801c372ff614e1490eefb2f75753976d98a6ddfe40652abc9311512f576969aba30f993aad290dec3f61cc8fefc7b87f7f8cdd9c88114fb2abaf0c484dcc86d94e40f39c51cc23f63a5a47b',
 ]
 
+try:
+    libmerc = Mercury(do_analysis=True, resources=b"test/data/resources-test.tgz")
+except:
+    libmerc = Mercury(do_analysis=True, resources=b"../../test/data/resources-test.tgz")
 
-libmerc = Mercury(do_analysis=True, resources=b'../../resources/resources.tgz')
 #result = libmerc.perform_analysis('(0303)(0a0a130313011302cca9cca8c02bc02fc02cc030c013c014009c009d002f0035)((0a0a0000)(0000)(0017)(ff01)(000a000a00080a0a001d00170018)(000b00020100)(0023)(0010000e000c02683208687474702f312e31)(000500050100000000)(000d0012001004030804040105030805050108060601)(0012)(0033)(002d00020101)(002b000b0a0a0a0304030303020301)(001b0003020002)(0a0a000100)(0015))','www.google.com','8.8.8.8',443)
 #print(json.dumps(result, indent=2))
 
