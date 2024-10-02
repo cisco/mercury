@@ -48,9 +48,9 @@ jobs:
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.20.0
         env:
-          CIBW_ARCHS_LINUX: x86_64 #aarch64
+          CIBW_ARCHS_LINUX: x86_64 aarch64
           CIBW_ENVIRONMENT: CC='g++' CXX='g++' MERCURY_DIR='./'
-          CIBW_SKIP: "*-musllinux_* pp* cp31*" # TODO remove cp31*
+          CIBW_SKIP: "*-musllinux_* pp*"
           CIBW_BEFORE_ALL: yum install -y openssl-devel make zlib-devel || apt-get install -y zlib1g-dev libssl-dev make || apk add zlib1g-dev libssl-dev make
           CIBW_TEST_COMMAND: cd {project} && python test.py && cd -
 
