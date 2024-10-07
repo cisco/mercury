@@ -3,7 +3,7 @@
 
 #include "libmerc.h"
 #include "config_generator.h"
-#include <map>  
+#include <map>
 #include <string>
 #include <algorithm>
 
@@ -47,7 +47,7 @@ public:
     void set_quic_fingerprint_format(size_t format_version) {
         quic_fingerprint_format = format_version;
     }
-        
+
     bool get_protocol_and_set_fp_format(std::string &format_str) {
         std::string protocol;
         std::string format_version;
@@ -62,7 +62,7 @@ public:
         } else {
             protocol = format_str;
         }
-  
+
         if (protocol == "tls") {
             if (format_version == "") {
                 tls_fingerprint_format = 0;
@@ -72,7 +72,7 @@ public:
                 tls_fingerprint_format = 2;
             } else {
                 printf_err(log_warning, "warning: unknown fingerprint format: %s; using default instead\n", format_str.c_str());
-                return false; 
+                return false;
             }
         } else if (protocol == "quic") {
             if (format_version == "") {
@@ -128,6 +128,7 @@ public:
     std::string temp_proto_str;
     bool tcp_reassembly = false;          /* reassemble tcp segments      */
     bool quic_reassembly = false;         /* reassemble quic pkts         */
+    bool stats_blocking = false;          /* stats mode: lossless but blocking */
     fingerprint_format fp_format;    // default fingerprint format
 
     global_config() : libmerc_config(), tcp_reassembly{false} {};
@@ -234,7 +235,8 @@ static void setup_extended_fields(global_config* lc, const std::string& config) 
         {"resources", "", "", SETTER_FUNCTION(&lc){ lc->set_resource_file(s); }},
         {"format", "", "", SETTER_FUNCTION(&lc){ lc->fp_format.set_fingerprint_format(s); }},
         {"tcp-reassembly", "", "", SETTER_FUNCTION(&lc){ lc->tcp_reassembly = true; }},
-        {"quic-reassembly", "", "", SETTER_FUNCTION(&lc){ lc->quic_reassembly = true; }}
+        {"quic-reassembly", "", "", SETTER_FUNCTION(&lc){ lc->quic_reassembly = true; }},
+        {"stats-blocking", "", "", SETTER_FUNCTION(&lc){ lc->stats_blocking = true; }},
     };
 
     parse_additional_options(options, config, *lc);

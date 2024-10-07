@@ -1,8 +1,8 @@
 /*
  * pkt_proc.h
- * 
- * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at 
- * https://github.com/cisco/mercury/blob/master/LICENSE 
+ *
+ * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at
+ * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
 #ifndef PKT_PROC_H
@@ -52,7 +52,13 @@ struct mercury {
     classifier *c;
     class traffic_selector selector;
 
-    mercury(const struct libmerc_config *vars, int verbosity) : global_vars{*vars}, aggregator{ global_vars.do_stats? (std::make_unique<data_aggregator>(global_vars.max_stats_entries)) : nullptr}, c{nullptr}, selector{global_vars.protocols} {
+    mercury(const struct libmerc_config *vars, int verbosity) :
+                global_vars{*vars},
+                aggregator{ global_vars.do_stats
+                            ? (std::make_unique<data_aggregator>(global_vars.max_stats_entries, global_vars.stats_blocking))
+                            : nullptr },
+                c{nullptr},
+                selector{global_vars.protocols} {
         if (global_vars.do_analysis) {
             c = analysis_init_from_archive(verbosity, global_vars.get_resource_file(),
                                            vars->enc_key, vars->key_type,
@@ -239,16 +245,16 @@ struct stateful_pkt_proc {
                           struct datum &pkt,
                           struct tcp_packet &tcp_pkt,
                           struct key &k,
-                          struct timespec *ts, 
+                          struct timespec *ts,
                           struct tcp_reassembler *reassembler);
-    
+
     bool process_udp_data (protocol &x,
                           struct datum &pkt,
                           udp &udp_pkt,
                           struct key &k,
                           struct timespec *ts,
                           struct tcp_reassembler *reassembler);
-    
+
     void set_tcp_protocol(protocol &x,
                           struct datum &pkt,
                           bool is_new,
