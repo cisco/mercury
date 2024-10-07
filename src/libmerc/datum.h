@@ -132,8 +132,11 @@ inline uint8_t lowercase(uint8_t x) {
 ///
 /// A datum can be constructed
 ///
-/// * from pointers to the first and last byte of a region, with the
-/// constructors \ref datum(const uint8_t *first, const uint8_t *last),
+/// * from pointers to the bounding bytes of a region, with the
+/// constructors \ref datum(const uint8_t *first, const uint8_t *last)
+/// where `first` is a pointer to the first valid byte of the region,
+/// and `last` is a pointer to the byte following the last valid byte of
+/// the region,
 ///
 /// * from a `std::pair` of pointers using \ref datum(std::pair<const
 /// uint8_t *, const uint8_t *> p),
@@ -158,7 +161,9 @@ inline uint8_t lowercase(uint8_t x) {
 /// out of scope, then the datum will be invalid.
 ///
 /// A datum contains a pointer `data` to the first byte and a pointer
-/// `data_end` to the last byte.  When a datum is read, for instance
+/// `data_end` to the byte immediately following the last valid byte of the
+/// datum.  The `data_end` element acts as a placeholder; attempting to access
+/// it may result in undefined behavior.  When a datum is read, for instance
 /// to accept an object, these pointers are checked to verify that
 /// `data` is not `nullptr` and the operation will not read past
 /// `data_end`.  When an accept operation is successful, the `data`
@@ -499,7 +504,7 @@ struct datum {
         return -1;
     }
     void skip_up_to_delim(uint8_t delim) {
-        while (data <= data_end) {
+        while (data < data_end) {
             if (*data == delim) { // found delimeter
                 return;
             }
