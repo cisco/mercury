@@ -365,9 +365,6 @@ void http_request::fingerprint(struct buffer_stream &b) const{
     b.write_char(')');
 
     b.write_char('(');
-    for (const auto &h: headers) {
-        h.fingerprint(b, ph);
-    } 
     headers.fingerprint(b, ph);
     b.write_char(')');
 }
