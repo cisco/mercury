@@ -208,77 +208,110 @@ struct httpheader {
 
 template <size_t N>
 class new_http_headers {
-    std::vector<httpheader> headers;
+    datum header_body;
+    datum delim;
+    std::array<datum, N> headers;
+    static constexpr size_t max_body_length = 512;  // limit on number of bytes reported
 
 public:
 
-    new_http_headers(uint8_t max_headers) {
-        headers.reserve(max_headers);
+    new_http_headers() :
+    header_body{nullptr, nullptr},
+    delim{nullptr, nullptr} {
     }
 
-    void parse(struct datum& p,
-               const struct datum& delim,
-               perfect_hash<uint8_t> &ph,
-               std::array<uint8_t, N> &hdr_indices) {
-        while (p.is_not_empty()) {
-            delimiter d(p, delim);
-            if (d.is_valid()) {
-                break;
-            }
-
-            httpheader h{p, delim};
-            if (!h.is_valid()) {
-                break;
-            }
-
-            bool is_header_found = false;
-            uint8_t header_idx = *ph.lookup(h.name.data, h.name.length(), is_header_found);
-            if (is_header_found) {
-                /* Incase of duplicate http headers, index of the first http header
-                * stored.
-                */
-                if (hdr_indices[header_idx] == UINT8_MAX) {
-                    hdr_indices[header_idx] = headers.size();
-                }
-            }
-            headers.push_back(h);
-        }
+    httpheader get_next_header(struct datum& p) {
+        return httpheader(p, delim);
     }
 
     datum get_header(size_t index) const {
-        if (index < headers.size()) {
-            return headers[index].value;
-        }
-        return {nullptr, nullptr};
+        return headers[index];
     }
 
-    void write_json(struct json_object &record) const {
-        if (headers.size()) {
+    void set_header_body(datum &d) {
+        header_body = d;
+    }
+
+    void set_delimiter(datum _delim) {
+        delim = _delim;
+    }
+
+    void write_json(struct json_object &record) {
+        httpheader h = get_next_header(header_body);
+        if (h.is_valid()) {
             json_array hdrs{record, "headers"};
-            for (const auto &h: headers) {
+            h.write_json(hdrs);
+            while(1) { 
+                delimiter d(header_body, delim);
+                if (d.is_valid()) {
+                    break;
+                }
+                httpheader h = get_next_header(header_body);
+                if (!h.is_valid()) {
+                    break;
+                }
                 h.write_json(hdrs);
             }
             hdrs.close();
         }
+        if (header_body.is_readable()) {
+            datum body = header_body;
+            body.trim_to_length(max_body_length);
+            record.print_key_hex("body", body);
+        }
     }
 
-    void fingerprint(struct buffer_stream &b, perfect_hash<bool> &fp_data) const {
-        for (const auto &h: headers) {
+    /*
+     * HTTP headers are parsed during fingerprinting. When there
+     * are headers of interest, their values are stored in the
+     * headers array.
+     * The headers of interest are defined in the perfect hash table `ph`,
+     * which stores the header name and the corresponding index.
+     * If the parsed header is present in the hash table `ph`, the index
+     * is retrieved and used to store the header value in the
+     * headers array.
+     *
+     * Input Arguments:
+     * b       - buffer stream to write the fingerprint.
+     * fp_data - perfect hash table used to determine if the header or
+     *           header-value pair should be part of the fingerprint.
+     * ph      - perfect hash table used to determine if the header value
+     *           needs to be stored and, if so, provides the index at
+     *           which the value is stored.
+     */
+    void fingerprint(struct buffer_stream &b, perfect_hash<bool> &fp_data,
+                     perfect_hash<uint8_t> &ph) {
+        datum tmp = header_body;
+        while(1) {
+            delimiter d(tmp, delim);
+            if (d.is_valid()) {
+                break;
+            }
+            httpheader h = get_next_header(tmp);
+            if (!h.is_valid()) {
+                break;
+            }
             h.fingerprint(b, fp_data);
+            bool is_header_found = false;
+            uint8_t header_idx = *ph.lookup(h.name.data, h.name.length(), is_header_found);
+            if (is_header_found) {
+                /* Incase of duplicate http headers, index of the first http header
+                 * is stored.
+                 */
+                if (headers[header_idx].is_null()) {
+                    headers[header_idx] = h.value;
+                }
+            }
         }
     }
 };
 
 struct http_request : public base_protocol {
     static constexpr uint8_t num_headers_to_report = 6;
-    static constexpr uint8_t max_headers = 20;
     struct datum method;
     struct datum uri;
     struct datum protocol;
     new_http_headers<num_headers_to_report> headers;
-    datum body;
-
-    static constexpr size_t max_body_length = 512;  // limit on number of bytes reported
 
     static constexpr static_dictionary<num_headers_to_report> req_hdrs {
         {
@@ -291,30 +324,15 @@ struct http_request : public base_protocol {
         }
     };
 
-    std::array<uint8_t, num_headers_to_report> hdr_indices = {
-                UINT8_MAX,
-                UINT8_MAX,
-                UINT8_MAX,
-                UINT8_MAX,
-                UINT8_MAX,
-                UINT8_MAX
-    };
-
-
     http_request(datum &p) :
     method{NULL, NULL},
     uri{NULL, NULL},
-    protocol{NULL, NULL},
-    headers{max_headers} {
+    protocol{NULL, NULL} {
         parse(p);
     }
 
     datum get_header(const char *name) const {
-        size_t idx = hdr_indices[req_hdrs.index(name)];
-        if (idx != UINT8_MAX) {
-            return(headers.get_header(idx));
-        }
-        return {nullptr, nullptr};
+        return(headers.get_header(req_hdrs.index(name)));
     }
  
     void parse(struct datum &p);
@@ -323,9 +341,9 @@ struct http_request : public base_protocol {
 
     void write_json(struct json_object &record, bool output_metadata);
 
-    void fingerprint(struct buffer_stream &b) const;
+    void fingerprint(struct buffer_stream &b);
 
-    void compute_fingerprint(class fingerprint &fp) const;
+    void compute_fingerprint(class fingerprint &fp);
 
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c);
 
@@ -364,15 +382,11 @@ struct http_request : public base_protocol {
 };
 
 struct http_response : public base_protocol {
-    static constexpr uint8_t max_headers = 20;
     static constexpr uint8_t num_headers_to_report = 4;
     struct datum version;
     struct datum status_code;
     struct datum status_reason;
     new_http_headers<num_headers_to_report> headers;
-    datum body;
-
-    static constexpr size_t max_body_length = 512;  // limit on number of bytes reported
     static constexpr static_dictionary<num_headers_to_report> resp_hdrs {
         {
             "content-type",
@@ -382,14 +396,7 @@ struct http_response : public base_protocol {
         }
     };
 
-    std::array<uint8_t, num_headers_to_report> hdr_indices = {
-                UINT8_MAX,
-                UINT8_MAX,
-                UINT8_MAX,
-                UINT8_MAX
-    };
-
-    http_response(datum &p) : version{NULL, NULL}, status_code{NULL, NULL}, status_reason{NULL, NULL}, headers{max_headers} { parse(p); }
+    http_response(datum &p) : version{NULL, NULL}, status_code{NULL, NULL}, status_reason{NULL, NULL} { parse(p); }
 
     void parse(struct datum &p);
 
@@ -397,9 +404,9 @@ struct http_response : public base_protocol {
 
     void write_json(struct json_object &record, bool metadata=false);
 
-    void fingerprint(struct buffer_stream &buf) const;
+    void fingerprint(struct buffer_stream &buf);
 
-    void compute_fingerprint(class fingerprint &fp) const;
+    void compute_fingerprint(class fingerprint &fp);
 
     struct datum get_header(const char *header_name);
 

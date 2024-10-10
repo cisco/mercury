@@ -22,17 +22,6 @@ inline void to_lower(std::basic_string<uint8_t> &str, struct datum d) {
 }
 
 void http_request::parse(struct datum &p) {
-    static std::vector<perfect_hash_entry<uint8_t>> header_data_request = {
-        { "user-agent", req_hdrs.index("user-agent") },
-        { "host", req_hdrs.index("host")},
-        { "x-forwarded-for", req_hdrs.index("x-forwarded-for")},
-        { "via", req_hdrs.index("via")},
-        { "upgrade", req_hdrs.index("upgrade")},
-        { "referer", req_hdrs.index("referer")}
-    };
-
-    static perfect_hash<uint8_t> ph{header_data_request};
-
     std::array<uint8_t, 5> proto_string{'H', 'T', 'T', 'P', '/'};
 
     /* parse request line */
@@ -52,10 +41,8 @@ void http_request::parse(struct datum &p) {
     delimiter d(p);  //parse the delimiter
     const datum delim = d.get_delimiter();
 
-    headers.parse(p, delim, ph, hdr_indices);
-
-    body = p;
-
+    headers.set_header_body(p);
+    headers.set_delimiter(delim);
     return;
 }
 
@@ -260,20 +247,15 @@ void http_request::write_json(struct json_object &record, bool output_metadata) 
             http_request.print_key_json_string("method", method);
             http_request.print_key_json_string("uri", uri);
             http_request.print_key_json_string("protocol", protocol);
-            http_request.print_key_json_string("user-agent", get_header("user-agent"));
+            http_request.print_key_json_string("user_agent", get_header("user-agent"));
             http_request.print_key_json_string("host", get_header("host"));
-            http_request.print_key_json_string("x-forwarded-for", get_header("x-forwarded-for"));
+            http_request.print_key_json_string("x_forwarded_for", get_header("x-forwarded-for"));
             http_request.print_key_json_string("via", get_header("via"));
             http_request.print_key_json_string("upgrade", get_header("upgrade"));
             http_request.print_key_json_string("referer", get_header("referer"));
             headers.write_json(http_request);
         } else {
             http_request.print_key_json_string("user-agent", get_header("user-agent"));
-        }
-        if (body.is_readable()) {
-            datum tmp = body;
-            tmp.trim_to_length(max_body_length);
-            http_request.print_key_hex("body", tmp);
         }
         http_request.close();
         http.close();
@@ -282,13 +264,6 @@ void http_request::write_json(struct json_object &record, bool output_metadata) 
 }
 
 void http_response::parse(struct datum &p) {
-    static std::vector<perfect_hash_entry<uint8_t>> header_data_response = {
-        { "content-type", resp_hdrs.index("content-type")},
-        { "content-length", resp_hdrs.index("content-length")},
-        { "server", resp_hdrs.index("server")},
-        { "via", resp_hdrs.index("via")}
-    };
-    static perfect_hash<uint8_t> ph{header_data_response};
     /* process request line */
     version.parse_up_to_delim(p, ' ');
     p.skip(1);
@@ -298,9 +273,8 @@ void http_response::parse(struct datum &p) {
     delimiter d(p);
     const datum delim = d.get_delimiter();
 
-    headers.parse(p, delim, ph, hdr_indices);
-
-    body = p;
+    headers.set_header_body(p);
+    headers.set_delimiter(delim);
 
     return;
 }
@@ -322,18 +296,12 @@ void http_response::write_json(struct json_object &record, bool metadata) {
 
     headers.write_json(http_response);
 
-    if (body.is_readable()) {
-        datum tmp = body;
-        tmp.trim_to_length(max_body_length);
-        http_response.print_key_hex("body", tmp);
-    }
-
     http_response.close();
     http.close();
 
 }
 
-void http_request::fingerprint(struct buffer_stream &b) const{
+void http_request::fingerprint(struct buffer_stream &b) {
     static std::vector<perfect_hash_entry<bool>> fp_data_request = {
         { "accept", true },
         { "accept-encoding", true },
@@ -353,7 +321,19 @@ void http_request::fingerprint(struct buffer_stream &b) const{
         { "x-flash-version", false },
         { "x-p2p-peerdist", false }
     };
-    static perfect_hash<bool> ph{fp_data_request};
+    static perfect_hash<bool> fp_ph{fp_data_request};
+
+    static std::vector<perfect_hash_entry<uint8_t>> header_data_request = {
+        { "user-agent", req_hdrs.index("user-agent") },
+        { "host", req_hdrs.index("host")},
+        { "x-forwarded-for", req_hdrs.index("x-forwarded-for")},
+        { "via", req_hdrs.index("via")},
+        { "upgrade", req_hdrs.index("upgrade")},
+        { "referer", req_hdrs.index("referer")}
+    };
+
+    static perfect_hash<uint8_t> ph{header_data_request};
+
     if (is_not_empty() == false) {
         return;
     }
@@ -365,11 +345,11 @@ void http_request::fingerprint(struct buffer_stream &b) const{
     b.write_char(')');
 
     b.write_char('(');
-    headers.fingerprint(b, ph);
+    headers.fingerprint(b, fp_ph, ph);
     b.write_char(')');
 }
 
-void http_response::fingerprint(struct buffer_stream &buf) const {
+void http_response::fingerprint(struct buffer_stream &buf) {
     static std::vector<perfect_hash_entry<bool>> fp_data_response = {
         { "access-control-allow-credentials", true },
         { "access-control-allow-headers", true },
@@ -421,7 +401,16 @@ void http_response::fingerprint(struct buffer_stream &buf) const {
         { "x-timer", false },
         { "x-trace-context", false }
     };
-    static perfect_hash<bool> ph{fp_data_response};
+    static perfect_hash<bool> fp_ph{fp_data_response};
+
+    static std::vector<perfect_hash_entry<uint8_t>> header_data_response = {
+        { "content-type", resp_hdrs.index("content-type")},
+        { "content-length", resp_hdrs.index("content-length")},
+        { "server", resp_hdrs.index("server")},
+        { "via", resp_hdrs.index("via")}
+    };
+    static perfect_hash<uint8_t> ph{header_data_response};
+
     if (is_not_empty() == false) {
         return;
     }
@@ -436,28 +425,24 @@ void http_response::fingerprint(struct buffer_stream &buf) const {
     buf.write_char(')');
 
     buf.write_char('(');
-    headers.fingerprint(buf, ph);
+    headers.fingerprint(buf, fp_ph, ph);
     buf.write_char(')');
 }
 
-void http_request::compute_fingerprint(class fingerprint &fp) const {
+void http_request::compute_fingerprint(class fingerprint &fp) {
     fp.set_type(fingerprint_type_http);
     fp.add(*this);
     fp.final();
 }
 
-void http_response::compute_fingerprint(class fingerprint &fp) const {
+void http_response::compute_fingerprint(class fingerprint &fp) {
     fp.set_type(fingerprint_type_http_server);
     fp.add(*this);
     fp.final();
 }
 
 struct datum http_response::get_header(const char *header_name) {
-    size_t idx = hdr_indices[resp_hdrs.index(header_name)];
-    if (idx != UINT8_MAX) {
-        return(headers.get_header(idx));
-    }
-    return {nullptr, nullptr};
+    return(headers.get_header(resp_hdrs.index(header_name)));
 }
 
 bool http_request::do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
