@@ -20,13 +20,13 @@
 #define printf_err(level, ...) fprintf(stderr, __VA_ARGS__)
 #endif
 
-/// a 24-bit integer, stored as the least significant 24 bits of a
+/// a 20-bit integer, stored as the least significant 20 bits of a
 /// 32-bit integer, for convenience of output
 ///
-struct uint24_t {
+struct uint20_t {
     uint32_t value;
 
-    uint24_t(uint32_t v) : value{v} { }
+    uint20_t(uint32_t v) : value{v} { }
 
     operator uint32_t () { return value; }
 };
@@ -439,22 +439,21 @@ static inline int append_uint16_hex(char *dstr, int *doff, int dlen, int *trunc,
     return r;
 }
 
-static inline int append_uint24_hex(char *dstr, int *doff, int dlen, int *trunc,
-                                    uint24_t n) {
+static inline int append_uint20_hex(char *dstr, int *doff, int dlen, int *trunc,
+                                    uint20_t n) {
 
     if (*trunc == 1) {
         return 0;
     }
 
     int r = 0;
-    char outs[6]; /* 6 hex chars */
+    char outs[5]; /* 5 hex chars */
 
-    outs[0] = hex_table[(n.value & 0x00f00000) >> 20];
-    outs[1] = hex_table[(n.value & 0x000f0000) >> 16];
-    outs[2] = hex_table[(n.value & 0x0000f000) >> 12];
-    outs[3] = hex_table[(n.value & 0x00000f00) >> 8];
-    outs[4] = hex_table[(n.value & 0x000000f0) >> 4];
-    outs[5] = hex_table[ n.value & 0x0000000f];
+    outs[0] = hex_table[(n.value & 0x000f0000) >> 16];
+    outs[1] = hex_table[(n.value & 0x0000f000) >> 12];
+    outs[2] = hex_table[(n.value & 0x00000f00) >> 8];
+    outs[3] = hex_table[(n.value & 0x000000f0) >> 4];
+    outs[4] = hex_table[ n.value & 0x0000000f];
 
     r += append_memcpy(dstr, doff, dlen, trunc,
                        outs, sizeof(outs));
@@ -1111,8 +1110,8 @@ struct buffer_stream {
         append_uint16_hex(dstr, &doff, dlen, &trunc, n);
     }
 
-    void write_hex_uint(uint24_t n) {
-        append_uint24_hex(dstr, &doff, dlen, &trunc, n);
+    void write_hex_uint(uint20_t n) {
+        append_uint20_hex(dstr, &doff, dlen, &trunc, n);
     }
 
     void write_hex_uint(uint32_t n) {

@@ -334,8 +334,8 @@ struct ipv6_header {
         return (bytes[0] << 4) | (bytes[1] >> 4);
     }
 
-    uint24_t flow_label() const {
-        return (uint32_t)bytes[1] << 16 | (uint32_t)bytes[2] << 8 | bytes[3];
+    uint20_t flow_label() const {
+        return uint20_t{(uint32_t)bytes[1] << 16 | (uint32_t)bytes[2] << 8 | bytes[3]};
     }
 
 } __attribute__((packed));
