@@ -484,9 +484,9 @@ enum status pcap_file_dispatch_pkt_processor(struct pcap_file *f,
                 packet_info_init_from_pkthdr(&pi, &pkthdr);
                 pi.linktype = f->linktype;
                 // process the packet that was read
-                benchmark::cycle_counter cc;
+                tsc_clock cc;
                 pkt_processor->apply(&pi, packet_data);
-                s += cc.delta();
+                s += cc.elapsed_tick();
                 num_packets++;
                 total_length += pkthdr.caplen + sizeof(struct pcap_packet_hdr);
             }

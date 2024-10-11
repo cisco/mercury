@@ -1,5 +1,17 @@
 # CHANGELOG for Mercury
 
+## Version 2.5.31
+* Mercury now outputs `tls.client.certs` and `tls.undetermined.certs`
+  as well as `tls.server.certs`, for TLS version 1.2 and earlier.
+  Client and server certificate chains are distinguished by the
+  handshake type of the key exchange data that follows the
+  `Certificate` data.  If no key exchange data is present, then the
+  certificate is reported as `tls.undetermined.certs`.
+* Timestamp counter reading support for ARM added in
+  [tsc_clock.hpp](src/libmerc/tsc_clock.hpp).
+* If a timestamp of `0` is passed to `libmerc`, a timestamp is
+  computed in order to improve the reassembly of TCP messages, as needed.
+
 ## Version 2.5.30
 * Dramatic improvements to TCP reassembly for output, performance and TCP segments handling.
 * Improved error handling for malformed UTF-8 strings encountered in protocol fields.

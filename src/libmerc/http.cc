@@ -42,6 +42,8 @@ void http_request::parse(struct datum &p) {
     /* parse headers */
     headers.parse(p);
 
+    body = p;
+
     return;
 }
 
@@ -267,6 +269,11 @@ void http_request::write_json(struct json_object &record, bool output_metadata) 
         } else {
             headers.print_matching_name(http_request, "user-agent: ", "user_agent" );
         }
+        if (body.is_readable()) {
+            datum tmp = body;
+            tmp.trim_to_length(max_body_length);
+            http_request.print_key_hex("body", tmp);
+        }
         http_request.close();
         http.close();
     }
@@ -285,6 +292,8 @@ void http_response::parse(struct datum &p) {
 
     /* parse headers */
     headers.parse(p);
+
+    body = p;
 
     return;
 }
@@ -314,6 +323,12 @@ void http_response::write_json(struct json_object &record, bool metadata) {
     // of the matching names
     //
     headers.print_matching_names(http_response, ph);
+
+    if (body.is_readable()) {
+        datum tmp = body;
+        tmp.trim_to_length(max_body_length);
+        http_response.print_key_hex("body", tmp);
+    }
 
     http_response.close();
     http.close();

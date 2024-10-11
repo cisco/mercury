@@ -53,6 +53,7 @@ char mercury_help[] =
     "   --nonselected-tcp-data                # tcp data for nonselected traffic\n"
     "   --nonselected-udp-data                # udp data for nonselected traffic\n"
     "   --tcp-reassembly                      # reassemble tcp data segments\n"
+    "   --quic-reassembly                     # reassemble quic crypto frames across packets\n"
     "   [-l or --limit] l                     # rotate output file after l records\n"
     "   --output-time=T                       # rotate output file after T seconds\n"
     "   --dns-json                            # output DNS as JSON, not base64\n"
@@ -95,6 +96,7 @@ char mercury_extended_help[] =
     "      bittorrent        Bittorrent Handshake Message, LSD message, DHT message\n"
     "      cdp               CDP message\n"
     "      dhcp              DHCP discover message\n"
+    "      dnp3              DNP3 industrial control message\n"
     "      dns               DNS messages\n"
     "      dtls              DTLS clientHello, serverHello, and certificates\n"
     "      gre               GRE message\n"
@@ -105,14 +107,17 @@ char mercury_extended_help[] =
     "      iec               IEC 60870-5-104\n"
     "      lldp              LLDP message\n"
     "      mdns              multicast DNS\n"
+    "      mysql             MySQL Client/Server Protocol\n"
     "      nbns              NetBIOS Name Service\n"
     "      nbds              NetBIOS Datagram Service\n"
     "      nbss              NetBIOS Session Service\n"
+    "      openvpn_tcp       OpenVPN over TCP\n"
     "      ospf              OSPF message\n"
     "      quic              QUIC handshake\n"
     "      sctp              SCTP message\n"
     "      ssh               SSH handshake and KEX\n"
     "      smb               SMB v1 and v2\n"
+    "      smtp              SMTP client and server messages\n"
     "      stun              STUN messages\n"
     "      ssdp              SSDP (UPnP)\n"
     "      socks             SOCKS4,SOCKS5 messages\n"
@@ -123,6 +128,7 @@ char mercury_extended_help[] =
     "      tls.client_hello  TLS clientHello\n"
     "      tls.server_hello  TLS serverHello\n"
     "      tls.certificates  TLS serverCertificates\n"
+    "      tofsee            Tofsee malware communication\n"
     "      wireguard         WG handshake initiation message\n"
     "      all               all of the above\n"
     "      <no option>       all of the above\n"
@@ -140,9 +146,13 @@ char mercury_extended_help[] =
     "   --select filter affects the UDP data written by this option; use\n"
     "   '--select=none' to obtain the UDP data for each flow.\n"
     "\n"
-    "   --tcp-reassembly enables the tcp reassembly\n"
+    "   --tcp-reassembly enables tcp reassembly\n"
     "   This option allows mercury to keep track of tcp segment state and \n"
     "   and reassemble these segments based on the application in tcp payload\n"
+    "\n"
+    "   --quic-reassembly enables quic reassembly\n"
+    "   This option allows mercury to keep track of quic flow state and \n"
+    "   and reassemble crypto frames across packets\n"
     "\n"
     "   \"[-u or --user] u\" sets the UID and GID to those of user u, so that\n"
     "   output file(s) are owned by this user.  If this option is not set, then\n"
@@ -240,7 +250,7 @@ int main(int argc, char *argv[]) {
     std::string additional_args;
 
     while(1) {
-        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13, tcp_reassembly=14, format=15 };
+        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13, tcp_reassembly=14, format=15, quic_reassembly=16 };
         int opt_idx = 0;
         static struct option long_opts[] = {
             { "config",      required_argument, NULL, config  },
@@ -258,6 +268,7 @@ int main(int argc, char *argv[]) {
             { "output-time", required_argument, NULL, output_time },
             { "tcp-reassembly", no_argument,    NULL, tcp_reassembly },
             { "format",      required_argument, NULL, format },
+            { "quic-reassembly", no_argument,    NULL, quic_reassembly },
             { "read",        required_argument, NULL, 'r' },
             { "write",       required_argument, NULL, 'w' },
             { "directory",   required_argument, NULL, 'd' },
@@ -351,6 +362,13 @@ int main(int argc, char *argv[]) {
                 usage(argv[0], "option tcp-reassembly does not use an argument", extended_help_off);
             } else {
                 additional_args.append("tcp-reassembly;");
+            }
+            break;
+        case quic_reassembly:
+            if (optarg) {
+                usage(argv[0], "option quic-reassembly does not use an argument", extended_help_off);
+            } else {
+                additional_args.append("quic-reassembly;");
             }
             break;
         case format:
@@ -601,6 +619,7 @@ int main(int argc, char *argv[]) {
 
     if (cfg.read_filename) {
         cfg.output_block = true;      // use blocking output, so that no packets are lost in copying
+        additional_args.append("stats-blocking;"); // use blocking stats to avoid losing stats events
     }
 
     // setup extended config options
@@ -644,6 +663,7 @@ int main(int argc, char *argv[]) {
     if (setup_signal_handler() != status_ok) {
         fprintf(stderr, "%s: error while setting up signal handlers\n", strerror(errno));
     }
+    disable_all_signals(); /* We don't want our main thread to get these */
 
     /* set the number of threads, if needed */
     if (cfg.num_threads == -1) {

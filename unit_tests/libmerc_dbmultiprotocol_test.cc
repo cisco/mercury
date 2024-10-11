@@ -133,7 +133,12 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic with resources-mp")
              .m_lc{.do_analysis = true, .resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"quic"},
              .m_pc{"quic_v2.pcap"}},
-         11}
+         11},
+         {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"quic;quic-reassembly"},
+             .m_pc{"quic_fragmented.pcap"}},
+         2}
     };
 
     for (auto &[config, count] : test_set_up)

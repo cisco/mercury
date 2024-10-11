@@ -424,6 +424,19 @@ struct tls_client_hello : public base_protocol {
         { 0x16, 0x03, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00 }
     };
 
+    void reset() {
+        protocol_version.set_null();
+        random.set_null();
+        session_id.set_null();
+        cookie.set_null();
+        ciphersuite_vector.set_null();
+        compression_methods.set_null();
+        extensions.set_null();
+        dtls = false;
+        is_quic_hello = false;
+        additional_bytes_needed = 0;
+    }
+
 };
 
 #include "match.h"

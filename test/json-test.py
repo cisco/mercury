@@ -24,6 +24,7 @@ mercury_schema = {
         'fingerprints': {'type': 'object',
                          'properties': {
                              'tcp':         {'type': 'string'},
+                             'tcp_server':  {'type': 'string'},
                              'tls':         {'type': 'string'},
                              'tls_server':  {'type': 'string'},
                              'dtls':        {'type': 'string'},
@@ -127,9 +128,23 @@ mercury_schema = {
                          'data':   {'type': 'string'},
                      },
                      "additionalProperties": False
-             }
+             },
+        'arp': {'type': 'object',
+                'properties': {
+                    'hwtype': {'type': 'number'},
+                    'protocol': {'type': 'number'},
+                    'hw_addr_len': {'type': 'number'},
+                    'proto_addr_len': {'type': 'number'},
+                    'opcode': {'type': 'string'},
+                    'sender_hw_addr': {'type': 'string'},
+                    'sender_proto_addr': {'type': 'string'},
+                    'target_hw_addr': {'type': 'string'},
+                    'target_proto_addr': {'type': 'string'},
+                },
+                "additionalProperties": False
+            },
     },
-    'required': ['src_ip','dst_ip','src_port','dst_port','protocol','event_start'],
+    'required': ['event_start'],
     "additionalProperties": False
 }
 
@@ -166,4 +181,3 @@ def main():
 
 if __name__== "__main__":
   main()
-

@@ -196,7 +196,7 @@ def approx_stats_compare_db(merc_db, merc_stats):
         is_entry_match(merc_stats[k], merc_db[k], unmatched_fps)
 
     if len(unmatched_fps):
-        print('below fingerprint strings/destination parameters donot match')
+        print('fingerprint strings/destination parameters below do not match')
         for x in unmatched_fps:
             print(x)
         return False
@@ -244,7 +244,7 @@ def main():
 
     if args.approx_match is True:
         if merc_count - merc_count_stats > 0.1 * merc_count:
-            print('error: Difference between merc_out count ({}) and merc_stats count ({}) is greater then 10%'.format(merc_count, merc_count_stats))
+            print('error: Difference between merc_out count ({}) and merc_stats count ({}) is greater than 10%'.format(merc_count, merc_count_stats))
             sys.exit(1)
 
         if approx_stats_compare_db(merc_db, merc_db_stats) == False:
@@ -255,6 +255,8 @@ def main():
         if merc_count != merc_count_stats:
             print('error: merc_out count ({}) != merc_stats count ({})'.format(merc_count, merc_count_stats))
             sys.exit(1)
+        else:
+            print('merc_out count ({}) == merc_stats count ({})'.format(merc_count, merc_count_stats))
 
         # print(merc_count)
         # print(merc_count_stats)

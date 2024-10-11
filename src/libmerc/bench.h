@@ -5,46 +5,13 @@
 #ifndef BENCH_H
 #define BENCH_H
 
-// The cycle_counter class will compile anywhere, but will only work
-// correctly on platforms that provide a function to read the
-// timestamp counter.  The following preprocessor conditionals
-// identify the appropriate function, if one is present, and set
-// benchmark_is_valid to true or false.   That value can be accessed
-// through the constexpr static boolean benchmark::is_valid.
-//
-#ifdef HAVE_X86INTRIN_H
-   #include <x86intrin.h>
-   #define read_timestamp_counter() __rdtsc()
-   #define benchmark_is_valid true
-#else
-   #define read_timestamp_counter() 0
-   #define benchmark_is_valid false
-#endif
-//
-// TODO: add the corresponding ARM equivalent function
-
 #include <cmath>  // for sqrt()
+#include "tsc_clock.hpp"
 
 namespace benchmark {
 
-    static constexpr bool is_valid = benchmark_is_valid;
+    static bool is_valid = tsc_clock::is_valid();
 
-    // An object of class cycle_counter counts the number of clock
-    // cycles between its construction and the invocation of the
-    // delta() function
-    //
-    class cycle_counter {
-        uint64_t value;
-
-    public:
-
-        cycle_counter() : value{read_timestamp_counter()} { }
-
-        uint64_t delta() const { return read_timestamp_counter() - value; }
-
-    };
-
-    // An object of class count_and_mean maintains a count and mean of
     // all of the observed numbers.  Each observation is reported with
     // the member function +=, e.g. 's += x' observes x.
     //

@@ -128,7 +128,7 @@ void ring_limits_init(struct ring_limits *rl, float frac);  // defined below
  * sig_close_flag and the packet worker threads will watch
  * sig_close_workers.
  */
-extern int sig_close_flag; /* Watched by the stats tracking thread, defined in signal_handling.c */
+extern volatile sig_atomic_t sig_close_flag; /* Watched by the stats tracking thread, defined in signal_handling.c */
 static int sig_close_workers = 0; /* Packet proccessing var */
 
 static double time_elapsed(struct timespec *ts) {
@@ -265,10 +265,14 @@ void *stats_thread_func(void *statst_arg) {
         exit(255);
     }
 
-    /**
+    /*
      * Enable all signals so that this thread shuts down first
      */
     enable_all_signals();
+    /* Block USR1 though since that's only for recovering
+     * stalled threads
+     */
+    disable_bt_signal();
 
     int duration = 0, socket_drops = 0, zero_drops = 0;
 
@@ -615,6 +619,18 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
 
     fprintf(stderr, "[PACKET PROCESSOR] Thread %d with pthread id %lu (PID %u) started...\n", thread_stor->tnum, thread_stor->tid, thread_stor->kpid);
 
+
+    /* Enable the bt signal for this thread which must be done before
+     * sigsetjmp since that saves the signal mask and the siglongjmp
+     * restores it.
+     *
+     * There is a brief window of time after we enable this signal
+     * but before we call sigsetjmp() where if USR1 is recieved
+     * the signal handler will be unable to locate the longjmp
+     * environment and will call abort().
+     */
+    enable_bt_signal();
+
     /* Save this execution context so that we can restore the thread back
      * to this point if it stalls during packet processing.
      */
@@ -628,6 +644,7 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
 
         __sync_synchronize(); /* enforce memory ordering */
         global_thread_stall[thread_stor->tnum].used = 1;
+
     } else {
         /* This branch of the if means a siglongjump was just performed
          * from our signal handler and execution is being restored
@@ -645,6 +662,7 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
         }
 
         fprintf(stderr, "[PACKET PROCESSOR] Thread %d with pthread id %lu (PID %u) resumed execution from stall...\n", thread_stor->tnum, thread_stor->tid, thread_stor->kpid);
+
     }
 
     /*
