@@ -14,6 +14,14 @@ import sys
 mercury_schema = {
     'type':       'object',
     'properties': {
+        'ip': {'type': 'object',
+               'properties': {
+                   'version': {'type': 'number'},
+                   'ttl':     {'type': 'string'},
+                   'id':      {'type': 'string'},
+                   "additionalProperties": False
+                   }
+               },
         'src_ip':       {'type': 'string'},
         'dst_ip':       {'type': 'string'},
         'src_port':     {'type': 'number'},
