@@ -111,6 +111,10 @@ public:
     }
 
     bool is_not_empty() const {
+        if ( (!ipv4.is_not_null()) or (ipv4.is_not_null() and ipv4.matches(std::array<uint8_t,4>{0,0,0,0})) ) {
+            return false;  // not a tofsee message, probably contains a run of bytes
+        }
+
         if (!unknown_2.is_not_null()) {
             return false;  // bad message, probably wrong size
         }
