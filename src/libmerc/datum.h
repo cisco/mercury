@@ -275,42 +275,42 @@ struct datum {
     }
     void parse_up_to_delim(struct datum &r, uint8_t delim) {
         data = r.data;
-        while (r.data < r.data_end) {
-            if (*r.data == delim) { // found delimeter
-                data_end = r.data;
-                return;
-            }
-            r.data++;
+        const unsigned char* c = static_cast<const unsigned char*>(memchr(r.data, delim, r.length()));
+        if (c) {
+            data_end = r.data = c;
+            return;
         }
-        data_end = r.data;
+
+        data_end = r.data_end;
     }
-    uint8_t parse_up_to_delimeters(struct datum &r, uint8_t delim1, uint8_t delim2) {
+    uint8_t parse_up_to_delimiters(struct datum &r, uint8_t delim1, uint8_t delim2) {
         data = r.data;
         while (r.data < r.data_end) {
-            if (*r.data == delim1) { // found first delimeter
+            if (*r.data == delim1) { // found first delimiter
                 data_end = r.data;
                 return delim1;
             }
-            if (*r.data == delim2) { // found second delimeter
+            if (*r.data == delim2) { // found second delimiter
                 data_end = r.data;
                 return delim2;
             }
             r.data++;
         }
+        data_end = r.data_end;
         return 0;
     }
-    uint8_t parse_up_to_delimeters(struct datum &r, uint8_t delim1, uint8_t delim2, uint8_t delim3) {
+    uint8_t parse_up_to_delimiters(struct datum &r, uint8_t delim1, uint8_t delim2, uint8_t delim3) {
         data = r.data;
         while (r.data < r.data_end) {
-            if (*r.data == delim1) { // found first delimeter
+            if (*r.data == delim1) { // found first delimiter
                 data_end = r.data;
                 return delim1;
             }
-            if (*r.data == delim2) { // found second delimeter
+            if (*r.data == delim2) { // found second delimiter
                 data_end = r.data;
                 return delim2;
             }
-            if (*r.data == delim3) { // found third delimeter
+            if (*r.data == delim3) { // found third delimiter
                 data_end = r.data;
                 return delim2;
             }
@@ -478,11 +478,12 @@ struct datum {
         const unsigned char *tmp_data = data;
         const unsigned char *pattern = delim;
         const unsigned char *pattern_end = delim + length;
+        
         while (pattern < pattern_end && tmp_data < data_end)
         {
             if (*tmp_data != *pattern)
             {
-                pattern = delim - 1; /* reset pattern to the start of the delimeter string */
+                pattern = delim - 1; /* reset pattern to the start of the delimiter string */
             }
             tmp_data++;
             pattern++;
@@ -493,19 +494,18 @@ struct datum {
         }
         return -(tmp_data - data);
     }
+
     int find_delim(uint8_t delim) {
-        const unsigned char *tmp_data = data;
-        while (tmp_data < data_end) {
-            if (*tmp_data == delim) {
-                return tmp_data - data;
-            }
-            tmp_data++;
+        const unsigned char* c = static_cast<const unsigned char*>(memchr(data, delim, length()));
+        if (c) {
+            return c - data;
         }
         return -1;
     }
+
     void skip_up_to_delim(uint8_t delim) {
         while (data < data_end) {
-            if (*data == delim) { // found delimeter
+            if (*data == delim) { // found delimiter
                 return;
             }
             data++;
@@ -521,6 +521,12 @@ struct datum {
         }
 
         return false;
+    }
+
+    void trim_leading_whitespace() {
+        while(data < data_end and (*data == ' ' or *data == '\t')) {
+            data++;
+        }
     }
 
     /// skips/trims all instances of the trailing character `t`
@@ -753,6 +759,13 @@ struct datum {
             return ::memcmp(x, data, x_len);
         }
         return std::numeric_limits<int>::min();
+    }
+
+    bool compare_nbytes(const void *x, ssize_t x_len) {
+        if (data && length() >= x_len) {
+            return (::memcmp(x, data, x_len) == 0);
+        }
+        return false;
     }
 
     void fprint_hex(FILE *f, size_t length=0) const {
