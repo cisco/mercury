@@ -9,6 +9,7 @@
 #define RESULT_H
 
 #include <stdbool.h>
+#include <sstream>
 // #include <bits/stdc++.h>  // TODO: ???
 #include "libmerc.h"
 #include "json_object.h"
@@ -299,6 +300,21 @@ struct destination_context {
         alpn.write_to_buffer(alpn_array, sizeof(alpn_array));
         alpn_length = alpn.length();
 
+    }
+
+    // For this overload, the user_agent prints an ip address as a string
+    void init(struct datum domain, struct datum ip, datum alpn, const struct key &key, bool tofsee = true) {
+        std::stringstream ua;
+        ua << ip.data[0] << "." << ip.data[1] << "." << ip.data[2] << "." << ip.data[3]; 
+        const std::string &ua_str_tmp = ua.str();   // const reference to temporary string to avoid copy constructor
+        datum user_agent_built {(uint8_t*)ua_str_tmp.c_str(), (uint8_t*)ua_str_tmp.c_str() + ua_str_tmp.length()};
+        user_agent_built.strncpy(ua_str, MAX_USER_AGENT_LEN);
+        domain.strncpy(sn_str, MAX_SNI_LEN);
+        flow_key_sprintf_dst_addr(key, dst_ip_str);
+        dst_port = ntoh(flow_key_get_dst_port(key));  // note: byte order conversion needed
+
+        alpn.write_to_buffer(alpn_array, sizeof(alpn_array));
+        alpn_length = alpn.length();
     }
 
 
