@@ -302,8 +302,8 @@ struct destination_context {
 
     }
 
-    // For this overload, the user_agent prints an ip address as a string
-    void init(struct datum domain, struct datum ip, datum alpn, const struct key &key, bool tofsee = true) {
+    // tofsee specific overload, the user_agent prints an ip address as a string
+    void init_tofsee(struct datum domain, struct datum ip, datum alpn, const struct key &key) {
         std::stringstream ua;
         ua << ip.data[0] << "." << ip.data[1] << "." << ip.data[2] << "." << ip.data[3]; 
         const std::string &ua_str_tmp = ua.str();   // const reference to temporary string to avoid copy constructor
