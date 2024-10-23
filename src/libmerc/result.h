@@ -325,6 +325,14 @@ struct destination_context {
         alpn_length = alpn.length();
     }
 
+    void reset() {
+        dst_ip_str[0] = '\0';
+        sn_str[0] = '\0';
+        ua_str[0] = '\0';
+        alpn_array[0] = 0;
+        alpn_length = 0;
+        dst_port = 0;
+    }
 
 };
 

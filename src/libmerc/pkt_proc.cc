@@ -1229,34 +1229,44 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         if (msg_type == udp_msg_type_unknown) {  
             msg_type = (udp_msg_type) selector.get_udp_msg_type_from_ports(ports);
         }
-        set_udp_protocol(x, pkt, msg_type, false, internal_flow_key);
+        set_udp_protocol(x, pkt, ports, false, internal_flow_key, udp_pkt);
     }
+
+    analysis.result.reinit();
+    analysis.destination.reset();
+    analysis.fp.init();
 
     if (std::visit(is_not_empty{}, x)) {
         std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
     }
-    
+
+    if (analysis.fp.get_type() == fingerprint_type_unknown) {
+        return 0;
+    }
+
     std::visit(do_analysis{internal_flow_key, analysis, c}, x);
 
     if (context != nullptr and analysis.result.is_valid()) {
         *context = &analysis;
     }
     
-    FDC fdc {
-        analysis.fp.string(), 
-        analysis.destination.ua_str, 
-        analysis.destination.sn_str, 
-        analysis.destination.dst_ip_str, 
-        analysis.destination.dst_port, 
-        &w
+
+    size_t internal_buffer_size = *buffer_size;
+    writeable output{buffer, buffer + internal_buffer_size};
+    fdc fdc_object{
+        datum{analysis.fp.string()},
+        analysis.destination.ua_str,
+        analysis.destination.sn_str,
+        analysis.destination.dst_ip_str,
+        analysis.destination.dst_port
     };
 
-    int bytes_written = fdc.get_bytes_written_to_fdc();
-    if(bytes_written == fdc_return::FDC_WRITE_INSUFFICIENT_SPACE) {
-        *buffer_size = 2*internal_buffer_size;
+    bool encoding_ok = fdc_object.encode(output);
+    if (encoding_ok == false) {
+        *buffer_size = 2 * internal_buffer_size;     // TODO: round up
+        return -1;                                   // TODO: coordinate return values
     }
-
-    return bytes_written;
+    return internal_buffer_size - output.writeable_length();
 }
 
 bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
