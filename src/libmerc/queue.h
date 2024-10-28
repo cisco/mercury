@@ -74,7 +74,7 @@ public:
                 while (is_full()) {
                     blocked_count++;
                     m_lock.unlock();
-                    usleep(SLEEP_MICROSEC);
+                    std::this_thread::sleep_for(std::chrono::microseconds(SLEEP_MICROSEC));
                     m_lock.lock();
                 }
                 //fprintf(stderr, "%s: message_queue %p blocked for %lu microseconds\n",
