@@ -12,6 +12,7 @@
 #include <io.h>
 #include <BaseTsd.h>
 typedef SSIZE_T ssize_t;
+typedef uint32_t useconds_t;
 #else
 #include <unistd.h>
 #endif

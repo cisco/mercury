@@ -9,9 +9,14 @@
 #define QUEUE_H
 
 #include <string.h>
+#ifdef _WIN32
+#include <io.h>
+#else
 #include <unistd.h>
+#endif
 #include <mutex>
 #include <tuple>
+#include <chrono>
 
 typedef std::tuple<std::string, std::string, std::string, std::string> event_msg;
 #define EVENT_BUF_SIZE 512

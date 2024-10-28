@@ -203,7 +203,7 @@ struct reassembly_flow_context {
         seg_list{},
         is_quic{true},
         cid{},
-        cid_len{seg.cid.length()} {
+        cid_len{(size_t)seg.cid.length()} {
     
         seg_list.reserve(max_segments);
         seg_list.push_back({seg.seq - init_seq, seg.seq - init_seq + seg.data_length - 1});
