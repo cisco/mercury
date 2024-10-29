@@ -202,6 +202,9 @@ decode: decode.cc
 pcap: pcap.cc pcap_file_io.h
 	$(CXX) $(CFLAGS) pcap.cc -o pcap
 
+remap: remap.cpp libmerc/tls.cc libmerc/http.cc libmerc/match.cc libmerc/asn1.cc libmerc/asn1/oid.cc libmerc/addr.cc
+	$(CXX) $(CFLAGS) remap.cpp libmerc/tls.cc libmerc/http.cc libmerc/match.cc libmerc/asn1.cc libmerc/asn1/oid.cc libmerc/addr.cc -lcrypto -o remap
+
 pcap_filter: pcap_filter.cc pcap_file_io.c libmerc
 	$(CXX) $(CFLAGS) pcap_filter.cc pcap_file_io.c libmerc/libmerc.a -lz -lcrypto -pthread -o pcap_filter
 

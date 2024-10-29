@@ -17,6 +17,28 @@ class ipv4_address {
 
 public:
 
+    bool operator==(const ipv4_address &rhs) const {
+        return value == rhs.value;
+    }
+
+    bool operator!=(const ipv4_address &rhs) const {
+        return value != rhs.value;
+    }
+
+    ipv4_address operator++() {
+        next_addr_in_subnet();
+        return *this;
+    }
+
+    void next_addr_in_subnet() {
+        value = ntoh(hton(value) + 1);
+    }
+
+    void next_supernet(size_t bits_in_subnet) {
+        uint32_t jump = 1 << bits_in_subnet;
+        value = ntoh(hton(value) + jump);
+    }
+
     ipv4_address(uint32_t init) : value{init} { }
 
     void fingerprint(struct buffer_stream &b) const {
@@ -119,7 +141,21 @@ public:
 
     static inline bool unit_test(FILE *output=nullptr);
 
+    uint32_t get_value() const { return value; }
+
 };
+
+// tell C++ STD how to hash an ipv4_address by creating a
+// specialized struct hash<> template for that type
+//
+namespace std {
+    template <>  struct hash<ipv4_address>  {
+        size_t operator()(const ipv4_address& k) const {
+            return hash<uint32_t>{}(k.get_value());
+        }
+    };
+}
+
 
 bool ipv4_address::unit_test(FILE *output) {  // output=nullptr by default
     test_case test_cases[] = {
@@ -906,7 +942,7 @@ public:
 
 
 //
-// IP address helpder classes
+// IP address helper classes
 //
 
 struct ipv4_addr : public datum {
