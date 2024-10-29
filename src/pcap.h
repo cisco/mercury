@@ -448,7 +448,7 @@ namespace pcap {
     public:
 
         file_writer(const char *fname, uint16_t ltype=LINKTYPE::ETHERNET) :
-            fd{open(fname, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP)},
+            fd{open(fname, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP)},
             linktype{ltype}
         {
             if (fd < 0) {
@@ -1127,7 +1127,7 @@ namespace pcap::ng {
             // fprintf(stderr, "timestamp_lo: %u\n", timestamp_lo.value());
             // fprintf(stderr, "caplen: %u\n", caplen.value());
             // fprintf(stderr, "len: %u\n", len.value());
-            packet.fprint_hex(stderr); fputc('\n', stderr);
+            // packet.fprint_hex(stderr); fputc('\n', stderr);
 
             ssize_t options_length = block_length - fixed_length - (caplen + pad_len(caplen));
             block_footer footer{d, options_length, byteswap_needed};
