@@ -10,17 +10,24 @@
 #include <algorithm>
 #include <cstdio>
 #include <optional>
+#include <chrono>
+#include <iostream>
 
 class file_enumerator {
     std::filesystem::path input;
     bool verbose;
+    time_t before;
+    time_t after;
 
 public:
 
     file_enumerator(const char *input_directory,
+                    std::pair<time_t, time_t> before_and_after,
                     bool output_warnings = false) :
         input{input_directory},
-        verbose{output_warnings}
+        verbose{output_warnings},
+        before{before_and_after.first},
+        after{before_and_after.second}
     { }
 
     std::optional<std::string> get_matching_files(const std::filesystem::directory_entry &dir_entry) {
@@ -31,7 +38,17 @@ public:
         std::transform(extension.begin(), extension.end(), extension.begin(),
                        [](char c) { return tolower(c); });
         if (extension == ".pcap" || extension == ".pcapng") {
-            return dir_entry.path();
+
+            // get file modification time, to compare to { before, after }
+            //
+            std::filesystem::file_time_type modified_at = last_write_time(dir_entry);
+            const auto sys_time = std::chrono::file_clock::to_sys(modified_at);
+            time_t mod_time = std::chrono::system_clock::to_time_t(sys_time);
+
+            if (mod_time < before and mod_time > after) {
+                return dir_entry.path();
+            }
+
         }
 
         return std::nullopt;   // nothing to return

@@ -178,8 +178,10 @@ public:
         }
     }
 
-    void process_directory(const char *dirname) {
-        file_enumerator files{dirname};
+    void process_directory(const char *dirname,
+                           std::pair<time_t, time_t> before_and_after) {
+
+        file_enumerator files{dirname, before_and_after};
         for (const auto& dir_entry : files.recursive_dir_it()) {
             std::optional<std::string> filename = files.get_matching_files(dir_entry);
             if (filename) {
@@ -250,6 +252,8 @@ int main(int argc, char *argv[]) {
 
     option_processor opt({{ argument::required, "--directory",   "directory of input files" },
                           { argument::required, "--file",        "input file" },
+                          { argument::required, "--modified-before", "ignore files not modified before %Y-%b-%d %H:%M:%S" },
+                          { argument::required, "--modified-after",  "ignore files not modified after %Y-%b-%d %H:%M:%S" },
                           { argument::required, "--pcap-output", "PCAP output file name" },
                           { argument::required, "--json-output", "JSON output file name" },
                           { argument::none,     "--help",        "print usage summary" },
@@ -271,8 +275,10 @@ int main(int argc, char *argv[]) {
         return EXIT_SUCCESS;
     }
 
-    auto [ dir_is_set, dir ]         = opt.get_value("--directory");
-    auto [ file_is_set, file ]       = opt.get_value("--file");
+    auto [ dir_is_set, dir ]                   = opt.get_value("--directory");
+    auto [ file_is_set, file ]                 = opt.get_value("--file");
+    auto [ mod_before_set, mod_before ]        = opt.get_value("--modified-before");
+    auto [ mod_after_set, mod_after ]          = opt.get_value("--modified-after");
     auto [ pcap_outfile_is_set, pcap_outfile ] = opt.get_value("--pcap-output");
     auto [ json_outfile_is_set, json_outfile ] = opt.get_value("--json-output");
 
@@ -291,6 +297,23 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    std::time_t b = std::numeric_limits<std::time_t>::max();
+    std::time_t a = std::numeric_limits<std::time_t>::min();
+
+    if (mod_before_set) {
+        std::istringstream before{mod_before};
+        std::tm tm_before{};
+        before >> std::get_time(&tm_before, "%Y-%b-%d %H:%M:%S");
+        b = std::mktime(&tm_before);
+    }
+
+    if (mod_after_set) {
+        std::istringstream after{mod_after};
+        std::tm tm_after{};
+        after >> std::get_time(&tm_after, "%Y-%b-%d %H:%M:%S");
+        a = std::mktime(&tm_after);
+    }
+
     address_remapper remapper{
         // ip_address_range{ntoh<uint32_t>(0xc0a80000), 17},
         // ip_address_range{ntoh<uint32_t>(0xc0a88000), 17},
@@ -301,7 +324,7 @@ int main(int argc, char *argv[]) {
         remapper.process_pcap(file.c_str());
     }
     if (dir_is_set) {
-        remapper.process_directory(dir.c_str());
+        remapper.process_directory(dir.c_str(), {b, a});
     }
 
     remapper.dump_map(json_output_file);
