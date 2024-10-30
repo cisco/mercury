@@ -297,8 +297,11 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    std::time_t b = std::numeric_limits<std::time_t>::max();
-    std::time_t a = std::numeric_limits<std::time_t>::min();
+    // set the default { after, before } times to the start of the
+    // epoch and the distant future, respectively
+    //
+    std::time_t a = 0;              // Wed Dec 31 19:00:00 1969
+    std::time_t b = 0xfffffffff;    // Sun Aug 20 03:32:15 4147
 
     if (mod_before_set) {
         std::istringstream before{mod_before};
