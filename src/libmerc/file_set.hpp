@@ -47,7 +47,9 @@ public:
 
             if (mod_time < before and mod_time > after) {
 
-                fprintf(stderr, "visiting %s\t%s", dir_entry.path().c_str(), ctime(&mod_time));
+                // verbose output
+                //
+                // fprintf(stderr, "visiting %s\t%s", dir_entry.path().c_str(), ctime(&mod_time));
                 // fprintf(stderr, "\t%zx\t%s", after, ctime(&after));
                 // fprintf(stderr, "\t%zx\t%s", mod_time, ctime(&mod_time));
                 // fprintf(stderr, "\t%zx\t%s", before, ctime(&before));

@@ -303,17 +303,36 @@ int main(int argc, char *argv[]) {
     std::time_t a = 0;              // Wed Dec 31 19:00:00 1969
     std::time_t b = 0xfffffffff;    // Sun Aug 20 03:32:15 4147
 
+    const char date_and_time_format[] = "%Y-%m-%d %H:%M:%S";
     if (mod_before_set) {
         std::istringstream before{mod_before};
         std::tm tm_before{};
-        before >> std::get_time(&tm_before, "%Y-%b-%d %H:%M:%S");
+        before >> std::get_time(&tm_before, date_and_time_format);
+        if (!before) {
+            fprintf(stderr,
+                    "error: could not parse '%s' as %s\n",
+                    mod_before.c_str(),
+                    date_and_time_format
+                    );
+            opt.usage(stderr, argv[0], summary);
+            return EXIT_FAILURE;
+        }
         b = std::mktime(&tm_before);
     }
 
     if (mod_after_set) {
         std::istringstream after{mod_after};
         std::tm tm_after{};
-        after >> std::get_time(&tm_after, "%Y-%b-%d %H:%M:%S");
+        after >> std::get_time(&tm_after, "%Y-%m-%d %H:%M:%S");
+        if (!after) {
+            fprintf(stderr,
+                    "error: could not parse '%s' as %s\n",
+                    mod_after.c_str(),
+                    date_and_time_format
+                    );
+            opt.usage(stderr, argv[0], summary);
+            return EXIT_FAILURE;
+        }
         a = std::mktime(&tm_after);
     }
 
