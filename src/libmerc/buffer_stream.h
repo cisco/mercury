@@ -1157,6 +1157,18 @@ public:
         trunc = 0;
     }
 
+    /// compare the contents of this buffer with the \param n bytes
+    /// starting at \param s.
+    ///
+    /// \return a value less than, equal to, or greater than zero if
+    /// the contents of the buffer , respectively, to be less
+    /// than, to match, or be greater.
+
+    int memcmp(const void *s, size_t n) {
+        size_t comp_length = std::min(n, (size_t)doff);
+        return ::memcmp(buffer, s, comp_length);
+    }
+
 };
 
 #endif /* BUFFER_STREAM_H */
