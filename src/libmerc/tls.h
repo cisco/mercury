@@ -203,8 +203,10 @@ enum class handshake_type : uint8_t {
     end_of_early_data = 5,
     encrypted_extensions = 8,
     certificate = 11,
+    server_key_exchange = 12,
     certificate_request = 13,
     certificate_verify = 15,
+    client_key_exchange = 16,
     finished = 20,
     key_update = 24,
     message_hash = 254
@@ -324,6 +326,8 @@ struct tls_extensions : public datum {
 
     void print_session_ticket(struct json_object &o, const char *key) const;
 
+    void print_ech_client_hello(struct json_object &o) const;
+
     void fingerprint_quic_tls(struct buffer_stream &b, enum tls_role role) const;
     void fingerprint_format2(struct buffer_stream &b, enum tls_role role) const;
 
@@ -349,19 +353,34 @@ struct tls_extensions : public datum {
         0xff, 0x2b, 0x00, 0x01, 0x02    // Private extension repeated fourth time
         };
 
-        unsigned char expected_json[] = "[(003e)(0a0a)(0a0a)(ff00)(ff00)(ff00)]";
+        /* In Format 1, extensions are degreased and no other encoding happens */
+        unsigned char expected_json_format1[] = "[(003f)(0a0a)(0a0a)(ff2b)(ff2b)(ff2b)(ff2b)]";
+
+        unsigned char expected_json_format2[] = "[(003e)(0a0a)(0a0a)(ff00)(ff00)(ff00)]";
+
         datum exts_data{extensions, extensions + sizeof(extensions)};
 
         tls_extensions exts{exts_data.data, exts_data.data_end};
 
-        char buffer[200];
-        struct buffer_stream buf(buffer, sizeof(buffer));
+        char buffer1[200];
+        struct buffer_stream buf1(buffer1, sizeof(buffer1));
 
-        exts.fingerprint_format2(buf, tls_role::client);
-        if (memcmp(expected_json, buf.dstr, sizeof(expected_json) - 1)) {
-            fprintf(stdout, "Test failed\n");
+        exts.fingerprint_quic_tls(buf1, tls_role::client);
+
+        if (memcmp(expected_json_format1, buf1.dstr, sizeof(expected_json_format1) - 1)) {
+            fprintf(stdout, "Test for fingerprint format1 failed\n");
             return false;
         }
+
+        char buffer2[200];
+        struct buffer_stream buf2(buffer2, sizeof(buffer2));
+
+        exts.fingerprint_format2(buf2, tls_role::client);
+        if (memcmp(expected_json_format2, buf2.dstr, sizeof(expected_json_format2) - 1)) {
+            fprintf(stdout, "Test for Fingerprint format 2 failed\n");
+            return false;
+        }
+
         return true;
 
     }
@@ -404,6 +423,19 @@ struct tls_client_hello : public base_protocol {
         { 0xff, 0xff, 0xfc, 0x00, 0x00, 0xff, 0x00, 0x00 },
         { 0x16, 0x03, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00 }
     };
+
+    void reset() {
+        protocol_version.set_null();
+        random.set_null();
+        session_id.set_null();
+        cookie.set_null();
+        ciphersuite_vector.set_null();
+        compression_methods.set_null();
+        extensions.set_null();
+        dtls = false;
+        is_quic_hello = false;
+        additional_bytes_needed = 0;
+    }
 
 };
 
@@ -552,6 +584,107 @@ public:
     }
 
 };
+
+
+//   ClientKeyExchange, following RFC 5246 Section 7.4.7
+//
+//   struct {
+//       select (KeyExchangeAlgorithm) {
+//           case rsa:
+//               EncryptedPreMasterSecret;
+//           case dhe_dss:
+//           case dhe_rsa:
+//           case dh_dss:
+//           case dh_rsa:
+//           case dh_anon:
+//               ClientDiffieHellmanPublic;
+//       } exchange_keys;
+//   } ClientKeyExchange;
+
+// enum { dhe_dss, dhe_rsa, dh_anon, rsa, dh_dss, dh_rsa
+//     /* may be extended, e.g., for ECDH -- see [TLSECC] */
+// } KeyExchangeAlgorithm;
+
+
+enum role {
+    client,
+    server,
+    undetected
+};
+
+class tls_certificate : public base_protocol {
+    struct tls_server_certificate certificate;
+    role entity;
+
+public:
+
+    tls_certificate(struct datum &pkt, struct tcp_packet *tcp_pkt) : certificate{}, entity{undetected} {
+        parse(pkt, tcp_pkt);
+    }
+
+    void parse(struct datum &pkt, struct tcp_packet *tcp_pkt) {
+
+        // parse certificate
+        //
+        struct tls_record rec{pkt};
+        struct tls_handshake handshake{rec.fragment};
+        if (handshake.msg_type == handshake_type::certificate) {
+            certificate.parse(handshake.body);
+
+            if (rec.fragment.is_not_empty()) {
+                tls_handshake handshake{rec.fragment};
+                if (handshake.msg_type == handshake_type::client_key_exchange) {
+                    entity = client;
+                } else if (handshake.msg_type == handshake_type::server_key_exchange) {
+                    entity = server;
+                }
+            } else if (pkt.is_not_empty()) {
+                tls_record rec2{pkt};
+                tls_handshake handshake{rec2.fragment};
+                if (handshake.msg_type == handshake_type::client_key_exchange) {
+                    entity = client;
+                } else if (handshake.msg_type == handshake_type::server_key_exchange) {
+                    entity = server;
+                }
+            }
+
+        }
+        if (tcp_pkt && certificate.additional_bytes_needed) {
+            tcp_pkt->reassembly_needed(certificate.additional_bytes_needed);
+        }
+    }
+
+    bool is_not_empty() {
+        return certificate.is_not_empty();
+    }
+
+    void write_json(struct json_object &record, bool metadata_output, bool certs_json_output) {
+        (void)metadata_output;
+
+        bool have_certificate = certificate.is_not_empty();
+        if (have_certificate) {
+
+            // output certificate
+            //
+            const char *role = "undetermined";
+            if (entity == client) {
+                role = "client";
+            } else if (entity == server) {
+                role = "server";
+            }
+            struct json_object tls{record, "tls"};
+            json_object client_or_server{tls, role};
+            struct json_array certs{client_or_server, "certs"};
+            certificate.write_json(certs, certs_json_output);
+            certs.close();
+            client_or_server.close();
+            tls.close();
+
+        }
+    }
+
+};
+
 
 static uint16_t degrease_uint16(uint16_t x) {
     switch(x) {

@@ -6,7 +6,6 @@ from pathlib import Path
 import gzip
 from collections import defaultdict
 
-
 def update_stats_db(stats, src_ip, str_repr, user_agent, dst_info, count):
     # set up stats entries
     if src_ip not in stats:
@@ -32,10 +31,14 @@ def read_merc_data(in_file, mask_src_ip):
         if 'fingerprints' not in r:
             continue
 
+        if not any(keyword in r['fingerprints'] for keyword in ['tls', 'http', 'quic']):
+            continue
+
         src_ip      = r['src_ip']
         dst_ip      = r['dst_ip']
         dst_port    = r['dst_port']
         user_agent = ''
+        server_name = ''
 
         # dictionary encode src_ip
         #
@@ -196,7 +199,7 @@ def approx_stats_compare_db(merc_db, merc_stats):
         is_entry_match(merc_stats[k], merc_db[k], unmatched_fps)
 
     if len(unmatched_fps):
-        print('below fingerprint strings/destination parameters donot match')
+        print('fingerprint strings/destination parameters below do not match')
         for x in unmatched_fps:
             print(x)
         return False
@@ -244,7 +247,7 @@ def main():
 
     if args.approx_match is True:
         if merc_count - merc_count_stats > 0.1 * merc_count:
-            print('error: Difference between merc_out count ({}) and merc_stats count ({}) is greater then 10%'.format(merc_count, merc_count_stats))
+            print('error: Difference between merc_out count ({}) and merc_stats count ({}) is greater than 10%'.format(merc_count, merc_count_stats))
             sys.exit(1)
 
         if approx_stats_compare_db(merc_db, merc_db_stats) == False:
@@ -255,6 +258,8 @@ def main():
         if merc_count != merc_count_stats:
             print('error: merc_out count ({}) != merc_stats count ({})'.format(merc_count, merc_count_stats))
             sys.exit(1)
+        else:
+            print('merc_out count ({}) == merc_stats count ({})'.format(merc_count, merc_count_stats))
 
         # print(merc_count)
         # print(merc_count_stats)

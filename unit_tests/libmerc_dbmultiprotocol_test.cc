@@ -133,7 +133,12 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic with resources-mp")
              .m_lc{.do_analysis = true, .resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"quic"},
              .m_pc{"quic_v2.pcap"}},
-         11}
+         11},
+         {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"quic;quic-reassembly"},
+             .m_pc{"quic_fragmented.pcap"}},
+         2}
     };
 
     for (auto &[config, count] : test_set_up)
@@ -684,5 +689,42 @@ TEST_CASE_METHOD(LibmercTestFixture, "socks with resources-mp")
     {
         set_pcap(config.m_pc.c_str());
         socks_check(count, config.m_lc);
+    }
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "geneve encapsulated IPv4 and Ethernet with resources-mp")
+{
+
+    auto tls_check = [&](int expected_count, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(expected_count == counter());
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, int>> test_set_up{
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"tls.client_hello"},
+             .m_pc{"geneve.pcap"}},
+         42},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"tls.server_hello"},
+             .m_pc{"geneve.pcap"}},
+         43},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"tcp"},
+             .m_pc{"geneve.pcap"}},
+         43},
+    };
+
+    for (auto &[config, count] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        tls_check(count, config.m_lc);
     }
 }

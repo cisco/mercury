@@ -99,6 +99,10 @@ static enum status mercury_config_parse_line(struct mercury_config *cfg,
 
     if ((arg = command_get_argument("read=", line)) != NULL) {
         cfg->read_filename = strdup(arg);
+        // use blocking output, so that no packets are lost in copying
+        cfg->output_block = true;
+        // use blocking stats to avoid losing stats events
+        additional_args = str_append(additional_args, "stats-blocking;");
         return status_ok;
 
     } else if ((arg = command_get_argument("write=", line)) != NULL) {
@@ -184,6 +188,10 @@ static enum status mercury_config_parse_line(struct mercury_config *cfg,
         additional_args = str_append(additional_args, "tcp-reassembly;");
         return status_ok;
 
+    } else if ((arg = command_get_argument("quic-reassembly", line)) != NULL) {
+        additional_args = str_append(additional_args, "quic-reassembly;");
+        return status_ok;
+
     } else if ((arg = command_get_argument("format=", line)) != NULL) {
         additional_args = str_append(additional_args, "format=");
         additional_args = str_append(additional_args, arg);
@@ -247,4 +255,3 @@ enum status mercury_config_read_from_file(struct mercury_config &cfg,
 
     return status_ok;
 }
-

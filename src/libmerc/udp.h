@@ -53,9 +53,11 @@ class udp {
 
     const struct header *header;
 
+    uint32_t more_bytes_needed;
+
 public:
 
-    udp(struct datum &d) : header{NULL} { parse(d); };
+    udp(struct datum &d) : header{NULL}, more_bytes_needed{0} { parse(d); };
 
     void parse(struct datum &d) {
         header = d.get_pointer<struct header>();
@@ -91,6 +93,21 @@ public:
             k.dst_port = ntoh(header->dst_port);
             k.protocol = 17; // udp
         }
+    }
+
+    uint16_t get_len() const {
+        if (header) {
+            return ntoh(header->length);
+        }
+        return 0;
+    }
+
+    void reassembly_needed (uint32_t bytes) {
+        more_bytes_needed = bytes;
+    }
+
+    uint32_t additional_bytes_needed() {
+        return more_bytes_needed;
     }
 
 };

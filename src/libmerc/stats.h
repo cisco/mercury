@@ -74,7 +74,7 @@ public:
                 throw std::runtime_error("error in gzprintf");
             gz_ret = gzprintf(gzf, "{\"src_ip\":\"%s\", \"libmerc_init_time\" : \"%s\",\"libmerc_version\": \"%s\","
                                    " \"build_number\" : \"%u\", \"git_commit_id\": \"%s\", \"fingerprints\":"
-                                   "[{\"str_repr\":\"%s\", \"sessions\": [{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u", 
+                                   "[{\"str_repr\":\"%s\", \"sessions\": [{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u",
                 v[0].c_str(), init_time, version, git_count, git_commit_id, v[1].c_str(), user_agent, v[3].c_str(), count);
             break;
         case 1:
@@ -228,7 +228,7 @@ public:
                 throw std::runtime_error("error: stats dump interrupted");
             } else {
                 return l.first < r.first;
-            } 
+            }
         } );
 
         event_processor_gz ep(f);
@@ -263,6 +263,8 @@ class data_aggregator {
     stats_aggregator ag1, ag2, *ag;
     std::atomic<bool> shutdown_requested;
     dict addr_dict;
+    bool blocking;  // stats event collection: lossless but blocking
+    useconds_t consumer_sleep; // microseconds
     std::thread consumer_thread;
     std::mutex m;
     std::mutex output_mutex;
@@ -289,14 +291,40 @@ class data_aggregator {
         }
     }
 
+    double event_queue_fill_ratio(message_queue *q) {
+        return static_cast<double>(q->size()) / static_cast<double>(q->capacity());
+    }
+
+    void adjust_consumer_sleep(double max_fill_ratio) {
+        // Aim for busiest queue to be between 25% and 50% full before emptying.
+        // However, always bound the sleep time within [1us, 50us].
+        useconds_t new_sleep;
+        if (max_fill_ratio < 0.25) {
+            new_sleep = consumer_sleep + 1; // additive increase
+            new_sleep = std::min(new_sleep, (useconds_t)50);
+        } else if (max_fill_ratio > 0.5) {
+            new_sleep = consumer_sleep / 2; // multiplicative decrease
+            new_sleep = std::max(new_sleep, (useconds_t)1);
+        } else {
+            return;                         // no change needed
+        }
+        //fprintf(stderr, "Max message_queue fill ratio: %3.3f   new_sleep: %u us\n",
+        //        max_fill_ratio, new_sleep);
+        consumer_sleep = new_sleep;
+    }
+
     void process_event_queues() {
         std::lock_guard m_guard{m};
         //fprintf(stderr, "note: processing event queue of size %zd in %p\n", q.size(), (void *)this);
+        double max_fill_ratio = 0.0; // max over queues (worker threads) at the current moment
         if (q.size()) {
             for (auto & qr : q) {
                 //fprintf(stderr, "note: processing event queue %p in %p with size %zd\n", (void *)qr, (void *)this, qr->size());
+                double fill_ratio = event_queue_fill_ratio(qr);
+                max_fill_ratio = std::max(max_fill_ratio, fill_ratio);
                 empty_event_queue(qr);
             }
+            adjust_consumer_sleep(max_fill_ratio);
         }
     }
 
@@ -304,13 +332,13 @@ class data_aggregator {
         //fprintf(stderr, "note: running consumer in %p\n", (void *)this);
         while(shutdown_requested.load() == false) {
             process_event_queues();
-            usleep(50); // sleep for fifty microseconds
+            usleep(consumer_sleep); // sleep somewhere between 1us and 50us
         }
     }
 
 public:
 
-    data_aggregator(size_t size_limit=0) : q{}, ag1{addr_dict, size_limit}, ag2{addr_dict, size_limit}, ag{&ag1}, shutdown_requested{false} {
+    data_aggregator(size_t size_limit=0, bool blocking=false) : q{}, ag1{addr_dict, size_limit}, ag2{addr_dict, size_limit}, ag{&ag1}, shutdown_requested{false}, blocking{blocking}, consumer_sleep{1} {
         mercury_get_version_string(version, MAX_VERSION_STRING);
         start_processing();
         //fprintf(stderr, "note: constructing data_aggregator %p\n", (void *)this);
@@ -330,7 +358,7 @@ public:
     message_queue *add_producer() {
         std::lock_guard m_guard{m};
         //fprintf(stderr, "note: adding producer in %p\n", (void *)this);
-        q.push_back(new message_queue);
+        q.push_back(new message_queue(blocking));
         return q.back();
     }
 
@@ -391,8 +419,9 @@ public:
         }
     }
 
-    size_t get_num_entries() const
+    size_t get_num_entries()
     {
+        std::lock_guard m_guard{m};
         return ag->get_num_entries();
     }
 };

@@ -41,6 +41,7 @@ public:
         out_file->file_num = 0;
         out_file->mode = cfg.mode;
         out_file->rotate_time = cfg.out_rotation_duration;
+        out_file->from_network = 0;
 
         if (cfg.fingerprint_filename) {
             out_file->outfile_name = cfg.fingerprint_filename;

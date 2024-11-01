@@ -1,5 +1,56 @@
 # CHANGELOG for Mercury
 
+## Version 2.5.31
+* Mercury now outputs `tls.client.certs` and `tls.undetermined.certs`
+  as well as `tls.server.certs`, for TLS version 1.2 and earlier.
+  Client and server certificate chains are distinguished by the
+  handshake type of the key exchange data that follows the
+  `Certificate` data.  If no key exchange data is present, then the
+  certificate is reported as `tls.undetermined.certs`.
+* Timestamp counter reading support for ARM added in
+  [tsc_clock.hpp](src/libmerc/tsc_clock.hpp).
+* If a timestamp of `0` is passed to `libmerc`, a timestamp is
+  computed in order to improve the reassembly of TCP messages, as needed.
+
+## Version 2.5.30
+* Dramatic improvements to TCP reassembly for output, performance and TCP segments handling.
+* Improved error handling for malformed UTF-8 strings encountered in protocol fields.
+* Support to parse and output an Encrypted Client Hello extension features.
+* Concise Data Definition Language (CDDL) definitions for Network Protocol Fingerprinting.
+* Concise Binary Object Representation (CBOR) encoding and decoding for fingerprints and Fingerprint and Destination Context.
+* Support for reading classifier feature weights from resource file, whenever available.
+
+## Version 2.5.29
+* Support for "dual DB" resource archives, as described in
+  [doc/resources.md](../doc/resources.md).
+* Dramatic improvements to mercury's scalability, due to a lockless
+  ring buffer for output, and output buffers that scale to 20% of the
+  requested memory.  JSON output records may now have `event_start`
+  times that are slightly out of order, as the tournament tree that
+  had been used to ensure ordering across threads has been removed.
+* Significant improvements to error detection, recovery and reporting,
+  including stall detection and recovery for packet-processing
+  threads, thread ID reporting, more detailed I/O statistics, and
+  accounting for output drops and output file rotation.
+
+## Version 2.5.28
+* Added decapsulation support for GENEVE (RFC 8926)
+* Added a log message that indicates the end of a stats dump, and one that reports the total number of fingerprints of each type in resource file.
+* Disabled the TLS "feature" output, to reduce output volume.
+* Added a commit hash output to `mercury --version`
+* Added a check that the resource archive contains a watchlist, and added an empty watchlist to `resources/resources.tgz`.
+* Added a Makefile target for the Cryptographic Message Syntax (CMS) reader `src/cms`.
+* Minor fixes to output and documentation.
+
+## Version 2.5.27
+
+* Changes to enable native builds on MacOS for both Intel and Apple Silicon.
+* Fixes and extensions to fuzz testing, and additions so that the `fuzz-test` target in [test/Makefile.in](../test/Makefile.in) can be used by Jenkins.
+* Tofsee fingerprints are now reported through the `stats` output.
+* The `tls/2` and `quic/1` fingerprints were revamped to include the QUIC extension ffa5.
+* GREASE normalization for `tls/1` was fixed.
+* The equivalence class normalization for `dst_port` was removed.
+
 ## Version 2.5.26
 
 * Added SOCKS v4 and v5 identification and metadata reporting.

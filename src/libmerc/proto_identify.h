@@ -198,6 +198,11 @@ public:
         return 0;   // type unknown;
     }
 
+    void disable_all() {
+        matchers.clear();
+        matchers_and_offset.clear();
+    }
+
 };
 
 // class selector implements a protocol selection policy for TCP and
@@ -257,6 +262,13 @@ public:
     bool nbss() const { return select_nbss; }
 
     bool openvpn_tcp() const { return select_openvpn_tcp; }
+
+    void disable_all() {
+        tcp.disable_all();
+        tcp4.disable_all();
+        udp.disable_all();
+        udp16.disable_all();
+    }
 
     traffic_selector(std::map<std::string, bool> protocols) :
             tcp{},
@@ -332,11 +344,11 @@ public:
         if (protocols["tcp"] || protocols["all"]) {
             select_tcp_syn = true;
         }
-        if (protocols["tcp.message"]) {
+        if (protocols["tcp.message"] || protocols["all"]) {
             // select_tcp_syn = 0;
             // tcp_message_filter_cutoff = 1;
         }
-        if (protocols["tcp.syn_ack"]) {
+        if (protocols["tcp.syn_ack"] || protocols["all"]) {
             select_tcp_syn_ack = true;
         }
         if (protocols["dhcp"] || protocols["all"]) {
@@ -388,32 +400,32 @@ public:
         if (protocols["dnp3"] || protocols["all"]) {
             tcp4.add_protocol(dnp3::matcher, tcp_msg_type_dnp3);
         }
-        if (protocols["arp"]) {
+        if (protocols["arp"] || protocols["all"]) {
             select_arp = true;
         }
-        if (protocols["cdp"]) {
+        if (protocols["cdp"] || protocols["all"]) {
             select_cdp = true;
         }
-        if (protocols["gre"]) {
+        if (protocols["gre"] || protocols["all"]) {
             select_gre = true;
         }
-        if (protocols["icmp"]) {
+        if (protocols["icmp"] || protocols["all"]) {
             select_icmp = true;
         }
-        if (protocols["lldp"]) {
+        if (protocols["lldp"] || protocols["all"]) {
             select_lldp = true;
         }
-        if (protocols["ospf"]) {
+        if (protocols["ospf"] || protocols["all"]) {
             select_ospf = true;
         }
-        if (protocols["sctp"]) {
+        if (protocols["sctp"] || protocols["all"]) {
             select_sctp = true;
         }
-        if (protocols["nbss"]) {
+        if (protocols["nbss"] || protocols["all"]) {
             select_nbss = true;
            // tcp4.add_protocol(nbss_packet::matcher, tcp_msg_type_nbss);
         }
-        if (protocols["nbds"]) {
+        if (protocols["nbds"] || protocols["all"]) {
             select_nbds = true;
         }
         if (protocols["openvpn_tcp"] || protocols["all"]) {

@@ -7,7 +7,7 @@
 #include "datum.h"
 #include "protocol.h"
 #include "json_object.h"
-#include "util_obj.h"      // for utf8_string
+#include "utf8.hpp"
 #include "match.h"
 #include "fingerprint.h"
 #include <unordered_map>

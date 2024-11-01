@@ -158,9 +158,23 @@ struct key {
         }
     }
 
+    void sprint_dst_addr(char dst_addr[MAX_ADDR_STR_LEN]) const {
+        if (ip_vers == 4) {
+            uint8_t *da = (uint8_t *)&addr.ipv4.dst;
+            snprintf(dst_addr, MAX_ADDR_STR_LEN, "%u.%u.%u.%u", da[0], da[1], da[2], da[3]);
+        } else {
+            uint8_t *da = (uint8_t *)&addr.ipv6.dst;
+            sprintf_ipv6_addr(dst_addr, da);
+        }
+    }
+
 #define MAX_PORT_STR_LEN 6
     void sprint_dst_port(char dst_port_string[MAX_PORT_STR_LEN]) const {
         snprintf(dst_port_string, MAX_PORT_STR_LEN, "%u", dst_port);
+    }
+
+    void sprint_src_port(char src_port_string[MAX_PORT_STR_LEN]) const {
+        snprintf(src_port_string, MAX_PORT_STR_LEN, "%u", src_port);
     }
 
 };
@@ -175,17 +189,6 @@ struct eth_addr : public datum {
     void fingerprint(struct buffer_stream &b) const {
         if (datum::is_not_null()) {
             b.write_mac_addr(data);
-        }
-    }
-};
-
-class utf8_string : public datum {
-public:
-    utf8_string(datum &d) : datum{d} { }
-
-    void fingerprint(struct buffer_stream &b) const {
-        if (datum::is_not_null()) {
-            b.write_utf8_string(data, length());
         }
     }
 };
