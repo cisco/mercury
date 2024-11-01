@@ -8,6 +8,7 @@
 #ifndef BUFFER_STREAM_H
 #define BUFFER_STREAM_H
 
+#include <algorithm> // for std::min()
 #include <string.h>  /* for memcpy() */
 #include <stdarg.h>
 #include <time.h>
