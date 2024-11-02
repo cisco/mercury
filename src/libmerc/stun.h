@@ -530,7 +530,26 @@ namespace stun {
             transaction_id{d, 16}
         { }
 
+        static constexpr std::array<uint8_t,4> magic_cookie{0x21, 0x12, 0xa4, 0x42};
+
         bool is_valid() const { return transaction_id.is_not_empty(); }
+
+        // return the number of zero bytes in the transaction_id
+        //
+        size_t tid_zero_count() const {
+            size_t count = 0;
+            for (const auto & x : transaction_id) {
+                if (x == 0) {
+                    ++count;
+                }
+            }
+            return count;
+        }
+
+        bool has_known_method_and_class() const {
+            return message_type_string(message_type_field & msg_type_mask) != nullptr
+                and method<uint16_t>{get_method_type()}.get_name() != nullptr;
+        }
 
         static constexpr size_t length = 20;    // number of bytes in header
 
@@ -545,9 +564,11 @@ namespace stun {
                 }
                 o.print_key_uint("message_length", message_length);
                 o.print_key_hex("transaction_id", transaction_id);
-                o.print_key_bool("magic_cookie", transaction_id.matches(std::array<uint8_t,4>{0x21, 0x12, 0xa4, 0x42}));
+                o.print_key_bool("magic_cookie", has_magic_cookie());
             }
         }
+
+        bool has_magic_cookie() const { return transaction_id.matches(magic_cookie); }
 
         void write_raw_features(writeable &w) const {
             w.copy('"');
@@ -567,6 +588,10 @@ namespace stun {
 
             buf.write_char('(');
             buf.write_hex_uint(get_method_type());
+            buf.write_char(')');
+
+            buf.write_char('(');
+            buf.write_hex_uint((uint8_t)has_magic_cookie());
             buf.write_char(')');
         }
 
@@ -642,15 +667,17 @@ namespace stun {
         //     }
         // };
 
-        // returns the length of the stun packet pkt, based on the
-        // length field of the header
-        //
-        // This function does not attempt to fully parse the packet,
-        // and thus is suitable for use in protocol identification.o
-        //
+        /// returns the length of the stun packet pkt as indicated by
+        /// the length field of the header, if \param pkt contains a
+        /// complete header, or -1 otherwise.
+        ///
+        /// This function does not attempt to fully parse the packet,
+        /// and thus is suitable for use in protocol identification.
+        ///
         static ssize_t packet_length_from_header(datum pkt) {
             encoded<uint16_t> ignore{pkt};
             encoded<uint16_t> length{pkt};
+            pkt.skip(12);
             if (pkt.is_not_null()) {
                 return header::length + length.value();
             }
@@ -667,7 +694,16 @@ namespace stun {
         };
 
         bool is_not_empty() const {
-            return hdr.is_valid();
+            if (!hdr.is_valid() or (hdr.get_message_length() != body.length())) {
+                return false;
+            }
+            if (hdr.has_magic_cookie()) {
+                return true;
+            }
+            if (body.length() == 0) {
+                return hdr.has_known_method_and_class() and hdr.tid_zero_count() < 2;
+            }
+            return (bool)lookahead<stun::attribute>{body};  // body must contain at least one valid attribute
         }
 
         void compute_fingerprint(fingerprint &fp) {
@@ -757,5 +793,49 @@ namespace stun {
 
     return 0;
 }
+
+/*
+
+STUN implementation notes
+
+RFC 5389 and later STUN defines the Message Type and Message Class
+fields with this mapping to the first 16 bits of the STUN header:
+
+      0                      1
+      0 1  2  3  4 5 6 7 8 9 0 1 2 3 4 5
+     +-+-+--+--+-+-+-+-+-+-+-+-+-+-+-+-+
+     | | |M |M |M|M|M|C|M|M|M|C|M|M|M|M|
+     | | |11|10|9|8|7|1|6|5|4|0|3|2|1|0|
+     +-+-+--+--+-+-+-+-+-+-+-+-+-+-+-+-+
+
+RFC 3489 defines those 16 bits as follows:
+
+      Field                         Hex       Binary
+      ---------------------------------------------------------
+      Binding Request               0x0001    0000000000000001
+      Binding Response              0x0101    0000000100000001
+      Binding Error Response        0x0111    0000000100010001
+      Shared Secret Request         0x0002    0000000000000010
+      Shared Secret Response        0x0102    0000000100000010
+      Shared Secret Error Response  0x0112    0000000100010010
+                                                  ^^^^^^^^^^^^
+                                                  ||||||||||||
+                                                  MMMCMMMCMMMM
+                                                  987165403210
+
+      Field                         Binary            M                 Class (reqeust/response/error-response)
+      --------------------------------------------------------------------------
+      Binding Request               0000000000000001  0000000000000001  000000000000000
+      Binding Response              0000000100000001  0000000000000001  000000000000010
+      Binding Error Response        0000000100010001  0000000000000001  000000000000011
+      Shared Secret Request         0000000000000010  0000000000000010  000000000000000
+      Shared Secret Response        0000000100000010  0000000000000010  000000000000010
+      Shared Secret Error Response  0000000100010010  0000000000000010  000000000000011
+                                        ^^^^^^^^^^^^
+                                        ||||||||||||
+                                        MMMCMMMCMMMM
+                                        987165403210
+
+ */
 
 #endif // STUN_H

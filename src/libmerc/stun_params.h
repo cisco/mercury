@@ -28,6 +28,7 @@ public:
     }
     enum code {
         Binding           = 0x001,
+        SharedSecret      = 0x002,
         Allocate          = 0x003,
         Refresh           = 0x004,
         Send              = 0x006,
@@ -42,6 +43,7 @@ public:
     const char *get_name() const {
         switch(encoded<T>::value()) {
         case Binding:           return "Binding";
+        case SharedSecret:      return "SharedSecret";
         case Allocate:          return "Allocate";
         case Refresh:           return "Refresh";
         case Send:              return "Send";
