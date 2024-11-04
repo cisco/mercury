@@ -504,6 +504,7 @@ namespace stun {
         encoded<uint16_t> message_length;
         // literal<4> magic_cookie;
         datum transaction_id;                   // note: always 16 bytes in length
+        bool tid_has_magic_cookie{false};
 
         enum message_type : uint16_t {
             request      = 0x0000,
@@ -535,13 +536,15 @@ namespace stun {
         header(datum &d) :
             message_type_field{d},
             message_length{d},
-            // magic_cookie{d, {0x21, 0x12, 0xa4, 0x42}},
-            transaction_id{d, 16}
+            transaction_id{d, 16},
+            tid_has_magic_cookie{transaction_id.matches(magic_cookie)}
         { }
 
         static constexpr std::array<uint8_t,4> magic_cookie{0x21, 0x12, 0xa4, 0x42};
 
         bool is_valid() const { return transaction_id.is_not_empty(); }
+
+        bool has_magic_cookie() const { return tid_has_magic_cookie; }
 
         // return the number of zero bytes in the transaction_id
         //
@@ -572,12 +575,14 @@ namespace stun {
                     o.print_key_string("message_type", type_name);
                 }
                 o.print_key_uint("message_length", message_length);
-                o.print_key_hex("transaction_id", transaction_id);
-                o.print_key_bool("magic_cookie", has_magic_cookie());
+                datum tmp{transaction_id};
+                if (tid_has_magic_cookie) {
+                    tmp.skip(magic_cookie.size());
+                }
+                o.print_key_hex("transaction_id", tmp);
+                o.print_key_bool("magic_cookie", tid_has_magic_cookie);
             }
         }
-
-        bool has_magic_cookie() const { return transaction_id.matches(magic_cookie); }
 
         void write_raw_features(writeable &w) const {
             w.copy('"');
@@ -600,7 +605,7 @@ namespace stun {
             buf.write_char(')');
 
             buf.write_char('(');
-            buf.write_hex_uint((uint8_t)has_magic_cookie());
+            buf.write_hex_uint((uint8_t)tid_has_magic_cookie);
             buf.write_char(')');
         }
 
@@ -707,7 +712,7 @@ namespace stun {
                 return false;
             }
             if (hdr.has_magic_cookie()) {
-                return true;
+                return true;            // very highly likely that we are modern STUN
             }
             if (body.length() == 0) {
                 return hdr.has_known_method_and_class() and hdr.tid_zero_count() < 2;
