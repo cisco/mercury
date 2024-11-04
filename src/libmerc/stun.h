@@ -351,6 +351,10 @@ namespace stun {
                 // no data in value field
                 break;
             case attribute_type<uint16_t>::MAPPED_ADDRESS:
+            case attribute_type<uint16_t>::RESPONSE_ADDRESS:
+            case attribute_type<uint16_t>::SOURCE_ADDRESS:
+            case attribute_type<uint16_t>::CHANGED_ADDRESS:
+            case attribute_type<uint16_t>::REFLECTED_FROM:
             case attribute_type<uint16_t>::ALTERNATE_SERVER:
             case attribute_type<uint16_t>::RESPONSE_ORIGIN:
             case attribute_type<uint16_t>::OTHER_ADDRESS:
@@ -400,6 +404,11 @@ namespace stun {
             case attribute_type<uint16_t>::LIFETIME:
                 if (lookahead<lifetime> lt{value}) {
                     lt.value.write_json(o);
+                }
+                break;
+            case attribute_type<uint16_t>::BANDWIDTH:
+                if (lookahead<encoded<uint32_t>> bandwidth{value}) {
+                    o.print_key_uint("kbps", bandwidth.value);
                 }
                 break;
             case attribute_type<uint16_t>::REQUESTED_TRANSPORT:
@@ -771,6 +780,16 @@ namespace stun {
             }
             buf.write_char(')');
 
+        }
+
+        // analyzes the dst_ip, dst_port, and SOFTWARE attribute
+        // value, using a classifier selected by the stun fingerprint
+        //
+        bool do_analysis(const struct key &, struct analysis_context &, classifier*) {
+            //
+            // TBD
+            //
+            return false;
         }
 
     };

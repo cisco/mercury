@@ -75,12 +75,17 @@ public:
     }
     enum code {
         MAPPED_ADDRESS                         = 0x0001,
+        RESPONSE_ADDRESS                       = 0x0002,
+        SOURCE_ADDRESS                         = 0x0004,
+        CHANGED_ADDRESS                        = 0x0005,
         USERNAME                               = 0x0006,
         MESSAGE_INTEGRITY                      = 0x0008,
         ERROR_CODE                             = 0x0009,
         UNKNOWN_ATTRIBUTES                     = 0x000A,
+        REFLECTED_FROM                         = 0x000B,
         CHANNEL_NUMBER                         = 0x000C,
         LIFETIME                               = 0x000D,
+        BANDWIDTH                              = 0x0010,
         XOR_PEER_ADDRESS                       = 0x0012,
         DATA                                   = 0x0013,
         REALM                                  = 0x0014,
@@ -144,12 +149,17 @@ public:
     const char *get_name() const {
         switch(encoded<T>::value()) {
         case MAPPED_ADDRESS:                         return "MAPPED_ADDRESS";
+        case RESPONSE_ADDRESS:                       return "RESPONSE_ADDRESS";
+        case SOURCE_ADDRESS:                         return "SOURCE_ADDRESS";
+        case CHANGED_ADDRESS:                        return "CHANGED_ADDRESS";
         case USERNAME:                               return "USERNAME";
         case MESSAGE_INTEGRITY:                      return "MESSAGE_INTEGRITY";
         case ERROR_CODE:                             return "ERROR_CODE";
         case UNKNOWN_ATTRIBUTES:                     return "UNKNOWN_ATTRIBUTES";
+        case REFLECTED_FROM:                         return "REFLECTED_FROM";
         case CHANNEL_NUMBER:                         return "CHANNEL_NUMBER";
         case LIFETIME:                               return "LIFETIME";
+        case BANDWIDTH:                              return "BANDWIDTH";
         case XOR_PEER_ADDRESS:                       return "XOR_PEER_ADDRESS";
         case DATA:                                   return "DATA";
         case REALM:                                  return "REALM";
