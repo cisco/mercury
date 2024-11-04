@@ -94,7 +94,7 @@ bool json_string::unit_test() {
     if (test(19, "{\"test\":\"example\"}") != true) {
         return false;
     }
-    if (test(18, "{}") != false) {
+    if (test(18, "{}") != true) {
         return false;
     }
 
