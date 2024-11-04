@@ -6,7 +6,6 @@ from pathlib import Path
 import gzip
 from collections import defaultdict
 
-
 def update_stats_db(stats, src_ip, str_repr, user_agent, dst_info, count):
     # set up stats entries
     if src_ip not in stats:
@@ -32,10 +31,14 @@ def read_merc_data(in_file, mask_src_ip):
         if 'fingerprints' not in r:
             continue
 
+        if not any(keyword in r['fingerprints'] for keyword in ['tls', 'http', 'quic']):
+            continue
+
         src_ip      = r['src_ip']
         dst_ip      = r['dst_ip']
         dst_port    = r['dst_port']
         user_agent = ''
+        server_name = ''
 
         # dictionary encode src_ip
         #

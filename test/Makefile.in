@@ -116,7 +116,7 @@ comp: $(COMP_FILES) $(MCAP_COMP_FILES) $(JSON_COMP_FILES)
 # implicit rule to make a JSON file from a PCAP file
 #
 %.json: %.pcap
-	$(MERCURY) -r $< -f $@ --tcp-reassembly
+	$(MERCURY) -r $< -f $@ --tcp-reassembly --metadata
 
 # implicit rule to make a fingerprint file from a JSON file
 #
@@ -258,6 +258,14 @@ endif
 else
 	@echo $(COLOR_YELLOW) "omitting dummy-capture test; tcpreplay is unavailable" $(COLOR_OFF)
 endif
+
+.PHONY: json-test
+json-test:
+	@echo "running json-test"
+	${MERCURY} -r data/http.pcap -f tmp.json --metadata -a --resources=../resources/resources.tgz
+	bash -c "diff tmp.json data/http.json"
+	@echo $(COLOR_GREEN) "passed json-test" $(COLOR_OFF)
+	rm -f tmp.json
 
 .PHONY: stats
 stats:
