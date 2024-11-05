@@ -22,7 +22,7 @@ def update_stats_db(stats, src_ip, str_repr, user_agent, dst_info, count):
     stats[src_ip]['fingerprints'][str_repr][dst_info] += count
 
 
-def read_merc_data(in_file, mask_src_ip):
+def read_merc_data(in_file):
     stats_db    = {}
     total_count = 0
     addr_dict   = {}
@@ -39,15 +39,6 @@ def read_merc_data(in_file, mask_src_ip):
         dst_port    = r['dst_port']
         user_agent = ''
         server_name = ''
-
-        # dictionary encode src_ip
-        #
-        if src_ip not in addr_dict:
-            addr_dict[src_ip] = len(addr_dict)
-        src_ip = addr_dict[src_ip]
-
-        if mask_src_ip is True:
-            src_ip = 0
 
         if 'tls' in r['fingerprints']:
             # extract data elements
@@ -92,15 +83,12 @@ def read_merc_data(in_file, mask_src_ip):
     return stats_db, total_count
 
 
-def read_merc_stats(in_file, mask_src_ip):
+def read_merc_stats(in_file):
     stats_db    = {}
     total_count = 0
     for line in open(in_file):
         r = json.loads(line)
-        src_ip = int(r['src_ip'], 16)  # convert hex string to integer
-
-        if mask_src_ip is True:
-            src_ip = 0
+        src_ip = r['src_ip']
 
         for x in r['fingerprints']:
             str_repr = x['str_repr']
@@ -214,9 +202,6 @@ def main():
                       help='directory path for stats file', type=Path, default=os.getcwd())
     parser.add_argument('-s','--mercury-stats',action='store',dest='merc_stats',
                       help='mercury statistics file prefix',default=None)
-    parser.add_argument('-i', '--ignore-src', action='store_true', dest='ignore_src_ip',
-                      help='Ignore src ip while comparing',
-                      default='False')
     parser.add_argument('-a', '--approx-match', action='store_true', dest='approx_match',
                       help='approximate match of stats and json entries',
                       default='False')
@@ -229,7 +214,7 @@ def main():
         print('error: specify mercury statistics file')
         sys.exit(1)
 
-    merc_db, merc_count = read_merc_data(args.merc_out, args.ignore_src_ip)
+    merc_db, merc_count = read_merc_data(args.merc_out)
     # Locate all the stats file that starts with prefix merc_stats
     # Unzip the file(s) and store the extracted data in a temp file tempstats.json
     file_list = [filename for filename in os.listdir(str(args.path)) if filename.startswith(args.merc_stats)]
@@ -243,7 +228,7 @@ def main():
 
     fp.close()
 
-    merc_db_stats, merc_count_stats = read_merc_stats("tempstats.json", args.ignore_src_ip)
+    merc_db_stats, merc_count_stats = read_merc_stats("tempstats.json")
 
     if args.approx_match is True:
         if merc_count - merc_count_stats > 0.1 * merc_count:
