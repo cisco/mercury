@@ -17,6 +17,11 @@
 // 23 - payload is an IPX packet.
 //
 // Note that we must handle both big-endian and little-endian values.
+//
+// References:
+// https://www.tcpdump.org/linktypes/LINKTYPE_NULL.html
+// https://wiki.wireshark.org/NullLoopback
+
 
 class loopback_header {
     encoded<uint32_t> protocol_type;
