@@ -216,7 +216,9 @@ cdef class Mercury:
         Return mercury's JSON representation of a packet
 
         :param pkt_data: packet data
-        :type b64_cert: bytes
+        :type pkt_data: bytes
+        :param ts: timestamp associated with the packet data (default=0.0)
+        :type ts: double
         :return: JSON-encoded packet.
         :rtype: dict
         """
@@ -243,6 +245,14 @@ cdef class Mercury:
 
 
     cpdef dict get_fingerprint(self, bytes pkt_data):
+        """
+        Return mercury's network protocol fingerprint (NPF) along with metadata
+
+        :param pkt_data: packet data
+        :type pkt_data: bytes
+        :return: JSON-encoded network protocol fingerprint information.
+        :rtype: dict
+        """
         cdef unsigned char* pkt_data_ref = pkt_data
         cdef const analysis_context* ac = mercury_packet_processor_get_analysis_context(<mercury_packet_processor>self.mpp,
                                                                                         pkt_data_ref, len(pkt_data), &self.default_ts);
@@ -461,8 +471,8 @@ def parse_dns(str b64_dns):
     """
     Return a JSON representation of the Base64 DNS packet
 
-    :param b64_cert: Base64-encoded DNS packet.
-    :type b64_cert: str
+    :param b64_dns: Base64-encoded DNS packet.
+    :type b64_dns: str
     :return: JSON-encoded DNS packet.
     :rtype: dict
     """
@@ -567,8 +577,8 @@ def parse_ech_config(str b64_ech_config):
     """
     Return a JSON representation of the Base64 Encrypted Client Hello object
 
-    :param b64_cert: Base64-encoded ECH object.
-    :type b64_cert: str
+    :param b64_ech_config: Base64-encoded ECH object.
+    :type b64_ech_config: str
     :return: JSON-encoded ECH object.
     :rtype: dict
     """
