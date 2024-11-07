@@ -126,13 +126,12 @@ private:
 public:
     // extended configs
     std::string temp_proto_str;
-    bool tcp_reassembly = false;          /* reassemble tcp segments      */
-    bool quic_reassembly = false;         /* reassemble quic pkts         */
+    bool reassembly = false;              /* reassemble protocol segments      */
     bool stats_blocking = false;          /* stats mode: lossless but blocking */
     fingerprint_format fp_format;    // default fingerprint format
 
-    global_config() : libmerc_config(), tcp_reassembly{false} {};
-    global_config(const libmerc_config& c) : libmerc_config(c), tcp_reassembly{false} {
+    global_config() : libmerc_config(), reassembly{false} {};
+    global_config(const libmerc_config& c) : libmerc_config(c), reassembly{false} {
         if (c.resources) {
            resource_file = c.resources;
         }
@@ -234,8 +233,8 @@ static void setup_extended_fields(global_config* lc, const std::string& config) 
         {"select", "-s", "--select", SETTER_FUNCTION(&lc){ lc->set_protocols(s); }},
         {"resources", "", "", SETTER_FUNCTION(&lc){ lc->set_resource_file(s); }},
         {"format", "", "", SETTER_FUNCTION(&lc){ lc->fp_format.set_fingerprint_format(s); }},
-        {"tcp-reassembly", "", "", SETTER_FUNCTION(&lc){ lc->tcp_reassembly = true; }},
-        {"quic-reassembly", "", "", SETTER_FUNCTION(&lc){ lc->quic_reassembly = true; }},
+        {"tcp-reassembly", "", "", SETTER_FUNCTION(&lc){ lc->reassembly = true; }},
+        {"reassembly", "", "", SETTER_FUNCTION(&lc){ lc->reassembly = true; }},
         {"stats-blocking", "", "", SETTER_FUNCTION(&lc){ lc->stats_blocking = true; }},
     };
 

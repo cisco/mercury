@@ -118,7 +118,7 @@ struct stateful_pkt_proc {
         global_vars{mc->global_vars},
         selector{mc->selector},
         quic_crypto{},
-        reassembler_ptr{(global_vars.tcp_reassembly||global_vars.quic_reassembly) ? (new tcp_reassembler) : nullptr}
+        reassembler_ptr{(global_vars.reassembly) ? (new tcp_reassembler) : nullptr}
     {
 
         constexpr bool DO_CRYPTO_ASSESSMENT = false;
