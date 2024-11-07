@@ -948,6 +948,8 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
     if (reassembler) {
         reassembler->dump_pkt = false;
     }
+    bool truncated_tcp = false;
+    bool truncated_udp = false;
 
     if (ts->tv_sec == 0) {
         tsc_clock time_now;
@@ -977,6 +979,9 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
         }
         else {
             set_tcp_protocol(x, pkt, false, &tcp_pkt);
+            if (tcp_pkt.additional_bytes_needed) {
+                truncated_tcp = true;
+            }
         }
 
     } else if (transport_proto == ip::protocol::udp) {
@@ -1015,6 +1020,9 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
         }
         else {
             process_udp_data(x, pkt, udp_pkt, k, ts, reassembler);
+            if (udp_pkt.additional_bytes_needed()) {
+                truncated_udp = true;
+            }
         }
     }
 
@@ -1042,6 +1050,11 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
                     analysis.flow_state_pkts_needed = false;
                 }
                 reassembler->clean_curr_flow();
+            }
+
+            // if fingerprint truncated, set fp status to unlabeled
+            if (truncated_tcp or truncated_udp) {
+                analysis.result.status = fingerprint_status::fingerprint_status_unlabled;
             }
 
             return output_analysis;
