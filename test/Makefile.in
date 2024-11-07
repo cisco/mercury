@@ -116,7 +116,7 @@ comp: $(COMP_FILES) $(MCAP_COMP_FILES) $(JSON_COMP_FILES)
 # implicit rule to make a JSON file from a PCAP file
 #
 %.json: %.pcap
-	$(MERCURY) -r $< -f $@ --tcp-reassembly --metadata
+	$(MERCURY) -r $< -f $@ --reassembly --metadata
 
 # implicit rule to make a fingerprint file from a JSON file
 #
@@ -138,7 +138,7 @@ endif
 # implicit rule to make an MCAP file from a PCAP file
 #
 %.mcap: %.pcap
-	$(MERCURY) -r $< --tcp-reassembly -w $@
+	$(MERCURY) -r $< --reassembly -w $@
 
 # implicit rule to compare MCAP results
 #
@@ -176,10 +176,10 @@ endif
 cert-check:
 ifeq ($(do_cert_check),yes)
 	@echo "running certificate test"
-	$(MERCURY) -r data/top-https.pcap -f tmp.json --tcp-reassembly
+	$(MERCURY) -r data/top-https.pcap -f tmp.json --reassembly
 	$(python) certificate-test.py tmp.json --complete 96 --partial 0
 	@echo $(COLOR_GREEN) "passed top-https certificate test" $(COLOR_OFF)
-	$(MERCURY) -r data/top_100_fingerprints.pcap -f tmp.json --tcp-reassembly
+	$(MERCURY) -r data/top_100_fingerprints.pcap -f tmp.json --reassembly
 	$(python) certificate-test.py tmp.json --complete 164 --partial 0
 	@echo $(COLOR_GREEN) "passed top_100_fingerprints certificate test" $(COLOR_OFF)
 	$(MERCURY) -r data/test_decrypt.pcap -f tmp.json

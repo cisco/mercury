@@ -52,8 +52,7 @@ char mercury_help[] =
     "   [-s or --select] filter               # select traffic by filter (see --help)\n"
     "   --nonselected-tcp-data                # tcp data for nonselected traffic\n"
     "   --nonselected-udp-data                # udp data for nonselected traffic\n"
-    "   --tcp-reassembly                      # reassemble tcp data segments\n"
-    "   --quic-reassembly                     # reassemble quic crypto frames across packets\n"
+    "   --reassembly                          # reassemble protocol messages over multiple transport segments\n"
     "   [-l or --limit] l                     # rotate output file after l records\n"
     "   --output-time=T                       # rotate output file after T seconds\n"
     "   --dns-json                            # output DNS as JSON, not base64\n"
@@ -146,14 +145,10 @@ char mercury_extended_help[] =
     "   --select filter affects the UDP data written by this option; use\n"
     "   '--select=none' to obtain the UDP data for each flow.\n"
     "\n"
-    "   --tcp-reassembly enables tcp reassembly\n"
-    "   This option allows mercury to keep track of tcp segment state and \n"
-    "   and reassemble these segments based on the application in tcp payload\n"
-    "\n"
-    "   --quic-reassembly enables quic reassembly\n"
-    "   This option allows mercury to keep track of quic flow state and \n"
-    "   and reassemble crypto frames across packets\n"
-    "\n"
+    "   --reassembly enables reassembly\n"
+    "   This option allows mercury to keep track of tcp or udp segment state and \n"
+    "   and reassemble these segments based on the application in payload\n"
+    "\n" 
     "   \"[-u or --user] u\" sets the UID and GID to those of user u, so that\n"
     "   output file(s) are owned by this user.  If this option is not set, then\n"
     "   the UID is set to SUDO_UID, so that privileges are dropped to those of\n"
@@ -250,7 +245,7 @@ int main(int argc, char *argv[]) {
     std::string additional_args;
 
     while(1) {
-        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13, tcp_reassembly=14, format=15, quic_reassembly=16 };
+        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13, reassembly=14, format=15 };
         int opt_idx = 0;
         static struct option long_opts[] = {
             { "config",      required_argument, NULL, config  },
@@ -266,9 +261,8 @@ int main(int argc, char *argv[]) {
             { "stats-limit", required_argument, NULL, stats_limit },
             { "stats-time",  required_argument, NULL, stats_time },
             { "output-time", required_argument, NULL, output_time },
-            { "tcp-reassembly", no_argument,    NULL, tcp_reassembly },
+            { "reassembly",  no_argument,    NULL, reassembly },
             { "format",      required_argument, NULL, format },
-            { "quic-reassembly", no_argument,    NULL, quic_reassembly },
             { "read",        required_argument, NULL, 'r' },
             { "write",       required_argument, NULL, 'w' },
             { "directory",   required_argument, NULL, 'd' },
@@ -357,18 +351,11 @@ int main(int argc, char *argv[]) {
                 libmerc_cfg.output_udp_initial_data = true;
             }
             break;
-        case tcp_reassembly:
+        case reassembly:
             if (optarg) {
-                usage(argv[0], "option tcp-reassembly does not use an argument", extended_help_off);
+                usage(argv[0], "option reassembly does not use an argument", extended_help_off);
             } else {
-                additional_args.append("tcp-reassembly;");
-            }
-            break;
-        case quic_reassembly:
-            if (optarg) {
-                usage(argv[0], "option quic-reassembly does not use an argument", extended_help_off);
-            } else {
-                additional_args.append("quic-reassembly;");
+                additional_args.append("reassembly;");
             }
             break;
         case format:

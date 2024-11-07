@@ -448,7 +448,7 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
                           struct tcp_reassembler *reassembler) {
 
     // No reassembler : call set_tcp_protocol on every data pkt
-    if (!reassembler || !global_vars.tcp_reassembly) {
+    if (!reassembler || !global_vars.reassembly) {
         bool is_new = false;
         if (global_vars.output_tcp_initial_data) {
             is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
@@ -539,7 +539,7 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
                           struct tcp_reassembler *reassembler) {
 
     // No reassembler : call set_tcp_protocol on every data pkt
-    if (!reassembler || !global_vars.quic_reassembly) {
+    if (!reassembler || !global_vars.reassembly) {
         bool is_new = false;
         if (global_vars.output_udp_initial_data && pkt.is_not_empty()) {
             is_new = ip_flow_table.flow_is_new(k, ts->tv_sec);
@@ -801,8 +801,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         // write indication of truncation or reassembly
         //
         if ((!reassembler && (truncated_tcp || truncated_quic))
-                || (!global_vars.tcp_reassembly && truncated_tcp)
-                || (!global_vars.quic_reassembly && truncated_quic) ) {
+                || (!global_vars.reassembly && (truncated_tcp || truncated_quic)) ) {
             struct json_object flags{record, "reassembly_properties"};
             flags.print_key_bool("truncated", true);
             flags.close();
@@ -949,6 +948,8 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
     if (reassembler) {
         reassembler->dump_pkt = false;
     }
+    bool truncated_tcp = false;
+    bool truncated_udp = false;
 
     if (ts->tv_sec == 0) {
         tsc_clock time_now;
@@ -961,7 +962,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             return 0;  // incomplete tcp header; can't process packet
          }
         tcp_pkt.set_key(k);
-        if (reassembler && global_vars.tcp_reassembly) {
+        if (reassembler && global_vars.reassembly) {
             analysis.flow_state_pkts_needed = false;
             if (tcp_pkt.is_SYN() || tcp_pkt.is_SYN_ACK() || tcp_pkt.is_RST()) {
                 ; // do nothing
@@ -978,6 +979,9 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
         }
         else {
             set_tcp_protocol(x, pkt, false, &tcp_pkt);
+            if (tcp_pkt.additional_bytes_needed) {
+                truncated_tcp = true;
+            }
         }
 
     } else if (transport_proto == ip::protocol::udp) {
@@ -1005,7 +1009,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             }
         }
 
-        if (reassembler && global_vars.quic_reassembly) {
+        if (reassembler && global_vars.reassembly) {
             bool ret = process_udp_data(x, pkt, udp_pkt, k, ts, reassembler);
             if (reassembler->in_progress(reassembler->curr_flow)) {
                 analysis.flow_state_pkts_needed = true;
@@ -1016,6 +1020,9 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
         }
         else {
             process_udp_data(x, pkt, udp_pkt, k, ts, reassembler);
+            if (udp_pkt.additional_bytes_needed()) {
+                truncated_udp = true;
+            }
         }
     }
 
@@ -1043,6 +1050,11 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
                     analysis.flow_state_pkts_needed = false;
                 }
                 reassembler->clean_curr_flow();
+            }
+
+            // if fingerprint truncated, set fp status to unlabeled
+            if (truncated_tcp or truncated_udp) {
+                analysis.result.status = fingerprint_status::fingerprint_status_unlabled;
             }
 
             return output_analysis;

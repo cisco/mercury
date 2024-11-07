@@ -35,8 +35,8 @@ static std::vector<libmerc_option> config_mapper = {
     {"report_os", "", "",            SETTER_FUNCTION(){ c.report_os = s.empty() ? true : s.compare("1") == 0; }},
     {"nonselected-tcp-data", "", "", SETTER_FUNCTION(){ c.output_tcp_initial_data = s.empty() ? true : s.compare("1") == 0; }},
     {"nonselected-udp-data", "", "", SETTER_FUNCTION(){ c.output_udp_initial_data = s.empty() ? true : s.compare("1") == 0; }},
-    {"tcp-reassembly", "", "",       SETTER_FUNCTION(){ c.tcp_reassembly = s.empty() ? true : s.compare("1") == 0;}},
-    {"quic-reassembly", "", "",      SETTER_FUNCTION(){ c.quic_reassembly = s.empty() ? true : s.compare("1") == 0;}},
+    {"tcp-reassembly", "", "",       SETTER_FUNCTION(){ c.reassembly = s.empty() ? true : s.compare("1") == 0;}},
+    {"reassembly", "", "",           SETTER_FUNCTION(){ c.reassembly = s.empty() ? true : s.compare("1") == 0;}},
     {"fp_proc_threshold", "", "",    SETTER_FUNCTION(){ c.fp_proc_threshold = std::stof(s); }},
     {"proc_dst_threshold", "", "",   SETTER_FUNCTION(){ c.proc_dst_threshold = std::stof(s); }},
     {"max_stats_entries", "", "",    SETTER_FUNCTION(){ c.max_stats_entries = std::stoull(s); }}
