@@ -72,6 +72,13 @@ Mercury Library Documentation
 .. doxygengroup:: bitoperations
    :project: mercury
 
+Mercury Python Library Documentation
+====================================
+
+.. automodule:: mercury
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 
 Indices and tables

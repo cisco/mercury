@@ -1,4 +1,4 @@
-#cython: language_level=3
+#cython: language_level=3, embedsignature=True
 
 import json
 import math
@@ -12,6 +12,17 @@ from libc.stdint cimport *
 from libc.string cimport memset
 from posix.time cimport timespec
 from cython.operator import dereference
+
+
+"""
+:mod:`mercury-python` -- Packet parser
+===================================
+
+.. module:: mercury
+   :platform: Unix
+   :synopsis: A cython-based interface into mercury's functionality
+"""
+
 
 ### BUILD INSTRUCTIONS
 # To build in-place:
@@ -129,7 +140,28 @@ fp_type_dict = {
     12: 'quic',
 }
 
+
 cdef class Mercury:
+    """
+    Initialize mercury packet processors to process and analyze network data
+
+    :param do_analysis: Apply mercury's analysis functionality to packets.
+    :type do_analysis: bool
+    :param resources: Location of mercury-compatible resources file, necessary if `do_analysis` is set to `True`.
+    :type resources: bytes
+    :param output_tcp_initial_data: Return TCP initial packet data for unrecognized protocols (default=`False`).
+    :type output_tcp_initial_data: bool
+    :param output_udp_initial_data: Return UDP initial packet data for unrecognized protocols (default=`False`).
+    :type output_udp_initial_data: bool
+    :param packet_filter_cfg: Specify the protocols that mercury will analyze (default=`all`).
+    :type packet_filter_cfg: bytes
+    :param metadata_output: Report additional metadata about protocols (default=`True`).
+    :type metadata_output: bool
+    :param dns_json_output: When processing DNS packets, return a JSON representation as opposed to Base64 Representation (default=`True`).
+    :type dns_json_output: bool
+    :param certs_json_output: When processing certificates, return a JSON representation as opposed to Base64 Representation (default=`True`).
+    :type certs_json_output: bool
+    """
     cdef mercury* mercury_context
     cdef stateful_pkt_proc* mpp
     cdef const analysis_context* ac
@@ -164,7 +196,7 @@ cdef class Mercury:
         self.mercury_init()
 
 
-    cpdef int mercury_init(self, unsigned int verbosity=0):
+    cdef int mercury_init(self, unsigned int verbosity=0):
         cdef libmerc_config config = self.py_config
         self.mercury_context = mercury_init(&config, 0)
         if self.mercury_context == NULL:
@@ -180,6 +212,14 @@ cdef class Mercury:
 
 
     cpdef dict get_mercury_json(self, bytes pkt_data, double ts=0.0):
+        """
+        Return mercury's JSON representation of a packet
+
+        :param pkt_data: packet data
+        :type b64_cert: bytes
+        :return: JSON-encoded packet.
+        :rtype: dict
+        """
         cdef unsigned char* pkt_data_ref = pkt_data
 
         cdef char buf[8192]
@@ -417,10 +457,15 @@ cdef class Mercury:
         return retval
 
 
-# parse_dns
-#  Input: b64_dns - python str representing a base64-encoded DNS request
-#  Output: JSON object containing parsed DNS request
 def parse_dns(str b64_dns):
+    """
+    Return a JSON representation of the Base64 DNS packet
+
+    :param b64_cert: Base64-encoded DNS packet.
+    :type b64_cert: str
+    :return: JSON-encoded DNS packet.
+    :rtype: dict
+    """
     cdef bytes dns_req = b64decode(b64_dns)
     cdef unsigned int len_ = len(dns_req)
 
@@ -442,10 +487,15 @@ cdef extern from "../libmerc/x509.h":
         string get_hex_string()
 
 
-# parse_cert
-#  Input: b64_cert - python str representing a base64-encoded certificate
-#  Output: JSON object containing parsed certificate
 def parse_cert(str b64_cert):
+    """
+    Return a JSON representation of the Base64 certificate
+
+    :param b64_cert: Base64-encoded certificate.
+    :type b64_cert: str
+    :return: JSON-encoded certificate.
+    :rtype: dict
+    """
     cdef bytes cert = b64decode(b64_cert)
     cdef unsigned int len_ = len(cert)
     cdef x509_cert x
@@ -460,10 +510,15 @@ def parse_cert(str b64_cert):
     return json.loads(x.get_json_string().decode())
 
 
-# get_cert_prefix
-#  Input: b64_cert - python str representing a base64-encoded certificate
-#  Output: string containing hex form of certificate prefix
 def get_cert_prefix(str b64_cert):
+    """
+    Return a JSON representation of the Base64 certificate prefix
+
+    :param b64_cert: Base64-encoded certificate.
+    :type b64_cert: str
+    :return: hex form of certificate prefix
+    :rtype: str
+    """
     cdef bytes cert = b64decode(b64_cert)
     cdef unsigned int len_ = len(cert)
     cdef x509_cert_prefix x
@@ -509,6 +564,14 @@ cdef class ECHConfig:
 
 
 def parse_ech_config(str b64_ech_config):
+    """
+    Return a JSON representation of the Base64 Encrypted Client Hello object
+
+    :param b64_cert: Base64-encoded ECH object.
+    :type b64_cert: str
+    :return: JSON-encoded ECH object.
+    :rtype: dict
+    """
     cdef bytes ech_config = b64decode(b64_ech_config)
 
     ech_obj = ECHConfig(ech_config)
