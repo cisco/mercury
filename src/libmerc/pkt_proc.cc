@@ -13,6 +13,7 @@
 #include "libmerc.h"
 #include "pkt_proc.h"
 #include "utils.h"
+#include "loopback.hpp"
 
 // include files needed by stateful_pkt_proc; they provide the
 // interface to mercury's packet parsing and handling routines
@@ -751,6 +752,19 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             case ETH_TYPE_IP:
             case ETH_TYPE_IPV6:
                 return (ip_write_json(buffer, buffer_size, p.data, p.length(), ts, reassembler));
+            case ETH_TYPE_NONE: // nonstandard: no official EtherType for BSD loopback
+                {
+                    loopback_header loopback{p};  // bsd-style loopback encapsulation
+                    if (p.is_not_null()) {
+                        switch(loopback.get_protocol_type()) {
+                        case ETH_TYPE_IP:
+                        case ETH_TYPE_IPV6:
+                            return ip_write_json(buffer, buffer_size, p.data, p.length(), ts, reassembler);
+                        default:
+                            break;
+                        }
+                    }
+                }
             default:
                 break;
             }
