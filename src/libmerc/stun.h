@@ -295,9 +295,9 @@ namespace stun {
                 ;
             }
             if (msg_type == nullptr) {
-                o.print_key_unknown_code("message_type", message_type);
+                o.print_key_unknown_code("class", message_type);
             } else {
-                o.print_key_string("message_type", msg_type);
+                o.print_key_string("class", msg_type);
             }
         }
     };
@@ -473,6 +473,145 @@ namespace stun {
 
     };
 
+
+    /// identifies how a stun message is being used
+    ///
+    enum usage {
+        unknown       = 0b000,    /// Usage unknown
+        stun          = 0b001,    /// Basic STUN protocol
+        turn          = 0b010,    /// Traversal Using Relays around NAT (TURN)
+        ice           = 0b100,    /// Interactive Connectivity Establisihment (ICE)
+        stun_and_turn = 0b011,    /// STUN + TURN = TURN
+        stun_and_ice  = 0b101,    /// STUN + ICE = ICE
+    };
+
+    /// returns the printable constant string corresponding to a \ref
+    /// stun::usage enumeration
+    ///
+    static const char *usage_string(enum usage u) {
+        switch (u) {
+        case stun:
+            return "stun";
+        case turn:
+        case stun_and_turn:
+            return "turn";
+        case ice:
+        case stun_and_ice:
+            return "ice";
+        default:
+            ;
+        }
+        return "unknown";
+    }
+
+    /// returns the \ref stun::usage corresponding to a stun method
+    ///
+    static usage method_usage(uint16_t method) {
+        switch (method) {
+        case 0x001:     // Binding
+        case 0x002:     // SharedSecret
+            return usage::stun;
+        case 0x003:     // Allocate
+        case 0x004:     // Refresh
+        case 0x006:     // Send
+        case 0x007:     // Data
+        case 0x008:     // CreatePermission
+        case 0x009:     // ChannelBind
+            return usage::turn;
+        default:
+            ;
+        }
+        return usage::unknown;
+    }
+
+    /// returns the \ref stun::usage corresponding to a stun attribute
+    /// type
+    ///
+    static usage attribute_type_usage(uint16_t attr_type) {
+        switch (attr_type) {
+        case 0x0001:	// MAPPED-ADDRESS
+        case 0x0002:	// Reserved; was RESPONSE-ADDRESS
+        case 0x0003:	// Reserved; was CHANGE-REQUEST
+        case 0x0004:	// Reserved; was SOURCE-ADDRESS
+        case 0x0005:	// Reserved; was CHANGED-ADDRESS
+        case 0x0006:	// USERNAME	                 [RFC8489]
+        case 0x0007:	// Reserved; was PASSWORD
+        case 0x0008:	// MESSAGE-INTEGRITY
+        case 0x0009:	// ERROR-CODE
+        case 0x000A:	// UNKNOWN-ATTRIBUTES
+        case 0x000B:	// Reserved; was REFLECTED-FROM
+        case 0x0010:	// Reserved (was BANDWIDTH)
+        case 0x0014:	// REALM	                 [RFC8489]
+        case 0x0015:	// NONCE	                 [RFC8489]
+        case 0x001C:	// MESSAGE-INTEGRITY-SHA256	 [RFC8489]
+        case 0x001D:	// PASSWORD-ALGORITHM	     [RFC8489]
+        case 0x001E:	// USERHASH	                 [RFC8489]
+        case 0x0020:	// XOR-MAPPED-ADDRESS	     [RFC8489]
+        case 0x8002:	// PASSWORD-ALGORITHMS	     [RFC8489]
+        case 0x8003:	// ALTERNATE-DOMAIN	         [RFC8489]
+        case 0x8022:	// SOFTWARE	                 [RFC8489]
+        case 0x8023:	// ALTERNATE-SERVER	         [RFC8489]
+        case 0x8028:	// FINGERPRINT	             [RFC8489]
+            return usage::stun;
+        case 0x000C:	// CHANNEL-NUMBER	         [RFC8656]
+        case 0x000D:	// LIFETIME	                 [RFC8656]
+        case 0x0012:	// XOR-PEER-ADDRESS	         [RFC8656]
+        case 0x0013:	// DATA	                     [RFC8656]
+        case 0x0016:	// XOR-RELAYED-ADDRESS	     [RFC8656]
+        case 0x0017:	// REQUESTED-ADDRESS-FAMILY	 [RFC8656]
+        case 0x0018:	// EVEN-PORT	             [RFC8656]
+        case 0x0019:	// REQUESTED-TRANSPORT	     [RFC8656]
+        case 0x001A:	// DONT-FRAGMENT	         [RFC8656]
+        case 0x0021:	// Reserved (was TIMER-VAL)	 [RFC8656]
+        case 0x0022:	// RESERVATION-TOKEN	     [RFC8656]
+        case 0x8000:	// ADDITIONAL-ADDRESS-FAMILY [RFC8656]
+        case 0x8001:	// ADDRESS-ERROR-CODE	     [RFC8656]
+        case 0x8004:	// ICMP	                     [RFC8656]
+            return usage::turn;
+        case 0x0024:	// PRIORITY	                 [RFC8445]
+        case 0x0025:	// USE-CANDIDATE	         [RFC8445]
+        case 0x8029:	// ICE-CONTROLLED	         [RFC8445]
+        case 0x802A:	// ICE-CONTROLLING	         [RFC8445]
+            return usage::ice;
+        default:
+            ;
+        }
+
+        return usage::unknown;
+
+        // the following attributes are registered with IANA, but will
+        // be categorized as "unknown" by this function
+        //
+        // 0x001B	// ACCESS-TOKEN	[RFC7635]
+        // 0x0026	// PADDING	[RFC5780]
+        // 0x0027	// RESPONSE-PORT	[RFC5780]
+        // 0x002A	// CONNECTION-ID	[RFC6062]
+        // 0x8025	// TRANSACTION_TRANSMIT_COUNTER	[RFC7982]
+        // 0x8027	// CACHE-TIMEOUT	[RFC5780]
+        // 0x802B	// RESPONSE-ORIGIN	[RFC5780]
+        // 0x802C	// OTHER-ADDRESS	[RFC5780]
+        // 0x802D	// ECN-CHECK STUN	[RFC6679]
+        // 0x802E	// THIRD-PARTY-AUTHORIZATION	[RFC7635]
+        // 0x8030	// MOBILITY-TICKET	[RFC8016]
+        // 0xC000	// CISCO-STUN-FLOWDATA	[Dan_Wing]
+        // 0xC001	// ENF-FLOW-DESCRIPTION	[Pål_Erik_Martinsen]
+        // 0xC002	// ENF-NETWORK-STATUS	[Pål_Erik_Martinsen]
+        // 0xC003	// CISCO-WEBEX-FLOW-INFO	[Stefano_Giorcelli]
+        // 0xC056	// CITRIX-TRANSACTION-ID	[Paras_Babbar]
+        // 0xC057	// GOOG-NETWORK-INFO	[Jonas_Oreland]
+        // 0xC058	// GOOG-LAST-ICE-CHECK-RECEIVED	[Jonas_Oreland]
+        // 0xC059	// GOOG-MISC-INFO	[Jonas_Oreland]
+        // 0xC05A	// GOOG-OBSOLETE-1	[Jonas_Oreland]
+        // 0xC05B	// GOOG-CONNECTION-ID	[Jonas_Oreland]
+        // 0xC05C	// GOOG-DELTA	[Jonas_Oreland]
+        // 0xC05D	// GOOG-DELTA-ACK	[Jonas_Oreland]
+        // 0xC05E	// GOOG-DELTA-SYNC-REQ	[Jonas_Oreland]
+        // 0xC060	// GOOG-MESSAGE-INTEGRITY-32	[Jonas_Oreland]
+    }
+
+
+
+
     // STUN Message Header format (following RFC 5389, Figure 2)
     //
     //  0                   1                   2                   3
@@ -512,12 +651,6 @@ namespace stun {
             success_resp = 0x0100,
             err_resp     = 0x0110
         };
-
-        uint16_t get_method_type() const {
-            return (message_type_field & 0x0f)
-                | ((message_type_field & 0xe0) >> 1)
-                | ((message_type_field & 0x3e00) >> 2);
-        }
 
         static const char *message_type_string(uint16_t type) {
             switch(type) {
@@ -565,14 +698,15 @@ namespace stun {
 
         static constexpr size_t length = 20;    // number of bytes in header
 
-        void write_json(json_object &o) const  {
+        void write_json(json_object &o) const {
             if (is_valid()) {
                 method<uint16_t>{get_method_type()}.write_json(o);
+
                 const char *type_name = message_type_string(message_type_field & msg_type_mask);
                 if (type_name == nullptr) {
-                    o.print_key_unknown_code("message_type", (uint16_t)(message_type_field & msg_type_mask));
+                    o.print_key_unknown_code("class", (uint16_t)(message_type_field & msg_type_mask));
                 } else {
-                    o.print_key_string("message_type", type_name);
+                    o.print_key_string("class", type_name);
                 }
                 o.print_key_uint("message_length", message_length);
                 datum tmp{transaction_id};
@@ -591,6 +725,12 @@ namespace stun {
         }
 
         uint16_t get_message_length() const { return message_length; }
+
+        uint16_t get_method_type() const {
+            return (message_type_field & 0x0f)
+                | ((message_type_field & 0xe0) >> 1)
+                | ((message_type_field & 0x3e00) >> 2);
+        }
 
         void write_fingerprint(buffer_stream &buf) const {
             if (!is_valid()) {
@@ -616,6 +756,7 @@ namespace stun {
         datum body;
 
     public:
+
         message(datum &d) : hdr{d}, body{d, hdr.get_message_length()} { }
 
         void write_json(json_object &o, bool metadata=false) const {
@@ -628,9 +769,11 @@ namespace stun {
                 hdr.write_json(stun_obj);
                 json_array a{stun_obj, "attributes"};
                 datum tmp{body};
+                stun::usage u{method_usage(hdr.get_method_type())};
                 while (tmp.is_not_empty()) {
                     if (lookahead<stun::attribute> attr{tmp}) {
                         attr.value.write_json(a);
+                        u = (stun::usage)((int)u | (int)attribute_type_usage(attr.value.get_type()));
                         tmp = attr.advance();
                     } else {
                         json_object unparseable{a};
@@ -641,6 +784,7 @@ namespace stun {
                 }
                 a.close();
                 write_raw_features(stun_obj);
+                stun_obj.print_key_string("usage", usage_string(u));
                 stun_obj.close();
             }
         }
@@ -744,14 +888,22 @@ namespace stun {
                 type_length,
                 type
             };
+
+            using attr_type = attribute_type<uint16_t>::code; // for readability
+
             std::unordered_map<uint16_t, attr_fingerprint_type> attr_fp_type {
-                { 0x8008, type_length_data },
-                { 0x8037, type_length_data },
-                { 0x8070, type_length_data },
-                { 0x8022, type_length_data },
-                { 0xc057, type_length_data },
-                { 0x0006, type_length },
-                { 0x0007, type_length },
+                { attr_type::USERNAME,                  type },
+                { attr_type::MESSAGE_INTEGRITY,         type },
+                { attr_type::XOR_MAPPED_ADDRESS,        type },
+                { 0x8007,                               type },
+                { attr_type::MS_VERSION,                type },
+                { attr_type::SOFTWARE,                  type },
+                { attr_type::FINGERPRINT,               type },
+                { attr_type::MS_APP_ID,                 type_length_data},
+                { attr_type::MS_IMPLEMENTATION_VERSION, type_length_data, },
+                { 0xc003,                               type },
+                { attr_type::GOOG_NETWORK_INFO,         type_length_data },
+                { 0xdaba,                               type },
             };
 
             // loop over attributes
@@ -773,11 +925,14 @@ namespace stun {
                         case type_length:
                             attr.value.write_type_length(buf);
                             break;
+                        case type:
+                            attr.value.write_type(buf);
+                            break;
                         default:
                             break;
                         }
                     } else {
-                        attr.value.write_type(buf);
+                        ;  // by default, attribute information is not included in fingerprint
                     }
                 } else {
                     break;
