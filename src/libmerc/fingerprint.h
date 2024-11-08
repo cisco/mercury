@@ -166,7 +166,7 @@ public:
             "tcp_server",
             "openvpn",
             "tofsee",
-            "stun"
+            "stun",
         };
         if (fp_type > (sizeof(name)/sizeof(const char *)) - 1) {
             return name[0];  // error: unknown type
