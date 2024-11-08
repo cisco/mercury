@@ -10,6 +10,7 @@
 #include "utf8.hpp"
 #include "match.h"
 #include "fingerprint.h"
+#include <unordered_map>
 
 namespace stun {
 
@@ -294,9 +295,9 @@ namespace stun {
                 ;
             }
             if (msg_type == nullptr) {
-                o.print_key_unknown_code("message_type", message_type);
+                o.print_key_unknown_code("class", message_type);
             } else {
-                o.print_key_string("message_type", msg_type);
+                o.print_key_string("class", msg_type);
             }
         }
     };
@@ -350,6 +351,10 @@ namespace stun {
                 // no data in value field
                 break;
             case attribute_type<uint16_t>::MAPPED_ADDRESS:
+            case attribute_type<uint16_t>::RESPONSE_ADDRESS:
+            case attribute_type<uint16_t>::SOURCE_ADDRESS:
+            case attribute_type<uint16_t>::CHANGED_ADDRESS:
+            case attribute_type<uint16_t>::REFLECTED_FROM:
             case attribute_type<uint16_t>::ALTERNATE_SERVER:
             case attribute_type<uint16_t>::RESPONSE_ORIGIN:
             case attribute_type<uint16_t>::OTHER_ADDRESS:
@@ -401,6 +406,11 @@ namespace stun {
                     lt.value.write_json(o);
                 }
                 break;
+            case attribute_type<uint16_t>::BANDWIDTH:
+                if (lookahead<encoded<uint32_t>> bandwidth{value}) {
+                    o.print_key_uint("kbps", bandwidth.value);
+                }
+                break;
             case attribute_type<uint16_t>::REQUESTED_TRANSPORT:
                 if (lookahead<requested_transport> rt{value}) {
                     rt.value.write_json(o);
@@ -437,7 +447,170 @@ namespace stun {
             buf.copy('"');
             buf.copy(']');
         }
+
+        void write_type(buffer_stream &buf) {
+            buf.write_char('(');
+            buf.write_hex_uint(type);
+            buf.write_char(')');
+        }
+
+        void write_type_length(buffer_stream &buf) {
+            buf.write_char('(');
+            buf.write_hex_uint(type);
+            buf.write_hex_uint(length);
+            buf.write_char(')');
+        }
+
+        void write_type_length_value(buffer_stream &buf) {
+            buf.write_char('(');
+            buf.write_hex_uint(type);
+            buf.write_hex_uint(length);
+            buf.raw_as_hex(value.data, value.length());
+            buf.write_char(')');
+        }
+
+        uint16_t get_type() const { return type; }
+
     };
+
+
+    /// identifies how a stun message is being used
+    ///
+    enum usage {
+        unknown       = 0b000,    /// Usage unknown
+        stun          = 0b001,    /// Basic STUN protocol
+        turn          = 0b010,    /// Traversal Using Relays around NAT (TURN)
+        ice           = 0b100,    /// Interactive Connectivity Establisihment (ICE)
+        stun_and_turn = 0b011,    /// STUN + TURN = TURN
+        stun_and_ice  = 0b101,    /// STUN + ICE = ICE
+    };
+
+    /// returns the printable constant string corresponding to a \ref
+    /// stun::usage enumeration
+    ///
+    static const char *usage_string(enum usage u) {
+        switch (u) {
+        case stun:
+            return "stun";
+        case turn:
+        case stun_and_turn:
+            return "turn";
+        case ice:
+        case stun_and_ice:
+            return "ice";
+        default:
+            ;
+        }
+        return "unknown";
+    }
+
+    /// returns the \ref stun::usage corresponding to a stun method
+    ///
+    static usage method_usage(uint16_t method) {
+        switch (method) {
+        case 0x001:     // Binding
+        case 0x002:     // SharedSecret
+            return usage::stun;
+        case 0x003:     // Allocate
+        case 0x004:     // Refresh
+        case 0x006:     // Send
+        case 0x007:     // Data
+        case 0x008:     // CreatePermission
+        case 0x009:     // ChannelBind
+            return usage::turn;
+        default:
+            ;
+        }
+        return usage::unknown;
+    }
+
+    /// returns the \ref stun::usage corresponding to a stun attribute
+    /// type
+    ///
+    static usage attribute_type_usage(uint16_t attr_type) {
+        switch (attr_type) {
+        case 0x0001:	// MAPPED-ADDRESS
+        case 0x0002:	// Reserved; was RESPONSE-ADDRESS
+        case 0x0003:	// Reserved; was CHANGE-REQUEST
+        case 0x0004:	// Reserved; was SOURCE-ADDRESS
+        case 0x0005:	// Reserved; was CHANGED-ADDRESS
+        case 0x0006:	// USERNAME	                 [RFC8489]
+        case 0x0007:	// Reserved; was PASSWORD
+        case 0x0008:	// MESSAGE-INTEGRITY
+        case 0x0009:	// ERROR-CODE
+        case 0x000A:	// UNKNOWN-ATTRIBUTES
+        case 0x000B:	// Reserved; was REFLECTED-FROM
+        case 0x0010:	// Reserved (was BANDWIDTH)
+        case 0x0014:	// REALM	                 [RFC8489]
+        case 0x0015:	// NONCE	                 [RFC8489]
+        case 0x001C:	// MESSAGE-INTEGRITY-SHA256	 [RFC8489]
+        case 0x001D:	// PASSWORD-ALGORITHM	     [RFC8489]
+        case 0x001E:	// USERHASH	                 [RFC8489]
+        case 0x0020:	// XOR-MAPPED-ADDRESS	     [RFC8489]
+        case 0x8002:	// PASSWORD-ALGORITHMS	     [RFC8489]
+        case 0x8003:	// ALTERNATE-DOMAIN	         [RFC8489]
+        case 0x8022:	// SOFTWARE	                 [RFC8489]
+        case 0x8023:	// ALTERNATE-SERVER	         [RFC8489]
+        case 0x8028:	// FINGERPRINT	             [RFC8489]
+            return usage::stun;
+        case 0x000C:	// CHANNEL-NUMBER	         [RFC8656]
+        case 0x000D:	// LIFETIME	                 [RFC8656]
+        case 0x0012:	// XOR-PEER-ADDRESS	         [RFC8656]
+        case 0x0013:	// DATA	                     [RFC8656]
+        case 0x0016:	// XOR-RELAYED-ADDRESS	     [RFC8656]
+        case 0x0017:	// REQUESTED-ADDRESS-FAMILY	 [RFC8656]
+        case 0x0018:	// EVEN-PORT	             [RFC8656]
+        case 0x0019:	// REQUESTED-TRANSPORT	     [RFC8656]
+        case 0x001A:	// DONT-FRAGMENT	         [RFC8656]
+        case 0x0021:	// Reserved (was TIMER-VAL)	 [RFC8656]
+        case 0x0022:	// RESERVATION-TOKEN	     [RFC8656]
+        case 0x8000:	// ADDITIONAL-ADDRESS-FAMILY [RFC8656]
+        case 0x8001:	// ADDRESS-ERROR-CODE	     [RFC8656]
+        case 0x8004:	// ICMP	                     [RFC8656]
+            return usage::turn;
+        case 0x0024:	// PRIORITY	                 [RFC8445]
+        case 0x0025:	// USE-CANDIDATE	         [RFC8445]
+        case 0x8029:	// ICE-CONTROLLED	         [RFC8445]
+        case 0x802A:	// ICE-CONTROLLING	         [RFC8445]
+            return usage::ice;
+        default:
+            ;
+        }
+
+        return usage::unknown;
+
+        // the following attributes are registered with IANA, but will
+        // be categorized as "unknown" by this function
+        //
+        // 0x001B	// ACCESS-TOKEN	[RFC7635]
+        // 0x0026	// PADDING	[RFC5780]
+        // 0x0027	// RESPONSE-PORT	[RFC5780]
+        // 0x002A	// CONNECTION-ID	[RFC6062]
+        // 0x8025	// TRANSACTION_TRANSMIT_COUNTER	[RFC7982]
+        // 0x8027	// CACHE-TIMEOUT	[RFC5780]
+        // 0x802B	// RESPONSE-ORIGIN	[RFC5780]
+        // 0x802C	// OTHER-ADDRESS	[RFC5780]
+        // 0x802D	// ECN-CHECK STUN	[RFC6679]
+        // 0x802E	// THIRD-PARTY-AUTHORIZATION	[RFC7635]
+        // 0x8030	// MOBILITY-TICKET	[RFC8016]
+        // 0xC000	// CISCO-STUN-FLOWDATA	[Dan_Wing]
+        // 0xC001	// ENF-FLOW-DESCRIPTION	[Pål_Erik_Martinsen]
+        // 0xC002	// ENF-NETWORK-STATUS	[Pål_Erik_Martinsen]
+        // 0xC003	// CISCO-WEBEX-FLOW-INFO	[Stefano_Giorcelli]
+        // 0xC056	// CITRIX-TRANSACTION-ID	[Paras_Babbar]
+        // 0xC057	// GOOG-NETWORK-INFO	[Jonas_Oreland]
+        // 0xC058	// GOOG-LAST-ICE-CHECK-RECEIVED	[Jonas_Oreland]
+        // 0xC059	// GOOG-MISC-INFO	[Jonas_Oreland]
+        // 0xC05A	// GOOG-OBSOLETE-1	[Jonas_Oreland]
+        // 0xC05B	// GOOG-CONNECTION-ID	[Jonas_Oreland]
+        // 0xC05C	// GOOG-DELTA	[Jonas_Oreland]
+        // 0xC05D	// GOOG-DELTA-ACK	[Jonas_Oreland]
+        // 0xC05E	// GOOG-DELTA-SYNC-REQ	[Jonas_Oreland]
+        // 0xC060	// GOOG-MESSAGE-INTEGRITY-32	[Jonas_Oreland]
+    }
+
+
+
 
     // STUN Message Header format (following RFC 5389, Figure 2)
     //
@@ -468,8 +641,9 @@ namespace stun {
     class header {
         encoded<uint16_t> message_type_field;
         encoded<uint16_t> message_length;
-        literal<4> magic_cookie;
-        datum transaction_id;                   // note: always 12 bytes in length
+        // literal<4> magic_cookie;
+        datum transaction_id;                   // note: always 16 bytes in length
+        bool tid_has_magic_cookie{false};
 
         enum message_type : uint16_t {
             request      = 0x0000,
@@ -477,12 +651,6 @@ namespace stun {
             success_resp = 0x0100,
             err_resp     = 0x0110
         };
-
-        uint16_t get_method_type() const {
-            return (message_type_field & 0x0f)
-                | ((message_type_field & 0xe0) >> 1)
-                | ((message_type_field & 0x3e00) >> 2);
-        }
 
         static const char *message_type_string(uint16_t type) {
             switch(type) {
@@ -501,23 +669,52 @@ namespace stun {
         header(datum &d) :
             message_type_field{d},
             message_length{d},
-            magic_cookie{d, {0x21, 0x12, 0xa4, 0x42}},
-            transaction_id{d, 12}
+            transaction_id{d, 16},
+            tid_has_magic_cookie{transaction_id.matches(magic_cookie)}
         { }
+
+        static constexpr std::array<uint8_t,4> magic_cookie{0x21, 0x12, 0xa4, 0x42};
 
         bool is_valid() const { return transaction_id.is_not_empty(); }
 
-        void write_json(json_object &o) const  {
+        bool has_magic_cookie() const { return tid_has_magic_cookie; }
+
+        // return the number of zero bytes in the transaction_id
+        //
+        size_t tid_zero_count() const {
+            size_t count = 0;
+            for (const auto & x : transaction_id) {
+                if (x == 0) {
+                    ++count;
+                }
+            }
+            return count;
+        }
+
+        bool has_known_method_and_class() const {
+            return message_type_string(message_type_field & msg_type_mask) != nullptr
+                and method<uint16_t>{get_method_type()}.get_name() != nullptr;
+        }
+
+        static constexpr size_t length = 20;    // number of bytes in header
+
+        void write_json(json_object &o) const {
             if (is_valid()) {
                 method<uint16_t>{get_method_type()}.write_json(o);
+
                 const char *type_name = message_type_string(message_type_field & msg_type_mask);
                 if (type_name == nullptr) {
-                    o.print_key_unknown_code("message_type", (uint16_t)(message_type_field & msg_type_mask));
+                    o.print_key_unknown_code("class", (uint16_t)(message_type_field & msg_type_mask));
                 } else {
-                    o.print_key_string("message_type", type_name);
+                    o.print_key_string("class", type_name);
                 }
                 o.print_key_uint("message_length", message_length);
-                o.print_key_hex("transaction_id", transaction_id);
+                datum tmp{transaction_id};
+                if (tid_has_magic_cookie) {
+                    tmp.skip(magic_cookie.size());
+                }
+                o.print_key_hex("transaction_id", tmp);
+                o.print_key_bool("magic_cookie", tid_has_magic_cookie);
             }
         }
 
@@ -528,6 +725,29 @@ namespace stun {
         }
 
         uint16_t get_message_length() const { return message_length; }
+
+        uint16_t get_method_type() const {
+            return (message_type_field & 0x0f)
+                | ((message_type_field & 0xe0) >> 1)
+                | ((message_type_field & 0x3e00) >> 2);
+        }
+
+        void write_fingerprint(buffer_stream &buf) const {
+            if (!is_valid()) {
+                return;
+            }
+            buf.write_char('(');
+            buf.write_hex_uint((uint16_t)(message_type_field & msg_type_mask));
+            buf.write_char(')');
+
+            buf.write_char('(');
+            buf.write_hex_uint(get_method_type());
+            buf.write_char(')');
+
+            buf.write_char('(');
+            buf.write_hex_uint((uint8_t)tid_has_magic_cookie);
+            buf.write_char(')');
+        }
 
     };
 
@@ -552,9 +772,11 @@ namespace stun {
                 hdr.write_json(stun_obj);
                 json_array a{stun_obj, "attributes"};
                 datum tmp{body};
+                stun::usage u{method_usage(hdr.get_method_type())};
                 while (tmp.is_not_empty()) {
                     if (lookahead<stun::attribute> attr{tmp}) {
                         attr.value.write_json(a);
+                        u = (stun::usage)((int)u | (int)attribute_type_usage(attr.value.get_type()));
                         tmp = attr.advance();
                     } else {
                         json_object unparseable{a};
@@ -564,6 +786,8 @@ namespace stun {
                     }
                 }
                 a.close();
+
+                stun_obj.print_key_string("usage", usage_string(u));
                 if (output_raw_features) {
                     write_raw_features(stun_obj);
                 }
@@ -596,25 +820,144 @@ namespace stun {
             }
         }
 
-        static constexpr mask_and_value<8> matcher{
-            { 0x00, 0x00,            // type
-              0x00, 0x00,            // length
-              0xff, 0xff, 0xff, 0xff // magic cookie
-            },
-            { 0x00, 0x00,            // type
-              0x00, 0x00,            // length
-              0x21, 0x12, 0xa4, 0x42 // magic cookie
+        // static constexpr mask_and_value<8> matcher{
+        //     { 0x00, 0x00,            // type
+        //       0x00, 0x00,            // length
+        //       0xff, 0xff, 0xff, 0xff // magic cookie
+        //     },
+        //     { 0x00, 0x00,            // type
+        //       0x00, 0x00,            // length
+        //       0x21, 0x12, 0xa4, 0x42 // magic cookie
+        //     }
+        // };
+
+        /// returns the length of the stun packet pkt as indicated by
+        /// the length field of the header, if \param pkt contains a
+        /// complete header, or -1 otherwise.
+        ///
+        /// This function does not attempt to fully parse the packet,
+        /// and thus is suitable for use in protocol identification.
+        ///
+        static ssize_t packet_length_from_header(datum pkt) {
+            encoded<uint16_t> ignore{pkt};
+            encoded<uint16_t> length{pkt};
+            pkt.skip(12);
+            if (pkt.is_not_null()) {
+                return header::length + length.value();
             }
+            return -1;  // error: not a valid stun packet
+        }
+
+        // we use a null four-byte matcher, because we rely on the
+        // correspondence between the length of the packet and the
+        // length field
+        //
+        static constexpr mask_and_value<4> matcher{
+            { 0x00, 0x00, 0x00, 0x00 },
+            { 0x00, 0x00, 0x00, 0x00 }
         };
 
         bool is_not_empty() const {
-            return hdr.is_valid();
+            if (!hdr.is_valid() or (hdr.get_message_length() != body.length())) {
+                return false;
+            }
+            if (hdr.has_magic_cookie()) {
+                return true;            // very highly likely that we are modern STUN
+            }
+            if (body.length() == 0) {
+                return hdr.has_known_method_and_class() and hdr.tid_zero_count() < 2;
+            }
+            return (bool)lookahead<stun::attribute>{body};  // body must contain at least one valid attribute
         }
 
-        void compute_fingerprint(fingerprint &) {
+        void compute_fingerprint(fingerprint &fp) {
             if (!hdr.is_valid()) { return; }
-            // TODO
+
+            fp.set_type(fingerprint_type_stun);
+            fp.add(*this);
+            fp.final();
         }
+
+        void fingerprint(struct buffer_stream &buf) {
+            if (!hdr.is_valid()) {
+                return;
+            }
+
+            hdr.write_fingerprint(buf);
+
+            // the attr_fingerprint_type determines what data from a
+            // particular attribute type will be included in a
+            // fingerprint
+            //
+            enum attr_fingerprint_type {
+                type_length_data,
+                type_length,
+                type
+            };
+
+            using attr_type = attribute_type<uint16_t>::code; // for readability
+
+            std::unordered_map<uint16_t, attr_fingerprint_type> attr_fp_type {
+                { attr_type::USERNAME,                  type },
+                { attr_type::MESSAGE_INTEGRITY,         type },
+                { attr_type::XOR_MAPPED_ADDRESS,        type },
+                { 0x8007,                               type },
+                { attr_type::MS_VERSION,                type },
+                { attr_type::SOFTWARE,                  type },
+                { attr_type::FINGERPRINT,               type },
+                { attr_type::MS_APP_ID,                 type_length_data},
+                { attr_type::MS_IMPLEMENTATION_VERSION, type_length_data, },
+                { 0xc003,                               type },
+                { attr_type::GOOG_NETWORK_INFO,         type_length_data },
+                { 0xdaba,                               type },
+            };
+
+            // loop over attributes
+            //
+            buf.write_char('(');
+            datum tmp{body};
+            while (tmp.is_not_empty()) {
+                if (acceptor<stun::attribute> attr{tmp}) {
+
+                    // write attribute data into fingerprint,
+                    // depending on its attribute fingerprint type
+                    //
+                    auto result = attr_fp_type.find(attr.value.get_type());
+                    if (result != attr_fp_type.end()) {
+                        switch (result->second) {
+                        case type_length_data:
+                            attr.value.write_type_length_value(buf);
+                            break;
+                        case type_length:
+                            attr.value.write_type_length(buf);
+                            break;
+                        case type:
+                            attr.value.write_type(buf);
+                            break;
+                        default:
+                            break;
+                        }
+                    } else {
+                        ;  // by default, attribute information is not included in fingerprint
+                    }
+                } else {
+                    break;
+                }
+            }
+            buf.write_char(')');
+
+        }
+
+        // analyzes the dst_ip, dst_port, and SOFTWARE attribute
+        // value, using a classifier selected by the stun fingerprint
+        //
+        bool do_analysis(const struct key &, struct analysis_context &, classifier*) {
+            //
+            // TBD
+            //
+            return false;
+        }
+
     };
 
 } // namespace stun
@@ -635,5 +978,49 @@ namespace stun {
 
     return 0;
 }
+
+/*
+
+STUN implementation notes
+
+RFC 5389 and later STUN defines the Message Type and Message Class
+fields with this mapping to the first 16 bits of the STUN header:
+
+      0                      1
+      0 1  2  3  4 5 6 7 8 9 0 1 2 3 4 5
+     +-+-+--+--+-+-+-+-+-+-+-+-+-+-+-+-+
+     | | |M |M |M|M|M|C|M|M|M|C|M|M|M|M|
+     | | |11|10|9|8|7|1|6|5|4|0|3|2|1|0|
+     +-+-+--+--+-+-+-+-+-+-+-+-+-+-+-+-+
+
+RFC 3489 defines those 16 bits as follows:
+
+      Field                         Hex       Binary
+      ---------------------------------------------------------
+      Binding Request               0x0001    0000000000000001
+      Binding Response              0x0101    0000000100000001
+      Binding Error Response        0x0111    0000000100010001
+      Shared Secret Request         0x0002    0000000000000010
+      Shared Secret Response        0x0102    0000000100000010
+      Shared Secret Error Response  0x0112    0000000100010010
+                                                  ^^^^^^^^^^^^
+                                                  ||||||||||||
+                                                  MMMCMMMCMMMM
+                                                  987165403210
+
+      Field                         Binary            M                 Class (reqeust/response/error-response)
+      --------------------------------------------------------------------------
+      Binding Request               0000000000000001  0000000000000001  000000000000000
+      Binding Response              0000000100000001  0000000000000001  000000000000010
+      Binding Error Response        0000000100010001  0000000000000001  000000000000011
+      Shared Secret Request         0000000000000010  0000000000000010  000000000000000
+      Shared Secret Response        0000000100000010  0000000000000010  000000000000010
+      Shared Secret Error Response  0000000100010010  0000000000000010  000000000000011
+                                        ^^^^^^^^^^^^
+                                        ||||||||||||
+                                        MMMCMMMCMMMM
+                                        987165403210
+
+ */
 
 #endif // STUN_H
