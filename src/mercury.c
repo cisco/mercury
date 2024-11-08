@@ -186,6 +186,17 @@ char mercury_extended_help[] =
     "\n"
     "   --metadata writes out additional metadata into the protocol JSON objects.\n"
     "\n"
+    "   --raw-features selects protocols to write out raw features string into the protocol\n"
+    "    JSON object which can be comma separated list of following strings\n"
+    "       bittorrent      Bittorrent Handshake Message, LSD message, DHT message\n"
+    "       smb             SMB v2, v3 messages\n"
+    "       ssdp            SSDP (UPnP)\n"
+    "       stun            Stun messages\n"
+    "       tls             TLS clientHello\n"
+    "       all             All of the above\n"
+    "       none            None of the above\n"
+    "       <no option>     None of the above\n"
+    "\n"
     "   [-v or --verbose] writes additional information to the standard error,\n"
     "   including the packet count, byte count, elapsed time and processing rate, as\n"
     "   well as information about threads and files.\n"
@@ -238,6 +249,7 @@ int main(int argc, char *argv[]) {
     struct mercury_config cfg = mercury_config_init();
     struct libmerc_config libmerc_cfg;
     bool select_set = false;
+    bool raw_features_set = false;
     bool using_config_file = false;
 
     //extern double malware_prob_threshold;  // TODO - expose hidden command
@@ -245,7 +257,7 @@ int main(int argc, char *argv[]) {
     std::string additional_args;
 
     while(1) {
-        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13, reassembly=14, format=15 };
+        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13, reassembly=14, format=15, raw_features=16 };
         int opt_idx = 0;
         static struct option long_opts[] = {
             { "config",      required_argument, NULL, config  },
@@ -276,6 +288,7 @@ int main(int argc, char *argv[]) {
             { "user",        required_argument, NULL, 'u' },
             { "help",        no_argument,       NULL, 'h' },
             { "select",      optional_argument, NULL, 's' },
+            { "raw-features", required_argument, NULL, raw_features },
             { "verbose",     no_argument,       NULL, 'v' },
             { NULL,          0,                 0,     0  }
         };
@@ -363,6 +376,17 @@ int main(int argc, char *argv[]) {
                 additional_args.append("format=").append(optarg).append(";");
             } else {
                 usage(argv[0], "option format requires fingerprint format argument", extended_help_off);
+            }
+            break;
+        case raw_features:
+            if (raw_features_set) {
+                usage(argv[0], "option raw-features used more than once", extended_help_off);
+            }
+            if (option_is_valid(optarg)) {
+                additional_args.append("raw-features=").append(optarg).append(";");
+                raw_features_set = true;
+            } else {
+                usage(argv[0], "option raw_features requires comma separated protocols as argument", extended_help_off);
             }
             break;
         case 'r':

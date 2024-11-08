@@ -61,6 +61,9 @@ class ssdp : public base_protocol {
 
 public:
 
+    static inline bool output_raw_features = false;
+    static void set_raw_features(bool value) { output_raw_features = value; }
+
     ssdp(datum &p) : method{NULL, NULL}, headers{}, type{max_msg_type} { parse(p); }
 
     void parse(datum &p) {
@@ -102,15 +105,17 @@ public:
                 msg.print_key_json_string("method", method);
             }
 
-            data_buffer<2048> feature_buf;
-            feature_buf.copy('[');
-            feature_buf.write_quote_enclosed_hex(method.data, method.length());
-            feature_buf.copy(',');
-            feature_buf.copy('[');
-            headers.print_ssdp_names_and_feature_string(msg, feature_buf, output_metadata);
-            feature_buf.copy(']');
-            feature_buf.copy(']');
-            write_raw_features(msg, feature_buf);
+            if (output_raw_features) {
+                data_buffer<2048> feature_buf;
+                feature_buf.copy('[');
+                feature_buf.write_quote_enclosed_hex(method.data, method.length());
+                feature_buf.copy(',');
+                feature_buf.copy('[');
+                headers.print_ssdp_names_and_feature_string(msg, feature_buf, output_metadata);
+                feature_buf.copy(']');
+                feature_buf.copy(']');
+                write_raw_features(msg, feature_buf);
+            }
 
             msg.close();
             ssdp.close();

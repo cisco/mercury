@@ -106,7 +106,7 @@ libmerc_driver:
 .PHONY: json-validity-test
 json-validity-test:
 	@echo "running json validity test"
-	./mercury-json-validity-check.sh --dns-json --certs-json --metadata --nonselected-tcp-data --nonselected-udp-data
+	./mercury-json-validity-check.sh --dns-json --certs-json --metadata --nonselected-tcp-data --nonselected-udp-data --raw-features=all
 	@echo $(COLOR_GREEN) "passed json validity test" $(COLOR_OFF)
 
 .PHONY: comp
@@ -116,7 +116,7 @@ comp: $(COMP_FILES) $(MCAP_COMP_FILES) $(JSON_COMP_FILES)
 # implicit rule to make a JSON file from a PCAP file
 #
 %.json: %.pcap
-	$(MERCURY) -r $< -f $@ --reassembly --metadata
+	$(MERCURY) -r $< -f $@ --reassembly --metadata --raw-features=all
 
 # implicit rule to make a fingerprint file from a JSON file
 #
@@ -262,7 +262,7 @@ endif
 .PHONY: json-test
 json-test:
 	@echo "running json-test"
-	${MERCURY} -r data/http.pcap -f tmp.json --metadata -a --resources=../resources/resources.tgz
+	${MERCURY} -r data/http.pcap -f tmp.json --metadata -a --resources=../resources/resources.tgz --raw-features=all
 	bash -c "diff tmp.json data/http.json"
 	@echo $(COLOR_GREEN) "passed json-test" $(COLOR_OFF)
 	rm -f tmp.json
