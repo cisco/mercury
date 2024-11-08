@@ -57,7 +57,7 @@ void *pcap_file_processing_thread_func(void *userdata) {
 
     status = pcap_file_dispatch_pkt_processor(&tc->rf, tc->pkt_processor, tc->loop_count, sig_close_flag);
     if (status) {
-        printf("error in pcap file dispatch (code: %d)\n", (int)status);
+        fprintf(stderr, "error in pcap file dispatch (code: %d)\n", (int)status);
         return NULL;
     }
 
