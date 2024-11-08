@@ -135,6 +135,9 @@ struct stateful_pkt_proc {
         this->c = m->c;
         this->global_vars = m->global_vars;
 
+        // setting protocol based configuration option to output the raw features
+        set_raw_features(global_vars.raw_features);
+
         //fprintf(stderr, "note: setting classifier to %p, setting global_vars to %p\n", (void *)m->c, (void *)&m->global_vars));
         // }
 
@@ -268,6 +271,30 @@ struct stateful_pkt_proc {
                           udp &udp_pkt);
 
     bool dump_pkt ();
+
+    void set_raw_features(std::unordered_map<std::string, bool> &raw_features) {
+        if (raw_features["all"] or raw_features["tls"]) {
+            tls_client_hello::set_raw_features(true);
+        }
+        
+        if (raw_features["all"] or raw_features["stun"]) {
+            stun::message::set_raw_features(true);
+        }
+        
+        if (raw_features["all"] or raw_features["bittorrent"]) {
+            bittorrent_dht::set_raw_features(true);
+            bittorrent_lsd::set_raw_features(true);
+            bittorrent_handshake::set_raw_features(true);
+        }
+        
+        if (raw_features["all"] or raw_features["smb"]) {
+            smb2_packet::set_raw_features(true);
+        }
+        
+        if (raw_features["all"] or raw_features["ssdp"]) {
+            ssdp::set_raw_features(true);
+        }
+    }
 };
 
 #endif /* PKT_PROC_H */
