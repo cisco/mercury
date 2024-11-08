@@ -398,6 +398,8 @@ struct tls_client_hello : public base_protocol {
     bool dtls = false;
     bool is_quic_hello = false;
     size_t additional_bytes_needed = 0;
+    static inline bool output_raw_features = false;
+    static void set_raw_features(bool value) { output_raw_features = value; }
 
     tls_client_hello() { }
 

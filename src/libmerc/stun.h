@@ -757,6 +757,9 @@ namespace stun {
 
     public:
 
+        static inline bool output_raw_features = false;
+        static void set_raw_features(bool value) { output_raw_features = value; }
+
         message(datum &d) : hdr{d}, body{d, hdr.get_message_length()} { }
 
         void write_json(json_object &o, bool metadata=false) const {
@@ -783,8 +786,11 @@ namespace stun {
                     }
                 }
                 a.close();
-                write_raw_features(stun_obj);
+
                 stun_obj.print_key_string("usage", usage_string(u));
+                if (output_raw_features) {
+                    write_raw_features(stun_obj);
+                }
                 stun_obj.close();
             }
         }

@@ -28,8 +28,10 @@
 
 class bittorrent_dht : public base_protocol {
     bencoding::dictionary dict;
-
 public:
+    static inline bool output_raw_features = false;
+    static void set_raw_features(bool value) { output_raw_features = value; }
+
     bittorrent_dht (datum &d) : dict(d) { }
 
     void write_raw_features(json_object &o) {
@@ -46,7 +48,9 @@ public:
         if (this->is_not_empty()) {
             struct json_object dht{o, "bittorrent_dht"};
             dict.write_json(dht);
-            write_raw_features(dht);
+            if (output_raw_features) {
+                write_raw_features(dht);
+            }
             dht.close();
         }
     }
@@ -197,6 +201,9 @@ class bittorrent_lsd : public base_protocol {
 
 public:
 
+    static inline bool output_raw_features = false;
+    static void set_raw_features(bool value) { output_raw_features = value; }
+
     bittorrent_lsd(datum &d) :
         proto{d},
         sp1(d),
@@ -228,7 +235,9 @@ public:
             struct json_object lsd{o, "bittorrent_lsd"};
             lsd.print_key_json_string("version", version);
             headers.write_json(lsd);
-            write_raw_features(o); 
+            if (output_raw_features) {
+                write_raw_features(o);
+            }
             lsd.close();
         }
     }
@@ -245,7 +254,7 @@ class bittorrent_peer_message {
     encoded<uint8_t> message_type;
     datum message;
     bool valid;
-    
+
 public:
     
     bittorrent_peer_message(datum &d) :
@@ -384,6 +393,10 @@ class bittorrent_handshake : public base_protocol {
     bool valid;
 
 public:
+
+    static inline bool output_raw_features = false;
+    static void set_raw_features(bool value) { output_raw_features = value; }
+
     bittorrent_handshake(datum &d) :
         protocol{d},
         extension_bytes{d, 8},
@@ -424,7 +437,9 @@ public:
             bt.print_key_hex("info_dict", hash_of_info_dict);
             bt.print_key_hex("peer_id", peer_id);
             msgs.write_json(o);
-            write_raw_features(o);
+            if (output_raw_features) {
+                write_raw_features(o);
+            }
             bt.close();
         }
     }    
