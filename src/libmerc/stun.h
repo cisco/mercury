@@ -691,9 +691,14 @@ namespace stun {
             return count;
         }
 
-        bool has_known_method_and_class() const {
-            return message_type_string(message_type_field & msg_type_mask) != nullptr
-                and method<uint16_t>{get_method_type()}.get_name() != nullptr;
+        /// returns `true` if the \ref message_type_field of this
+        /// header object is valid for classic STUN, and `false`
+        /// otherwise.  Accepted values are Binding Request, Binding
+        /// Response, Binding Error Response, Shared Secret Request,
+        /// Shared Secret Response, and Shared Secret Error Response.
+        ///
+        bool message_type_is_valid_for_classic_stun() const {
+            return (message_type_field & 0xec) == (uint16_t)0;
         }
 
         static constexpr size_t length = 20;    // number of bytes in header
@@ -865,7 +870,7 @@ namespace stun {
                 return true;            // very highly likely that we are modern STUN
             }
             if (body.length() == 0) {
-                return hdr.has_known_method_and_class() and hdr.tid_zero_count() < 2;
+                return hdr.message_type_is_valid_for_classic_stun() and hdr.tid_zero_count() < 2;
             }
             return (bool)lookahead<stun::attribute>{body};  // body must contain at least one valid attribute
         }
@@ -979,48 +984,49 @@ namespace stun {
     return 0;
 }
 
-/*
+// STUN implementation notes
+//
+// RFC 5389 and later STUN defines the Message Type as a combination
+// of the Message Class (request, success response, failure response,
+// or indication) and the Message Method (the primary function) of the
+// STUN message. These two fields are interleaved according to the
+// following mapping to the first 16 bits of the STUN header.
+//
+//       0                      1
+//       0 1  2  3  4 5 6 7 8 9 0 1 2 3 4 5
+//      +-+-+--+--+-+-+-+-+-+-+-+-+-+-+-+-+
+//      | | |M |M |M|M|M|C|M|M|M|C|M|M|M|M|
+//      | | |11|10|9|8|7|1|6|5|4|0|3|2|1|0|
+//      +-+-+--+--+-+-+-+-+-+-+-+-+-+-+-+-+
+//
+// RFC 3489 defines those 16 bits as follows:
+//
+//       Field                         Hex       Binary
+//       ---------------------------------------------------------
+//       Binding Request               0x0001    0000000000000001
+//       Binding Response              0x0101    0000000100000001
+//       Binding Error Response        0x0111    0000000100010001
+//       Shared Secret Request         0x0002    0000000000000010
+//       Shared Secret Response        0x0102    0000000100000010
+//       Shared Secret Error Response  0x0112    0000000100010010
+//                                                   ^^^^^^^^^^^^
+//                                                   ||||||||||||
+//                                                   MMMCMMMCMMMM
+//                                                   987165403210
+//
+//       Field                         Binary            Method            Class
+//       ---------------------------------------------------------------------------------
+//       Binding Request               0000000000000001  0000000000000001  000000000000000
+//       Binding Response              0000000100000001  0000000000000001  000000000000010
+//       Binding Error Response        0000000100010001  0000000000000001  000000000000011
+//       Shared Secret Request         0000000000000010  0000000000000010  000000000000000
+//       Shared Secret Response        0000000100000010  0000000000000010  000000000000010
+//       Shared Secret Error Response  0000000100010010  0000000000000010  000000000000011
+//                                         ^^^^^^^^^^^^
+//                                         ||||||||||||
+//                                         MMMCMMMCMMMM
+//                                         987165403210
 
-STUN implementation notes
 
-RFC 5389 and later STUN defines the Message Type and Message Class
-fields with this mapping to the first 16 bits of the STUN header:
-
-      0                      1
-      0 1  2  3  4 5 6 7 8 9 0 1 2 3 4 5
-     +-+-+--+--+-+-+-+-+-+-+-+-+-+-+-+-+
-     | | |M |M |M|M|M|C|M|M|M|C|M|M|M|M|
-     | | |11|10|9|8|7|1|6|5|4|0|3|2|1|0|
-     +-+-+--+--+-+-+-+-+-+-+-+-+-+-+-+-+
-
-RFC 3489 defines those 16 bits as follows:
-
-      Field                         Hex       Binary
-      ---------------------------------------------------------
-      Binding Request               0x0001    0000000000000001
-      Binding Response              0x0101    0000000100000001
-      Binding Error Response        0x0111    0000000100010001
-      Shared Secret Request         0x0002    0000000000000010
-      Shared Secret Response        0x0102    0000000100000010
-      Shared Secret Error Response  0x0112    0000000100010010
-                                                  ^^^^^^^^^^^^
-                                                  ||||||||||||
-                                                  MMMCMMMCMMMM
-                                                  987165403210
-
-      Field                         Binary            M                 Class (reqeust/response/error-response)
-      --------------------------------------------------------------------------
-      Binding Request               0000000000000001  0000000000000001  000000000000000
-      Binding Response              0000000100000001  0000000000000001  000000000000010
-      Binding Error Response        0000000100010001  0000000000000001  000000000000011
-      Shared Secret Request         0000000000000010  0000000000000010  000000000000000
-      Shared Secret Response        0000000100000010  0000000000000010  000000000000010
-      Shared Secret Error Response  0000000100010010  0000000000000010  000000000000011
-                                        ^^^^^^^^^^^^
-                                        ||||||||||||
-                                        MMMCMMMCMMMM
-                                        987165403210
-
- */
 
 #endif // STUN_H
