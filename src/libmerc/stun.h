@@ -913,7 +913,7 @@ namespace stun {
                 { attr_type::MS_APP_ID,                 type_length_data},
                 { attr_type::MS_IMPLEMENTATION_VERSION, type_length_data, },
                 { 0xc003,                               type },
-                { attr_type::GOOG_NETWORK_INFO,         type_length_data },
+                { attr_type::GOOG_NETWORK_INFO,         type },
                 { 0xdaba,                               type },
             };
 
