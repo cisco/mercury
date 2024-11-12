@@ -693,12 +693,21 @@ namespace stun {
 
         /// returns `true` if the \ref message_type_field of this
         /// header object is valid for classic STUN, and `false`
-        /// otherwise.  Accepted values are Binding Request, Binding
-        /// Response, Binding Error Response, Shared Secret Request,
-        /// Shared Secret Response, and Shared Secret Error Response.
+        /// otherwise.
         ///
         bool message_type_is_valid_for_classic_stun() const {
-            return (message_type_field & 0xec) == (uint16_t)0;
+            switch (message_type_field) {
+            case 0x0001:     // Binding Request
+            case 0x0101:     // Binding Response
+            case 0x0111:     // Binding Error Response
+            case 0x0002:     // Shared Secret Request
+            case 0x0102:     // Shared Secret Response
+            case 0x0112:     // Shared Secret Error Response
+                return true;
+            default:
+                ;
+            }
+            return false;
         }
 
         static constexpr size_t length = 20;    // number of bytes in header
