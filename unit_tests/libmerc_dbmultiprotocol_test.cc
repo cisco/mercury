@@ -750,6 +750,11 @@ TEST_CASE_METHOD(LibmercTestFixture, "test stun with resources-mp")
         {test_config{
              .m_lc{.do_analysis = true, .resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"stun"},
+             .m_pc{"stun_classic.pcap"}},
+         2},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"stun"},
              .m_pc{"top_100_fingerprints.pcap"}},
          0}
     };
