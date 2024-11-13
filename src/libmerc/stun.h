@@ -636,7 +636,7 @@ namespace stun {
     //        |11|10|9|8|7|1|6|5|4|0|3|2|1|0|
     //        +--+--+-+-+-+-+-+-+-+-+-+-+-+-+
     //
-    static const uint16_t msg_type_mask = 0x0110;
+    static const uint16_t msg_class_mask = 0x0110;
 
     class header {
         encoded<uint16_t> message_type_field;
@@ -645,19 +645,19 @@ namespace stun {
         datum transaction_id;                   // note: always 16 bytes in length
         bool tid_has_magic_cookie{false};
 
-        enum message_type : uint16_t {
+        enum message_class : uint16_t {
             request      = 0x0000,
             indication   = 0x0010,
             success_resp = 0x0100,
             err_resp     = 0x0110
         };
 
-        static const char *message_type_string(uint16_t type) {
-            switch(type) {
-            case message_type::request: return "request";
-            case message_type::indication: return "indication";
-            case message_type::success_resp: return "success_resp";
-            case message_type::err_resp: return "err_resp";
+        static const char *message_class_string(uint16_t masked_type) {
+            switch(masked_type) {
+            case message_class::request: return "request";
+            case message_class::indication: return "indication";
+            case message_class::success_resp: return "success_resp";
+            case message_class::err_resp: return "err_resp";
             default:
                 ;
             }
@@ -716,11 +716,11 @@ namespace stun {
             if (is_valid()) {
                 method<uint16_t>{get_method_type()}.write_json(o);
 
-                const char *type_name = message_type_string(message_type_field & msg_type_mask);
-                if (type_name == nullptr) {
-                    o.print_key_unknown_code("class", (uint16_t)(message_type_field & msg_type_mask));
+                const char *class_name = message_class_string(message_type_field & msg_class_mask);
+                if (class_name == nullptr) {
+                    o.print_key_unknown_code("class", (uint16_t)(message_type_field & msg_class_mask));
                 } else {
-                    o.print_key_string("class", type_name);
+                    o.print_key_string("class", class_name);
                 }
                 o.print_key_uint("message_length", message_length);
                 datum tmp{transaction_id};
@@ -751,7 +751,7 @@ namespace stun {
                 return;
             }
             buf.write_char('(');
-            buf.write_hex_uint((uint16_t)(message_type_field & msg_type_mask));
+            buf.write_hex_uint((uint16_t)(message_type_field & msg_class_mask));
             buf.write_char(')');
 
             buf.write_char('(');
