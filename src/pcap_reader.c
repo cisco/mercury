@@ -11,7 +11,7 @@
 #include "pkt_processing.h"
 #include "libmerc/utils.h"
 
-extern int sig_close_flag;  // defined in signal_handling.c
+extern sig_atomic_t sig_close_flag;  // defined in signal_handling.c
 
 #define BILLION 1000000000L
 

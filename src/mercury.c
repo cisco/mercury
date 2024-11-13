@@ -674,7 +674,13 @@ int main(int argc, char *argv[]) {
     if (setup_signal_handler() != status_ok) {
         fprintf(stderr, "%s: error while setting up signal handlers\n", strerror(errno));
     }
-    disable_all_signals(); /* We don't want our main thread to get these */
+
+    /* If we're going to capture from the network we don't want this main thread
+     * to get interrupted, instead the stats thread needs to recieve the signal.
+     */
+    if (cfg.capture_interface) {
+        disable_all_signals(); /* Stats thread will unmask the signals it needs */
+    }
 
     /* set the number of threads, if needed */
     if (cfg.num_threads == -1) {
