@@ -1,3 +1,4 @@
+import os
 import json
 import unittest
 from binascii import unhexlify
@@ -11,7 +12,10 @@ class TestMercuryPython(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.libmerc = mercury.Mercury(do_analysis=True, resources=b'../../test/data/resources-test.tgz')
+        if os.path.exists('../../test/data/resources-test.tgz'):
+            cls.libmerc = mercury.Mercury(do_analysis=True, resources=b'../../test/data/resources-test.tgz')
+        else:
+            cls.libmerc = mercury.Mercury(do_analysis=True, resources=b'test/data/resources-test.tgz')
 
 
     def test_certificate_parsing(self):
