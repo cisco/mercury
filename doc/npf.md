@@ -2,8 +2,6 @@
 
 **Draft**
 
-December 6, 2022
-
 David McGrew (Editor)
 
 
@@ -380,6 +378,33 @@ An example of a OPENVPN fingerprint is
 ```
 openvpn/(06)(03)(0400)(14)(0301)(c014c00ac022c0210039003800880087c00fc00500350084c012c008c01cc01b00160013c00dc003000ac013c009c01fc01e00330032009a009900450044c00ec004002f00960041c011c007c00cc002000500040015001200090014001100080006000300ff)((000b000403000102)(000a00340032000e000d0019000b000c00180009000a00160017000800060007001400150004000500120013000100020003000f00100011)(0023)(000f000101))
 ```
+
+## STUN
+
+The STUN fingerprint is formed from the messages of the "classic STUN" (RFC 3489) or modern STUN (RFC 8489) protocol.  The fingerprint format is
+```
+    "stun/1/" (class)(method)(magic)((attribute)*)
+```
+where the elements are defined as
+- `class` (string, one byte) is the (RFC 8489) class field
+- `method` (string, two bytes) is the (RFC 8489) method field
+- `magic` (string, one byte) is 01 if the Magic Cookie is present, and 00 otherwise.   The former indicates modern STUN, the latter classic STUN.
+- `attribute` (string, variable length) contains the type field, and optionally the length and data fields, of an attribute, in the order that they appear in the message.  The attribute types included in this field, and the extent of the data included, are as per the following table:
+```
+   USERNAME                  type
+   MESSAGE_INTEGRITY         type
+   XOR_MAPPED_ADDRESS        type
+   0x8007                    type
+   MS_VERSION                type
+   SOFTWARE                  type
+   FINGERPRINT               type
+   MS_APP_ID                 type_length_data
+   MS_IMPLEMENTATION_VERSION type_length_data
+   0xc003                    type
+   GOOG_NETWORK_INFO         type
+   0xdaba                    type
+```
+
 
 
 #### Truncated Fingerprints
