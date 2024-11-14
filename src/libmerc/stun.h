@@ -746,12 +746,16 @@ namespace stun {
                 | ((message_type_field & 0x3e00) >> 2);
         }
 
+        uint8_t get_message_class() const {
+            return (message_type_field & 0x100) >> 7 | (message_type_field & 0x10) >> 4;
+        }
+
         void write_fingerprint(buffer_stream &buf) const {
             if (!is_valid()) {
                 return;
             }
             buf.write_char('(');
-            buf.write_hex_uint((uint16_t)(message_type_field & msg_class_mask));
+            buf.write_hex_uint(get_message_class());
             buf.write_char(')');
 
             buf.write_char('(');
@@ -887,7 +891,8 @@ namespace stun {
         void compute_fingerprint(fingerprint &fp) {
             if (!hdr.is_valid()) { return; }
 
-            fp.set_type(fingerprint_type_stun);
+            constexpr size_t format_version = 1;
+            fp.set_type(fingerprint_type_stun, format_version);
             fp.add(*this);
             fp.final();
         }
@@ -919,8 +924,8 @@ namespace stun {
                 { attr_type::MS_VERSION,                type },
                 { attr_type::SOFTWARE,                  type },
                 { attr_type::FINGERPRINT,               type },
-                { attr_type::MS_APP_ID,                 type_length_data},
-                { attr_type::MS_IMPLEMENTATION_VERSION, type_length_data, },
+                { attr_type::MS_APP_ID,                 type_length_data },
+                { attr_type::MS_IMPLEMENTATION_VERSION, type_length_data },
                 { 0xc003,                               type },
                 { attr_type::GOOG_NETWORK_INFO,         type },
                 { 0xdaba,                               type },
