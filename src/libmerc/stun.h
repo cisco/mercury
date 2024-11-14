@@ -636,7 +636,7 @@ namespace stun {
     //        |11|10|9|8|7|1|6|5|4|0|3|2|1|0|
     //        +--+--+-+-+-+-+-+-+-+-+-+-+-+-+
     //
-    static const uint16_t msg_type_mask = 0x0110;
+    static const uint16_t msg_class_mask = 0x0110;
 
     class header {
         encoded<uint16_t> message_type_field;
@@ -645,19 +645,19 @@ namespace stun {
         datum transaction_id;                   // note: always 16 bytes in length
         bool tid_has_magic_cookie{false};
 
-        enum message_type : uint16_t {
+        enum message_class : uint16_t {
             request      = 0x0000,
             indication   = 0x0010,
             success_resp = 0x0100,
             err_resp     = 0x0110
         };
 
-        static const char *message_type_string(uint16_t type) {
-            switch(type) {
-            case message_type::request: return "request";
-            case message_type::indication: return "indication";
-            case message_type::success_resp: return "success_resp";
-            case message_type::err_resp: return "err_resp";
+        static const char *message_class_string(uint16_t masked_type) {
+            switch(masked_type) {
+            case message_class::request: return "request";
+            case message_class::indication: return "indication";
+            case message_class::success_resp: return "success_resp";
+            case message_class::err_resp: return "err_resp";
             default:
                 ;
             }
@@ -691,9 +691,23 @@ namespace stun {
             return count;
         }
 
-        bool has_known_method_and_class() const {
-            return message_type_string(message_type_field & msg_type_mask) != nullptr
-                and method<uint16_t>{get_method_type()}.get_name() != nullptr;
+        /// returns `true` if the \ref message_type_field of this
+        /// header object is valid for classic STUN, and `false`
+        /// otherwise.
+        ///
+        bool message_type_is_valid_for_classic_stun() const {
+            switch (message_type_field) {
+            case 0x0001:     // Binding Request
+            case 0x0101:     // Binding Response
+            case 0x0111:     // Binding Error Response
+            case 0x0002:     // Shared Secret Request
+            case 0x0102:     // Shared Secret Response
+            case 0x0112:     // Shared Secret Error Response
+                return true;
+            default:
+                ;
+            }
+            return false;
         }
 
         static constexpr size_t length = 20;    // number of bytes in header
@@ -702,11 +716,11 @@ namespace stun {
             if (is_valid()) {
                 method<uint16_t>{get_method_type()}.write_json(o);
 
-                const char *type_name = message_type_string(message_type_field & msg_type_mask);
-                if (type_name == nullptr) {
-                    o.print_key_unknown_code("class", (uint16_t)(message_type_field & msg_type_mask));
+                const char *class_name = message_class_string(message_type_field & msg_class_mask);
+                if (class_name == nullptr) {
+                    o.print_key_unknown_code("class", (uint16_t)(message_type_field & msg_class_mask));
                 } else {
-                    o.print_key_string("class", type_name);
+                    o.print_key_string("class", class_name);
                 }
                 o.print_key_uint("message_length", message_length);
                 datum tmp{transaction_id};
@@ -732,12 +746,16 @@ namespace stun {
                 | ((message_type_field & 0x3e00) >> 2);
         }
 
+        uint8_t get_message_class() const {
+            return (message_type_field & 0x100) >> 7 | (message_type_field & 0x10) >> 4;
+        }
+
         void write_fingerprint(buffer_stream &buf) const {
             if (!is_valid()) {
                 return;
             }
             buf.write_char('(');
-            buf.write_hex_uint((uint16_t)(message_type_field & msg_type_mask));
+            buf.write_hex_uint(get_message_class());
             buf.write_char(')');
 
             buf.write_char('(');
@@ -865,7 +883,7 @@ namespace stun {
                 return true;            // very highly likely that we are modern STUN
             }
             if (body.length() == 0) {
-                return hdr.has_known_method_and_class() and hdr.tid_zero_count() < 2;
+                return hdr.message_type_is_valid_for_classic_stun() and hdr.tid_zero_count() < 2;
             }
             return (bool)lookahead<stun::attribute>{body};  // body must contain at least one valid attribute
         }
@@ -873,7 +891,8 @@ namespace stun {
         void compute_fingerprint(fingerprint &fp) {
             if (!hdr.is_valid()) { return; }
 
-            fp.set_type(fingerprint_type_stun);
+            constexpr size_t format_version = 1;
+            fp.set_type(fingerprint_type_stun, format_version);
             fp.add(*this);
             fp.final();
         }
@@ -905,10 +924,10 @@ namespace stun {
                 { attr_type::MS_VERSION,                type },
                 { attr_type::SOFTWARE,                  type },
                 { attr_type::FINGERPRINT,               type },
-                { attr_type::MS_APP_ID,                 type_length_data},
-                { attr_type::MS_IMPLEMENTATION_VERSION, type_length_data, },
+                { attr_type::MS_APP_ID,                 type_length_data },
+                { attr_type::MS_IMPLEMENTATION_VERSION, type_length_data },
                 { 0xc003,                               type },
-                { attr_type::GOOG_NETWORK_INFO,         type_length_data },
+                { attr_type::GOOG_NETWORK_INFO,         type },
                 { 0xdaba,                               type },
             };
 
@@ -979,48 +998,49 @@ namespace stun {
     return 0;
 }
 
-/*
+// STUN implementation notes
+//
+// RFC 5389 and later STUN defines the Message Type as a combination
+// of the Message Class (request, success response, failure response,
+// or indication) and the Message Method (the primary function) of the
+// STUN message. These two fields are interleaved according to the
+// following mapping to the first 16 bits of the STUN header.
+//
+//       0                      1
+//       0 1  2  3  4 5 6 7 8 9 0 1 2 3 4 5
+//      +-+-+--+--+-+-+-+-+-+-+-+-+-+-+-+-+
+//      | | |M |M |M|M|M|C|M|M|M|C|M|M|M|M|
+//      | | |11|10|9|8|7|1|6|5|4|0|3|2|1|0|
+//      +-+-+--+--+-+-+-+-+-+-+-+-+-+-+-+-+
+//
+// RFC 3489 defines those 16 bits as follows:
+//
+//       Field                         Hex       Binary
+//       ---------------------------------------------------------
+//       Binding Request               0x0001    0000000000000001
+//       Binding Response              0x0101    0000000100000001
+//       Binding Error Response        0x0111    0000000100010001
+//       Shared Secret Request         0x0002    0000000000000010
+//       Shared Secret Response        0x0102    0000000100000010
+//       Shared Secret Error Response  0x0112    0000000100010010
+//                                                   ^^^^^^^^^^^^
+//                                                   ||||||||||||
+//                                                   MMMCMMMCMMMM
+//                                                   987165403210
+//
+//       Field                         Binary            Method            Class
+//       ---------------------------------------------------------------------------------
+//       Binding Request               0000000000000001  0000000000000001  000000000000000
+//       Binding Response              0000000100000001  0000000000000001  000000000000010
+//       Binding Error Response        0000000100010001  0000000000000001  000000000000011
+//       Shared Secret Request         0000000000000010  0000000000000010  000000000000000
+//       Shared Secret Response        0000000100000010  0000000000000010  000000000000010
+//       Shared Secret Error Response  0000000100010010  0000000000000010  000000000000011
+//                                         ^^^^^^^^^^^^
+//                                         ||||||||||||
+//                                         MMMCMMMCMMMM
+//                                         987165403210
 
-STUN implementation notes
 
-RFC 5389 and later STUN defines the Message Type and Message Class
-fields with this mapping to the first 16 bits of the STUN header:
-
-      0                      1
-      0 1  2  3  4 5 6 7 8 9 0 1 2 3 4 5
-     +-+-+--+--+-+-+-+-+-+-+-+-+-+-+-+-+
-     | | |M |M |M|M|M|C|M|M|M|C|M|M|M|M|
-     | | |11|10|9|8|7|1|6|5|4|0|3|2|1|0|
-     +-+-+--+--+-+-+-+-+-+-+-+-+-+-+-+-+
-
-RFC 3489 defines those 16 bits as follows:
-
-      Field                         Hex       Binary
-      ---------------------------------------------------------
-      Binding Request               0x0001    0000000000000001
-      Binding Response              0x0101    0000000100000001
-      Binding Error Response        0x0111    0000000100010001
-      Shared Secret Request         0x0002    0000000000000010
-      Shared Secret Response        0x0102    0000000100000010
-      Shared Secret Error Response  0x0112    0000000100010010
-                                                  ^^^^^^^^^^^^
-                                                  ||||||||||||
-                                                  MMMCMMMCMMMM
-                                                  987165403210
-
-      Field                         Binary            M                 Class (reqeust/response/error-response)
-      --------------------------------------------------------------------------
-      Binding Request               0000000000000001  0000000000000001  000000000000000
-      Binding Response              0000000100000001  0000000000000001  000000000000010
-      Binding Error Response        0000000100010001  0000000000000001  000000000000011
-      Shared Secret Request         0000000000000010  0000000000000010  000000000000000
-      Shared Secret Response        0000000100000010  0000000000000010  000000000000010
-      Shared Secret Error Response  0000000100010010  0000000000000010  000000000000011
-                                        ^^^^^^^^^^^^
-                                        ||||||||||||
-                                        MMMCMMMCMMMM
-                                        987165403210
-
- */
 
 #endif // STUN_H
