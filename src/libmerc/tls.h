@@ -398,6 +398,8 @@ struct tls_client_hello : public base_protocol {
     bool dtls = false;
     bool is_quic_hello = false;
     size_t additional_bytes_needed = 0;
+    static inline bool output_raw_features = false;
+    static void set_raw_features(bool value) { output_raw_features = value; }
 
     tls_client_hello() { }
 
@@ -423,6 +425,19 @@ struct tls_client_hello : public base_protocol {
         { 0xff, 0xff, 0xfc, 0x00, 0x00, 0xff, 0x00, 0x00 },
         { 0x16, 0x03, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00 }
     };
+
+    void reset() {
+        protocol_version.set_null();
+        random.set_null();
+        session_id.set_null();
+        cookie.set_null();
+        ciphersuite_vector.set_null();
+        compression_methods.set_null();
+        extensions.set_null();
+        dtls = false;
+        is_quic_hello = false;
+        additional_bytes_needed = 0;
+    }
 
 };
 

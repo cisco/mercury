@@ -201,6 +201,25 @@ public:
         d.read_uint8(&length);
         parse(d, length);
     }
+
+    bool is_grease() const {
+        if (length() != 2) {
+            return false;
+        }
+        if (data[0] == data[1] and (data[0] & 0x0f) == 0x0a) {
+            return true;
+        }
+        return false;
+    }
+
+    void write_json(json_array &a) const {
+        if (is_grease()) {
+            a.print_string("\\n\\n");  // print json-escaped CR
+        } else {
+            a.print_json_string(*this);
+        }
+    }
+
 };
 
 class protocol_name_list {
@@ -218,11 +237,15 @@ public:
         return data;
     }
 
+
+    // write ALPN strings into an array inside the json_object \param
+    // o, normalizing all GREASE values to hexadecimal 0a0a ("\n\n")
+    //
     void write_json(json_object &o, const char *key) {
         json_array alpn_array{o, key};
         while (data.is_not_empty()) {
             protocol_name name{data};
-            alpn_array.print_json_string(name);
+            name.write_json(alpn_array);
         }
         alpn_array.close();
     }
@@ -373,6 +396,10 @@ struct tls_extension {
     const uint8_t *length_ptr;
     uint16_t cnt; //No.of extensions of the same type
     uint16_t encoded_type;
+
+    static constexpr uint8_t num_extns_not_in_raw_features = 0;  //change this value when updating extns_not_in_raw_features
+    static constexpr uint16_t extns_not_in_raw_features[num_extns_not_in_raw_features] = {
+    };
 
     tls_extension() : type{0}, length{0}, value{NULL, NULL}, type_ptr{NULL}, length_ptr{NULL}, cnt{0} { }
 
@@ -526,7 +553,17 @@ struct tls_extension {
         }
     }
 
-    void write_raw_features(writeable &buf) const {
+    void write_raw_features(writeable &buf, bool &first) const {
+        if (uint16_match(type, extns_not_in_raw_features, num_extns_not_in_raw_features) == true) {
+            return;
+        }
+
+        if (!first) {
+            buf.copy(',');
+        } else {
+            first = false;
+        }
+
         buf.copy('[');
         buf.write_quote_enclosed_hex(type_ptr, sizeof(type));
         buf.copy(',');
@@ -726,13 +763,8 @@ void tls_extensions::write_raw_features(writeable &buf) const {
     struct datum ext_parser{this->data, this->data_end};
     bool first_extension = true;
     while (ext_parser.length() > 0) {
-        if (!first_extension) {
-            buf.copy(',');
-        } else {
-            first_extension = false;
-        }
         tls_extension x{ext_parser};
-        x.write_raw_features(buf);
+        x.write_raw_features(buf, first_extension);
     }
     buf.copy(']');
 }
@@ -899,10 +931,13 @@ void tls_client_hello::write_json(struct json_object &record, bool output_metada
         extensions.print_session_ticket(tls_client, "session_ticket");
         extensions.print_ech_client_hello(tls_client);
     }
-    // Temporarily disable tls.features due to output volume
-    // data_buffer<2048> buf;
-    // write_raw_features(buf);
-    // tls_client.print_key_json_string("features", buf.contents());
+
+    if (output_raw_features) {
+        data_buffer<4096> buf;
+        write_raw_features(buf);
+        tls_client.print_key_json_string("features", buf.contents());
+    }
+
     tls_client.close();
     tls.close();
 }

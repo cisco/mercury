@@ -3,9 +3,11 @@
 
 #include "libmerc.h"
 #include "config_generator.h"
-#include <map>  
+#include <map>
 #include <string>
 #include <algorithm>
+#include <unordered_map> 
+#include <sstream>
 
 // the preprocessor directive STATIC_CFG_SELECT can be used as a
 // compile-time option to select the default protocols that mercury
@@ -47,7 +49,7 @@ public:
     void set_quic_fingerprint_format(size_t format_version) {
         quic_fingerprint_format = format_version;
     }
-        
+
     bool get_protocol_and_set_fp_format(std::string &format_str) {
         std::string protocol;
         std::string format_version;
@@ -62,7 +64,7 @@ public:
         } else {
             protocol = format_str;
         }
-  
+
         if (protocol == "tls") {
             if (format_version == "") {
                 tls_fingerprint_format = 0;
@@ -72,7 +74,7 @@ public:
                 tls_fingerprint_format = 2;
             } else {
                 printf_err(log_warning, "warning: unknown fingerprint format: %s; using default instead\n", format_str.c_str());
-                return false; 
+                return false;
             }
         } else if (protocol == "quic") {
             if (format_version == "") {
@@ -126,11 +128,12 @@ private:
 public:
     // extended configs
     std::string temp_proto_str;
-    bool tcp_reassembly = false;          /* reassemble tcp segments      */
+    bool reassembly = false;              /* reassemble protocol segments      */
+    bool stats_blocking = false;          /* stats mode: lossless but blocking */
     fingerprint_format fp_format;    // default fingerprint format
 
-    global_config() : libmerc_config(), tcp_reassembly{false} {};
-    global_config(const libmerc_config& c) : libmerc_config(c), tcp_reassembly{false} {
+    global_config() : libmerc_config(), reassembly{false} {};
+    global_config(const libmerc_config& c) : libmerc_config(c), reassembly{false} {
         if (c.resources) {
            resource_file = c.resources;
         }
@@ -193,6 +196,16 @@ public:
             { "socks",                  false },
         };
 
+    std::unordered_map<std::string, bool> raw_features {
+            { "all",                    false },
+            { "none",                   false },
+            { "bittorrent",             false },
+            { "smb",                    false },
+            { "ssdp",                   false },
+            { "stun",                   false },
+            { "tls",                    false },
+    };
+
     bool set_protocols(const std::string& data) {
 
         std::string s = data.empty() ? (static_selector_string ? static_selector_string : "all") : data ;
@@ -224,6 +237,25 @@ public:
         return true;
     }
 
+    bool set_raw_features (const std::string& protocols) {
+        std::string s = protocols.empty() ? "none" : protocols ;
+        std::istringstream raw_features_selector(s);
+        std::string token;
+        char delim = ',';
+
+        while (std::getline(raw_features_selector, token, delim)) {
+            token.erase(std::remove_if(token.begin(), token.end(), isspace), token.end());
+            auto pair = raw_features.find(token);
+            if (pair != raw_features.end()) {
+                pair->second = true;
+            } else {
+                printf_err(log_err, "unrecognized filter command \"%s\"\n", token.c_str());
+                return false;
+            }
+        }
+        return true;
+    }
+
 };
 
 static void setup_extended_fields(global_config* lc, const std::string& config) {
@@ -232,7 +264,10 @@ static void setup_extended_fields(global_config* lc, const std::string& config) 
         {"select", "-s", "--select", SETTER_FUNCTION(&lc){ lc->set_protocols(s); }},
         {"resources", "", "", SETTER_FUNCTION(&lc){ lc->set_resource_file(s); }},
         {"format", "", "", SETTER_FUNCTION(&lc){ lc->fp_format.set_fingerprint_format(s); }},
-        {"tcp-reassembly", "", "", SETTER_FUNCTION(&lc){ lc->tcp_reassembly = true; }}
+        {"tcp-reassembly", "", "", SETTER_FUNCTION(&lc){ lc->reassembly = true; }},
+        {"reassembly", "", "", SETTER_FUNCTION(&lc){ lc->reassembly = true; }},
+        {"stats-blocking", "", "", SETTER_FUNCTION(&lc){ lc->stats_blocking = true; }},
+        {"raw-features", "", "", SETTER_FUNCTION(&lc){ lc->set_raw_features(s); }}
     };
 
     parse_additional_options(options, config, *lc);

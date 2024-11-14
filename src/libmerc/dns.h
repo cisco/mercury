@@ -1037,6 +1037,7 @@ struct dns_packet : public base_protocol {
         }
         const char *key = encoded<uint16_t>{ntoh(header->flags)}.bit<0>() ?  "response" : "query";
         struct json_object dns_json{o, key};
+        dns_json.print_key_uint_hex("id", header->id);
         //dns_json.print_key_uint("qdcount", qdcount);
         //dns_json.print_key_uint("ancount", ancount);
         //dns_json.print_key_uint("nscount", nscount);

@@ -306,6 +306,7 @@ bool mercury_write_stats_data(mercury_context mc, const char *stats_data_file_pa
         return false;
     }
     mc->aggregator->gzprint(stats_data_file,
+                           mercury_get_resource_version(mc),
                            git_commit_id,
                            git_count,
                            init_time);

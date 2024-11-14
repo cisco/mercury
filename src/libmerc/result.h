@@ -301,6 +301,20 @@ struct destination_context {
 
     }
 
+    // tofsee specific overload, the user_agent prints an ip address as a string
+    void init_tofsee(struct datum domain, struct datum ip, datum alpn, const struct key &key) {
+        std::string ua;
+        ua = ua + std::to_string((int)ip.data[0]) + "." + std::to_string((int)ip.data[1]) + "." + std::to_string((int)ip.data[2]) + "." + std::to_string((int)ip.data[3]); 
+        datum user_agent_built {(uint8_t*)ua.c_str(), (uint8_t*)ua.c_str() + ua.length()};
+        user_agent_built.strncpy(ua_str, MAX_USER_AGENT_LEN);
+        domain.strncpy(sn_str, MAX_SNI_LEN);
+        flow_key_sprintf_dst_addr(key, dst_ip_str);
+        dst_port = ntoh(flow_key_get_dst_port(key));  // note: byte order conversion needed
+
+        alpn.write_to_buffer(alpn_array, sizeof(alpn_array));
+        alpn_length = alpn.length();
+    }
+
 
 };
 

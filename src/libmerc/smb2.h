@@ -794,6 +794,10 @@ class smb2_packet : public base_protocol {
     datum& body;
 
 public:
+
+    static inline bool output_raw_features = false;
+    static void set_raw_features(bool value) { output_raw_features = value; }
+
     smb2_packet(datum &d) :
         nbss_layer(d),
         hdr(d),
@@ -811,24 +815,28 @@ public:
                 {
                     smb2_negotiate_request neg_req(body);
                     neg_req.write_json(smb2);
-                    data_buffer<2048> buf;
-                    buf.copy('[');
-                    hdr.write_raw_features(buf);
-                    neg_req.write_raw_features(buf);
-                    buf.copy(']');
-                    smb2.print_key_json_string("features", buf.contents());
+                    if (output_raw_features) {
+                        data_buffer<2048> buf;
+                        buf.copy('[');
+                        hdr.write_raw_features(buf);
+                        neg_req.write_raw_features(buf);
+                        buf.copy(']');
+                        smb2.print_key_json_string("features", buf.contents());
+                    }
                 }
                     break;
                 case smb2_header::packet_type::NEGOTIATE_RESPONSE:
                 {
                     smb2_negotiate_response neg_resp(body);
                     neg_resp.write_json(smb2);
-                    data_buffer<2048> buf;
-                    buf.copy('[');
-                    hdr.write_raw_features(buf);
-                    neg_resp.write_raw_features(buf);
-                    buf.copy(']');
-                    smb2.print_key_json_string("features", buf.contents());
+                    if (output_raw_features) {
+                        data_buffer<2048> buf;
+                        buf.copy('[');
+                        hdr.write_raw_features(buf);
+                        neg_resp.write_raw_features(buf);
+                        buf.copy(']');
+                        smb2.print_key_json_string("features", buf.contents());
+                    }
                 }
                     break;
                 case smb2_header::packet_type::LAST_TYPE:

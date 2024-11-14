@@ -154,6 +154,10 @@ public:
         {
             return (socks5_req_resp::get_payload_length(pkt) == pkt.length());
         }
+        case udp_msg_type_stun:
+        {
+            return (stun::message::packet_length_from_header(pkt) == pkt.length());
+        }
         default:
             return true;
         }
@@ -207,6 +211,7 @@ public:
 class traffic_selector {
     protocol_identifier<4> tcp4;
     protocol_identifier<8> tcp;
+    protocol_identifier<4> udp4;
     protocol_identifier<8> udp;
     protocol_identifier<16> udp16;
 
@@ -339,11 +344,11 @@ public:
         if (protocols["tcp"] || protocols["all"]) {
             select_tcp_syn = true;
         }
-        if (protocols["tcp.message"]) {
+        if (protocols["tcp.message"] || protocols["all"]) {
             // select_tcp_syn = 0;
             // tcp_message_filter_cutoff = 1;
         }
-        if (protocols["tcp.syn_ack"]) {
+        if (protocols["tcp.syn_ack"] || protocols["all"]) {
             select_tcp_syn_ack = true;
         }
         if (protocols["dhcp"] || protocols["all"]) {
@@ -382,9 +387,9 @@ public:
         if (protocols["ssdp"] || protocols["all"]) {
             udp.add_protocol(ssdp::matcher, udp_msg_type_ssdp);
         }
-        if (protocols["stun"] || protocols["all"]) {
-            udp.add_protocol(stun::message::matcher, udp_msg_type_stun);
-        }
+        // if (protocols["stun"] || protocols["all"]) {
+        //     udp.add_protocol(stun::message::matcher, udp_msg_type_stun);
+        // }
         if (protocols["smb"] || protocols["all"]) {
             tcp.add_protocol(smb1_packet::matcher, tcp_msg_type_smb1);
             tcp.add_protocol(smb2_packet::matcher, tcp_msg_type_smb2);
@@ -395,32 +400,32 @@ public:
         if (protocols["dnp3"] || protocols["all"]) {
             tcp4.add_protocol(dnp3::matcher, tcp_msg_type_dnp3);
         }
-        if (protocols["arp"]) {
+        if (protocols["arp"] || protocols["all"]) {
             select_arp = true;
         }
-        if (protocols["cdp"]) {
+        if (protocols["cdp"] || protocols["all"]) {
             select_cdp = true;
         }
-        if (protocols["gre"]) {
+        if (protocols["gre"] || protocols["all"]) {
             select_gre = true;
         }
-        if (protocols["icmp"]) {
+        if (protocols["icmp"] || protocols["all"]) {
             select_icmp = true;
         }
-        if (protocols["lldp"]) {
+        if (protocols["lldp"] || protocols["all"]) {
             select_lldp = true;
         }
-        if (protocols["ospf"]) {
+        if (protocols["ospf"] || protocols["all"]) {
             select_ospf = true;
         }
-        if (protocols["sctp"]) {
+        if (protocols["sctp"] || protocols["all"]) {
             select_sctp = true;
         }
-        if (protocols["nbss"]) {
+        if (protocols["nbss"] || protocols["all"]) {
             select_nbss = true;
            // tcp4.add_protocol(nbss_packet::matcher, tcp_msg_type_nbss);
         }
-        if (protocols["nbds"]) {
+        if (protocols["nbds"] || protocols["all"]) {
             select_nbds = true;
         }
         if (protocols["openvpn_tcp"] || protocols["all"]) {
@@ -447,6 +452,13 @@ public:
             tcp4.add_protocol(socks5_req_resp::matcher, tcp_msg_type_socks5_req_resp);
         }
 
+        // use a length-based stun matcher, which will work for both
+        // legacy and modern variants of that protocol
+        //
+        if (protocols["stun"] || protocols["all"]) {
+            udp4.add_protocol(stun::message::matcher, udp_msg_type_stun);
+        }
+
         // add tofsee, but keep at the absolute end of matcher lists, as tofsee only
         // has a length based matcher
         if (protocols["tofsee"] || protocols["all"]) {
@@ -454,7 +466,9 @@ public:
         }
 
         // tell protocol_identification objects to compile lookup tables
+        tcp4.compile();
         tcp.compile();
+        udp4.compile();
         udp.compile();
         udp16.compile();
 
@@ -472,6 +486,9 @@ public:
         size_t type = udp.get_msg_type(pkt);
         if (type == udp_msg_type_unknown)  {
             type = udp16.get_msg_type(pkt);
+        }
+        if (type == udp_msg_type_unknown)  {
+            type = udp4.get_msg_type(pkt);
         }
         return type;
     }
