@@ -58,6 +58,14 @@ public:
     esp(datum &d) : spi{d, 4}, seq{d, 4}, payload{d} {
         std::array<uint8_t, 4> non_esp_marker = { 0x00, 0x00, 0x00, 0x00 };
         if (d.is_not_empty() and spi.cmp(non_esp_marker) == false) {
+
+            // to limit the volume of output, we only write out
+            // JSON records for seq == 1, which should be the
+            // first ESP packet for a security association
+            //
+            if (seq.cmp(std::array<uint8_t,4>{0x00, 0x00, 0x00, 0x01}) == false) {
+                return;
+            }
             valid = true;
         }
     }
