@@ -1,8 +1,8 @@
 /*
  * pkt_proc.h
- * 
- * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at 
- * https://github.com/cisco/mercury/blob/master/LICENSE 
+ *
+ * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at
+ * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
 #ifndef PKT_PROC_H
@@ -12,14 +12,34 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <stdexcept>
+#include <memory>
 #include "tcp.h"
-#include "packet.h"
+#include "flow_key.h"
 #include "analysis.h"
 #include "libmerc.h"
 #include "stats.h"
 #include "proto_identify.h"
+#include "global_config.h"
 #include "quic.h"
 #include "perfect_hash.h"
+#include "crypto_assess.h"
+#include "pkt_proc_util.h"
+#include "reassembly.hpp"
+
+/**
+ * enum linktype is a 16-bit enumeration that identifies a protocol
+ * type; it is defined by the PCAP internet draft
+ * [draft-gharris-opsawg-pcap-02], and is used here to indicate how a
+ * particular packet/frame should be parsed.  This enumeration defines
+ * all of the linktypes supported by the stateful_pkt_proc class.
+ */
+enum linktype : uint16_t {
+    LINKTYPE_NULL =       0,  // BSD loopback encapsulation
+    LINKTYPE_ETHERNET =   1,  // Ethernet
+    LINKTYPE_PPP      =   9,  // PPP
+    LINKTYPE_RAW      = 101   // Raw IP; begins with IPv4 or IPv6 header
+};
+
 
 /**
  * struct mercury holds state that is used by one or more
@@ -27,23 +47,41 @@
  *
  */
 struct mercury {
-    struct libmerc_config global_vars;
-    data_aggregator aggregator;
+    struct global_config global_vars;
+    std::unique_ptr<data_aggregator> aggregator{nullptr};
     classifier *c;
     class traffic_selector selector;
 
-    mercury(const struct libmerc_config *vars, int verbosity) : aggregator{vars->max_stats_entries}, c{nullptr}, selector{vars->packet_filter_cfg} {
-        global_vars = *vars;
-        global_vars.resources = vars->resources;
-        global_vars.packet_filter_cfg = vars->packet_filter_cfg; // TODO: deep copy?
+    mercury(const struct libmerc_config *vars, int verbosity) :
+                global_vars{*vars},
+                aggregator{ global_vars.do_stats
+                            ? (std::make_unique<data_aggregator>(global_vars.max_stats_entries, global_vars.stats_blocking))
+                            : nullptr },
+                c{nullptr},
+                selector{global_vars.protocols} {
         if (global_vars.do_analysis) {
-            c = analysis_init_from_archive(verbosity, global_vars.resources,
+            c = analysis_init_from_archive(verbosity, global_vars.get_resource_file(),
                                            vars->enc_key, vars->key_type,
                                            global_vars.fp_proc_threshold,
                                            global_vars.proc_dst_threshold,
                                            global_vars.report_os);
             if (c == nullptr) {
                 throw std::runtime_error("error: analysis_init_from_archive() failed"); // failure
+            }
+
+            // set fingerprint formats to match those in the resource file
+            //
+            size_t format = c->get_tls_fingerprint_format();
+            global_vars.fp_format.set_tls_fingerprint_format(format);
+            printf_err(log_info, "setting tls fingerprint format to match resource file (format: %zu)\n", format);
+
+            format = c->get_quic_fingerprint_format();
+            global_vars.fp_format.set_quic_fingerprint_format(format);
+            printf_err(log_info, "setting quic fingerprint format to match resource file (format: %zu)\n", format);
+
+            if (c->is_disabled()) {
+                printf_err(log_debug, "classifier could not be initialized, disabling all protocols\n");
+                selector.disable_all();
             }
         }
     }
@@ -53,91 +91,41 @@ struct mercury {
     }
 };
 
-// protocol is an alias for a std::variant that can hold any protocol
-// data element.  The default value of std::monostate indicates that
-// the protocol matcher did not recognize the packet.
-//
-// The classes unknown_initial_packet and unknown_udp_initial_packet
-// represents the TCP and UDP data fields, respectively, of an
-// unrecognized packet that is the first data packet in a flow.
-//
-//protocol structs forward declarations
-struct http_request;                      // start of tcp protocols
-struct http_response;
-struct tls_client_hello;
-class tls_server_hello_and_certificate;
-struct ssh_init_packet;
-struct ssh_kex_init;
-class smtp_client;
-class smtp_server;
-class unknown_initial_packet;
-class quic_init;                         // start of udp protocols
-struct wireguard_handshake_init;
-struct dns_packet;
-struct tls_client_hello;                  // dtls
-struct tls_server_hello;                  // dtls
-struct dhcp_discover;
-class unknown_udp_initial_packet;
-class icmp_packet;                        // start of ip protocols
-class ospf;
-class esp;
-struct tcp_packet;
-
-using protocol = std::variant<std::monostate,
-                              http_request,                      // start of tcp protocols
-                              http_response,
-                              tls_client_hello,
-                              tls_server_hello_and_certificate,
-                              ssh_init_packet,
-                              ssh_kex_init,
-                              smtp_client,
-                              smtp_server,
-                              unknown_initial_packet,
-                              quic_init,                         // start of udp protocols
-                              wireguard_handshake_init,
-                              dns_packet,
-                              tls_client_hello,                  // dtls
-                              tls_server_hello,                  // dtls
-                              dhcp_discover,
-                              unknown_udp_initial_packet,
-                              icmp_packet,                        // start of ip protocols
-                              ospf,
-                              esp,
-                              tcp_packet
-                              >;
-
 struct stateful_pkt_proc {
     struct flow_table ip_flow_table;
     struct flow_table_tcp tcp_flow_table;
-    struct tcp_reassembler reassembler;
-    struct tcp_reassembler *reassembler_ptr;
     struct tcp_initial_message_filter tcp_init_msg_filter;
     struct analysis_context analysis;
     class message_queue *mq;
     mercury_context m;
     classifier *c;        // TODO: change to reference
     data_aggregator *ag;
-    libmerc_config global_vars;
+    global_config global_vars;
     class traffic_selector &selector;
     quic_crypto_engine quic_crypto;
-    perfect_hash_visitor& ph_visitor;
+    struct tcp_reassembler *reassembler_ptr = nullptr;
+    crypto_policy::assessor *crypto_policy = nullptr;
 
     explicit stateful_pkt_proc(mercury_context mc, size_t prealloc_size=0) :
         ip_flow_table{prealloc_size},
         tcp_flow_table{prealloc_size},
-        reassembler{prealloc_size},
-        reassembler_ptr{&reassembler},
         tcp_init_msg_filter{},
         analysis{},
         mq{nullptr},
         m{mc},
         c{nullptr},
         ag{nullptr},
-        global_vars{},
+        global_vars{mc->global_vars},
         selector{mc->selector},
         quic_crypto{},
-        ph_visitor{perfect_hash_visitor::get_default_perfect_hash_visitor()}
+        reassembler_ptr{(global_vars.reassembly) ? (new tcp_reassembler) : nullptr}
     {
+
+        constexpr bool DO_CRYPTO_ASSESSMENT = false;
+        if (DO_CRYPTO_ASSESSMENT) {
+            // set crypto assessment policy
+            crypto_policy = new crypto_policy::quantum_safe;
+        }
 
         // set config and classifier to (refer to) context m
         //
@@ -147,34 +135,41 @@ struct stateful_pkt_proc {
         this->c = m->c;
         this->global_vars = m->global_vars;
 
+        // setting protocol based configuration option to output the raw features
+        set_raw_features(global_vars.raw_features);
+
         //fprintf(stderr, "note: setting classifier to %p, setting global_vars to %p\n", (void *)m->c, (void *)&m->global_vars));
         // }
 
         if (global_vars.do_stats) {
-            ag = &m->aggregator;
+            ag = m->aggregator.get();
             mq = ag->add_producer();
             if (mq == nullptr) {
                 throw std::runtime_error("error: could not initialize event queue");
             }
         }
 
-#ifndef USE_TCP_REASSEMBLY
+//#ifndef USE_TCP_REASSEMBLY
 // #pragma message "omitting tcp reassembly; 'make clean' and recompile with OPTFLAGS=-DUSE_TCP_REASSEMBLY to use that option"
-        reassembler_ptr = nullptr;
-#else
+//        reassembler_ptr = nullptr;
+//#else
       // #pragma message "using tcp reassembly; 'make clean' and recompile to omit that option"
-#endif
+//#endif
 
     }
 
     ~stateful_pkt_proc() {
+        delete crypto_policy;
+        delete reassembler_ptr;
         // we could call ag->remote_procuder(mq), but for now we do not
     }
 
     // TODO: the count_all() functions should probably be removed
     //
     void finalize() {
-        reassembler.count_all();
+        if (reassembler_ptr) {
+            reassembler_ptr->clear_all();
+        }
         tcp_flow_table.count_all();
     }
 
@@ -194,6 +189,14 @@ struct stateful_pkt_proc {
                       struct timespec *ts,
                       struct tcp_reassembler *reassembler);
 
+    size_t write_json(void *buffer,
+                      size_t buffer_size,
+                      uint8_t *packet,
+                      size_t length,
+                      struct timespec *ts,
+                      struct tcp_reassembler *reassembler,
+                      uint16_t linktype);
+
     void tcp_data_write_json(struct buffer_stream &buf,
                              struct datum &pkt,
                              const struct key &k,
@@ -208,7 +211,23 @@ struct stateful_pkt_proc {
                          struct timespec *ts,
                          struct tcp_reassembler *reassembler);
 
+    bool analyze_packet(const uint8_t *eth_packet,
+                            size_t length,
+                            struct timespec *ts,
+                            struct tcp_reassembler *reassembler,
+                            uint16_t linktype);
+
     bool analyze_eth_packet(const uint8_t *eth_packet,
+                            size_t length,
+                            struct timespec *ts,
+                            struct tcp_reassembler *reassembler);
+
+    bool analyze_ppp_packet(const uint8_t *ppp_packet,
+                            size_t length,
+                            struct timespec *ts,
+                            struct tcp_reassembler *reassembler);
+
+    bool analyze_raw_packet(const uint8_t *ppp_packet,
                             size_t length,
                             struct timespec *ts,
                             struct tcp_reassembler *reassembler);
@@ -225,6 +244,20 @@ struct stateful_pkt_proc {
                                       struct timespec *ts,
                                       struct tcp_reassembler *reassembler);
 
+    bool process_tcp_data (protocol &x,
+                          struct datum &pkt,
+                          struct tcp_packet &tcp_pkt,
+                          struct key &k,
+                          struct timespec *ts,
+                          struct tcp_reassembler *reassembler);
+
+    bool process_udp_data (protocol &x,
+                          struct datum &pkt,
+                          udp &udp_pkt,
+                          struct key &k,
+                          struct timespec *ts,
+                          struct tcp_reassembler *reassembler);
+
     void set_tcp_protocol(protocol &x,
                           struct datum &pkt,
                           bool is_new,
@@ -232,8 +265,36 @@ struct stateful_pkt_proc {
 
     void set_udp_protocol(protocol &x,
                           struct datum &pkt,
-                          enum udp_msg_type msg_type,
-                          bool is_new);
+                          udp::ports ports,
+                          bool is_new,
+                          const struct key& k,
+                          udp &udp_pkt);
+
+    bool dump_pkt ();
+
+    void set_raw_features(std::unordered_map<std::string, bool> &raw_features) {
+        if (raw_features["all"] or raw_features["tls"]) {
+            tls_client_hello::set_raw_features(true);
+        }
+        
+        if (raw_features["all"] or raw_features["stun"]) {
+            stun::message::set_raw_features(true);
+        }
+        
+        if (raw_features["all"] or raw_features["bittorrent"]) {
+            bittorrent_dht::set_raw_features(true);
+            bittorrent_lsd::set_raw_features(true);
+            bittorrent_handshake::set_raw_features(true);
+        }
+        
+        if (raw_features["all"] or raw_features["smb"]) {
+            smb2_packet::set_raw_features(true);
+        }
+        
+        if (raw_features["all"] or raw_features["ssdp"]) {
+            ssdp::set_raw_features(true);
+        }
+    }
 };
 
 #endif /* PKT_PROC_H */

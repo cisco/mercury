@@ -45,13 +45,16 @@ char mercury_help[] =
     "   --config c                            # read configuration from file c\n"
     "   [-a or --analysis]                    # analyze fingerprints\n"
     "   --resources=f                         # use resource file f\n"
+    "   --format=f                            # report fingerprints with formats(s) f\n"
     "   --stats=f                             # write stats to file f\n"
     "   --stats-time=T                        # write stats every T seconds\n"
     "   --stats-limit=L                       # limit stats to L entries\n"
     "   [-s or --select] filter               # select traffic by filter (see --help)\n"
     "   --nonselected-tcp-data                # tcp data for nonselected traffic\n"
     "   --nonselected-udp-data                # udp data for nonselected traffic\n"
+    "   --reassembly                          # reassemble protocol messages over multiple transport segments\n"
     "   [-l or --limit] l                     # rotate output file after l records\n"
+    "   --output-time=T                       # rotate output file after T seconds\n"
     "   --dns-json                            # output DNS as JSON, not base64\n"
     "   --certs-json                          # output certs as JSON, not base64\n"
     "   --metadata                            # output more protocol metadata in JSON\n"
@@ -88,19 +91,47 @@ char mercury_extended_help[] =
     "\n"
     "   \"[-s or --select] f\" selects packets according to the metadata filter f, which\n"
     "   is a comma-separated list of the following strings:\n"
-    "      dhcp          DHCP discover message\n"
-    "      dns           DNS messages\n"
-    "      tls           DTLS clientHello, serverHello, and certificates\n"
-    "      http          HTTP request and response\n"
-    "      quic          QUIC handshake\n"
-    "      ssh           SSH handshake and KEX\n"
-    "      tcp           TCP headers\n"
-    "      tcp.message   TCP initial message\n"
-    "      tls           TLS clientHello, serverHello, and certificates\n"
-    "      wireguard     WG handshake initiation message\n"
-    "      all           all of the above\n"
-    "      <no option>   all of the above\n"
-    "      none          none of the above\n"
+    "      arp               ARP message\n"
+    "      bittorrent        Bittorrent Handshake Message, LSD message, DHT message\n"
+    "      cdp               CDP message\n"
+    "      dhcp              DHCP discover message\n"
+    "      dnp3              DNP3 industrial control message\n"
+    "      dns               DNS messages\n"
+    "      dtls              DTLS clientHello, serverHello, and certificates\n"
+    "      gre               GRE message\n"
+    "      http              HTTP request and response\n"
+    "      http.request      HTTP request\n"
+    "      http.response     HTTP response\n"
+    "      icmp              ICMP message\n"
+    "      iec               IEC 60870-5-104\n"
+    "      lldp              LLDP message\n"
+    "      mdns              multicast DNS\n"
+    "      mysql             MySQL Client/Server Protocol\n"
+    "      nbns              NetBIOS Name Service\n"
+    "      nbds              NetBIOS Datagram Service\n"
+    "      nbss              NetBIOS Session Service\n"
+    "      openvpn_tcp       OpenVPN over TCP\n"
+    "      ospf              OSPF message\n"
+    "      quic              QUIC handshake\n"
+    "      sctp              SCTP message\n"
+    "      ssh               SSH handshake and KEX\n"
+    "      smb               SMB v1 and v2\n"
+    "      smtp              SMTP client and server messages\n"
+    "      stun              STUN messages\n"
+    "      ssdp              SSDP (UPnP)\n"
+    "      socks             SOCKS4,SOCKS5 messages\n"
+    "      tcp               TCP headers\n"
+    "      tcp.message       TCP initial message\n"
+    "      tcp.syn_ack       TCP syn ack message\n"
+    "      tls               TLS clientHello, serverHello, and certificates\n"
+    "      tls.client_hello  TLS clientHello\n"
+    "      tls.server_hello  TLS serverHello\n"
+    "      tls.certificates  TLS serverCertificates\n"
+    "      tofsee            Tofsee malware communication\n"
+    "      wireguard         WG handshake initiation message\n"
+    "      all               all of the above\n"
+    "      <no option>       all of the above\n"
+    "      none              none of the above\n"
     "\n"
     "   --nonselected-tcp-data writes the first TCP Data field in a flow with\n"
     "   nonzero length, for *non*-selected traffic, into JSON.  This option provides\n"
@@ -114,6 +145,10 @@ char mercury_extended_help[] =
     "   --select filter affects the UDP data written by this option; use\n"
     "   '--select=none' to obtain the UDP data for each flow.\n"
     "\n"
+    "   --reassembly enables reassembly\n"
+    "   This option allows mercury to keep track of tcp or udp segment state and \n"
+    "   and reassemble these segments based on the application in payload\n"
+    "\n" 
     "   \"[-u or --user] u\" sets the UID and GID to those of user u, so that\n"
     "   output file(s) are owned by this user.  If this option is not set, then\n"
     "   the UID is set to SUDO_UID, so that privileges are dropped to those of\n"
@@ -131,6 +166,15 @@ char mercury_extended_help[] =
     "   object in the JSON records.   This option only works with the option\n"
     "   [-f or --fingerprint].\n"
     "\n"
+    "   \"--format=f\" reports fingerprints with formats(s) f, where f is either a\n"
+    "   fingerprint protocol and format like \"tls/1\", or is a comma separated\n"
+    "   list of below fingerprint protocol and format strings.\n"
+    "       tls\n"
+    "       tls/1\n"
+    "       tls/2\n"
+    "       quic\n"
+    "       quic/1\n"
+    "\n"
     "   \"[-l or --limit] l\" rotates output files so that each file has at most\n"
     "   l records or packets; filenames include a sequence number, date and time.\n"
     "\n"
@@ -141,6 +185,17 @@ char mercury_extended_help[] =
    "    that data is output in base64 format, as a string with the key \"base64\".\n"
     "\n"
     "   --metadata writes out additional metadata into the protocol JSON objects.\n"
+    "\n"
+    "   --raw-features selects protocols to write out raw features string into the protocol\n"
+    "    JSON object which can be comma separated list of following strings\n"
+    "       bittorrent      Bittorrent Handshake Message, LSD message, DHT message\n"
+    "       smb             SMB v2, v3 messages\n"
+    "       ssdp            SSDP (UPnP)\n"
+    "       stun            Stun messages\n"
+    "       tls             TLS clientHello\n"
+    "       all             All of the above\n"
+    "       none            None of the above\n"
+    "       <no option>     None of the above\n"
     "\n"
     "   [-v or --verbose] writes additional information to the standard error,\n"
     "   including the packet count, byte count, elapsed time and processing rate, as\n"
@@ -193,11 +248,16 @@ bool option_is_valid(const char *opt) {
 int main(int argc, char *argv[]) {
     struct mercury_config cfg = mercury_config_init();
     struct libmerc_config libmerc_cfg;
+    bool select_set = false;
+    bool raw_features_set = false;
+    bool using_config_file = false;
 
     //extern double malware_prob_threshold;  // TODO - expose hidden command
 
+    std::string additional_args;
+
     while(1) {
-        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12 };
+        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13, reassembly=14, format=15, raw_features=16 };
         int opt_idx = 0;
         static struct option long_opts[] = {
             { "config",      required_argument, NULL, config  },
@@ -212,6 +272,9 @@ int main(int argc, char *argv[]) {
             { "nonselected-udp-data", no_argument, NULL, udp_init_data },
             { "stats-limit", required_argument, NULL, stats_limit },
             { "stats-time",  required_argument, NULL, stats_time },
+            { "output-time", required_argument, NULL, output_time },
+            { "reassembly",  no_argument,    NULL, reassembly },
+            { "format",      required_argument, NULL, format },
             { "read",        required_argument, NULL, 'r' },
             { "write",       required_argument, NULL, 'w' },
             { "directory",   required_argument, NULL, 'd' },
@@ -225,6 +288,7 @@ int main(int argc, char *argv[]) {
             { "user",        required_argument, NULL, 'u' },
             { "help",        no_argument,       NULL, 'h' },
             { "select",      optional_argument, NULL, 's' },
+            { "raw-features", required_argument, NULL, raw_features },
             { "verbose",     no_argument,       NULL, 'v' },
             { NULL,          0,                 0,     0  }
         };
@@ -236,6 +300,7 @@ int main(int argc, char *argv[]) {
         case config:
             if (option_is_valid(optarg)) {
                 mercury_config_read_from_file(cfg, libmerc_cfg, optarg);
+                using_config_file = true;
             } else {
                 usage(argv[0], "option config requires filename argument", extended_help_off);
             }
@@ -257,6 +322,7 @@ int main(int argc, char *argv[]) {
             break;
         case version:
             mercury_print_version_string(stdout);
+            mercury_print_git_commit(stdout);
             return EXIT_SUCCESS;
             break;
         case license:
@@ -296,6 +362,31 @@ int main(int argc, char *argv[]) {
                 usage(argv[0], "option nonselected-udp-data does not use an argument", extended_help_off);
             } else {
                 libmerc_cfg.output_udp_initial_data = true;
+            }
+            break;
+        case reassembly:
+            if (optarg) {
+                usage(argv[0], "option reassembly does not use an argument", extended_help_off);
+            } else {
+                additional_args.append("reassembly;");
+            }
+            break;
+        case format:
+            if (option_is_valid(optarg)) {
+                additional_args.append("format=").append(optarg).append(";");
+            } else {
+                usage(argv[0], "option format requires fingerprint format argument", extended_help_off);
+            }
+            break;
+        case raw_features:
+            if (raw_features_set) {
+                usage(argv[0], "option raw-features used more than once", extended_help_off);
+            }
+            if (option_is_valid(optarg)) {
+                additional_args.append("raw-features=").append(optarg).append(";");
+                raw_features_set = true;
+            } else {
+                usage(argv[0], "option raw_features requires comma separated protocols as argument", extended_help_off);
             }
             break;
         case 'r':
@@ -356,16 +447,19 @@ int main(int argc, char *argv[]) {
             break;
         case 's':
             if (optarg) {
-                if (libmerc_cfg.packet_filter_cfg != NULL) {
+                if (select_set) {
                     usage(argv[0], "option s or select used more than once", extended_help_off);
                 }
                 if (option_is_valid(optarg)) {
                     libmerc_cfg.packet_filter_cfg = optarg;
+                    additional_args.append("select=").append(optarg).append(";");
+                    select_set = true;
                 } else {
                     usage(argv[0], "option s or select has the form -s\"filter\" or --select=\"filter\"", extended_help_off);
                 }
             } else {
-                libmerc_cfg.packet_filter_cfg = (char *)"all";
+                additional_args.append("select=all;");
+                select_set = true;
             }
             break;
         case 'h':
@@ -442,6 +536,17 @@ int main(int argc, char *argv[]) {
                 }
             } else {
                 usage(argv[0], "option stats-limit requires a numeric argument", extended_help_off);
+            }
+            break;
+        case output_time:
+            if (option_is_valid(optarg)) {
+                errno = 0;
+                cfg.out_rotation_duration = strtol(optarg, NULL, 10);
+                if (errno) {
+                    printf("%s: could not convert argument \"%s\" to a number\n", strerror(errno), optarg);
+                }
+            } else {
+                usage(argv[0], "option output-time requires a numeric argument", extended_help_off);
             }
             break;
         case 'p':
@@ -525,6 +630,16 @@ int main(int argc, char *argv[]) {
 
     if (cfg.read_filename) {
         cfg.output_block = true;      // use blocking output, so that no packets are lost in copying
+        additional_args.append("stats-blocking;"); // use blocking stats to avoid losing stats events
+    }
+
+    // setup extended config options
+    //
+    if (libmerc_cfg.packet_filter_cfg == NULL) {
+        additional_args.append("select=all;");
+    }
+    if (!using_config_file || (using_config_file && libmerc_cfg.packet_filter_cfg == nullptr)) {
+        libmerc_cfg.packet_filter_cfg = (char *)additional_args.c_str();
     }
 
     mercury_context mc = mercury_init(&libmerc_cfg, cfg.verbosity);
@@ -559,6 +674,7 @@ int main(int argc, char *argv[]) {
     if (setup_signal_handler() != status_ok) {
         fprintf(stderr, "%s: error while setting up signal handlers\n", strerror(errno));
     }
+    disable_all_signals(); /* We don't want our main thread to get these */
 
     /* set the number of threads, if needed */
     if (cfg.num_threads == -1) {
@@ -572,14 +688,23 @@ int main(int argc, char *argv[]) {
     /* init random number generator */
     srand(time(0));
 
+    struct output_file out_file;
+    struct cap_stats cstats;
+
     controller *ctl = nullptr;
     if (cfg.stats_filename) {
-        ctl = new controller{mc, cfg.stats_filename, cfg.stats_rotation_duration};
+        ctl = new controller{mc, cfg.stats_filename, cfg.stats_rotation_duration, &out_file, cfg, true};
+    }
+    else {
+        ctl = new controller{mc, "disabled", cfg.stats_rotation_duration, &out_file, cfg, false};
     }
 
-    pthread_t output_thread;
-    struct output_file out_file;
-    if (output_thread_init(output_thread, out_file, cfg) != 0) {
+    if (cfg.capture_interface) {
+        out_file.from_network = 1;
+        fprintf(stderr, "Allocating I/O buffer balance: %4.2f%% input; %4.2f%% output\n", cfg.io_balance_frac * 100.0, (1.0 - cfg.io_balance_frac) * 100.0);
+    }
+
+    if (output_thread_init(out_file, cfg) != 0) {
         fprintf(stderr, "error: unable to initialize output thread\n");
         return EXIT_FAILURE;
     }
@@ -588,7 +713,7 @@ int main(int argc, char *argv[]) {
         if (cfg.verbosity) {
             fprintf(stderr, "initializing interface %s\n", cfg.capture_interface);
         }
-        if (bind_and_dispatch(&cfg, mc, &out_file) != status_ok) {
+        if (bind_and_dispatch(&cfg, mc, &out_file, &cstats) != status_ok) {
             fprintf(stderr, "error: bind and dispatch failed\n");
             return EXIT_FAILURE;
         }
@@ -599,17 +724,30 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    if (cfg.verbosity) {
+        fprintf(stderr, "stopping output thread and flushing queued output to disk.\n");
+    }
+    output_thread_finalize(&out_file);
+
+
+    if (cfg.capture_interface) {
+        fprintf(stderr, "--\n"
+                "%" PRIu64 " packets captured\n"
+                "%" PRIu64 " bytes captured\n"
+                "%" PRIu64 " packets seen by socket\n"
+                "%" PRIu64 " packets dropped\n"
+                "%" PRIu64 " socket queue freezes\n"
+                "%" PRIu64 " output drops\n"
+                "%" PRIu64 " output truncated (drops)\n",
+                cstats.packets, cstats.bytes, cstats.sock_packets, cstats.drops, cstats.freezes, out_file.output_drops, out_file.output_drops_trunc);
+    }
+
+    //exit control thread after output thread
     if (ctl) {
         delete ctl;  // delete control thread, which will flush stats output (if any)
     }
 
     mercury_finalize(mc);
-
-    if (cfg.verbosity) {
-        fprintf(stderr, "stopping output thread and flushing queued output to disk.\n");
-    }
-    output_thread_finalize(output_thread, &out_file);
-
 
     return 0;
 }

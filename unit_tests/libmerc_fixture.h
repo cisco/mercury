@@ -1,5 +1,6 @@
 #include "libmerc_driver_helper.hpp"
-#include "pcap_file_io.h"
+#include "pcap.h"
+#include "packet.h"
 #include <filesystem>
 
 using std::filesystem::current_path;
@@ -26,7 +27,9 @@ protected:
     int counter();
     int counter(fingerprint_type fp_type, fingerprint_type fp_type2 = fingerprint_type_unknown);
     int counter(fingerprint_type fp_type, std::function<void(const analysis_context*)> callback);
+    int counter(fingerprint_type fp_type, std::function<void(const analysis_context*)> callback, uint16_t linktype);
     int counter(fingerprint_type fp_type, std::function<void()> callback);
+    bool counter(size_t expected_attrs_count, std::function<void(size_t, size_t)> callback);
     
     void check_global_configuraton(libmerc_config config);
     
@@ -43,7 +46,7 @@ protected:
 
     std::string m_libmerc_library_path;
     std::string m_path_to_libmerc_alt_library;
-    struct pcap_file *m_pcap;
+    pcap::file_reader *m_pcap;
     packet<65536> m_pkt;
     char * m_pcap_file_name;
     std::string m_pcap_folder_name;

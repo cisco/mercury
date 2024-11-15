@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <arpa/inet.h>
 #include <errno.h>
 #include <string.h>
 #include <limits>
@@ -112,16 +111,16 @@ typedef struct lct_ip_stats {
   uint32_t used;  // size of the subprefixed address space
 } lct_ip_stats_t;
 
+
 template <typename T> struct address_family;
 
 template <> struct address_family<uint32_t> {
-    constexpr static const int typecode = AF_INET;
+    constexpr static const int typecode = LCTRIE_AF_INET;
 };
 
 template <> struct address_family<__uint128_t> {
-    constexpr static const int typecode = AF_INET6;
+    constexpr static const int typecode = LCTRIE_AF_INET6;
 };
-
 
 #if 0
 template <typename T>
@@ -160,7 +159,7 @@ int init_private_subnets(lct_subnet<T> *subnets, size_t size) {
   //
   subnets[num].info.type = IP_SUBNET_PRIVATE;
   subnets[num].info.priv.net_class = 'a';
-  inet_pton(AF_INET, "10.0.0.0", &(subnets[num].addr));
+  pton("10.0.0.0", &(subnets[num].addr));
   subnets[num].addr = ntoh(subnets[num].addr);
   subnets[num].len = 8;
   ++num;
@@ -169,7 +168,7 @@ int init_private_subnets(lct_subnet<T> *subnets, size_t size) {
   //
   subnets[num].info.type = IP_SUBNET_PRIVATE;
   subnets[num].info.priv.net_class = 'b';
-  inet_pton(AF_INET, "172.16.0.0", &(subnets[num].addr));
+  pton("172.16.0.0", &(subnets[num].addr));
   subnets[num].addr = ntoh(subnets[num].addr);
   subnets[num].len = 12;
   ++num;
@@ -178,7 +177,7 @@ int init_private_subnets(lct_subnet<T> *subnets, size_t size) {
   //
   subnets[num].info.type = IP_SUBNET_PRIVATE;
   subnets[num].info.priv.net_class = 'c';
-  inet_pton(AF_INET, "192.168.0.0", &(subnets[num].addr));
+  pton("192.168.0.0", &(subnets[num].addr));
   subnets[num].addr = ntoh(subnets[num].addr);
   subnets[num].len = 16;
   ++num;
@@ -186,7 +185,7 @@ int init_private_subnets(lct_subnet<T> *subnets, size_t size) {
   // RFC 3927 Link Local Addresses
   //
   subnets[num].info.type = IP_SUBNET_LINKLOCAL;
-  inet_pton(AF_INET, "169.254.0.0", &(subnets[num].addr));
+  pton("169.254.0.0", &(subnets[num].addr));
   subnets[num].addr = ntoh(subnets[num].addr);
   subnets[num].len = 16;
   ++num;
@@ -241,7 +240,7 @@ int init_special_subnets(lct_subnet<T> *subnets, size_t size) {
   //
   subnets[num].info.type = IP_SUBNET_RESERVED;
   subnets[num].info.rsv.desc = "RFC 1122, Sect. 3.2.1.3 \"This\" Networks";
-  inet_pton(AF_INET, "0.0.0.0", &(subnets[num].addr));
+  pton("0.0.0.0", &(subnets[num].addr));
   subnets[num].addr = ntoh(subnets[num].addr);
   subnets[num].len = 8;
   ++num;
@@ -249,7 +248,7 @@ int init_special_subnets(lct_subnet<T> *subnets, size_t size) {
   // RFC 1122, Sect. 3.2.1.3 Loopback
   //
   subnets[num].info.type = IP_SUBNET_LOOPBACK;
-  inet_pton(AF_INET, "127.0.0.0", &(subnets[num].addr));
+  pton("127.0.0.0", &(subnets[num].addr));
   subnets[num].addr = ntoh(subnets[num].addr);
   subnets[num].len = 8;
   ++num;
@@ -258,7 +257,7 @@ int init_special_subnets(lct_subnet<T> *subnets, size_t size) {
   //
   subnets[num].info.type = IP_SUBNET_RESERVED;
   subnets[num].info.rsv.desc = "RFC 5736 IETF Protocol Assignments";
-  inet_pton(AF_INET, "192.0.0.0", &(subnets[num].addr));
+  pton("192.0.0.0", &(subnets[num].addr));
   subnets[num].addr = ntoh(subnets[num].addr);
   subnets[num].len = 24;
   ++num;
@@ -267,7 +266,7 @@ int init_special_subnets(lct_subnet<T> *subnets, size_t size) {
   //
   subnets[num].info.type = IP_SUBNET_RESERVED;
   subnets[num].info.rsv.desc = "RFC 5737 TEST-NET-1";
-  inet_pton(AF_INET, "192.0.2.0", &(subnets[num].addr));
+  pton("192.0.2.0", &(subnets[num].addr));
   subnets[num].addr = ntoh(subnets[num].addr);
   subnets[num].len = 24;
   ++num;
@@ -276,7 +275,7 @@ int init_special_subnets(lct_subnet<T> *subnets, size_t size) {
   //
   subnets[num].info.type = IP_SUBNET_RESERVED;
   subnets[num].info.rsv.desc = "RFC 3068 6to4 Relay Anycast";
-  inet_pton(AF_INET, "192.88.99.0", &(subnets[num].addr));
+  pton("192.88.99.0", &(subnets[num].addr));
   subnets[num].addr = ntoh(subnets[num].addr);
   subnets[num].len = 24;
   ++num;
@@ -285,7 +284,7 @@ int init_special_subnets(lct_subnet<T> *subnets, size_t size) {
   //
   subnets[num].info.type = IP_SUBNET_RESERVED;
   subnets[num].info.rsv.desc = "RFC 2544 Network Interconnect Device Benchmark Testing";
-  inet_pton(AF_INET, "198.18.0.0", &(subnets[num].addr));
+  pton("198.18.0.0", &(subnets[num].addr));
   subnets[num].addr = ntoh(subnets[num].addr);
   subnets[num].len = 15;
   ++num;
@@ -294,7 +293,7 @@ int init_special_subnets(lct_subnet<T> *subnets, size_t size) {
   //
   subnets[num].info.type = IP_SUBNET_RESERVED;
   subnets[num].info.rsv.desc = "RFC 5737 TEST-NET-2";
-  inet_pton(AF_INET, "198.51.100.0", &(subnets[num].addr));
+  pton("198.51.100.0", &(subnets[num].addr));
   subnets[num].addr = ntoh(subnets[num].addr);
   subnets[num].len = 24;
   ++num;
@@ -303,7 +302,7 @@ int init_special_subnets(lct_subnet<T> *subnets, size_t size) {
   //
   subnets[num].info.type = IP_SUBNET_RESERVED;
   subnets[num].info.rsv.desc = "RFC 5737 TEST-NET-3";
-  inet_pton(AF_INET, "203.0.113.0", &(subnets[num].addr));
+  pton("203.0.113.0", &(subnets[num].addr));
   subnets[num].addr = ntoh(subnets[num].addr);
   subnets[num].len = 24;
   ++num;
@@ -311,7 +310,7 @@ int init_special_subnets(lct_subnet<T> *subnets, size_t size) {
   // RFC 3171 Multicast Addresses
   //
   subnets[num].info.type = IP_SUBNET_MULTICAST;
-  inet_pton(AF_INET, "224.0.0.0", &(subnets[num].addr));
+  pton("224.0.0.0", &(subnets[num].addr));
   subnets[num].addr = ntoh(subnets[num].addr);
   subnets[num].len = 4;
   ++num;
@@ -320,7 +319,7 @@ int init_special_subnets(lct_subnet<T> *subnets, size_t size) {
   //
   subnets[num].info.type = IP_SUBNET_RESERVED;
   subnets[num].info.rsv.desc = "RFC 1112, Section 4 Reserved for Future Use";
-  inet_pton(AF_INET, "240.0.0.0", &(subnets[num].addr));
+  pton("240.0.0.0", &(subnets[num].addr));
   subnets[num].addr = ntoh(subnets[num].addr);
   subnets[num].len = 4;
   ++num;
@@ -328,7 +327,7 @@ int init_special_subnets(lct_subnet<T> *subnets, size_t size) {
   // RFC 919/922, Section 7 Limited Broadcast Address
   //
   subnets[num].info.type = IP_SUBNET_BROADCAST;
-  inet_pton(AF_INET, "255.255.255.255", &(subnets[num].addr));
+  pton("255.255.255.255", &(subnets[num].addr));
   subnets[num].addr = ntoh(subnets[num].addr);
   subnets[num].len = 32;
   ++num;
@@ -374,7 +373,7 @@ int subnet_cmp(const void *di, const void *dj) {
 //
 template <typename T>
 void subnet_mask(lct_subnet<T> *subnets, size_t size) {
-    char pstr[INET6_ADDRSTRLEN], pstr2[INET6_ADDRSTRLEN];
+    char pstr[LCTRIE_INET6_ADDRSTRLEN], pstr2[LCTRIE_INET6_ADDRSTRLEN];
     T prefix, prefix2;
 
     constexpr unsigned int bits_in_T = sizeof(T) * 8;
@@ -408,10 +407,10 @@ void subnet_mask(lct_subnet<T> *subnets, size_t size) {
 
           prefix = hton(p->addr);
           prefix2 = hton(newaddr);
-          if (!inet_ntop(address_family<T>::typecode, &(prefix), pstr, sizeof(pstr))) {
+          if (!ntop(address_family<T>::typecode, &(prefix), pstr, sizeof(pstr))) {
               fprintf(stderr, "ERROR: %s\n", strerror(errno));
           }
-          if (!inet_ntop(address_family<T>::typecode, &(prefix2), pstr2, sizeof(pstr2))) {
+          if (!ntop(address_family<T>::typecode, &(prefix2), pstr2, sizeof(pstr2))) {
               fprintf(stderr, "ERROR: %s\n", strerror(errno));
           }
 
@@ -430,7 +429,7 @@ void subnet_mask(lct_subnet<T> *subnets, size_t size) {
 template <typename T>
 size_t subnet_dedup(lct_subnet<T> *subnets, size_t size) {
   // remove duplicates
-  char pstr[INET6_ADDRSTRLEN];
+  char pstr[LCTRIE_INET6_ADDRSTRLEN];
   T prefix;
   size_t ndup = 0;
 
@@ -438,7 +437,7 @@ size_t subnet_dedup(lct_subnet<T> *subnets, size_t size) {
     // we have a duplicate!
       if (!subnet_cmp<T>(&subnets[i], &subnets[j])) {
           prefix = hton(subnets[i].addr);
-          if (!inet_ntop(address_family<T>::typecode, &(prefix), pstr, sizeof(pstr))) {
+          if (!ntop(address_family<T>::typecode, &(prefix), pstr, sizeof(pstr))) {
               fprintf(stderr, "ERROR: %s\n", strerror(errno));
           }
 
@@ -490,8 +489,8 @@ size_t subnet_prefix(lct_subnet<T> *p, lct_ip_stats_t *stats, size_t size) {
   T prefix;
 #if LCT_IP_DEBUG_PREFIXES
   T prefix2;
-  char pstr[INET6_ADDRSTRLEN];
-  char pstr2[INET6_ADDRSTRLEN];
+  char pstr[LCTRIE_INET6_ADDRSTRLEN];
+  char pstr2[LCTRIE_INET6_ADDRSTRLEN];
 #endif
 
   // if the array in p is shrunk in any way, it invalidates
@@ -526,10 +525,10 @@ size_t subnet_prefix(lct_subnet<T> *p, lct_ip_stats_t *stats, size_t size) {
 #if LCT_IP_DEBUG_PREFIXES
       prefix = hton(p[i].addr);
       prefix2 = hton(p[j].addr);
-      if (!inet_ntop(address_family, &(prefix), pstr, sizeof(pstr))) {
+      if (!ntop(address_family, &(prefix), pstr, sizeof(pstr))) {
           fprintf(stderr, "ERROR: %s\n", strerror(errno));
       }
-      if (!inet_ntop(address_family, &(prefix2), pstr2, sizeof(pstr2))) {
+      if (!ntop(address_family, &(prefix2), pstr2, sizeof(pstr2))) {
           fprintf(stderr, "ERROR: %s\n", strerror(errno));
       }
 
@@ -544,7 +543,7 @@ size_t subnet_prefix(lct_subnet<T> *p, lct_ip_stats_t *stats, size_t size) {
       for (size_t k = j + 1; k < size && subnet_isprefix(&p[i], &p[k]); ++k) {
 #if LCT_IP_DEBUG_PREFIXES
         prefix2 = hton(p[k].addr);
-        if (!inet_ntop(address_family, &(prefix2), pstr2, sizeof(pstr2)))
+        if (!ntop(address_family, &(prefix2), pstr2, sizeof(pstr2)))
           fprintf(stderr, "ERROR: %s\n", strerror(errno));
 
         printf("Subnet %s/%d is also a prefix of subnet %s/%d\n",

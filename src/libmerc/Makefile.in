@@ -27,6 +27,15 @@ STRIP = strip
 
 CFLAGS += -fPIC
 CFLAGS += -DDONT_USE_STDERR
+ifeq ($(openssl_newer),yes)
+CFLAGS += -DSSLNEW
+endif
+
+ifeq ($(is_macos_arm),yes)
+CFLAGS += -I/opt/homebrew/include
+CXXFLAGS += -I/opt/homebrew/include
+LDFLAGS += -L/opt/homebrew/lib
+endif
 
 # libmerc.so performs selective packet parsing and fingerprint extraction
 # LIBMERC and LIBMERC_H hold the core source and header files,
@@ -38,7 +47,6 @@ LIBMERC     += dns.cc
 LIBMERC     += http.cc
 LIBMERC     += libmerc.cc
 LIBMERC     += match.cc
-LIBMERC     += packet.cc
 LIBMERC     += pkt_proc.cc
 LIBMERC     += ssh.cc
 LIBMERC     += tls.cc
@@ -46,11 +54,16 @@ LIBMERC     += utils.cc
 LIBMERC     += wireguard.cc
 LIBMERC     += asn1.cc
 LIBMERC     += asn1/oid.cc
+LIBMERC 	+= config_generator.cc
+LIBMERC     += smb2.cc
+LIBMERC     += bencode.cc
 LIBMERC     += $(PYANALYSIS)
 
 LIBMERC_H   =  addr.h
 LIBMERC_H   += analysis.h
+LIBMERC_H   += result.h
 LIBMERC_H   += buffer_stream.h
+LIBMERC_H   += crypto_assess.h
 LIBMERC_H   += dhcp.h
 LIBMERC_H   += dns.h
 LIBMERC_H   += eth.h
@@ -60,7 +73,7 @@ LIBMERC_H   += json_object.h
 LIBMERC_H   += libmerc.h
 LIBMERC_H   += match.h
 LIBMERC_H   += proto_identify.h
-LIBMERC_H   += packet.h
+LIBMERC_H   += flow_key.h
 LIBMERC_H   += datum.h
 LIBMERC_H   += gre.h
 LIBMERC_H   += pkt_proc.h
@@ -68,6 +81,7 @@ LIBMERC_H   += ssh.h
 LIBMERC_H   += tcp.h
 LIBMERC_H   += tcpip.h
 LIBMERC_H   += tls.h
+LIBMERC_H   += tls_parameters.h
 LIBMERC_H   += udp.h
 LIBMERC_H   += util_obj.h
 LIBMERC_H   += utils.h
@@ -78,6 +92,13 @@ LIBMERC_H   += crypto_engine.h
 LIBMERC_H   += smtp.h
 LIBMERC_H   += asn1.h
 LIBMERC_H   += asn1/oid.h
+LIBMERC_H   += config_generator.h
+LIBMERC_H   += global_config.h
+LIBMERC_H   += smb1.h
+LIBMERC_H   += smb2.h
+LIBMERC_H   += bencode.h
+LIBMERC_H   += bittorrent.h
+LIBMERC_H   += tls_extensions.h
 
 # asn1/oid.cc and asn1/oid.h are auto-built from ASN1 files in the
 # asn1 subdirectory; this is a pattern target that builds both files
@@ -98,14 +119,14 @@ endif
 
 VERSION=$(shell cat ../../VERSION)
 
-COMMIT=$(shell git log -n 1 | egrep -o "commit [0-9a-f]+")
-GIT_DIFF=$(shell git diff | wc -l)
+COMMIT=$(shell git log -n 1 | egrep -o "commit [0-9a-f]+" || echo "unknown")
+GIT_DIFF=$(shell git diff 2> /dev/null | wc -l)
 ifeq ($(GIT_DIFF),0)
   DIFF=
 else
   DIFF=with local changes
 endif
-GIT_COUNT=$(shell git rev-list --count HEAD)
+GIT_COUNT=$(shell git rev-list --count HEAD || echo 0)
 CFLAGS += "-DGIT_COMMIT_ID=\"$(COMMIT) $(DIFF)\"" "-DGIT_COUNT=$(GIT_COUNT)"
 
 # variables for determining the semantic version
@@ -123,16 +144,27 @@ LIBMERC_OBJ = $(LIBMERC:%.cc=%.o)
 libmerc.so: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
 	ar -x lctrie/liblctrie.a
 #	ar rcs libmerc.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o
-	$(CXX) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o -lz -lcrypto -o libmerc.so
+ifeq ($(is_macos),yes)
+	$(CXX) -shared -fPIC -Wl,-install_name,$(LIBMERC_SONAME) $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto -o libmerc.so
+	$(STRIP) -x libmerc.so
+else
+	$(CXX) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto -o libmerc.so
 	$(STRIP) libmerc.so
-	ldconfig -n .
+	PATH=$(PATH):/sbin ldconfig -n .
+endif
 
 libmerc_coverage.so: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
 	ar -x lctrie/liblctrie.a
-	$(CXX) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) -o libmerc_coverage.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o -lz -lcrypto --coverage
+ifeq ($(is_macos),yes)
+	$(CXX) -shared -fPIC -Wl,-install_name,$(LIBMERC_SONAME) -o libmerc_coverage.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto --coverage
+	$(STRIP) -x libmerc_coverage.so
+	cp libmerc_coverage.so libmerc.so
+else
+	$(CXX) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) -o libmerc_coverage.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto --coverage
 	$(STRIP) libmerc_coverage.so
 	cp libmerc_coverage.so libmerc.so
-	ldconfig -n .
+	PATH=$(PATH):/sbin ldconfig -n .
+endif
 
 # debug targets (debug-libmerc.a and debug-libmerc.so)
 #
@@ -190,6 +222,8 @@ libmerc.a: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
 
 # lctrie ip address subnet matching library (in lctrie subdirectory)
 #
+export CXX
+export CC
 lctrie/liblctrie.a:
 	cd lctrie && $(MAKE) liblctrie.a
 
@@ -224,9 +258,9 @@ clean:
 	cd lctrie && $(MAKE) clean
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	for file in $(MERC) $(MERC_H) $(LIBMERC) $(LIBMERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
-	find -type f -name "*.gcno" -delete
-	find -type f -name "*.gcda" -delete
-	find -type f -name "*.gcov" -delete
+	find . -type f -name "*.gcno" -delete
+	find . -type f -name "*.gcda" -delete
+	find . -type f -name "*.gcov" -delete
 
 .PHONY: distclean
 distclean: clean
@@ -244,7 +278,7 @@ distclean: clean
 
 .PHONY: cppcheck
 cppcheck: $(MERC) $(LIBMERC)
-	cppcheck --language=c++ --std=c++17 --force --enable=all -URAPIDJSON_DOXYGEN_RUNNING --template='{file}:{line}:{severity}:{message}' $^ -irapidjson/ 
+	cppcheck --language=c++ --std=c++17 --force --enable=all -URAPIDJSON_DOXYGEN_RUNNING --template='{file}:{line}:{severity}:{message}' $^ -irapidjson/
 
 .PHONY: test
 test: mercury

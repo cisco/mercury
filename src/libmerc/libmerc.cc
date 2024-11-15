@@ -6,11 +6,15 @@
 #include <map>
 #include <algorithm>
 #include <stdexcept>
+#include <ctime>
 
 #include "libmerc.h"
 #include "version.h"
 #include "analysis.h"
 #include "pkt_proc.h"
+#include "config_generator.h"
+#include "global_config.h"
+#include "tsc_clock.hpp"
 
 #ifndef  MERCURY_SEMANTIC_VERSION
 #warning MERCURY_SEMANTIC_VERSION is not defined
@@ -27,13 +31,30 @@
 #define  GIT_COUNT 0
 #endif
 
+// the variables git_commit_id and git_count represent the source code
+// used to build the library, and init_time holds its most recent
+// initialization time; they are declared static to maintain the ODR,
+// and are passed to some output routines below
+//
 static const char *git_commit_id = GIT_COMMIT_ID;
 
 static const uint32_t git_count = GIT_COUNT;
 
+static char init_time[128] = { '\0' };
+
+
 void mercury_print_version_string(FILE *f) {
     struct semantic_version mercury_version(MERCURY_SEMANTIC_VERSION);
     mercury_version.print(f);
+}
+
+void mercury_print_git_commit(FILE *f) {
+    fprintf(f, "%s\n", git_commit_id);
+}
+
+void mercury_get_version_string(char *buf, size_t size) {
+    struct semantic_version mercury_version(MERCURY_SEMANTIC_VERSION);
+    mercury_version.print_version_string(buf, size);
 }
 
 uint32_t mercury_get_version_number() {
@@ -51,11 +72,13 @@ const char *mercury_get_resource_version(struct mercury *mc) {
 mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
 
     mercury *m = nullptr;
+    std::time_t timenow = time(NULL);
+    strftime(init_time, sizeof(init_time) - 1, "%Y-%m-%dT%H:%M:%SZ", gmtime(&timenow));
 
     if (verbosity > 0) {
         // bulid information, to help with shared object library development and use
         //
-        printf_err(log_none, "libmerc build time: %s %s\n", __DATE__, __TIME__);
+        printf_err(log_none, "libmerc init time: %s\n", init_time);
         struct semantic_version v(MERCURY_SEMANTIC_VERSION);
         printf_err(log_info, "libmerc version: %u.%u.%u\n", v.major, v.minor, v.patchlevel);
         printf_err(log_info, "libmerc build count: %u\n", git_count);
@@ -67,10 +90,12 @@ mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
     // taking place
     //
     assert(printf_err(log_info, "libmerc is running assert() tests\n") != 0);
-
+    // Calculate the cpu ticks per sec during initialization time
+    // to avoid delay during packet processing path
+    tsc_clock::init();
     try {
         m = new mercury{vars, verbosity};
-        return m;  // success
+        return m;
     }
     catch (std::exception &e) {
         printf_err(log_err, "%s\n", e.what());
@@ -92,7 +117,7 @@ int mercury_finalize(mercury_context mc) {
 size_t mercury_packet_processor_write_json(mercury_packet_processor processor, void *buffer, size_t buffer_size, uint8_t *packet, size_t length, struct timespec* ts)
 {
     try {
-        return processor->write_json(buffer, buffer_size, packet, length, ts, NULL);
+        return processor->write_json(buffer, buffer_size, packet, length, ts, processor->reassembler_ptr);
     }
     catch (std::exception &e) {
         printf_err(log_err, "%s\n", e.what());
@@ -100,10 +125,10 @@ size_t mercury_packet_processor_write_json(mercury_packet_processor processor, v
     return 0;
 }
 
-size_t mercury_packet_processor_ip_write_json(mercury_packet_processor processor, void *buffer, size_t buffer_size, uint8_t *packet, size_t length, struct timespec* ts)
+size_t mercury_packet_processor_write_json_linktype(mercury_packet_processor processor, void *buffer, size_t buffer_size, uint8_t *packet, size_t length, struct timespec* ts, uint16_t linktype)
 {
     try {
-        return processor->ip_write_json(buffer, buffer_size, packet, length, ts, NULL);
+        return processor->write_json(buffer, buffer_size, packet, length, ts, processor->reassembler_ptr, linktype);
     }
     catch (std::exception &e) {
         printf_err(log_err, "%s\n", e.what());
@@ -114,7 +139,7 @@ size_t mercury_packet_processor_ip_write_json(mercury_packet_processor processor
 const struct analysis_context *mercury_packet_processor_ip_get_analysis_context(mercury_packet_processor processor, uint8_t *packet, size_t length, struct timespec* ts)
 {
     try {
-        if (processor->analyze_ip_packet(packet, length, ts, NULL)) {
+        if (processor->analyze_ip_packet(packet, length, ts, processor->reassembler_ptr)) {
             if (processor->analysis.result.is_valid()) {
                 return &processor->analysis;
             }
@@ -129,7 +154,7 @@ const struct analysis_context *mercury_packet_processor_ip_get_analysis_context(
 const struct analysis_context *mercury_packet_processor_get_analysis_context(mercury_packet_processor processor, uint8_t *packet, size_t length, struct timespec* ts)
 {
     try {
-        if (processor->analyze_eth_packet(packet, length, ts, NULL)) {
+        if (processor->analyze_eth_packet(packet, length, ts, processor->reassembler_ptr)) {
             if (processor->analysis.result.is_valid()) {
                 return &processor->analysis;
             }
@@ -139,6 +164,33 @@ const struct analysis_context *mercury_packet_processor_get_analysis_context(mer
         printf_err(log_err, "%s\n", e.what());
     }
     return NULL;
+}
+
+const struct analysis_context *mercury_packet_processor_get_analysis_context_linktype(mercury_packet_processor processor, uint8_t *packet, size_t length, struct timespec* ts, uint16_t linktype)
+{
+    try
+    {
+        if (processor->analyze_packet(packet, length, ts, processor->reassembler_ptr, linktype)) {
+            if (processor->analysis.result.is_valid()) {
+                return &processor->analysis;
+            }
+        }
+    }
+    catch (std::exception &e)
+    {
+        printf_err(log_err, "%s\n", e.what());
+    }
+    return NULL;
+}
+
+bool mercury_packet_processor_more_pkts_needed(mercury_packet_processor processor) {
+try {
+        return processor->analysis.flow_state_pkts_needed;
+    }
+    catch (std::exception &e) {
+        printf_err(log_err, "%s\n", e.what());
+    }
+    return false;
 }
 
 enum fingerprint_status analysis_context_get_fingerprint_status(const struct analysis_context *ac) {
@@ -167,6 +219,24 @@ const char *analysis_context_get_server_name(const struct analysis_context *ac) 
         return ac->get_server_name();
     }
     return NULL;
+}
+
+const char *analysis_context_get_user_agent(const struct analysis_context *ac) {
+    if (ac) {
+        return ac->get_user_agent();
+    }
+    return NULL;
+}
+
+bool analysis_context_get_alpns(const struct analysis_context *ac, // input
+                                const uint8_t **alpn,              // output
+                                size_t *alpn_length                // output
+                                ) {
+    if (ac) {
+        return ac->get_alpns(alpn, alpn_length);
+    }
+
+    return false;
 }
 
 bool analysis_context_get_process_info(const struct analysis_context *ac, // input
@@ -226,7 +296,7 @@ void mercury_packet_processor_destruct(mercury_packet_processor mpp) {
 
 bool mercury_write_stats_data(mercury_context mc, const char *stats_data_file_path) {
 
-    if (mc == NULL || stats_data_file_path == NULL) {
+    if (mc == NULL || stats_data_file_path == NULL ||  mc->aggregator == nullptr || mc->global_vars.do_stats == false) {
         return false;
     }
 
@@ -235,12 +305,30 @@ bool mercury_write_stats_data(mercury_context mc, const char *stats_data_file_pa
         printf_err(log_err, "could not open file '%s' for writing mercury stats data\n", stats_data_file_path);
         return false;
     }
-    mc->aggregator.gzprint(stats_data_file);
+    mc->aggregator->gzprint(stats_data_file,
+                           mercury_get_resource_version(mc),
+                           git_commit_id,
+                           git_count,
+                           init_time);
     gzclose(stats_data_file);
-
+    printf_err(log_debug, "stats dump completed\n");
     return true;
 }
 
+const struct attribute_context *mercury_packet_processor_get_attributes(mercury_packet_processor processor) {
+    try {
+        if (processor && processor->analysis.result.attr.is_valid()){
+            return processor->analysis.result.attr.get_attributes();
+        }
+        return NULL;
+    }
+    catch (std::exception &e) {
+        printf_err(log_err, "%s\n", e.what());
+    }
+
+    return NULL;
+
+}
 
 const char license_string[] =
     "Copyright (c) 2019-2020 Cisco Systems, Inc.\n"
@@ -363,4 +451,13 @@ void register_printf_err_callback(printf_err_ptr callback) {
     } else {
         printf_err_static = callback;
     }
+}
+
+size_t get_stats_aggregator_num_entries(mercury_context mc)
+{
+    if (mc == NULL) {
+       return 0;
+    }
+
+    return mc->aggregator->get_num_entries();
 }

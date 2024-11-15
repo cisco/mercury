@@ -14,10 +14,12 @@ from posix.time cimport timespec
 
 ### BUILD INSTRUCTIONS
 # To build in-place:
-#   CC=g++ python setup.py build_ext --inplace
+#   CC=g++ CXX=g++ python setup.py build_ext --inplace
 # To build and install:
-#   CC=g++ python setup.py install
+#   CC=g++ CXX=g++ python setup.py install
 
+# TODO: actually handle version
+__version__ = '0.1.2'
 
 # imports from mercury's dns
 cdef extern from "../libmerc/dns.h":
@@ -39,6 +41,7 @@ cdef extern from "../libmerc/libmerc.h":
         char* packet_filter_cfg
         bool metadata_output
         bool dns_json_output
+        bool certs_json_output
     cdef struct mercury_context:
         pass
     cdef struct mercury_packet_processor:
@@ -78,14 +81,18 @@ cdef extern from "../libmerc/libmerc.h":
 
 
 cdef extern from "../libmerc/result.h":
-    cdef struct analysis_context:
-        pass
+    cdef cppclass attribute_result:
+        void write_json(char *buffer, int buffer_size)
     cdef struct analysis_result:
         fingerprint_status status
         char max_proc[256]
         long double max_score
         bool max_mal
         long double malware_prob
+        attribute_result attr
+    cdef struct analysis_context:
+        analysis_result result
+
 
 cdef extern from "../libmerc/analysis.h":
     classifier *analysis_init_from_archive(int verbosity, const char *archive_name, const uint8_t *enc_key, enc_key_type key_type,
@@ -93,12 +100,17 @@ cdef extern from "../libmerc/analysis.h":
     cdef cppclass classifier:
         analysis_result perform_analysis(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port, const char *user_agent)
 
+        analysis_result perform_analysis_with_weights(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port, const char *user_agent,
+                                 long double new_as_weight, long double new_domain_weight,
+                                 long double new_port_weight, long double new_ip_weight,
+                                 long double new_sni_weight, long double new_ua_weight)
 
 fp_status_dict = {
     0: 'no_info_available',
     1: 'labeled',
     2: 'randomized',
     3: 'unlabled',
+    4: 'unanalyzed',
 }
 fp_type_dict = {
     0:  'unknown',
@@ -125,8 +137,8 @@ cdef class Mercury:
     cdef classifier* clf
     cdef bool do_analysis
 
-    def __init__(self, bool do_analysis, bytes resources, bool output_tcp_initial_data=False, bool output_udp_initial_data=False,
-                 bytes packet_filter_cfg=b'all', bool metadata_output=True, bool dns_json_output=True):
+    def __init__(self, bool do_analysis=False, bytes resources=b'', bool output_tcp_initial_data=False, bool output_udp_initial_data=False,
+                 bytes packet_filter_cfg=b'all', bool metadata_output=True, bool dns_json_output=True, bool certs_json_output=True):
         self.do_analysis = do_analysis
         self.py_config = {
             'output_tcp_initial_data': output_tcp_initial_data,
@@ -134,16 +146,22 @@ cdef class Mercury:
             'packet_filter_cfg': packet_filter_cfg,
             'metadata_output': metadata_output,
             'dns_json_output': dns_json_output,
+            'certs_json_output': certs_json_output,
             'do_analysis': do_analysis,
             'resources':   resources,
         }
         self.default_ts.tv_sec = 0
         self.default_ts.tv_nsec = 0
 
-        cdef char* resources_c = resources
-        cdef enc_key_type ekt = enc_key_type_none
-        if do_analysis:
+        cdef char* resources_c
+        cdef enc_key_type ekt
+        if do_analysis and resources != b'':
+            resources_c = resources
+            ekt = enc_key_type_none
             self.clf = analysis_init_from_archive(0, resources_c, NULL, ekt, 0.0, 0.0, False)
+
+        self.mercury_init()
+
 
     cpdef int mercury_init(self, unsigned int verbosity=0):
         cdef libmerc_config config = self.py_config
@@ -225,6 +243,10 @@ cdef class Mercury:
         result['analysis']['malware']   = is_malware
         result['analysis']['p_malware'] = prob_malware
 
+        attributes = self.extract_attributes(ac.result)
+        if len(attributes) > 0:
+            result['analysis']['attributes'] = attributes
+
         return result
 
 
@@ -254,10 +276,16 @@ cdef class Mercury:
         result['analysis']['malware']   = ar.max_mal
         result['analysis']['p_malware'] = ar.malware_prob
 
+        attributes = self.extract_attributes(ar)
+        if len(attributes) > 0:
+            result['analysis']['attributes'] = attributes
+
         return result
 
-
-    cpdef dict perform_analysis_with_user_agent(self, str fp_str, str server_name, str dst_ip, int dst_port, str user_agent):
+    cpdef dict perform_analysis_with_weights(self, str fp_str, str server_name, str dst_ip, int dst_port, str user_agent,
+                                 long double new_as_weight, long double new_domain_weight,
+                                 long double new_port_weight, long double new_ip_weight,
+                                 long double new_sni_weight, long double new_ua_weight):
         if not self.do_analysis:
             print(f'error: classifier not loaded (is do_analysis set to True?)')
             return None
@@ -268,8 +296,64 @@ cdef class Mercury:
         cdef char* server_name_c = server_name_b
         cdef bytes dst_ip_b = dst_ip.encode()
         cdef char* dst_ip_c = dst_ip_b
+        if user_agent == None:
+            user_agent = 'None'
         cdef bytes user_agent_b = user_agent.encode()
         cdef char* user_agent_c = user_agent_b
+        if user_agent == 'None':
+            user_agent_c = NULL
+
+        cdef analysis_result ar = self.clf.perform_analysis_with_weights(fp_str_c, server_name_c, dst_ip_c, dst_port, user_agent_c,
+                                                    new_as_weight, new_domain_weight, new_port_weight,
+                                                    new_ip_weight, new_sni_weight, new_ua_weight)
+
+        cdef fingerprint_status fp_status_enum = ar.status
+        fp_status = fp_status_dict[fp_status_enum]
+
+        cdef dict result = {}
+        result['fingerprint_info'] = {}
+        result['fingerprint_info']['status'] = fp_status
+        result['analysis'] = {}
+        result['analysis']['process']   = ar.max_proc.decode('UTF-8')
+        result['analysis']['score']     = ar.max_score
+        result['analysis']['malware']   = ar.max_mal
+        result['analysis']['p_malware'] = ar.malware_prob
+
+        return result
+
+    cdef list extract_attributes(self, analysis_result ar):
+        cdef char tags_buf[8192]
+        memset(tags_buf, 0, 8192)
+        cdef char* tags_buf_p = tags_buf
+        try:
+            ar.attr.write_json(tags_buf_p, 8192)
+            ret_ = []
+            for x in json.loads(tags_buf_p.decode())['attributes']:
+                ret_.append({'name': x['name'], 'probability_score': x['probability_score']})
+            return ret_
+        except:
+            return []
+
+
+    cpdef dict perform_analysis_with_user_agent(self, str fp_str, str server_name, str dst_ip, int dst_port, str user_agent):
+        if not self.do_analysis:
+            print(f'error: classifier not loaded (is do_analysis set to True?)')
+            return None
+
+        cdef bytes fp_str_b = fp_str.encode()
+        cdef char* fp_str_c = fp_str_b
+        if server_name == None:
+            server_name = 'None'
+        cdef bytes server_name_b = server_name.encode()
+        cdef char* server_name_c = server_name_b
+        cdef bytes dst_ip_b = dst_ip.encode()
+        cdef char* dst_ip_c = dst_ip_b
+        if user_agent == None:
+            user_agent = 'None'
+        cdef bytes user_agent_b = user_agent.encode()
+        cdef char* user_agent_c = user_agent_b
+        if user_agent == 'None':
+            user_agent_c = NULL
 
         cdef analysis_result ar = self.clf.perform_analysis(fp_str_c, server_name_c, dst_ip_c, dst_port, user_agent_c)
 
@@ -284,6 +368,10 @@ cdef class Mercury:
         result['analysis']['score']     = ar.max_score
         result['analysis']['malware']   = ar.max_mal
         result['analysis']['p_malware'] = ar.malware_prob
+
+        attributes = self.extract_attributes(ar)
+        if len(attributes) > 0:
+            result['analysis']['attributes'] = attributes
 
         return result
 
@@ -334,7 +422,7 @@ def parse_dns(str b64_dns):
     cdef char* c_string_ref = dns_req
 
     # use mercury's dns parser to parse the DNS request
-    return json.loads(dns_get_json_string(c_string_ref, len_))
+    return json.loads(dns_get_json_string(c_string_ref, len_).decode())
 
 
 
@@ -363,7 +451,7 @@ def parse_cert(str b64_cert):
     x.parse(<const void*>c_string_ref, len_)
 
     # get JSON string and return JSON object
-    return json.loads(x.get_json_string())
+    return json.loads(x.get_json_string().decode())
 
 
 # get_cert_prefix
@@ -382,5 +470,3 @@ def get_cert_prefix(str b64_cert):
 
     # return hex string
     return x.get_hex_string()  # TBD: make it hex
-
-

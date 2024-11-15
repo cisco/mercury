@@ -83,7 +83,7 @@ class ipv4_packet {
         if (header == nullptr) {
             return;  // too short
         }
-        p.trim_to_length(ntohs(header->len) - sizeof(ipv4_header));
+        p.trim_to_length(ntoh(header->len) - sizeof(ipv4_header));
 
         k.addr.ipv4.src = header->src_addr;
         k.addr.ipv4.dst = header->dst_addr;
@@ -122,8 +122,9 @@ class ipv4_packet {
     void write_json(struct json_object &o) {
         if (header) {
             struct json_object json_ip{o, "ip"};
+            json_ip.print_key_uint("version", header->vhl >> 4);
             json_ip.print_key_uint("ttl", header->ttl);
-            json_ip.print_key_uint("id", ntohs(header->id));
+            json_ip.print_key_uint_hex("id", ntoh(header->id));
             json_ip.close();
         }
     }
@@ -333,8 +334,8 @@ struct ipv6_header {
         return (bytes[0] << 4) | (bytes[1] >> 4);
     }
 
-    uint32_t flow_label() const {
-        return (uint32_t)bytes[1] << 16 | (uint32_t)bytes[2] << 8 | bytes[3];
+    uint20_t flow_label() const {
+        return uint20_t{(uint32_t)bytes[1] << 16 | (uint32_t)bytes[2] << 8 | bytes[3]};
     }
 
 } __attribute__((packed));
@@ -362,7 +363,7 @@ public:
         if (header == nullptr) {
             return;  // too short
         }
-        p.trim_to_length(ntohs(header->len));
+        p.trim_to_length(ntoh(header->len));
 
         k.addr.ipv6.src = header->src_addr;
         k.addr.ipv6.dst = header->dst_addr;
@@ -419,7 +420,7 @@ public:
             struct json_object json_ip{o, "ip"};
             json_ip.print_key_uint("version", header->version() >> 4);
             json_ip.print_key_uint("ttl", header->ttl);
-            json_ip.print_key_uint("id", header->flow_label());
+            json_ip.print_key_uint_hex("id", header->flow_label());
             if (extension_headers.length() > 0) {
                 json_ip.print_key_hex("extensions", extension_headers);
             }

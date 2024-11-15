@@ -14,6 +14,7 @@
 #define ICMP_H
 
 #include "datum.h"
+#include "protocol.h"
 #include "json_object.h"
 
 
@@ -108,7 +109,7 @@ public:
 //      |                                                               |
 //
 
-class icmp_packet : public datum {
+class icmp_packet : public datum, public base_protocol {
     uint8_t type;
     uint8_t code;
 
@@ -125,7 +126,7 @@ public:
         data_end = d.data_end;
     }
 
-    bool is_valid() const { return datum::is_not_empty(); }
+    bool is_not_empty() const { return datum::is_not_empty(); }
 
     void write_json(json_object &o, bool metadata=false) const {
         (void)metadata; // ignore parameter for now

@@ -15,76 +15,26 @@
 #include <unordered_map>
 #include <string>
 #include <list>
+#include <regex>
 
 #include "libmerc/x509.h"
 #include "libmerc/base64.h"
 #include "libmerc/rapidjson/document.h"
-#include <openssl/evp.h>
-
+#include "libmerc/crypto_engine.h"
 
 // certificate hashing
 
-class hasher {
-    EVP_MD_CTX *mdctx;
-
-public:
-
-    hasher() : mdctx{nullptr} { }
-
-    ~hasher() {
-        // EVP_MD_CTX_free() is preferred in v1.1.1, but unavailble in earlier versions
-        EVP_MD_CTX_destroy(mdctx);
-    }
-
-    constexpr static size_t output_size = 20;
-
-    void hash_buffer(const unsigned char *message, size_t message_len, unsigned char *digest, unsigned int digest_len) {
-
-        if ((unsigned int)EVP_MD_size(EVP_sha1()) > digest_len) {
-            handleErrors();
-        }
-
-        if (mdctx == NULL) {
-            // EVP_MD_CTX_new() is preferred in v1.1.1, but unavailble in earlier versions
-            if ((mdctx = EVP_MD_CTX_create()) == NULL) {
-                handleErrors();
-            }
-        }
-
-        if (1 != EVP_DigestInit_ex(mdctx, EVP_sha1(), NULL)) {
-            handleErrors();
-        }
-
-        if (1 != EVP_DigestUpdate(mdctx, message, message_len)) {
-            handleErrors();
-        }
-
-        unsigned int tmp_len;
-        if (1 != EVP_DigestFinal_ex(mdctx, digest, &tmp_len)) {
-            handleErrors();
-        }
-
-    }
-
-    void handleErrors() {
-        fprintf(stderr, "error: EVP hash failure\n");
-    }
-};
-
-
-void sha1_hash(const void *buffer,
-               unsigned int len) {
+void fprint_sha1_hash(FILE *f, const void *buffer, unsigned int len) {
 
     class hasher h;
     uint8_t output_buffer[h.output_size];
 
     h.hash_buffer((uint8_t *)buffer, len, output_buffer, sizeof(output_buffer));
 
-    //printf("SHA1: ");
     for (size_t i = 0; i < sizeof(output_buffer); i++) {
-        fprintf(stderr, "%.2x", output_buffer[i]);
+        fprintf(f, "%.2x", output_buffer[i]);
     }
-    fputc('\n', stderr);
+    fputc('\n', f);
 
 }
 
@@ -176,6 +126,7 @@ struct json_file_reader : public file_reader {
             ssize_t nread = getline(&line, &len, stream); // note: could skip zero-length lines
             if (nread == -1) {
                 free(line);
+                line = NULL;
                 return 0;
             }
             // fprintf(stdout, "line: %s", line);
@@ -204,6 +155,7 @@ struct json_file_reader : public file_reader {
                             break; // just process first cert for now // TODO: process all certs
                         }
                         free(line);
+                        line = NULL;
                         return cert_len;
                     }
                 }
@@ -241,7 +193,16 @@ struct base64_file_reader : public file_reader {
         ssize_t nread = getline(&line, &len, stream); // note: could skip zero-length lines
         if (nread == -1) {
             free(line);
+            line = NULL;
             return 0;
+        }
+
+        // trim LF from line
+        //
+        if (nread > 0) {
+            if (line[nread-1] == '\n') {
+                nread--;
+            }
         }
         ssize_t cert_len = base64::decode(outbuf, outbuf_len, line, nread);
         if (cert_len < 0) {
@@ -255,6 +216,7 @@ struct base64_file_reader : public file_reader {
             }
         }
         free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
+        line = NULL;
         return cert_len;
     }
     ~base64_file_reader() {
@@ -290,7 +252,8 @@ struct pem_file_reader : public file_reader {
         nread = getline(&line, &len, stream);
         if (nread == -1) {
             free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
-            return 0;  // empty line; assue we are done with certificates
+            line = NULL;
+            return 0;  // empty line; assume we are done with certificates
         }
         if ((size_t)nread >= sizeof(opening_line)-1 && strncmp(line, opening_line, sizeof(opening_line)-1) != 0) {
             const char *pem = "-----BEGIN";
@@ -300,11 +263,12 @@ struct pem_file_reader : public file_reader {
                 fprintf(stderr, "error: not in PEM format, or missing opening line in certificate %zd\n", cert_number);
             }
             free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
+            line = NULL;
             return -1; // missing opening line; not in PEM format
         }
 
         // marshall data
-        char base64_buffer[8*8192];       // note: hardcoded length for now
+        char base64_buffer[64*8192];       // note: hardcoded length for now
         char *base64_buffer_end = base64_buffer + sizeof(base64_buffer);
         char *b_ptr = base64_buffer;
         bool is_closed = false;
@@ -317,11 +281,15 @@ struct pem_file_reader : public file_reader {
                     is_closed = true;
                     break;
                 } else {
-                    advance = nread;
+                     if (line[nread-1] == '\n') {
+                        advance = nread - 1;
+                    } else {
+                        advance = nread;
+                    }
                 }
             }
             if (b_ptr + advance >= base64_buffer_end) {
-                fprintf(stderr, "error: PEM certificiate %zd too long for buffer, or missing closing line\n", cert_number);
+                fprintf(stderr, "error: PEM certificate %zd too long for buffer, or missing closing line\n", cert_number);
                 return -1; // PEM certificate is too long for buffer, or missing closing line
             }
             memcpy(b_ptr, line, advance);
@@ -331,6 +299,7 @@ struct pem_file_reader : public file_reader {
         if (nread <= 0 && !is_closed)
             fprintf(stderr, "error: PEM format incomplete for certificate %zd\n", cert_number);
         free(line); // TBD: we shouldn't need to call this after every read, but valgrind says we do :-(
+        line = NULL;
         return cert_len;
     }
     ~pem_file_reader() {
@@ -390,6 +359,23 @@ struct base64_file_writer {
     };
 };
 
+[[maybe_unused]] static bool write_pem(FILE *f, const uint8_t *data, size_t length, const char *label="RSA PRIVATE KEY") {
+
+    const char opening_line[] = "-----BEGIN ";
+    const char closing_line[] = "-----END ";
+
+    fprintf(f, "%s%s-----\n", opening_line, label);
+    std::string b64 = base64_encode(data, length);
+    const char *data_end = b64.data() + b64.length();
+    for (char *c=b64.data(); c < data_end; c+=64) {
+        int ll = (c + 64 < data_end) ? 64 : data_end - c;
+        fprintf(f, "%.*s\n", ll, c);
+    }
+    fprintf(f, "%s%s-----\n", closing_line, label);
+
+    return true;
+}
+
 // std::unordered_map<std::string, std::string> cert_dict;
 //#include <thread>
 
@@ -433,6 +419,8 @@ int main(int argc, char *argv[]) {
     bool input_is_der = false;
     bool key_group = false;
     bool trunc_test = false;
+    bool pem_output = false;
+    bool sha1_output = false;
     bool verbose = false;    // this could be set by a command line option
 
     // parse arguments
@@ -443,6 +431,8 @@ int main(int argc, char *argv[]) {
              case_output,
              case_prefix,
              case_prefix_as_hex,
+             case_pem_output,
+             case_sha1_output,
              case_pem,
              case_json,
              case_der,
@@ -461,6 +451,8 @@ int main(int argc, char *argv[]) {
              {"der",            no_argument,       NULL,  case_der           },
              {"prefix",         no_argument,       NULL,  case_prefix        },
              {"prefix-as-hex",  no_argument,       NULL,  case_prefix_as_hex },
+             {"pem-output",     no_argument,       NULL,  case_pem_output    },
+             {"sha1-output",    no_argument,       NULL,  case_sha1_output   },
              {"filter",         required_argument, NULL,  case_filter        },
              {"log-malformed",  required_argument, NULL,  case_log_malformed },
              {"key-group",      no_argument,       NULL,  case_key_group     },
@@ -481,6 +473,20 @@ int main(int argc, char *argv[]) {
                 usage(argv[0]);
             }
             infile = optarg;
+            break;
+        case case_sha1_output:
+            if (optarg) {
+                fprintf(stderr, "error: option 'sha1-output' does not accept an argument\n");
+                usage(argv[0]);
+            }
+            sha1_output = true;
+            break;
+        case case_pem_output:
+            if (optarg) {
+                fprintf(stderr, "error: option 'pem-output' does not accept an argument\n");
+                usage(argv[0]);
+            }
+            pem_output = true;
             break;
         case case_prefix_as_hex:
             if (optarg) {
@@ -522,7 +528,10 @@ int main(int argc, char *argv[]) {
                 fprintf(stderr, "error: option 'filter' requires an argument\n");
                 usage(argv[0]);
             }
-            if (strcmp("weak", optarg) != 0) {
+            if (strncmp("regex=", optarg, strlen("regex=")) == 0) {
+                optarg += strlen("regex=");
+                fprintf(stderr, "filter option '%s'\n", optarg);
+            } else if (strcmp("weak", optarg) != 0) {
                 fprintf(stderr, "error: unrecognized filter option '%s'\n", optarg);
                 usage(argv[0]);
             }
@@ -631,8 +640,6 @@ int main(int argc, char *argv[]) {
         // fprintf_raw_as_hex(stderr, cert_buf, cert_len);
         // fprintf(stderr, "\n");
 
-        //sha1_hash(cert_buf, cert_len);
-
         if (prefix || prefix_as_hex) {
             // parse certificate prefix, then print as JSON
             struct x509_cert_prefix p;
@@ -645,10 +652,14 @@ int main(int argc, char *argv[]) {
             }
             // fprintf(stderr, "cert: %u\tprefix length: %zu\n", line_number, p.get_length());
 
+        } else if (sha1_output) {
+
+            fprint_sha1_hash(stdout, cert_buf, cert_len);
+
         } else {
 
             // parse certificate, then print as JSON
-            char buffer[256*1024];
+            char buffer[64*8192];       // note: hardcoded length for now
             struct buffer_stream buf(buffer, sizeof(buffer));
             struct x509_cert c;
             try {
@@ -711,16 +722,31 @@ int main(int argc, char *argv[]) {
 
                 } else {
 
+                    std::regex rgx;
+                    if (filter && strcmp(filter, "weak") != 0) {
+                        rgx = std::regex{filter};
+                    }
+                    char *search_start = (char *)cert_buf;
+                    char *search_end = search_start + cert_len;
                     c.parse(cert_buf, cert_len);
                     if ((filter == NULL)
-                        || c.is_not_currently_valid()
-                        || c.subject_key_is_weak()
-                        || c.signature_is_weak()
-                        || c.is_nonconformant()
-                        || c.is_self_issued()
-                        || !c.is_trusted(trusted_certs)) {
-                        c.print_as_json(buf, trusted_certs, kg);
-                        buf.write_line(stdout);
+                        || (strcmp(filter, "weak") == 0 && (c.is_not_currently_valid()
+                                                           || c.subject_key_is_weak()
+                                                           || c.signature_is_weak()
+                                                           || c.is_nonconformant()
+                                                           || c.is_self_issued()
+                                                            || !c.is_trusted(trusted_certs)))
+                        || std::regex_search(search_start, search_end, rgx)) {
+
+                        if (pem_output) {
+                            bool success = write_pem(stdout, cert_buf, cert_len, "CERTIFICATE");
+                            if (!success) {
+                                throw std::runtime_error{"could not write PEM output"};
+                            }
+                        } else {
+                            c.print_as_json(buf, trusted_certs, kg);
+                            buf.write_line(stdout);
+                        }
                     }
 
                 }

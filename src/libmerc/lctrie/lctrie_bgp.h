@@ -9,6 +9,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <typeinfo>
+#include <fstream>
 
 #include "lctrie_ip.h"
 
@@ -124,7 +125,7 @@ lct_subnet_set_from_string(lct_subnet<__uint128_t> *subnet, const char *subnet_s
       int bytes_consumed = -1;
       num_items_parsed = sscanf(start, "%hx%n", a, &bytes_consumed);
       if (num_items_parsed == 1) {
-          *a = ntohs(*a);
+          *a = ntoh(*a);
           start += bytes_consumed;
           if (trailer) {
               trailing_uint16s++;
@@ -198,35 +199,41 @@ read_prefix_table(const char *filename,
                   lct_subnet<T> prefix[],
                   size_t prefix_size) {
     (void)prefix_size;
-  int num = 0;
-  FILE *infile;
-  char *line = NULL;
-  size_t line_len = 0;
+    int num = 0;
+    std::ifstream infile;
 
-  // open the file for reading
-  if (!(infile = fopen(filename, "r"))) {
-    fprintf(stderr, "%s: %s\n", filename, strerror(errno));
-    return -1;
-  }
-
-  // validate and parse each line of input
-  while (-1 != getline(&line, &line_len, infile)) {
-    // clip off the trailing newline character
-    line[strcspn(line, "\n")] = 0;
-
-    // set the prefix[num] to the subnet and ASN found in line
-    if (lct_subnet_set_from_string(&prefix[num], line) != 0) {
-      fprintf(stderr, "error: could not parse subnet string '%s'\n", line);
-      return -1;
+    // open the file for reading
+    //
+    infile.open(filename);
+    if (!infile.is_open()) {
+        perror("ifstream::open");
+        return -1;
     }
 
-    num++;
-  }
+    // validate and parse each line of input
+    //
+    std::string line;
+    while (std::getline(infile, line)) {
 
-  free(line);
-  fclose(infile);
+        // clip off the trailing newline character
+        //
+        if (!line.empty() && line[line.length()-1] == '\n') {
+            line.erase(line.length()-1);
+        }
 
-  return num;
+        // set the prefix[num] to the subnet and ASN found in line
+        //
+        if (lct_subnet_set_from_string(&prefix[num], line.c_str()) != 0) {
+            fprintf(stderr, "error: could not parse subnet string '%s'\n", line.c_str());
+            return -1;
+        }
+
+        num++;
+    }
+
+    infile.close();
+
+    return num;
 }
 
 // read the ASN to description file return number of entries read;

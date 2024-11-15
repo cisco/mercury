@@ -80,8 +80,16 @@ else
 	cd resources && $(MAKE) install-nonroot
 endif
 
+.PHONY: install-certtools
+install-certtools:
+ifneq ($(wildcard src/Makefile), src/Makefile)
+	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
+else
+	cd src && $(MAKE) install-certtools
+endif
+
 .PHONY: uninstall
-uninstall: uninstall-mercury uninstall-systemd
+uninstall: uninstall-mercury uninstall-systemd uninstall-certtools
 
 .PHONY: uninstall-mercury
 uninstall-mercury:
@@ -103,6 +111,14 @@ else
 	systemctl disable mercury
 	rm /etc/systemd/system/mercury.service
 	userdel mercury
+endif
+
+.PHONY: uninstall-certtools
+uninstall-certtools:
+ifneq ($(wildcard src/Makefile), src/Makefile)
+	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
+else
+	cd src && $(MAKE) uninstall-certtools
 endif
 
 # the target libs builds three versions of libmerc.so, and copies them
@@ -139,14 +155,21 @@ coverage_report: clean
 	cd unit_tests && gcovr -r ../src/libmerc
 
 .PHONY: doc
-doc: doc/mercury.pdf
+doc: doc/mercury.pdf sphinx
 
 doc/mercury.pdf:
 	doxygen
 	cd doc/latex; make; mv refman.pdf ../mercury.pdf
 
-.PHONY: clean
-clean:
+.PHONY: sphinx sphinx-clean
+sphinx:
+	cd doc/sphinx && $(MAKE) html
+
+sphinx-clean:
+	cd doc/sphinx && $(MAKE) clean
+
+.PHONY:
+clean: sphinx-clean
 	for file in Makefile README.md configure.ac Doxyfile; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 ifneq ($(wildcard src/Makefile), src/Makefile)
 	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
@@ -169,6 +192,7 @@ else
 	cd resources && $(MAKE) distclean
 	rm -rf autom4te.cache config.log config.status Makefile_helper.mk
 	rm -f lib/*.so
+	-git clean -xf
 endif
 
 .PHONY: package-deb
@@ -176,7 +200,7 @@ package-deb: mercury
 ifneq ($(wildcard src/Makefile), src/Makefile)
 	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
 else
-	./build_pkg.sh -t deb 
+	./build_pkg.sh -t deb
 endif
 
 .PHONY: package-rpm

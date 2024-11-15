@@ -34,7 +34,7 @@ class dict {
 public:
     std::unordered_map<std::string, uint32_t> d;
     unsigned int count;
-    std::vector<std::pair<const char *, uint32_t>> inverse;
+    std::vector<const char *> inverse;
     unsigned int inverse_size;
 
     dict() : d{}, count{0}, inverse{}, inverse_size{0} { }
@@ -63,12 +63,12 @@ public:
     bool compute_inverse_map() {
 
         try {
+            inverse.clear();
             inverse.reserve(d.size());
             for (const auto &x : d) {
-                inverse.push_back({x.first.c_str(), x.second});
+                inverse[x.second] = x.first.c_str();
             }
-            std::stable_sort(inverse.begin(), inverse.end(), [](auto &l, auto &r){ return l.second < r.second; });
-            inverse_size = inverse.size();
+            inverse_size = inverse.capacity();
             return true;
         }
         catch (...) {
@@ -78,7 +78,7 @@ public:
 
     const char *get_inverse(unsigned int index) const {
         if (index < inverse_size) {
-            return inverse[index].first;
+            return inverse[index];
         }
         return unknown_fp_string;
     }
@@ -101,10 +101,10 @@ public:
                 passed = false;
             }
         }
-        for (const auto &b : inverse) {
-            if (get(b.first) != b.second) {
+        for (unsigned int i = 0; i < inverse_size; i++) {
+            if (get(inverse[i]) != i) {
                 if (f) {
-                    fprintf(f, "dict unit test error: mismatch at inverse table entry (%s: %u)\n", b.first, b.second);
+                    fprintf(f, "dict unit test error: mismatch at inverse table entry (%s: %u)\n", inverse[i], i);
                 }
                 passed = false;
             }

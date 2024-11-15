@@ -10,7 +10,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
-#include "dhcp.h"
+#include "protocol.h"
 #include "json_object.h"
 
 /*
@@ -361,7 +361,7 @@ struct dhcp_option : public datum {
                 }
                 if (hwtype == 1) { // Ethernet
                     json_client_id.print_key_hex("address", *this);
-                    size_t oui = 0;
+                    uint64_t oui = 0;
                     lookahead_uint(3, &oui);
                     json_client_id.print_key_string("oui", oui::get_string(oui));
                 } else if (hwtype == 255) {
@@ -415,7 +415,7 @@ struct dhcp_option : public datum {
                 datum::read_uint8(&hwtype);
                 json_opt.print_key_uint("hwtype", hwtype);
                 json_opt.print_key_hex("client_id", *this);
-                size_t oui = 0;
+                uint64_t oui = 0;
                 lookahead_uint(3, &oui);
                 json_opt.print_key_string("oui", oui::get_string(oui));
             }
@@ -441,7 +441,7 @@ struct dhcp_option : public datum {
 };
 
 
-struct dhcp_discover {
+struct dhcp_discover : public base_protocol {
     struct datum options;
 
     dhcp_discover(datum &p) { parse(p); };
@@ -454,7 +454,11 @@ struct dhcp_discover {
 
     bool is_not_empty() const { return options.is_not_empty(); }
 
-    void write_json(struct json_object &o) {
+    void write_json(struct json_object &o, bool metadata) {
+        if (metadata) {
+            write_json_complete(o);
+            return;
+        }
         struct json_object json_dhcp{o, "dhcp"};
         struct datum tmp = options;
         while (tmp.is_not_empty()) {
@@ -506,7 +510,7 @@ struct dhcp_discover {
         b.write_char(')');
     }
 
-    void compute_fingerprint(struct fingerprint &fp) const {
+    void compute_fingerprint(class fingerprint &fp) const {
         fp.set_type(fingerprint_type_dhcp);
         fp.add(*this);
         fp.final();

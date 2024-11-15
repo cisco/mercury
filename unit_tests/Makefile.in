@@ -6,6 +6,18 @@ ifeq ($(use_fsanitize),yes)
 FSANITIZE = -fsanitize=address
 endif
 
+ifeq ($(openssl_newer),yes)
+CFLAGS += -DSSLNEW
+endif
+
+ifeq ($(is_macos_arm),yes)
+CFLAGS = -I/opt/homebrew/include ${CLFAGS}
+CXXFLAGS = -I/opt/homebrew/include ${CXXFLAGS}
+LDFLAGS += -L/opt/homebrew/lib ${LDFLAGS}
+endif
+
+CFLAGS += -UNDEBUG
+
 export LD_LIBRARY_PATH =../src/libmerc
 
 LIBMERC_FOLDER = ../src/libmerc/
@@ -14,7 +26,6 @@ LIBMERC_SO = $(LIBMERC_FOLDER)libmerc.so
 LIBMERC_SO_tls = $(LIBMERC_DEBUG_FOLDER)libmerc_tls.so
 LIBMERC_SO_multiprotocol = $(LIBMERC_DEBUG_FOLDER)libmerc_multiprotocol.so
 UNIT_TESTS = catch2main.cc
-UNIT_TESTS += ../src/pcap_file_io.c
 UNIT_TESTS += libmerc_driver_helper.cc
 UNIT_TESTS += libmerc_fixture.cc
 
@@ -32,6 +43,7 @@ UNIT_TESTS_TLS_ONLY += libmerc_driver.cc
 UNIT_TESTS_TLS_HTTP_QUIC = $(UNIT_TESTS)
 UNIT_TESTS_TLS_HTTP_QUIC += libmerc_dbmultiprotocol_test.cc
 UNIT_TESTS_TLS_HTTP_QUIC += performance_test.cc
+UNIT_TESTS_TLS_HTTP_QUIC += functional_unit_test.cc
 
 # implicit rules for building object files from .cc files
 %.o: %.cc
@@ -73,7 +85,7 @@ libmerc_driver_multiprotocol_coverage: debug-libmerc_gcov $(UNIT_TESTS_TLS_HTTP_
 	$(CXX) $(CFLAGS) -I ../src/ -I../src/libmerc $(UNIT_TESTS_TLS_HTTP_QUIC) -pthread -o libmerc_driver_multiprotocol -DLIBMERC_SO_PATH="\"$(LIBMERC_SO_multiprotocol)\"" $(FSANITIZE) -L$(LIBMERC_DEBUG_FOLDER) $(LIBMERC_SO_multiprotocol) -lcrypto -ldl -lz --coverage
 
 pdu_verifier: debug-libmerc pdu_verifier.cc
-	$(CXX) $(CFLAGS) -I ../src/ -I ../src/libmerc pdu_verifier.cc ./../src/pcap_file_io.c $(FSANITIZE) -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz -o pdu_verifier
+	$(CXX) $(CFLAGS) -I ../src/ -I ../src/libmerc pdu_verifier.cc $(FSANITIZE) -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz -o pdu_verifier
 
 .PHONY: debug-libmerc_tls_gcov
 debug-libmerc_tls_gcov:
@@ -95,23 +107,13 @@ debug-libmerc-tls:
 	mkdir -p $(LIBMERC_DEBUG_FOLDER)
 	cd ../src && $(MAKE) OPTFLAGS=-DSTATIC_CFG_SELECT='\"tls\"' debug-libmerc
 
-.PHONY: nfs-download
-nfs-download:
-	cp /nfs/QA/Mercury/pcap/ ./pcaps/
-
-.PHONY: divide-pcap
-divide-pcap: nfs-download
-	cd ../src && $(MAKE) pcap_filter
-	cp ./../src/pcap_filter ./../unit_tests/pcaps/
-	cd ./pcaps/ && ./pcap_filter --input ./capture2.pcap --output capture2
-
 .PHONY: perfect-hash-test
 perfect-hash-test:
 	$(CXX) $(CFLAGS) -I ../src/libmerc ph_driver.cc -o ph_driver
 	./ph_driver | grep -e 'Unordered Map lookup' -e 'Perfect Hash generation table' -e 'Perfect Hash lookup' -e 'failed' -e 'Perfect Hash.' -e 'Unordered Map.'
 
 .PHONY: run
-run:
+run: xtra/resources/resources-mp.tgz # xtra data needed for unit tests
 	cd ../unit_tests/debug-libs/ && (rm -f libmerc.so.0) && (ln -s libmerc_tls.so libmerc.so.0)
 	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ./libmerc_driver_tls_only -s
 	cd ../unit_tests/debug-libs/ && rm -f libmerc.so.0 && ln -s libmerc_multiprotocol.so libmerc.so.0
@@ -124,9 +126,9 @@ clean:
 	rm -rf pdu_verifier
 	rm -rf *.json.gz
 	rm -rf $(LIBMERC_DEBUG_FOLDER)
-	find -type f -name "*.gcno" -delete
-	find -type f -name "*.gcda" -delete
-	find -type f -name "*.gcov" -delete
+	find . -type f -name "*.gcno" -delete
+	find . -type f -name "*.gcda" -delete
+	find . -type f -name "*.gcov" -delete
 	cd ../src; $(MAKE) clean
 
 # EOF

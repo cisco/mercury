@@ -11,7 +11,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
-#include "tcp.h"
+#include "protocol.h"
 #include "datum.h"
 #include "analysis.h"
 #include "json_object.h"
@@ -60,7 +60,7 @@
 //
 #define VERS_LEN 8
 
-struct ssh_init_packet : public tcp_base_protocol {
+struct ssh_init_packet : public base_protocol {
     struct datum protocol_string;
     struct datum comment_string;
 
@@ -69,7 +69,7 @@ struct ssh_init_packet : public tcp_base_protocol {
     }
 
     void parse(struct datum &p) {
-        uint8_t delim = protocol_string.parse_up_to_delimeters(p, '\n', ' ');
+        uint8_t delim = protocol_string.parse_up_to_delimiters(p, '\n', ' ');
         if (delim == '\n') {
             return;  // no comment string
         }
@@ -108,7 +108,7 @@ struct ssh_init_packet : public tcp_base_protocol {
         buf.write_char(')');
     }
 
-    void compute_fingerprint(struct fingerprint &fp) const {
+    void compute_fingerprint(class fingerprint &fp) const {
         fp.set_type(fingerprint_type_ssh);
         fp.add(*this);
         fp.final();
@@ -230,7 +230,7 @@ struct name_list : public datum {
  *     uint32       0 (reserved for future extension)
  *
  */
-struct ssh_kex_init : public tcp_base_protocol {
+struct ssh_kex_init : public base_protocol {
     struct datum msg_type;
     struct datum cookie;
     struct name_list kex_algorithms;
@@ -311,7 +311,7 @@ struct ssh_kex_init : public tcp_base_protocol {
         }
     }
 
-    void compute_fingerprint(struct fingerprint &fp) const {
+    void compute_fingerprint(class fingerprint &fp) const {
         fp.set_type(fingerprint_type_ssh_kex);
         fp.add(*this);
         fp.final();

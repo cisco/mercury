@@ -28,6 +28,7 @@
 #include "pkt_processing.h"
 #include "signal_handling.h"
 #include "libmerc/utils.h"
+#include "libmerc/bench.h"
 #include "llq.h"
 
 
@@ -92,7 +93,7 @@ enum status write_pcap_file_header(FILE *f) {
     file_header.thiszone = 0;     /* no GMT correction for now */
     file_header.sigfigs = 0;      /* we don't claim sigfigs for now */
     file_header.snaplen = 65535;
-    file_header.network = pcap_file::LINKTYPE_ETHERNET;
+    file_header.network = LINKTYPE_ETHERNET;
 
     size_t items_written = fwrite(&file_header, sizeof(file_header), 1, f);
     if (items_written == 0) {
@@ -234,9 +235,12 @@ enum status pcap_file_open(struct pcap_file *f,
             file_header.snaplen = htonl(file_header.snaplen);
             file_header.network = htons(file_header.network);
         }
-        if (file_header.network != pcap_file::LINKTYPE_ETHERNET) {
-            if (file_header.network == pcap_file::LINKTYPE_NULL) {
-                fprintf(stderr, "warning: pcap file linktype is NULL (0), assuming ETHERNET\n");
+        f->linktype = file_header.network;
+        if (file_header.network != LINKTYPE_ETHERNET &&
+                file_header.network != LINKTYPE_PPP  &&
+                file_header.network != LINKTYPE_RAW) {
+            if (file_header.network == LINKTYPE_NULL) {
+                fprintf(stderr, "warning: pcap file linktype is NULL (0), assuming ETHERNET or PPP\n");
             } else {
                 fprintf(stderr, "error: pcap file linktype (%u) unsupported\n", file_header.network);
                 exit(EXIT_FAILURE); // TODO: return error, don't exit
@@ -422,6 +426,7 @@ enum status pcap_file_read_packet(struct pcap_file *f,
             return status_err;
         }
     }
+
     if (pkthdr->caplen <= BUFLEN) {
         items_read = fread(packet_data, pkthdr->caplen, 1, f->file_ptr);
         if (items_read == 0) {
@@ -471,13 +476,17 @@ enum status pcap_file_dispatch_pkt_processor(struct pcap_file *f,
     unsigned long num_packets = 0;
     struct packet_info pi;
 
+    benchmark::mean_and_standard_deviation s;
     for (int i=0; i < loop_count && sig_close_flag == 0; i++) {
         do {
             status = pcap_file_read_packet(f, &pkthdr, packet_data);
             if (status == status_ok) {
                 packet_info_init_from_pkthdr(&pi, &pkthdr);
+                pi.linktype = f->linktype;
                 // process the packet that was read
+                tsc_clock cc;
                 pkt_processor->apply(&pi, packet_data);
+                s += cc.elapsed_tick();
                 num_packets++;
                 total_length += pkthdr.caplen + sizeof(struct pcap_packet_hdr);
             }
@@ -490,6 +499,12 @@ enum status pcap_file_dispatch_pkt_processor(struct pcap_file *f,
                 status = status_err;
             }
         }
+    }
+    if (loop_count > 1 && benchmark::is_valid) {
+        fprintf(stderr, "mean cycles per packet:     %f\n", s.mean());
+        fprintf(stderr, "mean cycles per byte:       %f\n", s.total() / total_length);
+        fprintf(stderr, "Gbps at 1GHz:               %f\n", (double) total_length / s.total() * 8);
+        fprintf(stderr, "packets per second at 1GHz: %e\n", (double) 1000000000 * num_packets / s.total());
     }
 
     pkt_processor->finalize();  // clear out buffers
@@ -520,76 +535,47 @@ enum status pcap_file_close(struct pcap_file *f) {
  * start of serialized output code
  */
 
-void pcap_queue_write(struct ll_queue *llq,
-                      uint8_t *packet,
-                      size_t length,
-                      unsigned int sec,
-                      unsigned int nsec,
-                      bool blocking) {
+size_t pcap_queue_write(uint8_t *buf,
+                        uint8_t *packet,
+                        size_t length,
+                        unsigned int sec,
+                        unsigned int usec) {
+
+
 
     if (packet == nullptr) {
-        return;  // error
+        return 0;  // error
     }
 
-    if (blocking) {
-        while (llq->msgs[llq->widx].used != 0) {
-            usleep(50); // sleep for fifty microseconds
-        }
+    //char obuf[LLQ_MSG_SIZE];
+    int olen = LLQ_MAX_MSG_SIZE;
+    int ooff = 0;
+    int trunc = 0;
+
+    if (packet && !length) {
+        fprintf(stderr, "warning: attempt to write an empty packet\n");
     }
 
-    if (llq->msgs[llq->widx].used == 0) {
+    /* note: we never perform byteswap when writing */
+    struct pcap_packet_hdr packet_hdr;
+    packet_hdr.ts_sec = sec;
+    packet_hdr.ts_usec = usec;
+    packet_hdr.incl_len = length;
+    packet_hdr.orig_len = length;
 
-        //char obuf[LLQ_MSG_SIZE];
-        int olen = LLQ_MSG_SIZE;
-        int ooff = 0;
-        int trunc = 0;
+    // write the packet header
+    int r = append_memcpy((char *)buf, &ooff, olen, &trunc, &packet_hdr, sizeof(packet_hdr));
 
-        llq->msgs[llq->widx].ts.tv_sec = sec;
-        llq->msgs[llq->widx].ts.tv_nsec = nsec;
+    // write the packet
+    r += append_memcpy((char *)buf, &ooff, olen, &trunc, packet, length);
 
-        //obuf[sizeof(struct timespec)] = '\0';
-        llq->msgs[llq->widx].buf[0] = '\0';
+    // f->bytes_written += length + sizeof(struct pcap_packet_hdr);
+    // f->packets_written++;
 
-        if (packet && !length) {
-            fprintf(stderr, "warning: attempt to write an empty packet\n");
-        }
-
-        /* note: we never perform byteswap when writing */
-        struct pcap_packet_hdr packet_hdr;
-        packet_hdr.ts_sec = sec;
-        packet_hdr.ts_usec = nsec;
-        packet_hdr.incl_len = length;
-        packet_hdr.orig_len = length;
-
-        // write the packet header
-        int r = append_memcpy(llq->msgs[llq->widx].buf, &ooff, olen, &trunc, &packet_hdr, sizeof(packet_hdr));
-
-        // write the packet
-        r += append_memcpy(llq->msgs[llq->widx].buf, &ooff, olen, &trunc, packet, length);
-
-        // f->bytes_written += length + sizeof(struct pcap_packet_hdr);
-        // f->packets_written++;
-
-        if ((trunc == 0) && (r > 0)) {
-
-            llq->msgs[llq->widx].len = r;
-
-            //fprintf(stderr, "DEBUG: sent a message!\n");
-            __sync_synchronize(); /* A full memory barrier prevents the following flag set from happening too soon */
-            llq->msgs[llq->widx].used = 1;
-
-            //llq->next_write();
-            llq->widx = (llq->widx + 1) % LLQ_DEPTH;
-        }
+    if (trunc == 0) {
+        return r;
+    } else {
+        return 0;
     }
-    else {
-        //fprintf(stderr, "DEBUG: queue bucket used!\n");
-
-        // TODO: this is where we'd update an output drop counter
-        // but currently this spot in the code doesn't have access to
-        // any thread stats pointer or similar and I don't want
-        // to update a global variable in this location.
-    }
-
 }
 

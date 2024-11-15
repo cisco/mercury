@@ -12,12 +12,15 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
-#include <pwd.h>
-#include <grp.h>
 #include <stdlib.h>
 #include <time.h>
 #include "libmerc.h"
 #include "utils.h"
+
+#ifndef _WIN32
+#include <pwd.h>
+#include <grp.h>
+#endif
 
 /* utility functions */
 
@@ -76,6 +79,9 @@ size_t hex_to_raw(const void *output,
  * drop_root_privileges() returns 0 on success and -1 on failure
  */
 enum status drop_root_privileges(const char *username, const char *directory) {
+
+#ifndef _WIN32
+  
     gid_t gid;
     uid_t uid;
     const char *new_username;
@@ -184,6 +190,15 @@ enum status drop_root_privileges(const char *username, const char *directory) {
     }
 
     return status_ok;
+
+#else   // _WIN32 not defined
+
+    printf_err(log_err, "could not drop root privileges; operation not supported on WIN32\n");
+    return status_err;
+
+#endif
+
+
 }
 
 /*
@@ -253,7 +268,8 @@ enum status filename_append(char dst[FILENAME_MAX],
         if (strnlen(src, FILENAME_MAX) + strlen(tail) + 1 > FILENAME_MAX) {
             return status_err; /* filename too long */
         }
-        strncpy(dst, src, FILENAME_MAX);
+        if (src != dst)
+            strncpy(dst, src, FILENAME_MAX);
         strcat(dst, delim);
         strcat(dst, tail);
 
@@ -270,8 +286,10 @@ enum status filename_append(char dst[FILENAME_MAX],
 
 void timer_start(struct timer *t) {
     if (clock_gettime(CLOCK_REALTIME, &t->before) != 0) {
+        //
         // failed to get clock time, set the uninitialized struct to zero
-        bzero(&t->before, sizeof(struct timespec));
+        //
+        memset(&t->before, 0, sizeof(t->before));
         printf_err(log_err, "could not get clock time (%s)\n", strerror(errno));
     }
 }
@@ -289,3 +307,13 @@ uint64_t timer_stop(struct timer *t) {
     }
     return nano_sec;
 }
+
+#define MAX_ADDR_STR_LEN 48
+void sprintf_ipv6_addr(char *addr_str, const uint8_t *ipv6_addr) {
+    int trunc = 0;
+    int offset = 0;
+    int len;
+    len = append_ipv6_addr(addr_str, &offset, MAX_ADDR_STR_LEN, &trunc, ipv6_addr);
+    addr_str[len] = '\0';
+}
+

@@ -11,29 +11,21 @@
 #include "fingerprint.h"
 #include "match.h"
 #include "analysis.h"
-#include "tcp.h"
+#include "protocol.h"
 #include "tcpip.h"
 
-struct tls_security_assessment {
-    bool weak_version_offered;
-    bool weak_ciphersuite_offered;
-    bool weak_elliptic_curve_offered;
-    bool weak_version_used;
-    bool weak_ciphersuite_used;
-    bool weak_elliptic_curve_used;
-    bool weak_key_size_used;
 
-    tls_security_assessment() :
-        weak_version_offered{false},
-        weak_ciphersuite_offered{false},
-        weak_elliptic_curve_offered{false},
-        weak_version_used{false},
-        weak_ciphersuite_used{false},
-        weak_elliptic_curve_used{false},
-        weak_key_size_used{false}
-    {  }
+// class xtn represents a TLS extension
+//
+class xtn {
+    encoded<uint16_t> type_;
+    encoded<uint16_t> length;
+public:
+    datum value;
 
-    void print(struct json_object &o, const char *key);
+    xtn(datum &d) : type_{d}, length{d}, value{d, length} { }
+
+    uint16_t type() const { return type_; }
 };
 
 
@@ -211,8 +203,10 @@ enum class handshake_type : uint8_t {
     end_of_early_data = 5,
     encrypted_extensions = 8,
     certificate = 11,
+    server_key_exchange = 12,
     certificate_request = 13,
     certificate_verify = 15,
+    client_key_exchange = 16,
     finished = 20,
     key_update = 24,
     message_hash = 254
@@ -222,7 +216,7 @@ struct tls_handshake {
     handshake_type msg_type;
     uint32_t length;  // note: only 24 bits on the wire (L_HandshakeLength)
     struct datum body;
-    size_t additional_bytes_needed;
+    size_t additional_bytes_needed = 0;
 
     static const unsigned int max_handshake_len = 32768;
 
@@ -264,7 +258,7 @@ struct tls_handshake {
 struct tls_server_certificate {
     uint32_t length; // note: only 24 bits on the wire (L_CertificateListLength)
     struct datum certificate_list;
-    size_t additional_bytes_needed;
+    size_t additional_bytes_needed = 0;
 
     static const size_t max_length = 65536;
 
@@ -313,7 +307,10 @@ struct tls_server_certificate {
 
 enum class tls_role { client, server };
 
+
 struct tls_extensions : public datum {
+
+    static constexpr uint16_t max_repeat_extensions = 3;
 
     tls_extensions() = default;
 
@@ -327,17 +324,70 @@ struct tls_extensions : public datum {
 
     void print_alpn(struct json_object &o, const char *key) const;
 
-    void set_server_name(struct datum &server_name) const;
-
     void print_session_ticket(struct json_object &o, const char *key) const;
 
+    void print_ech_client_hello(struct json_object &o) const;
+
     void fingerprint_quic_tls(struct buffer_stream &b, enum tls_role role) const;
+    void fingerprint_format2(struct buffer_stream &b, enum tls_role role) const;
+
+    void set_meta_data(datum &server_name,
+                       datum &user_agent,
+                       datum& alpn) const;
 
     void fingerprint(struct buffer_stream &b, enum tls_role role) const;
+
+    void write_raw_features(writeable &buf) const;
+ 
+    datum get_supported_groups() const;
+
+#ifndef NDEBUG
+    static bool unit_test() {
+        uint8_t extensions[] = {
+        0x00, 0x3f, 0x00, 0x01, 0x01,   //check if unassigned extension is encoded correctly
+        0xff, 0x2b, 0x00, 0x01, 0x01,   //check if private extensions is encoded correctly
+        0x1a, 0x1a, 0x00, 0x00,         //Grease extension 1
+        0x2a, 0x2a, 0x00, 0x00,         //Grease extension 2
+        0xff, 0x2b, 0x00, 0x01, 0x02,   // Private extension repeated second time
+        0xff, 0x2b, 0x00, 0x01, 0x02,   // Private extension repeated third time
+        0xff, 0x2b, 0x00, 0x01, 0x02    // Private extension repeated fourth time
+        };
+
+        /* In Format 1, extensions are degreased and no other encoding happens */
+        unsigned char expected_json_format1[] = "[(003f)(0a0a)(0a0a)(ff2b)(ff2b)(ff2b)(ff2b)]";
+
+        unsigned char expected_json_format2[] = "[(003e)(0a0a)(0a0a)(ff00)(ff00)(ff00)]";
+
+        datum exts_data{extensions, extensions + sizeof(extensions)};
+
+        tls_extensions exts{exts_data.data, exts_data.data_end};
+
+        char buffer1[200];
+        struct buffer_stream buf1(buffer1, sizeof(buffer1));
+
+        exts.fingerprint_quic_tls(buf1, tls_role::client);
+
+        if (memcmp(expected_json_format1, buf1.dstr, sizeof(expected_json_format1) - 1)) {
+            fprintf(stdout, "Test for fingerprint format1 failed\n");
+            return false;
+        }
+
+        char buffer2[200];
+        struct buffer_stream buf2(buffer2, sizeof(buffer2));
+
+        exts.fingerprint_format2(buf2, tls_role::client);
+        if (memcmp(expected_json_format2, buf2.dstr, sizeof(expected_json_format2) - 1)) {
+            fprintf(stdout, "Test for Fingerprint format 2 failed\n");
+            return false;
+        }
+
+        return true;
+
+    }
+#endif //NDEBUG 
 };
 
-
-struct tls_client_hello : public tcp_base_protocol {
+struct tls_client_hello : public base_protocol {
     struct datum protocol_version;
     struct datum random;
     struct datum session_id;
@@ -348,6 +398,8 @@ struct tls_client_hello : public tcp_base_protocol {
     bool dtls = false;
     bool is_quic_hello = false;
     size_t additional_bytes_needed = 0;
+    static inline bool output_raw_features = false;
+    static void set_raw_features(bool value) { output_raw_features = value; }
 
     tls_client_hello() { }
 
@@ -357,15 +409,15 @@ struct tls_client_hello : public tcp_base_protocol {
 
     bool is_not_empty() const { return compression_methods.is_not_empty(); };
 
-    void fingerprint(struct buffer_stream &buf) const;
+    void fingerprint(struct buffer_stream &buf, size_t format_version=0) const;
 
-    void compute_fingerprint(struct fingerprint &fp) const;
+    void compute_fingerprint(class fingerprint &fp, size_t format_version=0) const;
 
     static void write_json(struct datum &data, struct json_object &record, bool output_metadata);
 
     void write_json(struct json_object &record, bool output_metadata) const;
 
-    struct tls_security_assessment security_assesment();
+    void write_raw_features(writeable &buf) const;
 
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c);
 
@@ -374,28 +426,29 @@ struct tls_client_hello : public tcp_base_protocol {
         { 0x16, 0x03, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00 }
     };
 
-    static constexpr mask_and_value<16> dtls_matcher = {
-        {
-         0xff, 0xff, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00,
-         0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00
-        },
-        {
-         0x16, 0xfe, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00,
-         0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00
-        }
-    };
+    void reset() {
+        protocol_version.set_null();
+        random.set_null();
+        session_id.set_null();
+        cookie.set_null();
+        ciphersuite_vector.set_null();
+        compression_methods.set_null();
+        extensions.set_null();
+        dtls = false;
+        is_quic_hello = false;
+        additional_bytes_needed = 0;
+    }
 
 };
 
 #include "match.h"
 
-struct tls_server_hello : public tcp_base_protocol {
+struct tls_server_hello : public base_protocol {
     struct datum protocol_version;
     struct datum random;
     struct datum ciphersuite_vector;
     struct datum compression_method;
     struct tls_extensions extensions;
-    bool dtls = false;
 
     tls_server_hello() {  }
 
@@ -429,20 +482,14 @@ struct tls_server_hello : public tcp_base_protocol {
             o.print_key_hex("version", protocol_version);
             o.print_key_hex("random", random);
             o.print_key_hex("selected_cipher_suite", ciphersuite_vector);
-            o.print_key_hex("compression_methods", compression_method);
+            o.print_key_hex("compression_method", compression_method);
             extensions.print_alpn(o, "application_layer_protocol_negotiation");
             extensions.print_session_ticket(o, "session_ticket");
         }
     }
 
-    void compute_fingerprint(struct fingerprint &fp) const {
-        enum fingerprint_type type;
-        if (dtls) {
-            type = fingerprint_type_dtls_server;
-        } else {
-            type = fingerprint_type_tls_server;
-        }
-        fp.set_type(type);
+    void compute_fingerprint(class fingerprint &fp) const {
+        fp.set_type(fingerprint_type_tls_server);
         fp.add(*this);
         fp.final();
     }
@@ -452,80 +499,9 @@ struct tls_server_hello : public tcp_base_protocol {
         { 0x16, 0x03, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00 }
     };
 
-    static constexpr mask_and_value<16> dtls_matcher = {
-        {
-         0xff, 0xff, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00,
-         0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00
-        },
-        {
-         0x16, 0xfe, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00,
-         0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00
-        }
-    };
-
 };
 
-
-// DTLS (RFC 4347)
-
-struct dtls_record {
-    uint8_t  content_type;
-    uint16_t protocol_version;
-    uint16_t epoch;
-    uint64_t sequence_number;  // only 48 bits on wire
-    uint16_t length;
-    struct datum fragment;
-
-    dtls_record(datum &d) : content_type{0}, protocol_version{0}, epoch{0}, sequence_number{0}, length{0}, fragment{NULL, NULL} {
-        parse(d);
-    }
-
-    void parse(struct datum &d) {
-        if (d.length() < (int)(sizeof(content_type) + sizeof(protocol_version) + sizeof(length))) {
-            return;
-        }
-        d.read_uint8(&content_type);
-        d.read_uint16(&protocol_version);
-        d.read_uint16(&epoch);
-        d.read_uint(&sequence_number, 6);   // 6 bytes == 48 bits
-        d.read_uint16(&length);
-        fragment.init_from_outer_parser(&d, length);
-    }
-};
-
-struct dtls_handshake {
-    handshake_type msg_type;
-    uint32_t length;  // note: only 24 bits on the wire (L_HandshakeLength)
-    uint16_t message_seq;      // DTLS-only field
-    uint32_t fragment_offset;  // 24 bits on wire; DTLS-only field
-    uint32_t fragment_length;  // 24 bits on wire; DTLS-only field
-    struct datum body;
-
-    dtls_handshake() : msg_type{handshake_type::unknown}, length{0}, body{NULL, NULL} {}
-
-    dtls_handshake(struct datum &d) : msg_type{handshake_type::unknown}, length{0}, body{NULL, NULL} {
-        parse(d);
-    }
-
-    void parse(struct datum &d) {
-        if (d.length() < (int)(4)) {
-            return;
-        }
-        d.read_uint8((uint8_t *)&msg_type);
-        uint64_t tmp;
-        d.read_uint(&tmp, L_HandshakeLength);
-        length = tmp;
-        d.read_uint16(&message_seq);
-        d.read_uint(&tmp, 3);  // 24 bits on wire
-        fragment_offset = tmp;
-        d.read_uint(&tmp, 3);  // 24 bits on wire
-        fragment_length = tmp;
-        body.init_from_outer_parser(&d, length);
-    }
-
-};
-
-class tls_server_hello_and_certificate : public tcp_base_protocol {
+class tls_server_hello_and_certificate : public base_protocol {
     struct tls_server_hello hello;
     struct tls_server_certificate certificate;
 
@@ -590,7 +566,7 @@ public:
         }
     }
 
-    void compute_fingerprint(struct fingerprint &fp) const {
+    void compute_fingerprint(fingerprint &fp) const {
         if (hello.is_not_empty()) {
             hello.compute_fingerprint(fp);
         }
@@ -612,43 +588,229 @@ public:
 };
 
 
-#if 0 // TODO: finish or delete???
+//   ClientKeyExchange, following RFC 5246 Section 7.4.7
+//
+//   struct {
+//       select (KeyExchangeAlgorithm) {
+//           case rsa:
+//               EncryptedPreMasterSecret;
+//           case dhe_dss:
+//           case dhe_rsa:
+//           case dh_dss:
+//           case dh_rsa:
+//           case dh_anon:
+//               ClientDiffieHellmanPublic;
+//       } exchange_keys;
+//   } ClientKeyExchange;
 
-class dtls_client_hello {
-    tls_client_hello hello;
- public:
-    dtls_client_hello(struct datum &pkt) : hello{} {
-        struct dtls_record dtls_rec;
-        dtls_rec.parse(pkt);
-        struct dtls_handshake handshake;
-        handshake.parse(dtls_rec.fragment);
-        if (handshake.msg_type == handshake_type::client_hello) {
-            hello.parse(handshake.body);
+// enum { dhe_dss, dhe_rsa, dh_anon, rsa, dh_dss, dh_rsa
+//     /* may be extended, e.g., for ECDH -- see [TLSECC] */
+// } KeyExchangeAlgorithm;
+
+
+enum role {
+    client,
+    server,
+    undetected
+};
+
+class tls_certificate : public base_protocol {
+    struct tls_server_certificate certificate;
+    role entity;
+
+public:
+
+    tls_certificate(struct datum &pkt, struct tcp_packet *tcp_pkt) : certificate{}, entity{undetected} {
+        parse(pkt, tcp_pkt);
+    }
+
+    void parse(struct datum &pkt, struct tcp_packet *tcp_pkt) {
+
+        // parse certificate
+        //
+        struct tls_record rec{pkt};
+        struct tls_handshake handshake{rec.fragment};
+        if (handshake.msg_type == handshake_type::certificate) {
+            certificate.parse(handshake.body);
+
+            if (rec.fragment.is_not_empty()) {
+                tls_handshake handshake{rec.fragment};
+                if (handshake.msg_type == handshake_type::client_key_exchange) {
+                    entity = client;
+                } else if (handshake.msg_type == handshake_type::server_key_exchange) {
+                    entity = server;
+                }
+            } else if (pkt.is_not_empty()) {
+                tls_record rec2{pkt};
+                tls_handshake handshake{rec2.fragment};
+                if (handshake.msg_type == handshake_type::client_key_exchange) {
+                    entity = client;
+                } else if (handshake.msg_type == handshake_type::server_key_exchange) {
+                    entity = server;
+                }
+            }
+
+        }
+        if (tcp_pkt && certificate.additional_bytes_needed) {
+            tcp_pkt->reassembly_needed(certificate.additional_bytes_needed);
         }
     }
 
-    bool is_not_empty() const { return hello.is_not_empty(); }
-
-    void write_fingerprint(struct json_object &object) {
-        if (hello.is_not_empty()) {
-            struct json_object fps{object, "fingerprints"};
-            fps.print_key_value("dtls", hello);
-            fps.close();
-        }
+    bool is_not_empty() {
+        return certificate.is_not_empty();
     }
 
-    void write_json(struct json_object &record, bool output_metadata) const {
-        ; 
-    }
+    void write_json(struct json_object &record, bool metadata_output, bool certs_json_output) {
+        (void)metadata_output;
 
-    void compute_fingerprint(struct fingerprint &fp) const {
-        if (hello.is_not_empty()) {
-            // fp.set(hello, fingerprint_type_dtls); // TODO: new fp type?
+        bool have_certificate = certificate.is_not_empty();
+        if (have_certificate) {
+
+            // output certificate
+            //
+            const char *role = "undetermined";
+            if (entity == client) {
+                role = "client";
+            } else if (entity == server) {
+                role = "server";
+            }
+            struct json_object tls{record, "tls"};
+            json_object client_or_server{tls, role};
+            struct json_array certs{client_or_server, "certs"};
+            certificate.write_json(certs, certs_json_output);
+            certs.close();
+            client_or_server.close();
+            tls.close();
+
         }
     }
 
 };
 
-#endif // 0
+
+static uint16_t degrease_uint16(uint16_t x) {
+    switch(x) {
+    case 0x0a0a:
+    case 0x1a1a:
+    case 0x2a2a:
+    case 0x3a3a:
+    case 0x4a4a:
+    case 0x5a5a:
+    case 0x6a6a:
+    case 0x7a7a:
+    case 0x8a8a:
+    case 0x9a9a:
+    case 0xaaaa:
+    case 0xbaba:
+    case 0xcaca:
+    case 0xdada:
+    case 0xeaea:
+    case 0xfafa:
+        return 0x0a0a;
+        break;
+    default:
+        return x;
+    }
+    return x;
+}
+
+static void raw_as_hex_degrease(struct buffer_stream &buf, const void *data, size_t len) {
+    if (len % 2) {
+        len--;   // force len to be a multiple of two
+    }
+    uint16_t *x = (uint16_t *)data;
+    uint16_t *x_end = x + (len/2);
+
+    while (x < x_end) {
+        uint16_t tmp = degrease_uint16(*x++);
+        buf.raw_as_hex((const uint8_t *)&tmp, sizeof(tmp));
+    }
+
+}
+
+
+// struct {
+//     public-key-encrypted PreMasterSecret pre_master_secret;
+// } EncryptedPreMasterSecret;
+
+class encrypted_premaster_secret {
+
+public:
+
+    encrypted_premaster_secret(datum &)
+    {}
+};
+
+//       enum { implicit, explicit } PublicValueEncoding;
+//
+//       implicit
+//          If the client has sent a certificate which contains a suitable
+//          Diffie-Hellman key (for fixed_dh client authentication), then
+//          Yc is implicit and does not need to be sent again.  In this
+//          case, the client key exchange message will be sent, but it MUST
+//          be empty.
+//
+//       explicit
+//          Yc needs to be sent.
+//
+//       struct {
+//           select (PublicValueEncoding) {
+//               case implicit: struct { };
+//               case explicit: opaque dh_Yc<1..2^16-1>;
+//           } dh_public;
+//       } ClientDiffieHellmanPublic;
+//
+class client_diffie_hellman_public {
+public:
+
+    client_diffie_hellman_public(datum &)
+    { }
+};
+
+// ClientKeyExchange format (following RFC 5246, TLSv1.2)
+//
+// struct {
+//     select (KeyExchangeAlgorithm) {
+//         case rsa:
+//             EncryptedPreMasterSecret;
+//         case dhe_dss:
+//         case dhe_rsa:
+//         case dh_dss:
+//         case dh_rsa:
+//         case dh_anon:
+//             ClientDiffieHellmanPublic;
+//     } exchange_keys;
+// } ClientKeyExchange;
+
+class client_key_exchange {
+    datum value;
+
+public:
+
+    client_key_exchange(datum &d) : value{d}
+    {}
+};
+
+namespace {
+
+    [[maybe_unused]] int tls_client_hello_fuzz_test(const uint8_t *data, size_t size) {
+        struct datum hello_data{data, data+size};
+        char buffer_1[8192];
+        struct buffer_stream buf_json(buffer_1, sizeof(buffer_1));
+        char buffer_2[8192];
+        struct buffer_stream buf_fp(buffer_2, sizeof(buffer_2));
+        struct json_object record(&buf_json);
+        
+
+        tls_client_hello hello{hello_data};
+        if (hello.is_not_empty()) {
+            hello.write_json(record, true);
+            hello.fingerprint(buf_fp);
+        }
+
+        return 0;
+    } 
+
+}; //end of namespace
 
 #endif /* TLS_H */

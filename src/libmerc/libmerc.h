@@ -116,6 +116,7 @@ struct libmerc_config {
     bool report_os = false;               /* report oses in analysis JSON */
     bool output_tcp_initial_data = false; /* write initial data field     */
     bool output_udp_initial_data = false; /* write initial data field     */
+    //bool tcp_reassembly = false;          /* reassemble tcp segments      */
 
     char *resources = NULL;             /* archive containing resource files       */
     const uint8_t *enc_key = NULL;      /* (optional) decryption key for archive   */
@@ -147,6 +148,30 @@ struct libmerc_config {
     float fp_proc_threshold;   /* remove processes with less than <var> weight    */
     float proc_dst_threshold;  /* remove destinations with less than <var> weight */
     size_t max_stats_entries;  /* max num entries in stats tables                 */
+#endif
+};
+
+/**
+ * @brief struct attribute_context represents the attribute result given
+ * by the libmerc library. It comprises of a list of attributes, corresponding
+ * probabillity scores and the maximum number of attributes/length of prior lists
+ *
+ * To fetch the attribute_context, call mercury_packet_processor_get_analysis_context,
+ * followed by mercury_packet_processor_get_attributes
+ */
+struct attribute_context {
+
+#ifdef __cplusplus
+    // default values, for c++ only
+    const char * const* tag_names = nullptr;      /* List of attributes names as an arrary of char* */
+    const long double* prob_scores = nullptr;     /* Probabality score of the above corresponding attributes as an array */
+    size_t attributes_len = 0;                    /* Length of the above arrays */
+
+#else
+
+    const char * const* tag_names;      /* List of attributes names as an arrary of char* */
+    const long double* prob_scores;     /* Probabality score of the above corresponding attributes as an array */
+    size_t attributes_len;              /* Length of the above arrays */
 #endif
 };
 
@@ -248,26 +273,29 @@ size_t mercury_packet_processor_write_json(mercury_packet_processor processor,
                                            struct timespec* ts);
 
 /**
- * mercury_packet_processor_ip_write_json() processes a packet and
- * timestamp and writes the resulting JSON into a buffer.
+ * mercury_packet_processor_write_json_linktype() processes a packet and timestamp and linktype
+ * writes the resulting JSON into a buffer.
  *
  * @param processor (input) is a packet processor context to be used
  * @param buffer (output) - location to which JSON will be written
  * @param buffer_size (input) - length of buffer in bytes
- * @param packet (input) - location of packet, starting with IPv4 or IPv6 header
+ * @param packet (input) - location of packet, starting with ethernet header
  * @param ts (input) - pointer to timestamp associated with packet
+ * @param linktype (input) - linktype used in packet
  *
  * @return the number of bytes of JSON output written.
  */
 #ifdef __cplusplus
 extern "C" LIBMERC_DLL_EXPORTED
 #endif
-size_t mercury_packet_processor_ip_write_json(mercury_packet_processor processor,
-                                              void *buffer,
-                                              size_t buffer_size,
-                                              uint8_t *packet,
-                                              size_t length,
-                                              struct timespec* ts);
+size_t mercury_packet_processor_write_json_linktype(mercury_packet_processor processor,
+                                           void *buffer,
+                                           size_t buffer_size,
+                                           uint8_t *packet,
+                                           size_t length,
+                                           struct timespec* ts,
+                                           uint16_t linktype);
+
 /**
  * enum fingerprint_status represents the status of a fingerprint
  * relative to the library's knowledge about fingerprints, based on
@@ -303,28 +331,6 @@ const struct analysis_context *mercury_packet_processor_ip_get_analysis_context(
                                                                                 uint8_t *packet,
                                                                                 size_t length,
                                                                                 struct timespec* ts);
-
-/**
- * mercury_packet_processor_get_analysis_context() processes an
- * ethernet packet and timestamp and returns a pointer to an analysis
- * context if a fingerprint was found in the packet, and returns
- * nothing otherwise.
- *
- * @param processor (input) is a packet processor context to be used
- * @param buffer_size (input) - length of buffer in bytes
- * @param packet (input) - location of packet, starting with the ethernet header
- * @param ts (input) - pointer to timestamp associated with packet
- *
- * @return a pointer to an analysis_context, if a fingerprint was
- * found, otherwise NULL.
- */
-#ifdef __cplusplus
-extern "C" LIBMERC_DLL_EXPORTED
-#endif
-const struct analysis_context *mercury_packet_processor_get_analysis_context(mercury_packet_processor processor,
-                                                                             uint8_t *packet,
-                                                                             size_t length,
-                                                                             struct timespec* ts);
 
 /**
  * analysis_context_get_fingerprint_status() returns the fingerprint_status
@@ -363,6 +369,10 @@ enum fingerprint_type {
      fingerprint_type_dtls_server = 11, /**< DTLS server fingerprint           */
      fingerprint_type_quic = 12,       /**< IETF QUIC                          */
      fingerprint_type_tcp_server = 13, /**< TCP SYN ACK fingerprint            */
+     fingerprint_type_openvpn = 14, /**< OpenVPN TCP fingerprint           */
+     fingerprint_type_tofsee = 15,    /**< Tofsee initial message fingerprint  */
+     fingerprint_type_stun = 16,       /**< STUN fingerprint                   */
+     fingerprint_type_max = 17,       /**< Placeholder: # of fingerprint types */
 };
 
 /**
@@ -407,7 +417,6 @@ const char *analysis_context_get_fingerprint_string(const struct analysis_contex
 extern "C" LIBMERC_DLL_EXPORTED
 #endif
 const char *analysis_context_get_server_name(const struct analysis_context *ac);
-
 
 /**
  * analysis_context_get_process_info() writes the probable process and
@@ -492,43 +501,6 @@ bool analysis_context_get_os_info(const struct analysis_context *ac,     // inpu
                                   size_t *os_info_len                    // output
                                   );
 
-
-/**
- * mercury_get_stats_data()
- *
- * @param data_ptr (output) is a pointer to a pointer to a buffer that
- * contains the stats data; that is, the function sets the pointer at
- * the location provided as input to be that buffer.  The pointer MAY
- * be NULL, if no data was gathered or if some other error occured.
- *
- * This function may process a lot of data, and it may take a very
- * long time to return, so the caller MUST be prepared to wait for
- * seconds or minutes.
- *
- * This function SHOULD be called periodically, e.g. every hour or
- * every day.  Mercury's stats engine accumulates data between calls
- * to this function, and each call flushes all of the data maintained
- * by that engine.  The stats engine uses a large but fixed amount of
- * RAM for data storage; if it runs out of storage, it will stop
- * accumulating data.
- *
- * @param num_bytes_ptr (output) is a pointer to a size_t that
- * contains the number of bytes of stats data in the data buffer; that
- * is, the function sets the size_t at the location provided as input
- * to be the size of that buffer.  The value of num_bytes MAY be zero,
- * if no data was gathered or if some other error occured.
- *
- * @return true on success, false otherwise.  In particular, if either
- * data_ptr or num_bytes_ptr are NULL, then false will be returned; in
- * the latter case, you SHOULD NOT dereference either data_ptr or
- * num_bytes_ptr.
- */
-#ifdef __cplusplus
-extern "C" LIBMERC_DLL_EXPORTED
-#endif
-bool mercury_get_stats_data(void **data_ptr, size_t *num_bytes_ptr);
-
-
 /**
  * mercury_write_stats_data()
  *
@@ -592,6 +564,20 @@ extern "C" LIBMERC_DLL_EXPORTED
 void mercury_print_version_string(FILE *f);
 
 /**
+ * @brief prints the git commit id
+ *
+ * Prints the git commit hash of mercury/libmerc to the FILE provided
+ * as input.
+ *
+ * @param [in] file to print git commit id on.
+ *
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+void mercury_print_git_commit(FILE *f);
+
+/**
  * @brief returns the mercury semantic version
  *
  * Returns the semantic version of mercury/libmerc as a uint32_t, in
@@ -609,6 +595,20 @@ void mercury_print_version_string(FILE *f);
 extern "C" LIBMERC_DLL_EXPORTED
 #endif
 uint32_t mercury_get_version_number();
+
+/**
+ * @brief prints the mercury semantic version
+ *
+ * Prints the semantic version of mercury/libmerc to the buffer provided
+ * as input.
+ *
+ * @param [in] buffer to print semantic version on.
+ *
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+void mercury_get_version_string(char *buf, size_t size);
 
 /**
  * @brief returns the resource archive VERSION
@@ -631,5 +631,147 @@ extern "C" LIBMERC_DLL_EXPORTED
 #endif
 const char *mercury_get_resource_version(mercury_context mc);
 
+//
+// start of libmerc version 3 API
+//
+
+/**
+ * mercury_packet_processor_get_analysis_context() processes an
+ * ethernet packet and timestamp and returns a pointer to an analysis
+ * context if a fingerprint was found in the packet, and returns
+ * nothing otherwise.
+ *
+ * @param processor (input) is a packet processor context to be used
+ * @param buffer_size (input) - length of buffer in bytes
+ * @param packet (input) - location of packet, starting with the ethernet header
+ * @param ts (input) - pointer to timestamp associated with packet
+ *
+ * @return a pointer to an analysis_context, if a fingerprint was
+ * found, otherwise NULL.
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+const struct analysis_context *mercury_packet_processor_get_analysis_context(mercury_packet_processor processor,
+                                                                             uint8_t *packet,
+                                                                             size_t length,
+                                                                             struct timespec* ts);
+
+/**
+ * mercury_packet_processor_get_analysis_context_linktype() processes a
+ * packet of specified link type and timestamp and returns a pointer to
+ * an analysis context if a fingerprint was found in the packet, and
+ * returns nothing otherwise.
+ *
+ * @param processor (input) is a packet processor context to be used
+ * @param buffer_size (input) - length of buffer in bytes
+ * @param packet (input) - location of packet, starting with the ethernet header
+ * @param ts (input) - pointer to timestamp associated with packet
+ * @param linktype (input) - linktype used in the packet
+ *
+ * @return a pointer to an analysis_context, if a fingerprint was
+ * found, otherwise NULL.
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+const struct analysis_context *mercury_packet_processor_get_analysis_context_linktype(mercury_packet_processor processor,
+                                                                             uint8_t *packet,
+                                                                             size_t length,
+                                                                             struct timespec* ts,
+                                                                             uint16_t linktype);
+/**
+ * analysis_context_get_user_agent() returns the printable,
+ * null-terminated string for the HTTP/QUIC user agent
+ * associated with an analysis_context, if there is one.
+ *
+ * @param ac (input) is an analysis_context pointer.
+ *
+ * @return a null-terminated, printable character string, if a HTTP/QUIC
+ * user agent was found by the library; otherwise, NULL.
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+const char *analysis_context_get_user_agent(const struct analysis_context *ac);
+
+/**
+ * analysis_context_get_alpns() sets a pointer to a buffer containing
+ * zero or more protocol names from the application layer protocol
+ * negotiation (ALPN) extension, for a given analysis_context.
+ *
+ * @param ac (input) is an analysis_context pointer.
+ *
+ * @param alpn_data (output) is the location to which the alpns array
+ * pointer will be written.
+ *
+ * @param alpn_length (output) is the location to which the length of the
+ * alpn_data will be written.
+ *
+ * @return true if the alpn_data and alpn_length point to valid data
+ * after the function returns, and false otherwise.
+ *
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+bool analysis_context_get_alpns(const struct analysis_context *ac, // input
+                                const uint8_t **alpn_data,         // output
+                                size_t *alpn_length                // output
+                                );
+
+//
+// start of libmerc version 4 API
+//
+
+/**
+ * mercury_packet_processor_more_pkts_needed() return a boolean true, given a nullptr
+ * analysis_context from get_analysis_context call, if more packets are required for the current flow to get a valid
+ * analysis_context
+ *
+ * @param processor (input) is a packet processor context to be used
+ *
+ * @return a boolean true if more packets are required, otherwise false
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+bool mercury_packet_processor_more_pkts_needed(mercury_packet_processor processor);
+
+//
+// start of libmerc version 5 API
+//
+
+/**
+ * get_stats_aggregator_num_entries() returns current number of entries in stats_aggregator,
+ * given a nullptr analysis_context returns 0
+ *
+ * @param mercury_context is the context associated
+ *
+ * @return current number of entries in stats_aggregator or 0. Will return 0 if libmerc is not configured to report stats.
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+size_t get_stats_aggregator_num_entries(mercury_context mc);
+
+//
+// start of libmerc version 6 API
+//
+
+/**
+ * mercury_packet_processor_get_attributes() is a followup call to mercury_packet_processor_get_analysis_context
+ * and sets a pointer to a struct attribute_context containing zero or more attributes like MITRE techniques, mercury
+ * specific tags etc. for a given analysis_context.
+ *
+ * @param processor (input) is a packet processor context to be used.
+ *
+ * @return a pointer to a struct attribute_context if the call succeeds, otherwise NULL
+ *
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+const struct attribute_context *mercury_packet_processor_get_attributes(mercury_packet_processor processor);
 
 #endif /* LIBMERC_H */

@@ -23,6 +23,7 @@ std::vector<size_t> create_sorted_index(std::vector<T> const& v) {
     return idx;
 }
 
+using namespace mercury_option;
 
 int main(int argc, char *argv[]) {
 
@@ -153,7 +154,7 @@ int main(int argc, char *argv[]) {
                 }
             }
             if (edit_dist) {
-                struct edit_distance<uint32_t> ed(s[i].c_str(), s[i].size(), s[j].c_str(), s[j].size());
+                struct edit_distance<uint8_t, uint32_t> ed(s[i].c_str(), s[i].size(), s[j].c_str(), s[j].size());
                 if (normalize) {
                     // normalize by the sum of string sizes
                     float normed_dist = (float)ed.value() / ((float) s[i].size() + s[j].size());

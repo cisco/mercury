@@ -103,5 +103,24 @@ int main() {
     o.close();
     buf2.write_line(stdout);
 
+    struct json_object o2{&buf2};
+    {
+        struct json_array a{o2, "features"};
+        {
+            json_array b{a};
+            b.print_string("abc");
+            b.print_string("def");
+            b.close();
+            //a.print_string("xzy");
+            json_array b2{a};
+            b2.print_string("abc");
+            b2.print_string("def");
+            b2.close();
+        }
+        a.close();
+    }
+    o2.close();
+    buf2.write_line(stdout);
+
     return 0;
 }

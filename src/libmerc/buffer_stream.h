@@ -20,6 +20,17 @@
 #define printf_err(level, ...) fprintf(stderr, __VA_ARGS__)
 #endif
 
+/// a 20-bit integer, stored as the least significant 20 bits of a
+/// 32-bit integer, for convenience of output
+///
+struct uint20_t {
+    uint32_t value;
+
+    uint20_t(uint32_t v) : value{v} { }
+
+    operator uint32_t () { return value; }
+};
+
 /* append_null(...)
  * This is a special append function because all other append_...() functions
  * leave room for a null in the buffer but don't actually put a null there.
@@ -301,7 +312,11 @@ static inline int append_timestamp_as_string(char *dstr, int *doff, int dlen, in
 
     // construct ISO8601 / RFC3339 compliant UTC timestamp
     struct tm tm;
+#ifdef _WIN32
+    gmtime_s(&tm, &ts->tv_sec);
+#else
     gmtime_r(&ts->tv_sec, &tm);
+#endif
     char time_buf[31];
     strftime(time_buf, sizeof(time_buf), "%Y-%m-%dT%H:%M:%S.", &tm);
     char str_buf[31];
@@ -384,6 +399,24 @@ static inline int append_uint16(char *dstr, int *doff, int dlen, int *trunc,
     return r;
 }
 
+static inline int append_uint8_hex(char *dstr, int *doff, int dlen, int *trunc,
+                                    uint8_t n) {
+
+    if (*trunc == 1) {
+        return 0;
+    }
+
+    int r = 0;
+    char outs[2]; /* 2 hex chars */
+
+    outs[0] = hex_table[(n & 0xf0) >> 4];
+    outs[1] = hex_table[(n & 0x0f)];
+
+    r += append_memcpy(dstr, doff, dlen, trunc,
+                       outs, 2);
+
+    return r;
+}
 
 static inline int append_uint16_hex(char *dstr, int *doff, int dlen, int *trunc,
                                     uint16_t n) {
@@ -402,6 +435,28 @@ static inline int append_uint16_hex(char *dstr, int *doff, int dlen, int *trunc,
 
     r += append_memcpy(dstr, doff, dlen, trunc,
                        outs, 4);
+
+    return r;
+}
+
+static inline int append_uint20_hex(char *dstr, int *doff, int dlen, int *trunc,
+                                    uint20_t n) {
+
+    if (*trunc == 1) {
+        return 0;
+    }
+
+    int r = 0;
+    char outs[5]; /* 5 hex chars */
+
+    outs[0] = hex_table[(n.value & 0x000f0000) >> 16];
+    outs[1] = hex_table[(n.value & 0x0000f000) >> 12];
+    outs[2] = hex_table[(n.value & 0x00000f00) >> 8];
+    outs[3] = hex_table[(n.value & 0x000000f0) >> 4];
+    outs[4] = hex_table[ n.value & 0x0000000f];
+
+    r += append_memcpy(dstr, doff, dlen, trunc,
+                       outs, sizeof(outs));
 
     return r;
 }
@@ -427,6 +482,28 @@ static inline int append_uint32_hex(char *dstr, int *doff, int dlen, int *trunc,
 
     r += append_memcpy(dstr, doff, dlen, trunc,
                        outs, 8);
+
+    return r;
+}
+
+static inline int append_uint64_hex(char *dstr, int *doff, int dlen, int *trunc,
+                                    uint64_t n) {
+
+    if (*trunc == 1) {
+        return 0;
+    }
+
+    int r = 0;
+    char outs[16]; /* 16 hex chars */
+    uint64_t mask = 0xf000000000000000;
+
+    for (auto i = 0; i < 16; i++) {
+        outs[i] = hex_table[(n & mask) >> (15 - i) *4];
+        mask = mask >> 4;
+    } 
+
+    r += append_memcpy(dstr, doff, dlen, trunc,
+                       outs, 16);
 
     return r;
 }
@@ -568,6 +645,42 @@ static inline int append_ipv6_addr(char *dstr, int *doff, int dlen, int *trunc,
 
     r += append_memcpy(dstr, doff, dlen, trunc,
                        outbuf, outs - outbuf);
+
+    return r;
+}
+
+/* Print Mac address in format
+ * 0a:0b:0c:0d:0e:0f
+ */
+static inline int append_mac_addr(char *dstr, int *doff, int dlen, int *trunc,
+                                       const uint8_t *v) {
+    if (*trunc == 1) {
+        return 0;
+    }
+
+    int r = 0;
+    char outs[6*2 + 5]; /* 6 group of 2 hex chars and 5 colon */
+
+    outs[0] = hex_table[(v[0] & 0xf0) >> 4];
+    outs[1] = hex_table[(v[0] & 0x0f)];
+    outs[2] = ':';
+    outs[3] = hex_table[(v[1] & 0xf0) >> 4];
+    outs[4] = hex_table[(v[1] & 0x0f)];
+    outs[5] = ':';
+    outs[6] = hex_table[(v[2] & 0xf0) >> 4];
+    outs[7] = hex_table[(v[2] & 0x0f)];
+    outs[8] = ':';
+    outs[9] = hex_table[(v[3] & 0xf0) >> 4];
+    outs[10] = hex_table[(v[3] & 0x0f)];
+    outs[11] = ':';
+    outs[12] = hex_table[(v[4] & 0xf0) >> 4];
+    outs[13] = hex_table[(v[4] & 0x0f)];
+    outs[14] = ':';
+    outs[15] = hex_table[(v[5] & 0xf0) >> 4];
+    outs[16] = hex_table[(v[5] & 0x0f)];
+
+    r += append_memcpy(dstr, doff, dlen, trunc,
+                       outs, 17);
 
     return r;
 }
@@ -989,12 +1102,24 @@ struct buffer_stream {
         append_uint16(dstr, &doff, dlen, &trunc, n);
     }
 
-    void write_hex_uint16(uint16_t n) {
+    void write_hex_uint(uint8_t n) {
+        append_uint8_hex(dstr, &doff, dlen, &trunc, n);
+    }
+
+    void write_hex_uint(uint16_t n) {
         append_uint16_hex(dstr, &doff, dlen, &trunc, n);
     }
 
-    void write_hex_uint32(uint32_t n) {
+    void write_hex_uint(uint20_t n) {
+        append_uint20_hex(dstr, &doff, dlen, &trunc, n);
+    }
+
+    void write_hex_uint(uint32_t n) {
         append_uint32_hex(dstr, &doff, dlen, &trunc, n);
+    }
+
+    void write_hex_uint(uint64_t n) {
+        append_uint64_hex(dstr, &doff, dlen, &trunc, n);
     }
 
     void write_ipv6_addr(const uint8_t *v6) {
@@ -1005,6 +1130,10 @@ struct buffer_stream {
         append_ipv4_addr(dstr, &doff, dlen, &trunc, v4);
     }
 
+    void write_mac_addr(const uint8_t *d) {
+        append_mac_addr(dstr, &doff, dlen, &trunc, d);
+    }
+
 };
 
 struct timestamp_writer {
@@ -1013,6 +1142,21 @@ struct timestamp_writer {
     void operator()(struct buffer_stream *b) {
         b->write_timestamp(tmp);
     }
+};
+
+template <size_t N>
+class output_buffer : public buffer_stream {
+    char buffer[N];
+public:
+    output_buffer() : buffer_stream{buffer, N} { }
+
+    void reset() {
+        dstr = buffer;
+        doff = 0;
+        dlen = N;
+        trunc = 0;
+    }
+
 };
 
 #endif /* BUFFER_STREAM_H */

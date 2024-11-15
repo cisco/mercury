@@ -38,18 +38,20 @@ ssize_t hex_to_raw(const void *output,
     return count;
 }
 
+using namespace mercury_option;
+
 int main(int argc, char *argv[]) {
 
     const char summary[] =
         "usage:\n"
-        "   archive_reader <archive> [OPTIONS]\n"
+        "   archive_reader [OPTIONS]\n"
         "\n"
         "OPTIONS\n"
         ;
     class option_processor opt({
-        { argument::positional, "archive",     "read file <archive>" },
+        { argument::required,   "--archive",   "read file <archive>" },
         { argument::required,   "--directory", "set the directory to <arg>" },
-        { argument::required,   "--decrypt",   "decrypt using key <arg>" },
+        { argument::required,   "--decrypt",   "decrypt using key from file <arg>" },
         { argument::none,       "--extract",   "extract archive" },
         { argument::none,       "--list",      "list archive entries" },
         { argument::none,       "--dump",      "dump archive entries" },
@@ -60,7 +62,7 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    auto [ archive_is_set, archive ] = opt.get_value("archive");
+    auto [ archive_is_set, archive ] = opt.get_value("--archive");
     auto [ dir_is_set, directory ] = opt.get_value("--directory");
     auto [ key_is_set, key_str ] = opt.get_value("--decrypt");
     bool list       = opt.is_set("--list");
@@ -68,13 +70,19 @@ int main(int argc, char *argv[]) {
     bool extract    = opt.is_set("--extract");
     bool print_help = opt.is_set("--help");
 
+    if (!archive_is_set) {
+        fprintf(stderr, "error: no archive specified on command line\n");
+        opt.usage(stdout, argv[0], summary);
+        return EXIT_FAILURE;
+    }
+
     if (!list && !dump && !extract && !print_help) {
         fprintf(stderr, "warning: no actions specified on command line\n");
     }
 
     if (print_help) {
         opt.usage(stdout, argv[0], summary);
-        return 0;
+        return EXIT_SUCCESS;
     }
 
     if (dir_is_set) {
@@ -84,21 +92,31 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // uint8_t key[32];
-    // uint8_t iv[32];
-    // if (key_is_set) {
-    unsigned char key[16] = {
-                             0xa4, 0x65, 0xd1, 0xd6, 0xed, 0xaa, 0xb0, 0xbb,
-                             0x01, 0x69, 0xe0, 0xf8, 0xb0, 0x10, 0x8e, 0xfd
-    };
-    // unsigned char iv[16] = {
-    //                         0x3d, 0x13, 0xe0, 0x0e, 0x90, 0xc4, 0x08, 0x2d,
-    //                         0x02, 0x1c, 0x5a, 0xa9, 0x34, 0xdb, 0x57, 0x5a
-    // };
-    //  hex_to_raw(key, sizeof(key), key_str.c_str());
-    //  hex_to_raw(iv, sizeof(key), key_str.c_str()+32);
-
-    uint8_t *k = key_is_set ? key : nullptr;
+    // set the key k to that provided in the file specified in the
+    // --decrypt option, if present, or to nullptr otherwise
+    //
+    uint8_t *k = nullptr;
+    unsigned char key[16] = { 0x00, };
+    if (key_is_set) {
+        FILE *keyfile = fopen(key_str.c_str(), "r");
+        if (keyfile == nullptr) {
+            fprintf(stderr, "error: could not open key file %s\n", key_str.c_str());
+            return EXIT_FAILURE;
+        }
+        char raw_key[32];
+        size_t bytes_read = fread(raw_key, sizeof(char), sizeof(raw_key), keyfile);
+        if (bytes_read != sizeof(raw_key)) {
+            fprintf(stderr, "error: could not read key from file %s (got %zu)\n", key_str.c_str(), bytes_read);
+            return EXIT_FAILURE;
+        }
+        ssize_t raw_bytes = hex_to_raw(key, sizeof(key), raw_key);
+        if (raw_bytes != 16) {
+            fprintf(stderr, "error: could not convert input string into raw key (expected 32 hex chars)\n");
+            opt.usage(stderr, argv[0], summary);
+            return EXIT_FAILURE;
+        }
+        k = key;
+    }
 
     const char *archive_file_name = archive.c_str();
     class encrypted_compressed_archive tar{archive_file_name, k};

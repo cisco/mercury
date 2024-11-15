@@ -20,6 +20,8 @@ COLOR_GREEN  = "\033[0;32m"
 COLOR_YELLOW = "\033[0;33m"
 COLOR_OFF    = "\033[0m"
 
+include ../Makefile_helper.mk
+
 MERCURY = ../src/mercury
 export LD_LIBRARY_PATH =$(shell pwd)/../src/libmerc
 
@@ -30,6 +32,7 @@ have_py3    = @PYTHON3@
 python      = @PY@
 have_jsonschema = @HAVE_JSONSCHEMA@
 have_afl        = @HAVE_AFL@
+have_clang      = @CLANGPP@
 
 BATCH_GCD = ../src/batch_gcd
 
@@ -61,7 +64,7 @@ DROP_ROOT =
 endif
 
 # all test files go in the ./tests subdirectory
-# 
+#
 vpath %.pcap ./data
 
 # for each test, add a filename with the .comp suffix
@@ -98,12 +101,12 @@ pdu_test:
 .PHONY: libmerc_driver
 libmerc_driver:
 	@echo "running unit tests"
-	cd ../unit_tests && $(MAKE) -i run
+	cd ../unit_tests && $(MAKE) run
 
 .PHONY: json-validity-test
 json-validity-test:
 	@echo "running json validity test"
-	./mercury-json-validity-check.sh --dns-json --certs-json --metadata --nonselected-tcp-data --nonselected-udp-data
+	./mercury-json-validity-check.sh --dns-json --certs-json --metadata --nonselected-tcp-data --nonselected-udp-data --raw-features=all
 	@echo $(COLOR_GREEN) "passed json validity test" $(COLOR_OFF)
 
 .PHONY: comp
@@ -113,7 +116,7 @@ comp: $(COMP_FILES) $(MCAP_COMP_FILES) $(JSON_COMP_FILES)
 # implicit rule to make a JSON file from a PCAP file
 #
 %.json: %.pcap
-	$(MERCURY) -r $< -f $@
+	$(MERCURY) -r $< -f $@ --reassembly --metadata --raw-features=all
 
 # implicit rule to make a fingerprint file from a JSON file
 #
@@ -128,27 +131,27 @@ endif
 # implicit rule to compare results
 #
 %.comp: %.fp
-	@echo "checking file" $< "against expected output" 
-	diff $< ./data/$< 
+	@echo "checking file" $< "against expected output"
+	diff $< ./data/$<
 	@echo $(COLOR_GREEN) "passed" $(COLOR_OFF)  # this output only happens if diff returns 0
 
 # implicit rule to make an MCAP file from a PCAP file
 #
 %.mcap: %.pcap
-	$(MERCURY) -r $< -s -w $@
+	$(MERCURY) -r $< --reassembly -w $@
 
 # implicit rule to compare MCAP results
 #
 %.mcap-comp: %.mcap
-	@echo "checking file" $< "against expected output" 
-	diff $< ./data/$< 
+	@echo "checking file" $< "against expected output"
+	diff $< ./data/$<
 	@echo $(COLOR_GREEN) "passed" $(COLOR_OFF)
 
 # implicit rule to compare JSON results
 #
 %.json-comp: %.json
-	@echo "checking file" $< "against expected output" 
-	diff $< ./data/$< 
+	@echo "checking file" $< "against expected output"
+	diff $< ./data/$<
 	@echo $(COLOR_GREEN) "passed" $(COLOR_OFF)
 
 # prevent deletion of intermediate files
@@ -173,11 +176,11 @@ endif
 cert-check:
 ifeq ($(do_cert_check),yes)
 	@echo "running certificate test"
-	$(MERCURY) -r data/top-https.pcap -f tmp.json
-	$(python) certificate-test.py tmp.json --complete 1 --partial 43
+	$(MERCURY) -r data/top-https.pcap -f tmp.json --reassembly
+	$(python) certificate-test.py tmp.json --complete 96 --partial 0
 	@echo $(COLOR_GREEN) "passed top-https certificate test" $(COLOR_OFF)
-	$(MERCURY) -r data/top_100_fingerprints.pcap -f tmp.json
-	$(python) certificate-test.py tmp.json --complete 150 --partial 14
+	$(MERCURY) -r data/top_100_fingerprints.pcap -f tmp.json --reassembly
+	$(python) certificate-test.py tmp.json --complete 164 --partial 0
 	@echo $(COLOR_GREEN) "passed top_100_fingerprints certificate test" $(COLOR_OFF)
 	$(MERCURY) -r data/test_decrypt.pcap -f tmp.json
 	$(python) certificate-test.py tmp.json --complete 6 --partial 1
@@ -256,17 +259,37 @@ else
 	@echo $(COLOR_YELLOW) "omitting dummy-capture test; tcpreplay is unavailable" $(COLOR_OFF)
 endif
 
+.PHONY: json-test
+json-test:
+	@echo "running json-test"
+	${MERCURY} -r data/http.pcap -f tmp.json --metadata -a --resources=../resources/resources.tgz --raw-features=all
+	bash -c "diff tmp.json data/http.json"
+	@echo $(COLOR_GREEN) "passed json-test" $(COLOR_OFF)
+	rm -f tmp.json
+
 .PHONY: stats
 stats:
 	@echo "running stats test"
+	rm -f tmp.json stats.json.gz  # pre-clean leftovers from previously failed tests
 	$(MERCURY) -r data/top-https.pcap -f tmp.json --metadata -a --resources=../resources/resources.tgz --stats=stats
-	bash -c "$(python) ./compare-stats.py -m tmp.json -s <(zcat stats.json.gz)"
+	bash -c "$(python) ./compare-stats.py -m tmp.json -s stats.json.gz"
 	@echo $(COLOR_GREEN) "passed stats test" $(COLOR_OFF)
 	rm -f tmp.json stats.json.gz
+	@echo "running stats rotate test"
+	rm -f tmp.json tempstats.json statsfile*  # pre-clean leftovers from previously failed tests
+	$(MERCURY) -r data/quic_tls_http.pcap -f tmp.json --metadata -a --resources=../resources/resources.tgz --stats=statsfile --stats-time=1 -p 10
+	bash -c "$(python) ./compare-stats.py -m tmp.json -s statsfile"
+	@echo $(COLOR_GREEN) "passed stats rotate test" $(COLOR_OFF)
+	rm -f tmp.json tempstats.json statsfile*
 
 .PHONY: clean
 clean:
 	rm -rf *.fp *.json *.mcap Makefile~ README.md~ deleteme/* memcheck.tmp tmp.json mercury.PID afl-mercury
+	rm -f fuzz/libmerc.a
+	find ./fuzz/ -name "*_exec" -exec rm -v {} +
+	find ./fuzz/ -name "*.log" -exec rm -v {} +
+	find ./fuzz/ -name "*.c" -exec rm -v {} +
+	find ./fuzz/ -name "crash*" -exec rm -v {} +
 	@echo "cleaned all targets"
 
 .PHONY: distclean
@@ -304,11 +327,27 @@ else
 	$(python) p-mercury-diff.py -p p.json -m m.json
 endif
 
+# fuzz testing with libfuzzer
+#
+.PHONY: fuzz-test
+fuzz-test:
+ifeq ($(have_clang),yes)
+	@echo "checking libmerc.a for fuzz test"
+	cd ../src && $(MAKE) libmerc.a
+ifeq ($(openssl_newer),yes)
+	cd fuzz && ./generate_fuzz_test.sh -n none -t 200 -r 1000000000 -s true
+else
+	cd fuzz && ./generate_fuzz_test.sh -n none -t 200 -r 1000000000
+endif
+else
+	@echo $(COLOR_YELLOW) "clang++ unavailable; cannot perform fuzz test" $(COLOR_OFF)
+endif
+
 # fuzz testing with american fuzzy lop
 #
 FUZZ_CMD = --metadata --dns-json --certs-json --analysis -f /dev/null
-.PHONY: fuzz-test
-fuzz-test: afl-mercury
+.PHONY: afl-fuzz-test
+afl-fuzz-test: afl-mercury
 	afl-fuzz -i afl_data -o afl_findings ./afl-mercury -r @@ $(FUZZ_CMD)
 
 afl-mercury:
@@ -324,6 +363,9 @@ endif
 #
 .PHONY: batch_gcd_test
 batch_gcd_test: $(BGCD_COMP_TARG)
+
+%.pem.bgcd-tout: %.pem.bgcd-in
+	$(BATCH_GCD) --cert-file $< > $@
 
 %.bgcd-tout: %.bgcd-in
 	$(BATCH_GCD) < $< > $@

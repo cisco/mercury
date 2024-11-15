@@ -1,5 +1,0 @@
-Linux 5.0.0-25-generic #26~18.04.1-Ubuntu SMP Thu Aug 1 13:51:02 UTC 2019 x86_64
-ext4
-/dev/sda
-write throughput for /home/mcgrew/network-intelligence/mercury-test/perf : 730 MB/s
-read throughput for /home/mcgrew/network-intelligence/mercury-test/perf :  1.2 GB/s

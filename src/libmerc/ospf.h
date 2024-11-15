@@ -26,7 +26,7 @@
 //  |                       Authentication                          |
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-class ospf {
+class ospf : public base_protocol {
     uint8_t version;
     uint8_t type;
     uint16_t length;
@@ -104,7 +104,7 @@ public:
 
         if (is_valid()) {
             json_object json{o, "ospf"};
-            json.print_key_uint("vesion", version);
+            json.print_key_uint("version", version);
             json.print_key_string("type", type_string(static_cast<type_code>(type)));
             json.print_key_uint("router_id", router_id);
             json.print_key_uint("area_id", area_id);

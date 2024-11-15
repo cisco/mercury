@@ -24,11 +24,25 @@
 #include "http.h"
 #include "ssh.h"
 #include "smtp.h"
+#include "smb1.h"
+#include "smb2.h"
+#include "iec60870_5_104.h"
 
 #include "dhcp.h"  // udp protocols
 #include "quic.h"
 #include "dns.h"
 #include "wireguard.h"
+#include "dtls.h"
+#include "ssdp.h"
+#include "stun.h"
+#include "dnp3.h"
+#include "netbios.h"
+#include "udp.h"
+#include "openvpn.h"
+#include "bittorrent.h"
+#include "mysql.hpp"
+#include "tofsee.hpp"
+#include "socks.h"
 
 enum tcp_msg_type {
     tcp_msg_type_unknown = 0,
@@ -41,6 +55,19 @@ enum tcp_msg_type {
     tcp_msg_type_ssh_kex,
     tcp_msg_type_smtp_client,
     tcp_msg_type_smtp_server,
+    tcp_msg_type_dns,
+    tcp_msg_type_smb1,
+    tcp_msg_type_smb2,
+    tcp_msg_type_iec,
+    tcp_msg_type_dnp3,
+    tcp_msg_type_nbss,
+    tcp_msg_type_openvpn,
+    tcp_msg_type_bittorrent,
+    tcp_msg_type_mysql_server,
+    tcp_msg_type_tofsee_initial_message,
+    tcp_msg_type_socks4,
+    tcp_msg_type_socks5_hello,
+    tcp_msg_type_socks5_req_resp,
 };
 
 enum udp_msg_type {
@@ -53,7 +80,13 @@ enum udp_msg_type {
     udp_msg_type_wireguard,
     udp_msg_type_quic,
     udp_msg_type_vxlan,
-    udp_msg_type_esp
+    udp_msg_type_ssdp,
+    udp_msg_type_stun,
+    udp_msg_type_nbds,
+    udp_msg_type_dht,
+    udp_msg_type_lsd,
+    udp_msg_type_esp,
+
 };
 
 template <size_t N>
@@ -62,18 +95,30 @@ struct matcher_and_type {
     size_t type;
 };
 
+template <size_t N>
+struct matcher_type_and_offset {
+    mask_value_and_offset<N> mv;
+    size_t type;
+};
+
 
 template <size_t N>
 class protocol_identifier {
     std::vector<matcher_and_type<N>> matchers;
+    std::vector<matcher_type_and_offset<N>> matchers_and_offset;
 
 public:
 
-    protocol_identifier() : matchers{} {  }
+    protocol_identifier() : matchers{}, matchers_and_offset{} {  }
 
     void add_protocol(const mask_and_value<N> &mv, size_t type) {
         struct matcher_and_type<N> new_proto{mv, type};
         matchers.push_back(new_proto);
+    }
+
+    void add_protocol(const mask_value_and_offset<N> &mv, size_t type) {
+        struct matcher_type_and_offset<N> new_proto{mv, type};
+        matchers_and_offset.push_back(new_proto);
     }
 
     void compile() {
@@ -81,97 +126,170 @@ public:
         // it may compile a jump table, reorder matchers, etc.
     }
 
-    size_t get_msg_type(const uint8_t *data, unsigned int len) const {
+    bool pkt_len_match(datum &pkt, const size_t type) const {
+        switch(type) {
+        case tcp_msg_type_iec:
+        {
+            return (iec60870_5_104::get_payload_length(pkt) == pkt.length());
+        }
+        case tcp_msg_type_dnp3:
+        {
+            return (dnp3::get_payload_length(pkt) == pkt.length());
+        }
+        case tcp_msg_type_nbss:
+        {
+            return (nbss_packet::get_payload_length(pkt) == pkt.length());
+        }
+        case tcp_msg_type_tofsee_initial_message:
+        {
+            return (200 == pkt.length());
+        }
+        case tcp_msg_type_socks4:
+        {
+            return (socks4_req::get_payload_length(pkt) == pkt.length());
+        }
+        case tcp_msg_type_socks5_hello:
+        {
+            return (socks5_hello::get_payload_length(pkt) == pkt.length());
+        }
+        case tcp_msg_type_socks5_req_resp:
+        {
+            return (socks5_req_resp::get_payload_length(pkt) == pkt.length());
+        }
+        case udp_msg_type_stun:
+        {
+            return (stun::message::packet_length_from_header(pkt) == pkt.length());
+        }
+        default:
+            return true;
+        }
+    }
+
+    /*
+     * For matchers of size 4, along with matching 4 bytes of
+     * payload, the packet length can also be used to make the
+     * matcher more robust. Currently, this capability is used in matchers of
+     * size 4. If required, this can be extended to matchers of other sizes.
+     */
+    size_t get_msg_type(datum &pkt) const {
 
         // TODO: process short data fields
         //
-        if (len < 8) {
+        if (pkt.length() < 4) {
             return 0;   // type unknown;
         }
         for (matcher_and_type p : matchers) {
-            if (p.mv.matches(data)) {
+            if (N == 4) {
+                if (p.mv.matches(pkt.data, pkt.length()) && pkt_len_match(pkt, p.type)) {
+                    return p.type;
+                }
+            } else if (p.mv.matches(pkt.data, pkt.length())) {
+                return p.type;
+            }
+        }
+
+        for (matcher_type_and_offset p : matchers_and_offset) {
+            if (N == 4) {
+                if (p.mv.matches_at_offset(pkt.data, pkt.length()) && pkt_len_match(pkt, p.type)) {
+                    return p.type;
+                }
+            } else if (p.mv.matches_at_offset(pkt.data, pkt.length())) {
                 return p.type;
             }
         }
         return 0;   // type unknown;
     }
 
+    void disable_all() {
+        matchers.clear();
+        matchers_and_offset.clear();
+    }
+
 };
-
-bool set_config(std::map<std::string, bool> &config_map, const char *config_string); // in pkt_proc.cc
-
-// the preprocessor directive STATIC_CFG_SELECT can be used as a
-// compile-time option to select the protocols that mercury will
-// process; it must hold a quoted string that contains one of
-// mercury's selector strings, and it can be passed to the compiler
-// using the -D flag.  For example,
-//
-//    make OPTFLAGS=-DSTATIC_CFG_SELECT='\"tls.client_hello\"'
-//
-// will ensure that only tls client hello messages are selected, and all other
-// packet types are ignored
-//
-#ifndef STATIC_CFG_SELECT
-#define STATIC_CFG_SELECT nullptr
-#endif
 
 // class selector implements a protocol selection policy for TCP and
 // UDP traffic
 //
 class traffic_selector {
+    protocol_identifier<4> tcp4;
     protocol_identifier<8> tcp;
+    protocol_identifier<4> udp4;
     protocol_identifier<8> udp;
     protocol_identifier<16> udp16;
 
     bool select_tcp_syn;
+    bool select_dns;
+    bool select_nbns;
     bool select_mdns;
-
-    static constexpr const char *static_selector_string = STATIC_CFG_SELECT;
+    bool select_arp;
+    bool select_cdp;
+    bool select_gre;
+    bool select_icmp;
+    bool select_lldp;
+    bool select_ospf;
+    bool select_sctp;
+    bool select_tcp_syn_ack;
+    bool select_nbds;
+    bool select_nbss;
+    bool select_openvpn_tcp;
 
 public:
 
     bool tcp_syn() const { return select_tcp_syn; }
 
+    bool dns() const { return select_dns; }
+
+    bool nbns() const { return select_nbns; }
+
     bool mdns() const { return select_mdns; }
 
-    traffic_selector(const char *config_string) : tcp{}, udp{}, select_tcp_syn{false}, select_mdns{false} {
+    bool arp() const { return select_arp; }
 
-        if (static_selector_string) {
-            config_string = static_selector_string;
-        }
+    bool cdp() const { return select_cdp; }
 
-        // a null configuration string defaults to all protocols
-        //
-        const char *all = "all";
-        if (config_string == nullptr) {
-            config_string = all;
-        }
-        // create a map of protocol names and booleans, then update it
-        // based on the configuration string
-        //
-        std::map<std::string, bool> protocols{
-            { "all",         false },
-            { "none",        false },
-            { "dhcp",        false },
-            { "dns",         false },
-            { "dtls",        false },
-            { "http",        false },
-            { "ssh",         false },
-            { "tcp",         false },
-            { "tcp.message", false },
-            { "tls",         false },
-            { "wireguard",   false },
-            { "quic",        false },
-            { "smtp",        false },
-            { "tls.client_hello", false},
-            { "tls.server_hello", false},
-            { "tls.server_certificate", false},
-            { "http.request", false},
-            { "http.response", false},
-        };
-        if (!set_config(protocols, config_string)) {
-            throw std::runtime_error("error: could not parse protocol identification configuration string");
-        }
+    bool gre() const { return select_gre; }
+
+    bool icmp() const { return select_icmp; }
+
+    bool lldp() const { return select_lldp; }
+
+    bool ospf() const { return select_ospf; }
+
+    bool sctp() const { return select_sctp; }
+
+    bool tcp_syn_ack() const { return select_tcp_syn_ack; }
+
+    bool nbds() const { return select_nbds; }
+
+    bool nbss() const { return select_nbss; }
+
+    bool openvpn_tcp() const { return select_openvpn_tcp; }
+
+    void disable_all() {
+        tcp.disable_all();
+        tcp4.disable_all();
+        udp.disable_all();
+        udp16.disable_all();
+    }
+
+    traffic_selector(std::map<std::string, bool> protocols) :
+            tcp{},
+            udp{},
+            select_tcp_syn{false},
+            select_dns{false},
+            select_nbns{false},
+            select_mdns{false},
+            select_arp{false},
+            select_cdp{false},
+            select_gre{false},
+            select_icmp{false},
+            select_lldp{false},
+            select_ospf{false},
+            select_sctp{false},
+            select_tcp_syn_ack{false},
+            select_nbds{false},
+            select_nbss{false},
+            select_openvpn_tcp{false} {
 
         // "none" is a special case; turn off all protocol selection
         //
@@ -228,48 +346,181 @@ public:
         if (protocols["tcp"] || protocols["all"]) {
             select_tcp_syn = true;
         }
-        if (protocols["tcp.message"]) {
+        if (protocols["tcp.message"] || protocols["all"]) {
             // select_tcp_syn = 0;
             // tcp_message_filter_cutoff = 1;
+        }
+        if (protocols["tcp.syn_ack"] || protocols["all"]) {
+            select_tcp_syn_ack = true;
         }
         if (protocols["dhcp"] || protocols["all"]) {
             udp.add_protocol(dhcp_discover::matcher, udp_msg_type_dhcp);
         }
-        if (protocols["dns"] || protocols["all"]) {
-            // select_mdns = false;
+        if (protocols["dns"] || protocols["nbns"] || protocols["mdns"] || protocols["all"]) {
+            if (protocols["all"]) {
+                select_dns = true;
+                select_nbns = true;
+                select_mdns = true;
+            }
+            if (protocols["dns"]) {
+                select_dns = true;
+            }
+            if (protocols["nbns"]) {
+                select_nbns = true;
+            }
+            if (protocols["mdns"]) {
+                select_mdns = true;
+            }
             udp.add_protocol(dns_packet::matcher, udp_msg_type_dns);
             // udp.add_protocol(dns_packet::client_matcher, udp_msg_type_dns); // older matcher
             // udp.add_protocol(dns_packet::server_matcher, udp_msg_type_dns); // older matcher
         }
+        if (protocols["dns"] || protocols["all"]) {
+            tcp.add_protocol(dns_packet::tcp_matcher, tcp_msg_type_dns);
+        }
+
         if (protocols["dtls"] || protocols["all"]) {
-            udp16.add_protocol(tls_client_hello::dtls_matcher, udp_msg_type_dtls_client_hello);
-            udp16.add_protocol(tls_server_hello::dtls_matcher, udp_msg_type_dtls_server_hello);
+            udp16.add_protocol(dtls_client_hello::dtls_matcher, udp_msg_type_dtls_client_hello);
+            udp16.add_protocol(dtls_server_hello::dtls_matcher, udp_msg_type_dtls_server_hello);
         }
         if (protocols["wireguard"] || protocols["all"]) {
             udp.add_protocol(wireguard_handshake_init::matcher, udp_msg_type_wireguard);
+        }
+        if (protocols["ssdp"] || protocols["all"]) {
+            udp.add_protocol(ssdp::matcher, udp_msg_type_ssdp);
+        }
+        // if (protocols["stun"] || protocols["all"]) {
+        //     udp.add_protocol(stun::message::matcher, udp_msg_type_stun);
+        // }
+        if (protocols["smb"] || protocols["all"]) {
+            tcp.add_protocol(smb1_packet::matcher, tcp_msg_type_smb1);
+            tcp.add_protocol(smb2_packet::matcher, tcp_msg_type_smb2);
+        }
+        if (protocols["iec"] || protocols["all"]) {
+            tcp4.add_protocol(iec60870_5_104::matcher, tcp_msg_type_iec);
+        }
+        if (protocols["dnp3"] || protocols["all"]) {
+            tcp4.add_protocol(dnp3::matcher, tcp_msg_type_dnp3);
+        }
+        if (protocols["arp"] || protocols["all"]) {
+            select_arp = true;
+        }
+        if (protocols["cdp"] || protocols["all"]) {
+            select_cdp = true;
+        }
+        if (protocols["gre"] || protocols["all"]) {
+            select_gre = true;
+        }
+        if (protocols["icmp"] || protocols["all"]) {
+            select_icmp = true;
+        }
+        if (protocols["lldp"] || protocols["all"]) {
+            select_lldp = true;
+        }
+        if (protocols["ospf"] || protocols["all"]) {
+            select_ospf = true;
+        }
+        if (protocols["sctp"] || protocols["all"]) {
+            select_sctp = true;
+        }
+        if (protocols["nbss"] || protocols["all"]) {
+            select_nbss = true;
+           // tcp4.add_protocol(nbss_packet::matcher, tcp_msg_type_nbss);
+        }
+        if (protocols["nbds"] || protocols["all"]) {
+            select_nbds = true;
+        }
+        if (protocols["openvpn_tcp"] || protocols["all"]) {
+            select_openvpn_tcp = true;
+        }
+
+        if (protocols["bittorrent"] || protocols["all"]) {
+            udp.add_protocol(bittorrent_dht::matcher, udp_msg_type_dht);
+            udp.add_protocol(bittorrent_lsd::matcher, udp_msg_type_lsd);
+            tcp.add_protocol(bittorrent_handshake::matcher, tcp_msg_type_bittorrent);
+        }
+        if (protocols["mysql"] || protocols["all"]) {
+            tcp.add_protocol(mysql_server_greet::matcher, tcp_msg_type_mysql_server);
         }
         if (protocols["quic"] || protocols["all"]) {
             udp.add_protocol(quic_initial_packet::matcher, udp_msg_type_quic);
         }
 
-        // tell protocol_identification objects to compile lookup tables
+        if (protocols["socks"] || protocols["all"]) {
+            tcp4.add_protocol(socks4_req::matcher, tcp_msg_type_socks4);
+            tcp4.add_protocol(socks5_hello::matcher, tcp_msg_type_socks5_hello);
+            //tcp4.add_protocol(socks5_usr_pass::matcher, tcp_msg_type_socks5_usr_pass);
+            //tcp4.add_protocol(socks5_gss::matcher, tcp_msg_type_socks5_gss);
+            tcp4.add_protocol(socks5_req_resp::matcher, tcp_msg_type_socks5_req_resp);
+        }
+
+        // use a length-based stun matcher, which will work for both
+        // legacy and modern variants of that protocol
         //
+        if (protocols["stun"] || protocols["all"]) {
+            udp4.add_protocol(stun::message::matcher, udp_msg_type_stun);
+        }
+
+        // add tofsee, but keep at the absolute end of matcher lists, as tofsee only
+        // has a length based matcher
+        if (protocols["tofsee"] || protocols["all"]) {
+            tcp4.add_protocol(tofsee_initial_message::matcher, tcp_msg_type_tofsee_initial_message);
+        }
+
+        // tell protocol_identification objects to compile lookup tables
+        tcp4.compile();
         tcp.compile();
+        udp4.compile();
         udp.compile();
         udp16.compile();
 
     }
 
-    size_t get_tcp_msg_type(const uint8_t *data, unsigned int len) const {
-        return tcp.get_msg_type(data, len);
-    }
-
-    size_t get_udp_msg_type(const uint8_t *data, unsigned int len) const {
-        size_t type = udp.get_msg_type(data, len);
-        if (type == udp_msg_type_unknown)  {
-            type = udp16.get_msg_type(data, len);
+    size_t get_tcp_msg_type(datum &pkt) const {
+        size_t type = tcp.get_msg_type(pkt);
+        if (type == tcp_msg_type_unknown)  {
+            type = tcp4.get_msg_type(pkt);
         }
         return type;
+    }
+
+    size_t get_udp_msg_type(datum &pkt) const {
+        size_t type = udp.get_msg_type(pkt);
+        if (type == udp_msg_type_unknown)  {
+            type = udp16.get_msg_type(pkt);
+        }
+        if (type == udp_msg_type_unknown)  {
+            type = udp4.get_msg_type(pkt);
+        }
+        return type;
+    }
+
+    size_t get_udp_msg_type_from_ports(udp::ports ports) const {
+        if (nbds() and ports.src == hton<uint16_t>(138) and ports.dst == hton<uint16_t>(138)) {
+            return udp_msg_type_nbds;
+        }
+
+        if (ports.dst == hton<uint16_t>(4789)) {
+            return udp_msg_type_vxlan;
+        }
+
+        return udp_msg_type_unknown;
+    }
+
+    size_t get_tcp_msg_type_from_ports(struct tcp_packet *tcp_pkt) const {
+        if (tcp_pkt == nullptr or tcp_pkt->header == nullptr) {
+            return tcp_msg_type_unknown;
+        }
+
+        if (nbss() and (tcp_pkt->header->src_port == hton<uint16_t>(139) or tcp_pkt->header->dst_port == hton<uint16_t>(139))) {
+            return tcp_msg_type_nbss;
+        }
+
+        if (openvpn_tcp() and (tcp_pkt->header->src_port == hton<uint16_t>(1194) or tcp_pkt->header->dst_port == hton<uint16_t>(1194)) ) {
+            return tcp_msg_type_openvpn;
+        }
+
+        return tcp_msg_type_unknown;
     }
 
 };

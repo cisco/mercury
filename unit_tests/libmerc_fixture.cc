@@ -81,7 +81,7 @@ void LibmercTestFixture::set_pcap(const char * fname)
 
     printf("\n\n%s\n\n", m_pcap_file_name);
     
-    m_pcap = new pcap_file(m_pcap_file_name, io_direction_reader);
+    m_pcap = new pcap::file_reader(m_pcap_file_name);
 }
 
 int LibmercTestFixture::read_next_data_packet()
@@ -145,6 +145,61 @@ int LibmercTestFixture::counter(fingerprint_type fp_type, std::function<void(con
         }
 
         const analysis_context *ac = mercury_packet_processor_get_analysis_context(m_mpp, (unsigned char *)m_data_packet.first, m_data_packet.second - m_data_packet.first, &m_time);
+        if (ac)
+        {
+            if (analysis_context_get_fingerprint_type(ac) == fp_type)
+            {
+                count_of_packets++;
+            }
+            if (callback)
+                callback(ac);
+        }
+    }
+    return count_of_packets;
+}
+
+bool LibmercTestFixture::counter(size_t expected_attrs_count, std::function<void(size_t, size_t)> callback)
+{
+    const attribute_context* attr_ctx;
+    while (1)
+    {
+        if (read_next_data_packet())
+        {
+            break;
+        }
+
+        const analysis_context *ac = mercury_packet_processor_get_analysis_context(m_mpp, (unsigned char *)m_data_packet.first, m_data_packet.second - m_data_packet.first, &m_time);
+        if (ac)
+        {
+            attr_ctx = mercury_packet_processor_get_attributes(m_mpp);
+            if (attr_ctx)
+            {
+                if (callback) {
+                    size_t attr_count_ = 0;
+                    for (size_t i = 0; i < attr_ctx->attributes_len; i++) {
+                        if (attr_ctx->prob_scores[i] > 0)
+                            attr_count_++;
+                    }
+                    callback(attr_count_,expected_attrs_count);
+                }
+                return true;  // process till first attributes list is hit
+            }
+        }
+    }
+    return false;
+}
+
+int LibmercTestFixture::counter(fingerprint_type fp_type, std::function<void(const analysis_context*)> callback, uint16_t linktype)
+{
+    int count_of_packets = 0;
+    while (1)
+    {
+        if (read_next_data_packet())
+        {
+            break;
+        }
+
+        const analysis_context *ac = mercury_packet_processor_get_analysis_context_linktype(m_mpp, (unsigned char *)m_data_packet.first, m_data_packet.second - m_data_packet.first, &m_time, linktype);
         if (ac)
         {
             if (analysis_context_get_fingerprint_type(ac) == fp_type)

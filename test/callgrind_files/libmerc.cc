@@ -177,6 +177,25 @@ const char *analysis_context_get_server_name(const struct analysis_context *ac) 
     return NULL;
 }
 
+bool analysis_context_get_alpns(const struct analysis_context *ac, // input
+                                const char **alpns,                // output
+                                uint8_t *alpn_count,               // output
+                                uint8_t *max_len                   // output
+                                ) {
+    if (ac) {
+         return ac->get_alpns(alpns, alpn_count, max_len);
+    }
+    return false;
+}
+
+const char *analysis_context_get_user_agent(const struct analysis_context *ac) {
+    if (ac) {
+        if (ac->destination.ua_str[0] != '\0') {
+            return ac->destination.ua_str;
+        }
+    }
+}
+
 bool analysis_context_get_process_info(const struct analysis_context *ac, // input
                                        const char **probable_process,     // output
                                        double *probability_score          // output
@@ -394,7 +413,7 @@ bool mercury_write_stats_data(mercury_context mc, const char *stats_data_file_pa
         printf_err(log_err, "could not open file '%s' for writing mercury stats data\n", stats_data_file_path);
         return false;
     }
-    mc->aggregator.gzprint(stats_data_file);
+    mc->aggregator->gzprint(stats_data_file);
     gzclose(stats_data_file);
 
     return true;

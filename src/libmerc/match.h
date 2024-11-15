@@ -36,7 +36,7 @@ public:
     }
 
     bool matches(const uint8_t tcp_data[N]) const {
-        if (N == 8) {
+        if (N == 8 || N == 4) {
             return u32_compare_masked_data_to_value(tcp_data, mask, value);
         } else {
             return u64_compare_masked_data_to_value(tcp_data, mask, value);
@@ -58,6 +58,10 @@ public:
         const uint32_t *d = (const uint32_t *)data_in;
         const uint32_t *m = (const uint32_t *)mask_in;
         const uint32_t *v = (const uint32_t *)value_in;
+        
+        if (N == 4) {
+            return ((d[0] & m[0]) == v[0]);
+        }
 
         return ((d[0] & m[0]) == v[0]) && ((d[1] & m[1]) == v[1]);
     }
@@ -89,5 +93,20 @@ public:
 
 };
 
+template <size_t N>
+class mask_value_and_offset : public mask_and_value<N> {
+    size_t offset;
+
+public:
+   constexpr mask_value_and_offset (std::array<uint8_t, N> m, std::array<uint8_t, N> v, size_t off) : mask_and_value<N>(m,v), offset{off} {}
+
+    bool matches_at_offset(const uint8_t *data, size_t length) const {
+        if (data == nullptr || (length + offset) < N) {
+            return false;
+        }
+        return mask_and_value<N>::matches(data+offset);
+    }
+
+};
 
 #endif /* MATCH_H */

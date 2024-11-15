@@ -10,9 +10,45 @@
 
 #include "options.h"
 #include "libmerc_api.h"
-#include "pcap_file_io.h"
+#include "pcap.h"
+#include "packet.h"
 #include "libmerc/datum.h"
 #include "libmerc/json_object.h"
+
+using namespace mercury_option;  //from options.h
+
+class length_and_data {
+    const uint8_t *data;
+    const uint8_t *data_end;
+
+public:
+
+    length_and_data(const uint8_t *buffer, const uint8_t *buffer_end) : data{nullptr}, data_end{nullptr} {
+        if (buffer == nullptr) {
+            return;  // error
+        }
+        int length = *buffer++;
+        if (buffer + length > buffer_end) {
+            length = buffer_end - buffer;  // truncate length
+        }
+        data = buffer;
+        data_end = buffer + length;
+    }
+
+    size_t bytes_accepted() const {
+        if (data) {
+            return 1 + data_end - data;
+        }
+        return 0;
+    }
+
+    size_t length() const { return data_end - data; }
+
+    const uint8_t *value() const { return data; }
+
+    /*explicit*/ operator datum() const { return {data, data_end}; }
+
+};
 
 // libmerc_printer is derived from libmerc_api, and adds functions for
 // printing out analysis results as json or text
@@ -69,6 +105,27 @@ struct libmerc_printer : public libmerc_api {
             fprintf(f, "server_name: %s\n", server_name);
         } else {
             fprintf(f, "server_name: not present (null)\n");
+        }
+
+        const char *user_agent = this->get_user_agent(ctx);
+        if (user_agent) {
+            fprintf(f, "user_agent: %s\n", user_agent);
+        } else {
+            fprintf(f, "user_agent: not present (null)\n");
+        }
+
+        const uint8_t *alpn_buffer;
+        size_t alpn_buffer_length;
+        fprintf(f, "application_layer_protocol_negotiation: ");
+        if (this->get_alpns(ctx, &alpn_buffer, &alpn_buffer_length)) {
+            const uint8_t *alpn = alpn_buffer;
+            const uint8_t *alpn_end = alpn + alpn_buffer_length;
+            while (alpn < alpn_end) {
+                length_and_data name{alpn, alpn_end};
+                fprintf(f, "%.*s ", (int)name.length(), name.value());
+                alpn += name.bytes_accepted(); // advance through buffer
+            }
+            fprintf(f, "\n");
         }
 
         const char *probable_process = NULL;
@@ -131,6 +188,24 @@ struct libmerc_printer : public libmerc_api {
             const char *server_name = this->get_server_name(ctx);
             json.print_key_string("server_name", server_name ? server_name : "not present (null)");
 
+            const char *user_agent = this->get_user_agent(ctx);
+            json.print_key_string("user_agent", user_agent ? user_agent : "not present (null)");
+
+            const uint8_t *alpn_buffer;
+            size_t alpn_buffer_length;
+            if (this->get_alpns(ctx, &alpn_buffer, &alpn_buffer_length)) {
+                struct json_array a{json, "application_layer_protocol_negotiation"};
+                const uint8_t *alpn = alpn_buffer;
+                const uint8_t *alpn_end = alpn + alpn_buffer_length;
+                while (alpn < alpn_end) {
+                    length_and_data name{alpn, alpn_end};
+                    datum tmp = name;
+                    a.print_json_string(tmp);
+                    alpn += name.bytes_accepted(); // advance through buffer
+                }
+                a.close();
+            }
+
             const char *probable_process = NULL;
             double probability_score = 0.0;
             if (get_process_info(ctx,
@@ -187,6 +262,7 @@ int main(int argc, char *argv[]) {
         { argument::required,   "--read",      "read PCAP file <arg>" },
         { argument::required,   "--libmerc",   "use libmerc.so file <arg>" },
         { argument::required,   "--resources", "use resource file <arg>" },
+        { argument::none,       "--stats",     "generate stats.json.gz file" },
         { argument::none,       "--verbose",   "turn on verbose output" },
         { argument::none,       "--help",      "print out help message" }
     });
@@ -199,6 +275,7 @@ int main(int argc, char *argv[]) {
     auto [ libmerc_is_set, libmerc_file ] = opt.get_value("--libmerc");
     auto [ resources_is_set, resources_file ] = opt.get_value("--resources");
     bool verbose = opt.is_set("--verbose");
+    bool do_stats = opt.is_set("--stats");
     bool print_help = opt.is_set("--help");
 
     if (print_help) {
@@ -233,6 +310,7 @@ int main(int argc, char *argv[]) {
         libmerc_config config;
         config.resources = resources_path;
         config.do_analysis = true;
+        config.do_stats = do_stats;
 
         // initalize mercury library
         //
@@ -249,7 +327,7 @@ int main(int argc, char *argv[]) {
             return -1;
         }
 
-        struct pcap_file pcap(pcap_file.c_str(), io_direction_reader);
+	pcap::file_reader pcap{pcap_file.c_str()};
         packet<65536> pkt;
         while (true) {
 
@@ -267,6 +345,8 @@ int main(int argc, char *argv[]) {
             if (ctx) {
                 mercury.fprint_json_analysis_context(stdout, ctx);
             }
+            bool need_more_pkts = mercury.more_pkts_needed(mpp);
+            fprintf(stdout, "{more_pkts_needed:%s}\n", need_more_pkts ? "true" : "false");
 
             i++;
         }
@@ -274,6 +354,12 @@ int main(int argc, char *argv[]) {
         // destroy packet processor
         //
         mercury.packet_processor_destruct(mpp);
+
+        // write out stats data, if needed
+        //
+        if (do_stats) {
+            mercury.write_stats_data(mc, "stats.json.gz");
+        }
 
         // destroy mercury context
         //

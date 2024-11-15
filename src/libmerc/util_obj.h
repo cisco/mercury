@@ -11,10 +11,15 @@
 
 #include "datum.h"
 #include "buffer_stream.h"
+#include "utils.h"
 
 struct ipv4_addr : public datum {
     static const unsigned int bytes_in_addr = 4;
     ipv4_addr() : datum{} { }
+
+    ipv4_addr(struct datum &d) :  datum{} {
+        datum::parse(d, bytes_in_addr);
+    }
 
     void parse(struct datum &d) {
         datum::parse(d, bytes_in_addr);
@@ -30,6 +35,10 @@ struct ipv4_addr : public datum {
 struct ipv6_addr : public datum {
     static const unsigned int bytes_in_addr = 16;
     ipv6_addr() : datum{} { }
+
+    ipv6_addr(struct datum &d) :  datum{} {
+        datum::parse(d, bytes_in_addr);
+    }
 
     void parse(struct datum &d) {
         datum::parse(d, bytes_in_addr);
@@ -145,8 +154,17 @@ struct key {
             snprintf(src_addr, MAX_ADDR_STR_LEN, "%u.%u.%u.%u", sa[0], sa[1], sa[2], sa[3]);
         } else {
             uint8_t *sa = (uint8_t *)&addr.ipv6.src;
-            snprintf(src_addr, MAX_ADDR_STR_LEN, "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x",
-                    sa[0], sa[1], sa[2], sa[3], sa[4], sa[5], sa[6], sa[7], sa[8], sa[9], sa[10], sa[11], sa[12], sa[13], sa[14], sa[15]);
+            sprintf_ipv6_addr(src_addr, sa);
+        }
+    }
+
+    void sprint_dst_addr(char dst_addr[MAX_ADDR_STR_LEN]) const {
+        if (ip_vers == 4) {
+            uint8_t *da = (uint8_t *)&addr.ipv4.dst;
+            snprintf(dst_addr, MAX_ADDR_STR_LEN, "%u.%u.%u.%u", da[0], da[1], da[2], da[3]);
+        } else {
+            uint8_t *da = (uint8_t *)&addr.ipv6.dst;
+            sprintf_ipv6_addr(dst_addr, da);
         }
     }
 
@@ -155,20 +173,22 @@ struct key {
         snprintf(dst_port_string, MAX_PORT_STR_LEN, "%u", dst_port);
     }
 
+    void sprint_src_port(char src_port_string[MAX_PORT_STR_LEN]) const {
+        snprintf(src_port_string, MAX_PORT_STR_LEN, "%u", src_port);
+    }
+
 };
 
 struct eth_addr : public datum {
     static const unsigned int bytes_in_addr = 6;
 
-    eth_addr(datum &d) : datum{d} { }
-
-    void parse(struct datum &d) {
+    eth_addr(datum &d) : datum{} {
         datum::parse(d, bytes_in_addr);
     }
 
     void fingerprint(struct buffer_stream &b) const {
-        if (data) {
-            b.raw_as_hex(data, datum::length());  // TODO: write colon-delimited hex
+        if (datum::is_not_null()) {
+            b.write_mac_addr(data);
         }
     }
 };

@@ -11,6 +11,7 @@
 #include "tcp.h"
 #include "ip.h"
 #include "datum.h"
+#include "protocol.h"
 #include "json_object.h"
 #include "fingerprint.h"
 
@@ -128,7 +129,7 @@ struct tcp_option : public datum {
 
 };
 
-struct tcp_packet {
+struct tcp_packet : public base_protocol {
     const struct tcp_header *header = nullptr;
     struct datum tcp_options;
     ip *ip_pkt = nullptr;          // TODO: make this const?
@@ -165,10 +166,20 @@ struct tcp_packet {
         return header && TCP_IS_SYN(header->flags) && TCP_IS_ACK(header->flags);
     }
 
+    bool is_FIN() {
+        return header && TCP_IS_FIN(header->flags);
+    }
+
+    bool is_RST() {
+        return header && TCP_IS_RST(header->flags);
+    }
+
+    uint32_t seq() const { return hton(header->seq); }
+
     void set_key(struct key &k) {
         if (header) {
-            k.src_port = ntohs(header->src_port);
-            k.dst_port = ntohs(header->dst_port);
+            k.src_port = ntoh(header->src_port);
+            k.dst_port = ntoh(header->dst_port);
         }
     }
     void fingerprint (struct buffer_stream &buf) {
@@ -233,7 +244,7 @@ struct tcp_packet {
                     ip_pkt->write_json(o);
                 }
                 struct json_object json_tcp{o, "tcp"};
-                json_tcp.print_key_uint("seq", htonl(header->seq));
+                json_tcp.print_key_uint("seq", hton(header->seq));
                 write_timestamp(json_tcp);
                 json_tcp.close();
 
@@ -242,7 +253,7 @@ struct tcp_packet {
                     ip_pkt->write_json(o);
                 }
                 struct json_object json_tcp{o, "tcp_server"};
-                json_tcp.print_key_uint("seq", htonl(header->seq));
+                json_tcp.print_key_uint("seq", hton(header->seq));
                 write_timestamp(json_tcp);
                 json_tcp.close();
             }

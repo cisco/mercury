@@ -256,11 +256,11 @@ struct json_array_asn1 : public json_array {
 
 struct tlv {
     unsigned char tag;
-    size_t length;
+    uint64_t length;
     struct datum value;
 
     bool operator == (const struct tlv &r) {
-        return tag == r.tag && length == r.length && value.memcmp(r.value) == 0;
+        return !is_valid() && tag == r.tag && length == r.length && value.cmp(r.value) == 0;
     }
 
     constexpr static unsigned char explicit_tag(unsigned char tag) {
@@ -305,10 +305,13 @@ struct tlv {
     };
 
     bool is_not_null() const {
-        return value.data;
+        return (value.data);
     }
     bool is_null() const {
         return (value.data == NULL);
+    }
+    bool is_valid() const {
+        return value.is_not_empty() || length == 0;
     }
     bool is_truncated() const {
         return value.data != NULL && value.length() != (ssize_t) length;
@@ -407,12 +410,136 @@ struct tlv {
 #endif
     }
 
+    // tlv constructor for parsing data from a datum
+    //
+    tlv(datum &d, uint8_t tag=0x00, const char *name=NULL) {
+        parse(&d, tag, name);
+    }
+
+    // tlv constructor for parsing data from another tlv value
+    //
+    tlv(tlv &o, uint8_t tag=0x00, const char *name=NULL) {
+        parse(&o.value, tag, name);
+    }
+
+    // constructor for writing tlv-encoded data
+    //
+    explicit tlv(uint8_t tag_, datum value_) :
+        tag{tag_},
+        length{value_.length()},
+        value{value_}
+    { }
+
+    void set(uint8_t tag_, datum value_) {
+        tag    = tag_;
+        length = length_of_length_field(value_.length());
+        value  = value_;
+    }
+
+    size_t encoded_length() const {
+        // fprintf(stderr,
+        //         "encoding length: %zu:%u:%zu:\t%zu\n",
+        //         sizeof(tag),
+        //         length_of_length(length),
+        //         length,
+        //         sizeof(tag) + length_of_length(length) + length
+        //         );
+        return sizeof(tag) + length_of_length_field(length) + length;  // note: inapplicable for tlv::SEQUENCE
+    }
+
+    static uint8_t length_of_length_field(size_t s) {
+        if (s <= 127) {
+            //
+            // short form: single octet
+            //
+            return 1;
+        }
+        // long form: the first octet encodes the number of octets
+        // used to encode the length field
+        //
+        if (s < 0x100) {
+            return 2;
+        }
+        if (s < 0x10000) {
+            return 3;
+        }
+        if (s < 0x1000000) {
+            return 4;
+        }
+        if (s < 0x100000000) {
+            return 5;
+        }
+        if (s < 0x10000000000) {
+            return 6;
+        }
+        if (s < 0x1000000000000) {
+            return 7;
+        }
+        return 8;
+    }
+
+    // write_tag_and_length() writes the ASN.1-encoded Tag and Length (but
+    // not Value) into a writeable buffer
+    //
+    void write_tag_and_length(writeable &buf, bool swap_byte_order=false) const {
+        (void)swap_byte_order;
+
+        buf << encoded<uint8_t>{tag};
+
+        // Length field format
+        //
+        // Short form: one octet long. Bit 8 has value "0" and bits
+        // 7–1 give the length.
+        //
+        // Long form: 2 to 127 octets long. Bit 8 of its first octet
+        // has value "1" and bits 7–1 give the number of additional
+        // length octets. Second and following octets give the length,
+        // base 256, most significant digit first.
+        //
+
+        size_t total = 0;
+        if (length <= 127) {
+            buf << encoded<uint8_t>{length};
+            total += 1;
+        } else {
+            buf << encoded<uint8_t>{0x80 | (length_of_length_field(length) - 1)};
+            total += 1;
+            size_t tmp = length;
+            if (tmp >= 0x1000000) {
+                buf << encoded<uint8_t>{(length >> 24) & 0xff};
+                        total += 1;
+            }
+            if (tmp >= 0x10000) {
+                buf << encoded<uint8_t>{(length >> 16) & 0xff};
+                        total += 1;
+            }
+            if (tmp >= 0x100) {
+                buf << encoded<uint8_t>{(length >> 8) & 0xff};
+                total += 1;
+            }
+            buf << encoded<uint8_t>{tmp & 0xff};
+            total += 1;
+        }
+        //        fprintf(stderr, "length encoding used %zu bytes (lol: %u)\n", total, length_of_length(length));
+    }
+
+    // write() writes the ASN.1-encoded TLV into a writeable buffer
+    //
+    void write(writeable &buf, bool swap_byte_order=false) {
+        write_tag_and_length(buf, swap_byte_order);
+        buf << value;
+    }
+
     void remove_bitstring_encoding() {
+        if (!is_valid()) {
+            return;
+        }
         uint8_t first_octet = 0;
         value.read_uint8(&first_octet);
         if (first_octet) {
             // throw std::runtime_error("error removing bitstring encoding");
             value.set_null();
+            return;
         }
         if (length > 0) {
             length = length - 1;
@@ -504,16 +631,18 @@ struct tlv {
             "CHARACTER STRING",
             "BMPString"
         };
-
-        if (value.data) {
+        if (!is_valid()) {
+            return;
+        }
+        if (true || value.data) {
             uint8_t tag_class = tag >> 6;
             uint8_t constructed = (tag >> 5) & 1;
             uint8_t tag_number = tag & 31;
             if (tag_class == 2) {
                 // tag is context-specific
-                fprintf(f, "T:%02x (%u:%u:%u, explicit tag %u)\tL:%08zu\tV:", tag, tag_class, constructed, tag_number, tag_number, length);
+                fprintf(f, "T:%02x (%u:%u:%u, explicit tag %u)\tL:%08" PRIu64 "\tV:", tag, tag_class, constructed, tag_number, tag_number, length);
             } else {
-                fprintf(f, "T:%02x (%u:%u:%u, %s)\tL:%08zu\tV:", tag, tag_class, constructed, tag_number, type[tag_number], length);
+                fprintf(f, "T:%02x (%u:%u:%u, %s)\tL:%08" PRIu64 "\tV:", tag, tag_class, constructed, tag_number, type[tag_number], length);
             }
             value.fprint_hex(f);
             if (tlv_name) {
@@ -544,10 +673,13 @@ struct tlv {
     }
 
     int time_cmp(const struct tlv &t) const {
+        if (!is_valid() || !t.is_valid()) {
+            return -1;
+        }
         ssize_t l1 = value.data_end - value.data;
         ssize_t l2 = t.value.data_end - t.value.data;
         ssize_t min = l1 < l2 ? l1 : l2;
-        if (min == 0) {
+        if (min == 0 || min > 15) {
             return 0;
         }
         // fprintf(stderr, "comparing %zd bytes of times\nl1: %.*s\nl2: %.*s\n", min, l1, value.data, l2, t.value.data);
@@ -556,16 +688,22 @@ struct tlv {
         const uint8_t *d2 = t.value.data;
         uint8_t gt1[15];
         if (tag == tlv::UTCTime) {
+            if (l1 != 13) {
+                return 0;
+            }
             d1 = gt1;
             utc_to_generalized_time(gt1, value.data);
-        } else if (tag != tlv::GeneralizedTime) {
+        } else if ((tag == tlv::GeneralizedTime && l1 != 15) || tag != tlv::GeneralizedTime) {
             return 0; // error; attempt to compare non-time value
         }
         uint8_t gt2[15];
         if (t.tag == tlv::UTCTime) {
+            if (l2 != 13) {
+                return 0;
+            }
             d2 = gt2;
             utc_to_generalized_time(gt2, t.value.data);
-        } else if (tag != tlv::GeneralizedTime) {
+        } else if ((t.tag == tlv::GeneralizedTime && l2 != 15) || t.tag != tlv::GeneralizedTime) {
             return 0; // error; attempt to compare non-time value
         }
 
@@ -585,30 +723,48 @@ struct tlv {
      * functions for json_object serialization
      */
     void print_as_json_hex(struct json_object &o, const char *name) const {
+        if (!is_valid()) {
+            return;
+        }
         o.print_key_hex(name, value);
         if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
     void print_as_json_oid(struct json_object_asn1 &o, const char *name) const {
+        if (!is_valid()) {
+            return;
+        }
         o.print_key_oid(name, value);
         if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
     void print_as_json_escaped_string(struct json_object_asn1 &o, const char *name) const {
+        if (!is_valid()) {
+            return;
+        }
         o.print_key_escaped_string(name, value);
         if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
     void print_as_json_utctime(struct json_object_asn1 &o, const char *name) const {
+        if (!is_valid()) {
+            return;
+        }
         o.print_key_utctime(name, value.data, value.data_end - value.data);
         if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
     void print_as_json_generalized_time(struct json_object_asn1 &o, const char *name) const {
+        if (!is_valid()) {
+            return;
+        }
         o.print_key_generalized_time(name, value.data, value.data_end - value.data);
         if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
     void print_as_json_ip_address(struct json_object_asn1 &o, const char *name) const {
+        if (!is_valid()) {
+            return;
+        }
         o.write_comma(o.comma);
         o.b->snprintf("\"%s\":\"", name);
         fprintf_ip_address(*o.b, value.data, value.data_end - value.data);
@@ -618,12 +774,15 @@ struct tlv {
     }
 
     void print_as_json_bitstring(struct json_object &o, const char *name, bool comma=false) const {
+        if (!is_valid()) {
+            return;
+        }
         const char *format_string = "\"%s\":[";
         if (comma) {
             format_string = ",\"%s\":[";
         }
         o.b->snprintf(format_string, name);
-        if (value.data) {
+        if (value.data && value.length() > 1) {
             struct datum p = value;
             uint8_t number_of_unused_bits = 0;
             p.read_uint8(&number_of_unused_bits);
@@ -634,6 +793,9 @@ struct tlv {
                     comma = ",";
                 }
                 p.data++;
+            }
+            if (!p.is_not_empty()) {
+                return;
             }
             uint8_t terminus = 0x80 >> (8-number_of_unused_bits);
             for (uint8_t x = 0x80; x > terminus; x=x>>1) {
@@ -647,11 +809,17 @@ struct tlv {
     }
 
     void print_as_json_bitstring_flags(struct json_object_asn1 &o, const char *name, char * const *flags) const {
+        if (!is_valid()) {
+            return;
+        }
         o.print_key_bitstring_flags(name, value, flags);
         if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
     void print_as_json(struct json_object_asn1 &o, const char *name) const {
+        if (!is_valid()) {
+            return;
+        }
         switch(tag) {
         case tlv::UTCTime:
             print_as_json_utctime(o, name);
