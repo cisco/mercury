@@ -54,8 +54,7 @@ struct wireguard_handshake_init;
 struct dns_packet;
 struct mdns_packet;
 class dtls_client_hello;
-class
-dtls_server_hello;
+class dtls_server_hello;
 struct dhcp_discover;
 class ssdp;
 //class stun::message;
@@ -67,6 +66,7 @@ struct tcp_packet;
 class iec60870_5_104;
 class openvpn_tcp;
 class mysql_server_greet;
+class esp;
 
 using protocol = std::variant<std::monostate,
                               http_request,                      // start of tcp protocols
@@ -107,7 +107,8 @@ using protocol = std::variant<std::monostate,
                               mysql_server_greet,
                               socks5_req_resp,
                               socks5_hello,
-                              socks4_req
+                              socks4_req,
+                              esp
                               >;
 
 // class unknown_initial_packet represents the initial data field of a

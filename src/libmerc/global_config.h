@@ -163,6 +163,7 @@ public:
             { "dnp3",                   false },
             { "dns",                    false },
             { "dtls",                   false },
+            { "esp",                    false },
             { "gre",                    false },
             { "http",                   false },
             { "http.request",           false },

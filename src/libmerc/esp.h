@@ -5,6 +5,7 @@
 #define ESP_H
 
 #include "datum.h"
+#include "protocol.h"
 #include "json_object.h"
 
 //  ESP format (following RFC 4303, Figure 1)
@@ -46,7 +47,7 @@
 // ESP can be carried in UDP (RFC 3948), in which case the
 // non_esp_marker is used to distinguish ESP from IKE
 //
-class esp {
+class esp : public base_protocol {
     datum spi;
     datum seq;
     datum payload;
@@ -61,22 +62,27 @@ public:
         }
     }
 
+    static constexpr uint16_t default_port = hton<uint16_t>(4500);
+
     bool is_not_empty() {
         return valid;
     }
 
     void write_json(json_object &o, bool metadata_output=false) const {
-        (void)metadata_output;
         if (valid) {
             json_object esp_json{o, "esp"};
             esp_json.print_key_hex("spi", spi);
             esp_json.print_key_hex("seq", seq);
+            esp_json.print_key_uint("payload_length", payload.length());
 
-            // print out initial bytes of payload
-            //
-            datum tmp = payload;
-            tmp.trim_to_length(32);
-            esp_json.print_key_hex("payload", tmp);
+            if (metadata_output) {
+                //
+                // print out initial bytes of payload
+                //
+                datum tmp = payload;
+                tmp.trim_to_length(32);
+                esp_json.print_key_hex("payload", tmp);
+            }
             esp_json.close();
         }
     }
