@@ -43,7 +43,7 @@
 #include "cdp.h"
 #include "lldp.h"
 #include "ospf.h"
-#include "esp.h"
+#include "esp.hpp"
 #include "sctp.h"
 #include "analysis.h"
 #include "buffer_stream.h"
@@ -779,7 +779,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             default:
                 break;
             }
-        } else if (ports.dst == esp::default_port or ports.src == esp::default_port) {   // esp over udp
+        } else if (selector.esp() and ports.either_matches(esp::default_port)) {   // esp over udp
             x.emplace<esp>(pkt);
         }
 
