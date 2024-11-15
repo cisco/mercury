@@ -69,7 +69,15 @@ public:
 
     // struct ports is a simple public helper used to return port info
     //
-    struct ports { uint16_t src; uint16_t dst; };
+    struct ports {
+        uint16_t src;
+        uint16_t dst;
+
+        bool either_matches(uint16_t nbo_value) const {
+            return (dst == nbo_value) or (src == nbo_value);
+        }
+
+    };
 
     // get_ports() returns the source and destination ports, if this
     // is a valid UDP packet; otherwise, { 0, 0 } is returned to
