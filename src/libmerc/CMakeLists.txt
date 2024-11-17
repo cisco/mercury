@@ -223,7 +223,7 @@ else()
     message(STATUS "no address sanitizer support") 
 endif()
 
-## TARGET : libmerc {
+## TARGET : libmerc (shared) {
 add_library(libmerc SHARED ${libmerc_src})
 target_link_directories(libmerc PUBLIC lctrie ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(libmerc PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -234,6 +234,20 @@ target_compile_definitions(libmerc PUBLIC -DNDEBUG -DDONT_USE_STDERR)
 #target_link_options(libmerc PUBLIC  -lz -lcrypto)
 #target_compile_definitions(libmerc PRIVATE -DSSLNEW)
 set_target_properties(libmerc PROPERTIES PREFIX "")
+#set_target_properties(libmerc PROPERTIES PREFIX "" OUTPUT_NAME "libmerc.so.0")
+# }
+
+## TARGET : libmerc_static (static) {
+add_library(libmerc_static STATIC ${libmerc_src})
+target_link_directories(libmerc_static PUBLIC lctrie ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(libmerc_static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(libmerc_static PUBLIC lctrie z crypto)
+add_dependencies(libmerc_static lctrie asn1)
+target_compile_options(libmerc_static PUBLIC ${libmerc_compile_opt})
+target_compile_definitions(libmerc_static PUBLIC -DNDEBUG -DDONT_USE_STDERR)
+#target_link_options(libmerc PUBLIC  -lz -lcrypto)
+#target_compile_definitions(libmerc PRIVATE -DSSLNEW)
+set_target_properties(libmerc_static PROPERTIES PREFIX "")
 #set_target_properties(libmerc PROPERTIES PREFIX "" OUTPUT_NAME "libmerc.so.0")
 # }
 
