@@ -397,6 +397,10 @@ struct tls_extension {
     uint16_t cnt; //No.of extensions of the same type
     uint16_t encoded_type;
 
+    static constexpr uint8_t num_extns_not_in_raw_features = 0;  //change this value when updating extns_not_in_raw_features
+    static constexpr uint16_t extns_not_in_raw_features[num_extns_not_in_raw_features] = {
+    };
+
     tls_extension() : type{0}, length{0}, value{NULL, NULL}, type_ptr{NULL}, length_ptr{NULL}, cnt{0} { }
 
     tls_extension(struct datum &p) : type{0}, length{0}, value{NULL, NULL}, type_ptr{NULL}, length_ptr{NULL}, cnt{0} {
@@ -549,7 +553,17 @@ struct tls_extension {
         }
     }
 
-    void write_raw_features(writeable &buf) const {
+    void write_raw_features(writeable &buf, bool &first) const {
+        if (uint16_match(type, extns_not_in_raw_features, num_extns_not_in_raw_features) == true) {
+            return;
+        }
+
+        if (!first) {
+            buf.copy(',');
+        } else {
+            first = false;
+        }
+
         buf.copy('[');
         buf.write_quote_enclosed_hex(type_ptr, sizeof(type));
         buf.copy(',');
@@ -749,13 +763,8 @@ void tls_extensions::write_raw_features(writeable &buf) const {
     struct datum ext_parser{this->data, this->data_end};
     bool first_extension = true;
     while (ext_parser.length() > 0) {
-        if (!first_extension) {
-            buf.copy(',');
-        } else {
-            first_extension = false;
-        }
         tls_extension x{ext_parser};
-        x.write_raw_features(buf);
+        x.write_raw_features(buf, first_extension);
     }
     buf.copy(']');
 }
@@ -922,10 +931,13 @@ void tls_client_hello::write_json(struct json_object &record, bool output_metada
         extensions.print_session_ticket(tls_client, "session_ticket");
         extensions.print_ech_client_hello(tls_client);
     }
-    // Temporarily disable tls.features due to output volume
-    // data_buffer<2048> buf;
-    // write_raw_features(buf);
-    // tls_client.print_key_json_string("features", buf.contents());
+
+    if (output_raw_features) {
+        data_buffer<4096> buf;
+        write_raw_features(buf);
+        tls_client.print_key_json_string("features", buf.contents());
+    }
+
     tls_client.close();
     tls.close();
 }

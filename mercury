@@ -41,7 +41,7 @@ _mercury()
     fi
 
     if [[ "$cur" == -* ]]; then
-        COMPREPLY=( $( compgen -W '--analysis --buffer --capture --certs-json --config --directory --dns-json --fingerprint --format --help --license --limit --metadata --nonselected-tcp-data --nonselected-udp-data --output-time --read --resources --select --stats --stats-limit --stats-time --tcp-reassembly --threads --user --verbose --version --write' -- "$cur") )
+        COMPREPLY=( $( compgen -W '--analysis --buffer --capture --certs-json --config --directory --dns-json --fingerprint --format --help --license --limit --metadata --nonselected-tcp-data --nonselected-udp-data --output-time --read --resources --select --stats --stats-limit --stats-time --reassembly --threads --user --verbose --version --write' -- "$cur") )
         # COMPREPLY=( $( compgen -W '$( _parse_help "$1" )' -- "$cur" ) )
         return 0
     fi
