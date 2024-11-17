@@ -368,7 +368,7 @@ namespace ike {
             case transform_type<uint8_t>::code::Integrity_Algorithm:
                 integrity_transform_type<uint16_t>{transform_id}.write_json(o);
                 break;
-            case transform_type<uint8_t>::code::Diffie_Hellman_Group:
+            case transform_type<uint8_t>::code::Key_Exchange_Method:
                 diffie_hellman_group_type<uint16_t>{transform_id}.write_json(o);
                 break;
             case transform_type<uint8_t>::code::Extended_Sequence_Numbers:
@@ -516,7 +516,7 @@ namespace ike {
                 }
                 break;
             case payload_type<uint8_t>::code::Vendor_ID:
-                if (payload.is_printable()) {
+                if (false) { // payload.is_printable()) {
                     o.print_key_json_string("vendor_id", payload);
                 } else {
                     o.print_key_hex("vendor_id_hex", payload);
