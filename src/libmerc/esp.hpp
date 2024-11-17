@@ -70,6 +70,10 @@ public:
         }
     }
 
+    // ESP can run over IP as protocol 50, or run over UDP, with the
+    // default port of 500, in which case it is usually multiplexed
+    // with IKE over the same port
+    //
     static constexpr uint16_t default_port = hton<uint16_t>(4500);
 
     bool is_not_empty() {

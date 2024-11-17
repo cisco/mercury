@@ -44,6 +44,7 @@
 #include "lldp.h"
 #include "ospf.h"
 #include "esp.hpp"
+#include "ike.hpp"
 #include "sctp.h"
 #include "analysis.h"
 #include "buffer_stream.h"
@@ -543,7 +544,9 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
                           struct timespec *ts,
                           struct tcp_reassembler *reassembler) {
 
-    if (std::holds_alternative<esp>(x)) {
+    // no reassembly for ESP or IKE
+    //
+    if (std::holds_alternative<esp>(x) or std::holds_alternative<ike::packet>(x)) {
         return true;
     }
 
@@ -699,7 +702,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     } else if (selector.ospf() && transport_proto == ip::protocol::ospfigp) {
         x.emplace<ospf>(pkt);
 
-    } else if (selector.esp() && transport_proto == ip::protocol::esp) {
+    } else if (selector.ipsec() && transport_proto == ip::protocol::esp) {
         x.emplace<esp>(pkt);
 
     } else if (selector.sctp() && transport_proto == ip::protocol::sctp) {
@@ -779,8 +782,14 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             default:
                 break;
             }
-        } else if (selector.esp() and ports.either_matches(esp::default_port)) {   // esp over udp
-            x.emplace<esp>(pkt);
+        } else if (selector.ipsec() and ports.either_matches(ike::default_port)) {
+                x.emplace<ike::packet>(pkt);
+        } else if (selector.ipsec() and ports.either_matches_any(esp::default_port)) {   // esp or ike over udp
+            if (lookahead<ike::non_esp_marker> non_esp{pkt}) {
+                x.emplace<ike::packet>(pkt);
+            } else {
+                x.emplace<esp>(pkt);
+            }
         }
 
         if (!process_udp_data(x, pkt, udp_pkt, k, ts, reassembler)) {

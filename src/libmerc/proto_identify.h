@@ -232,7 +232,7 @@ class traffic_selector {
     bool select_nbds;
     bool select_nbss;
     bool select_openvpn_tcp;
-    bool select_esp{false};
+    bool select_ipsec{false};
 
 public:
 
@@ -266,7 +266,7 @@ public:
 
     bool openvpn_tcp() const { return select_openvpn_tcp; }
 
-    bool esp() const { return select_esp; }
+    bool ipsec() const { return select_ipsec; }
 
     void disable_all() {
         tcp.disable_all();
@@ -436,8 +436,8 @@ public:
         if (protocols["openvpn_tcp"] || protocols["all"]) {
             select_openvpn_tcp = true;
         }
-        if (protocols["esp"] || protocols["esp"]) {
-            select_esp = true;
+        if (protocols["ipsec"] || protocols["all"]) {
+            select_ipsec = true;
         }
 
         if (protocols["bittorrent"] || protocols["all"]) {

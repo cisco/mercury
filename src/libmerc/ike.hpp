@@ -1,4 +1,4 @@
-// ike.h
+// ike.hpp
 //
 // internet key exchange
 
@@ -7,6 +7,8 @@
 
 namespace ike {
 
+#include "datum.h"
+#include "protocol.h"
 #include "ikev2_params.h"
 
     // The non-ESP marker is used to distinguish IKE from
@@ -19,6 +21,12 @@ namespace ike {
     public:
         non_esp_marker(datum &d) : value{d, {0x00, 0x00, 0x00, 0x00}} { }
     };
+
+    // by default, IKE runs on UDP port 500, though it can also use
+    // UDP port 4500, in which case it is usually multiplexed with
+    // ESP-over-UDP
+    //
+    static constexpr uint16_t default_port = hton<uint16_t>(500);
 
     //                          1                   2                   3
     //     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -208,7 +216,8 @@ namespace ike {
             spi_size{d},
             message_type{d},
             spi{d, spi_size},
-            data{d}
+            data{d},
+            valid{d.is_not_null()}
         {}
 
         void write_json(json_object &o) {
@@ -441,7 +450,7 @@ namespace ike {
             p.print_key_hex("spi", spi);
             // p.print_key_hex("transforms", transforms);
             json_array transform_array{p, "transforms"};
-            fprintf(stderr, "proposal transforms:"); transforms.fprint_hex(stderr); fputc('\n', stderr);
+            //fprintf(stderr, "proposal transforms:"); transforms.fprint_hex(stderr); fputc('\n', stderr);
             datum tmp = transforms;
             while (tmp.is_not_empty()) {
                 transform t{tmp};
@@ -532,7 +541,7 @@ namespace ike {
         }
     };
 
-    class packet {
+    class packet : public base_protocol {
         header hdr;
         datum body;
     public:
@@ -541,13 +550,17 @@ namespace ike {
             body{d, hdr.body_length()}
         { }
 
+        bool is_not_empty() const { return is_valid(); }
+
         bool is_valid() const { return hdr.is_valid() and body.is_not_null(); }
 
-        void write_json(json_object &o) const {
+        void write_json(json_object &o, bool output_metadata=false) const {
+            (void)output_metadata;
             if (!is_valid()) { return; }
-            hdr.write_json(o);
+            json_object ike_json{o, "ike"};
+            hdr.write_json(ike_json);
             uint16_t payload_type = hdr.get_next_payload();
-            json_array payloads{o, "payloads"};
+            json_array payloads{ike_json, "payloads"};
             datum tmp = body;
             while (tmp.is_not_empty()) {
                 json_object p{payloads};
@@ -557,6 +570,7 @@ namespace ike {
                 payload_type = gp.get_next_payload();
             }
             payloads.close();
+            ike_json.close();
         }
 
     };

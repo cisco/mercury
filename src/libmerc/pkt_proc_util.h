@@ -67,6 +67,7 @@ class iec60870_5_104;
 class openvpn_tcp;
 class mysql_server_greet;
 class esp;
+namespace ike { class packet; }
 
 using protocol = std::variant<std::monostate,
                               http_request,                      // start of tcp protocols
@@ -108,7 +109,8 @@ using protocol = std::variant<std::monostate,
                               socks5_req_resp,
                               socks5_hello,
                               socks4_req,
-                              esp
+                              esp,
+                              ike::packet
                               >;
 
 // class unknown_initial_packet represents the initial data field of a
