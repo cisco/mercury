@@ -34,109 +34,24 @@
 #define L_ssh_languages_client_to_server_len   4
 #define L_ssh_languages_server_to_client_len   4
 
-
 /*
- *  Once the TCP connection has been established, both sides MUST send an
- *  identification string.  This identification string MUST be
- *
- *    SSH-protoversion-softwareversion SP comments CR LF
- *
- *  where 'protoversion' MUST be "2.0".  The 'comments' string is
- *  OPTIONAL.  If the 'comments' string is included, a 'space' character
- *  (denoted above as SP, ASCII 32) MUST separate the 'softwareversion'
- *  and 'comments' strings.  The identification MUST be terminated by a
- *  single Carriage Return (CR) and a single Line Feed (LF) character
- *  (ASCII 13 and 10, respectively).  Implementers who wish to maintain
- *  compatibility with older, undocumented versions of this protocol may
- *  want to process the identification string without expecting the
- *  presence of the carriage return character for reasons described in
- *  Section 5 of this document.  The null character MUST NOT be sent.
- *  The maximum length of the string is 255 characters, including the
- *  Carriage Return and Line Feed.
- */
+NOTES:
+1. Messages of importance: ssh protocol init, ssh key exchange init, ssh specific key type exchange init for e.g. dhe init
+2. Protocol init string is to be treated as user agent
+3. fingerprint to be extracted from keyexchange init + msg type code for ssh specific key type exchange
+4. Reassembly till kex init pkt.
+5. Include the msg code for kepy type exchange init only if it is present with the kex initi message
+6. The seq of pkts is protocol message and one or more ssh binary pkts
+6. Have a matcher for ssh protocol init and kex pkt
+7. add multiple ssh versions like SSH1.5
+8. If protocol init is seen, look for one or more binary pkts following it
+9. If not present, add the complete data to the reassembly table
+10. Add reassembly flushing logic - after every pkt, based on the protocol, perform some operation to see if reassembly is done.
+11. After completing reassembly, parse the messages again to find the complete msg
+12. Consolidate fingerprint format by mapping strings to codes for algos
 
+*/
 
-// VERSLEN is the length of "SSH-2.0-"
-//
-#define VERS_LEN 8
-
-struct ssh_init_packet : public base_protocol {
-    struct datum protocol_string;
-    struct datum comment_string;
-
-    ssh_init_packet(datum &p) : protocol_string{NULL, NULL}, comment_string{NULL, NULL} {
-        parse(p);
-    }
-
-    void parse(struct datum &p) {
-        uint8_t delim = protocol_string.parse_up_to_delimiters(p, '\n', ' ');
-        if (delim == '\n') {
-            return;  // no comment string
-        }
-        p.skip(1);
-        comment_string.parse_up_to_delim(p, '\n');
-        p.skip(1);
-    }
-
-    bool is_not_empty() {
-        return protocol_string.is_not_empty();
-    }
-
-    void fingerprint(struct buffer_stream &buf) const {
-        if (protocol_string.is_not_readable()) {
-            return;
-        }
-        buf.write_char('(');
-        struct datum tmp = protocol_string; // to avoid modifying object
-        tmp.skip(VERS_LEN);                  // advance over "SSH-2.0"
-        if (comment_string.is_not_empty()) {
-            buf.raw_as_hex(tmp.data, tmp.data_end - tmp.data);
-            buf.write_char('2');             // represent SP between protocol and comment strings
-            buf.write_char('0');             // represent SP between protocol and comment strings
-            tmp = comment_string;
-            tmp.trim(1);
-            buf.raw_as_hex(tmp.data, tmp.data_end - tmp.data);
-        } else {
-            tmp.trim(1);                     // trim the trailing '\n'
-            buf.raw_as_hex(tmp.data, tmp.data_end - tmp.data);
-            buf.write_char('2');             // represent SP between protocol and comment strings
-            buf.write_char('0');             // represent SP between protocol and comment strings
-            tmp = comment_string;
-            tmp.trim(1);
-            buf.raw_as_hex(tmp.data, tmp.data_end - tmp.data);
-        }
-        buf.write_char(')');
-    }
-
-    void compute_fingerprint(class fingerprint &fp) const {
-        fp.set_type(fingerprint_type_ssh);
-        fp.add(*this);
-        fp.final();
-    }
-
-    void write_json(json_object &o, bool output_metadata) {
-        if (output_metadata == false) {
-            return;
-        }
-        if (protocol_string.is_not_readable()) {
-            return;
-        }
-        if (output_metadata) {
-            json_object json_ssh{o, "ssh"};
-            json_object json_ssh_init{json_ssh, "init"};
-            json_ssh_init.print_key_json_string("protocol", protocol_string.data, protocol_string.length());
-            json_ssh_init.print_key_json_string("comment", comment_string.data, comment_string.length());
-            json_ssh_init.close();
-            json_ssh.close();
-        }
-    }
-
-    static constexpr mask_and_value<8> matcher{
-        { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00 },
-        { 'S',  'S',  'H',  '-',  '2',  '.',  0x00, 0x00 }
-    };
-
-};
 
 /*
  * From RFC 4253 (The SSH Transport Layer Protocol):
@@ -166,6 +81,8 @@ struct ssh_binary_packet {
     ssh_binary_packet(datum &p) : packet_length{0}, padding_length{0}, payload{NULL, NULL}, additional_bytes_needed{0} {
         parse(p);
     }
+
+    ssh_binary_packet() {}
 
     void parse(struct datum &p) {
         additional_bytes_needed = 0;
@@ -245,6 +162,8 @@ struct ssh_kex_init : public base_protocol {
     struct name_list languages_server_to_client;
 
     ssh_kex_init(datum &p) { parse(p); };
+
+    ssh_kex_init() { };
 
     void parse(struct datum &p) {
 
@@ -330,6 +249,111 @@ struct ssh_kex_init : public base_protocol {
             0x14,                   // KEX code
             0x00, 0x00              // ...
         }
+    };
+
+};
+
+/*
+ *  Once the TCP connection has been established, both sides MUST send an
+ *  identification string.  This identification string MUST be
+ *
+ *    SSH-protoversion-softwareversion SP comments CR LF
+ *
+ *  where 'protoversion' MUST be "2.0".  The 'comments' string is
+ *  OPTIONAL.  If the 'comments' string is included, a 'space' character
+ *  (denoted above as SP, ASCII 32) MUST separate the 'softwareversion'
+ *  and 'comments' strings.  The identification MUST be terminated by a
+ *  single Carriage Return (CR) and a single Line Feed (LF) character
+ *  (ASCII 13 and 10, respectively).  Implementers who wish to maintain
+ *  compatibility with older, undocumented versions of this protocol may
+ *  want to process the identification string without expecting the
+ *  presence of the carriage return character for reasons described in
+ *  Section 5 of this document.  The null character MUST NOT be sent.
+ *  The maximum length of the string is 255 characters, including the
+ *  Carriage Return and Line Feed.
+ */
+
+
+// VERSLEN is the length of "SSH-x.x-"
+//
+#define VERS_LEN 8
+
+struct ssh_init_packet : public base_protocol {
+    struct datum protocol_string;
+    struct datum comment_string;
+    ssh_binary_packet binary_pkts[10];
+    ssh_kex_init kex_pkts[10];
+
+    ssh_init_packet(datum &p) : protocol_string{NULL, NULL}, comment_string{NULL, NULL} {
+        parse(p);
+    }
+
+    void parse(struct datum &p) {
+        uint8_t delim = protocol_string.parse_up_to_delimiters(p, '\n', ' ');
+        if (delim == '\n') {
+            return;  // no comment string
+        }
+        p.skip(1);
+        comment_string.parse_up_to_delim(p, '\n');
+        p.skip(1);
+    }
+
+    bool is_not_empty() {
+        return protocol_string.is_not_empty();
+    }
+
+    void fingerprint(struct buffer_stream &buf) const {
+        if (protocol_string.is_not_readable()) {
+            return;
+        }
+        buf.write_char('(');
+        struct datum tmp = protocol_string; // to avoid modifying object
+        tmp.skip(VERS_LEN);                  // advance over "SSH-2.0"
+        if (comment_string.is_not_empty()) {
+            buf.raw_as_hex(tmp.data, tmp.data_end - tmp.data);
+            buf.write_char('2');             // represent SP between protocol and comment strings
+            buf.write_char('0');             // represent SP between protocol and comment strings
+            tmp = comment_string;
+            tmp.trim(1);
+            buf.raw_as_hex(tmp.data, tmp.data_end - tmp.data);
+        } else {
+            tmp.trim(1);                     // trim the trailing '\n'
+            buf.raw_as_hex(tmp.data, tmp.data_end - tmp.data);
+            buf.write_char('2');             // represent SP between protocol and comment strings
+            buf.write_char('0');             // represent SP between protocol and comment strings
+            tmp = comment_string;
+            tmp.trim(1);
+            buf.raw_as_hex(tmp.data, tmp.data_end - tmp.data);
+        }
+        buf.write_char(')');
+    }
+
+    void compute_fingerprint(class fingerprint &fp) const {
+        fp.set_type(fingerprint_type_ssh);
+        fp.add(*this);
+        fp.final();
+    }
+
+    void write_json(json_object &o, bool output_metadata) {
+        if (output_metadata == false) {
+            return;
+        }
+        if (protocol_string.is_not_readable()) {
+            return;
+        }
+        if (output_metadata) {
+            json_object json_ssh{o, "ssh"};
+            json_object json_ssh_init{json_ssh, "init"};
+            json_ssh_init.print_key_json_string("protocol", protocol_string.data, protocol_string.length());
+            json_ssh_init.print_key_json_string("comment", comment_string.data, comment_string.length());
+            json_ssh_init.close();
+            json_ssh.close();
+        }
+    }
+
+    static constexpr mask_and_value<8> matcher{
+        { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00 },
+        { 'S',  'S',  'H',  '-',  '2',  '.',  0x00, 0x00 }
     };
 
 };
