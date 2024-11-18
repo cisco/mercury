@@ -143,7 +143,17 @@ fp_type_dict = {
 
 cdef class Mercury:
     """
-    Initialize mercury packet processors to process and analyze network data.
+    Initialize mercury packet processors to process and analyze network data. Standard usage:
+
+    .. code-block:: python
+
+        import mercury
+        from binascii import unhexlify
+
+        libmerc = mercury.Mercury()
+
+        pkt_data = b'52540012...'
+        libmerc.get_mercury_json(unhexlify(pkt_data))
 
     :param do_analysis: Apply mercury's analysis functionality to packets.
     :type do_analysis: bool
