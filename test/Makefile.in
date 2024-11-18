@@ -262,10 +262,7 @@ endif
 .PHONY: json-test
 json-test:
 	@echo "running json-test"
-	${MERCURY} -r data/http.pcap -f tmp.json --metadata -a --resources=data/resources-test.tgz
-=======
-	${MERCURY} -r data/http.pcap -f tmp.json --metadata -a --resources=../resources/resources.tgz --raw-features=all
->>>>>>> origin/dev
+	${MERCURY} -r data/http.pcap -f tmp.json --metadata -a --resources=data/resources-test.tgz --raw-features=all
 	bash -c "diff tmp.json data/http.json"
 	@echo $(COLOR_GREEN) "passed json-test" $(COLOR_OFF)
 	rm -f tmp.json
