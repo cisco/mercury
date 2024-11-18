@@ -1,5 +1,70 @@
 # CHANGELOG for Mercury
 
+## VERSION 2.6.1
+* Improved STUN implementation: added test cases, fixed fingerprint
+  feature nits, renamed variables for consistency with the RFCs, and
+  simplified the message_type check.
+
+## VERSION 2.6.0
+* Added reassembly for QUIC initial messages, to ensure metadata and
+  fingerprint capture even for very long messages (e.g. due to
+  quantum-safe cryptography or encrypted client hellos).
+* Added the `--reassembly` keyword, which applies to both TCP and
+  QUIC, and retired the `--tcp-reassembly` option.
+* Improved support for the STUN protocol.
+    * Added support for "classic" (RFC3489) STUN.  In classic STUN,
+      `stun.magic_cookie` field is `false` and the
+      `stun.transaction_id` field is 16 bytes long.  In modern STUN,
+      the former field is `true` and the latter is 12 bytes long.
+    * Added a STUN fingerprint that uses data features selected by
+      automated feature-mining fingerprint.
+    * The STUN "usage" (STUN/TURN/ICE/etc.) is reported in the new
+      `stun.usage` field.
+    * Details are now reported for the STUN
+      attributes `BANDWIDTH`, `SOURCE-ADDRESS`, `CHANGED-ADDRESS`,
+      `RESPONSE-ADDRESS`, and `REFLECTED-FROM`.
+    * The `stun.message_type` field has been renamed to `stun.class`.
+* Added new output fields `dns.id`, `ip.version`, `ip.id`, `ip.ttl`
+  that are present when the `--metadata` option is used.
+* Added a `--raw-features=<protocols>` command line option that
+      specifies which protocols should have a raw feature vector
+      output.  Currently supported options include `bittorrent`,
+      `smb`, `ssdp`, `stun`, `tls`, `all`, and `none`.
+* Refactored HTTP header processing, enabling
+    * Non-standard delimeters are accepted, and their value is reported.
+    * HTTP 0.9 is accepted.
+    * With the `--metadata` option, all of the headers are output
+      using an object to represent each key/value pair.  This
+      simplifies the processing of header keys that appear more than
+      once in an HTTP request or response.
+* Added the first 512 bytes of the HTTP Body to `http` JSON records
+* Added BSD Loopback support for GENEVE.
+* Improved `tofsee` message format checking and `--stats` reporting.
+* Fixed the UTF-8 fuzz test seed file locations.
+* Changes to fingerprint and destination statistics output (`--stats`)
+    * Removed source IP address (`src_ip`) anonymization in stats file output.
+    * When processing a PCAP file, stats now uses lossless (blocking)
+      processing of events.  This enables the stats test to be
+      deterministic, avoiding occasional spurious failures during `make test`.
+    * Increased stats message queue size from 256 to 512.
+    * Stats aggregator now uses adaptive sleep time.
+    * Makefile addition: pre-clean the `test/` directory before
+      running the stats test.  This prevents leftover files in the
+      test directory from throwing off the counts of mercury JSON
+      output vs. mercury stats output.
+* The `--select=all` configuration option now actually selects all
+  protocols, including layer 2 protocols like ARP.
+* Added the `event_start` timestamp field to layer 2 JSON records.
+* Improved signal handling for code safety.
+* TLS ALPN GREASE is now normalized to `0x0a0a (\n\n)`.
+* In `libmerc`, truncated fingerprints now have a `fingerprint_status`
+  set to `fingerprint_status_unlabeled`.
+* Added informational messages to `libmerc`: resource file load time,
+  total number of loaded fingerprints, and the end time of a telemetry
+  stats dump.
+* Moved `hasher` to `crypto_engine.h`, so that it is more accesible.
+
+
 ## Version 2.5.31
 * Mercury now outputs `tls.client.certs` and `tls.undetermined.certs`
   as well as `tls.server.certs`, for TLS version 1.2 and earlier.

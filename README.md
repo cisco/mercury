@@ -111,8 +111,7 @@ GENERAL OPTIONS
    [-s or --select] filter               # select traffic by filter (see --help)
    --nonselected-tcp-data                # tcp data for nonselected traffic
    --nonselected-udp-data                # udp data for nonselected traffic
-   --tcp-reassembly                      # reassemble tcp data segments
-   --quic-reassembly                     # reassemble quic crypto frames across packets
+   --reassembly                          # reassemble protocol messages over multiple transport segments
    [-l or --limit] l                     # rotate output file after l records
    --output-time=T                       # rotate output file after T seconds
    --dns-json                            # output DNS as JSON, not base64
@@ -203,14 +202,10 @@ DETAILS
    --select filter affects the UDP data written by this option; use
    '--select=none' to obtain the UDP data for each flow.
 
-   --tcp-reassembly enables tcp reassembly
-   This option allows mercury to keep track of tcp segment state and
-   and reassemble these segments based on the application in tcp payload
-
-   --quic-reassembly enables quic reassembly
-   This option allows mercury to keep track of quic flow state and
-   and reassemble crypto frames across packets
-
+   --reassembly enables reassembly
+   This option allows mercury to keep track of tcp or udp segment state and
+   and reassemble these segments based on the application in payload
+ 
    "[-u or --user] u" sets the UID and GID to those of user u, so that
    output file(s) are owned by this user.  If this option is not set, then
    the UID is set to SUDO_UID, so that privileges are dropped to those of

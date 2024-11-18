@@ -468,7 +468,7 @@ void packet_info_init_from_pkthdr(struct packet_info *pi,
 enum status pcap_file_dispatch_pkt_processor(struct pcap_file *f,
                                              struct pkt_proc *pkt_processor,
                                              int loop_count,
-                                             int &sig_close_flag) {
+                                             sig_atomic_t &sig_close_flag) {
     enum status status = status_ok;
     struct pcap_pkthdr pkthdr;
     uint8_t packet_data[BUFLEN];
