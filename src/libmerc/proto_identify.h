@@ -33,7 +33,6 @@
 #include "dns.h"
 #include "wireguard.h"
 #include "dtls.h"
-#include "ldap.hpp"
 #include "ssdp.h"
 #include "stun.h"
 #include "dnp3.h"
@@ -518,7 +517,7 @@ public:
             return tcp_msg_type_unknown;
         }
 
-        if (ldap() and ((tcp_pkt->header->src_port == ldap::default_port) or (tcp_pkt->header->dst_port == ldap::default_port))) {
+        if (ldap() and ((tcp_pkt->header->src_port == hton<uint16_t>(389)) or (tcp_pkt->header->dst_port == hton<uint16_t>(389)))) {
             return tcp_msg_type_ldap;
         }
 
