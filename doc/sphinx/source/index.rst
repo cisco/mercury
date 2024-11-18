@@ -77,7 +77,6 @@ Mercury Python Library Documentation
 
 .. automodule:: mercury
    :members:
-   :undoc-members:
    :show-inheritance:
 
 
