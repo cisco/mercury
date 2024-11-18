@@ -5,8 +5,10 @@
 #ifndef LDAP_HPP
 #define LDAP_HPP
 
-#define ASN1_DEBUG 1
-#define TLV_ERR_INFO 1
+// for ASN.1 debugging, uncomment the following lines
+//
+// #define ASN1_DEBUG 1
+// #define TLV_ERR_INFO 1
 
 #include "datum.h"
 #include "x509.h"
@@ -87,6 +89,38 @@ namespace ldap {
     // MessageID ::= INTEGER (0 ..  maxInt)
     //
     // maxInt INTEGER ::= 2147483647 -- (2^^31 - 1) --
+    //
+    class message : public base_protocol {
+        tlv outer_sequence; // SEQUENCE
+        tlv message_id;     // INTEGER
+        tlv protocol_op;    // ???
+
+    public:
+
+        message(datum &d) {
+            // fprintf(stderr, "found ldap port\n");
+            outer_sequence.parse(&d, tlv::SEQUENCE);
+            message_id.parse(&outer_sequence.value, tlv::INTEGER);
+        }
+
+        bool is_not_empty() const {
+            return message_id.is_valid();
+        }
+
+        void write_json(struct json_object &o, bool output_metadata) {
+            (void)output_metadata;
+            json_object ldap_json{o, "ldap"};
+            ldap_json.close();
+        }
+
+        // empty functions for unsupported functionality
+        //
+        void compute_fingerprint(fingerprint &) const { }
+        bool do_analysis(const struct key &, struct analysis_context &, classifier*) { return false; }
+
+    };
+
+    static constexpr uint16_t default_port = 34049; // TODO: hton<uint16_t>(389);
 
 };  // namespace ldap
 

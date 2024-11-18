@@ -67,6 +67,7 @@ struct tcp_packet;
 class iec60870_5_104;
 class openvpn_tcp;
 class mysql_server_greet;
+namespace ldap { class message; }
 
 using protocol = std::variant<std::monostate,
                               http_request,                      // start of tcp protocols
@@ -83,6 +84,7 @@ using protocol = std::variant<std::monostate,
                               nbss_packet,
                               bittorrent_handshake,
                               tofsee_initial_message,
+                              ldap::message,
                               unknown_initial_packet,
                               quic_init,                         // start of udp protocols
                               wireguard_handshake_init,
