@@ -23,19 +23,21 @@ class MercResourcesBuilder:
                 out_.write(f'{json.dumps(fp)}\n')
         # create version file
         with open(f'{self.resources_dir}/VERSION','w') as out_:
-            out_.write(f'{datetime.datetime.now():%Y.%m.%d}; 2.0.dual\n')
+            out_.write(f'{datetime.datetime.now():%Y.%m.%d}; 2.0.full\n')
         # create DoH watchlist file
         with open(f'{self.resources_dir}/doh-watchlist.txt','w') as out_:
             out_.write(f'1.1.1.1\n')
             out_.write(f'1.0.0.1\n')
             out_.write(f'8.8.8.8\n')
             out_.write(f'8.8.4.4\n')
+            out_.write(f'9.9.9.9\n')
         # create fp prevalence file
         with open(f'{self.resources_dir}/fp_prevalence_tls.txt','w') as out_:
             for v,k in sorted([(v,k) for k,v in tls_prevalence.items()], reverse=True)[:1000]:
                 out_.write(f'{k}\n')
         subprocess.run(['tar', 'cvzf', f'{self.resources_dir}/resources-mp.tgz', f'-C', self.resources_dir,
                         'fingerprint_db.json', 'VERSION', 'doh-watchlist.txt', 'fp_prevalence_tls.txt'])
+
 
     # TODO: use python psl package?
     def get_domain_name(self, hostname):
@@ -59,11 +61,14 @@ class MercResourcesBuilder:
             return None, None, None, None, None, None, None, None
 
         # check if we got process information
-        if 'process' not in merc_record or 'process' not in merc_record['process']:
+        if 'ground_truth' not in merc_record or 'process_name' not in merc_record['ground_truth']:
             return None, None, None, None, None, None, None, None
 
-        label    = merc_record['process']['process']
-        sha256   = merc_record['process']['sha256']
+        if 'parent_name' in merc_record['ground_truth']:
+            label = f"({merc_record['ground_truth']['parent_name']})({merc_record['ground_truth']['process_name']})"
+        else:
+            label = f"(Unknown)({merc_record['ground_truth']['process_name']})"
+        sha256   = merc_record['ground_truth']['process_hash']
         fp_str   = merc_record['fingerprints'][fp_type]
         dst_ip   = merc_record['dst_ip']
         dst_port = merc_record['dst_port']
@@ -117,7 +122,6 @@ class MercResourcesBuilder:
                     fpdb[fp_str]['process_info'][label]['sha256']                   = sha256
                     fpdb[fp_str]['process_info'][label]['classes_port_port']        = defaultdict(int)
                     fpdb[fp_str]['process_info'][label]['classes_ip_ip']            = defaultdict(int)
-#                    fpdb[fp_str]['process_info'][label]['classes_ip_as']            = defaultdict(int)
                     fpdb[fp_str]['process_info'][label]['classes_user_agent']       = defaultdict(int)
                     fpdb[fp_str]['process_info'][label]['classes_hostname_sni']     = defaultdict(int)
                     fpdb[fp_str]['process_info'][label]['classes_hostname_domains'] = defaultdict(int)
@@ -126,7 +130,6 @@ class MercResourcesBuilder:
                 fpdb[fp_str]['process_info'][label]['count'] += 1
                 fpdb[fp_str]['process_info'][label]['classes_port_port'][str(dst_port)] += 1
                 fpdb[fp_str]['process_info'][label]['classes_ip_ip'][dst_ip] += 1
-#                fpdb[fp_str]['process_info'][label]['classes_ip_as'][self.ip_to_as(dst_ip)] += 1
                 if hostname != None:
                     fpdb[fp_str]['process_info'][label]['classes_hostname_sni'][hostname] += 1
                     fpdb[fp_str]['process_info'][label]['classes_hostname_domains'][self.get_domain_name(hostname)] += 1
@@ -155,9 +158,6 @@ class MercResourcesBuilder:
                     new_process['classes_user_agent'] = {}
                     for k,v in process_data['classes_user_agent'].items():
                         new_process['classes_user_agent'][k] = v
-#                    new_process['classes_ip_as'] = {}
-#                    for k,v in process_data['classes_ip_as'].items():
-#                        new_process['classes_ip_as'][k] = v
                     new_process['classes_hostname_sni'] = {}
                     for k,v in process_data['classes_hostname_sni'].items():
                         new_process['classes_hostname_sni'][k] = v

@@ -19,8 +19,6 @@ import psutil
 import mercury
 
 
-#sudo setcap cap_net_raw,cap_net_admin,cap_dac_override+eip /usr/bin/python3.8
-
 class EndpointInfo:
 
     def __init__(self):
@@ -35,10 +33,10 @@ class EndpointInfo:
     def update_process_map(self):
         while True:
             for p in psutil.process_iter(['name', 'ppid', 'exe']):
-                if p.pid not in self.process_map or p.info['name'] != self.process_map[p.pid]['process']:
-                    endpoint_obj = {'process': p.info['name'],
-                                    'sha256':  self.get_process_hash(p.info['exe']),
-                                    'path':    p.info['exe'],
+                if p.pid not in self.process_map or p.info['name'] != self.process_map[p.pid]['process_name']:
+                    endpoint_obj = {'process_name': p.info['name'],
+                                    'process_hash': self.get_process_hash(p.info['exe']),
+                                    'process_path': p.info['exe'],
                                     'ppid':    p.info['ppid']}
                     self.process_map[p.pid] = endpoint_obj
 
@@ -52,10 +50,10 @@ class EndpointInfo:
                 if psutil.pid_exists(pid):
                     proc = psutil.Process(pid=pid)
                     with proc.oneshot():
-                        endpoint_obj = {'process': proc.name(),
-                                        'sha256':  self.get_process_hash(proc.exe()),
-                                        'path':    proc.exe(),
-                                        'ppid':    proc.ppid()}
+                        endpoint_obj = {'process_name': proc.name(),
+                                        'process_hash': self.get_process_hash(proc.exe()),
+                                        'process_path': proc.exe(),
+                                        'ppid':         proc.ppid()}
                         self.process_map[pid] = endpoint_obj
                         return self.process_map[pid]
                 attempts -= 1
@@ -221,18 +219,31 @@ class Monitor:
                 if conn_info == None:
                     conn_info = self.network_info.get_connection_info(flow_key_r)
 
+            ground_truth = {}
             if conn_info != None:
-                r['process'] = {}
                 proc_info = self.endpoint_info.get_process_info(conn_info['pid'])
                 if proc_info == None:
                     time.sleep(0.1)
                     proc_info = self.endpoint_info.get_process_info(conn_info['pid'])
 
                 if proc_info != None:
-                    r['process'] = proc_info
+                    ground_truth['process_name'] = proc_info['process_name']
+                    ground_truth['process_hash'] = proc_info['process_hash']
+                    ground_truth['process_path'] = proc_info['process_path']
+
+                    # get parent info
+                    parent_info = self.endpoint_info.get_process_info(proc_info['ppid'])
+                    if parent_info != None:
+                        ground_truth['parent_name'] = parent_info['process_name']
+                        ground_truth['parent_hash'] = parent_info['process_hash']
+                        ground_truth['parent_path'] = parent_info['process_path']
                 else:
-                    r['process']['pid'] = conn_info['pid']
-            r['os'] = self.endpoint_info.os_info
+                    ground_truth['process_pid']  = conn_info['pid']
+            os_info = self.endpoint_info.os_info
+            ground_truth['os']         = os_info['os']
+            ground_truth['os_version'] = os_info['os_version']
+            ground_truth['os_edition'] = os_info['os_edition']
+            r['ground_truth']          = ground_truth
             self.write_output(r)
 
 
