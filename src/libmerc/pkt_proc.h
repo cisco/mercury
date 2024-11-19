@@ -121,10 +121,10 @@ struct stateful_pkt_proc {
         reassembler_ptr{(global_vars.reassembly) ? (new tcp_reassembler) : nullptr}
     {
 
-        constexpr bool DO_CRYPTO_ASSESSMENT = false;
+        constexpr bool DO_CRYPTO_ASSESSMENT = true;
         if (DO_CRYPTO_ASSESSMENT) {
             // set crypto assessment policy
-            crypto_policy = new crypto_policy::quantum_safe;
+            crypto_policy = new crypto_policy::quantum_safe{true};
         }
 
         // set config and classifier to (refer to) context m

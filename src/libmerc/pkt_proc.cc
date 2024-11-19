@@ -94,6 +94,16 @@ struct do_crypto_assessment {
         return false;
     }
 
+    bool operator()(const tls_server_hello &msg) {
+        ca->assess(msg, record);
+        return false;
+    }
+
+    bool operator()(const tls_server_hello_and_certificate &msg) {
+        ca->assess(msg, record);
+        return false;
+    }
+
     bool operator()(const quic_init &msg) {
         if (msg.has_tls()) {
             ca->assess(msg.get_tls_client_hello(), record);
