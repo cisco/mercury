@@ -115,7 +115,7 @@ namespace crypto_policy {
                 while (tmp.is_readable()) {
                     encoded<uint16_t> cs{tmp};
                     if (!is_grease(cs) && allowed_ciphersuites.find(cs.value()) == allowed_ciphersuites.end()) {
-                        cs_array.print_uint(cs);
+                        cs_array.print_uint16_hex(cs);
                     }
                 }
                 cs_array.close();
