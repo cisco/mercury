@@ -295,9 +295,9 @@ namespace stun {
                 ;
             }
             if (msg_type == nullptr) {
-                o.print_key_unknown_code("class", message_type);
+                o.print_key_unknown_code("message_type", message_type);
             } else {
-                o.print_key_string("class", msg_type);
+                o.print_key_string("message_type", msg_type);
             }
         }
     };
