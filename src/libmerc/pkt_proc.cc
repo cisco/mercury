@@ -799,9 +799,6 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         // if (malware_prob_threshold > -1.0 && (!output_analysis || analysis.result.malware_prob < malware_prob_threshold)) { return 0; } // TODO - expose hidden command
 
         struct json_object record{&buf};
-        if (global_vars.metadata_output) {
-            ip_pkt.write_json(record);      // write out ip{version,ttl,id}
-        }
         if (analysis.fp.get_type() != fingerprint_type_unknown) {
             analysis.fp.write(record);
         }
@@ -822,6 +819,10 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         }
         else if (reassembler && reassembler->is_done(reassembler->curr_flow)) {
             reassembler->write_json(record);
+        }
+
+        if (global_vars.metadata_output) {
+            ip_pkt.write_json(record);      // write out ip{version,ttl,id}
         }
 
         write_flow_key(record, k);
