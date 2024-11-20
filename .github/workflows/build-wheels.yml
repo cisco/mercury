@@ -28,6 +28,9 @@ jobs:
       - name: Install packages
         run: sudo apt-get update && sudo apt-get install -y zlib1g-dev libssl-dev make
 
+      - name: Install AWS CLI
+        run: curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && unzip awscliv2.zip && sudo ./aws/install
+
       - name: Set up Python
         uses: actions/setup-python@v3
         with:
@@ -48,11 +51,20 @@ jobs:
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.20.0
         env:
-          CIBW_ARCHS_LINUX: x86_64 aarch64
+          CIBW_ARCHS_LINUX: x86_64 # aarch64
           CIBW_ENVIRONMENT: CC='g++' CXX='g++' MERCURY_DIR='./'
+          CIBW_BUILD: "cp312*"
           CIBW_SKIP: "*-musllinux_* pp*"
           CIBW_BEFORE_ALL: yum install -y openssl-devel make zlib-devel || apt-get install -y zlib1g-dev libssl-dev make || apk add zlib1g-dev libssl-dev make
-          CIBW_TEST_COMMAND: cd {project} && python test.py && cd -
+          CIBW_TEST_COMMAND: cd {project} && python test.py
+      
+      - name: Upload to S3
+        env: 
+          AWS_ACCESS_KEY_ID: ${{ACCESS_KEY_ID}}
+          AWS_SECRET_ACCESS_KEY: ${{ACCESS_KEY_SECRET}}
+          AWS_DEFAULT_REGION: us-east-1
+          S3_BUCKET: ${{S3_BUCKET}}
+        run: VERSION=$(cat src/cython/_version.py | tr -d '\n' | cut -d \' -f2) && aws s3 cp wheelhouse/ "$S3_BUCKET/version=$VERSION" --recursive
 
     #  - name: Publish package distributions to PyPI
     #    uses: pypa/gh-action-pypi-publish@release/v1
