@@ -104,6 +104,17 @@ struct do_crypto_assessment {
         return false;
     }
 
+    bool operator()(const dtls_client_hello &msg) {
+        ca->assess(msg, record);
+        return false;
+    }
+
+    bool operator()(const dtls_server_hello &msg) {
+        ca->assess(msg, record);
+        return false;
+    }
+
+
     bool operator()(const quic_init &msg) {
         if (msg.has_tls()) {
             ca->assess(msg.get_tls_client_hello(), record);

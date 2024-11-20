@@ -97,6 +97,8 @@ public:
         return hello.is_not_empty();
     }
 
+    const tls_client_hello &get_tls_client_hello() const { return hello; }
+
     static constexpr mask_and_value<16> dtls_matcher = {
         {
          0xff, 0xff, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -133,6 +135,8 @@ public:
     bool is_not_empty() const {
         return hello.is_not_empty();
     }
+
+    const tls_server_hello &get_tls_server_hello() const { return hello; }
 
     static constexpr mask_and_value<16> dtls_matcher = {
         {
