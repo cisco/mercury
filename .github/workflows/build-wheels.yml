@@ -28,8 +28,8 @@ jobs:
       - name: Install packages
         run: sudo apt-get update && sudo apt-get install -y zlib1g-dev libssl-dev make
 
-      - name: Install AWS CLI
-        run: curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && unzip awscliv2.zip && sudo ./aws/install
+#      - name: Install AWS CLI
+#        run: curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && unzip awscliv2.zip && sudo ./aws/install
 
       - name: Set up Python
         uses: actions/setup-python@v3
