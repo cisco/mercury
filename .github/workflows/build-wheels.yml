@@ -53,9 +53,10 @@ jobs:
           CIBW_BEFORE_ALL: yum install -y openssl-devel make zlib-devel || apt-get install -y zlib1g-dev libssl-dev make || apk add zlib1g-dev libssl-dev make
           CIBW_TEST_COMMAND: cd {project} && python mercury_python_test.py
 
-
-      - name: Publish package distributions to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: wheelhouse/
-          skip-existing: true
+      - name: Upload to S3
+        env: 
+          AWS_ACCESS_KEY_ID: ${{secrets.ACCESS_KEY_ID}}
+          AWS_SECRET_ACCESS_KEY: ${{secrets.ACCESS_KEY_SECRET}}
+          AWS_DEFAULT_REGION: us-east-1
+          S3_BUCKET: ${{secrets.S3_BUCKET}}
+        run: VERSION=$(cat src/cython/_version.py | tr -d '\n' | cut -d \' -f2) && aws s3 cp wheelhouse/ "s3://$S3_BUCKET/version=$VERSION" --recursive
