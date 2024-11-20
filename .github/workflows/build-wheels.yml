@@ -51,7 +51,7 @@ jobs:
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.20.0
         env:
-          CIBW_ARCHS_LINUX: x86_64 # aarch64
+          CIBW_ARCHS_LINUX: x86_64 # aarch64 test
           CIBW_ENVIRONMENT: CC='g++' CXX='g++' MERCURY_DIR='./'
           CIBW_BUILD: "cp312*"
           CIBW_SKIP: "*-musllinux_* pp*"
