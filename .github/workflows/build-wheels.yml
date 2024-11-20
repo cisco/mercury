@@ -64,7 +64,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{secrets.ACCESS_KEY_SECRET}}
           AWS_DEFAULT_REGION: us-east-1
           S3_BUCKET: ${{secrets.S3_BUCKET}}
-        run: VERSION=$(cat src/cython/_version.py | tr -d '\n' | cut -d \' -f2) && aws s3 cp wheelhouse/ "$S3_BUCKET/version=$VERSION" --recursive
+        run: VERSION=$(cat src/cython/_version.py | tr -d '\n' | cut -d \' -f2) && aws s3 cp wheelhouse/ "s3://$S3_BUCKET/version=$VERSION" --recursive
 
     #  - name: Publish package distributions to PyPI
     #    uses: pypa/gh-action-pypi-publish@release/v1
