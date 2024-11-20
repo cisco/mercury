@@ -34,9 +34,9 @@ options:
   -f OUTPUT_FILE, --fingerprint OUTPUT_FILE
                         write fingerprints to file
   -a, --analysis        perform process identification
-  -x RESOURCES, --resources RESOURCES
+  --resources RESOURCES
                         use resources file <resources>
-  -t, --tcp-reassembly  turn on tcp reassembly
+  --reassembly          turn on reassembly
 ```
 
 ## Custom Databases
