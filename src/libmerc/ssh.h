@@ -18,21 +18,22 @@
 #include "fingerprint.h"
 #include "match.h"
 
-#define L_ssh_version_string                   8
-#define L_ssh_packet_length                    4
-#define L_ssh_padding_length                   1
-#define L_ssh_payload                          1
-#define L_ssh_cookie                          16
-#define L_ssh_kex_algo_len                     4
-#define L_ssh_server_host_key_algos_len        4
-#define L_ssh_enc_algos_client_to_server_len   4
-#define L_ssh_enc_algos_server_to_client_len   4
-#define L_ssh_mac_algos_client_to_server_len   4
-#define L_ssh_mac_algos_server_to_client_len   4
-#define L_ssh_comp_algos_client_to_server_len  4
-#define L_ssh_comp_algos_server_to_client_len  4
-#define L_ssh_languages_client_to_server_len   4
-#define L_ssh_languages_server_to_client_len   4
+// #define L_ssh_version_string                   8
+// #define L_ssh_packet_length                    4
+// #define L_ssh_padding_length                   1
+// #define L_ssh_payload                          1
+// #define L_ssh_cookie                          16
+// #define L_ssh_kex_algo_len                     4
+// #define L_ssh_server_host_key_algos_len        4
+// #define L_ssh_enc_algos_client_to_server_len   4
+// #define L_ssh_enc_algos_server_to_client_len   4
+// #define L_ssh_mac_algos_client_to_server_len   4
+// #define L_ssh_mac_algos_server_to_client_len   4
+// #define L_ssh_comp_algos_client_to_server_len  4
+// #define L_ssh_comp_algos_server_to_client_len  4
+// #define L_ssh_languages_client_to_server_len   4
+// #define L_ssh_languages_server_to_client_len   4
+
 
 /*
 NOTES:
@@ -49,6 +50,10 @@ NOTES:
 10. Add reassembly flushing logic - after every pkt, based on the protocol, perform some operation to see if reassembly is done.
 11. After completing reassembly, parse the messages again to find the complete msg
 12. Consolidate fingerprint format by mapping strings to codes for algos
+13. There are 3 types of fingerprints for SSH:
+    a. Complete Fingerprint: SSH kex init along with protocol init strings as user agent - fingerprint type ssh
+    b. SSH kex init reported separately as a fingerprint - fingerprint type ssh_kex_init
+    c. SSH protocol init string - fingerprint type ssh_init
 
 */
 
@@ -71,40 +76,48 @@ NOTES:
  *
  */
 struct ssh_binary_packet {
-    uint32_t packet_length;
-    uint8_t padding_length;
-    struct datum payload;
+    encoded<uint32_t> binary_packet_length;
+    encoded<uint8_t> padding_length;
+    struct datum payload;       // includes padding and MAC is present
     size_t additional_bytes_needed;
+    struct datum trailing_data;     // data left after parsing a SSH binary pkt. Pass it on to kexinit pkt ctor
     // random padding
     // mac
 
-    ssh_binary_packet(datum &p) : packet_length{0}, padding_length{0}, payload{NULL, NULL}, additional_bytes_needed{0} {
+    ssh_binary_packet(datum &p) : binary_packet_length{p}, padding_length{p}, payload{NULL, NULL}, additional_bytes_needed{0}, trailing_data{NULL, NULL} {
         parse(p);
     }
 
-    ssh_binary_packet() {}
+    ssh_binary_packet() : binary_packet_length{0}, padding_length{0} {}
 
     void parse(struct datum &p) {
-        additional_bytes_needed = 0;
-        p.read_uint32(&packet_length);
-        if (packet_length > ssh_binary_packet::max_length || packet_length < ssh_binary_packet::min_length) {
+        if (binary_packet_length > ssh_binary_packet::max_length || binary_packet_length < ssh_binary_packet::min_length) {
             p.set_empty();  // probably not a real SSH binary packet
             return;
         }
-        p.read_uint8(&padding_length);
-        if (p.is_not_empty() == false) {
+        if (!p.is_not_empty()) {
             return;
         }
-        ssize_t bytes_left_in_packet = packet_length - 1;
-        if (bytes_left_in_packet > p.length()) {
-            additional_bytes_needed = bytes_left_in_packet - p.length();
+        ssize_t bytes_left_in_binary_packet = binary_packet_length - 1;
+        if (bytes_left_in_binary_packet > p.length()) {
+            additional_bytes_needed = bytes_left_in_binary_packet - p.length();
             // fprintf(stderr, "ssh_binary_packet additional_bytes_needed: %zu (wanted: %zd, have: %zu)\n", additional_bytes_needed, bytes_left_in_packet, p.length());
         }
-        payload.parse_soft_fail(p, bytes_left_in_packet);
+        payload.parse_soft_fail(p, bytes_left_in_binary_packet);
+        p.skip(padding_length); // skip padding
+        
+        // if trailing data, followup binary pkt
+        if (p.is_not_empty()) {
+            trailing_data = p;
+        }
     }
 
     bool is_not_empty() {
         return payload.is_not_empty();
+    }
+
+    bool has_trailing_data() {
+        return trailing_data.is_not_empty();
     }
 
     static const ssize_t max_length = 16384;
@@ -112,20 +125,20 @@ struct ssh_binary_packet {
 };
 
 struct name_list : public datum {
+    encoded<uint32_t> list_length;
 
-    name_list() : datum{} {}
+    name_list() : datum{}, list_length{0} {}
 
     void parse(struct datum &p) {
-        uint32_t length;
-        p.read_uint32(&length);
-        if (length > name_list::max_length) {
+        if (list_length > name_list::max_length) {
             p.set_empty(); // packet is not really a KEX_INIT
             return;
         }
-        datum::parse(p, length);
+        datum::parse(p, list_length);
     }
 
     const static ssize_t max_length = 2048; // longest possible name
+    // static constexpr uint32_t namelist_length_len = 4;
 };
 
 /*
@@ -147,6 +160,9 @@ struct name_list : public datum {
  *     uint32       0 (reserved for future extension)
  *
  */
+// The kexinit pkt can hold one additional binary pkt if present in the same pkt. This can be
+// used to parse the key exchange init of specific types like dhe init or kyber exchange.
+//
 struct ssh_kex_init : public base_protocol {
     struct datum msg_type;
     struct datum cookie;
@@ -160,15 +176,31 @@ struct ssh_kex_init : public base_protocol {
     struct name_list compression_algorithms_server_to_client;
     struct name_list languages_client_to_server;
     struct name_list languages_server_to_client;
+    bool secondary_binary_packet = false;
+    ssh_binary_packet sec_pkt;
 
-    ssh_kex_init(datum &p) { parse(p); };
+    static constexpr ssize_t ssh_msg_code_len = 1;
+    static constexpr ssize_t ssh_cookie_len = 16;
+
+    //ssh_kex_init(datum &p) { parse(p); };
+    
+    //ssh_kex_init(datum &p, datum trailing) { parse(p,trailing); };
+
+    ssh_kex_init(ssh_binary_packet& pkt) {
+        if (pkt.has_trailing_data()) {
+            parse(pkt.payload,pkt.trailing_data);
+        }
+        else {
+            parse(pkt.payload);
+        }
+    }
 
     ssh_kex_init() { };
 
     void parse(struct datum &p) {
 
-        msg_type.parse(p, L_ssh_payload);
-        cookie.parse(p, L_ssh_cookie);
+        msg_type.parse(p, ssh_msg_code_len);
+        cookie.parse(p, ssh_cookie_len);
         kex_algorithms.parse(p);
         server_host_key_algorithms.parse(p);
         encryption_algorithms_client_to_server.parse(p);
@@ -179,7 +211,24 @@ struct ssh_kex_init : public base_protocol {
         compression_algorithms_server_to_client.parse(p);
         languages_client_to_server.parse(p);
         languages_server_to_client.parse(p);
+    }
+    
+    void parse(struct datum &p, datum trailing) {
 
+        msg_type.parse(p, ssh_msg_code_len);
+        cookie.parse(p, ssh_cookie_len);
+        kex_algorithms.parse(p);
+        server_host_key_algorithms.parse(p);
+        encryption_algorithms_client_to_server.parse(p);
+        encryption_algorithms_server_to_client.parse(p);
+        mac_algorithms_client_to_server.parse(p);
+        mac_algorithms_server_to_client.parse(p);
+        compression_algorithms_client_to_server.parse(p);
+        compression_algorithms_server_to_client.parse(p);
+        languages_client_to_server.parse(p);
+        languages_server_to_client.parse(p);
+        sec_pkt = ssh_binary_packet{trailing};
+        secondary_binary_packet = sec_pkt.is_not_empty();
     }
 
     bool is_not_empty() const { return kex_algorithms.is_not_empty(); }
@@ -206,27 +255,54 @@ struct ssh_kex_init : public base_protocol {
         write_hex_data(buf, compression_algorithms_server_to_client);
         write_hex_data(buf, languages_client_to_server);
         write_hex_data(buf, languages_server_to_client);
+        if (secondary_binary_packet) {
+            buf.write_char('(');
+            buf.write_hex_uint( (lookahead< encoded<uint8_t> >{sec_pkt.payload}).value);
+            buf.write_hex_uint(sec_pkt.binary_packet_length);
+            buf.write_char(')');
+        }
     }
 
-    void write_json(json_object &o, bool output_metadata) const {
+    void write_json_data(json_object &ssh_client) const {
+        ssh_client.print_key_json_string("kex_algorithms", kex_algorithms.data, kex_algorithms.length());
+        ssh_client.print_key_json_string("server_host_key_algorithms", server_host_key_algorithms.data, server_host_key_algorithms.length());
+        ssh_client.print_key_json_string("encryption_algorithms_client_to_server", encryption_algorithms_client_to_server.data, encryption_algorithms_client_to_server.length());
+        ssh_client.print_key_json_string("encryption_algorithms_server_to_client", encryption_algorithms_server_to_client.data, encryption_algorithms_server_to_client.length());
+        ssh_client.print_key_json_string("mac_algorithms_client_to_server", mac_algorithms_client_to_server.data, mac_algorithms_client_to_server.length());
+        ssh_client.print_key_json_string("mac_algorithms_server_to_client", mac_algorithms_server_to_client.data, mac_algorithms_server_to_client.length());
+        ssh_client.print_key_json_string("compression_algorithms_client_to_server", compression_algorithms_client_to_server.data, compression_algorithms_client_to_server.length());
+        ssh_client.print_key_json_string("compression_algorithms_server_to_client", compression_algorithms_server_to_client.data, compression_algorithms_server_to_client.length());
+        ssh_client.print_key_json_string("languages_client_to_server", languages_client_to_server.data, languages_client_to_server.length());
+        ssh_client.print_key_json_string("languages_server_to_client", languages_server_to_client.data, languages_server_to_client.length());
+    }
+    
+    void write_json(json_object &o, bool output_metadata, bool nested = false) const {
         if (kex_algorithms.is_not_readable()) {
             return;
         }
         if (output_metadata) {
-            struct json_object ssh{o, "ssh"};
-            struct json_object ssh_client{ssh, "kex"};
-            ssh_client.print_key_json_string("kex_algorithms", kex_algorithms.data, kex_algorithms.length());
-            ssh_client.print_key_json_string("server_host_key_algorithms", server_host_key_algorithms.data, server_host_key_algorithms.length());
-            ssh_client.print_key_json_string("encryption_algorithms_client_to_server", encryption_algorithms_client_to_server.data, encryption_algorithms_client_to_server.length());
-            ssh_client.print_key_json_string("encryption_algorithms_server_to_client", encryption_algorithms_server_to_client.data, encryption_algorithms_server_to_client.length());
-            ssh_client.print_key_json_string("mac_algorithms_client_to_server", mac_algorithms_client_to_server.data, mac_algorithms_client_to_server.length());
-            ssh_client.print_key_json_string("mac_algorithms_server_to_client", mac_algorithms_server_to_client.data, mac_algorithms_server_to_client.length());
-            ssh_client.print_key_json_string("compression_algorithms_client_to_server", compression_algorithms_client_to_server.data, compression_algorithms_client_to_server.length());
-            ssh_client.print_key_json_string("compression_algorithms_server_to_client", compression_algorithms_server_to_client.data, compression_algorithms_server_to_client.length());
-            ssh_client.print_key_json_string("languages_client_to_server", languages_client_to_server.data, languages_client_to_server.length());
-            ssh_client.print_key_json_string("languages_server_to_client", languages_server_to_client.data, languages_server_to_client.length());
-            ssh_client.close();
-            ssh.close();
+            if (!nested) {
+                struct json_object ssh{o, "ssh"};
+                struct json_object ssh_client{ssh, "kex"};
+                write_json_data(ssh_client);
+                ssh_client.close();
+                if (secondary_binary_packet) {
+                    ssh.print_key_int("sec_binary_pkt_code", (lookahead< encoded<uint8_t> >{sec_pkt.payload}).value);
+                    ssh.print_key_int("sec_binary_pkt_len", sec_pkt.binary_packet_length);
+                }
+                ssh.close();
+            }
+            else {
+                // ssh json object exists beforehand
+                //
+                struct json_object ssh_client{o, "kex"};
+                write_json_data(ssh_client);
+                ssh_client.close();
+                if (secondary_binary_packet) {
+                    o.print_key_int("sec_binary_pkt_code", (lookahead< encoded<uint8_t> >{sec_pkt.payload}).value);
+                    o.print_key_int("sec_binary_pkt_len", sec_pkt.binary_packet_length);
+                }
+            }
         }
     }
 
@@ -273,6 +349,8 @@ struct ssh_kex_init : public base_protocol {
  *  Carriage Return and Line Feed.
  */
 
+// ssh init pkt can also hold an additional binary pkt to possibly parse the kex init pkt.
+
 
 // VERSLEN is the length of "SSH-x.x-"
 //
@@ -281,28 +359,53 @@ struct ssh_kex_init : public base_protocol {
 struct ssh_init_packet : public base_protocol {
     struct datum protocol_string;
     struct datum comment_string;
-    ssh_binary_packet binary_pkts[10];
-    ssh_kex_init kex_pkts[10];
+    ssh_binary_packet binary_pkt;
+    ssh_kex_init kex_pkt;
 
-    ssh_init_packet(datum &p) : protocol_string{NULL, NULL}, comment_string{NULL, NULL} {
+    ssh_init_packet(datum &p) : protocol_string{NULL, NULL}, comment_string{NULL, NULL}, binary_pkt{}, kex_pkt{} {
         parse(p);
     }
 
     void parse(struct datum &p) {
         uint8_t delim = protocol_string.parse_up_to_delimiters(p, '\n', ' ');
         if (delim == '\n') {
+            p.skip(1);
+
+            // check if more bytes are available
+            // indicating that a kex pkt might be present
+            //
+            if (p.is_not_empty()) {
+                binary_pkt = ssh_binary_packet{p};
+                if (binary_pkt.is_not_empty()) {
+                    kex_pkt = ssh_kex_init{binary_pkt};
+                }
+            }
+
             return;  // no comment string
         }
+        
         p.skip(1);
         comment_string.parse_up_to_delim(p, '\n');
         p.skip(1);
+
+        // check if more bytes are available
+        // indicating that a kex pkt might be present
+        //
+        if (p.is_not_empty()) {
+            binary_pkt = ssh_binary_packet{p};
+            if (binary_pkt.is_not_empty()) {
+                kex_pkt = ssh_kex_init{binary_pkt};
+            }
+        }
+
+        return;        
     }
 
     bool is_not_empty() {
         return protocol_string.is_not_empty();
     }
 
-    void fingerprint(struct buffer_stream &buf) const {
+    void write_fingerprint_data(struct buffer_stream &buf) const {
         if (protocol_string.is_not_readable()) {
             return;
         }
@@ -328,8 +431,27 @@ struct ssh_init_packet : public base_protocol {
         buf.write_char(')');
     }
 
+    void fingerprint_complete(struct buffer_stream &buf) const {
+        kex_pkt.fingerprint(buf);
+    }
+    
+    void fingerprint(struct buffer_stream &buf) const {
+        if (kex_pkt.is_not_empty()) {
+            fingerprint_complete(buf);
+        }
+        else {
+            write_fingerprint_data(buf);
+        }
+    }
+
     void compute_fingerprint(class fingerprint &fp) const {
-        fp.set_type(fingerprint_type_ssh);
+        // depending on type of pkt, set correct fingerprint type
+        if (kex_pkt.is_not_empty()){
+            fp.set_type(fingerprint_type_ssh);
+        }
+        else {
+            fp.set_type(fingerprint_type_ssh_init);
+        }
         fp.add(*this);
         fp.final();
     }
@@ -341,19 +463,23 @@ struct ssh_init_packet : public base_protocol {
         if (protocol_string.is_not_readable()) {
             return;
         }
-        if (output_metadata) {
-            json_object json_ssh{o, "ssh"};
-            json_object json_ssh_init{json_ssh, "init"};
-            json_ssh_init.print_key_json_string("protocol", protocol_string.data, protocol_string.length());
-            json_ssh_init.print_key_json_string("comment", comment_string.data, comment_string.length());
-            json_ssh_init.close();
-            json_ssh.close();
+        json_object json_ssh{o, "ssh"};
+        json_object json_ssh_init{json_ssh, "init"};
+        json_ssh_init.print_key_json_string("protocol", protocol_string.data, protocol_string.length());
+        json_ssh_init.print_key_json_string("comment", comment_string.data, comment_string.length());
+        json_ssh_init.close();
+
+        if (kex_pkt.is_not_empty()) {
+            kex_pkt.write_json(json_ssh, output_metadata, true);
         }
+
+        json_ssh.close();
+
     }
 
     static constexpr mask_and_value<8> matcher{
-        { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00 },
-        { 'S',  'S',  'H',  '-',  '2',  '.',  0x00, 0x00 }
+        { 0xff, 0xff, 0xff, 0xff, 0x00, 0xff, 0x00, 0x00 },
+        { 'S',  'S',  'H',  '-',  0x00,  '.',  0x00, 0x00 }
     };
 
 };

@@ -263,7 +263,7 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
                 tcp_pkt->reassembly_needed(ssh_pkt.additional_bytes_needed);
                 return;
             }
-            x.emplace<ssh_kex_init>(ssh_pkt.payload);
+            x.emplace<ssh_kex_init>(ssh_pkt);
             break;
         }
     case tcp_msg_type_smtp_client:
