@@ -212,7 +212,9 @@ namespace crypto_policy {
 
         bool assess(const tls_client_hello &ch, json_object &o) const override {
 
-            json_object a{o, "quantum_security_assessment"};
+            json_object a{o, "cryptographic_security_assessment"};
+            a.print_key_string("policy", "quantum_safe");
+            a.print_key_string("target", "client");
             assess_tls_ciphersuites(ch.ciphersuite_vector, a);
             assess_tls_extensions(ch.extensions, a);
             a.close();
@@ -222,7 +224,9 @@ namespace crypto_policy {
 
         bool assess(const tls_server_hello &ch, json_object &o) const override {
 
-            json_object a{o, "quantum_security_assessment"};
+            json_object a{o, "cryptographic_security_assessment"};
+            a.print_key_string("policy", "quantum_safe");
+            a.print_key_string("target", "session");
             assess_tls_ciphersuites(ch.ciphersuite_vector, a);
             assess_tls_extensions(ch.extensions, a);
             a.close();
@@ -240,7 +244,9 @@ namespace crypto_policy {
         bool assess(const dtls_client_hello &dtls_ch, json_object &o) const override {
 
             const tls_client_hello &ch = dtls_ch.get_tls_client_hello();
-            json_object a{o, "quantum_security_assessment"};
+            json_object a{o, "cryptographic_security_assessment"};
+            a.print_key_string("policy", "quantum_safe");
+            a.print_key_string("target", "client");
             assess_tls_ciphersuites(ch.ciphersuite_vector, a);
             assess_tls_extensions(ch.extensions, a);
             a.close();
@@ -251,7 +257,9 @@ namespace crypto_policy {
         bool assess(const dtls_server_hello &dtls_sh, json_object &o) const override {
 
             const tls_server_hello &sh = dtls_sh.get_tls_server_hello();
-            json_object a{o, "quantum_security_assessment"};
+            json_object a{o, "cryptographic_security_assessment"};
+            a.print_key_string("policy", "quantum_safe");
+            a.print_key_string("target", "session");
             assess_tls_ciphersuites(sh.ciphersuite_vector, a);
             assess_tls_extensions(sh.extensions, a);
             a.close();
