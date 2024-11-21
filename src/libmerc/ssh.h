@@ -104,7 +104,6 @@ struct ssh_binary_packet {
             // fprintf(stderr, "ssh_binary_packet additional_bytes_needed: %zu (wanted: %zd, have: %zu)\n", additional_bytes_needed, bytes_left_in_packet, p.length());
         }
         payload.parse_soft_fail(p, bytes_left_in_binary_packet);
-        p.skip(padding_length); // skip padding
         
         // if trailing data, followup binary pkt
         if (p.is_not_empty()) {
@@ -130,6 +129,7 @@ struct name_list : public datum {
     name_list() : datum{}, list_length{0} {}
 
     void parse(struct datum &p) {
+        list_length = encoded<uint32_t>{p};
         if (list_length > name_list::max_length) {
             p.set_empty(); // packet is not really a KEX_INIT
             return;

@@ -167,6 +167,7 @@ public:
             "openvpn",
             "tofsee",
             "stun",
+            "ssh_init"
         };
         if (fp_type > (sizeof(name)/sizeof(const char *)) - 1) {
             return name[0];  // error: unknown type
