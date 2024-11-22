@@ -597,40 +597,45 @@ struct tlv {
      * RELATIVE-OID-IRI		   36	24 *** LONG FORM TAG NUMBER ***
      */
 
+    static constexpr const char *type[32] = {
+        "End-of-Content",
+        "BOOLEAN",
+        "INTEGER",
+        "BIT STRING",
+        "OCTET STRING",
+        "NULL",
+        "OBJECT IDENTIFIER",
+        "Object Descriptor",
+        "EXTERNAL",
+        "REAL (float)",
+        "ENUMERATED",
+        "EMBEDDED PDV",
+        "UTF8String",
+        "RELATIVE-OID",
+        "TIME",
+        "Reserved",
+        "SEQUENCE, SEQUENCE OF",
+        "SET and SET OF",
+        "NumericString",
+        "PrintableString",
+        "T61String",
+        "VideotexString",
+        "IA5String",
+        "UTCTime",
+        "GeneralizedTime",
+        "GraphicString",
+        "VisibleString",
+        "GeneralString",
+        "UniversalString",
+        "CHARACTER STRING",
+        "BMPString"
+    };
+
+    const char *get_type() const {
+        return type[tag & 31];
+    }
+
     void fprint_tlv(FILE *f, const char *tlv_name) const {
-        const char *type[32] = {
-            "End-of-Content",
-            "BOOLEAN",
-            "INTEGER",
-            "BIT STRING",
-            "OCTET STRING",
-            "NULL",
-            "OBJECT IDENTIFIER",
-            "Object Descriptor",
-            "EXTERNAL",
-            "REAL (float)",
-            "ENUMERATED",
-            "EMBEDDED PDV",
-            "UTF8String",
-            "RELATIVE-OID",
-            "TIME",
-            "Reserved",
-            "SEQUENCE, SEQUENCE OF",
-            "SET and SET OF",
-            "NumericString",
-            "PrintableString",
-            "T61String",
-            "VideotexString",
-            "IA5String",
-            "UTCTime",
-            "GeneralizedTime",
-            "GraphicString",
-            "VisibleString",
-            "GeneralString",
-            "UniversalString",
-            "CHARACTER STRING",
-            "BMPString"
-        };
         if (!is_valid()) {
             return;
         }
@@ -851,6 +856,27 @@ struct tlv {
         o.print_key_hex(name, p);
     }
 
+    static bool recursive_parse(datum &d, json_array_asn1 &a) {
+
+        if (d.is_empty()) {
+            return true;    // nothing to parse
+        }
+        tlv x{d};
+        if (!x.is_valid()) {
+            return false;
+        }
+        json_object_asn1 o{a};
+        if ((x.tag) == tlv::SEQUENCE) {
+            json_array_asn1 seq{o, "SEQUENCE"};
+            recursive_parse(x.value, seq);
+            seq.close();
+        } else {
+            x.print_as_json(o, x.get_type());
+        }
+        o.close();
+
+        return recursive_parse(d, a);
+    }
 
 #ifdef TLV_FPRINT
     /*
