@@ -865,11 +865,20 @@ struct tlv {
         if (!x.is_valid()) {
             return false;
         }
+        fprintf(stderr, "tag: %02x\tOCTET_STRING: %02x\n", x.tag, tlv::OCTET_STRING);
         json_object_asn1 o{a};
         if ((x.tag) == tlv::SEQUENCE) {
+            fprintf(stderr, "GOT SEQUENCE\n");
             json_array_asn1 seq{o, "SEQUENCE"};
             recursive_parse(x.value, seq);
             seq.close();
+        } else if (x.tag == tlv::OCTET_STRING) {
+            fprintf(stderr, "GOT OCTET_STRING\n");
+            datum tmp{x.value};
+            x.print_as_json(o, x.get_type());
+            json_array_asn1 asn1{o, "asn1"};
+            recursive_parse(tmp, asn1);
+            asn1.close();
         } else {
             x.print_as_json(o, x.get_type());
         }

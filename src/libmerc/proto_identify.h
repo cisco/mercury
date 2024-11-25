@@ -86,6 +86,7 @@ enum udp_msg_type {
     udp_msg_type_nbds,
     udp_msg_type_dht,
     udp_msg_type_lsd,
+    udp_msg_type_krb5,
 };
 
 template <size_t N>
@@ -232,6 +233,7 @@ class traffic_selector {
     bool select_nbss;
     bool select_openvpn_tcp;
     bool select_ldap;
+    bool select_krb5;
 
 public:
 
@@ -250,6 +252,8 @@ public:
     bool gre() const { return select_gre; }
 
     bool icmp() const { return select_icmp; }
+
+    bool krb5() const { return select_krb5; }
 
     bool ldap() const { return select_ldap; }
 
@@ -350,6 +354,9 @@ public:
         }
         if (protocols["ldap"] || protocols["all"]) {
             select_ldap = true;
+        }
+        if (protocols["kerberos"] || protocols["all"]) {
+            select_krb5 = true;
         }
         if (protocols["tcp.message"] || protocols["all"]) {
             // select_tcp_syn = 0;
@@ -507,6 +514,10 @@ public:
 
         if (ports.dst == hton<uint16_t>(4789)) {
             return udp_msg_type_vxlan;
+        }
+
+        if (krb5() and (ports.src == hton<uint16_t>(88) or ports.dst == hton<uint16_t>(88))) {
+            return udp_msg_type_krb5;
         }
 
         return udp_msg_type_unknown;

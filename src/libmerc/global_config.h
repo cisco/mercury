@@ -169,6 +169,7 @@ public:
             { "http.response",          false },
             { "icmp",                   false },
             { "iec",                    false },
+            { "kerberos",               false },
             { "ldap",                   false },
             { "lldp",                   false },
             { "mdns",                   false },
