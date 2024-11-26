@@ -627,10 +627,14 @@ cdef extern from "../libmerc/datum.h":
         const unsigned char *data
         const unsigned char *data_end
 
+
 cdef extern from "../libmerc/ech.hpp":
     cdef cppclass ech_config:
         ech_config(datum &)
-        string get_json_string(size_t)
+
+
+cdef extern from "json_string.hpp":
+    string get_json_string[T](T &, size_t)
 
 
 cdef class ECHConfig:
@@ -646,7 +650,7 @@ cdef class ECHConfig:
         self.ech_obj = new ech_config(ech_datum)
 
     def get_json_string(self):
-        json_str = self.ech_obj.get_json_string(1024).decode()
+        json_str = get_json_string(dereference(self.ech_obj), 1024).decode()
 
         return json.loads(json_str)
 

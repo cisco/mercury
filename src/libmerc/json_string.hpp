@@ -102,4 +102,14 @@ bool json_string::unit_test() {
 }
 
 
+template<typename T>
+static inline std::string get_json_string(T &writeable_object, size_t buf_size) {
+    json_string buf{buf_size};
+    json_object json{buf};
+    writeable_object.write_json(json);
+    json.close();
+    return buf.get_string();
+}
+
+
 #endif // JSON_STRING_HPP
