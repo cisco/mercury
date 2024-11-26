@@ -84,5 +84,25 @@ class TestMercuryPython(unittest.TestCase):
                          f"TLS fingerprint should be {fingerprint_data['fingerprints']['quic']}")
 
 
+    def test_ech_config(self):
+        ech_config = {
+            'version': 'fe0d',
+            'hpke_key_config': {
+                'config_id': 54,
+                'kem': 'DHKEM_X25519_HKDF_SHA256'
+            },
+            'public_name': 'cloudflare-ech.com'
+        }
+        ech_config_json = mercury.parse_ech_config(ech_cfg_b64)
+        self.assertEqual(ech_config_json['ech_config']['version'], ech_config['version'],
+                         f"ECH version should be {ech_config['version']}")
+        self.assertEqual(ech_config_json['ech_config']['hpke_key_config']['config_id'], ech_config['hpke_key_config']['config_id'],
+                         f"ECH config_id should be {ech_config['hpke_key_config']['config_id']}")
+        self.assertEqual(ech_config_json['ech_config']['hpke_key_config']['kem'], ech_config['hpke_key_config']['kem'],
+                         f"ECH kem should be {ech_config['hpke_key_config']['kem']}")
+        self.assertEqual(ech_config_json['ech_config']['public_name'], ech_config['public_name'],
+                         f"ECH public_name should be {ech_config['public_name']}")
+
+
 if __name__ == '__main__':
     unittest.main()

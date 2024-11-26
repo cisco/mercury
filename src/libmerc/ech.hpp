@@ -8,6 +8,7 @@
 #include "datum.h"
 #include "hpke_params.h"
 #include "json_object.h"
+#include "json_string.hpp"
 
 // An object of class opaque represents a TLS variable-length opaque
 // data field, as described in RFC 8446.
@@ -240,6 +241,26 @@ public:
     // ech_config_get_json_string() is used by the cython library
     //
     std::string get_json_string(size_t buf_size) {
+        // create string_buffer_stream
+        //
+        json_string buf{buf_size};
+
+        // attempt to write a json_object into the buffer
+        //
+        json_object ech_config_json{buf};
+        this->write_json(ech_config_json);
+        ech_config_json.close();
+
+        // get json string representation
+        //
+        std::string json_str = buf.get_string();
+
+        return json_str;
+    }
+/*
+    // ech_config_get_json_string() is used by the cython library
+    //
+    std::string get_json_string(size_t buf_size) {
         std::string json_str(buf_size, '\0');
 
         struct buffer_stream buf(json_str.data(), json_str.length());
@@ -256,7 +277,7 @@ public:
 
         return json_str;
     }
-
+*/
 };
 
 

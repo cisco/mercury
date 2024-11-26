@@ -6,8 +6,8 @@
 
 #include <string>             // for std::string
 #include <cstring>            // for memcmp()
-#include <json_object.h>      // for json_object, used in unit_test
-#include <buffer_stream.h>    // for buffer_stream
+#include "json_object.h"      // for json_object, used in unit_test
+#include "buffer_stream.h"    // for buffer_stream
 
 /// implements a \ref buffer_stream that uses a `std::string` as its
 /// underlying data storage
