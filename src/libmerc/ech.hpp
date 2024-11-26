@@ -238,7 +238,7 @@ public:
         ech_config_json.close();
     }
 
-    // ech_config_get_json_string() is used by the cython library
+    // ech_config::get_json_string() is used by the cython library
     //
     std::string get_json_string(size_t buf_size) {
         // create string_buffer_stream
@@ -257,27 +257,6 @@ public:
 
         return json_str;
     }
-/*
-    // ech_config_get_json_string() is used by the cython library
-    //
-    std::string get_json_string(size_t buf_size) {
-        std::string json_str(buf_size, '\0');
-
-        struct buffer_stream buf(json_str.data(), json_str.length());
-
-        struct json_object ech_config_json{&buf};
-        this->write_json(ech_config_json);
-        ech_config_json.close();
-
-        if (buf.trunc) {
-            json_str = "{}";
-        } else {
-            json_str.resize(buf.doff);
-        }
-
-        return json_str;
-    }
-*/
 };
 
 
