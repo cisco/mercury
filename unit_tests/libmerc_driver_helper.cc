@@ -167,8 +167,8 @@ unsigned char unlabeled_data[] = {
 
 int verbosity = 0;
 
-char default_resources_path[] = "../resources/resources.tgz";
-char resources_lite_path[] = "../resources/resources_lite.tgz";
+char default_resources_path[] = "../test/data/resources-test.tgz";
+char resources_lite_path[] = "../test/data/resources-test.tgz";
 char resources_mp_path[] = "./xtra/resources/resources-mp.tgz";
 
 const char * path_to_libmerc_library = LIBMERC_SO_PATH;
