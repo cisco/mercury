@@ -631,8 +631,27 @@ struct tlv {
         "BMPString"
     };
 
+    /// returns a null-terminated character string describing the type
+    /// associated with this \ref tlv object
+    ///
     const char *get_type() const {
         return type[tag & 31];
+    }
+
+    /// holds the classess that a tag can be associated with, in order
+    ///
+    static constexpr const char *tag_class[] = {
+        "universal",        // 0
+        "application",      // 1
+        "context-specific", // 2
+        "private"           // 3
+    };
+
+    /// returns a null-terminated character string describing the
+    /// class associated with this \ref tlv object
+    ///
+    const char *get_class() const {
+        return tag_class[tag >> 6];
     }
 
     void fprint_tlv(FILE *f, const char *tlv_name) const {
@@ -865,22 +884,21 @@ struct tlv {
         if (!x.is_valid()) {
             return false;
         }
-        fprintf(stderr, "tag: %02x\tOCTET_STRING: %02x\n", x.tag, tlv::OCTET_STRING);
         json_object_asn1 o{a};
         if ((x.tag) == tlv::SEQUENCE) {
-            fprintf(stderr, "GOT SEQUENCE\n");
             json_array_asn1 seq{o, "SEQUENCE"};
             recursive_parse(x.value, seq);
             seq.close();
-        } else if (x.tag == tlv::OCTET_STRING) {
-            fprintf(stderr, "GOT OCTET_STRING\n");
+        } else if ((x.tag & 31) == tlv::OCTET_STRING) {
             datum tmp{x.value};
             x.print_as_json(o, x.get_type());
-            json_array_asn1 asn1{o, "asn1"};
+            json_array_asn1 asn1{o, "content"};
             recursive_parse(tmp, asn1);
             asn1.close();
         } else {
             x.print_as_json(o, x.get_type());
+	    o.print_key_string("tag_class", x.get_class());
+	    o.print_key_bool("constructed", x.is_constructed());
         }
         o.close();
 
