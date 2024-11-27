@@ -10,6 +10,7 @@
 #include "tls_parameters.hpp"
 #include "tls_extensions.hpp"
 #include "tls.h"
+#include "dtls.h"
 
 namespace crypto_policy {
 
@@ -84,33 +85,33 @@ namespace crypto_policy {
         ~quantum_safe() { }
 
         static inline std::unordered_set<uint16_t> allowed_ciphersuites {
-            tls::cipher_suites<uint16_t>::code::TLS_PSK_WITH_AES_128_CBC_SHA,
-            tls::cipher_suites<uint16_t>::code::TLS_PSK_WITH_AES_256_CBC_SHA,
-            tls::cipher_suites<uint16_t>::code::TLS_PSK_WITH_AES_128_GCM_SHA256,
-            tls::cipher_suites<uint16_t>::code::TLS_PSK_WITH_AES_256_GCM_SHA384,
-            tls::cipher_suites<uint16_t>::code::TLS_PSK_WITH_AES_128_CBC_SHA256,
-            tls::cipher_suites<uint16_t>::code::TLS_PSK_WITH_AES_256_CBC_SHA384,
-            tls::cipher_suites<uint16_t>::code::TLS_PSK_WITH_AES_128_CCM,
-            tls::cipher_suites<uint16_t>::code::TLS_PSK_WITH_AES_256_CCM,
-            tls::cipher_suites<uint16_t>::code::TLS_PSK_WITH_AES_128_CCM_8,
-            tls::cipher_suites<uint16_t>::code::TLS_PSK_WITH_AES_256_CCM_8,
-            tls::cipher_suites<uint16_t>::code::TLS_AES_128_GCM_SHA256,
-            tls::cipher_suites<uint16_t>::code::TLS_AES_256_GCM_SHA384,
-            tls::cipher_suites<uint16_t>::code::TLS_CHACHA20_POLY1305_SHA256,
-            tls::cipher_suites<uint16_t>::code::TLS_AES_128_CCM_SHA256,
-            tls::cipher_suites<uint16_t>::code::TLS_AES_128_CCM_8_SHA256,
+            tls::cipher_suites::code::TLS_PSK_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_PSK_WITH_AES_256_CBC_SHA,
+            tls::cipher_suites::code::TLS_PSK_WITH_AES_128_GCM_SHA256,
+            tls::cipher_suites::code::TLS_PSK_WITH_AES_256_GCM_SHA384,
+            tls::cipher_suites::code::TLS_PSK_WITH_AES_128_CBC_SHA256,
+            tls::cipher_suites::code::TLS_PSK_WITH_AES_256_CBC_SHA384,
+            tls::cipher_suites::code::TLS_PSK_WITH_AES_128_CCM,
+            tls::cipher_suites::code::TLS_PSK_WITH_AES_256_CCM,
+            tls::cipher_suites::code::TLS_PSK_WITH_AES_128_CCM_8,
+            tls::cipher_suites::code::TLS_PSK_WITH_AES_256_CCM_8,
+            tls::cipher_suites::code::TLS_AES_128_GCM_SHA256,
+            tls::cipher_suites::code::TLS_AES_256_GCM_SHA384,
+            tls::cipher_suites::code::TLS_CHACHA20_POLY1305_SHA256,
+            tls::cipher_suites::code::TLS_AES_128_CCM_SHA256,
+            tls::cipher_suites::code::TLS_AES_128_CCM_8_SHA256,
         };
 
         static inline std::unordered_set<uint16_t> allowed_groups {
-            tls::supported_groups<uint16_t>::code::MLKEM512                       ,
-            tls::supported_groups<uint16_t>::code::MLKEM768                       ,
-            tls::supported_groups<uint16_t>::code::MLKEM1024                      ,
-            tls::supported_groups<uint16_t>::code::SecP256r1MLKEM768              ,
-            tls::supported_groups<uint16_t>::code::X25519MLKEM768                 ,
-            tls::supported_groups<uint16_t>::code::X25519Kyber768Draft00          ,
-            tls::supported_groups<uint16_t>::code::SecP256r1Kyber768Draft00       ,
-            tls::supported_groups<uint16_t>::code::arbitrary_explicit_prime_curves,
-            tls::supported_groups<uint16_t>::code::arbitrary_explicit_char2_curves,
+            tls::supported_groups::code::MLKEM512,
+            tls::supported_groups::code::MLKEM768,
+            tls::supported_groups::code::MLKEM1024,
+            tls::supported_groups::code::SecP256r1MLKEM768,
+            tls::supported_groups::code::X25519MLKEM768,
+            tls::supported_groups::code::X25519Kyber768Draft00,
+            tls::supported_groups::code::SecP256r1Kyber768Draft00,
+            tls::supported_groups::code::arbitrary_explicit_prime_curves,
+            tls::supported_groups::code::arbitrary_explicit_char2_curves,
         };
 
         bool assess_tls_ciphersuites(datum ciphersuite_vector, json_object &a) const {
@@ -136,7 +137,7 @@ namespace crypto_policy {
                 json_array cs_array{a, "ciphersuites_not_allowed"};
                 datum tmp = ciphersuite_vector;
                 while (tmp.is_readable()) {
-                    tls::cipher_suites<uint16_t> cs{tmp};
+                    tls::cipher_suites cs{tmp};
                     if (!is_grease(cs) and allowed_ciphersuites.find(cs.value()) == allowed_ciphersuites.end()) {
                         if (readable_output) {
                             cs_array.print_string(cs.get_name());
@@ -178,7 +179,7 @@ namespace crypto_policy {
                 xtn named_groups_xtn{named_groups};
                 encoded<uint16_t> named_groups_len{named_groups_xtn.value};
                 while (named_groups_xtn.value.is_readable()) {
-                    tls::supported_groups<uint16_t> named_group{named_groups_xtn.value};
+                    tls::supported_groups named_group{named_groups_xtn.value};
                     if (!is_grease(named_group) and allowed_groups.find(named_group.value()) == allowed_groups.end()) {
                         if (readable_output) {
                             ng_array.print_string(named_group.get_name());
@@ -270,5 +271,7 @@ namespace crypto_policy {
     };
 
 }; // namespace crypto_policiy
+
+// #include "nist_sp800_52.hpp"
 
 #endif // CRYPTO_ASSESS_H

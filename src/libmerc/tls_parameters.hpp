@@ -15,14 +15,12 @@
 
 namespace tls {
 
-template <typename T>
-class cipher_suites : public encoded<T> {
-    static_assert(std::is_unsigned_v<T>, "T must be an unsigned integer");
+class cipher_suites : public encoded<uint16_t> {
 public:
     void write_json(json_object &o) const {
         const char *name = get_name();
         if (name == nullptr) {
-            o.print_key_unknown_code("cipher_suites", encoded<T>::value());
+            o.print_key_unknown_code("cipher_suites", encoded<uint16_t>::value());
         } else {
             o.print_key_string("cipher_suites", name);
         }
@@ -382,7 +380,7 @@ public:
         TLS_ECDHE_PSK_WITH_AES_128_CCM_SHA256         = 0xD005,
     };
     const char *get_name() const {
-        switch(encoded<T>::value()) {
+        switch(encoded<uint16_t>::value()) {
         case TLS_RSA_WITH_AES_256_GCM_SHA384:               return "TLS_RSA_WITH_AES_256_GCM_SHA384";
         case TLS_RSA_PSK_WITH_AES_128_CBC_SHA:              return "TLS_RSA_PSK_WITH_AES_128_CBC_SHA";
         case TLS_RSA_PSK_WITH_AES_256_CBC_SHA:              return "TLS_RSA_PSK_WITH_AES_256_CBC_SHA";
@@ -742,14 +740,13 @@ public:
     }
 };
 
-template <typename T>
-class supported_groups : public encoded<T> {
-    static_assert(std::is_unsigned_v<T>, "T must be an unsigned integer");
+class supported_groups : public encoded<uint16_t> {
+
 public:
     void write_json(json_object &o) const {
         const char *name = get_name();
         if (name == nullptr) {
-            o.print_key_unknown_code("supported_groups", encoded<T>::value());
+            o.print_key_unknown_code("supported_groups", encoded<uint16_t>::value());
         } else {
             o.print_key_string("supported_groups", name);
         }
@@ -812,7 +809,7 @@ public:
         arbitrary_explicit_char2_curves = 65282,
     };
     const char *get_name() const {
-        switch(encoded<T>::value()) {
+        switch(encoded<uint16_t>::value()) {
         case sect163k1:                       return "sect163k1";
         case sect163r1:                       return "sect163r1";
         case sect163r2:                       return "sect163r2";
