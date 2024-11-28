@@ -39,6 +39,10 @@ if(DEFINED openssl_path)
     link_directories(${openssl_path})
     set(custom_ssl_path "${openssl_path}")
 endif()
+# custom zlib path
+if(DEFINED zlib_path)
+    link_directories(${zlib_path})
+endif()
 
 ## Platform specific paths
 if(is_mac_arm)
@@ -101,7 +105,7 @@ INCLUDE (CheckLibraryExists)
 
 CHECK_LIBRARY_EXISTS(z deflate "" HAVE_ZLIB)
 if(NOT HAVE_ZLIB)
-    message(FATAL_ERROR "A working zlib is required")
+    message(STATUS "A working zlib is required")
 endif()
 
 # libcrypto checks
