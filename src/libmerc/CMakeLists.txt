@@ -110,7 +110,9 @@ endif()
 
 # libcrypto checks
 # precedence to custom crypto path
-if(DEFINED openssl_path)
+if(DEFINED have_openssl_new)
+    SET(HAVE_CUSTOM_CRYPTO_NEW TRUE)
+elseif(DEFINED openssl_path)
     CHECK_LIBRARY_EXISTS(crypto HMAC_CTX_new "${custom_ssl_path}" HAVE_CUSTOM_CRYPTO_NEW)
     CHECK_LIBRARY_EXISTS(crypto HMAC_CTX_init "${custom_ssl_path}" HAVE_CUSTOM_CRYPTO_OLD)
 elseif(is_mac_arm)
