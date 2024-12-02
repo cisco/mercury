@@ -278,7 +278,7 @@ stats:
 	@echo "running stats rotate test"
 	rm -f tmp.json tempstats.json statsfile*  # pre-clean leftovers from previously failed tests
 	$(MERCURY) -r data/quic_tls_http.pcap -f tmp.json --metadata -a --resources=data/resources-test.tgz --stats=statsfile --stats-time=1 -p 10
-	bash -c "$(python) ./compare-stats.py -m tmp.json -s statsfile"
+	bash -c "$(python) ./compare-stats.py -m tmp.json -s statsfile -a"
 	@echo $(COLOR_GREEN) "passed stats rotate test" $(COLOR_OFF)
 	rm -f tmp.json tempstats.json statsfile*
 
