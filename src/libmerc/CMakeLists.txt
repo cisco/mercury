@@ -7,6 +7,13 @@ set( CMAKE_VERBOSE_MAKEFILE on )
 set(CMAKE_SKIP_INSTALL_RULES True)
 set(CMAKE_CXX_FLAGS "${CXXFLAGS} ${CFLAGS} ${CMAKE_CXX_FLAGS}")
 
+## CMake Configuration options:
+# libmerc_only=TRUE : build only libmerc src and skip asn1 build by using prebuilt oid.cc oid.h
+# mac_arch=universal : build Mach-O universal type for Mac
+# have_openssl_new : Force to use newer style openssl calls
+# openssl_path=path : Pass on path for libcrypto
+# zlib_path=path : Pass on path for libz
+
 
 ## platform checks
 message(STATUS "Platform - ${CMAKE_SYSTEM_NAME}")
@@ -144,7 +151,9 @@ endif()
 
 
 ## recursive subdirectories
-add_subdirectory(asn1)
+if (NOT DEFINED libmerc_only)
+    add_subdirectory(asn1)
+endif()
 add_subdirectory(lctrie)
 
 
@@ -234,7 +243,10 @@ add_library(libmerc SHARED ${libmerc_src})
 target_link_directories(libmerc PUBLIC lctrie ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(libmerc PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(libmerc PUBLIC lctrie z crypto)
-add_dependencies(libmerc lctrie asn1)
+add_dependencies(libmerc lctrie)
+if (NOT DEFINED libmerc_only)
+    add_dependencies(libmerc asn1)
+endif()
 target_compile_options(libmerc PUBLIC ${libmerc_compile_opt})
 target_compile_definitions(libmerc PUBLIC -DNDEBUG -DDONT_USE_STDERR)
 #target_link_options(libmerc PUBLIC  -lz -lcrypto)
@@ -248,7 +260,10 @@ add_library(libmerc_static STATIC ${libmerc_src})
 target_link_directories(libmerc_static PUBLIC lctrie ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(libmerc_static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(libmerc_static PUBLIC lctrie z crypto)
-add_dependencies(libmerc_static lctrie asn1)
+add_dependencies(libmerc_static lctrie)
+if (NOT DEFINED libmerc_only)
+    add_dependencies(libmerc_static asn1)
+endif()
 target_compile_options(libmerc_static PUBLIC ${libmerc_compile_opt})
 target_compile_definitions(libmerc_static PUBLIC -DNDEBUG -DDONT_USE_STDERR)
 #target_link_options(libmerc PUBLIC  -lz -lcrypto)
@@ -256,6 +271,18 @@ target_compile_definitions(libmerc_static PUBLIC -DNDEBUG -DDONT_USE_STDERR)
 set_target_properties(libmerc_static PROPERTIES PREFIX "")
 #set_target_properties(libmerc PROPERTIES PREFIX "" OUTPUT_NAME "libmerc.so.0")
 # }
+
+set ( fdc_util_src
+    ../fdc_util.cpp
+)
+
+add_executable(fdc_util ${fdc_util_src})
+add_dependencies(fdc_util libmerc_static)
+target_include_directories(fdc_util PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(fdc_util PUBLIC libmerc_static)
+target_compile_options(fdc_util PUBLIC ${libmerc_compile_opt})
+target_compile_definitions(fdc_util PUBLIC -DNDEBUG -DDONT_USE_STDERR)
+
 
 ## TARGET : distclean {
 if (is_win)
