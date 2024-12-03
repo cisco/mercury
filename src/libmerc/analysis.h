@@ -772,8 +772,10 @@ class classifier {
 
 
     std::vector<fingerprint_type> fp_types;
-    size_t tls_fingerprint_format = SIZE_MAX;
-    size_t quic_fingerprint_format = SIZE_MAX;
+    size_t tls_fingerprint_format = 0;
+    size_t quic_fingerprint_format = 0;
+    bool tls_first_line = true;
+    bool quic_first_line = true;
 
     // the common object holds data that is common across all
     // fingerprint-specific classifiers, and is used by those
@@ -876,7 +878,8 @@ public:
         fp_prevalence.initial_add(line_str);
     }
 
-    bool validate_fp(std::string &fp_string, fingerprint_type fp_type_code, std::string fp_type_string) {
+    bool validate_fp(std::string &fp_string, fingerprint_type fp_type_code, std::string fp_type_string,
+                     bool &tls_first_line, bool &quic_first_line) {
         if (fp_string.length() == 0) {
             printf_err(log_warning, "ignoring zero-length fingerprint string in resource file\n");
             return(false);  // can't process this entry, so skip it
@@ -905,8 +908,9 @@ public:
         // ensure that all tls fingerprints in DB have the same version
         //
         if (fingerprint_type_and_version.first == fingerprint_type_tls) {
-            if (tls_fingerprint_format == SIZE_MAX) {
+            if (tls_first_line == true) {
                 tls_fingerprint_format = fingerprint_type_and_version.second;
+                tls_first_line = false;
             } else {
                 if (fingerprint_type_and_version.second != tls_fingerprint_format) {
                     printf_err(log_warning,
@@ -917,8 +921,9 @@ public:
             }
         }
         if (fingerprint_type_and_version.first == fingerprint_type_quic) {
-            if (quic_fingerprint_format == SIZE_MAX) {
+            if (quic_first_line == true) {
                 quic_fingerprint_format = fingerprint_type_and_version.second;
+                quic_first_line = false;
             } else {
                 if (fingerprint_type_and_version.second != quic_fingerprint_format) {
                     printf_err(log_warning,
@@ -1175,7 +1180,7 @@ public:
 
             if (fp.HasMember("str_repr") && fp["str_repr"].IsString()) {
                 std::string fp_string = fp["str_repr"].GetString();
-                if (!validate_fp(fp_string, fp_type_code, fp_type_string)) {
+                if (!validate_fp(fp_string, fp_type_code, fp_type_string, tls_first_line, quic_first_line)) {
                     return;
                 }
 
@@ -1192,7 +1197,7 @@ public:
                     if (x.IsString()) {
                         std::string fp_string = x.GetString();
 
-                        if (!validate_fp(fp_string, fp_type_code, fp_type_string)) {
+                        if (!validate_fp(fp_string, fp_type_code, fp_type_string, tls_first_line, quic_first_line)) {
                             return;
                         }
 
