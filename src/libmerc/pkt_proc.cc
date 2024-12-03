@@ -14,6 +14,7 @@
 #include "pkt_proc.h"
 #include "utils.h"
 #include "loopback.hpp"
+#include "linux_sll.hpp"
 
 // include files needed by stateful_pkt_proc; they provide the
 // interface to mercury's packet parsing and handling routines
@@ -924,6 +925,9 @@ size_t stateful_pkt_proc::write_json(void *buffer,
             return 0;
         break;
     case LINKTYPE_RAW:
+        break;
+    case LINKTYPE_LINUX_SLL:
+        linux_sll::skip_to_ip(pkt);
         break;
     default:
         break;
