@@ -272,17 +272,6 @@ set_target_properties(libmerc_static PROPERTIES PREFIX "")
 #set_target_properties(libmerc PROPERTIES PREFIX "" OUTPUT_NAME "libmerc.so.0")
 # }
 
-set ( fdc_util_src
-    ../fdc_util.cpp
-)
-
-add_executable(fdc_util ${fdc_util_src})
-add_dependencies(fdc_util libmerc_static)
-target_include_directories(fdc_util PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(fdc_util PUBLIC libmerc_static)
-target_compile_options(fdc_util PUBLIC ${libmerc_compile_opt})
-target_compile_definitions(fdc_util PUBLIC -DNDEBUG -DDONT_USE_STDERR)
-
 
 ## TARGET : distclean {
 if (is_win)
