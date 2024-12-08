@@ -7,7 +7,6 @@
 
 #include "datum.h"
 #include "base64.h"
-#include "http.h"       // for LWS
 
 class scheme : public datum {
 public:
@@ -77,7 +76,11 @@ public:
         signature = d;
     }
 
+    bool is_valid() const { return signature.is_not_null(); }
+
     void write_json(json_object &o) const {
+        if (!is_valid()) { return; }
+
         uint8_t outbuf[1024];
         int outlen = base64::decode(outbuf, sizeof(outbuf), header.data, header.length());
         if (outlen > 0) {
@@ -96,7 +99,7 @@ public:
 
 class authorization {
     scheme auth_scheme;
-    LWS lws;
+    literal_byte<' '> space;
     datum auth_param;
 
 public:
@@ -105,7 +108,7 @@ public:
     ///
     authorization(datum d) :
         auth_scheme{d},
-        lws{d},
+        space{d},
         auth_param{d}
     { }
 
