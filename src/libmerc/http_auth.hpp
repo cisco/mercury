@@ -80,17 +80,42 @@ public:
         if (!is_valid()) { return; }
         json_object auth_json{o, "authorization"};
         scheme::type schemetype = auth_scheme.get_type();
-        if (schemetype == scheme::type::basic || schemetype == scheme::type::bearer) {
-            uint8_t outbuf[128];
+        json_object scheme_json{auth_json, auth_scheme.type_get_name(schemetype)};
+        if (schemetype == scheme::type::basic) {
+            uint8_t outbuf[2048];
             int outlen = base64::decode(outbuf, sizeof(outbuf), auth_param.data, auth_param.length());
-            json_object scheme_json{auth_json, auth_scheme.type_get_name(schemetype)};
             scheme_json.print_key_json_string("param", outbuf, outlen);
-            scheme_json.close();
+
+        } else if (schemetype == scheme::type::bearer) {
+            uint8_t outbuf[2048];
+
+            // parse auth_param as header.payload.signature, then
+            // write out the first two as json strings and the latter
+            // as base64
+            //
+            datum tmpparam = auth_param;
+            datum header;
+            header.parse_up_to_delim(tmpparam, '.');
+            tmpparam.skip(1); // '.'
+            int outlen = base64::decode(outbuf, sizeof(outbuf), header.data, header.length());
+            if (outlen > 0) {
+                scheme_json.print_key_json_string("header", outbuf, outlen);
+            }
+
+            datum payload;
+            payload.parse_up_to_delim(tmpparam, '.');
+            tmpparam.skip(1); // '.'
+            outlen = base64::decode(outbuf, sizeof(outbuf), payload.data, payload.length());
+            if (outlen > 0) {
+                scheme_json.print_key_json_string("payload", outbuf, outlen);
+            }
+
+            scheme_json.print_key_json_string("signature", tmpparam);
+
         } else {
-            json_object scheme_json{auth_json, auth_scheme.type_get_name(schemetype)};
             scheme_json.print_key_json_string("param", auth_param);
-            scheme_json.close();
         }
+        scheme_json.close();
         auth_json.close();
     }
 
