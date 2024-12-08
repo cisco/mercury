@@ -59,6 +59,41 @@ public:
 
 };
 
+class bearer_token {
+    datum header;
+    datum payload;
+    datum signature;
+
+public:
+
+    // constructs a bearer_token object from a \ref datum (not a
+    // reference to a `datum)
+    //
+    bearer_token(datum d) {
+        header.parse_up_to_delim(d, '.');
+        d.accept('.');
+        payload.parse_up_to_delim(d, '.');
+        d.accept('.');
+        signature = d;
+    }
+
+    void write_json(json_object &o) const {
+        uint8_t outbuf[1024];
+        int outlen = base64::decode(outbuf, sizeof(outbuf), header.data, header.length());
+        if (outlen > 0) {
+            o.print_key_json_string("header", outbuf, outlen);
+        }
+        outlen = base64::decode(outbuf, sizeof(outbuf), payload.data, payload.length());
+        if (outlen > 0) {
+            o.print_key_json_string("payload", outbuf, outlen);
+        }
+        if (signature.length() > 0) {
+            o.print_key_json_string("signature", signature);
+        }
+    }
+
+};
+
 class authorization {
     scheme auth_scheme;
     LWS lws;
@@ -87,30 +122,8 @@ public:
             scheme_json.print_key_json_string("param", outbuf, outlen);
 
         } else if (schemetype == scheme::type::bearer) {
-            uint8_t outbuf[2048];
 
-            // parse auth_param as header.payload.signature, then
-            // write out the first two as json strings and the latter
-            // as base64
-            //
-            datum tmpparam = auth_param;
-            datum header;
-            header.parse_up_to_delim(tmpparam, '.');
-            tmpparam.skip(1); // '.'
-            int outlen = base64::decode(outbuf, sizeof(outbuf), header.data, header.length());
-            if (outlen > 0) {
-                scheme_json.print_key_json_string("header", outbuf, outlen);
-            }
-
-            datum payload;
-            payload.parse_up_to_delim(tmpparam, '.');
-            tmpparam.skip(1); // '.'
-            outlen = base64::decode(outbuf, sizeof(outbuf), payload.data, payload.length());
-            if (outlen > 0) {
-                scheme_json.print_key_json_string("payload", outbuf, outlen);
-            }
-
-            scheme_json.print_key_json_string("signature", tmpparam);
+            bearer_token{auth_param}.write_json(scheme_json);
 
         } else {
             scheme_json.print_key_json_string("param", auth_param);
