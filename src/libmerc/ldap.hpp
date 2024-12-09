@@ -244,9 +244,6 @@ namespace ldap {
     };
 
     class bind_request {
-        // tlv outer_sequence;
-        // tlv message_id;
-        // tlv sequence;
         tlv version;
         tlv ldapdn;
         tlv auth;
@@ -254,11 +251,6 @@ namespace ldap {
     public:
 
         bind_request(datum &d) {
-            // outer_sequence.parse(&d, tlv::SEQUENCE);
-            // message_id.parse(&outer_sequence.value, tlv::INTEGER);
-            // sequence.parse(&d);
-            //            sequence.parse(&outer_sequence.value, tlv::SEQUENCE);
-            //   version.parse(&sequence.value, tlv::INTEGER);
             version.parse(&d, tlv::INTEGER, "version");
             ldapdn.parse(&d, 0x00, "ldapdn");
             auth.parse(&d, 0x00, "auth");
@@ -267,10 +259,7 @@ namespace ldap {
 
         void write_json(json_object &o) const {
             json_object_asn1 bind_req_json{o, "bind_request"};
-            // o.print_key_hex("message_id", message_id.value);
             bind_req_json.print_key_hex("version", version.value);
-            bind_req_json.print_key_uint_hex("ldapdn_tag", ldapdn.tag);
-            bind_req_json.print_key_uint_hex("auth_tag", auth.tag);
             ldapdn.print_as_json_escaped_string(bind_req_json, "ldapdn");
             json_object_asn1 auth_json{bind_req_json, "auth"};
             if (auth.tag == 0x80) {
@@ -332,16 +321,11 @@ namespace ldap {
             if (d.length() == 0) {
                 return;  // don't process zero-length inputs
             }
-            // fprintf(stderr, "ldap::message::%s\n", __func__);
-            // d.fprint_hex(stderr); fputc('\n', stderr);
             outer_sequence.parse(&d, tlv::SEQUENCE, "outer_sequence");
             message_id.parse(&outer_sequence.value, tlv::INTEGER, "message_id");
             valid = message_id.value.is_not_empty();
             protocol_op.parse(&outer_sequence.value, 0x00, "protocol_op");
 
-            // valid = d.is_not_null();
-            // fprintf(stderr, "datum after parsing:\t");
-            // d.fprint_hex(stderr); fputc('\n', stderr);
         }
 
         bool is_not_empty() const {
