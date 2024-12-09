@@ -559,6 +559,15 @@ struct datum {
         return true;
     }
 
+    bool is_alnum() const {
+        for (const auto & d : *this) {
+            if (!isalnum(d)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     bool accept(uint8_t byte) {
         if (data_end > data) {
             uint8_t value = *data;

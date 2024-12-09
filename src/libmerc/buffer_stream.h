@@ -1170,6 +1170,12 @@ public:
         return ::memcmp(buffer, s, comp_length);
     }
 
+    /// returns a pointer to the start of the buffer
+    ///
+    const char *get_buffer_start() const {
+        return buffer;
+    }
+
 };
 
 #endif /* BUFFER_STREAM_H */
