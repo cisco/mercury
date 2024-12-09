@@ -215,15 +215,13 @@ namespace ldap {
     //   SaslCredentials ::= SEQUENCE {
     //        mechanism               LDAPString,
     //        credentials             OCTET STRING OPTIONAL }
-
+    //
     class sasl_credentials {
         tlv mechanism;
         tlv credentials;
         bool valid;
 
     public:
-
-        // sasl_credentials(datum &) { }
 
         void parse(datum &d) {
             mechanism.parse(&d, 0x00, "sasl_credentials.mechanism");
@@ -236,9 +234,42 @@ namespace ldap {
         void write_json(json_object_asn1 &o) const {
             if (!valid) { return; }
             json_object_asn1 sasl_json{o, "sasl"};
-            mechanism.print_as_json_escaped_string(sasl_json, "mechanism");
-            credentials.print_as_json_hex(sasl_json, "credentials");  // TODO: replace with asn1 parsing
+            json_object_asn1 mechanism_json{sasl_json, mechanism_type_get_name(get_type(mechanism.value))};
+            mechanism_json.print_key_base64("base64", credentials.value);
+            mechanism_json.close();
             sasl_json.close();
+        }
+
+    private:
+
+        // SASL mechanism types, which correspond to the IANA registry
+        // https://www.iana.org/assignments/sasl-mechanisms/sasl-mechanisms.xhtml
+        //
+        enum mechanism_type {
+            unknown,
+            GSSAPI,
+            GSS_SPNEGO,
+        };
+
+        static const char *mechanism_type_get_name(mechanism_type t) {
+            switch(t) {
+            case mechanism_type::GSSAPI: return "GSSAPI";
+            case mechanism_type::GSS_SPNEGO: return "GSS-SPNEGO";
+            case mechanism_type::unknown:
+            default:
+                ;
+            };
+            return "UNKNOWN";
+        }
+
+        static mechanism_type get_type(const datum &d) {
+            if (d.cmp(std::array<uint8_t,6>{'G','S','S','A','P','I'})) {
+                return mechanism_type::GSSAPI;
+            }
+            if (d.cmp(std::array<uint8_t,10>{'G','S','S','-','S','P','N','E','G','O'})) {
+                return mechanism_type::GSS_SPNEGO;
+            }
+            return mechanism_type::unknown;
         }
 
     };
