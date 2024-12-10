@@ -10,7 +10,6 @@
 
 #include <stdio.h>
 #include <math.h>
-#include <stdint.h>
 #include <algorithm>
 #include <stdexcept>
 #include <assert.h>
@@ -773,10 +772,6 @@ class classifier {
 
 
     std::vector<fingerprint_type> fp_types;
-    size_t tls_fingerprint_format = 0;
-    size_t quic_fingerprint_format = 0;
-    bool tls_first_line = true;
-    bool quic_first_line = true;
 
     // the common object holds data that is common across all
     // fingerprint-specific classifiers, and is used by those
@@ -784,7 +779,7 @@ class classifier {
     //
     common_data common;
 
-    uint32_t total_tofsee = 0, total_http = 0, total_quic = 0, total_tls = 0;
+    std::unordered_map<std::string, std::pair<uint32_t, size_t>> fp_count_and_format;
 
     bool disabled = false;   // if the classfier has not been initialised or disabled
 
@@ -803,21 +798,40 @@ public:
         return fingerprint_type_unknown;
     }
 
-    void set_fingerprint_type_count(const std::string &fp_type) {
-        if (fp_type == "tls") {
-            total_tls++;
-        } else if (fp_type == "http") {
-            total_http++;
-        } else if (fp_type == "quic") {
-            total_quic++;
-        } else if (fp_type == "tofsee") {
-            total_tofsee++;
+    void print_fp_counts() {
+        for (auto &it : fp_count_and_format) {
+            printf_err(log_debug, "total %s fingerprints: %u\n", it.first.c_str(), it.second.first);
         }
     }
 
-    size_t get_tls_fingerprint_format() const { return tls_fingerprint_format; }
+    void set_fingerprint_type_count(const std::string &fp_type) {
+        if (fp_count_and_format.find(fp_type) != fp_count_and_format.end()) {
+            fp_count_and_format[fp_type].first++;
+        } else {
+            // The fingerprint of type fp_type is seen for first time.
+            // So set the count(first element of pair) to 1 and
+            // format (second element of pair) to default format 0
+            fp_count_and_format[fp_type].first = 1;
+            fp_count_and_format[fp_type].second = 0;
+        }
+    }
 
-    size_t get_quic_fingerprint_format() const { return quic_fingerprint_format; }
+    size_t get_tls_fingerprint_format() {
+        return get_fingerprint_format("tls");
+    }
+ 
+    size_t get_quic_fingerprint_format() {
+        return get_fingerprint_format("quic");
+    }
+
+    size_t get_fingerprint_format(std::string fp_type) {
+        auto it = fp_count_and_format.find(fp_type);
+        if (it != fp_count_and_format.end()) {
+            return it->second.second;
+        } else {
+            return 0;
+        }
+    }
 
     bool is_disabled() const { return disabled; }
 
@@ -879,8 +893,7 @@ public:
         fp_prevalence.initial_add(line_str);
     }
 
-    bool validate_fp(std::string &fp_string, fingerprint_type fp_type_code, std::string fp_type_string,
-                     bool &tls_first_line, bool &quic_first_line) {
+    bool validate_fp(std::string &fp_string, fingerprint_type fp_type_code, std::string fp_type_string) {
         if (fp_string.length() == 0) {
             printf_err(log_warning, "ignoring zero-length fingerprint string in resource file\n");
             return(false);  // can't process this entry, so skip it
@@ -906,27 +919,16 @@ public:
                        fp_string.c_str());
             return(false);
         }
-        // ensure that all tls fingerprints in DB have the same version
+
+        // ensure that all fingerprints of same type have the same version
         //
-        if (fingerprint_type_and_version.first == fingerprint_type_tls) {
-            if (tls_first_line == true) {
-                tls_fingerprint_format = fingerprint_type_and_version.second;
-                tls_first_line = false;
+        const auto it = fp_count_and_format.find(fp_type_string);
+        if (it != fp_count_and_format.end()) {
+            // first fingerprint of type fp_type_string is seen
+            if (it->second.first == 1) {
+                it->second.second = fingerprint_type_and_version.second;
             } else {
-                if (fingerprint_type_and_version.second != tls_fingerprint_format) {
-                    printf_err(log_warning,
-                               "%s fingerprint version with inconsistent format, ignoring JSON line\n",
-                               fp_type_string.c_str());
-                    return(false);
-                }
-            }
-        }
-        if (fingerprint_type_and_version.first == fingerprint_type_quic) {
-            if (quic_first_line == true) {
-                quic_fingerprint_format = fingerprint_type_and_version.second;
-                quic_first_line = false;
-            } else {
-                if (fingerprint_type_and_version.second != quic_fingerprint_format) {
+                if (fingerprint_type_and_version.second != it->second.second) {
                     printf_err(log_warning,
                                "%s fingerprint version with inconsistent format, ignoring JSON line\n",
                                fp_type_string.c_str());
@@ -951,7 +953,7 @@ public:
         if (fp.HasMember("fp_type") && fp["fp_type"].IsString()) {
             fp_type_string = fp["fp_type"].GetString();
             fp_type_code = get_fingerprint_type(fp_type_string.c_str());
-            set_fingerprint_type_count(fp_type_string.c_str());
+            set_fingerprint_type_count(fp_type_string);
 
         }
         if (fp_type_code != fingerprint_type_unknown) {
@@ -1181,7 +1183,7 @@ public:
 
             if (fp.HasMember("str_repr") && fp["str_repr"].IsString()) {
                 std::string fp_string = fp["str_repr"].GetString();
-                if (!validate_fp(fp_string, fp_type_code, fp_type_string, tls_first_line, quic_first_line)) {
+                if (!validate_fp(fp_string, fp_type_code, fp_type_string)) {
                     return;
                 }
 
@@ -1199,7 +1201,7 @@ public:
                     if (x.IsString()) {
                         std::string fp_string = x.GetString();
 
-                        if (!validate_fp(fp_string, fp_type_code, fp_type_string, tls_first_line, quic_first_line)) {
+                        if (!validate_fp(fp_string, fp_type_code, fp_type_string)) {
                             return;
                         }
 
@@ -1283,7 +1285,7 @@ public:
                             process_fp_db_line(line_str, 0.0, 0.0, report_os);
                         }
                         got_fp_db = true;
-                        printf_err(log_debug, "fingerprints loaded: {'HTTP': %d, 'TLS':%d, 'QUIC': %d, 'TOFSEE': %d}\n", total_http, total_tls, total_quic, total_tofsee);
+                        print_fp_counts();
                     }
                 } else if (name == "fingerprint_db.json") {
                     got_fp_db = true;
@@ -1295,7 +1297,7 @@ public:
                         while (archive.getline(line_str)) {
                             process_fp_db_line(line_str, 0.0, 0.0, report_os);
                         }
-                        printf_err(log_debug, "fingerprints loaded: {'HTTP': %d, 'TLS':%d, 'QUIC': %d, 'TOFSEE': %d}\n", total_http, total_tls, total_quic, total_tofsee);
+                        print_fp_counts();
                     }
                 } else if (name == "VERSION") {
                     while (archive.getline(line_str)) {
