@@ -85,6 +85,8 @@ enum udp_msg_type {
     udp_msg_type_nbds,
     udp_msg_type_dht,
     udp_msg_type_lsd,
+    udp_msg_type_esp,
+
 };
 
 template <size_t N>
@@ -230,6 +232,7 @@ class traffic_selector {
     bool select_nbds;
     bool select_nbss;
     bool select_openvpn_tcp;
+    bool select_ipsec{false};
 
 public:
 
@@ -262,6 +265,8 @@ public:
     bool nbss() const { return select_nbss; }
 
     bool openvpn_tcp() const { return select_openvpn_tcp; }
+
+    bool ipsec() const { return select_ipsec; }
 
     void disable_all() {
         tcp.disable_all();
@@ -430,6 +435,9 @@ public:
         }
         if (protocols["openvpn_tcp"] || protocols["all"]) {
             select_openvpn_tcp = true;
+        }
+        if (protocols["ipsec"] || protocols["all"]) {
+            select_ipsec = true;
         }
 
         if (protocols["bittorrent"] || protocols["all"]) {
