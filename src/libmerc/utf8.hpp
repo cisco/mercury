@@ -963,46 +963,49 @@ public:
     /// performs unit tests for \ref class utf8_safe_string and
     /// returns `true` if they all pass, and `false` otherwise
     ///
-    static bool unit_test() {
-
-        // verify that correct utf8 is processed correctly and
-        // accepted if it fits into the output buffer; here we use the
-        // ancient greek word for cosmos
-        //
-        const uint8_t good_utf8[] = {
-            0xce, 0xba, 0xe1, 0xbd, 0xb9, 0xcf, 0x83, 0xce,
-            0xbc, 0xce, 0xb5
-        };
-        datum good{good_utf8, good_utf8 + sizeof(good_utf8)};
-        utf8_safe_string<32> safe{good};
-        const char *default_str = "default";
-        if (safe.get_string_or_default(default_str) != safe.buf.get_buffer_start()) {
-            return false;
-        }
-
-        // verify that correct utf8 is processed correctly and
-        // rejected if it does not fit into the output buffer
-        //
-        utf8_safe_string<4> safe2{good};
-        if (safe2.get_string_or_default(default_str) != default_str) {
-            return false;
-        }
-
-        // verify that incorrect utf8 is processed correctly; here we
-        // use an unexpected continuation byte
-        //
-        const uint8_t bad_utf8[] = {
-            0x80, 0xbf, 0x80
-        };
-        datum bad{bad_utf8, bad_utf8 + sizeof(bad_utf8)};
-        utf8_safe_string<32> safe3{bad};
-        if (safe3.get_string_or_default(default_str) != default_str) {
-            return false;
-        }
-
-    }
+    friend bool utf8_safe_string_unit_test();
 
 };
+
+static bool utf8_safe_string_unit_test() {
+
+    // verify that correct utf8 is processed correctly and
+    // accepted if it fits into the output buffer; here we use the
+    // ancient greek word for cosmos
+    //
+    const uint8_t good_utf8[] = {
+        0xce, 0xba, 0xe1, 0xbd, 0xb9, 0xcf, 0x83, 0xce,
+        0xbc, 0xce, 0xb5
+    };
+    datum good{good_utf8, good_utf8 + sizeof(good_utf8)};
+    utf8_safe_string<32> safe{good};
+    const char *default_str = "default";
+    if (safe.get_string_or_default(default_str) != safe.buf.get_buffer_start()) {
+        return false;
+    }
+
+    // verify that correct utf8 is processed correctly and
+    // rejected if it does not fit into the output buffer
+    //
+    utf8_safe_string<4> safe2{good};
+    if (safe2.get_string_or_default(default_str) != default_str) {
+        return false;
+    }
+
+    // verify that incorrect utf8 is processed correctly; here we
+    // use an unexpected continuation byte
+    //
+    const uint8_t bad_utf8[] = {
+        0x80, 0xbf, 0x80
+    };
+    datum bad{bad_utf8, bad_utf8 + sizeof(bad_utf8)};
+    utf8_safe_string<32> safe3{bad};
+    if (safe3.get_string_or_default(default_str) != default_str) {
+        return false;
+    }
+
+    return true;
+}
 
 
 #endif // UTF8_HPP
