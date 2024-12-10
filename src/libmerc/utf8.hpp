@@ -967,7 +967,7 @@ public:
 
 };
 
-static bool utf8_safe_string_unit_test() {
+[[maybe_unused]] static bool utf8_safe_string_unit_test() {
 
     // verify that correct utf8 is processed correctly and
     // accepted if it fits into the output buffer; here we use the
