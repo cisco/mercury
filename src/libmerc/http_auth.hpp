@@ -122,6 +122,7 @@ public:
         if (schemetype == scheme::type::basic) {
             uint8_t outbuf[2048];
             int outlen = base64::decode(outbuf, sizeof(outbuf), auth_param.data, auth_param.length());
+            outlen = outlen > 0 ? outlen : 0;        // if base64 decoding fails, print nothing
             scheme_json.print_key_json_string("param", outbuf, outlen);
 
         } else if (schemetype == scheme::type::bearer) {
