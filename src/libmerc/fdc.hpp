@@ -277,6 +277,7 @@ namespace cbor_fingerprint {
             decode_cbor_data(a.value(), w);
         }
         w.copy(')');
+        a.close();
     }
 
     void decode_cbor_sorted_list(datum &d, writeable &w) {
