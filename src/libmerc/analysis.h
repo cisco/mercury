@@ -469,6 +469,7 @@ class fingerprint_data {
     const common_data *common = nullptr;
 
 public:
+    uint8_t refcnt = 0;
     uint64_t total_count;
 
     fingerprint_data(uint64_t count,
@@ -763,7 +764,7 @@ class classifier {
 
     subnet_data subnets;     // holds ASN/subnet information
 
-    std::unordered_map<std::string, std::shared_ptr<fingerprint_data>> fpdb;
+    std::unordered_map<std::string, fingerprint_data *> fpdb;
     fingerprint_prevalence fp_prevalence{100000};
 
     std::string resource_version;  // as reported by VERSION file in resource archive
@@ -1175,7 +1176,7 @@ public:
                 process_vector.push_back(process);
             }
             
-            std::shared_ptr<fingerprint_data> fp_data = std::make_shared<fingerprint_data>(total_count, process_vector,
+            fingerprint_data  *fp_data = new fingerprint_data(total_count, process_vector,
                                                                 os_dictionary, &subnets, &common, MALWARE_DB, weights);
 
             if (fp.HasMember("str_repr") && fp["str_repr"].IsString()) {
@@ -1186,12 +1187,13 @@ public:
 
                 if (fpdb.find(fp_string) != fpdb.end()) {
                     printf_err(log_warning, "fingerprint database has duplicate entry for fingerprint %s\n", fp_string.c_str());
+                    return;
                 }
                 fpdb[fp_string] = fp_data;
+                fp_data->refcnt++;
             }
 
             if (fp.HasMember("str_repr_array") && fp["str_repr_array"].IsArray()) {
-            //fprintf(stderr, "process_info[]\n");
 
                 for (auto &x : fp["str_repr_array"].GetArray()) {
                     if (x.IsString()) {
@@ -1203,8 +1205,10 @@ public:
 
                         if (fpdb.find(fp_string) != fpdb.end()) {
                             printf_err(log_warning, "fingerprint database has duplicate entry for fingerprint %s\n", fp_string.c_str());
+                            continue;
                         }
                         fpdb[fp_string] = fp_data;
+                        fp_data->refcnt++;
                     }
                 }
             }
@@ -1421,11 +1425,11 @@ public:
                 if (fpdb_entry_randomized == fpdb.end()) {
                     return analysis_result(fingerprint_status_randomized);  // TODO: does this actually happen?
                 }
-                std::shared_ptr<fingerprint_data> fp_data = fpdb_entry_randomized->second;
+                fingerprint_data *fp_data = fpdb_entry_randomized->second;
                 return fp_data->perform_analysis(server_name, dst_ip, dst_port, user_agent, fingerprint_status_randomized);
             }
         }
-        std::shared_ptr<fingerprint_data> fp_data = fpdb_entry->second;
+        fingerprint_data *fp_data = fpdb_entry->second;
 
         return fp_data->perform_analysis(server_name, dst_ip, dst_port, user_agent, fingerprint_status_labeled);
     }
@@ -1470,12 +1474,12 @@ public:
                 if (fpdb_entry_randomized == fpdb.end()) {
                     return analysis_result(fingerprint_status_randomized);  // TODO: does this actually happen?
                 }
-                std::shared_ptr<fingerprint_data> fp_data = fpdb_entry_randomized->second;
+                fingerprint_data *fp_data = fpdb_entry_randomized->second;
                 fp_data->recompute_probabilities(new_as_weight, new_domain_weight, new_port_weight, new_ip_weight, new_sni_weight, new_ua_weight);
                 return fp_data->perform_analysis(server_name, dst_ip, dst_port, user_agent, fingerprint_status_randomized);
             }
         }
-        std::shared_ptr<fingerprint_data> fp_data = fpdb_entry->second;
+        fingerprint_data *fp_data = fpdb_entry->second;
 
         fp_data->recompute_probabilities(new_as_weight, new_domain_weight, new_port_weight, new_ip_weight, new_sni_weight, new_ua_weight);
         return fp_data->perform_analysis(server_name, dst_ip, dst_port, user_agent, fingerprint_status_labeled);
@@ -1508,6 +1512,15 @@ public:
         return resource_version.c_str();
     }
 
+    ~classifier() {
+        for (auto &fp : fpdb) {
+            fingerprint_data *fp_data = fp.second;
+            fp_data->refcnt--;
+            if (fp_data->refcnt == 0) {
+                delete(fp_data);
+            }
+        }
+    }
 };
 
 
