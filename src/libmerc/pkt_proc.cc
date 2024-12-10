@@ -42,6 +42,7 @@
 #include "smtp.h"
 #include "tofsee.hpp"
 #include "cdp.h"
+#include "ldap.hpp"
 #include "lldp.h"
 #include "ospf.h"
 #include "esp.hpp"
@@ -321,6 +322,9 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         break;
     case tcp_msg_type_socks5_req_resp:
         x.emplace<socks5_req_resp>(pkt);
+        break;
+    case tcp_msg_type_ldap:
+        x.emplace<ldap::message>(pkt);
         break;
     default:
         if (is_new && global_vars.output_tcp_initial_data) {

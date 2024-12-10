@@ -6,6 +6,7 @@
 #define BASE64_H
 
 #include <string>
+#include <cstring>
 #include <stdexcept>
 
 std::string hex_encode(const unsigned char *src, size_t len) {
