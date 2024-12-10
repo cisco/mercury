@@ -66,6 +66,7 @@ struct pcap_file {
         ETHERNET =   1,  // Ethernet
         PPP      =   9,  // Point-to-Point Protocol (PPP)
         RAW      = 101,  // Raw IP; begins with IPv4 or IPv6 header
+        LINUX_SLL = 113, // Linux "cooked" capture encapsulation
         NONE     = 65535 // reserved, used here as 'none'
     };
 
@@ -75,6 +76,7 @@ struct pcap_file {
         case LINKTYPE::ETHERNET: return "ETHERNET";
         case LINKTYPE::PPP:      return "PPP";
         case LINKTYPE::RAW:      return "RAW";
+        case LINKTYPE::LINUX_SLL: return "LINUX_SLL";
         case LINKTYPE::NONE:     return "NONE";
         }
         return "unknown";

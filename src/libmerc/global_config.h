@@ -170,6 +170,7 @@ public:
             { "icmp",                   false },
             { "iec",                    false },
             { "ldap",                   false },
+            { "ipsec",                  false },
             { "lldp",                   false },
             { "mdns",                   false },
             { "nbns",                   false },

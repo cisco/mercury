@@ -164,7 +164,7 @@ endif
 analysis:
 ifeq ($(do_analysis),yes)
 	@echo "running analysis test"
-	$(MERCURY) -r data/top-https.pcap -f tmp.json -a --resources=../resources/resources.tgz
+	$(MERCURY) -r data/top-https.pcap -f tmp.json -a --resources=data/resources-test.tgz
 	$(python) json-test.py tmp.json
 	@echo $(COLOR_GREEN) "passed analysis test" $(COLOR_OFF)
 	rm -f tmp.json
@@ -262,7 +262,7 @@ endif
 .PHONY: json-test
 json-test:
 	@echo "running json-test"
-	${MERCURY} -r data/http.pcap -f tmp.json --metadata -a --resources=../resources/resources.tgz --raw-features=all
+	${MERCURY} -r data/http.pcap -f tmp.json --metadata -a --resources=data/resources-test.tgz --raw-features=all
 	bash -c "diff tmp.json data/http.json"
 	@echo $(COLOR_GREEN) "passed json-test" $(COLOR_OFF)
 	rm -f tmp.json
@@ -271,14 +271,14 @@ json-test:
 stats:
 	@echo "running stats test"
 	rm -f tmp.json stats.json.gz  # pre-clean leftovers from previously failed tests
-	$(MERCURY) -r data/top-https.pcap -f tmp.json --metadata -a --resources=../resources/resources.tgz --stats=stats
+	$(MERCURY) -r data/top-https.pcap -f tmp.json --metadata -a --resources=data/resources-test.tgz --stats=stats
 	bash -c "$(python) ./compare-stats.py -m tmp.json -s stats.json.gz"
 	@echo $(COLOR_GREEN) "passed stats test" $(COLOR_OFF)
 	rm -f tmp.json stats.json.gz
 	@echo "running stats rotate test"
 	rm -f tmp.json tempstats.json statsfile*  # pre-clean leftovers from previously failed tests
-	$(MERCURY) -r data/quic_tls_http.pcap -f tmp.json --metadata -a --resources=../resources/resources.tgz --stats=statsfile --stats-time=1 -p 10
-	bash -c "$(python) ./compare-stats.py -m tmp.json -s statsfile"
+	$(MERCURY) -r data/quic_tls_http.pcap -f tmp.json --metadata -a --resources=data/resources-test.tgz --stats=statsfile --stats-time=1 -p 10
+	bash -c "$(python) ./compare-stats.py -m tmp.json -s statsfile -a"
 	@echo $(COLOR_GREEN) "passed stats rotate test" $(COLOR_OFF)
 	rm -f tmp.json tempstats.json statsfile*
 
@@ -302,7 +302,7 @@ distclean: clean
 memcheck:
 ifeq ($(have_valgrind),yes)
 	@echo "running memcheck with valgrind"
-	valgrind --trace-children=yes --leak-check=full --show-leak-kinds=all $(MERCURY) -r data/top-https.pcap -f tmp.json -a --resources=../resources/resources.tgz 2> memcheck.tmp
+	valgrind --trace-children=yes --leak-check=full --show-leak-kinds=all $(MERCURY) -r data/top-https.pcap -f tmp.json -a --resources=data/resources-test.tgz 2> memcheck.tmp
 #	cat memcheck.tmp | grep "definitely lost: 0 bytes in 0 blocks"
 	cat memcheck.tmp | grep "ERROR SUMMARY: 0"
 	rm -f memcheck.tmp

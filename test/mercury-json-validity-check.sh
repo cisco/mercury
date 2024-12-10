@@ -37,7 +37,7 @@ for (( length=1; length <= "${#option_array[@]}"; ++length )); do
 done
 
 # test with all permutations of options, with --analysis and --resources
-extra_options="--analysis --resources=../resources/resources.tgz"
+extra_options="--analysis --resources=data/resources-test.tgz"
 for (( length=1; length <= "${#option_array[@]}"; ++length )); do
     for (( start=0; start + length <= "${#option_array[@]}"; ++start )); do
         options="${option_array[@]:start:length}"

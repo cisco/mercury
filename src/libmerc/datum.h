@@ -47,17 +47,17 @@ static constexpr bool host_little_endian = true;
 /// returns an integer equal to x with its byte order reversed (from
 /// little endian to big endian or vice-versa)
 ///
-inline static uint16_t swap_byte_order(uint16_t x) { return _byteswap_ushort(x); }
+inline static constexpr uint16_t swap_byte_order(uint16_t x) { return _byteswap_ushort(x); }
 
 /// returns an integer equal to x with its byte order reversed (from
 /// little endian to big endian or vice-versa)
 ///
-inline static uint32_t swap_byte_order(uint32_t x) { return _byteswap_ulong(x); }
+inline static constexpr uint32_t swap_byte_order(uint32_t x) { return _byteswap_ulong(x); }
 
 /// returns an integer equal to x with its byte order reversed (from
 /// little endian to big endian or vice-versa)
 ///
-inline static uint64_t swap_byte_order(uint64_t x) { return _byteswap_uint64(x); }
+inline static constexpr uint64_t swap_byte_order(uint64_t x) { return _byteswap_uint64(x); }
 
 #else
 
@@ -66,17 +66,17 @@ static constexpr bool host_little_endian = (__BYTE_ORDER__ == __ORDER_LITTLE_END
 /// returns an integer equal to x with its byte order reversed (from
 /// little endian to big endian or vice-versa)
 ///
-inline static uint16_t swap_byte_order(uint16_t x) { return __builtin_bswap16(x); }
+inline static constexpr uint16_t swap_byte_order(uint16_t x) { return __builtin_bswap16(x); }
 
 /// returns an integer equal to x with its byte order reversed (from
 /// little endian to big endian or vice-versa)
 ///
-inline static uint32_t swap_byte_order(uint32_t x) { return __builtin_bswap32(x); }
+inline static constexpr uint32_t swap_byte_order(uint32_t x) { return __builtin_bswap32(x); }
 
 /// returns an integer equal to x with its byte order reversed (from
 /// little endian to big endian or vice-versa)
 ///
-inline static uint64_t swap_byte_order(uint64_t x) { return __builtin_bswap64(x); }
+inline static constexpr uint64_t swap_byte_order(uint64_t x) { return __builtin_bswap64(x); }
 
 #endif
 
@@ -88,7 +88,7 @@ inline static uint64_t swap_byte_order(uint64_t x) { return __builtin_bswap64(x)
 /// byte order with the same type and value.
 ///
 template <typename T>
-inline static T ntoh(T x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
+inline static constexpr T ntoh(T x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
 
 /// when `x` is in host byte order, `hton(x)` returns the value of `x`
 /// in network byte order
@@ -104,7 +104,7 @@ inline static T ntoh(T x) { if (host_little_endian) { return swap_byte_order(x);
 /// will result from amiguity over the integer type.
 ///
 template <typename T>
-inline static T hton(T x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
+inline static constexpr T hton(T x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
 
 /// @} -- end of integeroperations
 
