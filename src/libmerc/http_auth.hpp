@@ -83,16 +83,13 @@ public:
 
         uint8_t outbuf[1024];
         int outlen = base64::decode(outbuf, sizeof(outbuf), header.data, header.length());
-        if (outlen > 0) {
-            o.print_key_json_string("header", outbuf, outlen);
-        }
+        outlen = outlen > 0 ? outlen : 0;
+        o.print_key_json_string("header", outbuf, outlen);
         outlen = base64::decode(outbuf, sizeof(outbuf), payload.data, payload.length());
-        if (outlen > 0) {
-            o.print_key_json_string("payload", outbuf, outlen);
-        }
-        if (signature.length() > 0) {
-            o.print_key_json_string("signature", signature);
-        }
+        outlen = outlen > 0 ? outlen : 0;
+        o.print_key_json_string("payload", outbuf, outlen);
+        o.print_key_json_string("signature", signature.data, signature.length());
+
     }
 
 };
