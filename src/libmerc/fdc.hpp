@@ -6,6 +6,8 @@
 #define FDC_HPP
 
 #include "static_dict.hpp"
+#include "result.h"
+#include "cbor.hpp"
 #include "fingerprint.h"  // for fingerprint_type
 
 // cbor_fingerprint decodes a CBOR representation of a Network
@@ -585,9 +587,6 @@ public:
 
         // decode the data in the buffer to decoded_fdc
         //
-        static const size_t MAX_DST_ADDR_LEN   = 48;
-        static const size_t MAX_SNI_LEN        = 257;
-        static const size_t MAX_USER_AGENT_LEN = 512;
         static const size_t MAX_FP_STR_LEN     = 4096;
         char fp_str[MAX_FP_STR_LEN];
         char dst_ip_str[MAX_DST_ADDR_LEN];

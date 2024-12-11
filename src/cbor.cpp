@@ -83,9 +83,6 @@ int main(int argc, char *argv[]) {
             }
         }
         if (decode_fdc) {
-            static const size_t MAX_DST_ADDR_LEN   = 48;
-            static const size_t MAX_SNI_LEN        = 257;
-            static const size_t MAX_USER_AGENT_LEN = 512;
             static const size_t MAX_FP_STR_LEN     = 4096;
             char fp_str[MAX_FP_STR_LEN];
             char dst_ip_str[MAX_DST_ADDR_LEN];
