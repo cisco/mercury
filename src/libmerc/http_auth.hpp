@@ -127,7 +127,7 @@ public:
             bearer_token{auth_param}.write_json(scheme_json);
 
         } else {
-            scheme_json.print_key_json_string("param", auth_param);
+            scheme_json.print_key_json_string("param", auth_param.data, auth_param.length());
         }
         scheme_json.close();
         auth_json.close();
