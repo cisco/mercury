@@ -7,6 +7,7 @@
 
 #include "datum.h"
 #include "base64.h"
+#include "json_object.h"
 
 class scheme : public datum {
 public:
