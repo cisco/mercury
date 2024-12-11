@@ -12,6 +12,7 @@
 #include "quic.h"
 #include "fingerprint.h"
 #include "tls_extensions.h"
+#include "ech.hpp"
 
 /* TLS Constants */
 
@@ -55,6 +56,8 @@
 #define type_session_ticket                  0x0023
 #define type_quic_transport_parameters       0x0039
 #define type_quic_transport_parameters_draft 0xffa5
+
+#define type_ech_client_hello                0xfe0d
 
 static uint16_t static_extension_types[num_static_extension_types] = {
         1,         /* max fragment length                    */
@@ -198,6 +201,25 @@ public:
         d.read_uint8(&length);
         parse(d, length);
     }
+
+    bool is_grease() const {
+        if (length() != 2) {
+            return false;
+        }
+        if (data[0] == data[1] and (data[0] & 0x0f) == 0x0a) {
+            return true;
+        }
+        return false;
+    }
+
+    void write_json(json_array &a) const {
+        if (is_grease()) {
+            a.print_string("\\n\\n");  // print json-escaped CR
+        } else {
+            a.print_json_string(*this);
+        }
+    }
+
 };
 
 class protocol_name_list {
@@ -215,11 +237,15 @@ public:
         return data;
     }
 
+
+    // write ALPN strings into an array inside the json_object \param
+    // o, normalizing all GREASE values to hexadecimal 0a0a ("\n\n")
+    //
     void write_json(json_object &o, const char *key) {
         json_array alpn_array{o, key};
         while (data.is_not_empty()) {
             protocol_name name{data};
-            alpn_array.print_json_string(name);
+            name.write_json(alpn_array);
         }
         alpn_array.close();
     }
@@ -358,6 +384,7 @@ void tls_extensions::set_meta_data(struct datum &server_name,
             //     alpn.push_back(name.get_string());
             // }
         }
+
     }
 }
 
@@ -369,6 +396,10 @@ struct tls_extension {
     const uint8_t *length_ptr;
     uint16_t cnt; //No.of extensions of the same type
     uint16_t encoded_type;
+
+    static constexpr uint8_t num_extns_not_in_raw_features = 0;  //change this value when updating extns_not_in_raw_features
+    static constexpr uint16_t extns_not_in_raw_features[num_extns_not_in_raw_features] = {
+    };
 
     tls_extension() : type{0}, length{0}, value{NULL, NULL}, type_ptr{NULL}, length_ptr{NULL}, cnt{0} { }
 
@@ -384,7 +415,12 @@ struct tls_extension {
             p.data += length;
         }
 
-        encoded_type = type;
+        // Initialize with degreased extension 
+        if (is_grease()) {
+            encoded_type = 0x0a0a;
+        } else {
+            encoded_type = type;
+        }
     }
 
     bool is_not_empty() { return value.is_not_empty(); }
@@ -402,16 +438,12 @@ struct tls_extension {
     }
 
 
-    void fingerprint_format1(struct buffer_stream &b, enum tls_role role, bool use_encoded_type = false) {
-        uint16_t extension_type = type;
-        if (use_encoded_type) {
-            extension_type = encoded_type;
-        }
-        if (uint16_match(extension_type, static_extension_types, num_static_extension_types) == true) {
-            if (extension_type == type_supported_groups) {
+    void fingerprint_format1(struct buffer_stream &b, enum tls_role role) {
+        if (uint16_match(type, static_extension_types, num_static_extension_types) == true) {
+            if (type == type_supported_groups) {
                 // fprintf(stderr, "I am degreasing supported groups\n");
                 b.write_char('(');
-                b.write_hex_uint(extension_type);
+                b.write_hex_uint(encoded_type);
                 write_length(b);
                 write_degreased_value(b, L_NamedGroupListLen);
                 b.write_char(')');
@@ -419,8 +451,7 @@ struct tls_extension {
             } else if (type == type_supported_versions) {
                 // fprintf(stderr, "I am degreasing supported versions\n");
                 b.write_char('(');
-                b.write_hex_uint(extension_type);
-                //write_degreased_type(b);
+                b.write_hex_uint(encoded_type);
                 write_length(b);
                 if (role == tls_role::client) {
                     write_degreased_value(b, L_ProtocolVersionListLen);
@@ -432,8 +463,7 @@ struct tls_extension {
             } else if (type == type_quic_transport_parameters || type == type_quic_transport_parameters_draft) {
                 b.write_char('(');
                 b.write_char('(');
-                b.write_hex_uint(extension_type);
-                //write_degreased_type(b);
+                b.write_hex_uint(encoded_type);
                 b.write_char(')');
 
                 // sort quic transport parameter ids, then write them
@@ -443,9 +473,6 @@ struct tls_extension {
                 while (value.is_not_null()) {
                     quic_transport_parameter qtp{value};
                     if (qtp.is_not_empty()) {
-                        //b.write_char('(');
-                        //qtp.write_id(b);
-                        //b.write_char(')');
                         id_vector.push_back(qtp.get_id());
                     }
                 }
@@ -481,16 +508,14 @@ struct tls_extension {
 
             } else {
                 b.write_char('(');
-                b.write_hex_uint(extension_type);
-                //write_degreased_type(b);
+                b.write_hex_uint(encoded_type);
                 write_length(b);
                 write_value(b);
                 b.write_char(')');
             }
         } else {
             b.write_char('(');
-            b.write_hex_uint(extension_type);
-            //write_degreased_type(b);
+            b.write_hex_uint(encoded_type);
             b.write_char(')');
         }
 
@@ -501,6 +526,7 @@ struct tls_extension {
             raw_as_hex_degrease(b, type_ptr, sizeof(uint16_t));
         }
     }
+
     void write_length(struct buffer_stream &b) const {
         if (length_ptr) {
             raw_as_hex_degrease(b, length_ptr, sizeof(uint16_t));
@@ -527,7 +553,17 @@ struct tls_extension {
         }
     }
 
-    void write_raw_features(writeable &buf) const {
+    void write_raw_features(writeable &buf, bool &first) const {
+        if (uint16_match(type, extns_not_in_raw_features, num_extns_not_in_raw_features) == true) {
+            return;
+        }
+
+        if (!first) {
+            buf.copy(',');
+        } else {
+            first = false;
+        }
+
         buf.copy('[');
         buf.write_quote_enclosed_hex(type_ptr, sizeof(type));
         buf.copy(',');
@@ -620,6 +656,7 @@ void tls_extensions::fingerprint_quic_tls(struct buffer_stream &b, enum tls_role
         if (x.value.data == NULL) {
             break;
         }
+
         tls_ext_vec.push_back(x);
     }
 
@@ -670,9 +707,7 @@ void tls_extensions::fingerprint_format2(struct buffer_stream &b, enum tls_role 
         index = tls_extensions_assign::get_index(x.type);
 
         if (index == -1) {
-            if (x.is_grease()) {
-                x.encoded_type = 0x0a0a;
-            } else if (x.is_private_extension()) {
+            if (x.is_private_extension()) {
                 // Unknown private extensions will be encoded as the
                 // smallest extension in private extension range
                 x.encoded_type = tls_extensions_assign::smallest_private_extn;
@@ -717,7 +752,7 @@ void tls_extensions::fingerprint_format2(struct buffer_stream &b, enum tls_role 
         }
         for (int count = 0; count < extn_cnt; count++) {
             tls_extension &x = extensions_list[extn][count];
-            x.fingerprint_format1(b, role, true); 
+            x.fingerprint_format1(b, role);
         }
     }
    b.write_char(']'); 
@@ -728,13 +763,8 @@ void tls_extensions::write_raw_features(writeable &buf) const {
     struct datum ext_parser{this->data, this->data_end};
     bool first_extension = true;
     while (ext_parser.length() > 0) {
-        if (!first_extension) {
-            buf.copy(',');
-        } else {
-            first_extension = false;
-        }
         tls_extension x{ext_parser};
-        x.write_raw_features(buf);
+        x.write_raw_features(buf, first_extension);
     }
     buf.copy(']');
 }
@@ -771,6 +801,33 @@ void tls_extensions::print_session_ticket(struct json_object &o, const char *key
 
             struct datum ext{data + L_ExtensionType + L_ExtensionLength, ext_parser.data};
             o.print_key_hex(key, ext);
+        }
+    }
+
+}
+
+void tls_extensions::print_ech_client_hello(struct json_object &o) const {
+
+    struct datum ext_parser{this->data, this->data_end};
+
+    while (ext_parser.length() > 0) {
+        uint64_t tmp_len = 0;
+        uint64_t tmp_type;
+
+        const uint8_t *data = ext_parser.data;
+        if (ext_parser.read_uint(&tmp_type, L_ExtensionType) == false) {
+            break;
+        }
+        if (ext_parser.read_uint(&tmp_len, L_ExtensionLength) == false) {
+            break;
+        }
+        if (ext_parser.skip(tmp_len) == false) {
+            break;
+        }
+
+        if (tmp_type == type_ech_client_hello) {
+            struct datum ext{data + L_ExtensionType + L_ExtensionLength, ext_parser.data};
+            ech_client_hello{ext}.write_json(o);
         }
     }
 
@@ -872,10 +929,15 @@ void tls_client_hello::write_json(struct json_object &record, bool output_metada
     if (output_metadata) {
         extensions.print_alpn(tls_client, "application_layer_protocol_negotiation");
         extensions.print_session_ticket(tls_client, "session_ticket");
+        extensions.print_ech_client_hello(tls_client);
     }
-    data_buffer<2048> buf;
-    write_raw_features(buf);
-    tls_client.print_key_json_string("features", buf.contents());
+
+    if (output_raw_features) {
+        data_buffer<4096> buf;
+        write_raw_features(buf);
+        tls_client.print_key_json_string("features", buf.contents());
+    }
+
     tls_client.close();
     tls.close();
 }

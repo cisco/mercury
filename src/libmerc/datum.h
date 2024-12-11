@@ -12,14 +12,13 @@
 #include <inttypes.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <string.h>
 #include <unistd.h>
 #include <array>
+#include <vector>
 #include <bitset>
 #include <limits>
 #include <string>
 #include <cassert>
-#include "libmerc.h"  // for enum status
 #include "buffer_stream.h"
 
 /// `mercury_debug` is a compile-time option that turns on debugging output
@@ -133,8 +132,11 @@ inline uint8_t lowercase(uint8_t x) {
 ///
 /// A datum can be constructed
 ///
-/// * from pointers to the first and last byte of a region, with the
-/// constructors \ref datum(const uint8_t *first, const uint8_t *last),
+/// * from pointers to the bounding bytes of a region, with the
+/// constructors \ref datum(const uint8_t *first, const uint8_t *last)
+/// where `first` is a pointer to the first valid byte of the region,
+/// and `last` is a pointer to the byte following the last valid byte of
+/// the region,
 ///
 /// * from a `std::pair` of pointers using \ref datum(std::pair<const
 /// uint8_t *, const uint8_t *> p),
@@ -159,7 +161,9 @@ inline uint8_t lowercase(uint8_t x) {
 /// out of scope, then the datum will be invalid.
 ///
 /// A datum contains a pointer `data` to the first byte and a pointer
-/// `data_end` to the last byte.  When a datum is read, for instance
+/// `data_end` to the byte immediately following the last valid byte of the
+/// datum.  The `data_end` element acts as a placeholder; attempting to access
+/// it may result in undefined behavior.  When a datum is read, for instance
 /// to accept an object, these pointers are checked to verify that
 /// `data` is not `nullptr` and the operation will not read past
 /// `data_end`.  When an accept operation is successful, the `data`
@@ -201,6 +205,11 @@ struct datum {
     ///
     datum(const uint8_t *first, const uint8_t *last) : data{first}, data_end{last} {}
 
+    /// construct a datum representing the null-terminated character
+    /// string \param str
+    ///
+    explicit datum(const char *str) : data{(uint8_t *)str}, data_end{data + strlen(str)} { }
+
     /// construct a datum by accepting \p length bytes from datum \p d
     ///
     /// \param d      the datum to accept bytes from
@@ -238,10 +247,10 @@ struct datum {
 
     bool is_null() const { return data == NULL; }
     bool is_not_null() const { return data != NULL; }
-    bool is_empty() const { return data != NULL && data == data_end; }
     bool is_not_empty() const { return data != NULL && data < data_end; }
     bool is_readable() const { return data != NULL && data < data_end; }
     bool is_not_readable() const { return data == NULL || data == data_end; }
+    bool is_empty() const { return data != NULL && data == data_end; }
     void set_empty() { data = data_end; }
     void set_null() { data = data_end = NULL; }
     ssize_t length() const { return data_end - data; }
@@ -266,42 +275,42 @@ struct datum {
     }
     void parse_up_to_delim(struct datum &r, uint8_t delim) {
         data = r.data;
-        while (r.data < r.data_end) {
-            if (*r.data == delim) { // found delimeter
-                data_end = r.data;
-                return;
-            }
-            r.data++;
+        const unsigned char* c = static_cast<const unsigned char*>(memchr(r.data, delim, r.length()));
+        if (c) {
+            data_end = r.data = c;
+            return;
         }
-        data_end = r.data;
+
+        data_end = r.data_end;
     }
-    uint8_t parse_up_to_delimeters(struct datum &r, uint8_t delim1, uint8_t delim2) {
+    uint8_t parse_up_to_delimiters(struct datum &r, uint8_t delim1, uint8_t delim2) {
         data = r.data;
         while (r.data < r.data_end) {
-            if (*r.data == delim1) { // found first delimeter
+            if (*r.data == delim1) { // found first delimiter
                 data_end = r.data;
                 return delim1;
             }
-            if (*r.data == delim2) { // found second delimeter
+            if (*r.data == delim2) { // found second delimiter
                 data_end = r.data;
                 return delim2;
             }
             r.data++;
         }
+        data_end = r.data_end;
         return 0;
     }
-    uint8_t parse_up_to_delimeters(struct datum &r, uint8_t delim1, uint8_t delim2, uint8_t delim3) {
+    uint8_t parse_up_to_delimiters(struct datum &r, uint8_t delim1, uint8_t delim2, uint8_t delim3) {
         data = r.data;
         while (r.data < r.data_end) {
-            if (*r.data == delim1) { // found first delimeter
+            if (*r.data == delim1) { // found first delimiter
                 data_end = r.data;
                 return delim1;
             }
-            if (*r.data == delim2) { // found second delimeter
+            if (*r.data == delim2) { // found second delimiter
                 data_end = r.data;
                 return delim2;
             }
-            if (*r.data == delim3) { // found third delimeter
+            if (*r.data == delim3) { // found third delimiter
                 data_end = r.data;
                 return delim2;
             }
@@ -469,11 +478,12 @@ struct datum {
         const unsigned char *tmp_data = data;
         const unsigned char *pattern = delim;
         const unsigned char *pattern_end = delim + length;
+        
         while (pattern < pattern_end && tmp_data < data_end)
         {
             if (*tmp_data != *pattern)
             {
-                pattern = delim - 1; /* reset pattern to the start of the delimeter string */
+                pattern = delim - 1; /* reset pattern to the start of the delimiter string */
             }
             tmp_data++;
             pattern++;
@@ -484,19 +494,18 @@ struct datum {
         }
         return -(tmp_data - data);
     }
+
     int find_delim(uint8_t delim) {
-        const unsigned char *tmp_data = data;
-        while (tmp_data < data_end) {
-            if (*tmp_data == delim) {
-                return tmp_data - data;
-            }
-            tmp_data++;
+        const unsigned char* c = static_cast<const unsigned char*>(memchr(data, delim, length()));
+        if (c) {
+            return c - data;
         }
         return -1;
     }
+
     void skip_up_to_delim(uint8_t delim) {
-        while (data <= data_end) {
-            if (*data == delim) { // found delimeter
+        while (data < data_end) {
+            if (*data == delim) { // found delimiter
                 return;
             }
             data++;
@@ -512,6 +521,12 @@ struct datum {
         }
 
         return false;
+    }
+
+    void trim_leading_whitespace() {
+        while(data < data_end and (*data == ' ' or *data == '\t')) {
+            data++;
+        }
     }
 
     /// skips/trims all instances of the trailing character `t`
@@ -746,6 +761,13 @@ struct datum {
         return std::numeric_limits<int>::min();
     }
 
+    bool compare_nbytes(const void *x, ssize_t x_len) {
+        if (data && length() >= x_len) {
+            return (::memcmp(x, data, x_len) == 0);
+        }
+        return false;
+    }
+
     void fprint_hex(FILE *f, size_t length=0) const {
         if (data == nullptr) { return; }
         const uint8_t *x = data;
@@ -946,6 +968,21 @@ public:
     ///
     writeable(uint8_t *begin, uint8_t *end) : data{begin}, data_end{end} { }
 
+    /// constructs a writeable object that tracks data being written to the
+    /// `std::array` \param a.
+    ///
+    template <size_t N>
+    constexpr writeable(std::array<uint8_t, N> &a) : data{a.data()}, data_end{data + N} { }
+
+    /// constructs a writeable object that tracks data being written to the
+    /// region between \param buf and `buf + len`.
+    ///
+    constexpr writeable(uint8_t *buf, size_t len) : data{buf}, data_end{buf + len} { }
+
+    /// constructs a null writeable object
+    ///
+    writeable() : data{nullptr}, data_end{nullptr} { }
+
     /// returns true if the writeable object is in the null state, and false otherwise
     ///
     bool is_null() const { return data == nullptr || data_end == nullptr; }
@@ -1063,6 +1100,59 @@ public:
         copy('"');
     }
 
+    /// writes a raw representation of the hexadecimal string with \p
+    /// num_digits characters at location \p src into this
+    /// `data_buffer`, if `num_digits` is even and there is room for
+    /// all `num_digits/2` bytes; otherwise, sets it to the empty
+    /// state
+    ///
+    void copy_from_hex(const uint8_t *src, size_t num_digits) {
+
+        // check for writeable room; output length is twice the input
+        // length
+        //
+        if (is_null() or data_end - data < ((ssize_t)num_digits/2)) {
+            set_null();
+            return;
+        }
+
+        const uint8_t *src_end = src + num_digits;
+        while (src < src_end) {
+            uint8_t hi = *src++;
+            uint8_t lo = *src++;
+            uint8_t result;
+            if (hi >= '0' && hi <= '9') {
+                result = (hi - '0') << 4;
+            } else if (hi >= 'a' && hi <= 'f') {
+                result = (hi - 'a' + 10) << 4;
+            } else if (hi >= 'A' && hi <= 'F') {
+                result = (hi - 'A' + 10) << 4;
+            } else {
+                //
+                // error; character hi is not a hex digit
+                //
+                set_null();
+                return;
+            }
+            if (lo >= '0' && lo <= '9') {
+                result |= (lo - '0');
+            } else if (lo >= 'a' && lo <= 'f') {
+                result |= (lo - 'a' + 10);
+            } else if (lo >= 'A' && lo <= 'F') {
+                result |= (lo - 'A' + 10);
+            } else {
+                //
+                // error; character lo is not a hex digit
+                //
+                set_null();
+                return;
+            }
+            *data++ = result;
+
+        }
+
+    }
+
     /// copies `num_bytes` out of `r` and into this \ref writeable,
     /// and advances `r`, if this `writeable` has enough room for the
     /// data and `r` contains at least `num_bytes`.  If `r.length() <
@@ -1099,6 +1189,13 @@ public:
         if (d.is_not_null()) {
             parse(d);
         }
+        return *this;
+    }
+
+    /// template specialization for char
+    ///
+    writeable & operator<<(char c) {
+        copy(c);
         return *this;
     }
 
@@ -1174,6 +1271,65 @@ template <size_t T> struct data_buffer : public writeable {
     //  * use null state to indicate write failure
     //  * add assert() macros to support debugging
     //  * add [[nodiscard]] as appropriate
+
+};
+
+/// dynamic_buffer is a writeable that can be dynamically sized
+///
+class dynamic_buffer : public writeable {
+    std::vector<uint8_t> buffer;
+
+public:
+
+    /// constructs a `dynamic_buffer` with an initial capacity of
+    /// \param initial_capacity bytes
+    ///
+    dynamic_buffer(size_t initial_capacity) :
+        buffer(initial_capacity)
+    {
+        data = buffer.data();
+        data_end = data + buffer.capacity();
+    }
+
+    /// reset this `dynamic_buffer` so that the readable part is empty
+    /// (zero length) and the writeable part contains all available
+    /// bytes.
+    ///
+    void reset() { data = buffer.data(); }
+
+    /// returns true if the readable part is not empty
+    ///
+    bool is_not_empty() const { return data != buffer.data() && data < data_end; }
+
+    /// `dynamic_buffer::readable_length()` returns the number of bytes in
+    /// the readable region, if the writeable region is not null;
+    /// otherwise, zero is returned
+    ///
+    ssize_t readable_length() const {
+        if (writeable::is_null()) {
+            return 0;
+        }
+        else {
+            return data - buffer.data();
+        }
+    }
+
+    /// returns a \ref datum representing the readable part of the
+    /// \ref dynamic_buffer, if the writeable part is not null;
+    /// otherwise, a null `datum` is returned
+    ///
+    datum contents() const {
+        if (writeable::is_null()) {
+            return {nullptr, nullptr};
+        } else {
+            return {buffer.data(), data};
+        }
+    }
+
+    const std::vector<uint8_t> &get_value() {
+        buffer.resize(readable_length());
+        return buffer;
+    }
 
 };
 
@@ -1610,6 +1766,12 @@ public:
     ///
     lookahead(datum d) : value{d}, tmp{d} { }
 
+    /// construct a lookahead<T> object by parsing the datum held by
+    /// another lookahead<> object.
+    ///
+    template <typename T2>
+    lookahead(lookahead<T2> &l) : value{l.tmp}, tmp{l.tmp} { }
+
     /// construct a lookahead<T> object by parsing the datum d while
     /// passing the parameter p of type P to the constructor of the T
     /// object.
@@ -1705,7 +1867,7 @@ public:
 
     ignore(datum &d, bool little_endian=false) {
         (void)little_endian;
-        T tmp{d};
+        T{d};
     }
 
     ignore() { }

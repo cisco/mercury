@@ -1,8 +1,8 @@
 /*
  * pkt_proc.h
- * 
- * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at 
- * https://github.com/cisco/mercury/blob/master/LICENSE 
+ *
+ * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at
+ * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
 #ifndef PKT_PROC_H
@@ -24,6 +24,7 @@
 #include "perfect_hash.h"
 #include "crypto_assess.h"
 #include "pkt_proc_util.h"
+#include "reassembly.hpp"
 
 /**
  * enum linktype is a 16-bit enumeration that identifies a protocol
@@ -51,7 +52,13 @@ struct mercury {
     classifier *c;
     class traffic_selector selector;
 
-    mercury(const struct libmerc_config *vars, int verbosity) : global_vars{*vars}, aggregator{ global_vars.do_stats? (std::make_unique<data_aggregator>(global_vars.max_stats_entries)) : nullptr}, c{nullptr}, selector{global_vars.protocols} {
+    mercury(const struct libmerc_config *vars, int verbosity) :
+                global_vars{*vars},
+                aggregator{ global_vars.do_stats
+                            ? (std::make_unique<data_aggregator>(global_vars.max_stats_entries, global_vars.stats_blocking))
+                            : nullptr },
+                c{nullptr},
+                selector{global_vars.protocols} {
         if (global_vars.do_analysis) {
             c = analysis_init_from_archive(verbosity, global_vars.get_resource_file(),
                                            vars->enc_key, vars->key_type,
@@ -71,6 +78,11 @@ struct mercury {
             format = c->get_quic_fingerprint_format();
             global_vars.fp_format.set_quic_fingerprint_format(format);
             printf_err(log_info, "setting quic fingerprint format to match resource file (format: %zu)\n", format);
+
+            if (c->is_disabled()) {
+                printf_err(log_debug, "classifier could not be initialized, disabling all protocols\n");
+                selector.disable_all();
+            }
         }
     }
 
@@ -82,8 +94,6 @@ struct mercury {
 struct stateful_pkt_proc {
     struct flow_table ip_flow_table;
     struct flow_table_tcp tcp_flow_table;
-    struct tcp_reassembler reassembler;
-    struct tcp_reassembler *reassembler_ptr;
     struct tcp_initial_message_filter tcp_init_msg_filter;
     struct analysis_context analysis;
     class message_queue *mq;
@@ -93,13 +103,12 @@ struct stateful_pkt_proc {
     global_config global_vars;
     class traffic_selector &selector;
     quic_crypto_engine quic_crypto;
+    struct tcp_reassembler *reassembler_ptr = nullptr;
     crypto_policy::assessor *crypto_policy = nullptr;
 
     explicit stateful_pkt_proc(mercury_context mc, size_t prealloc_size=0) :
         ip_flow_table{prealloc_size},
         tcp_flow_table{prealloc_size},
-        reassembler{prealloc_size},
-        reassembler_ptr{&reassembler},
         tcp_init_msg_filter{},
         analysis{},
         mq{nullptr},
@@ -108,7 +117,8 @@ struct stateful_pkt_proc {
         ag{nullptr},
         global_vars{mc->global_vars},
         selector{mc->selector},
-        quic_crypto{}
+        quic_crypto{},
+        reassembler_ptr{(global_vars.reassembly) ? (new tcp_reassembler) : nullptr}
     {
 
         constexpr bool DO_CRYPTO_ASSESSMENT = false;
@@ -125,6 +135,9 @@ struct stateful_pkt_proc {
         this->c = m->c;
         this->global_vars = m->global_vars;
 
+        // setting protocol based configuration option to output the raw features
+        set_raw_features(global_vars.raw_features);
+
         //fprintf(stderr, "note: setting classifier to %p, setting global_vars to %p\n", (void *)m->c, (void *)&m->global_vars));
         // }
 
@@ -134,10 +147,6 @@ struct stateful_pkt_proc {
             if (mq == nullptr) {
                 throw std::runtime_error("error: could not initialize event queue");
             }
-        }
-
-        if (!global_vars.tcp_reassembly) {
-            reassembler_ptr = nullptr;
         }
 
 //#ifndef USE_TCP_REASSEMBLY
@@ -151,13 +160,16 @@ struct stateful_pkt_proc {
 
     ~stateful_pkt_proc() {
         delete crypto_policy;
+        delete reassembler_ptr;
         // we could call ag->remote_procuder(mq), but for now we do not
     }
 
     // TODO: the count_all() functions should probably be removed
     //
     void finalize() {
-        reassembler.count_all();
+        if (reassembler_ptr) {
+            reassembler_ptr->clear_all();
+        }
         tcp_flow_table.count_all();
     }
 
@@ -236,9 +248,16 @@ struct stateful_pkt_proc {
                           struct datum &pkt,
                           struct tcp_packet &tcp_pkt,
                           struct key &k,
-                          struct timespec *ts, 
+                          struct timespec *ts,
                           struct tcp_reassembler *reassembler);
-    
+
+    bool process_udp_data (protocol &x,
+                          struct datum &pkt,
+                          udp &udp_pkt,
+                          struct key &k,
+                          struct timespec *ts,
+                          struct tcp_reassembler *reassembler);
+
     void set_tcp_protocol(protocol &x,
                           struct datum &pkt,
                           bool is_new,
@@ -246,11 +265,36 @@ struct stateful_pkt_proc {
 
     void set_udp_protocol(protocol &x,
                           struct datum &pkt,
-                          enum udp_msg_type msg_type,
+                          udp::ports ports,
                           bool is_new,
-                          const struct key& k);
+                          const struct key& k,
+                          udp &udp_pkt);
 
     bool dump_pkt ();
+
+    void set_raw_features(std::unordered_map<std::string, bool> &raw_features) {
+        if (raw_features["all"] or raw_features["tls"]) {
+            tls_client_hello::set_raw_features(true);
+        }
+        
+        if (raw_features["all"] or raw_features["stun"]) {
+            stun::message::set_raw_features(true);
+        }
+        
+        if (raw_features["all"] or raw_features["bittorrent"]) {
+            bittorrent_dht::set_raw_features(true);
+            bittorrent_lsd::set_raw_features(true);
+            bittorrent_handshake::set_raw_features(true);
+        }
+        
+        if (raw_features["all"] or raw_features["smb"]) {
+            smb2_packet::set_raw_features(true);
+        }
+        
+        if (raw_features["all"] or raw_features["ssdp"]) {
+            ssdp::set_raw_features(true);
+        }
+    }
 };
 
 #endif /* PKT_PROC_H */

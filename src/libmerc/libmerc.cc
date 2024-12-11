@@ -14,6 +14,7 @@
 #include "pkt_proc.h"
 #include "config_generator.h"
 #include "global_config.h"
+#include "tsc_clock.hpp"
 
 #ifndef  MERCURY_SEMANTIC_VERSION
 #warning MERCURY_SEMANTIC_VERSION is not defined
@@ -45,6 +46,10 @@ static char init_time[128] = { '\0' };
 void mercury_print_version_string(FILE *f) {
     struct semantic_version mercury_version(MERCURY_SEMANTIC_VERSION);
     mercury_version.print(f);
+}
+
+void mercury_print_git_commit(FILE *f) {
+    fprintf(f, "%s\n", git_commit_id);
 }
 
 void mercury_get_version_string(char *buf, size_t size) {
@@ -85,7 +90,9 @@ mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
     // taking place
     //
     assert(printf_err(log_info, "libmerc is running assert() tests\n") != 0);
-
+    // Calculate the cpu ticks per sec during initialization time
+    // to avoid delay during packet processing path
+    tsc_clock::init();
     try {
         m = new mercury{vars, verbosity};
         return m;
@@ -299,11 +306,12 @@ bool mercury_write_stats_data(mercury_context mc, const char *stats_data_file_pa
         return false;
     }
     mc->aggregator->gzprint(stats_data_file,
+                           mercury_get_resource_version(mc),
                            git_commit_id,
                            git_count,
                            init_time);
     gzclose(stats_data_file);
-
+    printf_err(log_debug, "stats dump completed\n");
     return true;
 }
 

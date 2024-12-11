@@ -41,7 +41,8 @@ public:
     }
 
     void process_update(const event_msg &event, uint32_t count, const char *version,
-                    const char *git_commit_id, uint32_t git_count, const char *init_time) {
+                    const char *resource_version, const char *git_commit_id,
+                    uint32_t git_count, const char *init_time) {
 
         std::tie(v[0], v[1], v[2], v[3]) = event;
 
@@ -74,9 +75,9 @@ public:
             if (gz_ret <= 0)
                 throw std::runtime_error("error in gzprintf");
             gz_ret = gzprintf(gzf, "{\"src_ip\":\"%s\", \"libmerc_init_time\" : \"%s\",\"libmerc_version\": \"%s\","
-                                   " \"build_number\" : \"%u\", \"git_commit_id\": \"%s\", \"fingerprints\":"
-                                   "[{\"str_repr\":\"%s\", \"sessions\": [{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u", 
-                v[0].c_str(), init_time, version, git_count, git_commit_id, v[1].c_str(), user_agent, v[3].c_str(), count);
+                                   " \"resource_version\" : \"%s\", \"build_number\" : \"%u\", \"git_commit_id\": \"%s\", \"fingerprints\":"
+                                   "[{\"str_repr\":\"%s\", \"sessions\": [{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u",
+                v[0].c_str(), init_time, version, resource_version, git_count, git_commit_id, v[1].c_str(), user_agent, v[3].c_str(), count);
             break;
         case 1:
             gz_ret = gzprintf(gzf, "}]}]},{\"str_repr\":\"%s\", \"sessions\": [{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u", v[1].c_str(), user_agent, v[3].c_str(), count);
@@ -103,42 +104,47 @@ public:
 
 };
 
-#define ANON_SRC_IP
 
 // class event_encoder provides methods to compress/decompress event string.
 // Its member functions are not const because they may update the dict
 // member.
 
 class event_encoder {
+    dict addr_dict;
     dict fp_dict;
     dict ua_dict;
 
 public:
 
-    event_encoder() : fp_dict{}, ua_dict{} {}
+    event_encoder() : addr_dict{}, fp_dict{}, ua_dict{} {}
 
     bool compute_inverse_map() {
-        return fp_dict.compute_inverse_map() && ua_dict.compute_inverse_map();
+        return addr_dict.compute_inverse_map() &&
+               fp_dict.compute_inverse_map() &&
+               ua_dict.compute_inverse_map();
     }
 
     void get_inverse(event_msg &event) {
+        const std::string &saddr = std::get<0>(event);
         const std::string &fngr = std::get<1>(event);
         const std::string &ua   = std::get<2>(event);
 
+        size_t compressed_saddr_num = strtol(saddr.c_str(), NULL, 16);
         size_t compressed_fp_num = strtol(fngr.c_str(), NULL, 16);
         size_t compressed_ua_num = strtol(ua.c_str(), NULL, 16);
 
+        std::get<0>(event) = addr_dict.get_inverse(compressed_saddr_num);
         std::get<1>(event) = fp_dict.get_inverse(compressed_fp_num);
         std::get<2>(event) = ua_dict.get_inverse(compressed_ua_num);
     }
 
-    void compress_event_string(event_msg& event, dict& addr_dict) {
+    void compress_event_string(event_msg& event) {
 
         const std::string &addr = std::get<0>(event);
         const std::string &fngr = std::get<1>(event);
         const std::string &ua   = std::get<2>(event);
 
-        // compress source address string, for anonymization (regardless of ANON_SRC_IP)
+        // compress source address string
         char src_addr_buf[9];
         addr_dict.compress(addr, src_addr_buf);
 
@@ -179,17 +185,16 @@ class stats_aggregator {
     std::string observation;  // used as preallocated temporary variable
     size_t num_entries;
     size_t max_entries;
-    dict &addr_dict;
 
 public:
 
-    stats_aggregator(dict& _addr_dict, size_t size_limit) : event_table{}, encoder{}, observation{}, num_entries{0}, max_entries{size_limit}, addr_dict{_addr_dict} { }
+    stats_aggregator(size_t size_limit) : event_table{}, encoder{}, observation{}, num_entries{0}, max_entries{size_limit} { }
 
     ~stats_aggregator() {  }
 
     void observe_event_string(event_msg &obs) {
 
-        encoder.compress_event_string(obs, addr_dict);
+        encoder.compress_event_string(obs);
 
         const auto entry = event_table.find(obs);
         if (entry != event_table.end()) {
@@ -205,7 +210,9 @@ public:
 
     bool is_empty() const { return event_table.size() == 0; }
 
-    void gzprint(gzFile f, const char *version, const char *git_commit_id,
+    void gzprint(gzFile f, const char *version,
+                 const char *resource_version,
+                 const char *git_commit_id,
                  uint32_t git_count,
                  const char *init_time,
                  std::atomic<bool> &interrupt ) {
@@ -229,7 +236,7 @@ public:
                 throw std::runtime_error("error: stats dump interrupted");
             } else {
                 return l.first < r.first;
-            } 
+            }
         } );
 
         event_processor_gz ep(f);
@@ -240,7 +247,7 @@ public:
                 throw std::runtime_error("error: stats dump interrupted");
             }
             encoder.get_inverse(entry.first);
-            ep.process_update(entry.first, entry.second, version, git_commit_id, git_count, init_time);
+            ep.process_update(entry.first, entry.second, version, resource_version, git_commit_id, git_count, init_time);
         }
         ep.process_final();
 
@@ -263,11 +270,13 @@ class data_aggregator {
     std::vector<class message_queue *> q;
     stats_aggregator ag1, ag2, *ag;
     std::atomic<bool> shutdown_requested;
-    dict addr_dict;
+    bool blocking;  // stats event collection: lossless but blocking
+    useconds_t consumer_sleep; // microseconds
     std::thread consumer_thread;
     std::mutex m;
     std::mutex output_mutex;
     char version[MAX_VERSION_STRING];
+    std::string resource_version;
 
     // stop_processing() MUST NOT be called until all writing to the
     // message_queues has stopped
@@ -290,14 +299,40 @@ class data_aggregator {
         }
     }
 
+    double event_queue_fill_ratio(message_queue *q) {
+        return static_cast<double>(q->size()) / static_cast<double>(q->capacity());
+    }
+
+    void adjust_consumer_sleep(double max_fill_ratio) {
+        // Aim for busiest queue to be between 25% and 50% full before emptying.
+        // However, always bound the sleep time within [1us, 50us].
+        useconds_t new_sleep;
+        if (max_fill_ratio < 0.25) {
+            new_sleep = consumer_sleep + 1; // additive increase
+            new_sleep = std::min(new_sleep, (useconds_t)50);
+        } else if (max_fill_ratio > 0.5) {
+            new_sleep = consumer_sleep / 2; // multiplicative decrease
+            new_sleep = std::max(new_sleep, (useconds_t)1);
+        } else {
+            return;                         // no change needed
+        }
+        //fprintf(stderr, "Max message_queue fill ratio: %3.3f   new_sleep: %u us\n",
+        //        max_fill_ratio, new_sleep);
+        consumer_sleep = new_sleep;
+    }
+
     void process_event_queues() {
         std::lock_guard m_guard{m};
         //fprintf(stderr, "note: processing event queue of size %zd in %p\n", q.size(), (void *)this);
+        double max_fill_ratio = 0.0; // max over queues (worker threads) at the current moment
         if (q.size()) {
             for (auto & qr : q) {
                 //fprintf(stderr, "note: processing event queue %p in %p with size %zd\n", (void *)qr, (void *)this, qr->size());
+                double fill_ratio = event_queue_fill_ratio(qr);
+                max_fill_ratio = std::max(max_fill_ratio, fill_ratio);
                 empty_event_queue(qr);
             }
+            adjust_consumer_sleep(max_fill_ratio);
         }
     }
 
@@ -305,13 +340,13 @@ class data_aggregator {
         //fprintf(stderr, "note: running consumer in %p\n", (void *)this);
         while(shutdown_requested.load() == false) {
             process_event_queues();
-            usleep(50); // sleep for fifty microseconds
+            usleep(consumer_sleep); // sleep somewhere between 1us and 50us
         }
     }
 
 public:
 
-    data_aggregator(size_t size_limit=0) : q{}, ag1{addr_dict, size_limit}, ag2{addr_dict, size_limit}, ag{&ag1}, shutdown_requested{false} {
+    data_aggregator(size_t size_limit=0, bool blocking=false) : q{}, ag1{size_limit}, ag2{size_limit}, ag{&ag1}, shutdown_requested{false}, blocking{blocking}, consumer_sleep{1} {
         mercury_get_version_string(version, MAX_VERSION_STRING);
         start_processing();
         //fprintf(stderr, "note: constructing data_aggregator %p\n", (void *)this);
@@ -331,7 +366,7 @@ public:
     message_queue *add_producer() {
         std::lock_guard m_guard{m};
         //fprintf(stderr, "note: adding producer in %p\n", (void *)this);
-        q.push_back(new message_queue);
+        q.push_back(new message_queue(blocking));
         return q.back();
     }
 
@@ -360,6 +395,7 @@ public:
     }
 
     void gzprint(gzFile f,
+                 const char *resource_version,
                  const char *git_commit_id,
                  uint32_t git_count,
                  const char *init_time
@@ -385,15 +421,16 @@ public:
         }
 
         try {
-            tmp->gzprint(f, version, git_commit_id, git_count, init_time, std::ref(shutdown_requested));
+            tmp->gzprint(f, version, resource_version, git_commit_id, git_count, init_time, std::ref(shutdown_requested));
         }
         catch (std::exception &e) {
             printf_err(log_err, "%s\n", e.what());
         }
     }
 
-    size_t get_num_entries() const
+    size_t get_num_entries()
     {
+        std::lock_guard m_guard{m};
         return ag->get_num_entries();
     }
 };

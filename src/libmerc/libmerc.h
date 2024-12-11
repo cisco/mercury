@@ -371,7 +371,8 @@ enum fingerprint_type {
      fingerprint_type_tcp_server = 13, /**< TCP SYN ACK fingerprint            */
      fingerprint_type_openvpn = 14, /**< OpenVPN TCP fingerprint           */
      fingerprint_type_tofsee = 15,    /**< Tofsee initial message fingerprint  */
-     fingerprint_type_max = 16,       /**< Placeholder: # of fingerprint types */
+     fingerprint_type_stun = 16,       /**< STUN fingerprint                   */
+     fingerprint_type_max = 17,       /**< Placeholder: # of fingerprint types */
 };
 
 /**
@@ -561,6 +562,20 @@ const char *mercury_get_license_string();
 extern "C" LIBMERC_DLL_EXPORTED
 #endif
 void mercury_print_version_string(FILE *f);
+
+/**
+ * @brief prints the git commit id
+ *
+ * Prints the git commit hash of mercury/libmerc to the FILE provided
+ * as input.
+ *
+ * @param [in] file to print git commit id on.
+ *
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+void mercury_print_git_commit(FILE *f);
 
 /**
  * @brief returns the mercury semantic version

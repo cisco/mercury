@@ -99,6 +99,10 @@ static enum status mercury_config_parse_line(struct mercury_config *cfg,
 
     if ((arg = command_get_argument("read=", line)) != NULL) {
         cfg->read_filename = strdup(arg);
+        // use blocking output, so that no packets are lost in copying
+        cfg->output_block = true;
+        // use blocking stats to avoid losing stats events
+        additional_args = str_append(additional_args, "stats-blocking;");
         return status_ok;
 
     } else if ((arg = command_get_argument("write=", line)) != NULL) {
@@ -180,12 +184,18 @@ static enum status mercury_config_parse_line(struct mercury_config *cfg,
         global_vars.output_udp_initial_data = true;
         return status_ok;
 
-    } else if ((arg = command_get_argument("tcp-reassembly", line)) != NULL) {
-        additional_args = str_append(additional_args, "tcp-reassembly;");
+    } else if ((arg = command_get_argument("reassembly", line)) != NULL) {
+        additional_args = str_append(additional_args, "reassembly;");
         return status_ok;
 
     } else if ((arg = command_get_argument("format=", line)) != NULL) {
         additional_args = str_append(additional_args, "format=");
+        additional_args = str_append(additional_args, arg);
+        additional_args = str_append(additional_args, ";");
+        return status_ok;
+
+    }  else if ((arg = command_get_argument("raw-features=", line)) != NULL) {
+        additional_args = str_append(additional_args, "raw-features=");
         additional_args = str_append(additional_args, arg);
         additional_args = str_append(additional_args, ";");
         return status_ok;
@@ -247,4 +257,3 @@ enum status mercury_config_read_from_file(struct mercury_config &cfg,
 
     return status_ok;
 }
-

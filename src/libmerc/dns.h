@@ -1086,6 +1086,8 @@ struct dns_packet : public base_protocol {
             a.close();
         }
 
+        dns_json.print_key_uint_hex("id", header->id);
+
         dns_json.close();
     }
 

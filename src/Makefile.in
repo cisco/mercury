@@ -84,7 +84,13 @@ ifeq ($(openssl_newer),yes)
 CFLAGS += -DSSLNEW
 endif
 
-all: compiler_version mercury libmerc_test cert_analyze libmerc_util intercept_server unit_test # tls_scanner batch_gcd
+ifeq ($(is_macos_arm),yes)
+CFLAGS += -I/opt/homebrew/include
+CXXFLAGS += -I/opt/homebrew/include
+LDFLAGS += -L/opt/homebrew/lib
+endif
+
+all: compiler_version mercury libmerc_test cert_analyze libmerc_util intercept_server # tls_scanner batch_gcd
 
 # the version target just reports the c++ compiler version; we report
 # this so that it is present in e.g. Jenkins logs
@@ -113,7 +119,7 @@ compiler_version:
 # libmerc.a itself needs to be rebuild
 #
 mercury: mercury.c $(MERC_OBJ) $(MERC_H) libmerc.a Makefile.in
-	$(CXX) $(CFLAGS) mercury.c $(MERC_OBJ) -pthread libmerc/libmerc.a -lz -lcrypto -o mercury
+	$(CXX) $(CFLAGS) mercury.c $(MERC_OBJ) -pthread libmerc/libmerc.a  $(LDFLAGS) -lz -lcrypto -o mercury
 	@echo $(COLOR_GREEN) "Build complete; now run 'sudo setcap" $(CAP) "mercury'" $(COLOR_OFF)
 
 ifeq ($(use_fsanitize),yes)
@@ -179,7 +185,10 @@ batch_gcd: batch_gcd.cc
 	$(CXX) $(CFLAGS) batch_gcd.cc libmerc/asn1.cc libmerc/asn1/oid.cc -lgmpxx -lgmp -pthread -o batch_gcd
 
 cert_analyze: cert_analyze.cc libmerc/asn1.h
-	$(CXX) $(CFLAGS) cert_analyze.cc libmerc/asn1.cc libmerc/asn1/oid.cc -pthread -lcrypto -o cert_analyze
+	$(CXX) $(CFLAGS) cert_analyze.cc libmerc/asn1.cc libmerc/asn1/oid.cc -pthread $(LDFLAGS) -lcrypto -o cert_analyze
+
+cms: cms.cpp libmerc/asn1.h
+	$(CXX) $(CFLAGS) cms.cpp libmerc/asn1.cc libmerc/asn1/oid.cc $(LDFLAGS) -lcrypto -o cms
 
 dns-trie: dns-trie.cpp dns_trie.hpp fpdb_reader.hpp
 	$(CXX) $(CFLAGS) dns-trie.cpp -o dns-trie
@@ -195,6 +204,9 @@ archive_reader: archive_reader.cc libmerc/archive.h
 
 string: string.cc stringalgs.h options.h
 	$(CXX) $(CFLAGS) string.cc -o string
+
+cbor: cbor.cpp libmerc/cbor.hpp libmerc/fdc.hpp libmerc/static_dict.hpp libmerc/file_datum.hpp options.h
+	$(CXX) $(CFLAGS) cbor.cpp -o cbor
 
 decode: decode.cc
 	$(CXX) $(CFLAGS) decode.cc -o decode
@@ -229,7 +241,7 @@ endif
 
 #MERC_OBJ = $(MERC:%.o=%.c)
 
-libmerc_test: libmerc_test.c $(LIBMERC_SO) Makefile.in
+libmerc_test: run_unit_test libmerc_test.c $(LIBMERC_SO) Makefile.in
 	$(CC) -Wall -std=c11 libmerc_test.c -pthread -L./libmerc $(LIBMERC_SO) -lz -lcrypto -o libmerc_test
 	@echo $(COLOR_GREEN) "To run before 'make install', export LD_LIBRARY_PATH=$(shell pwd)/libmerc" $(COLOR_OFF)
 
@@ -247,7 +259,7 @@ intercept.so: intercept.cc libmerc.a
 
 .PHONY: clean
 clean: libmerc-clean
-	rm -rf mercury libmerc_test libmerc_util intercept_server tls_scanner cert_analyze os_identifier archive_reader batch_gcd string decode pcap pcap_filter format intercept.so dns-trie gmon.out *.o *.json.gz
+	rm -rf mercury libmerc_test libmerc_util intercept_server tls_scanner cert_analyze os_identifier archive_reader batch_gcd string cbor unit_test decode pcap pcap_filter format intercept.so dns-trie gmon.out *.o *.json.gz
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	for file in mercury.c libmerc_test.c tls_scanner.cc cert_analyze.cc $(MERC) $(MERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 
@@ -320,8 +332,19 @@ cppcheck: $(MERC)
 	cppcheck --language=c++ --std=c++17 --force --enable=all -URAPIDJSON_DOXYGEN_RUNNING --template='{file}:{line}:{severity}:{message}' $^
 	cd libmerc && $(MAKE) cppcheck
 
+# the run_unit_test target builds and runs a simple application that
+# invokes all of the unit_test functions available in the libmerc/
+# subdirectory
+#
+# note: there are much more extensive unit tests in the ./unit_tests
+# subdirectory
+#
+.PHONY: run_unit_test
+run_unit_test: unit_test
+	./unit_test
+
 .PHONY: test
-test: mercury libmerc_driver
+test: run_unit_test mercury libmerc_driver
 	cd ../test && $(MAKE)
 
 major=$(shell cat ../VERSION | grep -o "^[0-9]*")
@@ -332,19 +355,19 @@ MSV ="-DMERCURY_SEMANTIC_VERSION=$(major),$(minor),$(patch)"
 .PHONY: increment-patchlevel increment-minor-version increment-major-version
 increment-patchlevel:
 	echo $(major).$(minor).$(shell expr $(patch) + 1) > ../VERSION
-	git add ../VERSION
+	git add ../VERSION ../doc/CHANGELOG.md
 	git commit -m "incrementing patchlevel"
 	git tag -a $(major).$(minor).$(shell expr $(patch) + 1) -m "\"patchlevel increment\""
 
 increment-minor-version:
 	echo $(major).$(shell expr $(minor) + 1).0 > ../VERSION
-	git add ../VERSION
+	git add ../VERSION ../doc/CHANGELOG.md
 	git commit -m "incrementing minor version"
 	git tag -a $(major).$(shell expr $(minor) + 1).0 -m "\"minor version increment\""
 
 increment-major-version:
 	echo $(shell expr $(major) + 1).0.0 > ../VERSION
-	git add ../VERSION
+	git add ../VERSION ../doc/CHANGELOG.md
 	git commit -m "incrementing major version"
 	git tag -a $(shell expr $(major) + 1).0.0 -m "\"major version increment\""
 

@@ -1,6 +1,7 @@
-#cython: language_level=3
+#cython: language_level=3, embedsignature=True
 
 import json
+import math
 from base64 import b64decode
 
 from libcpp.unordered_map cimport unordered_map
@@ -10,7 +11,18 @@ from libc.stdio cimport *
 from libc.stdint cimport *
 from libc.string cimport memset
 from posix.time cimport timespec
-from cython.operator cimport dereference as deref
+from cython.operator import dereference
+
+
+"""
+:mod:`mercury-python` -- Packet parser
+===================================
+
+.. module:: mercury
+   :platform: Unix
+   :synopsis: A cython-based interface into mercury's functionality
+"""
+
 
 ### BUILD INSTRUCTIONS
 # To build in-place:
@@ -19,7 +31,7 @@ from cython.operator cimport dereference as deref
 #   CC=g++ CXX=g++ python setup.py install
 
 # TODO: actually handle version
-__version__ = '0.1.2'
+__version__ = '2.6.1'
 
 # imports from mercury's dns
 cdef extern from "../libmerc/dns.h":
@@ -189,7 +201,38 @@ fp_type_dict = {
     12: 'quic',
 }
 
+
 cdef class Mercury:
+    """
+    Initialize mercury packet processors to process and analyze network data. Standard usage:
+
+    .. code-block:: python
+
+        import mercury
+        from binascii import unhexlify
+
+        libmerc = mercury.Mercury()
+
+        pkt_data = b'52540012...'
+        libmerc.get_mercury_json(unhexlify(pkt_data))
+
+    :param do_analysis: Apply mercury's analysis functionality to packets.
+    :type do_analysis: bool
+    :param resources: Location of mercury-compatible resources file, necessary if `do_analysis` is set to `True`.
+    :type resources: bytes
+    :param output_tcp_initial_data: Return TCP initial packet data for unrecognized protocols (default=`False`).
+    :type output_tcp_initial_data: bool
+    :param output_udp_initial_data: Return UDP initial packet data for unrecognized protocols (default=`False`).
+    :type output_udp_initial_data: bool
+    :param packet_filter_cfg: Specify the protocols that mercury will analyze (default=`all`).
+    :type packet_filter_cfg: bytes
+    :param metadata_output: Report additional metadata about protocols (default=`True`).
+    :type metadata_output: bool
+    :param dns_json_output: When processing DNS packets, return a JSON representation as opposed to Base64 Representation (default=`True`).
+    :type dns_json_output: bool
+    :param certs_json_output: When processing certificates, return a JSON representation as opposed to Base64 Representation (default=`True`).
+    :type certs_json_output: bool
+    """
     cdef mercury* mercury_context
     cdef stateful_pkt_proc* mpp
     cdef const analysis_context* ac
@@ -224,7 +267,7 @@ cdef class Mercury:
         self.mercury_init()
 
 
-    cpdef int mercury_init(self, unsigned int verbosity=0):
+    cdef int mercury_init(self, unsigned int verbosity=0):
         cdef libmerc_config config = self.py_config
         self.mercury_context = mercury_init(&config, 0)
         if self.mercury_context == NULL:
@@ -239,13 +282,28 @@ cdef class Mercury:
         return 0
 
 
-    cpdef dict get_mercury_json(self, bytes pkt_data):
+    cpdef dict get_mercury_json(self, bytes pkt_data, double ts=0.0):
+        """
+        Return mercury's JSON representation of a packet.
+
+        :param pkt_data: packet data
+        :type pkt_data: bytes
+        :param ts: timestamp associated with the packet data (default=0.0)
+        :type ts: double
+        :return: JSON-encoded packet.
+        :rtype: dict
+        """
         cdef unsigned char* pkt_data_ref = pkt_data
 
         cdef char buf[8192]
         memset(buf, 0, 8192)
 
-        mercury_packet_processor_write_json(<mercury_packet_processor>self.mpp, buf, 8192, pkt_data_ref, len(pkt_data), &self.default_ts)
+        # set timestamp
+        cdef timespec c_ts
+        c_ts.tv_sec  = int(ts)
+        c_ts.tv_nsec = int(math.modf(ts)[0]*1e9)
+
+        mercury_packet_processor_write_json(<mercury_packet_processor>self.mpp, buf, 8192, pkt_data_ref, len(pkt_data), &c_ts)
 
         cdef str json_str = buf.decode('UTF-8')
         if json_str != None:
@@ -258,6 +316,14 @@ cdef class Mercury:
 
 
     cpdef dict get_fingerprint(self, bytes pkt_data):
+        """
+        Return mercury's network protocol fingerprint (NPF) along with metadata.
+
+        :param pkt_data: packet data
+        :type pkt_data: bytes
+        :return: JSON-encoded network protocol fingerprint information.
+        :rtype: dict
+        """
         cdef unsigned char* pkt_data_ref = pkt_data
         cdef const analysis_context* ac = mercury_packet_processor_get_analysis_context(<mercury_packet_processor>self.mpp,
                                                                                         pkt_data_ref, len(pkt_data), &self.default_ts);
@@ -277,6 +343,14 @@ cdef class Mercury:
 
 
     cpdef dict analyze_packet(self, bytes pkt_data):
+        """
+        Given a packet, apply the mercury classifier and report relevant analysis metadata.
+
+        :param pkt_data: packet data
+        :type pkt_data: bytes
+        :return: JSON-encoded analysis output
+        :rtype: dict
+        """
         cdef unsigned char* pkt_data_ref = pkt_data
         cdef const analysis_context* ac = mercury_packet_processor_get_analysis_context(<mercury_packet_processor>self.mpp,
                                                                                         pkt_data_ref, len(pkt_data), &self.default_ts);
@@ -312,6 +386,20 @@ cdef class Mercury:
 
 
     cpdef dict perform_analysis(self, str fp_str, str server_name, str dst_ip, int dst_port):
+        """
+        Directly call into mercury analysis functionality by providing all needed data features.
+
+        :param fp_str: mercury-generated network protocol fingerprint
+        :type fp_str: str
+        :param server_name: The visible, fully qualified domain name, found in the server_name extension
+        :type server_name: str
+        :param dst_ip: The destination IP address associated with the packet of interest
+        :type dst_ip: str
+        :param dst_port: The destination port associated with the packet of interest
+        :type dst_port: int
+        :return: JSON-encoded analysis output
+        :rtype: dict
+        """
         if not self.do_analysis:
             print(f'error: classifier not loaded (is do_analysis set to True?)')
             return None
@@ -347,6 +435,35 @@ cdef class Mercury:
                                  long double new_as_weight, long double new_domain_weight,
                                  long double new_port_weight, long double new_ip_weight,
                                  long double new_sni_weight, long double new_ua_weight):
+        """
+        Directly call into mercury analysis functionality by providing all needed data features. Additionally,
+        supply custom weights for each data feature.
+
+        :param fp_str: mercury-generated network protocol fingerprint
+        :type fp_str: str
+        :param server_name: The visible, fully qualified domain name, found in the server_name extension or the HTTP Host field
+        :type server_name: str
+        :param dst_ip: The destination IP address associated with the packet of interest
+        :type dst_ip: str
+        :param dst_port: The destination port associated with the packet of interest
+        :type dst_port: int
+        :param user_agent: If analyzing an HTTP packet, provide the contents of the HTTP User-Agent field
+        :type user_agent: str
+        :param new_as_weight: Updated weight for the Autonomous System data feature
+        :type new_as_weight: long double
+        :param new_domain_weight: Updated weight for the domain name data feature
+        :type new_domain_weight: long double
+        :param new_port_weight: Updated weight for the destination port data feature
+        :type new_port_weight: long double
+        :param new_ip_weight: Updated weight for the destination IP address data feature
+        :type new_ip_weight: long double
+        :param new_sni_weight: Updated weight for the server_name data feature
+        :type new_sni_weight: long double
+        :param new_ua_weight: Updated weight for the User-Agent data feature
+        :type new_ua_weight: long double
+        :return: JSON-encoded analysis output
+        :rtype: dict
+        """
         if not self.do_analysis:
             print(f'error: classifier not loaded (is do_analysis set to True?)')
             return None
@@ -397,6 +514,23 @@ cdef class Mercury:
 
 
     cpdef dict perform_analysis_with_user_agent(self, str fp_str, str server_name, str dst_ip, int dst_port, str user_agent):
+        """
+        Directly call into mercury analysis functionality by providing all needed data features. Additionally,
+        supply custom weights for each data feature.
+
+        :param fp_str: mercury-generated network protocol fingerprint
+        :type fp_str: str
+        :param server_name: The visible, fully qualified domain name, found in the server_name extension or the HTTP Host field
+        :type server_name: str
+        :param dst_ip: The destination IP address associated with the packet of interest
+        :type dst_ip: str
+        :param dst_port: The destination port associated with the packet of interest
+        :type dst_port: int
+        :param user_agent: If analyzing an HTTP packet, provide the contents of the HTTP User-Agent field
+        :type user_agent: str
+        :return: JSON-encoded analysis output
+        :rtype: dict
+        """
         if not self.do_analysis:
             print(f'error: classifier not loaded (is do_analysis set to True?)')
             return None
@@ -472,10 +606,15 @@ cdef class Mercury:
         return retval
 
 
-# parse_dns
-#  Input: b64_dns - python str representing a base64-encoded DNS request
-#  Output: JSON object containing parsed DNS request
 def parse_dns(str b64_dns):
+    """
+    Return a JSON representation of the Base64 DNS packet.
+
+    :param b64_dns: Base64-encoded DNS packet.
+    :type b64_dns: str
+    :return: JSON-encoded DNS packet.
+    :rtype: dict
+    """
     cdef bytes dns_req = b64decode(b64_dns)
     cdef unsigned int len_ = len(dns_req)
 
@@ -497,10 +636,15 @@ cdef extern from "../libmerc/x509.h":
         string get_hex_string()
 
 
-# parse_cert
-#  Input: b64_cert - python str representing a base64-encoded certificate
-#  Output: JSON object containing parsed certificate
 def parse_cert(str b64_cert):
+    """
+    Return a JSON representation of the Base64 certificate.
+
+    :param b64_cert: Base64-encoded certificate.
+    :type b64_cert: str
+    :return: JSON-encoded certificate.
+    :rtype: dict
+    """
     cdef bytes cert = b64decode(b64_cert)
     cdef unsigned int len_ = len(cert)
     cdef x509_cert x
@@ -515,10 +659,15 @@ def parse_cert(str b64_cert):
     return json.loads(x.get_json_string().decode())
 
 
-# get_cert_prefix
-#  Input: b64_cert - python str representing a base64-encoded certificate
-#  Output: string containing hex form of certificate prefix
 def get_cert_prefix(str b64_cert):
+    """
+    Return a JSON representation of the Base64 certificate prefix.
+
+    :param b64_cert: Base64-encoded certificate.
+    :type b64_cert: str
+    :return: hex form of certificate prefix
+    :rtype: str
+    """
     cdef bytes cert = b64decode(b64_cert)
     cdef unsigned int len_ = len(cert)
     cdef x509_cert_prefix x
@@ -531,4 +680,53 @@ def get_cert_prefix(str b64_cert):
 
     # return hex string
     return x.get_hex_string()  # TBD: make it hex
+
+
+cdef extern from "../libmerc/datum.h":
+    cdef struct datum:
+        const unsigned char *data
+        const unsigned char *data_end
+
+
+cdef extern from "../libmerc/ech.hpp":
+    cdef cppclass ech_config:
+        ech_config(datum &)
+
+
+cdef extern from "json_string.hpp":
+    string get_json_string[T](T &, size_t)
+
+
+cdef class ECHConfig:
+    cdef ech_config* ech_obj
+
+    def __init__(self, bytes ech_config_str):
+        cdef unsigned int len_ = len(ech_config_str)
+
+        # create reference to ech_config so that it doesn't get garbage collected
+        cdef const unsigned char* c_string_ref = ech_config_str
+
+        cdef datum ech_datum = datum(c_string_ref, c_string_ref + len_)
+        self.ech_obj = new ech_config(ech_datum)
+
+    def get_json_string(self):
+        json_str = get_json_string(dereference(self.ech_obj), 1024).decode()
+
+        return json.loads(json_str)
+
+
+def parse_ech_config(str b64_ech_config):
+    """
+    Return a JSON representation of the Base64 Encrypted Client Hello object.
+
+    :param b64_ech_config: Base64-encoded ECH object.
+    :type b64_ech_config: str
+    :return: JSON-encoded ECH object.
+    :rtype: dict
+    """
+    cdef bytes ech_config = b64decode(b64_ech_config)
+
+    ech_obj = ECHConfig(ech_config)
+
+    return ech_obj.get_json_string()
 

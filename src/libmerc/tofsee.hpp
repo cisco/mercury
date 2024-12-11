@@ -113,6 +113,10 @@ public:
     }
 
     bool is_not_empty() const {
+        if ( (!ipv4.is_not_null()) or (ipv4.is_not_null() and ipv4.matches(std::array<uint8_t,4>{0,0,0,0})) ) {
+            return false;  // not a tofsee message, probably contains a run of bytes
+        }
+
         if (!unknown_2.is_not_null()) {
             return false;  // bad message, probably wrong size
         }
@@ -146,6 +150,7 @@ public:
     }
 
     bool do_analysis([[maybe_unused]] const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
+        analysis_.destination.init_tofsee({nullptr,nullptr}, ipv4, {nullptr, nullptr}, k_);
         return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
     }
 

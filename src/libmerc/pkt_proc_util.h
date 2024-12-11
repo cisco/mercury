@@ -39,6 +39,7 @@ struct http_request;                      // start of tcp protocols
 struct http_response;
 struct tls_client_hello;
 class tls_server_hello_and_certificate;
+class tls_certificate;
 struct ssh_init_packet;
 struct ssh_kex_init;
 class smtp_client;
@@ -73,6 +74,7 @@ using protocol = std::variant<std::monostate,
                               http_response,
                               tls_client_hello,
                               tls_server_hello_and_certificate,
+                              tls_certificate,
                               ssh_init_packet,
                               ssh_kex_init,
                               smtp_client,
@@ -238,6 +240,10 @@ struct write_metadata {
     }
 
     void operator()(tls_server_hello_and_certificate &r) {
+        r.write_json(record, metadata_output_, certs_json_output_);
+    }
+
+    void operator()(tls_certificate &r) {
         r.write_json(record, metadata_output_, certs_json_output_);
     }
 

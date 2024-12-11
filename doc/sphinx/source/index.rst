@@ -14,6 +14,14 @@ Mercury Library Documentation
    :caption: Contents:
 
 
+Mercury Python Library Documentation
+====================================
+
+.. automodule:: mercury
+   :members:
+   :show-inheritance:
+
+
 Indices and tables
 ==================
 

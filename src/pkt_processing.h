@@ -64,7 +64,14 @@ struct pkt_proc_pcap_writer_llq : public pkt_proc {
         if (rnd_pkt_drop_percent_accept && drop_this_packet()) {
             return;  /* random packet drop configured, and this packet got selected to be discarded */
         }
-        pcap_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000, block);
+
+        struct llq_msg *msg = llq->init_msg(block, pi->ts.tv_sec, pi->ts.tv_nsec);
+        if (msg) {
+            size_t write_len = pcap_queue_write(msg->buf, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
+            if (write_len > 0) {
+                llq->send(write_len);
+            }
+        }
     }
 
     void finalize() override { }
@@ -134,8 +141,8 @@ struct pkt_proc_filter_pcap_writer : public pkt_proc {
             return;  /* random packet drop configured, and this packet got selected to be discarded */
         }
 
-        uint8_t buf[LLQ_MSG_SIZE];
-        if (processor.write_json(buf, LLQ_MSG_SIZE, packet, length, &pi->ts) != 0 || processor.dump_pkt()) {
+        uint8_t buf[LLQ_MAX_MSG_SIZE];
+        if (processor.write_json(buf, LLQ_MAX_MSG_SIZE, packet, length, &pi->ts) != 0 || processor.dump_pkt()) {
             pcap_file_write_packet_direct(&pcap_file, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
         }
 
@@ -189,10 +196,9 @@ struct pkt_proc_json_writer_llq : public pkt_proc {
     void apply(struct packet_info *pi, uint8_t *eth) override {
         struct llq_msg *msg = llq->init_msg(block, pi->ts.tv_sec, pi->ts.tv_nsec);
         if (msg) {
-            size_t write_len = mercury_packet_processor_write_json_linktype(processor, msg->buf, LLQ_MSG_SIZE, eth, pi->len, &(msg->ts), pi->linktype);
+            size_t write_len = mercury_packet_processor_write_json_linktype(processor, msg->buf, LLQ_MAX_MSG_SIZE, eth, pi->len, &(msg->ts), pi->linktype);
             if (write_len > 0) {
-                msg->send(write_len);
-                llq->increment_widx();
+                llq->send(write_len);
             }
         }
     }
@@ -239,10 +245,9 @@ struct pkt_proc_json_writer_llq_CPP : public pkt_proc {
     void apply(struct packet_info *pi, uint8_t *eth) override {
         struct llq_msg *msg = llq->init_msg(block, pi->ts.tv_sec, pi->ts.tv_nsec);
         if (msg) {
-            size_t write_len = processor.write_json(msg->buf, LLQ_MSG_SIZE, eth, pi->len, &(msg->ts));
+            size_t write_len = processor.write_json(msg->buf, LLQ_MAX_MSG_SIZE, eth, pi->len, &(msg->ts));
             if (write_len > 0) {
-                msg->send(write_len);
-                llq->increment_widx();
+                llq->send(write_len);
             }
         }
     }
@@ -287,9 +292,16 @@ struct pkt_proc_filter_pcap_writer_llq : public pkt_proc {
             return;  /* random packet drop configured, and this packet got selected to be discarded */
         }
 
-        uint8_t buf[LLQ_MSG_SIZE];
-        if (processor.write_json(buf, LLQ_MSG_SIZE, packet, length, &pi->ts) != 0 || processor.dump_pkt()) {
-            pcap_queue_write(llq, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000, block);
+        uint8_t buf[LLQ_MAX_MSG_SIZE];
+        if (processor.write_json(buf, LLQ_MAX_MSG_SIZE, packet, length, &pi->ts) != 0 || processor.dump_pkt()) {
+
+            struct llq_msg *msg = llq->init_msg(block, pi->ts.tv_sec, pi->ts.tv_nsec);
+            if (msg) {
+                size_t write_len = pcap_queue_write(msg->buf, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
+                if (write_len > 0) {
+                    llq->send(write_len);
+                }
+            }
         }
     }
 

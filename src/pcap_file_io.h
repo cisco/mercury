@@ -13,6 +13,7 @@
 #include <sys/time.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <utility>
 #include <stdexcept>
 #include "mercury.h"
@@ -99,17 +100,16 @@ enum status pcap_file_close(struct pcap_file *f);
 enum status pcap_file_dispatch_pkt_processor(struct pcap_file *f,
                                              struct pkt_proc *pkt_processor,
                                              int loop_count,
-                                             int &sig_close_flag);
+                                             sig_atomic_t &sig_close_flag);
 
 
 // pcap_queue_write() sends a packet to a lockless queue
 //
-void pcap_queue_write(struct ll_queue *llq,
+size_t pcap_queue_write(uint8_t *buf,
                       uint8_t *packet,
                       size_t length,
                       unsigned int sec,
-                      unsigned int nsec,
-                      bool blocking);
+                        unsigned int usec);
 
 enum status write_pcap_file_header(FILE *f);
 

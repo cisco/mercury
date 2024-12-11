@@ -93,10 +93,13 @@ struct key {
         }
     }
 
+    void sprint_src_port(char src_port_string[MAX_PORT_STR_LEN]) const {
+        snprintf(src_port_string, MAX_PORT_STR_LEN, "%u", src_port);
+    }
+
     void sprint_dst_port(char dst_port_string[MAX_PORT_STR_LEN]) const {
         snprintf(dst_port_string, MAX_PORT_STR_LEN, "%u", dst_port);
     }
-
 
     bool dst_is_global() const {
         if (ip_vers == 4) {

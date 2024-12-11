@@ -1337,9 +1337,11 @@ class quic_init_decry {
     bool valid;
     quic_frame cc;
     uint8_t pkt_num_len;
+    uint32_t more_bytes_needed;
+    uint32_t min_crypto_offset;
 
 public:
-    quic_init_decry (quic_initial_packet &pkt, cryptographic_buffer& buffer) : initial_packet{pkt}, crypto_buffer{buffer}, hello{}, plaintext{}, valid{false}, cc{}, pkt_num_len{0} {}
+    quic_init_decry (quic_initial_packet &pkt, cryptographic_buffer& buffer) : initial_packet{pkt}, crypto_buffer{buffer}, hello{}, plaintext{}, valid{false}, cc{}, pkt_num_len{0}, more_bytes_needed{0}, min_crypto_offset{UINT32_MAX} {}
 
     void parse() {
         if (!initial_packet.is_not_empty()) {
@@ -1362,6 +1364,8 @@ public:
 
             crypto *c = frame.get_if<crypto>();
             if (c && c->is_valid()) {
+                if (c->offset() <= min_crypto_offset)
+                    min_crypto_offset = (uint32_t)c->offset();
                 crypto_buffer.extend(*c);
             }
             if (frame.has_type<connection_close>() || frame.has_type<ack>()) {
@@ -1372,6 +1376,7 @@ public:
         if(crypto_buffer.is_valid()){
             struct datum d{crypto_buffer.buffer, crypto_buffer.buffer + crypto_buffer.buf_len};
             tls_handshake tls{d};
+            more_bytes_needed = tls.additional_bytes_needed;
             hello.parse(tls.body);
             hello.is_quic_hello = true;
         } 
@@ -1420,6 +1425,9 @@ public:
 
         return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
     }
+
+    uint32_t get_more_bytes_needed() const { return more_bytes_needed; }
+    uint32_t get_min_crypto_offset() const { return min_crypto_offset; }
 };
 
 // class quic_init represents an initial quic message
@@ -1433,10 +1441,12 @@ class quic_init {
     quic_frame cc;
     quic_init_decry decry_pkt;
     bool pre_decrypted;
+    uint32_t more_bytes_needed;
+    uint32_t min_crypto_offset;
 
 public:
 
-    quic_init(struct datum &d, quic_crypto_engine &quic_crypto_) : initial_packet{d}, quic_crypto{quic_crypto_}, crypto_buffer{}, hello{}, plaintext{}, decry_pkt{initial_packet,crypto_buffer}, pre_decrypted{false} {
+    quic_init(struct datum &d, quic_crypto_engine &quic_crypto_) : initial_packet{d}, quic_crypto{quic_crypto_}, crypto_buffer{}, hello{}, plaintext{}, decry_pkt{initial_packet,crypto_buffer}, pre_decrypted{false}, more_bytes_needed{0}, min_crypto_offset{UINT32_MAX} {
 
         // check reserved bits, if 0, try for decrypted quic packet
         //
@@ -1465,6 +1475,8 @@ public:
 
             crypto *c = frame.get_if<crypto>();
             if (c && c->is_valid()) {
+                if (c->offset() <= min_crypto_offset)
+                    min_crypto_offset = (uint32_t)c->offset();
                 crypto_buffer.extend(*c);
             }
             if (frame.has_type<connection_close>() || frame.has_type<ack>() || frame.has_type<ack_ecn>()) {
@@ -1474,14 +1486,52 @@ public:
         if(crypto_buffer.is_valid()){
             struct datum d{crypto_buffer.buffer, crypto_buffer.buffer + crypto_buffer.buf_len};
             tls_handshake tls{d};
+            more_bytes_needed = tls.additional_bytes_needed;
             hello.parse(tls.body);
             hello.is_quic_hello = true;
         }
     }
 
+    void reparse_crypto_buf(datum crypto_buf) {
+            tls_handshake tls{crypto_buf};
+            hello.parse(tls.body);
+            more_bytes_needed = tls.additional_bytes_needed;
+            hello.is_quic_hello = true;
+    }
+
+    const uint8_t *get_crypto_buf (uint32_t *buf_len) const {
+        if (!crypto_buffer.buf_len) {
+            *buf_len = 0;
+        }
+        else {
+            *buf_len = crypto_buffer.buf_len - (pre_decrypted ? (decry_pkt.get_min_crypto_offset()) : min_crypto_offset);
+        }
+        return (const uint8_t*)crypto_buffer.buffer;
+    }
+
+    const datum &get_cid() const {
+        // return first non empty cid in order dcid, scid
+        if (initial_packet.dcid.is_not_empty())
+            return initial_packet.dcid;
+        else
+            return initial_packet.scid;
+    }
+    
+    // bool cid_matches (datum cid) const {
+    //     return cid == initial_packet.scid;
+    // }
+
     bool is_not_empty() {
         return initial_packet.is_not_empty();
         //return plaintext.is_not_empty();
+    }
+
+    uint32_t additional_bytes_needed() const {
+        return (pre_decrypted ? (decry_pkt.get_more_bytes_needed()) : more_bytes_needed);
+    }
+
+    uint32_t get_min_crypto_offset() const {
+        return (pre_decrypted ? (decry_pkt.get_min_crypto_offset()) : min_crypto_offset);
     }
 
     bool has_tls() const {

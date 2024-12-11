@@ -31,6 +31,7 @@
 #include "rapidjson/stringbuffer.h"
 #include "archive.h"
 #include "watchlist.hpp"
+#include "static_dict.hpp"
 
 
 class classifier *analysis_init_from_archive(int verbosity,
@@ -187,25 +188,43 @@ class naive_bayes {
     floating_point_type ua_weight;
 public:
 
+    static constexpr uint8_t num_features = 6;
+    static constexpr static_dictionary<naive_bayes::num_features> features {
+        {
+            "as",
+            "domain",
+            "port",
+            "ip",
+            "sni",
+            "ua"
+        }
+    };
+
+    using feature_weights = std::array<floating_point_type, naive_bayes::num_features>;
+
+    static constexpr feature_weights default_feature_weights = {
+        0.13924,  // as_weight
+        0.15590,  // domain_weight
+        0.00528,  // port_weight
+        0.56735,  // ip_weight
+        0.96941,  // sni_weight
+        1.0       // ua_weight
+    };
+
     //    naive_bayes() { }
 
     naive_bayes(const std::vector<class process_info> &processes,
                 uint64_t count,
                 ptr_dict &os_dictionary,
-                floating_point_type _as_weight = 0.13924,
-                floating_point_type _domain_weight = 0.15590,
-                floating_point_type _port_weight = 0.00528,
-                floating_point_type _ip_weight = 0.56735,
-                floating_point_type _sni_weight = 0.96941,
-                floating_point_type _ua_weight = 1.0)
+                const naive_bayes::feature_weights &weights)
         : total_count{count},
           os_dict{os_dictionary},
-          as_weight{_as_weight},
-          domain_weight{_domain_weight},
-          port_weight{_port_weight},
-          ip_weight{_ip_weight},
-          sni_weight{_sni_weight},
-          ua_weight{_ua_weight}
+          as_weight{weights[features.index("as")]},
+          domain_weight{weights[features.index("domain")]},
+          port_weight{weights[features.index("port")]},
+          ip_weight{weights[features.index("ip")]},
+          sni_weight{weights[features.index("sni")]},
+          ua_weight{weights[features.index("ua")]}
     {
 
         //fprintf(stderr, "compiling fingerprint_data for %lu processes\n", processes.size());
@@ -451,8 +470,9 @@ public:
                      ptr_dict &os_dictionary,
                      const subnet_data *subnets,
                      common_data *c,
-                     bool malware_database) :
-        classifier{processes, count, os_dictionary},
+                     bool malware_database,
+                     const naive_bayes::feature_weights &feature_weights) :
+        classifier{processes, count, os_dictionary, feature_weights},
         malware_db{malware_database},
         subnet_data_ptr{subnets},
         common{c},
@@ -744,6 +764,9 @@ class classifier {
 
     std::string resource_version;  // as reported by VERSION file in resource archive
 
+    static constexpr size_t num_qualifiers = 1; // number of qualifier expected in VERSION for the classifier to correctly load
+
+
     std::vector<fingerprint_type> fp_types;
     size_t tls_fingerprint_format = 0;
     size_t quic_fingerprint_format = 0;
@@ -754,6 +777,10 @@ class classifier {
     // classifiers
     //
     common_data common;
+
+    uint32_t total_tofsee = 0, total_http = 0, total_quic = 0, total_tls = 0;
+
+    bool disabled = false;   // if the classfier has not been initialised or disabled
 
 public:
 
@@ -770,9 +797,23 @@ public:
         return fingerprint_type_unknown;
     }
 
+    void set_fingerprint_type_count(const std::string &fp_type) {
+        if (fp_type == "tls") {
+            total_tls++;
+        } else if (fp_type == "http") {
+            total_http++;
+        } else if (fp_type == "quic") {
+            total_quic++;
+        } else if (fp_type == "tofsee") {
+            total_tofsee++;
+        }
+    }
+
     size_t get_tls_fingerprint_format() const { return tls_fingerprint_format; }
 
     size_t get_quic_fingerprint_format() const { return quic_fingerprint_format; }
+
+    bool is_disabled() const { return disabled; }
 
     static std::pair<fingerprint_type, size_t> get_fingerprint_type_and_version(const std::string &s) {
         fingerprint_type type = fingerprint_type_unknown;
@@ -863,6 +904,8 @@ public:
         if (fp.HasMember("fp_type") && fp["fp_type"].IsString()) {
             fp_type_string = fp["fp_type"].GetString();
             fp_type_code = get_fingerprint_type(fp_type_string.c_str());
+            set_fingerprint_type_count(fp_type_string.c_str());
+
         }
         if (fp_type_code != fingerprint_type_unknown) {
             if (std::find(fp_types.begin(), fp_types.end(), fp_type_code) == fp_types.end()) {
@@ -921,6 +964,51 @@ public:
         uint64_t total_count = 0;
         if (fp.HasMember("total_count") && fp["total_count"].IsUint64()) {
             total_count = fp["total_count"].GetUint64();
+        }
+
+        /*
+         * The json object "feature_weights" consists of the feature weights
+         * to be used in weighted naive bayes classifier and it is an
+         * optional parameter. When feature weights are present, the weights
+         * will be read from resource file and the same will be used in
+         * the naive bayes classifier.
+         *
+         * If no weights are present, then default weights will be used.
+         * When feature_weights json object is present, it has to contain
+         * weights for all expected features. Missing feature weights or
+         * unknown feature weights will be considered as error and the
+         * fingerprint entry will not be processed.
+         */
+        naive_bayes::feature_weights weights{naive_bayes::default_feature_weights};
+        if (fp.HasMember("feature_weights") && fp["feature_weights"].IsObject()) {
+            if (fp["feature_weights"].MemberCount() != naive_bayes::num_features) {
+                printf_err(log_err,
+                           "Expecting %d feature weights but observed %d\n",
+                            naive_bayes::num_features, fp["feature_weights"].MemberCount());
+                return;
+            }
+            for (auto &v : fp["feature_weights"].GetObject()) {
+                if (!v.value.IsFloat()) {
+                    printf_err(log_err, "Unexpected value for feature weight \"%s\" \n", v.name.GetString());
+                    return;
+                }
+                if (strcmp(v.name.GetString(), "as") == 0) {
+                    weights[naive_bayes::features.index("as")] = v.value.GetFloat();
+                } else if (strcmp(v.name.GetString(), "domain") == 0) {
+                    weights[naive_bayes::features.index("domain")] = v.value.GetFloat();
+                } else if (strcmp(v.name.GetString(), "port") == 0) {
+                    weights[naive_bayes::features.index("port")] = v.value.GetFloat();
+                } else if (strcmp(v.name.GetString(), "ip") == 0) {
+                    weights[naive_bayes::features.index("ip")] = v.value.GetFloat();
+                } else if (strcmp(v.name.GetString(), "sni") == 0) {
+                    weights[naive_bayes::features.index("sni")] = v.value.GetFloat();
+                } else if (strcmp(v.name.GetString(), "ua") == 0) {
+                    weights[naive_bayes::features.index("ua")] = v.value.GetFloat();
+                } else {
+                    printf_err(log_err, "Unexpected feature weight \"%s\" \n", v.name.GetString());
+                    return;
+                }
+            }
         }
 
         std::vector<class process_info> process_vector;
@@ -1088,7 +1176,8 @@ public:
                                            ip_ip, hostname_sni, user_agent, os_info);
                 process_vector.push_back(process);
             }
-            class fingerprint_data fp_data(total_count, process_vector, os_dictionary, &subnets, &common, MALWARE_DB);
+            
+            class fingerprint_data fp_data(total_count, process_vector, os_dictionary, &subnets, &common, MALWARE_DB, weights);
             // fp_data.print(stderr);
 
             if (fpdb.find(fp_string) != fpdb.end()) {
@@ -1097,6 +1186,22 @@ public:
             // fpdb[fp_string] = fp_data;
             fpdb.emplace(fp_string, fp_data); // TODO: ???
         }
+    }
+
+    bool is_dual_db (std::string version_str) const {
+        return (version_str.find("dual") != std::string::npos);
+    }
+
+    bool is_lite_db (std::string version_str) const {
+        return (version_str.find("lite") != std::string::npos);
+    }
+
+    bool is_full_db (std::string version_str) const {
+        return (version_str.find("full") != std::string::npos);
+    }
+
+    size_t fetch_qualifier_count (std::string version_str) const {
+        return std::count(version_str.begin(),version_str.end(),';');
     }
 
     classifier(class encrypted_compressed_archive &archive,
@@ -1116,15 +1221,23 @@ public:
         //
         fp_types.push_back(fingerprint_type_tls);
 
+        bool threshold_set = ( (fp_proc_threshold > 0.0) || (proc_dst_threshold > 0.0) );  // switch to fingerprint_db_lite.json if available
         bool got_fp_prevalence = false;
         bool got_fp_db = false;
         bool got_version = false;
         bool got_doh_watchlist = false;
+        bool dual_db = false;   // archive has both fingerprint_db_normal and fingerprint_db_lite
+        bool lite_db = false;   // archive has fingerprint_db_lite named as fingerprint_db.json
+        bool full_db = false;   // archive has fingerprint_db_full.json named as fingerprint_db.json
+        bool legacy_archive = false;
+
         //        class compressed_archive archive{resource_archive_file};
         const class archive_node *entry = archive.get_next_entry();
         if (entry == nullptr) {
             throw std::runtime_error("error: could not read any entries from resource archive file");
         }
+
+        clock_t load_start_time = clock();
         while (entry != nullptr) {
             if (entry->is_regular_file()) {
                 std::string line_str;
@@ -1135,18 +1248,37 @@ public:
                         process_fp_prevalence_line(line_str);
                     }
                     got_fp_prevalence = true;
-
-                } else if (name == "fingerprint_db.json") {
-                    while (archive.getline(line_str)) {
-                        process_fp_db_line(line_str, fp_proc_threshold, proc_dst_threshold, report_os);
+                } else if (name == "fingerprint_db_lite.json") {
+                    // dual db, process fingerprint_db_lite when thresholds set
+                    if (threshold_set) {
+                        printf_err(log_debug, "loading fingerprint_db_lite.json\n");
+                        while (archive.getline(line_str)) {
+                            process_fp_db_line(line_str, 0.0, 0.0, report_os);
+                        }
+                        got_fp_db = true;
+                        printf_err(log_debug, "fingerprints loaded: {'HTTP': %d, 'TLS':%d, 'QUIC': %d, 'TOFSEE': %d}\n", total_http, total_tls, total_quic, total_tofsee);
                     }
+                } else if (name == "fingerprint_db.json") {
                     got_fp_db = true;
-
+                    if (legacy_archive) {
+                        disabled = true;
+                    }
+                    else if (!threshold_set || lite_db || full_db) {
+                        printf_err(log_debug, "loading fingerprint_db.json\n");
+                        while (archive.getline(line_str)) {
+                            process_fp_db_line(line_str, 0.0, 0.0, report_os);
+                        }
+                        printf_err(log_debug, "fingerprints loaded: {'HTTP': %d, 'TLS':%d, 'QUIC': %d, 'TOFSEE': %d}\n", total_http, total_tls, total_quic, total_tofsee);
+                    }
                 } else if (name == "VERSION") {
                     while (archive.getline(line_str)) {
                         resource_version += line_str;
                     }
                     got_version = true;
+                    dual_db = is_dual_db(resource_version);
+                    lite_db = is_lite_db(resource_version);
+                    full_db = is_full_db(resource_version);
+                    legacy_archive = (!dual_db && !lite_db && !full_db);
 
                 } else if (name == "pyasn.db") {
                     while (archive.getline(line_str)) {
@@ -1167,7 +1299,27 @@ public:
             entry = archive.get_next_entry();
         }
 
+        clock_t load_end_time = clock();
+        double load_elapsed_seconds = double(load_end_time - load_start_time) / CLOCKS_PER_SEC;
+        
+        if (load_elapsed_seconds >= 20) {
+            printf_err(log_debug, "time taken to load resource archive: %.2f seconds\n", load_elapsed_seconds);
+        }
+
         subnets.process_final();
+
+        // verify that we found each of the required input files in
+        // the resourece archive, and throw an error otherwise
+        //
+        if (!got_fp_db | !got_fp_prevalence | !got_version | !got_doh_watchlist) {
+            throw std::runtime_error("resource archive is missing one or more files");
+        }
+
+        if (fetch_qualifier_count(resource_version) != num_qualifiers) {
+            disabled = true;
+            printf_err(log_debug,"resource qualifier count does not match, disabling classifier\n");
+        }
+
     }
 
 #if 0
@@ -1332,6 +1484,7 @@ public:
     const char *get_resource_version() {
         return resource_version.c_str();
     }
+
 };
 
 

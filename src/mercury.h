@@ -52,6 +52,7 @@ struct mercury_config {
     char *mode;                     /* mode for fopen()                               */
     int fanout_group;               /* identifies fanout group used by sockets        */
     float buffer_fraction;          /* fraction of phys mem used for RX_RING buffers  */
+    float io_balance_frac;          /* fraction of buffers to go to input vs output   */
     int num_threads;                /* number of worker threads                       */
     uint64_t rotate;                /* number of records per file rotation, or 0      */
     char *user;                     /* username of account used for privilege drop    */
@@ -64,7 +65,17 @@ struct mercury_config {
     uint64_t out_rotation_duration; /* number of seconds between json file rotation  */}
 ;
 
-#define mercury_config_init() { NULL, NULL, NULL, NULL, NULL, NULL, O_EXCL, (char *)"w", 0, 8, 1, 0, NULL, 1, 0, 0, 0, false, 300, 0 }
+
+struct cap_stats {
+    uint64_t packets;       /* Total packet count */
+    uint64_t bytes;         /* Total byte count */
+    uint64_t sock_packets;  /* Packets seen by socket */
+    uint64_t drops;         /* Packets dropped */
+    uint64_t freezes;       /* Socket queue freezes */
+};
+
+
+#define mercury_config_init() { NULL, NULL, NULL, NULL, NULL, NULL, O_EXCL, (char *)"w", 0, 0.1, 0.8, 1, 0, NULL, 1, 0, 0, 0, false, 300, 0 }
 
 
 #endif /* MERCURY_H */

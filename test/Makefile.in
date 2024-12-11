@@ -35,7 +35,6 @@ have_afl        = @HAVE_AFL@
 have_clang      = @CLANGPP@
 
 BATCH_GCD = ../src/batch_gcd
-UNIT_TEST = ../src/unit_test
 
 # check dependancies to see if any tests need to be omitted
 #
@@ -82,8 +81,8 @@ BGCD_OUT_FILES = $(BGCD_TEST_FILES:%.bgcd-in=%.bgcd-out)   # expected output
 BGCD_TOUT_FILES = $(BGCD_TEST_FILES:%.bgcd-in=%.bgcd-tout) # test run output
 BGCD_COMP_TARG = $(BGCD_TEST_FILES:%.bgcd-in=%.bgcd-comp)  # comp file never exists
 
-.PHONY: all clean unit_test
-all: clean unit_test comp analysis cert-check memcheck json-validity-test stats libmerc_driver # dummy-capture
+.PHONY: all clean
+all: clean comp analysis cert-check memcheck json-validity-test stats libmerc_driver # dummy-capture
 ifeq ($(omitted_test),no)
 	@echo $(COLOR_GREEN) "passed all tests" $(COLOR_OFF)
 else
@@ -91,11 +90,6 @@ else
 	@echo $(COLOR_YELLOW) "warning: some tests could not be performed due to missing dependancies" $(COLOR_OFF)
 	@echo $(COLOR_YELLOW) "please install the missing packages mentioned above and re-run ./configure" $(COLOR_OFF)
 endif
-
-# run libmerc unit tests
-#
-unit_test:
-	$(UNIT_TEST)
 
 .PHONY: test_libmerc_so
 test_libmerc_so: libmerc_driver_tls_only libmerc_driver_multiprotocol # pdu_test
@@ -112,7 +106,7 @@ libmerc_driver:
 .PHONY: json-validity-test
 json-validity-test:
 	@echo "running json validity test"
-	./mercury-json-validity-check.sh --dns-json --certs-json --metadata --nonselected-tcp-data --nonselected-udp-data
+	./mercury-json-validity-check.sh --dns-json --certs-json --metadata --nonselected-tcp-data --nonselected-udp-data --raw-features=all
 	@echo $(COLOR_GREEN) "passed json validity test" $(COLOR_OFF)
 
 .PHONY: comp
@@ -122,7 +116,7 @@ comp: $(COMP_FILES) $(MCAP_COMP_FILES) $(JSON_COMP_FILES)
 # implicit rule to make a JSON file from a PCAP file
 #
 %.json: %.pcap
-	$(MERCURY) -r $< -f $@ --tcp-reassembly
+	$(MERCURY) -r $< -f $@ --reassembly --metadata --raw-features=all
 
 # implicit rule to make a fingerprint file from a JSON file
 #
@@ -144,7 +138,7 @@ endif
 # implicit rule to make an MCAP file from a PCAP file
 #
 %.mcap: %.pcap
-	$(MERCURY) -r $< --tcp-reassembly -w $@
+	$(MERCURY) -r $< --reassembly -w $@
 
 # implicit rule to compare MCAP results
 #
@@ -170,7 +164,7 @@ endif
 analysis:
 ifeq ($(do_analysis),yes)
 	@echo "running analysis test"
-	$(MERCURY) -r data/top-https.pcap -f tmp.json -a --resources=../resources/resources.tgz
+	$(MERCURY) -r data/top-https.pcap -f tmp.json -a --resources=data/resources-test.tgz
 	$(python) json-test.py tmp.json
 	@echo $(COLOR_GREEN) "passed analysis test" $(COLOR_OFF)
 	rm -f tmp.json
@@ -182,11 +176,11 @@ endif
 cert-check:
 ifeq ($(do_cert_check),yes)
 	@echo "running certificate test"
-	$(MERCURY) -r data/top-https.pcap -f tmp.json --tcp-reassembly
-	$(python) certificate-test.py tmp.json --complete 97 --partial 43
+	$(MERCURY) -r data/top-https.pcap -f tmp.json --reassembly
+	$(python) certificate-test.py tmp.json --complete 96 --partial 0
 	@echo $(COLOR_GREEN) "passed top-https certificate test" $(COLOR_OFF)
-	$(MERCURY) -r data/top_100_fingerprints.pcap -f tmp.json --tcp-reassembly
-	$(python) certificate-test.py tmp.json --complete 178 --partial 14
+	$(MERCURY) -r data/top_100_fingerprints.pcap -f tmp.json --reassembly
+	$(python) certificate-test.py tmp.json --complete 164 --partial 0
 	@echo $(COLOR_GREEN) "passed top_100_fingerprints certificate test" $(COLOR_OFF)
 	$(MERCURY) -r data/test_decrypt.pcap -f tmp.json
 	$(python) certificate-test.py tmp.json --complete 6 --partial 1
@@ -265,15 +259,25 @@ else
 	@echo $(COLOR_YELLOW) "omitting dummy-capture test; tcpreplay is unavailable" $(COLOR_OFF)
 endif
 
+.PHONY: json-test
+json-test:
+	@echo "running json-test"
+	${MERCURY} -r data/http.pcap -f tmp.json --metadata -a --resources=data/resources-test.tgz --raw-features=all
+	bash -c "diff tmp.json data/http.json"
+	@echo $(COLOR_GREEN) "passed json-test" $(COLOR_OFF)
+	rm -f tmp.json
+
 .PHONY: stats
 stats:
 	@echo "running stats test"
-	$(MERCURY) -r data/top-https.pcap -f tmp.json --metadata -a --resources=../resources/resources.tgz --stats=stats
+	rm -f tmp.json stats.json.gz  # pre-clean leftovers from previously failed tests
+	$(MERCURY) -r data/top-https.pcap -f tmp.json --metadata -a --resources=data/resources-test.tgz --stats=stats
 	bash -c "$(python) ./compare-stats.py -m tmp.json -s stats.json.gz"
 	@echo $(COLOR_GREEN) "passed stats test" $(COLOR_OFF)
 	rm -f tmp.json stats.json.gz
 	@echo "running stats rotate test"
-	$(MERCURY) -r data/quic_tls_http.pcap -f tmp.json --metadata -a --resources=../resources/resources.tgz --stats=statsfile --stats-time=1 -p 10
+	rm -f tmp.json tempstats.json statsfile*  # pre-clean leftovers from previously failed tests
+	$(MERCURY) -r data/quic_tls_http.pcap -f tmp.json --metadata -a --resources=data/resources-test.tgz --stats=statsfile --stats-time=1 -p 10
 	bash -c "$(python) ./compare-stats.py -m tmp.json -s statsfile -a"
 	@echo $(COLOR_GREEN) "passed stats rotate test" $(COLOR_OFF)
 	rm -f tmp.json tempstats.json statsfile*
@@ -299,7 +303,7 @@ distclean: clean
 memcheck:
 ifeq ($(have_valgrind),yes)
 	@echo "running memcheck with valgrind"
-	valgrind --trace-children=yes --leak-check=full --show-leak-kinds=all $(MERCURY) -r data/top-https.pcap -f tmp.json -a --resources=../resources/resources.tgz 2> memcheck.tmp
+	valgrind --trace-children=yes --leak-check=full --show-leak-kinds=all $(MERCURY) -r data/top-https.pcap -f tmp.json -a --resources=data/resources-test.tgz 2> memcheck.tmp
 #	cat memcheck.tmp | grep "definitely lost: 0 bytes in 0 blocks"
 	cat memcheck.tmp | grep "ERROR SUMMARY: 0"
 	rm -f memcheck.tmp
