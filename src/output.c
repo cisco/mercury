@@ -7,7 +7,7 @@
 
 #if (!HAVE_GETTID)
 #include <sys/syscall.h>
-#define gettid() syscall(SYS_gettid)
+#define gettid()  0     /* TODO: return a meaningful value on MacOS     */
 #else
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE    /* Needed for gettid() definition from unistd.h */
