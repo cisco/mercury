@@ -99,7 +99,7 @@ public:
             o.print_key_json_string("payload", payload_buf, payload_len);
             o.print_key_json_string("signature", signature.data, signature.length());
         } else {
-            o.print_key_hex("token", complete_value.data, complete_value.length());
+            o.print_key_json_string("token", complete_value.data, complete_value.length());
         }
 
     }
