@@ -171,8 +171,8 @@ namespace ike {
             if (!valid) { return; }
             o.print_key_hex("initiator_spi", initiator_spi);
             o.print_key_hex("responder_spi", responder_spi);
-            o.print_key_uint("major version", version.slice<0,4>());
-            o.print_key_uint("minor version", version.slice<4,8>());
+            o.print_key_uint("major_version", version.slice<0,4>());
+            o.print_key_uint("minor_version", version.slice<4,8>());
             exchange.write_json(o);
             o.print_key_bool("response", flags.bit<2>());
             o.print_key_bool("version", flags.bit<3>());
