@@ -215,9 +215,10 @@ namespace crypto_policy {
 
             json_object a{o, "cryptographic_security_assessment"};
             a.print_key_string("policy", "quantum_safe");
-            a.print_key_string("target", "client");
-            assess_tls_ciphersuites(ch.ciphersuite_vector, a);
-            assess_tls_extensions(ch.extensions, a);
+            json_object assessment{a, "client"};
+            assess_tls_ciphersuites(ch.ciphersuite_vector, assessment);
+            assess_tls_extensions(ch.extensions, assessment);
+            assessment.close();
             a.close();
 
             return true;
@@ -227,9 +228,10 @@ namespace crypto_policy {
 
             json_object a{o, "cryptographic_security_assessment"};
             a.print_key_string("policy", "quantum_safe");
-            a.print_key_string("target", "session");
-            assess_tls_ciphersuites(ch.ciphersuite_vector, a);
-            assess_tls_extensions(ch.extensions, a);
+            json_object assessment{a, "session"};
+            assess_tls_ciphersuites(ch.ciphersuite_vector, assessment);
+            assess_tls_extensions(ch.extensions, assessment);
+            assessment.close();
             a.close();
 
             return true;
