@@ -21,8 +21,8 @@ else
 endif
 
 .PHONY: install install-no-systemd
-install: install-mercury install-resources install-etc-config install-systemd
-install-nosystemd: install-mercury install-resources install-etc-config
+install: install-mercury install-etc-config install-systemd
+install-nosystemd: install-mercury install-etc-config
 
 .PHONY: install-mercury
 install-mercury:
@@ -31,14 +31,6 @@ ifneq ($(wildcard src/Makefile), src/Makefile)
 else
 	cd src && $(MAKE) install
 	$(INSTALLDATA) mercury /usr/share/bash-completion/completions/ # note: completion script has same name as binary
-endif
-
-.PHONY: install-resources
-install-resources:
-ifneq ($(wildcard src/Makefile), src/Makefile)
-	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
-else
-	cd resources && $(MAKE) install
 endif
 
 # leave this variable empty; we want to force the user to set it, as a
@@ -77,7 +69,6 @@ ifneq ($(wildcard src/Makefile), src/Makefile)
 	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
 else
 	cd src && $(MAKE) install-nonroot
-	cd resources && $(MAKE) install-nonroot
 endif
 
 .PHONY: install-certtools
@@ -99,7 +90,6 @@ else
 	rm -f  /etc/mercury/mercury.cfg
 	rm -rf /etc/mercury
 	cd src && $(MAKE) uninstall
-	cd resources && $(MAKE) uninstall
 endif
 
 .PHONY: uninstall-systemd
@@ -189,10 +179,8 @@ ifneq ($(wildcard src/Makefile), src/Makefile)
 else
 	cd src  && $(MAKE) distclean
 	cd test && $(MAKE) distclean
-	cd resources && $(MAKE) distclean
 	rm -rf autom4te.cache config.log config.status Makefile_helper.mk
 	rm -f lib/*.so
-	-git clean -xf
 endif
 
 .PHONY: package-deb

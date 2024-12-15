@@ -307,7 +307,7 @@ public:
 };
 
 struct http_request : public base_protocol {
-    static constexpr uint8_t num_headers_to_report = 6;
+    static constexpr uint8_t num_headers_to_report = 7;
     struct datum method;
     struct datum uri;
     struct datum protocol;
@@ -320,7 +320,8 @@ struct http_request : public base_protocol {
             "x-forwarded-for",
             "via",
             "upgrade",
-            "referer"
+            "referer",
+            "authorization"
         }
     };
 

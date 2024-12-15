@@ -12,6 +12,8 @@
 #ifndef HPKE_PARAMS_H
 #define HPKE_PARAMS_H
 
+#include "json_object.h"
+
 namespace hpke {
 
 template <typename T>

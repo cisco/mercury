@@ -111,7 +111,7 @@ int main(int argc, char** argv)
     config.report_os = false;
     config.output_tcp_initial_data = false;
     config.output_udp_initial_data = false;
-    config.resources = (char *)"../resources/resources.tgz";
+    config.resources = (char *)"../test/data/resources-test.tgz";
     config.packet_filter_cfg = _filter;
 
     auto context = mercury_init(&config, 0);

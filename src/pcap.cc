@@ -31,6 +31,11 @@ int main(int argc, char *argv[]) {
         printf("file format: %s version: %u.%u\n", pcap.get_format(), version.first, version.second);
         pcap::ng::file_writer w{"test.pcapng"};
 
+        if (strcmp(pcap.get_linktype(), "ETHERNET") != 0) {
+            fprintf(stderr, "error: linktype not supported\n");
+            exit(EXIT_FAILURE);
+        }
+
         packet<65536> pkt;
         while (true) {
             datum pkt_data = pkt.get_next(pcap);
