@@ -260,7 +260,7 @@ public:
     }
 
     bool set_crypto_assess (const std::string& policy) {
-        crypto_assess_policy = policy.empty() ? "default" : policy ;
+        crypto_assess_policy = policy; // policy.empty() ? "default" : policy ;
         return true;
     }
 

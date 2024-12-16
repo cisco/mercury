@@ -275,7 +275,7 @@ namespace crypto_policy {
     };
 
     inline const assessor* assessor::create(const std::string &policy) {
-        if (policy == "quantum_safe") {
+        if (policy == "quantum_safe" or policy == "default") {
             return new crypto_policy::quantum_safe{true};
         }
         return nullptr;   // error: policy not found
