@@ -105,7 +105,7 @@ struct stateful_pkt_proc {
     class traffic_selector &selector;
     quic_crypto_engine quic_crypto;
     struct tcp_reassembler *reassembler_ptr = nullptr;
-    crypto_policy::assessor *crypto_policy = nullptr;
+    const crypto_policy::assessor *crypto_policy = nullptr;
 
     explicit stateful_pkt_proc(mercury_context mc, size_t prealloc_size=0) :
         ip_flow_table{prealloc_size},
@@ -122,10 +122,12 @@ struct stateful_pkt_proc {
         reassembler_ptr{(global_vars.reassembly) ? (new tcp_reassembler) : nullptr}
     {
 
-        constexpr bool DO_CRYPTO_ASSESSMENT = true;
-        if (DO_CRYPTO_ASSESSMENT) {
+        if (global_vars.crypto_assess_policy.length() > 0) {
             // set crypto assessment policy
-            crypto_policy = new crypto_policy::quantum_safe{true};
+            crypto_policy = crypto_policy::assessor::create(global_vars.crypto_assess_policy);
+            if (crypto_policy == nullptr) {
+                throw std::runtime_error("crypto policy assessor could not be initialized");
+            }
         }
 
         // set config and classifier to (refer to) context m

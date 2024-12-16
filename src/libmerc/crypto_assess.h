@@ -45,6 +45,8 @@ namespace crypto_policy {
         }
 
         virtual ~assessor() { }
+
+        static const assessor *create(const std::string &policy);
     };
 
     static bool is_grease(uint16_t x) {
@@ -271,6 +273,13 @@ namespace crypto_policy {
         }
 
     };
+
+    inline const assessor* assessor::create(const std::string &policy) {
+        if (policy == "quantum_safe") {
+            return new crypto_policy::quantum_safe{true};
+        }
+        return nullptr;   // error: policy not found
+    }
 
 }; // namespace crypto_policiy
 
