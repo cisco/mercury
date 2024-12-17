@@ -301,7 +301,10 @@ int main(int argc, char *argv[]) {
         switch(c) {
         case config:
             if (option_is_valid(optarg)) {
-                mercury_config_read_from_file(cfg, libmerc_cfg, optarg);
+                status cfg_status = mercury_config_read_from_file(cfg, libmerc_cfg, optarg);
+                if (cfg_status != status_ok) {
+                    usage(argv[0], nullptr, extended_help_off);
+                }
                 using_config_file = true;
             } else {
                 usage(argv[0], "option config requires filename argument", extended_help_off);

@@ -21,7 +21,7 @@ else
 endif
 
 .PHONY: install install-no-systemd
-install: install-mercury install-etc-config install-systemd
+install: install-mercury install-etc-config
 install-nosystemd: install-mercury install-etc-config
 
 .PHONY: install-mercury
@@ -33,9 +33,7 @@ else
 	$(INSTALLDATA) mercury /usr/share/bash-completion/completions/ # note: completion script has same name as binary
 endif
 
-# leave this variable empty; we want to force the user to set it, as a
-# reminder that they should create a usable local configuration
-MERCURY_CFG =
+MERCURY_CFG = mercury.cfg
 .PHONY: install-etc-config
 install-etc-config:
 ifneq ($(wildcard src/Makefile), src/Makefile)
@@ -45,10 +43,7 @@ ifneq ($(MERCURY_CFG),)
 	$(INSTALL) -d /etc/mercury
 	$(INSTALLDATA) $(MERCURY_CFG) /etc/mercury/mercury.cfg
 else
-	@echo $(COLOR_RED) "error: you must specify the configuration file; run as 'make install MERCURY_CFG=filename'" $(COLOR_OFF)
-	@echo $(COLOR_RED) "where 'filename' is the configuration file you want to use for this installation.  You can" $(COLOR_OFF)
-	@echo $(COLOR_RED) "use mercury.cfg as a template, but you *must* change the interface line to the appropriate" $(COLOR_OFF)
-	@echo $(COLOR_RED) "network interface for your system.  (Use 'cat /proc/net/dev' to see Linux interfaces.)"     $(COLOR_OFF)
+	@echo $(COLOR_RED) "error: no configuration file specified; run as 'make install MERCURY_CFG=filename'" $(COLOR_OFF)
 	@/bin/false
 endif
 endif

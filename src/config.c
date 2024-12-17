@@ -261,5 +261,12 @@ enum status mercury_config_read_from_file(struct mercury_config &cfg,
     }
     global_vars.packet_filter_cfg = str_append(select_arg, additional_args);
 
+    // when reading from a config file, an interface file must be specified
+    //
+    if (cfg.capture_interface == nullptr) {
+        fprintf(stderr, "error: no capture interface specified in configuration file\n");
+        return status_err;
+    }
+
     return status_ok;
 }
