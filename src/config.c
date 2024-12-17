@@ -184,16 +184,24 @@ static enum status mercury_config_parse_line(struct mercury_config *cfg,
         global_vars.output_udp_initial_data = true;
         return status_ok;
 
-    } else if ((arg = command_get_argument("tcp-reassembly", line)) != NULL) {
-        additional_args = str_append(additional_args, "tcp-reassembly;");
-        return status_ok;
-
-    } else if ((arg = command_get_argument("quic-reassembly", line)) != NULL) {
-        additional_args = str_append(additional_args, "quic-reassembly;");
+    } else if ((arg = command_get_argument("reassembly", line)) != NULL) {
+        additional_args = str_append(additional_args, "reassembly;");
         return status_ok;
 
     } else if ((arg = command_get_argument("format=", line)) != NULL) {
         additional_args = str_append(additional_args, "format=");
+        additional_args = str_append(additional_args, arg);
+        additional_args = str_append(additional_args, ";");
+        return status_ok;
+
+    }  else if ((arg = command_get_argument("raw-features=", line)) != NULL) {
+        additional_args = str_append(additional_args, "raw-features=");
+        additional_args = str_append(additional_args, arg);
+        additional_args = str_append(additional_args, ";");
+        return status_ok;
+
+    }  else if ((arg = command_get_argument("crypto-assess=", line)) != NULL) {
+        additional_args = str_append(additional_args, "crypto-assess=");
         additional_args = str_append(additional_args, arg);
         additional_args = str_append(additional_args, ";");
         return status_ok;
@@ -252,6 +260,13 @@ enum status mercury_config_read_from_file(struct mercury_config &cfg,
         select_arg = str_append(select_arg, "select=all;");
     }
     global_vars.packet_filter_cfg = str_append(select_arg, additional_args);
+
+    // when reading from a config file, an interface file must be specified
+    //
+    if (cfg.capture_interface == nullptr) {
+        fprintf(stderr, "error: no capture interface specified in configuration file\n");
+        return status_err;
+    }
 
     return status_ok;
 }

@@ -11,6 +11,7 @@
 #include "http.h"
 #include "json_object.h"
 #include "match.h"
+#include "http_auth.hpp"
 
 inline void to_lower(std::basic_string<uint8_t> &str, struct datum d) {
     if (d.is_not_readable()) {
@@ -253,6 +254,8 @@ void http_request::write_json(struct json_object &record, bool output_metadata) 
             http_request.print_key_json_string("via", get_header("via"));
             http_request.print_key_json_string("upgrade", get_header("upgrade"));
             http_request.print_key_json_string("referer", get_header("referer"));
+            datum auth = get_header("authorization");
+            if (auth.is_not_null()) { authorization{auth}.write_json(http_request); }
             headers.write_json(http_request);
         } else {
             http_request.print_key_json_string("user-agent", get_header("user-agent"));
@@ -329,7 +332,8 @@ void http_request::fingerprint(struct buffer_stream &b) {
         { "x-forwarded-for", req_hdrs.index("x-forwarded-for")},
         { "via", req_hdrs.index("via")},
         { "upgrade", req_hdrs.index("upgrade")},
-        { "referer", req_hdrs.index("referer")}
+        { "referer", req_hdrs.index("referer")},
+        { "authorization", req_hdrs.index("authorization")}
     };
 
     static perfect_hash<uint8_t> ph{header_data_request};

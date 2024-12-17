@@ -21,8 +21,8 @@ else
 endif
 
 .PHONY: install install-no-systemd
-install: install-mercury install-resources install-etc-config install-systemd
-install-nosystemd: install-mercury install-resources install-etc-config
+install: install-mercury install-etc-config
+install-nosystemd: install-mercury install-etc-config
 
 .PHONY: install-mercury
 install-mercury:
@@ -33,17 +33,7 @@ else
 	$(INSTALLDATA) mercury /usr/share/bash-completion/completions/ # note: completion script has same name as binary
 endif
 
-.PHONY: install-resources
-install-resources:
-ifneq ($(wildcard src/Makefile), src/Makefile)
-	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
-else
-	cd resources && $(MAKE) install
-endif
-
-# leave this variable empty; we want to force the user to set it, as a
-# reminder that they should create a usable local configuration
-MERCURY_CFG =
+MERCURY_CFG = mercury.cfg
 .PHONY: install-etc-config
 install-etc-config:
 ifneq ($(wildcard src/Makefile), src/Makefile)
@@ -53,10 +43,7 @@ ifneq ($(MERCURY_CFG),)
 	$(INSTALL) -d /etc/mercury
 	$(INSTALLDATA) $(MERCURY_CFG) /etc/mercury/mercury.cfg
 else
-	@echo $(COLOR_RED) "error: you must specify the configuration file; run as 'make install MERCURY_CFG=filename'" $(COLOR_OFF)
-	@echo $(COLOR_RED) "where 'filename' is the configuration file you want to use for this installation.  You can" $(COLOR_OFF)
-	@echo $(COLOR_RED) "use mercury.cfg as a template, but you *must* change the interface line to the appropriate" $(COLOR_OFF)
-	@echo $(COLOR_RED) "network interface for your system.  (Use 'cat /proc/net/dev' to see Linux interfaces.)"     $(COLOR_OFF)
+	@echo $(COLOR_RED) "error: no configuration file specified; run as 'make install MERCURY_CFG=filename'" $(COLOR_OFF)
 	@/bin/false
 endif
 endif
@@ -77,7 +64,6 @@ ifneq ($(wildcard src/Makefile), src/Makefile)
 	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
 else
 	cd src && $(MAKE) install-nonroot
-	cd resources && $(MAKE) install-nonroot
 endif
 
 .PHONY: install-certtools
@@ -99,7 +85,6 @@ else
 	rm -f  /etc/mercury/mercury.cfg
 	rm -rf /etc/mercury
 	cd src && $(MAKE) uninstall
-	cd resources && $(MAKE) uninstall
 endif
 
 .PHONY: uninstall-systemd
@@ -189,10 +174,8 @@ ifneq ($(wildcard src/Makefile), src/Makefile)
 else
 	cd src  && $(MAKE) distclean
 	cd test && $(MAKE) distclean
-	cd resources && $(MAKE) distclean
 	rm -rf autom4te.cache config.log config.status Makefile_helper.mk
 	rm -f lib/*.so
-	-git clean -xf
 endif
 
 .PHONY: package-deb

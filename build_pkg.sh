@@ -89,8 +89,7 @@ if [ "$BUILDTYPE" == "deb" ]; then
         --after-remove ./install_mercury/postuninstall_remove \
         --deb-after-purge ./install_mercury/postuninstall_purge \
         ./src/mercury=/usr/local/bin/ mercury.cfg=/etc/mercury/ \
-        ./mercury=/usr/share/bash-completion/completions/       \
-        ./resources/resources.tgz=/usr/local/share/mercury/
+        ./mercury=/usr/share/bash-completion/completions/
 
 elif [ "$BUILDTYPE" == "rpm" ]; then
 
@@ -104,6 +103,5 @@ elif [ "$BUILDTYPE" == "rpm" ]; then
         --description "$DESCRIPTION" \
         --after-remove ./install_mercury/postuninstall_rpm \
         ./install_mercury/mercury.service=/usr/lib/systemd/system/ \
-        ./src/mercury=/usr/local/bin/ mercury.cfg=/etc/mercury/ \
-        ./resources/pyasn.db=/usr/local/share/mercury/ ./resources/fingerprint_db.json.gz=/usr/local/share/mercury/
+        ./src/mercury=/usr/local/bin/ mercury.cfg=/etc/mercury/
 fi

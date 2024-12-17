@@ -1,6 +1,0 @@
-include ../resources/*
-include ../resources/equivalence-classes/*
-include ../LICENSE
-include README.md
-include config.yaml
-include requirements.txt

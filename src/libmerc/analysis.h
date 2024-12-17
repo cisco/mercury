@@ -27,6 +27,7 @@
 #include <vector>
 #include <list>
 #include <zlib.h>
+#include <memory>
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
 #include "util_obj.h"
@@ -467,7 +468,7 @@ class fingerprint_data {
     const common_data *common = nullptr;
 
 public:
-
+    uint8_t refcnt = 0;
     uint64_t total_count;
 
     fingerprint_data(uint64_t count,
@@ -762,7 +763,7 @@ class classifier {
 
     subnet_data subnets;     // holds ASN/subnet information
 
-    std::unordered_map<std::string, class fingerprint_data> fpdb;
+    std::unordered_map<std::string, fingerprint_data *> fpdb;
     fingerprint_prevalence fp_prevalence{100000};
 
     std::string resource_version;  // as reported by VERSION file in resource archive
@@ -771,9 +772,6 @@ class classifier {
 
 
     std::vector<fingerprint_type> fp_types;
-    size_t tls_fingerprint_format = 0;
-    size_t quic_fingerprint_format = 0;
-    bool first_line = true;
 
     // the common object holds data that is common across all
     // fingerprint-specific classifiers, and is used by those
@@ -781,7 +779,7 @@ class classifier {
     //
     common_data common;
 
-    uint32_t total_tofsee = 0, total_http = 0, total_quic = 0, total_tls = 0;
+    std::unordered_map<std::string, std::pair<uint32_t, size_t>> fp_count_and_format;
 
     bool disabled = false;   // if the classfier has not been initialised or disabled
 
@@ -800,21 +798,40 @@ public:
         return fingerprint_type_unknown;
     }
 
-    void set_fingerprint_type_count(const std::string &fp_type) {
-        if (fp_type == "tls") {
-            total_tls++;
-        } else if (fp_type == "http") {
-            total_http++;
-        } else if (fp_type == "quic") {
-            total_quic++;
-        } else if (fp_type == "tofsee") {
-            total_tofsee++;
+    void print_fp_counts() {
+        for (auto &it : fp_count_and_format) {
+            printf_err(log_debug, "total %s fingerprints: %u\n", it.first.c_str(), it.second.first);
         }
     }
 
-    size_t get_tls_fingerprint_format() const { return tls_fingerprint_format; }
+    void set_fingerprint_type_count(const std::string &fp_type) {
+        if (fp_count_and_format.find(fp_type) != fp_count_and_format.end()) {
+            fp_count_and_format[fp_type].first++;
+        } else {
+            // The fingerprint of type fp_type is seen for first time.
+            // So set the count(first element of pair) to 1 and
+            // format (second element of pair) to default format 0
+            fp_count_and_format[fp_type].first = 1;
+            fp_count_and_format[fp_type].second = 0;
+        }
+    }
 
-    size_t get_quic_fingerprint_format() const { return quic_fingerprint_format; }
+    size_t get_tls_fingerprint_format() {
+        return get_fingerprint_format("tls");
+    }
+ 
+    size_t get_quic_fingerprint_format() {
+        return get_fingerprint_format("quic");
+    }
+
+    size_t get_fingerprint_format(std::string fp_type) {
+        auto it = fp_count_and_format.find(fp_type);
+        if (it != fp_count_and_format.end()) {
+            return it->second.second;
+        } else {
+            return 0;
+        }
+    }
 
     bool is_disabled() const { return disabled; }
 
@@ -876,44 +893,15 @@ public:
         fp_prevalence.initial_add(line_str);
     }
 
-    void process_fp_db_line(std::string &line_str, float fp_proc_threshold, float proc_dst_threshold, bool report_os) {
-
-        rapidjson::Document fp;
-        fp.Parse(line_str.c_str());
-        if(!fp.IsObject()) {
-            printf_err(log_warning, "invalid JSON line in resource file\n");
-            return;
+    bool validate_fp(std::string &fp_string, fingerprint_type fp_type_code, std::string fp_type_string) {
+        if (fp_string.length() == 0) {
+            printf_err(log_warning, "ignoring zero-length fingerprint string in resource file\n");
+            return(false);  // can't process this entry, so skip it
         }
 
-        std::string fp_string;
-        if (fp.HasMember("str_repr") && fp["str_repr"].IsString()) {
-            fp_string = fp["str_repr"].GetString();
-
-            if (fp_string.length() == 0) {
-                printf_err(log_warning, "ignoring zero-length fingerprint string in resource file\n");
-                return;  // can't process this entry, so skip it
-            }
-
-            if (fp_string.length() >= fingerprint::max_length()) {
-                printf_err(log_warning, "ignoring length %zu fingerprint string in resource file; too long\n", fp_string.length());
-                return;  // can't process this entry, so skip it
-            }
-
-        }
-
-
-        fingerprint_type fp_type_code = fingerprint_type_tls;
-        std::string fp_type_string;
-        if (fp.HasMember("fp_type") && fp["fp_type"].IsString()) {
-            fp_type_string = fp["fp_type"].GetString();
-            fp_type_code = get_fingerprint_type(fp_type_string.c_str());
-            set_fingerprint_type_count(fp_type_string.c_str());
-
-        }
-        if (fp_type_code != fingerprint_type_unknown) {
-            if (std::find(fp_types.begin(), fp_types.end(), fp_type_code) == fp_types.end()) {
-                fp_types.push_back(fp_type_code);
-            }
+        if (fp_string.length() >= fingerprint::max_length()) {
+            printf_err(log_warning, "ignoring length %zu fingerprint string in resource file; too long\n", fp_string.length());
+            return(false);  // can't process this entry, so skip it
         }
 
         // if a TLS fingerprint string does not contain a protocol
@@ -924,44 +912,54 @@ public:
         if (fp_type_code == fingerprint_type_tls && (fp_string.at(0) == '(' || fp_string == "randomized")) {
             fp_string = "tls/" + fp_string;
         }
-
         std::pair<fingerprint_type, size_t> fingerprint_type_and_version = get_fingerprint_type_and_version(fp_string.c_str());
-
         if (fp_type_code != fingerprint_type_and_version.first) {
             printf_err(log_warning,
                        "fingerprint type of str_repr '%s' does not match fp_type, ignorning JSON line\n",
                        fp_string.c_str());
+            return(false);
+        }
+
+        // ensure that all fingerprints of same type have the same version
+        //
+        const auto it = fp_count_and_format.find(fp_type_string);
+        if (it != fp_count_and_format.end()) {
+            // first fingerprint of type fp_type_string is seen
+            if (it->second.first == 1) {
+                it->second.second = fingerprint_type_and_version.second;
+            } else {
+                if (fingerprint_type_and_version.second != it->second.second) {
+                    printf_err(log_warning,
+                               "%s fingerprint version with inconsistent format, ignoring JSON line\n",
+                               fp_type_string.c_str());
+                    return(false);
+                }
+            }
+        }
+        return(true);
+    }
+
+    void process_fp_db_line(std::string &line_str, float fp_proc_threshold, float proc_dst_threshold, bool report_os) {
+
+        rapidjson::Document fp;
+        fp.Parse(line_str.c_str());
+        if(!fp.IsObject()) {
+            printf_err(log_warning, "invalid JSON line in resource file\n");
             return;
         }
 
-        // ensure that all tls fingerprints in DB have the same version
-        //
-        if (fingerprint_type_and_version.first == fingerprint_type_tls) {
-            if (first_line == true) {
-                tls_fingerprint_format = fingerprint_type_and_version.second;
-            } else {
-                if (fingerprint_type_and_version.second != tls_fingerprint_format) {
-                    printf_err(log_warning,
-                               "%s fingerprint version with inconsistent format, ignoring JSON line\n",
-                               fp_type_string.c_str());
-                    return;
-                }
-            }
-            first_line = false;
-        }
+        fingerprint_type fp_type_code = fingerprint_type_tls;
+        std::string fp_type_string;
+        if (fp.HasMember("fp_type") && fp["fp_type"].IsString()) {
+            fp_type_string = fp["fp_type"].GetString();
+            fp_type_code = get_fingerprint_type(fp_type_string.c_str());
+            set_fingerprint_type_count(fp_type_string);
 
-        if (fingerprint_type_and_version.first == fingerprint_type_quic) {
-            if (first_line == true) {
-                quic_fingerprint_format = fingerprint_type_and_version.second;
-            } else {
-                if (fingerprint_type_and_version.second != quic_fingerprint_format) {
-                    printf_err(log_warning,
-                               "%s fingerprint version with inconsistent format, ignoring JSON line\n",
-                               fp_type_string.c_str());
-                    return;
-                }
+        }
+        if (fp_type_code != fingerprint_type_unknown) {
+            if (std::find(fp_types.begin(), fp_types.end(), fp_type_code) == fp_types.end()) {
+                fp_types.push_back(fp_type_code);
             }
-            first_line = false;
         }
 
         uint64_t total_count = 0;
@@ -1180,14 +1178,42 @@ public:
                 process_vector.push_back(process);
             }
             
-            class fingerprint_data fp_data(total_count, process_vector, os_dictionary, &subnets, &common, MALWARE_DB, weights);
-            // fp_data.print(stderr);
+            fingerprint_data  *fp_data = new fingerprint_data(total_count, process_vector,
+                                                                os_dictionary, &subnets, &common, MALWARE_DB, weights);
 
-            if (fpdb.find(fp_string) != fpdb.end()) {
-                printf_err(log_warning, "fingerprint database has duplicate entry for fingerprint %s\n", fp_string.c_str());
+            if (fp.HasMember("str_repr") && fp["str_repr"].IsString()) {
+                std::string fp_string = fp["str_repr"].GetString();
+                if (!validate_fp(fp_string, fp_type_code, fp_type_string)) {
+                    return;
+                }
+
+                if (fpdb.find(fp_string) != fpdb.end()) {
+                    printf_err(log_warning, "fingerprint database has duplicate entry for fingerprint %s\n", fp_string.c_str());
+                    return;
+                }
+                fpdb[fp_string] = fp_data;
+                fp_data->refcnt++;
             }
-            // fpdb[fp_string] = fp_data;
-            fpdb.emplace(fp_string, fp_data); // TODO: ???
+
+            if (fp.HasMember("str_repr_array") && fp["str_repr_array"].IsArray()) {
+
+                for (auto &x : fp["str_repr_array"].GetArray()) {
+                    if (x.IsString()) {
+                        std::string fp_string = x.GetString();
+
+                        if (!validate_fp(fp_string, fp_type_code, fp_type_string)) {
+                            return;
+                        }
+
+                        if (fpdb.find(fp_string) != fpdb.end()) {
+                            printf_err(log_warning, "fingerprint database has duplicate entry for fingerprint %s\n", fp_string.c_str());
+                            continue;
+                        }
+                        fpdb[fp_string] = fp_data;
+                        fp_data->refcnt++;
+                    }
+                }
+            }
         }
     }
 
@@ -1259,7 +1285,7 @@ public:
                             process_fp_db_line(line_str, 0.0, 0.0, report_os);
                         }
                         got_fp_db = true;
-                        printf_err(log_debug, "fingerprints loaded: {'HTTP': %d, 'TLS':%d, 'QUIC': %d, 'TOFSEE': %d}\n", total_http, total_tls, total_quic, total_tofsee);
+                        print_fp_counts();
                     }
                 } else if (name == "fingerprint_db.json") {
                     got_fp_db = true;
@@ -1271,7 +1297,7 @@ public:
                         while (archive.getline(line_str)) {
                             process_fp_db_line(line_str, 0.0, 0.0, report_os);
                         }
-                        printf_err(log_debug, "fingerprints loaded: {'HTTP': %d, 'TLS':%d, 'QUIC': %d, 'TOFSEE': %d}\n", total_http, total_tls, total_quic, total_tofsee);
+                        print_fp_counts();
                     }
                 } else if (name == "VERSION") {
                     while (archive.getline(line_str)) {
@@ -1401,13 +1427,13 @@ public:
                 if (fpdb_entry_randomized == fpdb.end()) {
                     return analysis_result(fingerprint_status_randomized);  // TODO: does this actually happen?
                 }
-                class fingerprint_data &fp_data = fpdb_entry_randomized->second;
-                return fp_data.perform_analysis(server_name, dst_ip, dst_port, user_agent, fingerprint_status_randomized);
+                fingerprint_data *fp_data = fpdb_entry_randomized->second;
+                return fp_data->perform_analysis(server_name, dst_ip, dst_port, user_agent, fingerprint_status_randomized);
             }
         }
-        class fingerprint_data &fp_data = fpdb_entry->second;
+        fingerprint_data *fp_data = fpdb_entry->second;
 
-        return fp_data.perform_analysis(server_name, dst_ip, dst_port, user_agent, fingerprint_status_labeled);
+        return fp_data->perform_analysis(server_name, dst_ip, dst_port, user_agent, fingerprint_status_labeled);
     }
 
     /*
@@ -1450,15 +1476,15 @@ public:
                 if (fpdb_entry_randomized == fpdb.end()) {
                     return analysis_result(fingerprint_status_randomized);  // TODO: does this actually happen?
                 }
-                class fingerprint_data &fp_data = fpdb_entry_randomized->second;
-                fp_data.recompute_probabilities(new_as_weight, new_domain_weight, new_port_weight, new_ip_weight, new_sni_weight, new_ua_weight);
-                return fp_data.perform_analysis(server_name, dst_ip, dst_port, user_agent, fingerprint_status_randomized);
+                fingerprint_data *fp_data = fpdb_entry_randomized->second;
+                fp_data->recompute_probabilities(new_as_weight, new_domain_weight, new_port_weight, new_ip_weight, new_sni_weight, new_ua_weight);
+                return fp_data->perform_analysis(server_name, dst_ip, dst_port, user_agent, fingerprint_status_randomized);
             }
         }
-        class fingerprint_data &fp_data = fpdb_entry->second;
+        fingerprint_data *fp_data = fpdb_entry->second;
 
-        fp_data.recompute_probabilities(new_as_weight, new_domain_weight, new_port_weight, new_ip_weight, new_sni_weight, new_ua_weight);
-        return fp_data.perform_analysis(server_name, dst_ip, dst_port, user_agent, fingerprint_status_labeled);
+        fp_data->recompute_probabilities(new_as_weight, new_domain_weight, new_port_weight, new_ip_weight, new_sni_weight, new_ua_weight);
+        return fp_data->perform_analysis(server_name, dst_ip, dst_port, user_agent, fingerprint_status_labeled);
     }
 
     bool analyze_fingerprint_and_destination_context(const fingerprint &fp,
@@ -1488,6 +1514,15 @@ public:
         return resource_version.c_str();
     }
 
+    ~classifier() {
+        for (auto &fp : fpdb) {
+            fingerprint_data *fp_data = fp.second;
+            fp_data->refcnt--;
+            if (fp_data->refcnt == 0) {
+                delete(fp_data);
+            }
+        }
+    }
 };
 
 

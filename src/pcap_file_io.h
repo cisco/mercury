@@ -13,6 +13,7 @@
 #include <sys/time.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <utility>
 #include <stdexcept>
 #include "mercury.h"
@@ -65,6 +66,7 @@ struct pcap_file {
         ETHERNET =   1,  // Ethernet
         PPP      =   9,  // Point-to-Point Protocol (PPP)
         RAW      = 101,  // Raw IP; begins with IPv4 or IPv6 header
+        LINUX_SLL = 113, // Linux "cooked" capture encapsulation
         NONE     = 65535 // reserved, used here as 'none'
     };
 
@@ -74,6 +76,7 @@ struct pcap_file {
         case LINKTYPE::ETHERNET: return "ETHERNET";
         case LINKTYPE::PPP:      return "PPP";
         case LINKTYPE::RAW:      return "RAW";
+        case LINKTYPE::LINUX_SLL: return "LINUX_SLL";
         case LINKTYPE::NONE:     return "NONE";
         }
         return "unknown";
@@ -99,7 +102,7 @@ enum status pcap_file_close(struct pcap_file *f);
 enum status pcap_file_dispatch_pkt_processor(struct pcap_file *f,
                                              struct pkt_proc *pkt_processor,
                                              int loop_count,
-                                             int &sig_close_flag);
+                                             sig_atomic_t &sig_close_flag);
 
 
 // pcap_queue_write() sends a packet to a lockless queue
