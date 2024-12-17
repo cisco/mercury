@@ -68,6 +68,7 @@ enum tcp_msg_type {
     tcp_msg_type_socks4,
     tcp_msg_type_socks5_hello,
     tcp_msg_type_socks5_req_resp,
+    tcp_msg_type_ldap,
 };
 
 enum udp_msg_type {
@@ -85,6 +86,8 @@ enum udp_msg_type {
     udp_msg_type_nbds,
     udp_msg_type_dht,
     udp_msg_type_lsd,
+    udp_msg_type_esp,
+
 };
 
 template <size_t N>
@@ -230,6 +233,8 @@ class traffic_selector {
     bool select_nbds;
     bool select_nbss;
     bool select_openvpn_tcp;
+    bool select_ldap;
+    bool select_ipsec{false};
 
 public:
 
@@ -249,6 +254,8 @@ public:
 
     bool icmp() const { return select_icmp; }
 
+    bool ldap() const { return select_ldap; }
+
     bool lldp() const { return select_lldp; }
 
     bool ospf() const { return select_ospf; }
@@ -262,6 +269,8 @@ public:
     bool nbss() const { return select_nbss; }
 
     bool openvpn_tcp() const { return select_openvpn_tcp; }
+
+    bool ipsec() const { return select_ipsec; }
 
     void disable_all() {
         tcp.disable_all();
@@ -343,6 +352,9 @@ public:
         //
         if (protocols["tcp"] || protocols["all"]) {
             select_tcp_syn = true;
+        }
+        if (protocols["ldap"] || protocols["all"]) {
+            select_ldap = true;
         }
         if (protocols["tcp.message"] || protocols["all"]) {
             // select_tcp_syn = 0;
@@ -431,6 +443,9 @@ public:
         if (protocols["openvpn_tcp"] || protocols["all"]) {
             select_openvpn_tcp = true;
         }
+        if (protocols["ipsec"] || protocols["all"]) {
+            select_ipsec = true;
+        }
 
         if (protocols["bittorrent"] || protocols["all"]) {
             udp.add_protocol(bittorrent_dht::matcher, udp_msg_type_dht);
@@ -508,6 +523,10 @@ public:
     size_t get_tcp_msg_type_from_ports(struct tcp_packet *tcp_pkt) const {
         if (tcp_pkt == nullptr or tcp_pkt->header == nullptr) {
             return tcp_msg_type_unknown;
+        }
+
+        if (ldap() and ((tcp_pkt->header->src_port == hton<uint16_t>(389)) or (tcp_pkt->header->dst_port == hton<uint16_t>(389)))) {
+            return tcp_msg_type_ldap;
         }
 
         if (nbss() and (tcp_pkt->header->src_port == hton<uint16_t>(139) or tcp_pkt->header->dst_port == hton<uint16_t>(139))) {

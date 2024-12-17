@@ -8,6 +8,7 @@
 #ifndef BUFFER_STREAM_H
 #define BUFFER_STREAM_H
 
+#include <algorithm> // for std::min()
 #include <string.h>  /* for memcpy() */
 #include <stdarg.h>
 #include <time.h>
@@ -1160,6 +1161,25 @@ public:
     size_t content_size() const { return doff; }
 
     const char* data() const { return buffer; }
+
+    /// compare the contents of this buffer with the \param n bytes
+    /// starting at \param s.
+    ///
+    /// \return a value less than, equal to, or greater than zero if
+    /// the contents of the buffer , respectively, to be less
+    /// than, to match, or be greater.
+
+    int memcmp(const void *s, size_t n) {
+        size_t comp_length = std::min(n, (size_t)doff);
+        return ::memcmp(buffer, s, comp_length);
+    }
+
+    /// returns a pointer to the start of the buffer
+    ///
+    const char *get_buffer_start() const {
+        return buffer;
+    }
+
 };
 
 #endif /* BUFFER_STREAM_H */

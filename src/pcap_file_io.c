@@ -237,6 +237,7 @@ enum status pcap_file_open(struct pcap_file *f,
         }
         f->linktype = file_header.network;
         if (file_header.network != LINKTYPE_ETHERNET &&
+                file_header.network != LINKTYPE_LINUX_SLL &&
                 file_header.network != LINKTYPE_PPP  &&
                 file_header.network != LINKTYPE_RAW) {
             if (file_header.network == LINKTYPE_NULL) {

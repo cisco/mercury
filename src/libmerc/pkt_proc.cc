@@ -16,6 +16,7 @@
 #include "flow_key.h"
 #include "utils.h"
 #include "loopback.hpp"
+#include "linux_sll.hpp"
 
 // include files needed by stateful_pkt_proc; they provide the
 // interface to mercury's packet parsing and handling routines
@@ -43,8 +44,11 @@
 #include "smtp.h"
 #include "tofsee.hpp"
 #include "cdp.h"
+#include "ldap.hpp"
 #include "lldp.h"
 #include "ospf.h"
+#include "esp.hpp"
+#include "ike.hpp"
 #include "sctp.h"
 #include "analysis.h"
 #include "buffer_stream.h"
@@ -321,6 +325,9 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
     case tcp_msg_type_socks5_req_resp:
         x.emplace<socks5_req_resp>(pkt);
         break;
+    case tcp_msg_type_ldap:
+        x.emplace<ldap::message>(pkt);
+        break;
     default:
         if (is_new && global_vars.output_tcp_initial_data) {
             x.emplace<unknown_initial_packet>(pkt);
@@ -416,6 +423,9 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
         break;
     case udp_msg_type_wireguard:
         x.emplace<wireguard_handshake_init>(pkt);
+        break;
+    case udp_msg_type_esp:
+        x.emplace<esp>(pkt);
         break;
     case udp_msg_type_ssdp:
         x.emplace<ssdp>(pkt);
@@ -540,6 +550,12 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
                           struct key &k,
                           struct timespec *ts,
                           struct tcp_reassembler *reassembler) {
+
+    // no reassembly for ESP or IKE
+    //
+    if (std::holds_alternative<esp>(x) or std::holds_alternative<ike::packet>(x)) {
+        return true;
+    }
 
     // No reassembler : call set_tcp_protocol on every data pkt
     if (!reassembler || !global_vars.reassembly) {
@@ -693,6 +709,9 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     } else if (selector.ospf() && transport_proto == ip::protocol::ospfigp) {
         x.emplace<ospf>(pkt);
 
+    } else if (selector.ipsec() && transport_proto == ip::protocol::esp) {
+        x.emplace<esp>(pkt);
+
     } else if (selector.sctp() && transport_proto == ip::protocol::sctp) {
         x.emplace<sctp_init>(pkt);
 
@@ -769,6 +788,14 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
                 }
             default:
                 break;
+            }
+        } else if (selector.ipsec() and ports.either_matches(ike::default_port)) {
+                x.emplace<ike::packet>(pkt);
+        } else if (selector.ipsec() and ports.either_matches_any(esp::default_port)) {   // esp or ike over udp
+            if (lookahead<ike::non_esp_marker> non_esp{pkt}) {
+                x.emplace<ike::packet>(pkt);
+            } else {
+                x.emplace<esp>(pkt);
             }
         }
 
@@ -928,6 +955,9 @@ size_t stateful_pkt_proc::write_json(void *buffer,
             return 0;
         break;
     case LINKTYPE_RAW:
+        break;
+    case LINKTYPE_LINUX_SLL:
+        linux_sll::skip_to_ip(pkt);
         break;
     default:
         break;

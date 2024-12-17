@@ -72,7 +72,26 @@ public:
 
     // struct ports is a simple public helper used to return port info
     //
-    struct ports { uint16_t src; uint16_t dst; };
+    struct ports {
+        uint16_t src;
+        uint16_t dst;
+
+        /// returns true if either the source port or the destination
+        /// port matches \param nbo_value, a \ref uint16_t in network
+        /// byte order.
+        ///
+        bool either_matches(uint16_t nbo_value) const {
+            return (dst == nbo_value) || (src == nbo_value);
+        }
+
+        /// returns true if either the source port or the destination
+        /// port matches any of the inputs, each of which must be \ref
+        /// uint16_t in network byte order.
+        ///
+        template<typename... Args>
+        bool either_matches_any(Args... nbo_value) { return (... or ((nbo_value == src) || (nbo_value == dst))); }
+
+    };
 
     // get_ports() returns the source and destination ports, if this
     // is a valid UDP packet; otherwise, { 0, 0 } is returned to
