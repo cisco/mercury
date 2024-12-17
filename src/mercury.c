@@ -250,6 +250,7 @@ int main(int argc, char *argv[]) {
     struct libmerc_config libmerc_cfg;
     bool select_set = false;
     bool raw_features_set = false;
+    bool crypto_assess_set = false;
     bool using_config_file = false;
 
     //extern double malware_prob_threshold;  // TODO - expose hidden command
@@ -257,7 +258,7 @@ int main(int argc, char *argv[]) {
     std::string additional_args;
 
     while(1) {
-        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13, reassembly=14, format=15, raw_features=16 };
+        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13, reassembly=14, format=15, raw_features=16, crypto_assess=17, };
         int opt_idx = 0;
         static struct option long_opts[] = {
             { "config",      required_argument, NULL, config  },
@@ -274,6 +275,7 @@ int main(int argc, char *argv[]) {
             { "stats-time",  required_argument, NULL, stats_time },
             { "output-time", required_argument, NULL, output_time },
             { "reassembly",  no_argument,    NULL, reassembly },
+            { "crypto-assess", optional_argument, NULL, crypto_assess },
             { "format",      required_argument, NULL, format },
             { "read",        required_argument, NULL, 'r' },
             { "write",       required_argument, NULL, 'w' },
@@ -387,6 +389,17 @@ int main(int argc, char *argv[]) {
                 raw_features_set = true;
             } else {
                 usage(argv[0], "option raw_features requires comma separated protocols as argument", extended_help_off);
+            }
+            break;
+        case crypto_assess:
+            if (crypto_assess_set) {
+                usage(argv[0], "option crypto-assess used more than once", extended_help_off);
+            }
+            if (optarg and option_is_valid(optarg)) {
+                additional_args.append("crypto-assess=").append(optarg).append(";");
+                crypto_assess_set = true;
+            } else {
+                additional_args.append("crypto-assess=default;");
             }
             break;
         case 'r':
