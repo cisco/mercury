@@ -10,16 +10,9 @@ Mercury Library Documentation
    intro
    datum
    identifiers
+   python
    :maxdepth: 2
    :caption: Contents:
-
-
-Mercury Python Library Documentation
-====================================
-
-.. automodule:: mercury
-   :members:
-   :show-inheritance:
 
 
 Indices and tables
