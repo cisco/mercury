@@ -87,21 +87,21 @@ namespace crypto_policy {
         ~quantum_safe() { }
 
         static inline std::unordered_set<uint16_t> allowed_ciphersuites {
-            tls::cipher_suites::code::TLS_PSK_WITH_AES_128_CBC_SHA,
+            // tls::cipher_suites::code::TLS_PSK_WITH_AES_128_CBC_SHA,
             tls::cipher_suites::code::TLS_PSK_WITH_AES_256_CBC_SHA,
-            tls::cipher_suites::code::TLS_PSK_WITH_AES_128_GCM_SHA256,
+            // tls::cipher_suites::code::TLS_PSK_WITH_AES_128_GCM_SHA256,
             tls::cipher_suites::code::TLS_PSK_WITH_AES_256_GCM_SHA384,
-            tls::cipher_suites::code::TLS_PSK_WITH_AES_128_CBC_SHA256,
+            // tls::cipher_suites::code::TLS_PSK_WITH_AES_128_CBC_SHA256,
             tls::cipher_suites::code::TLS_PSK_WITH_AES_256_CBC_SHA384,
-            tls::cipher_suites::code::TLS_PSK_WITH_AES_128_CCM,
+            // tls::cipher_suites::code::TLS_PSK_WITH_AES_128_CCM,
             tls::cipher_suites::code::TLS_PSK_WITH_AES_256_CCM,
-            tls::cipher_suites::code::TLS_PSK_WITH_AES_128_CCM_8,
+            //tls::cipher_suites::code::TLS_PSK_WITH_AES_128_CCM_8,
             tls::cipher_suites::code::TLS_PSK_WITH_AES_256_CCM_8,
-            tls::cipher_suites::code::TLS_AES_128_GCM_SHA256,
+            // tls::cipher_suites::code::TLS_AES_128_GCM_SHA256,
             tls::cipher_suites::code::TLS_AES_256_GCM_SHA384,
-            tls::cipher_suites::code::TLS_CHACHA20_POLY1305_SHA256,
-            tls::cipher_suites::code::TLS_AES_128_CCM_SHA256,
-            tls::cipher_suites::code::TLS_AES_128_CCM_8_SHA256,
+            // tls::cipher_suites::code::TLS_CHACHA20_POLY1305_SHA256,
+            // tls::cipher_suites::code::TLS_AES_128_CCM_SHA256,
+            // tls::cipher_suites::code::TLS_AES_128_CCM_8_SHA256,
         };
 
         static inline std::unordered_set<uint16_t> allowed_groups {
@@ -112,8 +112,8 @@ namespace crypto_policy {
             tls::supported_groups::code::X25519MLKEM768,
             tls::supported_groups::code::X25519Kyber768Draft00,
             tls::supported_groups::code::SecP256r1Kyber768Draft00,
-            tls::supported_groups::code::arbitrary_explicit_prime_curves,
-            tls::supported_groups::code::arbitrary_explicit_char2_curves,
+            // tls::supported_groups::code::arbitrary_explicit_prime_curves,
+            // tls::supported_groups::code::arbitrary_explicit_char2_curves,
         };
 
         bool assess_tls_ciphersuites(datum ciphersuite_vector, json_object &a) const {
@@ -277,6 +277,8 @@ namespace crypto_policy {
     inline const assessor* assessor::create(const std::string &policy) {
         if (policy == "quantum_safe" or policy == "default") {
             return new crypto_policy::quantum_safe{true};
+        } else if (policy == "quantum_safe_compact") {
+            return new crypto_policy::quantum_safe{false};
         }
         return nullptr;   // error: policy not found
     }
