@@ -272,6 +272,14 @@ set_target_properties(libmerc_static PROPERTIES PREFIX "")
 #set_target_properties(libmerc PROPERTIES PREFIX "" OUTPUT_NAME "libmerc.so.0")
 # }
 
+## TARGET cbor {
+set ( cbor_src
+    ../cbor.cpp
+)
+add_executable(cbor ${cbor_src})
+target_compile_options(cbor PUBLIC ${libmerc_compile_opt})
+# }
+
 
 ## TARGET : distclean {
 if (is_win)
