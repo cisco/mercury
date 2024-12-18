@@ -37,8 +37,10 @@ FROM alpine:latest
 WORKDIR /root/
 COPY --from=0 /usr/local /usr/local
 RUN apk add --no-cache libstdc++ gmp
-RUN addgroup mercury -S && adduser mercury -G mercury -S && \
-    chown -R mercury:mercury /usr/local/share/mercury /usr/local/var/mercury/
+RUN addgroup mercury -S && adduser mercury -G mercury -S \
+    && mkdir -p /usr/local/share/mercury \
+    && mkdir -p /usr/local/var/mercury \
+    && chown -R mercury:mercury /usr/local/share/mercury /usr/local/var/mercury/
 
 # Default entrypoint for "docker run" on this image
 ENTRYPOINT ["/usr/local/bin/mercury"]
