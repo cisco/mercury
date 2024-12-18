@@ -177,6 +177,20 @@ struct key {
         snprintf(src_port_string, MAX_PORT_STR_LEN, "%u", src_port);
     }
 
+    void reverse() {
+        std::swap(src_port, dst_port);
+        switch (ip_vers) {
+        case 4:
+            std::swap(addr.ipv4.src, addr.ipv4.dst);
+            break;
+        case 6:
+            std::swap(addr.ipv6.src, addr.ipv6.dst);
+            break;
+        default:
+            ;
+        }
+    }
+
 };
 
 struct eth_addr : public datum {
