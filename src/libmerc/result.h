@@ -9,6 +9,8 @@
 #define RESULT_H
 
 #include <stdbool.h>
+#include <algorithm>
+// #include <bits/stdc++.h>  // TODO: ???
 #include "libmerc.h"
 #include "json_object.h"
 #include "addr.h"
