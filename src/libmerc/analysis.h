@@ -1,7 +1,7 @@
 /*
  * analysis.h
  *
- * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
+ * Copyright (c) 2019-2024 Cisco Systems, Inc. All rights reserved.
  * License at https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
@@ -1082,7 +1082,7 @@ public:
                             // hostname_domains[y.name.GetString()] = y.value.GetUint64();
                             //
                             // and this code will be removed:
-                            if (std::string(y.name.GetString()).find(".alt") != std::string::npos) {
+                            if (std::string(y.name.GetString()).size() >= 4 && std::string(y.name.GetString()).compare(std::string(y.name.GetString()).size() - 4, 4, ".alt") == 0) {
                                 // This is a safety check to prevent double normalization for *.alt like address.alt, missing.alt, other.alt, etc.
                                 // Currently, there are no *.alt domains in the fpdb.
                                 hostname_domains[y.name.GetString()] = y.value.GetUint64();
@@ -1168,7 +1168,7 @@ public:
                             // hostname_sni[y.name.GetString()] = y.value.GetUint64();
                             //
                             // and this code will be removed:
-                            if (std::string(y.name.GetString()).find(".alt") != std::string::npos) {
+                            if (std::string(y.name.GetString()).size() >= 4 && std::string(y.name.GetString()).compare(std::string(y.name.GetString()).size() - 4, 4, ".alt") == 0) {
                                 // This is a safety check to prevent double normalization for *.alt like address.alt, missing.alt, other.alt, etc.
                                 // Currently, there are no *.alt domains in the fpdb.
                                 hostname_sni[y.name.GetString()] = y.value.GetUint64();
