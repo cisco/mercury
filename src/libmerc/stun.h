@@ -1002,11 +1002,6 @@ namespace stun {
                 // success_resp and error_resp: swap addrs and ports
                 //
                 k.reverse();
-            } else if (hdr.get_message_class() != 0b00) { // 0b00 is a request
-                //
-                // unhandled message class
-                //
-                return false;
             }
             ac.destination.init({nullptr,nullptr},         // domain name
                                 utf8_software.get_datum(), // user agent
