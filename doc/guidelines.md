@@ -10,10 +10,12 @@ This note provides guidance for developers of code that generates JSON output, w
 - Data from packets is not trusted to be in the correct format.
 - No spaces or dashes in names.
 - Prefer lowercase.
-- There should be no empty JSON objects
+- There should be no empty JSON objects.
 - For compressibility, highly variable fields (e.g. IP.ID) should be at the tail end of a record, not the front.
 - Avoid using network data as JSON keys, so that keys are consistent (and thus parquet-friendly) and follow the other guidelines.
 - There should be no empty JSON arrays (if semantically necessary, exceptions can be made if we pre-deploy the json2parquet schema).
+- In an array of objects, the objects can have distinct schema, as long as any name that appears in more than one object schema has the same type in all objects.
+- Prefer flat schemas where possible; avoid arrays of objects unless necessary.
 
 #### Resources
 
