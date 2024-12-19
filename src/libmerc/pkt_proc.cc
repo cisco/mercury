@@ -229,10 +229,10 @@ struct do_observation {
     }
 
     void operator()(stun::message &m) {
-        // fprintf(stderr, "do_observation(stun::message)\n");
         // create event and send it to the data/stats aggregator
         event_string ev_str{k_, analysis_, m};
         mq_->push(ev_str.construct_event_string());
+        analysis_.reset_user_agent();
     }
 
     template <typename T>

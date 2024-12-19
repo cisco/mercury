@@ -987,14 +987,26 @@ namespace stun {
 
         bool do_analysis(const struct key &flow_key, struct analysis_context &ac, classifier*) {
 
-            utf8_safe_string<1024> utf8_software{software};
+            // create a json-friendly utf8 copy of the SOFTWARE atribute's value field
+            //
+            utf8_safe_string<MAX_USER_AGENT_LEN> utf8_software{software};
+
+            // handle message classes appropriately: reverse the
+            // addresses and ports in the flow key for responses,
+            // leave the flow key untouched for requests, and ignore
+            // all other message classes
+            //
             key k{flow_key};
-            if (hdr.get_message_class() == 0b00) { // request
-                ;
-            } else if ((hdr.get_message_class() & 0b10) == 0b10) {  // success_resp and error_resp
-                k.reverse();  // swap src/dst addresses and ports
-            } else {
-                return false; // unhandled message class
+            if ((hdr.get_message_class() & 0b10) == 0b10) {
+                //
+                // success_resp and error_resp: swap addrs and ports
+                //
+                k.reverse();
+            } else if (hdr.get_message_class() != 0b00) { // 0b00 is a request
+                //
+                // unhandled message class
+                //
+                return false;
             }
             ac.destination.init({nullptr,nullptr},         // domain name
                                 utf8_software.get_datum(), // user agent

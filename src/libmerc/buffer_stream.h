@@ -1180,7 +1180,7 @@ public:
         if (trunc) {
             return { nullptr, nullptr };
         }
-        return { (uint8_t *)buffer, (uint8_t *)dstr };
+        return { (uint8_t *)buffer, (uint8_t *)buffer + doff };
     }
 
 };
