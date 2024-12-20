@@ -11,15 +11,24 @@
 #include <stdio.h>
 #include <string.h>
 
-#if (!HAVE_GETTID)
-#include <sys/syscall.h>
-#define gettid() 0     /* TODO: return a meaningful value on MacOS     */
-#else
+/* The following provides gettid (or a stub function) on all platforms. */
+#if defined(__gnu_linux__) /* Linux */
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE    /* Needed for gettid() definition from unistd.h */
-#endif
+#endif /* _GNU_SOURCE */
 #include <unistd.h>
-#endif
+/* Use system call if gettid() is not available, e.g., before glibc 2.30 */
+#if (!HAVE_GETTID)
+#include <sys/syscall.h>
+#define gettid() syscall(SYS_gettid)
+#endif /* (!HAVE_GETTID) */
+#elif defined(__APPLE__) && defined(__MACH__)  /* macOS */
+#define gettid() 0     /* TODO: return a meaningful value on macOS */
+#elif defined(_WIN32) /* defined for both Windows 32-bit and 64-bit */
+#define gettid() 0     /* TODO: return a meaningful value on Windows */
+#else /* Unknown operating system */
+#define gettid() 0
+#endif /* defined(__gnu_linux__) */
 
 #include <signal.h>
 
