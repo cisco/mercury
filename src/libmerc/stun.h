@@ -10,6 +10,8 @@
 #include "utf8.hpp"
 #include "match.h"
 #include "fingerprint.h"
+#include "result.h"
+#include "util_obj.h"
 #include <unordered_map>
 
 namespace stun {
@@ -471,6 +473,8 @@ namespace stun {
 
         uint16_t get_type() const { return type; }
 
+        datum get_value() const { return value; }
+
     };
 
 
@@ -772,6 +776,7 @@ namespace stun {
     class message : public base_protocol {
         header hdr;
         datum body;
+        datum software;
 
     public:
 
@@ -959,6 +964,13 @@ namespace stun {
                     } else {
                         ;  // by default, attribute information is not included in fingerprint
                     }
+
+                    // remember SOFTWARE for later use in analysis
+                    //
+                    if (attr.value.get_type() == attr_type::SOFTWARE) {
+                        software = attr.value.get_value();
+                    }
+
                 } else {
                     break;
                 }
@@ -970,10 +982,33 @@ namespace stun {
         // analyzes the dst_ip, dst_port, and SOFTWARE attribute
         // value, using a classifier selected by the stun fingerprint
         //
-        bool do_analysis(const struct key &, struct analysis_context &, classifier*) {
+        // request format: dst_addr, dst_port
+        // response format: src_addr, src_port
+
+        bool do_analysis(const struct key &flow_key, struct analysis_context &ac, classifier*) {
+
+            // create a json-friendly utf8 copy of the SOFTWARE atribute's value field
             //
-            // TBD
+            utf8_safe_string<MAX_USER_AGENT_LEN> utf8_software{software};
+
+            // handle message classes appropriately: reverse the
+            // addresses and ports in the flow key for responses,
+            // leave the flow key untouched for requests, and ignore
+            // all other message classes
             //
+            key k{flow_key};
+            if ((hdr.get_message_class() & 0b10) == 0b10) {
+                //
+                // success_resp and error_resp: swap addrs and ports
+                //
+                k.reverse();
+            }
+            ac.destination.init({nullptr,nullptr},         // domain name
+                                utf8_software.get_datum(), // user agent
+                                {nullptr,nullptr},         // alpn
+                                k                          // flow key, used for dst_addr and dst_port
+                                );
+
             return false;
         }
 

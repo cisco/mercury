@@ -228,6 +228,13 @@ struct do_observation {
         analysis_.reset_user_agent();
     }
 
+    void operator()(stun::message &m) {
+        // create event and send it to the data/stats aggregator
+        event_string ev_str{k_, analysis_, m};
+        mq_->push(ev_str.construct_event_string());
+        analysis_.reset_user_agent();
+    }
+
     template <typename T>
     void operator()(T &) { }
 
