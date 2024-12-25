@@ -102,5 +102,5 @@ AS_IF([test "x$CLANGPP" = xyes],
 AS_IF([test "x$LLVM" = xyes],
     [],
     [AC_MSG_WARN([llvm not found; make fuzz-test may not work])])
-AC_CONFIG_FILES(src/libmerc/Makefile src/cython/Makefile src/Makefile test/Makefile unit_tests/Makefile resources/Makefile Makefile_helper.mk install_mercury/mercury.service)
+AC_CONFIG_FILES(src/libmerc/Makefile src/cython/Makefile src/Makefile test/Makefile unit_tests/Makefile Makefile_helper.mk install_mercury/mercury.service)
 AC_OUTPUT

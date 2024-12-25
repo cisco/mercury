@@ -6,9 +6,10 @@
 #define BASE64_H
 
 #include <string>
+#include <cstring>
 #include <stdexcept>
 
-std::string hex_encode(const unsigned char *src, size_t len) {
+inline std::string hex_encode(const unsigned char *src, size_t len) {
     char hex_table[] =
         {
          '0', '1', '2', '3',
@@ -51,7 +52,7 @@ static const unsigned char base64url_table[65] =
 * @src: Data to be encoded
 * @len: Length of the data to be encoded
 */
-std::string base64_encode(const unsigned char *src, size_t len, const unsigned char table[65]=base64_table)
+inline std::string base64_encode(const unsigned char *src, size_t len, const unsigned char table[65]=base64_table)
 {
     unsigned char *out, *pos;
     const unsigned char *end, *in;

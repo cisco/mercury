@@ -15,10 +15,17 @@ with open('../../../VERSION') as VERSION:
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
+import os
 import sys
 sys.path.append("./docproj/ext/breathe/")
+sys.path.append(os.path.abspath('../../../src/cython/'))
 
-extensions = ['breathe']
+extensions = [
+    'breathe',
+    'sphinx.ext.autodoc',
+    'sphinx.ext.viewcode',
+    'sphinx_autodoc_typehints'
+]
 
 breathe_default_project = "mercury"
 
@@ -29,7 +36,7 @@ exclude_patterns = []
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = 'sphinx_rtd_theme' # 'alabaster'
-html_static_path = ['_static']
+#html_static_path = ['_static']
 
 ###################################
 
@@ -38,5 +45,5 @@ breathe_projects = {
 }
 
 breathe_projects_source = {
-    "mercury" : ( "../../../", ["src/libmerc/datum.h"] )
+    "mercury" : ( "../../../", ["src/libmerc/datum.h"])
 }

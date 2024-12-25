@@ -14,6 +14,7 @@
 #include "pkt_proc.h"
 #include "utils.h"
 #include "loopback.hpp"
+#include "linux_sll.hpp"
 
 // include files needed by stateful_pkt_proc; they provide the
 // interface to mercury's packet parsing and handling routines
@@ -45,6 +46,8 @@
 #include "ldap.hpp"
 #include "lldp.h"
 #include "ospf.h"
+#include "esp.hpp"
+#include "ike.hpp"
 #include "sctp.h"
 #include "analysis.h"
 #include "buffer_stream.h"
@@ -95,6 +98,27 @@ struct do_crypto_assessment {
         ca->assess(msg, record);
         return false;
     }
+
+    bool operator()(const tls_server_hello &msg) {
+        ca->assess(msg, record);
+        return false;
+    }
+
+    bool operator()(const tls_server_hello_and_certificate &msg) {
+        ca->assess(msg, record);
+        return false;
+    }
+
+    bool operator()(const dtls_client_hello &msg) {
+        ca->assess(msg, record);
+        return false;
+    }
+
+    bool operator()(const dtls_server_hello &msg) {
+        ca->assess(msg, record);
+        return false;
+    }
+
 
     bool operator()(const quic_init &msg) {
         if (msg.has_tls()) {
@@ -199,6 +223,13 @@ struct do_observation {
     }
 
     void operator()(http_request &m) {
+        // create event and send it to the data/stats aggregator
+        event_string ev_str{k_, analysis_, m};
+        mq_->push(ev_str.construct_event_string());
+        analysis_.reset_user_agent();
+    }
+
+    void operator()(stun::message &m) {
         // create event and send it to the data/stats aggregator
         event_string ev_str{k_, analysis_, m};
         mq_->push(ev_str.construct_event_string());
@@ -420,6 +451,9 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
     case udp_msg_type_wireguard:
         x.emplace<wireguard_handshake_init>(pkt);
         break;
+    case udp_msg_type_esp:
+        x.emplace<esp>(pkt);
+        break;
     case udp_msg_type_ssdp:
         x.emplace<ssdp>(pkt);
         break;
@@ -546,6 +580,12 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
                           struct key &k,
                           struct timespec *ts,
                           struct tcp_reassembler *reassembler) {
+
+    // no reassembly for ESP or IKE
+    //
+    if (std::holds_alternative<esp>(x) or std::holds_alternative<ike::packet>(x)) {
+        return true;
+    }
 
     // No reassembler : call set_tcp_protocol on every data pkt
     if (!reassembler || !global_vars.reassembly) {
@@ -699,6 +739,9 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     } else if (selector.ospf() && transport_proto == ip::protocol::ospfigp) {
         x.emplace<ospf>(pkt);
 
+    } else if (selector.ipsec() && transport_proto == ip::protocol::esp) {
+        x.emplace<esp>(pkt);
+
     } else if (selector.sctp() && transport_proto == ip::protocol::sctp) {
         x.emplace<sctp_init>(pkt);
 
@@ -776,6 +819,14 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             default:
                 break;
             }
+        } else if (selector.ipsec() and ports.either_matches(ike::default_port)) {
+                x.emplace<ike::packet>(pkt);
+        } else if (selector.ipsec() and ports.either_matches_any(esp::default_port)) {   // esp or ike over udp
+            if (lookahead<ike::non_esp_marker> non_esp{pkt}) {
+                x.emplace<ike::packet>(pkt);
+            } else {
+                x.emplace<esp>(pkt);
+            }
         }
 
         if (!process_udp_data(x, pkt, udp_pkt, k, ts, reassembler)) {
@@ -807,9 +858,6 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         // if (malware_prob_threshold > -1.0 && (!output_analysis || analysis.result.malware_prob < malware_prob_threshold)) { return 0; } // TODO - expose hidden command
 
         struct json_object record{&buf};
-        if (global_vars.metadata_output) {
-            ip_pkt.write_json(record);      // write out ip{version,ttl,id}
-        }
         if (analysis.fp.get_type() != fingerprint_type_unknown) {
             analysis.fp.write(record);
         }
@@ -830,6 +878,10 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         }
         else if (reassembler && reassembler->is_done(reassembler->curr_flow)) {
             reassembler->write_json(record);
+        }
+
+        if (global_vars.metadata_output) {
+            ip_pkt.write_json(record);      // write out ip{version,ttl,id}
         }
 
         write_flow_key(record, k);
@@ -931,6 +983,9 @@ size_t stateful_pkt_proc::write_json(void *buffer,
             return 0;
         break;
     case LINKTYPE_RAW:
+        break;
+    case LINKTYPE_LINUX_SLL:
+        linux_sll::skip_to_ip(pkt);
         break;
     default:
         break;

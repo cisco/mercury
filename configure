@@ -5925,7 +5925,7 @@ else case e in #(
 printf "%s\n" "$as_me: WARNING: llvm not found; make fuzz-test may not work" >&2;} ;;
 esac
 fi
-ac_config_files="$ac_config_files src/libmerc/Makefile src/cython/Makefile src/Makefile test/Makefile unit_tests/Makefile resources/Makefile Makefile_helper.mk install_mercury/mercury.service"
+ac_config_files="$ac_config_files src/libmerc/Makefile src/cython/Makefile src/Makefile test/Makefile unit_tests/Makefile Makefile_helper.mk install_mercury/mercury.service"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -6633,7 +6633,6 @@ do
     "src/Makefile") CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
     "test/Makefile") CONFIG_FILES="$CONFIG_FILES test/Makefile" ;;
     "unit_tests/Makefile") CONFIG_FILES="$CONFIG_FILES unit_tests/Makefile" ;;
-    "resources/Makefile") CONFIG_FILES="$CONFIG_FILES resources/Makefile" ;;
     "Makefile_helper.mk") CONFIG_FILES="$CONFIG_FILES Makefile_helper.mk" ;;
     "install_mercury/mercury.service") CONFIG_FILES="$CONFIG_FILES install_mercury/mercury.service" ;;
 

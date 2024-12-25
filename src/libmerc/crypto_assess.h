@@ -7,8 +7,10 @@
 #include <cstdint>
 #include <array>
 #include "json_object.h"
-#include "tls_parameters.h"
+#include "tls_parameters.hpp"
+#include "tls_extensions.hpp"
 #include "tls.h"
+#include "dtls.h"
 
 namespace crypto_policy {
 
@@ -26,7 +28,25 @@ namespace crypto_policy {
             return true;
         };
 
+        virtual bool assess(const tls_server_hello &, json_object &) const {
+            return true;
+        };
+
+        virtual bool assess(const tls_server_hello_and_certificate &, json_object &) const {
+            return true;
+        };
+
+        virtual bool assess(const dtls_client_hello &, json_object &) const {
+            return true;
+        }
+
+        virtual bool assess(const dtls_server_hello &, json_object &) const {
+            return true;
+        }
+
         virtual ~assessor() { }
+
+        static const assessor *create(const std::string &policy);
     };
 
     static bool is_grease(uint16_t x) {
@@ -56,47 +76,53 @@ namespace crypto_policy {
     }
 
     class quantum_safe : public assessor {
+        bool readable_output;
+
     public:
+
+        quantum_safe(bool readable=false) :
+            readable_output{readable}
+        { }
 
         ~quantum_safe() { }
 
         static inline std::unordered_set<uint16_t> allowed_ciphersuites {
-            tls::TLS_PSK_WITH_AES_128_CBC_SHA,
-            tls::TLS_PSK_WITH_AES_256_CBC_SHA,
-            tls::TLS_PSK_WITH_AES_128_GCM_SHA256,
-            tls::TLS_PSK_WITH_AES_256_GCM_SHA384,
-            tls::TLS_PSK_WITH_AES_128_CBC_SHA256,
-            tls::TLS_PSK_WITH_AES_256_CBC_SHA384,
-            tls::TLS_PSK_WITH_AES_128_CCM,
-            tls::TLS_PSK_WITH_AES_256_CCM,
-            tls::TLS_PSK_WITH_AES_128_CCM_8,
-            tls::TLS_PSK_WITH_AES_256_CCM_8,
-            tls::TLS_AES_128_GCM_SHA256,
-            tls::TLS_AES_256_GCM_SHA384,
-            tls::TLS_CHACHA20_POLY1305_SHA256,
-            tls::TLS_AES_128_CCM_SHA256,
-            tls::TLS_AES_128_CCM_8_SHA256,
+            // tls::cipher_suites::code::TLS_PSK_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_PSK_WITH_AES_256_CBC_SHA,
+            // tls::cipher_suites::code::TLS_PSK_WITH_AES_128_GCM_SHA256,
+            tls::cipher_suites::code::TLS_PSK_WITH_AES_256_GCM_SHA384,
+            // tls::cipher_suites::code::TLS_PSK_WITH_AES_128_CBC_SHA256,
+            tls::cipher_suites::code::TLS_PSK_WITH_AES_256_CBC_SHA384,
+            // tls::cipher_suites::code::TLS_PSK_WITH_AES_128_CCM,
+            tls::cipher_suites::code::TLS_PSK_WITH_AES_256_CCM,
+            //tls::cipher_suites::code::TLS_PSK_WITH_AES_128_CCM_8,
+            tls::cipher_suites::code::TLS_PSK_WITH_AES_256_CCM_8,
+            // tls::cipher_suites::code::TLS_AES_128_GCM_SHA256,
+            tls::cipher_suites::code::TLS_AES_256_GCM_SHA384,
+            // tls::cipher_suites::code::TLS_CHACHA20_POLY1305_SHA256,
+            // tls::cipher_suites::code::TLS_AES_128_CCM_SHA256,
+            // tls::cipher_suites::code::TLS_AES_128_CCM_8_SHA256,
         };
 
         static inline std::unordered_set<uint16_t> allowed_groups {
-            tls::p256_kyber512,
-            tls::p384_kyber768,
-            tls::p521_kyber1024,
-            tls::kyber90s512,
-            tls::kyber90s768,
-            tls::kyber90s1024,
+            tls::supported_groups::code::MLKEM512,
+            tls::supported_groups::code::MLKEM768,
+            tls::supported_groups::code::MLKEM1024,
+            tls::supported_groups::code::SecP256r1MLKEM768,
+            tls::supported_groups::code::X25519MLKEM768,
+            tls::supported_groups::code::X25519Kyber768Draft00,
+            tls::supported_groups::code::SecP256r1Kyber768Draft00,
+            // tls::supported_groups::code::arbitrary_explicit_prime_curves,
+            // tls::supported_groups::code::arbitrary_explicit_char2_curves,
         };
 
-        bool assess(const tls_client_hello &ch, json_object &o) const override {
-
-            json_object a{o, "quantum_security_assessment"};
-
+        bool assess_tls_ciphersuites(datum ciphersuite_vector, json_object &a) const {
             bool all_allowed = true;
             bool some_allowed = false;
-            datum tmp = ch.ciphersuite_vector;
+            datum tmp = ciphersuite_vector;
             while (tmp.is_readable()) {
                 encoded<uint16_t> cs{tmp};
-                if (!is_grease(cs) || allowed_ciphersuites.find(cs.value()) != allowed_ciphersuites.end()) {
+                if (!is_grease(cs) and allowed_ciphersuites.find(cs.value()) != allowed_ciphersuites.end()) {
                     some_allowed = true;
                 } else {
                     all_allowed = false;
@@ -111,30 +137,38 @@ namespace crypto_policy {
             a.print_key_string("ciphersuites_allowed", quantifier);
             if (!all_allowed) {
                 json_array cs_array{a, "ciphersuites_not_allowed"};
-                datum tmp = ch.ciphersuite_vector;
+                datum tmp = ciphersuite_vector;
                 while (tmp.is_readable()) {
-                    encoded<uint16_t> cs{tmp};
-                    if (!is_grease(cs) && allowed_ciphersuites.find(cs.value()) == allowed_ciphersuites.end()) {
-                        cs_array.print_uint(cs);
+                    tls::cipher_suites cs{tmp};
+                    if (!is_grease(cs) and allowed_ciphersuites.find(cs.value()) == allowed_ciphersuites.end()) {
+                        if (readable_output) {
+                            cs_array.print_string(cs.get_name());
+                        } else {
+                            cs_array.print_uint16_hex(cs);
+                        }
                     }
                 }
                 cs_array.close();
             }
 
-            all_allowed = true;
-            some_allowed = false;
-            datum named_groups = ch.extensions.get_supported_groups();
+            return true;
+        }
+
+        bool assess_tls_extensions(const tls_extensions &extensions, json_object &a) const {
+            bool all_allowed = true;
+            bool some_allowed = false;
+            datum named_groups = extensions.get_supported_groups();
             xtn named_groups_xtn{named_groups};
             encoded<uint16_t> named_groups_len{named_groups_xtn.value};
             while (named_groups_xtn.value.is_readable()) {
                 encoded<uint16_t> named_group{named_groups_xtn.value};
-                if (!is_grease(named_group) || allowed_groups.find(named_group.value()) != allowed_groups.end()) {
+                if (!is_grease(named_group) and allowed_groups.find(named_group.value()) == allowed_groups.end()) {
                     all_allowed = false;
                 } else {
                     some_allowed = true;
                 }
             }
-            quantifier = "none";
+            const char *quantifier = "none";
             if (all_allowed) {
                 quantifier = "all";
             } else if (some_allowed) {
@@ -143,13 +177,17 @@ namespace crypto_policy {
             a.print_key_string("groups_allowed", quantifier);
             if (!all_allowed) {
                 json_array ng_array{a, "groups_not_allowed"};
-                datum named_groups = ch.extensions.get_supported_groups();
+                datum named_groups = extensions.get_supported_groups();
                 xtn named_groups_xtn{named_groups};
                 encoded<uint16_t> named_groups_len{named_groups_xtn.value};
                 while (named_groups_xtn.value.is_readable()) {
-                    encoded<uint16_t> named_group{named_groups_xtn.value};
-                    if (!is_grease(named_group) || allowed_groups.find(named_group.value()) != allowed_groups.end()) {
-                        ng_array.print_uint(named_group);
+                    tls::supported_groups named_group{named_groups_xtn.value};
+                    if (!is_grease(named_group) and allowed_groups.find(named_group.value()) == allowed_groups.end()) {
+                        if (readable_output) {
+                            ng_array.print_string(named_group.get_name());
+                        } else {
+                            ng_array.print_uint16_hex(named_group);
+                        }
                     } else {
                     }
                 }
@@ -159,11 +197,11 @@ namespace crypto_policy {
             // required extensions
             //
             bool have_tls_cert_with_extern_psk = false;
-            tmp = ch.extensions;
+            datum tmp = extensions;
             while (tmp.is_readable()) {
                 xtn extension{tmp};
                 switch(extension.type()) {
-                case tls::tls_cert_with_extern_psk:
+                case tls::extensions<uint16_t>::code::tls_cert_with_extern_psk:
                     have_tls_cert_with_extern_psk = true;
                     break;
                 default:
@@ -171,6 +209,64 @@ namespace crypto_policy {
                 }
             }
             a.print_key_bool("tls_cert_with_extern_psk", have_tls_cert_with_extern_psk);
+
+            return true;
+        }
+
+        bool assess(const tls_client_hello &ch, json_object &o) const override {
+
+            json_object a{o, "cryptographic_security_assessment"};
+            a.print_key_string("policy", "quantum_safe");
+            json_object assessment{a, "client"};
+            assess_tls_ciphersuites(ch.ciphersuite_vector, assessment);
+            assess_tls_extensions(ch.extensions, assessment);
+            assessment.close();
+            a.close();
+
+            return true;
+        }
+
+        bool assess(const tls_server_hello &ch, json_object &o) const override {
+
+            json_object a{o, "cryptographic_security_assessment"};
+            a.print_key_string("policy", "quantum_safe");
+            json_object assessment{a, "session"};
+            assess_tls_ciphersuites(ch.ciphersuite_vector, assessment);
+            assess_tls_extensions(ch.extensions, assessment);
+            assessment.close();
+            a.close();
+
+            return true;
+        }
+
+        bool assess(const tls_server_hello_and_certificate &hello_and_cert, json_object &o) const override {
+            if (hello_and_cert.is_not_empty()) {
+                return assess(hello_and_cert.get_server_hello(), o);
+            }
+            return false;
+        };
+
+        bool assess(const dtls_client_hello &dtls_ch, json_object &o) const override {
+
+            const tls_client_hello &ch = dtls_ch.get_tls_client_hello();
+            json_object a{o, "cryptographic_security_assessment"};
+            a.print_key_string("policy", "quantum_safe");
+            a.print_key_string("target", "client");
+            assess_tls_ciphersuites(ch.ciphersuite_vector, a);
+            assess_tls_extensions(ch.extensions, a);
+            a.close();
+
+            return true;
+        }
+
+        bool assess(const dtls_server_hello &dtls_sh, json_object &o) const override {
+
+            const tls_server_hello &sh = dtls_sh.get_tls_server_hello();
+            json_object a{o, "cryptographic_security_assessment"};
+            a.print_key_string("policy", "quantum_safe");
+            a.print_key_string("target", "session");
+            assess_tls_ciphersuites(sh.ciphersuite_vector, a);
+            assess_tls_extensions(sh.extensions, a);
             a.close();
 
             return true;
@@ -178,6 +274,17 @@ namespace crypto_policy {
 
     };
 
+    inline const assessor* assessor::create(const std::string &policy) {
+        if (policy == "quantum_safe" or policy == "default") {
+            return new crypto_policy::quantum_safe{true};
+        } else if (policy == "quantum_safe_compact") {
+            return new crypto_policy::quantum_safe{false};
+        }
+        return nullptr;   // error: policy not found
+    }
+
 }; // namespace crypto_policiy
+
+// #include "nist_sp800_52.hpp"
 
 #endif // CRYPTO_ASSESS_H

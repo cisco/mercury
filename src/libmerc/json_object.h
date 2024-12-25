@@ -174,6 +174,9 @@ struct json_object {
         b->puts("\":");
         if (value.data && value.data_end) {
             b->raw_as_base64(value.data, value.data_end - value.data);
+        } else {
+            b->write_char('\"');
+            b->write_char('\"');
         }
     }
     void print_key_timestamp(const char *k, struct timespec *ts) {

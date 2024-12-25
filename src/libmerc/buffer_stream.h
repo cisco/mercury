@@ -1170,6 +1170,19 @@ public:
         return ::memcmp(buffer, s, comp_length);
     }
 
+    /// returns a pointer to the start of the buffer
+    ///
+    const char *get_buffer_start() const {
+        return buffer;
+    }
+
+    std::pair<const uint8_t *, const uint8_t *> get_datum() const {
+        if (trunc) {
+            return { nullptr, nullptr };
+        }
+        return { (uint8_t *)buffer, (uint8_t *)buffer + doff };
+    }
+
 };
 
 #endif /* BUFFER_STREAM_H */
