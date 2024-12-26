@@ -43,6 +43,7 @@ static void utc_to_generalized_time(uint8_t gt[15], const uint8_t utc[13]) {
     memcpy(gt + 2, utc, 13);
 }
 
+
 void fprintf_json_string_escaped(struct buffer_stream &buf, const char *key, const uint8_t *data, unsigned int len);
 void fprintf_json_char_escaped(FILE *f, unsigned char x);
 void fprintf_json_char_escaped(struct buffer_stream &buf, unsigned char x);
@@ -256,7 +257,7 @@ struct json_array_asn1 : public json_array {
 
 struct tlv {
     unsigned char tag;
-    uint64_t length;
+    uint64_t length{0};
     struct datum value;
 
     bool operator == (const struct tlv &r) {
@@ -896,296 +897,39 @@ struct tlv {
             recursive_parse(tmp, asn1);
             asn1.close();
         } else {
-            x.print_as_json(o, x.get_type());
-	    o.print_key_string("tag_class", x.get_class());
-	    o.print_key_bool("constructed", x.is_constructed());
+            o.print_key_string("tag_class", x.get_class());
+            o.print_key_bool("constructed", x.is_constructed());
+            if (true or !x.is_constructed()) {
+                x.print_as_json(o, x.get_type());
+            } else {
+                json_array_asn1 cons{o, "CONSTRUCTED"};
+                datum tmp{x.value};
+                //                recursive_parse(tmp, cons);
+                cons.close();
+            }
         }
         o.close();
 
         return recursive_parse(d, a);
     }
 
-#ifdef TLV_FPRINT
-    /*
-     * functions for printing to a FILE *
-     */
-    void print_as_json_hex(FILE *f, const char *name, bool comma=false) const {
-        const char *format_string = "\"%s\":\"";
-        if (comma) {
-            format_string = ",\"%s\":\"";
-        }
-        fprintf(f, format_string, name);
-        if (value.data && value.data_end) {
-            fprintf_raw_as_hex(f, value.data, value.data_end - value.data);
-        }
-        fprintf(f, "\"");
-    }
-    void print_as_json_oid(FILE *f, const char *name, bool comma=false) const {
-        const char *format_string = "\"%s\":";
-        if (comma) {
-            format_string = ",\"%s\":";
-        }
-        fprintf(f, format_string, name);
+    class arbitrary {
+        datum value;
+    public:
+        arbitrary(datum &d) :
+            value{d}
+        { }
 
-        const char *output = oid::datum_get_oid_string(&value);
-        if (output != oid_empty_string) {
-            fprintf(f, "\"%s\"", output);
-        } else {
-            fprintf(f, "\"");
-            raw_string_print_as_oid(f, value.data, value.data_end - value.data);
-            fprintf(f, "\"");
+        bool is_valid() const { return value.is_not_null(); }
+
+        void write_json(json_object_asn1 &o) const {
+            datum tmp{value};
+            json_array_asn1 a{o, "arbitrary"};
+            recursive_parse(tmp, a);
+            a.close();
         }
 
-    }
-    void print_as_json_utctime(FILE *f, const char *name) const {
-        fprintf_json_utctime(f, name, value.data, value.data_end - value.data);
-    }
-    void print_as_json_generalized_time(FILE *f, const char *name) const {
-        fprintf_json_generalized_time(f, name, value.data, value.data_end - value.data);
-    }
-    void print_as_json_escaped_string(FILE *f, const char *name) const {
-        fprintf_json_string_escaped(f, name, value.data, value.data_end - value.data);
-    }
-    void print_as_json_ip_address(FILE *f, const char *name) const {
-        fprintf(f, "{\"%s\":\"", name);
-        fprintf_ip_address(f, value.data, value.data_end - value.data);
-        fprintf(f, "\"}");
-    }
-    void print_as_json_bitstring(FILE *f, const char *name, bool comma=false) const {
-        const char *format_string = "\"%s\":[";
-        if (comma) {
-            format_string = ",\"%s\":[";
-        }
-        fprintf(f, format_string, name);
-        if (value.data) {
-            struct datum p = value;
-            uint8_t number_of_unused_bits;
-            p.read_uint8(&number_of_unused_bits);
-            const char *comma = "";
-            while (p.data < p.data_end-1) {
-                for (uint8_t x = 0x80; x > 0; x=x>>1) {
-                    fprintf(f, "%s%c", comma, x & *p.data ? '1' : '0');
-                    comma = ",";
-                }
-                p.data++;
-            }
-            uint8_t terminus = 0x80 >> (8-number_of_unused_bits);
-            for (uint8_t x = 0x80; x > terminus; x=x>>1) {
-                fprintf(f, "%s%c", comma, x & *p.data ? '1' : '0');
-                comma = ",";
-            }
-
-        }
-        fprintf(f, "]");
-    }
-    void print_as_json_bitstring_flags(FILE *f, const char *name, char * const *flags, bool comma=false) const {
-        const char *format_string = "\"%s\":[";
-        if (comma) {
-            format_string = ",\"%s\":[";
-        }
-        fprintf(f, format_string, name);
-        if (value.data) {
-            struct datum p = value;
-            char *const *tmp = flags;
-            uint8_t number_of_unused_bits;
-            p.read_uint8(&number_of_unused_bits);
-            const char *comma = "";
-            while (p.data < p.data_end-1) {
-                for (uint8_t x = 0x80; x > 0; x=x>>1) {
-                    if (x & *p.data) {
-                        fprintf(f, "%s\"%s\"", comma, *tmp);
-                        comma = ",";
-                    }
-                    if (*tmp) {
-                        tmp++;
-                    }
-                }
-                p.data++;
-            }
-            uint8_t terminus = 0x80 >> (8-number_of_unused_bits);
-            for (uint8_t x = 0x80; x > terminus; x=x>>1) {
-                if (x & *p.data) {
-                    fprintf(f, "%s\"%s\"", comma, *tmp);
-                    comma = ",";
-                }
-                if (*tmp) {
-                    tmp++;
-                }
-            }
-
-        }
-        fprintf(f, "]");
-    }
-
-    void print_as_json(FILE *f, const char *name) const {
-        switch(tag) {
-        case tlv::UTCTime:
-            print_as_json_utctime(f, name);
-            break;
-        case tlv::GeneralizedTime:
-            print_as_json_generalized_time(f, name);
-            break;
-        case tlv::OBJECT_IDENTIFIER:
-            print_as_json_oid(f, name);
-            break;
-        case tlv::PRINTABLE_STRING:
-        case tlv::T61String:
-        case tlv::VIDEOTEX_STRING:
-        case tlv::IA5String:
-        case tlv::GraphicString:
-        case tlv::VisibleString:
-            print_as_json_escaped_string(f, name);
-            break;
-        case tlv::BIT_STRING:
-            print_as_json_bitstring(f, name);
-            break;
-        default:
-            print_as_json_hex(f, name);  // handle unexpected type
-        }
-    }
-
-    /*
-     * functions for json serialization to a buffer_stream
-     */
-    void print_as_json_hex(struct buffer_stream &buf, const char *name, bool comma=false) const {
-        const char *format_string = "\"%s\":\"";
-        if (comma) {
-            format_string = ",\"%s\":\"";
-        }
-        buf.snprintf(format_string, name);
-        if (value.data && value.data_end) {
-            buf.raw_as_hex(value.data, value.data_end - value.data);
-        }
-        buf.snprintf("\"");
-    }
-
-    void print_as_json_oid(struct buffer_stream &buf, const char *name, bool comma=false) const {
-        const char *format_string = "\"%s\":";
-        if (comma) {
-            format_string = ",\"%s\":";
-        }
-        buf.snprintf(format_string, name);
-
-        const char *output = oid::datum_get_oid_string(&value);
-        if (output != oid_empty_string) {
-            buf.snprintf("\"%s\"", output);
-        } else {
-            buf.snprintf("\"");
-            raw_string_print_as_oid(buf, value.data, value.data_end - value.data);
-            buf.snprintf("\"");
-        }
-
-    }
-    void print_as_json_utctime(struct buffer_stream &buf, const char *name) const {
-        fprintf_json_utctime(buf, name, value.data, value.data_end - value.data);
-    }
-    void print_as_json_generalized_time(struct buffer_stream &buf, const char *name) const {
-        fprintf_json_generalized_time(buf, name, value.data, value.data_end - value.data);
-    }
-    void print_as_json_escaped_string(struct buffer_stream &buf, const char *name) const {
-        fprintf_json_string_escaped(buf, name, value.data, value.data_end - value.data);
-    }
-
-    void print_as_json_ip_address(struct buffer_stream &buf, const char *name) const {
-        buf.snprintf("{\"%s\":\"", name);
-        fprintf_ip_address(buf, value.data, value.data_end - value.data);
-        buf.snprintf("\"}");
-    }
-
-    void print_as_json_bitstring(struct buffer_stream &buf, const char *name, bool comma=false) const {
-        const char *format_string = "\"%s\":[";
-        if (comma) {
-            format_string = ",\"%s\":[";
-        }
-        buf.snprintf(format_string, name);
-        if (value.data) {
-            struct datum p = value;
-            uint8_t number_of_unused_bits;
-            p.read_uint8(&number_of_unused_bits);
-            const char *comma = "";
-            while (p.data < p.data_end-1) {
-                for (uint8_t x = 0x80; x > 0; x=x>>1) {
-                    buf.snprintf("%s%c", comma, x & *p.data ? '1' : '0');
-                    comma = ",";
-                }
-                p.data++;
-            }
-            uint8_t terminus = 0x80 >> (8-number_of_unused_bits);
-            for (uint8_t x = 0x80; x > terminus; x=x>>1) {
-                buf.snprintf("%s%c", comma, x & *p.data ? '1' : '0');
-                comma = ",";
-            }
-
-        }
-        buf.write_char(']');
-    }
-
-    void print_as_json_bitstring_flags(struct buffer_stream &buf, const char *name, char * const *flags, bool comma=false) const {
-        const char *format_string = "\"%s\":[";
-        if (comma) {
-            format_string = ",\"%s\":[";
-        }
-        buf.snprintf(format_string, name);
-        if (value.data) {
-            struct datum p = value;
-            char *const *tmp = flags;
-            uint8_t number_of_unused_bits;
-            p.read_uint8(&number_of_unused_bits);
-            const char *comma = "";
-            while (p.data < p.data_end-1) {
-                for (uint8_t x = 0x80; x > 0; x=x>>1) {
-                    if (x & *p.data) {
-                        buf.snprintf("%s\"%s\"", comma, *tmp);
-                        comma = ",";
-                    }
-                    if (*tmp) {
-                        tmp++;
-                    }
-                }
-                p.data++;
-            }
-            uint8_t terminus = 0x80 >> (8-number_of_unused_bits);
-            for (uint8_t x = 0x80; x > terminus; x=x>>1) {
-                if (x & *p.data) {
-                    buf.snprintf("%s\"%s\"", comma, *tmp);
-                    comma = ",";
-                }
-                if (*tmp) {
-                    tmp++;
-                }
-            }
-
-        }
-        buf.write_char(']');
-    }
-
-    void print_as_json(struct buffer_stream &b, const char *name) const {
-        switch(tag) {
-        case tlv::UTCTime:
-            print_as_json_utctime(b, name);
-            break;
-        case tlv::GeneralizedTime:
-            print_as_json_generalized_time(b, name);
-            break;
-        case tlv::OBJECT_IDENTIFIER:
-            print_as_json_oid(b, name);
-            break;
-        case tlv::PRINTABLE_STRING:
-        case tlv::T61String:
-        case tlv::VIDEOTEX_STRING:
-        case tlv::IA5String:
-        case tlv::GraphicString:
-        case tlv::VisibleString:
-            print_as_json_escaped_string(b, name);
-            break;
-        case tlv::BIT_STRING:
-            print_as_json_bitstring(b, name);
-            break;
-        default:
-            print_as_json_hex(b, name);  // handle unexpected type
-        }
-    }
-#endif // TLV_FPRINT
+    };
 
 };
 

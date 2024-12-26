@@ -100,6 +100,7 @@ namespace ocsp {
 
         }
 
+        bool is_valid() const { return valid; }
     };
 
     // TBSRequest ::= SEQUENCE {
@@ -137,6 +138,7 @@ namespace ocsp {
             json.close();
         }
 
+        bool is_valid() const { return cert_req.is_valid(); }
     };
 
     // OCSPRequest ::= SEQUENCE {
@@ -158,6 +160,7 @@ namespace ocsp {
             tbs.write_json(o);
         }
 
+        bool is_valid() const { return tbs.is_valid(); }
 
         static bool unit_test(FILE *output=nullptr) {
             constexpr std::array<uint8_t, 83> ocsp_req = {
@@ -185,6 +188,75 @@ namespace ocsp {
 
             return (buf.memcmp(json_output, strlen(json_output)) == 0);
 
+        }
+
+    };
+
+    //   OCSPResponse ::= SEQUENCE {
+    //    responseStatus         OCSPResponseStatus,
+    //    responseBytes          [0] EXPLICIT ResponseBytes OPTIONAL }
+    //
+    //   OCSPResponseStatus ::= ENUMERATED {
+    //     successful            (0),  -- Response has valid confirmations
+    //     malformedRequest      (1),  -- Illegal confirmation request
+    //     internalError         (2),  -- Internal error in issuer
+    //     tryLater              (3),  -- Try again later
+    //                                 -- (4) is not used
+    //     sigRequired           (5),  -- Must sign the request
+    //     unauthorized          (6)   -- Request unauthorized
+    //   }
+    //
+    //   The value for responseBytes consists of an OBJECT IDENTIFIER and a
+    //   response syntax identified by that OID encoded as an OCTET STRING.
+    //
+    //   ResponseBytes ::=       SEQUENCE {
+    //       responseType   OBJECT IDENTIFIER,
+    //       response       OCTET STRING }
+    //
+    class response_bytes {
+        tlv response_type;
+        tlv response;
+
+    public:
+        response_bytes(datum &d) :
+            response_type{d, tlv::OBJECT_IDENTIFIER},
+            response{d, tlv::OCTET_STRING}
+        { }
+
+        void write_json(json_object_asn1 &o) const {
+            response_type.print_as_json(o, "type");
+            response.print_as_json(o, "response");
+        }
+
+    };
+
+    // For a basic OCSP responder, responseType will be id-pkix-ocsp-basic.
+    //
+    // id-pkix-ocsp           OBJECT IDENTIFIER ::= { id-ad-ocsp }
+    // id-pkix-ocsp-basic     OBJECT IDENTIFIER ::= { id-pkix-ocsp 1 }
+    //
+    class response {
+        //tlv::arbitrary arb;
+        tlv sequence;
+        tlv response_status;
+        response_bytes bytes;
+
+    public:
+
+        response(datum &d) :
+            // arb{d}
+            sequence{d, tlv::SEQUENCE},
+            response_status{d, tlv::ENUMERATED},
+            bytes{d}
+        { }
+
+        bool is_valid() { return sequence.is_not_null(); } // arb.is_valid(); }  // sequence.is_not_null(); }
+
+        void write_json(json_object_asn1 &o) {
+            json_object_asn1 response{o, "response"};
+            response_status.print_as_json(response, "status");
+            bytes.write_json(response);
+            response.close();
         }
 
     };
