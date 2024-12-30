@@ -77,7 +77,7 @@ which will remove the mercury program, resources directory, user, group, and sys
 ### Compile-time options
 To create a debugging version of mercury, use the **make debug-mercury** target in the src/ subdirectory.  Be sure to run **make clean** first.
 
-There are compile-time options that can tune mercury for your hardware.  Each of these options is set via a C/C++ preprocessor directive, which should be passed as an argument to "make" through the OPTFLAGS variable.   Frst run **make clean** to remove the previous build, then run **make "OPTFLAGS=<DIRECTIVE>"**.   This runs make, telling it to pass <DIRECTIVE> to the C/C++ compiler.  The available compile time options are:
+There are compile-time options that can tune mercury for your hardware.  Each of these options is set via a C/C++ preprocessor directive, which should be passed as an argument to "make" through the OPTFLAGS variable. First run **make clean** to remove the previous build, then run **make "OPTFLAGS=<DIRECTIVE>"**.   This runs make, telling it to pass <DIRECTIVE> to the C/C++ compiler.  The available compile time options are:
 
    * -DDEBUG, which turns on debugging, and
    * -FBUFSIZE=16384, which sets the fwrite/fread buffer to 16,384 bytes (for instance).
@@ -289,7 +289,7 @@ are grateful to the copyright holders for making their excellent
 software available under licensing terms that allow its
 redistribution.
    * RapidJSON
-      [https://github.com/cisco/mercury/src/rapidjson/license.txt](src/rapidjson/license.txt);
+      [https://github.com/cisco/mercury/src/libmerc/rapidjson/license.txt](src/libmerc/rapidjson/license.txt);
       this package is Copyright 2015 THL A29 Limited, a Tencent company,
       and Milo Yip.
    * lctrie [https://github.com/cisco/mercury/src/lctrie](src/lctrie);
