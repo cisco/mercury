@@ -6,10 +6,8 @@
 #include <fstream>
 
 #include "libmerc/base64.h"
-
-//#include "libmerc/http_auth.hpp"
-//#include "libmerc/dnscrypt.hpp"
 #include "libmerc/ocsp.hpp"
+#include "libmerc/oid.hpp"
 
 // get_datum(std::string &s) returns a datum that corresponds to the
 // std::string s.
@@ -28,14 +26,18 @@ void parse_and_write_json(datum &d) {
     if (!msg.is_valid()) {
         return;
     }
-    output_buffer<4096> buf;
+    output_buffer<8192> buf;
     json_object_asn1 o{&buf};
     msg.write_json(o);
     o.close();
     buf.write_line(stdout);
 }
 
+
+
 int main(int argc, char *argv[]) {
+
+    fprintf(stdout, "oid_unit_test: %s\n", oid_unit_test() ? "passed" : "failed");
 
     bool hex = false;
     bool base64 = false;
@@ -70,7 +72,7 @@ int main(int argc, char *argv[]) {
             } else {
                 fprintf(stderr, "----------------------------------------------------\n");
                 d.fprint_hex(stderr); fputc('\n', stderr);
-                parse_and_write_json<ocsp::request>(d);
+                parse_and_write_json<ocsp::response>(d);
 
                 //            return 0; // EARLY RETURN
             }
@@ -92,7 +94,7 @@ int main(int argc, char *argv[]) {
             datum d = { buf, buf + retval };
             fprintf(stderr, "----------------------------------------------------\n");
             d.fprint_hex(stderr); fputc('\n', stderr);
-            parse_and_write_json<ocsp::request>(d);
+            parse_and_write_json<ocsp::response>(d);
 
 
 
