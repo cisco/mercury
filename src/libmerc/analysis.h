@@ -1082,18 +1082,12 @@ public:
                             // hostname_domains[y.name.GetString()] = y.value.GetUint64();
                             //
                             // and this code will be removed:
-                            if (std::string(y.name.GetString()).size() >= 4 && std::string(y.name.GetString()).compare(std::string(y.name.GetString()).size() - 4, 4, ".alt") == 0) {
-                                // This is a safety check to prevent double normalization for *.alt like address.alt, missing.alt, other.alt, etc.
-                                // Currently, there are no *.alt domains in the fpdb.
-                                hostname_domains[y.name.GetString()] = y.value.GetUint64();
+                            std::string normalized = server_identifier{y.name.GetString()}.get_normalized_domain_name(server_identifier::detail::on);
+                            if (hostname_domains.find(normalized) != hostname_domains.end()) {
+                                // If two different domain names are normalized to the same domain name, then the counts are added.
+                                hostname_domains[normalized] += y.value.GetUint64();
                             } else {
-                                std::string normalized = server_identifier{y.name.GetString()}.get_normalized_domain_name(server_identifier::detail::on);
-                                if (hostname_domains.find(normalized) != hostname_domains.end()) {
-                                    // If two different domain names are normalized to the same domain name, then the counts are added.
-                                    hostname_domains[normalized] += y.value.GetUint64();
-                                } else {
-                                    hostname_domains[normalized] = y.value.GetUint64();
-                                }
+                                hostname_domains[normalized] = y.value.GetUint64();
                             }
                         }
                     }
@@ -1168,18 +1162,12 @@ public:
                             // hostname_sni[y.name.GetString()] = y.value.GetUint64();
                             //
                             // and this code will be removed:
-                            if (std::string(y.name.GetString()).size() >= 4 && std::string(y.name.GetString()).compare(std::string(y.name.GetString()).size() - 4, 4, ".alt") == 0) {
-                                // This is a safety check to prevent double normalization for *.alt like address.alt, missing.alt, other.alt, etc.
-                                // Currently, there are no *.alt domains in the fpdb.
-                                hostname_sni[y.name.GetString()] = y.value.GetUint64();
+                            std::string normalized = server_identifier{y.name.GetString()}.get_normalized_domain_name(server_identifier::detail::on);
+                            if (hostname_sni.find(normalized) != hostname_sni.end()) {
+                                // If two different domain names are normalized to the same domain name, then the counts are added.
+                                hostname_sni[normalized] += y.value.GetUint64();
                             } else {
-                                std::string normalized = server_identifier{y.name.GetString()}.get_normalized_domain_name(server_identifier::detail::on);
-                                if (hostname_sni.find(normalized) != hostname_sni.end()) {
-                                    // If two different domain names are normalized to the same domain name, then the counts are added.
-                                    hostname_sni[normalized] += y.value.GetUint64();
-                                } else {
-                                    hostname_sni[normalized] = y.value.GetUint64();
-                                }
+                                hostname_sni[normalized] = y.value.GetUint64();
                             }
                         }
                     }

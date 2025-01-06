@@ -389,8 +389,16 @@ public:
     ///
     std::string get_normalized_domain_name(detail detailed_output=off) const {
 
-        if (std::holds_alternative<ipv4_t>(host_id)) {
+        if (std::holds_alternative<dns_name_t>(host_id)) {
+            std::string domain_name = std::get<dns_name_t>(host_id);
+            // This is a safety check to prevent double normalization for *.alt like address.alt, missing.alt, other.alt, etc.
+            // Currently, there are no *.alt domains in the fpdb.
+            if (domain_name.size() >= 4 && domain_name.compare(domain_name.size() - 4, 4, ".alt") == 0) {
+                return domain_name;
+            }
+        }
 
+        if (std::holds_alternative<ipv4_t>(host_id)) {
             std::string a;
             if (detailed_output) {
                 ipv4_address addr = std::get<uint32_t>(host_id);
@@ -400,8 +408,8 @@ public:
             a += "address.alt";
             return a;
         }
-        if (std::holds_alternative<ipv6_array_t>(host_id)) {
 
+        if (std::holds_alternative<ipv6_array_t>(host_id)) {
             std::string a;
             if (detailed_output) {
                 ipv6_array_t addr = std::get<ipv6_array_t>(host_id);
@@ -419,6 +427,7 @@ public:
             }
             return "other.alt";
         }
+
         if (std::holds_alternative<dns_name_t>(host_id)) {
             std::string domain_name = std::get<dns_name_t>(host_id);
             if (domain_name == "None") {
