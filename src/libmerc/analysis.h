@@ -1079,7 +1079,7 @@ public:
                             //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
 
                             // Once data pipeline is updated to normalize the domain names, the following code will be used:
-                            // hostname_domains[y.name.GetString()] = y.value.GetUint64();
+                            // hostname_domains[server_identifier{y.name.GetString()}] = y.value.GetUint64();
                             //
                             // and this code will be removed:
                             std::string normalized = server_identifier{y.name.GetString()}.get_normalized_domain_name(server_identifier::detail::on);
@@ -1159,7 +1159,7 @@ public:
                             //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
 
                             // Once data pipeline is updated to normalize the domain names, the following code will be used:
-                            // hostname_sni[y.name.GetString()] = y.value.GetUint64();
+                            // hostname_sni[server_identifier{y.name.GetString()}] = y.value.GetUint64();
                             //
                             // and this code will be removed:
                             std::string normalized = server_identifier{y.name.GetString()}.get_normalized_domain_name(server_identifier::detail::on);
