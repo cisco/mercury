@@ -280,7 +280,7 @@ namespace ocsp {
     //
     // UnknownInfo ::= NULL
 
-    constexpr static std::array<uint8_t, 9> oid_id_pkix_ocsp_basic = oid<1,3,6,1,5,5,7,48,1,1>();
+    constexpr static std::array<uint8_t, 9> oid_id_pkix_ocsp_basic = asn1::oid<1,3,6,1,5,5,7,48,1,1>();
 
     class id_pkix_ocsp_basic {
         tlv sequence;

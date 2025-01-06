@@ -37,7 +37,7 @@ void parse_and_write_json(datum &d) {
 
 int main(int argc, char *argv[]) {
 
-    fprintf(stdout, "oid_unit_test: %s\n", oid_unit_test() ? "passed" : "failed");
+    fprintf(stdout, "oid_unit_test: %s\n", asn1::oid_unit_test() ? "passed" : "failed");
 
     bool hex = false;
     bool base64 = false;
