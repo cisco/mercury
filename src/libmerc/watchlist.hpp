@@ -236,7 +236,6 @@ static inline host_identifier host_identifier_constructor(datum d) {
         datum tmp = dns.advance();
         if (tmp.is_empty()) {
             d = dns.advance();
-            dns.value.normalize();
             return dns.value.get_string();
         }
 
@@ -322,7 +321,6 @@ public:
             datum tmp = dns.advance();
             if (tmp.is_empty()) {
                 d = dns.advance();
-                dns.value.normalize();
                 host_id = dns.value.get_string();
                 label_count = dns.value.label_count();
                 return;
@@ -388,15 +386,6 @@ public:
     ///      names are mapped to `other.alt`.
     ///
     std::string get_normalized_domain_name(detail detailed_output=off) const {
-
-        if (std::holds_alternative<dns_name_t>(host_id)) {
-            std::string domain_name = std::get<dns_name_t>(host_id);
-            // This is a safety check to prevent double normalization for *.alt like address.alt, missing.alt, other.alt, etc.
-            // Currently, there are no *.alt domains in the fpdb.
-            if (domain_name.size() >= 4 && domain_name.compare(domain_name.size() - 4, 4, ".alt") == 0) {
-                return domain_name;
-            }
-        }
 
         if (std::holds_alternative<ipv4_t>(host_id)) {
             std::string a;
@@ -487,7 +476,7 @@ public:
             { "www", "unqualified.alt", {} },                                       // unqualified domain name (not an FQDN)
             { "0000", "other.alt", {} },                                            // neither a name or address
             { "@#*%^$!", "other.alt", {} },                                         // neither a name or address
-            { "8.8.8.8.alt", "8.8.8.8.invalid.alt", {} },                           // invalid TLD
+            { "8.8.8.8.alt", "8.8.8.8.alt", {} },                                   // .alt subdomains are left unchanged
             { "abc.def.8888", "other.alt", {} },                                    // TLD needs at least one alphabetic character
         };
 
