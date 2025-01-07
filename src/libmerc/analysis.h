@@ -587,10 +587,9 @@ public:
                                             const char *user_agent, enum fingerprint_status status) {
 
         server_identifier server_id{server_name};
-        std::string normalized_server_name = server_id.get_normalized_domain_name(server_identifier::detail::on);
+        std::string server_name_str = server_id.get_normalized_domain_name(server_identifier::detail::on);
         uint32_t asn_int = subnet_data_ptr->get_asn_info(dst_ip);
-        std::string domain = get_tld_domain_name(normalized_server_name.c_str());
-        std::string server_name_str(server_name);
+        std::string domain = get_tld_domain_name(server_name_str.c_str());
         std::string dst_ip_str(dst_ip);
 
         std::vector<floating_point_type> process_score = classifier.classify(asn_int, dst_port, domain, server_name_str, dst_ip_str, user_agent);
