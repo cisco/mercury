@@ -1,7 +1,7 @@
 /*
  * analysis.h
  *
- * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
+ * Copyright (c) 2019-2024 Cisco Systems, Inc. All rights reserved.
  * License at https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
@@ -1131,7 +1131,18 @@ public:
                     for (auto &y : x["classes_hostname_domains"].GetObject()) {
                         if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
                             //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
-                            hostname_domains[server_identifier{y.name.GetString()}.get_normalized_domain_name(server_identifier::detail::on)] = y.value.GetUint64();
+
+                            // Once data pipeline is updated to normalize the domain names, the following code will be used:
+                            // hostname_domains[server_identifier{y.name.GetString()}] = y.value.GetUint64();
+                            //
+                            // and this code will be removed:
+                            std::string normalized = server_identifier{y.name.GetString()}.get_normalized_domain_name(server_identifier::detail::on);
+                            if (hostname_domains.find(normalized) != hostname_domains.end()) {
+                                // If two different domain names are normalized to the same domain name, then the counts are added.
+                                hostname_domains[normalized] += y.value.GetUint64();
+                            } else {
+                                hostname_domains[normalized] = y.value.GetUint64();
+                            }
                         }
                     }
                 }
@@ -1200,7 +1211,18 @@ public:
                     for (auto &y : x["classes_hostname_sni"].GetObject()) {
                         if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
                             //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
-                            hostname_sni[server_identifier{y.name.GetString()}.get_normalized_domain_name(server_identifier::detail::on)] = y.value.GetUint64();
+
+                            // Once data pipeline is updated to normalize the domain names, the following code will be used:
+                            // hostname_sni[server_identifier{y.name.GetString()}] = y.value.GetUint64();
+                            //
+                            // and this code will be removed:
+                            std::string normalized = server_identifier{y.name.GetString()}.get_normalized_domain_name(server_identifier::detail::on);
+                            if (hostname_sni.find(normalized) != hostname_sni.end()) {
+                                // If two different domain names are normalized to the same domain name, then the counts are added.
+                                hostname_sni[normalized] += y.value.GetUint64();
+                            } else {
+                                hostname_sni[normalized] = y.value.GetUint64();
+                            }
                         }
                     }
                 }
