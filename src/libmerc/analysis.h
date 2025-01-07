@@ -155,17 +155,117 @@ struct common_data {
 //
 using floating_point_type = long double;
 
-class naive_bayes {
 
-    // an instance of class update represents an update to a prior
-    // probability
+// an instance of class update represents an update to a prior
+// probability
+//
+class update {
+public:
+    update(unsigned int i, floating_point_type v) : index{i}, value{v} {}
+    unsigned int index;  // index of probability to update
+    floating_point_type value;   // value of update
+
+    bool operator==(const update &rhs) const {
+        return index == rhs.index
+            && value == rhs.value;
+    }
+
+};
+
+/// represents a model that assigns a probability update to a domain
+/// name (or a TLS or QUIC server name, or an HTTP host name)
+///
+class domain_name_model {
+
+public:
+    std::unordered_map<std::string, std::vector<class update>> hostname_domain_updates;
+    std::unordered_map<std::string, std::vector<class update>> hostname_sni_updates;
+
+    domain_name_model(const std::vector<class process_info> &processes,
+                      size_t total_count,
+                      floating_point_type domain_weight,
+                      floating_point_type sni_weight) {
+
+        floating_point_type base_prior = log(0.1 / total_count);
+        size_t index = 0;
+        for (const auto &p : processes) {
+            for (const auto &domains_and_count : p.hostname_domains) {
+                const auto x = hostname_domain_updates.find(domains_and_count.first);
+                class update u{ index, (log((floating_point_type)domains_and_count.second / total_count) - base_prior) * domain_weight };
+                if (x != hostname_domain_updates.end()) {
+                    x->second.push_back(u);
+                    assert(x->second.size() <= processes.size());
+                } else {
+                    hostname_domain_updates[domains_and_count.first] = { u };
+                }
+            }
+            for (const auto &sni_and_count : p.hostname_sni) {
+                const auto x = hostname_sni_updates.find(sni_and_count.first);
+                class update u{ index, (log((floating_point_type)sni_and_count.second / total_count) - base_prior) * sni_weight };
+                if (x != hostname_sni_updates.end()) {
+                    x->second.push_back(u);
+                    assert(x->second.size() <= processes.size());
+                } else {
+                    hostname_sni_updates[sni_and_count.first] = { u };
+                }
+            }
+
+            index++;
+        }
+    }
+
+    void update(std::vector<floating_point_type> &process_score,
+                //const std::string &domain,
+                const std::string &server_name_str) const {
+
+        std::string domain = get_tld_domain_name(server_name_str.c_str());
+
+        auto hostname_domain_update = hostname_domain_updates.find(domain);
+        if (hostname_domain_update != hostname_domain_updates.end()) {
+            for (const auto &x : hostname_domain_update->second) {
+                assert(x.index < process_score.size());
+                process_score[x.index] += x.value;
+            }
+        }
+
+        auto hostname_sni_update = hostname_sni_updates.find(server_name_str);
+        if (hostname_sni_update != hostname_sni_updates.end()) {
+            for (const auto &x : hostname_sni_update->second) {
+                assert(x.index < process_score.size());
+                process_score[x.index] += x.value;
+            }
+        }
+    }
+
+    // get_tld_domain_name() returns the string containing the top two
+    // domains of the input string; that is, given "s3.amazonaws.com",
+    // it returns "amazonaws.com".  If there is only one name, it is
+    // returned.
     //
-    class update {
-    public:
-        update(unsigned int i, floating_point_type v) : index{i}, value{v} {}
-        unsigned int index;  // index of probability to update
-        floating_point_type value;   // value of update
-    };
+    static std::string get_tld_domain_name(const char* server_name) {
+
+        const char *separator = NULL;
+        const char *previous_separator = NULL;
+        const char *c = server_name;
+        while (*c) {
+            if (*c == '.') {
+                if (separator) {
+                    previous_separator = separator;
+                }
+                separator = c;
+            }
+            c++;
+        }
+        if (previous_separator) {
+            previous_separator++;  // increment past '.'
+            return previous_separator;
+        }
+        return server_name;
+    }
+
+};
+
+class naive_bayes {
 
     uint64_t total_count = 0;
     ptr_dict &os_dict;
@@ -176,9 +276,7 @@ class naive_bayes {
     std::vector<attribute_result::bitset> attr;
     std::unordered_map<uint32_t, std::vector<class update>> as_number_updates;
     std::unordered_map<uint16_t, std::vector<class update>> port_updates;
-    std::unordered_map<std::string, std::vector<class update>> hostname_domain_updates;
     std::unordered_map<std::string, std::vector<class update>> ip_ip_updates;
-    std::unordered_map<std::string, std::vector<class update>> hostname_sni_updates;
     std::unordered_map<std::string, std::vector<class update>> user_agent_updates;
 
     floating_point_type as_weight;
@@ -187,6 +285,9 @@ class naive_bayes {
     floating_point_type ip_weight;
     floating_point_type sni_weight;
     floating_point_type ua_weight;
+
+    domain_name_model domain_name;
+
 public:
 
     static constexpr uint8_t num_features = 6;
@@ -225,7 +326,13 @@ public:
           port_weight{weights[features.index("port")]},
           ip_weight{weights[features.index("ip")]},
           sni_weight{weights[features.index("sni")]},
-          ua_weight{weights[features.index("ua")]}
+          ua_weight{weights[features.index("ua")]},
+          domain_name{
+              processes,
+              total_count,
+              domain_weight,
+              sni_weight
+          }
     {
 
         //fprintf(stderr, "compiling fingerprint_data for %lu processes\n", processes.size());
@@ -254,15 +361,6 @@ public:
                     as_number_updates[as_and_count.first] = { u };
                 }
             }
-            for (const auto &domains_and_count : p.hostname_domains) {
-                const auto x = hostname_domain_updates.find(domains_and_count.first);
-                class update u{ index, (log((floating_point_type)domains_and_count.second / total_count) - base_prior) * domain_weight };
-                if (x != hostname_domain_updates.end()) {
-                    x->second.push_back(u);
-                } else {
-                    hostname_domain_updates[domains_and_count.first] = { u };
-                }
-            }
             for (const auto &port_and_count : p.dst_port) {
                 const auto x = port_updates.find(port_and_count.first);
                 class update u{ index, (log((floating_point_type)port_and_count.second / total_count) - base_prior) * port_weight };
@@ -279,15 +377,6 @@ public:
                     x->second.push_back(u);
                 } else {
                     ip_ip_updates[ip_and_count.first] = { u };
-                }
-            }
-            for (const auto &sni_and_count : p.hostname_sni) {
-                const auto x = hostname_sni_updates.find(sni_and_count.first);
-                class update u{ index, (log((floating_point_type)sni_and_count.second / total_count) - base_prior) * sni_weight };
-                if (x != hostname_sni_updates.end()) {
-                    x->second.push_back(u);
-                } else {
-                    hostname_sni_updates[sni_and_count.first] = { u };
                 }
             }
             for (const auto &ua_and_count : p.user_agent) {
@@ -312,7 +401,6 @@ public:
 
     std::vector<floating_point_type> classify(uint32_t asn_int,
                                               uint16_t dst_port,
-                                              const std::string &domain,
                                               const std::string &server_name_str,
                                               const std::string &dst_ip_str,
                                               const char *user_agent) const {
@@ -331,21 +419,9 @@ public:
                 process_score[x.index] += x.value;
             }
         }
-        auto hostname_domain_update = hostname_domain_updates.find(domain);
-        if (hostname_domain_update != hostname_domain_updates.end()) {
-            for (const auto &x : hostname_domain_update->second) {
-                process_score[x.index] += x.value;
-            }
-        }
         auto ip_ip_update = ip_ip_updates.find(dst_ip_str);
         if (ip_ip_update != ip_ip_updates.end()) {
             for (const auto &x : ip_ip_update->second) {
-                process_score[x.index] += x.value;
-            }
-        }
-        auto hostname_sni_update = hostname_sni_updates.find(server_name_str);
-        if (hostname_sni_update != hostname_sni_updates.end()) {
-            for (const auto &x : hostname_sni_update->second) {
                 process_score[x.index] += x.value;
             }
         }
@@ -358,6 +434,8 @@ public:
                 }
             }
         }
+
+        domain_name.update(process_score, server_name_str);
 
         return process_score;
     }
@@ -408,11 +486,13 @@ public:
             }
         }
 
-        for (auto &v: hostname_domain_updates) {
-            for (auto &update : v.second) {
-                update.value = update.value * new_domain_weight/domain_weight;
-            }
-        }
+        // TODO: replace this functionality
+        //
+        // for (auto &v: hostname_domain_updates) {
+        //     for (auto &update : v.second) {
+        //         update.value = update.value * new_domain_weight/domain_weight;
+        //     }
+        // }
 
         for (auto &v: port_updates) {
             for (auto &update : v.second) {
@@ -426,12 +506,14 @@ public:
             }
         }
 
-        for (auto &v: hostname_sni_updates) {
-            for (auto &update : v.second) {
-                update.value = update.value * new_sni_weight/sni_weight;
-            }
-        }
- 
+        // TODO: replace this functionality
+        //
+        // for (auto &v: hostname_sni_updates) {
+        //     for (auto &update : v.second) {
+        //         update.value = update.value * new_sni_weight/sni_weight;
+        //     }
+        // }
+
         for (auto &v: user_agent_updates) {
             for (auto &update : v.second) {
                 update.value = update.value * new_ua_weight/ua_weight;
@@ -557,43 +639,15 @@ public:
     }
 #endif
 
-    // get_tld_domain_name() returns the string containing the top two
-    // domains of the input string; that is, given "s3.amazonaws.com",
-    // it returns "amazonaws.com".  If there is only one name, it is
-    // returned.
-    //
-    std::string get_tld_domain_name(const char* server_name) {
-
-        const char *separator = NULL;
-        const char *previous_separator = NULL;
-        const char *c = server_name;
-        while (*c) {
-            if (*c == '.') {
-                if (separator) {
-                    previous_separator = separator;
-                }
-                separator = c;
-            }
-            c++;
-        }
-        if (previous_separator) {
-            previous_separator++;  // increment past '.'
-            return previous_separator;
-        }
-        return server_name;
-    }
-
     struct analysis_result perform_analysis(const char *server_name, const char *dst_ip, uint16_t dst_port,
                                             const char *user_agent, enum fingerprint_status status) {
 
         server_identifier server_id{server_name};
-        std::string normalized_server_name = server_id.get_normalized_domain_name(server_identifier::detail::on);
+        std::string server_name_str = server_id.get_normalized_domain_name(server_identifier::detail::on);
         uint32_t asn_int = subnet_data_ptr->get_asn_info(dst_ip);
-        std::string domain = get_tld_domain_name(normalized_server_name.c_str());
-        std::string server_name_str(server_name);
         std::string dst_ip_str(dst_ip);
 
-        std::vector<floating_point_type> process_score = classifier.classify(asn_int, dst_port, domain, server_name_str, dst_ip_str, user_agent);
+        std::vector<floating_point_type> process_score = classifier.classify(asn_int, dst_port, server_name_str, dst_ip_str, user_agent);
 
         floating_point_type max_score = std::numeric_limits<floating_point_type>::lowest();
         floating_point_type sec_score = std::numeric_limits<floating_point_type>::lowest();
