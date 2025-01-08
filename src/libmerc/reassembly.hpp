@@ -11,7 +11,6 @@
 #include "datum.h"
 #include "json_object.h"
 #include "util_obj.h"
-#include "pkt_proc_util.h"
 
 #include <bitset>
 #include <vector>
@@ -360,13 +359,15 @@ inline void reassembly_flow_context::update_contiguous_data() {
 // 2. if protocol msg is not complete, is the total_bytes_needed now known, in which case,
 //    update the total_bytes_needed and switch to definite_reassembly
 inline void reassembly_flow_context::handle_indefinite_reassembly() {
-    protocol x;
+    uint32_t more_bytes;
+    datum pkt;
+
     switch (indefinite_reassembly)
     {
     case indefinite_reassembly_type::ssh:
-        datum pkt = get_reassembled_data();
-        x.emplace<ssh_init_packet>(pkt);
-        uint32_t more_bytes = std::get<ssh_init_packet>(x).more_bytes_needed();
+        pkt = get_reassembled_data();
+        ssh_init_packet ssh_pkt{pkt};
+        more_bytes = ssh_pkt.more_bytes_needed();
         if (!more_bytes) {
             // completed
             state = reassembly_state::reassembly_success;
@@ -376,7 +377,8 @@ inline void reassembly_flow_context::handle_indefinite_reassembly() {
             total_bytes_needed = more_bytes + curr_contiguous_data;
         }
         break;
-    
+    case indefinite_reassembly_type::definite:
+        break;
     default:
         break;
     }
