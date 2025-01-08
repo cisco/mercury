@@ -365,16 +365,18 @@ inline void reassembly_flow_context::handle_indefinite_reassembly() {
     switch (indefinite_reassembly)
     {
     case indefinite_reassembly_type::ssh:
-        pkt = get_reassembled_data();
-        ssh_init_packet ssh_pkt{pkt};
-        more_bytes = ssh_pkt.more_bytes_needed();
-        if (!more_bytes) {
-            // completed
-            state = reassembly_state::reassembly_success;
-            total_bytes_needed = curr_contiguous_data;
-        }
-        else {
-            total_bytes_needed = more_bytes + curr_contiguous_data;
+        {
+            pkt = get_reassembled_data();
+            ssh_init_packet ssh_pkt{pkt};
+            more_bytes = ssh_pkt.more_bytes_needed();
+            if (!more_bytes) {
+                // completed
+                state = reassembly_state::reassembly_success;
+                total_bytes_needed = curr_contiguous_data;
+            }
+            else {
+                total_bytes_needed = more_bytes + curr_contiguous_data;
+            }
         }
         break;
     case indefinite_reassembly_type::definite:
