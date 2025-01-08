@@ -255,10 +255,12 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         break;
     case tcp_msg_type_ssh:
         x.emplace<ssh_init_packet>(pkt);
-        uint32_t more_bytes = std::get<ssh_init_packet>(x).more_bytes_needed();
-        if (tcp_pkt && more_bytes) {
-            tcp_pkt->reassembly_needed(more_bytes,(uint8_t)indefinite_reassembly_type::ssh);
-            return;
+        {
+            uint32_t more_bytes = std::get<ssh_init_packet>(x).more_bytes_needed();
+            if (tcp_pkt && more_bytes) {
+                tcp_pkt->reassembly_needed(more_bytes,(uint8_t)indefinite_reassembly_type::ssh);
+                return;
+            }
         }
         break;
     case tcp_msg_type_ssh_kex:
