@@ -362,6 +362,8 @@ struct ssh_init_packet : public base_protocol {
     ssh_binary_packet binary_pkt;
     ssh_kex_init kex_pkt;
 
+    static constexpr size_t max_data_size = 8192;
+
     ssh_init_packet(datum &p) : protocol_string{NULL, NULL}, comment_string{NULL, NULL}, binary_pkt{}, kex_pkt{} {
         parse(p);
     }
@@ -432,6 +434,7 @@ struct ssh_init_packet : public base_protocol {
     }
 
     void fingerprint_complete(struct buffer_stream &buf) const {
+        write_fingerprint_data(buf);
         kex_pkt.fingerprint(buf);
     }
     
@@ -475,6 +478,17 @@ struct ssh_init_packet : public base_protocol {
 
         json_ssh.close();
 
+    }
+
+    size_t more_bytes_needed() const {
+        if (kex_pkt.is_not_empty()) {
+            // check binary pkt for additional bytes
+            return binary_pkt.additional_bytes_needed;
+        }
+        else {
+            // unknown size, return max data size
+            return max_data_size;
+        }
     }
 
     static constexpr mask_and_value<8> matcher{

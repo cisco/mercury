@@ -22,6 +22,7 @@
 #include "tcpip.h"
 #include "udp.h"
 #include "quic.h"
+#include "ssh.h"
 #include "analysis.h"
 #include "buffer_stream.h"
 
