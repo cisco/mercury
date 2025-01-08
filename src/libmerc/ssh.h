@@ -434,7 +434,6 @@ struct ssh_init_packet : public base_protocol {
     }
 
     void fingerprint_complete(struct buffer_stream &buf) const {
-        write_fingerprint_data(buf);
         kex_pkt.fingerprint(buf);
     }
     

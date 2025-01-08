@@ -268,7 +268,9 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
             struct ssh_binary_packet ssh_pkt{pkt};
             if (tcp_pkt && ssh_pkt.additional_bytes_needed) {
                 tcp_pkt->reassembly_needed((uint32_t)ssh_pkt.additional_bytes_needed);
-                return;
+            }
+            else {
+                tcp_pkt->set_supplementary_reassembly();
             }
             x.emplace<ssh_kex_init>(ssh_pkt);
             break;
@@ -481,7 +483,7 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
 
     // check if more tcp data is required
     set_tcp_protocol(x,pkt,is_new,&tcp_pkt);
-        if (!tcp_pkt.additional_bytes_needed && !(std::holds_alternative<std::monostate>(x))) {
+        if ((!tcp_pkt.additional_bytes_needed && !(std::holds_alternative<std::monostate>(x))) && (!tcp_pkt.supplementary_reassembly)) {
         // no need for reassembly
         // complete initial msg
         return true;
@@ -499,6 +501,12 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
     // init otherwise
     //
     reassembly_state r_state = reassembler->check_flow(k,ts->tv_sec);
+
+    // specical handling for supplementary reassembly
+    if ((r_state == reassembly_state::reassembly_none) && tcp_pkt.supplementary_reassembly) {
+        // since flow is not in reassembly, assume it as completed
+        return true;
+    }
 
     if ((r_state == reassembly_state::reassembly_none) && tcp_pkt.additional_bytes_needed){
         // init reassembly

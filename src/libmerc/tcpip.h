@@ -136,6 +136,9 @@ struct tcp_packet : public base_protocol {
     uint32_t data_length = 0;
     uint32_t additional_bytes_needed = 0;
     uint8_t indefinite_reassembly = 0;
+    // supplementary_reassembly refers to case where the specific tcp pkt may have a
+    // complete protocol msg, but may also be used by another protocol in reassembly
+    bool supplementary_reassembly = false;
 
     tcp_packet(datum &p, ip *outer=nullptr) : ip_pkt{outer} {
         parse(p);
@@ -159,6 +162,8 @@ struct tcp_packet : public base_protocol {
         additional_bytes_needed = num_bytes_needed;
         indefinite_reassembly = indef_reassembly;
     }
+
+    void set_supplementary_reassembly() { supplementary_reassembly = true; }
 
     bool is_SYN() {
         return header && TCP_IS_SYN(header->flags) && !TCP_IS_ACK(header->flags);
