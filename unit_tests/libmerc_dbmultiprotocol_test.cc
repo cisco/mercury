@@ -9,8 +9,8 @@ TEST_CASE_METHOD(LibmercTestFixture, "test http with resources-mp")
     auto destination_check_callback = [](const analysis_context *ac)
     {
         CHECK(analysis_context_get_fingerprint_type(ac) == 3);
-    }; 
-    
+    };
+
     auto http_check = [&](int expected_count, const struct libmerc_config &config)
     {
         initialize(config);
@@ -60,8 +60,8 @@ TEST_CASE_METHOD(LibmercTestFixture, "test http with resources-mp and linktype r
     auto destination_check_callback = [](const analysis_context *ac)
     {
         CHECK(analysis_context_get_fingerprint_type(ac) == 3);
-    }; 
-    
+    };
+
     auto http_check = [&](int expected_count, const struct libmerc_config &config)
     {
         initialize(config);
@@ -88,7 +88,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test http with resources-mp and linktype r
 
 TEST_CASE_METHOD(LibmercTestFixture, "test quic with resources-mp")
 {
-    
+
     auto destination_check_callback = [](const analysis_context *ac)
     {
         CHECK(analysis_context_get_fingerprint_type(ac) == 12);
@@ -150,7 +150,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic with resources-mp")
 
 TEST_CASE_METHOD(LibmercTestFixture, "test SGT encapsulated TLS - analysis with resources-mp")
 {
-    
+
     auto destination_check_callback = [](const analysis_context *ac)
     {
         CHECK(analysis_context_get_fingerprint_type(ac) == fingerprint_type_tls);
@@ -209,7 +209,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test SGT encapsulated TLS - write_json wit
 
 TEST_CASE_METHOD(LibmercTestFixture, "test quic with resources-mp and eth linktype")
 {
-    
+
     auto destination_check_callback = [](const analysis_context *ac)
     {
         CHECK(analysis_context_get_fingerprint_type(ac) == 12);
@@ -241,7 +241,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic with resources-mp and eth linkty
 
 TEST_CASE_METHOD(LibmercTestFixture, "test quic with resources-mp and ppp linktype")
 {
-    
+
     auto destination_check_callback = [](const analysis_context *ac)
     {
         CHECK(analysis_context_get_fingerprint_type(ac) == 12);
@@ -266,7 +266,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic with resources-mp and ppp linkty
              .m_lc{.do_analysis = true, .resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"quic"},
              .m_pc{"quic_ppp.pcap"}},
-         1} 
+         1}
     };
 
     for (auto &[config, count] : test_set_up)
@@ -278,7 +278,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic with resources-mp and ppp linkty
 
 TEST_CASE_METHOD(LibmercTestFixture, "test smtp with resources-mp")
 {
-    
+
     auto smtp_check = [&](int expected_count, const struct libmerc_config &config)
     {
         initialize(config);
@@ -500,7 +500,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test attributes with resources-mp")
 {
 
     auto destination_check_callback = [](size_t attr_count, size_t expected_attr_count)
-    { 
+    {
         CHECK((attr_count == expected_attr_count));
     };
 
@@ -726,6 +726,43 @@ TEST_CASE_METHOD(LibmercTestFixture, "geneve encapsulated IPv4 and Ethernet with
     {
         set_pcap(config.m_pc.c_str());
         tls_check(count, config.m_lc);
+    }
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "test stun with resources-mp")
+{
+
+    auto stun_check = [&](int expected_count, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(expected_count == counter());
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, int>> test_set_up{
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"stun"},
+             .m_pc{"stun.pcap"}},
+         4},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"stun"},
+             .m_pc{"stun_classic.pcap"}},
+         2},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"stun"},
+             .m_pc{"top_100_fingerprints.pcap"}},
+         0}
+    };
+
+    for (auto &[config, count] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        stun_check(count, config.m_lc);
     }
 }
 

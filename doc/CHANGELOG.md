@@ -1,5 +1,10 @@
 # CHANGELOG for Mercury
 
+## VERSION 2.6.1
+* Improved STUN implementation: added test cases, fixed fingerprint
+  feature nits, renamed variables for consistency with the RFCs, and
+  simplified the message_type check.
+
 ## VERSION 2.6.0
 * Added reassembly for QUIC initial messages, to ensure metadata and
   fingerprint capture even for very long messages (e.g. due to
