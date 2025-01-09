@@ -732,16 +732,11 @@ TEST_CASE_METHOD(LibmercTestFixture, "geneve encapsulated IPv4 and Ethernet with
 TEST_CASE_METHOD(LibmercTestFixture, "test ssh fingerprinting and reassembly")
 {
 
-    auto destination_check_callback = [](const analysis_context *ac)
-    {
-        CHECK(analysis_context_get_fingerprint_type(ac) == 5);
-    };
-
-    auto ssh_check = [&](int expected_count, const struct libmerc_config &config)
+    auto ssh_check = [&](int count, const struct libmerc_config &config, fingerprint_type fp_t, fingerprint_type fp_t2)
     {
         initialize(config);
 
-        CHECK(expected_count == counter(fingerprint_type_ssh,destination_check_callback));
+        CHECK(count == counter(fp_t, fp_t2));
 
         deinitialize();
     };
@@ -750,77 +745,26 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ssh fingerprinting and reassembly")
         {test_config{
              .m_lc{.do_analysis = true, .resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"ssh;reassembly"},
-             .m_pc{"ssh_frag.pcap"}},
-         2}
-    };
-
-    for (auto &[config, count] : test_set_up)
-    {
-        set_pcap(config.m_pc.c_str());
-        ssh_check(count, config.m_lc);
-    }
-}
-
-TEST_CASE_METHOD(LibmercTestFixture, "test ssh kex fingerprinting")
-{
-
-    auto destination_check_callback = [](const analysis_context *ac)
-    {
-        CHECK(analysis_context_get_fingerprint_type(ac) == 6);
-    };
-
-    auto ssh_check = [&](int expected_count, const struct libmerc_config &config)
-    {
-        initialize(config);
-
-        CHECK(expected_count == counter(fingerprint_type_ssh_kex,destination_check_callback));
-
-        deinitialize();
-    };
-
-    std::vector<std::pair<test_config, int>> test_set_up{
+             .m_pc{"ssh_frag.pcap"},
+             .fp_t = fingerprint_type_ssh},
+         2},
         {test_config{
              .m_lc{.do_analysis = true, .resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"ssh"},
-             .m_pc{"ssh_frag.pcap"}},
-         2}
-    };
-
-    for (auto &[config, count] : test_set_up)
-    {
-        set_pcap(config.m_pc.c_str());
-        ssh_check(count, config.m_lc);
-    }
-}
-
-TEST_CASE_METHOD(LibmercTestFixture, "test ssh init fingerprinting")
-{
-
-    auto destination_check_callback = [](const analysis_context *ac)
-    {
-        CHECK(analysis_context_get_fingerprint_type(ac) == 17);
-    };
-
-    auto ssh_check = [&](int expected_count, const struct libmerc_config &config)
-    {
-        initialize(config);
-
-        CHECK(expected_count == counter(fingerprint_type_ssh_init,destination_check_callback));
-
-        deinitialize();
-    };
-
-    std::vector<std::pair<test_config, int>> test_set_up{
+             .m_pc{"ssh_frag.pcap"},
+             .fp_t = fingerprint_type_ssh_init},
+         2},
         {test_config{
              .m_lc{.do_analysis = true, .resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"ssh"},
-             .m_pc{"ssh_frag.pcap"}},
-         2}
+             .m_pc{"ssh_frag.pcap"},
+             .fp_t = fingerprint_type_ssh_kex},
+         2} 
     };
 
     for (auto &[config, count] : test_set_up)
     {
         set_pcap(config.m_pc.c_str());
-        ssh_check(count, config.m_lc);
+        ssh_check(count, config.m_lc, config.fp_t, fingerprint_type_unknown);
     }
 }
