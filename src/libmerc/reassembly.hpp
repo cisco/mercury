@@ -236,6 +236,8 @@ private:
     void update_contiguous_data();
 
     void handle_indefinite_reassembly();
+
+    template <typename T> void handle_indefinite_reassembly(T&);
 };
 
 // return a datum associated with the maximum reassmbled data of contiguous segments
@@ -356,10 +358,28 @@ inline void reassembly_flow_context::update_contiguous_data() {
 
 // handle special case for indefinite reassembly
 // 1. reparse the contiguous bytes and check if the protocol is completed
-// 2. if protocol msg is not complete, is the total_bytes_needed now known, in which case,
+// 2. if protocol msg is not complete, is the total_bytes_needed now known (not max_bytes), in which case,
 //    update the total_bytes_needed and switch to definite_reassembly
+template <typename T> void handle_indefinite_reassembly(T& proto_msg) {
+    uint32_t more_bytes = proto_msg.more_bytes_needed();
+    if (!more_bytes) {
+        // completed
+        state = reassembly_state::reassembly_success;
+        total_bytes_needed = curr_contiguous_data;
+    }
+    else {
+        if (more_bytes != max_data_size) {
+            // no longer indefinite reassembly
+            total_bytes_needed = more_bytes + curr_contiguous_data;
+            indefinite_reassembly = indefinite_reassembly_type::definite;
+        }
+        else {
+            // still indefinite reassembly
+        }
+    }
+}
+
 inline void reassembly_flow_context::handle_indefinite_reassembly() {
-    uint32_t more_bytes;
     datum pkt;
 
     switch (indefinite_reassembly)
@@ -368,15 +388,7 @@ inline void reassembly_flow_context::handle_indefinite_reassembly() {
         {
             pkt = get_reassembled_data();
             ssh_init_packet ssh_pkt{pkt};
-            more_bytes = ssh_pkt.more_bytes_needed();
-            if (!more_bytes) {
-                // completed
-                state = reassembly_state::reassembly_success;
-                total_bytes_needed = curr_contiguous_data;
-            }
-            else {
-                total_bytes_needed = more_bytes + curr_contiguous_data;
-            }
+            handle_indefinite_reassembly(ssh_pkt);
         }
         break;
     case indefinite_reassembly_type::definite:

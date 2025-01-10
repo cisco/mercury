@@ -458,7 +458,7 @@ struct ssh_init_packet : public base_protocol {
             return binary_pkt.additional_bytes_needed;
         }
         else {
-            // unknown size, return max data size
+            // unknown size, return max data size, denotes indefinite reassembly
             return max_data_size;
         }
     }
