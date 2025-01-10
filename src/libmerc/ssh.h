@@ -36,29 +36,6 @@
 
 
 /*
-NOTES:
-1. Messages of importance: ssh protocol init, ssh key exchange init, ssh specific key type exchange init for e.g. dhe init
-2. Protocol init string is to be treated as user agent
-3. fingerprint to be extracted from keyexchange init + msg type code for ssh specific key type exchange
-4. Reassembly till kex init pkt.
-5. Include the msg code for kepy type exchange init only if it is present with the kex initi message
-6. The seq of pkts is protocol message and one or more ssh binary pkts
-6. Have a matcher for ssh protocol init and kex pkt
-7. add multiple ssh versions like SSH1.5
-8. If protocol init is seen, look for one or more binary pkts following it
-9. If not present, add the complete data to the reassembly table
-10. Add reassembly flushing logic - after every pkt, based on the protocol, perform some operation to see if reassembly is done.
-11. After completing reassembly, parse the messages again to find the complete msg
-12. Consolidate fingerprint format by mapping strings to codes for algos
-13. There are 3 types of fingerprints for SSH:
-    a. Complete Fingerprint: SSH kex init along with protocol init strings as user agent - fingerprint type ssh
-    b. SSH kex init reported separately as a fingerprint - fingerprint type ssh_kex_init
-    c. SSH protocol init string - fingerprint type ssh_init
-
-*/
-
-
-/*
  * From RFC 4253 (The SSH Transport Layer Protocol):
  *
  *    Each packet is in the following format:
@@ -352,10 +329,6 @@ struct ssh_kex_init : public base_protocol {
 // ssh init pkt can also hold an additional binary pkt to possibly parse the kex init pkt.
 
 
-// VERSLEN is the length of "SSH-x.x-"
-//
-#define VERS_LEN 8
-
 struct ssh_init_packet : public base_protocol {
     struct datum protocol_string;
     struct datum comment_string;
@@ -371,7 +344,8 @@ struct ssh_init_packet : public base_protocol {
     void parse(struct datum &p) {
         uint8_t delim = protocol_string.parse_up_to_delimiters(p, '\n', ' ');
         if (delim == '\n') {
-            p.skip(1);
+            // no comment string
+            p.skip(1);      // skip linefeed
 
             // check if more bytes are available
             // indicating that a kex pkt might be present
@@ -386,9 +360,9 @@ struct ssh_init_packet : public base_protocol {
             return;  // no comment string
         }
         
-        p.skip(1);
+        p.skip(1);  // skip space
         comment_string.parse_up_to_delim(p, '\n');
-        p.skip(1);
+        p.skip(1);  // skip linefeed
 
         // check if more bytes are available
         // indicating that a kex pkt might be present
@@ -413,22 +387,21 @@ struct ssh_init_packet : public base_protocol {
         }
         buf.write_char('(');
         struct datum tmp = protocol_string; // to avoid modifying object
-        tmp.skip(VERS_LEN);                  // advance over "SSH-2.0"
         if (comment_string.is_not_empty()) {
             buf.raw_as_hex(tmp.data, tmp.data_end - tmp.data);
             buf.write_char('2');             // represent SP between protocol and comment strings
             buf.write_char('0');             // represent SP between protocol and comment strings
             tmp = comment_string;
-            tmp.trim(1);
+            tmp.trim(1);                     // trim the trailing '\n'
             buf.raw_as_hex(tmp.data, tmp.data_end - tmp.data);
         } else {
             tmp.trim(1);                     // trim the trailing '\n'
             buf.raw_as_hex(tmp.data, tmp.data_end - tmp.data);
-            buf.write_char('2');             // represent SP between protocol and comment strings
-            buf.write_char('0');             // represent SP between protocol and comment strings
-            tmp = comment_string;
-            tmp.trim(1);
-            buf.raw_as_hex(tmp.data, tmp.data_end - tmp.data);
+            //buf.write_char('2');             // represent SP between protocol and comment strings
+            //buf.write_char('0');             // represent SP between protocol and comment strings
+            //tmp = comment_string;
+            //tmp.trim(1);
+            //buf.raw_as_hex(tmp.data, tmp.data_end - tmp.data);
         }
         buf.write_char(')');
     }
