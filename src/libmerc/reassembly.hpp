@@ -360,7 +360,7 @@ inline void reassembly_flow_context::update_contiguous_data() {
 // 1. reparse the contiguous bytes and check if the protocol is completed
 // 2. if protocol msg is not complete, is the total_bytes_needed now known (not max_bytes), in which case,
 //    update the total_bytes_needed and switch to definite_reassembly
-template <typename T> void handle_indefinite_reassembly(T& proto_msg) {
+template <typename T> inline void reassembly_flow_context::handle_indefinite_reassembly(T& proto_msg) {
     uint32_t more_bytes = proto_msg.more_bytes_needed();
     if (!more_bytes) {
         // completed
