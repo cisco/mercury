@@ -155,6 +155,40 @@ struct common_data {
 //
 using floating_point_type = long double;
 
+template <typename T>
+class feature {
+    std::unordered_map<T, std::vector<class update>> updates;
+
+public:
+
+    // construct a naive bayes feature of type T
+    //
+    feature(const std::unordered_map<T,uint64_t> &info, size_t total_count, floating_point_type weight=1.0) {
+        floating_point_type base_prior = log(0.1 / total_count);
+        for (const auto &[feat, count] : info) {
+            const auto x = updates.find(feat);
+            class update u{ index, (log((floating_point_type)count / total_count) - base_prior ) * weight };
+            if (x != updates.end()) {
+                x->second.push_back(u);
+            } else {
+                updates[feat] = { u };
+            }
+        }
+    }
+
+    // apply a naive bayes feature update to prob_vector
+    //
+    void update(std::vector<floating_point_type> &prob_vector, const T &asn_int) const {
+        auto u = updates.find(asn_int);
+        if (u != updates.end()) {
+            for (const auto &x : u->second) {
+                assert(x.index < prob_vector.size());
+                prob_vector[x.index] += x.value;
+            }
+        }
+    }
+
+};
 
 // an instance of class update represents an update to a prior
 // probability
@@ -180,6 +214,8 @@ class domain_name_model {
 public:
     std::unordered_map<std::string, std::vector<class update>> hostname_domain_updates;
     std::unordered_map<std::string, std::vector<class update>> hostname_sni_updates;
+
+    domain_name_model() { }
 
     domain_name_model(const std::vector<class process_info> &processes,
                       size_t total_count,
@@ -212,6 +248,70 @@ public:
 
             index++;
         }
+    }
+
+    // EXPERIMENTAL
+    //
+    void observe_domain(size_t index, const std::string &hostname_domains, size_t count, size_t total_count, floating_point_type domain_weight) {
+
+        floating_point_type base_prior = log(0.1 / total_count);
+        std::pair<std::string,size_t> domains_and_count{ hostname_domains, count };
+
+        const auto x = hostname_domain_updates.find(domains_and_count.first);
+        class update u{ index, (log((floating_point_type)domains_and_count.second / total_count) - base_prior) * domain_weight };
+        if (x != hostname_domain_updates.end()) {
+
+            // check for previous occurence of this index
+            //
+            class update *prev_update = nullptr;
+            for (auto & upd : x->second) {
+                if (upd.index == index) {
+                    prev_update = &upd;
+                }
+            }
+            if (prev_update) {
+                prev_update->value += u.value;  // note: possible loss of precision
+            } else {
+                x->second.push_back(u);
+            }
+            // assert(x->second.size() <= processes.size());
+
+        } else {
+            hostname_domain_updates[domains_and_count.first] = { u };
+        }
+
+    }
+
+    // EXPERIMENTAL
+    //
+    void observe_sni(size_t index, const std::string &hostname_sni, size_t count, size_t total_count, floating_point_type sni_weight) {
+
+        floating_point_type base_prior = log(0.1 / total_count);
+        std::pair<std::string,size_t> sni_and_count{ hostname_sni, count };
+
+        const auto x = hostname_sni_updates.find(sni_and_count.first);
+        class update u{ index, (log((floating_point_type)sni_and_count.second / total_count) - base_prior) * sni_weight };
+        if (x != hostname_sni_updates.end()) {
+
+            // check for previous occurence of this index
+            //
+            class update *prev_update = nullptr;
+            for (auto & upd : x->second) {
+                if (upd.index == index) {
+                    prev_update = &upd;
+                }
+            }
+            if (prev_update) {
+                prev_update->value += u.value;  // note: possible loss of precision
+            } else {
+                x->second.push_back(u);
+            }
+            // assert(x->second.size() <= processes.size());
+
+        } else {
+            hostname_sni_updates[sni_and_count.first] = { u };
+        }
+
     }
 
     void update(std::vector<floating_point_type> &process_score,
@@ -287,6 +387,7 @@ class naive_bayes {
     floating_point_type ua_weight;
 
     domain_name_model domain_name;
+    //  feature<uint32_t> asn;
 
 public:
 
@@ -396,6 +497,260 @@ public:
         // input vector processes
         //
         assert(process_prob.size() == processes.size());
+
+    }
+
+    // EXPERIMENTAL constructor that reads directly from JSON
+    //
+    naive_bayes(rapidjson::Value &process_info,
+                bool report_os,
+                ptr_dict &os_dictionary,
+                bool &MALWARE_DB,
+                bool &EXTENDED_FP_METADATA,
+                float &fp_proc_threshold,
+                float &proc_dst_threshold,
+                common_data &common) :
+        os_dict{os_dictionary}
+    {
+        size_t index = 0;   // zero-based index of process in probability vector
+
+        unsigned int process_number = 0;
+        for (auto &x : process_info.GetArray()) {
+            uint64_t count = 0;
+            bool malware = false;
+
+            if (x.HasMember("count") && x["count"].IsUint64()) {
+                count = x["count"].GetUint64();
+                //fprintf(stderr, "\tcount: %lu\n", x["count"].GetUint64());
+            }
+            if (x.HasMember("malware") && x["malware"].IsBool()) {
+                if (MALWARE_DB == false && process_number > 1) {
+                    throw std::runtime_error("error: malware data expected, but not present");
+                }
+                MALWARE_DB = true;
+                malware = x["malware"].GetBool();
+            }
+            if (count == 0) {
+                throw std::runtime_error("error: process_fp_db_line() count 0");
+                continue;
+            }
+            /* do not load process into memory if prevalence is below threshold */
+            if ((process_number > 1) && ((float)count/total_count < fp_proc_threshold) && (malware != true)) {
+                continue;
+            }
+
+            process_number++;
+            //fprintf(stderr, "%s\n", "process_info");
+
+            attribute_result::bitset attributes;
+            // std::unordered_map<uint32_t, uint64_t>    ip_as;
+            // std::unordered_map<std::string, uint64_t> hostname_domains;
+            // std::unordered_map<uint16_t, uint64_t>    dst_port;
+            // std::unordered_map<std::string, uint64_t> ip_ip;
+            // std::unordered_map<std::string, uint64_t> hostname_sni;
+            // std::unordered_map<std::string, uint64_t> user_agent;
+            std::map<std::string, uint64_t> os_info;
+
+            std::string name;
+            if (x.HasMember("process") && x["process"].IsString()) {
+                name = x["process"].GetString();
+                //fprintf(stderr, "\tname: %s\n", x["process"].GetString());
+            }
+            if (x.HasMember("attributes") && x["attributes"].IsObject()) {
+                for (auto &v : x["attributes"].GetObject()) {
+                    if (v.name.IsString()) {
+                        ssize_t idx = common.attr_name.get_index(v.name.GetString());
+                        if (idx < 0) {
+                            printf_err(log_warning, "unknown attribute %s while parsing process information\n", v.name.GetString());
+                            throw std::runtime_error("error while parsing resource archive file");
+                        }
+                        if (v.value.IsBool() and v.value.GetBool()) {
+                            attributes[idx] = 1;
+                        }
+                    }
+                }
+                common.attr_name.stop_accepting_new_names();
+
+            }
+            if (x.HasMember("classes_hostname_domains") && x["classes_hostname_domains"].IsObject()) {
+                //fprintf(stderr, "\tclasses_hostname_domains\n");
+                for (auto &y : x["classes_hostname_domains"].GetObject()) {
+                    if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
+                        //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
+
+                        // Once data pipeline is updated to normalize the domain names, the following code will be used:
+                        // hostname_domains[server_identifier{y.name.GetString()}] = y.value.GetUint64();
+                        //
+                        // and this code will be removed:
+                        std::string normalized = server_identifier{y.name.GetString()}.get_normalized_domain_name(server_identifier::detail::on);
+                        // if (hostname_domains.find(normalized) != hostname_domains.end()) {
+                        //     // If two different domain names are normalized to the same domain name, then the counts are added.
+                        //     hostname_domains[normalized] += y.value.GetUint64();
+                        // } else {
+                        //     hostname_domains[normalized] = y.value.GetUint64();
+                        // }
+
+                        // EXPERIMENTAL
+                        //
+                        domain_name.observe_domain(index, normalized, y.value.GetUint64(), total_count, sni_weight);
+
+                    }
+                }
+            }
+            if (x.HasMember("classes_ip_as") && x["classes_ip_as"].IsObject()) {
+                //fprintf(stderr, "\tclasses_ip_as\n");
+                for (auto &y : x["classes_ip_as"].GetObject()) {
+                    if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
+                        //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
+
+                        if (strcmp(y.name.GetString(), "unknown") != 0) {
+
+                            errno = 0;
+                            unsigned long as_number = strtol(y.name.GetString(), NULL, 10);
+                            if (errno) {
+                                as_number = 0; // "unknown"
+                                printf_err(log_warning, "unexpected string \"%s\" in ip_as\n", y.name.GetString());
+                            }
+                            if (as_number > 0xffffffff) {
+                                throw std::runtime_error("error: as number too high");
+                            }
+                            // ip_as[as_number] = y.value.GetUint64();
+
+                            // EXPERIMENTAL
+                            //
+                            std::pair<uint32_t,size_t> as_and_count = { as_number, y.value.GetUint64() };
+                            const auto x = as_number_updates.find(as_and_count.first);
+                            class update u{ index, (log((floating_point_type)as_and_count.second / total_count) - base_prior ) * as_weight };
+                            if (x != as_number_updates.end()) {
+                                x->second.push_back(u);
+                            } else {
+                                as_number_updates[as_and_count.first] = { u };
+                            }
+
+                        }
+                    }
+                }
+            }
+            if (x.HasMember("classes_port_port") && x["classes_port_port"].IsObject()) {
+                //fprintf(stderr, "\tclasses_port_port\n");
+                for (auto &y : x["classes_port_port"].GetObject()) {
+                    if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
+                        uint64_t tmp_port = 0;
+                        try {
+                            tmp_port = std::stoul(y.name.GetString());
+                        }
+                        catch (...) {
+                            printf_err(log_warning, "unexpected string \"%s\" in classes_port_port\n", y.name.GetString());
+                        }
+                        if (tmp_port > std::numeric_limits<uint16_t>::max()) {
+                            printf_err(log_warning, "number %" PRIu64 " too high in classes_port_port\n", tmp_port);
+                            tmp_port = 0;    // error: port numbers should 16-bit unsigned integers
+                        }
+                        // dst_port[tmp_port] = y.value.GetUint64();
+
+                        // EXPERIMENTAL
+                        //
+                        std::pair<uint16_t,size_t> port_and_count = { tmp_port, y.value.GetUint64() };
+                        const auto x = port_updates.find(port_and_count.first);
+                        class update u{ index, (log((floating_point_type)port_and_count.second / total_count) - base_prior) * port_weight };
+                        if (x != port_updates.end()) {
+                            x->second.push_back(u);
+                        } else {
+                            port_updates[port_and_count.first] = { u };
+                        }
+
+                    }
+                }
+            }
+            if (x.HasMember("classes_ip_ip") && x["classes_ip_ip"].IsObject()) {
+                if (EXTENDED_FP_METADATA == false && process_number > 1) {
+                    throw std::runtime_error("error: extended fingerprint metadata expected, but not present");
+                }
+                EXTENDED_FP_METADATA = true;
+                //fprintf(stderr, "\tclasses_ip_ip\n");
+                for (auto &y : x["classes_ip_ip"].GetObject()) {
+                    if (!y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
+                        printf_err(log_warning, "classes_ip_ip object element %s is not a Uint64\n", y.name.GetString());
+                        //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
+                        // ip_ip[y.name.GetString()] = y.value.GetUint64();
+
+                        // EXPERIMENTAL
+                        //
+                        // empty for now, to preserve compatibility
+                    }
+                }
+            }
+            if (x.HasMember("classes_hostname_sni") && x["classes_hostname_sni"].IsObject()) {
+                if (EXTENDED_FP_METADATA == false && process_number > 1) {
+                    throw std::runtime_error("error: extended fingerprint metadata expected, but not present");
+                }
+                EXTENDED_FP_METADATA = true;
+                //fprintf(stderr, "\tclasses_hostname_sni\n");
+                for (auto &y : x["classes_hostname_sni"].GetObject()) {
+                    if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
+                        //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
+
+                        // Once data pipeline is updated to normalize the domain names, the following code will be used:
+                        // hostname_sni[server_identifier{y.name.GetString()}] = y.value.GetUint64();
+                        //
+                        // and this code will be removed:
+                        std::string normalized = server_identifier{y.name.GetString()}.get_normalized_domain_name(server_identifier::detail::on);
+                        // if (hostname_sni.find(normalized) != hostname_sni.end()) {
+                        //     // If two different domain names are normalized to the same domain name, then the counts are added.
+                        //     hostname_sni[normalized] += y.value.GetUint64();
+                        // } else {
+                        //     hostname_sni[normalized] = y.value.GetUint64();
+                        // }
+
+                        // EXPERIMENTAL
+                        //
+                        domain_name.observe_sni(index, normalized, y.value.GetUint64(), total_count, sni_weight);
+
+                    }
+                }
+            }
+            if (x.HasMember("classes_user_agent") && x["classes_user_agent"].IsObject()) {
+                if (EXTENDED_FP_METADATA == false && process_number > 1) {
+                    throw std::runtime_error("error: extended fingerprint metadata expected, but not present");
+                }
+                EXTENDED_FP_METADATA = true;
+                for (auto &y : x["classes_user_agent"].GetObject()) {
+                    if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
+                        //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
+                        // user_agent[y.name.GetString()] = y.value.GetUint64();
+
+
+                        // EXPERIMENTAL
+                        //
+                        std::pair<std::string,size_t> ua_and_count = { y.name.GetString(), y.value.GetUint64() };
+                        const auto x = user_agent_updates.find(ua_and_count.first);
+                        class update u{ index, (log((floating_point_type)ua_and_count.second / total_count) - base_prior) * ua_weight };
+                        if (x != user_agent_updates.end()) {
+                            x->second.push_back(u);
+                        } else {
+                            user_agent_updates[ua_and_count.first] = { u };
+                        }
+
+                    }
+                }
+            }
+            if (report_os && x.HasMember("os_info") && x["os_info"].IsObject()) {
+                for (auto &y : x["os_info"].GetObject()) {
+                    if (std::string(y.name.GetString()) != "") {
+                        os_info[y.name.GetString()] = y.value.GetUint64();
+                    }
+                }
+            }
+
+            // class process_info process(name, malware, count, attributes, ip_as, hostname_domains, dst_port,
+            //                            ip_ip, hostname_sni, user_agent, os_info);
+            // process_vector.push_back(process);
+
+            index++;
+        }
+
+        // fingerprint_data  *fp_data = new fingerprint_data(total_count, process_vector,
+        //                                                   os_dictionary, &subnets, &common, MALWARE_DB, weights);
 
     }
 
@@ -1250,7 +1605,18 @@ public:
                                            ip_ip, hostname_sni, user_agent, os_info);
                 process_vector.push_back(process);
             }
-            
+
+            // EXPERIMENT: construct naive_bayes classifier directly from JSON
+            //
+            // naive_bayes naive_bayes_expt(fp["process_info"],
+            //                              report_os,
+            //                              os_dictionary,
+            //                              MALWARE_DB,
+            //                              EXTENDED_FP_METADATA,
+            //                              fp_proc_threshold,
+            //                              proc_dst_threshold,
+            //                              common);
+
             fingerprint_data  *fp_data = new fingerprint_data(total_count, process_vector,
                                                                 os_dictionary, &subnets, &common, MALWARE_DB, weights);
 
