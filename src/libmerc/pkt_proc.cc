@@ -287,15 +287,24 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         break;
     case tcp_msg_type_ssh:
         x.emplace<ssh_init_packet>(pkt);
+        {
+            uint32_t more_bytes = std::get<ssh_init_packet>(x).more_bytes_needed();
+            if (tcp_pkt && more_bytes) {
+                tcp_pkt->reassembly_needed(more_bytes,(uint8_t)indefinite_reassembly_type::ssh);
+                return;
+            }
+        }
         break;
     case tcp_msg_type_ssh_kex:
         {
             struct ssh_binary_packet ssh_pkt{pkt};
             if (tcp_pkt && ssh_pkt.additional_bytes_needed) {
-                tcp_pkt->reassembly_needed(ssh_pkt.additional_bytes_needed);
-                return;
+                tcp_pkt->reassembly_needed((uint32_t)ssh_pkt.additional_bytes_needed);
             }
-            x.emplace<ssh_kex_init>(ssh_pkt.payload);
+            else {
+                tcp_pkt->set_supplementary_reassembly();
+            }
+            x.emplace<ssh_kex_init>(ssh_pkt);
             break;
         }
     case tcp_msg_type_smtp_client:
@@ -512,7 +521,7 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
 
     // check if more tcp data is required
     set_tcp_protocol(x,pkt,is_new,&tcp_pkt);
-        if (!tcp_pkt.additional_bytes_needed && !(std::holds_alternative<std::monostate>(x))) {
+        if ((!tcp_pkt.additional_bytes_needed && !(std::holds_alternative<std::monostate>(x))) && (!tcp_pkt.supplementary_reassembly)) {
         // no need for reassembly
         // complete initial msg
         return true;
@@ -531,15 +540,21 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
     //
     reassembly_state r_state = reassembler->check_flow(k,ts->tv_sec);
 
+    // specical handling for supplementary reassembly
+    if ((r_state == reassembly_state::reassembly_none) && tcp_pkt.supplementary_reassembly) {
+        // since flow is not in reassembly, assume it as completed
+        return true;
+    }
+
     if ((r_state == reassembly_state::reassembly_none) && tcp_pkt.additional_bytes_needed){
         // init reassembly
-        tcp_segment seg{true,tcp_pkt.data_length,tcp_pkt.seq(),tcp_pkt.additional_bytes_needed,ts->tv_sec};
+        tcp_segment seg{true,tcp_pkt.data_length,tcp_pkt.seq(),tcp_pkt.additional_bytes_needed,ts->tv_sec, (indefinite_reassembly_type)tcp_pkt.indefinite_reassembly};
         reassembler->process_tcp_data_pkt(k,ts->tv_sec,seg,pkt_copy);
         reassembler->dump_pkt = true;
     }
     else if (r_state == reassembly_state::reassembly_progress){
         // continue reassembly
-        tcp_segment seg{false,tcp_pkt.data_length,tcp_pkt.seq(),0,ts->tv_sec};
+        tcp_segment seg{false,tcp_pkt.data_length,tcp_pkt.seq(),0,ts->tv_sec, (indefinite_reassembly_type)tcp_pkt.indefinite_reassembly};
         reassembler->process_tcp_data_pkt(k,ts->tv_sec,seg,pkt_copy);
         reassembler->dump_pkt = true;
     }

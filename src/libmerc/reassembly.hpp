@@ -16,6 +16,11 @@
 #include <vector>
 #include <unordered_map>
 
+enum class indefinite_reassembly_type : uint8_t {
+    definite = 0,
+    ssh = 1
+};
+
 // tcp_segment contains info about the tcp segment 
 // to be used in reassembly - seq no, data len, timestamp
 // 
@@ -27,13 +32,16 @@ struct tcp_segment {
     uint32_t data_length;
     uint32_t seq;
     uint32_t additional_bytes_needed;
+    indefinite_reassembly_type indefinite_reassembly = indefinite_reassembly_type::definite;
     unsigned int seg_time;
 
-    tcp_segment(bool init, uint32_t len, uint32_t seq_no, uint32_t additional_bytes, unsigned int seg_time_) :
+    tcp_segment(bool init, uint32_t len, uint32_t seq_no, uint32_t additional_bytes, unsigned int seg_time_,
+                    indefinite_reassembly_type indef_reassembly = indefinite_reassembly_type::definite) :
         init_seg{init},
         data_length{len},
         seq{seq_no},
         additional_bytes_needed{additional_bytes},
+        indefinite_reassembly {indef_reassembly},
         seg_time{seg_time_} {}
 };
 
@@ -48,14 +56,17 @@ struct quic_segment {
     uint32_t data_length;
     uint32_t seq;   // crypto frame offset
     uint32_t additional_bytes_needed;
+    indefinite_reassembly_type indefinite_reassembly = indefinite_reassembly_type::definite;
     unsigned int seg_time;
     const datum &cid;
 
-    quic_segment(bool init, uint32_t len, uint32_t offset, uint32_t additional_bytes, unsigned int seg_time_, const datum &cid_) :
+    quic_segment(bool init, uint32_t len, uint32_t offset, uint32_t additional_bytes, unsigned int seg_time_, const datum &cid_,
+                        indefinite_reassembly_type indef_reassembly = indefinite_reassembly_type::definite) :
         init_seg{init},
         data_length{len},
         seq{offset},
         additional_bytes_needed{additional_bytes},
+        indefinite_reassembly{indef_reassembly},
         seg_time{seg_time_},
         cid{cid_} {}
 };
@@ -114,6 +125,9 @@ enum class reassembly_state : uint8_t {
 // tcp flow under reassembly, including reassembly buffer, flags etc.
 // tcp_reassembly can also reassmeble quic crypto data by stripping quic frame headers to mimic a tcp segment
 // if the reassembly is being done for quic, the source cid is also maintained for flow correctness
+// indefinite_reassembly = true is a special case where total_bytes_needed is unknown, so after every pkt, we parse the data
+// to match a protocol and see if either it is complete or total_byes_needed is now known
+// eg. for ssh, the flow is in indefinite reassembly till the kex_init pkt is seen
 //
 struct reassembly_flow_context {
 
@@ -124,6 +138,7 @@ struct reassembly_flow_context {
     uint32_t init_seq;
     uint32_t init_seg_len;
     uint32_t total_bytes_needed;
+    indefinite_reassembly_type indefinite_reassembly;
 
     static constexpr unsigned int reassembly_timeout = 15;
 
@@ -154,6 +169,7 @@ struct reassembly_flow_context {
         init_seq{seg.seq},
         init_seg_len{seg.data_length},
         total_bytes_needed{(seg.data_length) + (seg.additional_bytes_needed)},
+        indefinite_reassembly{seg.indefinite_reassembly},
         curr_contiguous_data{seg.data_length},
         total_set_data{seg.data_length},
         buffer{},
@@ -218,6 +234,10 @@ private:
     void simplify_seglist (size_t idx);
 
     void update_contiguous_data();
+
+    void handle_indefinite_reassembly();
+
+    template <typename T> void handle_indefinite_reassembly(T&);
 };
 
 // return a datum associated with the maximum reassmbled data of contiguous segments
@@ -336,6 +356,48 @@ inline void reassembly_flow_context::update_contiguous_data() {
     }
 }
 
+// handle special case for indefinite reassembly
+// 1. reparse the contiguous bytes and check if the protocol is completed
+// 2. if protocol msg is not complete, is the total_bytes_needed now known (not max_bytes), in which case,
+//    update the total_bytes_needed and switch to definite_reassembly
+template <typename T> inline void reassembly_flow_context::handle_indefinite_reassembly(T& proto_msg) {
+    uint32_t more_bytes = proto_msg.more_bytes_needed();
+    if (!more_bytes) {
+        // completed
+        state = reassembly_state::reassembly_success;
+        total_bytes_needed = curr_contiguous_data;
+    }
+    else {
+        if (more_bytes != max_data_size) {
+            // no longer indefinite reassembly
+            total_bytes_needed = more_bytes + curr_contiguous_data;
+            indefinite_reassembly = indefinite_reassembly_type::definite;
+        }
+        else {
+            // still indefinite reassembly
+        }
+    }
+}
+
+inline void reassembly_flow_context::handle_indefinite_reassembly() {
+    datum pkt;
+
+    switch (indefinite_reassembly)
+    {
+    case indefinite_reassembly_type::ssh:
+        {
+            pkt = get_reassembled_data();
+            ssh_init_packet ssh_pkt{pkt};
+            handle_indefinite_reassembly(ssh_pkt);
+        }
+        break;
+    case indefinite_reassembly_type::definite:
+        break;
+    default:
+        break;
+    }
+}
+
 // segments can arrive ooo or have overlapping parts
 // handle appropriately
 template <typename T>
@@ -390,6 +452,11 @@ inline void reassembly_flow_context::process_tcp_segment(const T &seg, const dat
     // check for success
     if (curr_contiguous_data >= total_bytes_needed) {
         state = reassembly_state::reassembly_success;
+    }
+
+    if (indefinite_reassembly != indefinite_reassembly_type::definite) {
+        // handle special case for indefinite reassembly
+        handle_indefinite_reassembly();
     }
 }
 
