@@ -232,12 +232,6 @@ struct ssh_kex_init : public base_protocol {
         write_hex_data(buf, compression_algorithms_server_to_client);
         write_hex_data(buf, languages_client_to_server);
         write_hex_data(buf, languages_server_to_client);
-        if (secondary_binary_packet) {
-            buf.write_char('(');
-            buf.write_hex_uint( (lookahead< encoded<uint8_t> >{sec_pkt.payload}).value);
-            buf.write_hex_uint(sec_pkt.binary_packet_length);
-            buf.write_char(')');
-        }
     }
 
     void write_json_data(json_object &ssh_client) const {
@@ -463,9 +457,9 @@ struct ssh_init_packet : public base_protocol {
         }
     }
 
-    static constexpr mask_and_value<8> matcher{
-        { 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00 },
-        { 'S',  'S',  'H',  '-',  0x00, 0x00,  0x00, 0x00 }
+    static constexpr mask_and_value<4> matcher{
+        { 0xff, 0xff, 0xff, 0xff},
+        { 'S',  'S',  'H',  '-'}
     };
 
 };
