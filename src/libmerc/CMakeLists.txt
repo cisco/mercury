@@ -189,14 +189,22 @@ set(libmerc_src
 
 ## default libmerc compile options
 if (is_win)
-    set(libmerc_compile_opt
-        /std:c++17
-        /Ot
-        /O2
-        /Wall
-        # TODO: fill up the rest of the options
-        /permissive-
-    )
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        message(STATUS "Debug build")
+        set(libmerc_compile_opt
+                /std:c++17
+                /Wall
+                # TODO: fill up the rest of the options
+                /permissive-)
+    else()
+        set(libmerc_compile_opt
+            /std:c++17
+            /Ot
+            /O2
+            /Wall
+            # TODO: fill up the rest of the options
+            /permissive-)
+    endif()
 else()
     set(libmerc_compile_opt
         --std=c++17
