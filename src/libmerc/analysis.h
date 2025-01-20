@@ -89,7 +89,7 @@ public:
             if (!ip.empty() && !sni.empty()) {
                 extended_fp_metadata = true;
             }
-        }
+    }
 
     void print(FILE *f) {
         fprintf(f, "{\"process\":\"%s\"", name.c_str());
@@ -203,8 +203,6 @@ public:
         return index == rhs.index
             && value == rhs.value;
     }
-
-    // void combine(const update &rhs) {  }
 
     void combine(size_t rhs_count, size_t total_count, floating_point_type base_prior, floating_point_type domain_weight) {
 
@@ -635,6 +633,9 @@ public:
                 ) :
         os_dict{os_dictionary}
     {
+
+        // fprintf(stderr, "num processes: %u\n", process_info.GetArray().Size());
+
         size_t index = 0;   // zero-based index of process in probability vector
 
         if (total_count == 0) {
@@ -1024,6 +1025,15 @@ public:
     }
 };
 
+static bool operator==(const os_information &lhs, const os_information &rhs) {
+    if (true) { //lhs.os_name != rhs.os_name || lhs.os_prevalence != rhs.os_prevalence) {
+        fprintf(stderr, "lhs: %s, %zu\n", lhs.os_name, lhs.os_prevalence);
+        fprintf(stderr, "rhs: %s, %zu\n", rhs.os_name, rhs.os_prevalence);
+    }
+    return lhs.os_name == rhs.os_name
+        && lhs.os_prevalence == rhs.os_prevalence;
+}
+
 class fingerprint_data {
 
     std::vector<bool> malware;
@@ -1038,11 +1048,176 @@ private:
 
     const subnet_data *subnet_data_ptr = nullptr;
 
-    const common_data *common = nullptr;
+    common_data *common = nullptr;
 
 public:
     uint8_t refcnt = 0;
     uint64_t total_count;
+
+    bool operator==(const fingerprint_data &rhs) const {
+
+        fprintf(stderr, "classifier equal:      %u\n", classifier == rhs.classifier);
+        fprintf(stderr, "malware equal:         %u\n", malware == rhs.malware);
+        fprintf(stderr, "attr equal:            %u\n", attr == rhs.attr);
+        fprintf(stderr, "process_name equal:    %u\n", process_name == rhs.process_name);
+        fprintf(stderr, "process_os_info equal: %u\n", process_os_info_vector == rhs.process_os_info_vector);
+        fprintf(stderr, "poi.size equal:        %u (%zu, %zu)\n", process_os_info_vector.size() == rhs.process_os_info_vector.size(), process_os_info_vector.size(), rhs.process_os_info_vector.size());
+
+        if (process_os_info_vector.size() != rhs.process_os_info_vector.size()) {
+            fprintf(stderr, "process_os_info_vector.size() != rhs.process_os_info_vector.size()\n");
+        } else {
+            // fprintf(stderr, "comparing process_os_info_vector and process_os_info_vector\n");
+            for (size_t i=0; i<process_os_info_vector.size(); i++) {
+                const std::vector<os_information> &lo = process_os_info_vector[i];
+                const std::vector<os_information> &ro = rhs.process_os_info_vector[i];
+                if (lo.size() != ro.size()) {
+                    fprintf(stderr, "lo.size (%zu) != ro.size (%zu)\n", lo.size(), ro.size());
+                } else {
+                    for (size_t j=0; j<lo.size(); j++) {
+                        const os_information &l = lo[j];
+                        const os_information &r = ro[j];
+                        fprintf(stderr, "lhs: {%s, %zu}\n", l.os_name, l.os_prevalence);
+                        fprintf(stderr, "rhs: {%s, %zu}\n", r.os_name, r.os_prevalence);
+                    }
+                }
+            }
+
+            size_t pn = 0;
+            for (const auto & osiv : process_os_info_vector) {
+                fprintf(stderr, "process_os_info_vector[%zu]:     ", pn++);
+                for (const auto & osi : osiv) {
+                    fprintf(stderr, "{%s, %zu}", osi.os_name, osi.os_prevalence);
+                }
+                fputc('\n', stderr);
+            }
+            pn = 0;
+            for (const auto & osiv : rhs.process_os_info_vector) {
+                fprintf(stderr, "rhs.process_os_info_vector[%zu]: ", pn++);
+                for (const auto & osi : osiv) {
+                    fprintf(stderr, "{%s, %zu}", osi.os_name, osi.os_prevalence);
+                }
+                fputc('\n', stderr);
+            }
+        }
+
+        return classifier == rhs.classifier
+            && malware == rhs.malware
+            && attr == rhs.attr
+            && process_name == rhs.process_name
+            && process_os_info_vector == rhs.process_os_info_vector;
+    }
+
+    // EXPERIMENTAL json-reading constructor
+    //
+    fingerprint_data(const rapidjson::Value &process_info,
+                     ptr_dict &os_dictionary,
+                     const subnet_data *subnets,
+                     common_data *c,
+                     bool malware_database,
+                     size_t total_cnt,
+                     bool report_os,
+                     bool &EXTENDED_FP_METADATA,
+                     float fp_proc_threshold,
+                     float proc_dst_threshold
+                     ) :
+        classifier{
+            process_info,
+            total_cnt,
+            report_os,
+            os_dictionary,
+            EXTENDED_FP_METADATA,
+            fp_proc_threshold,
+            proc_dst_threshold
+        },
+        malware_db{malware_database},
+        subnet_data_ptr{subnets},
+        common{c},
+        total_count{total_cnt}
+    {
+        unsigned int num_procs = process_info.GetArray().Size();
+
+        fprintf(stderr, "num processes: %u\n", num_procs);
+
+        process_name.reserve(num_procs);
+        malware.reserve(num_procs);
+        attr.reserve(num_procs);
+        process_os_info_vector.reserve(num_procs);
+
+        for (auto &x : process_info.GetArray()) {
+
+            if (x.HasMember("process") && x["process"].IsString()) {
+                std::string name = x["process"].GetString();
+                //fprintf(stderr, "\tname: %s\n", x["process"].GetString());
+                process_name.push_back(name);
+            }
+
+            if (x.HasMember("malware") && x["malware"].IsBool()) {   // NOTE: malware assumed to be in schema
+                malware.push_back(x["malware"].GetBool());
+            }
+
+            if (x.HasMember("attributes") && x["attributes"].IsObject()) {
+                attribute_result::bitset attributes;
+                for (auto &v : x["attributes"].GetObject()) {
+                    if (v.name.IsString()) {
+                        ssize_t idx = common->attr_name.get_index(v.name.GetString());
+                        if (idx < 0) {
+                            printf_err(log_warning, "unknown attribute %s while parsing process information\n", v.name.GetString());
+                            throw std::runtime_error("error while parsing resource archive file");
+                        }
+                        if (v.value.IsBool() and v.value.GetBool()) {
+                            attributes[idx] = 1;
+                        }
+                    }
+                }
+                common->attr_name.stop_accepting_new_names();
+
+                attr.push_back(attributes);
+            }
+
+            //            report_os = true;
+            fprintf(stderr, "report_os: %u\n", report_os);
+            std::vector<struct os_information> os_info_vector;
+            if (report_os && x.HasMember("os_info") && x["os_info"].IsObject()) {
+                for (auto &y : x["os_info"].GetObject()) {
+                    fprintf(stderr, "os_info_vector: adding %s\n", y.name.GetString());
+                    if (std::string(y.name.GetString()) != "") {
+                        // os_info[y.name.GetString()] = y.value.GetUint64();
+                        const char *os = os_dictionary.get(y.name.GetString());
+                        struct os_information tmp{(char *)os, y.value.GetUint64()};
+                        os_info_vector.push_back(tmp);
+                    }
+                    // fprintf(stderr, "os_info_vector.size(): %zu\n", os_info_vector.size());
+                }
+            }
+            process_os_info_vector.push_back(os_info_vector);
+            // fprintf(stderr, "process_os_info_vector.size(): %zu\n", process_os_info_vector.size());
+
+            // if (p.os_info.size() > 0) {
+            //
+            //     // create a vector of os_information structs, whose char * makes
+            //     // use of the os_dictionary
+            //     //
+            //     std::vector<struct os_information> &os_info_vector = process_os_info_vector.back();
+            //     for (const auto &os_and_count : p.os_info) {
+            //         const char *os = os_dictionary.get(os_and_count.first);
+            //         struct os_information tmp{(char *)os, os_and_count.second};
+            //         os_info_vector.push_back(tmp);
+            //     }
+            // }
+
+
+        }
+
+        // process_name, malware, and process_os_info_vector should
+        // all have the same number of elements as the number of
+        // processes
+        //
+        assert(process_name.size() == num_procs);
+        assert(malware.size() == num_procs);
+        assert(process_os_info_vector.size() == num_procs);
+        assert(attr.size() == num_procs);
+
+    }
 
     fingerprint_data(uint64_t count,
                      const std::vector<class process_info> &processes,
@@ -1760,10 +1935,41 @@ public:
                                          // common
                                          );
 
-            fingerprint_data  *fp_data = new fingerprint_data(total_count, process_vector,
-                                                                os_dictionary, &subnets, &common, MALWARE_DB, weights);
+            // EXPERIMENT: construct fingerprint_data from JSON
+            //
+            // fingerprint_data fp_data_expt(fp["process_info"],
+            //                               os_dictionary,
+            //                               &subnets,
+            //                               &common,
+            //                               MALWARE_DB,
+            //                               total_count,
+            //                               report_os,
+            //                               EXTENDED_FP_METADATA,
+            //                               fp_proc_threshold,
+            //                               proc_dst_threshold
+            //                               );
+            //
+            // fingerprint_data  *fp_data = new fingerprint_data(total_count, process_vector,
+            //                                                     os_dictionary, &subnets, &common, MALWARE_DB, weights);
 
-            fprintf(stderr, "classifier equal: %u\n", fp_data->classifier == naive_bayes_expt);  // TODO: remove
+
+            // EXPERIMENTAL: using json-reading constructor
+            //
+            fingerprint_data *fp_data = new fingerprint_data(fp["process_info"],
+                                                             os_dictionary,
+                                                             &subnets,
+                                                             &common,
+                                                             MALWARE_DB,
+                                                             total_count,
+                                                             report_os,
+                                                             EXTENDED_FP_METADATA,
+                                                             fp_proc_threshold,
+                                                             proc_dst_threshold
+                                                             );
+
+            // fprintf(stderr, "classifier equal:          %u\n", fp_data->classifier == naive_bayes_expt);         // TODO: remove
+            // fprintf(stderr, "fp_data->classifier equal: %u\n", fp_data->classifier == fp_data_expt.classifier);  // TODO: remove
+            // fprintf(stderr, "fp_data == fp_data_expt:   %u\n", *fp_data == fp_data_expt);                        // TODO: remove
 
             if (fp.HasMember("str_repr") && fp["str_repr"].IsString()) {
                 std::string fp_string = fp["str_repr"].GetString();
