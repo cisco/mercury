@@ -324,7 +324,7 @@ public:
             tcp.add_protocol(tls_server_certificate::matcher, tcp_msg_type_tls_certificate);
         }
         if (protocols["ssh"] || protocols["all"]) {
-            tcp4.add_protocol(ssh_init_packet::matcher, tcp_msg_type_ssh);
+            tcp.add_protocol(ssh_init_packet::matcher, tcp_msg_type_ssh);
             tcp.add_protocol(ssh_kex_init::matcher, tcp_msg_type_ssh_kex);
         }
         if (protocols["smtp"] || protocols["all"]) {
