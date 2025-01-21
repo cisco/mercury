@@ -457,9 +457,9 @@ struct ssh_init_packet : public base_protocol {
         }
     }
 
-    static constexpr mask_and_value<4> matcher{
-        { 0xff, 0xff, 0xff, 0xff},
-        { 'S',  'S',  'H',  '-'}
+    static constexpr mask_and_value<8> matcher{
+        { 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00},
+        { 'S',  'S',  'H',  '-',  0x00, 0x00, 0x00, 0x00}
     };
 
 };
