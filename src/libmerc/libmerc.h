@@ -25,6 +25,7 @@
 // object library even if the -fvisibility=hidden option is passed to
 // the compiler; for background, see
 // https://www.gnu.org/software/gnulib/manual/html_node/Exported-Symbols-of-Shared-Libraries.html
+// https://learn.microsoft.com/en-us/cpp/build/exporting-from-a-dll-using-declspec-dllexport?view=msvc-170
 //
 #ifdef _WIN32
 #define LIBMERC_DLL_EXPORTED __declspec(dllexport)
@@ -796,8 +797,9 @@ struct ipv6_addr_ext {
  * TODO: Add documentation
  * @brief struct flow_key_ext represents a flow key which src/dst ports, protocol and ip version.
  * 
- * The FDC API `mercury_packet_processor_get_analysis_context_fdc` requires a pointer to a flow key that requires
- * a valid ipv4 or ipv6 address. This struct is used to represent a flow key with additional fields for src/dst ports, protocol and ip version.
+ * The FDC API `mercury_packet_processor_get_analysis_context_fdc` requires a pointer to a flow key
+ * that requires a valid ipv4 or ipv6 address. This struct is used to represent a flow key with
+ * additional fields for src/dst ports, protocol and ip version.
  */
 struct flow_key_ext {
     uint16_t src_port;

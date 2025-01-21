@@ -1024,7 +1024,7 @@ bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_context
     extensions.set_meta_data(sn, ua, alpn);
 
     analysis_.destination.init(sn, ua, alpn, k_);
-    if(c_ == nullptr) { 
+    if (c_ == nullptr) {
             return false;
     }
 
