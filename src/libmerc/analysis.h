@@ -45,6 +45,9 @@ class classifier *analysis_init_from_archive(int verbosity,
 
 int analysis_finalize(classifier *c);
 
+// #define USE_PROCESS_INFO 1
+
+#ifdef USE_PROCESS_INFO
 
 // process and malware classifier classes
 //
@@ -140,6 +143,8 @@ public:
     }
 };
 
+#endif // USE_PROCESS_INFO
+
 // struct common_data holds data that is common to all fingerprints,
 // within the classifier
 //
@@ -155,40 +160,6 @@ struct common_data {
 //
 using floating_point_type = long double;
 
-template <typename T>
-class feature {
-    std::unordered_map<T, std::vector<class update>> updates;
-
-public:
-
-    // construct a naive bayes feature of type T
-    //
-    feature(const std::unordered_map<T,uint64_t> &info, size_t total_count, floating_point_type weight=1.0) {
-        floating_point_type base_prior = log(0.1 / total_count);
-        for (const auto &[feat, count] : info) {
-            const auto x = updates.find(feat);
-            class update u{ index, (log((floating_point_type)count / total_count) - base_prior ) * weight };
-            if (x != updates.end()) {
-                x->second.push_back(u);
-            } else {
-                updates[feat] = { u };
-            }
-        }
-    }
-
-    // apply a naive bayes feature update to prob_vector
-    //
-    void update(std::vector<floating_point_type> &prob_vector, const T &asn_int) const {
-        auto u = updates.find(asn_int);
-        if (u != updates.end()) {
-            for (const auto &x : u->second) {
-                assert(x.index < prob_vector.size());
-                prob_vector[x.index] += x.value;
-            }
-        }
-    }
-
-};
 
 // an instance of class update represents an update to a prior
 // probability
@@ -213,6 +184,151 @@ public:
     }
 
 };
+
+template <typename T>
+class feature {
+public:
+
+    std::unordered_map<T, std::vector<class update>> updates;
+    floating_point_type weight;
+
+    feature(floating_point_type w=1.0) : updates{}, weight{w} { }
+
+    // construct a naive bayes feature of type T
+    //
+    feature(const std::unordered_map<T,uint64_t> &info, size_t total_count, floating_point_type weight=1.0) {
+        floating_point_type base_prior = log(0.1 / total_count);
+        for (const auto &[feat, count] : info) {
+            const auto x = updates.find(feat);
+            class update u{ index, (log((floating_point_type)count / total_count) - base_prior ) * weight };
+            if (x != updates.end()) {
+                x->second.push_back(u);
+            } else {
+                updates[feat] = { u };
+            }
+        }
+    }
+
+    void add_updates_from_object(rapidjson::Value::ConstMemberIterator itr,
+                                 size_t process_index,
+                                 size_t total_count
+                                 )
+    {
+        fprintf(stderr, "%s: got %s\n", __func__, itr->name.GetString());  // TODO: delete
+
+        if (itr->value.IsObject() == false) {
+            throw std::runtime_error{"json error: expected object, got other type"};
+        }
+
+        for (auto &y : itr->value.GetObject()) {
+            fprintf(stderr, "%s: adding %s\n", __func__, y.name.GetString());
+            if (y.value.IsUint64()) {
+                if (strcmp(itr->name.GetString(), "classes_ip_as") == 0 && strcmp(y.name.GetString(), "unknown") == 0) {
+                    //
+                    // TODO: FIX HACK (skip "unknown" values in classes_ip_as)
+                    //
+                    ;
+                } else {
+                    add_update(convert(y.name.GetString()), process_index, y.value.GetUint64(), total_count);
+                }
+            } else {
+                throw std::runtime_error{"expected uint64, got other type"};
+            }
+        }
+
+    }
+
+    // {
+    //     throw std::runtime_error{"nonspecialized
+    // }
+
+    void add_update(T feature_value,
+                    size_t process_index,
+                    size_t count,
+                    size_t total_count
+                    )
+    {
+        floating_point_type base_prior = log(0.1 / total_count);
+        std::pair<T,size_t> value_and_count = { feature_value, count };
+        const auto x = updates.find(value_and_count.first);
+        class update u{ process_index, (log((floating_point_type)value_and_count.second / total_count) - base_prior) * weight };
+        if (x != updates.end()) {
+            x->second.push_back(u);
+        } else {
+            updates[value_and_count.first] = { u };
+        }
+    }
+
+    //    static T convert(const rapidjson::Value &y);
+
+    T convert(const char *s);
+
+    // apply a naive bayes feature update to prob_vector
+    //
+    void update(std::vector<floating_point_type> &prob_vector, const T &value) const {
+        auto u = updates.find(value);
+        if (u != updates.end()) {
+            for (const auto &x : u->second) {
+                assert(x.index < prob_vector.size());
+                prob_vector[x.index] += x.value;
+            }
+        }
+    }
+
+};
+
+template <>
+inline auto feature<std::string>::convert(const char *s) -> std::string {
+    return std::string{s};
+}
+
+template <>
+inline auto feature<uint16_t>::convert(const char *s) -> uint16_t {
+    uint64_t tmp = 0;
+    try {
+        tmp = std::stoul(s);
+    }
+    catch (...) {
+        printf_err(log_warning, "unexpected string \"%s\"", s);
+    }
+    if (tmp > std::numeric_limits<uint16_t>::max()) {
+        printf_err(log_warning, "number %" PRIu64 " too high\n", tmp);
+        tmp = 0;    // error: port numbers should 16-bit unsigned integers
+    }
+    fprintf(stderr, "%s: %s -> %lu\n", __func__, s, tmp);
+    return tmp;
+}
+
+template <>
+inline auto feature<uint32_t>::convert(const char *s) -> uint32_t {
+    uint64_t tmp = 0;
+    try {
+        tmp = std::stoul(s);
+    }
+    catch (...) {
+        printf_err(log_warning, "unexpected string \"%s\"", s);
+    }
+    if (tmp > std::numeric_limits<uint32_t>::max()) {
+        printf_err(log_warning, "number %" PRIu64 " too high\n", tmp);
+        tmp = 0;    // error: port numbers should 16-bit unsigned integers
+    }
+    fprintf(stderr, "%s: %s -> %lu\n", __func__, s, tmp);
+    return tmp;
+}
+
+template <>
+inline auto feature<uint64_t>::convert(const char *s) -> uint64_t {
+    uint64_t tmp = 0;
+    try {
+        tmp = std::stoul(s);
+    }
+    catch (...) {
+        printf_err(log_warning, "unexpected string \"%s\"", s);
+    }
+    fprintf(stderr, "%s: %s -> %lu\n", __func__, s, tmp);
+    return tmp;
+}
+
 
 /// represents a model that assigns a probability update to a domain
 /// name (or a TLS or QUIC server name, or an HTTP host name)
@@ -281,6 +397,7 @@ public:
         fprintf(stderr, "\n---constructing domain_name_model---\n");
     }
 
+#ifdef USE_PROCESS_INFO
     domain_name_model(const std::vector<class process_info> &processes,
                       size_t total_count,
                       floating_point_type domain_weight,
@@ -313,6 +430,7 @@ public:
             index++;
         }
     }
+#endif // USE_PROCESS_INFO
 
     // EXPERIMENTAL
     //
@@ -442,12 +560,10 @@ public:
 class naive_bayes {
 
     uint64_t total_count = 0;
-    ptr_dict &os_dict;
-    floating_point_type base_prior = 0;   // TODO: does this need to be a class member?
+    floating_point_type base_prior = 0;   // TODO: this should not be a class member
 
-    std::vector<floating_point_type> process_prob;
-    // std::vector<bool>        malware;
-    //    std::vector<attribute_result::bitset> attr;
+    std::vector<floating_point_type> process_prob;    // vector of prior probabilities
+
     std::unordered_map<uint32_t, std::vector<class update>> as_number_updates;
     std::unordered_map<uint16_t, std::vector<class update>> port_updates;
     std::unordered_map<std::string, std::vector<class update>> ip_ip_updates;
@@ -461,7 +577,11 @@ class naive_bayes {
     floating_point_type ua_weight     = 1.0;
 
     domain_name_model domain_name;
-    //  feature<uint32_t> asn;
+
+    feature<uint16_t> dst_port_feature;
+    feature<std::string> dst_addr_feature;
+    feature<uint32_t> asn_feature;
+    feature<std::string> user_agent_feature;
 
 public:
 
@@ -481,6 +601,18 @@ public:
         if (port_updates != rhs.port_updates) {
             fprintf(stderr, "port_updates mismatch\n");
             for (const auto &[key, value] : port_updates) {
+                const auto result = rhs.port_updates.find(key);
+                if (result == rhs.port_updates.end()) {
+                    fprintf(stderr, "\tkey %u in lhs but not rhs\n", key);
+                } else {
+                    fprintf(stderr, "\tkey %u: lhs:\t", key); for (const auto & u : value) { fprintf(stderr, "{%u,%Le}", u.index, u.value);  }; fputc('\n', stderr);
+                    fprintf(stderr, "\tkey %u: rhs:\t", key); for (const auto & u : result->second) { fprintf(stderr, "{%u,%Le}", u.index, u.value);  };  fputc('\n', stderr);
+                }
+            }
+        }
+        if (dst_port_feature.updates != rhs.port_updates) {
+            fprintf(stderr, "dst_port_feature mismatch\n");
+            for (const auto &[key, value] : dst_port_feature.updates) {
                 const auto result = rhs.port_updates.find(key);
                 if (result == rhs.port_updates.end()) {
                     fprintf(stderr, "\tkey %u in lhs but not rhs\n", key);
@@ -535,12 +667,11 @@ public:
 
     //    naive_bayes() { }
 
+#ifdef USE_PROCESS_INFO
     naive_bayes(const std::vector<class process_info> &processes,
                 uint64_t count,
-                ptr_dict &os_dictionary,
                 const naive_bayes::feature_weights &weights)
         : total_count{count},
-          os_dict{os_dictionary},
           as_weight{weights[features.index("as")]},
           domain_weight{weights[features.index("domain")]},
           port_weight{weights[features.index("port")]},
@@ -618,20 +749,20 @@ public:
         assert(process_prob.size() == processes.size());
 
     }
+#endif // USE_PROCESS_INFO
 
-    // EXPERIMENTAL constructor that reads directly from JSON
+    // constructs a naive_bayes classifier by reading a JSON array
     //
     naive_bayes(const rapidjson::Value &process_info,
                 size_t total_count,
-                bool report_os,
-                ptr_dict &os_dictionary,
-                // bool &MALWARE_DB,
                 bool &EXTENDED_FP_METADATA,
                 float &fp_proc_threshold,
                 float &proc_dst_threshold
-                // common_data &common
                 ) :
-        os_dict{os_dictionary}
+        dst_port_feature{port_weight},
+        dst_addr_feature{ip_weight},
+        asn_feature{as_weight},
+        user_agent_feature{ua_weight}
     {
 
         // fprintf(stderr, "num processes: %u\n", process_info.GetArray().Size());
@@ -639,12 +770,54 @@ public:
         size_t index = 0;   // zero-based index of process in probability vector
 
         if (total_count == 0) {
-            fprintf(stderr, "warning: total_count==0\n");
+            printf_err(log_warning, "total_count==0 in naive_bayes\n");
         }
         base_prior = log(0.1 / total_count);
 
         unsigned int process_number = 0;
         for (auto &x : process_info.GetArray()) {
+
+            if (x.IsObject()) {
+            // if (x.HasMember("classes_port_port") && x["classes_port_port"].IsObject()) {
+                //                fprintf(stderr, "x is object\n");
+
+                for (rapidjson::Value::ConstMemberIterator itr = x.MemberBegin(); itr != x.MemberEnd(); ++itr) {
+                    // for (const auto y : x.GetObject()) {
+                    fprintf(stderr, "name: %s\n", itr->name.GetString());
+
+                    const std::string & member_name = itr->name.GetString();
+                    if (member_name == "classes_port_applications") {
+                        ;
+                    } else if (member_name == "classes_port_port") {
+                        dst_port_feature.add_updates_from_object(itr, index, total_count);
+                    } else if (member_name == "classes_hostname_tld") {
+                        ;
+                    } else if (member_name == "classes_hostname_domains") {
+                        ;
+                    } else if (member_name == "classes_hostname_sni") {
+                        ;
+                    } else if (member_name == "classes_ip_as") {
+                        asn_feature.add_updates_from_object(itr, index, total_count);
+                    } else if (member_name == "classes_user_agent") {
+                        user_agent_feature.add_updates_from_object(itr, index, total_count);
+                    } else if (member_name == "classes_ip_ip") {
+                        dst_addr_feature.add_updates_from_object(itr, index, total_count);
+                    } else if (member_name == "process"
+                               || member_name == "count"
+                               || member_name == "sha256"
+                               || member_name == "attributes"
+                               || member_name == "os_info"
+                               || member_name == "malware") {
+                        //
+                        // silently ignore these schema elements
+                        //
+                    } else {
+                        fprintf(stderr, "warning: unknown member '%s' in classifier json\n", member_name.c_str());
+                    }
+
+                }
+            }
+
             uint64_t count = 0;
             bool malware = false;
 
@@ -652,13 +825,6 @@ public:
                 count = x["count"].GetUint64();
                 //fprintf(stderr, "\tcount: %lu\n", x["count"].GetUint64());
             }
-            // if (x.HasMember("malware") && x["malware"].IsBool()) {
-            //     if (MALWARE_DB == false && process_number > 1) {
-            //         throw std::runtime_error("error: malware data expected, but not present");
-            //     }
-            //     MALWARE_DB = true;
-            //     malware = x["malware"].GetBool();
-            // }
             if (count == 0) {
                 throw std::runtime_error("error: process_fp_db_line() count 0");
                 continue;
@@ -676,73 +842,24 @@ public:
             floating_point_type score = log(prob_process_given_fp);
             process_prob.push_back(fmax(score, proc_prior) + base_prior * (as_weight + domain_weight + port_weight + ip_weight + sni_weight + ua_weight));
 
-            // attribute_result::bitset attributes;
-            // std::unordered_map<uint32_t, uint64_t>    ip_as;
-            // std::unordered_map<std::string, uint64_t> hostname_domains;
-            // std::unordered_map<uint16_t, uint64_t>    dst_port;
-            // std::unordered_map<std::string, uint64_t> ip_ip;
-            // std::unordered_map<std::string, uint64_t> hostname_sni;
-            // std::unordered_map<std::string, uint64_t> user_agent;
-            std::map<std::string, uint64_t> os_info;
-
-            std::string name;
-            if (x.HasMember("process") && x["process"].IsString()) {
-                name = x["process"].GetString();
-                //fprintf(stderr, "\tname: %s\n", x["process"].GetString());
-            }
-
-            // if (x.HasMember("attributes") && x["attributes"].IsObject()) {
-            //     for (auto &v : x["attributes"].GetObject()) {
-            //         if (v.name.IsString()) {
-            //             ssize_t idx = common.attr_name.get_index(v.name.GetString());
-            //             if (idx < 0) {
-            //                 printf_err(log_warning, "unknown attribute %s while parsing process information\n", v.name.GetString());
-            //                 throw std::runtime_error("error while parsing resource archive file");
-            //             }
-            //             if (v.value.IsBool() and v.value.GetBool()) {
-            //                 if (idx > attr.size()) {
-            //                     std::string err{"bad index for attribute vector for "};
-            //                     err += v.name.GetString();
-            //                     throw std::runtime_error{err};
-            //                 }
-            //                 attr[idx] = 1;
-            //             }
-            //         }
-            //     }
-            //     common.attr_name.stop_accepting_new_names();
-            //
+            // std::string name;
+            // if (x.HasMember("process") && x["process"].IsString()) {
+            //     name = x["process"].GetString();
+            //     //fprintf(stderr, "\tname: %s\n", x["process"].GetString());
             // }
 
             if (x.HasMember("classes_hostname_domains") && x["classes_hostname_domains"].IsObject()) {
-                //fprintf(stderr, "\tclasses_hostname_domains\n");
                 for (auto &y : x["classes_hostname_domains"].GetObject()) {
                     if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
-                        //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
-
-                        // Once data pipeline is updated to normalize the domain names, the following code will be used:
-                        // hostname_domains[server_identifier{y.name.GetString()}] = y.value.GetUint64();
-                        //
-                        // and this code will be removed:
                         std::string normalized = server_identifier{y.name.GetString()}.get_normalized_domain_name(server_identifier::detail::on);
-                        // if (hostname_domains.find(normalized) != hostname_domains.end()) {
-                        //     // If two different domain names are normalized to the same domain name, then the counts are added.
-                        //     hostname_domains[normalized] += y.value.GetUint64();
-                        // } else {
-                        //     hostname_domains[normalized] = y.value.GetUint64();
-                        // }
-
-                        // EXPERIMENTAL
-                        //
                         domain_name.observe_domain(index, normalized, y.value.GetUint64(), total_count, domain_weight);
-
                     }
                 }
             }
+
             if (x.HasMember("classes_ip_as") && x["classes_ip_as"].IsObject()) {
-                //fprintf(stderr, "\tclasses_ip_as\n");
                 for (auto &y : x["classes_ip_as"].GetObject()) {
                     if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
-                        //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
 
                         if (strcmp(y.name.GetString(), "unknown") != 0) {
 
@@ -755,10 +872,7 @@ public:
                             if (as_number > 0xffffffff) {
                                 throw std::runtime_error("error: as number too high");
                             }
-                            // ip_as[as_number] = y.value.GetUint64();
 
-                            // EXPERIMENTAL
-                            //
                             std::pair<uint32_t,size_t> as_and_count = { as_number, y.value.GetUint64() };
                             const auto x = as_number_updates.find(as_and_count.first);
                             class update u{ index, (log((floating_point_type)as_and_count.second / total_count) - base_prior ) * as_weight };
@@ -772,8 +886,8 @@ public:
                     }
                 }
             }
+
             if (x.HasMember("classes_port_port") && x["classes_port_port"].IsObject()) {
-                //fprintf(stderr, "\tclasses_port_port\n");
                 for (auto &y : x["classes_port_port"].GetObject()) {
                     if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
                         uint64_t tmp_port = 0;
@@ -787,10 +901,7 @@ public:
                             printf_err(log_warning, "number %" PRIu64 " too high in classes_port_port\n", tmp_port);
                             tmp_port = 0;    // error: port numbers should 16-bit unsigned integers
                         }
-                        // dst_port[tmp_port] = y.value.GetUint64();
 
-                        // EXPERIMENTAL
-                        //
                         std::pair<uint16_t,size_t> port_and_count = { tmp_port, y.value.GetUint64() };
                         const auto x = port_updates.find(port_and_count.first);
                         class update u{ index, (log((floating_point_type)port_and_count.second / total_count) - base_prior) * port_weight };
@@ -808,16 +919,28 @@ public:
                     throw std::runtime_error("error: extended fingerprint metadata expected, but not present");
                 }
                 EXTENDED_FP_METADATA = true;
-                //fprintf(stderr, "\tclasses_ip_ip\n");
+
                 for (auto &y : x["classes_ip_ip"].GetObject()) {
                     if (!y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
                         printf_err(log_warning, "classes_ip_ip object element %s is not a Uint64\n", y.name.GetString());
-                        //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
-                        // ip_ip[y.name.GetString()] = y.value.GetUint64();
+                    } else {
 
-                        // EXPERIMENTAL
                         //
                         // empty for now, to preserve compatibility
+                        //
+
+                        // EXPT: implment ip updates for experimentation
+                        //
+                        fprintf(stderr, "classes_ip_ip: creating update for (%s,%zu)\n", y.name.GetString(), y.value.GetUint64());
+                        std::pair<std::string,size_t> ip_and_count = { y.name.GetString(), y.value.GetUint64() };
+                        const auto x = ip_ip_updates.find(ip_and_count.first);
+                        class update u{ index, (log((floating_point_type)ip_and_count.second / total_count) - base_prior) * ip_weight };
+                        if (x != ip_ip_updates.end()) {
+                            x->second.push_back(u);
+                        } else {
+                            ip_ip_updates[ip_and_count.first] = { u };
+                        }
+
                     }
                 }
             }
@@ -826,27 +949,11 @@ public:
                     throw std::runtime_error("error: extended fingerprint metadata expected, but not present");
                 }
                 EXTENDED_FP_METADATA = true;
-                //fprintf(stderr, "\tclasses_hostname_sni\n");
+
                 for (auto &y : x["classes_hostname_sni"].GetObject()) {
                     if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
-                        //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
-
-                        // Once data pipeline is updated to normalize the domain names, the following code will be used:
-                        // hostname_sni[server_identifier{y.name.GetString()}] = y.value.GetUint64();
-                        //
-                        // and this code will be removed:
                         std::string normalized = server_identifier{y.name.GetString()}.get_normalized_domain_name(server_identifier::detail::on);
-                        // if (hostname_sni.find(normalized) != hostname_sni.end()) {
-                        //     // If two different domain names are normalized to the same domain name, then the counts are added.
-                        //     hostname_sni[normalized] += y.value.GetUint64();
-                        // } else {
-                        //     hostname_sni[normalized] = y.value.GetUint64();
-                        // }
-
-                        // EXPERIMENTAL
-                        //
                         domain_name.observe_sni(index, normalized, y.value.GetUint64(), total_count, sni_weight);
-
                     }
                 }
             }
@@ -857,12 +964,6 @@ public:
                 EXTENDED_FP_METADATA = true;
                 for (auto &y : x["classes_user_agent"].GetObject()) {
                     if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
-                        //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
-                        // user_agent[y.name.GetString()] = y.value.GetUint64();
-
-
-                        // EXPERIMENTAL
-                        //
                         std::pair<std::string,size_t> ua_and_count = { y.name.GetString(), y.value.GetUint64() };
                         const auto x = user_agent_updates.find(ua_and_count.first);
                         class update u{ index, (log((floating_point_type)ua_and_count.second / total_count) - base_prior) * ua_weight };
@@ -871,27 +972,12 @@ public:
                         } else {
                             user_agent_updates[ua_and_count.first] = { u };
                         }
-
                     }
                 }
-            }
-            if (report_os && x.HasMember("os_info") && x["os_info"].IsObject()) {
-                for (auto &y : x["os_info"].GetObject()) {
-                    if (std::string(y.name.GetString()) != "") {
-                        os_info[y.name.GetString()] = y.value.GetUint64();
-                    }
-                }
-            }
 
-            // class process_info process(name, malware, count, attributes, ip_as, hostname_domains, dst_port,
-            //                            ip_ip, hostname_sni, user_agent, os_info);
-            // process_vector.push_back(process);
-
+            }
             index++;
         }
-
-        // fingerprint_data  *fp_data = new fingerprint_data(total_count, process_vector,
-        //                                                   os_dictionary, &subnets, &common, MALWARE_DB, weights);
 
     }
 
@@ -903,32 +989,60 @@ public:
 
         std::vector<floating_point_type> process_score = process_prob;  // working copy of probability vector
 
-        auto asn_update = as_number_updates.find(asn_int);
-        if (asn_update != as_number_updates.end()) {
-            for (const auto &x : asn_update->second) {
-                process_score[x.index] += x.value;
-            }
-        }
-        auto port_update = port_updates.find(dst_port);
-        if (port_update != port_updates.end()) {
-            for (const auto &x : port_update->second) {
-                process_score[x.index] += x.value;
-            }
-        }
+        // auto asn_update = as_number_updates.find(asn_int);
+        // if (asn_update != as_number_updates.end()) {
+        //     for (const auto &x : asn_update->second) {
+        //         process_score[x.index] += x.value;
+        //     }
+        // }
+        asn_feature.update(process_score, asn_int);
+
+        // auto port_update = port_updates.find(dst_port);  // TODO: FIX
+        // if (port_update != port_updates.end()) {
+        //     for (const auto &x : port_update->second) {
+        //         process_score[x.index] += x.value;
+        //     }
+        // }
+        //fprintf(stderr, "looking up port %u (%u)\n", dst_port, hton(dst_port));
+        dst_port_feature.update(process_score, hton(dst_port));
+
         auto ip_ip_update = ip_ip_updates.find(dst_ip_str);
+        // if (ip_ip_update != ip_ip_updates.end()) {
+        //     for (const auto &x : ip_ip_update->second) {
+        //         process_score[x.index] += x.value;
+        //     }
+        // }
+        // dst_addr_feature.update(process_score, dst_ip_str);
+
+        // // DEBUGGING: compute diff of old/new updates for dst_ip_str
+        // //
+        std::vector<floating_point_type> a = process_prob, b = process_prob;
+        // std::vector<floating_point_type> a(process_prob.size(), 0), b(process_prob.size(), 0);
+        //auto ip_ip_update = ip_ip_updates.find(dst_ip_str);
         if (ip_ip_update != ip_ip_updates.end()) {
             for (const auto &x : ip_ip_update->second) {
-                process_score[x.index] += x.value;
+                a[x.index] += x.value;
             }
         }
+        dst_addr_feature.update(b, dst_ip_str);
+        if (a != b) {
+            fprintf(stderr, "\ndst_ip_str: %s\n", dst_ip_str.c_str());
+            for (const auto & p : a) { fprintf(stderr, "%Le,", p); } fputc('\n', stderr);
+            for (const auto & p : b) { fprintf(stderr, "%Le,", p); } fputc('\n', stderr);
+            fputc('\n', stderr);
+        }
+
+        dst_addr_feature.update(process_score, dst_ip_str);
+
         if (user_agent != nullptr) {
             std::string user_agent_str(user_agent);
-            auto user_agent_update = user_agent_updates.find(user_agent_str);
-            if (user_agent_update != user_agent_updates.end()) {
-                for (const auto &x : user_agent_update->second) {
-                    process_score[x.index] += x.value;
-                }
-            }
+            // auto user_agent_update = user_agent_updates.find(user_agent_str);
+            // if (user_agent_update != user_agent_updates.end()) {
+            //     for (const auto &x : user_agent_update->second) {
+            //         process_score[x.index] += x.value;
+            //     }
+            // }
+            user_agent_feature.update(process_score, user_agent);
         }
 
         domain_name.update(process_score, server_name_str);
@@ -1044,7 +1158,7 @@ class fingerprint_data {
 public:
     naive_bayes classifier;
 private:
-    bool malware_db = false;
+    bool malware_db = true;
 
     const subnet_data *subnet_data_ptr = nullptr;
 
@@ -1113,7 +1227,7 @@ public:
                      ptr_dict &os_dictionary,
                      const subnet_data *subnets,
                      common_data *c,
-                     bool malware_database,
+                     bool &malware_database,
                      size_t total_cnt,
                      bool report_os,
                      bool &EXTENDED_FP_METADATA,
@@ -1123,8 +1237,6 @@ public:
         classifier{
             process_info,
             total_cnt,
-            report_os,
-            os_dictionary,
             EXTENDED_FP_METADATA,
             fp_proc_threshold,
             proc_dst_threshold
@@ -1219,6 +1331,7 @@ public:
 
     }
 
+#ifdef USE_PROCESS_INFO
     fingerprint_data(uint64_t count,
                      const std::vector<class process_info> &processes,
                      ptr_dict &os_dictionary,
@@ -1226,7 +1339,7 @@ public:
                      common_data *c,
                      bool malware_database,
                      const naive_bayes::feature_weights &feature_weights) :
-        classifier{processes, count, os_dictionary, feature_weights},
+        classifier{processes, count, feature_weights},
         malware_db{malware_database},
         subnet_data_ptr{subnets},
         common{c},
@@ -1270,6 +1383,7 @@ public:
         assert(process_os_info_vector.size() == processes.size());
 
     }
+#endif
 
     ~fingerprint_data() {
     }
@@ -1734,11 +1848,14 @@ public:
             }
         }
 
+#ifdef USE_PROCESS_INFO
         std::vector<class process_info> process_vector;
+#endif // USE_PROCESS_INFO
 
         if (fp.HasMember("process_info") && fp["process_info"].IsArray()) {
             //fprintf(stderr, "process_info[]\n");
 
+#ifdef USE_PROCESS_INFO
             unsigned int process_number = 0;
             for (auto &x : fp["process_info"].GetArray()) {
                 uint64_t count = 0;
@@ -1921,19 +2038,17 @@ public:
                                            ip_ip, hostname_sni, user_agent, os_info);
                 process_vector.push_back(process);
             }
+#endif // USE_PROCESS_INFO
 
-            //  EXPERIMENT: construct naive_bayes classifier directly from JSON
-            //
-            naive_bayes naive_bayes_expt(fp["process_info"],
-                                         total_count,
-                                         report_os,
-                                         os_dictionary,
-                                         // MALWARE_DB,
-                                         EXTENDED_FP_METADATA,
-                                         fp_proc_threshold,
-                                         proc_dst_threshold
-                                         // common
-                                         );
+            // //  EXPERIMENT: construct naive_bayes classifier directly from JSON
+            // //
+            // naive_bayes naive_bayes_expt(fp["process_info"],
+            //                              total_count,
+            //                              report_os,
+            //                              EXTENDED_FP_METADATA,
+            //                              fp_proc_threshold,
+            //                              proc_dst_threshold
+            //                              );
 
             // EXPERIMENT: construct fingerprint_data from JSON
             //
@@ -1952,6 +2067,17 @@ public:
             // fingerprint_data  *fp_data = new fingerprint_data(total_count, process_vector,
             //                                                     os_dictionary, &subnets, &common, MALWARE_DB, weights);
 
+            // determine if this FPDB contains malware data and
+            // extended metadata
+            //
+            if (fp["process_info"].Size() > 0){
+                if (fp["process_info"][0].HasMember("malware")) {
+                    MALWARE_DB = true;
+                }
+                if (fp["process_info"][0].HasMember("classes_ip_ip")) {
+                    EXTENDED_FP_METADATA = true;
+                }
+            }
 
             // EXPERIMENTAL: using json-reading constructor
             //
