@@ -45,105 +45,6 @@ class classifier *analysis_init_from_archive(int verbosity,
 
 int analysis_finalize(classifier *c);
 
-// #define USE_PROCESS_INFO 1
-
-#ifdef USE_PROCESS_INFO
-
-// process and malware classifier classes
-//
-
-class process_info {
-public:
-    std::string name;
-    bool malware;
-    uint64_t count;
-    attribute_result::bitset attributes;
-    std::unordered_map<uint32_t, uint64_t>    ip_as;
-    std::unordered_map<std::string, uint64_t> hostname_domains;
-    std::unordered_map<uint16_t, uint64_t>    dst_port;
-    std::unordered_map<std::string, uint64_t> ip_ip;
-    std::unordered_map<std::string, uint64_t> hostname_sni;
-    std::unordered_map<std::string, uint64_t> user_agent;
-    std::map<std::string, uint64_t> os_info;
-    bool extended_fp_metadata = false;
-
-    process_info(const std::string &proc_name,
-                 bool is_malware,
-                 uint64_t proc_count,
-                 attribute_result::bitset &attr,
-                 const std::unordered_map<uint32_t, uint64_t> &as,
-                 const std::unordered_map<std::string, uint64_t> &domains,
-                 const std::unordered_map<uint16_t, uint64_t> &ports,
-                 const std::unordered_map<std::string, uint64_t> &ip,
-                 const std::unordered_map<std::string, uint64_t> &sni,
-                 const std::unordered_map<std::string, uint64_t> &ua,
-                 const std::map<std::string, uint64_t> &oses) :
-        name{proc_name},
-        malware{is_malware},
-        count{proc_count},
-        attributes{attr},
-        ip_as{as},
-        hostname_domains{domains},
-        dst_port{ports},
-        ip_ip{ip},
-        hostname_sni{sni},
-        user_agent{ua},
-        os_info{oses} {
-            if (!ip.empty() && !sni.empty()) {
-                extended_fp_metadata = true;
-            }
-    }
-
-    void print(FILE *f) {
-        fprintf(f, "{\"process\":\"%s\"", name.c_str());
-        fprintf(f, ",\"count\":\"%" PRIu64 "\"", count);
-        fprintf(f, ",\"classes_ip_as\":{");
-        char comma = ' ';
-        for (auto &x : ip_as) {
-            fprintf(f, "%c\"%u\":%" PRIu64, comma, x.first, x.second);
-            comma = ',';
-        }
-        fprintf(f, "}");
-        fprintf(f, ",\"classes_hostname_domains\":{");
-        comma = ' ';
-        for (auto &x : hostname_domains) {
-            fprintf(f, "%c\"%s\":%" PRIu64, comma, x.first.c_str(), x.second);
-            comma = ',';
-        }
-        fprintf(f, "}");
-        fprintf(f, ",\"classes_port_applications\":{");
-        comma = ' ';
-        for (auto &x : dst_port) {
-            fprintf(f, "%c\"%u\":%" PRIu64, comma, x.first, x.second);
-            comma = ',';
-        }
-        fprintf(f, "}");
-
-        if (!ip_ip.empty() && !hostname_sni.empty()) {
-            fprintf(f, ",\"classes_ip_ip\":{");
-            comma = ' ';
-            for (auto &x : ip_ip) {
-                fprintf(f, "%c\"%s\":%" PRIu64, comma, x.first.c_str(), x.second);
-                comma = ',';
-            }
-            fprintf(f, "}");
-
-            fprintf(f, ",\"classes_hostname_sni\":{");
-            comma = ' ';
-            for (auto &x : hostname_sni) {
-                fprintf(f, "%c\"%s\":%" PRIu64, comma, x.first.c_str(), x.second);
-                comma = ',';
-            }
-            fprintf(f, "}");
-        }
-
-        // TBD: print malware data
-
-        fprintf(f, "}");
-    }
-};
-
-#endif // USE_PROCESS_INFO
 
 // struct common_data holds data that is common to all fingerprints,
 // within the classifier
@@ -225,9 +126,9 @@ public:
             if (y.value.IsUint64()) {
                 if (strcmp(itr->name.GetString(), "classes_ip_as") == 0 && strcmp(y.name.GetString(), "unknown") == 0) {
                     //
-                    // TODO: FIX HACK (skip "unknown" values in classes_ip_as)
+                    //  map "unknown" values in classes_ip_as to zero
                     //
-                    ;
+                    add_update(0, process_index, y.value.GetUint64(), total_count);
                 } else {
                     add_update(convert(y.name.GetString()), process_index, y.value.GetUint64(), total_count);
                 }
@@ -237,10 +138,6 @@ public:
         }
 
     }
-
-    // {
-    //     throw std::runtime_error{"nonspecialized
-    // }
 
     void add_update(T feature_value,
                     size_t process_index,
@@ -259,9 +156,10 @@ public:
         }
     }
 
-    //    static T convert(const rapidjson::Value &y);
-
-    T convert(const char *s);
+    /// convert a null-terminated string to type T.  This function is
+    /// specialized for several different types
+    ///
+    static T convert(const char *s);
 
     // apply a naive bayes feature update to prob_vector
     //
@@ -334,6 +232,8 @@ inline auto feature<uint64_t>::convert(const char *s) -> uint64_t {
 /// name (or a TLS or QUIC server name, or an HTTP host name)
 ///
 class domain_name_model {
+    floating_point_type domain_weight = 1.0;
+    floating_point_type sni_weight = 1.0;
 
 public:
 
@@ -393,48 +293,47 @@ public:
     std::unordered_map<std::string, std::vector<class update>> hostname_domain_updates;
     std::unordered_map<std::string, std::vector<class update>> hostname_sni_updates;
 
-    domain_name_model() {
+    domain_name_model(floating_point_type domain_wt=1.0,
+                      floating_point_type sni_wt=1.0) :
+        domain_weight{domain_wt},
+        sni_weight{sni_wt}
+    {
         fprintf(stderr, "\n---constructing domain_name_model---\n");
     }
 
-#ifdef USE_PROCESS_INFO
-    domain_name_model(const std::vector<class process_info> &processes,
-                      size_t total_count,
-                      floating_point_type domain_weight,
-                      floating_point_type sni_weight) {
-
-        floating_point_type base_prior = log(0.1 / total_count);
-        size_t index = 0;
-        for (const auto &p : processes) {
-            for (const auto &domains_and_count : p.hostname_domains) {
-                const auto x = hostname_domain_updates.find(domains_and_count.first);
-                class update u{ index, (log((floating_point_type)domains_and_count.second / total_count) - base_prior) * domain_weight };
-                if (x != hostname_domain_updates.end()) {
-                    x->second.push_back(u);
-                    assert(x->second.size() <= processes.size());
-                } else {
-                    hostname_domain_updates[domains_and_count.first] = { u };
+    void add_snis_from_json_object(rapidjson::Value::ConstMemberIterator itr,
+                                   size_t process_index,
+                                   size_t total_count
+                                   )
+    {
+        if (itr->value.IsObject()) {
+            for (auto &y : itr->value.GetObject()) {
+                if (y.value.IsUint64()) {
+                    std::string normalized = server_identifier{y.name.GetString()}.get_normalized_domain_name(server_identifier::detail::on);
+                    add_sni_update(process_index, normalized, y.value.GetUint64(), total_count, sni_weight);
+                    fprintf(stderr, "%s: adding %zu, %s, %zu, %zu, %Le\n", __func__, process_index, normalized.c_str(), y.value.GetUint64(), total_count, sni_weight);
                 }
             }
-            for (const auto &sni_and_count : p.hostname_sni) {
-                const auto x = hostname_sni_updates.find(sni_and_count.first);
-                class update u{ index, (log((floating_point_type)sni_and_count.second / total_count) - base_prior) * sni_weight };
-                if (x != hostname_sni_updates.end()) {
-                    x->second.push_back(u);
-                    assert(x->second.size() <= processes.size());
-                } else {
-                    hostname_sni_updates[sni_and_count.first] = { u };
-                }
-            }
-
-            index++;
         }
     }
-#endif // USE_PROCESS_INFO
 
-    // EXPERIMENTAL
-    //
-    void observe_domain(size_t index, const std::string &hostname_domains, size_t count, size_t total_count, floating_point_type domain_weight) {
+    void add_domain_names_from_json_object(rapidjson::Value::ConstMemberIterator itr,
+                                           size_t process_index,
+                                           size_t total_count
+                                           )
+    {
+        if (itr->value.IsObject()) {
+            for (auto &y : itr->value.GetObject()) {
+                if (y.value.IsUint64()) {
+                    std::string normalized = server_identifier{y.name.GetString()}.get_normalized_domain_name(server_identifier::detail::on);
+                    add_domain_update(process_index, normalized, y.value.GetUint64(), total_count, domain_weight);
+                    fprintf(stderr, "%s: adding %zu, %s, %zu, %zu, %Le\n", __func__, process_index, normalized.c_str(), y.value.GetUint64(), total_count, sni_weight);
+                }
+            }
+        }
+    }
+
+    void add_domain_update(size_t index, const std::string &hostname_domains, size_t count, size_t total_count, floating_point_type domain_weight) {
 
         // fprintf(stderr, "hostname_domains: %s\tcount: %zu\n", hostname_domains.c_str(), count);
 
@@ -454,14 +353,11 @@ public:
                 }
             }
             if (prev_update) {
-                //fprintf(stderr, "update: %Le += %Le ", prev_update->value, u.value);
-                // prev_update->value += u.value;  // note: possible loss of precision
-                prev_update->combine(count, total_count, base_prior, domain_weight);  
-                //fprintf(stderr, "(%Le)\n", prev_update->value);
+                prev_update->combine(count, total_count, base_prior, domain_weight);
             } else {
                 x->second.push_back(u);
             }
-            // assert(x->second.size() <= processes.size());
+            assert(x->second.size() <= processes.size());
 
         } else {
             hostname_domain_updates[domains_and_count.first] = { u };
@@ -469,9 +365,7 @@ public:
 
     }
 
-    // EXPERIMENTAL
-    //
-    void observe_sni(size_t index, const std::string &hostname_sni, size_t count, size_t total_count, floating_point_type sni_weight) {
+    void add_sni_update(size_t index, const std::string &hostname_sni, size_t count, size_t total_count, floating_point_type sni_weight) {
 
         // fprintf(stderr, "hostname_sni: %s\n", hostname_sni.c_str());
 
@@ -491,14 +385,11 @@ public:
                 }
             }
             if (prev_update) {
-                // fprintf(stderr, "update: %Le += %Le ", prev_update->value, u.value);
                 prev_update->combine(count, total_count, base_prior, sni_weight);
-                // prev_update->value += u.value;  // note: possible loss of precision
-                //fprintf(stderr, "(%Le)\n", prev_update->value);
             } else {
                 x->second.push_back(u);
             }
-            // assert(x->second.size() <= processes.size());
+            assert(x->second.size() <= processes.size());
 
         } else {
             hostname_sni_updates[sni_and_count.first] = { u };
@@ -506,9 +397,14 @@ public:
 
     }
 
+
+    /// updates the probability vector \param process_score
+    /// based on the feature \param server_name_str
+    ///
     void update(std::vector<floating_point_type> &process_score,
-                //const std::string &domain,
-                const std::string &server_name_str) const {
+                const std::string &server_name_str
+                ) const
+    {
 
         std::string domain = get_tld_domain_name(server_name_str.c_str());
 
@@ -529,11 +425,11 @@ public:
         }
     }
 
-    // get_tld_domain_name() returns the string containing the top two
-    // domains of the input string; that is, given "s3.amazonaws.com",
-    // it returns "amazonaws.com".  If there is only one name, it is
-    // returned.
-    //
+    /// get_tld_domain_name() returns the string containing the top two
+    /// domains of the input string; that is, given "s3.amazonaws.com",
+    /// it returns "amazonaws.com".  If there is only one name, it is
+    /// returned.
+    ///
     static std::string get_tld_domain_name(const char* server_name) {
 
         const char *separator = NULL;
@@ -564,11 +460,6 @@ class naive_bayes {
 
     std::vector<floating_point_type> process_prob;    // vector of prior probabilities
 
-    std::unordered_map<uint32_t, std::vector<class update>> as_number_updates;
-    std::unordered_map<uint16_t, std::vector<class update>> port_updates;
-    std::unordered_map<std::string, std::vector<class update>> ip_ip_updates;
-    std::unordered_map<std::string, std::vector<class update>> user_agent_updates;
-
     floating_point_type as_weight     = 0.13924;
     floating_point_type domain_weight = 0.15590;
     floating_point_type port_weight   = 0.00528;
@@ -584,63 +475,6 @@ class naive_bayes {
     feature<std::string> user_agent_feature;
 
 public:
-
-    bool operator==(const naive_bayes &rhs) const {
-        if (as_number_updates != rhs.as_number_updates) {
-            fprintf(stderr, "as_number_updates mismatch\n");
-            for (const auto &[key, value] : as_number_updates) {
-                const auto result = rhs.as_number_updates.find(key);
-                if (result == rhs.as_number_updates.end()) {
-                    fprintf(stderr, "\tkey %u in lhs but not rhs\n", key);
-                } else {
-                    fprintf(stderr, "\tkey %u: lhs:\t", key); for (const auto & u : value) { fprintf(stderr, "{%u,%Le}", u.index, u.value);  }; fputc('\n', stderr);
-                    fprintf(stderr, "\tkey %u: rhs:\t", key); for (const auto & u : result->second) { fprintf(stderr, "{%u,%Le}", u.index, u.value);  };  fputc('\n', stderr);
-                }
-            }
-        }
-        if (port_updates != rhs.port_updates) {
-            fprintf(stderr, "port_updates mismatch\n");
-            for (const auto &[key, value] : port_updates) {
-                const auto result = rhs.port_updates.find(key);
-                if (result == rhs.port_updates.end()) {
-                    fprintf(stderr, "\tkey %u in lhs but not rhs\n", key);
-                } else {
-                    fprintf(stderr, "\tkey %u: lhs:\t", key); for (const auto & u : value) { fprintf(stderr, "{%u,%Le}", u.index, u.value);  }; fputc('\n', stderr);
-                    fprintf(stderr, "\tkey %u: rhs:\t", key); for (const auto & u : result->second) { fprintf(stderr, "{%u,%Le}", u.index, u.value);  };  fputc('\n', stderr);
-                }
-            }
-        }
-        if (dst_port_feature.updates != rhs.port_updates) {
-            fprintf(stderr, "dst_port_feature mismatch\n");
-            for (const auto &[key, value] : dst_port_feature.updates) {
-                const auto result = rhs.port_updates.find(key);
-                if (result == rhs.port_updates.end()) {
-                    fprintf(stderr, "\tkey %u in lhs but not rhs\n", key);
-                } else {
-                    fprintf(stderr, "\tkey %u: lhs:\t", key); for (const auto & u : value) { fprintf(stderr, "{%u,%Le}", u.index, u.value);  }; fputc('\n', stderr);
-                    fprintf(stderr, "\tkey %u: rhs:\t", key); for (const auto & u : result->second) { fprintf(stderr, "{%u,%Le}", u.index, u.value);  };  fputc('\n', stderr);
-                }
-            }
-        }
-
-        fprintf(stderr, "process_prob match:  %u\n", process_prob == rhs.process_prob);
-        // fprintf(stderr, "malware match:  %u\n", malware == rhs.malware);
-        // fprintf(stderr, "attr match:  %u\n", attr == rhs.attr);
-        fprintf(stderr, "as_number_updates match:  %u\n", as_number_updates == rhs.as_number_updates);
-        fprintf(stderr, "port_updates match:       %u\n", port_updates == rhs.port_updates);
-        fprintf(stderr, "ip_ip_updates match:      %u\n", ip_ip_updates == rhs.ip_ip_updates);
-        fprintf(stderr, "user_agent_updates match: %u\n", user_agent_updates == rhs.user_agent_updates);
-        fprintf(stderr, "domain_name match:        %u\n", domain_name == rhs.domain_name);
-
-        return process_prob == rhs.process_prob
-            // && malware == rhs.malware
-            // && attr == rhs.attr
-            && as_number_updates == rhs.as_number_updates
-            && port_updates == rhs.port_updates
-            && ip_ip_updates == rhs.ip_ip_updates
-            && user_agent_updates == rhs.user_agent_updates
-            && domain_name == rhs.domain_name;
-    }
 
     static constexpr uint8_t num_features = 6;
     static constexpr static_dictionary<naive_bayes::num_features> features {
@@ -665,107 +499,17 @@ public:
         1.0       // ua_weight
     };
 
-    //    naive_bayes() { }
-
-#ifdef USE_PROCESS_INFO
-    naive_bayes(const std::vector<class process_info> &processes,
-                uint64_t count,
-                const naive_bayes::feature_weights &weights)
-        : total_count{count},
-          as_weight{weights[features.index("as")]},
-          domain_weight{weights[features.index("domain")]},
-          port_weight{weights[features.index("port")]},
-          ip_weight{weights[features.index("ip")]},
-          sni_weight{weights[features.index("sni")]},
-          ua_weight{weights[features.index("ua")]},
-          domain_name{
-              processes,
-              total_count,
-              domain_weight,
-              sni_weight
-          }
-    {
-
-        //fprintf(stderr, "compiling fingerprint_data for %lu processes\n", processes.size());
-
-        // initialize data structures
-        //
-        process_prob.reserve(processes.size());
-
-        base_prior = log(0.1 / total_count);
-        size_t index = 0;
-        for (const auto &p : processes) {
-
-            //fprintf(stderr, "compiling process \"%s\"\n", p.name.c_str());
-
-            floating_point_type proc_prior = log(.1);
-            floating_point_type prob_process_given_fp = (floating_point_type)p.count / total_count;
-            floating_point_type score = log(prob_process_given_fp);
-            process_prob.push_back(fmax(score, proc_prior) + base_prior * (as_weight + domain_weight + port_weight + ip_weight + sni_weight + ua_weight));
-
-            for (const auto &as_and_count : p.ip_as) {
-                const auto x = as_number_updates.find(as_and_count.first);
-                class update u{ index, (log((floating_point_type)as_and_count.second / total_count) - base_prior ) * as_weight };
-                if (x != as_number_updates.end()) {
-                    x->second.push_back(u);
-                } else {
-                    as_number_updates[as_and_count.first] = { u };
-                }
-            }
-            for (const auto &port_and_count : p.dst_port) {
-                const auto x = port_updates.find(port_and_count.first);
-                class update u{ index, (log((floating_point_type)port_and_count.second / total_count) - base_prior) * port_weight };
-                if (x != port_updates.end()) {
-                    x->second.push_back(u);
-                } else {
-                    port_updates[port_and_count.first] = { u };
-                }
-            }
-            for (const auto &ip_and_count : p.ip_ip) {
-                const auto x = ip_ip_updates.find(ip_and_count.first);
-                class update u{ index, (log((floating_point_type)ip_and_count.second / total_count) - base_prior) * ip_weight };
-                if (x != ip_ip_updates.end()) {
-                    x->second.push_back(u);
-                } else {
-                    ip_ip_updates[ip_and_count.first] = { u };
-                }
-            }
-            for (const auto &ua_and_count : p.user_agent) {
-                const auto x = user_agent_updates.find(ua_and_count.first);
-                class update u{ index, (log((floating_point_type)ua_and_count.second / total_count) - base_prior) * ua_weight };
-                if (x != user_agent_updates.end()) {
-                    x->second.push_back(u);
-                } else {
-                    user_agent_updates[ua_and_count.first] = { u };
-                }
-            }
-
-            ++index;
-        }
-
-        // process_prob should have the same number of elements as the
-        // input vector processes
-        //
-        assert(process_prob.size() == processes.size());
-
-    }
-#endif // USE_PROCESS_INFO
-
     // constructs a naive_bayes classifier by reading a JSON array
     //
     naive_bayes(const rapidjson::Value &process_info,
-                size_t total_count,
-                bool &EXTENDED_FP_METADATA,
-                float &fp_proc_threshold,
-                float &proc_dst_threshold
+                size_t total_count
                 ) :
+        domain_name{domain_weight, sni_weight},
         dst_port_feature{port_weight},
         dst_addr_feature{ip_weight},
         asn_feature{as_weight},
         user_agent_feature{ua_weight}
     {
-
-        // fprintf(stderr, "num processes: %u\n", process_info.GetArray().Size());
 
         size_t index = 0;   // zero-based index of process in probability vector
 
@@ -774,15 +518,12 @@ public:
         }
         base_prior = log(0.1 / total_count);
 
-        unsigned int process_number = 0;
         for (auto &x : process_info.GetArray()) {
 
             if (x.IsObject()) {
-            // if (x.HasMember("classes_port_port") && x["classes_port_port"].IsObject()) {
-                //                fprintf(stderr, "x is object\n");
 
                 for (rapidjson::Value::ConstMemberIterator itr = x.MemberBegin(); itr != x.MemberEnd(); ++itr) {
-                    // for (const auto y : x.GetObject()) {
+
                     fprintf(stderr, "name: %s\n", itr->name.GetString());
 
                     const std::string & member_name = itr->name.GetString();
@@ -793,9 +534,9 @@ public:
                     } else if (member_name == "classes_hostname_tld") {
                         ;
                     } else if (member_name == "classes_hostname_domains") {
-                        ;
+                        domain_name.add_domain_names_from_json_object(itr, index, total_count);
                     } else if (member_name == "classes_hostname_sni") {
-                        ;
+                        domain_name.add_snis_from_json_object(itr, index, total_count);
                     } else if (member_name == "classes_ip_as") {
                         asn_feature.add_updates_from_object(itr, index, total_count);
                     } else if (member_name == "classes_user_agent") {
@@ -816,167 +557,27 @@ public:
                     }
 
                 }
+
+                // TODO: verify that all required schema elements were found
             }
 
             uint64_t count = 0;
-            bool malware = false;
-
             if (x.HasMember("count") && x["count"].IsUint64()) {
                 count = x["count"].GetUint64();
-                //fprintf(stderr, "\tcount: %lu\n", x["count"].GetUint64());
             }
             if (count == 0) {
                 throw std::runtime_error("error: process_fp_db_line() count 0");
                 continue;
             }
-            /* do not load process into memory if prevalence is below threshold */
-            if ((process_number > 1) && ((float)count/total_count < fp_proc_threshold) && (malware != true)) {
-                continue;
-            }
 
-            process_number++;
-            //fprintf(stderr, "%s\n", "process_info");
-
+            // construct vector of prior probabilities
+            //
             floating_point_type proc_prior = log(.1);
             floating_point_type prob_process_given_fp = (floating_point_type)count / total_count;
             floating_point_type score = log(prob_process_given_fp);
             process_prob.push_back(fmax(score, proc_prior) + base_prior * (as_weight + domain_weight + port_weight + ip_weight + sni_weight + ua_weight));
 
-            // std::string name;
-            // if (x.HasMember("process") && x["process"].IsString()) {
-            //     name = x["process"].GetString();
-            //     //fprintf(stderr, "\tname: %s\n", x["process"].GetString());
-            // }
-
-            if (x.HasMember("classes_hostname_domains") && x["classes_hostname_domains"].IsObject()) {
-                for (auto &y : x["classes_hostname_domains"].GetObject()) {
-                    if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
-                        std::string normalized = server_identifier{y.name.GetString()}.get_normalized_domain_name(server_identifier::detail::on);
-                        domain_name.observe_domain(index, normalized, y.value.GetUint64(), total_count, domain_weight);
-                    }
-                }
-            }
-
-            if (x.HasMember("classes_ip_as") && x["classes_ip_as"].IsObject()) {
-                for (auto &y : x["classes_ip_as"].GetObject()) {
-                    if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
-
-                        if (strcmp(y.name.GetString(), "unknown") != 0) {
-
-                            errno = 0;
-                            unsigned long as_number = strtol(y.name.GetString(), NULL, 10);
-                            if (errno) {
-                                as_number = 0; // "unknown"
-                                printf_err(log_warning, "unexpected string \"%s\" in ip_as\n", y.name.GetString());
-                            }
-                            if (as_number > 0xffffffff) {
-                                throw std::runtime_error("error: as number too high");
-                            }
-
-                            std::pair<uint32_t,size_t> as_and_count = { as_number, y.value.GetUint64() };
-                            const auto x = as_number_updates.find(as_and_count.first);
-                            class update u{ index, (log((floating_point_type)as_and_count.second / total_count) - base_prior ) * as_weight };
-                            if (x != as_number_updates.end()) {
-                                x->second.push_back(u);
-                            } else {
-                                as_number_updates[as_and_count.first] = { u };
-                            }
-
-                        }
-                    }
-                }
-            }
-
-            if (x.HasMember("classes_port_port") && x["classes_port_port"].IsObject()) {
-                for (auto &y : x["classes_port_port"].GetObject()) {
-                    if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
-                        uint64_t tmp_port = 0;
-                        try {
-                            tmp_port = std::stoul(y.name.GetString());
-                        }
-                        catch (...) {
-                            printf_err(log_warning, "unexpected string \"%s\" in classes_port_port\n", y.name.GetString());
-                        }
-                        if (tmp_port > std::numeric_limits<uint16_t>::max()) {
-                            printf_err(log_warning, "number %" PRIu64 " too high in classes_port_port\n", tmp_port);
-                            tmp_port = 0;    // error: port numbers should 16-bit unsigned integers
-                        }
-
-                        std::pair<uint16_t,size_t> port_and_count = { tmp_port, y.value.GetUint64() };
-                        const auto x = port_updates.find(port_and_count.first);
-                        class update u{ index, (log((floating_point_type)port_and_count.second / total_count) - base_prior) * port_weight };
-                        if (x != port_updates.end()) {
-                            x->second.push_back(u);
-                        } else {
-                            port_updates[port_and_count.first] = { u };
-                        }
-
-                    }
-                }
-            }
-            if (x.HasMember("classes_ip_ip") && x["classes_ip_ip"].IsObject()) {
-                if (EXTENDED_FP_METADATA == false && process_number > 1) {
-                    throw std::runtime_error("error: extended fingerprint metadata expected, but not present");
-                }
-                EXTENDED_FP_METADATA = true;
-
-                for (auto &y : x["classes_ip_ip"].GetObject()) {
-                    if (!y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
-                        printf_err(log_warning, "classes_ip_ip object element %s is not a Uint64\n", y.name.GetString());
-                    } else {
-
-                        //
-                        // empty for now, to preserve compatibility
-                        //
-
-                        // EXPT: implment ip updates for experimentation
-                        //
-                        fprintf(stderr, "classes_ip_ip: creating update for (%s,%zu)\n", y.name.GetString(), y.value.GetUint64());
-                        std::pair<std::string,size_t> ip_and_count = { y.name.GetString(), y.value.GetUint64() };
-                        const auto x = ip_ip_updates.find(ip_and_count.first);
-                        class update u{ index, (log((floating_point_type)ip_and_count.second / total_count) - base_prior) * ip_weight };
-                        if (x != ip_ip_updates.end()) {
-                            x->second.push_back(u);
-                        } else {
-                            ip_ip_updates[ip_and_count.first] = { u };
-                        }
-
-                    }
-                }
-            }
-            if (x.HasMember("classes_hostname_sni") && x["classes_hostname_sni"].IsObject()) {
-                if (EXTENDED_FP_METADATA == false && process_number > 1) {
-                    throw std::runtime_error("error: extended fingerprint metadata expected, but not present");
-                }
-                EXTENDED_FP_METADATA = true;
-
-                for (auto &y : x["classes_hostname_sni"].GetObject()) {
-                    if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
-                        std::string normalized = server_identifier{y.name.GetString()}.get_normalized_domain_name(server_identifier::detail::on);
-                        domain_name.observe_sni(index, normalized, y.value.GetUint64(), total_count, sni_weight);
-                    }
-                }
-            }
-            if (x.HasMember("classes_user_agent") && x["classes_user_agent"].IsObject()) {
-                if (EXTENDED_FP_METADATA == false && process_number > 1) {
-                    throw std::runtime_error("error: extended fingerprint metadata expected, but not present");
-                }
-                EXTENDED_FP_METADATA = true;
-                for (auto &y : x["classes_user_agent"].GetObject()) {
-                    if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
-                        std::pair<std::string,size_t> ua_and_count = { y.name.GetString(), y.value.GetUint64() };
-                        const auto x = user_agent_updates.find(ua_and_count.first);
-                        class update u{ index, (log((floating_point_type)ua_and_count.second / total_count) - base_prior) * ua_weight };
-                        if (x != user_agent_updates.end()) {
-                            x->second.push_back(u);
-                        } else {
-                            user_agent_updates[ua_and_count.first] = { u };
-                        }
-                    }
-                }
-
-            }
-            index++;
+            index++;  // increment process index
         }
 
     }
@@ -989,161 +590,20 @@ public:
 
         std::vector<floating_point_type> process_score = process_prob;  // working copy of probability vector
 
-        // auto asn_update = as_number_updates.find(asn_int);
-        // if (asn_update != as_number_updates.end()) {
-        //     for (const auto &x : asn_update->second) {
-        //         process_score[x.index] += x.value;
-        //     }
-        // }
         asn_feature.update(process_score, asn_int);
-
-        // auto port_update = port_updates.find(dst_port);  // TODO: FIX
-        // if (port_update != port_updates.end()) {
-        //     for (const auto &x : port_update->second) {
-        //         process_score[x.index] += x.value;
-        //     }
-        // }
-        //fprintf(stderr, "looking up port %u (%u)\n", dst_port, hton(dst_port));
         dst_port_feature.update(process_score, hton(dst_port));
-
-        auto ip_ip_update = ip_ip_updates.find(dst_ip_str);
-        // if (ip_ip_update != ip_ip_updates.end()) {
-        //     for (const auto &x : ip_ip_update->second) {
-        //         process_score[x.index] += x.value;
-        //     }
-        // }
-        // dst_addr_feature.update(process_score, dst_ip_str);
-
-        // // DEBUGGING: compute diff of old/new updates for dst_ip_str
-        // //
-        std::vector<floating_point_type> a = process_prob, b = process_prob;
-        // std::vector<floating_point_type> a(process_prob.size(), 0), b(process_prob.size(), 0);
-        //auto ip_ip_update = ip_ip_updates.find(dst_ip_str);
-        if (ip_ip_update != ip_ip_updates.end()) {
-            for (const auto &x : ip_ip_update->second) {
-                a[x.index] += x.value;
-            }
-        }
-        dst_addr_feature.update(b, dst_ip_str);
-        if (a != b) {
-            fprintf(stderr, "\ndst_ip_str: %s\n", dst_ip_str.c_str());
-            for (const auto & p : a) { fprintf(stderr, "%Le,", p); } fputc('\n', stderr);
-            for (const auto & p : b) { fprintf(stderr, "%Le,", p); } fputc('\n', stderr);
-            fputc('\n', stderr);
-        }
-
         dst_addr_feature.update(process_score, dst_ip_str);
-
         if (user_agent != nullptr) {
-            std::string user_agent_str(user_agent);
-            // auto user_agent_update = user_agent_updates.find(user_agent_str);
-            // if (user_agent_update != user_agent_updates.end()) {
-            //     for (const auto &x : user_agent_update->second) {
-            //         process_score[x.index] += x.value;
-            //     }
-            // }
             user_agent_feature.update(process_score, user_agent);
         }
-
         domain_name.update(process_score, server_name_str);
 
         return process_score;
     }
 
-    bool is_recomputation_required(floating_point_type new_as_weight, floating_point_type new_domain_weight,
-                                 floating_point_type new_port_weight, floating_point_type new_ip_weight,
-                                 floating_point_type new_sni_weight, floating_point_type new_ua_weight) {
-        if (new_as_weight != as_weight or new_domain_weight != domain_weight or
-            new_port_weight != port_weight or new_ip_weight != ip_weight or
-            new_sni_weight != sni_weight or new_ua_weight != ua_weight) {
-            return true;
-        }
-
-        return false;
-    }
-
-    void recompute_probabilities(floating_point_type new_as_weight, floating_point_type new_domain_weight,
-                                 floating_point_type new_port_weight, floating_point_type new_ip_weight,
-                                 floating_point_type new_sni_weight, floating_point_type new_ua_weight) {
-
-        if (!is_recomputation_required(new_as_weight, new_domain_weight, new_port_weight,
-                                       new_ip_weight, new_sni_weight, new_ua_weight)) {
-            return;
-        }
-
-        floating_point_type old_weights = base_prior * (as_weight + domain_weight + port_weight + ip_weight + sni_weight + ua_weight);
-        floating_point_type new_weights = base_prior * (new_as_weight + new_domain_weight + new_port_weight + new_ip_weight + new_sni_weight + new_ua_weight);
-
-        /*
-         * Process probability is originally calculated as,
-         * process_prob = fmax(score, proc_prior) + base_prior * (as_weight + domain_weight + port_weight + ip_weight + sni_weight + ua_weight)
-         * when weights are changed, then process_prob can be recalculated as,
-         *
-         * process_prob = process_prob - base_prior * (as_weight + domain_weight + port_weight + ip_weight + sni_weight + ua_weight)
-                            + base_prior * (new_as_weight + new_domain_weight + new_port_weight + new_ip_weight + new_sni_weight + new_ua_weight)
-         */
-        for (auto &p : process_prob) {
-            p = p - old_weights + new_weights;
-        }
-
-        /*
-         * Update value is originally calculated as
-         * update.value  = log((floating_point_type)as_and_count.second / total_count) - base_prior ) * as_weight
-         */
-        for (auto &v : as_number_updates) {
-            for (auto &update : v.second) {
-                update.value = update.value * new_as_weight/as_weight;
-            }
-        }
-
-        // TODO: replace this functionality
-        //
-        // for (auto &v: hostname_domain_updates) {
-        //     for (auto &update : v.second) {
-        //         update.value = update.value * new_domain_weight/domain_weight;
-        //     }
-        // }
-
-        for (auto &v: port_updates) {
-            for (auto &update : v.second) {
-                update.value = update.value * new_port_weight/port_weight;
-            }
-        }
-
-        for (auto &v: ip_ip_updates) {
-            for (auto &update : v.second) {
-                update.value = update.value * new_ip_weight/ip_weight;
-            }
-        }
-
-        // TODO: replace this functionality
-        //
-        // for (auto &v: hostname_sni_updates) {
-        //     for (auto &update : v.second) {
-        //         update.value = update.value * new_sni_weight/sni_weight;
-        //     }
-        // }
-
-        for (auto &v: user_agent_updates) {
-            for (auto &update : v.second) {
-                update.value = update.value * new_ua_weight/ua_weight;
-            }
-        }
-
-        as_weight = new_as_weight;
-        domain_weight = new_domain_weight;
-        port_weight = new_port_weight;
-        ip_weight = new_ip_weight;
-        sni_weight = new_sni_weight;
-        ua_weight = new_ua_weight;
-    }
 };
 
-static bool operator==(const os_information &lhs, const os_information &rhs) {
-    if (true) { //lhs.os_name != rhs.os_name || lhs.os_prevalence != rhs.os_prevalence) {
-        fprintf(stderr, "lhs: %s, %zu\n", lhs.os_name, lhs.os_prevalence);
-        fprintf(stderr, "rhs: %s, %zu\n", rhs.os_name, rhs.os_prevalence);
-    }
+[[maybe_unused]] static bool operator==(const os_information &lhs, const os_information &rhs) {
     return lhs.os_name == rhs.os_name
         && lhs.os_prevalence == rhs.os_prevalence;
 }
@@ -1168,79 +628,15 @@ public:
     uint8_t refcnt = 0;
     uint64_t total_count;
 
-    bool operator==(const fingerprint_data &rhs) const {
-
-        fprintf(stderr, "classifier equal:      %u\n", classifier == rhs.classifier);
-        fprintf(stderr, "malware equal:         %u\n", malware == rhs.malware);
-        fprintf(stderr, "attr equal:            %u\n", attr == rhs.attr);
-        fprintf(stderr, "process_name equal:    %u\n", process_name == rhs.process_name);
-        fprintf(stderr, "process_os_info equal: %u\n", process_os_info_vector == rhs.process_os_info_vector);
-        fprintf(stderr, "poi.size equal:        %u (%zu, %zu)\n", process_os_info_vector.size() == rhs.process_os_info_vector.size(), process_os_info_vector.size(), rhs.process_os_info_vector.size());
-
-        if (process_os_info_vector.size() != rhs.process_os_info_vector.size()) {
-            fprintf(stderr, "process_os_info_vector.size() != rhs.process_os_info_vector.size()\n");
-        } else {
-            // fprintf(stderr, "comparing process_os_info_vector and process_os_info_vector\n");
-            for (size_t i=0; i<process_os_info_vector.size(); i++) {
-                const std::vector<os_information> &lo = process_os_info_vector[i];
-                const std::vector<os_information> &ro = rhs.process_os_info_vector[i];
-                if (lo.size() != ro.size()) {
-                    fprintf(stderr, "lo.size (%zu) != ro.size (%zu)\n", lo.size(), ro.size());
-                } else {
-                    for (size_t j=0; j<lo.size(); j++) {
-                        const os_information &l = lo[j];
-                        const os_information &r = ro[j];
-                        fprintf(stderr, "lhs: {%s, %zu}\n", l.os_name, l.os_prevalence);
-                        fprintf(stderr, "rhs: {%s, %zu}\n", r.os_name, r.os_prevalence);
-                    }
-                }
-            }
-
-            size_t pn = 0;
-            for (const auto & osiv : process_os_info_vector) {
-                fprintf(stderr, "process_os_info_vector[%zu]:     ", pn++);
-                for (const auto & osi : osiv) {
-                    fprintf(stderr, "{%s, %zu}", osi.os_name, osi.os_prevalence);
-                }
-                fputc('\n', stderr);
-            }
-            pn = 0;
-            for (const auto & osiv : rhs.process_os_info_vector) {
-                fprintf(stderr, "rhs.process_os_info_vector[%zu]: ", pn++);
-                for (const auto & osi : osiv) {
-                    fprintf(stderr, "{%s, %zu}", osi.os_name, osi.os_prevalence);
-                }
-                fputc('\n', stderr);
-            }
-        }
-
-        return classifier == rhs.classifier
-            && malware == rhs.malware
-            && attr == rhs.attr
-            && process_name == rhs.process_name
-            && process_os_info_vector == rhs.process_os_info_vector;
-    }
-
-    // EXPERIMENTAL json-reading constructor
-    //
     fingerprint_data(const rapidjson::Value &process_info,
                      ptr_dict &os_dictionary,
                      const subnet_data *subnets,
                      common_data *c,
                      bool &malware_database,
                      size_t total_cnt,
-                     bool report_os,
-                     bool &EXTENDED_FP_METADATA,
-                     float fp_proc_threshold,
-                     float proc_dst_threshold
+                     bool report_os
                      ) :
-        classifier{
-            process_info,
-            total_cnt,
-            EXTENDED_FP_METADATA,
-            fp_proc_threshold,
-            proc_dst_threshold
-        },
+        classifier{process_info,total_cnt},
         malware_db{malware_database},
         subnet_data_ptr{subnets},
         common{c},
@@ -1259,7 +655,6 @@ public:
 
             if (x.HasMember("process") && x["process"].IsString()) {
                 std::string name = x["process"].GetString();
-                //fprintf(stderr, "\tname: %s\n", x["process"].GetString());
                 process_name.push_back(name);
             }
 
@@ -1286,37 +681,18 @@ public:
                 attr.push_back(attributes);
             }
 
-            //            report_os = true;
-            fprintf(stderr, "report_os: %u\n", report_os);
             std::vector<struct os_information> os_info_vector;
             if (report_os && x.HasMember("os_info") && x["os_info"].IsObject()) {
                 for (auto &y : x["os_info"].GetObject()) {
                     fprintf(stderr, "os_info_vector: adding %s\n", y.name.GetString());
                     if (std::string(y.name.GetString()) != "") {
-                        // os_info[y.name.GetString()] = y.value.GetUint64();
                         const char *os = os_dictionary.get(y.name.GetString());
                         struct os_information tmp{(char *)os, y.value.GetUint64()};
                         os_info_vector.push_back(tmp);
                     }
-                    // fprintf(stderr, "os_info_vector.size(): %zu\n", os_info_vector.size());
                 }
             }
             process_os_info_vector.push_back(os_info_vector);
-            // fprintf(stderr, "process_os_info_vector.size(): %zu\n", process_os_info_vector.size());
-
-            // if (p.os_info.size() > 0) {
-            //
-            //     // create a vector of os_information structs, whose char * makes
-            //     // use of the os_dictionary
-            //     //
-            //     std::vector<struct os_information> &os_info_vector = process_os_info_vector.back();
-            //     for (const auto &os_and_count : p.os_info) {
-            //         const char *os = os_dictionary.get(os_and_count.first);
-            //         struct os_information tmp{(char *)os, os_and_count.second};
-            //         os_info_vector.push_back(tmp);
-            //     }
-            // }
-
 
         }
 
@@ -1331,98 +707,7 @@ public:
 
     }
 
-#ifdef USE_PROCESS_INFO
-    fingerprint_data(uint64_t count,
-                     const std::vector<class process_info> &processes,
-                     ptr_dict &os_dictionary,
-                     const subnet_data *subnets,
-                     common_data *c,
-                     bool malware_database,
-                     const naive_bayes::feature_weights &feature_weights) :
-        classifier{processes, count, feature_weights},
-        malware_db{malware_database},
-        subnet_data_ptr{subnets},
-        common{c},
-        total_count{count}
-    {
-
-        //fprintf(stderr, "compiling fingerprint_data for %lu processes\n", processes.size());
-
-        // initialize data structures
-        //
-        process_name.reserve(processes.size());
-        malware.reserve(processes.size());
-        attr.reserve(processes.size());
-        process_os_info_vector.reserve(processes.size());
-
-        for (const auto &p : processes) {
-            process_name.push_back(p.name);
-            malware.push_back(p.malware);
-            attr.push_back(p.attributes);
-            process_os_info_vector.push_back(std::vector<struct os_information>{});
-            if (p.os_info.size() > 0) {
-
-                // create a vector of os_information structs, whose char * makes
-                // use of the os_dictionary
-                //
-                std::vector<struct os_information> &os_info_vector = process_os_info_vector.back();
-                for (const auto &os_and_count : p.os_info) {
-                    const char *os = os_dictionary.get(os_and_count.first);
-                    struct os_information tmp{(char *)os, os_and_count.second};
-                    os_info_vector.push_back(tmp);
-                }
-            }
-        }
-
-        // process_name, malware, and process_os_info_vector should
-        // all have the same number of elements as the input vector
-        // processes
-        //
-        assert(process_name.size() == processes.size());
-        assert(malware.size() == processes.size());
-        assert(process_os_info_vector.size() == processes.size());
-
-    }
-#endif
-
-    ~fingerprint_data() {
-    }
-
-#if 0
-    void print(FILE *f) {
-        fprintf(f, ",\"total_count\":%" PRIu64, total_count);
-        fprintf(f, ",\"process_info\":[");
-
-        // TBD: fingerprint_data::print() output should be a JSON representation of object
-
-        for (size_t i=0; i < process_name.size(); i++) {
-            fprintf(f, "process: %s\tprob: %Le\n", process_name[i].c_str(), process_prob[i]);
-        }
-        fprintf(f, "as_number_updates:\n");
-        for (const auto &asn_and_updates : as_number_updates) {
-            fprintf(f, "\t%u:\n", asn_and_updates.first);
-            for (const auto &update : asn_and_updates.second) {
-                fprintf(f, "\t\t{ %u, %Le }\n", update.index, update.value);
-            }
-        }
-        //std::unordered_map<std::string, std::vector<class update>> hostname_domain_updates;
-        fprintf(f, "hostname_domain_updates:\n");
-        for (const auto &domain_and_updates : hostname_domain_updates) {
-            fprintf(f, "\t%s:\n", domain_and_updates.first.c_str());
-            for (const auto &update : domain_and_updates.second) {
-                fprintf(f, "\t\t{ %u, %Le }\n", update.index, update.value);
-            }
-        }
-        fprintf(f, "port_updates:\n");
-        for (const auto &port_and_updates : port_updates) {
-            fprintf(f, "\t%u:\n", port_and_updates.first);
-            for (const auto &update : port_and_updates.second) {
-                fprintf(f, "\t\t{ %u, %Le }\n", update.index, update.value);
-            }
-        }
-        fprintf(f, "]");
-    }
-#endif
+    ~fingerprint_data() {  }
 
     struct analysis_result perform_analysis(const char *server_name, const char *dst_ip, uint16_t dst_port,
                                             const char *user_agent, enum fingerprint_status status) {
@@ -1515,12 +800,6 @@ public:
                                    malware[index_max], malware_prob, attr_res);
         }
         return analysis_result(status, process_name[index_max].c_str(), max_score, os_info_data, os_info_size, attr_res);
-    }
-
-    void recompute_probabilities(floating_point_type new_as_weight, floating_point_type new_domain_weight,
-                                 floating_point_type new_port_weight, floating_point_type new_ip_weight,
-                                 floating_point_type new_sni_weight, floating_point_type new_ua_weight) {
-        classifier.recompute_probabilities(new_as_weight, new_domain_weight, new_port_weight, new_ip_weight, new_sni_weight, new_ua_weight);
     }
 
 };
@@ -1655,7 +934,7 @@ public:
     size_t get_tls_fingerprint_format() {
         return get_fingerprint_format("tls");
     }
- 
+
     size_t get_quic_fingerprint_format() {
         return get_fingerprint_format("quic");
     }
@@ -1775,7 +1054,7 @@ public:
         return(true);
     }
 
-    void process_fp_db_line(std::string &line_str, float fp_proc_threshold, float proc_dst_threshold, bool report_os) {
+    void process_fp_db_line(std::string &line_str, bool report_os) {
 
         rapidjson::Document fp;
         fp.Parse(line_str.c_str());
@@ -1848,224 +1127,8 @@ public:
             }
         }
 
-#ifdef USE_PROCESS_INFO
-        std::vector<class process_info> process_vector;
-#endif // USE_PROCESS_INFO
-
         if (fp.HasMember("process_info") && fp["process_info"].IsArray()) {
             //fprintf(stderr, "process_info[]\n");
-
-#ifdef USE_PROCESS_INFO
-            unsigned int process_number = 0;
-            for (auto &x : fp["process_info"].GetArray()) {
-                uint64_t count = 0;
-                bool malware = false;
-
-                if (x.HasMember("count") && x["count"].IsUint64()) {
-                    count = x["count"].GetUint64();
-                    //fprintf(stderr, "\tcount: %lu\n", x["count"].GetUint64());
-                }
-                if (x.HasMember("malware") && x["malware"].IsBool()) {
-                    if (MALWARE_DB == false && process_number > 1) {
-                        throw std::runtime_error("error: malware data expected, but not present");
-                    }
-                    MALWARE_DB = true;
-                    malware = x["malware"].GetBool();
-                }
-                if (count == 0) {
-                    throw std::runtime_error("error: process_fp_db_line() count 0");
-                    continue;
-                }
-                /* do not load process into memory if prevalence is below threshold */
-                if ((process_number > 1) && ((float)count/total_count < fp_proc_threshold) && (malware != true)) {
-                    continue;
-                }
-
-                process_number++;
-                //fprintf(stderr, "%s\n", "process_info");
-
-                attribute_result::bitset attributes;
-                std::unordered_map<uint32_t, uint64_t>    ip_as;
-                std::unordered_map<std::string, uint64_t> hostname_domains;
-                std::unordered_map<uint16_t, uint64_t>    dst_port;
-                std::unordered_map<std::string, uint64_t> ip_ip;
-                std::unordered_map<std::string, uint64_t> hostname_sni;
-                std::unordered_map<std::string, uint64_t> user_agent;
-                std::map<std::string, uint64_t> os_info;
-
-                std::string name;
-                if (x.HasMember("process") && x["process"].IsString()) {
-                    name = x["process"].GetString();
-                    //fprintf(stderr, "\tname: %s\n", x["process"].GetString());
-                }
-                if (x.HasMember("attributes") && x["attributes"].IsObject()) {
-                    for (auto &v : x["attributes"].GetObject()) {
-                        if (v.name.IsString()) {
-                            ssize_t idx = common.attr_name.get_index(v.name.GetString());
-                            if (idx < 0) {
-                                printf_err(log_warning, "unknown attribute %s while parsing process information\n", v.name.GetString());
-                                throw std::runtime_error("error while parsing resource archive file");
-                            }
-                            if (v.value.IsBool() and v.value.GetBool()) {
-                                attributes[idx] = 1;
-                            }
-                        }
-                    }
-                    common.attr_name.stop_accepting_new_names();
-
-                }
-                if (x.HasMember("classes_hostname_domains") && x["classes_hostname_domains"].IsObject()) {
-                    //fprintf(stderr, "\tclasses_hostname_domains\n");
-                    for (auto &y : x["classes_hostname_domains"].GetObject()) {
-                        if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
-                            //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
-
-                            // Once data pipeline is updated to normalize the domain names, the following code will be used:
-                            // hostname_domains[server_identifier{y.name.GetString()}] = y.value.GetUint64();
-                            //
-                            // and this code will be removed:
-                            std::string normalized = server_identifier{y.name.GetString()}.get_normalized_domain_name(server_identifier::detail::on);
-                            if (hostname_domains.find(normalized) != hostname_domains.end()) {
-                                // If two different domain names are normalized to the same domain name, then the counts are added.
-                                hostname_domains[normalized] += y.value.GetUint64();
-                            } else {
-                                hostname_domains[normalized] = y.value.GetUint64();
-                            }
-                        }
-                    }
-                }
-                if (x.HasMember("classes_ip_as") && x["classes_ip_as"].IsObject()) {
-                    //fprintf(stderr, "\tclasses_ip_as\n");
-                    for (auto &y : x["classes_ip_as"].GetObject()) {
-                        if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
-                            //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
-
-                            if (strcmp(y.name.GetString(), "unknown") != 0) {
-
-                                errno = 0;
-                                unsigned long as_number = strtol(y.name.GetString(), NULL, 10);
-                                if (errno) {
-                                    as_number = 0; // "unknown"
-                                    printf_err(log_warning, "unexpected string \"%s\" in ip_as\n", y.name.GetString());
-                                }
-                                if (as_number > 0xffffffff) {
-                                    throw std::runtime_error("error: as number too high");
-                                }
-                                ip_as[as_number] = y.value.GetUint64();
-
-                            }
-                        }
-                    }
-                }
-                if (x.HasMember("classes_port_port") && x["classes_port_port"].IsObject()) {
-                    //fprintf(stderr, "\tclasses_port_port\n");
-                    for (auto &y : x["classes_port_port"].GetObject()) {
-                        if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
-                            uint64_t tmp_port = 0;
-                            try {
-                                tmp_port = std::stoul(y.name.GetString());
-                            }
-                            catch (...) {
-                                printf_err(log_warning, "unexpected string \"%s\" in classes_port_port\n", y.name.GetString());
-                            }
-                            if (tmp_port > std::numeric_limits<uint16_t>::max()) {
-                                printf_err(log_warning, "number %" PRIu64 " too high in classes_port_port\n", tmp_port);
-                                tmp_port = 0;    // error: port numbers should 16-bit unsigned integers
-                            }
-                            dst_port[tmp_port] = y.value.GetUint64();
-                        }
-                    }
-                }
-                if (x.HasMember("classes_ip_ip") && x["classes_ip_ip"].IsObject()) {
-                    if (EXTENDED_FP_METADATA == false && process_number > 1) {
-                        throw std::runtime_error("error: extended fingerprint metadata expected, but not present");
-                    }
-                    EXTENDED_FP_METADATA = true;
-                    //fprintf(stderr, "\tclasses_ip_ip\n");
-                    for (auto &y : x["classes_ip_ip"].GetObject()) {
-                        if (!y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
-                            printf_err(log_warning, "classes_ip_ip object element %s is not a Uint64\n", y.name.GetString());
-                            //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
-                            ip_ip[y.name.GetString()] = y.value.GetUint64();
-                        }
-                    }
-                }
-                if (x.HasMember("classes_hostname_sni") && x["classes_hostname_sni"].IsObject()) {
-                    if (EXTENDED_FP_METADATA == false && process_number > 1) {
-                        throw std::runtime_error("error: extended fingerprint metadata expected, but not present");
-                    }
-                    EXTENDED_FP_METADATA = true;
-                    //fprintf(stderr, "\tclasses_hostname_sni\n");
-                    for (auto &y : x["classes_hostname_sni"].GetObject()) {
-                        if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
-                            //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
-
-                            // Once data pipeline is updated to normalize the domain names, the following code will be used:
-                            // hostname_sni[server_identifier{y.name.GetString()}] = y.value.GetUint64();
-                            //
-                            // and this code will be removed:
-                            std::string normalized = server_identifier{y.name.GetString()}.get_normalized_domain_name(server_identifier::detail::on);
-                            if (hostname_sni.find(normalized) != hostname_sni.end()) {
-                                // If two different domain names are normalized to the same domain name, then the counts are added.
-                                hostname_sni[normalized] += y.value.GetUint64();
-                            } else {
-                                hostname_sni[normalized] = y.value.GetUint64();
-                            }
-                        }
-                    }
-                }
-                if (x.HasMember("classes_user_agent") && x["classes_user_agent"].IsObject()) {
-                    if (EXTENDED_FP_METADATA == false && process_number > 1) {
-                        throw std::runtime_error("error: extended fingerprint metadata expected, but not present");
-                    }
-                    EXTENDED_FP_METADATA = true;
-                    for (auto &y : x["classes_user_agent"].GetObject()) {
-                        if (y.value.IsUint64() && ((float)y.value.GetUint64()/count > proc_dst_threshold)) {
-                            //fprintf(stderr, "\t\t%s: %lu\n", y.name.GetString(), y.value.GetUint64());
-                            user_agent[y.name.GetString()] = y.value.GetUint64();
-                        }
-                    }
-                }
-                if (report_os && x.HasMember("os_info") && x["os_info"].IsObject()) {
-                    for (auto &y : x["os_info"].GetObject()) {
-                        if (std::string(y.name.GetString()) != "") {
-                            os_info[y.name.GetString()] = y.value.GetUint64();
-                        }
-                    }
-                }
-
-                class process_info process(name, malware, count, attributes, ip_as, hostname_domains, dst_port,
-                                           ip_ip, hostname_sni, user_agent, os_info);
-                process_vector.push_back(process);
-            }
-#endif // USE_PROCESS_INFO
-
-            // //  EXPERIMENT: construct naive_bayes classifier directly from JSON
-            // //
-            // naive_bayes naive_bayes_expt(fp["process_info"],
-            //                              total_count,
-            //                              report_os,
-            //                              EXTENDED_FP_METADATA,
-            //                              fp_proc_threshold,
-            //                              proc_dst_threshold
-            //                              );
-
-            // EXPERIMENT: construct fingerprint_data from JSON
-            //
-            // fingerprint_data fp_data_expt(fp["process_info"],
-            //                               os_dictionary,
-            //                               &subnets,
-            //                               &common,
-            //                               MALWARE_DB,
-            //                               total_count,
-            //                               report_os,
-            //                               EXTENDED_FP_METADATA,
-            //                               fp_proc_threshold,
-            //                               proc_dst_threshold
-            //                               );
-            //
-            // fingerprint_data  *fp_data = new fingerprint_data(total_count, process_vector,
-            //                                                     os_dictionary, &subnets, &common, MALWARE_DB, weights);
 
             // determine if this FPDB contains malware data and
             // extended metadata
@@ -2087,15 +1150,8 @@ public:
                                                              &common,
                                                              MALWARE_DB,
                                                              total_count,
-                                                             report_os,
-                                                             EXTENDED_FP_METADATA,
-                                                             fp_proc_threshold,
-                                                             proc_dst_threshold
+                                                             report_os
                                                              );
-
-            // fprintf(stderr, "classifier equal:          %u\n", fp_data->classifier == naive_bayes_expt);         // TODO: remove
-            // fprintf(stderr, "fp_data->classifier equal: %u\n", fp_data->classifier == fp_data_expt.classifier);  // TODO: remove
-            // fprintf(stderr, "fp_data == fp_data_expt:   %u\n", *fp_data == fp_data_expt);                        // TODO: remove
 
             if (fp.HasMember("str_repr") && fp["str_repr"].IsString()) {
                 std::string fp_string = fp["str_repr"].GetString();
@@ -2198,7 +1254,7 @@ public:
                     if (threshold_set) {
                         printf_err(log_debug, "loading fingerprint_db_lite.json\n");
                         while (archive.getline(line_str)) {
-                            process_fp_db_line(line_str, 0.0, 0.0, report_os);
+                            process_fp_db_line(line_str, report_os);
                         }
                         got_fp_db = true;
                         print_fp_counts();
@@ -2211,7 +1267,7 @@ public:
                     else if (!threshold_set || lite_db || full_db) {
                         printf_err(log_debug, "loading fingerprint_db.json\n");
                         while (archive.getline(line_str)) {
-                            process_fp_db_line(line_str, 0.0, 0.0, report_os);
+                            process_fp_db_line(line_str, report_os);
                         }
                         print_fp_counts();
                     }
@@ -2338,7 +1394,7 @@ public:
                     c++;
                 }
                 randomized_str.append("randomized");
- 
+
                 const auto fpdb_entry_randomized = fpdb.find(randomized_str);
                 if (fpdb_entry_randomized == fpdb.end()) {
                     return analysis_result(fingerprint_status_randomized);  // TODO: does this actually happen?
@@ -2349,57 +1405,6 @@ public:
         }
         fingerprint_data *fp_data = fpdb_entry->second;
 
-        return fp_data->perform_analysis(server_name, dst_ip, dst_port, user_agent, fingerprint_status_labeled);
-    }
-
-    /*
-     * This function perform_analysis_with_weights accepts
-     * weights of features of weighed naive bayes classifier as input
-     * and performs analysis based on the updated weights.
-     * This function is mainly required for tuning the weights and is
-     * intended to be used during the training phase where the
-     * functionality is exposed using cython api and is not
-     * intended to be used in packet processing path. 
-     */
-    struct analysis_result perform_analysis_with_weights(const char *fp_str, const char *server_name, const char *dst_ip,
-                                            uint16_t dst_port, const char *user_agent, floating_point_type new_as_weight, floating_point_type new_domain_weight,
-                                 floating_point_type new_port_weight, floating_point_type new_ip_weight,
-                                 floating_point_type new_sni_weight, floating_point_type new_ua_weight) {
-
-        // fp_stats.observe(fp_str, server_name, dst_ip, dst_port); // TBD - decide where this call should go
-
-        const auto fpdb_entry = fpdb.find(fp_str);
-        if (fpdb_entry == fpdb.end()) {
-            if (fp_prevalence.contains(fp_str)) {
-                fp_prevalence.update(fp_str);
-                return analysis_result(fingerprint_status_unlabled);
-            } else {
-                fp_prevalence.update(fp_str);
-                /*
-                 * Resource file has info about randomized fingerprints in the format
-                 * protocol/format/randomized
-                 * Eg: tls/1/randomized
-                 */
-                std::string randomized_str;
-                const char *c = &fp_str[0];
-                while (*c != '\0' && *c != '(') {
-                    randomized_str.append(c, 1);
-                    c++;
-                }
-                randomized_str.append("randomized");
-
-                const auto fpdb_entry_randomized = fpdb.find(randomized_str);
-                if (fpdb_entry_randomized == fpdb.end()) {
-                    return analysis_result(fingerprint_status_randomized);  // TODO: does this actually happen?
-                }
-                fingerprint_data *fp_data = fpdb_entry_randomized->second;
-                fp_data->recompute_probabilities(new_as_weight, new_domain_weight, new_port_weight, new_ip_weight, new_sni_weight, new_ua_weight);
-                return fp_data->perform_analysis(server_name, dst_ip, dst_port, user_agent, fingerprint_status_randomized);
-            }
-        }
-        fingerprint_data *fp_data = fpdb_entry->second;
-
-        fp_data->recompute_probabilities(new_as_weight, new_domain_weight, new_port_weight, new_ip_weight, new_sni_weight, new_ua_weight);
         return fp_data->perform_analysis(server_name, dst_ip, dst_port, user_agent, fingerprint_status_labeled);
     }
 
