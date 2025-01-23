@@ -239,7 +239,6 @@ public:
     // apply a naive bayes feature update to prob_vector
     //
     void update(std::vector<floating_point_type> &prob_vector, const std::string &dst_ip_str) const {
-        fprintf(stderr, "applying update for %s\n", dst_ip_str.c_str());
         if (lookahead<ipv4_address_string> ipv4{datum{dst_ip_str}}) {
             auto ip_ip_update = ipv4_updates.find(ipv4.value.get_value());
             if (ip_ip_update != ipv4_updates.end()) {
@@ -558,7 +557,7 @@ public:
                         ; // silently ignore these schema elements
 
                     } else {
-                        printf_err(log_warning, "unknown member '%s' in json object\n", member_name.c_str());
+                        // printf_err(log_warning, "unknown member '%s' in json object\n", member_name.c_str());
                     }
 
                 }
