@@ -239,6 +239,7 @@ public:
     // apply a naive bayes feature update to prob_vector
     //
     void update(std::vector<floating_point_type> &prob_vector, const std::string &dst_ip_str) const {
+        fprintf(stderr, "applying update for %s\n", dst_ip_str.c_str());
         if (lookahead<ipv4_address_string> ipv4{datum{dst_ip_str}}) {
             auto ip_ip_update = ipv4_updates.find(ipv4.value.get_value());
             if (ip_ip_update != ipv4_updates.end()) {
@@ -453,7 +454,7 @@ class naive_bayes {
     domain_name_model domain_name;
 
     feature<uint16_t> dst_port_feature;
-    feature<std::string> dst_addr_feature;
+    ip_addr_feature dst_addr_feature;
     feature<uint32_t> asn_feature;
     feature<std::string> user_agent_feature;
 
