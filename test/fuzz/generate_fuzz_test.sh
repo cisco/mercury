@@ -51,6 +51,9 @@ if [[ "$openssl_new" -eq "true" ]]; then
     flags=" -DSSLNEW"
 fi;
 
+XSIMD_INCLUDE="-I${parent_path}/../../src/libmerc/xsimd/include"
+flags="$flags $XSIMD_INCLUDE"
+
 cd $LIBMERC_FOLDER
 
 # check results after running all the tests

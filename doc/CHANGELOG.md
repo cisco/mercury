@@ -1,4 +1,6 @@
 # CHANGELOG for Mercury
+* Added changes to leverage SIMD instructions to improve
+  performance. Added xsimd library as a git submodule
 
 * Removed some direct calls to `fprintf(stderr, ...)` from `libmerc.so`.
 

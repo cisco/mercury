@@ -17,7 +17,7 @@ LDFLAGS += -L/opt/homebrew/lib ${LDFLAGS}
 endif
 
 CFLAGS += -UNDEBUG
-
+CFLAGS += -march=native -I../src/libmerc/xsimd/include
 export LD_LIBRARY_PATH =../src/libmerc
 
 LIBMERC_FOLDER = ../src/libmerc/

@@ -8,6 +8,8 @@ ifeq ($(openssl_newer),yes)
 	FLAGS = -DSSLNEW
 endif
 
+FLAGS += -I../../src/libmerc/xsimd/include -O3
+
 ifeq ($(is_macos_arm),yes)
 CFLAGS = -I/opt/homebrew/include ${CLFAGS}
 CXXFLAGS = -I/opt/homebrew/include ${CXXFLAGS}
