@@ -210,6 +210,10 @@ struct datum {
     ///
     explicit datum(const char *str) : data{(uint8_t *)str}, data_end{data + strlen(str)} { }
 
+    /// construct a datum representing the `std::string` \param str
+    ///
+    explicit datum(const std::string &str) : data{(uint8_t *)str.c_str()}, data_end{data + str.length()} { }
+
     /// construct a datum by accepting \p length bytes from datum \p d
     ///
     /// \param d      the datum to accept bytes from

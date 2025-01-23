@@ -177,6 +177,90 @@ inline auto feature<uint64_t>::convert(const char *s) -> uint64_t {
 }
 
 
+/// represents an internet protocol address (IPv4 or IPv6)
+///
+class ip_addr_feature {
+    floating_point_type weight;
+    std::unordered_map<uint32_t, std::vector<class update>> ipv4_updates;
+    std::unordered_map<ipv6_array_t, std::vector<class update>> ipv6_updates;
+
+public:
+
+    ip_addr_feature(floating_point_type w=1.0) : weight{w} { };
+
+    void add_updates_from_object(rapidjson::Value::ConstMemberIterator itr,
+                                 size_t process_index,
+                                 size_t total_count
+                                 )
+    {
+
+        if (itr->value.IsObject() == false) {
+            throw std::runtime_error{"json error: expected object, got other type"};
+        }
+
+        for (auto &y : itr->value.GetObject()) {
+            if (y.value.IsUint64()) {
+                add_update(y.name.GetString(), process_index, y.value.GetUint64(), total_count);
+            } else {
+                throw std::runtime_error{"expected uint64, got other type"};
+            }
+        }
+
+    }
+
+    void add_update(const std::string &feature_value,
+                    size_t process_index,
+                    size_t count,
+                    size_t total_count
+                    )
+    {
+        floating_point_type base_prior = log(0.1 / total_count);
+        class update u{ process_index, (log((floating_point_type)count / total_count) - base_prior) * weight };
+
+        if (lookahead<ipv4_address_string> ipv4{datum{feature_value}}) {
+            uint32_t addr = ipv4.value.get_value();
+            auto update = ipv4_updates.find(addr);
+            if (update != ipv4_updates.end()) {
+                update->second.push_back(u);
+            } else {
+                ipv4_updates[addr] = { u };
+            }
+        } else if (lookahead<ipv6_address_string> ipv6{datum{feature_value}}) {
+            ipv6_array_t addr = ipv6.value.get_value_array();
+            auto update = ipv6_updates.find(addr);
+            if (update != ipv6_updates.end()) {
+                update->second.push_back(u);
+            } else {
+                ipv6_updates[addr] = { u };
+            }
+        }
+    }
+
+    // apply a naive bayes feature update to prob_vector
+    //
+    void update(std::vector<floating_point_type> &prob_vector, const std::string &dst_ip_str) const {
+        if (lookahead<ipv4_address_string> ipv4{datum{dst_ip_str}}) {
+            auto ip_ip_update = ipv4_updates.find(ipv4.value.get_value());
+            if (ip_ip_update != ipv4_updates.end()) {
+                for (const auto &x : ip_ip_update->second) {
+                    prob_vector[x.index] += x.value;
+                }
+            }
+        } else if (lookahead<ipv6_address_string> ipv6{datum{dst_ip_str}}) {
+            auto ip_ip_update = ipv6_updates.find(ipv6.value.get_value_array());
+            if (ip_ip_update != ipv6_updates.end()) {
+                for (const auto &x : ip_ip_update->second) {
+                    prob_vector[x.index] += x.value;
+                }
+            }
+        } else {
+            printf_err(log_err, "unknown type destination ip %s\n", dst_ip_str.c_str());
+        }
+    }
+
+};
+
+
 /// represents a model that assigns a probability update to a domain
 /// name (or a TLS or QUIC server name, or an HTTP host name)
 ///
