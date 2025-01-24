@@ -19,7 +19,7 @@ volatile sig_atomic_t sig_close_flag = 0; /* Watched by the threads while proces
  */
 void sig_close ([[maybe_unused]] int signal_arg) { }
 
-__attribute__((noreturn)) void sig_backtrace ([[maybe_unused]] int signal_arg) { }
+void sig_backtrace ([[maybe_unused]] int signal_arg) { }
 
 void sig_init_backtrace() { }
 
