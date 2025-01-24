@@ -38,8 +38,10 @@ include ../Makefile_helper.mk
 # MERC   =  mercury.c
 ifeq ($(have_tpkt3),yes)
 MERC   += af_packet_v3.c
+MERC   += signal_handling_linux.c
 else
 MERC   += capture.c
+MERC   += signal_handling_stub.c
 endif
 MERC   += config.c
 MERC   += json_file_io.c
@@ -48,7 +50,6 @@ MERCC  += pkt_processing.cc
 MERC   += pcap_file_io.c
 MERC   += pcap_reader.c
 MERC   += rnd_pkt_drop.c
-MERC   += signal_handling.c
 
 MERC_H =  mercury.h
 MERC_H += af_packet_v3.h
