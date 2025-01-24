@@ -11,6 +11,7 @@
 #include "tls_extensions.hpp"
 #include "tls.h"
 #include "dtls.h"
+#include "ssh.h"
 
 namespace crypto_policy {
 
@@ -41,6 +42,10 @@ namespace crypto_policy {
         }
 
         virtual bool assess(const dtls_server_hello &, json_object &) const {
+            return true;
+        }
+
+        virtual bool assess(const ssh_kex_init &, json_object &) const {
             return true;
         }
 
@@ -213,6 +218,59 @@ namespace crypto_policy {
             return true;
         }
 
+        /*
+        * SSH kex init paramaters - key exchange methods and encryption algorithms
+        */
+        static inline std::unordered_set<std::string> ssh_allowed_kex {
+            "sntrup761x25519-sha512",
+            "mlkem768nistp256-sha256",
+            "mlkem1024nistp384-sha384",
+            "mlkem768x25519-sha256"    
+        };
+
+        static inline std::unordered_set<std::string> ssh_allowed_ciphers {
+            "AEAD_AES_128_GCM",
+            "AEAD_AES_256_GCM"
+        };
+
+        bool assess_ssh_ciphers(const name_list &ciphers, json_object &a) const {
+            bool all_allowed = true;
+            bool some_allowed = false;
+            name_list tmp_list = ciphers;
+            while (tmp_list.is_readable()) {
+                datum tmp{};
+                tmp.parse_up_to_delim(tmp_list,',');
+                tmp_list.skip(1);    // skip ','
+                if (ssh_allowed_kex.find(std::string{(char*)tmp.data,(size_t)tmp.length()}) != ssh_allowed_ciphers.end()) {
+                    some_allowed = true;
+                } else {
+                    all_allowed = false;
+                }
+            }
+            const char *quantifier = "none";
+            if (all_allowed) {
+                quantifier = "all";
+            } else if (some_allowed) {
+                quantifier = "some";
+            }
+            a.print_key_string("ciphersuites_allowed", quantifier);
+            if (!all_allowed) {
+                json_array cs_array{a, "ciphersuites_not_allowed"}; 
+                name_list tmp_list = ciphers;
+                while (tmp_list.is_readable()) {
+                    datum tmp{};
+                    tmp.parse_up_to_delim(tmp_list,',');
+                    tmp_list.skip(1);    // skip ','
+                    if (ssh_allowed_kex.find(std::string{(char*)tmp.data,(size_t)tmp.length()}) != ssh_allowed_ciphers.end()) {
+                            cs_array.print_string(std::string{(char*)tmp.data,(size_t)tmp.length()}.c_str());
+                    }
+                }
+                cs_array.close();
+            }
+
+            return true;
+        }
+
         bool assess(const tls_client_hello &ch, json_object &o) const override {
 
             json_object a{o, "cryptographic_security_assessment"};
@@ -246,6 +304,21 @@ namespace crypto_policy {
             return false;
         };
 
+        bool assess(const ssh_kex_init &ssh_kex, json_object &o) const override {
+            json_object a{o, "cryptographic_security_assessment"};
+            a.print_key_string("policy", "quantum_safe");
+            json_object assessment{a, "unknown"};
+            json_object client_server{assessment, "client_to_server"};
+            assess_ssh_ciphers(ssh_kex.encryption_algorithms_client_to_server,o);
+            client_server.close();
+            json_object server_client{assessment,"server_to_client"};
+            assess_ssh_ciphers(ssh_kex.encryption_algorithms_server_to_client,o);
+            server_client.close();
+            assessment.close();
+            a.close();
+
+        }
+        
         bool assess(const dtls_client_hello &dtls_ch, json_object &o) const override {
 
             const tls_client_hello &ch = dtls_ch.get_tls_client_hello();
