@@ -91,6 +91,12 @@ CXXFLAGS += -I/opt/homebrew/include
 LDFLAGS += -L/opt/homebrew/lib
 endif
 
+# Uncomment to try to apply address sanitization everywhere (do not use in production)
+#ifeq ($(use_fsanitize),yes)
+#CFLAGS += -fsanitize=address
+#LDFLAGS += -fsanitize=address
+#endif
+
 all: compiler_version mercury libmerc_test cert_analyze libmerc_util intercept_server # tls_scanner batch_gcd
 
 # the version target just reports the c++ compiler version; we report
