@@ -180,11 +180,12 @@ inline auto feature<uint64_t>::convert(const char *s) -> uint64_t {
 /// represents an internet protocol address (IPv4 or IPv6)
 ///
 class ip_addr_feature {
-    floating_point_type weight;
     std::unordered_map<uint32_t, std::vector<class update>> ipv4_updates;
     std::unordered_map<ipv6_array_t, std::vector<class update>> ipv6_updates;
 
 public:
+
+    floating_point_type weight;
 
     ip_addr_feature(floating_point_type w=1.0) : weight{w} { };
 
@@ -265,13 +266,14 @@ public:
 /// name (or a TLS or QUIC server name, or an HTTP host name)
 ///
 class domain_name_model {
-    floating_point_type domain_weight = 1.0;
-    floating_point_type sni_weight = 1.0;
 
     std::unordered_map<std::string, std::vector<class update>> hostname_domain_updates;
     std::unordered_map<std::string, std::vector<class update>> hostname_sni_updates;
 
 public:
+
+    floating_point_type domain_weight = 1.0;
+    floating_point_type sni_weight = 1.0;
 
     domain_name_model(floating_point_type domain_wt=1.0,
                       floating_point_type sni_wt=1.0) :
@@ -434,24 +436,69 @@ public:
 };
 
 
+struct feature_weights {
+    floating_point_type as     = std::numeric_limits<floating_point_type>::quiet_NaN();
+    floating_point_type domain = std::numeric_limits<floating_point_type>::quiet_NaN();
+    floating_point_type port   = std::numeric_limits<floating_point_type>::quiet_NaN();
+    floating_point_type ip     = std::numeric_limits<floating_point_type>::quiet_NaN();
+    floating_point_type sni    = std::numeric_limits<floating_point_type>::quiet_NaN();
+    floating_point_type ua     = std::numeric_limits<floating_point_type>::quiet_NaN();
+
+    static constexpr size_t num_weights = 6;  // number of weights we expect to read
+
+    void read_from_object(rapidjson::Value &v) {
+
+        if (v.IsObject() == false) {
+            throw std::runtime_error{"json error: expected object, got other type"};
+        }
+        if (v.MemberCount() != num_weights) {
+            throw std::runtime_error{"json error: wrong number of elements in feature_weights"};
+        }
+
+        for (auto &w : v.GetObject()) {
+            if (!w.value.IsFloat()) {
+                throw std::runtime_error{"expected float, got other type"};
+            }
+            if (strcmp(w.name.GetString(), "as") == 0)          { as = w.value.GetFloat(); }
+            else if (strcmp(w.name.GetString(), "domain") == 0) { domain = w.value.GetFloat(); }
+            else if (strcmp(w.name.GetString(), "port") == 0)   { port = w.value.GetFloat(); }
+            else if (strcmp(w.name.GetString(), "ip") == 0)     { ip = w.value.GetFloat(); }
+            else if (strcmp(w.name.GetString(), "sni") == 0)    { sni = w.value.GetFloat(); }
+            else if (strcmp(w.name.GetString(), "ua") == 0)     { ua = w.value.GetFloat(); }
+            else {
+                printf_err(log_err, "unexpected feature weight \"%s\" \n", w.name.GetString());
+            }
+        }
+    }
+
+    bool is_initialized() const {
+        return !std::isnan(as)
+            || !std::isnan(domain)
+            || !std::isnan(port)
+            || !std::isnan(ip)
+            || !std::isnan(sni)
+            || !std::isnan(ua);
+    }
+
+};
+
+
 /// implements a (possibly weighted) naive bayes classifier
 ///
 class naive_bayes {
 
-    uint64_t total_count = 0;
-    floating_point_type base_prior = 0;   // TODO: this should not be a class member
+    static constexpr feature_weights default_weights {
+        0.13924, // as_weight
+        0.15590, // domain_weight
+        0.00528, // port_weight
+        0.56735, // ip_weight
+        0.96941, // sni_weight
+        1.0      // ua_weight
+    };
 
     std::vector<floating_point_type> prior_prob;  // vector of prior probabilities
 
-    floating_point_type as_weight     = 0.13924;
-    floating_point_type domain_weight = 0.15590;
-    floating_point_type port_weight   = 0.00528;
-    floating_point_type ip_weight     = 0.56735;
-    floating_point_type sni_weight    = 0.96941;
-    floating_point_type ua_weight     = 1.0;
-
     domain_name_model domain_name;
-
     feature<uint16_t> dst_port_feature;
     ip_addr_feature dst_addr_feature;
     feature<uint32_t> asn_feature;
@@ -459,39 +506,17 @@ class naive_bayes {
 
 public:
 
-    static constexpr uint8_t num_features = 6;
-    static constexpr static_dictionary<naive_bayes::num_features> features {
-        {
-            "as",
-            "domain",
-            "port",
-            "ip",
-            "sni",
-            "ua"
-        }
-    };
-
-    using feature_weights = std::array<floating_point_type, naive_bayes::num_features>;
-
-    static constexpr feature_weights default_feature_weights = {
-        0.13924,  // as_weight
-        0.15590,  // domain_weight
-        0.00528,  // port_weight
-        0.56735,  // ip_weight
-        0.96941,  // sni_weight
-        1.0       // ua_weight
-    };
-
     // constructs a naive_bayes classifier by reading a JSON array
     //
     naive_bayes(const rapidjson::Value &process_info,
-                size_t total_count
+                size_t total_count,
+                const feature_weights &w = default_weights
                 ) :
-        domain_name{domain_weight, sni_weight},
-        dst_port_feature{port_weight},
-        dst_addr_feature{ip_weight},
-        asn_feature{as_weight},
-        user_agent_feature{ua_weight}
+        domain_name{w.domain, w.sni},
+        dst_port_feature{w.port},
+        dst_addr_feature{w.ip},
+        asn_feature{w.as},
+        user_agent_feature{w.ua}
     {
 
         size_t index = 0;   // zero-based index of process in probability vector
@@ -499,7 +524,6 @@ public:
         if (total_count == 0) {
             printf_err(log_warning, "total_count==0 in naive_bayes\n");
         }
-        base_prior = log(0.1 / total_count);
 
         for (auto &x : process_info.GetArray()) {
 
@@ -569,14 +593,19 @@ public:
                     || got_domain_names == false
                     || got_snis == false) {
 
-                    std::string missing_members;
-                    if (got_dst_port_feature == false) { missing_members += "dst_port_feature "; }
-                    if (got_dst_addr_feature == false) { missing_members += "dst_addr_feature "; }
-                    if (got_asn_feature == false) { missing_members += "asn_feature "; }
-                    if (got_user_agent_feature == false) { missing_members += "user_agent_feature "; }
-                    if (got_domain_names == false) { missing_members += "domain_names "; }
-                    if (got_snis == false) { missing_members += "snis "; }
-                    throw std::runtime_error{"missing member(s) in json object: " + missing_members};
+                    // warn about missing members (but for now, don't throw an exception)
+                    //
+                    std::string missing_members{ "missing members in process_info[] object: "};
+                    if (got_dst_port_feature == false)   { missing_members += "classes_port_port "; }
+                    if (got_dst_addr_feature == false)   { missing_members += "classes_ip_ip "; }
+                    if (got_asn_feature == false)        { missing_members += "classes_ip_as "; }
+                    if (got_user_agent_feature == false) { missing_members += "classes_user_agent "; }
+                    if (got_domain_names == false)       { missing_members += "classes_hostname_domains "; }
+                    if (got_snis == false)               { missing_members += "classes_hostname_sni "; }
+                    printf_err(log_warning, "%s\n", missing_members.c_str());
+
+                    // throw std::runtime_error{missing_members};
+
                 }
 
             }
@@ -600,10 +629,12 @@ public:
     }
 
     void add_class(size_t count, size_t total_count) {
-            floating_point_type proc_prior = log(.1);
-            floating_point_type prob_process_given_fp = (floating_point_type)count / total_count;
-            floating_point_type score = log(prob_process_given_fp);
-            prior_prob.push_back(fmax(score, proc_prior) + base_prior * (as_weight + domain_weight + port_weight + ip_weight + sni_weight + ua_weight));
+        floating_point_type base_prior = log(0.1 / total_count);
+        floating_point_type proc_prior = log(.1);
+        floating_point_type prob_process_given_fp = (floating_point_type)count / total_count;
+        floating_point_type score = log(prob_process_given_fp);
+        prior_prob.push_back(fmax(score, proc_prior) + base_prior *
+                             (asn_feature.weight + domain_name.domain_weight + dst_port_feature.weight + dst_addr_feature.weight + domain_name.sni_weight + user_agent_feature.weight));
     }
 
     std::vector<floating_point_type> classify(uint32_t asn_int,
