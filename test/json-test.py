@@ -106,6 +106,15 @@ mercury_schema = {
                          'malware':   {'type': 'number'},
                          'p_malware': {'type': 'number'},
                          'status':    {'type': 'string'},
+                         'attributes': {'type': 'array',
+                                        'items': {
+                                            'type': 'object',
+                                            'properties': {
+                                                'name': { 'type': 'string'},
+                                                'probabilibity_score': { ' type': 'number' }
+                                            }
+                                        }
+                                    }
                      },
                      "additionalProperties": False
              },

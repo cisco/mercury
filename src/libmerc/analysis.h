@@ -73,6 +73,10 @@ struct common_data {
     watchlist doh_watchlist;
     ssize_t doh_idx = -1;
     ssize_t enc_channel_idx = -1;
+    ssize_t domain_faking_idx = -1;
+    ssize_t faketls_idx = -1;
+    bool doh_enabled = false;
+    bool domain_faking_enabled = false;
 };
 
 class fingerprint_data {
@@ -248,14 +252,7 @@ public:
             }
         }
 
-        // check encrypted dns watchlist
-        //
         attribute_result::bitset attr_tags = attr[index_max];
-        if (common->doh_watchlist.contains(server_name) || common->doh_watchlist.contains_addr(dst_ip)) {
-            attr_tags[common->doh_idx] = true;
-            attr_prob[common->doh_idx] = 1.0;
-        }
-
         attribute_result attr_res{attr_tags, convert_to_long_double_array(attr_prob), &common->attr_name.value(), common->attr_name.get_names_char()};
 
         // set os_info (to NULL if unavailable)
@@ -343,7 +340,7 @@ class classifier {
 
     ptr_dict os_dictionary;  // used to hold/compact OS CPE strings
 
-    subnet_data subnets;     // holds ASN/subnet information
+    subnet_data subnets;     // holds ASN/domain-faking/subnet information
 
     std::unordered_map<std::string, fingerprint_data *> fpdb;
     fingerprint_prevalence fp_prevalence{100000};
@@ -450,6 +447,25 @@ public:
             }
         }
         return { type, version };
+    }
+
+    // check for additional classifier agnostic attributes like encrypted dns and domain-faking
+    //
+    void check_additional_attributes(analysis_context &analysis) {
+        if (analysis.fp.get_type() != fingerprint_type_tls && analysis.fp.get_type() != fingerprint_type_quic) {
+            return;
+        }
+
+        const char* server_name = analysis.destination.sn_str;
+        const char* dst_ip = analysis.destination.dst_ip_str;
+
+        if (common.doh_enabled && ((common.doh_watchlist.contains(server_name) || common.doh_watchlist.contains_addr(dst_ip)))) {
+            analysis.result.attr.set_attr(common.doh_idx, 1.0);
+        }
+
+        if (common.domain_faking_enabled && subnets.is_domain_faking(server_name, dst_ip)) {
+            analysis.result.attr.set_attr(common.domain_faking_idx, 1.0);
+        }
     }
 
     void process_watchlist_line(std::string &line_str) {
@@ -628,8 +644,8 @@ public:
         return (version_str.find("full") != std::string::npos);
     }
 
-    size_t fetch_qualifier_count (std::string version_str) const {
-        return std::count(version_str.begin(),version_str.end(),';');
+    const common_data &get_common_data() const {
+        return common;
     }
 
     classifier(class encrypted_compressed_archive &archive,
@@ -645,6 +661,14 @@ public:
         //
         common.enc_channel_idx = common.attr_name.get_index("encrypted_channel");
 
+        // reserve attribute for domain_faking
+        //
+        common.domain_faking_idx = common.attr_name.get_index("domain_faking");
+
+        // reserve attribute for faketls
+        //
+        common.faketls_idx = common.attr_name.get_index("faketls");
+
         // by default, we expect that tls fingerprints will be present in the resource file
         //
         fp_types.push_back(fingerprint_type_tls);
@@ -654,6 +678,8 @@ public:
         bool got_fp_db = false;
         bool got_version = false;
         bool got_doh_watchlist = false;
+        bool got_pyasn_db = false;
+        bool got_domain_faking_subnets = false;
         bool dual_db = false;   // archive has both fingerprint_db_normal and fingerprint_db_lite
         bool lite_db = false;   // archive has fingerprint_db_lite named as fingerprint_db.json
         bool full_db = false;   // archive has fingerprint_db_full.json named as fingerprint_db.json
@@ -711,16 +737,23 @@ public:
                     while (archive.getline(line_str)) {
                         subnets.process_line(line_str);
                     }
-                    got_version = true;
-
+                    got_pyasn_db = true;
                 } else if (name == "doh-watchlist.txt") {
                     while (archive.getline(line_str)) {
                         common.doh_watchlist.process_line(line_str);
                     }
                     got_doh_watchlist = true;
+                } else if (name == "domain-mappings.db") {
+                    // subnet_map stores the index of subnets in subnet array. This can be used to track subnets mapped to multiple domains
+                    //
+                    std::unordered_map<uint32_t, ssize_t> subnet_map;
+                    while (archive.getline(line_str)) {
+                        subnets.process_domain_mappings_line(line_str, subnet_map);
+                    }
+                    got_domain_faking_subnets = true;
                 }
             }
-            if (got_fp_db && got_fp_prevalence && got_version && got_doh_watchlist) {   // TODO: Do we want to require a VERSION file?
+            if (got_fp_db && got_fp_prevalence && got_version && got_pyasn_db && got_doh_watchlist && got_domain_faking_subnets) {
                 break; // got all data, we're done here
             }
             entry = archive.get_next_entry();
@@ -733,18 +766,34 @@ public:
             printf_err(log_debug, "time taken to load resource archive: %.2f seconds\n", load_elapsed_seconds);
         }
 
-        subnets.process_final();
-
-        // verify that we found each of the required input files in
-        // the resourece archive, and throw an error otherwise
+        // verify that we found the required core input files in
+        // the resourece archive, and disable analysis otherwise
         //
-        if (!got_fp_db | !got_fp_prevalence | !got_version | !got_doh_watchlist) {
-            throw std::runtime_error("resource archive is missing one or more files");
+
+        if (!got_fp_db | !got_fp_prevalence | !got_version | !got_pyasn_db) {
+            printf_err(log_debug, "resource archive missing one or more files, disabling classifier\n");
+            disabled = true;
         }
 
-        if (fetch_qualifier_count(resource_version) != num_qualifiers) {
-            disabled = true;
-            printf_err(log_debug,"resource qualifier count does not match, disabling classifier\n");
+        // process asn and domain-faking subnets, and enable the corresponding detections
+        //
+        if (got_pyasn_db && !disabled) {
+            subnets.process_final();
+        }
+        
+        if (got_domain_faking_subnets) {
+            subnets.process_domain_mappings_final();
+            common.domain_faking_enabled = true;
+        }
+        else {
+            printf_err(log_debug, "Domain mappings not found in resource archive, disabling Domain-Faking detection\n");
+        }
+        
+        if (got_doh_watchlist) {
+            common.doh_enabled = true;
+        }
+        else {
+            printf_err(log_debug, "Encrypted-DNS watchlist not found in resource archive, disabling Encrypted-DNS detection\n");
         }
 
     }
