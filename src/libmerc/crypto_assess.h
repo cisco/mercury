@@ -362,7 +362,7 @@ namespace crypto_policy {
             json_object a{o, "cryptographic_security_assessment"};
             a.print_key_string("policy", "quantum_safe");
             json_object assessment{a, "unknown"};
-            assess_ssh_kex_methods(ssh_kex.kex_algorithms,0);
+            assess_ssh_kex_methods(ssh_kex.kex_algorithms,o);
             json_object client_server{assessment, "client_to_server"};
             assess_ssh_ciphers(ssh_kex.encryption_algorithms_client_to_server,o);
             client_server.close();
