@@ -240,6 +240,10 @@ namespace crypto_policy {
             while (tmp_list.is_readable()) {
                 datum tmp{};
                 tmp.parse_up_to_delim(tmp_list,',');
+                if (tmp.end == tmp_list.end) {
+                    // end of list
+                    tmp_list.set_null();
+                }
                 tmp_list.skip(1);    // skip ','
                 if (ssh_allowed_kex.find(std::string{(char*)tmp.data,(size_t)tmp.length()}) != ssh_allowed_ciphers.end()) {
                     some_allowed = true;
@@ -260,9 +264,13 @@ namespace crypto_policy {
                 while (tmp_list.is_readable()) {
                     datum tmp{};
                     tmp.parse_up_to_delim(tmp_list,',');
+                    if (tmp.end == tmp_list.end) {
+                       // end of list
+                        tmp_list.set_null();
+                    }
                     tmp_list.skip(1);    // skip ','
-                    if (ssh_allowed_kex.find(std::string{(char*)tmp.data,(size_t)tmp.length()}) != ssh_allowed_ciphers.end()) {
-                            cs_array.print_string(std::string{(char*)tmp.data,(size_t)tmp.length()}.c_str());
+                    if (ssh_allowed_kex.find(std::string{(char*)tmp.data,(size_t)tmp.length()}) == ssh_allowed_ciphers.end()) {
+                        cs_array.print_string(std::string{(char*)tmp.data,(size_t)tmp.length()}.c_str());
                     }
                 }
                 cs_array.close();
@@ -316,7 +324,7 @@ namespace crypto_policy {
             server_client.close();
             assessment.close();
             a.close();
-
+            return true;
         }
         
         bool assess(const dtls_client_hello &dtls_ch, json_object &o) const override {
