@@ -240,7 +240,7 @@ namespace crypto_policy {
             while (tmp_list.is_readable()) {
                 datum tmp{};
                 tmp.parse_up_to_delim(tmp_list,',');
-                if (tmp.end == tmp_list.end) {
+                if (tmp.end() == tmp_list.end()) {
                     // end of list
                     tmp_list.set_null();
                 }
@@ -264,7 +264,7 @@ namespace crypto_policy {
                 while (tmp_list.is_readable()) {
                     datum tmp{};
                     tmp.parse_up_to_delim(tmp_list,',');
-                    if (tmp.end == tmp_list.end) {
+                    if (tmp.end() == tmp_list.end()) {
                        // end of list
                         tmp_list.set_null();
                     }
