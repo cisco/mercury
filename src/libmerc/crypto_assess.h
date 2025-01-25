@@ -233,6 +233,52 @@ namespace crypto_policy {
             "AEAD_AES_256_GCM"
         };
 
+        bool assess_ssh_kex_methods(const name_list &kex_list, json_object &a) const {
+            bool all_allowed = true;
+            bool some_allowed = false;
+            name_list tmp_list = kex_list;
+            while (tmp_list.is_readable()) {
+                datum tmp{};
+                tmp.parse_up_to_delim(tmp_list,',');
+                if (tmp.end() == tmp_list.end()) {
+                    // end of list
+                    tmp_list.set_null();
+                }
+                tmp_list.skip(1);    // skip ','
+                if (ssh_allowed_kex.find(std::string{(char*)tmp.data,(size_t)tmp.length()}) != ssh_allowed_kex.end()) {
+                    some_allowed = true;
+                } else {
+                    all_allowed = false;
+                }
+            }
+            const char *quantifier = "none";
+            if (all_allowed) {
+                quantifier = "all";
+            } else if (some_allowed) {
+                quantifier = "some";
+            }
+            a.print_key_string("kex_allowed", quantifier);
+            if (!all_allowed) {
+                json_array cs_array{a, "kex_not_allowed"}; 
+                name_list tmp_list = kex_list;
+                while (tmp_list.is_readable()) {
+                    datum tmp{};
+                    tmp.parse_up_to_delim(tmp_list,',');
+                    if (tmp.end() == tmp_list.end()) {
+                       // end of list
+                        tmp_list.set_null();
+                    }
+                    tmp_list.skip(1);    // skip ','
+                    if (ssh_allowed_kex.find(std::string{(char*)tmp.data,(size_t)tmp.length()}) == ssh_allowed_kex.end()) {
+                        cs_array.print_string(std::string{(char*)tmp.data,(size_t)tmp.length()}.c_str());
+                    }
+                }
+                cs_array.close();
+            }
+
+            return true;
+        }
+
         bool assess_ssh_ciphers(const name_list &ciphers, json_object &a) const {
             bool all_allowed = true;
             bool some_allowed = false;
@@ -245,7 +291,7 @@ namespace crypto_policy {
                     tmp_list.set_null();
                 }
                 tmp_list.skip(1);    // skip ','
-                if (ssh_allowed_kex.find(std::string{(char*)tmp.data,(size_t)tmp.length()}) != ssh_allowed_ciphers.end()) {
+                if (ssh_allowed_ciphers.find(std::string{(char*)tmp.data,(size_t)tmp.length()}) != ssh_allowed_ciphers.end()) {
                     some_allowed = true;
                 } else {
                     all_allowed = false;
@@ -269,7 +315,7 @@ namespace crypto_policy {
                         tmp_list.set_null();
                     }
                     tmp_list.skip(1);    // skip ','
-                    if (ssh_allowed_kex.find(std::string{(char*)tmp.data,(size_t)tmp.length()}) == ssh_allowed_ciphers.end()) {
+                    if (ssh_allowed_ciphers.find(std::string{(char*)tmp.data,(size_t)tmp.length()}) == ssh_allowed_ciphers.end()) {
                         cs_array.print_string(std::string{(char*)tmp.data,(size_t)tmp.length()}.c_str());
                     }
                 }
@@ -316,6 +362,7 @@ namespace crypto_policy {
             json_object a{o, "cryptographic_security_assessment"};
             a.print_key_string("policy", "quantum_safe");
             json_object assessment{a, "unknown"};
+            assess_ssh_kex_methods(ssh.kex_algorithms,0);
             json_object client_server{assessment, "client_to_server"};
             assess_ssh_ciphers(ssh_kex.encryption_algorithms_client_to_server,o);
             client_server.close();
