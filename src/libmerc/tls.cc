@@ -903,7 +903,7 @@ void tls_client_hello::write_raw_features(writeable &buf) const {
     extensions.write_raw_features(buf);
     buf.copy(']');
 }
-    
+
 
 void tls_client_hello::write_json(struct json_object &record, bool output_metadata) const {
     if (ciphersuite_vector.is_not_readable()) {
@@ -1004,7 +1004,93 @@ bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_context
 
     analysis_.destination.init(sn, ua, alpn, k_);
 
+    check_residential_proxy(k_);
+
     return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+}
+
+bool tls_client_hello::check_residential_proxy(const struct key &k_) {
+    printf("entering tls_client_hello::check_residential_proxy\n");
+    /* static member variables */
+    static const uint16_t max_nonce_entries = 1000;
+    static std::shared_mutex res_proxy_mutex;
+    static std::list<std::string> current_nonces;
+    static std::unordered_map<std::string, char*> nonce_ip_map;
+
+    if (k_.ip_vers != 4) {
+        return false; /* only support ipv4 for now */
+    }
+
+    /* determine if IP addresses are internal/external */
+    bool is_src_ip_internal = false;
+    bool is_dst_ip_internal = false;
+    if (((uint32_t)k_.addr.ipv4.src & 0x000000ff) == 0x0000000a) {
+        is_src_ip_internal = true;
+    } else if (((uint32_t)k_.addr.ipv4.src & 0x0000f0ff) == 0x000010ac) {
+        is_src_ip_internal = true;
+    } else if (((uint32_t)k_.addr.ipv4.src & 0x0000ffff) == 0x0000a8c0) {
+        is_src_ip_internal = true;
+    }
+    if (((uint32_t)k_.addr.ipv4.dst & 0x000000ff) == 0x0000000a) {
+        is_dst_ip_internal = true;
+    } else if (((uint32_t)k_.addr.ipv4.dst & 0x0000f0ff) == 0x000010ac) {
+        is_dst_ip_internal = true;
+    } else if (((uint32_t)k_.addr.ipv4.dst & 0x0000ffff) == 0x0000a8c0) {
+        is_dst_ip_internal = true;
+    }
+
+    std::string random_nonce = random.get_string();
+
+    char src_ip_str[40];
+    char dst_ip_str[40];
+    uint8_t *d = (uint8_t *)&k_.addr.ipv4.dst;
+    snprintf(dst_ip_str, 40, "%u.%u.%u.%u", d[0], d[1], d[2], d[3]);
+    uint8_t *s = (uint8_t *)&k_.addr.ipv4.src;
+    snprintf(src_ip_str, 40, "%u.%u.%u.%u", s[0], s[1], s[2], s[3]);
+/*
+    printf("src_ip: %s, src_ip (hex): %08x ASN info: %d\n", src_ip_str, (uint32_t)k_.addr.ipv4.src, is_src_ip_internal);
+    printf("dst_ip: %s, dst_ip (hex): %08x ASN info: %d\n", dst_ip_str, (uint32_t)k_.addr.ipv4.dst, is_dst_ip_internal);
+*/
+
+    std::unique_lock lock(res_proxy_mutex, std::try_to_lock);
+    if (!lock.owns_lock()) {
+        return false; /* maybe wait instead? */
+    }
+
+    /*
+     * check if src_ip is external and dst_ip is internal,
+     *   and if so, start tracking random nonce
+     */
+    if ((is_src_ip_internal == false) && (is_dst_ip_internal == true)) {
+        if (nonce_ip_map.find(random_nonce) != nonce_ip_map.end()) { /* nonce collision */
+            return false;
+        }
+        if (current_nonces.size() == max_nonce_entries) { /* cache is full, delete oldest entry */
+            nonce_ip_map.erase(current_nonces.back());
+            current_nonces.pop_back();
+        }
+        current_nonces.push_front(random_nonce);
+        nonce_ip_map[random_nonce] = dst_ip_str;
+
+        return false;
+    }
+
+    /*
+     * check if we have seen the random nonce before,
+     *   and if so, check if the src_ip is internal and
+     *   the dst_ip is external
+     */
+    if ((is_src_ip_internal == true) && (is_dst_ip_internal == false)) {
+        if (nonce_ip_map.find(random_nonce) == nonce_ip_map.end()) { /* nonce not found */
+            return false;
+        }
+        if (nonce_ip_map[random_nonce] == src_ip_str) {
+            return true;
+        }
+        return false;
+    }
+
+    return false;
 }
 
 void tls_server_hello::parse(struct datum &p) {
