@@ -73,7 +73,7 @@ class fingerprint_data {
     std::vector<std::string> process_name;
     std::vector<std::vector<struct os_information>> process_os_info_vector;
 
-    naive_bayes classifier;
+    naive_bayes_tls_quic_http classifier;
 
     bool malware_db = true;
 

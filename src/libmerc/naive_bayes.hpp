@@ -40,14 +40,18 @@ public:
 
 };
 
+/// implements a categorical feature of type `T`
+///
 template <typename T>
 class feature {
+
 public:
 
+    std::string json_name;
     std::unordered_map<T, std::vector<class update>> updates;
     floating_point_type weight;
 
-    feature(floating_point_type w=1.0) : updates{}, weight{w} { }
+    feature(const std::string &name, floating_point_type w=1.0) : json_name{name}, updates{}, weight{w} { }
 
     // construct a naive bayes feature of type T
     //
@@ -64,6 +68,19 @@ public:
         }
     }
 
+    void add_updates_from_object_by_name(const rapidjson::Value &object,
+                                         size_t process_index,
+                                         size_t total_count,
+                                         bool optional=false)
+    {
+        rapidjson::Value::ConstMemberIterator itr = object.FindMember(json_name.c_str());
+        if (itr != object.MemberEnd()) {
+            add_updates_from_object(itr, process_index, total_count);
+        } else {
+            if (!optional) { throw std::runtime_error{"could not find json member " + json_name}; }
+        }
+    }
+
     void add_updates_from_object(rapidjson::Value::ConstMemberIterator itr,
                                  size_t process_index,
                                  size_t total_count
@@ -76,6 +93,7 @@ public:
 
         for (auto &y : itr->value.GetObject()) {
             if (y.value.IsUint64()) {
+                // fprintf(stderr, "%s: %s\t%s\t%zu\n", itr->name.GetString(),  __func__, y.name.GetString(), y.value.GetUint64());
                 if (strcmp(itr->name.GetString(), "classes_ip_as") == 0 && strcmp(y.name.GetString(), "unknown") == 0) {
                     //
                     //  map "unknown" values in classes_ip_as to zero
@@ -123,6 +141,32 @@ public:
                 prob_vector[x.index] += x.value;
             }
         }
+    }
+
+    void fprint(FILE *f, const char *name) const {
+        for (const auto & [ key, updates ] : updates) {
+            fprintf(f, "%s: %u: ", name, key);
+            for (const auto & u : updates) {
+                fprintf(f, "{%u,%Le}", u.index, u.value);
+            }
+            fprintf(f, "\n");
+        }
+    }
+
+    void fprint_json(FILE *f) const {
+        fprintf(f, "{\"feature_map\":{\"name\":\"%s\",\"map\":[", json_name.c_str());
+        char acomma = ' ';
+        for (const auto & [ key, updates ] : updates) {
+            fprintf(f, "%c{\"feature\":\"%u\",\"updates\":[", acomma, key);
+            char ucomma = ' ';
+            for (const auto & u : updates) {
+                fprintf(f, "%c{\"index\":%u,\"value\":%Le}", ucomma, u.index, u.value);
+                ucomma = ',';
+            }
+            fprintf(f, "]}");
+            acomma = ',';
+        }
+        fprintf(f, "]}}\n");
     }
 
 };
@@ -184,10 +228,23 @@ class ip_addr_feature {
     std::unordered_map<ipv6_array_t, std::vector<class update>> ipv6_updates;
 
 public:
+    std::string json_name;
 
     floating_point_type weight;
 
-    ip_addr_feature(floating_point_type w=1.0) : weight{w} { };
+    ip_addr_feature(const std::string &name, floating_point_type w=1.0) : json_name{name}, weight{w} { };
+
+    void add_updates_from_object_by_name(const rapidjson::Value &object,
+                                         size_t process_index,
+                                         size_t total_count)
+    {
+        rapidjson::Value::ConstMemberIterator itr = object.FindMember(json_name.c_str());
+        if (itr != object.MemberEnd()) {
+            add_updates_from_object(itr, process_index, total_count);
+        } else {
+            throw std::runtime_error{"could not find json member " + json_name};
+        }
+    }
 
     void add_updates_from_object(rapidjson::Value::ConstMemberIterator itr,
                                  size_t process_index,
@@ -272,25 +329,58 @@ class domain_name_model {
 
 public:
 
+    std::string domain_names;
+    std::string sni_names;
+    bool got_feature = false;
     floating_point_type domain_weight = 1.0;
     floating_point_type sni_weight = 1.0;
 
-    domain_name_model(floating_point_type domain_wt=1.0,
+    domain_name_model(const std::string &domain,
+                      const std::string &sni,
+                      floating_point_type domain_wt=1.0,
                       floating_point_type sni_wt=1.0) :
+        domain_names{domain},
+        sni_names{sni},
         domain_weight{domain_wt},
         sni_weight{sni_wt}
     { }
+
+    void add_updates_from_object_by_name(const rapidjson::Value &object,
+                                         size_t process_index,
+                                         size_t total_count)
+    {
+        rapidjson::Value::ConstMemberIterator itr = object.FindMember(sni_names.c_str());
+        if (itr != object.MemberEnd()) {
+            add_snis_from_json_object(itr, process_index, total_count);
+        } else {
+            throw std::runtime_error{"could not find json member " + sni_names};
+        }
+        itr = object.FindMember(domain_names.c_str());
+        if (itr != object.MemberEnd()) {
+            add_domain_names_from_json_object(itr, process_index, total_count);
+        } else {
+            throw std::runtime_error{"could not find json member " + domain_names};
+        }
+    }
 
     void add_snis_from_json_object(rapidjson::Value::ConstMemberIterator itr,
                                    size_t process_index,
                                    size_t total_count
                                    )
     {
+
         if (itr->value.IsObject()) {
             for (auto &y : itr->value.GetObject()) {
                 if (y.value.IsUint64()) {
                     std::string normalized = server_identifier{y.name.GetString()}.get_normalized_domain_name(server_identifier::detail::on);
                     add_sni_update(process_index, normalized, y.value.GetUint64(), total_count, sni_weight);
+
+                    //
+                    // EXPERIMENTAL: create domain name updates from sni data
+                    //
+                    // std::string domain = get_tld_domain_name(y.name.GetString());
+                    // std::string normalized_domain = server_identifier{domain.c_str()}.get_normalized_domain_name(server_identifier::detail::on);
+                    // add_domain_update(process_index, normalized_domain, y.value.GetUint64(), total_count, domain_weight);
                 }
             }
         }
@@ -301,6 +391,8 @@ public:
                                            size_t total_count
                                            )
     {
+        // fprintf(stderr, "%s: %s\n", __func__, itr->name.GetString());  // TODO: DELETEME
+
         if (itr->value.IsObject()) {
             for (auto &y : itr->value.GetObject()) {
                 if (y.value.IsUint64()) {
@@ -480,12 +572,55 @@ struct feature_weights {
             || !std::isnan(ua);
     }
 
+    /// returns the sum of the weights
+    ///
+    floating_point_type sum() const {
+        return as + domain + port + ip + sni + ua;
+    }
+
+};
+
+
+/// base class for naive bayes classifiers
+///
+class naive_bayes {
+
+    std::vector<floating_point_type> prior_prob;  // vector of prior probabilities
+
+public:
+
+    std::vector<floating_point_type> get_prior_prob() const { return prior_prob; }
+
+    void add_class(size_t count, size_t total_count, floating_point_type weight_sum=1.0) {
+        floating_point_type base_prior = log(0.1 / total_count);
+        floating_point_type proc_prior = log(.1);
+        floating_point_type prob_process_given_fp = (floating_point_type)count / total_count;
+        floating_point_type score = log(prob_process_given_fp);
+        prior_prob.push_back(fmax(score, proc_prior) + base_prior * weight_sum);
+    }
+
+    void add_class_from_count(const rapidjson::Value &object,
+                              size_t total_count,
+                              floating_point_type weight_sum=1.0)
+    {
+        uint64_t count = 0;
+        if (object.HasMember("count") && object["count"].IsUint64()) {
+            count = object["count"].GetUint64();
+        } else {
+            throw std::runtime_error{"could not find json member count"};
+        }
+        if (count == 0) {
+            throw std::runtime_error("error: count==0 in naive_bayes");
+        }
+        add_class(count, total_count, weight_sum);
+    }
+
 };
 
 
 /// implements a (possibly weighted) naive bayes classifier
 ///
-class naive_bayes {
+class naive_bayes_tls_quic_http : public naive_bayes {
 
     static constexpr feature_weights default_weights {
         0.13924, // as_weight
@@ -496,8 +631,6 @@ class naive_bayes {
         1.0      // ua_weight
     };
 
-    std::vector<floating_point_type> prior_prob;  // vector of prior probabilities
-
     domain_name_model domain_name;
     feature<uint16_t> dst_port_feature;
     ip_addr_feature dst_addr_feature;
@@ -506,135 +639,44 @@ class naive_bayes {
 
 public:
 
-    // constructs a naive_bayes classifier by reading a JSON array
-    //
-    naive_bayes(const rapidjson::Value &process_info,
-                size_t total_count,
-                const feature_weights &w = default_weights
-                ) :
-        domain_name{w.domain, w.sni},
-        dst_port_feature{w.port},
-        dst_addr_feature{w.ip},
-        asn_feature{w.as},
-        user_agent_feature{w.ua}
+    /// constructs a naive_bayes classifier by reading a JSON array
+    ///
+    naive_bayes_tls_quic_http(const rapidjson::Value &process_info,
+                              size_t total_count,
+                              const feature_weights &w = default_weights
+                              ) :
+        domain_name{"classes_hostname_domains","classes_hostname_sni",w.domain, w.sni},
+        dst_port_feature{"classes_port_port", w.port},
+        dst_addr_feature{"classes_ip_ip", w.ip},
+        asn_feature{"classes_ip_as", w.as},
+        user_agent_feature{"classes_user_agent", w.ua}
     {
 
         size_t index = 0;   // zero-based index of process in probability vector
 
         if (total_count == 0) {
-            printf_err(log_warning, "total_count==0 in naive_bayes\n");
+                throw std::runtime_error("error: total_count==0 in naive_bayes");
         }
 
         for (auto &x : process_info.GetArray()) {
 
-            // track which object members appear
-            //
-            bool got_dst_port_feature = false,
-                got_dst_addr_feature = false,
-                got_asn_feature = false,
-                got_user_agent_feature = false,
-                got_domain_names = false,
-                got_snis = false;
-
             if (x.IsObject()) {
 
-                // loop over the members of the object, processing
-                // each according to its name
-                //
-                for (rapidjson::Value::ConstMemberIterator itr = x.MemberBegin(); itr != x.MemberEnd(); ++itr) {
+                domain_name.add_updates_from_object_by_name(x, index, total_count);
+                dst_port_feature.add_updates_from_object_by_name(x, index, total_count);
+                asn_feature.add_updates_from_object_by_name(x, index, total_count);
+                user_agent_feature.add_updates_from_object_by_name(x, index, total_count, true);
+                dst_addr_feature.add_updates_from_object_by_name(x, index, total_count);
 
-                    const std::string & member_name = itr->name.GetString();
-                    if (member_name == "classes_port_port") {
-                        dst_port_feature.add_updates_from_object(itr, index, total_count);
-                        got_dst_port_feature = true;
-
-                    } else if (member_name == "classes_hostname_domains") {
-                        domain_name.add_domain_names_from_json_object(itr, index, total_count);
-                        got_domain_names = true;
-
-                    } else if (member_name == "classes_hostname_sni") {
-                        domain_name.add_snis_from_json_object(itr, index, total_count);
-                        got_snis = true;
-
-                    } else if (member_name == "classes_ip_as") {
-                        asn_feature.add_updates_from_object(itr, index, total_count);
-                        got_asn_feature = true;
-
-                    } else if (member_name == "classes_user_agent") {
-                        user_agent_feature.add_updates_from_object(itr, index, total_count);
-                        got_user_agent_feature = true;
-
-                    } else if (member_name == "classes_ip_ip") {
-                        dst_addr_feature.add_updates_from_object(itr, index, total_count);
-                        got_dst_addr_feature = true;
-
-                    } else if (member_name == "process"
-                               || member_name == "count"
-                               || member_name == "sha256"
-                               || member_name == "attributes"
-                               || member_name == "os_info"
-                               || member_name == "malware"
-                               || member_name == "classes_port_applications"
-                               || member_name == "classes_hostname_tld"
-                               ) {
-
-                        ; // silently ignore these schema elements
-
-                    } else {
-                        // printf_err(log_warning, "unknown member '%s' in json object\n", member_name.c_str());
-                    }
-
-                }
-
-                if (got_dst_port_feature == false
-                    || got_dst_addr_feature == false
-                    || got_asn_feature == false
-                    // || got_user_agent_feature == false  // NOTE: some protocols don't have this feature
-                    || got_domain_names == false
-                    || got_snis == false) {
-
-                    // warn about missing members (but for now, don't throw an exception)
-                    //
-                    std::string missing_members{ "missing members in process_info[] object: "};
-                    if (got_dst_port_feature == false)   { missing_members += "classes_port_port "; }
-                    if (got_dst_addr_feature == false)   { missing_members += "classes_ip_ip "; }
-                    if (got_asn_feature == false)        { missing_members += "classes_ip_as "; }
-                    if (got_user_agent_feature == false) { missing_members += "classes_user_agent "; }
-                    if (got_domain_names == false)       { missing_members += "classes_hostname_domains "; }
-                    if (got_snis == false)               { missing_members += "classes_hostname_sni "; }
-                    printf_err(log_warning, "%s\n", missing_members.c_str());
-
-                    // throw std::runtime_error{missing_members};
-
-                }
-
-            }
-
-            uint64_t count = 0;
-            if (x.HasMember("count") && x["count"].IsUint64()) {
-                count = x["count"].GetUint64();
-            }
-            if (count == 0) {
-                throw std::runtime_error("error: process_fp_db_line() count 0");
-                continue;
             }
 
             // construct vector of prior probabilities
             //
-            add_class(count, total_count);
+            add_class_from_count(x, total_count, w.sum());
 
             index++;  // increment process index
         }
 
-    }
-
-    void add_class(size_t count, size_t total_count) {
-        floating_point_type base_prior = log(0.1 / total_count);
-        floating_point_type proc_prior = log(.1);
-        floating_point_type prob_process_given_fp = (floating_point_type)count / total_count;
-        floating_point_type score = log(prob_process_given_fp);
-        prior_prob.push_back(fmax(score, proc_prior) + base_prior *
-                             (asn_feature.weight + domain_name.domain_weight + dst_port_feature.weight + dst_addr_feature.weight + domain_name.sni_weight + user_agent_feature.weight));
     }
 
     std::vector<floating_point_type> classify(uint32_t asn_int,
@@ -644,7 +686,7 @@ public:
                                               const char *user_agent
                                               ) const {
 
-        std::vector<floating_point_type> process_score = prior_prob;  // working copy of probability vector
+        std::vector<floating_point_type> process_score = get_prior_prob();  // working copy of probability vector
 
         asn_feature.update(process_score, asn_int);
         dst_port_feature.update(process_score, hton(dst_port));
@@ -658,6 +700,5 @@ public:
     }
 
 };
-
 
 #endif // NAIVE_BAYES_HPP
