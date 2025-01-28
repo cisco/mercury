@@ -525,6 +525,12 @@ TEST_CASE_METHOD(LibmercTestFixture, "test attributes with resources-mp")
                 .packet_filter_cfg = (char *)"all"},
              .m_pc{"malware_tls.pcap"}},
          2      // encrypted_channel, malware as attributes
+        },
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"all"},
+             .m_pc{"residential_proxy.pcap"}},
+         1      // residential_proxy as attributes
         }
     };
 
