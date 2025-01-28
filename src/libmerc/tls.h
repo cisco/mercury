@@ -421,7 +421,7 @@ struct tls_client_hello : public base_protocol {
 
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c);
 
-    bool check_residential_proxy(const struct key &k_);
+    static bool check_residential_proxy(const struct key &k_, std::string random_nonce);
 
     static constexpr mask_and_value<8> matcher{
         { 0xff, 0xff, 0xfc, 0x00, 0x00, 0xff, 0x00, 0x00 },
