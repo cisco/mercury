@@ -1005,9 +1005,15 @@ bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_context
     analysis_.destination.init(sn, ua, alpn, k_);
 
     std::string random_nonce = random.get_string();
-    check_residential_proxy(k_, random_nonce);
+    bool is_res_proxy = check_residential_proxy(k_, random_nonce);
 
-    return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+    bool ret = c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+
+    if (is_res_proxy) {
+        analysis_.result.attr.set_attr(c_->common.res_proxy_idx, 1.0);
+    }
+
+    return ret;
 }
 
 
@@ -1073,7 +1079,6 @@ bool tls_client_hello::check_residential_proxy(const struct key &k_, std::string
             return false;
         }
         if (nonce_ip_map[random_nonce] == (uint32_t)k_.addr.ipv4.src) {
-            printf("***found residential proxy***\n");
             return true;
         }
         return false;

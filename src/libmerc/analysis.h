@@ -154,6 +154,7 @@ struct common_data {
     watchlist doh_watchlist;
     ssize_t doh_idx = -1;
     ssize_t enc_channel_idx = -1;
+    ssize_t res_proxy_idx = -1;
 };
 
 // data type used in floating point computations
@@ -773,17 +774,16 @@ class classifier {
 
     std::vector<fingerprint_type> fp_types;
 
-    // the common object holds data that is common across all
-    // fingerprint-specific classifiers, and is used by those
-    // classifiers
-    //
-    common_data common;
-
     std::unordered_map<std::string, std::pair<uint32_t, size_t>> fp_count_and_format;
 
     bool disabled = false;   // if the classfier has not been initialised or disabled
 
 public:
+    // the common object holds data that is common across all
+    // fingerprint-specific classifiers, and is used by those
+    // classifiers
+    //
+    common_data common;
 
     static fingerprint_type get_fingerprint_type(const std::string &s) {
         if (s == "tls") {
@@ -1241,6 +1241,10 @@ public:
         // reserve attribute for encrypted_dns watchlist
         //
         common.doh_idx = common.attr_name.get_index("encrypted_dns");
+
+        // reserve attribute for residential_proxy detection
+        //
+        common.res_proxy_idx = common.attr_name.get_index("residential_proxy");
 
         // reserve attribute for encrypted_channel
         //
