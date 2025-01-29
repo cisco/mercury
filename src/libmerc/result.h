@@ -97,6 +97,9 @@ public:
     }
 
     void set_attr (ssize_t idx, long double prob) {
+        if (tag_names == nullptr) {
+            return;
+        }
         if ((idx < 0) || (idx >= MAX_TAGS) || ((size_t)idx >= tag_names->size()) )
             return;
         tags[idx] = true;
