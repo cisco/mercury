@@ -59,7 +59,7 @@
 #include "mysql.hpp"
 #include "geneve.hpp"
 #include "tsc_clock.hpp"
-
+#include "ftp.hpp"  
 // double malware_prob_threshold = -1.0; // TODO: document hidden option
 
 void write_flow_key(struct json_object &o, const struct key &k) {
@@ -362,6 +362,12 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         break;
     case tcp_msg_type_ldap:
         x.emplace<ldap::message>(pkt);
+        break;
+    case tcp_msg_type_ftp_request:
+        x.emplace<ftp::request>(pkt);
+        break;
+    case tcp_msg_type_ftp_response:
+        x.emplace<ftp::response>(pkt);
         break;
     default:
         if (is_new && global_vars.output_tcp_initial_data) {

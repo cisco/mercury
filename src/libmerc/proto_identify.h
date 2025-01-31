@@ -27,6 +27,7 @@
 #include "smb1.h"
 #include "smb2.h"
 #include "iec60870_5_104.h"
+#include "ftp.hpp"
 
 #include "dhcp.h"  // udp protocols
 #include "quic.h"
@@ -69,6 +70,8 @@ enum tcp_msg_type {
     tcp_msg_type_socks5_hello,
     tcp_msg_type_socks5_req_resp,
     tcp_msg_type_ldap,
+    tcp_msg_type_ftp_request,
+    tcp_msg_type_ftp_response,
 };
 
 enum udp_msg_type {
@@ -234,6 +237,8 @@ class traffic_selector {
     bool select_nbss;
     bool select_openvpn_tcp;
     bool select_ldap;
+    bool select_ftp_request;
+    bool select_ftp_response;
     bool select_ipsec{false};
 
 public:
@@ -255,6 +260,10 @@ public:
     bool icmp() const { return select_icmp; }
 
     bool ldap() const { return select_ldap; }
+
+    bool ftp_request() const {return select_ftp_request; }
+
+    bool ftp_response() const {return select_ftp_response; }
 
     bool lldp() const { return select_lldp; }
 
@@ -296,7 +305,9 @@ public:
             select_tcp_syn_ack{false},
             select_nbds{false},
             select_nbss{false},
-            select_openvpn_tcp{false} {
+            select_openvpn_tcp{false},
+            select_ftp_request{false},
+            select_ftp_response{false}{
 
         // "none" is a special case; turn off all protocol selection
         //
@@ -305,7 +316,6 @@ public:
                 pair.second = false;
             }
         }
-
         if (protocols["tls"] || protocols["all"]) {
             tcp.add_protocol(tls_client_hello::matcher, tcp_msg_type_tls_client_hello);
             tcp.add_protocol(tls_server_hello::matcher, tcp_msg_type_tls_server_hello);
@@ -331,6 +341,15 @@ public:
             tcp.add_protocol(smtp_client::matcher, tcp_msg_type_smtp_client);
             tcp.add_protocol(smtp_server::matcher, tcp_msg_type_smtp_server);
         }
+        if(protocols["ftp_request"]||protocols["all"])
+        {
+            tcp.add_protocol(ftp::request::user_matcher,tcp_msg_type_ftp_request);
+            tcp.add_protocol(ftp::request::pass_matcher,tcp_msg_type_ftp_request);
+        }
+        if(protocols["ftp_response"]||protocols["all"])
+        {
+            tcp4.add_protocol(ftp::response::status_code_matcher,tcp_msg_type_ftp_response);
+        }
         if (protocols["http"] || protocols["all"]) {
             tcp.add_protocol(http_response::matcher, tcp_msg_type_http_response);  // note: must come before http_request::matcher
             tcp.add_protocol(http_request::matcher, tcp_msg_type_http_request);
@@ -347,6 +366,7 @@ public:
         {
             tcp.add_protocol(http_response::matcher, tcp_msg_type_http_response);
         }
+
 
         // booleans not yet implemented
         //

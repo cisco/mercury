@@ -197,6 +197,8 @@ public:
             { "mysql",                  false },
             { "tofsee",                 false },
             { "socks",                  false },
+            { "ftp_request",            false},
+            { "ftp_response",           false},
         };
 
     std::unordered_map<std::string, bool> raw_features {
