@@ -222,15 +222,19 @@ namespace crypto_policy {
         * SSH kex init paramaters - key exchange methods and encryption algorithms
         */
         static inline std::unordered_set<std::string> ssh_allowed_kex {
-            "sntrup761x25519-sha512",
+            "sntrup761x25519-sha512",    // not NIST approved, but considered PQ safe
             "mlkem768nistp256-sha256",
             "mlkem1024nistp384-sha384",
             "mlkem768x25519-sha256"    
         };
 
+        // TODO: mine for other cipher names
+        // considering blowfish, ctr and cbc etc. to be weak
         static inline std::unordered_set<std::string> ssh_allowed_ciphers {
             "AEAD_AES_128_GCM",
-            "AEAD_AES_256_GCM"
+            "AEAD_AES_256_GCM",
+            "aes128-gcm@openssh.com",
+            "aes256-gcm@openssh.com"
         };
 
         bool assess_ssh_kex_methods(const name_list &kex_list, json_object &a) const {
@@ -361,7 +365,7 @@ namespace crypto_policy {
         bool assess(const ssh_kex_init &ssh_kex, json_object &o) const override {
             json_object a{o, "cryptographic_security_assessment"};
             a.print_key_string("policy", "quantum_safe");
-            json_object assessment{a, "unknown"};
+            json_object assessment{a, "offered"};
             assess_ssh_kex_methods(ssh_kex.kex_algorithms,o);
             json_object client_server{assessment, "client_to_server"};
             assess_ssh_ciphers(ssh_kex.encryption_algorithms_client_to_server,o);
