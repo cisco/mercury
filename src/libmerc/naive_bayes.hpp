@@ -53,21 +53,6 @@ public:
 
     feature(const std::string &name, floating_point_type w=1.0) : json_name{name}, updates{}, weight{w} { }
 
-    // construct a naive bayes feature of type T
-    //
-    feature(const std::unordered_map<T,uint64_t> &info, size_t total_count, floating_point_type weight=1.0) {
-        floating_point_type base_prior = log(0.1 / total_count);
-        for (const auto &[feat, count] : info) {
-            const auto x = updates.find(feat);
-            class update u{ index, (log((floating_point_type)count / total_count) - base_prior ) * weight };
-            if (x != updates.end()) {
-                x->second.push_back(u);
-            } else {
-                updates[feat] = { u };
-            }
-        }
-    }
-
     void add_updates_from_object_by_name(const rapidjson::Value &object,
                                          size_t process_index,
                                          size_t total_count,
