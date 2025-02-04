@@ -19,6 +19,8 @@
 
 int main(int, char *[]) {
 
+    assert(printf("DEBUG enabled\n") == 14);
+
     FILE *f = stdout;
     int tty = isatty(fileno(f));
     const char *passed = "passed";
