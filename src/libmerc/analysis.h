@@ -117,8 +117,8 @@ public:
                 malware.push_back(x["malware"].GetBool());
             }
 
+            attribute_result::bitset attributes;
             if (x.HasMember("attributes") && x["attributes"].IsObject()) {
-                attribute_result::bitset attributes;
                 for (auto &v : x["attributes"].GetObject()) {
                     if (v.name.IsString()) {
                         ssize_t idx = common->attr_name.get_index(v.name.GetString());
@@ -132,9 +132,8 @@ public:
                     }
                 }
                 common->attr_name.stop_accepting_new_names();
-
-                attr.push_back(attributes);
             }
+            attr.push_back(attributes);
 
             std::vector<struct os_information> os_info_vector;
             if (report_os && x.HasMember("os_info") && x["os_info"].IsObject()) {
