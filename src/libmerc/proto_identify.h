@@ -341,12 +341,12 @@ public:
             tcp.add_protocol(smtp_client::matcher, tcp_msg_type_smtp_client);
             tcp.add_protocol(smtp_server::matcher, tcp_msg_type_smtp_server);
         }
-        if(protocols["ftp_request"]||protocols["all"])
+        if(protocols["ftp_request"] || protocols["all"])
         {
             tcp.add_protocol(ftp::request::user_matcher,tcp_msg_type_ftp_request);
             tcp.add_protocol(ftp::request::pass_matcher,tcp_msg_type_ftp_request);
         }
-        if(protocols["ftp_response"]||protocols["all"])
+        if(protocols["ftp_response"] || protocols["all"])
         {
             tcp4.add_protocol(ftp::response::status_code_matcher,tcp_msg_type_ftp_response);
         }
