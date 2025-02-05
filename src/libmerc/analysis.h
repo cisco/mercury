@@ -50,7 +50,6 @@ class classifier *analysis_init_from_archive(int verbosity,
 
 int analysis_finalize(classifier *c);
 
-
 // process and malware classifier classes
 //
 
@@ -158,7 +157,20 @@ struct common_data {
 
 // data type used in floating point computations
 //
-using floating_point_type = long double;
+using floating_point_type = double;
+
+// helper function to convert results from floating_point_type to long
+// double arrays, which are used to represent probabilities in some
+// other software components
+//
+template <size_t N, typename F>
+static std::array<long double, N> convert_to_long_double_array(const std::array<F, N> &input) {
+    std::array<long double, N> output;
+    for (size_t i=0; i<N; i++) {
+        output[i] = (long double)input[i];
+    }
+    return output;
+}
 
 class naive_bayes {
 
@@ -676,7 +688,7 @@ public:
             attr_prob[common->doh_idx] = 1.0;
         }
 
-        attribute_result attr_res{attr_tags, attr_prob, &common->attr_name.value(), common->attr_name.get_names_char()};
+        attribute_result attr_res{attr_tags, convert_to_long_double_array(attr_prob), &common->attr_name.value(), common->attr_name.get_names_char()};
 
         // set os_info (to NULL if unavailable)
         //
