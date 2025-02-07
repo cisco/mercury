@@ -48,15 +48,17 @@ namespace ftp {
     public:
         request(datum &d) : command{d}, sp{d}, argument{d} {}
 
-        void write_json(struct json_object &record, bool metadata_output) {  
-            if (!metadata_output) {  
-                return;  
-            }  
-            struct json_object ftp_request{record, "ftp_request"};  
-            ftp_request.print_key_json_string("command", command);  
-            ftp_request.print_key_json_string("argument", argument);  
-            ftp_request.close();  
-        }  
+        void write_json(struct json_object &record, bool metadata_output) {
+            if (!metadata_output) {
+                return;
+            }
+            struct json_object ftp_object{record, "ftp"};
+            struct json_object ftp_request{ftp_object, "request"};
+            ftp_request.print_key_json_string("command", command);
+            ftp_request.print_key_json_string("argument", argument);
+            ftp_request.close();
+            ftp_object.close();
+        }
 
         bool is_not_empty() const { return command.is_not_empty(); }
 
@@ -80,15 +82,17 @@ namespace ftp {
     public:
         response(datum &d) : status_code{d}, sp{d}, reply_text{d} {}
 
-         void write_json(struct json_object &record,bool metadata_output){
-            if (!metadata_output) {
-                return;
-            }
-            struct json_object ftp_response{record, "ftp_response"};
-            ftp_response.print_key_json_string("status_code", status_code);
-            ftp_response.print_key_json_string("reply_text", reply_text);
-            ftp_response.close();
-        };
+        void write_json(struct json_object &record, bool metadata_output) {
+        if (!metadata_output) {
+            return;
+        }
+        struct json_object ftp_object{record, "ftp"};
+        struct json_object ftp_response{ftp_object, "response"};
+        ftp_response.print_key_json_string("status_code", status_code);
+        ftp_response.print_key_json_string("reply_text", reply_text);
+        ftp_response.close();
+        ftp_object.close();
+    }
 
         bool is_not_empty() const { return status_code.is_not_empty(); }
 
@@ -128,7 +132,6 @@ namespace ftp {
         if (!valid_response1.is_not_empty()) {
             return false;
         }
-
 
         // False positive test: invalid garbage packet for request
         uint8_t garbage_packet[20] = {
