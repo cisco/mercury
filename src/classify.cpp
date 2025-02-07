@@ -81,12 +81,6 @@ int main(int argc, char *argv[]) {
                                                      dst_port_uint16,
                                                      user_agent.c_str());
 
-        // analysis_result result = c->perform_analysis("http/(474554)(485454502f312e31)((43616368652d436f6e74726f6c)(436f6e6e656374696f6e3a204b6565702d416c697665)(4163636570743a202a2f2a)(557365722d4167656e74)(486f7374))",
-        //                                              "au.download.windowsupdate.com",
-        //                                              "2.18.121.140",
-        //                                              80,
-        //                                              "Microsoft-Delivery-Optimization/10.0");
-
         output_buffer<4096> buf;
         json_object o{&buf};
         result.write_json(o, "analysis");
