@@ -50,7 +50,6 @@ class classifier *analysis_init_from_archive(int verbosity,
 
 int analysis_finalize(classifier *c);
 
-
 // process and malware classifier classes
 //
 
@@ -158,7 +157,20 @@ struct common_data {
 
 // data type used in floating point computations
 //
-using floating_point_type = long double;
+using floating_point_type = double;
+
+// helper function to convert results from floating_point_type to long
+// double arrays, which are used to represent probabilities in some
+// other software components
+//
+template <size_t N, typename F>
+static std::array<long double, N> convert_to_long_double_array(const std::array<F, N> &input) {
+    std::array<long double, N> output;
+    for (size_t i=0; i<N; i++) {
+        output[i] = (long double)input[i];
+    }
+    return output;
+}
 
 class naive_bayes {
 
@@ -598,6 +610,8 @@ public:
 
         std::vector<floating_point_type> process_score = classifier.classify(asn_int, dst_port, domain, server_name_str, dst_ip_str, user_agent);
 
+        // compute max_score, sec_score, index_max, and index_sec
+        //
         floating_point_type max_score = std::numeric_limits<floating_point_type>::lowest();
         floating_point_type sec_score = std::numeric_limits<floating_point_type>::lowest();
         uint64_t index_max = 0;
@@ -614,14 +628,21 @@ public:
             }
         }
 
+        // convert process_score from log-prob values to probability
+        // values, and compute score_sum, score_sum_without_max,
+        // malware_prob, and the attr_prob vector.
+        //
         floating_point_type score_sum = 0.0;
+        floating_point_type score_sum_without_max = 0.0;
         floating_point_type malware_prob = 0.0;
-
         std::array<floating_point_type, attribute_result::MAX_TAGS> attr_prob;
         attr_prob.fill(0.0);
         for (uint64_t i=0; i < process_score.size(); i++) {
             process_score[i] = expf((float)(process_score[i] - max_score));
             score_sum += process_score[i];
+            if (i != index_max) {
+                score_sum_without_max += process_score[i];
+            }
             if (malware[i]) {
                 malware_prob += process_score[i];
             }
@@ -632,21 +653,24 @@ public:
             }
         }
 
-        max_score = process_score[index_max];
-        sec_score = process_score[index_sec];
+        max_score = process_score[index_max];  // set max_score to probability
+        sec_score = process_score[index_sec];  // set sec_score to probability
 
         if (score_sum > 0.0) {
             if (malware_db) {
                 malware_prob /= score_sum;
             }
         }
+
+        // fprintf(stderr, "(score_sum-max_score) - score_sum_without_max: %.40Lg\n", (score_sum - max_score) - score_sum_without_max);
+
         if (malware_db && process_name[index_max] == "generic dmz process" && malware[index_sec] == false) {
             // the most probable process is unlabeled, so choose the
             // next most probable one if it isn't malware, and adjust
             // the normalization sum as appropriate
 
             index_max = index_sec;
-            score_sum -= max_score;
+            score_sum = score_sum_without_max;
             max_score = sec_score;
         }
         if (score_sum > 0.0) {
@@ -664,7 +688,7 @@ public:
             attr_prob[common->doh_idx] = 1.0;
         }
 
-        attribute_result attr_res{attr_tags, attr_prob, &common->attr_name.value(), common->attr_name.get_names_char()};
+        attribute_result attr_res{attr_tags, convert_to_long_double_array(attr_prob), &common->attr_name.value(), common->attr_name.get_names_char()};
 
         // set os_info (to NULL if unavailable)
         //
