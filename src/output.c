@@ -509,8 +509,20 @@ int output_thread_init(struct output_file &out_ctx, const struct mercury_config 
     //fprintf(stderr, "DEBUG: fingerprint filename: %s\n", cfg.fingerprint_filename);
     //fprintf(stderr, "DEBUG: max records: %ld\n", out_ctx.out_jf.max_records);
 
+    // Some platforms (like OS X) have stack sizes that are too small
+    pthread_attr_t pt_stack_size;
+    int err = pthread_attr_init(&pt_stack_size);
+    if (err != 0) {
+        printf("Unable to init stack size attribute for output pthread: %s\n", strerror(err));
+    }
+
+    err = pthread_attr_setstacksize(&pt_stack_size, 16 * 1024 * 1024); // 16 MB is plenty big enough
+    if (err != 0) {
+        printf("Unable to set stack size attribute for output pthread: %s\n", strerror(err));
+    }
+
     /* Start the output thread */
-    int err = pthread_create(&(out_ctx.tid), NULL, output_thread_func, &out_ctx);
+    err = pthread_create(&(out_ctx.tid), &pt_stack_size, output_thread_func, &out_ctx);
     if (err != 0) {
         perror("error creating output thread");
         return -1;
