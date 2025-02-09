@@ -879,6 +879,8 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         }
         if (crypto_policy) { std::visit(do_crypto_assessment{crypto_policy, record}, x); }
 
+        std::visit(check_proxy_setup{record,analysis,c,global_vars.do_analysis},x);
+
         // write indication of truncation or reassembly
         //
         if ((!reassembler && (truncated_tcp || truncated_quic))

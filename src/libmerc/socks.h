@@ -143,6 +143,19 @@ public:
     }
 
     bool is_not_empty() const { return (is_valid); }
+
+    void check_proxy_setup( analysis_context &analysis_, classifier *c, proxy_ctx &ctx, bool do_analysis ) {
+        if (cmd == 1 || cmd == 2) {
+            if (domain.is_not_empty()) {
+                ctx.domain = domain;
+            }
+            ctx.ip = ip_address{ip};
+            ctx.port = port;
+            ctx.protocol = proxy_ctx::proxy_proto::socks4;
+            if (do_analysis && c)
+                analysis_.result.attr.set_attr(c->get_common_data().connect_proxy_idx, 1.0);
+        }
+    }
 };
 
 
@@ -408,6 +421,27 @@ struct socks5_addr {
         o.print_key_string("addr","invalid");
     }
 
+    datum get_domain() {
+        if (type == 4) {
+            // ipv6 address, treat as string
+            return std::get<datum>(addr);
+        }
+        else if (type == 3) {
+            return std::get<socks5_domain>(addr).domain;
+        }
+        else
+            return {nullptr,nullptr}; 
+    }
+
+    ip_address get_ip() {
+        if (type == 1) {
+            // domain name
+            ip_address ad{std::get<encoded<uint32_t> >(addr)};
+            return ad;
+        }
+        else return ip_address{0};
+    }
+
     socks5_addr (datum &pkt) : type{pkt} {
         switch (type) {
             case 0x01 : {
@@ -513,6 +547,18 @@ public:
         socks5_pkt.print_key_int("dst_port",dst_port);
         socks5_pkt.close();
     }
+
+    void check_proxy_setup( analysis_context &analysis_, classifier *c, proxy_ctx &ctx, bool do_analysis ) {
+        if (cmd == 1 || cmd == 2 || cmd ==3) {
+            ctx.domain = addr.get_domain();
+            ctx.ip = addr.get_ip();
+            ctx.port = dst_port;
+            ctx.protocol = proxy_ctx::proxy_proto::socks5;
+            if (do_analysis && c)
+                analysis_.result.attr.set_attr(c->get_common_data().connect_proxy_idx, 1.0);
+        }
+    }
+
 };
 
 namespace {
