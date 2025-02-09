@@ -879,6 +879,12 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         }
         if (crypto_policy) { std::visit(do_crypto_assessment{crypto_policy, record}, x); }
 
+
+        // check if attributes result is not initialised, which may happen for non-fingerprintable protocols
+        if (!analysis.result.attr.is_initialized() && c) {
+            analysis.result.attr.initialize(&(c->get_common_data().attr_name.value()),c->get_common_data().attr_name.get_names_char());
+        }
+        // check for additional attributes
         std::visit(check_proxy_setup{record,analysis,c,global_vars.do_analysis},x);
 
         // write indication of truncation or reassembly
