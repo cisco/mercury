@@ -100,6 +100,11 @@ endif
 #LDFLAGS += -fsanitize=address
 #endif
 
+ifeq ($(COVERAGE_ENABLED),1)
+CFLAGS += -fprofile-arcs --coverage -ggdb -O0
+LDFLAGS += --coverage
+endif
+
 all: compiler_version mercury libmerc_test cert_analyze libmerc_util intercept_server # tls_scanner batch_gcd
 
 # the version target just reports the c++ compiler version; we report
@@ -143,7 +148,7 @@ setcap: mercury
 	sudo setcap $(CAP) $<
 
 libmerc.a:
-	$(MAKE) -j --directory=libmerc libmerc.a
+	$(MAKE) -j --directory=libmerc COVERAGE_ENABLED=$(COVERAGE_ENABLED) libmerc.a
 
 libmerc/libmerc.so:
 	$(MAKE) -j --directory=libmerc libmerc.so
@@ -167,7 +172,7 @@ debug-libmerc_gcov:
 .PHONY: debug-libmerc
 debug-libmerc:
 	$(MAKE) --directory=libmerc clean
-	$(MAKE) -j --directory=libmerc debug-libmerc.so
+	$(MAKE) -j --directory=libmerc COVERAGE_ENABLED=$(COVERAGE_ENABLED) debug-libmerc.so
 
 .PHONY: unstripped-libmerc
 unstripped-libmerc:
