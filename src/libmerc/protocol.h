@@ -6,6 +6,7 @@
 
 #include "datum.h"
 #include "fingerprint.h"
+#include "proxy_context.hpp"
 
 class classifier; // forward declaration of class used in interface
 
@@ -29,6 +30,8 @@ public:
     void compute_fingerprint(fingerprint &) const { }
 
     bool do_analysis(const struct key &, struct analysis_context &, classifier*) { return false; }
+
+    void check_proxy_setup( analysis_context &, classifier *, proxy_ctx &, bool ) {}
 
 };
 

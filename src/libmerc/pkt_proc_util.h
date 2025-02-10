@@ -14,6 +14,7 @@
 #ifndef PKT_PROC_UTIL_HPP
 #define PKT_PROC_UTIL_HPP
 
+#include "global_config.h"
 #include "protocol.h"
 #include "dns.h"
 #include "mdns.h"
@@ -302,6 +303,46 @@ struct do_analysis {
     }
 
     bool operator()(std::monostate &) { return false; }
+
+};
+
+struct check_proxy_setup {
+
+    struct json_object &record;
+    struct analysis_context &analysis_;
+    classifier *c_;
+    proxy_ctx ctx;
+    bool perform_analysis = false;
+
+    check_proxy_setup( struct json_object &o,
+                struct analysis_context &analysis,
+                classifier *c,
+                bool do_analysis) :
+        record{o},
+        analysis_{analysis},
+        c_{c},
+        perform_analysis{do_analysis}
+    {}
+
+    template <typename T>
+    void operator()(T &msg) {
+        msg.check_proxy_setup(analysis_,c_,ctx,perform_analysis);
+        if (ctx.protocol != proxy_ctx::proxy_proto::none) {
+            struct json_object conn_proxy{record, "connect_proxy_setup"};
+            conn_proxy.print_key_string("proto",proxy_ctx::proxy_proto_str[(uint8_t)ctx.protocol]);
+            if (ctx.domain.is_not_empty())
+                conn_proxy.print_key_json_string("domain",ctx.domain);
+            if (ctx.ip.value.ipv4)
+                conn_proxy.print_key_ipv4_addr("ipv4",(uint8_t*)&ctx.ip.value.ipv4);
+            if (ctx.port)
+                conn_proxy.print_key_int("port",ctx.port);
+            conn_proxy.close();
+        }
+    }
+
+    void operator()(std::monostate &) { return; }
+
+    void operator()(quic_init &) { return; }
 
 };
 

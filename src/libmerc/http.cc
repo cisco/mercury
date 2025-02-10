@@ -266,6 +266,15 @@ void http_request::write_json(struct json_object &record, bool output_metadata) 
 
 }
 
+void http_request::check_proxy_setup( analysis_context &analysis_, classifier *c, proxy_ctx &ctx, bool do_analysis ) {
+    if (*method.data == 'C') {
+        ctx.domain = uri;
+        ctx.protocol = proxy_ctx::proxy_proto::http;
+        if (do_analysis && c)
+            analysis_.result.attr.set_attr(c->get_common_data().connect_proxy_idx, 1.0);
+    }
+}
+
 void http_response::parse(struct datum &p) {
     /* process request line */
     version.parse_up_to_delim(p, ' ');
