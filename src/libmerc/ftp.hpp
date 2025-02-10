@@ -6,25 +6,25 @@
 #include "lex.h"
 #include "match.h"
 
-class up_to_byte : public datum
-{
-public:
-    up_to_byte(datum &d, uint8_t byte)
-    {
-        const uint8_t *location = (const uint8_t *)memchr(d.data, byte, d.length());
-        if (location == nullptr)
-        {
-            data = nullptr;
-            data_end = nullptr;
-            d.set_null();
-        }
-        else if (data_end > data)
-        {
-            data_end = location - 1;
-        }
-        data = d.data;
-    }
-};
+// class up_to_byte : public datum
+// {
+// public:
+//     up_to_byte(datum &d, uint8_t byte)
+//     {
+//         const uint8_t *location = (const uint8_t *)memchr(d.data, byte, d.length());
+//         if (location == nullptr)
+//         {
+//             data = nullptr;
+//             data_end = nullptr;
+//             d.set_null();
+//         }
+//         else if (data_end > data)
+//         {
+//             data_end = location;
+//         }
+//         data = d.data;
+//     }
+// };
 
 class up_to_crlf : public datum
 {
