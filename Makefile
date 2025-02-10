@@ -150,10 +150,6 @@ test-coverage:
 	make clean-helper
 
 	$(MAKE) --directory=test COVERAGE_ENABLED=1 fuzz-test
-	# llvm-profdata merge -sparse $(shell echo $(PROFRAW_FILES)) -o ./coverage/mercury_fuzz_test.profdata
-	# llvm-cov export -format=lcov --instr-profile ./coverage/mercury_fuzz_test.profdata $(shell echo $(FUZZ_EXECUTABLES) | sed 's/\(\S\+\)/--object \1/g') > ./coverage/mercury_fuzz_test_1.info
-	
-	# find . -name "*profraw" | xargs -I {} llvm-profdata merge -sparse {} -o ./coverage/mercury_fuzz_test.profdata 
 	find . -name "*profraw" | xargs --verbose llvm-profdata merge -sparse -o ./coverage/mercury_fuzz_test.profdata
 	find . -name "*exec" | sed 's/\(\S\+\)/--object \1/g' | xargs llvm-cov export -format=lcov --instr-profile ./coverage/mercury_fuzz_test.profdata > ./coverage/mercury_fuzz_test_1.info
 	lcov --directory ./src --capture --output-file ./coverage/mercury_fuzz_test_2.info
