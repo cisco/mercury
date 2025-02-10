@@ -307,7 +307,8 @@ public:
             select_nbss{false},
             select_openvpn_tcp{false},
             select_ftp_request{false},
-            select_ftp_response{false}{
+            select_ftp_response{false}
+            {
 
         // "none" is a special case; turn off all protocol selection
         //
@@ -341,14 +342,29 @@ public:
             tcp.add_protocol(smtp_client::matcher, tcp_msg_type_smtp_client);
             tcp.add_protocol(smtp_server::matcher, tcp_msg_type_smtp_server);
         }
-        if(protocols["ftp_request"] || protocols["all"])
+        if(protocols["ftp"] || protocols["all"])
         {
-            tcp.add_protocol(ftp::request::user_matcher,tcp_msg_type_ftp_request);
-            tcp.add_protocol(ftp::request::pass_matcher,tcp_msg_type_ftp_request);
+            select_ftp_response = true;
+            select_ftp_request = true;
+            // tcp.add_protocol(ftp::request::user_matcher, tcp_msg_type_ftp_request);
+            // tcp.add_protocol(ftp::request::pass_matcher, tcp_msg_type_ftp_request);
+            // tcp.add_protocol(ftp::request::stor_matcher, tcp_msg_type_ftp_request);
+            // tcp.add_protocol(ftp::request::retr_matcher, tcp_msg_type_ftp_request);
+            // tcp4.add_protocol(ftp::response::status_code_matcher, tcp_msg_type_ftp_response);
         }
-        if(protocols["ftp_response"] || protocols["all"])
+        else if(protocols["ftp.response"])
         {
-            tcp4.add_protocol(ftp::response::status_code_matcher,tcp_msg_type_ftp_response);
+            select_ftp_response = true;
+            // tcp4.add_protocol(ftp::response::status_code_matcher, tcp_msg_type_ftp_response);
+        }
+        else if(protocols["ftp.request"])
+        {
+            select_ftp_request = true;
+            // tcp.add_protocol(ftp::request::user_matcher, tcp_msg_type_ftp_request);
+            // tcp.add_protocol(ftp::request::pass_matcher, tcp_msg_type_ftp_request);
+            // tcp.add_protocol(ftp::request::stor_matcher, tcp_msg_type_ftp_request);
+            // tcp.add_protocol(ftp::request::retr_matcher, tcp_msg_type_ftp_request);
+
         }
         if (protocols["http"] || protocols["all"]) {
             tcp.add_protocol(http_response::matcher, tcp_msg_type_http_response);  // note: must come before http_request::matcher
@@ -543,7 +559,7 @@ public:
     size_t get_tcp_msg_type_from_ports(struct tcp_packet *tcp_pkt) const {
         if (tcp_pkt == nullptr or tcp_pkt->header == nullptr) {
             return tcp_msg_type_unknown;
-        }
+        } 
 
         if (ldap() and ((tcp_pkt->header->src_port == hton<uint16_t>(389)) or (tcp_pkt->header->dst_port == hton<uint16_t>(389)))) {
             return tcp_msg_type_ldap;
@@ -555,6 +571,16 @@ public:
 
         if (openvpn_tcp() and (tcp_pkt->header->src_port == hton<uint16_t>(1194) or tcp_pkt->header->dst_port == hton<uint16_t>(1194)) ) {
             return tcp_msg_type_openvpn;
+        }
+        // FTP uses port 21 as its default connection channel, so responses from the server  will originate from this port
+        if (ftp_response() and ((tcp_pkt->header->src_port == hton<uint16_t>(21))))
+        {
+            return tcp_msg_type_ftp_response;
+        }
+
+        if (ftp_request() and ((tcp_pkt->header->dst_port == hton<uint16_t>(21))))
+        {
+            return tcp_msg_type_ftp_request;
         }
 
         return tcp_msg_type_unknown;

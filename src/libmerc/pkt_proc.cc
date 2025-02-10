@@ -363,11 +363,11 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
     case tcp_msg_type_ldap:
         x.emplace<ldap::message>(pkt);
         break;
-    case tcp_msg_type_ftp_request:
-        x.emplace<ftp::request>(pkt);
-        break;
     case tcp_msg_type_ftp_response:
         x.emplace<ftp::response>(pkt);
+        break;
+    case tcp_msg_type_ftp_request:
+        x.emplace<ftp::request>(pkt);
         break;
     default:
         if (is_new && global_vars.output_tcp_initial_data) {

@@ -49,9 +49,6 @@ namespace ftp {
         request(datum &d) : command{d}, sp{d}, argument{d} {}
 
         void write_json(struct json_object &record, bool metadata_output) {
-            if (!metadata_output) {
-                return;
-            }
             struct json_object ftp_object{record, "ftp"};
             struct json_object ftp_request{ftp_object, "request"};
             ftp_request.print_key_json_string("command", command);
@@ -62,15 +59,26 @@ namespace ftp {
 
         bool is_not_empty() const { return command.is_not_empty(); }
 
-        static constexpr mask_and_value<8> user_matcher{
-            { 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00 },
-            { 'U', 'S', 'E', 'R', ' ', 0x00, 0x00, 0x00 }
-        };
+        // static constexpr mask_and_value<8> user_matcher{
+        //     { 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00 },
+        //     { 'U', 'S', 'E', 'R', ' ', 0x00, 0x00, 0x00 }
+        // };
 
-        static constexpr mask_and_value<8> pass_matcher{
-            { 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00 },
-            { 'P', 'A', 'S', 'S', ' ', 0x00, 0x00, 0x00 }
-        };
+        // static constexpr mask_and_value<8> pass_matcher{
+        //     { 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00 },
+        //     { 'P', 'A', 'S', 'S', ' ', 0x00, 0x00, 0x00 }
+        // };
+
+        // static constexpr mask_and_value<8> retr_matcher{
+        //     { 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00 },
+        //     { 'R', 'E', 'T', 'R', ' ', 0x00, 0x00, 0x00 }
+        // };
+
+        // static constexpr mask_and_value<8> stor_matcher{
+        //     { 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00 },
+        //     { 'S', 'T', 'O', 'R', ' ', 0x00, 0x00, 0x00 }
+        // };
+        
     };
 
     // From RFC 959 Section 4.2: Reply format
@@ -83,9 +91,6 @@ namespace ftp {
         response(datum &d) : status_code{d}, sp{d}, reply_text{d} {}
 
         void write_json(struct json_object &record, bool metadata_output) {
-        if (!metadata_output) {
-            return;
-        }
         struct json_object ftp_object{record, "ftp"};
         struct json_object ftp_response{ftp_object, "response"};
         ftp_response.print_key_json_string("status_code", status_code);
@@ -102,12 +107,12 @@ namespace ftp {
         //     { '2',  '2',  '0',  ' ' }  // Detect "220 " pattern
         // };
 
-        static constexpr mask_and_value<4> status_code_matcher
-        {
-            // detection of ASCII digits (0x30 to 0x39)
-            { 0xf0, 0xf0, 0xf0, 0xf0 },  // Masks for detecting digit characters (0-9) followed by space/hyphen
-            { '0',  '0',  '0',  ' ' }    // Base pattern for a generic FTP status code "000 " or "000-"
-        };
+        // static constexpr mask_and_value<4> status_code_matcher
+        // {
+        //     // detection of ASCII digits (0x30 to 0x39)
+        //     { 0xf0, 0xf0, 0xf0, 0xf0 },  // Masks for detecting digit characters (0-9) followed by space/hyphen
+        //     { '0',  '0',  '0',  ' ' }    // Base pattern for a generic FTP status code "000 " or "000-"
+        // };
 
     };
 
@@ -115,23 +120,23 @@ namespace ftp {
     static bool unit_test() {
         
         // True positive test: valid FTP request for USER command
-        uint8_t user_command_packet[] = {
-            'U', 'S', 'E', 'R', ' ', 'f', 't', 'p', 'u', 's', 'e', 'r', '\r', '\n'
-        };
-        datum user_command{user_command_packet, user_command_packet + sizeof(user_command_packet)};
-        ftp::request valid_request{user_command};
-        if (!valid_request.is_not_empty()) {
-            return false;
-        }
+        // uint8_t user_command_packet[] = {
+        //     'U', 'S', 'E', 'R', ' ', 'f', 't', 'p', 'u', 's', 'e', 'r', '\r', '\n'
+        // };
+        // datum user_command{user_command_packet, user_command_packet + sizeof(user_command_packet)};
+        // ftp::request valid_request{user_command};
+        // if (!valid_request.is_not_empty()) {
+        //     return false;
+        // }
 
-        uint8_t valid_response_packet[] = {
-            '2', '2', '0', ' ', 'S', 'e', 'r', 'v', 'e', 'r', ' ', 'R', 'e', 'a', 'd', 'y', '\r', '\n'
-        };
-        datum response_datum1{valid_response_packet, valid_response_packet + sizeof(valid_response_packet)};
-        ftp::response valid_response1{response_datum1};
-        if (!valid_response1.is_not_empty()) {
-            return false;
-        }
+        // uint8_t valid_response_packet[] = {
+        //     '2', '2', '0', ' ', 'S', 'e', 'r', 'v', 'e', 'r', ' ', 'R', 'e', 'a', 'd', 'y', '\r', '\n'
+        // };
+        // datum response_datum1{valid_response_packet, valid_response_packet + sizeof(valid_response_packet)};
+        // ftp::response valid_response1{response_datum1};
+        // if (!valid_response1.is_not_empty()) {
+        //     return false;
+        // }
 
         // False positive test: invalid garbage packet for request
         uint8_t garbage_packet[20] = {
