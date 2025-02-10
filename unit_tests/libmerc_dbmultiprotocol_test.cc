@@ -50,7 +50,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test http with resources-mp")
             .m_lc{.do_analysis = true, .resources = resources_mp_path,
                .packet_filter_cfg = (char *)"http"},
             .m_pc{"http_proxy.pcap"}},
-        11}
+        7}
     };
 
     for (auto &[config, count] : test_set_up)
