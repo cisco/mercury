@@ -48,7 +48,7 @@ namespace ftp {
     public:
         request(datum &d) : command{d}, sp{d}, argument{d} {}
 
-        void write_json(struct json_object &record, bool metadata_output) {
+        void write_json(struct json_object &record, bool) {
             struct json_object ftp_object{record, "ftp"};
             struct json_object ftp_request{ftp_object, "request"};
             ftp_request.print_key_json_string("command", command);
@@ -90,7 +90,7 @@ namespace ftp {
     public:
         response(datum &d) : status_code{d}, sp{d}, reply_text{d} {}
 
-        void write_json(struct json_object &record, bool metadata_output) {
+        void write_json(struct json_object &record, bool) {
         struct json_object ftp_object{record, "ftp"};
         struct json_object ftp_response{ftp_object, "response"};
         ftp_response.print_key_json_string("status_code", status_code);
