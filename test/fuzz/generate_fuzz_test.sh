@@ -20,6 +20,7 @@ USAGE="[-r <iterations> -t <time> -h <help> -n <none(run all test)/test_name>] -
 default_runs=10000000000
 default_time=200
 specific_test="none"
+coverage_enabled=""
 
 total_headers=0
 total_test_function=0
@@ -31,7 +32,7 @@ openssl_new="false"
 
 #read command line args
 #
-while getopts hr:t:n:s: flag
+while getopts hr:t:n:s:c: flag
 do
     case "${flag}" in
         h) echo "$USAGE"
@@ -40,6 +41,7 @@ do
         t) default_time=${OPTARG};;
         n) specific_test=${OPTARG};;
         s) openssl_new=${OPTARG};;
+        c) coverage_enabled=${OPTARG};;
         \?) echo "ERROR: Invalid option: $USAGE"
             exit 1;;
     esac
@@ -47,8 +49,13 @@ done
 
 #specific_test="none"
 
+if [[ "$coverage_enabled" -eq "1" ]]; then
+    flags+=" -fprofile-instr-generate -fcoverage-mapping -O0"
+    LDFLAGS+=" -lgcov"
+fi;
+
 if [[ "$openssl_new" -eq "true" ]]; then
-    flags=" -DSSLNEW"
+    flags+=" -DSSLNEW"
 fi;
 
 XSIMD_INCLUDE="-I${parent_path}/../../src/libmerc/xsimd/include"
@@ -150,7 +157,7 @@ EOF
 fi;
 
     # make fuzz_test
-    $CXX -g -O0 -fno-omit-frame-pointer -x c++ -std=c++17 -fsanitize=fuzzer,address,leak ${flags} -I../../src/libmerc -Wno-narrowing -Wno-deprecated-declarations $LDFLAGS -L./.. "fuzz_test_$dir_name.c" -l:libmerc.a -lssl -lcrypto -lz -o "fuzz_${dir_name}_exec"
+    $CXX -g -O0 -fno-omit-frame-pointer -x c++ -std=c++17 -fsanitize=fuzzer,address,leak ${flags} -I../../src/libmerc -Wno-narrowing -Wno-deprecated-declarations -L./.. "fuzz_test_$dir_name.c" -l:libmerc.a $LDFLAGS -lssl -lcrypto -lz -o "fuzz_${dir_name}_exec"
     if [[ ! -f "./fuzz_${dir_name}_exec" ]] ; then
         echo -e $COLOR_RED "executable not built, failed test" $COLOR_OFF
         fail=$((fail+1))

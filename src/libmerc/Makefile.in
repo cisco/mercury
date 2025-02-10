@@ -46,6 +46,11 @@ CFLAGS += -I./xsimd/include
 #LDFLAGS += -fsanitize=address
 #endif
 
+ifeq ($(COVERAGE_ENABLED),1)
+CFLAGS += -fprofile-arcs --coverage -ggdb -O0
+LDFLAGS += --coverage
+endif
+
 # libmerc.so performs selective packet parsing and fingerprint extraction
 # LIBMERC and LIBMERC_H hold the core source and header files,
 # respectively, for that library
@@ -253,7 +258,7 @@ libmerc.a: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
 export CXX
 export CC
 lctrie/liblctrie.a:
-	cd lctrie && $(MAKE) liblctrie.a
+	cd lctrie && $(MAKE) COVERAGE_ENABLED=$(COVERAGE_ENABLED) liblctrie.a
 
 # rules for automatically determining dependancies via the compiler's
 # -MM option, which is essential for correctly handling changes to
