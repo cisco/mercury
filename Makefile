@@ -121,10 +121,6 @@ libs:
 test:
 	cd src && $(MAKE) test
 
-
-FUZZ_EXECUTABLES = $(shell find . -name "*exec")
-PROFRAW_FILES := $(shell find . -name "*profraw")
-
 .PHONY: test-coverage
 test-coverage:
 	mkdir -p coverage
