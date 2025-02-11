@@ -43,11 +43,10 @@ private:
     const std::vector<std::string> *tag_names;
     const char *const *tag_names_char;
     attribute_context attr_ctx;
-    bool initialized = false;
 
 public:
 
-    attribute_result() : tags{}, prob_score{}, tag_names{nullptr}, tag_names_char{nullptr}, attr_ctx{}, initialized{false} { }
+    attribute_result() : tags{}, prob_score{}, tag_names{nullptr}, tag_names_char{nullptr}, attr_ctx{} { }
 
     attribute_result(std::bitset<MAX_TAGS> _tags, std::array<long double, MAX_TAGS> _prob_score, const std::vector<std::string> *_tag_names,
                         const char *const *names_char) :
@@ -55,8 +54,7 @@ public:
         prob_score{_prob_score},
         tag_names{_tag_names},
         tag_names_char{names_char},
-        attr_ctx{},
-        initialized{true}
+        attr_ctx{}
     { }
 
     void write_json(struct json_object &o) {
@@ -89,13 +87,6 @@ public:
 
     bool is_valid() {
         return tags.any();
-    }
-
-    bool is_initialized() { return initialized; }
-
-    void initialize (const std::vector<std::string> *_tag_names, const char *const *names_char) {
-        tag_names = _tag_names;
-        tag_names_char = names_char;    
     }
 
     const struct attribute_context *get_attributes() {

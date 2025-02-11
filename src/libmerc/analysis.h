@@ -153,7 +153,6 @@ struct common_data {
     watchlist doh_watchlist;
     ssize_t doh_idx = -1;
     ssize_t enc_channel_idx = -1;
-    ssize_t connect_proxy_idx = -1;
 };
 
 // data type used in floating point computations
@@ -1271,10 +1270,6 @@ public:
         //
         common.enc_channel_idx = common.attr_name.get_index("encrypted_channel");
 
-        // reserve attribute for connect proxy
-        //
-        common.connect_proxy_idx = common.attr_name.get_index("connect_proxy");
-
         // by default, we expect that tls fingerprints will be present in the resource file
         //
         fp_types.push_back(fingerprint_type_tls);
@@ -1542,8 +1537,6 @@ public:
     const char *get_resource_version() {
         return resource_version.c_str();
     }
-
-    const common_data &get_common_data() {return common;}
 
     ~classifier() {
         for (auto &fp : fpdb) {
