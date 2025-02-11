@@ -348,8 +348,6 @@ struct http_request : public base_protocol {
 
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c);
 
-    void check_proxy_setup( analysis_context &analysis_, classifier *c, proxy_ctx &ctx, bool do_analysis );
-
     // weight 14 bitmask that matches all HTTP methods
     //
     static constexpr mask_and_value<8> matcher{
