@@ -13,7 +13,7 @@
 #include "utf8.hpp"
 #include "tsc_clock.hpp"
 #include "json_string.hpp"
-
+#include "ftp.hpp"
 /*
  * The unit_test() functions defined in header files
  * can be tested here using CHECK framework.
@@ -29,4 +29,5 @@ TEST_CASE("Testing unit_test() defined in class") {
     CHECK(utf8_safe_string_unit_test() == true);
     CHECK(tsc_clock::unit_test() == true);
     CHECK(json_string::unit_test() == true);
+    CHECK(ftp::unit_test()==true);
 }
