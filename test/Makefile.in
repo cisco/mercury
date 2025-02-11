@@ -64,7 +64,7 @@ DROP_ROOT =
 endif
 
 ifeq ($(COVERAGE_ENABLED),1)
-CFLAGS += -fprofile-arcs --coverage -ggdb -O0
+CFLAGS += -fprofile-arcs --coverage -ggdb -O0 -fprofile-update=atomic
 LDFLAGS += --coverage
 endif
 
@@ -304,6 +304,8 @@ clean:
 	find ./fuzz/ -name "*.c" -exec rm -v {} +
 	find ./fuzz/ -name "crash*" -exec rm -v {} +
 	find ./fuzz/ -name "*.profraw" -delete
+	find ./fuzz/ -name "*.profdata" -delete
+	find ./fuzz/ -name "*.info" -delete
 	@echo "cleaned all targets"
 
 .PHONY: distclean

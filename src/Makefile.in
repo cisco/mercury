@@ -101,7 +101,7 @@ endif
 #endif
 
 ifeq ($(COVERAGE_ENABLED),1)
-CFLAGS += -fprofile-arcs --coverage -ggdb -O0
+CFLAGS += -fprofile-arcs --coverage -ggdb -O0 -fprofile-update=atomic
 LDFLAGS += --coverage
 endif
 
