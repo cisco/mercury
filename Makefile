@@ -146,8 +146,9 @@ test-coverage:
 	make clean-helper
 
 	$(MAKE) --directory=test COVERAGE_ENABLED=1 fuzz-test
-	find . -name "*profraw" | xargs --verbose llvm-profdata merge -sparse -o ./coverage/mercury_fuzz_test.profdata
-	find . -name "*exec" | sed 's/\(\S\+\)/--object \1/g' | xargs llvm-cov export -format=lcov --instr-profile ./coverage/mercury_fuzz_test.profdata > ./coverage/mercury_fuzz_test_1.info
+	find . -name "*.profraw" | xargs -I {} sh -c 'llvm-profdata merge -sparse "{}" -o $$(dirname "{}")/default.profdata'
+	find . -name "*exec" | xargs -I {} sh -c 'llvm-cov export -format=lcov --instr-profile $$(dirname "{}")/default.profdata {} > $$(dirname "{}")/default.info'
+	find ./test/fuzz -name "*.info" | sed 's/\(\S\+\)/--add-tracefile \1/g' | xargs lcov --output-file ./coverage/mercury_fuzz_test_1.info  
 	lcov --directory ./src --capture --output-file ./coverage/mercury_fuzz_test_2.info
 	echo "Successfully created coverage file for fuzz tests!!"
 	make clean-helper
