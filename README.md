@@ -160,6 +160,9 @@ DETAILS
       http              HTTP request and response
       http.request      HTTP request
       http.response     HTTP response
+      ftp               FTP request and response
+      ftp.request       FTP request
+      ftp.response      FTP response
       icmp              ICMP message
       iec               IEC 60870-5-104
       lldp              LLDP message

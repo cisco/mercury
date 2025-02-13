@@ -84,15 +84,26 @@ namespace ftp
     {
         digits status_code;
         datum reply_text;
+        bool isValid;
 
     public:
         response(datum &d) : status_code{d}
         {
-            d.skip(1);
+            uint8_t lookahead_byte = 0;
+            d.lookahead_uint8(&lookahead_byte);
+            if (lookahead_byte == ' ' || lookahead_byte == '-')
+            {
+                isValid = true;
+                d.skip(1);
+            }
+            else
+            {
+                isValid = false;
+            }
             reply_text = d;
         }
 
-        bool is_not_empty() const { return status_code.is_not_empty(); }
+        bool is_not_empty() const { return status_code.is_not_empty() and isValid; }
 
         void write_json(struct json_object &record, bool)
         {
@@ -108,6 +119,48 @@ namespace ftp
 #ifndef NDEBUG
     static bool unit_test()
     {
+        //Valid Request
+        uint8_t user_command_packet[] = {
+            'U', 'S', 'E', 'R', ' ', 'f', 't', 'p', 'u', 's', 'e', 'r', '\r', '\n'
+        };
+        datum user_command{user_command_packet, user_command_packet + sizeof(user_command_packet)};
+        ftp::request valid_request{user_command};
+        if (!valid_request.is_not_empty()) {
+            return false;
+        }
+
+        // Valid Single-Line Response
+        const uint8_t single_line_response[] = "220 Welcome to FTP Server\r\n";
+        datum single_datum{single_line_response, single_line_response + sizeof(single_line_response) - 1};
+        ftp::response single_response{single_datum};
+        if (!single_response.is_not_empty())
+        {
+            return false;
+        }
+
+        // Valid Multi-Line Response
+        const uint8_t multi_line_response[] =
+            "230-User logged in.\r\n"
+            "230 Proceed with file transfer.\r\n";
+        datum multi_datum{multi_line_response, multi_line_response + sizeof(multi_line_response) - 1};
+        ftp::response multi_response{multi_datum};
+        if (!multi_response.is_not_empty())
+        {
+            return false;
+        }
+
+        //  Valid Multi-Line Response with Embedded Status Codes
+        const uint8_t multi_with_numbers[] =
+            "123-First line\r\n"
+            "456 Second line with numbers\r\n"
+            "123 Last line\r\n";
+        datum multi_num_datum{multi_with_numbers, multi_with_numbers + sizeof(multi_with_numbers) - 1};
+        ftp::response multi_num_response{multi_num_datum};
+        if (!multi_num_response.is_not_empty())
+        {
+            return false;
+        }
+        
         // False positive test: invalid garbage packet for request
         uint8_t garbage_packet[20] = {
             0xff, 0xff, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
@@ -121,8 +174,10 @@ namespace ftp
         }
 
         // False positive test: invalid garbage response
-        ftp::response invalid_response{garbage};
-        if (invalid_response.is_not_empty())
+        const uint8_t invalid_response[] = "XYZ This is not a valid FTP response\r\n";
+        datum invalid_datum{invalid_response, invalid_response + sizeof(invalid_response) - 1};
+        ftp::response invalid_resp{invalid_datum};
+        if (invalid_resp.is_not_empty()) // Should be false
         {
             return false;
         }

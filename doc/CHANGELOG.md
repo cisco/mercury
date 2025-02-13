@@ -1,5 +1,7 @@
 # CHANGELOG for Mercury
 
+* Added support for parsing the FTP protocol.
+
 ## VERSION 2.6.2
 * Removed default interface from template configuration file
   `mercury.cfg` and added runtime check to require that an interface
