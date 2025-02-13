@@ -209,6 +209,9 @@ pcap: pcap.cc pcap_file_io.h
 pcap_filter: pcap_filter.cc pcap_file_io.c libmerc
 	$(CXX) $(CFLAGS) pcap_filter.cc pcap_file_io.c libmerc/libmerc.a -lz -lcrypto -pthread -o pcap_filter
 
+classify: classify.cpp libmerc/analysis.cc libmerc/utils.cc libmerc/addr.cc
+	$(CXX) $(CFLAGS) classify.cpp libmerc/analysis.cc libmerc/utils.cc libmerc/addr.cc -lcrypto -lz -o classify
+
 # implicit rule for building object files
 #
 %.o: %.c %.h

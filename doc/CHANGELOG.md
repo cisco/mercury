@@ -1,6 +1,13 @@
 # CHANGELOG for Mercury
 
 * Added support for parsing the FTP protocol.
+## VERSION 2.6.3
+* Revamped SSH metadata and fingerprints.
+* Minor improvements to reassembly.
+* Numerical stability improvements to the naive bayes classifier.
+* Added [`classify`](src/classify.cpp) tool for running classifier
+  on a command-line arguments.
+* Minor fixes to reassembly and LDAP parsing
 
 ## VERSION 2.6.2
 * Removed default interface from template configuration file
