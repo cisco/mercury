@@ -19,7 +19,7 @@ public:
 namespace ftp
 {
 
-    // FTP command: Section 5.3.1 - Uppercase ASCII, 3 or 4 characters
+    // FTP command: Section 5.3.1 - Uppercase/Lowercase ASCII, 3 or 4 characters
     class ftp_command : public one_or_more<ftp_command>
     {
     public:
@@ -35,9 +35,13 @@ namespace ftp
         ftp_command command;
         literal_byte<' '> sp;
         up_to_crlf argument;
+        bool isValid;
 
     public:
-        request(datum &d) : command{d}, sp{d}, argument{d} {}
+        request(datum &d) : command{d}, sp{d}, argument{d}
+        {
+            isValid = command.length() >= 3 and command.length() <= 4;
+        }
 
         void write_json(struct json_object &record, bool)
         {
@@ -49,7 +53,7 @@ namespace ftp
             ftp_object.close();
         }
 
-        bool is_not_empty() const { return command.is_not_empty(); }
+        bool is_not_empty() const { return command.is_not_empty() and isValid; }
 
         // static constexpr mask_and_value<8> user_matcher{
         //     { 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00 },
@@ -119,13 +123,13 @@ namespace ftp
 #ifndef NDEBUG
     static bool unit_test()
     {
-        //Valid Request
+        // Valid Request
         uint8_t user_command_packet[] = {
-            'U', 'S', 'E', 'R', ' ', 'f', 't', 'p', 'u', 's', 'e', 'r', '\r', '\n'
-        };
+            'U', 'S', 'E', 'R', ' ', 'f', 't', 'p', 'u', 's', 'e', 'r', '\r', '\n'};
         datum user_command{user_command_packet, user_command_packet + sizeof(user_command_packet)};
         ftp::request valid_request{user_command};
-        if (!valid_request.is_not_empty()) {
+        if (!valid_request.is_not_empty())
+        {
             return false;
         }
 
@@ -160,7 +164,7 @@ namespace ftp
         {
             return false;
         }
-        
+
         // False positive test: invalid garbage packet for request
         uint8_t garbage_packet[20] = {
             0xff, 0xff, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
@@ -169,6 +173,15 @@ namespace ftp
         datum garbage{garbage_packet, garbage_packet + sizeof(garbage_packet)};
         ftp::request invalid_request{garbage};
         if (invalid_request.is_not_empty())
+        {
+            return false;
+        }
+
+        uint8_t req_wrong_command_packet[] = {
+            'B', ' ', 'f', 't', 'p', 'u', 's', 'e', 'r', '\r', '\n'};
+        datum req_wrong_command{req_wrong_command_packet, req_wrong_command_packet + sizeof(req_wrong_command_packet)};
+        ftp::request wrong_command{req_wrong_command};
+        if (wrong_command.is_not_empty())
         {
             return false;
         }
