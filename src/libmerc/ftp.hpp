@@ -88,7 +88,7 @@ namespace ftp
     {
         digits status_code;
         datum reply_text;
-        bool isValid;
+        bool isValid = false;
 
     public:
         response(datum &d) : status_code{d}
@@ -100,10 +100,7 @@ namespace ftp
                 isValid = true;
                 d.skip(1);
             }
-            else
-            {
-                isValid = false;
-            }
+            isValid = isValid and status_code.length() == 3;
             reply_text = d;
         }
 
@@ -191,6 +188,14 @@ namespace ftp
         datum invalid_datum{invalid_response, invalid_response + sizeof(invalid_response) - 1};
         ftp::response invalid_resp{invalid_datum};
         if (invalid_resp.is_not_empty()) // Should be false
+        {
+            return false;
+        }
+
+        const uint8_t wrong_single_line_response[] = "20 Welcome to FTP Server\r\n";
+        datum wrong_single_datum{wrong_single_line_response, wrong_single_line_response + sizeof(wrong_single_line_response) - 1};
+        ftp::response wrong_single_response{wrong_single_datum};
+        if (wrong_single_response.is_not_empty())
         {
             return false;
         }
