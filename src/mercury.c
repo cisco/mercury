@@ -152,7 +152,7 @@ char mercury_extended_help[] =
     "   --reassembly enables reassembly\n"
     "   This option allows mercury to keep track of tcp or udp segment state and \n"
     "   and reassemble these segments based on the application in payload\n"
-    "\n"
+    "\n" 
     "   \"[-u or --user] u\" sets the UID and GID to those of user u, so that\n"
     "   output file(s) are owned by this user.  If this option is not set, then\n"
     "   the UID is set to SUDO_UID, so that privileges are dropped to those of\n"
@@ -186,7 +186,7 @@ char mercury_extended_help[] =
     "   that data is output in base64 format, as a string with the key \"base64\".\n"
     "\n"
     "   --certs-json writes out certificates as JSON objects; otherwise,\n"
-    "    that data is output in base64 format, as a string with the key \"base64\".\n"
+   "    that data is output in base64 format, as a string with the key \"base64\".\n"
     "\n"
     "   --metadata writes out additional metadata into the protocol JSON objects.\n"
     "\n"
@@ -210,7 +210,7 @@ char mercury_extended_help[] =
     "   [-h or --help] writes this extended help message to stdout.\n"
     "\n"
     "SYSTEM\n"
-    "   Resource files used in analysis: " DEFAULT_RESOURCE_DIR "\n" // can be set via ./configure
+    "   Resource files used in analysis: " DEFAULT_RESOURCE_DIR "\n"    // can be set via ./configure
     "   Systemd service output:          /usr/local/var/mercury\n"
     "   Systemd service configuration    /etc/mercury/mercury.cfg\n"
     "\n"
@@ -222,41 +222,34 @@ char mercury_extended_help[] =
     "   mercury -r foo.mcap -f foo.json -a    # as above, with fingerprint analysis\n"
     "   mercury -c eth0 -t cpu -f foo.json -a # capture and analyze fingerprints\n";
 
-enum extended_help
-{
+
+enum extended_help {
     extended_help_off = 0,
-    extended_help_on = 1
+    extended_help_on  = 1
 };
 
-[[noreturn]] void usage(const char *progname, const char *err_string, enum extended_help extended_help)
-{
-    if (err_string)
-    {
+[[noreturn]] void usage(const char *progname, const char *err_string, enum extended_help extended_help) {
+    if (err_string) {
         printf("error: %s\n", err_string);
     }
     printf(mercury_help, progname);
-    if (extended_help)
-    {
+    if (extended_help) {
         printf("%s", mercury_extended_help);
     }
     exit(EXIT_FAILURE);
 }
 
-bool option_is_valid(const char *opt)
-{
-    if (opt == NULL)
-    {
+bool option_is_valid(const char *opt) {
+    if (opt == NULL) {
         return false;
     }
-    if (opt[0] == '-')
-    {
-        return false; // appears to be in -x or --x format
+    if (opt[0] == '-') {
+        return false;  // appears to be in -x or --x format
     }
     return true;
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
     struct mercury_config cfg = mercury_config_init();
     struct libmerc_config libmerc_cfg;
     bool select_set = false;
@@ -264,106 +257,75 @@ int main(int argc, char *argv[])
     bool crypto_assess_set = false;
     bool using_config_file = false;
 
-    // extern double malware_prob_threshold;  // TODO - expose hidden command
+    //extern double malware_prob_threshold;  // TODO - expose hidden command
 
     std::string additional_args;
 
-    while (1)
-    {
-        enum opt
-        {
-            config = 1,
-            version = 2,
-            license = 3,
-            dns_json = 4,
-            certs_json = 5,
-            metadata = 6,
-            resources = 7,
-            tcp_init_data = 8,
-            udp_init_data = 9,
-            write_stats = 10,
-            stats_limit = 11,
-            stats_time = 12,
-            output_time = 13,
-            reassembly = 14,
-            format = 15,
-            raw_features = 16,
-            crypto_assess = 17,
-        };
+    while(1) {
+        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13, reassembly=14, format=15, raw_features=16, crypto_assess=17, };
         int opt_idx = 0;
         static struct option long_opts[] = {
-            {"config", required_argument, NULL, config},
-            {"resources", required_argument, NULL, resources},
-            {"stats", required_argument, NULL, write_stats},
-            {"version", no_argument, NULL, version},
-            {"license", no_argument, NULL, license},
-            {"dns-json", no_argument, NULL, dns_json},
-            {"certs-json", no_argument, NULL, certs_json},
-            {"metadata", no_argument, NULL, metadata},
-            {"nonselected-tcp-data", no_argument, NULL, tcp_init_data},
-            {"nonselected-udp-data", no_argument, NULL, udp_init_data},
-            {"stats-limit", required_argument, NULL, stats_limit},
-            {"stats-time", required_argument, NULL, stats_time},
-            {"output-time", required_argument, NULL, output_time},
-            {"reassembly", no_argument, NULL, reassembly},
-            {"crypto-assess", optional_argument, NULL, crypto_assess},
-            {"format", required_argument, NULL, format},
-            {"read", required_argument, NULL, 'r'},
-            {"write", required_argument, NULL, 'w'},
-            {"directory", required_argument, NULL, 'd'},
-            {"capture", required_argument, NULL, 'c'},
-            {"fingerprint", required_argument, NULL, 'f'},
-            {"analysis", no_argument, NULL, 'a'},
-            {"threads", required_argument, NULL, 't'},
-            {"threshold", required_argument, NULL, 'x'}, // TODO - expose hidden command
-            {"buffer", required_argument, NULL, 'b'},
-            {"limit", required_argument, NULL, 'l'},
-            {"user", required_argument, NULL, 'u'},
-            {"help", no_argument, NULL, 'h'},
-            {"select", optional_argument, NULL, 's'},
-            {"raw-features", required_argument, NULL, raw_features},
-            {"verbose", no_argument, NULL, 'v'},
-            {NULL, 0, 0, 0}};
+            { "config",      required_argument, NULL, config  },
+            { "resources",   required_argument, NULL, resources },
+            { "stats",       required_argument, NULL, write_stats },
+            { "version",     no_argument,       NULL, version },
+            { "license",     no_argument,       NULL, license },
+            { "dns-json",    no_argument,       NULL, dns_json },
+            { "certs-json",  no_argument,       NULL, certs_json },
+            { "metadata",    no_argument,       NULL, metadata },
+            { "nonselected-tcp-data", no_argument, NULL, tcp_init_data },
+            { "nonselected-udp-data", no_argument, NULL, udp_init_data },
+            { "stats-limit", required_argument, NULL, stats_limit },
+            { "stats-time",  required_argument, NULL, stats_time },
+            { "output-time", required_argument, NULL, output_time },
+            { "reassembly",  no_argument,    NULL, reassembly },
+            { "crypto-assess", optional_argument, NULL, crypto_assess },
+            { "format",      required_argument, NULL, format },
+            { "read",        required_argument, NULL, 'r' },
+            { "write",       required_argument, NULL, 'w' },
+            { "directory",   required_argument, NULL, 'd' },
+            { "capture",     required_argument, NULL, 'c' },
+            { "fingerprint", required_argument, NULL, 'f' },
+            { "analysis",    no_argument,       NULL, 'a' },
+            { "threads",     required_argument, NULL, 't' },
+            { "threshold",   required_argument, NULL, 'x' },  // TODO - expose hidden command
+            { "buffer",      required_argument, NULL, 'b' },
+            { "limit",       required_argument, NULL, 'l' },
+            { "user",        required_argument, NULL, 'u' },
+            { "help",        no_argument,       NULL, 'h' },
+            { "select",      optional_argument, NULL, 's' },
+            { "raw-features", required_argument, NULL, raw_features },
+            { "verbose",     no_argument,       NULL, 'v' },
+            { NULL,          0,                 0,     0  }
+        };
         int c = getopt_long(argc, argv, "r:w:c:f:t:b:l:u:s::oham:vp:d:", long_opts, &opt_idx);
-        if (c < 0)
-        {
+        if (c < 0) {
             break;
         }
-        switch (c)
-        {
+        switch(c) {
         case config:
-            if (option_is_valid(optarg))
-            {
+            if (option_is_valid(optarg)) {
                 status cfg_status = mercury_config_read_from_file(cfg, libmerc_cfg, optarg);
-                if (cfg_status != status_ok)
-                {
+                if (cfg_status != status_ok) {
                     usage(argv[0], nullptr, extended_help_off);
                 }
                 using_config_file = true;
-            }
-            else
-            {
+            } else {
                 usage(argv[0], "option config requires filename argument", extended_help_off);
             }
             break;
         case resources:
-            if (option_is_valid(optarg))
-            {
+            if (option_is_valid(optarg)) {
                 libmerc_cfg.resources = optarg;
-            }
-            else
-            {
+            } else {
                 usage(argv[0], "option resources requires directory argument", extended_help_off);
             }
             break;
         case write_stats:
-            if (option_is_valid(optarg))
-            {
+            if (option_is_valid(optarg)) {
                 cfg.stats_filename = optarg;
                 libmerc_cfg.do_stats = true;
-            }
-            else
-            {
+            } else {
                 usage(argv[0], "option stats requires filename argument", extended_help_off);
             }
             break;
@@ -377,172 +339,122 @@ int main(int argc, char *argv[])
             return EXIT_SUCCESS;
             break;
         case dns_json:
-            if (optarg)
-            {
+            if (optarg) {
                 usage(argv[0], "option dns-json does not use an argument", extended_help_off);
-            }
-            else
-            {
+            } else {
                 libmerc_cfg.dns_json_output = true;
             }
             break;
         case certs_json:
-            if (optarg)
-            {
+            if (optarg) {
                 usage(argv[0], "option certs-json does not use an argument", extended_help_off);
-            }
-            else
-            {
+            } else {
                 libmerc_cfg.certs_json_output = true;
             }
             break;
         case metadata:
-            if (optarg)
-            {
+            if (optarg) {
                 usage(argv[0], "option metadata does not use an argument", extended_help_off);
-            }
-            else
-            {
+            } else {
                 libmerc_cfg.metadata_output = true;
             }
             break;
         case tcp_init_data:
-            if (optarg)
-            {
+            if (optarg) {
                 usage(argv[0], "option nonselected-tcp-data does not use an argument", extended_help_off);
-            }
-            else
-            {
+            } else {
                 libmerc_cfg.output_tcp_initial_data = true;
             }
             break;
         case udp_init_data:
-            if (optarg)
-            {
+            if (optarg) {
                 usage(argv[0], "option nonselected-udp-data does not use an argument", extended_help_off);
-            }
-            else
-            {
+            } else {
                 libmerc_cfg.output_udp_initial_data = true;
             }
             break;
         case reassembly:
-            if (optarg)
-            {
+            if (optarg) {
                 usage(argv[0], "option reassembly does not use an argument", extended_help_off);
-            }
-            else
-            {
+            } else {
                 additional_args.append("reassembly;");
             }
             break;
         case format:
-            if (option_is_valid(optarg))
-            {
+            if (option_is_valid(optarg)) {
                 additional_args.append("format=").append(optarg).append(";");
-            }
-            else
-            {
+            } else {
                 usage(argv[0], "option format requires fingerprint format argument", extended_help_off);
             }
             break;
         case raw_features:
-            if (raw_features_set)
-            {
+            if (raw_features_set) {
                 usage(argv[0], "option raw-features used more than once", extended_help_off);
             }
-            if (option_is_valid(optarg))
-            {
+            if (option_is_valid(optarg)) {
                 additional_args.append("raw-features=").append(optarg).append(";");
                 raw_features_set = true;
-            }
-            else
-            {
+            } else {
                 usage(argv[0], "option raw_features requires comma separated protocols as argument", extended_help_off);
             }
             break;
         case crypto_assess:
-            if (crypto_assess_set)
-            {
+            if (crypto_assess_set) {
                 usage(argv[0], "option crypto-assess used more than once", extended_help_off);
             }
-            if (optarg and option_is_valid(optarg))
-            {
+            if (optarg and option_is_valid(optarg)) {
                 additional_args.append("crypto-assess=").append(optarg).append(";");
                 crypto_assess_set = true;
-            }
-            else
-            {
+            } else {
                 additional_args.append("crypto-assess=default;");
             }
             break;
         case 'r':
-            if (option_is_valid(optarg))
-            {
+            if (option_is_valid(optarg)) {
                 cfg.read_filename = optarg;
-            }
-            else
-            {
+            } else {
                 usage(argv[0], "option r or read requires filename argument", extended_help_off);
             }
             break;
         case 'w':
-            if (option_is_valid(optarg))
-            {
+            if (option_is_valid(optarg)) {
                 cfg.write_filename = optarg;
-            }
-            else
-            {
+            } else {
                 usage(argv[0], "option w or write requires filename argument", extended_help_off);
             }
             break;
         case 'd':
-            if (option_is_valid(optarg))
-            {
+            if (option_is_valid(optarg)) {
                 cfg.working_dir = optarg;
-            }
-            else
-            {
+            } else {
                 usage(argv[0], "option d or directory requires working directory argument", extended_help_off);
             }
             break;
         case 'c':
-            if (option_is_valid(optarg))
-            {
+            if (option_is_valid(optarg)) {
                 cfg.capture_interface = optarg;
-            }
-            else
-            {
+            } else {
                 usage(argv[0], "option c or capture requires interface argument", extended_help_off);
             }
             break;
         case 'f':
-            if (option_is_valid(optarg))
-            {
+            if (option_is_valid(optarg)) {
                 cfg.fingerprint_filename = optarg;
-            }
-            else
-            {
+            } else {
                 usage(argv[0], "option f or fingerprint requires filename argument", extended_help_off);
             }
             break;
         case 'a':
-            if (optarg)
-            {
+            if (optarg) {
                 usage(argv[0], "option a or analysis does not use an argument", extended_help_off);
-            }
-            else
-            {
+            } else {
                 libmerc_cfg.do_analysis = true;
             }
             break;
         case 'o':
-            if (optarg)
-            {
+            if (optarg) {
                 usage(argv[0], "option o or overwrite does not use an argument", extended_help_off);
-            }
-            else
-            {
+            } else {
                 /*
                  * remove 'exclusive' and add 'truncate' flags, to cause file writes to overwrite files if need be
                  */
@@ -554,68 +466,50 @@ int main(int argc, char *argv[])
             }
             break;
         case 's':
-            if (optarg)
-            {
-                if (select_set)
-                {
+            if (optarg) {
+                if (select_set) {
                     usage(argv[0], "option s or select used more than once", extended_help_off);
                 }
-                if (option_is_valid(optarg))
-                {
+                if (option_is_valid(optarg)) {
                     libmerc_cfg.packet_filter_cfg = optarg;
                     additional_args.append("select=").append(optarg).append(";");
                     select_set = true;
-                }
-                else
-                {
+                } else {
                     usage(argv[0], "option s or select has the form -s\"filter\" or --select=\"filter\"", extended_help_off);
                 }
-            }
-            else
-            {
+            } else {
                 additional_args.append("select=all;");
                 select_set = true;
             }
             break;
         case 'h':
-            if (optarg)
-            {
+            if (optarg) {
                 usage(argv[0], "option h or help does not use an argument", extended_help_on);
-            }
-            else
-            {
+            } else {
                 printf("mercury: packet metadata capture and analysis\n");
                 usage(argv[0], NULL, extended_help_on);
             }
             break;
         case 'T':
-            if (optarg)
-            {
+            if (optarg) {
                 usage(argv[0], "option T or test does not use an argument", extended_help_off);
-            }
-            else
-            {
+            } else {
                 cfg.use_test_packet = 1;
-            }
+             }
             break;
         case 't':
-            if (option_is_valid(optarg))
-            {
-                if (strcmp(optarg, "cpu") == 0)
-                {
+            if (option_is_valid(optarg)) {
+                if (strcmp(optarg, "cpu") == 0) {
                     cfg.num_threads = -1; /* create as many threads as there are cpus */
                     break;
                 }
                 errno = 0;
                 cfg.num_threads = strtol(optarg, NULL, 10);
-                if (cfg.num_threads == 0 || errno)
-                {
+                if (cfg.num_threads == 0 || errno) {
                     printf("error: could not convert argument \"%s\" to a non-negative number\n", optarg);
                     usage(argv[0], "option t or threads requires a numeric argument", extended_help_off);
                 }
-            }
-            else
-            {
+            } else {
                 usage(argv[0], "option t or threads requires a numeric argument", extended_help_off);
             }
             break;
@@ -632,129 +526,95 @@ int main(int argc, char *argv[])
             // }
             // break;
         case 'l':
-            if (option_is_valid(optarg))
-            {
+            if (option_is_valid(optarg)) {
                 errno = 0;
                 cfg.rotate = strtol(optarg, NULL, 10);
-                if (errno)
-                {
+                if (errno) {
                     printf("%s: could not convert argument \"%s\" to a number\n", strerror(errno), optarg);
                 }
-            }
-            else
-            {
+            } else {
                 usage(argv[0], "option l or limit requires a numeric argument", extended_help_off);
             }
             break;
         case stats_time:
-            if (option_is_valid(optarg))
-            {
+            if (option_is_valid(optarg)) {
                 errno = 0;
                 cfg.stats_rotation_duration = strtol(optarg, NULL, 10);
-                if (errno)
-                {
+                if (errno) {
                     printf("%s: could not convert argument \"%s\" to a number\n", strerror(errno), optarg);
                 }
-            }
-            else
-            {
+            } else {
                 usage(argv[0], "option stats-time requires a numeric argument", extended_help_off);
             }
             break;
         case stats_limit:
-            if (option_is_valid(optarg))
-            {
+            if (option_is_valid(optarg)) {
                 errno = 0;
                 libmerc_cfg.max_stats_entries = strtol(optarg, NULL, 10);
-                if (errno)
-                {
+                if (errno) {
                     printf("%s: could not convert argument \"%s\" to a number\n", strerror(errno), optarg);
                 }
-            }
-            else
-            {
+            } else {
                 usage(argv[0], "option stats-limit requires a numeric argument", extended_help_off);
             }
             break;
         case output_time:
-            if (option_is_valid(optarg))
-            {
+            if (option_is_valid(optarg)) {
                 errno = 0;
                 cfg.out_rotation_duration = strtol(optarg, NULL, 10);
-                if (errno)
-                {
+                if (errno) {
                     printf("%s: could not convert argument \"%s\" to a number\n", strerror(errno), optarg);
                 }
-            }
-            else
-            {
+            } else {
                 usage(argv[0], "option output-time requires a numeric argument", extended_help_off);
             }
             break;
         case 'p':
-            if (option_is_valid(optarg))
-            {
+            if (option_is_valid(optarg)) {
                 errno = 0;
                 cfg.loop_count = strtol(optarg, NULL, 10);
-                if (errno)
-                {
+                if (errno) {
                     printf("%s: could not convert argument \"%s\" to a number\n", strerror(errno), optarg);
                 }
-            }
-            else
-            {
+            } else {
                 usage(argv[0], "option p or loop requires a numeric argument", extended_help_off);
             }
             break;
         case 0:
             /* The option --adaptive to adaptively accept or skip packets for PCAP file. */
-            if (optarg)
-            {
+            if (optarg) {
                 usage(argv[0], "option --adaptive does not use an argument", extended_help_off);
-            }
-            else
-            {
+            } else {
                 cfg.adaptive = 1;
             }
             break;
         case 'u':
-            if (option_is_valid(optarg))
-            {
+            if (option_is_valid(optarg)) {
                 errno = 0;
                 cfg.user = optarg;
-            }
-            else
-            {
+            } else {
                 usage(argv[0], "option u or user requires an argument", extended_help_off);
             }
             break;
         case 'b':
-            if (option_is_valid(optarg))
-            {
+            if (option_is_valid(optarg)) {
                 errno = 0;
                 cfg.buffer_fraction = strtof(optarg, NULL);
-                if (errno)
-                {
+                if (errno) {
                     printf("%s: could not convert argument \"%s\" to a number\n", strerror(errno), optarg);
                     usage(argv[0], NULL, extended_help_off);
                 }
-                if (cfg.buffer_fraction < 0.0 || cfg.buffer_fraction > 1.0)
-                {
+                if (cfg.buffer_fraction < 0.0 || cfg.buffer_fraction > 1.0 ) {
                     usage(argv[0], "buffer fraction must be between 0.0 and 1.0 inclusive", extended_help_off);
                 }
-            }
-            else
-            {
+            } else {
                 usage(argv[0], "option b or buffer requires a numeric argument", extended_help_off);
             }
             break;
         case 'v':
-            if (optarg)
-            {
+            if (optarg) {
                 usage(argv[0], "option v or verbose does not use an argument", extended_help_off);
-            }
-            else
-            {
+            } else {
                 cfg.verbosity = 1;
             }
             break;
@@ -763,60 +623,49 @@ int main(int argc, char *argv[])
             usage(argv[0], NULL, extended_help_off);
         }
     }
-    if (optind < argc)
-    {
+    if (optind < argc) {
         printf("unused options string(s): ");
-        while (optind < argc)
-        {
+        while (optind < argc) {
             printf("%s ", argv[optind++]);
         }
         printf("\n");
         usage(argv[0], "unrecognized options", extended_help_off);
     }
 
-    if (cfg.read_filename == NULL && cfg.capture_interface == NULL)
-    {
-        cfg.read_filename = (char *)"-"; // convention: a dash indicates to read from stdin
+    if (cfg.read_filename == NULL && cfg.capture_interface == NULL) {
+        cfg.read_filename = (char *)"-";  // convention: a dash indicates to read from stdin
     }
-    if (cfg.read_filename != NULL && cfg.capture_interface != NULL)
-    {
+    if (cfg.read_filename != NULL && cfg.capture_interface != NULL) {
         usage(argv[0], "incompatible arguments read [r] and capture [c] specified on command line", extended_help_off);
     }
-    if (cfg.fingerprint_filename && cfg.write_filename)
-    {
+    if (cfg.fingerprint_filename && cfg.write_filename) {
         usage(argv[0], "both fingerprint [f] and write [w] specified on command line", extended_help_off);
     }
-    if (libmerc_cfg.max_stats_entries && cfg.stats_filename == NULL)
-    {
+    if (libmerc_cfg.max_stats_entries && cfg.stats_filename == NULL) {
         usage(argv[0], "stats-limit set, but no stats file specified", extended_help_off);
     }
-    if (cfg.stats_filename != NULL && !libmerc_cfg.do_analysis)
-    {
+    if (cfg.stats_filename != NULL && !libmerc_cfg.do_analysis) {
         usage(argv[0], "stats option requires --analysis", extended_help_off);
     }
 
-    if (cfg.read_filename)
-    {
-        cfg.output_block = true;                   // use blocking output, so that no packets are lost in copying
+    if (cfg.read_filename) {
+        cfg.output_block = true;      // use blocking output, so that no packets are lost in copying
         additional_args.append("stats-blocking;"); // use blocking stats to avoid losing stats events
     }
 
     // setup extended config options
     //
-    if (libmerc_cfg.packet_filter_cfg == NULL)
-    {
+    if (libmerc_cfg.packet_filter_cfg == NULL) {
         additional_args.append("select=all;");
     }
-    if (!using_config_file || (using_config_file && libmerc_cfg.packet_filter_cfg == nullptr))
-    {
+    if (!using_config_file || (using_config_file && libmerc_cfg.packet_filter_cfg == nullptr)) {
         libmerc_cfg.packet_filter_cfg = (char *)additional_args.c_str();
     }
 
     mercury_context mc = mercury_init(&libmerc_cfg, cfg.verbosity);
-    if (mc == nullptr)
-    {
+    if (mc == nullptr) {
         fprintf(stderr, "error: could not initialize mercury\n");
-        return EXIT_FAILURE; // libmerc could not be initialized
+        return EXIT_FAILURE;          // libmerc could not be initialized
     };
 
     /*
@@ -824,24 +673,17 @@ int main(int argc, char *argv[])
      * loop_count > 1  ==> looping (i.e. repeating read file) will be done
      * loop_count == 1 ==> default condition
      */
-    if (cfg.loop_count < 1)
-    {
+    if (cfg.loop_count < 1) {
         usage(argv[0], "error: invalid loop count (should be >= 1)", extended_help_off);
-    }
-    else if (cfg.loop_count > 1)
-    {
+    } else if (cfg.loop_count > 1) {
         // fprintf(stderr, "notice: looping over input with loop count %d\n", cfg.loop_count);
     }
 
     /* The option --adaptive works only with -w PCAP file option and -c capture interface */
-    if (cfg.adaptive > 0)
-    {
-        if (cfg.write_filename == NULL || cfg.capture_interface == NULL)
-        {
+    if (cfg.adaptive > 0) {
+        if (cfg.write_filename == NULL || cfg.capture_interface == NULL) {
             usage(argv[0], "The option --adaptive requires options -c capture interface and -w pcap file.", extended_help_off);
-        }
-        else
-        {
+        } else {
             set_percent_accept(30); /* set starting percentage */
         }
     }
@@ -849,26 +691,22 @@ int main(int argc, char *argv[])
     /*
      * set up signal handlers, so that output is flushed upon close
      */
-    if (setup_signal_handler() != status_ok)
-    {
+    if (setup_signal_handler() != status_ok) {
         fprintf(stderr, "%s: error while setting up signal handlers\n", strerror(errno));
     }
 
     /* If we're going to capture from the network we don't want this main thread
      * to get interrupted, instead the stats thread needs to recieve the signal.
      */
-    if (cfg.capture_interface)
-    {
+    if (cfg.capture_interface) {
         disable_all_signals(); /* Stats thread will unmask the signals it needs */
     }
 
     /* set the number of threads, if needed */
-    if (cfg.num_threads == -1)
-    {
+    if (cfg.num_threads == -1) {
         int num_cpus = std::thread::hardware_concurrency();
         cfg.num_threads = num_cpus;
-        if (cfg.verbosity)
-        {
+        if (cfg.verbosity) {
             fprintf(stderr, "found %d CPU(s), creating %d thread(s)\n", num_cpus, cfg.num_threads);
         }
     }
@@ -880,71 +718,59 @@ int main(int argc, char *argv[])
     struct cap_stats cstats;
 
     controller *ctl = nullptr;
-    if (cfg.stats_filename)
-    {
+    if (cfg.stats_filename) {
         ctl = new controller{mc, cfg.stats_filename, cfg.stats_rotation_duration, &out_file, cfg, true};
     }
-    else
-    {
+    else {
         ctl = new controller{mc, "disabled", cfg.stats_rotation_duration, &out_file, cfg, false};
     }
 
-    if (cfg.capture_interface)
-    {
+    if (cfg.capture_interface) {
         out_file.from_network = 1;
         fprintf(stderr, "Allocating I/O buffer balance: %4.2f%% input; %4.2f%% output\n", cfg.io_balance_frac * 100.0, (1.0 - cfg.io_balance_frac) * 100.0);
     }
 
-    if (output_thread_init(out_file, cfg) != 0)
-    {
+    if (output_thread_init(out_file, cfg) != 0) {
         fprintf(stderr, "error: unable to initialize output thread\n");
         return EXIT_FAILURE;
     }
-    if (cfg.capture_interface)
-    {
+    if (cfg.capture_interface) {
 
-        if (cfg.verbosity)
-        {
+        if (cfg.verbosity) {
             fprintf(stderr, "initializing interface %s\n", cfg.capture_interface);
         }
-        if (bind_and_dispatch(&cfg, mc, &out_file, &cstats) != status_ok)
-        {
+        if (bind_and_dispatch(&cfg, mc, &out_file, &cstats) != status_ok) {
             fprintf(stderr, "error: bind and dispatch failed\n");
             return EXIT_FAILURE;
         }
-    }
-    else if (cfg.read_filename)
-    {
+    } else if (cfg.read_filename) {
 
-        if (open_and_dispatch(&cfg, mc, &out_file) != status_ok)
-        {
+        if (open_and_dispatch(&cfg, mc, &out_file) != status_ok) {
             return EXIT_FAILURE;
         }
     }
 
-    if (cfg.verbosity)
-    {
+    if (cfg.verbosity) {
         fprintf(stderr, "stopping output thread and flushing queued output to disk.\n");
     }
     output_thread_finalize(&out_file);
 
-    if (cfg.capture_interface)
-    {
+
+    if (cfg.capture_interface) {
         fprintf(stderr, "--\n"
-                        "%" PRIu64 " packets captured\n"
-                        "%" PRIu64 " bytes captured\n"
-                        "%" PRIu64 " packets seen by socket\n"
-                        "%" PRIu64 " packets dropped\n"
-                        "%" PRIu64 " socket queue freezes\n"
-                        "%" PRIu64 " output drops\n"
-                        "%" PRIu64 " output truncated (drops)\n",
+                "%" PRIu64 " packets captured\n"
+                "%" PRIu64 " bytes captured\n"
+                "%" PRIu64 " packets seen by socket\n"
+                "%" PRIu64 " packets dropped\n"
+                "%" PRIu64 " socket queue freezes\n"
+                "%" PRIu64 " output drops\n"
+                "%" PRIu64 " output truncated (drops)\n",
                 cstats.packets, cstats.bytes, cstats.sock_packets, cstats.drops, cstats.freezes, out_file.output_drops, out_file.output_drops_trunc);
     }
 
-    // exit control thread after output thread
-    if (ctl)
-    {
-        delete ctl; // delete control thread, which will flush stats output (if any)
+    //exit control thread after output thread
+    if (ctl) {
+        delete ctl;  // delete control thread, which will flush stats output (if any)
     }
 
     mercury_finalize(mc);
