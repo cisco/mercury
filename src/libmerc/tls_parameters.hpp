@@ -15,11 +15,14 @@
 
 namespace tls {
 
+static constexpr char UNKNOWN[] = "UNKNOWN";
+
 class cipher_suites : public encoded<uint16_t> {
 public:
+
     void write_json(json_object &o) const {
         const char *name = get_name();
-        if (name == nullptr) {
+        if (name == UNKNOWN) {
             o.print_key_unknown_code("cipher_suites", encoded<uint16_t>::value());
         } else {
             o.print_key_string("cipher_suites", name);
@@ -736,7 +739,7 @@ public:
         default:
             ;
         }
-        return nullptr;
+        return UNKNOWN;
     }
 };
 
@@ -745,7 +748,7 @@ class supported_groups : public encoded<uint16_t> {
 public:
     void write_json(json_object &o) const {
         const char *name = get_name();
-        if (name == nullptr) {
+        if (name == UNKNOWN) {
             o.print_key_unknown_code("supported_groups", encoded<uint16_t>::value());
         } else {
             o.print_key_string("supported_groups", name);
@@ -868,7 +871,7 @@ public:
         default:
             ;
         }
-        return nullptr;
+        return UNKNOWN;
     }
 };
 
