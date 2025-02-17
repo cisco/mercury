@@ -53,7 +53,7 @@ public:
 };
 
 class dns_string {
-    std::vector<datum> label_vector;
+    std::string label_str;
     bool valid = false;
 
 public:
@@ -69,7 +69,8 @@ public:
         if (lookahead<literal_byte<'*'>> wildcard{d}) {
             datum label{d.data, wildcard.advance().data};
             d = wildcard.advance();
-            label_vector.push_back(label);
+            label_str.append(reinterpret_cast<const char*>(label.data), label.length());
+            label_str.push_back('.');
             literal_byte<'.'> dot{d};
         }
 
@@ -78,9 +79,10 @@ public:
             dns_label_string label{d};
             if (label.is_not_null()) {
                 // fprintf(stdout, "label: %.*s\n", (int)label.length(), label.data);
-                label_vector.push_back(label);
+                label_str.append(reinterpret_cast<const char*>(label.data), label.length());
                 if (lookahead<literal_byte<'.'>> dot{d}) {
                     d = dot.advance();
+                    label_str.push_back('.');
                 } else {
                     break; // unexpected character
                     // if (!d.is_not_empty()) {
@@ -95,7 +97,7 @@ public:
         //     fprintf(stdout, "label_vector: %.*s\n", (int)x.length(), x.data);
         // }
 
-        if (label_vector.size() == 0) {
+        if (label_str.empty()) {
             d.set_null();
             return;           // not a valid dns_string
         }
@@ -104,10 +106,10 @@ public:
         // alphabetic character
         //
 
-        datum tld = label_vector.back();
+        auto tld_start = label_str.find_last_of('.') + 1;
         bool tld_is_valid = false;
-        for (const auto &x : tld ) {
-            if ((x >= 'a' && x <= 'z') || (x >= 'A' && x <= 'Z')) {
+        for (size_t i = tld_start; i < label_str.size(); ++i) {
+            if (isalpha(label_str[i])) {
                 tld_is_valid = true;
                 break;
             }
@@ -126,45 +128,32 @@ public:
         return valid;
     }
 
-    size_t label_count() const { return label_vector.size(); }
+    size_t label_count() const { 
+        return std::count(label_str.begin(), label_str.end(), '.') + 1;
+    }
 
     void print() const {
         if (!valid) { return; }
-        bool first = true;
-        for (const auto & label : label_vector) {
-            if (!first) {
-                fputc('.', stdout);
-            }
-            first = false;
-            label.fprint(stdout);
-        }
+        fputs(label_str.c_str(), stdout);
         fputc('\n', stdout);
     }
 
     std::string get_string() const {
-        std::string tmp;
-        if (!valid) { return tmp; }
-        bool first = true;
-        for (const auto & label : label_vector) {
-            if (!first) {
-                tmp.push_back('.');
-            }
-            first = false;
-            tmp += label.get_string();
-        }
-        return tmp;
+        return valid ? label_str : std::string();
     }
 
-    const std::vector<datum> & get_value() const { return label_vector; }
+    const std::string & get_value() const { 
+        return label_str;
+    }
 
     // normalize verifies that the DNS name is valid, and if it is
     // not, appends the string ".invalid.alt"
     //
     void normalize() {
-        if (label_vector.size() > 0) {
-            if (label_vector.back().equals(std::array<uint8_t, 3> {'a', 'l', 't'})) {
-                label_vector.back() = datum{(uint8_t *)invalid, (uint8_t *)invalid + strlen(invalid)};
-                label_vector.push_back(datum{(uint8_t *)alt, (uint8_t *)alt + strlen(alt)});
+        if (!label_str.empty()) {
+            auto tld_start = label_str.find_last_of('.') + 1;
+            if (label_str.substr(tld_start) == "alt") {
+                label_str.replace(tld_start, std::string::npos, "invalid.alt");
             }
         }
     }
