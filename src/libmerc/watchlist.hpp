@@ -54,75 +54,59 @@ public:
 };
 
 class dns_string {
-    // longest sni in resource file has 20 labels
-    // talos.tc1.tl9.tl1.tl-1.tl23.tl1.tc2.tc4.tc5.tc6.aup9.aup-5.aup8.aup7.aup3.lc.int.verdictsim.com
-    static constexpr size_t max_labels = 25;
-    std::array<datum, max_labels> label_array;
+    std::string label_str;
+    std::string last_label;
     size_t label_count = 0;
+    size_t pos = 0;
     bool valid = false;
 
 public:
-
     dns_string(datum &d) {
-
         if (d.is_not_readable()) {
             return;
         }
 
-        // the first domain may be a wildcard (*)
-        //
+        label_str = d.get_string();
+
         if (lookahead<literal_byte<'*'>> wildcard{d}) {
-            datum label{d.data, wildcard.advance().data};
             d = wildcard.advance();
-            label_array[label_count++] = label;
-            literal_byte<'.'> dot{d};
+            pos++;
+            if (lookahead<literal_byte<'.'>> dot{d}) {
+                d = dot.advance();
+                pos++;
+            } else {
+                d.set_null();
+                return;
+            }
         }
 
-        while (d.is_not_empty() && label_count < max_labels) {
-            // fprintf(stdout, "dns_string has data "); d.fprint(stdout); fputc('\n', stdout);
-            dns_label_string label{d};
-            if (label.is_not_null()) {
-                // fprintf(stdout, "label: %.*s\n", (int)label.length(), label.data);
-                label_array[label_count++] = label;
+        while (d.is_not_empty()) {
+            if (lookahead<dns_label_string> label{d}) {
+                d = label.advance();
+                pos += label.value.get_string().length();
+                label_count++;
                 if (lookahead<literal_byte<'.'>> dot{d}) {
                     d = dot.advance();
+                    pos++;
                 } else {
-                    break; // unexpected character
-                    // if (!d.is_not_empty()) {
-                    // label_vector.push_back(label);
+                    last_label = label.value.get_string().c_str();
+                    break;
                 }
             } else {
-                break;        // TODO: verify correctness
-                // return;    // invalid label
+                label_count = 0;
+                d.set_null();
+                return;
             }
         }
-        // for (const auto & x : label_vector) {
-        //     fprintf(stdout, "label_vector: %.*s\n", (int)x.length(), x.data);
-        // }
 
-        if (label_count == 0) {
+        // a valid top level domain name contains at least one alphabetic character
+        if (!std::any_of(last_label.begin(), last_label.end(), [](unsigned char c){ return std::isalpha(std::tolower(c)); })) {
+            label_count = 0;
             d.set_null();
-            return;           // not a valid dns_string
+            return;
         }
 
-        // a valid top level domain name contains at least one
-        // alphabetic character
-        //
-        datum tld = label_array[label_count - 1];
-        bool tld_is_valid = false;
-        for (const auto &x : tld) {
-            if ((x >= 'a' && x <= 'z') || (x >= 'A' && x <= 'Z')) {
-                tld_is_valid = true;
-                break;
-            }
-        }
-        // fprintf(stdout, "tld: %.*s\n", (int)tld.length(), tld.data);
-
-        if (!tld_is_valid) {
-            d.set_null();
-            return;   // not a valid tld, possibly an IPv4 dotted quad
-        }
-
+        label_str = label_str.substr(0, pos);
         valid = true;
     }
 
@@ -134,41 +118,22 @@ public:
 
     void print() const {
         if (!valid) { return; }
-        bool first = true;
-        for (size_t i = 0; i < label_count; ++i) {
-            if (!first) {
-                fputc('.', stdout);
-            }
-            first = false;
-            label_array[i].fprint(stdout);
-        }
+        fputs(label_str.c_str(), stdout);
         fputc('\n', stdout);
     }
 
-    std::string get_string() const {
-        std::string tmp;
-        if (!valid) { return tmp; }
-        bool first = true;
-        for (size_t i = 0; i < label_count; ++i) {
-            if (!first) {
-                tmp.push_back('.');
-            }
-            first = false;
-            tmp += label_array[i].get_string();
-        }
-        return tmp;
-    }
+    std::string get_string() const { return valid ? label_str : std::string(); }
 
-    const std::array<datum, max_labels> & get_value() const { return label_array; }
+    const std::string & get_value() const { return label_str; }
 
     // normalize verifies that the DNS name is valid, and if it is
     // not, appends the string ".invalid.alt"
     //
     void normalize() {
-        if (label_count > 0) {
-            if (label_array[label_count - 1].equals(std::array<uint8_t, 3> {'a', 'l', 't'})) {
-                label_array[label_count - 1] = datum{(uint8_t *)invalid, (uint8_t *)invalid + strlen(invalid)};
-                label_array[label_count++] = datum{(uint8_t *)alt, (uint8_t *)alt + strlen(alt)};
+        if (!label_str.empty()) {
+            auto tld_start = label_str.find_last_of('.') + 1;
+            if (label_str.substr(tld_start) == "alt") {
+                label_str.replace(tld_start, std::string::npos, "invalid.alt");
             }
         }
     }
@@ -482,6 +447,10 @@ public:
             { "@#*%^$!", "other.alt", {} },                                         // neither a name or address
             { "8.8.8.8.alt", "8.8.8.8.alt", {} },                                   // .alt subdomains are left unchanged
             { "abc.def.8888", "other.alt", {} },                                    // TLD needs at least one alphabetic character
+            { "*cisco.com", "other.alt", {} },                                      // invalid first label
+            { "cisco.*.com", "other.alt", {} },                                     // invalid middle label
+            { "cisco.com*", "other.alt", {} },                                      // invalid last label
+            { "cisco.com.", "other.alt", {} },                                      // trailing dot is invalid
         };
 
         bool passed = true;
