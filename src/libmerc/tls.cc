@@ -397,10 +397,6 @@ struct tls_extension {
     uint16_t cnt; //No.of extensions of the same type
     uint16_t encoded_type;
 
-    static constexpr uint8_t num_extns_not_in_raw_features = 0;  //change this value when updating extns_not_in_raw_features
-    static constexpr uint16_t extns_not_in_raw_features[num_extns_not_in_raw_features] = {
-    };
-
     tls_extension() : type{0}, length{0}, value{NULL, NULL}, type_ptr{NULL}, length_ptr{NULL}, cnt{0} { }
 
     tls_extension(struct datum &p) : type{0}, length{0}, value{NULL, NULL}, type_ptr{NULL}, length_ptr{NULL}, cnt{0} {
@@ -554,10 +550,6 @@ struct tls_extension {
     }
 
     void write_raw_features(writeable &buf, bool &first) const {
-        if (uint16_match(type, extns_not_in_raw_features, num_extns_not_in_raw_features) == true) {
-            return;
-        }
-
         if (!first) {
             buf.copy(',');
         } else {
