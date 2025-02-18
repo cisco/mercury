@@ -68,6 +68,7 @@ struct eth_dot1ad_tag {
 #define ETH_TYPE_LOOPBACK      0x9000
 #define ETH_TYPE_TRAIL         0x1000
 #define ETH_TYPE_MPLS          0x8847
+#define ETH_TYPE_PPOE          0x8864
 #define ETH_TYPE_LLDP          0x88cc
 #define ETH_TYPE_CMD           0x8909
 #define ETH_TYPE_CDP           0xffff  // overload reserved type for CDP

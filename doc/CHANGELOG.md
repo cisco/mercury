@@ -1,5 +1,8 @@
 # CHANGELOG for Mercury
 
+* Support for reporting outer tunnel parameters and also includes
+  support for PPoE, VXLAN encapsulation and IP encapsulations.
+
 ## VERSION 2.6.4
 * Added reporting of HTTP CONNECT proxies in JSON output.
 * Added FTP command channel reporting in JSON output.

@@ -199,7 +199,9 @@ public:
             { "socks",                  false },
             { "ftp",                    false},
             { "ftp.response",           false},
-            { "ftp.request",            false}
+            { "ftp.request",            false},
+            { "geneve",                 false},
+            { "vxlan",                  false}
         };
 
     std::unordered_map<std::string, bool> raw_features {

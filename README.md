@@ -190,6 +190,8 @@ DETAILS
       tls.certificates  TLS serverCertificates
       tofsee            Tofsee malware communication
       wireguard         WG handshake initiation message
+      geneve            Geneve encapsulation
+      vxlan             VXLAN encapsualtion
       all               all of the above
       <no option>       all of the above
       none              none of the above

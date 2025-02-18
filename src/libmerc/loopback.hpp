@@ -41,7 +41,7 @@ public:
         case 0x1c000000:
         case 0x0000001e: // 30
         case 0x1e000000:
-            return ETH_TYPE_IP; // IPv6
+            return ETH_TYPE_IPV6; // IPv6
         case 0x00000007: // 7
         case 0x07000000:
             // actually OSI packets
