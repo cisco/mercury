@@ -6,7 +6,6 @@
 #ifndef WATCHLIST_HPP
 #define WATCHLIST_HPP
 
-#include <array>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -68,6 +67,7 @@ public:
 
         label_str = d.get_string();
 
+        // the first domain may be a wildcard (*)
         if (lookahead<literal_byte<'*'>> wildcard{d}) {
             d = wildcard.advance();
             pos++;
