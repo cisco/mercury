@@ -818,6 +818,7 @@ public:
 
         if (double_colon_index == -1) {
             prefix_length = pieces.size();  // should be eight
+            assert(prefix_length == 8);
         } else {
             prefix_length = double_colon_index;
             //   suffix_length = pieces.size() - double_colon_index; // check for > 0
@@ -830,7 +831,10 @@ public:
         ssize_t j = 0;
         ssize_t i = 0;
         for ( ; i < prefix_length; i++) {
-            //fprintf(stderr, "prefix\tpiece %zd\t%04x\n", i, hex_str_to_uint<uint16_t>(pieces[i]));
+
+            assert((size_t)i < pieces.size());
+            assert(j < 16);
+
             // NOTE: pieces[i] contains 1, 2, 3, or 4 hex characters
             //
             if (pieces[i] > 255) {
@@ -900,7 +904,9 @@ public:
                     return false;
                 }
             } else {
-                fprintf(f, "error: ipv6 address string is invalid\n");
+                if (f) {
+                    fprintf(f, "error: ipv6 address string is invalid\n");
+                }
                 return false;
             }
         }
@@ -927,7 +933,9 @@ public:
                 }
 
             } else {
-                fprintf(f, "error: ipv6 address string is invalid\n");
+                if (f) {
+                    fprintf(f, "error: ipv6 address string is invalid\n");
+                }
                 return false;
             }
         }

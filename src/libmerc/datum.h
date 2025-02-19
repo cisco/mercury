@@ -8,7 +8,9 @@
 #ifndef DATUM_H
 #define DATUM_H
 
+#ifndef __STDC_FORMAT_MACROS
 #define __STDC_FORMAT_MACROS 1
+#endif
 #include <inttypes.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -209,6 +211,10 @@ struct datum {
     /// string \param str
     ///
     explicit datum(const char *str) : data{(uint8_t *)str}, data_end{data + strlen(str)} { }
+
+    /// construct a datum representing the `std::string` \param str
+    ///
+    explicit datum(const std::string &str) : data{(uint8_t *)str.c_str()}, data_end{data + str.length()} { }
 
     /// construct a datum by accepting \p length bytes from datum \p d
     ///
