@@ -145,7 +145,7 @@ struct key {
     }
 
     uint16_t get_dst_port() const {
-        return ntoh(dst_port);
+        return dst_port;
     }
 
 

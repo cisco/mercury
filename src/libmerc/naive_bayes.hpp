@@ -674,7 +674,7 @@ public:
         std::vector<floating_point_type> process_score = get_prior_prob();  // working copy of probability vector
 
         asn_feature.update(process_score, asn_int);
-        dst_port_feature.update(process_score, hton(dst_port));
+        dst_port_feature.update(process_score, dst_port);
         dst_addr_feature.update(process_score, dst_ip_str);
         if (user_agent != nullptr) {
             user_agent_feature.update(process_score, user_agent);
