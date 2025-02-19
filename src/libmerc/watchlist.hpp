@@ -436,7 +436,7 @@ public:
             { "*cisco.com", "other.alt", {} },                                      // invalid first label
             { "cisco.*.com", "other.alt", {} },                                     // invalid middle label
             { "cisco.com*", "other.alt", {} },                                      // invalid last label
-            { "cisco.com.", "cisco.com", {} },                                      // trailing dot is invalid
+            { "cisco.com.", "cisco.com", {} },                                      // trailing dot case
             { "cisco.com:443", "cisco.com", 443 },                                  // FQDN with port number
         };
 
