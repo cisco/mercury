@@ -20,12 +20,13 @@ namespace ftp
 {
 
     // FTP command: Section 5.3.1 - Uppercase/Lowercase ASCII, 3 or 4 characters
+    // https://www.rfc-editor.org/rfc/rfc959.html
     class ftp_command : public one_or_more<ftp_command>
     {
     public:
         inline static bool in_class(uint8_t x)
         {
-            return (x >= 'A' && x <= 'Z');
+            return (x >= 'A' && x <= 'Z') || (x >= 'a' && x <= 'z');
         }
     };
 
@@ -126,6 +127,16 @@ namespace ftp
         datum user_command{user_command_packet, user_command_packet + sizeof(user_command_packet)};
         ftp::request valid_request{user_command};
         if (!valid_request.is_not_empty())
+        {
+            return false;
+        }
+
+        // Valid Request to check for case insensitive commands
+        uint8_t pass_command_packet[] = {
+            'P', 'a', 's', 'S', ' ', 'f', 't', 'p', 'u', 's', 'e', 'r', '\r', '\n'};
+        datum pass_command{pass_command_packet, pass_command_packet + sizeof(pass_command_packet)};
+        ftp::request valid_case_insensitive_request{pass_command};
+        if (!valid_case_insensitive_request.is_not_empty())
         {
             return false;
         }
