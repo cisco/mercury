@@ -602,6 +602,7 @@ public:
 
 };
 
+#define DONT_USE_DST_ADDR
 
 /// implements a (possibly weighted) naive bayes classifier
 ///
@@ -651,8 +652,9 @@ public:
                 dst_port_feature.add_updates_from_object_by_name(x, index, total_count);
                 asn_feature.add_updates_from_object_by_name(x, index, total_count);
                 user_agent_feature.add_updates_from_object_by_name(x, index, total_count, true);
+#ifndef DONT_USE_DST_ADDR
                 dst_addr_feature.add_updates_from_object_by_name(x, index, total_count);
-
+#endif
             }
 
             // construct vector of prior probabilities
@@ -675,7 +677,9 @@ public:
 
         asn_feature.update(process_score, asn_int);
         dst_port_feature.update(process_score, dst_port);
+#ifndef DONT_USE_DST_ADDR
         dst_addr_feature.update(process_score, dst_ip_str);
+#endif
         if (user_agent != nullptr) {
             user_agent_feature.update(process_score, user_agent);
         }
