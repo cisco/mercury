@@ -53,10 +53,8 @@ public:
 };
 
 class dns_string {
-    std::string label_str;
-    std::string last_label;
+    datum label_datum = datum();
     size_t label_count = 0;
-    size_t pos = 0;
     bool valid = false;
 
 public:
@@ -65,34 +63,35 @@ public:
             return;
         }
 
-        label_str = d.get_string();
+        const uint8_t *original_start = d.begin();
+        const uint8_t *start = d.begin();
+        const uint8_t *end   = d.end(); 
 
         // the first domain may be a wildcard (*)
         if (lookahead<literal_byte<'*'>> wildcard{d}) {
             d = wildcard.advance();
-            pos++;
             if (lookahead<literal_byte<'.'>> dot{d}) {
                 d = dot.advance();
-                pos++;
             } else {
                 d.set_null();
                 return;
             }
+            label_count++;
         }
 
         while (d.is_not_empty()) {
             if (lookahead<dns_label_string> label{d}) {
+                start = d.begin();
                 d = label.advance();
-                pos += label.value.get_string().length();
+                end = d.begin();
                 label_count++;
                 if (lookahead<literal_byte<'.'>> dot{d}) {
                     d = dot.advance();
-                    pos++;
                 } else {
-                    last_label = label.value.get_string().c_str();
                     break;
                 }
             } else {
+                // invalid character in label
                 label_count = 0;
                 d.set_null();
                 return;
@@ -100,13 +99,13 @@ public:
         }
 
         // a valid top level domain name contains at least one alphabetic character
-        if (!std::any_of(last_label.begin(), last_label.end(), [](unsigned char c){ return std::isalpha(std::tolower(c)); })) {
+        if (!datum(std::pair<const uint8_t *, const uint8_t *>(start, end)).is_any_alpha()) {
             label_count = 0;
             d.set_null();
             return;
         }
 
-        label_str = label_str.substr(0, pos);
+        label_datum = datum(std::pair<const uint8_t *, const uint8_t *>(original_start, end));
         valid = true;
     }
 
@@ -118,22 +117,24 @@ public:
 
     void print() const {
         if (!valid) { return; }
-        fputs(label_str.c_str(), stdout);
-        fputc('\n', stdout);
+        label_datum.fprint(stdout);
     }
 
-    std::string get_string() const { return valid ? label_str : std::string(); }
+    std::string get_string() const { return valid ? label_datum.get_string() : ""; }
 
-    const std::string & get_value() const { return label_str; }
+    // std::string get_value() const { return label_datum.get_string(); }
 
     // normalize verifies that the DNS name is valid, and if it is
     // not, appends the string ".invalid.alt"
     //
     void normalize() {
-        if (!label_str.empty()) {
-            auto tld_start = label_str.find_last_of('.') + 1;
-            if (label_str.substr(tld_start) == "alt") {
-                label_str.replace(tld_start, std::string::npos, "invalid.alt");
+        if (!label_datum.is_not_empty()) {
+            datum copy = label_datum;
+            for (size_t i = 0; i < label_count; i++) {
+                copy.skip_up_to_delim('.');
+            }
+            if (copy.compare("alt", 3)) {
+                label_datum = datum{reinterpret_cast<const uint8_t*>("invalid.alt"), reinterpret_cast<const uint8_t*>("invalid.alt") + 11};
             }
         }
     }
@@ -450,7 +451,8 @@ public:
             { "*cisco.com", "other.alt", {} },                                      // invalid first label
             { "cisco.*.com", "other.alt", {} },                                     // invalid middle label
             { "cisco.com*", "other.alt", {} },                                      // invalid last label
-            { "cisco.com.", "other.alt", {} },                                      // trailing dot is invalid
+            { "cisco.com.", "cisco.com", {} },                                      // trailing dot is invalid
+            { "cisco.com:443", "cisco.com", 443 },                                  // FQDN with port number
         };
 
         bool passed = true;
