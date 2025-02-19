@@ -8,13 +8,11 @@
 # default variables
 #
 MERC_PATH=../
-ALT_MERC_PATH="" #../../../mercury-transition
+ALT_MERC_PATH=""
 PCAP=./data/top-https.pcap
 RESOURCES=./data/resources-test.tgz
 VERBOSE=false
 HELP=false
-#PCAP=../../../../../pcap/friday.pcap
-#RESOURCES=../../../2025-02-6/resources-mp.tgz
 
 while getopts "d:p:r:vh" opt; do
   case ${opt} in
@@ -76,10 +74,10 @@ if [ ! -d $ALT_MERC_PATH ]; then
 fi
 
 BASENAME=$(git rev-parse --abbrev-ref HEAD)
-NAME=$BASENAME"-"$(git rev-parse HEAD)
+NAME=$BASENAME"-"$(git rev-parse --short HEAD)
 
 ALT_BASENAME=$(cd $ALT_MERC_PATH && git rev-parse --abbrev-ref HEAD)
-ALT_NAME=$ALT_BASENAME"-"$(cd $ALT_MERC_PATH && git rev-parse HEAD)
+ALT_NAME=$ALT_BASENAME"-"$(cd $ALT_MERC_PATH && git rev-parse --short HEAD)
 
 if [ "$NAME" == "$ALT_NAME" ]; then
     echo "error: " $MERC_PATH "and" $ALT_MERC_PATH "have the same git branch and commit ($NAME)"
@@ -117,7 +115,7 @@ $ALT_MERC_PATH/src/mercury  $COMMANDS > $ALT_NAME.json
 # output so that successive lines of the output file represent
 # differing lines of $NAME.json (top) and $ALT_NAME.json (bottom)
 #
-diff $NAME.json $ALT_NAME.json | sed - -e 's/< //' -e '/---/d' -e 's/> //' -e '/^[a-z0-9,]*$/d' > diff.json
+diff $NAME.json $ALT_NAME.json | sed - -e 's/< //' -e '/---/d' -e 's/> //' -e '/^[a-z0-9,]*$/d' > diff-$NAME-$ALT_NAME.json
 
 
 
