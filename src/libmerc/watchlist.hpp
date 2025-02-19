@@ -53,7 +53,7 @@ public:
 };
 
 class dns_string {
-    datum label_datum = datum();
+    datum hostname_datum = datum();
     size_t label_count = 0;
     bool valid = false;
 
@@ -63,9 +63,7 @@ public:
             return;
         }
 
-        const uint8_t *original_start = d.begin();
-        const uint8_t *start = d.begin();
-        const uint8_t *end   = d.end(); 
+        const uint8_t *hostname_start = d.begin();
 
         // the first domain may be a wildcard (*)
         if (lookahead<literal_byte<'*'>> wildcard{d}) {
@@ -79,11 +77,11 @@ public:
             label_count++;
         }
 
+        datum tmp;
         while (d.is_not_empty()) {
             if (lookahead<dns_label_string> label{d}) {
-                start = d.begin();
+                tmp = label.value;
                 d = label.advance();
-                end = d.begin();
                 label_count++;
                 if (lookahead<literal_byte<'.'>> dot{d}) {
                     d = dot.advance();
@@ -99,13 +97,13 @@ public:
         }
 
         // a valid top level domain name contains at least one alphabetic character
-        if (!datum(std::pair<const uint8_t *, const uint8_t *>(start, end)).is_any_alpha()) {
+        if (!tmp.is_any_alpha()) {
             label_count = 0;
             d.set_null();
             return;
         }
 
-        label_datum = datum(std::pair<const uint8_t *, const uint8_t *>(original_start, end));
+        hostname_datum = {hostname_start, tmp.data_end};
         valid = true;
     }
 
@@ -117,27 +115,14 @@ public:
 
     void print() const {
         if (!valid) { return; }
-        label_datum.fprint(stdout);
+        hostname_datum.fprint(stdout);
     }
 
-    std::string get_string() const { return valid ? label_datum.get_string() : ""; }
+    std::string get_string() const { return valid ? hostname_datum.get_string() : ""; }
 
     // std::string get_value() const { return label_datum.get_string(); }
 
-    // normalize verifies that the DNS name is valid, and if it is
-    // not, appends the string ".invalid.alt"
-    //
-    void normalize() {
-        if (!label_datum.is_not_empty()) {
-            datum copy = label_datum;
-            for (size_t i = 0; i < label_count; i++) {
-                copy.skip_up_to_delim('.');
-            }
-            if (copy.compare("alt", 3)) {
-                label_datum = datum{reinterpret_cast<const uint8_t*>("invalid.alt"), reinterpret_cast<const uint8_t*>("invalid.alt") + 11};
-            }
-        }
-    }
+
     static constexpr const char *invalid = "invalid";
     static constexpr const char *alt = "alt";
 
