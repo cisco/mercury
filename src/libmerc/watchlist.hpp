@@ -119,13 +119,6 @@ public:
     }
 
     std::string get_string() const { return valid ? hostname_datum.get_string() : ""; }
-
-    // std::string get_value() const { return label_datum.get_string(); }
-
-
-    static constexpr const char *invalid = "invalid";
-    static constexpr const char *alt = "alt";
-
 };
 
 class port_number {
