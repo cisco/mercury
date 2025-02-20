@@ -1106,6 +1106,10 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
                 analysis.result.status = fingerprint_status::fingerprint_status_unlabled;
             }
 
+            // report port in network byte order
+            //
+            analysis.destination.dst_port = ntoh(analysis.destination.dst_port);
+
             return output_analysis;
         }
     }
