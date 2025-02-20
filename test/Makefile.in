@@ -315,6 +315,8 @@ ifeq ($(have_valgrind),yes)
 	cat memcheck.tmp | grep "ERROR SUMMARY: 0"
 	rm -f memcheck.tmp
 	@echo $(COLOR_GREEN) "passed memcheck" $(COLOR_OFF)
+else ifeq ($(is_macos_arm),yes)
+	@echo $(COLOR_GREEN) "valgrind unavailable on macOS ARM; skipping memcheck" $(COLOR_OFF)
 else
 	@echo $(COLOR_YELLOW) "valgrind unavailable; cannot perform memcheck" $(COLOR_OFF)
 	@false
