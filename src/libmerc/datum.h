@@ -574,6 +574,17 @@ struct datum {
         return true;
     }
 
+    /// returns true if the data contains any alphabetic characters
+    ///
+    bool is_any_alpha() const {
+        for (const auto & d : *this) {
+            if (isalpha(d)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     bool accept(uint8_t byte) {
         if (data_end > data) {
             uint8_t value = *data;

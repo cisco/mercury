@@ -53,72 +53,57 @@ public:
 };
 
 class dns_string {
-    std::vector<datum> label_vector;
+    datum hostname_datum = datum();
+    size_t label_count = 0;
     bool valid = false;
 
 public:
-
     dns_string(datum &d) {
-
         if (d.is_not_readable()) {
             return;
         }
 
+        const uint8_t *hostname_start = d.begin();
+
         // the first domain may be a wildcard (*)
-        //
         if (lookahead<literal_byte<'*'>> wildcard{d}) {
-            datum label{d.data, wildcard.advance().data};
             d = wildcard.advance();
-            label_vector.push_back(label);
-            literal_byte<'.'> dot{d};
+            if (lookahead<literal_byte<'.'>> dot{d}) {
+                d = dot.advance();
+            } else {
+                d.set_null();
+                return;
+            }
+            label_count++;
         }
 
+        datum tmp;
         while (d.is_not_empty()) {
-            // fprintf(stdout, "dns_string has data "); d.fprint(stdout); fputc('\n', stdout);
-            dns_label_string label{d};
-            if (label.is_not_null()) {
-                // fprintf(stdout, "label: %.*s\n", (int)label.length(), label.data);
-                label_vector.push_back(label);
+            if (lookahead<dns_label_string> label{d}) {
+                tmp = label.value;
+                d = label.advance();
+                label_count++;
                 if (lookahead<literal_byte<'.'>> dot{d}) {
                     d = dot.advance();
                 } else {
-                    break; // unexpected character
-                    // if (!d.is_not_empty()) {
-                    // label_vector.push_back(label);
+                    break;
                 }
             } else {
-                break;        // TODO: verify correctness
-                // return;    // invalid label
+                // invalid character in label
+                label_count = 0;
+                d.set_null();
+                return;
             }
         }
-        // for (const auto & x : label_vector) {
-        //     fprintf(stdout, "label_vector: %.*s\n", (int)x.length(), x.data);
-        // }
 
-        if (label_vector.size() == 0) {
+        // a valid top level domain name contains at least one alphabetic character
+        if (!tmp.is_any_alpha()) {
+            label_count = 0;
             d.set_null();
-            return;           // not a valid dns_string
+            return;
         }
 
-        // a valid top level domain name contains at least one
-        // alphabetic character
-        //
-
-        datum tld = label_vector.back();
-        bool tld_is_valid = false;
-        for (const auto &x : tld ) {
-            if ((x >= 'a' && x <= 'z') || (x >= 'A' && x <= 'Z')) {
-                tld_is_valid = true;
-                break;
-            }
-        }
-        // fprintf(stdout, "tld: %.*s\n", (int)tld.length(), tld.data);
-
-        if (!tld_is_valid) {
-            d.set_null();
-            return;   // not a valid tld, possibly an IPv4 dotted quad
-        }
-
+        hostname_datum = {hostname_start, tmp.data_end};
         valid = true;
     }
 
@@ -126,51 +111,14 @@ public:
         return valid;
     }
 
-    size_t label_count() const { return label_vector.size(); }
+    size_t get_label_count() const { return label_count; }
 
     void print() const {
         if (!valid) { return; }
-        bool first = true;
-        for (const auto & label : label_vector) {
-            if (!first) {
-                fputc('.', stdout);
-            }
-            first = false;
-            label.fprint(stdout);
-        }
-        fputc('\n', stdout);
+        hostname_datum.fprint(stdout);
     }
 
-    std::string get_string() const {
-        std::string tmp;
-        if (!valid) { return tmp; }
-        bool first = true;
-        for (const auto & label : label_vector) {
-            if (!first) {
-                tmp.push_back('.');
-            }
-            first = false;
-            tmp += label.get_string();
-        }
-        return tmp;
-    }
-
-    const std::vector<datum> & get_value() const { return label_vector; }
-
-    // normalize verifies that the DNS name is valid, and if it is
-    // not, appends the string ".invalid.alt"
-    //
-    void normalize() {
-        if (label_vector.size() > 0) {
-            if (label_vector.back().equals(std::array<uint8_t, 3> {'a', 'l', 't'})) {
-                label_vector.back() = datum{(uint8_t *)invalid, (uint8_t *)invalid + strlen(invalid)};
-                label_vector.push_back(datum{(uint8_t *)alt, (uint8_t *)alt + strlen(alt)});
-            }
-        }
-    }
-    static constexpr const char *invalid = "invalid";
-    static constexpr const char *alt = "alt";
-
+    std::string get_string() const { return valid ? hostname_datum.get_string() : ""; }
 };
 
 class port_number {
@@ -322,7 +270,7 @@ public:
             if (tmp.is_empty()) {
                 d = dns.advance();
                 host_id = dns.value.get_string();
-                label_count = dns.value.label_count();
+                label_count = dns.value.get_label_count();
                 return;
             }
 
@@ -478,6 +426,11 @@ public:
             { "@#*%^$!", "other.alt", {} },                                         // neither a name or address
             { "8.8.8.8.alt", "8.8.8.8.alt", {} },                                   // .alt subdomains are left unchanged
             { "abc.def.8888", "other.alt", {} },                                    // TLD needs at least one alphabetic character
+            { "*cisco.com", "other.alt", {} },                                      // invalid first label
+            { "cisco.*.com", "other.alt", {} },                                     // invalid middle label
+            { "cisco.com*", "other.alt", {} },                                      // invalid last label
+            { "cisco.com.", "cisco.com", {} },                                      // trailing dot case
+            { "cisco.com:443", "cisco.com", 443 },                                  // FQDN with port number
         };
 
         bool passed = true;
