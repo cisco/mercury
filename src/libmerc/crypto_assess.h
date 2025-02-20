@@ -366,12 +366,12 @@ namespace crypto_policy {
             json_object a{o, "cryptographic_security_assessment"};
             a.print_key_string("policy", "quantum_safe");
             json_object assessment{a, "offered"};
-            assess_ssh_kex_methods(ssh_kex.kex_algorithms,o);
+            assess_ssh_kex_methods(ssh_kex.kex_algorithms,assessment);
             json_object client_server{assessment, "client_to_server"};
-            assess_ssh_ciphers(ssh_kex.encryption_algorithms_client_to_server,o);
+            assess_ssh_ciphers(ssh_kex.encryption_algorithms_client_to_server,client_server);
             client_server.close();
             json_object server_client{assessment,"server_to_client"};
-            assess_ssh_ciphers(ssh_kex.encryption_algorithms_server_to_client,o);
+            assess_ssh_ciphers(ssh_kex.encryption_algorithms_server_to_client,server_client);
             server_client.close();
             assessment.close();
             a.close();
