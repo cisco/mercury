@@ -16,8 +16,9 @@ You will first need to [build mercury](https://wwwin-github.cisco.com/network-in
 and install cython and optionally wheel:
 
 ```bash
-pip install cython
+pip install Cython
 pip install wheel
+pip install setuptools
 ```
 
 Within mercury's `src/cython/` directory, `Makefile` will build the package based on the makefile target:
@@ -172,4 +173,3 @@ output:
         ],
         ...
 ```
-
