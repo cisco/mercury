@@ -234,7 +234,9 @@ namespace crypto_policy {
             "AEAD_AES_128_GCM",
             "AEAD_AES_256_GCM",
             "aes128-gcm@openssh.com",
-            "aes256-gcm@openssh.com"
+            "aes256-gcm@openssh.com",
+            "aes256-gcm",
+            "aes128-gcm"
         };
 
         bool assess_ssh_kex_methods(const name_list &kex_list, json_object &a) const {
