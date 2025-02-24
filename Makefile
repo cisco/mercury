@@ -125,21 +125,21 @@ test:
 test-coverage:
 	mkdir -p coverage
 	
-	$(MAKE) --directory=src/libmerc COVERAGE_ENABLED=1 libmerc.so
-	$(MAKE) --directory=unit_tests COVERAGE_ENABLED=1 libmerc_driver_tls_only
+	$(MAKE) --directory=src/libmerc COVERAGE_ENABLED=1 use_fsanitize=no libmerc.so
+	$(MAKE) --directory=unit_tests COVERAGE_ENABLED=1 use_fsanitize=no libmerc_driver_tls_only
 	$(MAKE) --directory=unit_tests run_libmerc_tls_only_tests
 	lcov --directory . --capture --output-file ./coverage/mercury_libmerc_driver_tls_only.info
 	echo "Successfully created coverage file for libmerc driver tls tests!"
 	make clean-helper
 
-	$(MAKE) --directory=src/libmerc COVERAGE_ENABLED=1 libmerc.so
-	$(MAKE) --directory=unit_tests COVERAGE_ENABLED=1 libmerc_driver_multiprotocol
+	$(MAKE) --directory=src/libmerc COVERAGE_ENABLED=1 use_fsanitize=no libmerc.so
+	$(MAKE) --directory=unit_tests COVERAGE_ENABLED=1 use_fsanitize=no libmerc_driver_multiprotocol
 	$(MAKE) --directory=unit_tests run_libmerc_multiprotocol_tests
 	lcov --directory . --capture --output-file ./coverage/mercury_libmerc_driver_multiprotocol.info
 	echo "Successfully created coverage file for libmerc driver multiprotocol tests!"
 	make clean-helper
 
-	$(MAKE) --directory=src COVERAGE_ENABLED=1 mercury
+	$(MAKE) --directory=src COVERAGE_ENABLED=1 use_fsanitize=no mercury
 	$(MAKE) --directory=test COVERAGE_ENABLED=1 clean comp analysis cert-check memcheck json-validity-test stats
 	lcov --directory . --capture --output-file ./coverage/mercury_unit_test.info
 	echo "Successfully created coverage file for other unit tests!"
@@ -153,9 +153,9 @@ test-coverage:
 	echo "Successfully created coverage file for fuzz tests!!"
 	make clean-helper
 
-	lcov --add-tracefile ./coverage/mercury_libmerc_driver_tls_only.info --add-tracefile ./coverage/mercury_libmerc_driver_multiprotocol.info --add-tracefile ./coverage/mercury_unit_test.info --add-tracefile ./coverage/mercury_fuzz_test_1.info --add-tracefile ./coverage/mercury_fuzz_test_2.info --output-file ./coverage/mercury_total.info
-	lcov --remove ./coverage/mercury_total.info '/usr/include/*' '*/src/libmerc/rapidjson/*' '*/unit_tests/*' '*/test/fuzz/*' -o ./coverage/mercury_filtered_coverage.info
-	genhtml --output-directory coverage_html_report ./coverage/mercury_filtered_coverage.info
+	lcov --add-tracefile ./coverage/mercury_libmerc_driver_tls_only.info --add-tracefile ./coverage/mercury_libmerc_driver_multiprotocol.info --add-tracefile ./coverage/mercury_unit_test.info --add-tracefile ./coverage/mercury_fuzz_test_1.info --add-tracefile ./coverage/mercury_fuzz_test_2.info --output-file ./coverage/mercury_total.info 2>&1 | grep -v "function data mismatch"
+	lcov -q --remove ./coverage/mercury_total.info '/usr/include/*' '*/src/libmerc/rapidjson/*' '*/unit_tests/*' '*/test/fuzz/*' -o ./coverage/mercury_filtered_coverage.info
+	genhtml -q --output-directory coverage_html_report ./coverage/mercury_filtered_coverage.info
 	echo "Successfully created coverage report!"
 
 .PHONY: test_strict

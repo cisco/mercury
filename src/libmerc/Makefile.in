@@ -128,7 +128,7 @@ LIBMERC_H   += softmax.hpp
 # asn1 subdirectory; this is a pattern target that builds both files
 #
 asn1/oid%cc asn1/oid%h:
-	cd asn1 && $(MAKE)
+	cd asn1 && $(MAKE) COVERAGE_ENABLED=$(COVERAGE_ENABLED)
 
 ifeq ($(have_py3),yes)
 # PYANALYSIS = python_interface.c
