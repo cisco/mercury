@@ -4,9 +4,9 @@
 The `test-coverage` target is used to generate a comprehensive code coverage report for the Mercury library. It compiles the code with coverage instrumentation, runs multiple tests, and collects coverage data. The collected data is then processed to create a detailed HTML report that shows which parts of the code were executed during the tests. This helps in identifying untested code paths and improving the overall test coverage.
 
 ### Requirements
-1. Install `lcov` if it is not already installed:
+1. Install `lcov`, `clang` and `llvm` if not already installed:
     ```bash
-    sudo apt-get install lcov
+    sudo apt-get install lcov clang llvm
     ```
 2. Download the resource file and copy it into the folder `unit_tests/xtra/resources/`.
 
