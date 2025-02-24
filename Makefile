@@ -155,7 +155,7 @@ test-coverage:
 
 	lcov --add-tracefile ./coverage/mercury_libmerc_driver_tls_only.info --add-tracefile ./coverage/mercury_libmerc_driver_multiprotocol.info --add-tracefile ./coverage/mercury_unit_test.info --add-tracefile ./coverage/mercury_fuzz_test_1.info --add-tracefile ./coverage/mercury_fuzz_test_2.info --output-file ./coverage/mercury_total.info 2>&1 | grep -v "function data mismatch"
 	lcov -q --remove ./coverage/mercury_total.info '/usr/include/*' '*/src/libmerc/rapidjson/*' '*/unit_tests/*' '*/test/fuzz/*' -o ./coverage/mercury_filtered_coverage.info
-	genhtml -q --output-directory coverage_html_report ./coverage/mercury_filtered_coverage.info
+	genhtml --output-directory coverage_html_report ./coverage/mercury_filtered_coverage.info
 	echo "Successfully created coverage report!"
 
 .PHONY: test_strict
