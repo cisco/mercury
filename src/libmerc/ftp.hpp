@@ -173,6 +173,24 @@ namespace ftp
             return false;
         }
 
+        // Valid Request: NOOP command (no argument)
+        uint8_t noop_command_packet[] = {
+            'N', 'O', 'O', 'P', '\r', '\n'};
+        datum noop_command{noop_command_packet, noop_command_packet + sizeof(noop_command_packet)};
+        ftp::request valid_noop_request{noop_command};
+        if (!valid_noop_request.is_not_empty()) {
+            return false;
+        }
+
+        // Valid Request: STAT command (with argument)
+        uint8_t stat_with_arg_command_packet[] = {
+            'S', 'T', 'A', 'T', ' ', '/', 'h', 'o', 'm', 'e', '/', 'u', 's', 'e', 'r', '\r', '\n'};
+        datum stat_with_arg_command{stat_with_arg_command_packet, stat_with_arg_command_packet + sizeof(stat_with_arg_command_packet)};
+        ftp::request valid_stat_with_arg_request{stat_with_arg_command};
+        if (!valid_stat_with_arg_request.is_not_empty()) {
+            return false;
+        }
+
         // False positive test: invalid garbage packet for request
         uint8_t garbage_packet[20] = {
             0xff, 0xff, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
