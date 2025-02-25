@@ -338,6 +338,11 @@ public:
         if (std::holds_alternative<ipv4_t>(host_id)) {
             std::string a;
             if (detailed_output) {
+                if (port) {
+                    a += '_';
+                    a += std::to_string(*port);
+                    a += '.';
+                }
                 ipv4_address addr = std::get<uint32_t>(host_id);
                 normalize(addr);
                 a += addr.get_dns_label();
@@ -349,6 +354,11 @@ public:
         if (std::holds_alternative<ipv6_array_t>(host_id)) {
             std::string a;
             if (detailed_output) {
+                if (port) {
+                    a += '_';
+                    a += std::to_string(*port);
+                    a += '.';
+                }
                 ipv6_array_t addr = std::get<ipv6_array_t>(host_id);
                 ipv6_address tmp = get_ipv6_address(addr);
                 // normalize(tmp);
@@ -366,7 +376,13 @@ public:
         }
 
         if (std::holds_alternative<dns_name_t>(host_id)) {
-            std::string domain_name = std::get<dns_name_t>(host_id);
+            std::string domain_name;
+            if (detailed_output and port) {
+                domain_name += '_';
+                domain_name += std::to_string(*port);
+                domain_name += '.';
+            }
+            domain_name += std::get<dns_name_t>(host_id);
             if (domain_name == "None") {
                 return "missing.alt";
             }
@@ -467,15 +483,16 @@ public:
 
         std::vector<test_case> detailed_test_cases = {
             { "173.37.145.84", "173-37-145-84.address.alt", {} },                   // IPv4 address
-            { "172.253.63.106:8443", "172-253-63-106.address.alt", 8443 },          // IPv4 address with port number
+            { "172.253.63.106:8443", "_8443.172-253-63-106.address.alt", 8443 },    // IPv4 address with port number
             { "192.168.1.91", "10-0-0-1.address.alt", {} },                         // IPv4 address in private use range
-            { "[240e:390:38:1b00:211:32ff:fe78:d4ab]:10087","240e-390-38-1b00-211-32ff-fe78-d4ab.address.alt", 10087 }, // IPv6 address with square braces and port number
-            { "[2408:862e:ff:ff03:1b::]", "2408-862e-ff-ff03-1b--.address.alt", {} },                      // IPv6 address with square braces
-            { "[2001:b28:f23f:f005::a]:80", "2001-b28-f23f-f005--a.address.alt", 80 },                    // IPv6 address with zero compression, square braces, and port number
+            { "[240e:390:38:1b00:211:32ff:fe78:d4ab]:10087","_10087.240e-390-38-1b00-211-32ff-fe78-d4ab.address.alt", 10087 }, // IPv6 address with square braces and port number
+            { "[2408:862e:ff:ff03:1b::]", "2408-862e-ff-ff03-1b--.address.alt", {} },                // IPv6 address with square braces
+            { "[2001:b28:f23f:f005::a]:80", "_80.2001-b28-f23f-f005--a.address.alt", 80 },           // IPv6 address with zero compression, square braces, and port number
             { "::ffff:162.62.97.147", "--ffff-a23e-6193.address.alt", {} },                          // IPv6 addr with embedded IPv6 addr (RFC4291, Section 2.5.5)
-            { "[::ffff:91.222.113.90]:5000", "--ffff-5bde-715a.address.alt", 5000 },                 // IPv6 addr with embedded ipv4 addr, square braces, and port number
+            { "[::ffff:91.222.113.90]:5000", "_5000.--ffff-5bde-715a.address.alt", 5000 },           // IPv6 addr with embedded ipv4 addr, square braces, and port number
             { "2001:db8::2:1", "2001-db8--2-1.address.alt", {} },                                                        // IPv6 addr with zero compression
             { "240d:c000:2010:1a58:0:95fe:d8b7:5a8f", "240d-c000-2010-1a58-0-95fe-d8b7-5a8f.address.alt", {} },          // IPv6 addr without zero compression
+            { "cisco.com:443", "_443.cisco.com", 443 },                                  // FQDN with port number
         };
         for (const auto & tc : detailed_test_cases) {
             test(tc, detail::on);
