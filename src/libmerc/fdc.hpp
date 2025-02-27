@@ -678,6 +678,7 @@ std::string get_json_decoded_fdc(const char *fdc_blob, ssize_t blob_len) {
         fdc_json.print_key_int("dst_port",dst_port);
         fdc_json.print_key_string("user_agent",ua_str);
         fdc_json.close();
+        record.close();
         buf_json.write_char('\0');  // null terminate
         return buf_json.get_string();
         
