@@ -265,34 +265,20 @@ public:
             d = whitespace.advance();           // skip over leading whitespace, if any
         }
 
-        if (lookahead<dns_string> dns{d}) {
-            datum tmp = dns.advance();
-            if (tmp.is_empty()) {
-                d = dns.advance();
-                host_id = dns.value.get_string();
-                label_count = dns.value.get_label_count();
-                return;
-            }
+        if (lookahead<ipv6_address_string> ipv6{d}) {
+            d = ipv6.advance();
+            host_id = ipv6.value.get_value_array();
 
-            // if there is still readable data in tmp, it must be a
-            // port number
-            //
-            if (lookahead<port_number> port_digits{tmp}) {
-                port = port_digits.value.get_value();
-                d = port_digits.advance();
-                host_id = dns.value.get_string();
-                return;
-            }
-        }
-        if (lookahead<ipv4_address_string> ipv4{d}) {
+        } else if (lookahead<dns_string> dns{d}) {
+            host_id = dns.value.get_string();
+            label_count = dns.value.get_label_count();
+            d = dns.advance();
+
+        } else if (lookahead<ipv4_address_string> ipv4{d}) {
             // datum ipv4_string = ipv4.get_parsed_data(d);
             // ipv4_string.fprint(stdout); fputc('\n', stdout);
             d = ipv4.advance();
             host_id = ipv4.value.get_value();
-
-        } else if (lookahead<ipv6_address_string> ipv6{d}) {
-            d = ipv6.advance();
-            host_id = ipv6.value.get_value_array();
 
         }
 
@@ -302,6 +288,8 @@ public:
         if (lookahead<port_number> port_digits{d}) {
             port = port_digits.value.get_value();
             d = port_digits.advance();
+        } else {
+            host_id = std::monostate{}; // invalid trailing data
         }
 
     }
@@ -492,6 +480,7 @@ public:
             { "[::ffff:91.222.113.90]:5000", "_5000.--ffff-5bde-715a.address.alt", 5000 },           // IPv6 addr with embedded ipv4 addr, square braces, and port number
             { "2001:db8::2:1", "2001-db8--2-1.address.alt", {} },                                                        // IPv6 addr with zero compression
             { "240d:c000:2010:1a58:0:95fe:d8b7:5a8f", "240d-c000-2010-1a58-0-95fe-d8b7-5a8f.address.alt", {} },          // IPv6 addr without zero compression
+            { "abcd:888::2:1", "abcd-888--2-1.address.alt", {} },                                                        // IPv6 addr that could be confused for server:port
             { "cisco.com:443", "_443.cisco.com", 443 },                                  // FQDN with port number
         };
         for (const auto & tc : detailed_test_cases) {
