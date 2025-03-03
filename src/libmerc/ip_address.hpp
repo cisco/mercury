@@ -410,17 +410,6 @@ struct ip_address {
     explicit ip_address(ipv6_address v6_addr) : version{ip_version::v6}, value{v6_addr} {}
 };
 
-
-template <typename T>
-static inline T str_to_uint(const digits &d) {
-    T tmp = 0;
-    for (const auto & c: d) {
-        tmp = 10 * tmp + (c - '0');
-    }
-    // TODO: check for overflow?
-    return tmp;
-}
-
 static inline void ipv4_print(FILE *f, uint32_t addr) {
     fprintf(f,
             "%u.%u.%u.%u",
@@ -436,18 +425,42 @@ static inline void ipv4_print(FILE *f, uint32_t addr) {
 
 using ipv4_t = uint32_t;
 
+class base256 {
+    uint16_t value = 0;
+public:
+
+    base256(datum &d) {
+        while (d.is_readable()) {
+            if (isdigit(*d.data)) {
+                value = 10 * value + (*d.data - '0');
+            } else {
+                break;
+            }
+            if (value > std::numeric_limits<uint8_t>::max()) {
+                d.set_null();
+                return;
+            }
+            d.data++;
+        }
+    }
+
+    uint8_t get_value() const { return value; }
+
+};
+
 /// a textual representation of an IP version four address (that is, a
 /// "dotted quad").  To parse a raw (binary) representation of an IPv4
 /// address, use \ref ipv4_address.
 ///
 class ipv4_address_string {
-    digits w;
+    base256 w;
     literal_byte<'.'> dot1;
-    digits x;
+    base256 x;
     literal_byte<'.'> dot2;
-    digits y;
+    base256 y;
     literal_byte<'.'> dot3;
-    digits z;
+    base256 z;
+    bool valid;
 
     uint32_t value = 0;
 
@@ -460,42 +473,19 @@ public:
         dot2{d},
         y{d},
         dot3{d},
-        z{d}
+        z{d},
+        valid{d.is_not_null()}
     {
-        // TODO: verify that w, x, y, and z are no greater than 255
-        // TODO: verify that there is no trailing information
-
-        // value = str_to_uint<uint8_t>(w) + 256 * (str_to_uint<uint8_t>(x) + 256 * (str_to_uint<uint8_t>(y) + 256 * str_to_uint<uint8_t>(z)));
-        // value = str_to_uint<uint8_t>(w) << 24 | str_to_uint<uint8_t>(x) << 16 | str_to_uint<uint8_t>(y) << 8 | str_to_uint<uint8_t>(z);
-        value = str_to_uint<uint8_t>(w) | str_to_uint<uint8_t>(x) << 8 | str_to_uint<uint8_t>(y) << 16 | str_to_uint<uint8_t>(z) << 24;
+        if (valid) {
+            value = w.get_value() | x.get_value() << 8 | y.get_value() << 16 | z.get_value() << 24;
+        }
     }
 
     // allow rvalue (temporary) inputs
     //
     ipv4_address_string(datum &&d) : ipv4_address_string{d} { }
 
-    bool is_valid() const { return z.is_not_null(); }
-
-    void print(FILE *f=stdout) const {
-        if (is_valid()) {
-
-            str_to_uint<uint8_t>(w);
-            str_to_uint<uint8_t>(x);
-            str_to_uint<uint8_t>(y);
-            str_to_uint<uint8_t>(z);
-
-            w.fprint(f);
-            fputc('.', f);
-            x.fprint(f);
-            fputc('.', f);
-            y.fprint(f);
-            fputc('.', f);
-            z.fprint(f);
-            fprintf(f, "\n");
-        } else {
-            fprintf(f, "invalid\n");
-        }
-    }
+    bool is_valid() const { return valid; }
 
     // get_value() returns the (binary) value in host byte order.  If
     // this object could not be initialized, an all-zero IPv4 address

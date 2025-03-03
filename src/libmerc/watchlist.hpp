@@ -89,10 +89,7 @@ public:
                     break;
                 }
             } else {
-                // invalid character in label
-                label_count = 0;
-                d.set_null();
-                return;
+                break;
             }
         }
 
@@ -125,22 +122,26 @@ class port_number {
     literal_byte<':'> colon;
     digits number;
     bool valid;
+    uint32_t value = 0;
 
 public:
 
-    port_number(datum &d) : colon{d}, number{d}, valid{d.is_not_null()} { }
+    port_number(datum &d) : colon{d}, number{d}, valid{d.is_not_null()} {
+        if (!valid) {
+            return;
+        }
+        for (const auto & x : number) {
+            value *= 10;
+            value += (x - '0');
+            if (value > std::numeric_limits<uint16_t>::max()) {
+                d.set_null();
+            }
+        }
+    }
 
     bool is_valid() const { return valid; }
 
     uint16_t get_value() const {
-        if (!valid) {
-            return 0;
-        }
-        uint16_t value = 0;
-        for (const auto & x : number) {
-            value *= 10;
-            value += (x - '0');
-        }
         return value;
     }
 
@@ -184,14 +185,6 @@ static inline host_identifier host_identifier_constructor(datum d) {
         datum tmp = dns.advance();
         if (tmp.is_empty()) {
             d = dns.advance();
-            return dns.value.get_string();
-        }
-
-        // if there is still readable data in d, it must be a port
-        // number
-        //
-        if (lookahead<port_number> port{tmp}) {
-            d = port.advance();
             return dns.value.get_string();
         }
     }
@@ -274,6 +267,12 @@ public:
             label_count = dns.value.get_label_count();
             d = dns.advance();
 
+            // strip off trailing dot, if any
+            //
+            if (lookahead<literal_byte<'.'>> dot{d}) {
+                d = dot.advance();
+            }
+
         } else if (lookahead<ipv4_address_string> ipv4{d}) {
             d = ipv4.advance();
             host_id = ipv4.value.get_value();
@@ -287,6 +286,9 @@ public:
             if (lookahead<port_number> port_digits{d}) {
                 port = port_digits.value.get_value();
                 d = port_digits.advance();
+                if (std::holds_alternative<std::monostate>(host_id)) {
+                    empty = true; // host_id = "None";  // empty name
+                }
             } else {
                 host_id = std::monostate{}; // invalid trailing data
             }
@@ -357,10 +359,20 @@ public:
         }
 
         if (std::holds_alternative<std::monostate>(host_id)) {
-            if (empty) {
-                return "missing.alt";
+            std::string a;
+            if (detailed_output) {
+                if (port) {
+                    a += '_';
+                    a += std::to_string(*port);
+                    a += '.';
+                }
             }
-            return "other.alt";
+            if (empty) {
+                a += "missing.alt";
+                return a;
+            }
+            a += "other.alt";
+            return a;
         }
 
         if (std::holds_alternative<dns_name_t>(host_id)) {
@@ -370,12 +382,13 @@ public:
                 domain_name += std::to_string(*port);
                 domain_name += '.';
             }
-            domain_name += std::get<dns_name_t>(host_id);
-            if (domain_name == "None") {
-                return "missing.alt";
-            }
-            if (label_count == 1 and domain_name != "localhost") {
-                return "unqualified.alt";
+            std::string suffix = std::get<dns_name_t>(host_id);
+            if (suffix == "None") {
+                domain_name += "missing.alt";
+            } else if (suffix != "localhost" and label_count == 1) {
+                domain_name += "unqualified.alt";
+            } else {
+                domain_name += suffix;
             }
             return domain_name;
         }
@@ -435,6 +448,9 @@ public:
             { "cisco.com*", "other.alt", {} },                                      // invalid last label
             { "cisco.com.", "cisco.com", {} },                                      // trailing dot case
             { "cisco.com:443", "cisco.com", 443 },                                  // FQDN with port number
+            { "cisco.com.:443", "cisco.com", 443 },                                 // trailing dot with port number
+            { "cisco.com:443asd", "cisco.com", 443 },                               // trailing dot with junk after port number
+            { "cisco.com:asd", "other.alt", {} },                                   // trailing dot with junk port number
         };
 
         bool passed = true;
@@ -476,12 +492,16 @@ public:
             { "[240e:390:38:1b00:211:32ff:fe78:d4ab]:10087","_10087.240e-390-38-1b00-211-32ff-fe78-d4ab.address.alt", 10087 }, // IPv6 address with square braces and port number
             { "[2408:862e:ff:ff03:1b::]", "2408-862e-ff-ff03-1b--.address.alt", {} },                // IPv6 address with square braces
             { "[2001:b28:f23f:f005::a]:80", "_80.2001-b28-f23f-f005--a.address.alt", 80 },           // IPv6 address with zero compression, square braces, and port number
-            { "::ffff:162.62.97.147", "--ffff-a23e-6193.address.alt", {} },                          // IPv6 addr with embedded IPv6 addr (RFC4291, Section 2.5.5)
-            { "[::ffff:91.222.113.90]:5000", "_5000.--ffff-5bde-715a.address.alt", 5000 },           // IPv6 addr with embedded ipv4 addr, square braces, and port number
+            { "::ffff:162.62.97.147", "--ffff-a23e-6193.address.alt", {} },                          // IPv6 addr with embedded IPv4 addr (RFC4291, Section 2.5.5)
+            { "[::ffff:91.222.113.90]:5000", "_5000.--ffff-5bde-715a.address.alt", 5000 },           // IPv6 addr with embedded IPv4 addr, square braces, and port number
             { "2001:db8::2:1", "2001-db8--2-1.address.alt", {} },                                                        // IPv6 addr with zero compression
             { "240d:c000:2010:1a58:0:95fe:d8b7:5a8f", "240d-c000-2010-1a58-0-95fe-d8b7-5a8f.address.alt", {} },          // IPv6 addr without zero compression
             { "abcd:888::2:1", "abcd-888--2-1.address.alt", {} },                                                        // IPv6 addr that could be confused for server:port
             { "cisco.com:443", "_443.cisco.com", 443 },                                  // FQDN with port number
+            { ":8080", "_8080.missing.alt", 8080 },                                      // missing FQDN with port number
+            { "cisco.com.:443", "_443.cisco.com", 443 },                                 // trailing dot with port number
+            { "cisco.com:443asd", "_443.cisco.com", 443 },                               // trailing dot with junk after port number
+            { "cisco.com:asd", "other.alt", {} },                                        // trailing dot with junk port number
         };
         for (const auto & tc : detailed_test_cases) {
             test(tc, detail::on);
