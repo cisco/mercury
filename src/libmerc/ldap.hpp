@@ -160,7 +160,7 @@ namespace ldap {
         default:
             ;
         }
-        return nullptr;
+        return "UNKNOWN";
     }
 
     // LDAP BindResponse, following RFC 4511
@@ -189,9 +189,7 @@ namespace ldap {
         void write_json(json_object_asn1 &o) const {
             if (!valid) { return; }
             json_object_asn1 bind_resp_json{o, "bind_response"};
-            const char *result_name = get_name(result_code);
-            bind_resp_json.print_key_string("result_code", result_name);
-            // result_code.print_as_json(bind_resp_json, "result_code");
+            bind_resp_json.print_key_string("result_code", get_name(result_code));
             matched_dn.print_as_json(bind_resp_json, "matched_dn");
             diagnostic_msg.print_as_json(bind_resp_json, "diagnostic_message");
             bind_resp_json.close();

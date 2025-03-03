@@ -148,6 +148,22 @@ struct key {
         return dst_port;
     }
 
+    // swap the source and destination ports and addresses
+    //
+    void reverse() {
+        std::swap(src_port, dst_port);
+        switch (ip_vers) {
+        case 4:
+            std::swap(addr.ipv4.src, addr.ipv4.dst);
+            break;
+        case 6:
+            std::swap(addr.ipv6.src, addr.ipv6.dst);
+            break;
+        default:
+            ;
+        }
+    }
+
 
     // hash() returns a size_t, and returns a hash of this flow key,
     // suitable for use in STL containers

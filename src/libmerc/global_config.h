@@ -128,6 +128,7 @@ private:
 public:
     // extended configs
     std::string temp_proto_str;
+    std::string crypto_assess_policy;
     bool reassembly = false;              /* reassemble protocol segments      */
     bool stats_blocking = false;          /* stats mode: lossless but blocking */
     fingerprint_format fp_format;    // default fingerprint format
@@ -196,6 +197,9 @@ public:
             { "mysql",                  false },
             { "tofsee",                 false },
             { "socks",                  false },
+            { "ftp",                    false},
+            { "ftp.response",           false},
+            { "ftp.request",            false}
         };
 
     std::unordered_map<std::string, bool> raw_features {
@@ -258,6 +262,11 @@ public:
         return true;
     }
 
+    bool set_crypto_assess (const std::string& policy) {
+        crypto_assess_policy = policy; // policy.empty() ? "default" : policy ;
+        return true;
+    }
+
 };
 
 static void setup_extended_fields(global_config* lc, const std::string& config) {
@@ -269,7 +278,8 @@ static void setup_extended_fields(global_config* lc, const std::string& config) 
         {"tcp-reassembly", "", "", SETTER_FUNCTION(&lc){ lc->reassembly = true; }},
         {"reassembly", "", "", SETTER_FUNCTION(&lc){ lc->reassembly = true; }},
         {"stats-blocking", "", "", SETTER_FUNCTION(&lc){ lc->stats_blocking = true; }},
-        {"raw-features", "", "", SETTER_FUNCTION(&lc){ lc->set_raw_features(s); }}
+        {"raw-features", "", "", SETTER_FUNCTION(&lc){ lc->set_raw_features(s); }},
+        {"crypto-assess", "", "", SETTER_FUNCTION(&lc){ lc->set_crypto_assess(s); }},
     };
 
     parse_additional_options(options, config, *lc);

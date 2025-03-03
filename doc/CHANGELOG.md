@@ -1,5 +1,39 @@
 # CHANGELOG for Mercury
 
+## VERSION 2.6.3
+* Revamped SSH metadata and fingerprints.
+* Minor improvements to reassembly.
+* Numerical stability improvements to the naive bayes classifier.
+* Added [`classify`](src/classify.cpp) tool for running classifier
+  on a command-line arguments.
+* Minor fixes to reassembly and LDAP parsing
+
+## VERSION 2.6.2
+* Removed default interface from template configuration file
+  `mercury.cfg` and added runtime check to require that an interface
+  be specified when a configuration file is used.
+* Added `--crypto-assess=<policy>` option, which implements an
+  assessment of the cryptographic security of TLS, DTLS, and QUIC
+  sessions and clients.  The currently implemented policies are
+  `quantum_safe` and `quantum_safe_verbose`.  The former is the
+  default, and the latter provides human-readable names.
+* Integrated support for the IPSec protocols IKEv2 and ESP.
+* Integrated minimal LDAP support, which provides details only for
+  `bindRequest` and `bindResponse` messages.
+* Added support for the `LINKTYPE_LINUX_SLL` (Linux 'Cooked Capture').
+* Improved the `stats` test to avoid spurious failues, by allowing
+    mercury JSON output and mercury stats counts to differ by up to
+    10% due to lossy stats collection.
+* Enabled `--raw-features` and `--reassembly` to be enabled through
+  the configuration file.
+* Refactored `pmercury` to use `c++` code where possible.
+* Re-enabled ^C signal handler for PCAP processing.
+* Moved `dns.id` and `ip.id` fields to the tail end of the JSON
+  record, to improve Parquet compressibility.
+* Classification improved to allow multiple fingerprints to utilize
+  the same Weighted Naive Bayes models.
+* Various internal improvements and unit test tweaks.
+
 ## VERSION 2.6.1
 * Improved STUN implementation: added test cases, fixed fingerprint
   feature nits, renamed variables for consistency with the RFCs, and

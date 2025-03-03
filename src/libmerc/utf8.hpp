@@ -961,6 +961,10 @@ public:
         return buf.get_buffer_start();
     }
 
+    datum get_datum() const {
+        return buf.get_datum();
+    }
+
     /// performs unit tests for \ref class utf8_safe_string and
     /// returns `true` if they all pass, and `false` otherwise
     ///

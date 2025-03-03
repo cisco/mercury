@@ -538,7 +538,7 @@ public:
         }
     }
 
-    bool is_not_empty() {
+    bool is_not_empty() const {
         return hello.is_not_empty() || certificate.is_not_empty();
     }
 
@@ -586,6 +586,7 @@ public:
         }
     }
 
+    const tls_server_hello & get_server_hello() const { return hello; }
 };
 
 
