@@ -275,8 +275,6 @@ public:
             d = dns.advance();
 
         } else if (lookahead<ipv4_address_string> ipv4{d}) {
-            // datum ipv4_string = ipv4.get_parsed_data(d);
-            // ipv4_string.fprint(stdout); fputc('\n', stdout);
             d = ipv4.advance();
             host_id = ipv4.value.get_value();
 
@@ -285,11 +283,13 @@ public:
         // if there is still readable data in d, it must be a port
         // number
         //
-        if (lookahead<port_number> port_digits{d}) {
-            port = port_digits.value.get_value();
-            d = port_digits.advance();
-        } else {
-            host_id = std::monostate{}; // invalid trailing data
+        if (d.is_not_empty()) {
+            if (lookahead<port_number> port_digits{d}) {
+                port = port_digits.value.get_value();
+                d = port_digits.advance();
+            } else {
+                host_id = std::monostate{}; // invalid trailing data
+            }
         }
 
     }
