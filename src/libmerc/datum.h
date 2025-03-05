@@ -274,6 +274,12 @@ struct datum {
         r.data += num_bytes;
     }
     void parse_up_to_delim(struct datum &r, uint8_t delim) {
+        if (r.is_not_readable()) {
+            r.set_null();
+            set_null();
+            return;
+        }
+
         data = r.data;
         const unsigned char* c = static_cast<const unsigned char*>(memchr(r.data, delim, r.length()));
         if (c) {
@@ -496,6 +502,9 @@ struct datum {
     }
 
     int find_delim(uint8_t delim) {
+        if (is_not_readable()) {
+            return -1;
+        }
         const unsigned char* c = static_cast<const unsigned char*>(memchr(data, delim, length()));
         if (c) {
             return c - data;
