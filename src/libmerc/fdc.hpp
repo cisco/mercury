@@ -603,7 +603,7 @@ public:
             //
             static const size_t MAX_FP_STR_LEN     = 4096;
             char fp_str[MAX_FP_STR_LEN];
-            char dst_ip_str[MAX_DST_ADDR_LEN];
+            char dst_ip_str[MAX_ADDR_STR_LEN];
             char sn_str[MAX_SNI_LEN];
             char ua_str[MAX_USER_AGENT_LEN];
             uint16_t dst_port;
@@ -611,7 +611,7 @@ public:
             bool decoding_ok = fdc::decode(encoded_fdc,
                                            writeable{(uint8_t*)fp_str, MAX_FP_STR_LEN},
                                            writeable{(uint8_t*)sn_str, MAX_SNI_LEN},
-                                           writeable{(uint8_t*)dst_ip_str, MAX_DST_ADDR_LEN},
+                                           writeable{(uint8_t*)dst_ip_str, MAX_ADDR_STR_LEN},
                                            dst_port,
                                            writeable{(uint8_t*)ua_str, MAX_USER_AGENT_LEN});
             if (decoding_ok == false) {
@@ -655,7 +655,7 @@ std::string get_json_decoded_fdc(const char *fdc_blob, ssize_t blob_len) {
     datum fdc_data = datum{(uint8_t*)fdc_blob,(uint8_t*)(fdc_blob+blob_len)};
     static const size_t MAX_FP_STR_LEN     = 4096;
     char fp_str[MAX_FP_STR_LEN];
-    char dst_ip_str[MAX_DST_ADDR_LEN];
+    char dst_ip_str[MAX_ADDR_STR_LEN];
     char sn_str[MAX_SNI_LEN];
     char ua_str[MAX_USER_AGENT_LEN];
     uint16_t dst_port;
@@ -667,7 +667,7 @@ std::string get_json_decoded_fdc(const char *fdc_blob, ssize_t blob_len) {
     bool ok = fdc::decode(fdc_data,
                           writeable{(uint8_t*)fp_str, MAX_FP_STR_LEN},
                           writeable{(uint8_t*)sn_str, MAX_SNI_LEN},
-                          writeable{(uint8_t*)dst_ip_str, MAX_DST_ADDR_LEN},
+                          writeable{(uint8_t*)dst_ip_str, MAX_ADDR_STR_LEN},
                           dst_port,
                           writeable{(uint8_t*)ua_str, MAX_USER_AGENT_LEN});
     if (ok) {
