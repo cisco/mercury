@@ -53,7 +53,7 @@ int analysis_finalize(classifier *c);
         && lhs.os_prevalence == rhs.os_prevalence;
 }
 
-// helper function to convert results from double to long
+// helper function to convert results from floating_point_type to long
 // double arrays, which are used to represent probabilities in some
 // other software components
 //
@@ -179,12 +179,12 @@ public:
         uint32_t asn_int = subnet_data_ptr->get_asn_info(dst_ip);
         std::string dst_ip_str(dst_ip);
 
-        std::vector<double> process_score = classifier.classify(asn_int, dst_port, server_name, dst_ip_str, user_agent);
+        std::vector<floating_point_type> process_score = classifier.classify(asn_int, dst_port, server_name, dst_ip_str, user_agent);
 
         // compute max_score, sec_score, index_max, and index_sec
         //
-        double max_score = std::numeric_limits<double>::lowest();
-        double sec_score = std::numeric_limits<double>::lowest();
+        floating_point_type max_score = std::numeric_limits<floating_point_type>::lowest();
+        floating_point_type sec_score = std::numeric_limits<floating_point_type>::lowest();
         uint64_t index_max = 0;
         uint64_t index_sec = 0;
         for (uint64_t i=0; i < process_score.size(); i++) {
@@ -203,10 +203,10 @@ public:
         // values, and compute score_sum, score_sum_without_max,
         // malware_prob, and the attr_prob vector.
         //
-        double score_sum = 0.0;
-        double score_sum_without_max = 0.0;
-        double malware_prob = 0.0;
-        std::array<double, attribute_result::MAX_TAGS> attr_prob;
+        floating_point_type score_sum = 0.0;
+        floating_point_type score_sum_without_max = 0.0;
+        floating_point_type malware_prob = 0.0;
+        std::array<floating_point_type, attribute_result::MAX_TAGS> attr_prob;
         attr_prob.fill(0.0);
         for (uint64_t i=0; i < process_score.size(); i++) {
             process_score[i] = expf((float)(process_score[i] - max_score));
