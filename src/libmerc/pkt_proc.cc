@@ -8,10 +8,12 @@
 #include <string.h>
 #include <variant>
 #include <set>
+#include <tuple>
 #include <netinet/in.h>
 
 #include "libmerc.h"
 #include "pkt_proc.h"
+#include "flow_key.h"
 #include "utils.h"
 #include "loopback.hpp"
 #include "linux_sll.hpp"
@@ -154,7 +156,7 @@ public:
         // add bot ip as user agent string
         //
         char src_ip_str[MAX_ADDR_STR_LEN];
-        k.sprint_dst_addr(src_ip_str);
+        k.sprintf_dst_addr(src_ip_str);
         char dst_ip_str[MAX_ADDR_STR_LEN];
         k.sprint_src_addr(dst_ip_str);
         char dst_port_str[MAX_PORT_STR_LEN];
@@ -860,6 +862,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
         bool output_analysis = false;
         if (global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
+
             output_analysis = std::visit(do_analysis{k, analysis, c}, x);
 
             // note: we only perform observations when analysis is
@@ -902,6 +905,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         }
 
         write_flow_key(record, k);
+
         record.print_key_timestamp("event_start", ts);
         record.close();
     }
@@ -1150,6 +1154,10 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             if (truncated_tcp or truncated_udp) {
                 analysis.result.status = fingerprint_status::fingerprint_status_unlabled;
             }
+
+            // report port in network byte order
+            //
+            analysis.destination.dst_port = ntoh(analysis.destination.dst_port);
 
             return output_analysis;
         }

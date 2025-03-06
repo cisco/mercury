@@ -22,8 +22,8 @@
 #include <openssl/evp.h>
 #include <openssl/err.h>
 #include "tls.h"
+#include "flow_key.h"
 #include "json_object.h"
-#include "util_obj.h"
 #include "match.h"
 #include "crypto_engine.h"
 

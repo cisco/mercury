@@ -8,6 +8,7 @@
 
 #include <stdio.h>
 #include "datum.h"
+#include "eth.h"
 
 class arp_packet {
 

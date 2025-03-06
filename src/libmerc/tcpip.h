@@ -14,6 +14,7 @@
 #include "protocol.h"
 #include "json_object.h"
 #include "fingerprint.h"
+#include "flow_key.h"
 
 /*
  * TCP fingerprinting

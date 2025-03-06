@@ -10,6 +10,7 @@
 #include "bencode.h"
 #include "snmp.h"
 #include "tofsee.hpp"
+#include "ip_address.hpp"
 #include "utf8.hpp"
 #include "tsc_clock.hpp"
 #include "json_string.hpp"
@@ -25,6 +26,7 @@ TEST_CASE("Testing unit_test() defined in class") {
     CHECK(snmp::unit_test() == true);
     CHECK(tofsee_initial_message::unit_test() == true);
     CHECK(tls_extensions::unit_test() == true);
+    CHECK(ipv6_address_string::unit_test() == true);
     CHECK(utf8_string::unit_test() == true);
     CHECK(utf8_safe_string_unit_test() == true);
     CHECK(tsc_clock::unit_test() == true);
