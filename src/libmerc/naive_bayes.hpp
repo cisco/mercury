@@ -381,8 +381,6 @@ public:
         if (itr->value.IsObject()) {
             for (auto &y : itr->value.GetObject()) {
                 if (y.value.IsUint64()) {
-                    // std::string normalized = server_identifier{y.name.GetString()}.get_normalized_domain_name(server_identifier::detail::on);
-                    // add_domain_update(process_index, normalized, y.value.GetUint64(), total_count, domain_weight);
                     add_domain_update(process_index, y.name.GetString(), y.value.GetUint64(), total_count, domain_weight);
                 }
             }
