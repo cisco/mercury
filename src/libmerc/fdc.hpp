@@ -6,6 +6,8 @@
 #define FDC_HPP
 
 #include "static_dict.hpp"
+#include "result.h"
+#include "cbor.hpp"
 #include "fingerprint.h"  // for fingerprint_type
 
 // cbor_fingerprint decodes a CBOR representation of a Network
@@ -277,6 +279,7 @@ namespace cbor_fingerprint {
             decode_cbor_data(a.value(), w);
         }
         w.copy(')');
+        a.close();
     }
 
     void decode_cbor_sorted_list(datum &d, writeable &w) {
@@ -462,6 +465,7 @@ namespace cbor_fingerprint {
         std::vector<const char *> fps = {
             "http/(504f5354)(485454502f312e31)((486f7374)(557365722d4167656e74)(4163636570743a20746578742f68746d6c2c6170706c69636174696f6e2f7868746d6c2b786d6c2c6170706c69636174696f6e2f786d6c3b713d302e392c696d6167652f617669662c696d6167652f776562702c2a2f2a3b713d302e38)(4163636570742d4c616e6775616765)(4163636570742d456e636f64696e673a20677a69702c206465666c617465)(436f6e6e656374696f6e3a206b6565702d616c697665))",
             "tls/1/(0303)(130113021303c02bc02fc02cc030cca9cca8c013c014009c009d002f0035)[(0000)(000500050100000000)(000a00080006001d00170018)(000b00020100)(000d0012001004030804040105030805050108060601)(0010000e000c02683208687474702f312e31)(0012)(0017)(001b0003020002)(0023)(0029)(002b0009080304030303020301)(002d00020101)(0033)(ff01)]",
+            "tls/(0303)(0a0a130113021303c02cc02bcca9c030c02fcca8c00ac009c014c013009d009c0035002f)((0a0a)(0000)(0017)(ff01)(000a000c000a0a0a001d001700180019)(000b00020100)(0010000e000c02683208687474702f312e31)(000500050100000000)(000d0018001604030804040105030203080508050501080606010201)(0012)(0033)(002d00020101)(002b0007060a0a03040303)(001b0003020001)(0a0a)(0015))",
             "quic/(00000001)(0303)(130113021303)[(000a000a00086399001d00170018)(002b0003020304)((0039)[(01)(03)(04)(05)(06)(07)(08)(09)(0f)(1b)(20)(80004752)(80ff73db)])(4469)]",
             "http/randomized",
             "tls/1/randomized",
@@ -567,55 +571,69 @@ public:
         // construct an fpc_object, then encode it into a writeable
         // buffer
         //
-        const char *fp = "tls/1/(0301)(c014c00a00390038c00fc0050035c012c00800160013c00dc003000ac013c00900330032c00ec004002fc011c007c00cc002000500040015001200090014001100080006000300ff)[(0000)(000a00340032000100020003000400050006000700080009000a000b000c000d000e000f0010001100120013001400150016001700180019)(000b000403000102)(0023)]";
-        fdc fdc_object{
-            datum{fp},
-            nullptr,
-            "npmjs.org",
-            "104.16.30.34",
-            443
+        const char *tls_fp = "tls/1/(0301)(c014c00a00390038c00fc0050035c012c00800160013c00dc003000ac013c00900330032c00ec004002fc011c007c00cc002000500040015001200090014001100080006000300ff)[(0000)(000a00340032000100020003000400050006000700080009000a000b000c000d000e000f0010001100120013001400150016001700180019)(000b000403000102)(0023)]";
+        const char *http_fp = "http/(434f4e4e454354)(485454502f312e31)((486f7374)(557365722d4167656e74))";
+        static constexpr size_t num_tests = 2;
+        fdc fdc_object[num_tests]{
+            {
+                datum{tls_fp},
+                nullptr,
+                "npmjs.org",
+                "104.16.30.34",
+                443
+            },
+            {
+                datum{http_fp},
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+                "clientservices.googleapis.com:443",
+                "72.163.217.105",
+                80
+            }
         };
-        dynamic_buffer output{1024};
-        bool encoding_ok = fdc_object.encode(output);
-        if (encoding_ok == false) {
-            return false;
-        }
-        datum encoded_fdc{output.contents()};
+        for (size_t i = 0; i < num_tests; i++){
 
-        // decode the data in the buffer to decoded_fdc
-        //
-        static const size_t MAX_DST_ADDR_LEN   = 48;
-        static const size_t MAX_SNI_LEN        = 257;
-        static const size_t MAX_USER_AGENT_LEN = 512;
-        static const size_t MAX_FP_STR_LEN     = 4096;
-        char fp_str[MAX_FP_STR_LEN];
-        char dst_ip_str[MAX_DST_ADDR_LEN];
-        char sn_str[MAX_SNI_LEN];
-        char ua_str[MAX_USER_AGENT_LEN];
-        uint16_t dst_port;
+            dynamic_buffer output{1024};
+            bool encoding_ok = fdc_object[i].encode(output);
+            if (encoding_ok == false) {
+                return false;
+            }
+            datum encoded_fdc{output.contents()};
 
-        bool decoding_ok = fdc::decode(encoded_fdc,
-                                       writeable{(uint8_t*)fp_str, MAX_FP_STR_LEN},
-                                       writeable{(uint8_t*)sn_str, MAX_SNI_LEN},
-                                       writeable{(uint8_t*)dst_ip_str, MAX_DST_ADDR_LEN},
-                                       dst_port,
-                                       writeable{(uint8_t*)ua_str, MAX_USER_AGENT_LEN});
-        if (decoding_ok == false) {
-            return false;
-        }
-        fdc decoded_fdc(datum{fp_str},
-                        ua_str,
-                        sn_str,
-                        dst_ip_str,
-                        dst_port);
+            // decode the data in the buffer to decoded_fdc
+            //
+            static const size_t MAX_FP_STR_LEN     = 4096;
+            char fp_str[MAX_FP_STR_LEN];
+            char dst_ip_str[MAX_DST_ADDR_LEN];
+            char sn_str[MAX_SNI_LEN];
+            char ua_str[MAX_USER_AGENT_LEN];
+            uint16_t dst_port;
 
-        // compare the decoded_fdc to the original one; the test
-        // passes only if they are equal
-        //
-        if (decoded_fdc == fdc_object) {
-            return true;
+            bool decoding_ok = fdc::decode(encoded_fdc,
+                                           writeable{(uint8_t*)fp_str, MAX_FP_STR_LEN},
+                                           writeable{(uint8_t*)sn_str, MAX_SNI_LEN},
+                                           writeable{(uint8_t*)dst_ip_str, MAX_DST_ADDR_LEN},
+                                           dst_port,
+                                           writeable{(uint8_t*)ua_str, MAX_USER_AGENT_LEN});
+            if (decoding_ok == false) {
+                return false;
+            }
+            fdc decoded_fdc(datum{fp_str},
+                            ua_str,
+                            sn_str,
+                            dst_ip_str,
+                            dst_port);
+
+            // compare the decoded_fdc to the original one; the test
+            // passes only if they are equal
+            //
+            if (decoded_fdc == fdc_object[i]) {
+                ;
+            }
+            else {
+                return false;
+            }
         }
-        return false;
+        return true;
     }
 
 private:
@@ -632,6 +650,43 @@ private:
     }
 
 };
+
+std::string get_json_decoded_fdc(const char *fdc_blob, ssize_t blob_len) {
+    datum fdc_data = datum{(uint8_t*)fdc_blob,(uint8_t*)(fdc_blob+blob_len)};
+    static const size_t MAX_FP_STR_LEN     = 4096;
+    char fp_str[MAX_FP_STR_LEN];
+    char dst_ip_str[MAX_DST_ADDR_LEN];
+    char sn_str[MAX_SNI_LEN];
+    char ua_str[MAX_USER_AGENT_LEN];
+    uint16_t dst_port;
+
+    char buffer[8192];
+    struct buffer_stream buf_json(buffer, sizeof(buffer));
+    struct json_object record(&buf_json);
+
+    bool ok = fdc::decode(fdc_data,
+                          writeable{(uint8_t*)fp_str, MAX_FP_STR_LEN},
+                          writeable{(uint8_t*)sn_str, MAX_SNI_LEN},
+                          writeable{(uint8_t*)dst_ip_str, MAX_DST_ADDR_LEN},
+                          dst_port,
+                          writeable{(uint8_t*)ua_str, MAX_USER_AGENT_LEN});
+    if (ok) {
+        json_object fdc_json(record,"fdc");
+        fdc_json.print_key_string("fingerprint",fp_str);
+        fdc_json.print_key_string("sni",sn_str);
+        fdc_json.print_key_string("dst_ip_str",dst_ip_str);
+        fdc_json.print_key_int("dst_port",dst_port);
+        fdc_json.print_key_string("user_agent",ua_str);
+        fdc_json.close();
+        record.close();
+        buf_json.write_char('\0');  // null terminate
+        return buf_json.get_string();
+        
+    } else {
+        return "";
+    }
+   
+}
 
 
 #endif // FDC_HPP

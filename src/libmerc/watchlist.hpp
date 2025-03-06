@@ -19,7 +19,6 @@
 #include "ip_address.hpp"
 
 
-
 // From Section 2.1 of RFC 1123:
 //
 //     If a dotted-decimal number can be entered without such

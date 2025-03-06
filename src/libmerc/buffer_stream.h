@@ -10,6 +10,7 @@
 
 #include <algorithm> // for std::min()
 #include <string.h>  /* for memcpy() */
+#include <string>
 #include <stdarg.h>
 #include <time.h>
 #include <stdint.h>
@@ -1133,6 +1134,14 @@ struct buffer_stream {
 
     void write_mac_addr(const uint8_t *d) {
         append_mac_addr(dstr, &doff, dlen, &trunc, d);
+    }
+
+    std::string get_string() {
+        if (doff >=0 ) {
+            return std::string((const char*)dstr);
+        }
+        else
+            return std::string{};
     }
 
 };
