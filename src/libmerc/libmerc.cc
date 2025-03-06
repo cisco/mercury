@@ -83,7 +83,7 @@ mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
         printf_err(log_info, "libmerc version: %u.%u.%u\n", v.major, v.minor, v.patchlevel);
         printf_err(log_info, "libmerc build count: %u\n", git_count);
         printf_err(log_info, "libmerc git commit id: %s\n", git_commit_id);
-        printf_err(log_info, "sizeof(classifier::floating_point_type): %zu\n", sizeof(floating_point_type));
+        printf_err(log_info, "sizeof(classifier::double): %zu\n", sizeof(double));
     }
 
     // if NDEBUG is not defined, the assert() macro will be used;

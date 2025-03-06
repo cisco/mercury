@@ -7,11 +7,6 @@
 #include <vector>
 #include <unordered_map>
 
-/// data type used in floating point computations
-///
-using floating_point_type = long double;
-
-
 /// an instance of class update represents an update to a prior
 /// probability
 ///
@@ -19,9 +14,9 @@ class update {
 public:
 
     unsigned int index;          /// index of probability to update
-    floating_point_type value;   /// value of update
+    double value;   /// value of update
 
-    update(unsigned int i, floating_point_type v) : index{i}, value{v} {}
+    update(unsigned int i, double v) : index{i}, value{v} {}
 
     bool operator==(const update &rhs) const {
         return index == rhs.index
@@ -31,11 +26,11 @@ public:
     /// combines this update with another set of counts \param
     /// rhs_count, associated with the same data feature value
     ///
-    void combine(size_t rhs_count, size_t total_count, floating_point_type base_prior, floating_point_type domain_weight) {
+    void combine(size_t rhs_count, size_t total_count, double base_prior, double domain_weight) {
 
-        floating_point_type old_count = expl((value / domain_weight) + base_prior) * total_count;
+        double old_count = expl((value / domain_weight) + base_prior) * total_count;
         size_t old_count_integral = (size_t)roundl(old_count);
-        value = (log((floating_point_type)(rhs_count + old_count_integral) / total_count) - base_prior) * domain_weight;
+        value = (log((double)(rhs_count + old_count_integral) / total_count) - base_prior) * domain_weight;
     }
 
 };
@@ -49,9 +44,9 @@ public:
 
     std::string json_name;
     std::unordered_map<T, std::vector<class update>> updates;
-    floating_point_type weight;
+    double weight;
 
-    feature(const std::string &name, floating_point_type w=1.0) : json_name{name}, updates{}, weight{w} { }
+    feature(const std::string &name, double w=1.0) : json_name{name}, updates{}, weight{w} { }
 
     void add_updates_from_object_by_name(const rapidjson::Value &object,
                                          size_t process_index,
@@ -100,10 +95,10 @@ public:
                     size_t total_count
                     )
     {
-        floating_point_type base_prior = log(0.1 / total_count);
+        double base_prior = log(0.1 / total_count);
         std::pair<T,size_t> value_and_count = { feature_value, count };
         const auto x = updates.find(value_and_count.first);
-        class update u{ process_index, (log((floating_point_type)value_and_count.second / total_count) - base_prior) * weight };
+        class update u{ process_index, (log((double)value_and_count.second / total_count) - base_prior) * weight };
         if (x != updates.end()) {
             x->second.push_back(u);
         } else {
@@ -118,7 +113,7 @@ public:
 
     // apply a naive bayes feature update to prob_vector
     //
-    void update(std::vector<floating_point_type> &prob_vector, const T &value) const {
+    void update(std::vector<double> &prob_vector, const T &value) const {
         auto u = updates.find(value);
         if (u != updates.end()) {
             for (const auto &x : u->second) {
@@ -215,9 +210,9 @@ class ip_addr_feature {
 public:
     std::string json_name;
 
-    floating_point_type weight;
+    double weight;
 
-    ip_addr_feature(const std::string &name, floating_point_type w=1.0) : json_name{name}, weight{w} { };
+    ip_addr_feature(const std::string &name, double w=1.0) : json_name{name}, weight{w} { };
 
     void add_updates_from_object_by_name(const rapidjson::Value &object,
                                          size_t process_index,
@@ -257,8 +252,8 @@ public:
                     size_t total_count
                     )
     {
-        floating_point_type base_prior = log(0.1 / total_count);
-        class update u{ process_index, (log((floating_point_type)count / total_count) - base_prior) * weight };
+        double base_prior = log(0.1 / total_count);
+        class update u{ process_index, (log((double)count / total_count) - base_prior) * weight };
 
         if (lookahead<ipv4_address_string> ipv4{datum{feature_value}}) {
             uint32_t addr = ipv4.value.get_value();
@@ -281,7 +276,7 @@ public:
 
     // apply a naive bayes feature update to prob_vector
     //
-    void update(std::vector<floating_point_type> &prob_vector, const std::string &dst_ip_str) const {
+    void update(std::vector<double> &prob_vector, const std::string &dst_ip_str) const {
         if (lookahead<ipv4_address_string> ipv4{datum{dst_ip_str}}) {
             auto ip_ip_update = ipv4_updates.find(ipv4.value.get_value());
             if (ip_ip_update != ipv4_updates.end()) {
@@ -317,13 +312,13 @@ public:
     std::string domain_names;
     std::string sni_names;
     bool got_feature = false;
-    floating_point_type domain_weight = 1.0;
-    floating_point_type sni_weight = 1.0;
+    double domain_weight = 1.0;
+    double sni_weight = 1.0;
 
     domain_name_model(const std::string &domain,
                       const std::string &sni,
-                      floating_point_type domain_wt=1.0,
-                      floating_point_type sni_wt=1.0) :
+                      double domain_wt=1.0,
+                      double sni_wt=1.0) :
         domain_names{domain},
         sni_names{sni},
         domain_weight{domain_wt},
@@ -391,14 +386,14 @@ public:
                            const std::string &hostname_domains,
                            size_t count,
                            size_t total_count,
-                           floating_point_type domain_weight
+                           double domain_weight
                            ) {
 
-        floating_point_type base_prior = log(0.1 / total_count);
+        double base_prior = log(0.1 / total_count);
         std::pair<std::string,size_t> domains_and_count{ hostname_domains, count };
 
         const auto x = hostname_domain_updates.find(domains_and_count.first);
-        class update u{ index, (log((floating_point_type)domains_and_count.second / total_count) - base_prior) * domain_weight };
+        class update u{ index, (log((double)domains_and_count.second / total_count) - base_prior) * domain_weight };
         if (x != hostname_domain_updates.end()) {
 
             // check for previous occurence of this index
@@ -425,14 +420,14 @@ public:
                         const std::string &hostname_sni,
                         size_t count,
                         size_t total_count,
-                        floating_point_type sni_weight
+                        double sni_weight
                         ) {
 
-        floating_point_type base_prior = log(0.1 / total_count);
+        double base_prior = log(0.1 / total_count);
         std::pair<std::string,size_t> sni_and_count{ hostname_sni, count };
 
         const auto x = hostname_sni_updates.find(sni_and_count.first);
-        class update u{ index, (log((floating_point_type)sni_and_count.second / total_count) - base_prior) * sni_weight };
+        class update u{ index, (log((double)sni_and_count.second / total_count) - base_prior) * sni_weight };
         if (x != hostname_sni_updates.end()) {
 
             // check for previous occurence of this index
@@ -459,7 +454,7 @@ public:
     /// updates the probability vector \param process_score
     /// based on the feature \param server_name_str
     ///
-    void update(std::vector<floating_point_type> &process_score,
+    void update(std::vector<double> &process_score,
                 const std::string &server_name_str
                 ) const
     {
@@ -516,12 +511,12 @@ public:
 
 
 struct feature_weights {
-    floating_point_type as     = std::numeric_limits<floating_point_type>::quiet_NaN();
-    floating_point_type domain = std::numeric_limits<floating_point_type>::quiet_NaN();
-    floating_point_type port   = std::numeric_limits<floating_point_type>::quiet_NaN();
-    floating_point_type ip     = std::numeric_limits<floating_point_type>::quiet_NaN();
-    floating_point_type sni    = std::numeric_limits<floating_point_type>::quiet_NaN();
-    floating_point_type ua     = std::numeric_limits<floating_point_type>::quiet_NaN();
+    double as     = std::numeric_limits<double>::quiet_NaN();
+    double domain = std::numeric_limits<double>::quiet_NaN();
+    double port   = std::numeric_limits<double>::quiet_NaN();
+    double ip     = std::numeric_limits<double>::quiet_NaN();
+    double sni    = std::numeric_limits<double>::quiet_NaN();
+    double ua     = std::numeric_limits<double>::quiet_NaN();
 
     static constexpr size_t num_weights = 6;  // number of weights we expect to read
 
@@ -561,7 +556,7 @@ struct feature_weights {
 
     /// returns the sum of the weights
     ///
-    floating_point_type sum() const {
+    double sum() const {
         return as + domain + port + ip + sni + ua;
     }
 
@@ -572,23 +567,23 @@ struct feature_weights {
 ///
 class naive_bayes {
 
-    std::vector<floating_point_type> prior_prob;  // vector of prior probabilities
+    std::vector<double> prior_prob;  // vector of prior probabilities
 
 public:
 
-    std::vector<floating_point_type> get_prior_prob() const { return prior_prob; }
+    std::vector<double> get_prior_prob() const { return prior_prob; }
 
-    void add_class(size_t count, size_t total_count, floating_point_type weight_sum=1.0) {
-        floating_point_type base_prior = log(0.1 / total_count);
-        floating_point_type proc_prior = log(.1);
-        floating_point_type prob_process_given_fp = (floating_point_type)count / total_count;
-        floating_point_type score = log(prob_process_given_fp);
+    void add_class(size_t count, size_t total_count, double weight_sum=1.0) {
+        double base_prior = log(0.1 / total_count);
+        double proc_prior = log(.1);
+        double prob_process_given_fp = (double)count / total_count;
+        double score = log(prob_process_given_fp);
         prior_prob.push_back(fmax(score, proc_prior) + base_prior * weight_sum);
     }
 
     void add_class_from_count(const rapidjson::Value &object,
                               size_t total_count,
-                              floating_point_type weight_sum=1.0)
+                              double weight_sum=1.0)
     {
         uint64_t count = 0;
         if (object.HasMember("count") && object["count"].IsUint64()) {
@@ -668,14 +663,14 @@ public:
 
     }
 
-    std::vector<floating_point_type> classify(uint32_t asn_int,
+    std::vector<double> classify(uint32_t asn_int,
                                               uint16_t dst_port,
                                               const std::string &server_name_str,
                                               const std::string &dst_ip_str,
                                               const char *user_agent
                                               ) const {
 
-        std::vector<floating_point_type> process_score = get_prior_prob();  // working copy of probability vector
+        std::vector<double> process_score = get_prior_prob();  // working copy of probability vector
 
         asn_feature.update(process_score, asn_int);
         dst_port_feature.update(process_score, dst_port);
