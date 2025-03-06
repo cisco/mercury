@@ -9,7 +9,7 @@
 
 /// data type used in floating point computations
 ///
-using floating_point_type = long double;
+using floating_point_type = double;
 
 
 /// an instance of class update represents an update to a prior
@@ -381,8 +381,7 @@ public:
         if (itr->value.IsObject()) {
             for (auto &y : itr->value.GetObject()) {
                 if (y.value.IsUint64()) {
-                    std::string normalized = server_identifier{y.name.GetString()}.get_normalized_domain_name(server_identifier::detail::on);
-                    add_domain_update(process_index, normalized, y.value.GetUint64(), total_count, domain_weight);
+                    add_domain_update(process_index, y.name.GetString(), y.value.GetUint64(), total_count, domain_weight);
                 }
             }
         }
@@ -475,7 +474,10 @@ public:
             }
         }
 
-        auto hostname_sni_update = hostname_sni_updates.find(server_name_str);
+        server_identifier server_id{server_name_str};
+        std::string normalized_server_name_str = server_id.get_normalized_domain_name(server_identifier::detail::on);
+
+        auto hostname_sni_update = hostname_sni_updates.find(normalized_server_name_str);
         if (hostname_sni_update != hostname_sni_updates.end()) {
             for (const auto &x : hostname_sni_update->second) {
                 assert(x.index < process_score.size());

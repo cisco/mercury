@@ -176,12 +176,10 @@ public:
     struct analysis_result perform_analysis(const char *server_name, const char *dst_ip, uint16_t dst_port,
                                             const char *user_agent, enum fingerprint_status status) {
 
-        server_identifier server_id{server_name};
-        std::string server_name_str = server_id.get_normalized_domain_name(server_identifier::detail::on);
         uint32_t asn_int = subnet_data_ptr->get_asn_info(dst_ip);
         std::string dst_ip_str(dst_ip);
 
-        std::vector<floating_point_type> process_score = classifier.classify(asn_int, dst_port, server_name_str, dst_ip_str, user_agent);
+        std::vector<floating_point_type> process_score = classifier.classify(asn_int, dst_port, server_name, dst_ip_str, user_agent);
 
         // compute max_score, sec_score, index_max, and index_sec
         //
