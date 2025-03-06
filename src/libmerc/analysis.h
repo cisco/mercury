@@ -31,7 +31,6 @@
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
 #include "archive.h"
-#include "watchlist.hpp"
 #include "static_dict.hpp"
 #include "naive_bayes.hpp"
 
@@ -233,8 +232,6 @@ public:
             }
         }
 
-        // fprintf(stderr, "(score_sum-max_score) - score_sum_without_max: %.40Lg\n", (score_sum - max_score) - score_sum_without_max);
-
         if (malware_db && process_name[index_max] == "generic dmz process" && malware[index_sec] == false) {
             // the most probable process is unlabeled, so choose the
             // next most probable one if it isn't malware, and adjust
@@ -277,10 +274,6 @@ public:
     }
 
 };
-
-// static const char* kTypeNames[] = { "Null", "False", "True", "Object", "Array", "String", "Number" };
-// fprintf(stderr, "Type of member %s is %s\n", "str_repr", kTypeNames[fp["str_repr"].GetType()]);
-
 
 class fingerprint_prevalence {
 public:
@@ -463,8 +456,7 @@ public:
         if (!line_str.empty() && line_str[line_str.length()-1] == '\n') {
             line_str.erase(line_str.length()-1);
         }
-        fprintf(stderr, "loading watchlist line '%s'\n", line_str.c_str());
-        //  fp_prevalence.initial_add(line_str);
+        printf_err(log_info, "loading watchlist line '%s'\n", line_str.c_str());
     }
 
     void process_fp_prevalence_line(std::string &line_str) {
@@ -478,7 +470,6 @@ public:
         if (line_str.at(0) == '(') {
             line_str = "tls/" + line_str;
         }
-        //fprintf(stderr, "loading fp_prevalence_line '%s'\n", line_str.c_str());
         fp_prevalence.initial_add(line_str);
     }
 
@@ -565,7 +556,6 @@ public:
         }
 
         if (fp.HasMember("process_info") && fp["process_info"].IsArray()) {
-            //fprintf(stderr, "process_info[]\n");
 
             // determine if this FPDB contains malware data and
             // extended metadata
@@ -669,7 +659,6 @@ public:
         bool full_db = false;   // archive has fingerprint_db_full.json named as fingerprint_db.json
         bool legacy_archive = false;
 
-        //        class compressed_archive archive{resource_archive_file};
         const class archive_node *entry = archive.get_next_entry();
         if (entry == nullptr) {
             throw std::runtime_error("error: could not read any entries from resource archive file");
@@ -809,8 +798,6 @@ public:
 
     struct analysis_result perform_analysis(const char *fp_str, const char *server_name, const char *dst_ip,
                                             uint16_t dst_port, const char *user_agent) {
-
-        // fp_stats.observe(fp_str, server_name, dst_ip, dst_port); // TBD - decide where this call should go
 
         const auto fpdb_entry = fpdb.find(fp_str);
         if (fpdb_entry == fpdb.end()) {

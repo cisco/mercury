@@ -287,7 +287,7 @@ public:
                 port = port_digits.value.get_value();
                 d = port_digits.advance();
                 if (std::holds_alternative<std::monostate>(host_id)) {
-                    empty = true; // host_id = "None";  // empty name
+                    empty = true;
                 }
             } else {
                 host_id = std::monostate{}; // invalid trailing data
@@ -549,15 +549,6 @@ class watchlist {
     std::unordered_set<ipv6_array_t> ipv6_addrs;
     std::unordered_set<std::string> dns_names;
 
-    //    std::unordered_set<host_identifier> hosts;
-
-    // TODO: for performance, try using perfect_hash in place of
-    // unordered_map
-    //
-    // TODO: for performance, replace std:string with const char *,
-    // using a dynamically allocated buffer holding null-terminated
-    // strings
-
 public:
 
     // watchlist(input) constructs a watchlist by parsing the input
@@ -573,9 +564,6 @@ public:
             if (process_line(d) == false) {
                 throw std::runtime_error{"could not read watchlist file"};
             }
-            // d = get_datum(line);
-            // host_identifier hid = host_identifier_constructor(d);
-            // hosts.insert(hid);
         }
     }
 
@@ -644,17 +632,14 @@ public:
             return true;      // comment line
         }
         if (lookahead<ipv4_address_string> ipv4{d}) {
-            // fprintf(stdout, "ipv4_address_string:\t");  ipv4.value.print();
             ipv4_addrs.insert(ipv4.value.get_value());
             d = ipv4.advance();
 
         } else if (lookahead<dns_string> dns{d}) {
-            // fprintf(stdout, "dns_string:\t");  dns.value.print();
             dns_names.insert(dns.value.get_string());
             d = dns.advance();
 
         } else if (lookahead<ipv6_address_string> ipv6{d}) {
-            // fprintf(stdout, "ipv6_address_string:\t");  ipv6.value.print();
             ipv6_addrs.insert(ipv6.value.get_value_array());
             d = ipv6.advance();
 

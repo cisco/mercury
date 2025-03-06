@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include "watchlist.hpp"
 
 /// data type used in floating point computations
 ///
@@ -78,7 +79,6 @@ public:
 
         for (auto &y : itr->value.GetObject()) {
             if (y.value.IsUint64()) {
-                // fprintf(stderr, "%s: %s\t%s\t%zu\n", itr->name.GetString(),  __func__, y.name.GetString(), y.value.GetUint64());
                 if (strcmp(itr->name.GetString(), "classes_ip_as") == 0 && strcmp(y.name.GetString(), "unknown") == 0) {
                     //
                     //  map "unknown" values in classes_ip_as to zero
@@ -359,13 +359,6 @@ public:
                 if (y.value.IsUint64()) {
                     std::string normalized = server_identifier{y.name.GetString()}.get_normalized_domain_name(server_identifier::detail::on);
                     add_sni_update(process_index, normalized, y.value.GetUint64(), total_count, sni_weight);
-
-                    //
-                    // EXPERIMENTAL: create domain name updates from sni data
-                    //
-                    // std::string domain = get_tld_domain_name(y.name.GetString());
-                    // std::string normalized_domain = server_identifier{domain.c_str()}.get_normalized_domain_name(server_identifier::detail::on);
-                    // add_domain_update(process_index, normalized_domain, y.value.GetUint64(), total_count, domain_weight);
                 }
             }
         }
@@ -376,7 +369,6 @@ public:
                                            size_t total_count
                                            )
     {
-        // fprintf(stderr, "%s: %s\n", __func__, itr->name.GetString());  // TODO: DELETEME
 
         if (itr->value.IsObject()) {
             for (auto &y : itr->value.GetObject()) {
@@ -681,6 +673,8 @@ public:
         dst_port_feature.update(process_score, dst_port);
 #ifndef DONT_USE_DST_ADDR
         dst_addr_feature.update(process_score, dst_ip_str);
+#else
+        (void)dst_ip_str;   // suppress compiler warnings
 #endif
         if (user_agent != nullptr) {
             user_agent_feature.update(process_score, user_agent);
