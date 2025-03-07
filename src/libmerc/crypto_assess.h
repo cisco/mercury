@@ -225,17 +225,23 @@ namespace crypto_policy {
             "sntrup761x25519-sha512",    // not NIST approved, but considered PQ safe
             "mlkem768nistp256-sha256",
             "mlkem1024nistp384-sha384",
-            "mlkem768x25519-sha256"    
+            "mlkem768x25519-sha256",
+            "mlkem512-sha256",
+            "mlkem768-sha256",
+            "mlkem1024-sha384"
         };
 
         // TODO: mine for other cipher names
         // considering blowfish, ctr and cbc etc. to be weak
         static inline std::unordered_set<std::string> ssh_allowed_ciphers {
             "AEAD_AES_128_GCM",
+            "AEAD_AES_192_GCM",
             "AEAD_AES_256_GCM",
             "aes128-gcm@openssh.com",
+            "aes192-gcm@openssh.com",
             "aes256-gcm@openssh.com",
             "aes256-gcm",
+            "aes192-gcm",
             "aes128-gcm"
         };
 
