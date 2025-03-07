@@ -128,6 +128,20 @@ struct do_crypto_assessment {
         return false;
     }
 
+    bool operator()(const ssh_init_packet &msg) {
+        if (msg.kex_pkt.is_not_empty()) {
+            ca->assess(msg.kex_pkt,record);
+        }
+        return false;
+    }
+
+    bool operator()(const ssh_kex_init &msg) {
+        if (msg.is_not_empty()) {
+            ca->assess(msg,record);
+        }
+        return false;
+    }
+
     template <typename T>
     bool operator()(const T &) {
         return false;   // no assessment performed for all other types
