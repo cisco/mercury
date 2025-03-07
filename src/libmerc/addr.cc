@@ -321,7 +321,7 @@ bool subnet_data::is_domain_faking(const char *domain_name_, const char* dst_ip)
         domain_name = domain_name_;
     }
 
-    uint32_t domain_idx = 0;
+    uint32_t domain_idx = -1;
     auto it = domains_watchlist.find(domain_name);
     if (it != domains_watchlist.end()) {
         domain_idx = it->second;

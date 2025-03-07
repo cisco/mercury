@@ -1001,13 +1001,13 @@ bool tls_client_hello::is_faketls() const {
 
     while (x < x_end) {
         uint16_t tmp = hton(degrease_uint16(*x++));
-        if (tls::cipher_suites_list.find(tmp) == tls::cipher_suites_list.end())
-        {
+        if (tls::cipher_suites_list.find(tmp) != tls::cipher_suites_list.end())    // cipher suite found in IANA list
+            continue;
+        else if (tls::faketls_cipher_suite_exceptions.find(tmp) == tls::faketls_cipher_suite_exceptions.end())    // cipher suite not found in IANA and exception list
             invalid_ciphers++;
-        }
     }
 
-    // flag for faketls only when all the cipher suites used are outside of IANA list
+    // flag for faketls only when all the cipher suites used are outside of IANA/exception list
     //
     if (invalid_ciphers == len/2) {
         return true;
