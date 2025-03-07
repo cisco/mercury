@@ -868,6 +868,13 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             // note: we only perform observations when analysis is
             // configured, because we rely on do_analysis to set the
 
+            // check for additional classifier agnostic attributes like encrypted dns and domain-faking
+            //
+            if (!analysis.result.attr.is_initialized() && c) {
+                analysis.result.attr.initialize(&(c->get_common_data().attr_name.value()),c->get_common_data().attr_name.get_names_char());
+            }
+            c->check_additional_attributes(analysis);
+
             // analysis_.destination
             //
             if (mq) {
@@ -1134,6 +1141,13 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             //
             analysis.result.reinit();
             bool output_analysis = std::visit(do_analysis{k, analysis, c}, x);
+
+            // check for additional classifier agnostic attributes like encrypted dns and domain-faking
+            //
+            if (!analysis.result.attr.is_initialized() && c) {
+                analysis.result.attr.initialize(&(c->get_common_data().attr_name.value()),c->get_common_data().attr_name.get_names_char());
+            }
+            c->check_additional_attributes(analysis);
 
             // note: we only perform observations when analysis is
             // configured, because we rely on do_analysis to set the
