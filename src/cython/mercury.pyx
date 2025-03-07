@@ -31,7 +31,7 @@ from cython.operator import dereference
 #   CC=g++ CXX=g++ python setup.py install
 
 # TODO: actually handle version
-__version__ = '2.6.1'
+__version__ = '2.6.4'
 
 # imports from mercury's dns
 cdef extern from "../libmerc/dns.h":
@@ -589,6 +589,76 @@ cdef class Mercury:
 
         return fp_status_dict[fp_status], fp_type_dict[fp_type], fp_string.decode('UTF-8')
 
+
+    cpdef dict get_correlation_object(self, bytes pkt_data, double ts=0.0):
+        """
+        Return JSON representation of a correlation object, which contains data features
+        extracted from a packet that can be used to correlate network and/or endpoint observations.
+
+        :param pkt_data: packet data
+        :type pkt_data: bytes
+        :param ts: timestamp associated with the packet data (default=0.0)
+        :type ts: double
+        :return: JSON-encoded correlation object.
+        :rtype: dict
+        """
+        cdef unsigned char* pkt_data_ref = pkt_data
+
+        cdef char buf[8192]
+        memset(buf, 0, 8192)
+
+        # set timestamp
+        cdef timespec c_ts
+        c_ts.tv_sec  = int(ts)
+        c_ts.tv_nsec = int(math.modf(ts)[0]*1e9)
+
+        mercury_packet_processor_write_json(<mercury_packet_processor>self.mpp, buf, 8192, pkt_data_ref, len(pkt_data), &c_ts)
+
+        cdef str json_str = buf.decode('UTF-8')
+        if json_str != None:
+            try:
+                r = json.loads(json_str.strip())
+            except:
+                return None
+        else:
+            return None
+
+        co = {}
+
+        # populate protocol-agnostic features
+        if 'src_ip' in r:
+            co['src_ip']   = r['src_ip']
+        if 'dst_ip' in r:
+            co['dst_ip']   = r['dst_ip']
+        if 'src_port' in r:
+            co['src_port'] = r['src_port']
+        if 'dst_port' in r:
+            co['dst_port'] = r['dst_port']
+        if 'protocol' in r:
+            co['protocol'] = r['protocol']
+        if 'ip' in r and 'id' in r['ip']:
+            co['ip_id']    = r['ip']['id']
+
+        # populate protocol-aware features
+        if 'tls' in r and 'client' in r['tls']:
+            if 'random' in r['tls']['client']:
+                co['tls_random'] = r['tls']['client']['random']
+            if 'server_name' in r['tls']['client']:
+                co['tls_server_name'] = r['tls']['client']['server_name']
+        if 'http' in r and 'request' in r['http']:
+            if 'host' in r['http']['request']:
+                co['http_host'] = r['http']['request']['host']
+            if 'x_forwarded_for' in r['http']['request']:
+                co['http_x_forwarded_for'] = r['http']['request']['x_forwarded_for']
+        if 'dns' in r and 'query' in r['dns']:
+            if 'id' in r['dns']['query']:
+                co['dns_id'] = r['dns']['query']['id']
+            if 'question' in r['dns']['query']:
+                dns_names = ';'.join([x['name'] for x in r['dns']['query']['question'] if 'name' in x])
+                if dns_names != '':
+                    co['dns_names'] = dns_names
+
+        return co
 
     cdef tuple get_process_info(self, const analysis_context* ac):
         cdef double score, m_score
