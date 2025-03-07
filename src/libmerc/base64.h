@@ -245,7 +245,8 @@ public:
     // test of base64::decode() and returns true if all tests passed,
     // and returns false otherwise.
     //
-    static bool unit_test(bool throw_on_error=false) {
+    static bool unit_test() {
+        constexpr bool throw_on_error=false;
 
         // test cases following RFC 4648 Section 10
         //
@@ -275,7 +276,7 @@ public:
     // automatically perform unit tests, and throw an exception on
     // failure
     //
-    inline static const bool unit_tests_passed = unit_test(true);
+    inline static const bool unit_tests_passed = unit_test();
 #endif
 
 };

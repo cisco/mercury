@@ -45,13 +45,13 @@ public:
         // TODO: technically, this function should use
         // case-insensitive comparisons
         //
-        if (this->cmp(std::array<uint8_t,5>{'B', 'a', 's', 'i', 'c'})) {
+        if (this->equals(std::array<uint8_t,5>{'B', 'a', 's', 'i', 'c'})) {
             return type::basic;
         }
-        if (this->cmp(std::array<uint8_t,6>{'B', 'e', 'a', 'r', 'e', 'r'})) {
+        if (this->equals(std::array<uint8_t,6>{'B', 'e', 'a', 'r', 'e', 'r'})) {
             return type::bearer;
         }
-        if (this->cmp(std::array<uint8_t,6>{'D', 'i', 'g', 'e', 's', 't'})) {
+        if (this->equals(std::array<uint8_t,6>{'D', 'i', 'g', 'e', 's', 't'})) {
             return type::digest;
         }
         return unknown;

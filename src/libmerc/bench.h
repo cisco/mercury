@@ -91,8 +91,34 @@ namespace benchmark {
 
     };
 
-    // TODO: create a statistics class that tracks the minimum and
-    // maxiumum values.
+    /// An object of class min_and_max maintains the minimum and
+    /// maximum of all of the observed numbers.  Each observation is
+    /// reported with the member function +=, e.g. 's += x' observes
+    /// x.
+    ///
+    class min_and_max {
+        uint64_t minimum = std::numeric_limits<uint64_t>::max();
+        uint64_t maximum = std::numeric_limits<uint64_t>::min();
+    public:
+
+        void operator+=(uint64_t x) {
+            if (x < minimum) {
+                minimum = x;
+            }
+            else if (x > maximum) {
+                maximum = x;
+            }
+        }
+
+        /// min() returns the minimum of all of the observations
+        ///
+        uint64_t min() const { return minimum; }
+
+        /// max() returns the maximum of all of the observations
+        ///
+        double max() const { return maximum; }
+
+    };
 
 } // namespace benchmark
 

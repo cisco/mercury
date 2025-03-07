@@ -26,6 +26,8 @@ using ipv6_addr_t = __uint128_t;
 #define IP_SUBNET_BOGON       8
 #define IP_SUBNET_USER        9
 
+#define IP_SUBNET_DOMAIN      11
+
 #define LCT_IP_DEBUG_PREFIXES 0
 
 
@@ -37,6 +39,13 @@ typedef struct lct_subnet_bgp_t {
   uint32_t type;
   uint32_t asn;
 } lct_subnet_bgp_t;
+
+// subnet for domain-faking detection
+typedef struct lct_subnet_domain_t {
+  uint32_t type;
+  uint8_t domain_idx_arr_len;
+  uint8_t* domain_idx_arr;
+} lct_subnet_domain_t;
 
 // RFC1918 private IP subnets have a
 typedef struct lct_subnet_private_t {
@@ -63,6 +72,7 @@ typedef union lct_subnet_info {
   lct_subnet_private_t priv;
   lct_subnet_reserved_t rsv;
   lct_subnet_usr_t usr;
+  lct_subnet_domain_t domain;
 } lct_subnet_info_t;
 
 // subnet types

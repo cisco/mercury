@@ -397,10 +397,6 @@ struct tls_extension {
     uint16_t cnt; //No.of extensions of the same type
     uint16_t encoded_type;
 
-    static constexpr uint8_t num_extns_not_in_raw_features = 0;  //change this value when updating extns_not_in_raw_features
-    static constexpr uint16_t extns_not_in_raw_features[num_extns_not_in_raw_features] = {
-    };
-
     tls_extension() : type{0}, length{0}, value{NULL, NULL}, type_ptr{NULL}, length_ptr{NULL}, cnt{0} { }
 
     tls_extension(struct datum &p) : type{0}, length{0}, value{NULL, NULL}, type_ptr{NULL}, length_ptr{NULL}, cnt{0} {
@@ -554,10 +550,6 @@ struct tls_extension {
     }
 
     void write_raw_features(writeable &buf, bool &first) const {
-        if (uint16_match(type, extns_not_in_raw_features, num_extns_not_in_raw_features) == true) {
-            return;
-        }
-
         if (!first) {
             buf.copy(',');
         } else {
@@ -995,6 +987,35 @@ void tls_client_hello::compute_fingerprint(class fingerprint &fp, size_t format_
     fp.final();
 }
 
+bool tls_client_hello::is_faketls() const {
+    size_t len = ciphersuite_vector.length();
+
+    if (len % 2) {
+        len--;    // forces length to be a multiple of 2
+    }
+
+    uint16_t *x = (uint16_t *)ciphersuite_vector.data;
+    uint16_t *x_end = x + (len/2);
+
+    size_t invalid_ciphers = 0;
+
+    while (x < x_end) {
+        uint16_t tmp = hton(degrease_uint16(*x++));
+        if (tls::cipher_suites_list.find(tmp) != tls::cipher_suites_list.end())    // cipher suite found in IANA list
+            continue;
+        else if (tls::faketls_cipher_suite_exceptions.find(tmp) == tls::faketls_cipher_suite_exceptions.end())    // cipher suite not found in IANA and exception list
+            invalid_ciphers++;
+    }
+
+    // flag for faketls only when all the cipher suites used are outside of IANA/exception list
+    //
+    if (invalid_ciphers == len/2) {
+        return true;
+    }
+
+    return false;
+}
+
 bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
     datum sn;
     datum ua;
@@ -1004,7 +1025,18 @@ bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_context
 
     analysis_.destination.init(sn, ua, alpn, k_);
 
-    return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+    bool ret = c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+
+    if (analysis_.result.status == fingerprint_status_randomized) {    // check for faketls on randomized connections only
+        if (!analysis_.result.attr.is_initialized() && c_) {
+            analysis_.result.attr.initialize(&(c_->get_common_data().attr_name.value()),c_->get_common_data().attr_name.get_names_char());
+        }
+        if (is_faketls()) {
+            analysis_.result.attr.set_attr(c_->get_common_data().faketls_idx, 1.0);
+        }
+    }
+
+    return ret;
 }
 
 void tls_server_hello::parse(struct datum &p) {

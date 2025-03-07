@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
         }
 
         classifier *c = analysis_init_from_archive(0, // verbosity
-                                                   "../../../2025-02-6/resources-mp.tgz",
+                                                   resource_file.c_str(),
                                                    nullptr,
                                                    enc_key_type_none,
                                                    0,

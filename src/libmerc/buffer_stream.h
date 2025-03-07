@@ -10,6 +10,7 @@
 
 #include <algorithm> // for std::min()
 #include <string.h>  /* for memcpy() */
+#include <string>
 #include <stdarg.h>
 #include <time.h>
 #include <stdint.h>
@@ -1135,6 +1136,14 @@ struct buffer_stream {
         append_mac_addr(dstr, &doff, dlen, &trunc, d);
     }
 
+    std::string get_string() {
+        if (doff >=0 ) {
+            return std::string((const char*)dstr);
+        }
+        else
+            return std::string{};
+    }
+
 };
 
 struct timestamp_writer {
@@ -1157,6 +1166,10 @@ public:
         dlen = N;
         trunc = 0;
     }
+
+    size_t content_size() const { return doff; }
+
+    const char* data() const { return buffer; }
 
     /// compare the contents of this buffer with the \param n bytes
     /// starting at \param s.

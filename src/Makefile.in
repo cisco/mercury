@@ -105,11 +105,13 @@ compiler_version:
 #.PHONY: libmerc-and-mercury
 #libmerc-and-mercury: libmerc.a mercury # TODO: delete
 
-# implicit rules for building object files from .c and .cc files
+# implicit rules for building object files from .c, .cpp, and .cc files
 #
 %.o: %.c
 	$(CXX) $(CFLAGS) -c $<
 %.o: %.cc
+	$(CXX) $(CFLAGS) -c $<
+%.o: %.cpp
 	$(CXX) $(CFLAGS) -c $<
 
 # the target mercury rebuilds mercury, and is dependent on the actual
@@ -188,6 +190,12 @@ cert_analyze: cert_analyze.cc libmerc/asn1.h
 cms: cms.cpp libmerc/asn1.h
 	$(CXX) $(CFLAGS) cms.cpp libmerc/asn1.cc libmerc/asn1/oid.cc $(LDFLAGS) -lcrypto -o cms
 
+dns-trie: dns-trie.cpp dns_trie.hpp fpdb_reader.hpp
+	$(CXX) $(CFLAGS) dns-trie.cpp -o dns-trie
+
+unit_test: unit_test.cpp
+	$(CXX) $(CFLAGS) -UNDEBUG unit_test.cpp -o unit_test
+
 os_identifier: os_identifier.cc os-identification/os_identifier.h
 	$(CXX) $(CFLAGS) -I libmerc/ os_identifier.cc -lz -o os_identifier
 
@@ -205,6 +213,9 @@ decode: decode.cc
 
 pcap: pcap.cc pcap_file_io.h
 	$(CXX) $(CFLAGS) pcap.cc -o pcap
+
+remap: remap.cpp libmerc/tls.cc libmerc/http.cc libmerc/match.cc libmerc/asn1.cc libmerc/asn1/oid.cc libmerc/addr.cc
+	$(CXX) $(CFLAGS) -std=c++20 remap.cpp libmerc/tls.cc libmerc/http.cc libmerc/match.cc libmerc/asn1.cc libmerc/asn1/oid.cc libmerc/addr.cc -lcrypto -o remap
 
 pcap_filter: pcap_filter.cc pcap_file_io.c libmerc
 	$(CXX) $(CFLAGS) pcap_filter.cc pcap_file_io.c libmerc/libmerc.a -lz -lcrypto -pthread -o pcap_filter
@@ -233,7 +244,7 @@ endif
 
 #MERC_OBJ = $(MERC:%.o=%.c)
 
-libmerc_test: libmerc_test.c $(LIBMERC_SO) Makefile.in
+libmerc_test: run_unit_test libmerc_test.c $(LIBMERC_SO) Makefile.in
 	$(CC) -Wall -std=c11 libmerc_test.c -pthread -L./libmerc $(LIBMERC_SO) -lz -lcrypto -o libmerc_test
 	@echo $(COLOR_GREEN) "To run before 'make install', export LD_LIBRARY_PATH=$(shell pwd)/libmerc" $(COLOR_OFF)
 
@@ -251,7 +262,7 @@ intercept.so: intercept.cc libmerc.a
 
 .PHONY: clean
 clean: libmerc-clean
-	rm -rf mercury libmerc_test libmerc_util intercept_server tls_scanner cert_analyze os_identifier archive_reader batch_gcd string cbor decode pcap pcap_filter format intercept.so gmon.out *.o *.json.gz
+	rm -rf mercury libmerc_test libmerc_util intercept_server tls_scanner cert_analyze os_identifier archive_reader batch_gcd string cbor unit_test decode pcap pcap_filter format intercept.so dns-trie gmon.out *.o *.json.gz
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	for file in mercury.c libmerc_test.c tls_scanner.cc cert_analyze.cc $(MERC) $(MERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 
@@ -324,8 +335,19 @@ cppcheck: $(MERC)
 	cppcheck --language=c++ --std=c++17 --force --enable=all -URAPIDJSON_DOXYGEN_RUNNING --template='{file}:{line}:{severity}:{message}' $^
 	cd libmerc && $(MAKE) cppcheck
 
+# the run_unit_test target builds and runs a simple application that
+# invokes all of the unit_test functions available in the libmerc/
+# subdirectory
+#
+# note: there are much more extensive unit tests in the ./unit_tests
+# subdirectory
+#
+.PHONY: run_unit_test
+run_unit_test: unit_test
+	./unit_test
+
 .PHONY: test
-test: mercury libmerc_driver
+test: run_unit_test mercury libmerc_driver
 	cd ../test && $(MAKE)
 
 major=$(shell cat ../VERSION | grep -o "^[0-9]*")

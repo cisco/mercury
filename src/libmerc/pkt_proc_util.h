@@ -15,6 +15,7 @@
 #define PKT_PROC_UTIL_HPP
 
 #include "protocol.h"
+#include "flow_key.h"
 #include "dns.h"
 #include "mdns.h"
 #include "tls.h"
@@ -25,7 +26,6 @@
 #include "ssh.h"
 #include "analysis.h"
 #include "buffer_stream.h"
-
 // protocol is an alias for a std::variant that can hold any protocol
 // data element.  The default value of std::monostate indicates that
 // the protocol matcher did not recognize the packet.
@@ -68,6 +68,7 @@ class iec60870_5_104;
 class openvpn_tcp;
 class mysql_server_greet;
 namespace ldap { class message; }
+namespace ftp {class request;class response;}
 class esp;
 namespace ike { class packet; }
 
@@ -87,6 +88,8 @@ using protocol = std::variant<std::monostate,
                               bittorrent_handshake,
                               tofsee_initial_message,
                               ldap::message,
+                              ftp::request,
+                              ftp::response,
                               unknown_initial_packet,
                               quic_init,                         // start of udp protocols
                               wireguard_handshake_init,

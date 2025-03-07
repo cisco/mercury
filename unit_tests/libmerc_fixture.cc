@@ -239,3 +239,31 @@ int LibmercTestFixture::counter(fingerprint_type fp_type, std::function<void()> 
     }
     return count_of_packets;
 }
+
+bool LibmercTestFixture::check_attr(std::string &expected_attr)
+{
+    const attribute_context* attr_ctx;
+    while (1)
+    {
+        if (read_next_data_packet())
+        {
+            break;
+        }
+
+        const analysis_context *ac = mercury_packet_processor_get_analysis_context(m_mpp, (unsigned char *)m_data_packet.first, m_data_packet.second - m_data_packet.first, &m_time);
+        if (ac)
+        {
+            attr_ctx = mercury_packet_processor_get_attributes(m_mpp);
+            if (attr_ctx)
+            {
+                bool attr_found = false;
+                for (size_t i = 0; i < attr_ctx->attributes_len; i++) {
+                    if (attr_ctx->prob_scores[i] > 0 && strcmp(attr_ctx->tag_names[i], expected_attr.c_str()) == 0)
+                        attr_found = true;
+                }
+                return attr_found;    // return after the first analysis context
+            }
+        }
+    }
+    return false;
+}
