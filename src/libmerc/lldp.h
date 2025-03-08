@@ -6,7 +6,7 @@
 #define LLDP_H
 
 #include "datum.h"
-#include "util_obj.h"
+#include "eth.h"
 
 
 class chassis_id {

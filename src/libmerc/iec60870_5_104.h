@@ -16,7 +16,6 @@
 #include <variant>
 
 #include "json_object.h"
-#include "util_obj.h"
 #include "match.h"
 #include "protocol.h"
 

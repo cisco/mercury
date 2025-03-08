@@ -1,0 +1,70 @@
+65457081,0a0a // https://datatracker.ietf.org/doc/html/rfc8701
+2289779,ffa8  // https://github.com/rbsec/sslscan/blob/master/missing_ciphersuites.h
+2289779,ffa7  // https://github.com/rbsec/sslscan/blob/master/missing_ciphersuites.h
+1162663,0081  // https://datatracker.ietf.org/doc/html/draft-chudov-cryptopro-cptls-04#anchor16
+1131819,0080  // https://datatracker.ietf.org/doc/html/draft-chudov-cryptopro-cptls-04#anchor16
+124123,0064   // http://tools.ietf.org/html/draft-ietf-tls-56-bit-ciphersuites-01
+120229,0060   // https://android.googlesource.com/platform/libcore/+/b1fe85c/support/src/test/java/libcore/tlswire/handshake/CipherSuite.java
+120196,0061   // https://android.googlesource.com/platform/libcore/+/b1fe85c/support/src/test/java/libcore/tlswire/handshake/CipherSuite.java
+113931,cc13   // https://github.com/testssl/testssl.sh/issues/379
+113432,cc14   // https://github.com/testssl/testssl.sh/issues/379
+30938,ff85    // https://datatracker.ietf.org/doc/html/draft-smyshlyaev-tls12-gost-suites-02
+22668,cc15    // https://github.com/testssl/testssl.sh/issues/379
+18040,0066    // https://datatracker.ietf.org/doc/html/draft-ietf-tls-56-bit-ciphersuites-01
+12048,0062    // https://datatracker.ietf.org/doc/html/draft-ietf-tls-56-bit-ciphersuites-01
+11584,0063    // https://datatracker.ietf.org/doc/html/draft-ietf-tls-56-bit-ciphersuites-01
+10737,feff    // https://github.com/torproject/torspec/blob/main/proposals/124-tls-certificates.txt
+10397,0065    // https://datatracker.ietf.org/doc/html/draft-ietf-tls-56-bit-ciphersuites-01
+4515,fefe     // https://github.com/AdoptOpenJDK/openjdk-jdk11/blob/master/src/java.base/share/classes/sun/security/ssl/CipherSuite.java
+4377,0082     // https://datatracker.ietf.org/doc/html/draft-chudov-cryptopro-cptls-04#anchor16
+4372,0083     // https://datatracker.ietf.org/doc/html/draft-chudov-cryptopro-cptls-04#anchor16
+4363,001d
+4350,001c
+3103,ffe1
+3091,ffe0
+2669,007e
+2669,007d
+2628,007c
+2200,0079
+2200,0078
+2182,0072
+2177,0077
+2175,0074
+2163,0073
+1949,004a
+1947,004b
+1940,004c
+1939,0049
+1918,0047
+1877,004e
+1875,004d
+1874,0048
+1597,005b
+1581,0057
+1576,005c
+1445,005a
+1258,0052
+1244,0059
+1244,0050
+1240,0056
+1240,0055
+1238,0053
+1235,0051
+1234,0058
+1227,0054
+1226,004f
+1213,e013
+1210,e003
+1157,e011
+1154,e001
+164,ff00
+130,ff01
+100,ff03
+100,ff02
+97,ff87
+89,16ba
+89,16b8
+74,16b9
+70,16b7
+67,00fc
+67,00fb

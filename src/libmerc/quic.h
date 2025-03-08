@@ -22,8 +22,8 @@
 #include <openssl/evp.h>
 #include <openssl/err.h>
 #include "tls.h"
+#include "flow_key.h"
 #include "json_object.h"
-#include "util_obj.h"
 #include "match.h"
 #include "crypto_engine.h"
 
@@ -1423,7 +1423,18 @@ public:
 
         analysis_.destination.init(sn, user_agent, alpn, k_);
 
-        return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+        bool ret = c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+
+        if (analysis_.result.status == fingerprint_status_randomized) {    // check for faketls on randomized connections only
+            if (!analysis_.result.attr.is_initialized() && c_) {
+                analysis_.result.attr.initialize(&(c_->get_common_data().attr_name.value()),c_->get_common_data().attr_name.get_names_char());
+            }
+            if (hello.is_faketls()) {
+                analysis_.result.attr.set_attr(c_->get_common_data().faketls_idx, 1.0);
+            }
+        }
+
+        return ret;
     }
 
     uint32_t get_more_bytes_needed() const { return more_bytes_needed; }
@@ -1609,7 +1620,18 @@ public:
 
         analysis_.destination.init(sn, user_agent, alpn, k_);
 
-        return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+         bool ret = c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+
+        if (analysis_.result.status == fingerprint_status_randomized) {    // check for faketls on randomized connections only
+            if (!analysis_.result.attr.is_initialized() && c_) {
+                analysis_.result.attr.initialize(&(c_->get_common_data().attr_name.value()),c_->get_common_data().attr_name.get_names_char());
+            }
+            if (hello.is_faketls()) {
+                analysis_.result.attr.set_attr(c_->get_common_data().faketls_idx, 1.0);
+            }
+        }
+
+        return ret;
     }
 };
 
