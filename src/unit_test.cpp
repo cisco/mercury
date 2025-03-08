@@ -10,6 +10,7 @@
 #include "libmerc/snmp.h"
 #include "libmerc/ip_address.hpp"
 #include "libmerc/watchlist.hpp"
+#include "libmerc/dns_trie.hpp"
 
 // Macros to colorize output
 //
@@ -99,6 +100,10 @@ int main(int, char *[]) {
         {
             "server_identifier",
             &server_identifier::unit_test
+        },
+        {
+            "dns_trie",
+            &dns_trie<std::string>::unit_test
         },
     };
     for (const auto &tc : test_cases_verbose) {
