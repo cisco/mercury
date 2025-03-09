@@ -27,24 +27,20 @@ public:
 
     /// initializes an (empty) dns_trie
     ///
-    /// implementation note: the nodes vector is initiallized to hold
-    /// a single empty node, which serves as the root of the trie
-    ///
-    dns_trie() : nodes{{no_node_value}} { }
+    dns_trie();
 
-    /// inserts a vector of labels \param subdomain into the trie, and
-    /// associates the subdomain with the \param value provided.  If
-    /// the subdomain is already present in the trie, then the old
-    /// value will be overwritten with the new one.
+    /// inserts a \param subdomain into the trie, and associates the
+    /// subdomain with the \param value provided.  If the subdomain is
+    /// already present in the trie, then the old value will be
+    /// overwritten with the new one.
     ///
-    void insert(const std::vector<std::string> &subdomain, T value);
+    inline void insert(std::string subdomain, T value);
 
-    /// searches for the longest match for the vector of labels \param
-    /// subdomain in the trie, and returns either a pointer to the
-    /// value associated with the longest match, or `nullptr` if no
-    /// such match exists.
+    /// searches for the longest match for \param subdomain in the
+    /// trie, and returns either a pointer to the value associated
+    /// with the longest match, or `nullptr` if no such match exists.
     ///
-    const T * find(const std::vector<std::string> &subdomain) const;
+    inline const T * find(std::string &subdomain) const;
 
     /// performs unit tests for \ref class dns_trie and returns `true`
     /// if all pass, and `false` otherwise.  If \param f is
@@ -94,21 +90,46 @@ private:
 
 };
 
+
+// dns_trie constructor
+//
+// implementation note: the nodes vector is initiallized to hold
+// a single empty node, which serves as the root of the trie
+//
 template<typename T>
-inline void dns_trie<T>::insert(const std::vector<std::string> &subdomain, T value) {
+dns_trie<T>::dns_trie() : nodes{{no_node_value}} { }
+
+
+template<typename T>
+inline void dns_trie<T>::insert(std::string subdomain, T value) {
+
     node_index n = 0;
-    for (const auto & s : subdomain) {
+    size_t pos = subdomain.length();
+    std::string label;
+    while ((pos = subdomain.rfind('.')) != std::string::npos) {
         assert(n < nodes.size());
-        auto result = transitions.find(search_string(s,n));
+        label = subdomain.substr(pos + 1);
+        subdomain.erase(pos);
+        auto result = transitions.find(search_string(label,n));
         if (result != transitions.end()) {
             n = result->second;
         } else {
             nodes.push_back(no_node_value);
             node_index ni = nodes.size()-1;
-            transitions.emplace(search_string(s, n), ni);
+            transitions.emplace(search_string(label, n), ni);
             n = ni;
         }
     }
+    auto result = transitions.find(search_string(subdomain,n));
+    if (result != transitions.end()) {
+        n = result->second;
+    } else {
+        nodes.push_back(no_node_value);
+        node_index ni = nodes.size()-1;
+        transitions.emplace(search_string(subdomain, n), ni);
+        n = ni;
+    }
+
     if (nodes[n] > no_node_value) {
         values[nodes[n]] = value;
     } else {
@@ -117,13 +138,18 @@ inline void dns_trie<T>::insert(const std::vector<std::string> &subdomain, T val
     }
 }
 
+
 template <typename T>
-inline const T * dns_trie<T>::find(const std::vector<std::string> &subdomain) const {
+inline const T * dns_trie<T>::find(std::string &subdomain) const {
+
     node_value longest_so_far = -1;
     node_index n = 0;
-    for (const auto & s : subdomain) {
-        assert(n < nodes.size());
-        auto result = transitions.find(search_string(s,n));
+    size_t pos = subdomain.length();
+    std::string label;
+    while ((pos = subdomain.rfind('.')) != std::string::npos) {
+        label = subdomain.substr(pos + 1);
+        subdomain.erase(pos);
+        auto result = transitions.find(search_string(label,n));
         if (result != transitions.end()) {
             n = result->second;
             if (nodes[n] >= 0) {
@@ -131,6 +157,14 @@ inline const T * dns_trie<T>::find(const std::vector<std::string> &subdomain) co
             }
         }
     }
+    auto result = transitions.find(search_string(subdomain,n));
+    if (result != transitions.end()) {
+        n = result->second;
+        if (nodes[n] >= 0) {
+            longest_so_far = nodes[n];
+        }
+    }
+
     if (longest_so_far >= 0) {
         return &values[longest_so_far];
     }
@@ -167,6 +201,14 @@ inline bool dns_trie<std::string>::unit_test(FILE *f) {
     // construct a trie and then verify that searching for the inputs
     // obtains correct results
     //
+    std::vector<std::string>  input_strings {
+        "www.google.com",
+        "google.com",
+        "www.facebook.com",
+        "example.net",
+        "d.c.b.a",
+        "b.a",
+    };
     std::vector<std::vector<std::string>>  inputs {
         { "com", "google", "www"},
         { "com", "google" },
@@ -190,26 +232,22 @@ inline bool dns_trie<std::string>::unit_test(FILE *f) {
     // insert 128 garbage entires into the trie, just to exercise the suffix-free encoding
     //
     for (char c=0; c < 128; c++) {
-        t.insert(std::vector{std::string{c}},"BOGUS");
+        t.insert(std::string{c},"BOGUS");
     }
 
     // insert all of the test inputs
     //
     for (size_t i=0; i<inputs.size(); i++) {
-        t.insert(inputs[i], outputs[i]);
+        t.insert(input_strings[i], outputs[i]);
     }
 
-    // verify that the test inputs can be found and give the expected results
-    //
-    for (size_t i=0; i<inputs.size(); i++) {
-        const std::string *result = t.find(inputs[i]);
+    for (size_t i=0; i<input_strings.size(); i++) {
+        std::string input = input_strings[i];
+        const std::string *result = t.find(input);
         if (result == nullptr || *result != outputs[i]) {
             if (f) {
-                fprintf(f, "input: ");
-                for (const auto & s : inputs[i]) {
-                    fprintf(f, "%s ", s.c_str());
-                }
-                fprintf(stderr, "result: %s\texpected: %s\n", result ? result->c_str() : "nullptr", outputs[i].c_str());
+                fprintf(f, "input: %s\t", input_strings[i].c_str());
+                fprintf(f, "result: %s\texpected: %s\n", result ? result->c_str() : "nullptr", outputs[i].c_str());
             }
             return false;
         }
@@ -218,19 +256,17 @@ inline bool dns_trie<std::string>::unit_test(FILE *f) {
     // verify that search terms that do not appear in the trie
     // actually fail
     //
-    std::vector<std::vector<std::string>> searches_that_will_fail {
+    std::vector<std::string> search_strings_that_will_fail {
         { "notavalidinput", },
-        { "com", "googleeeee" },
+        { "googleeeee.com" },
         { "com", },
     };
-    for (const auto & s : searches_that_will_fail) {
-        const std::string *result = t.find(s);
+    for (const auto & s : search_strings_that_will_fail) {
+        std::string input = s;
+        const std::string *result = t.find(input);
         if (result != nullptr) {
             if (f) {
-                fprintf(f, "input: ");
-                for (const auto & label : s) {
-                    fprintf(f, "%s ", label.c_str());
-                }
+                fprintf(f, "input: %s\t", s.c_str());
                 fprintf(f, "result: %s\texpected: %s\n", result ? result->c_str() : "nullptr", "nullptr");
             }
             return false;
@@ -239,15 +275,12 @@ inline bool dns_trie<std::string>::unit_test(FILE *f) {
 
     // enter a new value and verify that it appears correctly
     //
-    std::vector<std::string> modified{ "com", "google", "www"};
+    std::string modified{"www.google.com"};
     t.insert(modified, "goog");
     const std::string *result = t.find(modified);
     if (result == nullptr || *result != "goog") {
         if (f) {
-            fprintf(f, "input: ");
-            for (const auto & label : modified) {
-                fprintf(f, "%s ", label.c_str());
-            }
+            fprintf(f, "input: %s ", modified.c_str());
             fprintf(f, "result: %s\texpected: %s\n", result ? result->c_str() : "nullptr", "goog");
         }
         return false;
