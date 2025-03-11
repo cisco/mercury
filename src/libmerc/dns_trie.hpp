@@ -40,7 +40,7 @@ public:
     /// trie, and returns either a pointer to the value associated
     /// with the longest match, or `nullptr` if no such match exists.
     ///
-    inline const T * find(std::string &subdomain) const;
+    inline T * find(std::string &subdomain);
 
     /// performs unit tests for \ref class dns_trie and returns `true`
     /// if all pass, and `false` otherwise.  If \param f is
@@ -140,7 +140,7 @@ inline void dns_trie<T>::insert(std::string subdomain, T value) {
 
 
 template <typename T>
-inline const T * dns_trie<T>::find(std::string &subdomain) const {
+inline T * dns_trie<T>::find(std::string &subdomain) {
 
     node_value longest_so_far = -1;
     node_index n = 0;
