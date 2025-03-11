@@ -209,14 +209,6 @@ inline bool dns_trie<std::string>::unit_test(FILE *f) {
         "d.c.b.a",
         "b.a",
     };
-    std::vector<std::vector<std::string>>  inputs {
-        { "com", "google", "www"},
-        { "com", "google" },
-        { "com", "facebook", "www"},
-        { "net", "example"},
-        { "a", "b", "c", "d"},
-        { "a", "b"},
-    };
     std::vector<std::string> outputs {
         "GOOG-WWW",
         "GOOG",
@@ -225,7 +217,7 @@ inline bool dns_trie<std::string>::unit_test(FILE *f) {
         "ABCD",
         "AB",
     };
-    assert(inputs.size() == outputs.size());
+    assert(input_strings.size() == outputs.size());
 
     dns_trie<std::string> t;
 
@@ -237,7 +229,7 @@ inline bool dns_trie<std::string>::unit_test(FILE *f) {
 
     // insert all of the test inputs
     //
-    for (size_t i=0; i<inputs.size(); i++) {
+    for (size_t i=0; i<input_strings.size(); i++) {
         t.insert(input_strings[i], outputs[i]);
     }
 
