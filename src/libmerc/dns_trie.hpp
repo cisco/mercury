@@ -221,10 +221,10 @@ inline bool dns_trie<std::string>::unit_test(FILE *f) {
 
     dns_trie<std::string> t;
 
-    // insert 128 garbage entires into the trie, just to exercise the suffix-free encoding
+    // insert 255 garbage entires into the trie, just to exercise the suffix-free encoding
     //
-    for (char c=0; c < 128; c++) {
-        t.insert(std::string{c},"BOGUS");
+    for (uint8_t c=0; c < 255; c++) {
+        t.insert(std::string{c}, "BOGUS");
     }
 
     // insert all of the test inputs
@@ -260,6 +260,22 @@ inline bool dns_trie<std::string>::unit_test(FILE *f) {
             if (f) {
                 fprintf(f, "input: %s\t", s.c_str());
                 fprintf(f, "result: %s\texpected: %s\n", result ? result->c_str() : "nullptr", "nullptr");
+            }
+            return false;
+        }
+    }
+
+    // test longest-match
+    //
+    std::vector<std::string> longest_match_input{ "c.b.a" };
+    std::vector<std::string> longest_match_output{ "AB" };
+    assert(longest_match_input.size() == longest_match_output.size());
+    for (size_t i=0; i<longest_match_input.size(); i++) {
+        const std::string *result = t.find(longest_match_input[i]);
+        if (*result != longest_match_output[i]) {
+            if (f) {
+                fprintf(f, "input: %s\t", longest_match_input[i].c_str());
+                fprintf(f, "result: %s\texpected: %s\n", result ? result->c_str() : "nullptr", longest_match_output[i].c_str());
             }
             return false;
         }
