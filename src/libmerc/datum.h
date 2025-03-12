@@ -1641,6 +1641,26 @@ public:
     }
 };
 
+/// `class byte_alternatives` attempts to read an
+/// encoded<uint8_t> element from a datum, and if
+/// successful, verifies that its value is one of the provided
+/// alternatives.  If either step fails, the `datum` is set to `null`.
+/// Otherwise, the value of the decoded `uint8_t` is available through
+/// the encoded<uint8_t>::value() function.
+///
+template <char ... Values>
+class byte_alternatives : public encoded<uint8_t> {
+public:
+
+    byte_alternatives(datum &d) : encoded<uint8_t>{d} {
+        if (d.is_not_null() and ((this->value() == Values) || ...)) {
+            return;
+        }
+        d.set_null();
+    }
+
+};
+
 /// class literal is a literal `std::array` of characters
 ///
 template <size_t N>
