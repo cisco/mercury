@@ -595,9 +595,6 @@ TEST_CASE_METHOD(LibmercTestFixture, "test faketls attribute with resources-mp")
     }
 }
 
-/*
-//Domain-Faking testcase will be enabled once the resource file starts including domain-mappings.db
-//
 TEST_CASE_METHOD(LibmercTestFixture, "test domain_faking attribute with resources-mp")
 {
     auto attr_check = [&](std::string &expected_attr, const struct libmerc_config &config)
@@ -613,7 +610,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test domain_faking attribute with resource
         {test_config{
             .m_lc{.do_analysis = true, .resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"all"},
-            .m_pc{"domain_faking.pcap"}},
+            .m_pc{"faketls_potatovpn.pcap"}},
             "domain_faking"    // check if domain_faking attribute is present in the attributes array
         }
     };
@@ -624,7 +621,6 @@ TEST_CASE_METHOD(LibmercTestFixture, "test domain_faking attribute with resource
         attr_check(expected_attr, config.m_lc);
     }
 }
-*/
 
 TEST_CASE_METHOD(LibmercTestFixture, "test nbss with resources-mp")
 {
