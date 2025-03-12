@@ -22,6 +22,34 @@ def update_stats_db(stats, src_ip, str_repr, user_agent, dst_info, count):
     stats[src_ip]['fingerprints'][str_repr][dst_info] += count
 
 
+# if addr is in one of the private use address ranges (10.0.0.0/8
+# 172.16.0.0/12 192.168.0.0/16), return the representative private
+# address '10.0.0.1', otherwise return addr itself.
+#
+# note: this function only works for ipv4
+#
+def normalize_address(addr):
+    if (addr.startswith(('10.',
+                         '172.16.',
+                         '172.17.',
+                         '172.18.',
+                         '172.19.',
+                         '172.20.',
+                         '172.21.',
+                         '172.22.',
+                         '172.23.',
+                         '172.24.',
+                         '172.25.',
+                         '172.26.',
+                         '172.27.',
+                         '172.28.',
+                         '172.29.',
+                         '172.30.',
+                         '172.31.',
+                         '192.168.'))):
+        return '10.0.0.1'
+    return addr
+
 def read_merc_data(in_file):
     stats_db    = {}
     total_count = 0
@@ -35,7 +63,7 @@ def read_merc_data(in_file):
             continue
 
         src_ip      = r['src_ip']
-        dst_ip      = r['dst_ip']
+        dst_ip      = normalize_address(r['dst_ip'])
         dst_port    = r['dst_port']
         user_agent = ''
         server_name = ''
@@ -187,7 +215,7 @@ def approx_stats_compare_db(merc_db, merc_stats):
         is_entry_match(merc_stats[k], merc_db[k], unmatched_fps)
 
     if len(unmatched_fps):
-        print('fingerprint strings/destination parameters below do not match')
+        print('error: below stats entries did not match any mercury json output')
         for x in unmatched_fps:
             print(x)
         return False
