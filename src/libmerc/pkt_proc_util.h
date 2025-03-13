@@ -69,6 +69,8 @@ class mysql_server_greet;
 namespace ldap { class message; }
 class esp;
 namespace ike { class packet; }
+namespace rfb { class protocol_version_handshake; }
+namespace tacacs { class packet; }
 
 using protocol = std::variant<std::monostate,
                               http_request,                      // start of tcp protocols
@@ -112,7 +114,9 @@ using protocol = std::variant<std::monostate,
                               socks5_hello,
                               socks4_req,
                               esp,
-                              ike::packet
+                              ike::packet,
+                              rfb::protocol_version_handshake,
+                              tacacs::packet
                               >;
 
 // class unknown_initial_packet represents the initial data field of a

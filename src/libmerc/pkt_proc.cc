@@ -40,6 +40,7 @@
 #include "ssdp.h"
 #include "stun.h"
 #include "smtp.h"
+#include "tacacs.hpp"
 #include "tofsee.hpp"
 #include "cdp.h"
 #include "ldap.hpp"
@@ -57,6 +58,7 @@
 #include "netbios.h"
 #include "openvpn.h"
 #include "mysql.hpp"
+#include "rfb.hpp"
 #include "geneve.hpp"
 #include "tsc_clock.hpp"
 
@@ -229,9 +231,11 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
     // use get_if<T>(), which does not
 
     enum tcp_msg_type msg_type = (tcp_msg_type) selector.get_tcp_msg_type(pkt);
+    //fprintf(stderr, "0th got tcp_msg_type: %d\n", msg_type);
     if (msg_type == tcp_msg_type_unknown) {
         msg_type = (tcp_msg_type) selector.get_tcp_msg_type_from_ports(tcp_pkt);
     }
+    //fprintf(stderr, "1st got tcp_msg_type: %d\n", msg_type);
 
     switch(msg_type) {
     case tcp_msg_type_http_request:
@@ -275,6 +279,13 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         break;
     case tcp_msg_type_smtp_server:
         x.emplace<smtp_server>(pkt);
+        break;
+    case tcp_msg_type_tacacs:
+        x.emplace<tacacs::packet>(pkt);
+        break;
+    case tcp_msg_type_rfb:
+        // fprintf(stderr, "got rfb\n");
+        x.emplace<rfb::protocol_version_handshake>(pkt);
         break;
     case tcp_msg_type_dns:
     {
@@ -334,6 +345,7 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         }
         break;
     }
+    //fprintf(stderr, "2nd got tcp_msg_type: %d\n", msg_type);
 }
 
 // set_udp_protocol() sets the protocol variant record to the data

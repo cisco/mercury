@@ -43,6 +43,7 @@
 #include "mysql.hpp"
 #include "tofsee.hpp"
 #include "socks.h"
+#include "rfb.hpp"
 
 enum tcp_msg_type {
     tcp_msg_type_unknown = 0,
@@ -69,6 +70,8 @@ enum tcp_msg_type {
     tcp_msg_type_socks5_hello,
     tcp_msg_type_socks5_req_resp,
     tcp_msg_type_ldap,
+    tcp_msg_type_rfb,
+    tcp_msg_type_tacacs,
 };
 
 enum udp_msg_type {
@@ -174,6 +177,12 @@ public:
      */
     size_t get_msg_type(datum &pkt) const {
 
+        // fprintf(stderr, "%s: ", __func__);
+        // pkt.fprint_hex(stderr, 8);
+        // fprintf(stderr, "\t");
+        // pkt.fprint(stderr, 8);
+        // fprintf(stderr, "\n");
+
         // TODO: process short data fields
         //
         if (pkt.length() < 4) {
@@ -182,9 +191,11 @@ public:
         for (matcher_and_type p : matchers) {
             if (N == 4) {
                 if (p.mv.matches(pkt.data, pkt.length()) && pkt_len_match(pkt, p.type)) {
-                    return p.type;
+                    //fprintf(stderr, "matched 4.msg_type %zu\n", p.type);
+                return p.type;
                 }
             } else if (p.mv.matches(pkt.data, pkt.length())) {
+                //fprintf(stderr, "matched msg_type %zu\n", p.type);
                 return p.type;
             }
         }
@@ -235,6 +246,8 @@ class traffic_selector {
     bool select_openvpn_tcp;
     bool select_ldap;
     bool select_ipsec{false};
+    bool select_rfb{false};
+    bool select_tacacs{false};
 
 public:
 
@@ -271,6 +284,10 @@ public:
     bool openvpn_tcp() const { return select_openvpn_tcp; }
 
     bool ipsec() const { return select_ipsec; }
+
+    bool rfb() const { return select_rfb; }
+
+    bool tacacs() const { return select_tacacs; }
 
     void disable_all() {
         tcp.disable_all();
@@ -330,6 +347,10 @@ public:
         if (protocols["smtp"] || protocols["all"]) {
             tcp.add_protocol(smtp_client::matcher, tcp_msg_type_smtp_client);
             tcp.add_protocol(smtp_server::matcher, tcp_msg_type_smtp_server);
+        }
+        if (protocols["rfb"] || protocols["all"]) {
+            //fprintf(stderr, "%s: adding rfb\n", __func__);
+            tcp.add_protocol(rfb::protocol_version_handshake::matcher, tcp_msg_type_rfb);
         }
         if (protocols["http"] || protocols["all"]) {
             tcp.add_protocol(http_response::matcher, tcp_msg_type_http_response);  // note: must come before http_request::matcher
@@ -474,6 +495,10 @@ public:
             udp4.add_protocol(stun::message::matcher, udp_msg_type_stun);
         }
 
+        if (protocols["tacacs"] || protocols["all"]) {
+            select_tacacs = true;
+        }
+
         // add tofsee, but keep at the absolute end of matcher lists, as tofsee only
         // has a length based matcher
         if (protocols["tofsee"] || protocols["all"]) {
@@ -535,6 +560,10 @@ public:
 
         if (openvpn_tcp() and (tcp_pkt->header->src_port == hton<uint16_t>(1194) or tcp_pkt->header->dst_port == hton<uint16_t>(1194)) ) {
             return tcp_msg_type_openvpn;
+        }
+
+        if (tacacs() and (tcp_pkt->header->src_port == hton<uint16_t>(49) or tcp_pkt->header->dst_port == hton<uint16_t>(49)) ) {
+            return tcp_msg_type_tacacs;
         }
 
         return tcp_msg_type_unknown;
