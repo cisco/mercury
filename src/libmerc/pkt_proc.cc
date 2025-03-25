@@ -61,7 +61,9 @@
 #include "mysql.hpp"
 #include "geneve.hpp"
 #include "tsc_clock.hpp"
-#include "ftp.hpp"  
+#include "ftp.hpp"
+#include "tftp.hpp"
+
 // double malware_prob_threshold = -1.0; // TODO: document hidden option
 
 void write_flow_key(struct json_object &o, const struct key &k) {
@@ -498,6 +500,9 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
         break;
     case udp_msg_type_lsd:
         x.emplace<bittorrent_lsd>(pkt);
+        break;
+    case udp_msg_type_tftp:
+        x.emplace<tftp::packet>(pkt);
         break;
     default:
         if (is_new) {

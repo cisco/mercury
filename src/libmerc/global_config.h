@@ -188,6 +188,7 @@ public:
             { "tcp",                    false },
             { "tcp.message",            false },
             { "tcp.syn_ack",            false },
+            { "tftp",                   false },
             { "tls",                    false },
             { "tls.client_hello",       false },
             { "tls.server_hello",       false },

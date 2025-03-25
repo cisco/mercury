@@ -5,7 +5,7 @@
 #ifndef TFTP_HPP
 #define TFTP_HPP
 
-#include "datum.h"
+#include "protocol.h"
 
 namespace tftp {
 
@@ -35,20 +35,21 @@ namespace tftp {
     //          +-------+---~~---+---+---~~---+---+
     //
 
-
-    class option {
+    class option_extension {
         datum option;
         datum value;
+
     public:
-        option(datum &d) {
+
+        option_extension(datum &d) {
             option.parse_up_to_delim(d, '\0');
             value.parse_up_to_delim(d, '\0');
         }
 
         void write_json(json_array &a) const {
             json_object opt{a};
-            a.print_key_json_string("option", option);
-            a.print_key_json_string("value", value);
+            opt.print_key_json_string("option", option);
+            opt.print_key_json_string("value", value);
             opt.close();
         }
 
@@ -57,7 +58,7 @@ namespace tftp {
     // tftp::packet reports the filename and mode for read requests
     // and write requests
     //
-    class packet {
+    class packet : public base_protocol {
         encoded<uint16_t> opcode;
         datum body;
 
@@ -69,20 +70,22 @@ namespace tftp {
 
         void write_json(json_object &o, bool) const {
             datum d{body};
-            if (opcode.value == 1 or opcode.value == 2)
+            if (opcode.value() == 1 or opcode.value() == 2) {
                 datum filename;
                 filename.parse_up_to_delim(d, '\0');
                 d.accept('\0');
+                datum mode;
                 mode.parse_up_to_delim(d, '\0');
                 d.accept('\0');
                 if (d.is_not_null()) {
                     json_object tftp_json(o, "tftp");
+                    tftp_json.print_key_string("opcode", opcode.value() == 1 ? "read" : "write");
                     tftp_json.print_key_json_string("filename", filename);
                     tftp_json.print_key_json_string("mode", mode);
                     json_array options_json{tftp_json, "options"};
-                    for (const auto & opt : sequence<option>{d}) {
-                        opt.write_json(options_json);
-                    }
+                    // for (const auto & opt : sequence<option_extension>{d}) {
+                    //     opt.write_json(options_json);
+                    // }
                     options_json.close();
                     tftp_json.close();
                 }

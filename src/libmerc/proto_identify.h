@@ -90,7 +90,7 @@ enum udp_msg_type {
     udp_msg_type_dht,
     udp_msg_type_lsd,
     udp_msg_type_esp,
-
+    udp_msg_type_tftp,
 };
 
 template <size_t N>
@@ -240,6 +240,7 @@ class traffic_selector {
     bool select_ftp_request;
     bool select_ftp_response;
     bool select_ipsec{false};
+    bool select_tftp{false};
 
 public:
 
@@ -270,6 +271,8 @@ public:
     bool ospf() const { return select_ospf; }
 
     bool sctp() const { return select_sctp; }
+
+    bool tftp() const { return select_tftp; }
 
     bool tcp_syn_ack() const { return select_tcp_syn_ack; }
 
@@ -482,6 +485,9 @@ public:
         if (protocols["ipsec"] || protocols["all"]) {
             select_ipsec = true;
         }
+        if (protocols["tftp"] || protocols["all"]) {
+            select_tftp = true;
+        }
 
         if (protocols["bittorrent"] || protocols["all"]) {
             udp.add_protocol(bittorrent_dht::matcher, udp_msg_type_dht);
@@ -549,6 +555,10 @@ public:
             return udp_msg_type_nbds;
         }
 
+        if (tftp() and (ports.src == hton<uint16_t>(69) or ports.dst == hton<uint16_t>(69)) ) {
+            return udp_msg_type_tftp;
+        }
+
         if (ports.dst == hton<uint16_t>(4789)) {
             return udp_msg_type_vxlan;
         }
@@ -559,7 +569,7 @@ public:
     size_t get_tcp_msg_type_from_ports(struct tcp_packet *tcp_pkt) const {
         if (tcp_pkt == nullptr or tcp_pkt->header == nullptr) {
             return tcp_msg_type_unknown;
-        } 
+        }
 
         if (ldap() and ((tcp_pkt->header->src_port == hton<uint16_t>(389)) or (tcp_pkt->header->dst_port == hton<uint16_t>(389)))) {
             return tcp_msg_type_ldap;
@@ -572,6 +582,7 @@ public:
         if (openvpn_tcp() and (tcp_pkt->header->src_port == hton<uint16_t>(1194) or tcp_pkt->header->dst_port == hton<uint16_t>(1194)) ) {
             return tcp_msg_type_openvpn;
         }
+
         // FTP uses port 21 as its default connection channel, so responses from the server  will originate from this port
         if (ftp_response() and ((tcp_pkt->header->src_port == hton<uint16_t>(21))))
         {

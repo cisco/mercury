@@ -71,6 +71,7 @@ namespace ldap { class message; }
 namespace ftp {class request;class response;}
 class esp;
 namespace ike { class packet; }
+namespace tftp { class packet; }
 
 using protocol = std::variant<std::monostate,
                               http_request,                      // start of tcp protocols
@@ -90,6 +91,7 @@ using protocol = std::variant<std::monostate,
                               ldap::message,
                               ftp::request,
                               ftp::response,
+                              tftp::packet,
                               unknown_initial_packet,
                               quic_init,                         // start of udp protocols
                               wireguard_handshake_init,
