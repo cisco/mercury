@@ -11,6 +11,11 @@
 #include <vector>
 #include <unordered_map>
 
+/// specifies a longest match or an exact match
+///
+enum class match_type { longest, exact };
+
+
 /// implements a trie container with an insert/find interface,
 /// suitable for associating arbitrary data with DNS subdomains or
 /// other hierarchical namespaces.  It supports longest-prefix
@@ -32,15 +37,17 @@ public:
     /// inserts a \param subdomain into the trie, and associates the
     /// subdomain with the \param value provided.  If the subdomain is
     /// already present in the trie, then the old value will be
-    /// overwritten with the new one.
+    /// overwritten with the new one.  On success, returns a pointer
+    /// to the value stored in the container.  On failure, returns
+    /// `nullptr`.
     ///
-    inline void insert(std::string subdomain, T value);
+    inline T * insert(std::string subdomain, T value);
 
     /// searches for the longest match for \param subdomain in the
     /// trie, and returns either a pointer to the value associated
     /// with the longest match, or `nullptr` if no such match exists.
     ///
-    inline T * find(std::string &subdomain);
+    inline T * find(std::string subdomain, match_type match=match_type::exact);
 
     /// performs unit tests for \ref class dns_trie and returns `true`
     /// if all pass, and `false` otherwise.  If \param f is
@@ -101,7 +108,7 @@ dns_trie<T>::dns_trie() : nodes{{no_node_value}} { }
 
 
 template<typename T>
-inline void dns_trie<T>::insert(std::string subdomain, T value) {
+inline T* dns_trie<T>::insert(std::string subdomain, T value) {
 
     node_index n = 0;
     size_t pos = subdomain.length();
@@ -136,12 +143,14 @@ inline void dns_trie<T>::insert(std::string subdomain, T value) {
         values.push_back(value);
         nodes[n] = values.size()-1;
     }
+    return &values.back();
 }
 
 
 template <typename T>
-inline T * dns_trie<T>::find(std::string &subdomain) {
+inline T * dns_trie<T>::find(std::string subdomain, match_type match) {
 
+    bool exact_match = false;
     node_value longest_so_far = -1;
     node_index n = 0;
     size_t pos = subdomain.length();
@@ -162,10 +171,11 @@ inline T * dns_trie<T>::find(std::string &subdomain) {
         n = result->second;
         if (nodes[n] >= 0) {
             longest_so_far = nodes[n];
+            exact_match = true;
         }
     }
 
-    if (longest_so_far >= 0) {
+    if ((longest_so_far >= 0 and match == match_type::longest) or exact_match) {
         return &values[longest_so_far];
     }
     return nullptr;
