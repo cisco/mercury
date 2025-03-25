@@ -27,6 +27,7 @@
 
 #include "datum.h"
 
+#include <system_error>
 
 // class file_datum represents a read-only file on disk; it inherits
 // the interface of class datum, and thus can be used to read and
