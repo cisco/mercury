@@ -483,6 +483,13 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ftp with resources-mp")
              .m_pc{"ftp.pcap"}},
              
          58},
+         {test_config{
+             .m_lc{.resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"ftp"},
+             .m_pc{"ftp2.pcap"}},
+             
+         23},
+
         {test_config{
              .m_lc{.metadata_output=true, .do_analysis = true, .resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"ftp"},
