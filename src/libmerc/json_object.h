@@ -339,6 +339,24 @@ inline void json_object::reinit(struct json_array &array) {
     array.comma = true;
 }
 
+/// enable libfuzz to test a class T that parses a data buffer and
+/// writes out JSON, by providing a template function that does most
+/// of the work.
+///
+template <typename T, size_t N=8192>
+int json_output_fuzzer(const uint8_t *data, size_t size) {
+    struct datum data_to_be_parsed{data, data+size};
+    T data_parser_object{data_to_be_parsed};
+    if (data_parser_object.is_not_empty()) {
+        char output_buffer[N];
+        struct buffer_stream buf_json(output_buffer, sizeof(output_buffer));
+        struct json_object record(&buf_json);
+        data_parser_object.write_json(record);
+    }
+    return 0;
+}
+
+
 #ifdef USE_JSON_FILE_OBJECT
 #include <stdio.h>
 /*
