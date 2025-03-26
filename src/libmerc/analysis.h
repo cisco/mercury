@@ -777,18 +777,16 @@ public:
 
         // process asn and domain-faking subnets, and enable the corresponding detections
         //
-        if (got_pyasn_db && !disabled) {
-            subnets.process_final();
-        }
-        
+        subnets.process_final();
+        subnets.process_domain_mappings_final();
+
         if (got_domain_faking_subnets) {
-            subnets.process_domain_mappings_final();
             common.domain_faking_enabled = true;
         }
         else {
             printf_err(log_debug, "Domain mappings not found in resource archive, disabling Domain-Faking detection\n");
         }
-        
+
         if (got_doh_watchlist) {
             common.doh_enabled = true;
         }
