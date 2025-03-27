@@ -180,6 +180,10 @@ public:
     }
 };
 
+[[maybe_unused]] inline int sctp_init_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<sctp_init>(data, size);
+}
+
 // TODO: move sctp_init into SCTP namespace
 //
 // TODO: integrate SCTP into flow key functionality, so that it can be

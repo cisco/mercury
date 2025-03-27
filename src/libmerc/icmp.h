@@ -162,7 +162,8 @@ public:
     }
 };
 
-
-
+[[maybe_unused]] inline int icmp_packet_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<icmp_packet>(data, size);
+}
 
 #endif // ICMP_H

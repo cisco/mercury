@@ -124,7 +124,8 @@ public:
 
     bool is_valid() const { return auth_param.is_not_null(); }
 
-    void write_json(json_object &o) const {
+    void write_json(json_object &o, bool metadata=false) const {
+        (void)metadata;
         if (!is_valid()) { return; }
         json_object auth_json{o, "authorization"};
         scheme::type schemetype = auth_scheme.get_type();
@@ -147,5 +148,10 @@ public:
     }
 
 };
+
+[[maybe_unused]] inline int http_authorization_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<authorization>(data, size);
+}
+
 
 #endif

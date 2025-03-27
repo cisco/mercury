@@ -244,5 +244,12 @@ public:
 
 };
 
+[[maybe_unused]] inline int smtp_client_packet_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<smtp_client>(data, size);
+}
+
+[[maybe_unused]] inline int smtp_server_packet_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<smtp_client>(data, size);
+}
 
 #endif // SMTP_H

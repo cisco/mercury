@@ -1032,7 +1032,8 @@ struct dns_packet : public base_protocol {
         return is_netbios;
     }
 
-    void write_json(struct json_object &o) const {
+    void write_json(struct json_object &o, bool metadata=false) const {
+        (void)metadata;
         if (header == NULL) {
             return;
         }

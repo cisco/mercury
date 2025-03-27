@@ -115,6 +115,10 @@ public:
     }
 };
 
+[[maybe_unused]] inline int ntp_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<ntp>(data, size);
+}
+
 // NTP udp.data examples:
 //
 // "1c0300e90000006a000006d81942e601e630f6c598ebcabe0000000000000000e630f6c938ebb341e630f6c938ebd67d"

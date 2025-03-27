@@ -523,4 +523,8 @@ struct dhcp_discover : public base_protocol {
 
 };
 
+[[maybe_unused]] inline int dhcp_discover_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<dhcp_discover>(data, size);
+}
+
 #endif /* DHCP_H */
