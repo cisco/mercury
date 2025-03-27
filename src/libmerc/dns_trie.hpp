@@ -47,7 +47,7 @@ public:
     /// trie, and returns either a pointer to the value associated
     /// with the longest match, or `nullptr` if no such match exists.
     ///
-    inline T * find(std::string subdomain, match_type match=match_type::exact);
+    inline T * find(std::string subdomain, match_type match=match_type::longest);
 
     /// performs unit tests for \ref class dns_trie and returns `true`
     /// if all pass, and `false` otherwise.  If \param f is
