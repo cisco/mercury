@@ -448,7 +448,8 @@ namespace krb5 {
             }
         }
 
-        void write_json(json_object &o) const {
+        void write_json(json_object &o, bool metadata=false) const {
+            (void)metadata;
             std::visit(do_write_json{o}, msg);
         }
 

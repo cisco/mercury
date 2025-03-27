@@ -5,6 +5,7 @@
 #define SCTP_H
 
 #include "datum.h"
+#include "protocol.h"
 
 namespace sctp {
 

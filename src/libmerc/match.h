@@ -10,6 +10,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <array>
 
 unsigned int uint16_match(uint16_t x,
                           const uint16_t *ulist,

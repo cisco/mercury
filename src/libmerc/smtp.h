@@ -10,6 +10,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include "match.h"
 #include "protocol.h"
 #include "datum.h"
 #include "analysis.h"

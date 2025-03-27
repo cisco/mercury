@@ -7,7 +7,6 @@
 #ifndef CDP_H
 #define CDP_H
 
-#include "eth.h"
 #include "datum.h"
 #include "json_object.h"
 

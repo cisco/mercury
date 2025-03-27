@@ -6,6 +6,7 @@
 #define NTP_H
 
 #include "datum.h"
+#include "protocol.h"
 
 // NTP Packet Header Format (following RFC 5905, Figure 8)
 //
@@ -56,7 +57,7 @@
 //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //
 
-class ntp {
+class ntp : public base_protocol {
     encoded<uint8_t> flags;
     encoded<uint8_t> stratum;
     encoded<uint8_t> poll;
@@ -93,7 +94,8 @@ public:
 
     bool is_not_empty() const { return valid; }
 
-    void write_json(json_object &o) {
+    void write_json(json_object &o, bool metadata=false) {
+        (void)metadata;
         if (!valid) {
             return;
         }

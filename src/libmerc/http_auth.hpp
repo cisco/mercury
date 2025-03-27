@@ -153,5 +153,4 @@ public:
     return json_output_fuzzer<authorization>(data, size);
 }
 
-
 #endif

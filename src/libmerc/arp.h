@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include "datum.h"
 #include "eth.h"
+#include "ip_address.hpp"
 
 class arp_packet {
 

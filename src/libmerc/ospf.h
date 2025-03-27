@@ -7,6 +7,7 @@
 #define OSPF_H
 
 #include "datum.h"
+#include "protocol.h"
 
 //  OSPF packet header (following RFC 2328, A.3.1)
 //
