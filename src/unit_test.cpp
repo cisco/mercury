@@ -11,6 +11,7 @@
 #include "libmerc/ip_address.hpp"
 #include "libmerc/watchlist.hpp"
 #include "libmerc/dns_trie.hpp"
+#include "libmerc/tftp.hpp"
 
 // Macros to colorize output
 //
@@ -69,6 +70,10 @@ int main(int, char *[]) {
             "ipv6_address",
             &ipv6_address::unit_test
         },
+        {
+            "tftp",
+            &tftp::unit_test
+        }
     };
     size_t num_tests = 0;
     size_t num_passed = 0;
