@@ -253,8 +253,8 @@ namespace ldap {
 
         static const char *mechanism_type_get_name(mechanism_type t) {
             switch(t) {
-            case mechanism_type::GSSAPI: return "GSSAPI";
-            case mechanism_type::GSS_SPNEGO: return "GSS-SPNEGO";
+            case mechanism_type::GSSAPI: return "gssapi";
+            case mechanism_type::GSS_SPNEGO: return "gss_spnego";
             case mechanism_type::unknown:
             default:
                 ;

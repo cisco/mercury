@@ -43,6 +43,7 @@
 #include "tacacs.hpp"
 #include "tofsee.hpp"
 #include "cdp.h"
+#include "krb5.hpp"
 #include "ldap.hpp"
 #include "lldp.h"
 #include "ospf.h"
@@ -99,6 +100,27 @@ struct do_crypto_assessment {
         ca->assess(msg, record);
         return false;
     }
+
+    bool operator()(const tls_server_hello &msg) {
+        ca->assess(msg, record);
+        return false;
+    }
+
+    bool operator()(const tls_server_hello_and_certificate &msg) {
+        ca->assess(msg, record);
+        return false;
+    }
+
+    bool operator()(const dtls_client_hello &msg) {
+        ca->assess(msg, record);
+        return false;
+    }
+
+    bool operator()(const dtls_server_hello &msg) {
+        ca->assess(msg, record);
+        return false;
+    }
+
 
     bool operator()(const quic_init &msg) {
         if (msg.has_tls()) {
@@ -203,6 +225,13 @@ struct do_observation {
     }
 
     void operator()(http_request &m) {
+        // create event and send it to the data/stats aggregator
+        event_string ev_str{k_, analysis_, m};
+        mq_->push(ev_str.construct_event_string());
+        analysis_.reset_user_agent();
+    }
+
+    void operator()(stun::message &m) {
         // create event and send it to the data/stats aggregator
         event_string ev_str{k_, analysis_, m};
         mq_->push(ev_str.construct_event_string());
@@ -451,6 +480,9 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
         break;
     case udp_msg_type_lsd:
         x.emplace<bittorrent_lsd>(pkt);
+        break;
+    case udp_msg_type_krb5:
+        x.emplace<krb5::packet>(pkt);
         break;
     default:
         if (is_new) {

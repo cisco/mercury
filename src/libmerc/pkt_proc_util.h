@@ -67,6 +67,7 @@ class iec60870_5_104;
 class openvpn_tcp;
 class mysql_server_greet;
 namespace ldap { class message; }
+namespace krb5 { class packet; }
 class esp;
 namespace ike { class packet; }
 namespace rfb { class protocol_version_handshake; }
@@ -98,6 +99,7 @@ using protocol = std::variant<std::monostate,
                               dhcp_discover,
                               ssdp,
                               stun::message,
+                              krb5::packet,
                               nbds_packet,
                               bittorrent_dht,
                               bittorrent_lsd,

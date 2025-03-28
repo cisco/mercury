@@ -43,6 +43,8 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 RUN addgroup --system mercury && adduser --system --group mercury \
+    && mkdir -p /usr/local/share/mercury \
+    && mkdir -p /usr/local/var/mercury \
     && chown -R mercury:mercury /usr/local/share/mercury /usr/local/var/mercury/
 
 # Default entrypoint for "docker run" on this image

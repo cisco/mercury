@@ -7,6 +7,7 @@
 
 #include "datum.h"
 #include "base64.h"
+#include "json_object.h"
 
 class scheme : public datum {
 public:
@@ -59,6 +60,7 @@ public:
 };
 
 class bearer_token {
+    datum complete_value;
     datum header;
     datum payload;
     datum signature;
@@ -69,6 +71,7 @@ public:
     // reference to a `datum)
     //
     bearer_token(datum d) {
+        complete_value = d,
         header.parse_up_to_delim(d, '.');
         d.accept('.');
         payload.parse_up_to_delim(d, '.');
@@ -81,18 +84,25 @@ public:
     void write_json(json_object &o) const {
         if (!is_valid()) { return; }
 
-        uint8_t outbuf[1024];
-        int outlen = base64::decode(outbuf, sizeof(outbuf), header.data, header.length());
-        if (outlen > 0) {
-            o.print_key_json_string("header", outbuf, outlen);
+        uint8_t header_buf[1024];
+        int header_len = base64::decode(header_buf, sizeof(header_buf), header.data, header.length());
+        uint8_t payload_buf[1024];
+        int payload_len = base64::decode(payload_buf, sizeof(payload_buf), payload.data, payload.length());
+
+        // if base64 decoding was successful, we print out the decoded
+        // payload and header, along with the undecoded signature;
+        // otherwise, we write out the complete value of the token, to
+        // handle cases in which the client doesn't want to conform to
+        // RFC 6750 Section 2.1
+        //
+        if (header_len > 0 and payload_len > 0) {
+            o.print_key_json_string("header", header_buf, header_len);
+            o.print_key_json_string("payload", payload_buf, payload_len);
+            o.print_key_json_string("signature", signature.data, signature.length());
+        } else {
+            o.print_key_json_string("token", complete_value.data, complete_value.length());
         }
-        outlen = base64::decode(outbuf, sizeof(outbuf), payload.data, payload.length());
-        if (outlen > 0) {
-            o.print_key_json_string("payload", outbuf, outlen);
-        }
-        if (signature.length() > 0) {
-            o.print_key_json_string("signature", signature);
-        }
+
     }
 
 };
@@ -130,7 +140,7 @@ public:
             bearer_token{auth_param}.write_json(scheme_json);
 
         } else {
-            scheme_json.print_key_json_string("param", auth_param);
+            scheme_json.print_key_json_string("param", auth_param.data, auth_param.length());
         }
         scheme_json.close();
         auth_json.close();
