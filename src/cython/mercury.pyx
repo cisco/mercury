@@ -31,11 +31,15 @@ from cython.operator import dereference
 #   CC=g++ CXX=g++ python setup.py install
 
 # TODO: actually handle version
-__version__ = '2.6.1'
+__version__ = '2.6.4'
 
 # imports from mercury's dns
 cdef extern from "../libmerc/dns.h":
     string dns_get_json_string(const char *dns_pkt, ssize_t pkt_len)
+
+# imports from mercury's FDC
+cdef extern from "../libmerc/fdc.hpp":
+    string get_json_decoded_fdc(const char *fdc_blob, ssize_t blob_len)
 
 
 cdef extern from "../libmerc/pkt_proc.h":
@@ -112,10 +116,71 @@ cdef extern from "../libmerc/analysis.h":
     cdef cppclass classifier:
         analysis_result perform_analysis(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port, const char *user_agent)
 
-        analysis_result perform_analysis_with_weights(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port, const char *user_agent,
-                                 long double new_as_weight, long double new_domain_weight,
-                                 long double new_port_weight, long double new_ip_weight,
-                                 long double new_sni_weight, long double new_ua_weight)
+        # analysis_result perform_analysis_with_weights(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port, const char *user_agent,
+        #                         long double new_as_weight, long double new_domain_weight,
+        #                         long double new_port_weight, long double new_ip_weight,
+        #                         long double new_sni_weight, long double new_ua_weight)
+
+
+cdef extern from "../libmerc/watchlist.hpp":
+    string normalize_ip_address(const string &s)
+    cdef cppclass server_identifier:
+        server_identifier(string &s)
+        enum detail:
+            off=0,
+            on
+        string get_normalized_domain_name(detail detailed_output)
+
+
+cdef class server_identifier_py:
+    cdef server_identifier* thisptr
+    cdef server_identifier.detail detailed_output
+
+    def __cinit__(self, s):
+        self.thisptr = new server_identifier(s.encode('utf-8'))
+
+    def get_normalized_domain_name(self, bool detailed_output=True):
+        self.detailed_output = <server_identifier.detail>detailed_output
+        try:
+            return self.thisptr.get_normalized_domain_name(self.detailed_output).decode()
+        except Exception as e:
+            print(f'Exception: {e}')
+            return None
+
+
+def get_normalized_domain_name(str domain_name, bool detailed_output=True):
+    """returns a python str representing a host or server name,
+    normalized so that textual representations of IPv4 or IPv6 addresses
+    are mapped into an .alt pseudo-DNS namespace.
+
+    :param domain_name: python str representing a domain name (HTTP Host, TLS or QUIC Server Name)
+
+    :param detailed_output:  if true, the address literal is included in the normalized name
+
+    :returns: normalized name string
+    """
+    si = server_identifier_py(domain_name)
+    return si.get_normalized_domain_name(detailed_output)
+
+
+def get_normalized_ip_address(str ip_address):
+    """returns a python str representing an IPv4 or IPv6 address,
+    normalized by setting it to `10.0.0.1` if it is in the IPv4
+    private address range (RFC 1918), or setting it to `fd00::1` if it
+    is in the IPv6 unique local address range (RFC 4193).  The IPv4
+    private address ranges consist of the subnets `10.0.0.0/8`,
+    `172.16.0.0/12`, and `192.168.0.0/16`.  The IPv6 unique local
+    address range consists of the subnet `fd00::/8`.
+
+    :param ip_address: python str containing a textual representation of an IPv4 or IPv6 address
+
+    :returns: python str containing a normalized address string
+    """
+    normalized_ip_address = normalize_ip_address(ip_address.encode('utf-8')).decode('utf-8')
+    if normalized_ip_address == "":
+        raise ValueError(f'Cannot normalize invalid IP address: {ip_address}')
+    return normalized_ip_address
+
 
 fp_status_dict = {
     0: 'no_info_available',
@@ -370,73 +435,73 @@ cdef class Mercury:
 
         return result
 
-    cpdef dict perform_analysis_with_weights(self, str fp_str, str server_name, str dst_ip, int dst_port, str user_agent,
-                                 long double new_as_weight, long double new_domain_weight,
-                                 long double new_port_weight, long double new_ip_weight,
-                                 long double new_sni_weight, long double new_ua_weight):
-        """
-        Directly call into mercury analysis functionality by providing all needed data features. Additionally,
-        supply custom weights for each data feature.
-
-        :param fp_str: mercury-generated network protocol fingerprint
-        :type fp_str: str
-        :param server_name: The visible, fully qualified domain name, found in the server_name extension or the HTTP Host field
-        :type server_name: str
-        :param dst_ip: The destination IP address associated with the packet of interest
-        :type dst_ip: str
-        :param dst_port: The destination port associated with the packet of interest
-        :type dst_port: int
-        :param user_agent: If analyzing an HTTP packet, provide the contents of the HTTP User-Agent field
-        :type user_agent: str
-        :param new_as_weight: Updated weight for the Autonomous System data feature
-        :type new_as_weight: long double
-        :param new_domain_weight: Updated weight for the domain name data feature
-        :type new_domain_weight: long double
-        :param new_port_weight: Updated weight for the destination port data feature
-        :type new_port_weight: long double
-        :param new_ip_weight: Updated weight for the destination IP address data feature
-        :type new_ip_weight: long double
-        :param new_sni_weight: Updated weight for the server_name data feature
-        :type new_sni_weight: long double
-        :param new_ua_weight: Updated weight for the User-Agent data feature
-        :type new_ua_weight: long double
-        :return: JSON-encoded analysis output
-        :rtype: dict
-        """
-        if not self.do_analysis:
-            print(f'error: classifier not loaded (is do_analysis set to True?)')
-            return None
-
-        cdef bytes fp_str_b = fp_str.encode()
-        cdef char* fp_str_c = fp_str_b
-        cdef bytes server_name_b = server_name.encode()
-        cdef char* server_name_c = server_name_b
-        cdef bytes dst_ip_b = dst_ip.encode()
-        cdef char* dst_ip_c = dst_ip_b
-        if user_agent == None:
-            user_agent = 'None'
-        cdef bytes user_agent_b = user_agent.encode()
-        cdef char* user_agent_c = user_agent_b
-        if user_agent == 'None':
-            user_agent_c = NULL
-
-        cdef analysis_result ar = self.clf.perform_analysis_with_weights(fp_str_c, server_name_c, dst_ip_c, dst_port, user_agent_c,
-                                                    new_as_weight, new_domain_weight, new_port_weight,
-                                                    new_ip_weight, new_sni_weight, new_ua_weight)
-
-        cdef fingerprint_status fp_status_enum = ar.status
-        fp_status = fp_status_dict[fp_status_enum]
-
-        cdef dict result = {}
-        result['fingerprint_info'] = {}
-        result['fingerprint_info']['status'] = fp_status
-        result['analysis'] = {}
-        result['analysis']['process']   = ar.max_proc.decode('UTF-8')
-        result['analysis']['score']     = ar.max_score
-        result['analysis']['malware']   = ar.max_mal
-        result['analysis']['p_malware'] = ar.malware_prob
-
-        return result
+    # cpdef dict perform_analysis_with_weights(self, str fp_str, str server_name, str dst_ip, int dst_port, str user_agent,
+    #                              long double new_as_weight, long double new_domain_weight,
+    #                              long double new_port_weight, long double new_ip_weight,
+    #                              long double new_sni_weight, long double new_ua_weight):
+    #     """
+    #     Directly call into mercury analysis functionality by providing all needed data features. Additionally,
+    #     supply custom weights for each data feature.
+    #
+    #     :param fp_str: mercury-generated network protocol fingerprint
+    #     :type fp_str: str
+    #     :param server_name: The visible, fully qualified domain name, found in the server_name extension or the HTTP Host field
+    #     :type server_name: str
+    #     :param dst_ip: The destination IP address associated with the packet of interest
+    #     :type dst_ip: str
+    #     :param dst_port: The destination port associated with the packet of interest
+    #     :type dst_port: int
+    #     :param user_agent: If analyzing an HTTP packet, provide the contents of the HTTP User-Agent field
+    #     :type user_agent: str
+    #     :param new_as_weight: Updated weight for the Autonomous System data feature
+    #     :type new_as_weight: long double
+    #     :param new_domain_weight: Updated weight for the domain name data feature
+    #     :type new_domain_weight: long double
+    #     :param new_port_weight: Updated weight for the destination port data feature
+    #     :type new_port_weight: long double
+    #     :param new_ip_weight: Updated weight for the destination IP address data feature
+    #     :type new_ip_weight: long double
+    #     :param new_sni_weight: Updated weight for the server_name data feature
+    #     :type new_sni_weight: long double
+    #     :param new_ua_weight: Updated weight for the User-Agent data feature
+    #     :type new_ua_weight: long double
+    #     :return: JSON-encoded analysis output
+    #     :rtype: dict
+    #     """
+    #     if not self.do_analysis:
+    #         print(f'error: classifier not loaded (is do_analysis set to True?)')
+    #         return None
+    #
+    #     cdef bytes fp_str_b = fp_str.encode()
+    #     cdef char* fp_str_c = fp_str_b
+    #     cdef bytes server_name_b = server_name.encode()
+    #     cdef char* server_name_c = server_name_b
+    #     cdef bytes dst_ip_b = dst_ip.encode()
+    #     cdef char* dst_ip_c = dst_ip_b
+    #     if user_agent == None:
+    #         user_agent = 'None'
+    #     cdef bytes user_agent_b = user_agent.encode()
+    #     cdef char* user_agent_c = user_agent_b
+    #     if user_agent == 'None':
+    #         user_agent_c = NULL
+    #
+    #     cdef analysis_result ar = self.clf.perform_analysis_with_weights(fp_str_c, server_name_c, dst_ip_c, dst_port, user_agent_c,
+    #                                                 new_as_weight, new_domain_weight, new_port_weight,
+    #                                                 new_ip_weight, new_sni_weight, new_ua_weight)
+    #
+    #     cdef fingerprint_status fp_status_enum = ar.status
+    #     fp_status = fp_status_dict[fp_status_enum]
+    #
+    #     cdef dict result = {}
+    #     result['fingerprint_info'] = {}
+    #     result['fingerprint_info']['status'] = fp_status
+    #     result['analysis'] = {}
+    #     result['analysis']['process']   = ar.max_proc.decode('UTF-8')
+    #     result['analysis']['score']     = ar.max_score
+    #     result['analysis']['malware']   = ar.max_mal
+    #     result['analysis']['p_malware'] = ar.malware_prob
+    #
+    #     return result
 
     cdef list extract_attributes(self, analysis_result ar):
         cdef char tags_buf[8192]
@@ -525,6 +590,76 @@ cdef class Mercury:
         return fp_status_dict[fp_status], fp_type_dict[fp_type], fp_string.decode('UTF-8')
 
 
+    cpdef dict get_correlation_object(self, bytes pkt_data, double ts=0.0):
+        """
+        Return JSON representation of a correlation object, which contains data features
+        extracted from a packet that can be used to correlate network and/or endpoint observations.
+
+        :param pkt_data: packet data
+        :type pkt_data: bytes
+        :param ts: timestamp associated with the packet data (default=0.0)
+        :type ts: double
+        :return: JSON-encoded correlation object.
+        :rtype: dict
+        """
+        cdef unsigned char* pkt_data_ref = pkt_data
+
+        cdef char buf[8192]
+        memset(buf, 0, 8192)
+
+        # set timestamp
+        cdef timespec c_ts
+        c_ts.tv_sec  = int(ts)
+        c_ts.tv_nsec = int(math.modf(ts)[0]*1e9)
+
+        mercury_packet_processor_write_json(<mercury_packet_processor>self.mpp, buf, 8192, pkt_data_ref, len(pkt_data), &c_ts)
+
+        cdef str json_str = buf.decode('UTF-8')
+        if json_str != None:
+            try:
+                r = json.loads(json_str.strip())
+            except:
+                return None
+        else:
+            return None
+
+        co = {}
+
+        # populate protocol-agnostic features
+        if 'src_ip' in r:
+            co['src_ip']   = r['src_ip']
+        if 'dst_ip' in r:
+            co['dst_ip']   = r['dst_ip']
+        if 'src_port' in r:
+            co['src_port'] = r['src_port']
+        if 'dst_port' in r:
+            co['dst_port'] = r['dst_port']
+        if 'protocol' in r:
+            co['protocol'] = r['protocol']
+        if 'ip' in r and 'id' in r['ip']:
+            co['ip_id']    = r['ip']['id']
+
+        # populate protocol-aware features
+        if 'tls' in r and 'client' in r['tls']:
+            if 'random' in r['tls']['client']:
+                co['tls_random'] = r['tls']['client']['random']
+            if 'server_name' in r['tls']['client']:
+                co['tls_server_name'] = r['tls']['client']['server_name']
+        if 'http' in r and 'request' in r['http']:
+            if 'host' in r['http']['request']:
+                co['http_host'] = r['http']['request']['host']
+            if 'x_forwarded_for' in r['http']['request']:
+                co['http_x_forwarded_for'] = r['http']['request']['x_forwarded_for']
+        if 'dns' in r and 'query' in r['dns']:
+            if 'id' in r['dns']['query']:
+                co['dns_id'] = r['dns']['query']['id']
+            if 'question' in r['dns']['query']:
+                dns_names = ';'.join([x['name'] for x in r['dns']['query']['question'] if 'name' in x])
+                if dns_names != '':
+                    co['dns_names'] = dns_names
+
+        return co
+
     cdef tuple get_process_info(self, const analysis_context* ac):
         cdef double score, m_score
         cdef bool is_malware
@@ -562,6 +697,25 @@ def parse_dns(str b64_dns):
 
     # use mercury's dns parser to parse the DNS request
     return json.loads(dns_get_json_string(c_string_ref, len_).decode())
+
+
+def decode_mercury_fdc(str b64_fdc):
+    """
+    Return a JSON representation of a decoded mercury FDC object.
+
+    :param b64_fdc: Base64-encoded mercury FDC object.
+    :type b64_fdc: str
+    :return: JSON-encoded mercury decoded FDC.
+    :rtype: dict
+    """
+    cdef bytes fdc_blob = b64decode(b64_fdc)
+    cdef unsigned int len_ = len(fdc_blob)
+
+    # create reference to fdc_blob so that it doesn't get garbage collected
+    cdef char* c_string_ref = fdc_blob
+
+    # use mercury's FDC decoder to decode the FDC object
+    return json.loads(get_json_decoded_fdc(c_string_ref, len_).decode())
 
 
 
@@ -621,7 +775,6 @@ def get_cert_prefix(str b64_cert):
     return x.get_hex_string()  # TBD: make it hex
 
 
-
 cdef extern from "../libmerc/datum.h":
     cdef struct datum:
         const unsigned char *data
@@ -669,3 +822,4 @@ def parse_ech_config(str b64_ech_config):
     ech_obj = ECHConfig(ech_config)
 
     return ech_obj.get_json_string()
+

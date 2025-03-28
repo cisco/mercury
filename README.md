@@ -117,6 +117,7 @@ GENERAL OPTIONS
    --dns-json                            # output DNS as JSON, not base64
    --certs-json                          # output certs as JSON, not base64
    --metadata                            # output more protocol metadata in JSON
+   --raw-features                        # select protocols to write out raw features string(see --help)
    [-v or --verbose]                     # additional information sent to stderr
    --license                             # write license information to stdout
    --version                             # write version information to stdout
@@ -159,6 +160,9 @@ DETAILS
       http              HTTP request and response
       http.request      HTTP request
       http.response     HTTP response
+      ftp               FTP request and response
+      ftp.request       FTP request
+      ftp.response      FTP response
       icmp              ICMP message
       iec               IEC 60870-5-104
       lldp              LLDP message
@@ -242,6 +246,17 @@ DETAILS
     that data is output in base64 format, as a string with the key "base64".
 
    --metadata writes out additional metadata into the protocol JSON objects.
+
+   --raw-features selects protocols to write out raw features string into the protocol
+    JSON object which can be comma separated list of following strings:
+       bittorrent      Bittorrent Handshake Message, LSD message, DHT message
+       smb             SMB v2, v3 messages
+       ssdp            SSDP (UPnP)
+       stun            Stun messages
+       tls             TLS clientHello
+       all             All of the above
+       none            None of the above
+      <no option>     None of the above
 
    [-v or --verbose] writes additional information to the standard error,
    including the packet count, byte count, elapsed time and processing rate, as

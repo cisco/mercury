@@ -8,10 +8,12 @@
 #include <string.h>
 #include <variant>
 #include <set>
+#include <tuple>
 #include <netinet/in.h>
 
 #include "libmerc.h"
 #include "pkt_proc.h"
+#include "flow_key.h"
 #include "utils.h"
 #include "loopback.hpp"
 #include "linux_sll.hpp"
@@ -62,7 +64,7 @@
 #include "rfb.hpp"
 #include "geneve.hpp"
 #include "tsc_clock.hpp"
-
+#include "ftp.hpp"  
 // double malware_prob_threshold = -1.0; // TODO: document hidden option
 
 void write_flow_key(struct json_object &o, const struct key &k) {
@@ -129,6 +131,20 @@ struct do_crypto_assessment {
         return false;
     }
 
+    bool operator()(const ssh_init_packet &msg) {
+        if (msg.kex_pkt.is_not_empty()) {
+            ca->assess(msg.kex_pkt,record);
+        }
+        return false;
+    }
+
+    bool operator()(const ssh_kex_init &msg) {
+        if (msg.is_not_empty()) {
+            ca->assess(msg,record);
+        }
+        return false;
+    }
+
     template <typename T>
     bool operator()(const T &) {
         return false;   // no assessment performed for all other types
@@ -157,7 +173,7 @@ public:
         // add bot ip as user agent string
         //
         char src_ip_str[MAX_ADDR_STR_LEN];
-        k.sprint_dst_addr(src_ip_str);
+        k.sprintf_dst_addr(src_ip_str);
         char dst_ip_str[MAX_ADDR_STR_LEN];
         k.sprint_src_addr(dst_ip_str);
         char dst_port_str[MAX_PORT_STR_LEN];
@@ -292,15 +308,24 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         break;
     case tcp_msg_type_ssh:
         x.emplace<ssh_init_packet>(pkt);
+        {
+            uint32_t more_bytes = std::get<ssh_init_packet>(x).more_bytes_needed();
+            if (tcp_pkt && more_bytes) {
+                tcp_pkt->reassembly_needed(more_bytes,(uint8_t)indefinite_reassembly_type::ssh);
+                return;
+            }
+        }
         break;
     case tcp_msg_type_ssh_kex:
         {
             struct ssh_binary_packet ssh_pkt{pkt};
             if (tcp_pkt && ssh_pkt.additional_bytes_needed) {
-                tcp_pkt->reassembly_needed(ssh_pkt.additional_bytes_needed);
-                return;
+                tcp_pkt->reassembly_needed((uint32_t)ssh_pkt.additional_bytes_needed);
             }
-            x.emplace<ssh_kex_init>(ssh_pkt.payload);
+            else {
+                tcp_pkt->set_supplementary_reassembly();
+            }
+            x.emplace<ssh_kex_init>(ssh_pkt);
             break;
         }
     case tcp_msg_type_smtp_client:
@@ -365,6 +390,12 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         break;
     case tcp_msg_type_ldap:
         x.emplace<ldap::message>(pkt);
+        break;
+    case tcp_msg_type_ftp_response:
+        x.emplace<ftp::response>(pkt);
+        break;
+    case tcp_msg_type_ftp_request:
+        x.emplace<ftp::request>(pkt);
         break;
     default:
         if (is_new && global_vars.output_tcp_initial_data) {
@@ -528,7 +559,7 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
 
     // check if more tcp data is required
     set_tcp_protocol(x,pkt,is_new,&tcp_pkt);
-        if (!tcp_pkt.additional_bytes_needed && !(std::holds_alternative<std::monostate>(x))) {
+        if ((!tcp_pkt.additional_bytes_needed && !(std::holds_alternative<std::monostate>(x))) && (!tcp_pkt.supplementary_reassembly)) {
         // no need for reassembly
         // complete initial msg
         return true;
@@ -547,15 +578,21 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
     //
     reassembly_state r_state = reassembler->check_flow(k,ts->tv_sec);
 
+    // specical handling for supplementary reassembly
+    if ((r_state == reassembly_state::reassembly_none) && tcp_pkt.supplementary_reassembly) {
+        // since flow is not in reassembly, assume it as completed
+        return true;
+    }
+
     if ((r_state == reassembly_state::reassembly_none) && tcp_pkt.additional_bytes_needed){
         // init reassembly
-        tcp_segment seg{true,tcp_pkt.data_length,tcp_pkt.seq(),tcp_pkt.additional_bytes_needed,ts->tv_sec};
+        tcp_segment seg{true,tcp_pkt.data_length,tcp_pkt.seq(),tcp_pkt.additional_bytes_needed,ts->tv_sec, (indefinite_reassembly_type)tcp_pkt.indefinite_reassembly};
         reassembler->process_tcp_data_pkt(k,ts->tv_sec,seg,pkt_copy);
         reassembler->dump_pkt = true;
     }
     else if (r_state == reassembly_state::reassembly_progress){
         // continue reassembly
-        tcp_segment seg{false,tcp_pkt.data_length,tcp_pkt.seq(),0,ts->tv_sec};
+        tcp_segment seg{false,tcp_pkt.data_length,tcp_pkt.seq(),0,ts->tv_sec, (indefinite_reassembly_type)tcp_pkt.indefinite_reassembly};
         reassembler->process_tcp_data_pkt(k,ts->tv_sec,seg,pkt_copy);
         reassembler->dump_pkt = true;
     }
@@ -855,10 +892,18 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
         bool output_analysis = false;
         if (global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
+
             output_analysis = std::visit(do_analysis{k, analysis, c}, x);
 
             // note: we only perform observations when analysis is
             // configured, because we rely on do_analysis to set the
+
+            // check for additional classifier agnostic attributes like encrypted dns and domain-faking
+            //
+            if (!analysis.result.attr.is_initialized() && c) {
+                analysis.result.attr.initialize(&(c->get_common_data().attr_name.value()),c->get_common_data().attr_name.get_names_char());
+            }
+            c->check_additional_attributes(analysis);
 
             // analysis_.destination
             //
@@ -897,6 +942,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         }
 
         write_flow_key(record, k);
+
         record.print_key_timestamp("event_start", ts);
         record.close();
     }
@@ -1126,6 +1172,13 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             analysis.result.reinit();
             bool output_analysis = std::visit(do_analysis{k, analysis, c}, x);
 
+            // check for additional classifier agnostic attributes like encrypted dns and domain-faking
+            //
+            if (!analysis.result.attr.is_initialized() && c) {
+                analysis.result.attr.initialize(&(c->get_common_data().attr_name.value()),c->get_common_data().attr_name.get_names_char());
+            }
+            c->check_additional_attributes(analysis);
+
             // note: we only perform observations when analysis is
             // configured, because we rely on do_analysis to set the
             // analysis_.destination
@@ -1145,6 +1198,10 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             if (truncated_tcp or truncated_udp) {
                 analysis.result.status = fingerprint_status::fingerprint_status_unlabled;
             }
+
+            // report port in network byte order
+            //
+            analysis.destination.dst_port = ntoh(analysis.destination.dst_port);
 
             return output_analysis;
         }

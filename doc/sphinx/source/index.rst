@@ -7,77 +7,12 @@ Mercury Library Documentation
 ===================================
 
 .. toctree::
-   :maxdepth: 3
+   intro
+   datum
+   identifiers
+   python
+   :maxdepth: 2
    :caption: Contents:
-
-.. doxygenstruct:: datum
-   :project: mercury
-   :members:
-
-.. doxygenclass:: writeable
-   :project: mercury
-   :members:
-
-.. doxygenstruct:: data_buffer
-   :project: mercury
-   :members:
-
-.. doxygenclass:: pad
-   :project: mercury
-   :members:
-
-.. doxygenclass:: encoded
-   :project: mercury
-   :members:
-
-.. doxygenclass:: type_codes
-   :project: mercury
-   :members:
-
-.. doxygenclass:: literal
-   :project: mercury
-   :members:
-
-.. doxygenclass:: literal_byte
-   :project: mercury
-   :members:
-
-.. doxygenclass:: skip_bytes
-   :project: mercury
-   :members:
-
-.. doxygenclass:: lookahead
-   :project: mercury
-   :members:
-
-.. doxygenclass:: acceptor
-   :project: mercury
-   :members:
-
-.. doxygenclass:: optional
-   :project: mercury
-   :members:
-
-.. doxygenclass:: ignore
-   :project: mercury
-   :members:
-
-.. doxygenclass:: sequence
-   :project: mercury
-   :members:
-
-.. doxygengroup:: byteorder
-   :project: mercury
-
-.. doxygengroup:: bitoperations
-   :project: mercury
-
-Mercury Python Library Documentation
-====================================
-
-.. automodule:: mercury
-   :members:
-   :show-inheritance:
 
 
 Indices and tables
@@ -86,3 +21,7 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
+Table of Contents
+^^^^^^^^^^^^^^^^^
+

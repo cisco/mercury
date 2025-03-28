@@ -11,13 +11,6 @@
 #include <string>
 #include <stdexcept>
 
-class hex_digits : public one_or_more<hex_digits> {
-public:
-    inline static bool in_class(uint8_t x) {
-        return (x >= '0' && x <= '9') || (x >= 'a' && x <= 'f') || (x >= 'A' && x <= 'F');
-    }
-};
-
 // a simple CBOR decoder, following RFC 8949
 //
 namespace cbor {

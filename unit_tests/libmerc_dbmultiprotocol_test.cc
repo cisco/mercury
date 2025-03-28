@@ -464,6 +464,46 @@ TEST_CASE_METHOD(LibmercTestFixture, "test dnp3 with resources-mp")
     }
 }
 
+TEST_CASE_METHOD(LibmercTestFixture, "test ftp with resources-mp")
+{
+
+    auto ftp_check = [&](int expected_count, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(expected_count == counter());
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, int>> test_set_up{
+        {test_config{
+             .m_lc{.metadata_output=true, .do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"ftp"},
+             .m_pc{"ftp.pcap"}},
+             
+         58},
+         {test_config{
+             .m_lc{.resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"ftp"},
+             .m_pc{"ftp2.pcap"}},
+             
+         23},
+
+        {test_config{
+             .m_lc{.metadata_output=true, .do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"ftp"},
+             .m_pc{"top_100_fingerprints.pcap"}},
+         0}
+    };
+
+    for (auto &[config, count] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        ftp_check(count, config.m_lc);
+    }
+}
+
 TEST_CASE_METHOD(LibmercTestFixture, "test decrypted quic with resources-mp")
 {
 
@@ -534,6 +574,64 @@ TEST_CASE_METHOD(LibmercTestFixture, "test attributes with resources-mp")
         attr_check(attrs, config.m_lc);
     }
 }
+
+TEST_CASE_METHOD(LibmercTestFixture, "test faketls attribute with resources-mp")
+{
+    auto attr_check = [&](std::string &expected_attr, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(check_attr(expected_attr));
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, std::string>> test_set_up{
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"all"},
+            .m_pc{"faketls_potatovpn.pcap"}},
+            "faketls"    // check if faketls attribute is present in the attributes array
+        }
+    };
+
+    for (auto &[config, expected_attr] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        attr_check(expected_attr, config.m_lc);
+    }
+}
+
+/*
+//Domain-Faking testcase will be enabled once the resource file starts including domain-mappings.db
+//
+TEST_CASE_METHOD(LibmercTestFixture, "test domain_faking attribute with resources-mp")
+{
+    auto attr_check = [&](std::string &expected_attr, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(check_attr(expected_attr));
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, std::string>> test_set_up{
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"all"},
+            .m_pc{"domain_faking.pcap"}},
+            "domain_faking"    // check if domain_faking attribute is present in the attributes array
+        }
+    };
+
+    for (auto &[config, expected_attr] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        attr_check(expected_attr, config.m_lc);
+    }
+}
+*/
 
 TEST_CASE_METHOD(LibmercTestFixture, "test nbss with resources-mp")
 {
@@ -763,5 +861,45 @@ TEST_CASE_METHOD(LibmercTestFixture, "test stun with resources-mp")
     {
         set_pcap(config.m_pc.c_str());
         stun_check(count, config.m_lc);
+    }
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "test ssh fingerprinting and reassembly")
+{
+
+    auto ssh_check = [&](int count, const struct libmerc_config &config, fingerprint_type fp_t, fingerprint_type fp_t2)
+    {
+        initialize(config);
+
+        CHECK(count == counter(fp_t, fp_t2));
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, int>> test_set_up{
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"ssh;reassembly"},
+             .m_pc{"ssh_frag.pcap"},
+             .fp_t = fingerprint_type_ssh},
+         2},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"ssh"},
+             .m_pc{"ssh_frag.pcap"},
+             .fp_t = fingerprint_type_ssh_init},
+         2},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"ssh"},
+             .m_pc{"ssh_frag.pcap"},
+             .fp_t = fingerprint_type_ssh_kex},
+         2} 
+    };
+
+    for (auto &[config, count] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        ssh_check(count, config.m_lc, config.fp_t, fingerprint_type_unknown);
     }
 }

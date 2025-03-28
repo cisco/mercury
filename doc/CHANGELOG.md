@@ -1,5 +1,26 @@
 # CHANGELOG for Mercury
 
+## VERSION 2.6.4
+* Added reporting of HTTP CONNECT proxies in JSON output.
+* Added FTP command channel reporting in JSON output.
+* Added SSH crypto assessment.
+* Refactored weighted naive bayes classifier and eliminated
+  intermedate data structures that had been used during
+  initialization.
+* Several minor fixes and defensive coding additions
+* Added normalization for TLS/QUIC Server Names and HTTP Hosts
+* Added test cases for CBOR.
+* Improved error checking and unit test cases for IPv4 and IPv6 address textual representations.
+* Added detectors for Domain Faking and Fake TLS.
+
+## VERSION 2.6.3
+* Revamped SSH metadata and fingerprints.
+* Minor improvements to reassembly.
+* Numerical stability improvements to the naive bayes classifier.
+* Added [`classify`](src/classify.cpp) tool for running classifier
+  on a command-line arguments.
+* Minor fixes to reassembly and LDAP parsing
+
 ## VERSION 2.6.2
 * Removed default interface from template configuration file
   `mercury.cfg` and added runtime check to require that an interface

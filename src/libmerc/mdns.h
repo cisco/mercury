@@ -14,6 +14,7 @@
 #define MDNS_H
 
 #include "dns.h"
+#include "flow_key.h"
 
 /*
  * Summary of mDNS (from RFC 6762)
@@ -58,23 +59,17 @@ struct mdns_packet : public base_protocol {
     static bool check_if_mdns(const struct key& k) {
         static constexpr uint32_t mdns_v4_addr = 0xE00000FB; /* Hex representation of 224.0.0.251 */
         /* Mdns Multicast IPv6 address ff02::fb */
-        static constexpr uint32_t mdns_v6_addr_0 = 0xff020000;
-        static constexpr uint32_t mdns_v6_addr_1 = 0;
-        static constexpr uint32_t mdns_v6_addr_2 = 0;
-        static constexpr uint32_t mdns_v6_addr_3 = 0xfb;
+        static constexpr ipv6_address mdns_v6_addr{ 0xff020000, 0x00000000, 0x00000000, 0x000000fb };
 
         if (k.src_port == 5353 and k.dst_port == 5353) {
             return true;
         }
-        /* Below condition is to detect One shot multicast dns queries */
+        /* Below condition is to detect One shot multicast  dns queries */
         if (k.ip_vers == 4) {
             return (k.addr.ipv4.dst == ntoh(mdns_v4_addr));
         }
         else {
-            return (k.addr.ipv6.dst.a ==  ntoh(mdns_v6_addr_0)
-                and k.addr.ipv6.dst.b ==  ntoh(mdns_v6_addr_1)
-                and k.addr.ipv6.dst.c ==  ntoh(mdns_v6_addr_2)
-                and k.addr.ipv6.dst.d ==  ntoh(mdns_v6_addr_3));
+            return (k.addr.ipv6.dst == mdns_v6_addr);
         }
     }
 };

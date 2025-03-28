@@ -18,6 +18,7 @@
 #include <atomic>
 #include <zlib.h>
 #include <functional>
+#include <tuple>
 
 #include "dict.h"
 #include "queue.h"
