@@ -74,6 +74,7 @@ class esp;
 namespace ike { class packet; }
 namespace rfb { class protocol_version_handshake; }
 namespace tacacs { class packet; }
+namespace rdp { class connection_request_pdu; }
 
 using protocol = std::variant<std::monostate,
                               http_request,                      // start of tcp protocols
@@ -93,6 +94,7 @@ using protocol = std::variant<std::monostate,
                               ldap::message,
                               ftp::request,
                               ftp::response,
+                              rdp::connection_request_pdu,
                               unknown_initial_packet,
                               quic_init,                         // start of udp protocols
                               wireguard_handshake_init,

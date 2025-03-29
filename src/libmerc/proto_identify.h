@@ -75,6 +75,7 @@ enum tcp_msg_type {
     tcp_msg_type_tacacs,
     tcp_msg_type_ftp_request,
     tcp_msg_type_ftp_response,
+    tcp_msg_type_rdp,
 };
 
 enum udp_msg_type {
@@ -255,6 +256,7 @@ class traffic_selector {
     bool select_ipsec{false};
     bool select_rfb{false};
     bool select_tacacs{false};
+    bool select_rdp{false};
 
 public:
 
@@ -299,6 +301,8 @@ public:
     bool ipsec() const { return select_ipsec; }
 
     bool rfb() const { return select_rfb; }
+
+    bool rdp() const { return select_rdp; }
 
     bool tacacs() const { return select_tacacs; }
 
@@ -366,6 +370,10 @@ public:
         if (protocols["rfb"] || protocols["all"]) {
             //fprintf(stderr, "%s: adding rfb\n", __func__);
             tcp.add_protocol(rfb::protocol_version_handshake::matcher, tcp_msg_type_rfb);
+        }
+        if (protocols["rdp"] || protocols["all"]) {
+            //fprintf(stderr, "%s: adding rfb\n", __func__);
+            select_rdp = true;
         }
         if(protocols["ftp"] || protocols["all"])
         {
@@ -621,6 +629,10 @@ public:
 
         if (tacacs() and (tcp_pkt->header->src_port == hton<uint16_t>(49) or tcp_pkt->header->dst_port == hton<uint16_t>(49)) ) {
             return tcp_msg_type_tacacs;
+        }
+
+        if (rdp() and (tcp_pkt->header->src_port == hton<uint16_t>(3389) or tcp_pkt->header->dst_port == hton<uint16_t>(3389)) ) {
+            return tcp_msg_type_rdp;
         }
 
         return tcp_msg_type_unknown;

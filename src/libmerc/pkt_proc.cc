@@ -64,7 +64,9 @@
 #include "rfb.hpp"
 #include "geneve.hpp"
 #include "tsc_clock.hpp"
-#include "ftp.hpp"  
+#include "ftp.hpp"
+#include "rdp.hpp"
+
 // double malware_prob_threshold = -1.0; // TODO: document hidden option
 
 void write_flow_key(struct json_object &o, const struct key &k) {
@@ -276,11 +278,9 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
     // use get_if<T>(), which does not
 
     enum tcp_msg_type msg_type = (tcp_msg_type) selector.get_tcp_msg_type(pkt);
-    //fprintf(stderr, "0th got tcp_msg_type: %d\n", msg_type);
     if (msg_type == tcp_msg_type_unknown) {
         msg_type = (tcp_msg_type) selector.get_tcp_msg_type_from_ports(tcp_pkt);
     }
-    //fprintf(stderr, "1st got tcp_msg_type: %d\n", msg_type);
 
     switch(msg_type) {
     case tcp_msg_type_http_request:
@@ -337,8 +337,10 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
     case tcp_msg_type_tacacs:
         x.emplace<tacacs::packet>(pkt);
         break;
+    case tcp_msg_type_rdp:
+        x.emplace<rdp::connection_request_pdu>(pkt);
+        break;
     case tcp_msg_type_rfb:
-        // fprintf(stderr, "got rfb\n");
         x.emplace<rfb::protocol_version_handshake>(pkt);
         break;
     case tcp_msg_type_dns:

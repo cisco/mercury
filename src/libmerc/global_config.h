@@ -180,6 +180,7 @@ public:
             { "nbss",                   false },
             { "ospf",                   false },
             { "quic",                   false },
+            { "rdp",                    false },
             { "rfb",                    false },
             { "sctp",                   false },
             { "smb",                    false },

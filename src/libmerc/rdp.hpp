@@ -6,14 +6,16 @@
 #define RDP_HPP
 
 #include "datum.h"
+#include "json_object.h"
+#include "protocol.h"
 
 namespace rdp {
 
-    static constexpr default_port = hton<uint16_t>(3389);
+    static constexpr uint16_t default_port = hton<uint16_t>(3389);
 
-    //     A TPKT consists of two parts:  a packet-header and a TPDU.  The
-    // format of the header is constant regardless of the type of packet.
-    // The format of the packet-header is as follows:
+    // A TPKT consists of two parts: a packet-header and a TPDU.  The
+    // format of the header is constant regardless of the type of
+    // packet.  The format of the packet-header is as follows:
     //
     //   0                   1                   2                   3
     //   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -75,6 +77,71 @@ namespace rdp {
 
     };
 
+    static constexpr uint8_t TYPE_RDP_NEG_REQ = 0x01;
+
+    class rdp_neg_req {
+        literal_byte<TYPE_RDP_NEG_REQ> type;
+        encoded<uint8_t> flags;
+        literal_byte<0x08, 0x00> length;       // length MUST be 0x0008, in network byte order
+        encoded<uint32_t> requested_protocols;
+        bool valid;
+
+    public:
+
+        rdp_neg_req(datum &d) :
+            type{d},
+            flags{d},
+            length{d},
+            requested_protocols{d, true},
+            valid{d.is_not_null()}
+        {}
+
+        void write_json(json_object &o) const {
+            if (!valid) { return; }
+
+            json_object neg_req{o, "negotiation_request"};
+
+            json_array flags_array{neg_req, "flags"};
+            if (flags.bit<7>()) {
+                flags_array.print_string("RESTRICTED_ADMIN_MODE_REQUIRED");
+            }
+            if (flags.bit<6>()) {
+                flags_array.print_string("REDIRECTED_AUTHENTICATION_MODE_REQUIRED");
+            }
+            if (flags.bit<4>()) {
+                flags_array.print_string("CORRELATION_INFO_PRESENT");
+            }
+            //
+            //  note: it would be best to print out other "unknown" flags, if there are any present
+            //
+            flags_array.close();
+
+            json_array rp_array{neg_req, "requested_protocols"};
+            if (requested_protocols.bit<31>()) {
+                rp_array.print_string("PROTOCOL_SSL");
+            }
+            if (requested_protocols.bit<30>()) {
+                rp_array.print_string("PROTOCOL_HYBRID");
+            }
+            if (requested_protocols.bit<29>()) {
+                rp_array.print_string("PROTOCOL_RDSTLS");
+            }
+            if (requested_protocols.bit<28>()) {
+                rp_array.print_string("PROTOCOL_HYBRID_EX");
+            }
+            if (requested_protocols.bit<27>()) {
+                rp_array.print_string("PROTOCOL_RDSAAD");
+            }
+            //
+            //  note: it would be best to print out other "unknown" flags, if there are any present
+            //
+            rp_array.close();
+
+            neg_req.close();
+        }
+
+    };
+
     // Client X.224 Connection Request PDU (following Remote Desktop
     // Protocol: Basic Connectivity and Graphics Remoting
     // [MS-RDPBCGR], Section 2.2.1.1)
@@ -102,9 +169,11 @@ namespace rdp {
     // the optional rdpNegReq field. If the CORRELATION_INFO_PRESENT
     // (0x08) flag is not set, then this field MUST NOT be present.
     //
-    class connection_request_pdu {
+    class connection_request_pdu : public base_protocol {
         tpkt_header tpkt;
         cotp_connection_request cotp;
+        datum body;
+        bool valid;
 
         // optional fields not yet implemented
 
@@ -112,8 +181,28 @@ namespace rdp {
 
         connection_request_pdu(datum &d) :
             tpkt{d},
-            cotp{d}
+            cotp{d},
+            body{d},
+            valid{d.is_not_null()}
         { }
+
+        bool is_not_empty() const { return valid; }
+
+        void write_json(json_object &o, bool metadata=false) const {
+            (void)metadata;
+            json_object rdp{o, "rdp"};
+            datum tmp{body};
+            datum cookie;
+            cookie.parse_up_to_delim(tmp, '\r');
+            tmp.accept('\r');
+            tmp.accept('\n');
+            rdp.print_key_json_string("cookie", cookie);
+            if (lookahead<rdp_neg_req> negotiation_request{tmp}) {
+                negotiation_request.value.write_json(rdp);
+            }
+
+            rdp.close();
+        }
 
     };
 
