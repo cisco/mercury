@@ -10,6 +10,7 @@
 #include "libmerc/snmp.h"
 #include "libmerc/ip_address.hpp"
 #include "libmerc/watchlist.hpp"
+#include "libmerc/rdp.hpp"
 
 // Macros to colorize output
 //
@@ -67,6 +68,10 @@ int main(int, char *[]) {
         {
             "ipv6_address",
             &ipv6_address::unit_test
+        },
+        {
+            "rdp",
+            &rdp::unit_test
         },
     };
     size_t num_tests = 0;
