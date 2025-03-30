@@ -1047,6 +1047,19 @@ size_t stateful_pkt_proc::write_json(void *buffer,
     case LINKTYPE_LINUX_SLL:
         linux_sll::skip_to_ip(pkt);
         break;
+    case LINKTYPE_NULL:  // BSD loopback encapsulation
+        {
+            loopback_header loopback{pkt};
+            if (pkt.is_not_null()) {
+                switch(loopback.get_protocol_type()) {
+                case ETH_TYPE_IP:
+                case ETH_TYPE_IPV6:
+                    break;
+                default:
+                    return 0;  // unsupported protocol in loopback header
+                }
+            }
+        }
     default:
         break;
     }

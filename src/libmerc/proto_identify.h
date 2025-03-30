@@ -214,6 +214,7 @@ public:
                 return p.type;
             }
         }
+
         return 0;   // type unknown;
     }
 
@@ -368,11 +369,9 @@ public:
             tcp.add_protocol(smtp_server::matcher, tcp_msg_type_smtp_server);
         }
         if (protocols["rfb"] || protocols["all"]) {
-            //fprintf(stderr, "%s: adding rfb\n", __func__);
             tcp.add_protocol(rfb::protocol_version_handshake::matcher, tcp_msg_type_rfb);
         }
         if (protocols["rdp"] || protocols["all"]) {
-            //fprintf(stderr, "%s: adding rfb\n", __func__);
             select_rdp = true;
         }
         if(protocols["ftp"] || protocols["all"])

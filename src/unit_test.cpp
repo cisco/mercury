@@ -11,6 +11,7 @@
 #include "libmerc/ip_address.hpp"
 #include "libmerc/watchlist.hpp"
 #include "libmerc/rdp.hpp"
+#include "libmerc/rfb.hpp"
 
 // Macros to colorize output
 //
@@ -72,6 +73,10 @@ int main(int, char *[]) {
         {
             "rdp",
             &rdp::unit_test
+        },
+        {
+            "vnc",
+            &rfb::unit_test
         },
     };
     size_t num_tests = 0;
