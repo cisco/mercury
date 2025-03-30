@@ -182,12 +182,6 @@ public:
      */
     size_t get_msg_type(datum &pkt) const {
 
-        // fprintf(stderr, "%s: ", __func__);
-        // pkt.fprint_hex(stderr, 8);
-        // fprintf(stderr, "\t");
-        // pkt.fprint(stderr, 8);
-        // fprintf(stderr, "\n");
-
         // TODO: process short data fields
         //
         if (pkt.length() < 4) {
@@ -196,11 +190,9 @@ public:
         for (matcher_and_type p : matchers) {
             if (N == 4) {
                 if (p.mv.matches(pkt.data, pkt.length()) && pkt_len_match(pkt, p.type)) {
-                    //fprintf(stderr, "matched 4.msg_type %zu\n", p.type);
                 return p.type;
                 }
             } else if (p.mv.matches(pkt.data, pkt.length())) {
-                //fprintf(stderr, "matched msg_type %zu\n", p.type);
                 return p.type;
             }
         }
