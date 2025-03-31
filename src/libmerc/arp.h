@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include "datum.h"
 #include "eth.h"
+#include "ip_address.hpp"
 
 class arp_packet {
 
@@ -123,5 +124,8 @@ public:
     bool is_not_empty() const { return hdr != nullptr; }
 };
 
+[[maybe_unused]] inline int arp_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<arp_packet>(data, size);
+}
 
 #endif // ARP_H

@@ -576,4 +576,8 @@ namespace ike {
     };
 };
 
+[[maybe_unused]] inline int ike_packet_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<ike::packet>(data, size);
+}
+
 #endif // IKE_H

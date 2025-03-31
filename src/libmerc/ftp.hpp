@@ -210,4 +210,12 @@ namespace ftp
 #endif
 };
 
+[[maybe_unused]] inline int ftp_request_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<ftp::request>(data, size);
+}
+
+[[maybe_unused]] inline int ftp_response_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<ftp::response>(data, size);
+}
+
 #endif // FTP_HPP

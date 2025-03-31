@@ -100,5 +100,8 @@ public:
     }
 };
 
+[[maybe_unused]] inline int esp_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<esp>(data, size);
+}
 
 #endif // ESP_H
