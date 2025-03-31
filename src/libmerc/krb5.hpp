@@ -470,7 +470,8 @@ namespace krb5 {
 
         bool is_not_empty() const { return application.is_not_null(); }
 
-        void write_json(json_object &o, bool ) const {
+        void write_json(json_object &o, bool metadata=false) const {
+            (void)metadata;
             json_object_asn1 krb_json{o, "kerberos"};
             json_array_asn1 raw_krb{krb_json, "raw"};
             tlv tmp{app2};
@@ -500,4 +501,9 @@ namespace krb5 {
 
 } // namespace krb5
 
-#endif // KRB5_HPP
+[[maybe_unused]] inline int krb5_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<krb5::packet>(data, size);
+}
+
+#endif // KRB5_H
+

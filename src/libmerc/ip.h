@@ -151,6 +151,7 @@ class ipv4_packet {
         }
     }
 
+    bool is_not_empty() const { return header != nullptr; }
 };
 
 // IPv6 header (following RFC 2460)
@@ -450,6 +451,8 @@ public:
         }
     }
 
+    bool is_not_empty() const { return header != nullptr; }
+
 };
 
 
@@ -703,5 +706,31 @@ public:
     }
 
 };
+
+[[maybe_unused]] inline int ipv4_packet_fuzz_test(const uint8_t *data, size_t size) {
+    key k;
+    struct datum packet_data{data, data+size};
+    ipv4_packet pkt{packet_data, k};
+    if (pkt.is_not_empty()) {
+        char buffer[8192];
+        struct buffer_stream buf_json(buffer, sizeof(buffer));
+        struct json_object record(&buf_json);
+        pkt.write_json(record);
+    }
+    return 0;
+}
+
+[[maybe_unused]] inline int ipv6_packet_fuzz_test(const uint8_t *data, size_t size) {
+    key k;
+    struct datum packet_data{data, data+size};
+    ipv6_packet pkt{packet_data, k};
+    if (pkt.is_not_empty()) {
+        char buffer[8192];
+        struct buffer_stream buf_json(buffer, sizeof(buffer));
+        struct json_object record(&buf_json);
+        pkt.write_json(record);
+    }
+    return 0;
+}
 
 #endif // MERC_IP_H

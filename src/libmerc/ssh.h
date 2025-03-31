@@ -464,4 +464,8 @@ struct ssh_init_packet : public base_protocol {
 
 };
 
+[[maybe_unused]] inline int ssh_init_packet_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<ssh_init_packet>(data, size);
+}
+
 #endif // SSH_H

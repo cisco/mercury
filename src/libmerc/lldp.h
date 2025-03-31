@@ -275,4 +275,8 @@ public:
     bool is_not_empty() { return true; }  // TODO: validate mandatory TLVs
 };
 
+[[maybe_unused]] inline int lldp_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<lldp>(data, size);
+}
+
 #endif // LLDP_H

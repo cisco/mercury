@@ -407,4 +407,9 @@ namespace ldap {
 
 };  // namespace ldap
 
+
+[[maybe_unused]] inline int ldap_message_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<ldap::message>(data, size);
+}
+
 #endif // LDAP_HPP

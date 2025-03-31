@@ -212,4 +212,9 @@ public:
 
 };
 
+[[maybe_unused]] inline int tofsee_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<tofsee_initial_message>(data, size);
+}
+
+
 #endif // TOFSEE_HPP

@@ -7,7 +7,6 @@
 #ifndef CDP_H
 #define CDP_H
 
-#include "eth.h"
 #include "datum.h"
 #include "json_object.h"
 
@@ -149,5 +148,9 @@ struct cdp {
 
     bool is_not_empty() { return tlv_list.is_not_empty(); }
 };
+
+[[maybe_unused]] inline int cdp_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<cdp>(data, size);
+}
 
 #endif // CDP_H

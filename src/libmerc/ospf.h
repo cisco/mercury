@@ -7,6 +7,7 @@
 #define OSPF_H
 
 #include "datum.h"
+#include "protocol.h"
 
 //  OSPF packet header (following RFC 2328, A.3.1)
 //
@@ -116,5 +117,9 @@ public:
     }
 
 };
+
+[[maybe_unused]] inline int ospf_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<ospf>(data, size);
+}
 
 #endif // OSPF_H

@@ -391,4 +391,8 @@ namespace ocsp {
 
 };  // namespace ocsp
 
+[[maybe_unused]] inline int ocsp_request_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<ocsp_request>(data, size);
+}
+
 #endif // OCSP_HPP

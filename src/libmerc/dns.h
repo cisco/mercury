@@ -1032,7 +1032,8 @@ struct dns_packet : public base_protocol {
         return is_netbios;
     }
 
-    void write_json(struct json_object &o) const {
+    void write_json(struct json_object &o, bool metadata=false) const {
+        (void)metadata;
         if (header == NULL) {
             return;
         }
@@ -1141,18 +1142,7 @@ std::string dns_get_json_string(const char *dns_pkt, ssize_t pkt_len);
 namespace {
 
     [[maybe_unused]] int dns_fuzz_test(const uint8_t *data, size_t size) {
-        struct datum request_data{data, data+size};
-        char buffer[8192];
-        struct buffer_stream buf_json(buffer, sizeof(buffer));
-        struct json_object record(&buf_json);
-        
-
-        dns_packet request{request_data};
-        if (request.is_not_empty()) {
-            request.write_json(record);            
-        }
-
-        return 0;
+        return json_output_fuzzer<dns_packet>(data, size);
     }
 
 };
