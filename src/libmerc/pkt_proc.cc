@@ -517,6 +517,7 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
         break;
     case udp_msg_type_krb5:
         x.emplace<krb5::packet>(pkt);
+        break;
     case udp_msg_type_tftp:
         x.emplace<tftp::packet>(pkt);
         break;

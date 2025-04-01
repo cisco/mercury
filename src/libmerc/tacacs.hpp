@@ -126,12 +126,17 @@ namespace tacacs {
             tacacs_json.print_key_uint("minor_version", version.slice<4,8>());
             print_type_code(tacacs_json);
             tacacs_json.print_key_uint("seq_no", seq_no);
-            if (type.value() == 0x01) {
-                if (lookahead<authentication_start> as{body}) {
-                    as.value.write_json(tacacs_json);
+
+            if (flags.bit<7>()) {             // unencrypted
+                if (type.value() == 0x01) {
+                    if (lookahead<authentication_start> as{body}) {
+                        as.value.write_json(tacacs_json);
+                    }
+                } else {
+                    tacacs_json.print_key_hex("unencrypted_body", body);
                 }
-            } else {
-                tacacs_json.print_key_hex("body", body);
+            } else {                          // encrypted
+                tacacs_json.print_key_hex("encrypted_body", body);
             }
             tacacs_json.close();
         }
@@ -172,7 +177,7 @@ namespace tacacs {
         }
 
         static bool unit_test()  {
- 
+
             uint8_t reference[] = {
                 0xc1, 0x01, 0x01, 0x21, 0xdf, 0x01, 0x00, 0x00,
                 0x00, 0x00, 0x00, 0x24, 0x01, 0x01, 0x02, 0x01,
