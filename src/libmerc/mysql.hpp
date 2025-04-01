@@ -762,6 +762,8 @@ public:
 
         login_req.close();
     }
+
+    bool is_not_empty() { return valid; }
 };
 
 #endif  // MYSQL_HPP
