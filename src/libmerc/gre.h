@@ -75,4 +75,14 @@ public:
     }
 };
 
+[[maybe_unused]] inline int gre_header_fuzz_test(const uint8_t *data, size_t size) {
+    key k; 
+    struct datum packet_data{data, data+size};
+    gre_header pkt{packet_data, k};
+    char buffer[8192];
+    struct buffer_stream buf_json(buffer, sizeof(buffer));
+    struct json_array record(&buf_json);
+    pkt.write_json(record);
+    return 0;
+}
 #endif

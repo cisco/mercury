@@ -7,6 +7,7 @@
 #define VXLAN_HPP
 #include "eth.h"
 #include "json_object.h"
+#include "protocol.h"
 
 // VXLAN packet header
 //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -66,5 +67,18 @@ public:
         rec.close();
     }
 };
+
+[[maybe_unused]] inline int vxlan_fuzz_test(const uint8_t *data, size_t size) {
+    key k;
+    struct datum packet_data{data, data+size};
+    vxlan pkt{packet_data, k};
+    if (pkt.is_not_empty()) {
+        char buffer[8192];
+        struct buffer_stream buf_json(buffer, sizeof(buffer));
+        struct json_array record(&buf_json);
+        pkt.write_json(record);
+    }
+    return 0;
+}
 
 #endif  // VXLAN_HPP

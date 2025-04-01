@@ -8,6 +8,7 @@
 #include "eth.h"
 #include "json_object.h"
 #include "loopback.hpp"
+#include "protocol.h"
 
 //  Geneve Header:
 //      0                   1                   2                   3
@@ -90,4 +91,14 @@ public:
     }
 };
 
+[[maybe_unused]] inline int geneve_fuzz_test(const uint8_t *data, size_t size) {
+    key k; 
+    struct datum packet_data{data, data+size};
+    geneve pkt{packet_data, k};
+    char buffer[8192];
+    struct buffer_stream buf_json(buffer, sizeof(buffer));
+    struct json_array record(&buf_json);
+    pkt.write_json(record);
+    return 0;
+}
 #endif  // GENEVE_HPP
