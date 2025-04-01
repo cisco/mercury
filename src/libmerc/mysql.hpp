@@ -626,6 +626,7 @@ struct lenenc_int {
 
             case 0x00: // no data
                 len = 0;
+                break;
 
             default:
                 if (len_mask > 0 && len_mask < 251) {
@@ -678,7 +679,7 @@ public:
         }
 
         if (pkt.is_empty()) { // no more data
-            bool request_ssl = true;
+            request_ssl = true;
             return;
         }
         
