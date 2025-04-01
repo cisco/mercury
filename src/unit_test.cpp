@@ -12,6 +12,8 @@
 #include "libmerc/watchlist.hpp"
 #include "libmerc/rdp.hpp"
 #include "libmerc/rfb.hpp"
+#include "libmerc/dns_trie.hpp"
+#include "libmerc/tftp.hpp"
 
 // Macros to colorize output
 //
@@ -78,6 +80,10 @@ int main(int, char *[]) {
             "vnc",
             &rfb::unit_test
         },
+        {
+            "tftp",
+            &tftp::unit_test
+        },
     };
     size_t num_tests = 0;
     size_t num_passed = 0;
@@ -109,6 +115,10 @@ int main(int, char *[]) {
         {
             "server_identifier",
             &server_identifier::unit_test
+        },
+        {
+            "dns_trie",
+            &dns_trie<std::string>::unit_test
         },
     };
     for (const auto &tc : test_cases_verbose) {

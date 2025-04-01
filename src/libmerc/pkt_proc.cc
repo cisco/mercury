@@ -66,6 +66,7 @@
 #include "tsc_clock.hpp"
 #include "ftp.hpp"
 #include "rdp.hpp"
+#include "tftp.hpp"
 
 // double malware_prob_threshold = -1.0; // TODO: document hidden option
 
@@ -516,6 +517,8 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
         break;
     case udp_msg_type_krb5:
         x.emplace<krb5::packet>(pkt);
+    case udp_msg_type_tftp:
+        x.emplace<tftp::packet>(pkt);
         break;
     default:
         if (is_new) {
