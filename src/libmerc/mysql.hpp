@@ -11,6 +11,9 @@
 
 // Reference : https://dev.mysql.com/doc/dev/mysql-server/latest/PAGE_PROTOCOL.html
 // https://mariadb.com/kb/en/clientserver-protocol/
+// https://mariadb.com/kb/en/connection/
+// decoding len encoded int : https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_basic_dt_integers.html
+// https://mariadb.com/kb/en/protocol-data-types/#length-encoded-strings
 
 namespace mysql_consts{
 
@@ -58,6 +61,8 @@ namespace mysql_consts{
     struct capabilities {
         uint16_t val;
 
+        static constexpr uint8_t connect_with_db = 0b1000;
+
         capabilities (uint16_t cap) : val{cap} {}
 
         capabilities (datum &pkt) : val{encoded<uint16_t>{pkt,true}.value()} {}
@@ -81,6 +86,9 @@ namespace mysql_consts{
 
     struct extended_capabilities {
         uint16_t ext_val;
+
+        static constexpr uint8_t auth_plugin_set = 0b1000;
+        static constexpr uint16_t len_enc_mask = 0b100000;
 
         extended_capabilities (uint16_t ext_cap) : ext_val{ext_cap} {}
 
@@ -437,7 +445,7 @@ class mysql_server_greet : public base_protocol {
     encoded<uint8_t> auth_plugin_len;
     bool if_auth_plugin;
     bool is_ver_less_41;
-    bool is_mariadb;
+    bool is_mariadb;   // either prefixed by 5.5.5- or keyword "MariaDB" in version
     bool partial_salt;
     datum salt_2{};
     bool valid = true;
@@ -474,15 +482,25 @@ public:
             }
             version.trim(1);
             if_auth_plugin = (auth_plugin_len > 0);
+            // TODO: this can only identify single digit versions, add generic versions
             uint8_t maj_ver = *(version.data);
             uint8_t min_ver = *(version.data + 2);
-            is_ver_less_41 =  (maj_ver < '4') || (maj_ver == '4' && min_ver < '1');
-            if ( maj_ver < '5' && if_auth_plugin) {
+
+            //is_mariadb = ( version.length() > 9 || !(cap()&1) );
+            static constexpr unsigned char maria_ver[] = "5.5.5-";
+            static constexpr unsigned char maria_keyword[] = "MariaDB";
+
+            is_mariadb = ( (version.find_delim(maria_ver,7) < version.length()) ||
+                            (version.find_delim(maria_keyword,8) < version.length()) ||
+                            !(cap()&1) );
+
+            is_ver_less_41 =  ((maj_ver < '4') || (maj_ver == '4' && min_ver < '1') && !is_mariadb);
+            if ( maj_ver < '5' && !is_mariadb && if_auth_plugin) {
                 valid = false;
                 return;
             }
             partial_salt = !is_ver_less_41;
-            is_mariadb = ( version.length() > 9 || !(cap()&1) );
+            
             if (is_mariadb) {
                 pkt.skip(6);
                 mariadb_ext_cap = encoded<uint32_t>{pkt}.value();
@@ -575,5 +593,174 @@ namespace {
 
 };
 
+struct lenenc_int {
+    uint32_t len;
+    bool valid = true;
+
+    lenenc_int(datum &pkt) {
+        encoded<uint8_t> len_mask {pkt};
+        switch (len_mask) {
+            case 0xFB: // null value follows
+                if (lookahead<encoded<uint8_t> >{pkt}.value != 0){
+                    valid = false;
+                    break;
+                }
+                len = 1;
+                pkt.skip(1);
+                break;
+            
+            case 0xFC: // 2 bytes length in host order
+                len = encoded<uint16_t>{pkt,true};
+                if (pkt.length() < len) {
+                    valid = false;
+                }
+                break;
+
+            case 0xFD: // 3 bytes length in host order, for auth data, this should never happen
+                valid = false;
+                break;
+
+            case 0xFE: // 8 bytes lenght, for auth data, this should never happen
+                valid = false;
+                break;
+
+            case 0x00: // no data
+                len = 0;
+
+            default:
+                if (len_mask > 0 && len_mask < 251) {
+                    len = len_mask;
+                }
+                else {
+                    valid = false;
+                }
+                break;
+        }
+    }
+};
+
+class mysql_login_request : public base_protocol {
+    uint32_t len;    // 3 bytes in little endian
+    encoded<uint8_t> pkt_num;
+    mysql_consts::capabilities cap;
+    mysql_consts::extended_capabilities ext_cap;
+    encoded<uint32_t> max_pkt_size;
+    encoded<uint8_t> collation;
+    datum username;
+    uint32_t auth_data_len;
+    datum auth_data;
+    datum db_name;
+    datum auth_plugin_name;
+    bool if_auth_plugin = false;
+    bool if_lenenc_data = false;
+    bool if_connect_db = false;
+    bool is_ver_less_41 = false;
+    bool is_mariadb = false;
+    bool valid = true;
+    uint32_t mariadb_ext_cap = 0;
+    bool request_ssl = false;
+
+public:
+    mysql_login_request (datum pkt) :
+                len{ (encoded<uint8_t>{pkt}.value()) + (encoded<uint8_t>{pkt}.value() << 8) + (encoded<uint8_t>{pkt}.value() << 16) },
+                pkt_num{pkt},
+                cap{pkt},
+                ext_cap{pkt},
+                max_pkt_size{pkt},
+                collation{pkt} {
+
+        static constexpr std::array<uint8_t,19> reserved_run{0}; // reserver 19 bytes
+        if (!pkt.matches<19>(reserved_run)) {
+            valid = false;
+            return;
+        }
+        pkt.skip(19);
+        
+        mariadb_ext_cap = encoded<uint32_t>{pkt};
+        if (mariadb_ext_cap) {
+            is_mariadb = true;  // ideally atleast one bit should be set for mariadb
+        }
+
+        if (pkt.is_empty()) { // no more data
+            bool request_ssl = true;
+            return;
+        }
+        
+        username.parse_up_to_delim(pkt,'\0');
+        if (pkt.is_empty()) {
+            valid = false;
+            return;
+        }
+        pkt.skip(1);    // skip \0
+
+        if_lenenc_data = (ext_cap.ext_val) & mysql_consts::extended_capabilities::len_enc_mask;
+        if (!if_lenenc_data) {
+            auth_data.parse(pkt,encoded<uint8_t>{pkt});
+        }
+        else {
+            lenenc_int len_auth{pkt};
+            if (!len_auth.valid) {
+                valid = false;
+                return;
+            }
+            auth_data.parse(pkt,len_auth.len);
+        }
+
+        if (cap.val & mysql_consts::capabilities::connect_with_db) {
+            db_name.parse_up_to_delim(pkt, '\0');
+            if (pkt.is_empty()) {
+                valid = false;
+                return;
+            }
+            pkt.skip(1);
+        }
+
+        if (ext_cap.ext_val & mysql_consts::extended_capabilities::auth_plugin_set) {
+            auth_plugin_name.parse_up_to_delim(pkt, '\0');
+            if (pkt.is_empty()) {
+                valid = false;
+                return;
+            }
+            pkt.skip(1);
+        }
+
+        // some trailing data
+
+    }
+
+    void write_json (json_object &record, bool metadata) {
+        if (!valid) {
+            return;
+        }
+
+        json_object login_req{record,"mysql_login"};
+        if (output_metadata) {
+            login_req.print_key_int("pkt_num",pkt_num);
+        }
+
+        if (collation.value()) {
+            login_req.print_key_string("collation",mysql_consts::mysql_collations[collation.value()-1]);
+        }
+
+        if (is_mariadb) {
+            login_req.print_key_bool("mariadb", true);
+            login_req.print_key_int("mariadb_extended", mariadb_ext_cap);
+        }
+
+        if (username.is_not_empty()) {
+            login_req.print_key_json_string("username", username);
+        }
+
+        if (auth_plugin_name.is_not_empty()) {
+            login_req.print_key_json_string("auth_plugin", auth_plugin_name);
+        }
+
+        if (auth_data.is_not_empty() && metadata) {
+            login_req.print_key_hex("auth_data", auth_data);
+        }
+
+        login_req.close();
+    }
+};
 
 #endif  // MYSQL_HPP
