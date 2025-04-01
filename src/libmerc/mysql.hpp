@@ -494,7 +494,7 @@ public:
                             (version.find_delim(maria_keyword,8) < version.length()) ||
                             !(cap()&1) );
 
-            is_ver_less_41 =  ((maj_ver < '4') || (maj_ver == '4' && min_ver < '1') && !is_mariadb);
+            is_ver_less_41 =  (((maj_ver < '4') || (maj_ver == '4' && min_ver < '1')) && !is_mariadb);
             if ( maj_ver < '5' && !is_mariadb && if_auth_plugin) {
                 valid = false;
                 return;
@@ -647,14 +647,10 @@ class mysql_login_request : public base_protocol {
     encoded<uint32_t> max_pkt_size;
     encoded<uint8_t> collation;
     datum username;
-    uint32_t auth_data_len;
     datum auth_data;
     datum db_name;
     datum auth_plugin_name;
-    bool if_auth_plugin = false;
     bool if_lenenc_data = false;
-    bool if_connect_db = false;
-    bool is_ver_less_41 = false;
     bool is_mariadb = false;
     bool valid = true;
     uint32_t mariadb_ext_cap = 0;
@@ -734,7 +730,7 @@ public:
         }
 
         json_object login_req{record,"mysql_login"};
-        if (output_metadata) {
+        if (metadata) {
             login_req.print_key_int("pkt_num",pkt_num);
         }
 
@@ -753,6 +749,10 @@ public:
 
         if (auth_plugin_name.is_not_empty()) {
             login_req.print_key_json_string("auth_plugin", auth_plugin_name);
+        }
+
+        if (request_ssl) {
+            login_req.print_key_bool("ssl_request", true);
         }
 
         if (auth_data.is_not_empty() && metadata) {
