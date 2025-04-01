@@ -21,6 +21,37 @@ public:
     }
 };
 
+/// accepts a string consisting of one or more bytes not equal to
+/// \param delim1, followed by the byte \param delim1 and any other
+/// optional delimiter bytes \param optional_delimiter_bytes.
+///
+template <uint8_t delim1, uint8_t ...optional_delimiter_bytes>
+class one_or_more_up_to_delimiter : public datum {
+public:
+
+    /// accepts a string consisting of one or more bytes not equal to
+    /// \param delim1, followed by the byte \param delim1 and any other
+    /// optional delimiter bytes \param optional_delimiter_bytes.
+    ///
+    one_or_more_up_to_delimiter(datum &d) {
+        if (d.data == nullptr || d.data == d.data_end) {
+            d.set_null();
+            return;
+        }
+        const uint8_t *location = (const uint8_t *)memchr(d.data, delim1, d.length());
+        if (location == nullptr) {
+            this->set_null();
+            d.set_null();
+            return;
+        }
+        data_end = location;
+        data = d.data;
+        d.data = location + 1; // set location to right after the delimiter
+
+        (d.accept(optional_delimiter_bytes),...);
+    }
+};
+
 namespace rdp {
 
     static constexpr uint16_t default_port = hton<uint16_t>(3389);
@@ -201,15 +232,16 @@ namespace rdp {
         void write_json(json_object &o, bool metadata=false) const {
             if (!valid) { return; }
             (void)metadata;
+
             json_object rdp{o, "rdp"};
             datum tmp{body};
-            datum cookie;
-            cookie.parse_up_to_delim(tmp, '\r');
-            tmp.accept('\r');
-            tmp.accept('\n');
-            rdp.print_key_json_string("cookie", cookie);
+            if (lookahead<one_or_more_up_to_delimiter<'\r', '\n'>> cookie{tmp}) {
+                rdp.print_key_json_string("cookie", cookie.value);
+                tmp = cookie.advance();
+            }
             if (lookahead<rdp_neg_req> negotiation_request{tmp}) {
                 negotiation_request.value.write_json(rdp);
+                tmp = negotiation_request.advance();
             }
 
             rdp.close();
