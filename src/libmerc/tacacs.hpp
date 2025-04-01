@@ -115,7 +115,16 @@ namespace tacacs {
             body{d}
         { }
 
-        bool is_not_empty() const { return body.is_not_null(); }
+        bool is_not_empty() const {
+            //
+            // consistency checks, as per RFC 8907:
+            //
+            //    - accept versions 12.0 and 12.1
+            //    - accept type = 0, 1, 2, or 3
+            //    - require that body.lenth() == length.value()
+            //
+            return ((version.value() & 0xfe) == 0xc0) and ((type.value() & 0xfc) == 0x00) and body.length() == length.value();
+        }
 
         void write_json(json_object &o, bool) const {
             if (!is_not_empty()) {
@@ -126,6 +135,8 @@ namespace tacacs {
             tacacs_json.print_key_uint("minor_version", version.slice<4,8>());
             print_type_code(tacacs_json);
             tacacs_json.print_key_uint("seq_no", seq_no);
+            print_flags(tacacs_json);
+            tacacs_json.print_key_uint_hex("session_id", session_id.value());
 
             if (flags.bit<7>()) {             // unencrypted
                 if (type.value() == 0x01) {
