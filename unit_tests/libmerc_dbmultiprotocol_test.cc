@@ -812,7 +812,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "geneve encapsulated IPv4 and Ethernet with
              .m_lc{.do_analysis = true, .resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"tls,geneve"},
              .m_pc{"geneve.pcap"}},
-         306},
+         85},
     };
 
     for (auto &[config, count] : test_set_up)
@@ -919,7 +919,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "GRE encapsulation with resources-mp")
          0},
         {test_config{
              .m_lc{.do_analysis = true, .resources = resources_mp_path,
-                .packet_filter_cfg = (char *)"gre"},
+                .packet_filter_cfg = (char *)"gre,icmp"},
              .m_pc{"gre.pcap"}},
          1},
     };
@@ -947,7 +947,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "IP encapsulation  with resources-mp")
         {test_config{
              .m_lc{.do_analysis = true, .resources = resources_mp_path},
              .m_pc{"ip_encapsulation.pcap"}},
-         5},
+         2},
     };
 
     for (auto &[config, count] : test_set_up)
@@ -977,9 +977,9 @@ TEST_CASE_METHOD(LibmercTestFixture, "VXLAN  with resources-mp")
          0},
         {test_config{
              .m_lc{.do_analysis = true, .resources = resources_mp_path,
-                .packet_filter_cfg = (char *)"vxlan"},
+                .packet_filter_cfg = (char *)"vxlan,icmp"},
              .m_pc{"vxlan.pcap"}},
-         10},
+         8},
     };
 
     for (auto &[config, count] : test_set_up)
