@@ -103,11 +103,17 @@ exec_testcase () {
     fi;
 
     echo "checking dir $dir_name"
-    if [[ ! -d "$parent_path/$dir_name" ]] ; then
-        echo -e $COLOR_RED "$dir_name test dir not found" $COLOR_OFF
-        total_missing_dir=$((total_missing_dir+1))
-        return 1
-    fi;
+    if [[ ! -d "$parent_path/$dir_name" ]]; then
+        echo -e $COLOR_RED "$dir_name test directory not found. Creating directory..." $COLOR_OFF
+        mkdir -p "$parent_path/$dir_name"
+        if [[ $? -ne 0 ]]; then
+            echo -e $COLOR_RED "Failed to create directory $dir_name" $COLOR_OFF
+            total_missing_dir=$((total_missing_dir + 1))
+            return 1
+        else
+            echo -e $COLOR_GREEN "Directory $dir_name created successfully." $COLOR_OFF
+        fi
+    fi
 
     cd $parent_path/$dir_name
 
@@ -131,13 +137,19 @@ EOF
         return 1;
     fi;
 
-    if [[ ! -d "./corpus" ]] ; then
-        echo -e $COLOR_RED "$dir_name test dir corpus not found" $COLOR_OFF
-        total_missing_dir=$((total_missing_dir+1))
-        cd ../$LIBMERC_FOLDER
-        return 1;
-    fi;
-
+    if [[ ! -d "./corpus" ]]; then
+        echo -e $COLOR_RED "Corpus directory not found. Creating directory..." $COLOR_OFF
+        mkdir -p "./corpus"
+        if [[ $? -ne 0 ]]; then
+            echo -e $COLOR_RED "Failed to create corpus directory" $COLOR_OFF
+            total_missing_dir=$((total_missing_dir + 1))
+            cd ../$LIBMERC_FOLDER
+            return 1
+        else
+            echo -e $COLOR_GREEN "Corpus directory created successfully." $COLOR_OFF
+        fi
+    fi
+ 
     chmod +x "fuzz_${dir_name}_exec"
     # count corpus pre test
     pre_corpus="$(ls ./corpus/ | wc -l)"
@@ -146,7 +158,6 @@ EOF
 
     cd ../$LIBMERC_FOLDER;
 }
-
 # check for libmerc.a
 if [[ ! -f "./libmerc.a" ]]; then
     make libmerc.a

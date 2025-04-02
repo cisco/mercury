@@ -916,65 +916,64 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
 
     // process transport/application protocol
     //
-    if(std::visit(is_not_empty{}, x) || !encaps.is_empty()) {
-        struct json_object record{&buf};
-        if (std::visit(is_not_empty{}, x)) {
-            std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
-            bool output_analysis = false;
-            if (global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
-                output_analysis = std::visit(do_analysis{k, analysis, c}, x);
+    if (std::visit(is_not_empty{}, x)) {
+        std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
+        bool output_analysis = false;
+        if (global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
 
-                // check for additional classifier agnostic attributes like encrypted dns and domain-faking
-                //
-                if (!analysis.result.attr.is_initialized() && c) {
-                    analysis.result.attr.initialize(&(c->get_common_data().attr_name.value()),c->get_common_data().attr_name.get_names_char());
-                }
-                c->check_additional_attributes(analysis);
+            output_analysis = std::visit(do_analysis{k, analysis, c}, x);
 
-                // note: we only perform observations when analysis is
-                // configured, because we rely on do_analysis to set the
+            // note: we only perform observations when analysis is
+            // configured, because we rely on do_analysis to set the
 
-                // analysis_.destination
-                //
-                if (mq) {
-                    std::visit(do_observation{k, analysis, mq}, x);
-                }
-            }
-
-            // if (malware_prob_threshold > -1.0 && (!output_analysis || analysis.result.malware_prob < malware_prob_threshold)) { return 0; } // TODO - expose hidden command
-
-            if (analysis.fp.get_type() != fingerprint_type_unknown) {
-                analysis.fp.write(record);
-            }
-            std::visit(write_metadata{record, global_vars.metadata_output, global_vars.certs_json_output, global_vars.dns_json_output}, x);
-
-            if (output_analysis) {
-                analysis.result.write_json(record, "analysis");
-            }
-            if (crypto_policy) { std::visit(do_crypto_assessment{crypto_policy, record}, x); }
-
-            // write indication of truncation or reassembly
+            // check for additional classifier agnostic attributes like encrypted dns and domain-faking
             //
-            if ((!reassembler && (truncated_tcp || truncated_quic))
-                    || (!global_vars.reassembly && (truncated_tcp || truncated_quic)) ) {
-                struct json_object flags{record, "reassembly_properties"};
-                flags.print_key_bool("truncated", true);
-                flags.close();
+            if (!analysis.result.attr.is_initialized() && c) {
+                analysis.result.attr.initialize(&(c->get_common_data().attr_name.value()),c->get_common_data().attr_name.get_names_char());
             }
-            else if (reassembler && reassembler->is_done(reassembler->curr_flow)) {
-                reassembler->write_json(record);
-            }
+            c->check_additional_attributes(analysis);
 
-            if (global_vars.metadata_output) {
-                ip_pkt.write_json(record);      // write out ip{version,ttl,id}
+            // analysis_.destination
+            //
+            if (mq) {
+                std::visit(do_observation{k, analysis, mq}, x);
             }
+        }
 
-            write_flow_key(record, k);
+        // if (malware_prob_threshold > -1.0 && (!output_analysis || analysis.result.malware_prob < malware_prob_threshold)) { return 0; } // TODO - expose hidden command
+
+        struct json_object record{&buf};
+        if (analysis.fp.get_type() != fingerprint_type_unknown) {
+            analysis.fp.write(record);
+        }
+        std::visit(write_metadata{record, global_vars.metadata_output, global_vars.certs_json_output, global_vars.dns_json_output}, x);
+
+        if (output_analysis) {
+            analysis.result.write_json(record, "analysis");
+        }
+        if (crypto_policy) { std::visit(do_crypto_assessment{crypto_policy, record}, x); }
+
+        // write indication of truncation or reassembly
+        //
+        if ((!reassembler && (truncated_tcp || truncated_quic))
+                || (!global_vars.reassembly && (truncated_tcp || truncated_quic)) ) {
+            struct json_object flags{record, "reassembly_properties"};
+            flags.print_key_bool("truncated", true);
+            flags.close();
+        }
+        else if (reassembler && reassembler->is_done(reassembler->curr_flow)) {
+            reassembler->write_json(record);
+        }
+
+        if (global_vars.metadata_output) {
+            ip_pkt.write_json(record);      // write out ip{version,ttl,id}
         }
 
         if (!encaps.is_empty()) {
             encaps.write_json(record);
         }
+
+        write_flow_key(record, k);
 
         record.print_key_timestamp("event_start", ts);
         record.close();
