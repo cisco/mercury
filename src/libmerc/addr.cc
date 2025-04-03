@@ -212,8 +212,10 @@ void subnet_data::process_final() {
     // free the memory reserved for asn subnet prefixes, if pyasn.db not processed
     //
     if (num == 0) {
-        free(prefix);
-        prefix = nullptr;
+        if (prefix) {
+            free(prefix);
+            prefix = nullptr;
+        }
         return;
     }
 
@@ -270,8 +272,10 @@ void subnet_data::process_domain_mappings_final() {
     // free the memory reserved for domain mapping prefixes, if domain-mappings.db not processed
     //
     if (domains_prefix_num == 0) {
-        free (domains_prefix);
-        domains_prefix = nullptr;
+        if (domains_prefix) {
+            free(domains_prefix);
+            domains_prefix = nullptr;
+        }
         return;
     }
 
