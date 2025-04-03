@@ -14,6 +14,7 @@
 #include "libmerc/rfb.hpp"
 #include "libmerc/dns_trie.hpp"
 #include "libmerc/tftp.hpp"
+#include "libmerc/tacacs.hpp"
 
 // Macros to colorize output
 //
@@ -83,6 +84,10 @@ int main(int, char *[]) {
         {
             "tftp",
             &tftp::unit_test
+        },
+        {
+            "tacacs",
+            &tacacs::unit_test
         },
     };
     size_t num_tests = 0;

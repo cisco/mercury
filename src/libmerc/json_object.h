@@ -357,6 +357,39 @@ int json_output_fuzzer(const uint8_t *data, size_t size) {
 }
 
 
+/// test a json output by parsing the \param raw_data_len bytes at
+/// \param raw_data as an object of type \param T, writing out the
+/// json representation of that object, then comparing that json to
+/// the expected \param output_len bytes at location \param output.
+/// Returns `true` on success, and `false` otherwise.
+///
+template <typename T>
+static bool test_json_output(uint8_t *raw_data,
+                             size_t raw_data_len,
+                             uint8_t *output,
+                             size_t output_len,
+                             FILE *verbose_output=nullptr) {
+
+    datum reference_data{raw_data, raw_data + raw_data_len};
+    T pkt{reference_data};
+    if (reference_data.is_not_null()) {
+        output_buffer<2024> buf;
+        json_object json{&buf};
+        pkt.write_json(json, false);
+        json.close();
+        if (output_len != buf.length() or buf.memcmp(output, output_len) != 0) {
+            return false;
+        }
+        if (verbose_output) {
+            buf.write_line(verbose_output);
+        }
+        return true;
+    }
+    return false;
+}
+
+
+
 #ifdef USE_JSON_FILE_OBJECT
 #include <stdio.h>
 /*
