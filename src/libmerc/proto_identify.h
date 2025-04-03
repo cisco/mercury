@@ -307,6 +307,25 @@ public:
         tcp4.disable_all();
         udp.disable_all();
         udp16.disable_all();
+        select_tcp_syn = false;
+        select_dns = false;
+        select_nbns = false;
+        select_mdns = false;
+        select_arp = false;
+        select_cdp = false;
+        select_gre = false;
+        select_icmp = false;
+        select_lldp = false;
+        select_ospf = false;
+        select_sctp = false;
+        select_tcp_syn_ack = false;
+        select_nbds = false;
+        select_nbss = false;
+        select_openvpn_tcp = false;
+        select_ldap = false;
+        select_ftp_request = false;
+        select_ftp_response = false;
+        select_ipsec = false;
     }
 
     traffic_selector(std::map<std::string, bool> protocols) :
