@@ -576,23 +576,6 @@ public:
 
 };
 
-namespace {
-
-    [[maybe_unused]] int mysql_fuzz_test(const uint8_t *data, size_t size) {
-        struct datum pkt_data{data, data+size};
-        char buffer[8192];
-        struct buffer_stream buf_json(buffer, sizeof(buffer));
-        struct json_object record(&buf_json);
-        mysql_server_greet pkt_mysql{pkt_data};
-        if (pkt_mysql.is_not_empty()) {
-            pkt_mysql.write_json(record, true);
-        }
-
-        return 0;
-    }
-
-};
-
 struct lenenc_int {
     uint32_t len;
     bool valid = true;
@@ -764,6 +747,36 @@ public:
     }
 
     bool is_not_empty() { return valid; }
+};
+
+namespace {
+
+    [[maybe_unused]] int mysql_fuzz_test(const uint8_t *data, size_t size) {
+        struct datum pkt_data{data, data+size};
+        char buffer[8192];
+        struct buffer_stream buf_json(buffer, sizeof(buffer));
+        struct json_object record(&buf_json);
+        mysql_server_greet pkt_mysql{pkt_data};
+        if (pkt_mysql.is_not_empty()) {
+            pkt_mysql.write_json(record, true);
+        }
+
+        return 0;
+    }
+
+    [[maybe_unused]] int mysql_login_request_fuzz_test(const uint8_t *data, size_t size) {
+        struct datum pkt_data{data, data+size};
+        char buffer[8192];
+        struct buffer_stream buf_json(buffer, sizeof(buffer));
+        struct json_object record(&buf_json);
+        mysql_login_request pkt_mysql{pkt_data};
+        if (pkt_mysql.is_not_empty()) {
+            pkt_mysql.write_json(record, true);
+        }
+
+        return 0;
+    }
+
 };
 
 #endif  // MYSQL_HPP
