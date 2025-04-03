@@ -154,8 +154,14 @@ namespace ocsp {
             tbs.parse(sequence.value);
         }
 
-        void write_json(json_object_asn1 &o) const {
-            tbs.write_json(o);
+        void write_json(json_object &o, bool metadata=false) const {
+            (void)metadata;
+            json_object_asn1 asn1_obj{o};
+            tbs.write_json(asn1_obj);
+        }
+
+        void write_json(json_object_asn1 &asn1_obj) const {
+            tbs.write_json(asn1_obj);
         }
 
 
@@ -192,7 +198,7 @@ namespace ocsp {
 };  // namespace ocsp
 
 [[maybe_unused]] inline int ocsp_request_fuzz_test(const uint8_t *data, size_t size) {
-    return json_output_fuzzer<ocsp_request>(data, size);
+    return json_output_fuzzer<ocsp::request>(data, size);
 }
 
 #endif // OCSP_HPP
