@@ -1,5 +1,13 @@
 # CHANGELOG for Mercury
 
+## VERSION 2.6.5
+* Added support for mutli-line FTP responses.
+* Fixed memory leak associated with Domain Faking detection
+  initialization corner case, and reinstated resource archive version qualifier count.
+* Fixed issues discovered by fuzz testing, and added unit test cases.
+* Added many new fuzz tests, plus the helper template function `json_output_fuzzer<>()`.
+  No changes to behavior, though some function signatures were extended with an optional `bool metadata`.
+
 ## VERSION 2.6.4
 * Added reporting of HTTP CONNECT proxies in JSON output.
 * Added FTP command channel reporting in JSON output.
