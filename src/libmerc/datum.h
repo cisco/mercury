@@ -1460,6 +1460,15 @@ bool bit(T s) {
     return (bool) slice<i,i+1>(s);
 }
 
+/// returns a value of type \param T with only the `i`th bit set,
+/// where an index of zero denotes the leftmost (most significant)
+/// bit.
+///
+template <size_t i, typename T>
+T bit() {
+    return (T)1 << (bitsizeof(T)-1-i);
+}
+
 /// @} - end of Bit Operations group
 
 /// represents an unsigned integer type `T` that is read from a byte
