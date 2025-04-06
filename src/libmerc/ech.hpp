@@ -231,7 +231,8 @@ public:
         contents{d}
     { }
 
-    void write_json(json_object &o) const {
+    void write_json(json_object &o, bool metadata=false) const {
+        (void)metadata;
         json_object ech_config_json{o, "ech_config"};
         ech_config_json.print_key_uint16_hex("version", version.value());
         contents.write_json(ech_config_json);
@@ -282,7 +283,8 @@ public:
         payload{d}
     { }
 
-    void write_json(json_object &o) const {
+    void write_json(json_object &o, bool metadata=false) const {
+        (void)metadata;
         json_object ech_client_hello_json{o, "ech_client_hello"};
         cs.write_json(ech_client_hello_json);
         ech_client_hello_json.print_key_uint("config_id", config_id.value());
@@ -299,5 +301,13 @@ public:
     }
 
 };
+
+[[maybe_unused]] inline int ech_client_hello_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<ech_client_hello>(data, size);
+}
+
+[[maybe_unused]] inline int ech_config_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<ech_config>(data, size);
+}
 
 #endif // ECH_HPP

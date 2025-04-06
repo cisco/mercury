@@ -448,7 +448,8 @@ namespace krb5 {
             }
         }
 
-        void write_json(json_object &o) const {
+        void write_json(json_object &o, bool metadata=false) const {
+            (void)metadata;
             std::visit(do_write_json{o}, msg);
         }
 
@@ -471,5 +472,10 @@ namespace krb5 {
     };
 
 } // namespace krb5
+
+[[maybe_unused]] inline int krb5_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<krb5::packet>(data, size);
+}
+
 
 #endif // KRB5_H

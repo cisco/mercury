@@ -55,4 +55,8 @@ struct wireguard_handshake_init : public base_protocol {
 
 };
 
+[[maybe_unused]] inline int wireguard_handshake_init_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<wireguard_handshake_init>(data, size);
+}
+
 #endif /* WIREGUARD_H */

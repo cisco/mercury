@@ -652,9 +652,15 @@ public:
                     double_colon_index = pieces.size();
 
                     // check for IPv4-in-IPv6 addresses (RFC4291,
-                    // Section 2.5.5, RFC5952 Section 5)
+                    // Section 2.5.5, RFC5952 Section 5), which have
+                    // the form "::ffff:w.x.y.z", where w, x, y, and z
+                    // are decimal numbers between 0 and 255.
                     //
                     if (lookahead<literal_byte<'f', 'f', 'f', 'f', ':'>> ipv4_mapped_addr{d}) {
+                        if (pieces.size() != 0) {
+                            d.set_null();
+                            return;
+                        }
                         datum tmp_data{d.data, ipv4_mapped_addr.advance().data};
                         hex_digits hex_data{tmp_data};
                         pieces.push_back(hex_str_to_uint<uint16_t>(hex_data));
@@ -701,12 +707,11 @@ public:
                 }
 
                 hex_digits piece{d};
-                if (piece.is_not_null()) {
+                if (piece.is_not_null() and pieces.size() < 15) {
                     pieces.push_back(hex_str_to_uint<uint16_t>(piece));
                 } else {
-                    // fprintf(stderr, "error: invalid label\n");
                     d.set_null();
-                    return;    // invalid label
+                    return;    // invalid input
                 }
             }
         }
@@ -859,6 +864,24 @@ public:
     // returns true if all tests pass, and false otherwise.
     //
     static bool unit_test(FILE *f=nullptr) {
+
+        const char * malformed_ipv6_addr_strings[] = {
+            "f:f:2:f:2:f:2:1:1::2:f:2:f:2:1:1::",
+            "D:6:DDD:D:6:D:2:DD:dE6:6:DDDDD:dd:DD:D8D:DDE9::ffff:2:11",
+        };
+        for (const auto & bad_ipv6_addr : malformed_ipv6_addr_strings) {
+            datum tmp = get_datum(bad_ipv6_addr);
+            ipv6_address_string ipv6{tmp};
+            if (f) {
+                fprintf(f, "parsing malformed ipv6 string '%s':\t", bad_ipv6_addr);
+            }
+            if (ipv6.is_valid()) {
+                if (f) {
+                    fprintf(f, "error: ipv6 address string is invalid\n");
+                }
+                return false;
+            }
+        }
 
         std::pair<const char *, ipv6_array_t> ipv6_addr_examples[] = {
             { "2001:db8:0:0:8:800:200c:417a", { 0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x08, 0x00, 0x20, 0x0c, 0x41, 0x7a } },
