@@ -9,6 +9,7 @@
 #define FLOW_KEY_H
 
 #include "ip_address.hpp"
+#include "json_object.h"
 
 #define MAX_ADDR_STR_LEN 48
 #define MAX_PORT_STR_LEN 6
@@ -199,6 +200,25 @@ struct key {
 
     }
 
+    void write_ip_address(struct json_object &o) const {
+        if (ip_vers == 6) {
+            const uint8_t *s = (const uint8_t *)&addr.ipv6.src;
+            o.print_key_ipv6_addr("src_ip", s);
+
+            const uint8_t *d = (const uint8_t *)&addr.ipv6.dst;
+            o.print_key_ipv6_addr("dst_ip", d);
+
+        } else {
+
+            const uint8_t *s = (const uint8_t *)&addr.ipv4.src;
+            o.print_key_ipv4_addr("src_ip", s);
+
+            const uint8_t *d = (const uint8_t *)&addr.ipv4.dst;
+            o.print_key_ipv4_addr("dst_ip", d);
+
+        }
+
+    }
 };
 
 namespace std {

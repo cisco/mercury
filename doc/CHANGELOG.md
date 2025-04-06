@@ -1,5 +1,9 @@
 # CHANGELOG for Mercury
 
+
+* Support for reporting outer tunnel parameters and also includes
+  support for PPoE, VXLAN encapsulation and IP encapsulations.
+
 ## VERSION 2.6.5
 * Added support for mutli-line FTP responses.
 * Fixed memory leak associated with Domain Faking detection

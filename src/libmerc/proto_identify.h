@@ -15,6 +15,7 @@
 #define PROTO_IDENTIFY_H
 
 #include <stdint.h>
+#include <arpa/inet.h>
 
 #include <vector>
 #include <array>
@@ -44,6 +45,9 @@
 #include "mysql.hpp"
 #include "tofsee.hpp"
 #include "socks.h"
+#include "gre.h"
+#include "geneve.hpp"
+#include "vxlan.hpp"
 
 enum tcp_msg_type {
     tcp_msg_type_unknown = 0,
@@ -91,7 +95,8 @@ enum udp_msg_type {
     udp_msg_type_dht,
     udp_msg_type_lsd,
     udp_msg_type_esp,
-
+    udp_msg_type_geneve,
+    udp_msg_type_gre,
 };
 
 template <size_t N>
@@ -241,6 +246,8 @@ class traffic_selector {
     bool select_ftp_request;
     bool select_ftp_response;
     bool select_ipsec{false};
+    bool select_geneve{false};
+    bool select_vxlan{false};
     bool select_mysql_login_request{false};
 
 public:
@@ -282,6 +289,10 @@ public:
     bool openvpn_tcp() const { return select_openvpn_tcp; }
 
     bool ipsec() const { return select_ipsec; }
+
+    bool geneve() const { return select_geneve; }
+
+    bool vxlan() const { return select_vxlan; }
 
     bool mysql_login_request() const { return select_mysql_login_request; }
 
@@ -543,6 +554,14 @@ public:
             tcp4.add_protocol(tofsee_initial_message::matcher, tcp_msg_type_tofsee_initial_message);
         }
 
+        if (protocols["geneve"] || protocols["all"]) {
+            select_geneve = true;
+        }
+
+        if (protocols["vxlan"] || protocols["all"]) {
+            select_vxlan = true;
+        }
+
         // tell protocol_identification objects to compile lookup tables
         tcp4.compile();
         tcp.compile();
@@ -572,12 +591,20 @@ public:
     }
 
     size_t get_udp_msg_type_from_ports(udp::ports ports) const {
-        if (nbds() and ports.src == hton<uint16_t>(138) and ports.dst == hton<uint16_t>(138)) {
+        if (nbds() and ports.src == htons(138) and ports.dst == htons(138)) {
             return udp_msg_type_nbds;
         }
 
-        if (ports.dst == hton<uint16_t>(4789)) {
+        if (vxlan() and ports.dst == htons(vxlan::dst_port)) {
             return udp_msg_type_vxlan;
+        }
+
+        if (geneve() and ports.dst == htons(geneve::dst_port)) {
+            return udp_msg_type_geneve;
+        }
+        
+        if (gre() and ports.dst == htons(gre_header::dst_port)) {
+            return udp_msg_type_gre;
         }
 
         return udp_msg_type_unknown;
