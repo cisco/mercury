@@ -648,6 +648,10 @@ public:
         return common;
     }
 
+    size_t fetch_qualifier_count (std::string version_str) const {
+        return std::count(version_str.begin(),version_str.end(),';');
+    }
+
     classifier(class encrypted_compressed_archive &archive,
                float fp_proc_threshold,
                float proc_dst_threshold,
@@ -766,10 +770,14 @@ public:
             printf_err(log_debug, "time taken to load resource archive: %.2f seconds\n", load_elapsed_seconds);
         }
 
-        // verify that we found the required core input files in
-        // the resourece archive, and disable analysis otherwise
-        //
+        if (fetch_qualifier_count(resource_version) != num_qualifiers) {
+            disabled = true;
+            printf_err(log_debug,"resource qualifier count does not match, disabling classifier\n");
+        }
 
+        // verify that we found the required core input files in
+        // the resource archive, and disable analysis otherwise
+        //
         if (!got_fp_db | !got_fp_prevalence | !got_version | !got_pyasn_db) {
             printf_err(log_debug, "resource archive missing one or more files, disabling classifier\n");
             disabled = true;
@@ -777,18 +785,16 @@ public:
 
         // process asn and domain-faking subnets, and enable the corresponding detections
         //
-        if (got_pyasn_db && !disabled) {
-            subnets.process_final();
-        }
-        
+        subnets.process_final();
+        subnets.process_domain_mappings_final();
+
         if (got_domain_faking_subnets) {
-            subnets.process_domain_mappings_final();
             common.domain_faking_enabled = true;
         }
         else {
             printf_err(log_debug, "Domain mappings not found in resource archive, disabling Domain-Faking detection\n");
         }
-        
+
         if (got_doh_watchlist) {
             common.doh_enabled = true;
         }
