@@ -67,26 +67,13 @@
 #include "ftp.hpp"
 #include "rdp.hpp"
 #include "tftp.hpp"
+#include "ppoe.hpp"
+#include "vxlan.hpp"
 
 // double malware_prob_threshold = -1.0; // TODO: document hidden option
 
 void write_flow_key(struct json_object &o, const struct key &k) {
-    if (k.ip_vers == 6) {
-        const uint8_t *s = (const uint8_t *)&k.addr.ipv6.src;
-        o.print_key_ipv6_addr("src_ip", s);
-
-        const uint8_t *d = (const uint8_t *)&k.addr.ipv6.dst;
-        o.print_key_ipv6_addr("dst_ip", d);
-
-    } else {
-
-        const uint8_t *s = (const uint8_t *)&k.addr.ipv4.src;
-        o.print_key_ipv4_addr("src_ip", s);
-
-        const uint8_t *d = (const uint8_t *)&k.addr.ipv4.dst;
-        o.print_key_ipv4_addr("dst_ip", d);
-
-    }
+    k.write_ip_address(o);
 
     o.print_key_uint8("protocol", k.protocol);
     o.print_key_uint16("src_port", k.src_port);
@@ -378,6 +365,9 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         break;
     case tcp_msg_type_mysql_server:
         x.emplace<mysql_server_greet>(pkt);
+        break;
+    case tcp_msg_type_mysql_login_request:
+        x.emplace<mysql_login_request>(pkt);
         break;
     case tcp_msg_type_tofsee_initial_message:
         x.emplace<tofsee_initial_message>(pkt);
@@ -747,6 +737,107 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
     return false;
 }
 
+struct process_next_header {
+    process_next_header() { }
+
+    template <typename T>
+    bool operator()(T &r) {
+        return r.is_next_header();
+            
+    }
+
+    bool operator()(std::monostate &) { return false;}
+
+};
+
+class encapsulations {
+public:
+    static constexpr uint8_t MAX_ENCAPSULATIONS = 5;
+    std::array<encapsulation, encapsulations::MAX_ENCAPSULATIONS> encaps;
+    uint8_t total_encap = 0;
+
+    encapsulations(struct datum &pkt,
+                   ip &ip_pkt,
+                   struct key &k,
+                   class traffic_selector &selector) {
+        process_encapsulations(pkt, ip_pkt, k, selector);
+    }
+
+    void process_encapsulations(struct datum &pkt,
+                                ip &ip_pkt,
+                                struct key &k,
+                                class traffic_selector &selector) {
+
+        encapsulation x;
+        switch(ip_pkt.transport_protocol()) {
+        case ip::protocol::gre: {
+            if(!selector.gre()) {
+                return;
+            }
+            encaps[total_encap++] = x.emplace<gre_header>(pkt, k);
+            break;
+        }
+        case ip::protocol::ipv4: 
+        case ip::protocol::ipv6: {
+            encaps[total_encap++] = x.emplace<ip_encapsulation>(k);
+            break;
+        }
+        case ip::protocol::udp: {
+            datum pkt_copy{pkt};
+            class udp udp_pkt{pkt_copy};
+            udp_pkt.set_key(k);
+            udp::ports ports = udp_pkt.get_ports();
+            enum udp_msg_type msg_type = (udp_msg_type)selector.get_udp_msg_type_from_ports(ports);
+            switch(msg_type) {
+            case udp_msg_type_vxlan: {
+                pkt.data = pkt_copy.data;
+                encaps[total_encap++] = x.emplace<vxlan>(pkt, k);
+                break;
+            }
+            case udp_msg_type_geneve: {
+                pkt.data = pkt_copy.data;
+                encaps[total_encap++] = x.emplace<geneve>(pkt, k);
+                break;
+            }
+            case udp_msg_type_gre: {
+                pkt.data = pkt_copy.data;
+                encaps[total_encap++] = x.emplace<gre_header>(pkt, k);
+                break;
+            }
+            default:
+                ;
+            }
+        }
+        default:
+            ;
+        }
+        if (std::visit(process_next_header{}, x)) {
+            ip_pkt.parse(pkt, k);
+            process_encapsulations(pkt, ip_pkt, k, selector);
+        }
+    }
+
+    bool is_empty() const {
+        if(total_encap) {
+            return false;
+        }
+
+        return true;
+    }
+
+    void write_json(struct json_object &record) {
+        if (is_empty()) {
+            return;
+        }
+
+        struct json_array encap(record, "encapsulations");
+        for (uint8_t i = 0; i < total_encap; i++) {
+            std::visit(write_encapsulation{encap}, encaps[i]);
+        }
+        encap.close();
+    }            
+};
+
 size_t stateful_pkt_proc::ip_write_json(void *buffer,
                                         size_t buffer_size,
                                         const uint8_t *ip_packet,
@@ -758,27 +849,14 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     struct key k;
     struct datum pkt{ip_packet, ip_packet+length};
     ip ip_pkt{pkt, k};
-    uint8_t transport_proto = ip_pkt.transport_protocol();
     bool truncated_tcp = false;
     bool truncated_quic = false;
     if (reassembler) {
         reassembler->dump_pkt = false;
     }
 
-    // process encapsulations
-    //
-    if (selector.gre() && transport_proto == ip::protocol::gre) {
-        gre_header gre{pkt};
-        switch(gre.get_protocol_type()) {
-        case ETH_TYPE_IP:
-        case ETH_TYPE_IPV6:
-            ip_pkt.parse(pkt, k);    // note: overwriting outer ip header in key
-            transport_proto = ip_pkt.transport_protocol();
-            break;
-        default:
-            ;
-        }
-    }
+    class encapsulations encaps{pkt, ip_pkt, k, selector};
+    uint8_t transport_proto = ip_pkt.transport_protocol();
 
     if (ts->tv_sec == 0) {
         tsc_clock time_now;
@@ -842,39 +920,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         class udp udp_pkt{pkt};
         udp_pkt.set_key(k);
         udp::ports ports = udp_pkt.get_ports();
-        if (ports.dst == htons(geneve::dst_port)) {
-            // Copy of datum containing packet data is used for
-            // geneve parsing. In case if the packet is not a valid geneve
-            // packet, protocol parsing is resumed with original copy.
-            datum p{pkt};
-            geneve geneve_pkt{p};
-            switch(geneve_pkt.get_protocol_type()) {
-            case geneve::ethernet:
-                if (!eth::get_ip(p)) {
-                    break;   // not an IP packet
-                }
-                return (ip_write_json(buffer, buffer_size, p.data, p.length(), ts, reassembler));
-
-            case ETH_TYPE_IP:
-            case ETH_TYPE_IPV6:
-                return (ip_write_json(buffer, buffer_size, p.data, p.length(), ts, reassembler));
-            case ETH_TYPE_NONE: // nonstandard: no official EtherType for BSD loopback
-                {
-                    loopback_header loopback{p};  // bsd-style loopback encapsulation
-                    if (p.is_not_null()) {
-                        switch(loopback.get_protocol_type()) {
-                        case ETH_TYPE_IP:
-                        case ETH_TYPE_IPV6:
-                            return ip_write_json(buffer, buffer_size, p.data, p.length(), ts, reassembler);
-                        default:
-                            break;
-                        }
-                    }
-                }
-            default:
-                break;
-            }
-        } else if (selector.ipsec() and ports.either_matches(ike::default_port)) {
+        if (selector.ipsec() and ports.either_matches(ike::default_port)) {
                 x.emplace<ike::packet>(pkt);
         } else if (selector.ipsec() and ports.either_matches_any(esp::default_port)) {   // esp or ike over udp
             if (lookahead<ike::non_esp_marker> non_esp{pkt}) {
@@ -947,6 +993,10 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             ip_pkt.write_json(record);      // write out ip{version,ttl,id}
         }
 
+        if (!encaps.is_empty()) {
+            encaps.write_json(record);
+        }
+
         write_flow_key(record, k);
 
         record.print_key_timestamp("event_start", ts);
@@ -1006,6 +1056,19 @@ size_t stateful_pkt_proc::write_json(void *buffer,
             x.emplace<lldp>(pkt);
         }
         break;
+    case ETH_TYPE_PPOE: {
+        ppoe ppoe_pkt(pkt);
+        if(!ppp::is_ip(pkt)) {
+            break;
+        } else {
+            return ip_write_json(buffer,
+                         buffer_size,
+                         pkt.data,
+                         pkt.length(),
+                         ts,
+                         reassembler);
+        }
+    }
     default:
         ;  // unsupported ethertype
     }
@@ -1098,6 +1161,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
     struct key k;
     ip ip_pkt{pkt, k};
     protocol x;
+    class encapsulations encaps{pkt, ip_pkt, k, selector};
     uint8_t transport_proto = ip_pkt.transport_protocol();
     if (reassembler) {
         reassembler->dump_pkt = false;
@@ -1141,27 +1205,6 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
     } else if (transport_proto == ip::protocol::udp) {
         class udp udp_pkt{pkt};
         udp_pkt.set_key(k);
-        udp::ports ports = udp_pkt.get_ports();
-        if (ports.dst == htons(geneve::dst_port)) {
-            // Copy of datum containing packet data is used for
-            // geneve parsing. In case if the packet is not a valid geneve
-            // packet, protocol parsing is resumed with original copy.
-            datum p{pkt};
-            geneve geneve_pkt{p};
-            switch(geneve_pkt.get_protocol_type()) {
-            case geneve::ethernet:
-                if (!eth::get_ip(p)) {
-                    break;   // not an IP packet
-                }
-                return (analyze_ip_packet(p.data, p.length(), ts, reassembler));
-
-            case ETH_TYPE_IP:
-            case ETH_TYPE_IPV6:
-                return (analyze_ip_packet(p.data, p.length(), ts, reassembler));
-            default:
-                break;
-            }
-        }
 
         if (reassembler && global_vars.reassembly) {
             bool ret = process_udp_data(x, pkt, udp_pkt, k, ts, reassembler);

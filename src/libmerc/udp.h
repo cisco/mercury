@@ -134,31 +134,5 @@ public:
 
 };
 
-//   From RFC 7348 (VXLAN)
-//
-//   #define VXLAN_PORT 4789
-//
-//   VXLAN Header:
-//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-//   |R|R|R|R|I|R|R|R|            Reserved                           |
-//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-//   |                VXLAN Network Identifier (VNI) |   Reserved    |
-//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-//
-//
-
-#define VXLAN_HDR_LEN 8
-
-class vxlan : public datum {
-    vxlan(datum &d) : datum{d} {
-        if (d.skip(VXLAN_HDR_LEN) == false) {
-            d.set_empty();
-        }
-    }
-    // note: we ignore the VXLAN Network Identifier for now, which
-    // makes little difference as long as they are all identical
-    //
-};
-
 #endif  // UDP_H
 

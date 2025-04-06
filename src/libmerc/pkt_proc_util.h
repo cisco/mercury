@@ -26,6 +26,11 @@
 #include "ssh.h"
 #include "analysis.h"
 #include "buffer_stream.h"
+#include "gre.h"
+#include "geneve.hpp"
+#include "ip.h"
+#include "vxlan.hpp"
+
 // protocol is an alias for a std::variant that can hold any protocol
 // data element.  The default value of std::monostate indicates that
 // the protocol matcher did not recognize the packet.
@@ -76,6 +81,10 @@ namespace rfb { class protocol_version_handshake; }
 namespace tacacs { class packet; }
 namespace rdp { class connection_request_pdu; }
 namespace tftp { class packet; }
+class gre_header;
+class geneve;
+class ip_encapsulation;
+class vxlan; 
 
 using protocol = std::variant<std::monostate,
                               http_request,                      // start of tcp protocols
@@ -120,6 +129,7 @@ using protocol = std::variant<std::monostate,
                               smb2_packet,
                               openvpn_tcp,
                               mysql_server_greet,
+                              mysql_login_request,
                               socks5_req_resp,
                               socks5_hello,
                               socks4_req,
@@ -127,6 +137,12 @@ using protocol = std::variant<std::monostate,
                               ike::packet,
                               rfb::protocol_version_handshake,
                               tacacs::packet
+                              >;
+using encapsulation = std::variant<std::monostate,
+                              gre_header,
+                              geneve,
+                              ip_encapsulation,
+                              vxlan
                               >;
 
 // class unknown_initial_packet represents the initial data field of a
@@ -196,6 +212,19 @@ struct is_not_empty {
         (void)r;
         return false;
     }
+};
+
+struct write_encapsulation {
+    struct json_array &record;
+
+    write_encapsulation(struct json_array &rec) : record(rec) { }
+
+    template <typename T>
+    void operator()(T &r) {
+        r.write_json(record);
+    }
+
+    void operator()(std::monostate &) { }
 };
 
 struct write_metadata {

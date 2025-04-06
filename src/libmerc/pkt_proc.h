@@ -207,6 +207,8 @@ struct stateful_pkt_proc {
                              struct timespec *ts,
                              struct tcp_reassembler *reassembler);
 
+    void process_encapsulations(std::vector<encapsulation> &encaps, struct datum &pkt, ip &ip_pkt, struct key &k);
+
     size_t ip_write_json(void *buffer,
                          size_t buffer_size,
                          const uint8_t *ip_packet,

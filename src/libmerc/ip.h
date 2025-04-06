@@ -707,6 +707,22 @@ public:
 
 };
 
+class ip_encapsulation {
+    struct key k;
+
+public:
+    ip_encapsulation(struct key &_k) : k{_k} { }
+
+    bool is_next_header() const { return true; }
+
+    void write_json(json_array &a) const {
+        struct json_object rec{a};
+        rec.print_key_string("type", "ip encapsulation");
+        k.write_ip_address(rec);
+        rec.close();
+    }
+};
+
 [[maybe_unused]] inline int ipv4_packet_fuzz_test(const uint8_t *data, size_t size) {
     key k;
     struct datum packet_data{data, data+size};

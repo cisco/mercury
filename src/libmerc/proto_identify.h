@@ -15,6 +15,7 @@
 #define PROTO_IDENTIFY_H
 
 #include <stdint.h>
+#include <arpa/inet.h>
 
 #include <vector>
 #include <array>
@@ -45,6 +46,9 @@
 #include "tofsee.hpp"
 #include "socks.h"
 #include "rfb.hpp"
+#include "gre.h"
+#include "geneve.hpp"
+#include "vxlan.hpp"
 
 enum tcp_msg_type {
     tcp_msg_type_unknown = 0,
@@ -66,6 +70,7 @@ enum tcp_msg_type {
     tcp_msg_type_openvpn,
     tcp_msg_type_bittorrent,
     tcp_msg_type_mysql_server,
+    tcp_msg_type_mysql_login_request,
     tcp_msg_type_tofsee_initial_message,
     tcp_msg_type_socks4,
     tcp_msg_type_socks5_hello,
@@ -96,6 +101,8 @@ enum udp_msg_type {
     udp_msg_type_krb5,
     udp_msg_type_esp,
     udp_msg_type_tftp,
+    udp_msg_type_geneve,
+    udp_msg_type_gre,
 };
 
 template <size_t N>
@@ -251,6 +258,9 @@ class traffic_selector {
     bool select_tacacs{false};
     bool select_rdp{false};
     bool select_tftp{false};
+    bool select_geneve{false};
+    bool select_vxlan{false};
+    bool select_mysql_login_request{false};
 
 public:
 
@@ -302,11 +312,18 @@ public:
 
     bool tacacs() const { return select_tacacs; }
 
+    bool geneve() const { return select_geneve; }
+
+    bool vxlan() const { return select_vxlan; }
+
+    bool mysql_login_request() const { return select_mysql_login_request; }
+
     void disable_all() {
         tcp.disable_all();
         tcp4.disable_all();
         udp.disable_all();
         udp16.disable_all();
+
         select_tcp_syn = false;
         select_dns = false;
         select_nbns = false;
@@ -326,6 +343,7 @@ public:
         select_ftp_request = false;
         select_ftp_response = false;
         select_ipsec = false;
+
     }
 
     traffic_selector(std::map<std::string, bool> protocols) :
@@ -347,7 +365,8 @@ public:
             select_nbss{false},
             select_openvpn_tcp{false},
             select_ftp_request{false},
-            select_ftp_response{false}
+            select_ftp_response{false},
+            select_mysql_login_request{false}
             {
 
         // "none" is a special case; turn off all protocol selection
@@ -542,6 +561,7 @@ public:
         }
         if (protocols["mysql"] || protocols["all"]) {
             tcp.add_protocol(mysql_server_greet::matcher, tcp_msg_type_mysql_server);
+            select_mysql_login_request = true;
         }
         if (protocols["quic"] || protocols["all"]) {
             udp.add_protocol(quic_initial_packet::matcher, udp_msg_type_quic);
@@ -570,6 +590,14 @@ public:
         // has a length based matcher
         if (protocols["tofsee"] || protocols["all"]) {
             tcp4.add_protocol(tofsee_initial_message::matcher, tcp_msg_type_tofsee_initial_message);
+        }
+
+        if (protocols["geneve"] || protocols["all"]) {
+            select_geneve = true;
+        }
+
+        if (protocols["vxlan"] || protocols["all"]) {
+            select_vxlan = true;
         }
 
         // tell protocol_identification objects to compile lookup tables
@@ -601,7 +629,7 @@ public:
     }
 
     size_t get_udp_msg_type_from_ports(udp::ports ports) const {
-        if (nbds() and ports.src == hton<uint16_t>(138) and ports.dst == hton<uint16_t>(138)) {
+        if (nbds() and ports.src == htons(138) and ports.dst == htons(138)) {
             return udp_msg_type_nbds;
         }
 
@@ -615,6 +643,18 @@ public:
 
         if (krb5() and (ports.src == hton<uint16_t>(88) or ports.dst == hton<uint16_t>(88))) {
             return udp_msg_type_krb5;
+        }
+
+        if (vxlan() and ports.dst == htons(vxlan::dst_port)) {
+            return udp_msg_type_vxlan;
+        }
+
+        if (geneve() and ports.dst == htons(geneve::dst_port)) {
+            return udp_msg_type_geneve;
+        }
+        
+        if (gre() and ports.dst == htons(gre_header::dst_port)) {
+            return udp_msg_type_gre;
         }
 
         return udp_msg_type_unknown;
@@ -654,6 +694,10 @@ public:
 
         if (rdp() and (tcp_pkt->header->src_port == hton<uint16_t>(3389) or tcp_pkt->header->dst_port == hton<uint16_t>(3389)) ) {
             return tcp_msg_type_rdp;
+        }
+
+        if (mysql_login_request() and ( (tcp_pkt->header->src_port == hton<uint16_t>(3306)) || (tcp_pkt->header->dst_port == hton<uint16_t>(3306)) ) ) {
+            return tcp_msg_type_mysql_login_request;
         }
 
         return tcp_msg_type_unknown;
