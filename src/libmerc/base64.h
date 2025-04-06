@@ -289,7 +289,7 @@ public:
 //
 [[maybe_unused]] inline int base64_decode_fuzz_test(const uint8_t *data, size_t size) {
     uint8_t outbuf[2048];
-    int outlen = base64::decode(outbuf, sizeof(outbuf), data, size);
+    base64::decode(outbuf, sizeof(outbuf), data, size);
     return 0;
 }
 
