@@ -65,6 +65,7 @@ enum tcp_msg_type {
     tcp_msg_type_openvpn,
     tcp_msg_type_bittorrent,
     tcp_msg_type_mysql_server,
+    tcp_msg_type_mysql_login_request,
     tcp_msg_type_tofsee_initial_message,
     tcp_msg_type_socks4,
     tcp_msg_type_socks5_hello,
@@ -240,6 +241,7 @@ class traffic_selector {
     bool select_ftp_request;
     bool select_ftp_response;
     bool select_ipsec{false};
+    bool select_mysql_login_request{false};
 
 public:
 
@@ -281,11 +283,14 @@ public:
 
     bool ipsec() const { return select_ipsec; }
 
+    bool mysql_login_request() const { return select_mysql_login_request; }
+
     void disable_all() {
         tcp.disable_all();
         tcp4.disable_all();
         udp.disable_all();
         udp16.disable_all();
+
         select_tcp_syn = false;
         select_dns = false;
         select_nbns = false;
@@ -305,6 +310,7 @@ public:
         select_ftp_request = false;
         select_ftp_response = false;
         select_ipsec = false;
+
     }
 
     traffic_selector(std::map<std::string, bool> protocols) :
@@ -326,7 +332,8 @@ public:
             select_nbss{false},
             select_openvpn_tcp{false},
             select_ftp_request{false},
-            select_ftp_response{false}
+            select_ftp_response{false},
+            select_mysql_login_request{false}
             {
 
         // "none" is a special case; turn off all protocol selection
@@ -509,6 +516,7 @@ public:
         }
         if (protocols["mysql"] || protocols["all"]) {
             tcp.add_protocol(mysql_server_greet::matcher, tcp_msg_type_mysql_server);
+            select_mysql_login_request = true;
         }
         if (protocols["quic"] || protocols["all"]) {
             udp.add_protocol(quic_initial_packet::matcher, udp_msg_type_quic);
@@ -600,6 +608,10 @@ public:
         if (ftp_request() and ((tcp_pkt->header->dst_port == hton<uint16_t>(21))))
         {
             return tcp_msg_type_ftp_request;
+        }
+
+        if (mysql_login_request() and ( (tcp_pkt->header->src_port == hton<uint16_t>(3306)) || (tcp_pkt->header->dst_port == hton<uint16_t>(3306)) ) ) {
+            return tcp_msg_type_mysql_login_request;
         }
 
         return tcp_msg_type_unknown;
