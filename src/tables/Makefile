@@ -138,6 +138,31 @@ $(HPKE):
 hpke_params.h: $(HPKE) csv
 	./csv outfile=$@ verbose=true dir=source $(HPKE_CMD)
 
+
+# TACACS+
+#
+TACPLUS += local/tac_plus_authen_action.csv
+TACPLUS += local/tac_plus_authen_type.csv
+TACPLUS += local/tac_plus_authen_service.csv
+TACPLUS += local/tac_plus_authen_status.csv
+TACPLUS += local/tac_plus_authen_meth.csv
+TACPLUS += local/tac_plus_author_status.csv
+TACPLUS += local/tac_plus_acct_status.csv
+TACPLUS += local/tac_plus_priv_lvl.csv
+
+TACPLUS_CMD += tac_plus_authen_action.csv:authen_action
+TACPLUS_CMD += tac_plus_authen_type.csv:authen_type
+TACPLUS_CMD += tac_plus_authen_service.csv:authen_service
+TACPLUS_CMD += tac_plus_authen_status.csv:authen_status
+TACPLUS_CMD += tac_plus_authen_meth.csv:authen_meth
+TACPLUS_CMD += tac_plus_author_status.csv:author_status
+TACPLUS_CMD += tac_plus_acct_status.csv:acct_status
+TACPLUS_CMD += tac_plus_priv_lvl.csv:privilege_level
+
+tacacs_plus_params.hpp: $(TACPLUS) csv
+	./csv outfile=$@ verbose=true dir=local $(TACPLUS_CMD)
+
+
 # housekeeping
 #
 clean:

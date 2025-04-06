@@ -73,13 +73,18 @@ class iec60870_5_104;
 class openvpn_tcp;
 class mysql_server_greet;
 namespace ldap { class message; }
+namespace krb5 { class packet; }
 namespace ftp {class request;class response;}
 class esp;
 namespace ike { class packet; }
+namespace rfb { class protocol_version_handshake; }
+namespace tacacs { class packet; }
+namespace rdp { class connection_request_pdu; }
+namespace tftp { class packet; }
 class gre_header;
 class geneve;
 class ip_encapsulation;
-class vxlan;
+class vxlan; 
 
 using protocol = std::variant<std::monostate,
                               http_request,                      // start of tcp protocols
@@ -99,6 +104,8 @@ using protocol = std::variant<std::monostate,
                               ldap::message,
                               ftp::request,
                               ftp::response,
+                              rdp::connection_request_pdu,
+                              tftp::packet,
                               unknown_initial_packet,
                               quic_init,                         // start of udp protocols
                               wireguard_handshake_init,
@@ -109,6 +116,7 @@ using protocol = std::variant<std::monostate,
                               dhcp_discover,
                               ssdp,
                               stun::message,
+                              krb5::packet,
                               nbds_packet,
                               bittorrent_dht,
                               bittorrent_lsd,
@@ -126,7 +134,9 @@ using protocol = std::variant<std::monostate,
                               socks5_hello,
                               socks4_req,
                               esp,
-                              ike::packet
+                              ike::packet,
+                              rfb::protocol_version_handshake,
+                              tacacs::packet
                               >;
 using encapsulation = std::variant<std::monostate,
                               gre_header,

@@ -42,8 +42,10 @@
 #include "ssdp.h"
 #include "stun.h"
 #include "smtp.h"
+#include "tacacs.hpp"
 #include "tofsee.hpp"
 #include "cdp.h"
+#include "krb5.hpp"
 #include "ldap.hpp"
 #include "lldp.h"
 #include "ospf.h"
@@ -59,9 +61,12 @@
 #include "netbios.h"
 #include "openvpn.h"
 #include "mysql.hpp"
+#include "rfb.hpp"
 #include "geneve.hpp"
 #include "tsc_clock.hpp"
 #include "ftp.hpp"
+#include "rdp.hpp"
+#include "tftp.hpp"
 #include "ppoe.hpp"
 #include "vxlan.hpp"
 
@@ -317,6 +322,15 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
     case tcp_msg_type_smtp_server:
         x.emplace<smtp_server>(pkt);
         break;
+    case tcp_msg_type_tacacs:
+        x.emplace<tacacs::packet>(pkt);
+        break;
+    case tcp_msg_type_rdp:
+        x.emplace<rdp::connection_request_pdu>(pkt);
+        break;
+    case tcp_msg_type_rfb:
+        x.emplace<rfb::protocol_version_handshake>(pkt);
+        break;
     case tcp_msg_type_dns:
     {
         /* Trim the 2 byte length field in case of
@@ -384,6 +398,7 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         }
         break;
     }
+    //fprintf(stderr, "2nd got tcp_msg_type: %d\n", msg_type);
 }
 
 // set_udp_protocol() sets the protocol variant record to the data
@@ -489,6 +504,12 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
         break;
     case udp_msg_type_lsd:
         x.emplace<bittorrent_lsd>(pkt);
+        break;
+    case udp_msg_type_krb5:
+        x.emplace<krb5::packet>(pkt);
+        break;
+    case udp_msg_type_tftp:
+        x.emplace<tftp::packet>(pkt);
         break;
     default:
         if (is_new) {
@@ -1093,6 +1114,19 @@ size_t stateful_pkt_proc::write_json(void *buffer,
     case LINKTYPE_LINUX_SLL:
         linux_sll::skip_to_ip(pkt);
         break;
+    case LINKTYPE_NULL:  // BSD loopback encapsulation
+        {
+            loopback_header loopback{pkt};
+            if (pkt.is_not_null()) {
+                switch(loopback.get_protocol_type()) {
+                case ETH_TYPE_IP:
+                case ETH_TYPE_IPV6:
+                    break;
+                default:
+                    return 0;  // unsupported protocol in loopback header
+                }
+            }
+        }
     default:
         break;
     }
