@@ -473,7 +473,7 @@ namespace krb5 {
 
 } // namespace krb5
 
-[[maybe_unused]] inline int krb5_fuzz_test(const uint8_t *data, size_t size) {
+[[maybe_unused]] inline int krb5_fuzz_disabled_test(const uint8_t *data, size_t size) {
     return json_output_fuzzer<krb5::packet>(data, size);
 }
 
