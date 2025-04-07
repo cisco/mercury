@@ -637,10 +637,6 @@ public:
             return udp_msg_type_tftp;
         }
 
-        if (ports.dst == hton<uint16_t>(4789)) {
-            return udp_msg_type_vxlan;
-        }
-
         if (krb5() and (ports.src == hton<uint16_t>(88) or ports.dst == hton<uint16_t>(88))) {
             return udp_msg_type_krb5;
         }
