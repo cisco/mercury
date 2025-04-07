@@ -340,34 +340,21 @@ public:
         select_nbss = false;
         select_openvpn_tcp = false;
         select_ldap = false;
+        select_krb5 = false;
         select_ftp_request = false;
         select_ftp_response = false;
         select_ipsec = false;
+        select_rfb = false;
+        select_tacacs = false;
+        select_rdp = false;
+        select_tftp = false;
+        select_geneve = false;
+        select_vxlan = false;
+        select_mysql_login_request = false;
 
     }
 
-    traffic_selector(std::map<std::string, bool> protocols)
-            // tcp{},
-            // udp{},
-            // select_tcp_syn{false},
-            // select_dns{false},
-            // select_nbns{false},
-            // select_mdns{false},
-            // select_arp{false},
-            // select_cdp{false},
-            // select_gre{false},
-            // select_icmp{false},
-            // select_lldp{false},
-            // select_ospf{false},
-            // select_sctp{false},
-            // select_tcp_syn_ack{false},
-            // select_nbds{false},
-            // select_nbss{false},
-            // select_openvpn_tcp{false},
-            // select_ftp_request{false},
-            // select_ftp_response{false},
-            // select_mysql_login_request{false}
-           {
+    traffic_selector(std::map<std::string, bool> protocols) {
 
         // "none" is a special case; turn off all protocol selection
         //

@@ -767,7 +767,7 @@ public:
                                 struct key &k,
                                 const traffic_selector &selector) {
 
-        if (total_encap == MAX_ENCAPSULATIONS - 1) {
+        if (total_encap >= MAX_ENCAPSULATIONS - 1) {
             return;   // too many encapsulations to report
         }
 
@@ -785,21 +785,22 @@ public:
             break;
         }
         case ip::protocol::udp: {
-            udp udp_pkt{pkt};
+            datum pkt_copy{pkt};
+            udp udp_pkt{pkt_copy};
             udp_pkt.set_key(k);
             udp::ports ports = udp_pkt.get_ports();
             enum udp_msg_type msg_type = selector.get_udp_msg_type_from_ports(ports);
             switch(msg_type) {
             case udp_msg_type_vxlan: {
-                encaps[total_encap].emplace<vxlan>(pkt, k);
+                encaps[total_encap].emplace<vxlan>(pkt_copy, k);
                 break;
             }
             case udp_msg_type_geneve: {
-                encaps[total_encap].emplace<geneve>(pkt, k);
+                encaps[total_encap].emplace<geneve>(pkt_copy, k);
                 break;
             }
             case udp_msg_type_gre: {
-                encaps[total_encap].emplace<gre_header>(pkt, k);
+                encaps[total_encap].emplace<gre_header>(pkt_copy, k);
                 break;
             }
             default:
