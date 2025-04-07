@@ -458,7 +458,10 @@ public:
             select_ldap = true;
         }
         if (protocols["kerberos"] || protocols["all"]) {
-            select_krb5 = true;
+           //
+           // kerberos is not yet ready for integration
+           //
+           // select_krb5 = true;
         }
         if (protocols["tcp.message"] || protocols["all"]) {
             // select_tcp_syn = 0;
@@ -635,10 +638,6 @@ public:
 
         if (tftp() and (ports.src == hton<uint16_t>(69) or ports.dst == hton<uint16_t>(69)) ) {
             return udp_msg_type_tftp;
-        }
-
-        if (ports.dst == hton<uint16_t>(4789)) {
-            return udp_msg_type_vxlan;
         }
 
         if (krb5() and (ports.src == hton<uint16_t>(88) or ports.dst == hton<uint16_t>(88))) {
