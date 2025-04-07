@@ -743,7 +743,6 @@ struct process_next_header {
     template <typename T>
     bool operator()(T &r) {
         return r.is_next_header();
-            
     }
 
     bool operator()(std::monostate &) { return false;}
@@ -759,49 +758,48 @@ public:
     encapsulations(struct datum &pkt,
                    ip &ip_pkt,
                    struct key &k,
-                   class traffic_selector &selector) {
+                   const traffic_selector &selector) {
         process_encapsulations(pkt, ip_pkt, k, selector);
     }
 
     void process_encapsulations(struct datum &pkt,
                                 ip &ip_pkt,
                                 struct key &k,
-                                class traffic_selector &selector) {
+                                const traffic_selector &selector) {
 
-        encapsulation x;
+        if (total_encap == MAX_ENCAPSULATIONS - 1) {
+            return;   // too many encapsulations to report
+        }
+
         switch(ip_pkt.transport_protocol()) {
         case ip::protocol::gre: {
             if(!selector.gre()) {
                 return;
             }
-            encaps[total_encap++] = x.emplace<gre_header>(pkt, k);
+            encaps[total_encap].emplace<gre_header>(pkt, k);
             break;
         }
-        case ip::protocol::ipv4: 
+        case ip::protocol::ipv4:
         case ip::protocol::ipv6: {
-            encaps[total_encap++] = x.emplace<ip_encapsulation>(k);
+            encaps[total_encap].emplace<ip_encapsulation>(k);
             break;
         }
         case ip::protocol::udp: {
-            datum pkt_copy{pkt};
-            class udp udp_pkt{pkt_copy};
+            udp udp_pkt{pkt};
             udp_pkt.set_key(k);
             udp::ports ports = udp_pkt.get_ports();
-            enum udp_msg_type msg_type = (udp_msg_type)selector.get_udp_msg_type_from_ports(ports);
+            enum udp_msg_type msg_type = selector.get_udp_msg_type_from_ports(ports);
             switch(msg_type) {
             case udp_msg_type_vxlan: {
-                pkt.data = pkt_copy.data;
-                encaps[total_encap++] = x.emplace<vxlan>(pkt, k);
+                encaps[total_encap].emplace<vxlan>(pkt, k);
                 break;
             }
             case udp_msg_type_geneve: {
-                pkt.data = pkt_copy.data;
-                encaps[total_encap++] = x.emplace<geneve>(pkt, k);
+                encaps[total_encap].emplace<geneve>(pkt, k);
                 break;
             }
             case udp_msg_type_gre: {
-                pkt.data = pkt_copy.data;
-                encaps[total_encap++] = x.emplace<gre_header>(pkt, k);
+                encaps[total_encap].emplace<gre_header>(pkt, k);
                 break;
             }
             default:
@@ -811,14 +809,15 @@ public:
         default:
             ;
         }
-        if (std::visit(process_next_header{}, x)) {
+        if (std::visit(process_next_header{}, encaps[total_encap])) {
+            total_encap++;
             ip_pkt.parse(pkt, k);
             process_encapsulations(pkt, ip_pkt, k, selector);
         }
     }
 
     bool is_empty() const {
-        if(total_encap) {
+        if (total_encap) {
             return false;
         }
 
@@ -835,7 +834,7 @@ public:
             std::visit(write_encapsulation{encap}, encaps[i]);
         }
         encap.close();
-    }            
+    }
 };
 
 size_t stateful_pkt_proc::ip_write_json(void *buffer,
