@@ -792,15 +792,18 @@ public:
             enum udp_msg_type msg_type = selector.get_udp_msg_type_from_ports(ports);
             switch(msg_type) {
             case udp_msg_type_vxlan: {
-                encaps[total_encap].emplace<vxlan>(pkt_copy, k);
+                pkt.data = pkt_copy.data;
+                encaps[total_encap].emplace<vxlan>(pkt, k);
                 break;
             }
             case udp_msg_type_geneve: {
-                encaps[total_encap].emplace<geneve>(pkt_copy, k);
+                pkt.data = pkt_copy.data;
+                encaps[total_encap].emplace<geneve>(pkt, k);
                 break;
             }
             case udp_msg_type_gre: {
-                encaps[total_encap].emplace<gre_header>(pkt_copy, k);
+                pkt.data = pkt_copy.data;
+                encaps[total_encap].emplace<gre_header>(pkt, k);
                 break;
             }
             default:
