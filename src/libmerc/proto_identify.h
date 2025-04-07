@@ -234,25 +234,25 @@ class traffic_selector {
     protocol_identifier<8> udp;
     protocol_identifier<16> udp16;
 
-    bool select_tcp_syn;
-    bool select_dns;
-    bool select_nbns;
-    bool select_mdns;
-    bool select_arp;
-    bool select_cdp;
-    bool select_gre;
-    bool select_icmp;
-    bool select_lldp;
-    bool select_ospf;
-    bool select_sctp;
-    bool select_tcp_syn_ack;
-    bool select_nbds;
-    bool select_nbss;
-    bool select_openvpn_tcp;
-    bool select_ldap;
-    bool select_krb5;
-    bool select_ftp_request;
-    bool select_ftp_response;
+    bool select_tcp_syn{false};
+    bool select_dns{false};
+    bool select_nbns{false};
+    bool select_mdns{false};
+    bool select_arp{false};
+    bool select_cdp{false};
+    bool select_gre{false};
+    bool select_icmp{false};
+    bool select_lldp{false};
+    bool select_ospf{false};
+    bool select_sctp{false};
+    bool select_tcp_syn_ack{false};
+    bool select_nbds{false};
+    bool select_nbss{false};
+    bool select_openvpn_tcp{false};
+    bool select_ldap{false};
+    bool select_krb5{false};
+    bool select_ftp_request{false};
+    bool select_ftp_response{false};
     bool select_ipsec{false};
     bool select_rfb{false};
     bool select_tacacs{false};
@@ -340,34 +340,21 @@ public:
         select_nbss = false;
         select_openvpn_tcp = false;
         select_ldap = false;
+        select_krb5 = false;
         select_ftp_request = false;
         select_ftp_response = false;
         select_ipsec = false;
+        select_rfb = false;
+        select_tacacs = false;
+        select_rdp = false;
+        select_tftp = false;
+        select_geneve = false;
+        select_vxlan = false;
+        select_mysql_login_request = false;
 
     }
 
-    traffic_selector(std::map<std::string, bool> protocols) :
-            tcp{},
-            udp{},
-            select_tcp_syn{false},
-            select_dns{false},
-            select_nbns{false},
-            select_mdns{false},
-            select_arp{false},
-            select_cdp{false},
-            select_gre{false},
-            select_icmp{false},
-            select_lldp{false},
-            select_ospf{false},
-            select_sctp{false},
-            select_tcp_syn_ack{false},
-            select_nbds{false},
-            select_nbss{false},
-            select_openvpn_tcp{false},
-            select_ftp_request{false},
-            select_ftp_response{false},
-            select_mysql_login_request{false}
-            {
+    traffic_selector(std::map<std::string, bool> protocols) {
 
         // "none" is a special case; turn off all protocol selection
         //
@@ -631,8 +618,9 @@ public:
         return type;
     }
 
-    size_t get_udp_msg_type_from_ports(udp::ports ports) const {
-        if (nbds() and ports.src == htons(138) and ports.dst == htons(138)) {
+    udp_msg_type get_udp_msg_type_from_ports(udp::ports ports) const {
+
+        if (nbds() and ports.src == hton<uint16_t>(138) and ports.dst == hton<uint16_t>(138)) {
             return udp_msg_type_nbds;
         }
 
@@ -644,15 +632,15 @@ public:
             return udp_msg_type_krb5;
         }
 
-        if (vxlan() and ports.dst == htons(vxlan::dst_port)) {
+        if (vxlan() and ports.dst == hton<uint16_t>(vxlan::dst_port)) {
             return udp_msg_type_vxlan;
         }
 
-        if (geneve() and ports.dst == htons(geneve::dst_port)) {
+        if (geneve() and ports.dst == hton<uint16_t>(geneve::dst_port)) {
             return udp_msg_type_geneve;
         }
-        
-        if (gre() and ports.dst == htons(gre_header::dst_port)) {
+
+        if (gre() and ports.dst == hton<uint16_t>(gre_header::dst_port)) {
             return udp_msg_type_gre;
         }
 
