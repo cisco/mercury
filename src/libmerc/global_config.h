@@ -170,6 +170,7 @@ public:
             { "http.response",          false },
             { "icmp",                   false },
             { "iec",                    false },
+            { "kerberos",               false },
             { "ldap",                   false },
             { "ipsec",                  false },
             { "lldp",                   false },
@@ -179,19 +180,23 @@ public:
             { "nbss",                   false },
             { "ospf",                   false },
             { "quic",                   false },
+            { "rdp",                    false },
+            { "rfb",                    false },
             { "sctp",                   false },
             { "smb",                    false },
             { "smtp",                   false },
             { "ssdp",                   false },
             { "ssh",                    false },
             { "stun",                   false },
+            { "tacacs",                 false },
             { "tcp",                    false },
             { "tcp.message",            false },
             { "tcp.syn_ack",            false },
+            { "tftp",                   false },
             { "tls",                    false },
             { "tls.client_hello",       false },
             { "tls.server_hello",       false },
-            { "tls.server_certificate", false},
+            { "tls.server_certificate", false },
             { "wireguard",              false },
             { "openvpn_tcp",            false },
             { "mysql",                  false },
@@ -199,7 +204,9 @@ public:
             { "socks",                  false },
             { "ftp",                    false},
             { "ftp.response",           false},
-            { "ftp.request",            false}
+            { "ftp.request",            false},
+            { "geneve",                 false},
+            { "vxlan",                  false}
         };
 
     std::unordered_map<std::string, bool> raw_features {

@@ -293,6 +293,14 @@ struct json_array {
         b->puts(s);
         b->write_char('\"');
     }
+    template <typename uint>
+    void print_unknown_code(uint u) {
+        write_comma(comma);
+        b->snprintf("\"UNKNOWN (0x");
+        b->write_hex_uint(u);
+        b->write_char(')');
+        b->write_char('\"');
+    }
     void print_json_string(const struct datum &d) {
         if (d.is_not_readable()) {
             return;
@@ -355,6 +363,89 @@ int json_output_fuzzer(const uint8_t *data, size_t size) {
     }
     return 0;
 }
+
+
+/// test a json output by parsing the \param raw_data_len bytes at
+/// \param raw_data as an object of type \param T, writing out the
+/// json representation of that object, then comparing that json to
+/// the expected \param output_len bytes at location \param output.
+/// Returns `true` on success, and `false` otherwise.
+///
+template <typename T>
+static bool test_json_output(uint8_t *raw_data,
+                             size_t raw_data_len,
+                             uint8_t *output,
+                             size_t output_len,
+                             FILE *verbose_output=nullptr) {
+    bool retval = false;
+    datum reference_data{raw_data, raw_data + raw_data_len};
+    T pkt{reference_data};
+    if (reference_data.is_not_null()) {
+        output_buffer<2024> buf;
+        json_object json{&buf};
+        pkt.write_json(json, false);
+        json.close();
+        if (output_len == buf.length() and buf.memcmp(output, output_len) == 0) {
+            retval = true;
+        }
+        if (verbose_output) {
+            buf.write_line(verbose_output);
+        }
+    }
+    return retval;
+}
+
+
+/// represents a bit flag as a \ref json_array of strings
+///
+template <typename T>
+class json_array_bitflags {
+    json_array a;
+    const T &flags;
+
+public:
+
+    /// creates a \ref json_array_bitflags object inside of the \ref
+    /// json_object \param o, with the name \param name, based on the
+    /// bit flags in \param flags_value
+    ///
+    /// note: \ref json_array_bitflags::close() \b must be called before
+    /// the \ref json_object is printed out or goes out of scope, to
+    /// ensure that the generated JSON is valid.
+    ///
+    json_array_bitflags(json_object &o, const char *name, const T &flags_value) :
+        a{o, name},
+        flags{flags_value}
+    {}
+
+    /// checks the bit at \param index and, if it is set, adds the
+    /// \param string to the array
+    ///
+    template <size_t index>
+    void flag(const char *string) {
+        if (bit<index>(flags)) {
+            a.print_string(string);
+        }
+    }
+
+    /// checks for unknown bit flags, and if any are present, adds a
+    /// string indicating the unknown flag bits as a hexadecimal value
+    ///
+    template <size_t ...args>
+    void check_for_unknown_flags() {
+        T mask = (bit<args,T>() | ...);
+        if (flags & ~mask) {
+            a.print_unknown_code<T>(flags & ~mask);
+        }
+    }
+
+    /// closes the \ref json_array
+    ///
+    void close() {
+        a.close();
+    }
+
+};
 
 
 #ifdef USE_JSON_FILE_OBJECT
