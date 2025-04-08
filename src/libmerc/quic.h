@@ -96,6 +96,9 @@ class variable_length_integer {
     uint64_t value_;
 
 public:
+    variable_length_integer(const variable_length_integer &i) : value_{i.value()} {   }
+
+    variable_length_integer(uint64_t i) : value_{i} {   }
 
     variable_length_integer(datum &d) : value_{0} {
         uint8_t b;
@@ -359,6 +362,10 @@ class crypto {
 
 public:
     crypto(datum &p) : _offset{p}, _length{p}, _data{p, _length.value()} {    }
+
+    crypto(const crypto &c) : _offset{c._offset}, _length{c._length}, _data{c._data} {   }
+
+    crypto() : _offset{0}, _length{0}, _data{} {   }
 
     bool is_valid() const { return _data.is_not_empty(); }
 
@@ -1261,6 +1268,17 @@ struct cryptographic_buffer
     uint64_t buf_len = 0;
     unsigned char buffer[pt_buf_len] = {}; // pt_buf_len - decryption buffer trim size for gcm_decrypt
 
+    std::pair<uint64_t,uint64_t> min_frame {UINT64_MAX,UINT64_MAX};     // <offset,len>
+    std::pair<uint64_t,uint64_t> max_frame {0,0};                       // <offset,len>
+    uint32_t total_data = 0;
+    static constexpr uint16_t max_frames = 20;
+    crypto crypto_frames[max_frames];
+    uint16_t crypto_frames_count = 0;
+    uint16_t first_frame_index = 0;
+    bool missing_crypto_frames = false;
+
+    cryptographic_buffer() {}
+
     void extend(crypto& d)
     {
         if (d.offset() + d.length() <= sizeof(buffer)) {
@@ -1270,6 +1288,36 @@ struct cryptographic_buffer
             }
         }
         // TODO: track segments to verify that all are present
+    }
+
+    void update_crypto_frames (crypto *c) {
+        if (c->offset() == 0) {
+            first_frame_index = crypto_frames_count;
+        }
+        // update min
+        if (c->offset() <= min_frame.first) {
+            min_frame.first = c->offset();
+            min_frame.second = c->length();
+        }
+        // update max
+        if (c->offset() >= max_frame.first) {
+            max_frame.first = c->offset();
+            max_frame.second = c->length();
+        }
+        // update total
+        total_data += c->length();
+        // update frame array
+        if (crypto_frames_count < 20) {
+            crypto_frames[crypto_frames_count] = *c;
+            crypto_frames_count++;
+        }
+    }
+
+    void check_missing_crypto_frames () {
+        if (total_data != (max_frame.first + max_frame.second - min_frame.first) ) {
+            // soomething messed up in crypto frames ordering
+            missing_crypto_frames = true;
+        }
     }
 
     bool is_valid()
@@ -1367,6 +1415,7 @@ public:
                 if (c->offset() <= min_crypto_offset)
                     min_crypto_offset = (uint32_t)c->offset();
                 crypto_buffer.extend(*c);
+                crypto_buffer.update_crypto_frames(c);
             }
             if (frame.has_type<connection_close>() || frame.has_type<ack>()) {
                 cc = frame;
@@ -1374,12 +1423,29 @@ public:
         }
         valid = true;
         if(crypto_buffer.is_valid()){
-            struct datum d{crypto_buffer.buffer, crypto_buffer.buffer + crypto_buffer.buf_len};
-            tls_handshake tls{d};
-            more_bytes_needed = tls.additional_bytes_needed;
-            hello.parse(tls.body);
-            hello.is_quic_hello = true;
-        } 
+            crypto_buffer.check_missing_crypto_frames();
+
+            if (!crypto_buffer.missing_crypto_frames) {
+                struct datum d{crypto_buffer.buffer, crypto_buffer.buffer + crypto_buffer.buf_len};
+                tls_handshake tls{d};
+                more_bytes_needed = tls.additional_bytes_needed;
+                hello.parse(tls.body);
+                hello.is_quic_hello = true;
+            }
+            else {
+                // some frames might be missing. Two possibilities:
+                // 1. min crypto offset is 0, parse the first frame as tls handshake. Ideally the first frame should be big
+                // enough to figure out total bytes needed.
+                // 2. min crypto offset > 0. Pass on all the frames for reassembly
+                struct datum d{crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().data,
+                                crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().data +
+                                    crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().length()};
+                tls_handshake tls{d};
+                more_bytes_needed = tls.additional_bytes_needed;
+                hello.parse(tls.body);
+                hello.is_quic_hello = true;
+            }
+        }
     }
 
     bool is_valid() {return valid;}
@@ -1489,17 +1555,35 @@ public:
                 if (c->offset() <= min_crypto_offset)
                     min_crypto_offset = (uint32_t)c->offset();
                 crypto_buffer.extend(*c);
+                crypto_buffer.update_crypto_frames(c);
             }
             if (frame.has_type<connection_close>() || frame.has_type<ack>() || frame.has_type<ack_ecn>()) {
                 cc = frame;
             }
         }
         if(crypto_buffer.is_valid()){
-            struct datum d{crypto_buffer.buffer, crypto_buffer.buffer + crypto_buffer.buf_len};
-            tls_handshake tls{d};
-            more_bytes_needed = tls.additional_bytes_needed;
-            hello.parse(tls.body);
-            hello.is_quic_hello = true;
+            crypto_buffer.check_missing_crypto_frames();
+
+            if (!crypto_buffer.missing_crypto_frames) {
+                struct datum d{crypto_buffer.buffer, crypto_buffer.buffer + crypto_buffer.buf_len};
+                tls_handshake tls{d};
+                more_bytes_needed = tls.additional_bytes_needed;
+                hello.parse(tls.body);
+                hello.is_quic_hello = true;
+            }
+            else {
+                // some frames might be missing. Two possibilities:
+                // 1. min crypto offset is 0, parse the first frame as tls handshake. Ideally the first frame should be big
+                // enough to figure out total bytes needed.
+                // 2. min crypto offset > 0. Pass on all the frames for reassembly
+                struct datum d{crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().data,
+                                crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().data +
+                                    crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().length()};
+                tls_handshake tls{d};
+                more_bytes_needed = tls.additional_bytes_needed;
+                hello.parse(tls.body);
+                hello.is_quic_hello = true;
+            }
         }
     }
 
@@ -1540,6 +1624,16 @@ public:
     uint32_t additional_bytes_needed() const {
         return (pre_decrypted ? (decry_pkt.get_more_bytes_needed()) : more_bytes_needed);
     }
+
+    bool missing_crypto_frames() const {
+        return crypto_buffer.missing_crypto_frames;
+    }
+
+    const crypto *get_crypto_frames(uint16_t &frame_count, uint16_t &first_frame_idx) const {
+        frame_count = crypto_buffer.crypto_frames_count;
+        first_frame_idx = crypto_buffer.first_frame_index;
+        return crypto_buffer.crypto_frames;
+    } 
 
     uint32_t get_min_crypto_offset() const {
         return (pre_decrypted ? (decry_pkt.get_min_crypto_offset()) : min_crypto_offset);
