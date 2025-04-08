@@ -1,6 +1,17 @@
 # CHANGELOG for Mercury
 
-
+## VERSION 2.7.0
+* Added minimal RDP (Remote Desktop Protocol) support, which
+  reports information about handshakes, security negotiation, and
+  cookies.
+* Added minimal VNC/RFB (Virtual Network Computing / Remote Frame
+  Buffer) support, which reports handshakes and versions.
+* Added MySQL Login support, to report on exposed credentials.
+* Added TACACS+ support, which reports on both `encrypted` and
+  `unencrypted` messages.  Details of unencrypted authenticationd
+  messages are reported in JSON.
+* Added minimal TFTP support, which reports file names and modes.
+* Extended FTP command channel to multi-line responses.
 * Support for reporting outer tunnel parameters and also includes
   support for PPoE, VXLAN encapsulation and IP encapsulations.
 
