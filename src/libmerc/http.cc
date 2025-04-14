@@ -258,7 +258,7 @@ void http_request::write_json(struct json_object &record, bool output_metadata) 
             if (auth.is_not_null()) { authorization{auth}.write_json(http_request); }
             headers.write_json(http_request);
         } else {
-            http_request.print_key_json_string("user-agent", get_header("user-agent"));
+            http_request.print_key_json_string("user_agent", get_header("user-agent"));
         }
         http_request.close();
         http.close();
