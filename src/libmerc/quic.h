@@ -1266,7 +1266,8 @@ public:
 struct cryptographic_buffer
 {
     uint64_t buf_len = 0;
-    unsigned char buffer[pt_buf_len] = {}; // pt_buf_len - decryption buffer trim size for gcm_decrypt
+    static constexpr uint32_t crypto_buf_len = 4096;
+    unsigned char buffer[crypto_buf_len] = {}; // pt_buf_len - decryption buffer trim size for gcm_decrypt
 
     std::pair<uint64_t,uint64_t> min_frame {UINT64_MAX,UINT64_MAX};     // <offset,len>
     std::pair<uint64_t,uint64_t> max_frame {0,0};                       // <offset,len>
