@@ -1267,6 +1267,7 @@ struct cryptographic_buffer
 {
     uint64_t buf_len = 0;
     static constexpr uint32_t crypto_buf_len = 4096;
+    static constexpr uint32_t min_crypto_data_len = 10;   // minimum number of bytes needed to discover TLS handshake size
     unsigned char buffer[crypto_buf_len] = {}; // pt_buf_len - decryption buffer trim size for gcm_decrypt
 
     std::pair<uint64_t,uint64_t> min_frame {UINT64_MAX,UINT64_MAX};     // <offset,len>
@@ -1277,6 +1278,7 @@ struct cryptographic_buffer
     uint16_t crypto_frames_count = 0;
     uint16_t first_frame_index = 0;
     bool missing_crypto_frames = false;
+    bool min_crypto_data = false;
 
     cryptographic_buffer() {}
 
@@ -1438,13 +1440,24 @@ public:
                 // 1. min crypto offset is 0, parse the first frame as tls handshake. Ideally the first frame should be big
                 // enough to figure out total bytes needed.
                 // 2. min crypto offset > 0. Pass on all the frames for reassembly
-                struct datum d{crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().data,
-                                crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().data +
-                                    crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().length()};
-                tls_handshake tls{d};
-                more_bytes_needed = tls.additional_bytes_needed;
-                hello.parse(tls.body);
-                hello.is_quic_hello = true;
+                if (crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().length() < 10) {
+                    // directly pick first 10 bytes from buffer
+                    crypto_buffer.min_crypto_data = true;
+                    struct datum d{crypto_buffer.buffer, crypto_buffer.buffer + 10};
+                    tls_handshake tls{d};
+                    more_bytes_needed = tls.additional_bytes_needed;
+                    hello.parse(tls.body);
+                    hello.is_quic_hello = true;
+                }
+                else {
+                    struct datum d{crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().data,
+                                    crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().data +
+                                        crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().length()};
+                    tls_handshake tls{d};
+                    more_bytes_needed = tls.additional_bytes_needed;
+                    hello.parse(tls.body);
+                    hello.is_quic_hello = true;
+                }
             }
         }
     }
@@ -1577,13 +1590,24 @@ public:
                 // 1. min crypto offset is 0, parse the first frame as tls handshake. Ideally the first frame should be big
                 // enough to figure out total bytes needed.
                 // 2. min crypto offset > 0. Pass on all the frames for reassembly
-                struct datum d{crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().data,
-                                crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().data +
-                                    crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().length()};
-                tls_handshake tls{d};
-                more_bytes_needed = tls.additional_bytes_needed;
-                hello.parse(tls.body);
-                hello.is_quic_hello = true;
+                if (crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().length() < 10) {
+                    // directly pick first 10 bytes from buffer
+                    crypto_buffer.min_crypto_data = true;
+                    struct datum d{crypto_buffer.buffer, crypto_buffer.buffer + 10};
+                    tls_handshake tls{d};
+                    more_bytes_needed = tls.additional_bytes_needed;
+                    hello.parse(tls.body);
+                    hello.is_quic_hello = true;
+                }
+                else {
+                    struct datum d{crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().data,
+                                    crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().data +
+                                        crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().length()};
+                    tls_handshake tls{d};
+                    more_bytes_needed = tls.additional_bytes_needed;
+                    hello.parse(tls.body);
+                    hello.is_quic_hello = true;
+                }
             }
         }
     }
@@ -1635,6 +1659,8 @@ public:
         first_frame_idx = crypto_buffer.first_frame_index;
         return crypto_buffer.crypto_frames;
     } 
+
+    bool min_crypto_data() { return crypto_buffer.min_crypto_data; }
 
     uint32_t get_min_crypto_offset() const {
         return (pre_decrypted ? (decry_pkt.get_min_crypto_offset()) : min_crypto_offset);
