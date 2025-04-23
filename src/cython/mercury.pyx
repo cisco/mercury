@@ -116,6 +116,9 @@ cdef extern from "../libmerc/analysis.h":
     cdef cppclass classifier:
         analysis_result perform_analysis(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port, const char *user_agent)
 
+        void check_additional_attributes_util(analysis_result *result, const char *server_name, const char *dst_ip)
+
+
         # analysis_result perform_analysis_with_weights(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port, const char *user_agent,
         #                         long double new_as_weight, long double new_domain_weight,
         #                         long double new_port_weight, long double new_ip_weight,
@@ -416,6 +419,7 @@ cdef class Mercury:
         cdef char* dst_ip_c = dst_ip_b
 
         cdef analysis_result ar = self.clf.perform_analysis(fp_str_c, server_name_c, dst_ip_c, dst_port, NULL)
+        self.clf.check_additional_attributes_ut(&ar, server_name_c, dst_ip_c)
 
         cdef fingerprint_status fp_status_enum = ar.status
         fp_status = fp_status_dict[fp_status_enum]
@@ -555,6 +559,7 @@ cdef class Mercury:
             user_agent_c = NULL
 
         cdef analysis_result ar = self.clf.perform_analysis(fp_str_c, server_name_c, dst_ip_c, dst_port, user_agent_c)
+        self.clf.check_additional_attributes_ut(&ar, server_name_c, dst_ip_c)
 
         cdef fingerprint_status fp_status_enum = ar.status
         fp_status = fp_status_dict[fp_status_enum]
