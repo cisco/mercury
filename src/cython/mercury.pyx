@@ -6,6 +6,7 @@ from base64 import b64decode
 
 from libcpp.unordered_map cimport unordered_map
 from libcpp.string cimport string
+from libcpp.vector cimport vector
 from libcpp cimport bool
 from libc.stdio cimport *
 from libc.stdint cimport *
@@ -99,6 +100,8 @@ cdef extern from "../libmerc/libmerc.h":
 cdef extern from "../libmerc/result.h":
     cdef cppclass attribute_result:
         void write_json(char *buffer, int buffer_size)
+        bool is_initialized()
+        void initialize (const vector[string] *_tag_names, const char *const *names_char)
     cdef struct analysis_result:
         fingerprint_status status
         char max_proc[256]
@@ -108,15 +111,27 @@ cdef extern from "../libmerc/result.h":
         attribute_result attr
     cdef struct analysis_context:
         analysis_result result
+    cdef cppclass attribute_names:
+        vector[string] names
+        char* names_char[12]
+        bool accept_more_names
+        const vector[string] &value()
+        const char* const* get_names_char()
+
+        
 
 
 cdef extern from "../libmerc/analysis.h":
     classifier *analysis_init_from_archive(int verbosity, const char *archive_name, const uint8_t *enc_key, enc_key_type key_type,
                                            float fp_proc_threshold, float proc_dst_threshold, bool report_os);
+    
+    cdef struct common_data:
+        attribute_names attr_name;
+
     cdef cppclass classifier:
         analysis_result perform_analysis(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port, const char *user_agent)
-
-        void check_additional_attributes_utilil(analysis_result *result, const char *server_name, const char *dst_ip)
+        const common_data &get_common_data()
+        void check_additional_attributes_util(analysis_result *result, const char *server_name, const char *dst_ip)
 
 
         # analysis_result perform_analysis_with_weights(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port, const char *user_agent,
@@ -419,6 +434,10 @@ cdef class Mercury:
         cdef char* dst_ip_c = dst_ip_b
 
         cdef analysis_result ar = self.clf.perform_analysis(fp_str_c, server_name_c, dst_ip_c, dst_port, NULL)
+        print(f'perform_analysis: {ar.status}')
+        if ar.attr.is_initialized() == False:
+            print(f'perform_analysis: attributes not initialized')
+            ar.attr.initialize(&(self.clf.get_common_data().attr_name.value()), self.clf.get_common_data().attr_name.get_names_char())
         self.clf.check_additional_attributes_util(&ar, server_name_c, dst_ip_c)
 
         cdef fingerprint_status fp_status_enum = ar.status
