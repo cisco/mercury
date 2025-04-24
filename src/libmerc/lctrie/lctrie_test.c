@@ -15,7 +15,7 @@
 #include "lctrie.h"
 
 
-#define BGP_MAX_ENTRIES             4000000
+#define BGP_MAX_ENTRIES             500000
 #define BGP_READ_FILE               1
 
 // should we initialize the special prefix ranges?

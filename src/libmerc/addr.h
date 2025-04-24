@@ -19,9 +19,11 @@
 
 #include "lctrie/lctrie.h"
 
-// BGP_MAX_ENTRIES is the max number of subnets
+// BGP_MAX_ENTRIES is the max number of ASN subnets
+// DOMAIN_MAPPINGS_MAX_ENTRIES is the max number of domain mapping subnets
 //
-#define BGP_MAX_ENTRIES  4000000
+#define BGP_MAX_ENTRIES  500000
+#define DOMAIN_MAPPINGS_MAX_ENTRIES  10000
 
 class subnet_data {
 
@@ -80,7 +82,7 @@ public:
         ipv4_domain_trie.nets = 0;
         ipv4_domain_array = nullptr;
 
-        domains_prefix = (lct_subnet_t *)calloc(sizeof(lct_subnet_t), BGP_MAX_ENTRIES);
+        domains_prefix = (lct_subnet_t *)calloc(sizeof(lct_subnet_t), DOMAIN_MAPPINGS_MAX_ENTRIES);
         if (domains_prefix == nullptr) {
             throw std::runtime_error("error: could not initialize domains_prefix");
         }
