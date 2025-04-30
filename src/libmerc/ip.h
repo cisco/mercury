@@ -9,7 +9,9 @@
 #include "datum.h"
 #include "tcp.h"
 #include "json_object.h"
+#include "flow_key.h"
 #include <variant>
+#include <utility>
 
 
 // IP (v4 and v6) packet parsing, fingerprinting, and metadata reporting
@@ -63,6 +65,26 @@ class ipv4_packet {
         if (header) {
             header->src_addr = new_addr;
         }
+    }
+
+    ipv4_address get_src_addr() const {
+        if (header) {
+            return ipv4_address{header->src_addr};
+        }
+        return 0; // error
+    }
+
+    void set_dst_addr(uint32_t new_addr) {
+        if (header) {
+            header->dst_addr = new_addr;
+        }
+    }
+
+    ipv4_address get_dst_addr() const {
+        if (header) {
+            return ipv4_address{header->dst_addr};
+        }
+        return 0; // error
     }
 
     ipv4_packet() : header{NULL} { }
@@ -129,6 +151,7 @@ class ipv4_packet {
         }
     }
 
+    bool is_not_empty() const { return header != nullptr; }
 };
 
 // IPv6 header (following RFC 2460)
@@ -428,6 +451,8 @@ public:
         }
     }
 
+    bool is_not_empty() const { return header != nullptr; }
+
 };
 
 
@@ -542,6 +567,18 @@ public:
         }
     }
 
+    size_t version() const {
+        switch(packet.index()) {
+        case 1:
+            return 4;
+        case 2:
+            return 6;
+        default:
+            ;
+        }
+        return 0;
+    }
+
     void write_json(json_object &o) {
         std::visit(ip_pkt_write_json{o}, packet);
     }
@@ -553,6 +590,163 @@ public:
     ip::protocol transport_protocol() {  // TODO: should be const
         return static_cast<ip::protocol>(std::visit(get_transport_protocol{}, packet));
     }
+
+    bool src_is_private() const {
+        if (std::get<1>(packet).get_src_addr().get_addr_type() == ipv4_address::addr_type::private_use) {
+            return true;
+        }
+        return false;
+    }
+
+    bool dst_is_private() const {
+        if (std::get<1>(packet).get_dst_addr().get_addr_type() == ipv4_address::addr_type::private_use) {
+            return true;
+        }
+        return false;
+    }
+
+    // static std::pair<bool,bool> is_service(ip &ip_pkt, datum &transport_headers) {
+    //     key k;
+    //     ip::protocol protocol = ip_pkt.transport_protocol();
+    //     //fprintf(stdout, "packet.ip.protocol: %u\n", protocol);
+    //     if (protocol == ip::protocol::tcp) {
+    //         tcp_packet tcp_pkt{transport_headers};
+    //         tcp_pkt.set_key(k);
+    //         // fprintf(stdout, "packet.ip.tcp.data.length: %zd\n", pkt_data.length());
+    //         // fprintf(stdout, "packet.ip.tcp.data:");
+    //         // pkt_data.fprint_hex(stdout);
+    //         // fputc('\n', stdout);
+    //     } else if (protocol == ip::protocol::udp) {
+    //         class udp udp_pkt{transport_headers};
+    //         udp_pkt.set_key(k);
+    //     }
+    //     bool src_is_service = k.src_port == 53;
+    //     bool dst_is_service  = k.dst_port == 53;
+    //     return { src_is_service, dst_is_service };
+    // }
+
+    std::pair<bool, bool> remap_private_addrs(std::unordered_map<ipv4_address, ipv4_address> &addr_map,
+                             ipv4_address &src,
+                             ipv4_address &dst) {
+
+        // TODO: revise to accept both ipv4 and ipv6
+
+        bool update_src = false;
+        bool update_dst = false;
+
+        if (src_is_private()) {
+
+            ipv4_packet &pkt = std::get<1>(packet);
+            ipv4_address src_addr = pkt.get_src_addr();
+            auto result = addr_map.find(src_addr);
+            if (result == addr_map.end()) {
+                addr_map.insert({src_addr, src});
+                // uint32_t a = pkt.get_src_addr().get_value();
+                // fprintf(stderr, "private: %u.%u.%u.%u\n",
+                //     a >> 0  & 0xff,
+                //     a >> 8  & 0xff,
+                //     a >> 16 & 0xff,
+                //     a >> 24 & 0xff);
+                // uint32_t t = src.get_value();
+                // fprintf(stderr, "top: %u.%u.%u.%u\n",
+                //     t >> 0  & 0xff,
+                //     t >> 8  & 0xff,
+                //     t >> 16 & 0xff,
+                //     t >> 24 & 0xff);
+                pkt.set_src_ip(src.get_value());
+                src.next_addr_in_subnet();
+                update_src = true;
+
+            } else {
+                uint32_t r = result->second.get_value();
+                // fprintf(stderr, "result: %u.%u.%u.%u\n",
+                //     r >> 0  & 0xff,
+                //     r >> 8  & 0xff,
+                //     r >> 16 & 0xff,
+                //     r >> 24 & 0xff);
+                pkt.set_src_ip(r);
+            }
+        }
+
+        if (dst_is_private()) {
+
+            ipv4_packet &pkt = std::get<1>(packet);
+            ipv4_address dst_addr = pkt.get_dst_addr();
+            auto result = addr_map.find(dst_addr);
+            if (result == addr_map.end()) {
+                addr_map.insert({dst_addr, dst});
+                // uint32_t a = pkt.get_dst_addr().get_value();
+                // fprintf(stderr, "private: %u.%u.%u.%u\n",
+                //     a >> 0  & 0xff,
+                //     a >> 8  & 0xff,
+                //     a >> 16 & 0xff,
+                //     a >> 24 & 0xff);
+                // uint32_t t = a.get_value();
+                // fprintf(stderr, "top: %u.%u.%u.%u\n",
+                //     t >> 0  & 0xff,
+                //     t >> 8  & 0xff,
+                //     t >> 16 & 0xff,
+                //     t >> 24 & 0xff);
+                pkt.set_dst_addr(dst.get_value());
+                dst.next_addr_in_subnet();
+                update_dst = true;
+
+            } else {
+                uint32_t r = result->second.get_value();
+                // fprintf(stderr, "result: %u.%u.%u.%u\n",
+                //     r >> 0  & 0xff,
+                //     r >> 8  & 0xff,
+                //     r >> 16 & 0xff,
+                //     r >> 24 & 0xff);
+                pkt.set_dst_addr(r);
+            }
+        }
+
+        return { update_src, update_dst };
+    }
+
 };
+
+class ip_encapsulation {
+    struct key k;
+
+public:
+    ip_encapsulation(struct key &_k) : k{_k} { }
+
+    bool is_next_header() const { return true; }
+
+    void write_json(json_array &a) const {
+        struct json_object rec{a};
+        rec.print_key_string("type", "ip encapsulation");
+        k.write_ip_address(rec);
+        rec.close();
+    }
+};
+
+[[maybe_unused]] inline int ipv4_packet_fuzz_test(const uint8_t *data, size_t size) {
+    key k;
+    struct datum packet_data{data, data+size};
+    ipv4_packet pkt{packet_data, k};
+    if (pkt.is_not_empty()) {
+        char buffer[8192];
+        struct buffer_stream buf_json(buffer, sizeof(buffer));
+        struct json_object record(&buf_json);
+        pkt.write_json(record);
+    }
+    return 0;
+}
+
+[[maybe_unused]] inline int ipv6_packet_fuzz_test(const uint8_t *data, size_t size) {
+    key k;
+    struct datum packet_data{data, data+size};
+    ipv6_packet pkt{packet_data, k};
+    if (pkt.is_not_empty()) {
+        char buffer[8192];
+        struct buffer_stream buf_json(buffer, sizeof(buffer));
+        struct json_object record(&buf_json);
+        pkt.write_json(record);
+    }
+    return 0;
+}
 
 #endif // MERC_IP_H

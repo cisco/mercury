@@ -6,6 +6,7 @@
 
 #include "datum.h"
 #include "fingerprint.h"
+#include "flow_key.h"
 
 class classifier; // forward declaration of class used in interface
 

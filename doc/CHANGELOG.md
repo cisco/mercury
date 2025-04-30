@@ -1,5 +1,49 @@
 # CHANGELOG for Mercury
 
+## VERSION 2.7.0
+* Added minimal RDP (Remote Desktop Protocol) support, which
+  reports information about handshakes, security negotiation, and
+  cookies.
+* Added minimal VNC/RFB (Virtual Network Computing / Remote Frame
+  Buffer) support, which reports handshakes and versions.
+* Added MySQL Login support, to report on exposed credentials.
+* Added TACACS+ support, which reports on both `encrypted` and
+  `unencrypted` messages.  Details of unencrypted authenticationd
+  messages are reported in JSON.
+* Added minimal TFTP support, which reports file names and modes.
+* Extended FTP command channel to multi-line responses.
+* Support for reporting outer tunnel parameters and also includes
+  support for PPoE, VXLAN encapsulation and IP encapsulations.
+
+## VERSION 2.6.5
+* Added support for mutli-line FTP responses.
+* Fixed memory leak associated with Domain Faking detection
+  initialization corner case, and reinstated resource archive version qualifier count.
+* Fixed issues discovered by fuzz testing, and added unit test cases.
+* Added many new fuzz tests, plus the helper template function `json_output_fuzzer<>()`.
+  No changes to behavior, though some function signatures were extended with an optional `bool metadata`.
+
+## VERSION 2.6.4
+* Added reporting of HTTP CONNECT proxies in JSON output.
+* Added FTP command channel reporting in JSON output.
+* Added SSH crypto assessment.
+* Refactored weighted naive bayes classifier and eliminated
+  intermedate data structures that had been used during
+  initialization.
+* Several minor fixes and defensive coding additions
+* Added normalization for TLS/QUIC Server Names and HTTP Hosts
+* Added test cases for CBOR.
+* Improved error checking and unit test cases for IPv4 and IPv6 address textual representations.
+* Added detectors for Domain Faking and Fake TLS.
+
+## VERSION 2.6.3
+* Revamped SSH metadata and fingerprints.
+* Minor improvements to reassembly.
+* Numerical stability improvements to the naive bayes classifier.
+* Added [`classify`](src/classify.cpp) tool for running classifier
+  on a command-line arguments.
+* Minor fixes to reassembly and LDAP parsing
+
 ## VERSION 2.6.2
 * Removed default interface from template configuration file
   `mercury.cfg` and added runtime check to require that an interface

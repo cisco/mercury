@@ -12,6 +12,8 @@
 #include "fingerprint.h"
 #include "result.h"
 #include "match.h"
+#include "flow_key.h"
+#include "analysis.h"
 
 template <size_t bits, typename T>
 inline T rotl(T &x) {
@@ -209,5 +211,10 @@ public:
 #endif // NDEBUG
 
 };
+
+[[maybe_unused]] inline int tofsee_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<tofsee_initial_message>(data, size);
+}
+
 
 #endif // TOFSEE_HPP

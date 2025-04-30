@@ -12,7 +12,6 @@
 #include "fingerprint.h"
 #include "match.h"
 #include "json_object.h"
-#include "util_obj.h"
 #include "tls.h"
 
 // DTLS (RFC 4347)
@@ -149,4 +148,14 @@ public:
         }
     };
 };
+
+
+[[maybe_unused]] inline int dtls_client_hello_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<dtls_client_hello>(data, size);
+}
+
+[[maybe_unused]] inline int dtls_server_hello_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<dtls_server_hello>(data, size);
+}
+
 #endif /* DTLS_H */

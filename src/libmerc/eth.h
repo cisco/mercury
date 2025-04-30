@@ -12,6 +12,20 @@
 #include "datum.h"
 #include "cdp.h"
 
+struct eth_addr : public datum {
+    static const unsigned int bytes_in_addr = 6;
+
+    eth_addr(datum &d) : datum{} {
+        datum::parse(d, bytes_in_addr);
+    }
+
+    void fingerprint(struct buffer_stream &b) const {
+        if (datum::is_not_null()) {
+            b.write_mac_addr(data);
+        }
+    }
+};
+
 #define ETH_ADDR_LEN 6
 
 struct eth_hdr {
@@ -54,6 +68,7 @@ struct eth_dot1ad_tag {
 #define ETH_TYPE_LOOPBACK      0x9000
 #define ETH_TYPE_TRAIL         0x1000
 #define ETH_TYPE_MPLS          0x8847
+#define ETH_TYPE_PPOE          0x8864
 #define ETH_TYPE_LLDP          0x88cc
 #define ETH_TYPE_CMD           0x8909
 #define ETH_TYPE_CDP           0xffff  // overload reserved type for CDP

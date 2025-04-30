@@ -1,4 +1,5 @@
 // utf8.hpp
+//
 
 #ifndef UTF8_HPP
 #define UTF8_HPP
@@ -73,7 +74,7 @@ public:
     /// reasons; it should be changed to 'write' or something similar.
     ///
     inline void fingerprint(struct buffer_stream &b) const {
-        if (datum::is_not_null()) {
+        if (datum::is_readable()) {
             write(b, data, length());
         }
     }

@@ -13,6 +13,8 @@
 #include "analysis.h"
 #include "protocol.h"
 #include "tcpip.h"
+#include "tls_parameters.hpp"
+#include "flow_key.h"
 
 
 // class xtn represents a TLS extension
@@ -419,6 +421,8 @@ struct tls_client_hello : public base_protocol {
 
     void write_raw_features(writeable &buf) const;
 
+    bool is_faketls() const;
+
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c);
 
     static bool check_residential_proxy(const struct key &k_, std::string random_nonce);
@@ -730,6 +734,7 @@ static void raw_as_hex_degrease(struct buffer_stream &buf, const void *data, siz
     }
 
 }
+
 
 
 // struct {

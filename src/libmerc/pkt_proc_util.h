@@ -15,6 +15,7 @@
 #define PKT_PROC_UTIL_HPP
 
 #include "protocol.h"
+#include "flow_key.h"
 #include "dns.h"
 #include "mdns.h"
 #include "tls.h"
@@ -25,6 +26,10 @@
 #include "ssh.h"
 #include "analysis.h"
 #include "buffer_stream.h"
+#include "gre.h"
+#include "geneve.hpp"
+#include "ip.h"
+#include "vxlan.hpp"
 
 // protocol is an alias for a std::variant that can hold any protocol
 // data element.  The default value of std::monostate indicates that
@@ -68,8 +73,18 @@ class iec60870_5_104;
 class openvpn_tcp;
 class mysql_server_greet;
 namespace ldap { class message; }
+namespace krb5 { class packet; }
+namespace ftp {class request;class response;}
 class esp;
 namespace ike { class packet; }
+namespace rfb { class protocol_version_handshake; }
+namespace tacacs { class packet; }
+namespace rdp { class connection_request_pdu; }
+namespace tftp { class packet; }
+class gre_header;
+class geneve;
+class ip_encapsulation;
+class vxlan; 
 
 using protocol = std::variant<std::monostate,
                               http_request,                      // start of tcp protocols
@@ -87,6 +102,10 @@ using protocol = std::variant<std::monostate,
                               bittorrent_handshake,
                               tofsee_initial_message,
                               ldap::message,
+                              ftp::request,
+                              ftp::response,
+                              rdp::connection_request_pdu,
+                              tftp::packet,
                               unknown_initial_packet,
                               quic_init,                         // start of udp protocols
                               wireguard_handshake_init,
@@ -97,6 +116,7 @@ using protocol = std::variant<std::monostate,
                               dhcp_discover,
                               ssdp,
                               stun::message,
+                              krb5::packet,
                               nbds_packet,
                               bittorrent_dht,
                               bittorrent_lsd,
@@ -109,11 +129,20 @@ using protocol = std::variant<std::monostate,
                               smb2_packet,
                               openvpn_tcp,
                               mysql_server_greet,
+                              mysql_login_request,
                               socks5_req_resp,
                               socks5_hello,
                               socks4_req,
                               esp,
-                              ike::packet
+                              ike::packet,
+                              rfb::protocol_version_handshake,
+                              tacacs::packet
+                              >;
+using encapsulation = std::variant<std::monostate,
+                              gre_header,
+                              geneve,
+                              ip_encapsulation,
+                              vxlan
                               >;
 
 // class unknown_initial_packet represents the initial data field of a
@@ -183,6 +212,19 @@ struct is_not_empty {
         (void)r;
         return false;
     }
+};
+
+struct write_encapsulation {
+    struct json_array &record;
+
+    write_encapsulation(struct json_array &rec) : record(rec) { }
+
+    template <typename T>
+    void operator()(T &r) {
+        r.write_json(record);
+    }
+
+    void operator()(std::monostate &) { }
 };
 
 struct write_metadata {

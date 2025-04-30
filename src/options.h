@@ -9,6 +9,7 @@
 #include <string.h>
 #include <string>
 #include <vector>
+#include <optional>
 
 /*
  * example use of class option_processor
@@ -265,6 +266,14 @@ public:
             }
         }
         return { false, "" }; // error: option name not found
+    }
+
+    std::optional<std::string> get(const char *name) {
+        const auto [ opt_present, opt_value ] = get_value(name);
+        if (opt_present) {
+            return opt_value;
+        }
+        return {};
     }
 
     bool is_set(const char *name) {

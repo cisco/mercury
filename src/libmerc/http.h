@@ -17,6 +17,7 @@
 #include "analysis.h"
 #include "fingerprint.h"
 #include "perfect_hash.h"
+#include "flow_key.h"
 
 struct http_headers : public datum {
     bool complete;

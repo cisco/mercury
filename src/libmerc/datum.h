@@ -8,7 +8,9 @@
 #ifndef DATUM_H
 #define DATUM_H
 
+#ifndef __STDC_FORMAT_MACROS
 #define __STDC_FORMAT_MACROS 1
+#endif
 #include <inttypes.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -97,10 +99,10 @@ inline static constexpr T ntoh(T x) { if (host_little_endian) { return swap_byte
 /// function `hton(x)` returns an unsigned integer in network byte
 /// order with the same type and value.
 ///
-/// To apply `hton()` an unsigned literal, use the appropriate
+/// To apply `hton()` to an unsigned literal, use the appropriate
 /// template specialization.  For instance, `hton<uint16_t>(443)`
-/// obtains a `uint16_t` in network byte order for the literal 443.  The
-/// specialization must be used because otherwise a compiler error
+/// obtains a `uint16_t` in network byte order for the literal 443.
+/// The specialization must be used because otherwise a compiler error
 /// will result from amiguity over the integer type.
 ///
 template <typename T>
@@ -210,6 +212,10 @@ struct datum {
     ///
     explicit datum(const char *str) : data{(uint8_t *)str}, data_end{data + strlen(str)} { }
 
+    /// construct a datum representing the `std::string` \param str
+    ///
+    explicit datum(const std::string &str) : data{(uint8_t *)str.c_str()}, data_end{data + str.length()} { }
+
     /// construct a datum by accepting \p length bytes from datum \p d
     ///
     /// \param d      the datum to accept bytes from
@@ -250,7 +256,7 @@ struct datum {
     bool is_not_empty() const { return data != NULL && data < data_end; }
     bool is_readable() const { return data != NULL && data < data_end; }
     bool is_not_readable() const { return data == NULL || data == data_end; }
-    bool is_empty() const { return data != NULL and data == data_end; }
+    bool is_empty() const { return data != NULL && data == data_end; }
     void set_empty() { data = data_end; }
     void set_null() { data = data_end = NULL; }
     ssize_t length() const { return data_end - data; }
@@ -274,6 +280,12 @@ struct datum {
         r.data += num_bytes;
     }
     void parse_up_to_delim(struct datum &r, uint8_t delim) {
+        if (r.is_not_readable()) {
+            r.set_null();
+            set_null();
+            return;
+        }
+
         data = r.data;
         const unsigned char* c = static_cast<const unsigned char*>(memchr(r.data, delim, r.length()));
         if (c) {
@@ -422,7 +434,7 @@ struct datum {
     /// datum::cmp(const datum &p) const
     ///
     template <size_t N>
-    bool cmp(const std::array<uint8_t, N> a) const {
+    bool equals(const std::array<uint8_t, N> a) const {
         if (length() == N) {
             return ::memcmp(data, a.data(), N) == 0;
         }
@@ -496,6 +508,9 @@ struct datum {
     }
 
     int find_delim(uint8_t delim) {
+        if (is_not_readable()) {
+            return -1;
+        }
         const unsigned char* c = static_cast<const unsigned char*>(memchr(data, delim, length()));
         if (c) {
             return c - data;
@@ -566,6 +581,17 @@ struct datum {
             }
         }
         return true;
+    }
+
+    /// returns true if the data contains any alphabetic characters
+    ///
+    bool is_any_alpha() const {
+        for (const auto & d : *this) {
+            if (isalpha(d)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     bool accept(uint8_t byte) {
@@ -917,6 +943,35 @@ struct datum {
 // sanity checks on class datum
 //
 static_assert(sizeof(datum) == 2 * sizeof(uint8_t *));
+
+
+/// returns a datum that corresponds to the `std::string s`.
+///
+/// \note A \ref datum indicates a sequence of bytes in memory, but
+/// does not own that data.  Any changes to `s` will change the
+/// sequence of bytes to which the `datum` corresponds.  Additionally,
+/// if `s` goes out of scope, then the `datum` will become invalid.
+///
+static inline datum get_datum(const std::string &s) {
+    uint8_t *data = (uint8_t *)s.c_str();
+    return { data, data + s.length() };
+}
+
+/// returns a datum that corresponds to the null-terminated character
+/// string `c`.  The value of `c` must not be `nullptr`, and the
+/// sequence of bytes pointed to by `c` must be null-terminated.
+///
+/// \note A \ref datum indicates a sequence of bytes in memory, but
+/// does not own that data.  Any changes to `c`, or the sequence of
+/// bytes it points to, will change the sequence of bytes to which the
+/// `datum` corresponds.  Additionally, if `c` goes out of scope, then
+/// the `datum` will become invalid.
+///
+static inline datum get_datum(const char *c) {
+    uint8_t *data = (uint8_t *)c;
+    return { data, data + strlen(c) };
+}
+
 
 
 /// \class writeable
@@ -1405,6 +1460,15 @@ bool bit(T s) {
     return (bool) slice<i,i+1>(s);
 }
 
+/// returns a value of type \param T with only the `i`th bit set,
+/// where an index of zero denotes the leftmost (most significant)
+/// bit.
+///
+template <size_t i, typename T>
+T bit() {
+    return (T)1 << (bitsizeof(T)-1-i);
+}
+
 /// @} - end of Bit Operations group
 
 /// represents an unsigned integer type `T` that is read from a byte
@@ -1586,6 +1650,26 @@ public:
     }
 };
 
+/// `class byte_alternatives` attempts to read an
+/// encoded<uint8_t> element from a datum, and if
+/// successful, verifies that its value is one of the provided
+/// alternatives.  If either step fails, the `datum` is set to `null`.
+/// Otherwise, the value of the decoded `uint8_t` is available through
+/// the encoded<uint8_t>::value() function.
+///
+template <char ... Values>
+class byte_alternatives : public encoded<uint8_t> {
+public:
+
+    byte_alternatives(datum &d) : encoded<uint8_t>{d} {
+        if (d.is_not_null() and ((this->value() == Values) || ...)) {
+            return;
+        }
+        d.set_null();
+    }
+
+};
+
 /// class literal is a literal `std::array` of characters
 ///
 template <size_t N>
@@ -1762,6 +1846,17 @@ public:
     explicit operator bool() const { return tmp.is_not_null(); }
 
     datum advance() const { return tmp; }
+
+    /// get_parsed_data() returns the datum that indicates the bytes
+    /// that were read in order to construct the element \ref value,
+    /// if that read succeeded; otherwise, it returns a null datum.
+    ///
+    datum get_parsed_data(datum &d) const {
+        if (tmp.is_not_null()) {
+            return { d.data, tmp.data };
+        }
+        return { nullptr, nullptr };
+    }
 
 };
 

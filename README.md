@@ -160,6 +160,9 @@ DETAILS
       http              HTTP request and response
       http.request      HTTP request
       http.response     HTTP response
+      ftp               FTP request and response
+      ftp.request       FTP request
+      ftp.response      FTP response
       icmp              ICMP message
       iec               IEC 60870-5-104
       lldp              LLDP message
@@ -187,6 +190,8 @@ DETAILS
       tls.certificates  TLS serverCertificates
       tofsee            Tofsee malware communication
       wireguard         WG handshake initiation message
+      geneve            Geneve encapsulation
+      vxlan             VXLAN encapsualtion
       all               all of the above
       <no option>       all of the above
       none              none of the above

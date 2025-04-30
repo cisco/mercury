@@ -6,6 +6,7 @@
 #define STRINGALGS_H
 
 #include <string>
+#include <vector>
 #include <algorithm>
 #include <memory>
 #include <stdexcept>

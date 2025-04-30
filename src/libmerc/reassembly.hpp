@@ -10,7 +10,6 @@
 
 #include "datum.h"
 #include "json_object.h"
-#include "util_obj.h"
 
 #include <bitset>
 #include <vector>

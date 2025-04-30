@@ -45,13 +45,13 @@ public:
         // TODO: technically, this function should use
         // case-insensitive comparisons
         //
-        if (this->cmp(std::array<uint8_t,5>{'B', 'a', 's', 'i', 'c'})) {
+        if (this->equals(std::array<uint8_t,5>{'B', 'a', 's', 'i', 'c'})) {
             return type::basic;
         }
-        if (this->cmp(std::array<uint8_t,6>{'B', 'e', 'a', 'r', 'e', 'r'})) {
+        if (this->equals(std::array<uint8_t,6>{'B', 'e', 'a', 'r', 'e', 'r'})) {
             return type::bearer;
         }
-        if (this->cmp(std::array<uint8_t,6>{'D', 'i', 'g', 'e', 's', 't'})) {
+        if (this->equals(std::array<uint8_t,6>{'D', 'i', 'g', 'e', 's', 't'})) {
             return type::digest;
         }
         return unknown;
@@ -124,7 +124,8 @@ public:
 
     bool is_valid() const { return auth_param.is_not_null(); }
 
-    void write_json(json_object &o) const {
+    void write_json(json_object &o, bool metadata=false) const {
+        (void)metadata;
         if (!is_valid()) { return; }
         json_object auth_json{o, "authorization"};
         scheme::type schemetype = auth_scheme.get_type();
@@ -147,5 +148,9 @@ public:
     }
 
 };
+
+[[maybe_unused]] inline int http_authorization_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<authorization>(data, size);
+}
 
 #endif

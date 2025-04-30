@@ -15,6 +15,7 @@
 #define PROTO_IDENTIFY_H
 
 #include <stdint.h>
+#include <arpa/inet.h>
 
 #include <vector>
 #include <array>
@@ -27,6 +28,7 @@
 #include "smb1.h"
 #include "smb2.h"
 #include "iec60870_5_104.h"
+#include "ftp.hpp"
 
 #include "dhcp.h"  // udp protocols
 #include "quic.h"
@@ -43,6 +45,10 @@
 #include "mysql.hpp"
 #include "tofsee.hpp"
 #include "socks.h"
+#include "rfb.hpp"
+#include "gre.h"
+#include "geneve.hpp"
+#include "vxlan.hpp"
 
 enum tcp_msg_type {
     tcp_msg_type_unknown = 0,
@@ -64,11 +70,17 @@ enum tcp_msg_type {
     tcp_msg_type_openvpn,
     tcp_msg_type_bittorrent,
     tcp_msg_type_mysql_server,
+    tcp_msg_type_mysql_login_request,
     tcp_msg_type_tofsee_initial_message,
     tcp_msg_type_socks4,
     tcp_msg_type_socks5_hello,
     tcp_msg_type_socks5_req_resp,
     tcp_msg_type_ldap,
+    tcp_msg_type_rfb,
+    tcp_msg_type_tacacs,
+    tcp_msg_type_ftp_request,
+    tcp_msg_type_ftp_response,
+    tcp_msg_type_rdp,
 };
 
 enum udp_msg_type {
@@ -86,8 +98,11 @@ enum udp_msg_type {
     udp_msg_type_nbds,
     udp_msg_type_dht,
     udp_msg_type_lsd,
+    udp_msg_type_krb5,
     udp_msg_type_esp,
-
+    udp_msg_type_tftp,
+    udp_msg_type_geneve,
+    udp_msg_type_gre,
 };
 
 template <size_t N>
@@ -182,7 +197,7 @@ public:
         for (matcher_and_type p : matchers) {
             if (N == 4) {
                 if (p.mv.matches(pkt.data, pkt.length()) && pkt_len_match(pkt, p.type)) {
-                    return p.type;
+                return p.type;
                 }
             } else if (p.mv.matches(pkt.data, pkt.length())) {
                 return p.type;
@@ -198,6 +213,7 @@ public:
                 return p.type;
             }
         }
+
         return 0;   // type unknown;
     }
 
@@ -218,23 +234,33 @@ class traffic_selector {
     protocol_identifier<8> udp;
     protocol_identifier<16> udp16;
 
-    bool select_tcp_syn;
-    bool select_dns;
-    bool select_nbns;
-    bool select_mdns;
-    bool select_arp;
-    bool select_cdp;
-    bool select_gre;
-    bool select_icmp;
-    bool select_lldp;
-    bool select_ospf;
-    bool select_sctp;
-    bool select_tcp_syn_ack;
-    bool select_nbds;
-    bool select_nbss;
-    bool select_openvpn_tcp;
-    bool select_ldap;
+    bool select_tcp_syn{false};
+    bool select_dns{false};
+    bool select_nbns{false};
+    bool select_mdns{false};
+    bool select_arp{false};
+    bool select_cdp{false};
+    bool select_gre{false};
+    bool select_icmp{false};
+    bool select_lldp{false};
+    bool select_ospf{false};
+    bool select_sctp{false};
+    bool select_tcp_syn_ack{false};
+    bool select_nbds{false};
+    bool select_nbss{false};
+    bool select_openvpn_tcp{false};
+    bool select_ldap{false};
+    bool select_krb5{false};
+    bool select_ftp_request{false};
+    bool select_ftp_response{false};
     bool select_ipsec{false};
+    bool select_rfb{false};
+    bool select_tacacs{false};
+    bool select_rdp{false};
+    bool select_tftp{false};
+    bool select_geneve{false};
+    bool select_vxlan{false};
+    bool select_mysql_login_request{false};
 
 public:
 
@@ -254,13 +280,21 @@ public:
 
     bool icmp() const { return select_icmp; }
 
+    bool krb5() const { return select_krb5; }
+
     bool ldap() const { return select_ldap; }
+
+    bool ftp_request() const {return select_ftp_request; }
+
+    bool ftp_response() const {return select_ftp_response; }
 
     bool lldp() const { return select_lldp; }
 
     bool ospf() const { return select_ospf; }
 
     bool sctp() const { return select_sctp; }
+
+    bool tftp() const { return select_tftp; }
 
     bool tcp_syn_ack() const { return select_tcp_syn_ack; }
 
@@ -272,31 +306,55 @@ public:
 
     bool ipsec() const { return select_ipsec; }
 
+    bool rfb() const { return select_rfb; }
+
+    bool rdp() const { return select_rdp; }
+
+    bool tacacs() const { return select_tacacs; }
+
+    bool geneve() const { return select_geneve; }
+
+    bool vxlan() const { return select_vxlan; }
+
+    bool mysql_login_request() const { return select_mysql_login_request; }
+
     void disable_all() {
         tcp.disable_all();
         tcp4.disable_all();
         udp.disable_all();
         udp16.disable_all();
+
+        select_tcp_syn = false;
+        select_dns = false;
+        select_nbns = false;
+        select_mdns = false;
+        select_arp = false;
+        select_cdp = false;
+        select_gre = false;
+        select_icmp = false;
+        select_lldp = false;
+        select_ospf = false;
+        select_sctp = false;
+        select_tcp_syn_ack = false;
+        select_nbds = false;
+        select_nbss = false;
+        select_openvpn_tcp = false;
+        select_ldap = false;
+        select_krb5 = false;
+        select_ftp_request = false;
+        select_ftp_response = false;
+        select_ipsec = false;
+        select_rfb = false;
+        select_tacacs = false;
+        select_rdp = false;
+        select_tftp = false;
+        select_geneve = false;
+        select_vxlan = false;
+        select_mysql_login_request = false;
+
     }
 
-    traffic_selector(std::map<std::string, bool> protocols) :
-            tcp{},
-            udp{},
-            select_tcp_syn{false},
-            select_dns{false},
-            select_nbns{false},
-            select_mdns{false},
-            select_arp{false},
-            select_cdp{false},
-            select_gre{false},
-            select_icmp{false},
-            select_lldp{false},
-            select_ospf{false},
-            select_sctp{false},
-            select_tcp_syn_ack{false},
-            select_nbds{false},
-            select_nbss{false},
-            select_openvpn_tcp{false} {
+    traffic_selector(std::map<std::string, bool> protocols) {
 
         // "none" is a special case; turn off all protocol selection
         //
@@ -305,7 +363,6 @@ public:
                 pair.second = false;
             }
         }
-
         if (protocols["tls"] || protocols["all"]) {
             tcp.add_protocol(tls_client_hello::matcher, tcp_msg_type_tls_client_hello);
             tcp.add_protocol(tls_server_hello::matcher, tcp_msg_type_tls_server_hello);
@@ -331,6 +388,36 @@ public:
             tcp.add_protocol(smtp_client::matcher, tcp_msg_type_smtp_client);
             tcp.add_protocol(smtp_server::matcher, tcp_msg_type_smtp_server);
         }
+        if (protocols["rfb"] || protocols["all"]) {
+            tcp.add_protocol(rfb::protocol_version_handshake::matcher, tcp_msg_type_rfb);
+        }
+        if (protocols["rdp"] || protocols["all"]) {
+            select_rdp = true;
+        }
+        if(protocols["ftp"] || protocols["all"])
+        {
+            select_ftp_response = true;
+            select_ftp_request = true;
+            // tcp.add_protocol(ftp::request::user_matcher, tcp_msg_type_ftp_request);
+            // tcp.add_protocol(ftp::request::pass_matcher, tcp_msg_type_ftp_request);
+            // tcp.add_protocol(ftp::request::stor_matcher, tcp_msg_type_ftp_request);
+            // tcp.add_protocol(ftp::request::retr_matcher, tcp_msg_type_ftp_request);
+            // tcp4.add_protocol(ftp::response::status_code_matcher, tcp_msg_type_ftp_response);
+        }
+        else if(protocols["ftp.response"])
+        {
+            select_ftp_response = true;
+            // tcp4.add_protocol(ftp::response::status_code_matcher, tcp_msg_type_ftp_response);
+        }
+        else if(protocols["ftp.request"])
+        {
+            select_ftp_request = true;
+            // tcp.add_protocol(ftp::request::user_matcher, tcp_msg_type_ftp_request);
+            // tcp.add_protocol(ftp::request::pass_matcher, tcp_msg_type_ftp_request);
+            // tcp.add_protocol(ftp::request::stor_matcher, tcp_msg_type_ftp_request);
+            // tcp.add_protocol(ftp::request::retr_matcher, tcp_msg_type_ftp_request);
+
+        }
         if (protocols["http"] || protocols["all"]) {
             tcp.add_protocol(http_response::matcher, tcp_msg_type_http_response);  // note: must come before http_request::matcher
             tcp.add_protocol(http_request::matcher, tcp_msg_type_http_request);
@@ -348,6 +435,7 @@ public:
             tcp.add_protocol(http_response::matcher, tcp_msg_type_http_response);
         }
 
+
         // booleans not yet implemented
         //
         if (protocols["tcp"] || protocols["all"]) {
@@ -355,6 +443,12 @@ public:
         }
         if (protocols["ldap"] || protocols["all"]) {
             select_ldap = true;
+        }
+        if (protocols["kerberos"] || protocols["all"]) {
+           //
+           // kerberos is not yet ready for integration
+           //
+           // select_krb5 = true;
         }
         if (protocols["tcp.message"] || protocols["all"]) {
             // select_tcp_syn = 0;
@@ -446,6 +540,9 @@ public:
         if (protocols["ipsec"] || protocols["all"]) {
             select_ipsec = true;
         }
+        if (protocols["tftp"] || protocols["all"]) {
+            select_tftp = true;
+        }
 
         if (protocols["bittorrent"] || protocols["all"]) {
             udp.add_protocol(bittorrent_dht::matcher, udp_msg_type_dht);
@@ -454,6 +551,7 @@ public:
         }
         if (protocols["mysql"] || protocols["all"]) {
             tcp.add_protocol(mysql_server_greet::matcher, tcp_msg_type_mysql_server);
+            select_mysql_login_request = true;
         }
         if (protocols["quic"] || protocols["all"]) {
             udp.add_protocol(quic_initial_packet::matcher, udp_msg_type_quic);
@@ -474,10 +572,22 @@ public:
             udp4.add_protocol(stun::message::matcher, udp_msg_type_stun);
         }
 
+        if (protocols["tacacs"] || protocols["all"]) {
+            select_tacacs = true;
+        }
+
         // add tofsee, but keep at the absolute end of matcher lists, as tofsee only
         // has a length based matcher
         if (protocols["tofsee"] || protocols["all"]) {
             tcp4.add_protocol(tofsee_initial_message::matcher, tcp_msg_type_tofsee_initial_message);
+        }
+
+        if (protocols["geneve"] || protocols["all"]) {
+            select_geneve = true;
+        }
+
+        if (protocols["vxlan"] || protocols["all"]) {
+            select_vxlan = true;
         }
 
         // tell protocol_identification objects to compile lookup tables
@@ -508,13 +618,30 @@ public:
         return type;
     }
 
-    size_t get_udp_msg_type_from_ports(udp::ports ports) const {
+    udp_msg_type get_udp_msg_type_from_ports(udp::ports ports) const {
+
         if (nbds() and ports.src == hton<uint16_t>(138) and ports.dst == hton<uint16_t>(138)) {
             return udp_msg_type_nbds;
         }
 
-        if (ports.dst == hton<uint16_t>(4789)) {
+        if (tftp() and (ports.src == hton<uint16_t>(69) or ports.dst == hton<uint16_t>(69)) ) {
+            return udp_msg_type_tftp;
+        }
+
+        if (krb5() and (ports.src == hton<uint16_t>(88) or ports.dst == hton<uint16_t>(88))) {
+            return udp_msg_type_krb5;
+        }
+
+        if (vxlan() and ports.dst == hton<uint16_t>(vxlan::dst_port)) {
             return udp_msg_type_vxlan;
+        }
+
+        if (geneve() and ports.dst == hton<uint16_t>(geneve::dst_port)) {
+            return udp_msg_type_geneve;
+        }
+
+        if (gre() and ports.dst == hton<uint16_t>(gre_header::dst_port)) {
+            return udp_msg_type_gre;
         }
 
         return udp_msg_type_unknown;
@@ -535,6 +662,29 @@ public:
 
         if (openvpn_tcp() and (tcp_pkt->header->src_port == hton<uint16_t>(1194) or tcp_pkt->header->dst_port == hton<uint16_t>(1194)) ) {
             return tcp_msg_type_openvpn;
+        }
+
+        // FTP uses port 21 as its default connection channel, so responses from the server  will originate from this port
+        if (ftp_response() and ((tcp_pkt->header->src_port == hton<uint16_t>(21))))
+        {
+            return tcp_msg_type_ftp_response;
+        }
+
+        if (ftp_request() and ((tcp_pkt->header->dst_port == hton<uint16_t>(21))))
+        {
+            return tcp_msg_type_ftp_request;
+        }
+
+        if (tacacs() and (tcp_pkt->header->src_port == hton<uint16_t>(49) or tcp_pkt->header->dst_port == hton<uint16_t>(49)) ) {
+            return tcp_msg_type_tacacs;
+        }
+
+        if (rdp() and (tcp_pkt->header->src_port == hton<uint16_t>(3389) or tcp_pkt->header->dst_port == hton<uint16_t>(3389)) ) {
+            return tcp_msg_type_rdp;
+        }
+
+        if (mysql_login_request() and ( (tcp_pkt->header->src_port == hton<uint16_t>(3306)) || (tcp_pkt->header->dst_port == hton<uint16_t>(3306)) ) ) {
+            return tcp_msg_type_mysql_login_request;
         }
 
         return tcp_msg_type_unknown;

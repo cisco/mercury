@@ -15,7 +15,6 @@
 
 #include "dns.h"
 #include "json_object.h"
-#include "util_obj.h"
 #include "match.h"
 
 /**

@@ -14,6 +14,7 @@
 #include "x509.h"
 #include "json_object.h"
 #include "match.h"
+#include "protocol.h"
 
 namespace ldap {
 
@@ -406,5 +407,10 @@ namespace ldap {
     static constexpr uint16_t default_port = 34049; // TODO: hton<uint16_t>(389);
 
 };  // namespace ldap
+
+
+[[maybe_unused]] inline int ldap_message_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<ldap::message>(data, size);
+}
 
 #endif // LDAP_HPP

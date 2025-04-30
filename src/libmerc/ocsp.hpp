@@ -5,14 +5,15 @@
 #ifndef OCSP_HPP
 #define OCSP_HPP
 
-// #define ASN1_DEBUG 1
-// #define TLV_ERR_INFO 1
+#define ASN1_DEBUG 1
+#define TLV_ERR_INFO 1
 
 #include <cstdio>
 #include "datum.h"
 #include "x509.h"
 #include "json_object.h"
 #include "match.h"
+#include "oid.hpp"
 
 namespace ocsp {
 
@@ -36,6 +37,7 @@ namespace ocsp {
         tlv issuer_name_hash;
         tlv issuer_key_hash;
         tlv serial_number;
+        bool valid;
 
     public:
 
@@ -49,9 +51,11 @@ namespace ocsp {
             issuer_name_hash.parse(&sequence.value, tlv::OCTET_STRING);
             issuer_key_hash.parse(&sequence.value, tlv::OCTET_STRING);
             serial_number.parse(&sequence.value, tlv::INTEGER);
+            valid = sequence.value.is_not_null();
         }
 
         void write_json(json_object_asn1 &o) const {
+            if (!valid) { return; }
             alg_id.print_as_json(o, "hash_algorithm");
             issuer_name_hash.print_as_json_hex(o, "issuer_name_hash");
             issuer_key_hash.print_as_json_hex(o, "issuer_key_hash");
@@ -100,6 +104,7 @@ namespace ocsp {
 
         }
 
+        bool is_valid() const { return valid; }
     };
 
     // TBSRequest ::= SEQUENCE {
@@ -137,6 +142,7 @@ namespace ocsp {
             json.close();
         }
 
+        bool is_valid() const { return cert_req.is_valid(); }
     };
 
     // OCSPRequest ::= SEQUENCE {
@@ -154,10 +160,17 @@ namespace ocsp {
             tbs.parse(sequence.value);
         }
 
-        void write_json(json_object_asn1 &o) const {
-            tbs.write_json(o);
+        void write_json(json_object &o, bool metadata=false) const {
+            (void)metadata;
+            json_object_asn1 asn1_obj{o};
+            tbs.write_json(asn1_obj);
         }
 
+        void write_json(json_object_asn1 &asn1_obj) const {
+            tbs.write_json(asn1_obj);
+        }
+
+        bool is_valid() const { return tbs.is_valid(); }
 
         static bool unit_test(FILE *output=nullptr) {
             constexpr std::array<uint8_t, 83> ocsp_req = {
@@ -189,6 +202,206 @@ namespace ocsp {
 
     };
 
+    // ResponderID ::= CHOICE {
+    //    byName               [1] Name,
+    //    byKey                [2] KeyHash }
+    //
+    class responder_id {
+        tlv choice;
+    public:
+        responder_id(datum &d) :
+            choice{d, 0x00, "responder_id.choice"} // ???
+        { }
+
+        void write_json(json_object_asn1 &o) const {
+            choice.print_as_json(o, "choice");
+            datum tmp{choice.value};
+            while (tmp.is_not_empty()) {
+                tlv unknown{tmp, 0x00, "responder_id.unknown"};
+            }
+        }
+
+    };
+
+    // BasicOCSPResponse       ::= SEQUENCE {
+    //    tbsResponseData      ResponseData,
+    //    signatureAlgorithm   AlgorithmIdentifier,
+    //    signature            BIT STRING,
+    //    certs            [0] EXPLICIT SEQUENCE OF Certificate OPTIONAL }
+    //
+    // The value for signature SHALL be computed on the hash of the DER
+    // encoding of ResponseData.  The responder MAY include certificates in
+    // the certs field of BasicOCSPResponse that help the OCSP client verify
+    // the responder's signature.  If no certificates are included, then
+    // certs SHOULD be absent.
+    //
+    // ResponseData ::= SEQUENCE {
+    //    version              [0] EXPLICIT Version DEFAULT v1,
+    //    responderID              ResponderID,
+    //    producedAt               GeneralizedTime,
+    //    responses                SEQUENCE OF SingleResponse,
+    //    responseExtensions   [1] EXPLICIT Extensions OPTIONAL }
+    //
+    class response_data {
+        tlv sequence;
+        tlv explicit_tag;
+        responder_id responder;
+        //tlv responder_id;
+        tlv produced_at;
+        tlv sequence_of_responses;
+
+    public:
+
+        response_data(datum &d) :
+            sequence{d, tlv::SEQUENCE, "response_data.sequence"},
+            explicit_tag{sequence.value, 0x00, "response_data.explicit_tag"}, // tlv::explicit_tag(0)
+            responder{explicit_tag.value},
+            produced_at{explicit_tag.value, 0x00, "response_data.produced_at"},
+            sequence_of_responses{explicit_tag.value}
+        { }
+
+        void write_json(json_object_asn1 &o) const {
+            responder.write_json(o);
+            // responder_id.print_as_json(o, "responder_id");
+            produced_at.print_as_json(o, "produced_at");
+        }
+
+    };
+
+    // KeyHash ::= OCTET STRING -- SHA-1 hash of responder's public key
+    // (excluding the tag and length fields)
+    //
+    // SingleResponse ::= SEQUENCE {
+    //    certID                       CertID,
+    //    certStatus                   CertStatus,
+    //    thisUpdate                   GeneralizedTime,
+    //    nextUpdate         [0]       EXPLICIT GeneralizedTime OPTIONAL,
+    //    singleExtensions   [1]       EXPLICIT Extensions OPTIONAL }
+    //
+    // CertStatus ::= CHOICE {
+    //     good        [0]     IMPLICIT NULL,
+    //     revoked     [1]     IMPLICIT RevokedInfo,
+    //     unknown     [2]     IMPLICIT UnknownInfo }
+    //
+    // RevokedInfo ::= SEQUENCE {
+    //     revocationTime              GeneralizedTime,
+    //     revocationReason    [0]     EXPLICIT CRLReason OPTIONAL }
+    //
+    // UnknownInfo ::= NULL
+
+    constexpr static std::array<uint8_t, 9> oid_id_pkix_ocsp_basic = asn1::oid<1,3,6,1,5,5,7,48,1,1>();
+
+    class id_pkix_ocsp_basic {
+        tlv sequence;
+        // tlv::arbitrary arb;
+    public:
+        id_pkix_ocsp_basic(datum &d) :
+            sequence{d, tlv::SEQUENCE, "id_pkix_ocsp_basic.sequence"}
+        { }
+
+        void write_json(json_object_asn1 &o) const {
+            json_object_asn1 obj{o, "id_pkix_ocsp_basic"};
+            datum tmp{sequence.value};
+            response_data{tmp}.write_json(obj);
+            obj.close();
+            // json_array_asn1 a{o, "id_pkix_ocsp_basic"};
+            // datum tmp{sequence.value};
+            // while (tmp.is_readable()) {
+            //     json_object_asn1 obj{a};
+            //     tlv{tmp}.print_as_json(obj, "tlv");
+            //     obj.close();
+            // }
+            // // tlv::recursive_parse(tmp, a);
+            // a.close();
+            // // arb.write_json(o);
+        }
+
+    };
+
+    //   OCSPResponse ::= SEQUENCE {
+    //    responseStatus         OCSPResponseStatus,
+    //    responseBytes          [0] EXPLICIT ResponseBytes OPTIONAL }
+    //
+    //   OCSPResponseStatus ::= ENUMERATED {
+    //     successful            (0),  -- Response has valid confirmations
+    //     malformedRequest      (1),  -- Illegal confirmation request
+    //     internalError         (2),  -- Internal error in issuer
+    //     tryLater              (3),  -- Try again later
+    //                                 -- (4) is not used
+    //     sigRequired           (5),  -- Must sign the request
+    //     unauthorized          (6)   -- Request unauthorized
+    //   }
+    //
+    //   The value for responseBytes consists of an OBJECT IDENTIFIER and a
+    //   response syntax identified by that OID encoded as an OCTET STRING.
+    //
+    //   ResponseBytes ::=       SEQUENCE {
+    //       responseType   OBJECT IDENTIFIER,
+    //       response       OCTET STRING }
+    //
+    class response_bytes {
+        tlv explicit_tag;
+        tlv sequence;
+        tlv response_type;
+        tlv response;
+
+    public:
+
+        response_bytes(datum &d) :
+            explicit_tag{d, tlv::explicit_tag_constructed(0)},
+            sequence{explicit_tag.value, tlv::SEQUENCE},
+            response_type{sequence.value, tlv::OBJECT_IDENTIFIER},
+            response{sequence.value, tlv::OCTET_STRING}
+        { }
+
+        void write_json(json_object_asn1 &o) const {
+            response_type.print_as_json(o, "type");
+            //   o.print_key_hex("oid_hex", response_type.value);
+            if (response_type.value.cmp(oid_id_pkix_ocsp_basic)) {
+                datum tmp{response.value};
+                id_pkix_ocsp_basic{tmp}.write_json(o);
+            } else {
+                response.print_as_json(o, "unknown_response");
+            }
+        }
+
+    };
+
+    // For a basic OCSP responder, responseType will be id-pkix-ocsp-basic.
+    //
+    // id-pkix-ocsp           OBJECT IDENTIFIER ::= { id-ad-ocsp }
+    // id-pkix-ocsp-basic     OBJECT IDENTIFIER ::= { id-pkix-ocsp 1 }
+    //
+    class response {
+        //tlv::arbitrary arb;
+        tlv sequence;
+        tlv response_status;
+        response_bytes bytes;
+
+    public:
+
+        response(datum &d) :
+            // arb{d}
+            sequence{d, tlv::SEQUENCE},
+            response_status{sequence.value, tlv::ENUMERATED},
+            bytes{sequence.value}
+        { }
+
+        bool is_valid() { return sequence.is_not_null(); } // arb.is_valid(); }  // sequence.is_not_null(); }
+
+        void write_json(json_object_asn1 &o) {
+            json_object_asn1 response{o, "response"};
+            response_status.print_as_json(response, "status");
+            bytes.write_json(response);
+            response.close();
+        }
+
+    };
+
 };  // namespace ocsp
+
+[[maybe_unused]] inline int ocsp_request_fuzz_disabled_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<ocsp::request>(data, size);
+}
 
 #endif // OCSP_HPP

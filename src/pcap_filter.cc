@@ -4,7 +4,7 @@
 //
 // compile as:
 //
-//   g++ -Wall -Wno-narrowing pcap_filter.cc pcap_file_io.c -o pcap_filter -std=c++17
+//   g++ -Wall -Wno-deprecated-declarations -Wno-narrowing pcap_filter.cc pcap_file_io.c libmerc/tls.cc libmerc/http.cc libmerc/match.cc libmerc/asn1.cc libmerc/asn1/oid.cc libmerc/config_generator.cc libmerc/addr.cc libmerc/smb2.cc -lcrypto -lssl -o pcap_filter -std=c++17 -DSSLNEW
 
 #include "pcap_file_io.h"
 #include "libmerc/eth.h"
@@ -16,6 +16,7 @@
 #include "libmerc/quic.h"
 #include "libmerc/tls.h"
 #include "libmerc/http.h"
+#include "pcap.h"
 #include "options.h"
 
 using namespace mercury_option;
@@ -24,12 +25,41 @@ datum get_udp_data(struct datum eth_pkt);
 
 datum get_tcp_data(struct datum eth_pkt);
 
+class ascii : public datum {
+
+public:
+
+    ascii(datum d, size_t min_run_length, size_t max_run_length) {
+        const uint8_t *start = d.data;
+        if (d.length() < (ssize_t)max_run_length) {
+            return;
+        }
+        size_t i=0;
+        for ( ; i<min_run_length; i++) {
+            if (!::isupper(*d.data)) {
+                return;
+            }
+            d.data++;
+        }
+        for ( ; i<max_run_length; i++) {
+            if (!isprint(*d.data) or *d.data==' ') {
+                break;
+            }
+            d.data++;
+        }
+        this->data = start;
+        this->data_end = d.data;
+    }
+
+};
+
 int main(int argc, char *argv[]) {
 
     const char summary[] = "usage: %s --input <infile> --output <outfile>\n\n";
 
     class option_processor opt({{ argument::required, "--input",       "input file" },
                                 { argument::required, "--output",      "output file" },
+                                { argument::none,     "--ascii",       "report initial ASCII bytes" },
                                 { argument::none,     "--json",        "output JSON representation"},
                                 { argument::none,     "--nonmatching", "output non-matching packets"}});
 
@@ -43,6 +73,7 @@ int main(int argc, char *argv[]) {
     bool json_output  = opt.is_set("--json");
     bool nonmatching  = opt.is_set("--nonmatching");
     bool expected_value = !nonmatching;
+    bool report_ascii = opt.is_set("--ascii");
 
     if (!input_file_is_set || !output_file_is_set) {
         opt.usage(stderr, argv[0], summary);
@@ -56,7 +87,7 @@ int main(int argc, char *argv[]) {
 
         // create input and output pcap files
         //
-        struct pcap_file pcap(input_file.c_str(), io_direction_reader);
+        pcap::file_reader pcap(input_file.c_str());
         struct pcap_file dns_out(("dns." + output_file + ".pcap").c_str(), io_direction_writer);
         struct pcap_file bad_dns_out(("bad_dns." + output_file + ".pcap").c_str(), io_direction_writer);
         struct pcap_file quic_out(("quic." + output_file + ".pcap").c_str(), io_direction_writer);
@@ -74,6 +105,14 @@ int main(int argc, char *argv[]) {
 
             datum udp_data = get_udp_data(pkt_data);
             if (udp_data.is_not_empty()) {
+
+                if (report_ascii) {
+                    ascii ascii_prefix{udp_data, 3, 8};
+                    if (ascii_prefix.is_not_empty()) {
+                        fprintf(stdout, "udp\t");
+                        ascii_prefix.fprint(stdout); fputc('\n', stdout);
+                    }
+                }
 
                 datum udp_data_copy = udp_data;
                 dns_packet dns{udp_data_copy};
@@ -125,6 +164,14 @@ int main(int argc, char *argv[]) {
 
             datum tcp_data = get_tcp_data(pkt_data_copy);
             if (tcp_data.is_not_empty()) {
+
+                if (report_ascii) {
+                    ascii ascii_prefix{tcp_data, 3, 8};
+                    if (ascii_prefix.is_not_empty()) {
+                        fprintf(stdout, "tcp\t");
+                        ascii_prefix.fprint(stdout); fputc('\n', stdout);
+                    }
+                }
 
                 datum tcp_data_copy = tcp_data;
                 struct tls_record rec{tcp_data_copy};

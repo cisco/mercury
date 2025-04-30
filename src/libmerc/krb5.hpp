@@ -2,17 +2,18 @@
 //
 // kerberos protocol
 
-#ifndef KRB5_H
-#define KRB5_H
+#ifndef KRB5_HPP
+#define KRB5_HPP
 
-#define ASN1_DEBUG 1
-#define TLV_ERR_INFO 1
+// #define ASN1_DEBUG 1
+// #define TLV_ERR_INFO 1
 
 #include <variant>
 #include "datum.h"
 #include "x509.h"
 #include "json_object.h"
 #include "match.h"
+#include "protocol.h"
 
 namespace krb5 {
 
@@ -83,7 +84,7 @@ namespace krb5 {
             //tlv seq{&d, tlv::SEQUENCE, "kdc_req_body.sequence"};
             while (d.is_not_empty()) {
                 tlv tmp{&d};
-                fprintf(stderr, "kdc_req_body.tag: %x\n", tmp.tag);
+                //fprintf(stderr, "kdc_req_body.tag: %x\n", tmp.tag);
                 switch(tmp.tag) {
                 case tlv::explicit_tag_constructed(0):
                     kdc_options.parse(&tmp.value);
@@ -129,7 +130,7 @@ namespace krb5 {
         }
 
         void write_json(json_object &record) const {
-            json_object o{record, "kdc_req"};
+            json_object o{record, "body"};
             o.print_key_hex("kdc_options", kdc_options.value);
             o.print_key_hex("cname", cname.value);
             o.print_key_hex("realm", realm.value);
@@ -157,18 +158,30 @@ namespace krb5 {
         tlv seq;
         tlv pa_data_type;
         tlv pa_data_value;
+        bool valid;
+
     public:
         pa_data(datum &d) :
             seq{&d, tlv::SEQUENCE, "seq"},
             // pa_data_type{&seq.value, 0x00, "pa_data_type"},
             // pa_data_value{&seq.value, 0x00, "pa_data_value"}
             pa_data_type{&seq.value, tlv::explicit_tag_constructed(1), "pa_data_type"},
-            pa_data_value{&seq.value, tlv::explicit_tag_constructed(2), "pa_data_value"}
+            pa_data_value{&seq.value, tlv::explicit_tag_constructed(2), "pa_data_value"},
+            valid{d.is_not_null()}
         {
             if (pa_data_value.is_null()) {
                 d.set_null();
             }
         }
+
+        void write_json(json_object_asn1 &o) const {
+            if (!valid) { return; }
+            json_object_asn1 pad{o, "pa_data"};
+            pa_data_type.print_as_json(pad, "type");
+            pa_data_value.print_as_json(pad, "value");
+            pad.close();
+        }
+
     };
 
 
@@ -200,7 +213,7 @@ namespace krb5 {
             // pvno{&seq.value, tlv::explicit_tag(1), "pvno"},
             // valid{seq.value.is_not_null()}
         {
-            fprintf(stderr, "FUNCTION: %s\n", __func__);
+            //fprintf(stderr, "FUNCTION: %s\n", __func__);
             tlv tmp{&seq.value};
             if (tmp.tag == tlv::explicit_tag_constructed(1)) {
                 pvno.parse(&tmp.value);
@@ -220,21 +233,25 @@ namespace krb5 {
             valid = seq.value.is_not_null();
         }
 
-        void write_json(json_object &o) const {
+        void write_json(json_object_asn1 &o) const {
             //            if (!valid) { return; }
-            o.print_key_hex("pvno", pvno.value);
-            o.print_key_hex("msg_type", msg_type.value);
-            o.print_key_hex("padata", padata.value);
+            json_object_asn1 kdc_req_json{o, "kdc_req"};
+            kdc_req_json.print_key_hex("pvno", pvno.value);
+            kdc_req_json.print_key_hex("msg_type", msg_type.value);
+            kdc_req_json.print_key_hex("padata", padata.value);
+            // if (lookahead<pa_data> pad{padata.value}) {
             datum tmp = padata.value;
             while (tmp.is_not_empty()) {
                 pa_data data{tmp};
+                data.write_json(kdc_req_json);
             }
-            //o.print_key_hex("req_body", req_body.value);
+            //kdc_req.print_key_hex("req_body", req_body.value);
             if (req_body.is_valid()) {
                 if (lookahead<kdc_req_body> body{req_body.value}) {
-                    body.value.write_json(o);
+                    body.value.write_json(kdc_req_json);
                 }
             }
+            kdc_req_json.close();
         }
 
     };
@@ -273,7 +290,7 @@ namespace krb5 {
     public:
 
         error(datum &d) : seq{&d, tlv::SEQUENCE, "seq"} {
-            fprintf(stderr, "FUNCTION: %s\n", __func__);
+            //fprintf(stderr, "FUNCTION: %s\n", __func__);
             while (seq.value.is_not_empty()) {
                 tlv tmp{&seq.value};
                 switch(tmp.tag) {
@@ -368,7 +385,7 @@ namespace krb5 {
         tlv enc_part;
     public:
         kdc_rep(datum &d) : seq{&d, tlv::SEQUENCE, "seq"} {
-            fprintf(stderr, "FUNCTION: %s\n", __func__);
+            //fprintf(stderr, "FUNCTION: %s\n", __func__);
             while (seq.value.is_not_empty()) {
                 tlv tmp{&seq.value};
                 switch(tmp.tag) {
@@ -411,9 +428,9 @@ namespace krb5 {
     using message = std::variant<std::monostate, error, kdc_req, kdc_rep>;
 
     struct do_write_json {
-        json_object &record;
+        json_object_asn1 &record;
 
-        do_write_json(json_object &obj) : record{obj} { }
+        do_write_json(json_object_asn1 &obj) : record{obj} { }
 
         void operator()(const std::monostate &) { }
 
@@ -421,11 +438,14 @@ namespace krb5 {
         void operator()(T &t) { t.write_json(record); }
     };
 
-    class packet {
+    class packet : public base_protocol {
         tlv application;
+        tlv app2;
         message msg;
+
     public:
         packet(datum &d) : application{&d, 0x00, "application"} {
+            app2 = application;  // copy
             switch(application.tag) {
             case 0x6a:
                 msg.emplace<kdc_req>(application.value);
@@ -448,8 +468,17 @@ namespace krb5 {
             }
         }
 
-        void write_json(json_object &o) const {
-            std::visit(do_write_json{o}, msg);
+        bool is_not_empty() const { return application.is_not_null(); }
+
+        void write_json(json_object &o, bool metadata=false) const {
+            (void)metadata;
+            json_object_asn1 krb_json{o, "kerberos"};
+            json_array_asn1 raw_krb{krb_json, "raw"};
+            tlv tmp{app2};
+            tlv::recursive_parse(tmp.value, raw_krb);
+            raw_krb.close();
+            std::visit(do_write_json{krb_json}, msg);
+            krb_json.close();
         }
 
         // weight 14 matcher, derived from example PCAPs
@@ -472,4 +501,9 @@ namespace krb5 {
 
 } // namespace krb5
 
+[[maybe_unused]] inline int krb5_fuzz_disabled_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<krb5::packet>(data, size);
+}
+
 #endif // KRB5_H
+
