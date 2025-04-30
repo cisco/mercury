@@ -601,8 +601,6 @@ public:
 
 };
 
-#define DONT_USE_DST_ADDR
-
 /// implements a (possibly weighted) naive bayes classifier
 ///
 class naive_bayes_tls_quic_http : public naive_bayes {
@@ -621,6 +619,7 @@ class naive_bayes_tls_quic_http : public naive_bayes {
     ip_addr_feature dst_addr_feature;
     feature<uint32_t> asn_feature;
     feature<std::string> user_agent_feature;
+    bool minimize_ram;
 
 public:
 
@@ -628,13 +627,15 @@ public:
     ///
     naive_bayes_tls_quic_http(const rapidjson::Value &process_info,
                               size_t total_count,
+                              bool _minimize_ram,
                               const feature_weights &w = default_weights
                               ) :
         domain_name{"classes_hostname_domains","classes_hostname_sni",w.domain, w.sni},
         dst_port_feature{"classes_port_port", w.port},
         dst_addr_feature{"classes_ip_ip", w.ip},
         asn_feature{"classes_ip_as", w.as},
-        user_agent_feature{"classes_user_agent", w.ua}
+        user_agent_feature{"classes_user_agent", w.ua},
+        minimize_ram{_minimize_ram}
     {
 
         size_t index = 0;   // zero-based index of process in probability vector
@@ -651,9 +652,9 @@ public:
                 dst_port_feature.add_updates_from_object_by_name(x, index, total_count);
                 asn_feature.add_updates_from_object_by_name(x, index, total_count);
                 user_agent_feature.add_updates_from_object_by_name(x, index, total_count, true);
-#ifndef DONT_USE_DST_ADDR
-                dst_addr_feature.add_updates_from_object_by_name(x, index, total_count);
-#endif
+                if (!minimize_ram) {
+                    dst_addr_feature.add_updates_from_object_by_name(x, index, total_count);
+                }
             }
 
             // construct vector of prior probabilities
@@ -676,11 +677,11 @@ public:
 
         asn_feature.update(process_score, asn_int);
         dst_port_feature.update(process_score, dst_port);
-#ifndef DONT_USE_DST_ADDR
-        dst_addr_feature.update(process_score, dst_ip_str);
-#else
-        (void)dst_ip_str;   // suppress compiler warnings
-#endif
+        if (minimize_ram) {
+            (void)dst_ip_str;   // suppress compiler warnings
+        } else {
+            dst_addr_feature.update(process_score, dst_ip_str);
+        }
         user_agent_feature.update(process_score, user_agent);
         domain_name.update(process_score, server_name_str);
 

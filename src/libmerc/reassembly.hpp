@@ -472,7 +472,9 @@ inline const datum reassembly_flow_context::get_cid_datum() const {
 typedef std::unordered_map<struct key, reassembly_flow_context>::iterator reassembly_map_iterator;
 struct tcp_reassembler {
 
-    static constexpr size_t max_reassembly_entries = 10000;
+    size_t max_reassembly_entries;
+    static constexpr size_t max_entries = 10000;
+    static constexpr size_t min_entries = 2000;
     std::unordered_map<struct key, reassembly_flow_context> table;
     reassembly_map_iterator reap_it;  // iterator used for cleaning the table
     reassembly_map_iterator curr_flow; // iterator pointing to the current flow in reassembly
@@ -480,7 +482,10 @@ struct tcp_reassembler {
 
     // ctor does not allocated memory for the table entries
     // call init to reserve entries
-    tcp_reassembler() : table{}, dump_pkt{false} {
+    tcp_reassembler(bool minimize_ram = false) :
+        max_reassembly_entries{minimize_ram ? min_entries: max_entries},
+        table{},
+        dump_pkt{false} {
         table.reserve(max_reassembly_entries);
         reap_it = table.end();
         curr_flow = table.end();

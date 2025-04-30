@@ -118,6 +118,7 @@ GENERAL OPTIONS
    --certs-json                          # output certs as JSON, not base64
    --metadata                            # output more protocol metadata in JSON
    --raw-features                        # select protocols to write out raw features string(see --help)
+   --minimize-ram                        # minimize the ram usage of mercury library
    [-v or --verbose]                     # additional information sent to stderr
    --license                             # write license information to stdout
    --version                             # write version information to stdout
@@ -259,6 +260,9 @@ DETAILS
        all             All of the above
        none            None of the above
       <no option>     None of the above
+
+   --minimize-ram minimizes the ram usage of mercury library by reducing classifer
+   features and minimizing the maximum reassembly segments."
 
    [-v or --verbose] writes additional information to the standard error,
    including the packet count, byte count, elapsed time and processing rate, as
