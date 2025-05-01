@@ -1016,6 +1016,7 @@ bool tls_client_hello::is_faketls() const {
     return false;
 }
 
+
 bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
     datum sn;
     datum ua;
@@ -1025,8 +1026,7 @@ bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_context
 
     analysis_.destination.init(sn, ua, alpn, k_);
 
-    std::string random_nonce = random.get_string();
-    bool is_res_proxy = check_residential_proxy(k_, random_nonce);
+    bool is_res_proxy = check_residential_proxy(k_, random);
 
     bool ret = c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
 
@@ -1046,34 +1046,21 @@ bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_context
 }
 
 
-bool tls_client_hello::check_residential_proxy(const struct key &k_, std::string random_nonce) {
+bool tls_client_hello::check_residential_proxy(const struct key &k_, datum random) {
     static const uint16_t max_nonce_entries = 1000;
+    static uint16_t nonce_index = 0;
     static std::shared_mutex res_proxy_mutex;
-    static std::list<std::string> current_nonces;
-    static std::unordered_map<std::string, uint32_t> nonce_ip_map;
-
+    static std::vector<std::array<uint8_t,32>> current_nonces(max_nonce_entries);
+    static std::unordered_map<std::array<uint8_t,32>, uint32_t> nonce_ip_map;
+    std::array<uint8_t,32> random_nonce;
 
     if (k_.ip_vers != 4) {
-        return false; /* only support ipv4 for now */
+        return false; /* only support ipv4 for now, need to update nonce_ip_map to support ipv6 */
     }
 
     /* determine if IP addresses are internal/external */
-    bool is_src_ip_internal = false;
-    bool is_dst_ip_internal = false;
-    if (((uint32_t)k_.addr.ipv4.src & 0x000000ff) == 0x0000000a) {
-        is_src_ip_internal = true;
-    } else if (((uint32_t)k_.addr.ipv4.src & 0x0000f0ff) == 0x000010ac) {
-        is_src_ip_internal = true;
-    } else if (((uint32_t)k_.addr.ipv4.src & 0x0000ffff) == 0x0000a8c0) {
-        is_src_ip_internal = true;
-    }
-    if (((uint32_t)k_.addr.ipv4.dst & 0x000000ff) == 0x0000000a) {
-        is_dst_ip_internal = true;
-    } else if (((uint32_t)k_.addr.ipv4.dst & 0x0000f0ff) == 0x000010ac) {
-        is_dst_ip_internal = true;
-    } else if (((uint32_t)k_.addr.ipv4.dst & 0x0000ffff) == 0x0000a8c0) {
-        is_dst_ip_internal = true;
-    }
+    bool is_src_ip_global = k_.src_is_global();
+    bool is_dst_ip_global = k_.dst_is_global();
 
     std::unique_lock lock(res_proxy_mutex, std::try_to_lock);
     if (!lock.owns_lock()) {
@@ -1084,15 +1071,14 @@ bool tls_client_hello::check_residential_proxy(const struct key &k_, std::string
      * check if src_ip is external and dst_ip is internal,
      *   and if so, start tracking random nonce
      */
-    if ((is_src_ip_internal == false) && (is_dst_ip_internal == true)) {
+    if ((is_src_ip_global == true) && (is_dst_ip_global == false)) {
+        std::memcpy(random_nonce.data(), random.data, 32);
         if (nonce_ip_map.find(random_nonce) != nonce_ip_map.end()) { /* nonce collision */
             return false;
         }
-        if (current_nonces.size() == max_nonce_entries) { /* cache is full, delete oldest entry */
-            nonce_ip_map.erase(current_nonces.back());
-            current_nonces.pop_back();
-        }
-        current_nonces.push_front(random_nonce);
+
+        current_nonces[nonce_index] = random_nonce;
+        nonce_index = (nonce_index + 1) % max_nonce_entries;
         nonce_ip_map[random_nonce] = (uint32_t)k_.addr.ipv4.dst;
 
         return false;
@@ -1103,7 +1089,8 @@ bool tls_client_hello::check_residential_proxy(const struct key &k_, std::string
      *   and if so, check if the src_ip is internal and
      *   the dst_ip is external
      */
-    if ((is_src_ip_internal == true) && (is_dst_ip_internal == false)) {
+    if ((is_src_ip_global == false) && (is_dst_ip_global == true)) {
+        std::memcpy(random_nonce.data(), random.data, 32);
         if (nonce_ip_map.find(random_nonce) == nonce_ip_map.end()) { /* nonce not found */
             return false;
         }
