@@ -659,6 +659,9 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
     case tcp_msg_type_telnet:
         x.emplace<telnet::message>(pkt);
         return;
+    case tcp_msg_type_pgsql:
+        x.emplace<pgsql_msg>(pkt,tcp_pkt->header->src_port);
+        break;
     default:
         if (is_new && global_vars.output_tcp_initial_data) {
             x.emplace<unknown_initial_packet>(pkt);
