@@ -255,7 +255,7 @@ class pgsql_msg : public base_protocol {
     pgsql_pkt msg_list[max_msg_count];
     uint8_t msg_count = 0;
     pgsql_special_pkt special_pkt;
-    bool is_valid = true;
+    bool valid = true;
 
 
 
@@ -270,14 +270,14 @@ public:
             // read the special pkt
             special_pkt = pgsql_special_pkt{pkt};
             startup_msg = special_pkt.startup;
-            is_valid = special_pkt.is_valid();
+            valid = special_pkt.is_valid();
             return;
         }
         else {
             while (pkt.is_not_empty() && msg_count < max_msg_count) {
                 msg_list[msg_count] = pgsql_pkt{pkt};
                 if (!msg_list[msg_count].is_valid()) {
-                    is_valid = false;
+                    valid = false;
                     return;
                 }
                 msg_count++;
@@ -285,7 +285,7 @@ public:
         }
     };
 
-    bool is_valid() { return is_valid;}
+    bool is_valid() { return valid;}
 
     void write_json(json_object &record, bool metadata) {
         json_object pgsql_record(record,"pgsql");
