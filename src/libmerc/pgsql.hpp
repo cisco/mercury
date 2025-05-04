@@ -181,7 +181,11 @@ class pgsql_msg : public base_protocol {
         datum msg_data;
 
         pgsql_pkt(datum &d) : msg_type{d}, len{d} {
-            msg_data.parse(d,len);
+            if (len < 4) {
+                msg_data.set_null();
+                return;
+            }
+            msg_data.parse(d,len-4);
         };
 
         pgsql_pkt() : msg_type{0}, len{0}, msg_data{} {};
@@ -193,7 +197,7 @@ class pgsql_msg : public base_protocol {
             return *this;
         };
 
-        bool is_valid() { return msg_data.is_not_null() && len == (4 + 4 + msg_data.length()); };
+        bool is_valid() { return msg_data.is_not_null(); };
 
     };
 
@@ -204,7 +208,11 @@ class pgsql_msg : public base_protocol {
         bool startup = false;
 
         pgsql_special_pkt(datum &d) : len{d}, tag{d} {
-            msg_data.parse(d,len);
+            if (len < 8) {
+                msg_data.set_null();
+                return;
+            }
+            msg_data.parse(d,len-8);
             if (tag != ssl_request_code && tag != gss_encrypt_code && tag != cancel_request_code) {
                 startup = true;
             }
@@ -220,7 +228,7 @@ class pgsql_msg : public base_protocol {
             return *this;
         };
 
-        bool is_valid() { return msg_data.is_not_null() && len == (4 + 4 + msg_data.length()); };
+        bool is_valid() { return msg_data.is_not_null(); };
 
         void write_json(json_object &record, bool metadata ) {
             record.print_key_string("msg_type", get_special_msg_type(tag.value()));
@@ -285,7 +293,7 @@ public:
         }
     };
 
-    bool is_valid() { return valid;}
+    bool is_not_empty() { return valid; }
 
     void write_json(json_object &record, bool metadata) {
         json_object pgsql_record(record,"pgsql");
