@@ -227,7 +227,7 @@ class pgsql_msg : public base_protocol {
                 o.print_key_string("msg_type",get_server_message_code('R'));
                 encoded<uint32_t> auth_type{msg_data};
                 o.print_key_string("content_type", get_auth_type((auth_codes)auth_type.value()));
-                o.print_key_json_string(get_auth_data_type((auth_codes)auth_type.value()),msg_data);
+                o.print_key_hex(get_auth_data_type((auth_codes)auth_type.value()),msg_data);
                 o.close();
             }
             else if (msg_type.value() == 'S' && !client) {
