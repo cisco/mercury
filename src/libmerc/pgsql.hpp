@@ -18,7 +18,7 @@
 
 class pgsql_msg : public base_protocol {
 
-    enum class auth_codes : uint16_t {
+    enum class auth_codes : uint32_t {
         success = 0,
         kerb4 = 1,
         kerb5 = 2,
@@ -67,6 +67,18 @@ class pgsql_msg : public base_protocol {
             return "unknown";
         };
     }
+
+    static const char *get_auth_data_type(auth_codes code) {
+        // TODO: identify what type of content the other auth types have
+        switch (code) {
+        case auth_codes::md5_pass:
+            return "salt";
+        case auth_codes::plain_pass:
+            return "password";
+        default:
+            return "content";
+        };
+    };
 
     static constexpr uint32_t startup_code = 196608;
     static constexpr uint32_t ssl_request_code = 80877103;  // {1234}{5679}
@@ -199,6 +211,44 @@ class pgsql_msg : public base_protocol {
 
         bool is_valid() { return msg_data.is_not_null(); };
 
+        void write_json(json_array &a, bool client) {
+            // TODO: identify what data to report for other msg types
+            if (msg_type.value() == 'p') {
+                // auth message
+                json_object o(a);
+                o.print_key_string("msg_type",get_client_message_code('p'));
+                o.print_key_string("content_type", "password_message");
+                o.print_key_json_string("content",msg_data);
+                o.close();
+            }
+            else if (msg_type.value() == 'R') {
+                // auth request
+                json_object o(a);
+                o.print_key_string("msg_type",get_server_message_code('R'));
+                encoded<uint32_t> auth_type{msg_data};
+                o.print_key_string("content_type", get_auth_type((auth_codes)auth_type.value()));
+                o.print_key_json_string(get_auth_data_type((auth_codes)auth_type.value()),msg_data);
+                o.close();
+            }
+            else if (msg_type.value() == 'S' && !client) {
+                // parameter status
+                datum param_name{};
+                datum param_value{};
+                param_name.parse_up_to_delim(msg_data, '\0');
+                msg_data.skip(1);
+                param_value.parse_up_to_delim(msg_data, '\0');
+                msg_data.skip(1);
+                if (param_name.is_not_null() && param_value.is_not_null() && msg_data.is_not_null()) {
+                    json_object o(a);
+                    o.print_key_string("msg_type",get_server_message_code('S'));
+                    o.print_key_json_string("param_type",param_name);
+                    o.print_key_json_string("param_value",param_value);
+                    o.close();
+                }
+
+            }
+        }
+
     };
 
     struct pgsql_special_pkt {
@@ -303,7 +353,13 @@ public:
             return;
         }
         else {
-
+            json_array msg_list_json (pgsql_record, "pgsql_pkts");
+            for (size_t i = 0; i < msg_count; i++) {
+                msg_list[i].write_json(msg_list_json, is_client);
+            }
+            msg_list_json.close();
+            pgsql_record.close();
+            return;
         }
     }
 };
