@@ -738,9 +738,14 @@ public:
                     legacy_archive = (!dual_db && !lite_db && !full_db);
 
                 } else if (name == "pyasn.db") {
+                    std::vector<std::string> asn_subnets_str;
                     while (archive.getline(line_str)) {
-                        subnets.process_line(line_str);
+                        asn_subnets_str.push_back(line_str);
                     }
+                    // process the parsed asn subnets and store them in prefix array for final processing
+                    //
+                    subnets.process_asn_subnets(asn_subnets_str);
+                    asn_subnets_str.clear();
                     got_pyasn_db = true;
                 } else if (name == "doh-watchlist.txt") {
                     while (archive.getline(line_str)) {
@@ -748,12 +753,13 @@ public:
                     }
                     got_doh_watchlist = true;
                 } else if (name == "domain-mappings.db") {
-                    // subnet_map stores the index of subnets in subnet array. This can be used to track subnets mapped to multiple domains
-                    //
-                    std::unordered_map<uint32_t, ssize_t> subnet_map;
+                    std::vector<std::string> domain_mapping_subnets_str;
                     while (archive.getline(line_str)) {
-                        subnets.process_domain_mappings_line(line_str, subnet_map);
+                        domain_mapping_subnets_str.push_back(line_str);
                     }
+                    // process the parsed domain_mapping subnets and store them in domains_prefix array for final processing
+                    //
+                    subnets.process_domain_mapping_subnets(domain_mapping_subnets_str);
                     got_domain_faking_subnets = true;
                 }
             }
