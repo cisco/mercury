@@ -1062,17 +1062,13 @@ bool tls_client_hello::check_residential_proxy(const struct key &k_, datum rando
     bool is_src_ip_global = k_.src_is_global();
     bool is_dst_ip_global = k_.dst_is_global();
 
-    std::unique_lock lock(res_proxy_mutex, std::try_to_lock);
-    if (!lock.owns_lock()) {
-        return false; /* maybe wait instead? */
-    }
-
     /*
      * check if src_ip is external and dst_ip is internal,
      *   and if so, start tracking random nonce
      */
     if ((is_src_ip_global == true) && (is_dst_ip_global == false)) {
         std::memcpy(random_nonce.data(), random.data, 32);
+        std::lock_guard lock(res_proxy_mutex);
         if (nonce_ip_map.find(random_nonce) != nonce_ip_map.end()) { /* nonce collision */
             return false;
         }
@@ -1091,6 +1087,7 @@ bool tls_client_hello::check_residential_proxy(const struct key &k_, datum rando
      */
     if ((is_src_ip_global == false) && (is_dst_ip_global == true)) {
         std::memcpy(random_nonce.data(), random.data, 32);
+        std::shared_lock lock(res_proxy_mutex);
         if (nonce_ip_map.find(random_nonce) == nonce_ip_map.end()) { /* nonce not found */
             return false;
         }
