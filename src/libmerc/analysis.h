@@ -473,6 +473,14 @@ public:
         }
     }
 
+    void set_faketls_attribute(analysis_result *result) {
+        result->attr.set_attr(common.faketls_idx, 1.0);
+    }
+
+    void set_enc_channel_attribute(analysis_result *result) {
+        result->attr.set_attr(common.enc_channel_idx, result->malware_prob);
+    }
+
     void process_watchlist_line(std::string &line_str) {
         if (!line_str.empty() && line_str[line_str.length()-1] == '\n') {
             line_str.erase(line_str.length()-1);
