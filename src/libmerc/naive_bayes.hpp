@@ -84,6 +84,11 @@ public:
                     //  map "unknown" values in classes_ip_as to zero
                     //
                     add_update(0, process_index, y.value.GetUint64(), total_count);
+                } else if (strcmp(itr->name.GetString(), "classes_user_agent") == 0 && strcmp(y.name.GetString(), "None") == 0) {
+                    //
+                    // map "None" values in classes_user_agent to the empty string
+                    //
+                    add_update(convert(""), process_index, y.value.GetUint64(), total_count);
                 } else {
                     add_update(convert(y.name.GetString()), process_index, y.value.GetUint64(), total_count);
                 }
@@ -664,7 +669,7 @@ public:
                                               uint16_t dst_port,
                                               const std::string &server_name_str,
                                               const std::string &dst_ip_str,
-                                              const char *user_agent
+                                              const std::string &user_agent
                                               ) const {
 
         std::vector<floating_point_type> process_score = get_prior_prob();  // working copy of probability vector
@@ -676,9 +681,7 @@ public:
 #else
         (void)dst_ip_str;   // suppress compiler warnings
 #endif
-        if (user_agent != nullptr) {
-            user_agent_feature.update(process_score, user_agent);
-        }
+        user_agent_feature.update(process_score, user_agent);
         domain_name.update(process_score, server_name_str);
 
         return process_score;

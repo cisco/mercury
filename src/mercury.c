@@ -133,6 +133,8 @@ char mercury_extended_help[] =
     "      tls.certificates  TLS serverCertificates\n"
     "      tofsee            Tofsee malware communication\n"
     "      wireguard         WG handshake initiation message\n"
+    "      geneve            Geneve encapsulation\n"
+    "      vxlan             VXLAN encapsulation\n" 
     "      all               all of the above\n"
     "      <no option>       all of the above\n"
     "      none              none of the above\n"
