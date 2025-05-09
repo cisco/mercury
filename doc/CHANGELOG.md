@@ -1,4 +1,6 @@
 # CHANGELOG for Mercury
+* Added a new configuration option, minimize-ram, which reduces
+* the RAM usage of mercury library when enabled
 
 ## VERSION 2.7.1
 * Updated QUIC reassembly logic for reordered QUIC crypto frames

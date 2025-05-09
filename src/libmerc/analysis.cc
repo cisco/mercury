@@ -33,7 +33,8 @@ classifier *analysis_init_from_archive(int, //verbosity
                                        enum enc_key_type key_type,
                                        const float fp_proc_threshold,
                                        const float proc_dst_threshold,
-                                       const bool report_os) {
+                                       const bool report_os,
+                                       const bool minimize_ram) {
 
     if (enc_key != NULL || key_type != enc_key_type_none) {
         //fprintf(stderr, "note: decryption key provided in configuration\n");
@@ -44,7 +45,7 @@ classifier *analysis_init_from_archive(int, //verbosity
     }
 
     encrypted_compressed_archive archive{archive_name, enc_key}; // TODO: key type
-    return new classifier(archive, fp_proc_threshold, proc_dst_threshold, report_os);
+    return new classifier(archive, fp_proc_threshold, proc_dst_threshold, report_os, minimize_ram);
 }
 
 
