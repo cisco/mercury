@@ -1,6 +1,6 @@
 # CHANGELOG for Mercury
 
-# VERSION 2.7.1
+## VERSION 2.7.1
 * Updated QUIC reassembly logic for reordered QUIC crypto frames
 
 ## VERSION 2.7.0
