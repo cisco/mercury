@@ -1,5 +1,8 @@
 # CHANGELOG for Mercury
 
+## VERSION 2.7.1
+* Updated QUIC reassembly logic for reordered QUIC crypto frames
+
 ## VERSION 2.7.0
 * Added minimal RDP (Remote Desktop Protocol) support, which
   reports information about handshakes, security negotiation, and

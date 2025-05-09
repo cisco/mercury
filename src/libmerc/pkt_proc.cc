@@ -666,7 +666,7 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
     }
 
     // reassembly may be needed
-    // pkts that reach here are inital msg with/without additional_bytes_needed or
+    // pkts that reach here are inital msg with/without additional_bytes_needed, missing crypto frames or
     // non initial pkts that dont match any protocol, so could be part of a reassembly flow
     // check if in reassembly table to continue
     // init otherwise
@@ -675,6 +675,8 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
     uint32_t crypto_len = 0;
     const uint8_t *crypto_data = std::get<quic_init>(x).get_crypto_buf(&crypto_len);
     uint32_t crypto_offset = std::get<quic_init>(x).get_min_crypto_offset();
+    bool missing_crypto_frames = std::get<quic_init>(x).missing_crypto_frames();
+    bool min_crypto_data = std::get<quic_init>(x).min_crypto_data();
     if (crypto_len > reassembly_flow_context::max_data_size) {
         // can't fit this crypto frame in buffer
         return true;
@@ -694,16 +696,60 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
         return true;
     }
     else if ((r_state == reassembly_state::reassembly_none) && udp_pkt.additional_bytes_needed()){
-        // init reassembly
-        quic_segment seg{true,crypto_len,crypto_offset,udp_pkt.additional_bytes_needed(),ts->tv_sec, cid};
-        reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+crypto_offset,crypto_data+crypto_offset+crypto_len});
-        reassembler->dump_pkt = true;
+        if (!missing_crypto_frames) {
+            // init reassembly
+            quic_segment seg{true,crypto_len,crypto_offset,udp_pkt.additional_bytes_needed(),ts->tv_sec, cid};
+            reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+crypto_offset,crypto_data+crypto_offset+crypto_len});
+            reassembler->dump_pkt = true;
+        }
+        // special case for missing / reordered crypto frames
+        // fetch and process frames one by one
+        else {
+            uint16_t frame_count = 0;
+            uint16_t first_frame_idx = 0;
+            const crypto* frames = std::get<quic_init>(x).get_crypto_frames(frame_count,first_frame_idx);
+            
+            // init
+            if (min_crypto_data) {
+                quic_segment seg{true,cryptographic_buffer::min_crypto_data_len,frames[first_frame_idx].offset(),udp_pkt.additional_bytes_needed(),ts->tv_sec, cid};
+                reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[first_frame_idx].offset(),
+                                crypto_data+frames[first_frame_idx].offset()+cryptographic_buffer::min_crypto_data_len});
+            }
+            else {
+                quic_segment seg{true,frames[first_frame_idx].length(),frames[first_frame_idx].offset(),udp_pkt.additional_bytes_needed(),ts->tv_sec, cid};
+                reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[first_frame_idx].offset(),
+                                crypto_data+frames[first_frame_idx].offset()+frames[first_frame_idx].length()});
+
+            }
+            
+            for (uint16_t i = 0; i < frame_count; i++) {
+                if (i != first_frame_idx) { // skip already processed first frame
+                    quic_segment seg{false,frames[i].length(),frames[i].offset(),0,ts->tv_sec, cid};
+                    reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[i].offset(),crypto_data+frames[i].offset()+frames[i].length()});
+                }  
+            }
+            reassembler->dump_pkt = true;
+        }
     }
     else if (r_state == reassembly_state::reassembly_progress){
-        // continue reassembly
-        quic_segment seg{false,crypto_len,crypto_offset,0,ts->tv_sec, cid};
-        reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+crypto_offset,crypto_data+crypto_offset+crypto_len});
-        reassembler->dump_pkt = true;
+        if (!missing_crypto_frames) {
+            // continue reassembly
+            quic_segment seg{false,crypto_len,crypto_offset,0,ts->tv_sec, cid};
+            reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+crypto_offset,crypto_data+crypto_offset+crypto_len});
+            reassembler->dump_pkt = true;
+        }
+        else {
+            uint16_t frame_count = 0;
+            uint16_t first_frame_idx = 0;
+            const crypto* frames = std::get<quic_init>(x).get_crypto_frames(frame_count,first_frame_idx);
+
+            for (uint16_t i = 0; i < frame_count; i++) {
+                quic_segment seg{false,frames[i].length(),frames[i].offset(),0,ts->tv_sec, cid};
+                reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[i].offset(),crypto_data+frames[i].offset()+frames[i].length()});
+              
+            }
+            reassembler->dump_pkt = true;            
+        }
     }
     else if (r_state == reassembly_state::reassembly_consumed) {
         // this will never happen
