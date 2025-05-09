@@ -1,5 +1,8 @@
 # CHANGELOG for Mercury
 
+## VERSION 2.7.0
+* Updated QUIC reassembly logic for reorder QUIC crypto frames
+
 ## VERSION 2.6.4
 * Added reporting of HTTP CONNECT proxies in JSON output.
 * Added FTP command channel reporting in JSON output.
