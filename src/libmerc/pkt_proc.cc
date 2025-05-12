@@ -529,6 +529,11 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
                           struct timespec *ts,
                           struct tcp_reassembler *reassembler) {
 
+    if (!tcp_pkt.data_length) {
+        // ignore acks and empty fin
+        return false;
+    }
+
     // No reassembler : call set_tcp_protocol on every data pkt
     if (!reassembler || !global_vars.reassembly) {
         bool is_new = false;
@@ -537,11 +542,6 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
         }
         set_tcp_protocol(x, pkt, is_new, &tcp_pkt);
         return true;
-    }
-
-    if (!tcp_pkt.data_length) {
-        // ignore acks and empty fin
-        return false;
     }
 
     bool is_new = false;
