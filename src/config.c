@@ -200,6 +200,10 @@ static enum status mercury_config_parse_line(struct mercury_config *cfg,
         additional_args = str_append(additional_args, ";");
         return status_ok;
 
+    } else if ((arg = command_get_argument("network-behavioral-detections", line)) != NULL) {
+        global_vars.network_behavioral_detections = true;
+        return status_ok;
+
     }  else if ((arg = command_get_argument("crypto-assess=", line)) != NULL) {
         additional_args = str_append(additional_args, "crypto-assess=");
         additional_args = str_append(additional_args, arg);

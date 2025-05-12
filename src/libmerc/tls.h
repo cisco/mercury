@@ -425,6 +425,8 @@ struct tls_client_hello : public base_protocol {
 
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c);
 
+    bool do_network_behavioral_detections(const struct key &k_, struct nbd_context &nbd_analysis_);
+
     static bool check_residential_proxy(const struct key &k_, datum random_nonce);
 
     static constexpr mask_and_value<8> matcher{

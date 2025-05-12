@@ -373,5 +373,42 @@ struct analysis_context {
 };
 
 
+struct nbd_context {
+    const static ssize_t MAX_TAGS = 16;
+    typedef std::bitset<MAX_TAGS> bitset;
+
+    nbd_context::bitset tags;
+    std::vector<std::string> tag_names;
+
+    ssize_t res_proxy_idx = 0;
+
+public:
+
+    nbd_context() : tags{0} {
+        auto it = tag_names.begin();
+
+        tag_names.insert(it + res_proxy_idx, "residential_proxy");
+    }
+
+
+    void write_json(struct json_object &o, const char *key) {
+        struct json_array nbd_analysis{o, key};
+
+        for (uint8_t i = 0; i < MAX_TAGS && i < tag_names.size(); i++) {
+            if (tags[i]) {
+                nbd_analysis.print_string(tag_names[i].c_str());
+            }
+        }
+
+        nbd_analysis.close();
+    }
+
+    void set_residential_proxy() {
+        tags[res_proxy_idx] = true;
+    }
+
+};
+
+
 #endif // RESULT_H
 

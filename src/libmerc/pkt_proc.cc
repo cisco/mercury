@@ -967,6 +967,12 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             }
         }
 
+        bool output_nbd = false;
+        if (global_vars.network_behavioral_detections) {
+            output_nbd = std::visit(do_network_behavioral_detections{k, nbd_analysis}, x);
+        }
+
+
         // if (malware_prob_threshold > -1.0 && (!output_analysis || analysis.result.malware_prob < malware_prob_threshold)) { return 0; } // TODO - expose hidden command
 
         struct json_object record{&buf};
@@ -978,6 +984,11 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         if (output_analysis) {
             analysis.result.write_json(record, "analysis");
         }
+
+        if (output_nbd) {
+            nbd_analysis.write_json(record, "network_behavioral_detections");
+        }
+
         if (crypto_policy) { std::visit(do_crypto_assessment{crypto_policy, record}, x); }
 
         // write indication of truncation or reassembly

@@ -345,4 +345,23 @@ struct do_analysis {
 
 };
 
+struct do_network_behavioral_detections {
+    const struct key &k_;
+    struct nbd_context &nbd_analysis_;
+
+    do_network_behavioral_detections(const struct key &k,
+                                     struct nbd_context &nbd_analysis) :
+        k_{k},
+        nbd_analysis_{nbd_analysis}
+    {}
+
+    template <typename T>
+    bool operator()(T &msg) {
+        return msg.do_network_behavioral_detections(k_, nbd_analysis_);
+    }
+
+    bool operator()(std::monostate &) { return false; }
+
+};
+
 #endif  /* PKT_PROC_UTIL_HPP */
