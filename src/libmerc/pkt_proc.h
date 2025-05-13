@@ -39,7 +39,8 @@ enum linktype : uint16_t {
     LINKTYPE_NULL =       0,  // BSD loopback encapsulation
     LINKTYPE_ETHERNET =   1,  // Ethernet
     LINKTYPE_PPP      =   9,  // PPP
-    LINKTYPE_RAW      = 101   // Raw IP; begins with IPv4 or IPv6 header
+    LINKTYPE_RAW      = 101,  // Raw IP; begins with IPv4 or IPv6 header
+    LINKTYPE_LINUX_SLL = 113, // Linux "cooked" capture encapsualtion
 };
 
 enum fieldtype : uint8_t {
