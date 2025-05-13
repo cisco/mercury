@@ -819,6 +819,16 @@ struct flow_key_ext {
 }; 
 
 /**
+ * return codes used by mercury
+ */
+enum fdc_return {
+    FDC_WRITE_INSUFFICIENT_SPACE = -1,
+    FDC_WRITE_FAILURE = -2,
+    MORE_PACKETS_NEEDED = -3,
+    UNKNOWN_ERROR = -4
+};
+
+/**
  * mercury_packet_processor_get_analysis_context_fdc() processes a TCP/UDP payload 
  * and writes analysis vars to an opaque buffer passed to it.
  * @param processor (input) is a packet processor context to be used.
