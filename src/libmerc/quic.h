@@ -125,6 +125,10 @@ public:
         }
     }
 
+    void operator =(const variable_length_integer &i){
+        value_ = i.value();
+    }
+
     uint64_t value() const { return value_; }
 
 };
@@ -366,6 +370,12 @@ public:
     crypto(const crypto &c) : _offset{c._offset}, _length{c._length}, _data{c._data} {   }
 
     crypto() : _offset{0}, _length{0}, _data{} {   }
+
+    void operator =(const crypto &c) {
+        _offset = c._offset;
+        _length = c._length;
+        _data = c._data;
+    }
 
     bool is_valid() const { return _data.is_not_empty(); }
 
