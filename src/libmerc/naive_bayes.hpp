@@ -615,13 +615,26 @@ struct feature_weights {
 class naive_bayes {
 
     std::vector<floating_point_type> prior_prob;  // vector of prior probabilities
+    floating_point_type base_prior;
 
 public:
 
     std::vector<floating_point_type> get_prior_prob() const { return prior_prob; }
 
+    std::vector<floating_point_type> get_prior_prob(floating_point_type new_weight_sum, floating_point_type old_weight_sum) {
+        if (new_weight_sum == old_weight_sum) {
+            return get_prior_prob();
+        }
+
+        for (auto &p: prior_prob) {
+            p = p + base_prior * new_weight_sum - base_prior * old_weight_sum;
+        }
+
+        return get_prior_prob();
+    }
+
     void add_class(size_t count, size_t total_count, floating_point_type weight_sum=1.0) {
-        floating_point_type base_prior = log(0.1 / total_count);
+        base_prior = log(0.1 / total_count);
         floating_point_type proc_prior = log(.1);
         floating_point_type prob_process_given_fp = (floating_point_type)count / total_count;
         floating_point_type score = log(prob_process_given_fp);
@@ -650,6 +663,15 @@ public:
 ///
 class naive_bayes_tls_quic_http : public naive_bayes {
 
+    domain_name_model domain_name;
+    feature<uint16_t> dst_port_feature;
+    ip_addr_feature dst_addr_feature;
+    feature<uint32_t> asn_feature;
+    feature<std::string> user_agent_feature;
+    const feature_weights &weights;
+
+public:
+
     static constexpr feature_weights default_weights {
         0.13924, // as_weight
         0.15590, // domain_weight
@@ -659,6 +681,7 @@ class naive_bayes_tls_quic_http : public naive_bayes {
         1.0      // ua_weight
     };
 
+<<<<<<< HEAD
     domain_name_model domain_name;
     feature<uint16_t> dst_port_feature;
     ip_addr_feature dst_addr_feature;
@@ -673,7 +696,7 @@ public:
     naive_bayes_tls_quic_http(const rapidjson::Value &process_info,
                               size_t total_count,
                               bool _minimize_ram,
-                              const feature_weights &w = default_weights
+                              const feature_weights &w
                               ) :
         domain_name{"classes_hostname_domains","classes_hostname_sni",w.domain, w.sni},
         dst_port_feature{"classes_port_port", w.port},
@@ -681,6 +704,7 @@ public:
         asn_feature{"classes_ip_as", w.as},
         user_agent_feature{"classes_user_agent", w.ua},
         minimize_ram{_minimize_ram}
+        weights{w}
     {
 
         size_t index = 0;   // zero-based index of process in probability vector
@@ -739,9 +763,9 @@ public:
                                               const std::string &dst_ip_str,
                                               const std::string &user_agent,
                                               const feature_weights &w        // custom feature weights
-                                              ) const {
+                                              ) {
 
-        std::vector<floating_point_type> process_score = get_prior_prob();  // working copy of probability vector
+        std::vector<floating_point_type> process_score = get_prior_prob(w.sum(), weights.sum());  // working copy of probability vector
 
         asn_feature.update(process_score, asn_int, w.as);
         dst_port_feature.update(process_score, dst_port, w.port);
