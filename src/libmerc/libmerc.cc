@@ -15,7 +15,6 @@
 #include "config_generator.h"
 #include "global_config.h"
 #include "tsc_clock.hpp"
-#include "fdc.hpp"
 
 #ifndef  MERCURY_SEMANTIC_VERSION
 #ifdef _WIN32
