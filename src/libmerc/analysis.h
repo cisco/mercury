@@ -908,7 +908,7 @@ public:
     }
 
     struct analysis_result perform_analysis(const char *fp_str, const char *server_name, const char *dst_ip,
-                                        uint16_t dst_port, const char *user_agent) {
+                                            uint16_t dst_port, const char *user_agent) {
         auto perform_analysis_fn = [&](fingerprint_data *fp_data, fingerprint_status status) {
             return fp_data->perform_analysis(server_name, dst_ip, dst_port, user_agent, status);
         };
@@ -925,9 +925,10 @@ public:
      * intended to be used in packet processing path.
      */
     struct analysis_result perform_analysis_with_weights(const char *fp_str, const char *server_name, const char *dst_ip,
-                                            uint16_t dst_port, const char *user_agent, floating_point_type new_as_weight, floating_point_type new_domain_weight,
-                                 floating_point_type new_port_weight, floating_point_type new_ip_weight,
-                                 floating_point_type new_sni_weight, floating_point_type new_ua_weight) {
+                                                         uint16_t dst_port, const char *user_agent,
+                                                         floating_point_type new_as_weight, floating_point_type new_domain_weight,
+                                                         floating_point_type new_port_weight, floating_point_type new_ip_weight,
+                                                         floating_point_type new_sni_weight, floating_point_type new_ua_weight) {
 
 
         feature_weights weights{new_as_weight, new_domain_weight, new_port_weight,
