@@ -415,7 +415,7 @@ cdef class Mercury:
         cdef bytes dst_ip_b = dst_ip.encode()
         cdef char* dst_ip_c = dst_ip_b
 
-        cdef analysis_result ar = self.clf.perform_analysis(fp_str_c, server_name_c, dst_ip_c, dst_port, NULL)
+        cdef analysis_result ar = self.clf.perform_analysis(fp_str_c, server_name_c, dst_ip_c, dst_port, '')
 
         cdef fingerprint_status fp_status_enum = ar.status
         fp_status = fp_status_dict[fp_status_enum]
