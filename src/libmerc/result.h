@@ -86,7 +86,7 @@ public:
         record.close();
     }
 
-    bool is_valid() {
+    bool is_valid() const {
         return tags.any();
     }
 
@@ -94,7 +94,7 @@ public:
 
     void initialize (const std::vector<std::string> *_tag_names, const char *const *names_char) {
         tag_names = _tag_names;
-        tag_names_char = names_char;    
+        tag_names_char = names_char;
     }
 
     const struct attribute_context *get_attributes() {
@@ -231,12 +231,13 @@ public:
             attr.write_json(analysis);
         } else {
             analysis.print_key_string("status", "unknown");
+            attr.write_json(analysis);
         }
         analysis.close();
     }
 
     bool is_valid() const {
-        return status != fingerprint_status_no_info_available;
+        return ((status != fingerprint_status_no_info_available) || (attr.is_valid()));
     }
 
     void reinit() {
@@ -370,43 +371,6 @@ struct analysis_context {
     bool more_pkts_needed() {
         return flow_state_pkts_needed;
     }
-};
-
-
-struct nbd_context {
-    const static ssize_t MAX_TAGS = 16;
-    typedef std::bitset<MAX_TAGS> bitset;
-
-    nbd_context::bitset tags;
-    std::vector<std::string> tag_names;
-
-    ssize_t res_proxy_idx = 0;
-
-public:
-
-    nbd_context() : tags{0} {
-        auto it = tag_names.begin();
-
-        tag_names.insert(it + res_proxy_idx, "residential_proxy");
-    }
-
-
-    void write_json(struct json_object &o, const char *key) {
-        struct json_array nbd_analysis{o, key};
-
-        for (uint8_t i = 0; i < MAX_TAGS && i < tag_names.size(); i++) {
-            if (tags[i]) {
-                nbd_analysis.print_string(tag_names[i].c_str());
-            }
-        }
-
-        nbd_analysis.close();
-    }
-
-    void set_residential_proxy() {
-        tags[res_proxy_idx] = true;
-    }
-
 };
 
 

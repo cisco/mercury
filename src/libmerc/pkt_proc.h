@@ -97,7 +97,7 @@ struct stateful_pkt_proc {
     struct flow_table_tcp tcp_flow_table;
     struct tcp_initial_message_filter tcp_init_msg_filter;
     struct analysis_context analysis;
-    struct nbd_context nbd_analysis;
+    struct common_data nbd_common_data;
     class message_queue *mq;
     mercury_context m;
     classifier *c;        // TODO: change to reference
@@ -113,7 +113,7 @@ struct stateful_pkt_proc {
         tcp_flow_table{prealloc_size},
         tcp_init_msg_filter{},
         analysis{},
-        nbd_analysis{},
+        nbd_common_data{},
         mq{nullptr},
         m{mc},
         c{nullptr},

@@ -969,7 +969,12 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
 
         bool output_nbd = false;
         if (global_vars.network_behavioral_detections) {
-            output_nbd = std::visit(do_network_behavioral_detections{k, nbd_analysis}, x);
+            if (!analysis.result.attr.is_initialized()) {
+                nbd_common_data.res_proxy_idx = nbd_common_data.attr_name.get_index("residential_proxy");
+                analysis.result.attr.initialize(&(nbd_common_data.attr_name.value()),nbd_common_data.attr_name.get_names_char());
+            }
+
+            output_nbd = std::visit(do_network_behavioral_detections{k, analysis, c, nbd_common_data}, x);
         }
 
 
@@ -981,13 +986,13 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         }
         std::visit(write_metadata{record, global_vars.metadata_output, global_vars.certs_json_output, global_vars.dns_json_output}, x);
 
-        if (output_analysis) {
+        if (output_analysis || output_nbd) {
             analysis.result.write_json(record, "analysis");
         }
 
-        if (output_nbd) {
-            nbd_analysis.write_json(record, "network_behavioral_detections");
-        }
+//        if (output_nbd) {
+//            nbd_analysis.write_json(record, "network_behavioral_detections");
+//        }
 
         if (crypto_policy) { std::visit(do_crypto_assessment{crypto_policy, record}, x); }
 
@@ -1255,6 +1260,11 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             }
             c->check_additional_attributes(analysis);
 
+            bool output_nbd = false;
+            if (global_vars.network_behavioral_detections) {
+                output_nbd = std::visit(do_network_behavioral_detections{k, analysis, c, nbd_common_data}, x);
+            }
+
             // note: we only perform observations when analysis is
             // configured, because we rely on do_analysis to set the
             // analysis_.destination
@@ -1279,7 +1289,15 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             //
             analysis.destination.dst_port = ntoh(analysis.destination.dst_port);
 
-            return output_analysis;
+            return output_analysis || output_nbd;
+
+        } else if (global_vars.network_behavioral_detections) {
+            if (!analysis.result.attr.is_initialized()) {
+                nbd_common_data.res_proxy_idx = nbd_common_data.attr_name.get_index("residential_proxy");
+                analysis.result.attr.initialize(&(nbd_common_data.attr_name.value()),nbd_common_data.attr_name.get_names_char());
+            }
+
+            return std::visit(do_network_behavioral_detections{k, analysis, c, nbd_common_data}, x);
         }
     }
 

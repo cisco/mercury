@@ -1021,15 +1021,10 @@ bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_context
     datum sn;
     datum ua;
     datum alpn;
-//    bool is_res_proxy = false;
 
     extensions.set_meta_data(sn, ua, alpn);
 
     analysis_.destination.init(sn, ua, alpn, k_);
-
-//    if () {
-//        is_res_proxy = check_residential_proxy(k_, random);
-//    }
 
     bool ret = c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
 
@@ -1041,18 +1036,21 @@ bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_context
             analysis_.result.attr.set_attr(c_->get_common_data().faketls_idx, 1.0);
         }
     }
-//    if (is_res_proxy) {
-//        analysis_.result.attr.set_attr(c_->common.res_proxy_idx, 1.0);
-//    }
 
     return ret;
 }
 
 
-bool tls_client_hello::do_network_behavioral_detections(const struct key &k_, struct nbd_context &nbd_analysis_) {
+bool tls_client_hello::do_network_behavioral_detections(const struct key &k_, struct analysis_context &analysis_,
+                                                        classifier *c_, struct common_data &nbd_common) {
     if (check_residential_proxy(k_, random)) {
-        nbd_analysis_.set_residential_proxy();
-        return true;
+        if (c_) {
+            analysis_.result.attr.set_attr(c_->common.res_proxy_idx, 1.0);
+            return true;
+        } else if (nbd_common.res_proxy_idx != -1) {
+            analysis_.result.attr.set_attr(nbd_common.res_proxy_idx, 1.0);
+            return true;
+        }
     }
     return false;
 }
