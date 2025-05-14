@@ -411,7 +411,7 @@ int main(int argc, char *argv[]) {
             if (optarg) {
                 usage(argv[0], "option network-behavioral-detections does not use an argument", extended_help_off);
             } else {
-                libmerc_cfg.network_behavioral_detections = true;
+                additional_args.append("network-behavioral-detections;");
             }
             break;
         case crypto_assess:

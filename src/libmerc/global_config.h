@@ -131,10 +131,11 @@ public:
     std::string crypto_assess_policy;
     bool reassembly = false;              /* reassemble protocol segments      */
     bool stats_blocking = false;          /* stats mode: lossless but blocking */
+    bool network_behavioral_detections = false; /* perform network behavorial detections */
     fingerprint_format fp_format;    // default fingerprint format
 
-    global_config() : libmerc_config(), reassembly{false} {};
-    global_config(const libmerc_config& c) : libmerc_config(c), reassembly{false} {
+    global_config() : libmerc_config(), reassembly{false}, network_behavioral_detections{false} {};
+    global_config(const libmerc_config& c) : libmerc_config(c), reassembly{false}, network_behavioral_detections{false} {
         if (c.resources) {
            resource_file = c.resources;
         }

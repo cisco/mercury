@@ -116,7 +116,6 @@ struct libmerc_config {
     bool report_os = false;               /* report oses in analysis JSON */
     bool output_tcp_initial_data = false; /* write initial data field     */
     bool output_udp_initial_data = false; /* write initial data field     */
-    bool network_behavioral_detections = false; /* perform network behavorial detections */
     //bool tcp_reassembly = false;          /* reassemble tcp segments      */
 
     char *resources = NULL;             /* archive containing resource files       */
@@ -139,7 +138,6 @@ struct libmerc_config {
     bool report_os;               /* report oses in analysis JSON */
     bool output_tcp_initial_data; /* write initial data field     */
     bool output_udp_initial_data; /* write initial data field     */
-    bool network_behavioral_detections; /* perform network behavorial detections */
 
     char *resources;             /* archive containing resource files       */
     const uint8_t *enc_key;      /* (optional) decryption key for archive   */
@@ -182,7 +180,7 @@ struct attribute_context {
  * minimal, default configuration.
  */
 #ifndef __cplusplus
-#define libmerc_config_init() {false,false,false,false,false,false,false,false,false,NULL,NULL,enc_key_type_none,NULL,0.0,0.0,0}
+#define libmerc_config_init() {false,false,false,false,false,false,false,false,NULL,NULL,enc_key_type_none,NULL,0.0,0.0,0}
 #endif
 
 
