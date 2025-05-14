@@ -68,3 +68,4 @@
 70,16b7
 67,00fc
 67,00fb
+102, cafe // https://boringssl.googlesource.com/boringssl/+/refs/heads/chromium-2214/ssl/test/runner/cipher_suites.go#392
