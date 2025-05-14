@@ -112,9 +112,6 @@ cdef extern from "../libmerc/result.h":
     cdef struct analysis_context:
         analysis_result result
     cdef cppclass attribute_names:
-        vector[string] names
-        char* names_char[12]
-        bool accept_more_names
         const vector[string] &value()
         const char* const* get_names_char()
 
