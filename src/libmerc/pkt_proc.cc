@@ -970,7 +970,10 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         bool output_nbd = false;
         if (global_vars.network_behavioral_detections) {
             if (!analysis.result.attr.is_initialized()) {
-                nbd_common_data.res_proxy_idx = nbd_common_data.attr_name.get_index("residential_proxy");
+                if (nbd_common_data.attr_name.is_accepting_new_names()) { // should move this logic to a cleaner place
+                    nbd_common_data.res_proxy_idx = nbd_common_data.attr_name.get_index("residential_proxy");
+                    nbd_common_data.attr_name.stop_accepting_new_names();
+                }
                 analysis.result.attr.initialize(&(nbd_common_data.attr_name.value()),nbd_common_data.attr_name.get_names_char());
             }
 
@@ -1292,8 +1295,12 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             return output_analysis || output_nbd;
 
         } else if (global_vars.network_behavioral_detections) {
+            analysis.result.reinit();
             if (!analysis.result.attr.is_initialized()) {
-                nbd_common_data.res_proxy_idx = nbd_common_data.attr_name.get_index("residential_proxy");
+                if (nbd_common_data.attr_name.is_accepting_new_names()) { // should move this logic to a cleaner place
+                    nbd_common_data.res_proxy_idx = nbd_common_data.attr_name.get_index("residential_proxy");
+                    nbd_common_data.attr_name.stop_accepting_new_names();
+                }
                 analysis.result.attr.initialize(&(nbd_common_data.attr_name.value()),nbd_common_data.attr_name.get_names_char());
             }
 

@@ -150,6 +150,10 @@ public:
             names_char[i] = names[i].c_str();
     }
 
+    bool is_accepting_new_names() {
+        return accept_more_names;
+    }
+
     const std::vector<std::string> &value() const { return names; }
 
     const char* const* get_names_char() const { return names_char.data();}

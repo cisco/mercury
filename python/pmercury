@@ -69,8 +69,7 @@ class MercuryInterface:
 
 
     def process_packet(self, ts, buf):
-        result = self.libmerc.analyze_packet(buf)
-#        result = self.libmerc.get_mercury_json(buf)
+        result = self.libmerc.get_mercury_json(buf)
         if result != None and not self.out_file_pointer.closed:
             self.out_file_pointer.write(f'{json.dumps(result)}\n')
 

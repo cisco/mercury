@@ -568,7 +568,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test attributes with resources-mp")
         },
         {test_config{
              .m_lc{.do_analysis = true, .resources = resources_mp_path,
-                .packet_filter_cfg = (char *)"all"},
+                .packet_filter_cfg = (char *)"all;network-behavioral-detections"},
              .m_pc{"residential_proxy.pcap"}},
          1      // residential_proxy as attributes
         }
