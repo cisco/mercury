@@ -1170,7 +1170,8 @@ const static std::unordered_set<uint16_t> faketls_cipher_suite_exceptions = {
     0x16b9,
     0x16b7,
     0x00fc,
-    0x00fb
+    0x00fb,
+    0xcafe
 };
 
 class supported_groups : public encoded<uint16_t> {
