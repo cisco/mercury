@@ -1983,13 +1983,274 @@ class sequence {
 
 public:
 
-    sequence(const datum &d) : tmp{d}, value{tmp} { }
+sequence(const datum &d) : tmp{d}, value{tmp} { }
 
-    iterator begin() { return { this }; }
+iterator begin() { return { this }; }
 
-    iterator end() { return { nullptr }; }
+iterator end() { return { nullptr }; }
 
 };
 
+namespace {
+    
+    [[maybe_unused]] int datum_fuzz_test(const uint8_t *data, size_t size) {
+        datum d{data, data+size};
+        d.isupper();
+        d.is_alnum();
+        d.is_any_alpha();
+        d.is_printable();
+        uint8_t output;
+        d.lookahead_uint8(&output);
+        return 0;
+    }
+    
+    [[maybe_unused]] int datum_trim_leading_whitespace_fuzz_test(const uint8_t *data, size_t size) {
+        datum d{data, data+size};
+        d.trim_leading_whitespace();
+        return 0;
+    }
+    
+    [[maybe_unused]] int datum_bits_in_data_fuzz_test(const uint8_t *data, size_t size) {
+        datum d{data, data+size};
+        d.bits_in_data();
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_parse_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d{data1, data1+size1};
+        ssize_t num_bytes;
+        memcpy(&num_bytes, data2, std::min(sizeof(ssize_t), size2));
+        d.parse(d, num_bytes);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_parse_soft_fail_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d{data1, data1+size1};
+        size_t num_bytes;
+        memcpy(&num_bytes, data2, std::min(sizeof(size_t), size2));
+        d.parse_soft_fail(d, num_bytes);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_parse_up_to_delim_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) { 
+        datum d{data1, data1+size1};
+        uint8_t delim;
+        memcpy(&delim, data2, std::min(sizeof(uint8_t), size2));
+        d.parse_up_to_delim(d, delim);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_skip_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d{data1, data1+size1};
+        size_t length;
+        memcpy(&length, data2, std::min(sizeof(size_t), size2));
+        d.skip(length);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_trim_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d{data1, data1+size1};
+        size_t length;
+        memcpy(&length, data2, std::min(sizeof(size_t), size2));
+        d.trim(length);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_trim_to_length_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d{data1, data1+size1};
+        size_t length;
+        memcpy(&length, data2, std::min(sizeof(size_t), size2));
+        d.trim_to_length(length);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_case_insensitive_match_1_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d1{data1, data1+size1};
+        datum d2{data2, data2+size2};
+        d1.case_insensitive_match(d2);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_case_insensitive_match_2_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d{data1, data1+size1};
+        char name[size2+1];
+        memcpy(name, data2, size2);
+        name[size2] = '\0';
+        d.case_insensitive_match(name);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_cmp_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d1{data1, data1+size1};
+        datum d2{data2, data2+size2};
+        d1.cmp(d2);
+        return 0;
+    }
+
+
+    [[maybe_unused]] int datum_find_delim_1_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d{data1, data1+size1};
+        d.find_delim(reinterpret_cast<const unsigned char*>(data2), size2);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_find_delim_2_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, [[maybe_unused]] size_t size2) {
+        datum d{data1, data1+size1};
+        const uint8_t delim = data2[0];
+        d.find_delim(delim);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_skip_up_to_delim_1_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, [[maybe_unused]] size_t size2) {
+        datum d{data1, data1+size1};
+        const uint8_t delim = data2[0];
+        d.skip_up_to_delim(delim);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_skip_up_to_delim_2_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d{data1, data1+size1};
+        d.skip_up_to_delim(reinterpret_cast<const unsigned char*>(data2), size2);
+        return 0;
+    }
+    
+    [[maybe_unused]] int datum_trim_trail_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, [[maybe_unused]] size_t size2) {
+        datum d{data1, data1+size1};
+        unsigned char trail = data2[0];
+        d.trim_trail(trail);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_accept_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, [[maybe_unused]] size_t size2) {
+        datum d{data1, data1+size1};
+        uint8_t byte = data2[0];
+        d.accept(byte);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_accept_byte_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d{data1, data1+size1};
+        uint8_t alternative[size2+1], output;
+        memcpy(alternative, data2, size2);
+        alternative[size2] = 0;
+        d.accept_byte(alternative, &output);
+        return 0;
+    }
+
+
+    [[maybe_unused]] int datum_lookahead_uint_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d{data1, data1+size1};
+        unsigned int num_bytes;
+        memcpy(&num_bytes, data2, std::min(sizeof(unsigned int), size2));
+        uint64_t output;
+        d.lookahead_uint(num_bytes, &output);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_compare_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d{data1, data1 + size1};
+        d.compare(data2, size2);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_fprint_hex_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d{data1, data1 + size1};
+        size_t length;
+        memcpy(&length, data2, std::min(sizeof(size_t), size2));
+        FILE *temp_file = tmpfile();
+        if (temp_file) {
+            d.fprint_hex(temp_file, length);
+            fclose(temp_file);
+        }
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_fprint_c_array_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d{data1, data1 + size1};
+        char name[size2 + 1];
+        memcpy(name, data2, size2);
+        name[size2] = '\0';
+        FILE *temp_file = tmpfile();
+        if (temp_file) {
+            d.fprint_c_array(temp_file, name);
+            fclose(temp_file);
+        }
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_fprint_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d{data1, data1 + size1};
+        size_t length;
+        memcpy(&length, data2, std::min(sizeof(size_t), size2));
+        FILE *temp_file = tmpfile();
+        if (temp_file) {
+            d.fprint(temp_file, length);
+            fclose(temp_file);
+        }
+        return 0;
+    }
+
+    [[maybe_unused]] int writeable_copy_1_fuzz_2_test([[maybe_unused]] const uint8_t *data1, size_t size1, const uint8_t *data2, [[maybe_unused]] size_t size2) {
+        uint8_t buffer[size1];
+        writeable w{buffer, buffer+size1};
+        uint8_t x = data2[0];
+        w.copy(x);
+        return 0;
+    }
+
+    [[maybe_unused]] int writeable_copy_2_fuzz_2_test([[maybe_unused]] const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        uint8_t buffer[size1];
+        writeable w{buffer, buffer+size1};
+        w.copy(data2, size2);
+        return 0;
+    }
+
+    [[maybe_unused]] int writeable_write_hex_fuzz_2_test( [[maybe_unused]] const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        uint8_t buffer[size1];
+        writeable w{buffer, buffer+size1};
+        w.write_hex(data2, size2);
+        return 0;
+    }
+
+
+    [[maybe_unused]] int writeable_write_quote_enclosed_hex_1_fuzz_2_test([[maybe_unused]] const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        uint8_t buffer[size1];
+        writeable w{buffer, buffer+size1};
+        w.write_quote_enclosed_hex(data2, size2);
+        return 0;
+    }
+
+    [[maybe_unused]] int writeable_write_quote_enclosed_hex_2_fuzz_2_test([[maybe_unused]] const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        uint8_t buffer[size1];
+        writeable w{buffer, buffer+size1};
+        datum d{data2, data2+size2};
+        w.write_quote_enclosed_hex(d);
+        return 0;
+    }
+
+
+    [[maybe_unused]] int writeable_copy_from_hex_fuzz_2_test([[maybe_unused]] const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        if (size1 == 0 || size2 == 0 || size2%2 != 0) {
+            return 0;
+        }
+        uint8_t buffer[size1];
+        writeable w{buffer, buffer+size1};
+        w.copy_from_hex(data2, size2);
+        return 0;
+    }
+
+
+    [[maybe_unused]] int dynamic_buffer_fuzz_test(const uint8_t *data, [[maybe_unused]] size_t size) {
+        size_t initial_capacity = data[0];
+        dynamic_buffer buffer(initial_capacity);    
+        
+        buffer.reset();
+        buffer.is_not_empty();
+        buffer.readable_length();
+        buffer.contents();
+    
+        return 0;
+    }
+};
 
 #endif /* DATUM_H */

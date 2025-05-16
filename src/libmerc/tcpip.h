@@ -269,4 +269,12 @@ struct tcp_packet : public base_protocol {
     }
 };
 
+namespace {
+
+    [[maybe_unused]] inline int tcp_packet_fuzz_test(const uint8_t *data, size_t size) {
+        return json_output_fuzzer<tcp_packet>(data, size);
+    }
+
+};
+
 #endif /* TCPIP_H */
