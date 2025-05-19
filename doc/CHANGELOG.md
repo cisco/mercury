@@ -14,6 +14,8 @@
 * Extended FTP command channel to multi-line responses.
 * Support for reporting outer tunnel parameters and also includes
   support for PPoE, VXLAN encapsulation and IP encapsulations.
+* Added additional fuzz tests. Updated the `generate_fuzz_test.sh` script to
+  support generating fuzz functions that test functions requiring two fuzzed inputs.
 
 ## VERSION 2.6.5
 * Added support for mutli-line FTP responses.
