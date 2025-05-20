@@ -745,7 +745,6 @@ public:
                     // process the parsed asn subnets and store them in prefix array for final processing
                     //
                     subnets.process_asn_subnets(asn_subnets_str);
-                    asn_subnets_str.clear();
                     got_pyasn_db = true;
                 } else if (name == "doh-watchlist.txt") {
                     while (archive.getline(line_str)) {
