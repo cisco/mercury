@@ -642,7 +642,7 @@ class mysql_login_request : public base_protocol {
 
 public:
     mysql_login_request (datum pkt) :
-                len{ (encoded<uint8_t>{pkt}.value()) + (encoded<uint8_t>{pkt}.value() << 8) + (encoded<uint8_t>{pkt}.value() << 16) },
+                len{ (uint32_t)((encoded<uint8_t>{pkt}.value()) + (encoded<uint8_t>{pkt}.value() << 8) + (encoded<uint8_t>{pkt}.value() << 16)) },
                 pkt_num{pkt},
                 cap{pkt},
                 ext_cap{pkt},

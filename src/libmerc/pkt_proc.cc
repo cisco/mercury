@@ -974,7 +974,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         udp::ports ports = udp_pkt.get_ports();
         if (selector.ipsec() and ports.either_matches(ike::default_port)) {
                 x.emplace<ike::packet>(pkt);
-        } else if (selector.ipsec() and ports.either_matches_any(esp::default_port)) {   // esp or ike over udp
+        } else if (selector.ipsec() and ports.either_matches_any(esp_default_port)) {   // esp or ike over udp
             if (lookahead<ike::non_esp_marker> non_esp{pkt}) {
                 x.emplace<ike::packet>(pkt);
             } else {

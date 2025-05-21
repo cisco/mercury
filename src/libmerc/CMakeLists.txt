@@ -164,6 +164,7 @@ add_subdirectory(lctrie)
 include_directories(asn1)
 include_directories(lctrie)
 include_directories(rapidjson)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 
 ## libmerc source files
