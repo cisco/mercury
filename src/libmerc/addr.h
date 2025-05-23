@@ -76,9 +76,9 @@ public:
 
     uint32_t get_asn_info(const char* dst_ip) const;
 
-    int process_asn_subnets(std::vector<std::string> &subnets);
+    int process_asn_subnets(const std::vector<std::string> &subnets);
 
-    int process_domain_mapping_subnets(std::vector<std::string> &subnets);
+    int process_domain_mapping_subnets(const std::vector<std::string> &subnets);
     int lct_add_domain_mapping(uint32_t &addr, uint8_t &mask_length, std::string &domain, std::unordered_map<uint32_t, ssize_t> &subnet_map);
 
     bool is_domain_faking(const char *server_name, const char *dst_ip) const;

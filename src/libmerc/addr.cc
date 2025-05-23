@@ -93,14 +93,14 @@ uint32_t subnet_data::get_asn_info(const char* dst_ip) const {
     return 0;
 }
 
-int subnet_data::process_asn_subnets(std::vector<std::string> &subnets) {
+int subnet_data::process_asn_subnets(const std::vector<std::string> &subnets) {
 
     prefix = (lct_subnet_t *)calloc(sizeof(lct_subnet_t), subnets.size());
     if (prefix == nullptr) {
         throw std::runtime_error("error: could not initialize subnet_data");
     }
 
-    for (std::string &line_str : subnets) {
+    for (const std::string &line_str : subnets) {
         // set the prefix[num] to the subnet and ASN found in line
         if (lct_subnet_set_from_string(&prefix[num], line_str.c_str()) != 0) {
             printf_err(log_err, "could not parse subnet string '%s'\n", line_str.c_str());
@@ -157,7 +157,7 @@ int subnet_data::lct_add_domain_mapping(uint32_t &addr, uint8_t &mask_length, st
     return 0;       // success
 }
 
-int subnet_data::process_domain_mapping_subnets(std::vector<std::string> &subnets) {
+int subnet_data::process_domain_mapping_subnets(const std::vector<std::string> &subnets) {
 
     std::unordered_map<uint32_t, ssize_t> subnet_map;
     domains_prefix = (lct_subnet_t *)calloc(sizeof(lct_subnet_t), subnets.size());
@@ -165,7 +165,7 @@ int subnet_data::process_domain_mapping_subnets(std::vector<std::string> &subnet
         throw std::runtime_error("error: could not initialize domains_prefix");
     }
 
-    for (std::string &line_str : subnets) { 
+    for (const std::string &line_str : subnets) { 
         rapidjson::Document domain_obj;
         domain_obj.Parse(line_str.c_str());
         if(!domain_obj.IsObject()) {
