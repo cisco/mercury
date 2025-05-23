@@ -132,6 +132,7 @@ public:
     bool reassembly = false;              /* reassemble protocol segments      */
     bool stats_blocking = false;          /* stats mode: lossless but blocking */
     fingerprint_format fp_format;    // default fingerprint format
+    bool minimize_ram = false;
 
     global_config() : libmerc_config(), reassembly{false} {};
     global_config(const libmerc_config& c) : libmerc_config(c), reassembly{false} {
@@ -170,6 +171,7 @@ public:
             { "http.response",          false },
             { "icmp",                   false },
             { "iec",                    false },
+            { "kerberos",               false },
             { "ldap",                   false },
             { "ipsec",                  false },
             { "lldp",                   false },
@@ -179,19 +181,23 @@ public:
             { "nbss",                   false },
             { "ospf",                   false },
             { "quic",                   false },
+            { "rdp",                    false },
+            { "rfb",                    false },
             { "sctp",                   false },
             { "smb",                    false },
             { "smtp",                   false },
             { "ssdp",                   false },
             { "ssh",                    false },
             { "stun",                   false },
+            { "tacacs",                 false },
             { "tcp",                    false },
             { "tcp.message",            false },
             { "tcp.syn_ack",            false },
+            { "tftp",                   false },
             { "tls",                    false },
             { "tls.client_hello",       false },
             { "tls.server_hello",       false },
-            { "tls.server_certificate", false},
+            { "tls.server_certificate", false },
             { "wireguard",              false },
             { "openvpn_tcp",            false },
             { "mysql",                  false },
@@ -199,7 +205,9 @@ public:
             { "socks",                  false },
             { "ftp",                    false},
             { "ftp.response",           false},
-            { "ftp.request",            false}
+            { "ftp.request",            false},
+            { "geneve",                 false},
+            { "vxlan",                  false}
         };
 
     std::unordered_map<std::string, bool> raw_features {
@@ -280,6 +288,7 @@ static void setup_extended_fields(global_config* lc, const std::string& config) 
         {"stats-blocking", "", "", SETTER_FUNCTION(&lc){ lc->stats_blocking = true; }},
         {"raw-features", "", "", SETTER_FUNCTION(&lc){ lc->set_raw_features(s); }},
         {"crypto-assess", "", "", SETTER_FUNCTION(&lc){ lc->set_crypto_assess(s); }},
+        {"minimize-ram", "", "", SETTER_FUNCTION(&lc){ lc->minimize_ram = true; }}
     };
 
     parse_additional_options(options, config, *lc);

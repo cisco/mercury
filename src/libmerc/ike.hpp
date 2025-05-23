@@ -5,10 +5,12 @@
 #ifndef IKE_H
 #define IKE_H
 
+#include "datum.h"
+#include "json_object.h"
+#include "protocol.h"
+
 namespace ike {
 
-#include "datum.h"
-#include "protocol.h"
 #include "ikev2_params.h"
 
     // The non-ESP marker is used to distinguish IKE from
@@ -158,7 +160,7 @@ namespace ike {
             flags{d},
             message_id{d},
             length{d},
-            valid{d.is_not_null() and version == 0x20 and exchange.get_name() != UNKNOWN}
+            valid{d.is_not_null() and version == 0x20 and exchange.get_name() != nullptr}
         { }
 
         uint16_t get_next_payload() const {

@@ -59,6 +59,7 @@ char mercury_help[] =
     "   --certs-json                          # output certs as JSON, not base64\n"
     "   --metadata                            # output more protocol metadata in JSON\n"
     "   --raw-features                        # select protocols to write out raw features string(see --help)\n"
+    "   --minimize-ram                        # minimize the ram usage of mercury library\n"
     "   [-v or --verbose]                     # additional information sent to stderr\n"
     "   --license                             # write license information to stdout\n"
     "   --version                             # write version information to stdout\n"
@@ -133,6 +134,8 @@ char mercury_extended_help[] =
     "      tls.certificates  TLS serverCertificates\n"
     "      tofsee            Tofsee malware communication\n"
     "      wireguard         WG handshake initiation message\n"
+    "      geneve            Geneve encapsulation\n"
+    "      vxlan             VXLAN encapsulation\n" 
     "      all               all of the above\n"
     "      <no option>       all of the above\n"
     "      none              none of the above\n"
@@ -189,6 +192,9 @@ char mercury_extended_help[] =
    "    that data is output in base64 format, as a string with the key \"base64\".\n"
     "\n"
     "   --metadata writes out additional metadata into the protocol JSON objects.\n"
+    "\n"
+    "   --minimize-ram minimizes the ram usage of mercury library by reducing classifer\n"
+    "   features and minimizing the maximum reassembly segments.\n"
     "\n"
     "   --raw-features selects protocols to write out raw features string into the protocol\n"
     "    JSON object which can be comma separated list of following strings\n"
@@ -262,7 +268,7 @@ int main(int argc, char *argv[]) {
     std::string additional_args;
 
     while(1) {
-        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13, reassembly=14, format=15, raw_features=16, crypto_assess=17, };
+        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13, reassembly=14, format=15, raw_features=16, crypto_assess=17, minimize_ram=18,};
         int opt_idx = 0;
         static struct option long_opts[] = {
             { "config",      required_argument, NULL, config  },
@@ -296,6 +302,7 @@ int main(int argc, char *argv[]) {
             { "select",      optional_argument, NULL, 's' },
             { "raw-features", required_argument, NULL, raw_features },
             { "verbose",     no_argument,       NULL, 'v' },
+            { "minimize-ram", no_argument,      NULL, minimize_ram },
             { NULL,          0,                 0,     0  }
         };
         int c = getopt_long(argc, argv, "r:w:c:f:t:b:l:u:s::oham:vp:d:", long_opts, &opt_idx);
@@ -407,6 +414,13 @@ int main(int argc, char *argv[]) {
                 crypto_assess_set = true;
             } else {
                 additional_args.append("crypto-assess=default;");
+            }
+            break;
+        case minimize_ram:
+            if (optarg) {
+                usage(argv[0], "option minimize_ram does not use an argument", extended_help_off);
+            } else {
+                additional_args.append("minimize-ram;");
             }
             break;
         case 'r':

@@ -6,6 +6,7 @@
 #define BASE64_H
 
 #include <string>
+#include <cstdint>
 #include <cstring>
 #include <stdexcept>
 
@@ -188,6 +189,9 @@ public:
         uint8_t *str = (uint8_t *)outbuf;
         size_t str_size = L / 4 * 3 + pad;
 
+        if (len & 0x3) {
+            return -1;  // not in base64 format
+        }
         if (outlen < str_size) {
             // printf_err(log_err, "base64 decode needs %zu bytes, only has room for %zu\n", str_size, outlen);
             return 0;  // not enough room for output
@@ -203,7 +207,7 @@ public:
             str[j++] = n & 0xFF;
         }
         if (pad) {
-            if (invalid[p[L]] | invalid[p[L + 1]] | (len > L + 2 && invalid[p[L + 2]])) {
+            if (invalid[p[L]] | (len > L + 1 && invalid[p[L + 1]]) | (len > L + 2 && invalid[p[L + 2]])) {
                 return -j;
             }
             int n = index[p[L]] << 18 | index[p[L + 1]] << 12;
@@ -280,6 +284,14 @@ public:
 #endif
 
 };
+
+// provide fuzz test functions for libfuzz
+//
+[[maybe_unused]] inline int base64_decode_fuzz_test(const uint8_t *data, size_t size) {
+    uint8_t outbuf[2048];
+    base64::decode(outbuf, sizeof(outbuf), data, size);
+    return 0;
+}
 
 
 #endif // BASE64_H

@@ -42,8 +42,10 @@
 #include "ssdp.h"
 #include "stun.h"
 #include "smtp.h"
+#include "tacacs.hpp"
 #include "tofsee.hpp"
 #include "cdp.h"
+#include "krb5.hpp"
 #include "ldap.hpp"
 #include "lldp.h"
 #include "ospf.h"
@@ -59,28 +61,19 @@
 #include "netbios.h"
 #include "openvpn.h"
 #include "mysql.hpp"
+#include "rfb.hpp"
 #include "geneve.hpp"
 #include "tsc_clock.hpp"
-#include "ftp.hpp"  
+#include "ftp.hpp"
+#include "rdp.hpp"
+#include "tftp.hpp"
+#include "ppoe.hpp"
+#include "vxlan.hpp"
+
 // double malware_prob_threshold = -1.0; // TODO: document hidden option
 
 void write_flow_key(struct json_object &o, const struct key &k) {
-    if (k.ip_vers == 6) {
-        const uint8_t *s = (const uint8_t *)&k.addr.ipv6.src;
-        o.print_key_ipv6_addr("src_ip", s);
-
-        const uint8_t *d = (const uint8_t *)&k.addr.ipv6.dst;
-        o.print_key_ipv6_addr("dst_ip", d);
-
-    } else {
-
-        const uint8_t *s = (const uint8_t *)&k.addr.ipv4.src;
-        o.print_key_ipv4_addr("src_ip", s);
-
-        const uint8_t *d = (const uint8_t *)&k.addr.ipv4.dst;
-        o.print_key_ipv4_addr("dst_ip", d);
-
-    }
+    k.write_ip_address(o);
 
     o.print_key_uint8("protocol", k.protocol);
     o.print_key_uint16("src_port", k.src_port);
@@ -329,6 +322,15 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
     case tcp_msg_type_smtp_server:
         x.emplace<smtp_server>(pkt);
         break;
+    case tcp_msg_type_tacacs:
+        x.emplace<tacacs::packet>(pkt);
+        break;
+    case tcp_msg_type_rdp:
+        x.emplace<rdp::connection_request_pdu>(pkt);
+        break;
+    case tcp_msg_type_rfb:
+        x.emplace<rfb::protocol_version_handshake>(pkt);
+        break;
     case tcp_msg_type_dns:
     {
         /* Trim the 2 byte length field in case of
@@ -364,6 +366,9 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
     case tcp_msg_type_mysql_server:
         x.emplace<mysql_server_greet>(pkt);
         break;
+    case tcp_msg_type_mysql_login_request:
+        x.emplace<mysql_login_request>(pkt);
+        break;
     case tcp_msg_type_tofsee_initial_message:
         x.emplace<tofsee_initial_message>(pkt);
         break;
@@ -393,6 +398,7 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         }
         break;
     }
+    //fprintf(stderr, "2nd got tcp_msg_type: %d\n", msg_type);
 }
 
 // set_udp_protocol() sets the protocol variant record to the data
@@ -499,6 +505,12 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
     case udp_msg_type_lsd:
         x.emplace<bittorrent_lsd>(pkt);
         break;
+    case udp_msg_type_krb5:
+        x.emplace<krb5::packet>(pkt);
+        break;
+    case udp_msg_type_tftp:
+        x.emplace<tftp::packet>(pkt);
+        break;
     default:
         if (is_new) {
             x.emplace<unknown_udp_initial_packet>(pkt);
@@ -517,6 +529,11 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
                           struct timespec *ts,
                           struct tcp_reassembler *reassembler) {
 
+    if (!tcp_pkt.data_length) {
+        // ignore acks and empty fin
+        return false;
+    }
+
     // No reassembler : call set_tcp_protocol on every data pkt
     if (!reassembler || !global_vars.reassembly) {
         bool is_new = false;
@@ -525,11 +542,6 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
         }
         set_tcp_protocol(x, pkt, is_new, &tcp_pkt);
         return true;
-    }
-
-    if (!tcp_pkt.data_length) {
-        // ignore acks and empty fin
-        return false;
     }
 
     bool is_new = false;
@@ -654,7 +666,7 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
     }
 
     // reassembly may be needed
-    // pkts that reach here are inital msg with/without additional_bytes_needed or
+    // pkts that reach here are inital msg with/without additional_bytes_needed, missing crypto frames or
     // non initial pkts that dont match any protocol, so could be part of a reassembly flow
     // check if in reassembly table to continue
     // init otherwise
@@ -663,6 +675,8 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
     uint32_t crypto_len = 0;
     const uint8_t *crypto_data = std::get<quic_init>(x).get_crypto_buf(&crypto_len);
     uint32_t crypto_offset = std::get<quic_init>(x).get_min_crypto_offset();
+    bool missing_crypto_frames = std::get<quic_init>(x).missing_crypto_frames();
+    bool min_crypto_data = std::get<quic_init>(x).min_crypto_data();
     if (crypto_len > reassembly_flow_context::max_data_size) {
         // can't fit this crypto frame in buffer
         return true;
@@ -682,16 +696,60 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
         return true;
     }
     else if ((r_state == reassembly_state::reassembly_none) && udp_pkt.additional_bytes_needed()){
-        // init reassembly
-        quic_segment seg{true,crypto_len,crypto_offset,udp_pkt.additional_bytes_needed(),ts->tv_sec, cid};
-        reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+crypto_offset,crypto_data+crypto_offset+crypto_len});
-        reassembler->dump_pkt = true;
+        if (!missing_crypto_frames) {
+            // init reassembly
+            quic_segment seg{true,crypto_len,crypto_offset,udp_pkt.additional_bytes_needed(),ts->tv_sec, cid};
+            reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+crypto_offset,crypto_data+crypto_offset+crypto_len});
+            reassembler->dump_pkt = true;
+        }
+        // special case for missing / reordered crypto frames
+        // fetch and process frames one by one
+        else {
+            uint16_t frame_count = 0;
+            uint16_t first_frame_idx = 0;
+            const crypto* frames = std::get<quic_init>(x).get_crypto_frames(frame_count,first_frame_idx);
+            
+            // init
+            if (min_crypto_data) {
+                quic_segment seg{true,cryptographic_buffer::min_crypto_data_len,frames[first_frame_idx].offset(),udp_pkt.additional_bytes_needed(),ts->tv_sec, cid};
+                reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[first_frame_idx].offset(),
+                                crypto_data+frames[first_frame_idx].offset()+cryptographic_buffer::min_crypto_data_len});
+            }
+            else {
+                quic_segment seg{true,frames[first_frame_idx].length(),frames[first_frame_idx].offset(),udp_pkt.additional_bytes_needed(),ts->tv_sec, cid};
+                reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[first_frame_idx].offset(),
+                                crypto_data+frames[first_frame_idx].offset()+frames[first_frame_idx].length()});
+
+            }
+            
+            for (uint16_t i = 0; i < frame_count; i++) {
+                if (i != first_frame_idx) { // skip already processed first frame
+                    quic_segment seg{false,frames[i].length(),frames[i].offset(),0,ts->tv_sec, cid};
+                    reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[i].offset(),crypto_data+frames[i].offset()+frames[i].length()});
+                }  
+            }
+            reassembler->dump_pkt = true;
+        }
     }
     else if (r_state == reassembly_state::reassembly_progress){
-        // continue reassembly
-        quic_segment seg{false,crypto_len,crypto_offset,0,ts->tv_sec, cid};
-        reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+crypto_offset,crypto_data+crypto_offset+crypto_len});
-        reassembler->dump_pkt = true;
+        if (!missing_crypto_frames) {
+            // continue reassembly
+            quic_segment seg{false,crypto_len,crypto_offset,0,ts->tv_sec, cid};
+            reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+crypto_offset,crypto_data+crypto_offset+crypto_len});
+            reassembler->dump_pkt = true;
+        }
+        else {
+            uint16_t frame_count = 0;
+            uint16_t first_frame_idx = 0;
+            const crypto* frames = std::get<quic_init>(x).get_crypto_frames(frame_count,first_frame_idx);
+
+            for (uint16_t i = 0; i < frame_count; i++) {
+                quic_segment seg{false,frames[i].length(),frames[i].offset(),0,ts->tv_sec, cid};
+                reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[i].offset(),crypto_data+frames[i].offset()+frames[i].length()});
+              
+            }
+            reassembler->dump_pkt = true;            
+        }
     }
     else if (r_state == reassembly_state::reassembly_consumed) {
         // this will never happen
@@ -725,6 +783,110 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
     return false;
 }
 
+struct process_next_header {
+    process_next_header() { }
+
+    template <typename T>
+    bool operator()(T &r) {
+        return r.is_next_header();
+    }
+
+    bool operator()(std::monostate &) { return false;}
+
+};
+
+class encapsulations {
+public:
+    static constexpr uint8_t MAX_ENCAPSULATIONS = 5;
+    std::array<encapsulation, encapsulations::MAX_ENCAPSULATIONS> encaps;
+    uint8_t total_encap = 0;
+
+    encapsulations(struct datum &pkt,
+                   ip &ip_pkt,
+                   struct key &k,
+                   const traffic_selector &selector) {
+        process_encapsulations(pkt, ip_pkt, k, selector);
+    }
+
+    void process_encapsulations(struct datum &pkt,
+                                ip &ip_pkt,
+                                struct key &k,
+                                const traffic_selector &selector) {
+
+        if (total_encap >= MAX_ENCAPSULATIONS - 1) {
+            return;   // too many encapsulations to report
+        }
+
+        switch(ip_pkt.transport_protocol()) {
+        case ip::protocol::gre: {
+            if(!selector.gre()) {
+                return;
+            }
+            encaps[total_encap].emplace<gre_header>(pkt, k);
+            break;
+        }
+        case ip::protocol::ipv4:
+        case ip::protocol::ipv6: {
+            encaps[total_encap].emplace<ip_encapsulation>(k);
+            break;
+        }
+        case ip::protocol::udp: {
+            datum pkt_copy{pkt};
+            udp udp_pkt{pkt_copy};
+            udp_pkt.set_key(k);
+            udp::ports ports = udp_pkt.get_ports();
+            enum udp_msg_type msg_type = selector.get_udp_msg_type_from_ports(ports);
+            switch(msg_type) {
+            case udp_msg_type_vxlan: {
+                pkt.data = pkt_copy.data;
+                encaps[total_encap].emplace<vxlan>(pkt, k);
+                break;
+            }
+            case udp_msg_type_geneve: {
+                pkt.data = pkt_copy.data;
+                encaps[total_encap].emplace<geneve>(pkt, k);
+                break;
+            }
+            case udp_msg_type_gre: {
+                pkt.data = pkt_copy.data;
+                encaps[total_encap].emplace<gre_header>(pkt, k);
+                break;
+            }
+            default:
+                ;
+            }
+        }
+        default:
+            ;
+        }
+        if (std::visit(process_next_header{}, encaps[total_encap])) {
+            total_encap++;
+            ip_pkt.parse(pkt, k);
+            process_encapsulations(pkt, ip_pkt, k, selector);
+        }
+    }
+
+    bool is_empty() const {
+        if (total_encap) {
+            return false;
+        }
+
+        return true;
+    }
+
+    void write_json(struct json_object &record) {
+        if (is_empty()) {
+            return;
+        }
+
+        struct json_array encap(record, "encapsulations");
+        for (uint8_t i = 0; i < total_encap; i++) {
+            std::visit(write_encapsulation{encap}, encaps[i]);
+        }
+        encap.close();
+    }
+};
+
 size_t stateful_pkt_proc::ip_write_json(void *buffer,
                                         size_t buffer_size,
                                         const uint8_t *ip_packet,
@@ -736,27 +898,14 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     struct key k;
     struct datum pkt{ip_packet, ip_packet+length};
     ip ip_pkt{pkt, k};
-    uint8_t transport_proto = ip_pkt.transport_protocol();
     bool truncated_tcp = false;
     bool truncated_quic = false;
     if (reassembler) {
         reassembler->dump_pkt = false;
     }
 
-    // process encapsulations
-    //
-    if (selector.gre() && transport_proto == ip::protocol::gre) {
-        gre_header gre{pkt};
-        switch(gre.get_protocol_type()) {
-        case ETH_TYPE_IP:
-        case ETH_TYPE_IPV6:
-            ip_pkt.parse(pkt, k);    // note: overwriting outer ip header in key
-            transport_proto = ip_pkt.transport_protocol();
-            break;
-        default:
-            ;
-        }
-    }
+    class encapsulations encaps{pkt, ip_pkt, k, selector};
+    uint8_t transport_proto = ip_pkt.transport_protocol();
 
     if (ts->tv_sec == 0) {
         tsc_clock time_now;
@@ -820,39 +969,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         class udp udp_pkt{pkt};
         udp_pkt.set_key(k);
         udp::ports ports = udp_pkt.get_ports();
-        if (ports.dst == htons(geneve::dst_port)) {
-            // Copy of datum containing packet data is used for
-            // geneve parsing. In case if the packet is not a valid geneve
-            // packet, protocol parsing is resumed with original copy.
-            datum p{pkt};
-            geneve geneve_pkt{p};
-            switch(geneve_pkt.get_protocol_type()) {
-            case geneve::ethernet:
-                if (!eth::get_ip(p)) {
-                    break;   // not an IP packet
-                }
-                return (ip_write_json(buffer, buffer_size, p.data, p.length(), ts, reassembler));
-
-            case ETH_TYPE_IP:
-            case ETH_TYPE_IPV6:
-                return (ip_write_json(buffer, buffer_size, p.data, p.length(), ts, reassembler));
-            case ETH_TYPE_NONE: // nonstandard: no official EtherType for BSD loopback
-                {
-                    loopback_header loopback{p};  // bsd-style loopback encapsulation
-                    if (p.is_not_null()) {
-                        switch(loopback.get_protocol_type()) {
-                        case ETH_TYPE_IP:
-                        case ETH_TYPE_IPV6:
-                            return ip_write_json(buffer, buffer_size, p.data, p.length(), ts, reassembler);
-                        default:
-                            break;
-                        }
-                    }
-                }
-            default:
-                break;
-            }
-        } else if (selector.ipsec() and ports.either_matches(ike::default_port)) {
+        if (selector.ipsec() and ports.either_matches(ike::default_port)) {
                 x.emplace<ike::packet>(pkt);
         } else if (selector.ipsec() and ports.either_matches_any(esp::default_port)) {   // esp or ike over udp
             if (lookahead<ike::non_esp_marker> non_esp{pkt}) {
@@ -925,6 +1042,10 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             ip_pkt.write_json(record);      // write out ip{version,ttl,id}
         }
 
+        if (!encaps.is_empty()) {
+            encaps.write_json(record);
+        }
+
         write_flow_key(record, k);
 
         record.print_key_timestamp("event_start", ts);
@@ -984,6 +1105,19 @@ size_t stateful_pkt_proc::write_json(void *buffer,
             x.emplace<lldp>(pkt);
         }
         break;
+    case ETH_TYPE_PPOE: {
+        ppoe ppoe_pkt(pkt);
+        if(!ppp::is_ip(pkt)) {
+            break;
+        } else {
+            return ip_write_json(buffer,
+                         buffer_size,
+                         pkt.data,
+                         pkt.length(),
+                         ts,
+                         reassembler);
+        }
+    }
     default:
         ;  // unsupported ethertype
     }
@@ -1029,6 +1163,19 @@ size_t stateful_pkt_proc::write_json(void *buffer,
     case LINKTYPE_LINUX_SLL:
         linux_sll::skip_to_ip(pkt);
         break;
+    case LINKTYPE_NULL:  // BSD loopback encapsulation
+        {
+            loopback_header loopback{pkt};
+            if (pkt.is_not_null()) {
+                switch(loopback.get_protocol_type()) {
+                case ETH_TYPE_IP:
+                case ETH_TYPE_IPV6:
+                    break;
+                default:
+                    return 0;  // unsupported protocol in loopback header
+                }
+            }
+        }
     default:
         break;
     }
@@ -1063,6 +1210,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
     struct key k;
     ip ip_pkt{pkt, k};
     protocol x;
+    class encapsulations encaps{pkt, ip_pkt, k, selector};
     uint8_t transport_proto = ip_pkt.transport_protocol();
     if (reassembler) {
         reassembler->dump_pkt = false;
@@ -1106,27 +1254,6 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
     } else if (transport_proto == ip::protocol::udp) {
         class udp udp_pkt{pkt};
         udp_pkt.set_key(k);
-        udp::ports ports = udp_pkt.get_ports();
-        if (ports.dst == htons(geneve::dst_port)) {
-            // Copy of datum containing packet data is used for
-            // geneve parsing. In case if the packet is not a valid geneve
-            // packet, protocol parsing is resumed with original copy.
-            datum p{pkt};
-            geneve geneve_pkt{p};
-            switch(geneve_pkt.get_protocol_type()) {
-            case geneve::ethernet:
-                if (!eth::get_ip(p)) {
-                    break;   // not an IP packet
-                }
-                return (analyze_ip_packet(p.data, p.length(), ts, reassembler));
-
-            case ETH_TYPE_IP:
-            case ETH_TYPE_IPV6:
-                return (analyze_ip_packet(p.data, p.length(), ts, reassembler));
-            default:
-                break;
-            }
-        }
 
         if (reassembler && global_vars.reassembly) {
             bool ret = process_udp_data(x, pkt, udp_pkt, k, ts, reassembler);

@@ -41,7 +41,8 @@ class classifier *analysis_init_from_archive(int verbosity,
                                enum enc_key_type key_type,
                                float fp_proc_threshold,
                                float proc_dst_threshold,
-                               bool report_os);
+                               bool report_os,
+                               bool minimize_ram=false);
 
 int analysis_finalize(classifier *c);
 
@@ -104,9 +105,10 @@ public:
                      common_data *c,
                      bool &malware_database,
                      size_t total_cnt,
-                     bool report_os
+                     bool report_os,
+                     bool minimize_ram
                      ) :
-        classifier{process_info,total_cnt},
+        classifier{process_info, total_cnt, minimize_ram},
         malware_db{malware_database},
         subnet_data_ptr{subnets},
         common{c},
@@ -535,7 +537,7 @@ public:
         return(true);
     }
 
-    void process_fp_db_line(std::string &line_str, bool report_os) {
+    void process_fp_db_line(std::string &line_str, bool report_os, bool minimize_ram) {
 
         rapidjson::Document fp;
         fp.Parse(line_str.c_str());
@@ -593,7 +595,8 @@ public:
                                                              &common,
                                                              MALWARE_DB,
                                                              total_count,
-                                                             report_os
+                                                             report_os,
+                                                             minimize_ram
                                                              );
 
             if (fp.HasMember("str_repr") && fp["str_repr"].IsString()) {
@@ -655,7 +658,8 @@ public:
     classifier(class encrypted_compressed_archive &archive,
                float fp_proc_threshold,
                float proc_dst_threshold,
-               bool report_os) : os_dictionary{}, subnets{}, fpdb{}, resource_version{} {
+               bool report_os,
+               bool minimize_ram) : os_dictionary{}, subnets{}, fpdb{}, resource_version{} {
 
         // reserve attribute for encrypted_dns watchlist
         //
@@ -710,7 +714,7 @@ public:
                     if (threshold_set) {
                         printf_err(log_debug, "loading fingerprint_db_lite.json\n");
                         while (archive.getline(line_str)) {
-                            process_fp_db_line(line_str, report_os);
+                            process_fp_db_line(line_str, report_os, minimize_ram);
                         }
                         got_fp_db = true;
                         print_fp_counts();
@@ -723,7 +727,7 @@ public:
                     else if (!threshold_set || lite_db || full_db) {
                         printf_err(log_debug, "loading fingerprint_db.json\n");
                         while (archive.getline(line_str)) {
-                            process_fp_db_line(line_str, report_os);
+                            process_fp_db_line(line_str, report_os, minimize_ram);
                         }
                         print_fp_counts();
                     }

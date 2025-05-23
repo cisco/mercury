@@ -138,7 +138,12 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic with resources-mp")
              .m_lc{.do_analysis = true, .resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"quic;reassembly"},
              .m_pc{"quic_fragmented.pcap"}},
-         2}
+         2},
+         {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+               .packet_filter_cfg = (char *)"quic;reassembly"},
+            .m_pc{"quic_reordered_frames.pcap"}},
+         4}
     };
 
     for (auto &[config, count] : test_set_up)
@@ -801,19 +806,14 @@ TEST_CASE_METHOD(LibmercTestFixture, "geneve encapsulated IPv4 and Ethernet with
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
              .m_lc{.do_analysis = true, .resources = resources_mp_path,
-                .packet_filter_cfg = (char *)"tls.client_hello"},
-             .m_pc{"geneve.pcap"}},
-         42},
-        {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
-                .packet_filter_cfg = (char *)"tls.server_hello"},
+                .packet_filter_cfg = (char *)"tls"},
              .m_pc{"geneve.pcap"}},
          43},
         {test_config{
              .m_lc{.do_analysis = true, .resources = resources_mp_path,
-                .packet_filter_cfg = (char *)"tcp"},
+                .packet_filter_cfg = (char *)"tls,geneve"},
              .m_pc{"geneve.pcap"}},
-         43},
+         85},
     };
 
     for (auto &[config, count] : test_set_up)
@@ -899,3 +899,94 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ssh fingerprinting and reassembly")
         ssh_check(count, config.m_lc, config.fp_t, fingerprint_type_unknown);
     }
 }
+
+TEST_CASE_METHOD(LibmercTestFixture, "GRE encapsulation with resources-mp")
+{
+
+    auto gre_check = [&](int expected_count, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(expected_count == counter());
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, int>> test_set_up{
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"icmp"},
+             .m_pc{"gre.pcap"}},
+         0},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"gre,icmp"},
+             .m_pc{"gre.pcap"}},
+         1},
+    };
+
+    for (auto &[config, count] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        gre_check(count, config.m_lc);
+    }
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "IP encapsulation  with resources-mp")
+{
+
+    auto check = [&](int expected_count, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(expected_count == counter());
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, int>> test_set_up{
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path},
+             .m_pc{"ip_encapsulation.pcap"}},
+         2},
+    };
+
+    for (auto &[config, count] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        check(count, config.m_lc);
+    }
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "VXLAN  with resources-mp")
+{
+
+    auto check = [&](int expected_count, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(expected_count == counter());
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, int>> test_set_up{
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"icmp"},
+             .m_pc{"vxlan.pcap"}},
+         0},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"vxlan,icmp"},
+             .m_pc{"vxlan.pcap"}},
+         8},
+    };
+
+    for (auto &[config, count] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        check(count, config.m_lc);
+    }
+}
+

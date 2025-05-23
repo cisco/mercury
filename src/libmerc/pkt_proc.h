@@ -60,12 +60,16 @@ struct mercury {
                             : nullptr },
                 c{nullptr},
                 selector{global_vars.protocols} {
+        if (global_vars.minimize_ram) {
+             printf_err(log_info, "Initializing mercury in ram minimized mode\n");
+        }
         if (global_vars.do_analysis) {
             c = analysis_init_from_archive(verbosity, global_vars.get_resource_file(),
                                            vars->enc_key, vars->key_type,
                                            global_vars.fp_proc_threshold,
                                            global_vars.proc_dst_threshold,
-                                           global_vars.report_os);
+                                           global_vars.report_os,
+                                           global_vars.minimize_ram);
             if (c == nullptr) {
                 throw std::runtime_error("error: analysis_init_from_archive() failed"); // failure
             }
@@ -119,7 +123,7 @@ struct stateful_pkt_proc {
         global_vars{mc->global_vars},
         selector{mc->selector},
         quic_crypto{},
-        reassembler_ptr{(global_vars.reassembly) ? (new tcp_reassembler) : nullptr}
+        reassembler_ptr{(global_vars.reassembly) ? (new tcp_reassembler(global_vars.minimize_ram)) : nullptr}
     {
 
         if (global_vars.crypto_assess_policy.length() > 0) {
@@ -206,6 +210,8 @@ struct stateful_pkt_proc {
                              struct tcp_packet &tcp_pkt,
                              struct timespec *ts,
                              struct tcp_reassembler *reassembler);
+
+    void process_encapsulations(std::vector<encapsulation> &encaps, struct datum &pkt, ip &ip_pkt, struct key &k);
 
     size_t ip_write_json(void *buffer,
                          size_t buffer_size,

@@ -31,7 +31,7 @@ from cython.operator import dereference
 #   CC=g++ CXX=g++ python setup.py install
 
 # TODO: actually handle version
-__version__ = '2.6.4'
+__version__ = '2.7.0'
 
 # imports from mercury's dns
 cdef extern from "../libmerc/dns.h":
@@ -415,7 +415,7 @@ cdef class Mercury:
         cdef bytes dst_ip_b = dst_ip.encode()
         cdef char* dst_ip_c = dst_ip_b
 
-        cdef analysis_result ar = self.clf.perform_analysis(fp_str_c, server_name_c, dst_ip_c, dst_port, NULL)
+        cdef analysis_result ar = self.clf.perform_analysis(fp_str_c, server_name_c, dst_ip_c, dst_port, '')
 
         cdef fingerprint_status fp_status_enum = ar.status
         fp_status = fp_status_dict[fp_status_enum]
