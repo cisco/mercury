@@ -100,6 +100,17 @@ int subnet_data::process_asn_subnets(const std::vector<std::string> &subnets) {
         throw std::runtime_error("error: could not initialize subnet_data");
     }
 
+    // Add Special and Private subnets to ASN subnets
+    //
+    // parse the subnets and ASN strings    // start with the RFC 1918 and 3927 private and link local
+    // subnets as a basis for any table set
+    //
+    // num += init_private_subnets(&prefix[num], BGP_MAX_ENTRIES);
+    //
+    // fill up the rest of the array with reserved IP subnets
+    //
+    // num += init_special_subnets(&prefix[num], BGP_MAX_ENTRIES);
+
     for (const std::string &line_str : subnets) {
         // set the prefix[num] to the subnet and ASN found in line
         if (lct_subnet_set_from_string(&prefix[num], line_str.c_str()) != 0) {
