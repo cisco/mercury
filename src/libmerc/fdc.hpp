@@ -480,6 +480,30 @@ namespace cbor_fingerprint {
     }
 };
 
+// define types of reassembly or truncation possible in the FDC object.
+// Currently has "none", reassembled, "truncated", and "reassembled_truncated"
+// With L7 support, there may be a need to specify the truncated elements like "tls_cert"
+enum class truncation_status : uint64_t {
+    none = 0,
+    reassembled = 1,
+    truncated = 2,
+    reassembled_truncated = 3,
+    max = 4
+};
+
+static constexpr char* const trunc_str[(uint64_t)truncation_status::max] = {
+    "none",
+    "reassembled",
+    "truncated",
+    "reassembled_truncated"
+};
+
+const char* get_truncation_str(truncation_status status) {
+    if ((uint64_t)status < (uint64_t)truncation_status::max) {
+        return trunc_str[(uint64_t)status];
+    }
+}
+
 /// represents a fingerprint and destination context
 ///
 class fdc {
@@ -488,6 +512,7 @@ class fdc {
     cbor::text_string domain_name;
     cbor::text_string dst_ip_str;
     cbor::uint64 dst_port;
+    cbor::uint64 truncation;
     bool valid;
 
 public:
@@ -498,7 +523,8 @@ public:
         const char *ua,
         const char *name,
         const char *d_ip,
-        uint16_t d_port) :
+        uint16_t d_port,
+        truncation_status status) :
         fingerprint{fp},
         user_agent{ua},
         domain_name{name},
@@ -508,7 +534,8 @@ public:
             fingerprint.is_not_null()
             and domain_name.is_valid()
             and dst_ip_str.is_valid()
-        }
+        },
+        truncation{(uint64_t)status}
     { }
 
     bool is_valid() const { return valid; }
@@ -526,6 +553,7 @@ public:
         dst_ip_str.write(a);
         dst_port.write(a);
         user_agent.write(a);
+        truncation.write(a);
         a.close();
         m.close();
         return !w.is_null();
@@ -538,7 +566,8 @@ public:
                        writeable &&sn_str,
                        writeable &&dst_ip_str,
                        uint16_t &dst_port,
-                       writeable &&ua_str)
+                       writeable &&ua_str,
+                       uint64_t &truncation )
     {
         cbor::map m{d};
         cbor::uint64 fdc_version{d};
@@ -552,6 +581,7 @@ public:
         dst_ip_str << cbor::text_string::decode(a).value() << '\0';
         dst_port = cbor::uint64::decode_max(a, 0xffff).value();
         ua_str << cbor::text_string::decode(a).value() << '\0';
+        truncation = cbor::uint64::decode_max(a, 0xffff).value();
         a.close();
         m.close();
 
@@ -574,21 +604,39 @@ public:
         //
         const char *tls_fp = "tls/1/(0301)(c014c00a00390038c00fc0050035c012c00800160013c00dc003000ac013c00900330032c00ec004002fc011c007c00cc002000500040015001200090014001100080006000300ff)[(0000)(000a00340032000100020003000400050006000700080009000a000b000c000d000e000f0010001100120013001400150016001700180019)(000b000403000102)(0023)]";
         const char *http_fp = "http/(434f4e4e454354)(485454502f312e31)((486f7374)(557365722d4167656e74))";
-        static constexpr size_t num_tests = 2;
+        static constexpr size_t num_tests = 4;
         fdc fdc_object[num_tests]{
             {
                 datum{tls_fp},
                 nullptr,
                 "npmjs.org",
                 "104.16.30.34",
-                443
+                443,
+                truncation_status::none
             },
             {
                 datum{http_fp},
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
                 "clientservices.googleapis.com:443",
                 "72.163.217.105",
-                80
+                80,
+                truncation_status::none
+            },
+            {
+                datum{tls_fp},
+                nullptr,
+                "npmjs.org",
+                "104.16.30.34",
+                443,
+                truncation_status::truncated
+            },
+            {
+                datum{http_fp},
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+                "clientservices.googleapis.com:443",
+                "72.163.217.105",
+                80,
+                truncation_status::reassembled_truncated
             }
         };
         for (size_t i = 0; i < num_tests; i++){
@@ -608,13 +656,15 @@ public:
             char sn_str[MAX_SNI_LEN];
             char ua_str[MAX_USER_AGENT_LEN];
             uint16_t dst_port;
+            uint64_t truncation;
 
             bool decoding_ok = fdc::decode(encoded_fdc,
                                            writeable{(uint8_t*)fp_str, MAX_FP_STR_LEN},
                                            writeable{(uint8_t*)sn_str, MAX_SNI_LEN},
                                            writeable{(uint8_t*)dst_ip_str, MAX_ADDR_STR_LEN},
                                            dst_port,
-                                           writeable{(uint8_t*)ua_str, MAX_USER_AGENT_LEN});
+                                           writeable{(uint8_t*)ua_str, MAX_USER_AGENT_LEN},
+                                           truncation );
             if (decoding_ok == false) {
                 return false;
             }
@@ -622,7 +672,8 @@ public:
                             ua_str,
                             sn_str,
                             dst_ip_str,
-                            dst_port);
+                            dst_port,
+                            (truncation_status)truncation);
 
             // compare the decoded_fdc to the original one; the test
             // passes only if they are equal
@@ -660,6 +711,7 @@ std::string get_json_decoded_fdc(const char *fdc_blob, ssize_t blob_len) {
     char sn_str[MAX_SNI_LEN];
     char ua_str[MAX_USER_AGENT_LEN];
     uint16_t dst_port;
+    uint64_t truncation;
 
     char buffer[8192];
     struct buffer_stream buf_json(buffer, sizeof(buffer));
@@ -670,7 +722,8 @@ std::string get_json_decoded_fdc(const char *fdc_blob, ssize_t blob_len) {
                           writeable{(uint8_t*)sn_str, MAX_SNI_LEN},
                           writeable{(uint8_t*)dst_ip_str, MAX_ADDR_STR_LEN},
                           dst_port,
-                          writeable{(uint8_t*)ua_str, MAX_USER_AGENT_LEN});
+                          writeable{(uint8_t*)ua_str, MAX_USER_AGENT_LEN},
+                          truncation);
     if (ok) {
         json_object fdc_json(record,"fdc");
         fdc_json.print_key_string("fingerprint",fp_str);
@@ -678,6 +731,7 @@ std::string get_json_decoded_fdc(const char *fdc_blob, ssize_t blob_len) {
         fdc_json.print_key_string("dst_ip_str",dst_ip_str);
         fdc_json.print_key_int("dst_port",dst_port);
         fdc_json.print_key_string("user_agent",ua_str);
+        fdc_json.print_key_string("truncation",get_truncation_str(((truncation_status)truncation)));
         fdc_json.close();
         record.close();
         buf_json.write_char('\0');  // null terminate

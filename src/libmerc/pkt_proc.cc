@@ -591,9 +591,18 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
     }
     else if (r_state == reassembly_state::reassembly_progress){
         // continue reassembly
-        tcp_segment seg{false,tcp_pkt.data_length,tcp_pkt.seq(),0,(unsigned int)ts->tv_sec, (indefinite_reassembly_type)tcp_pkt.indefinite_reassembly};
-        reassembler->process_tcp_data_pkt(k,ts->tv_sec,seg,pkt_copy);
-        reassembler->dump_pkt = true;
+        if (!tcp_pkt.seq()) {
+            // 0 seq number, inorder reassembly, seq = existing_data + 1
+            reassembly_map_iterator curr_flow = reassembler->get_current_flow();
+            uint32_t tmp_seq = curr_flow->second.curr_contiguous_data+1;
+            tcp_segment seg{false,tcp_pkt.data_length,tmp_seq,0,(unsigned int)ts->tv_sec, (indefinite_reassembly_type)tcp_pkt.indefinite_reassembly};
+            reassembler->process_tcp_data_pkt(k,ts->tv_sec,seg,pkt_copy);
+            reassembler->dump_pkt = true; 
+        } else {
+            tcp_segment seg{false,tcp_pkt.data_length,tcp_pkt.seq(),0,(unsigned int)ts->tv_sec, (indefinite_reassembly_type)tcp_pkt.indefinite_reassembly};
+            reassembler->process_tcp_data_pkt(k,ts->tv_sec,seg,pkt_copy);
+            reassembler->dump_pkt = true;
+        }
     }
     else if (r_state == reassembly_state::reassembly_consumed) {
         // this will never happen
@@ -1209,21 +1218,92 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
                         uint8_t *buffer, 
                         size_t *buffer_size, 
                         [[maybe_unused]]const struct analysis_context** context) {
-    struct datum pkt{payload, payload+length}; 
+
+    bool perform_reassembly = true;
     protocol x;
-    key internal_flow_key{*k};   
+    key k_{*k};
+    struct datum pkt{payload, payload+length};
+
+    // add timestamp
+    timespec ts;
+    tsc_clock time_now;
+    ts.tv_sec = time_now.time_in_seconds();
+// TODO: fix the timespec unit to uint64_t
+
+    if (!length) {
+        if (!reassembler_ptr)
+            return 0;
+        reassembly_state state = reassembler_ptr->check_flow(k_,(unsigned int)ts.tv_sec);
+        if (state != reassembly_state::reassembly_progress) {
+            return 0;
+        }
+        datum curr_data = reassembler_ptr->get_reassembled_data(reassembler_ptr->get_current_flow());
+        pkt.data = curr_data.data;
+        pkt.data_end = curr_data.data_end;
+        reassembler_ptr->set_completed(reassembler_ptr->get_current_flow());
+        perform_reassembly = false; // already reassembled some data, cant do further
+    }
+ 
+    if (reassembler_ptr) {
+        reassembler_ptr->dump_pkt = false;
+    }
+    bool truncated_tcp = false;
+    bool truncated_udp = false;
+
+    // TODO: add logic for zero length pkt
+
     if (k->protocol == ip::protocol::tcp) {
         tcp_header tcp_hdr;
-        tcp_hdr.src_port = internal_flow_key.src_port;
-        tcp_hdr.dst_port = internal_flow_key.dst_port;
-        
+        tcp_hdr.src_port = k_.src_port;
+        tcp_hdr.dst_port = k_.dst_port;
+        // setup a seq no of 0 to denote in-order reassembly
+        tcp_hdr.seq = 0;
         tcp_packet tcp_pkt{pkt, &tcp_hdr};
-        set_tcp_protocol(x, pkt, false, &tcp_pkt);
+
+        if (reassembler_ptr && global_vars.reassembly && perform_reassembly) {
+            analysis.flow_state_pkts_needed = false;
+            bool ret = process_tcp_data(x, pkt, tcp_pkt, k_, &ts, reassembler_ptr);
+            if (reassembler_ptr->in_progress(reassembler_ptr->curr_flow)) {
+                analysis.flow_state_pkts_needed = true;
+                return fdc_return::MORE_PACKETS_NEEDED;
+            }
+            if (!ret) {
+                return 0;
+            }
+        }
+        else {
+            bool ret = process_tcp_data(x, pkt, tcp_pkt, k_, &ts, nullptr);
+            if (!ret) {
+                return 0;
+            }
+            if (tcp_pkt.additional_bytes_needed) {
+                truncated_tcp = true;
+            }
+        }
     } 
     else if (k->protocol == ip::protocol::udp) {
         class udp udp_pkt{pkt, true};
-        udp::ports ports = {internal_flow_key.src_port, internal_flow_key.dst_port};
-        set_udp_protocol(x, pkt, ports, false, internal_flow_key, udp_pkt);
+        udp::ports ports = {k_.src_port, k_.dst_port};
+
+        if (reassembler_ptr && global_vars.reassembly && perform_reassembly) {
+            bool ret = process_udp_data(x, pkt, udp_pkt, k_, &ts, reassembler_ptr);
+            if (reassembler_ptr->in_progress(reassembler_ptr->curr_flow)) {
+                analysis.flow_state_pkts_needed = true;
+                return fdc_return::MORE_PACKETS_NEEDED;
+            }
+            if (!ret) {
+                return 0;
+            }
+        }
+        else {
+            bool ret = process_udp_data(x, pkt, udp_pkt, k_, &ts, nullptr);
+            if (!ret) {
+                return 0;
+            }
+            if (udp_pkt.additional_bytes_needed()) {
+                truncated_udp = true;
+            }
+        }
     }
 
     analysis.result.reinit();
@@ -1238,12 +1318,27 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         return 0;
     }
 
-    std::visit(do_analysis{internal_flow_key, analysis, c}, x);
+    std::visit(do_analysis{k_, analysis, c}, x);
 
     if (context != nullptr and analysis.result.is_valid()) {
         *context = &analysis;
     }
     
+    truncation_status status = truncation_status::none;
+    
+    if (reassembler_ptr) {
+        if (reassembler_ptr->is_done(reassembler_ptr->curr_flow)) {
+            if (truncated_tcp || truncated_udp) {
+                status = truncation_status::reassembled_truncated;
+            }
+            else {
+                status = truncation_status::reassembled;
+            }
+        }
+    }
+    else if (truncated_tcp || truncated_udp) {
+        status = truncation_status::truncated;
+    }
 
     size_t internal_buffer_size = *buffer_size;
     writeable output{buffer, buffer + internal_buffer_size};
@@ -1252,8 +1347,16 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         analysis.destination.ua_str,
         analysis.destination.sn_str,
         analysis.destination.dst_ip_str,
-        analysis.destination.dst_port
+        analysis.destination.dst_port,
+        status
     };
+
+    if (reassembler_ptr) {
+        if (reassembler_ptr->is_done(reassembler_ptr->curr_flow)) {
+            analysis.flow_state_pkts_needed = false;
+        }
+        reassembler_ptr->clean_curr_flow();
+    }
 
     bool encoding_ok = fdc_object.encode(output);
     if (encoding_ok == false) {
