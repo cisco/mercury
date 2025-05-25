@@ -1283,7 +1283,7 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
     } 
     else if (k->protocol == ip::protocol::udp) {
         class udp udp_pkt{pkt, true};
-        udp::ports ports = {k_.src_port, k_.dst_port};
+        udp_pkt.set_ports(k_);
 
         if (reassembler_ptr && global_vars.reassembly && perform_reassembly) {
             bool ret = process_udp_data(x, pkt, udp_pkt, k_, &ts, reassembler_ptr);

@@ -60,6 +60,9 @@ struct header {
 
     const struct header *header;
     uint32_t more_bytes_needed;
+    // ports if header is null
+    uint16_t src_port;
+    uint16_t dst_port;
 
 #else
 
@@ -72,6 +75,9 @@ struct header {
 
     const struct header *header;
     uint32_t more_bytes_needed;
+    // ports if neader is null
+    uint16_t src_port;
+    uint16_t dst_port;
 
 #endif
 
@@ -125,6 +131,9 @@ public:
         if (header) {
             return { header->src_port, header->dst_port };
         }
+        else if (src_port && dst_port) {
+            return {src_port,dst_port};
+        }
         return { 0, 0 };
     }
 
@@ -137,6 +146,11 @@ public:
             k.dst_port = ntoh(header->dst_port);
             k.protocol = 17; // udp
         }
+    }
+
+    void set_ports(const key &k) {
+        src_port = hton(k.src_port);
+        dst_port = hton(k.dst_port);
     }
 
     uint16_t get_len() const {

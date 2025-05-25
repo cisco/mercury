@@ -491,7 +491,7 @@ enum class truncation_status : uint64_t {
     max = 4
 };
 
-static constexpr char* const trunc_str[(uint64_t)truncation_status::max] = {
+static const char* const trunc_str[(uint64_t)truncation_status::max] = {
     "none",
     "reassembled",
     "truncated",
@@ -502,6 +502,7 @@ const char* get_truncation_str(truncation_status status) {
     if ((uint64_t)status < (uint64_t)truncation_status::max) {
         return trunc_str[(uint64_t)status];
     }
+    return "unknown";
 }
 
 /// represents a fingerprint and destination context
@@ -530,12 +531,12 @@ public:
         domain_name{name},
         dst_ip_str{d_ip},
         dst_port{d_port},
+        truncation{(uint64_t)status},
         valid{
             fingerprint.is_not_null()
             and domain_name.is_valid()
             and dst_ip_str.is_valid()
-        },
-        truncation{(uint64_t)status}
+        }
     { }
 
     bool is_valid() const { return valid; }
