@@ -498,7 +498,7 @@ static const char* const trunc_str[(uint64_t)truncation_status::max] = {
     "reassembled_truncated"
 };
 
-const char* get_truncation_str(truncation_status status) {
+static const char* get_truncation_str(truncation_status status) {
     if ((uint64_t)status < (uint64_t)truncation_status::max) {
         return trunc_str[(uint64_t)status];
     }
@@ -704,7 +704,7 @@ private:
 
 };
 
-std::string get_json_decoded_fdc(const char *fdc_blob, ssize_t blob_len) {
+static std::string get_json_decoded_fdc(const char *fdc_blob, ssize_t blob_len) {
     datum fdc_data = datum{(uint8_t*)fdc_blob,(uint8_t*)(fdc_blob+blob_len)};
     static const size_t MAX_FP_STR_LEN     = 4096;
     char fp_str[MAX_FP_STR_LEN];
