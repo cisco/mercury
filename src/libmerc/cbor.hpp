@@ -1010,7 +1010,7 @@ namespace cbor {
 
     // static unit test function for cbor::uint64
     //
-    bool cbor::uint64::unit_test(FILE *f) {
+    inline bool cbor::uint64::unit_test(FILE *f) {
 
         // valid input and output pairs
         //
@@ -1079,7 +1079,7 @@ namespace cbor {
 
     // static unit test function for cbor::byte_string
     //
-    bool cbor::byte_string::unit_test(FILE *f) {
+    inline bool cbor::byte_string::unit_test(FILE *f) {
 
         // valid input and output pairs
         //
@@ -1138,7 +1138,7 @@ namespace cbor {
 
     // static unit test function for cbor::text_string
     //
-    bool cbor::text_string::unit_test(FILE *f) {
+    inline bool cbor::text_string::unit_test(FILE *f) {
 
         // valid input and output pairs
         //
