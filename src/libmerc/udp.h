@@ -76,8 +76,8 @@ struct header {
     const struct header *header;
     uint32_t more_bytes_needed;
     // ports if neader is null
-    uint16_t src_port;
-    uint16_t dst_port;
+    uint16_t src_port = 0;
+    uint16_t dst_port = 0;
 
 #endif
 
