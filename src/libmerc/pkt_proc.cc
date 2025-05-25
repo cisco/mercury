@@ -585,7 +585,7 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
 
     if ((r_state == reassembly_state::reassembly_none) && tcp_pkt.additional_bytes_needed){
         // init reassembly
-        tcp_segment seg{true,tcp_pkt.data_length,tcp_pkt.seq(),tcp_pkt.additional_bytes_needed,(unsigned int)ts->tv_sec, (indefinite_reassembly_type)tcp_pkt.indefinite_reassembly};
+        tcp_segment seg{true,tcp_pkt.data_length,tcp_pkt.seq(),tcp_pkt.additional_bytes_needed,(uint64_t)ts->tv_sec, (indefinite_reassembly_type)tcp_pkt.indefinite_reassembly};
         reassembler->process_tcp_data_pkt(k,ts->tv_sec,seg,pkt_copy);
         reassembler->dump_pkt = true;
     }
@@ -595,11 +595,11 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
             // 0 seq number, inorder reassembly, seq = existing_data + 1
             reassembly_map_iterator curr_flow = reassembler->get_current_flow();
             uint32_t tmp_seq = curr_flow->second.curr_contiguous_data+1;
-            tcp_segment seg{false,tcp_pkt.data_length,tmp_seq,0,(unsigned int)ts->tv_sec, (indefinite_reassembly_type)tcp_pkt.indefinite_reassembly};
+            tcp_segment seg{false,tcp_pkt.data_length,tmp_seq,0,(uint64_t)ts->tv_sec, (indefinite_reassembly_type)tcp_pkt.indefinite_reassembly};
             reassembler->process_tcp_data_pkt(k,ts->tv_sec,seg,pkt_copy);
             reassembler->dump_pkt = true; 
         } else {
-            tcp_segment seg{false,tcp_pkt.data_length,tcp_pkt.seq(),0,(unsigned int)ts->tv_sec, (indefinite_reassembly_type)tcp_pkt.indefinite_reassembly};
+            tcp_segment seg{false,tcp_pkt.data_length,tcp_pkt.seq(),0,(uint64_t)ts->tv_sec, (indefinite_reassembly_type)tcp_pkt.indefinite_reassembly};
             reassembler->process_tcp_data_pkt(k,ts->tv_sec,seg,pkt_copy);
             reassembler->dump_pkt = true;
         }
@@ -710,7 +710,7 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
     else if ((r_state == reassembly_state::reassembly_none) && udp_pkt.additional_bytes_needed()){
         if (!missing_crypto_frames) {
             // init reassembly
-            quic_segment seg{true,crypto_len,crypto_offset,udp_pkt.additional_bytes_needed(),(unsigned int)ts->tv_sec, cid};
+            quic_segment seg{true,crypto_len,crypto_offset,udp_pkt.additional_bytes_needed(),(uint64_t)ts->tv_sec, cid};
             reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+crypto_offset,crypto_data+crypto_offset+crypto_len});
             reassembler->dump_pkt = true;
         }
@@ -723,12 +723,12 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
             
             // init
             if (min_crypto_data) {
-                quic_segment seg{true,cryptographic_buffer::min_crypto_data_len,frames[first_frame_idx].offset(),udp_pkt.additional_bytes_needed(),(unsigned int)ts->tv_sec, cid};
+                quic_segment seg{true,cryptographic_buffer::min_crypto_data_len,frames[first_frame_idx].offset(),udp_pkt.additional_bytes_needed(),(uint64_t)ts->tv_sec, cid};
                 reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[first_frame_idx].offset(),
                                 crypto_data+frames[first_frame_idx].offset()+cryptographic_buffer::min_crypto_data_len});
             }
             else {
-                quic_segment seg{true,frames[first_frame_idx].length(),frames[first_frame_idx].offset(),udp_pkt.additional_bytes_needed(),(unsigned int)ts->tv_sec, cid};
+                quic_segment seg{true,frames[first_frame_idx].length(),frames[first_frame_idx].offset(),udp_pkt.additional_bytes_needed(),(uint64_t)ts->tv_sec, cid};
                 reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[first_frame_idx].offset(),
                                 crypto_data+frames[first_frame_idx].offset()+frames[first_frame_idx].length()});
 
@@ -736,7 +736,7 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
             
             for (uint16_t i = 0; i < frame_count; i++) {
                 if (i != first_frame_idx) { // skip already processed first frame
-                    quic_segment seg{false,frames[i].length(),frames[i].offset(),0,(unsigned int)ts->tv_sec, cid};
+                    quic_segment seg{false,frames[i].length(),frames[i].offset(),0,(uint64_t)ts->tv_sec, cid};
                     reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[i].offset(),crypto_data+frames[i].offset()+frames[i].length()});
                 }  
             }
@@ -746,7 +746,7 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
     else if (r_state == reassembly_state::reassembly_progress){
         if (!missing_crypto_frames) {
             // continue reassembly
-            quic_segment seg{false,crypto_len,crypto_offset,0,(unsigned int)ts->tv_sec, cid};
+            quic_segment seg{false,crypto_len,crypto_offset,0,(uint64_t)ts->tv_sec, cid};
             reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+crypto_offset,crypto_data+crypto_offset+crypto_len});
             reassembler->dump_pkt = true;
         }
@@ -756,7 +756,7 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
             const crypto* frames = std::get<quic_init>(x).get_crypto_frames(frame_count,first_frame_idx);
 
             for (uint16_t i = 0; i < frame_count; i++) {
-                quic_segment seg{false,frames[i].length(),frames[i].offset(),0,(unsigned int)ts->tv_sec, cid};
+                quic_segment seg{false,frames[i].length(),frames[i].offset(),0,(uint64_t)ts->tv_sec, cid};
                 reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[i].offset(),crypto_data+frames[i].offset()+frames[i].length()});
               
             }
@@ -1233,7 +1233,7 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
     if (!length) {
         if (!reassembler_ptr)
             return 0;
-        reassembly_state state = reassembler_ptr->check_flow(k_,(unsigned int)ts.tv_sec);
+        reassembly_state state = reassembler_ptr->check_flow(k_,(uint64_t)ts.tv_sec);
         if (state != reassembly_state::reassembly_progress) {
             return 0;
         }
