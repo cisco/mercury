@@ -7,7 +7,6 @@
 
 #include "static_dict.hpp"
 #include "result.h"
-#include "result.h"
 #include "cbor.hpp"
 #include "fingerprint.h"  // for fingerprint_type
 
