@@ -128,9 +128,9 @@ cdef extern from "../libmerc/analysis.h":
     cdef cppclass classifier:
         analysis_result perform_analysis(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port, const char *user_agent)
         const common_data &get_common_data()
-        void check_additional_attributes_util(analysis_result *result, const char *server_name, const char *dst_ip)
-        void set_faketls_attribute(analysis_result *result)
-        void set_enc_channel_attribute(analysis_result *result)
+        void check_additional_attributes_util(analysis_result &result, const char *server_name, const char *dst_ip)
+        void set_faketls_attribute(analysis_result &result)
+        void set_enc_channel_attribute(analysis_result &result)
 
 
         # analysis_result perform_analysis_with_weights(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port, const char *user_agent,
@@ -432,7 +432,8 @@ cdef class Mercury:
         cdef char* ciphersuites_c = ciphersuites_b
 
         if is_faketls_util(ciphersuites_c):
-            self.clf.set_faketls_attribute(&ar)
+            self.clf.set_faketls_attribute(ar)
+            self.clf.set_faketls_attribute(ar)
 
         attributes = self.extract_attributes(ar)
         if len(attributes) > 0:
@@ -470,7 +471,7 @@ cdef class Mercury:
         cdef analysis_result ar = self.clf.perform_analysis(fp_str_c, server_name_c, dst_ip_c, dst_port, NULL)
         if ar.attr.is_initialized() == False:
             ar.attr.initialize(&(self.clf.get_common_data().attr_name.value()), self.clf.get_common_data().attr_name.get_names_char())
-        self.clf.check_additional_attributes_util(&ar, server_name_c, dst_ip_c)
+        self.clf.check_additional_attributes_util(ar, server_name_c, dst_ip_c)
 
         fp = fp_init(fp_str_c)
         ciphersuites = fp_get_ciphersuite_vector(fp)
@@ -480,10 +481,10 @@ cdef class Mercury:
         cdef char* ciphersuites_c = ciphersuites_b
 
         if is_faketls_util(ciphersuites_c):
-            self.clf.set_faketls_attribute(&ar)
+            self.clf.set_faketls_attribute(ar)
 
         if ar.max_mal and fp_str.startswith('tls'):
-            self.clf.set_enc_channel_attribute(&ar)
+            self.clf.set_enc_channel_attribute(ar)
 
         cdef fingerprint_status fp_status_enum = ar.status
         fp_status = fp_status_dict[fp_status_enum]
@@ -623,7 +624,7 @@ cdef class Mercury:
             user_agent_c = NULL
 
         cdef analysis_result ar = self.clf.perform_analysis(fp_str_c, server_name_c, dst_ip_c, dst_port, user_agent_c)
-        self.clf.check_additional_attributes_util(&ar, server_name_c, dst_ip_c)
+        self.clf.check_additional_attributes_util(ar, server_name_c, dst_ip_c)
 
         cdef fingerprint_status fp_status_enum = ar.status
         fp_status = fp_status_dict[fp_status_enum]

@@ -6,6 +6,7 @@
  */
 
 #include "json_object.h"
+#include "tls.h"
 #include "match.h"
 #include "x509.h"
 #include "quic.h"
