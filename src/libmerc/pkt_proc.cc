@@ -723,12 +723,12 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
             
             // init
             if (min_crypto_data) {
-                quic_segment seg{true,cryptographic_buffer::min_crypto_data_len,frames[first_frame_idx].offset(),udp_pkt.additional_bytes_needed(),(uint64_t)ts->tv_sec, cid};
+                quic_segment seg{true,cryptographic_buffer::min_crypto_data_len,(uint32_t)(frames[first_frame_idx].offset()),udp_pkt.additional_bytes_needed(),(uint64_t)ts->tv_sec, cid};
                 reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[first_frame_idx].offset(),
                                 crypto_data+frames[first_frame_idx].offset()+cryptographic_buffer::min_crypto_data_len});
             }
             else {
-                quic_segment seg{true,frames[first_frame_idx].length(),frames[first_frame_idx].offset(),udp_pkt.additional_bytes_needed(),(uint64_t)ts->tv_sec, cid};
+                quic_segment seg{true,(uint32_t)(frames[first_frame_idx].length()),(uint32_t)(frames[first_frame_idx].offset()),udp_pkt.additional_bytes_needed(),(uint64_t)ts->tv_sec, cid};
                 reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[first_frame_idx].offset(),
                                 crypto_data+frames[first_frame_idx].offset()+frames[first_frame_idx].length()});
 
@@ -736,7 +736,7 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
             
             for (uint16_t i = 0; i < frame_count; i++) {
                 if (i != first_frame_idx) { // skip already processed first frame
-                    quic_segment seg{false,frames[i].length(),frames[i].offset(),0,(uint64_t)ts->tv_sec, cid};
+                    quic_segment seg{false,(uint32_t)(frames[i].length()),(uint32_t)(frames[i].offset()),0,(uint64_t)ts->tv_sec, cid};
                     reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[i].offset(),crypto_data+frames[i].offset()+frames[i].length()});
                 }  
             }
@@ -756,7 +756,7 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
             const crypto* frames = std::get<quic_init>(x).get_crypto_frames(frame_count,first_frame_idx);
 
             for (uint16_t i = 0; i < frame_count; i++) {
-                quic_segment seg{false,frames[i].length(),frames[i].offset(),0,(uint64_t)ts->tv_sec, cid};
+                quic_segment seg{false,(uint32_t)(frames[i].length()),(uint32_t)(frames[i].offset()),0,(uint64_t)ts->tv_sec, cid};
                 reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[i].offset(),crypto_data+frames[i].offset()+frames[i].length()});
               
             }
