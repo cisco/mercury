@@ -1,5 +1,10 @@
 # CHANGELOG for Mercury
 
+## VERSION 2.7.1
+* Added additional fuzz tests. Updated the `generate_fuzz_test.sh` script to
+  support generating fuzz functions that test functions requiring two fuzzed inputs. 
+  Also hardened some datum functions.
+
 ## VERSION 2.7.0
 * Added minimal RDP (Remote Desktop Protocol) support, which
   reports information about handshakes, security negotiation, and
@@ -14,8 +19,6 @@
 * Extended FTP command channel to multi-line responses.
 * Support for reporting outer tunnel parameters and also includes
   support for PPoE, VXLAN encapsulation and IP encapsulations.
-* Added additional fuzz tests. Updated the `generate_fuzz_test.sh` script to
-  support generating fuzz functions that test functions requiring two fuzzed inputs.
 
 ## VERSION 2.6.5
 * Added support for mutli-line FTP responses.

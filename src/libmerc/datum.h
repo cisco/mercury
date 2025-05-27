@@ -382,7 +382,6 @@ struct datum {
     }
 
     bool case_insensitive_match(const char * name) const {
-        // TODO: Add a length parameter to handle cases where the C string is not null-terminated.
         if (name == nullptr) return false; 
         const uint8_t *d = data;
         const char *k = name;
@@ -1994,7 +1993,7 @@ class sequence {
 
 public:
 
-sequence(const datum &d) : tmp{d}, value{tmp} { }
+    sequence(const datum &d) : tmp{d}, value{tmp} { }
 
 iterator begin() { return { this }; }
 
@@ -2031,26 +2030,29 @@ namespace {
     }
 
     [[maybe_unused]] int datum_parse_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
-        datum d{data1, data1+size1};
+        datum d1;
+        datum d2{data1, data1+size1};
         ssize_t num_bytes;
         memcpy(&num_bytes, data2, std::min(sizeof(ssize_t), size2));
-        d.parse(d, num_bytes);
+        d1.parse(d2, num_bytes);
         return 0;
     }
 
     [[maybe_unused]] int datum_parse_soft_fail_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
-        datum d{data1, data1+size1};
+        datum d1;
+        datum d2{data1, data1+size1};
         size_t num_bytes;
         memcpy(&num_bytes, data2, std::min(sizeof(size_t), size2));
-        d.parse_soft_fail(d, num_bytes);
+        d1.parse_soft_fail(d2, num_bytes);
         return 0;
     }
 
     [[maybe_unused]] int datum_parse_up_to_delim_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) { 
-        datum d{data1, data1+size1};
+        datum d1;
+        datum d2{data1, data1+size1};
         uint8_t delim;
         memcpy(&delim, data2, std::min(sizeof(uint8_t), size2));
-        d.parse_up_to_delim(d, delim);
+        d1.parse_up_to_delim(d2, delim);
         return 0;
     }
 
