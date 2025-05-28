@@ -76,25 +76,25 @@ inline static T hton(T x) { if (host_little_endian) { return swap_byte_order(x);
 
 #endif
 
-
-//uint32_t EXTRACT(unsigned int pos, unsigned int num, uint32_t str);
-
 // Extract num bits from the bit string str starting at pos bit
 //
 // requires str to be in host endian byte order
 // for the bit manipulation to work properly
 //
-template <typename T>
-T EXTRACT(unsigned int pos, unsigned int num, T str) {
-    constexpr unsigned int bits_in_T = sizeof(T) * 8;
+inline uint32_t EXTRACT(unsigned int pos, unsigned int num, uint32_t str) {
+    constexpr unsigned int bits_in_T = sizeof(uint32_t) * 8;
 
     return (str << pos) >> (bits_in_T - num);
+}
+
+inline uint32_t EXTRACT_IDX(unsigned int pos, unsigned int num, uint32_t str) {
+    return EXTRACT(pos, num, str);
 }
 
 // remove the first p bits from string str
 //
 template <typename T>
-T REMOVE(unsigned int p, T str) {
+inline T REMOVE(unsigned int p, T str) {
     return (str << p) >> p;
 }
 
@@ -148,26 +148,5 @@ T REMOVE(unsigned int p, T str) {
     }
     return nullptr;
 }
-
-#ifndef _WIN32
-// disable __uint128 based operations
-
-// __uint128_t ntoh() is suitable for IPv6 addresses
-//
-inline __uint128_t ntoh(__uint128_t addr) {
-    __uint128_t output = 0;
-    uint16_t *in = (uint16_t *)&addr;
-    uint16_t *out = (uint16_t *)&output;
-    out[7] = ntoh(in[0]);
-    out[6] = ntoh(in[1]);
-    out[5] = ntoh(in[2]);
-    out[4] = ntoh(in[3]);
-    out[3] = ntoh(in[4]);
-    out[2] = ntoh(in[5]);
-    out[1] = ntoh(in[6]);
-    out[0] = ntoh(in[7]);
-    return output;
-}
-#endif
 
 #endif // COMMON_H

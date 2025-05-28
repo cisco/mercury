@@ -108,11 +108,11 @@ uint8_t compute_skip(lct<T> *trie, uint32_t prefix, uint32_t first,
   return (*newprefix - prefix);
 }
 
-template <typename T>
-static
-uint8_t compute_branch(lct<T> *trie, uint32_t prefix, uint32_t first,
+template<typename T>
+static uint8_t compute_branch(lct<T> *trie, uint32_t prefix, uint32_t first,
                        uint32_t num, uint32_t newprefix) {
-  size_t i, pat, bits, count, patfound;
+  size_t i, bits, count, patfound;
+  T pat;
 
   // branch factor results in 1 << branch trie subnodes
 
@@ -129,17 +129,22 @@ uint8_t compute_branch(lct<T> *trie, uint32_t prefix, uint32_t first,
 
   // Compute the number of bits that can be used for branching.
   // We have at least two branches. Therefore we start the search
-  // at 2^b = 4 branches.
+  // at 2^b = 4 branches
   bits = 1;
+  T maxpat;
+  maxpat = 1;
   do {
     bits++;
+    maxpat = maxpat << bits;
     if (num < ((FILLFACT * ((unsigned int)1<<bits)) / 100) ||
         newprefix + bits > sizeof(uint32_t))
       break;
     i = first;
     pat = 0;
     count = 0;
-    while (pat < (unsigned int)1<<bits) {
+    maxpat = 1;
+    maxpat = maxpat << bits;
+    while (pat < maxpat) {
       patfound = 0;
       while (i < first + num &&
              pat == EXTRACT(newprefix, bits, trie->nets[trie->bases[i]].addr)) {
@@ -148,19 +153,17 @@ uint8_t compute_branch(lct<T> *trie, uint32_t prefix, uint32_t first,
       }
       if (patfound)
         count++;
-      pat++;
+      ++pat;
     }
   } while (count >= ((FILLFACT * ((unsigned int)1<<bits)) / 100));
   return bits - 1;
 }
 
-
-
 template <typename T>
 static
 void build_inner(lct<T> *trie, uint32_t prefix, uint32_t first, uint32_t num, uint32_t pos) {
   size_t k, p, idx, bits;
-  T bitpat;
+  uint64_t bitpat;
   uint32_t newprefix = 0, i;
   uint8_t branch;
 
@@ -190,7 +193,7 @@ void build_inner(lct<T> *trie, uint32_t prefix, uint32_t first, uint32_t num, ui
     for (bitpat = 0; bitpat < ((unsigned int)1 << branch); ++bitpat) {
       k = 0;
       while (p + k < first + num &&
-             EXTRACT(newprefix, branch, trie->nets[trie->bases[p + k]].addr) == bitpat) {
+             EXTRACT_IDX(newprefix, branch, trie->nets[trie->bases[p + k]].addr) == bitpat) {
         ++k;
       }
 
@@ -206,7 +209,7 @@ void build_inner(lct<T> *trie, uint32_t prefix, uint32_t first, uint32_t num, ui
           while (prep != IP_PREFIX_NIL && match1 == 0) {
             len = trie->nets[prep].len;
             if (len > newprefix &&
-                EXTRACT(newprefix, len - newprefix, trie->nets[trie->bases[p - 1]].addr) ==
+                EXTRACT_IDX(newprefix, len - newprefix, trie->nets[trie->bases[p - 1]].addr) ==
                 EXTRACT(bits_in_T - branch, len - newprefix, bitpat))
               match1 = len;
             else
@@ -221,7 +224,7 @@ void build_inner(lct<T> *trie, uint32_t prefix, uint32_t first, uint32_t num, ui
           while (prep != IP_PREFIX_NIL && match2 == 0) {
             len = trie->nets[prep].len;
             if (len > newprefix &&
-                EXTRACT(newprefix, len - newprefix, trie->nets[trie->bases[p]].addr) ==
+                EXTRACT_IDX(newprefix, len - newprefix, trie->nets[trie->bases[p]].addr) ==
                 EXTRACT(bits_in_T - branch, len - newprefix, bitpat))
               match2 = len;
             else
@@ -237,7 +240,7 @@ void build_inner(lct<T> *trie, uint32_t prefix, uint32_t first, uint32_t num, ui
         bits = branch - trie->nets[trie->bases[p]].len + newprefix;
         for (i = bitpat; i < bitpat + (1 << bits); i++)
           build_inner(trie, newprefix + branch, p, 1, idx + i);
-        bitpat += (1 << bits) - 1;
+        bitpat = bitpat + (1 << bits) - 1;
       } else
         build_inner(trie, newprefix + branch, p, k, idx + bitpat);
       p += k;
@@ -337,14 +340,16 @@ void lct_free(lct<T> *trie) {
 // trie search function
 // return the IP subnet corresponding to the element,
 // otherwise return NULL if not found
-// key must be provided in host byte ordering
+// key must be provided in right byte ordering
 //
 template <typename T>
-lct_subnet<T> *lct_find(const lct<T> *trie, T key) {
+inline lct_subnet<T> *lct_find(const lct<T> *trie, T key) {
   lct_node_t *node;
   int pos, branch, idx;
   uint32_t prep;
   T bitmask;
+  T zero_address;
+  zero_address = 0;
 
   // idiot check
   if (!trie)
@@ -356,7 +361,7 @@ lct_subnet<T> *lct_find(const lct<T> *trie, T key) {
   branch = node->branch;
   idx = node->index;
   while (branch != 0) {
-    node = &trie->root[idx + EXTRACT(pos, branch, key)];
+    node = &trie->root[idx + EXTRACT_IDX(pos, branch, key)];
     pos += branch + node->skip;
     branch = node->branch;
     idx = node->index;
@@ -364,13 +369,13 @@ lct_subnet<T> *lct_find(const lct<T> *trie, T key) {
 
   /* Was this a hit? */
   bitmask = trie->nets[trie->bases[idx]].addr ^ key;
-  if (EXTRACT(0, trie->nets[trie->bases[idx]].len, bitmask) == 0)
+  if (EXTRACT(0, trie->nets[trie->bases[idx]].len, bitmask) == zero_address)
     return &trie->nets[trie->bases[idx]];
 
   /* If not, look in the prefix tree */
   prep = trie->nets[trie->bases[idx]].prefix;
   while (prep != IP_PREFIX_NIL) {
-    if (EXTRACT(0, trie->nets[prep].len, bitmask) == 0)
+    if (EXTRACT(0, trie->nets[prep].len, bitmask) == zero_address)
       return &trie->nets[prep];
     prep = trie->nets[prep].prefix;
   }

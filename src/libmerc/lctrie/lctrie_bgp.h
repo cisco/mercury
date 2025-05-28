@@ -2,6 +2,7 @@
 #define __LC_TRIE_BGP_H__
 // begin #ifndef guard
 
+#include <arpa/inet.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -12,35 +13,6 @@
 #include <fstream>
 
 #include "lctrie_ip.h"
-
-#ifndef _WIN32
-// disable IPv6 on Windows
-template <typename T>
-void ipv6_print(FILE *f, const __uint128_t *addr) {
-    uint16_t *a = (uint16_t *)addr;
-    uint16_t *sentinel = a + (sizeof(__uint128_t)/sizeof(uint16_t)) - 1;
-
-    while (a < sentinel) {
-        fprintf(f, "%x", *a);
-        putc(':', f);
-        a++;
-    }
-    fprintf(f, "%x", *a);
-}
-
-template <typename T>
-void ipv6_print_rev(FILE *f, const __uint128_t *addr) {
-    uint16_t *a = (uint16_t *)addr;
-    uint16_t *iterator = a + (sizeof(__uint128_t)/sizeof(uint16_t)) - 1;
-
-    while (iterator > a) {
-        fprintf(f, "%x", *iterator);
-        putc(':', f);
-        --iterator;
-    }
-    fprintf(f, "%x", *iterator);
-}
-#endif
 
 typedef struct lct_bgp_asn {
   uint32_t num;
@@ -78,115 +50,42 @@ lct_subnet_set_from_string(lct_subnet<uint32_t> *subnet, const char *subnet_stri
   return -1;  /* error parsing subnet_string */
 }
 
-#ifndef _WIN32
 // disable IPV6 on Windows
 inline int
-lct_subnet_set_from_string(lct_subnet<__uint128_t> *subnet, const char *subnet_string) {
+lct_subnet_set_from_string(lct_subnet<ipv6_addr_t> *subnet, const char *subnet_string) {
+  ipv6_addr_t addr;
   uint32_t asn;
   uint8_t mask_length;
+  char addr_str[LCTRIE_INET6_ADDRSTRLEN];
 
-  // parse subnet_string as an IPv6 subnet line, such as the following:
-  //
-  // 2001::  32      6939_1101
-  // 2001:250:208::  48      24349
+  constexpr unsigned int bits_in_T = sizeof(ipv6_addr_t) * 8;
 
-  int advance = 0;
+  int num_items_parsed = sscanf(subnet_string,"%45[^/]/%hhu\t%u", addr_str, &mask_length, &asn);
 
-  // parse string as IPv6 address
-  __uint128_t addr = 0;
-  uint16_t *a = (uint16_t *)&addr;
-  uint16_t *sentinel = a + (sizeof(__uint128_t)/sizeof(uint16_t));
-  uint16_t *trailer = NULL;
-  const char *start = subnet_string;
-  int num_items_parsed = 1;
-  size_t trailing_uint16s = 0;
-  while (true) {
+  if (num_items_parsed == 3) {
+    if ((mask_length == 0) || (mask_length > bits_in_T)) {
+        fprintf(stderr, "ERROR: %u is not a valid prefix length\n", mask_length);
+        return -1;
+    }
 
-      if (a >= sentinel) {
-          return -1;  // parse error; too many digits in address
-      }
+    ssize_t addr_len = strlen(addr_str);
+    if (addr_len >= LCTRIE_INET6_ADDRSTRLEN) {
+        fprintf(stderr, "ERROR: IPv6 address string too long: %s\n", addr_str);
+        return -1;
+    }
+    char parsed_subnet_string[LCTRIE_INET6_ADDRSTRLEN];
+    strncpy(parsed_subnet_string, addr_str, LCTRIE_INET6_ADDRSTRLEN);
+    inet_pton(AF_INET6, parsed_subnet_string, &addr.a);
+    subnet->addr = addr;
+    subnet->len = mask_length;
+    subnet->info.type = IP_SUBNET_BGP;
+    subnet->info.bgp.asn = asn;
 
-      // advance over (one or two) colons
-      if (start[0] == ':') {
-          start++;
-          a++;
-          if (start[0] == ':') {
-              if (trailer) {
-                  return -1; // parse error; multiple occurences of "::"
-              }
-              start++;
-              a++;
-              if (start[0] == ':') {
-                  return -1; // parse error; ":::" is invalid
-              }
-              trailer = a;
-          }
-      }
-      // check for end of address/subnet
-      if (!isxdigit(start[0])) {
-          break;
-      }
-      int bytes_consumed = -1;
-      num_items_parsed = sscanf(start, "%hx%n", a, &bytes_consumed);
-      if (num_items_parsed == 1) {
-          *a = ntoh(*a);
-          start += bytes_consumed;
-          if (trailer) {
-              trailing_uint16s++;
-          }
-      }  else {
-          break;
-      }
-  }
-  if (trailing_uint16s) {
-      int shift = 8 - (trailer - (uint16_t *)&addr) - trailing_uint16s;
-      //fprintf(stderr, "shift: %d\n", shift);
-      //ipv6_print<__uint128_t>(stderr, &addr);
-      //fprintf(stderr, "\tgot %zu trailing uint16s in %s\n", trailing_uint16s, subnet_string);
-
-      // shift elements
-      uint16_t *x = (uint16_t *)&addr;
-      for (size_t i=0; i < trailing_uint16s; i++) {
-          x[7-i] = x[7-i-shift];
-          x[7-i-shift] = 0;
-      }
-      //ipv6_print<__uint128_t>(stderr, &addr);
-      //fprintf(stderr, "\tgot %zu trailing uint16s in %s\n", trailing_uint16s, subnet_string);
-      //fprintf(stderr, "-----------------------------\n");
-  }
-  addr = ntoh(addr);
-  num_items_parsed = sscanf(start, "\t%hhu%n", &mask_length, &advance);
-  if (num_items_parsed != 1) {
-      return -1;
-  }
-  start += advance;
-  num_items_parsed = sscanf(start, "\t%u", &asn);
-  if (num_items_parsed != 1) {
-      return -1;
+    return 0;
   }
 
-  // fprintf(stderr, "string: %s\n", subnet_string);
-  // char pstr[INET6_ADDRSTRLEN];
-  // inet_ntop(AF_INET6, &addr, pstr, INET6_ADDRSTRLEN);
-  // fprintf(stderr, "before: %s\n", pstr);
-
-  // debugging output
-  // fprintf(stderr, "-------------------------------------------\n");
-  // fprintf(stderr, "input:  %s\n", subnet_string);
-  // fprintf(stderr, "output: ");
-  // ipv6_print<__uint128_t>(stderr, &addr);
-  // fprintf(stderr, "\t%u\t%u\n", mask_length, asn);
-
-  // inet_ntop(AF_INET6, &addr, pstr, INET6_ADDRSTRLEN);
-  // fprintf(stderr, "after:  %s\n", pstr);
-
-  subnet->addr = addr;
-  subnet->len = mask_length;
-  subnet->info.type = IP_SUBNET_BGP;
-  subnet->info.bgp.asn = asn;
-  return 0;
+  return -1;  /* error parsing subnet_string */
 }
-#endif
 
 // read the subnet to ASN file
 // return number of entries read

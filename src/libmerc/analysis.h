@@ -833,12 +833,20 @@ public:
 
                 } else if (name == "pyasn.db") {
                     std::vector<std::string> asn_subnets_str;
+                    std::vector<std::string> asn_subnets_v6_str;
                     while (archive.getline(line_str)) {
-                        asn_subnets_str.push_back(line_str);
+                        if (line_str.find(".") != std::string::npos) {
+                            asn_subnets_str.push_back(line_str);       // v4 subnet
+                        }
+                        else {
+                            asn_subnets_v6_str.push_back(line_str);    // v6 subnet
+                        }
+                        // failure to parse will be handled within respective process_asn_subnets functions
                     }
                     // process the parsed asn subnets and store them in prefix array for final processing
                     //
                     subnets.process_asn_subnets(asn_subnets_str);
+                    subnets.process_asn_subnets_v6(asn_subnets_v6_str);
                     got_pyasn_db = true;
                 } else if (name == "doh-watchlist.txt") {
                     while (archive.getline(line_str)) {
@@ -846,17 +854,19 @@ public:
                     }
                     got_doh_watchlist = true;
                 } else if (name == "domain-mappings.db") {
-                    std::vector<std::string> domain_mapping_subnets_str;
+                    std::vector<std::pair<std::string, std::string>> domain_mapping_subnets_str;
+                    std::vector<std::pair<std::string, std::string>> domain_mapping_subnets_v6_str;
                     while (archive.getline(line_str)) {
-                        domain_mapping_subnets_str.push_back(line_str);
+                        subnets.process_domain_mapping_line(line_str, domain_mapping_subnets_str, domain_mapping_subnets_v6_str);
                     }
                     // process the parsed domain_mapping subnets and store them in domains_prefix array for final processing
                     //
                     subnets.process_domain_mapping_subnets(domain_mapping_subnets_str);
+                    subnets.process_domain_mapping_subnets_v6(domain_mapping_subnets_v6_str);
                     got_domain_faking_subnets = true;
                 }
             }
-            if (got_fp_db && got_fp_prevalence && got_version && got_pyasn_db && got_doh_watchlist && got_domain_faking_subnets) {
+            if (got_fp_db && got_fp_prevalence && got_version && got_pyasn_db && got_doh_watchlist && got_domain_faking_subnets){
                 break; // got all data, we're done here
             }
             entry = archive.get_next_entry();
@@ -885,7 +895,9 @@ public:
         // process asn and domain-faking subnets, and enable the corresponding detections
         //
         subnets.process_final();
+        subnets.process_final_v6();
         subnets.process_domain_mappings_final();
+        subnets.process_domain_mappings_final_v6();
 
         if (got_domain_faking_subnets) {
             common.domain_faking_enabled = true;

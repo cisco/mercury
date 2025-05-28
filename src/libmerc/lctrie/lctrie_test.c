@@ -355,7 +355,7 @@ int test_ipv4(char *input_file) {
             continue;
         }
 
-        subnet = lct_find<T>(&t, ntoh(prefix));
+        subnet = lct_find(&t, ntoh(prefix));
         print_subnet(subnet);
     }
     printf("Finished printed trie subnet matches.\n\n");
@@ -561,7 +561,7 @@ int test_ipv6(const char *input_file) {
             continue;
         }
 
-        subnet = lct_find<ipv6_addr>(&t, ntoh(prefix));
+        subnet = lct_find(&t, ntoh(prefix));
         print_subnet(subnet);
     }
     printf("Finished printed trie subnet matches.\n\n");
