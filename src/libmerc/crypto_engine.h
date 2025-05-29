@@ -17,6 +17,8 @@
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
 #include <openssl/err.h>
+#include <stdexcept>
+#include <cstring>
 
 #define pt_buf_len 2048
 
@@ -308,6 +310,8 @@ public:
             md = EVP_sha256();
         } else if (strcmp(type, "sha1") == 0) {
             md = EVP_sha1();
+        } else if (strcmp(type, "md5") == 0) {
+            md = EVP_md5();
         } else {
             throw std::runtime_error{std::string{"unknown hash function "} + type};
         }
