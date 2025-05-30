@@ -69,5 +69,13 @@ int main(int argc, char *argv[]) {
         datum{expected_plaintext}.fprint_hex(stdout); fputc('\n', stdout);
     }
 
+    auto hcat = tacacs::get_hashcast_string(ntoh(session_id),
+                                             version,
+                                             seq_no,
+                                             datum{ciphertext});
+    if (hcat.contents().is_not_empty()) {
+        hcat.contents().fprint(stdout); fputc('\n', stdout);
+    }
+
     return 0;
 }
