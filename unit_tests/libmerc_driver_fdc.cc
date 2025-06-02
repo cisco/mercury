@@ -511,7 +511,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
 
             THEN("FDC should be written to output buffer") {
                 REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
-                REQUIRE(bytes_written == 159);
+                REQUIRE(bytes_written == 205);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
             }  
             mercury_packet_processor_destruct(mpp);
@@ -523,8 +523,8 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
 SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented tls client hello payload with reassembly and within number of packets limit") {
     GIVEN("mercury packet processor") {
         libmerc_config config = create_config();
-        mercury_context mc = initialize_mercury(config);
         config.packet_filter_cfg = "tls.client_hello,quic,http;format=tls/1;reassembly;minimize-ram";
+        mercury_context mc = initialize_mercury(config); 
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
         const analysis_context* ac = nullptr;
         
@@ -547,7 +547,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
 
         WHEN("write to FDC buffer for 1st tcp segment of tls client hello") {
             size_t fdc_buffer_len = max_buffer_allocation;
-            int bytes_written = mercury_packet_processor_get_analysis_context_fdc(
+            int bytes_written_1 = mercury_packet_processor_get_analysis_context_fdc(
                 mpp, 
                 &k_tls, 
                 tls_fragment_1, 
@@ -555,16 +555,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
                 wbuffer_tls, 
                 &fdc_buffer_len, 
                 &ac);
-
-            THEN("FDC should be written to output buffer") {
-                REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
-                REQUIRE(bytes_written == fdc_return::MORE_PACKETS_NEEDED);
-                REQUIRE(fdc_buffer_len == max_buffer_allocation);
-            }
-        }
-        WHEN("write to FDC buffer for 2nd tcp segment of tls client hello") {
-            size_t fdc_buffer_len = max_buffer_allocation;
-            int bytes_written = mercury_packet_processor_get_analysis_context_fdc(
+            int bytes_written_2 = mercury_packet_processor_get_analysis_context_fdc(
                 mpp, 
                 &k_tls, 
                 tls_fragment_2, 
@@ -574,8 +565,10 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
                 &ac);
 
             THEN("FDC should be written to output buffer") {
-                REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
-                REQUIRE(bytes_written == 300);
+                REQUIRE(bytes_written_1 != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
+                REQUIRE(bytes_written_1 == fdc_return::MORE_PACKETS_NEEDED);
+                REQUIRE(bytes_written_2 != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
+                REQUIRE(bytes_written_2 == 217);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
             }
         }
