@@ -31,7 +31,7 @@ from cython.operator import dereference
 #   CC=g++ CXX=g++ python setup.py install
 
 # TODO: actually handle version
-__version__ = '2.7.0'
+__version__ = '2.7.1'
 
 # imports from mercury's dns
 cdef extern from "../libmerc/dns.h":
@@ -116,10 +116,10 @@ cdef extern from "../libmerc/analysis.h":
     cdef cppclass classifier:
         analysis_result perform_analysis(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port, const char *user_agent)
 
-        # analysis_result perform_analysis_with_weights(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port, const char *user_agent,
-        #                         long double new_as_weight, long double new_domain_weight,
-        #                         long double new_port_weight, long double new_ip_weight,
-        #                         long double new_sni_weight, long double new_ua_weight)
+        analysis_result perform_analysis_with_weights(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port, const char *user_agent,
+                                 double new_as_weight, double new_domain_weight,
+                                 double new_port_weight, double new_ip_weight,
+                                 double new_sni_weight, double new_ua_weight)
 
 
 cdef extern from "../libmerc/watchlist.hpp":
@@ -435,73 +435,72 @@ cdef class Mercury:
 
         return result
 
-    # cpdef dict perform_analysis_with_weights(self, str fp_str, str server_name, str dst_ip, int dst_port, str user_agent,
-    #                              long double new_as_weight, long double new_domain_weight,
-    #                              long double new_port_weight, long double new_ip_weight,
-    #                              long double new_sni_weight, long double new_ua_weight):
-    #     """
-    #     Directly call into mercury analysis functionality by providing all needed data features. Additionally,
-    #     supply custom weights for each data feature.
-    #
-    #     :param fp_str: mercury-generated network protocol fingerprint
-    #     :type fp_str: str
-    #     :param server_name: The visible, fully qualified domain name, found in the server_name extension or the HTTP Host field
-    #     :type server_name: str
-    #     :param dst_ip: The destination IP address associated with the packet of interest
-    #     :type dst_ip: str
-    #     :param dst_port: The destination port associated with the packet of interest
-    #     :type dst_port: int
-    #     :param user_agent: If analyzing an HTTP packet, provide the contents of the HTTP User-Agent field
-    #     :type user_agent: str
-    #     :param new_as_weight: Updated weight for the Autonomous System data feature
-    #     :type new_as_weight: long double
-    #     :param new_domain_weight: Updated weight for the domain name data feature
-    #     :type new_domain_weight: long double
-    #     :param new_port_weight: Updated weight for the destination port data feature
-    #     :type new_port_weight: long double
-    #     :param new_ip_weight: Updated weight for the destination IP address data feature
-    #     :type new_ip_weight: long double
-    #     :param new_sni_weight: Updated weight for the server_name data feature
-    #     :type new_sni_weight: long double
-    #     :param new_ua_weight: Updated weight for the User-Agent data feature
-    #     :type new_ua_weight: long double
-    #     :return: JSON-encoded analysis output
-    #     :rtype: dict
-    #     """
-    #     if not self.do_analysis:
-    #         print(f'error: classifier not loaded (is do_analysis set to True?)')
-    #         return None
-    #
-    #     cdef bytes fp_str_b = fp_str.encode()
-    #     cdef char* fp_str_c = fp_str_b
-    #     cdef bytes server_name_b = server_name.encode()
-    #     cdef char* server_name_c = server_name_b
-    #     cdef bytes dst_ip_b = dst_ip.encode()
-    #     cdef char* dst_ip_c = dst_ip_b
-    #     if user_agent == None:
-    #         user_agent = 'None'
-    #     cdef bytes user_agent_b = user_agent.encode()
-    #     cdef char* user_agent_c = user_agent_b
-    #     if user_agent == 'None':
-    #         user_agent_c = NULL
-    #
-    #     cdef analysis_result ar = self.clf.perform_analysis_with_weights(fp_str_c, server_name_c, dst_ip_c, dst_port, user_agent_c,
-    #                                                 new_as_weight, new_domain_weight, new_port_weight,
-    #                                                 new_ip_weight, new_sni_weight, new_ua_weight)
-    #
-    #     cdef fingerprint_status fp_status_enum = ar.status
-    #     fp_status = fp_status_dict[fp_status_enum]
-    #
-    #     cdef dict result = {}
-    #     result['fingerprint_info'] = {}
-    #     result['fingerprint_info']['status'] = fp_status
-    #     result['analysis'] = {}
-    #     result['analysis']['process']   = ar.max_proc.decode('UTF-8')
-    #     result['analysis']['score']     = ar.max_score
-    #     result['analysis']['malware']   = ar.max_mal
-    #     result['analysis']['p_malware'] = ar.malware_prob
-    #
-    #     return result
+    cpdef dict perform_analysis_with_weights(self, str fp_str, str server_name, str dst_ip, int dst_port, str user_agent,
+                                             double new_as_weight, double new_domain_weight,
+                                             double new_port_weight, double new_ip_weight,
+                                             double new_sni_weight, double new_ua_weight):
+         """
+         Directly call into mercury analysis functionality by providing all needed data features. Additionally,
+         supply custom weights for each data feature.
+ 
+         :param fp_str: mercury-generated network protocol fingerprint
+         :type fp_str: str
+         :param server_name: The visible, fully qualified domain name, found in the server_name extension or the HTTP Host field
+         :type server_name: str
+         :param dst_ip: The destination IP address associated with the packet of interest
+         :type dst_ip: str
+         :param dst_port: The destination port associated with the packet of interest
+         :type dst_port: int
+         :param user_agent: If analyzing an HTTP packet, provide the contents of the HTTP User-Agent field
+         :type user_agent: str
+         :param new_as_weight: Updated weight for the Autonomous System data feature
+         :type new_as_weight: long double
+         :param new_domain_weight: Updated weight for the domain name data feature
+         :type new_domain_weight: long double
+         :param new_port_weight: Updated weight for the destination port data feature
+         :type new_port_weight: long double
+         :param new_ip_weight: Updated weight for the destination IP address data feature
+         :type new_ip_weight: long double
+         :param new_sni_weight: Updated weight for the server_name data feature
+         :type new_sni_weight: long double
+         :param new_ua_weight: Updated weight for the User-Agent data feature
+         :type new_ua_weight: long double
+         :return: JSON-encoded analysis output
+         :rtype: dict
+         """
+         if not self.do_analysis:
+             print(f'error: classifier not loaded (is do_analysis set to True?)')
+             return None
+ 
+         cdef bytes fp_str_b = fp_str.encode()
+         cdef char* fp_str_c = fp_str_b
+         cdef bytes server_name_b = server_name.encode()
+         cdef char* server_name_c = server_name_b
+         cdef bytes dst_ip_b = dst_ip.encode()
+         cdef char* dst_ip_c = dst_ip_b
+         if user_agent == None:
+             user_agent = 'None'
+         cdef bytes user_agent_b = user_agent.encode()
+         cdef char* user_agent_c = user_agent_b
+
+         cdef analysis_result ar = self.clf.perform_analysis_with_weights(
+                                                     fp_str_c, server_name_c, dst_ip_c, dst_port, user_agent_c,
+                                                     new_as_weight, new_domain_weight, new_port_weight,
+                                                     new_ip_weight, new_sni_weight, new_ua_weight)
+
+         cdef fingerprint_status fp_status_enum = ar.status
+         fp_status = fp_status_dict[fp_status_enum]
+
+         cdef dict result = {}
+         result['fingerprint_info'] = {}
+         result['fingerprint_info']['status'] = fp_status
+         result['analysis'] = {}
+         result['analysis']['process']   = ar.max_proc.decode('UTF-8')
+         result['analysis']['score']     = ar.max_score
+         result['analysis']['malware']   = ar.max_mal
+         result['analysis']['p_malware'] = ar.malware_prob
+
+         return result
 
     cdef list extract_attributes(self, analysis_result ar):
         cdef char tags_buf[8192]
@@ -551,8 +550,6 @@ cdef class Mercury:
             user_agent = 'None'
         cdef bytes user_agent_b = user_agent.encode()
         cdef char* user_agent_c = user_agent_b
-        if user_agent == 'None':
-            user_agent_c = NULL
 
         cdef analysis_result ar = self.clf.perform_analysis(fp_str_c, server_name_c, dst_ip_c, dst_port, user_agent_c)
 

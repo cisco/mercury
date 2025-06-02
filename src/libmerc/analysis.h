@@ -106,9 +106,10 @@ public:
                      bool &malware_database,
                      size_t total_cnt,
                      bool report_os,
-                     bool minimize_ram
+                     bool minimize_ram,
+                     const feature_weights &weights
                      ) :
-        classifier{process_info, total_cnt, minimize_ram},
+        classifier{process_info, total_cnt, minimize_ram, weights},
         malware_db{malware_database},
         subnet_data_ptr{subnets},
         common{c},
@@ -185,6 +186,20 @@ public:
         std::string dst_ip_str(dst_ip);
 
         std::vector<floating_point_type> process_score = classifier.classify(asn_int, dst_port, server_name, dst_ip_str, user_agent);
+        return get_analysis_result(process_score, status);
+    }
+
+    struct analysis_result perform_analysis(const char *server_name, const char *dst_ip, uint16_t dst_port,
+                                            const char *user_agent, enum fingerprint_status status, feature_weights &weights) {
+
+        uint32_t asn_int = subnet_data_ptr->get_asn_info(dst_ip);
+        std::string dst_ip_str(dst_ip);
+
+        std::vector<floating_point_type> process_score = classifier.classify(asn_int, dst_port, server_name, dst_ip_str, user_agent, weights);
+        return get_analysis_result(process_score, status);
+    }
+
+    struct analysis_result get_analysis_result(std::vector<floating_point_type> &process_score, enum fingerprint_status status) {
 
         // compute max_score, sec_score, index_max, and index_sec
         //
@@ -568,7 +583,7 @@ public:
         // if there is a feature_weights object, we read it and then
         // pass it on to the naive bayes classifier
         //
-        feature_weights weights;
+        feature_weights weights = naive_bayes_tls_quic_http::default_weights;
         if (fp.HasMember("feature_weights")) {
             weights.read_from_object(fp["feature_weights"]);
         }
@@ -596,7 +611,8 @@ public:
                                                              MALWARE_DB,
                                                              total_count,
                                                              report_os,
-                                                             minimize_ram
+                                                             minimize_ram,
+                                                             weights
                                                              );
 
             if (fp.HasMember("str_repr") && fp["str_repr"].IsString()) {
@@ -742,9 +758,13 @@ public:
                     legacy_archive = (!dual_db && !lite_db && !full_db);
 
                 } else if (name == "pyasn.db") {
+                    std::vector<std::string> asn_subnets_str;
                     while (archive.getline(line_str)) {
-                        subnets.process_line(line_str);
+                        asn_subnets_str.push_back(line_str);
                     }
+                    // process the parsed asn subnets and store them in prefix array for final processing
+                    //
+                    subnets.process_asn_subnets(asn_subnets_str);
                     got_pyasn_db = true;
                 } else if (name == "doh-watchlist.txt") {
                     while (archive.getline(line_str)) {
@@ -752,12 +772,13 @@ public:
                     }
                     got_doh_watchlist = true;
                 } else if (name == "domain-mappings.db") {
-                    // subnet_map stores the index of subnets in subnet array. This can be used to track subnets mapped to multiple domains
-                    //
-                    std::unordered_map<uint32_t, ssize_t> subnet_map;
+                    std::vector<std::string> domain_mapping_subnets_str;
                     while (archive.getline(line_str)) {
-                        subnets.process_domain_mappings_line(line_str, subnet_map);
+                        domain_mapping_subnets_str.push_back(line_str);
                     }
+                    // process the parsed domain_mapping subnets and store them in domains_prefix array for final processing
+                    //
+                    subnets.process_domain_mapping_subnets(domain_mapping_subnets_str);
                     got_domain_faking_subnets = true;
                 }
             }
@@ -855,8 +876,8 @@ public:
 
     }
 
-    struct analysis_result perform_analysis(const char *fp_str, const char *server_name, const char *dst_ip,
-                                            uint16_t dst_port, const char *user_agent) {
+    template <typename PerformAnalysisFn>
+    struct analysis_result perform_analysis_common(const char *fp_str, PerformAnalysisFn perform_analysis_fn) {
 
         const auto fpdb_entry = fpdb.find(fp_str);
         if (fpdb_entry == fpdb.end()) {
@@ -883,12 +904,44 @@ public:
                     return analysis_result(fingerprint_status_randomized);  // TODO: does this actually happen?
                 }
                 fingerprint_data *fp_data = fpdb_entry_randomized->second;
-                return fp_data->perform_analysis(server_name, dst_ip, dst_port, user_agent, fingerprint_status_randomized);
+                return perform_analysis_fn(fp_data, fingerprint_status_randomized);
             }
         }
         fingerprint_data *fp_data = fpdb_entry->second;
 
-        return fp_data->perform_analysis(server_name, dst_ip, dst_port, user_agent, fingerprint_status_labeled);
+        return perform_analysis_fn(fp_data, fingerprint_status_labeled);
+    }
+
+    struct analysis_result perform_analysis(const char *fp_str, const char *server_name, const char *dst_ip,
+                                            uint16_t dst_port, const char *user_agent) {
+        auto perform_analysis_fn = [&](fingerprint_data *fp_data, fingerprint_status status) {
+            return fp_data->perform_analysis(server_name, dst_ip, dst_port, user_agent, status);
+        };
+        return perform_analysis_common(fp_str, perform_analysis_fn);
+    }
+
+    /*
+     * This function perform_analysis_with_weights accepts
+     * weights of features of weighed naive bayes classifier as input
+     * and performs analysis based on the updated weights.
+     * This function is mainly required for tuning the weights and is
+     * intended to be used during the training phase where the
+     * functionality is exposed using cython api and is not
+     * intended to be used in packet processing path.
+     */
+    struct analysis_result perform_analysis_with_weights(const char *fp_str, const char *server_name, const char *dst_ip,
+                                                         uint16_t dst_port, const char *user_agent,
+                                                         floating_point_type new_as_weight, floating_point_type new_domain_weight,
+                                                         floating_point_type new_port_weight, floating_point_type new_ip_weight,
+                                                         floating_point_type new_sni_weight, floating_point_type new_ua_weight) {
+
+
+        feature_weights weights{new_as_weight, new_domain_weight, new_port_weight,
+                                new_ip_weight, new_sni_weight, new_ua_weight};
+        auto perform_analysis_fn = [&](fingerprint_data *fp_data, fingerprint_status status) {
+            return fp_data->perform_analysis(server_name, dst_ip, dst_port, user_agent, status, weights);
+        };
+        return perform_analysis_common(fp_str, perform_analysis_fn);
     }
 
     bool analyze_fingerprint_and_destination_context(const fingerprint &fp,

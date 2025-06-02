@@ -1,9 +1,13 @@
 # CHANGELOG for Mercury
-* Added a new configuration option, minimize-ram, which reduces
-* the RAM usage of mercury library when enabled
 
 ## VERSION 2.7.1
 * Updated QUIC reassembly logic for reordered QUIC crypto frames
+* Refactored the IP subnet reading code to minimize the amount of
+  temporary RAM needed
+* Added a new configuration option, minimize-ram, which reduces
+  the RAM usage of mercury library when enabled
+* Added changes to allow classifier to use custom weights
+  and introduced new cython interface
 
 ## VERSION 2.7.0
 * Added minimal RDP (Remote Desktop Protocol) support, which
