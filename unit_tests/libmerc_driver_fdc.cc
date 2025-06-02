@@ -578,6 +578,64 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
     }
 }
 
+SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented tls client hello payload with reassembly and exceeding number of packets limit") {
+    GIVEN("mercury packet processor") {
+        libmerc_config config = create_config();
+        config.packet_filter_cfg = "tls.client_hello,quic,http;format=tls/1;reassembly;minimize-ram";
+        mercury_context mc = initialize_mercury(config); 
+        mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
+        const analysis_context* ac = nullptr;
+        
+        const int max_buffer_allocation = 1500;
+        uint8_t wbuffer_tls[max_buffer_allocation];
+
+        uint32_t src_ip_tls = 2684463296; // 192.168.1.160 -- IP -> reversed IP: 160.1.168.192 
+        uint32_t dst_ip_tls = 734393816; // 216.245.197.43 -- IP -> reversed IP: 43.197.245.216
+        uint16_t src_port_tls = 49160;
+        uint16_t dst_port_tls = 443;
+        uint8_t proto_tls = ip::protocol::tcp;
+
+        struct flow_key_ext k_tls;
+        k_tls.src_port = src_port_tls;
+        k_tls.dst_port = dst_port_tls;
+        k_tls.addr.ipv4.src = src_ip_tls;
+        k_tls.addr.ipv4.dst = dst_ip_tls;
+        k_tls.protocol = proto_tls;
+        k_tls.ip_vers = 4;
+
+        WHEN("write to FDC buffer for 1st tcp segment of tls client hello") {
+            size_t fdc_buffer_len = max_buffer_allocation;
+            int bytes_written_1 = mercury_packet_processor_get_analysis_context_fdc(
+                mpp, 
+                &k_tls, 
+                tls_fragment_1, 
+                sizeof(tls_fragment_1), 
+                wbuffer_tls, 
+                &fdc_buffer_len, 
+                &ac);
+            int bytes_written_2 = mercury_packet_processor_get_analysis_context_fdc(
+                mpp, 
+                &k_tls, 
+                nullptr, 
+                0, 
+                wbuffer_tls, 
+                &fdc_buffer_len, 
+                &ac);
+
+            THEN("FDC should be written to output buffer") {
+                REQUIRE(bytes_written_1 != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
+                REQUIRE(bytes_written_1 == fdc_return::MORE_PACKETS_NEEDED);
+                REQUIRE(bytes_written_2 != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
+                REQUIRE(bytes_written_2 == 205);
+                REQUIRE(fdc_buffer_len == max_buffer_allocation);
+            }
+        }
+
+        mercury_packet_processor_destruct(mpp);
+        mercury_finalize(mc);
+    }
+}
+
 SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for quic init payload") {
     GIVEN("mercury packet processor") {
         libmerc_config config = create_config();
