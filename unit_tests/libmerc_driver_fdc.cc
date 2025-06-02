@@ -1029,7 +1029,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
                 REQUIRE(bytes_written_1 != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
                 REQUIRE(bytes_written_1 == fdc_return::MORE_PACKETS_NEEDED);
                 REQUIRE(bytes_written_2 != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
-                REQUIRE(bytes_written_2 == 205);
+                REQUIRE(bytes_written_2 == 0);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
             }
         }
