@@ -592,9 +592,9 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
     else if (r_state == reassembly_state::reassembly_progress){
         // continue reassembly
         if (!tcp_pkt.seq()) {
-            // 0 seq number, inorder reassembly, seq = existing_data + 1
+            // 0 seq number, inorder reassembly, seq = existing_data
             reassembly_map_iterator curr_flow = reassembler->get_current_flow();
-            uint32_t tmp_seq = curr_flow->second.curr_contiguous_data+1;
+            uint32_t tmp_seq = curr_flow->second.curr_contiguous_data;
             tcp_segment seg{false,tcp_pkt.data_length,tmp_seq,0,(uint64_t)ts->tv_sec, (indefinite_reassembly_type)tcp_pkt.indefinite_reassembly};
             reassembler->process_tcp_data_pkt(k,ts->tv_sec,seg,pkt_copy);
             reassembler->dump_pkt = true; 
