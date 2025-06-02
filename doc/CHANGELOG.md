@@ -1,6 +1,13 @@
 # CHANGELOG for Mercury
 
 ## VERSION 2.7.1
+* Updated QUIC reassembly logic for reordered QUIC crypto frames
+* Refactored the IP subnet reading code to minimize the amount of
+  temporary RAM needed
+* Added a new configuration option, minimize-ram, which reduces
+  the RAM usage of mercury library when enabled
+* Added changes to allow classifier to use custom weights
+  and introduced new cython interface
 * Added additional fuzz tests. Updated the `generate_fuzz_test.sh` script to
   support generating fuzz functions that test functions requiring two fuzzed inputs. 
   Also hardened some datum functions.
