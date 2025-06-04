@@ -1995,9 +1995,9 @@ public:
 
     sequence(const datum &d) : tmp{d}, value{tmp} { }
 
-iterator begin() { return { this }; }
+    iterator begin() { return { this }; }
 
-iterator end() { return { nullptr }; }
+    iterator end() { return { nullptr }; }
 
 };
 
