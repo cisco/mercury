@@ -284,20 +284,23 @@ class pgsql_msg : public base_protocol {
             record.print_key_string("msg_type", get_special_msg_type(tag.value()));
             if (startup) {
                 datum tmp = msg_data;
-                while (tmp.is_not_empty()) {
-                    if (! lookahead<encoded<uint8_t> >{tmp}.value.value() ) {
-                        // null character reached, break
-                        break;
-                    }
-                    datum field_name{};
-                    datum field_value{};
-                    field_name.parse_up_to_delim(tmp, '\0');
-                    tmp.skip(1);
-                    field_value.parse_up_to_delim(tmp, '\0');
-                    tmp.skip(1);
-                    if (field_name.is_not_null() && field_value.is_not_null() && tmp.is_not_null()) {
-                        record.print_key_json_string(field_name,field_value);
-                    }
+                // while (tmp.is_not_empty()) {
+                //     if (! lookahead<encoded<uint8_t> >{tmp}.value.value() ) {
+                //         // null character reached, break
+                //         break;
+                //     }
+                //     datum field_name{};
+                //     datum field_value{};
+                //     field_name.parse_up_to_delim(tmp, '\0');
+                //     tmp.skip(1);
+                //     field_value.parse_up_to_delim(tmp, '\0');
+                //     tmp.skip(1);
+                //     if (field_name.is_not_null() && field_value.is_not_null() && tmp.is_not_null()) {
+                //         record.print_key_json_string(field_name,field_value);
+                //     }
+                // }
+                if (tmp.is_not_empty()) {
+                    record.print_key_hex("msg_data",tmp);
                 }
                 return;
             }
