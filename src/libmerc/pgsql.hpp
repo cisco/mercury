@@ -204,6 +204,8 @@ class pgsql_msg : public base_protocol {
 
         pgsql_pkt() : msg_type{0}, len{0}, msg_data{} {};
 
+        pgsql_pkt(const pgsql_pkt &pkt) : msg_type{pkt.msg_type}, len{pkt.len}, msg_data{pkt.msg_data} {}
+
         pgsql_pkt operator = (const pgsql_pkt &pkt) {
             msg_type = pkt.msg_type;
             len = pkt.len;
@@ -298,6 +300,8 @@ class pgsql_msg : public base_protocol {
 
         pgsql_special_pkt() : len{0}, tag{0}, msg_data{} {};
 
+        pgsql_special_pkt(const pgsql_special_pkt &pkt) : len{pkt.len}, tag{pkt.tag}, msg_data{pkt.msg_data}, startup{pkt.startup} {};
+
         pgsql_special_pkt operator = (const pgsql_special_pkt &pkt) {
             len = pkt.len;
             tag = pkt.tag;
@@ -308,7 +312,7 @@ class pgsql_msg : public base_protocol {
 
         bool is_valid() { return msg_data.is_not_null(); };
 
-        void write_json(json_object &record, bool metadata ) {
+        void write_json(json_object &record, [[maybe_unused]]bool metadata ) {
             record.print_key_string("msg_type", get_special_msg_type(tag.value()));
             if (startup) {
                 datum tmp = msg_data;
