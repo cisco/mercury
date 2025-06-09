@@ -142,6 +142,14 @@ struct json_object {
         b->puts(v);
         b->write_char('\"');
     }
+    void print_key_char(const char *k, const char *v) {
+        write_comma(comma);
+        b->write_char('\"');
+        b->puts(k);
+        b->puts("\":\"");
+        b->write_char(*v);
+        b->write_char('\"');
+    }
     void print_key_bool(const char *k, bool x) {
         write_comma(comma);
         b->write_char('\"');

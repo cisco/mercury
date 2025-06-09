@@ -139,6 +139,8 @@ class pgsql_msg : public base_protocol {
         switch (c) {
         case 'R':
             return "authentication_request";
+        case 'K':
+            return "backend_key_data";
         case 'S':
             return "parameter_status";
         case '1':
@@ -247,15 +249,29 @@ class pgsql_msg : public base_protocol {
                 }
 
             }
+            else if (msg_type.value() == 'K' && !client) {
+                // pid and key
+                if (msg_data.length() != 8 ) {
+                    return;
+                }
+                encoded<uint32_t> pid{msg_data};
+                encoded<uint32_t> key{msg_data};
+                json_object o(a);
+                o.print_key_string("msg_type",get_server_message_code('K'));
+                o.print_key_int("pid",pid);
+                o.print_key_int("key",key);
+                o.close();
+
+            }
             else if (client) {
                 json_object o(a);
-                o.print_key_string("msg_type",get_client_message_code(msg_type.value()));
+                o.print_key_char("msg_type",get_client_message_code(msg_type.value()));
                 o.print_key_int("msg_len", msg_data.length());
                 o.close();
             }
             else {
                 json_object o(a);
-                o.print_key_string("msg_type",get_server_message_code(msg_type.value()));
+                o.print_key_char("msg_type",get_server_message_code(msg_type.value()));
                 o.print_key_int("msg_len", msg_data.length());
                 o.close();
             }
