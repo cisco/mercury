@@ -247,6 +247,18 @@ class pgsql_msg : public base_protocol {
                 }
 
             }
+            else if (client) {
+                json_object o(a);
+                o.print_key_string("msg_type",get_client_message_code(msg_type.value()));
+                o.print_key_int("msg_len", msg_data.length());
+                o.close();
+            }
+            else {
+                json_object o(a);
+                o.print_key_string("msg_type",get_server_message_code(msg_type.value()));
+                o.print_key_int("msg_len", msg_data.length());
+                o.close();
+            }
         }
 
     };
@@ -344,12 +356,17 @@ public:
                 msg_count++;
             }
         }
+
+        if (!has_special_pkt && !msg_count) {
+            valid = false;
+        }
     };
 
     bool is_not_empty() { return valid; }
 
     void write_json(json_object &record, bool metadata) {
         json_object pgsql_record(record,"pgsql");
+        pgsql_record.print_key_bool("client",is_client);
         if (has_special_pkt) {
             special_pkt.write_json(pgsql_record,metadata);
             pgsql_record.close();
