@@ -5,7 +5,7 @@
 #ifndef KRB5_HPP
 #define KRB5_HPP
 
-// #define ASN1_DEBUG 1
+#define ASN1_DEBUG 1
 // #define TLV_ERR_INFO 1
 
 #include <variant>
@@ -16,6 +16,98 @@
 #include "protocol.h"
 
 namespace krb5 {
+
+#include "krb5_params.hpp"
+
+    static uint64_t to_uint64(const datum &d) {
+        uint64_t result = 0;
+        for (const uint8_t & x : d) {
+            result = result * 256 + x;
+        }
+        return result;
+    }
+
+    static uint64_t to_uint64(const tlv &x) {
+        return to_uint64(x.value);
+    }
+
+    //  KerberosString  ::= GeneralString (IA5String)
+    //
+    //  Realm           ::= KerberosString
+    //
+    //  PrincipalName   ::= SEQUENCE {
+    //          name-type       [0] Int32,
+    //          name-string     [1] SEQUENCE OF KerberosString
+    //  }
+    //
+    class principal_name {
+        tlv sequence;
+        tlv name_type;
+        tlv name_sequence;
+
+    public:
+
+        enum type {
+            NT_UNKNOWN        =  0,   // Name type not known
+            NT_PRINCIPAL      =  1,   // Just the name of the principal as in DCE, or for users
+            NT_SRV_INST       =  2,   // Service and other unique instance (krbtgt)
+            NT_SRV_HST        =  3,   // Service with host name as instance (telnet, rcommands)
+            NT_SRV_XHST       =  4,   // Service with host as remaining components
+            NT_UID            =  5,   // Unique ID
+            NT_X500_PRINCIPAL =  6,   // Encoded X.509 Distinguished name [RFC2253]
+            NT_SMTP_NAME      =  7,   // Name in form of SMTP email name  (e.g., user@example.com)
+            NT_ENTERPRISE     = 10,   // Enterprise name - may be mapped to principal name
+        };
+
+        static const char *name_type_get_string(uint8_t t) {
+            switch(t) {
+                // case NT_UNKNOWN:        return "UNKNOWN";
+            case NT_PRINCIPAL:      return "PRINCIPAL";
+            case NT_SRV_INST:       return "SRV_INST";
+            case NT_SRV_HST:        return "SRV_HST";
+            case NT_SRV_XHST:       return "SRV_XHST";
+            case NT_UID:            return "UID";
+            case NT_X500_PRINCIPAL: return "X500_PRINCIPAL";
+            case NT_SMTP_NAME:      return "SMTP_NAME";
+            case NT_ENTERPRISE:     return "ENTERPRISE";
+            default:
+                ;
+            }
+            return nullptr;
+        }
+
+        static void name_type_write_json(uint32_t t, const char *key, json_object &o) {
+            const char *name = name_type_get_string(t);
+            if (name) {
+                o.print_key_string(key, name_type_get_string(t));
+            } else {
+                o.print_key_unknown_code(key, t);
+            }
+        }
+
+        principal_name(datum d) :
+            sequence{d, 0, "pn.sequence"},
+            name_type{sequence.value, 0, "name_type"},
+            name_sequence{sequence.value, 0, "name_sequence"}
+        { }
+
+        void write_json(json_object &o, const char *object_name) {
+            json_object pn{o, object_name};
+            tlv type_int{name_type.value, tlv::INTEGER, "type"};
+            // pn.print_key_string("type", name_type_get_string(to_uint64(type_int.value)));  // TODO: int32
+            name_type_write_json(to_uint64(type_int.value), "type", pn);
+            json_array array{pn, "names"};
+            tlv tmp_seq{name_sequence.value, tlv::SEQUENCE, "tmp_seq"};
+            while (tmp_seq.value.is_not_empty()) {
+                // tmp_seq.value.fprint_hex(stderr); fputc('\n', stderr);
+                tlv name{tmp_seq};
+                array.print_json_string(name.value);
+            }
+            array.close();
+            pn.close();
+        }
+
+    };
 
     // KDCOptions      ::= KerberosFlags
     //         -- reserved(0),
@@ -90,13 +182,15 @@ namespace krb5 {
                     kdc_options.parse(&tmp.value);
                     break;
                 case tlv::explicit_tag_constructed(1):
-                    cname.parse(&tmp.value);
+                    cname = tmp;
+                    // cname.parse(&tmp.value);
                     break;
                 case tlv::explicit_tag_constructed(2):
                     realm.parse(&tmp.value);
                     break;
                 case tlv::explicit_tag_constructed(3):
-                    sname.parse(&tmp.value);
+                    sname = tmp;
+                    // sname.parse(&tmp.value);
                     break;
                 case tlv::explicit_tag_constructed(4):
                     from.parse(&tmp.value);
@@ -130,16 +224,32 @@ namespace krb5 {
         }
 
         void write_json(json_object &record) const {
-            json_object o{record, "body"};
+            json_object_asn1 o{record, "body"};
             o.print_key_hex("kdc_options", kdc_options.value);
-            o.print_key_hex("cname", cname.value);
-            o.print_key_hex("realm", realm.value);
-            o.print_key_hex("sname", sname.value);
+            principal_name{cname.value}.write_json(o, "cname");
+            // o.print_key_hex("cname", cname.value);
+            o.print_key_json_string("realm", realm.value);
+            // o.print_key_hex("sname_string", sname.value);
+            // json_array_asn1 sname_array{o, "sname_array"};
+            // datum tmp{sname.value};
+            // tlv::recursive_parse(tmp, sname_array);
+            // sname_array.close();
+            principal_name{sname.value}.write_json(o, "sname");
             o.print_key_hex("from", from.value);
-            o.print_key_hex("till", till.value);
+            // o.print_key_hex("till", till.value);
+            till.print_as_json_generalized_time(o, "till");
             o.print_key_hex("rtime", rtime.value);
             o.print_key_hex("nonce", nonce.value);
-            o.print_key_hex("etype", etype.value);
+            // o.print_key_hex("etype", etype.value);
+
+            json_array etype_array{o, "etype"};
+            datum tmp = etype.value;
+            while (tmp.is_not_empty()) {
+                tlv e{tmp};
+                etype_array.print_string(encryption_type<uint32_t>{to_uint64(e.value)}.get_name());
+            }
+            etype_array.close();
+
             o.print_key_hex("address", address.value);
             o.print_key_hex("enc_authorization_data", enc_authorization_data.value);
             o.print_key_hex("additional_tickets", additional_tickets.value);
@@ -156,7 +266,7 @@ namespace krb5 {
     //
     class pa_data {
         tlv seq;
-        tlv pa_data_type;
+        tlv type;
         tlv pa_data_value;
         bool valid;
 
@@ -165,7 +275,7 @@ namespace krb5 {
             seq{&d, tlv::SEQUENCE, "seq"},
             // pa_data_type{&seq.value, 0x00, "pa_data_type"},
             // pa_data_value{&seq.value, 0x00, "pa_data_value"}
-            pa_data_type{&seq.value, tlv::explicit_tag_constructed(1), "pa_data_type"},
+            type{&seq.value, tlv::explicit_tag_constructed(1), "pa_data_type"},
             pa_data_value{&seq.value, tlv::explicit_tag_constructed(2), "pa_data_value"},
             valid{d.is_not_null()}
         {
@@ -177,7 +287,10 @@ namespace krb5 {
         void write_json(json_object_asn1 &o) const {
             if (!valid) { return; }
             json_object_asn1 pad{o, "pa_data"};
-            pa_data_type.print_as_json(pad, "type");
+            //pa_data_type.print_as_json(pad, "type");
+            datum tmp = type.value;
+            pa_data_type<uint32_t>{to_uint64(tlv{tmp})}.write_json(pad);
+            // pa_data_type.print_as_json(pad, "type");
             pa_data_value.print_as_json(pad, "value");
             pad.close();
         }
@@ -238,7 +351,7 @@ namespace krb5 {
             json_object_asn1 kdc_req_json{o, "kdc_req"};
             kdc_req_json.print_key_hex("pvno", pvno.value);
             kdc_req_json.print_key_hex("msg_type", msg_type.value);
-            kdc_req_json.print_key_hex("padata", padata.value);
+            // kdc_req_json.print_key_hex("padata", padata.value);
             // if (lookahead<pa_data> pad{padata.value}) {
             datum tmp = padata.value;
             while (tmp.is_not_empty()) {
@@ -402,7 +515,8 @@ namespace krb5 {
                     crealm.parse(&tmp.value);
                     break;
                 case tlv::explicit_tag_constructed(4):
-                    cname.parse(&tmp.value);
+                    cname = tmp;
+                    //cname.parse(&tmp.value);
                     break;
                 case tlv::explicit_tag_constructed(5):
                     ticket.parse(&tmp.value);
@@ -418,7 +532,8 @@ namespace krb5 {
             o.print_key_hex("pnvo", pvno.value);
             o.print_key_hex("msg_type", msg_type.value);
             o.print_key_hex("padata", padata.value);
-            o.print_key_hex("crealm", crealm.value);
+            o.print_key_json_string("crealm", crealm.value);
+            principal_name{cname.value}.write_json(o, "cname");
             o.print_key_hex("cname", cname.value);
             o.print_key_hex("ticket", ticket.value);
             o.print_key_hex("enc_part", enc_part.value);
@@ -473,10 +588,10 @@ namespace krb5 {
         void write_json(json_object &o, bool metadata=false) const {
             (void)metadata;
             json_object_asn1 krb_json{o, "kerberos"};
-            json_array_asn1 raw_krb{krb_json, "raw"};
-            tlv tmp{app2};
-            tlv::recursive_parse(tmp.value, raw_krb);
-            raw_krb.close();
+            // json_array_asn1 raw_krb{krb_json, "raw"};
+            // tlv tmp{app2};
+            // tlv::recursive_parse(tmp.value, raw_krb);
+            // raw_krb.close();
             std::visit(do_write_json{krb_json}, msg);
             krb_json.close();
         }
@@ -493,7 +608,7 @@ namespace krb5 {
             { 0x68,         // APPLICATION tag
               0x80,         // length is over 128 bytes
               0x00, 0x00,
-              0x00,         // SEQ or first octete of length
+              0x00,         // SEQ or first octet of length
               0x00, 0x00, 0x00 }
         };
 

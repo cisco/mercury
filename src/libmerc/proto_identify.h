@@ -448,7 +448,7 @@ public:
            //
            // kerberos is not yet ready for integration
            //
-           // select_krb5 = true;
+           select_krb5 = true;
         }
         if (protocols["tcp.message"] || protocols["all"]) {
             // select_tcp_syn = 0;
