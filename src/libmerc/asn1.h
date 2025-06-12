@@ -305,6 +305,8 @@ struct tlv {
         BMP_STRING		  = 0x1e
     };
 
+    operator bool() const { return is_not_null(); }
+
     bool is_not_null() const {
         return (value.data);
     }

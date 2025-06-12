@@ -31,6 +31,69 @@ namespace krb5 {
         return to_uint64(x.value);
     }
 
+    // KerberosFlags   ::= BIT STRING (SIZE (32..MAX))
+    //                     -- minimum number of bits shall be sent,
+    //                     -- but no fewer than 32
+    //
+    // KDCOptions      ::= KerberosFlags
+    //         -- reserved(0),
+    //         -- forwardable(1),
+    //         -- forwarded(2),
+    //         -- proxiable(3),
+    //         -- proxy(4),
+    //         -- allow-postdate(5),
+    //         -- postdated(6),
+    //         -- unused7(7),
+    //         -- renewable(8),
+    //         -- unused9(9),
+    //         -- unused10(10),
+    //         -- opt-hardware-auth(11),
+    //         -- unused12(12),
+    //         -- unused13(13),
+    // -- 15 is reserved for canonicalize
+    //         -- unused15(15),
+    // -- 26 was unused in 1510
+    //         -- disable-transited-check(26),
+    // --
+    //         -- renewable-ok(27),
+    //         -- enc-tkt-in-skey(28),
+    //         -- renew(30),
+    //         -- validate(31)
+    //
+    struct kdc_options {
+        struct tlv bit_string;
+
+        kdc_options() : bit_string{} {}
+        kdc_options(datum p) : bit_string{} {
+            parse(p);
+        }
+        void parse(datum &p) {
+            bit_string.parse(&p, tlv::BIT_STRING);
+        }
+
+        void print_as_json(struct json_object_asn1 &o, const char *name) const {
+            varint<uint32_t> flags{bit_string.value, varint<uint32_t>::asn1_bitstring};
+            json_array_bitflags f{o, name, flags};
+            f.flag<1>("forwardable");
+            f.flag<2>("forwarded");
+            f.flag<3>("proxiable");
+            f.flag<4>("proxy");
+            f.flag<5>("allow-postdate");
+            f.flag<6>("postdated");
+            f.flag<8>("renewable");
+            f.flag<11>("opt-hardware-auth");
+            f.flag<15>("canonicalize");
+            f.flag<26>("disable-transited-check");
+            f.flag<27>("renewable-ok");
+            f.flag<28>("enc-tkt-in-skey");
+            f.flag<30>("renew");
+            f.flag<31>("validate");
+            f.check_for_unknown_flags<1,2,3,4,5,6,8,11,15,26,27,28,30,31>();
+            f.close();
+        }
+    };
+
+
     //  KerberosString  ::= GeneralString (IA5String)
     //
     //  Realm           ::= KerberosString
@@ -109,32 +172,6 @@ namespace krb5 {
 
     };
 
-    // KDCOptions      ::= KerberosFlags
-    //         -- reserved(0),
-    //         -- forwardable(1),
-    //         -- forwarded(2),
-    //         -- proxiable(3),
-    //         -- proxy(4),
-    //         -- allow-postdate(5),
-    //         -- postdated(6),
-    //         -- unused7(7),
-    //         -- renewable(8),
-    //         -- unused9(9),
-    //         -- unused10(10),
-    //         -- opt-hardware-auth(11),
-    //         -- unused12(12),
-    //         -- unused13(13),
-    // -- 15 is reserved for canonicalize
-    //         -- unused15(15),
-    // -- 26 was unused in 1510
-    //         -- disable-transited-check(26),
-    // --
-    //         -- renewable-ok(27),
-    //         -- enc-tkt-in-skey(28),
-    //         -- renew(30),
-    //         -- validate(31)
-    //
-
     // KDC-REQ-BODY    ::= SEQUENCE {
     //         kdc-options             [0] KDCOptions,
     //         cname                   [1] PrincipalName OPTIONAL
@@ -157,18 +194,18 @@ namespace krb5 {
     // }
     //
     class kdc_req_body {
-        tlv kdc_options;
-        tlv cname;
+        tlv kdc_opt;
+        tlv cname;                    // optional
         tlv realm;
-        tlv sname;
-        tlv from;
+        tlv sname;                    // optional
+        tlv from;                     // optional
         tlv till;
-        tlv rtime;
+        tlv rtime;                    // optional
         tlv nonce;
         tlv etype;
-        tlv address;
-        tlv enc_authorization_data;
-        tlv additional_tickets;
+        tlv address;                  // optional
+        tlv enc_authorization_data;   // optional
+        tlv additional_tickets;       // optional
 
     public:
 
@@ -179,7 +216,8 @@ namespace krb5 {
                 //fprintf(stderr, "kdc_req_body.tag: %x\n", tmp.tag);
                 switch(tmp.tag) {
                 case tlv::explicit_tag_constructed(0):
-                    kdc_options.parse(&tmp.value);
+                    kdc_opt = tmp;
+                    // kdc_options.parse(&tmp.value);
                     break;
                 case tlv::explicit_tag_constructed(1):
                     cname = tmp;
@@ -225,20 +263,22 @@ namespace krb5 {
 
         void write_json(json_object &record) const {
             json_object_asn1 o{record, "body"};
-            o.print_key_hex("kdc_options", kdc_options.value);
-            principal_name{cname.value}.write_json(o, "cname");
-            // o.print_key_hex("cname", cname.value);
+            kdc_options{kdc_opt.value}.print_as_json(o, "kdc_options");
+            if (cname) {
+                principal_name{cname.value}.write_json(o, "cname");
+            }
             o.print_key_json_string("realm", realm.value);
-            // o.print_key_hex("sname_string", sname.value);
-            // json_array_asn1 sname_array{o, "sname_array"};
-            // datum tmp{sname.value};
-            // tlv::recursive_parse(tmp, sname_array);
-            // sname_array.close();
-            principal_name{sname.value}.write_json(o, "sname");
-            o.print_key_hex("from", from.value);
-            // o.print_key_hex("till", till.value);
+            if (sname) {
+                principal_name{sname.value}.write_json(o, "sname");
+            }
+            if (from) {
+                from.print_as_json_generalized_time(o, "from");
+            }
+            // o.print_key_hex("from", from.value);
             till.print_as_json_generalized_time(o, "till");
-            o.print_key_hex("rtime", rtime.value);
+            if (rtime) {
+                o.print_key_hex("rtime", rtime.value);
+            }
             o.print_key_hex("nonce", nonce.value);
             // o.print_key_hex("etype", etype.value);
 
@@ -250,9 +290,15 @@ namespace krb5 {
             }
             etype_array.close();
 
-            o.print_key_hex("address", address.value);
-            o.print_key_hex("enc_authorization_data", enc_authorization_data.value);
-            o.print_key_hex("additional_tickets", additional_tickets.value);
+            if (address) {
+                o.print_key_hex("address", address.value);
+            }
+            if (enc_authorization_data) {
+                o.print_key_hex("enc_authorization_data", enc_authorization_data.value);
+            }
+            if (additional_tickets) {
+                o.print_key_hex("additional_tickets", additional_tickets.value);
+            }
             o.close();
         }
 
@@ -389,17 +435,17 @@ namespace krb5 {
         tlv seq;
         tlv pvno;
         tlv msg_type;
-        tlv ctime;
-        tlv cusec;
+        tlv ctime;           // optional
+        tlv cusec;           // optional
         tlv stime;
         tlv susec;
         tlv error_code;
-        tlv crealm;
-        tlv cname;
+        tlv crealm;          // optional
+        tlv cname;           // optional
         tlv realm;
         tlv sname;
-        tlv e_text;
-        tlv e_data;
+        tlv e_text;          // optional
+        tlv e_data;          // optional
     public:
 
         error(datum &d) : seq{&d, tlv::SEQUENCE, "seq"} {
@@ -432,13 +478,15 @@ namespace krb5 {
                     crealm.parse(&tmp.value);
                     break;
                 case tlv::explicit_tag_constructed(8):
-                    cname.parse(&tmp.value);
+                    cname = tmp;
+                    //cname.parse(&tmp.value);
                     break;
                 case tlv::explicit_tag_constructed(9):
                     realm.parse(&tmp.value);
                     break;
                 case tlv::explicit_tag_constructed(10):
-                    sname.parse(&tmp.value);
+                    sname = tmp;
+                    // sname.parse(&tmp.value);
                     break;
                 case tlv::explicit_tag_constructed(11):
                     e_text.parse(&tmp.value);
@@ -453,19 +501,27 @@ namespace krb5 {
         }
 
         void write_json(json_object &o) const {
-            o.print_key_hex("pvno", pvno.value);
-            o.print_key_hex("msg_type", msg_type.value);
-            o.print_key_hex("ctime", ctime.value);
-            o.print_key_hex("cusec", cusec.value);
-            o.print_key_hex("stime", stime.value);
-            o.print_key_hex("susec", susec.value);
-            o.print_key_hex("error_code", error_code.value);
-            o.print_key_hex("crealm", crealm.value);
-            o.print_key_hex("cname", cname.value);
-            o.print_key_hex("realm", realm.value);
-            o.print_key_hex("sname", sname.value);
-            o.print_key_hex("e_text", e_text.value);
-            o.print_key_hex("e_data", e_data.value);
+            json_object_asn1 error_json{o, "error"};
+            error_json.print_key_hex("pvno", pvno.value);
+            error_json.print_key_hex("msg_type", msg_type.value);
+            if (ctime) {
+                ctime.print_as_json_generalized_time(error_json, "ctime");
+            }
+            error_json.print_key_hex("cusec", cusec.value);
+            stime.print_as_json_generalized_time(error_json, "stime");
+            error_json.print_key_hex("susec", susec.value);
+            error_json.print_key_hex("error_code", error_code.value);
+            if (crealm) {
+                error_json.print_key_json_string("crealm", crealm.value);
+            }
+            if (cname) {
+                principal_name{cname.value}.write_json(o, "cname");
+            }
+            error_json.print_key_json_string("realm", realm.value);
+            principal_name{sname.value}.write_json(o, "sname");
+            error_json.print_key_hex("e_text", e_text.value);
+            error_json.print_key_hex("e_data", e_data.value);
+            error_json.close();
         }
     };
 
@@ -529,14 +585,21 @@ namespace krb5 {
         }
 
         void write_json(json_object &o) const {
-            o.print_key_hex("pnvo", pvno.value);
-            o.print_key_hex("msg_type", msg_type.value);
-            o.print_key_hex("padata", padata.value);
-            o.print_key_json_string("crealm", crealm.value);
+            json_object_asn1 kdc_rep_json{o, "kdc_rep"};
+            kdc_rep_json.print_key_hex("pnvo", pvno.value);
+            kdc_rep_json.print_key_hex("msg_type", msg_type.value);
+            //kdc_rep_json.print_key_hex("padata", padata.value);
+            datum tmp = padata.value;
+            while (tmp.is_not_empty()) {
+                pa_data data{tmp};
+                data.write_json(kdc_rep_json);
+            }
+            kdc_rep_json.print_key_json_string("crealm", crealm.value);
             principal_name{cname.value}.write_json(o, "cname");
-            o.print_key_hex("cname", cname.value);
-            o.print_key_hex("ticket", ticket.value);
-            o.print_key_hex("enc_part", enc_part.value);
+            // kdc_rep_json.print_key_hex("cname", cname.value);
+            kdc_rep_json.print_key_hex("ticket", ticket.value);
+            kdc_rep_json.print_key_hex("enc_part", enc_part.value);
+            kdc_rep_json.close();
         }
     };
 

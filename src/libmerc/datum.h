@@ -1476,9 +1476,12 @@ T bit() {
 ///
 template <typename T>
 class encoded {
+protected:
     T val;    ///< the value, if decoding was successful
 
     static_assert(std::is_unsigned_v<T>, "T must be an unsigned integer");
+
+    encoded() { }  /// protected constructor, for use in derived classes
 
 public:
 
@@ -1591,6 +1594,45 @@ public:
         w.write_hex((uint8_t *)&tmp, sizeof(T));
     }
 };
+
+
+/// reads up to `sizeof(T)` bytes and interprets them as the most
+/// significant bytes of an integer of type `T`.  If fewer than
+/// `sizeof(T)` bytes are present, the missing least significant bytes
+/// are treated as having values of `0x00`.
+///
+/// `class varint<T>` is derived from \ref class encoded<T>.
+///
+template <typename T>
+class varint : public encoded<T> {
+public:
+
+    static constexpr bool asn1_bitstring = true;
+
+    varint(datum d, bool parse_asn1_bitstring=false) {
+
+        if (parse_asn1_bitstring) {
+            encoded<uint8_t> num_pad_bits{d}; // skip first octet for ASN.1 BIT STRING
+        }
+
+        if (d.length() > (ssize_t)sizeof(T)) {
+            d.trim_to_length(sizeof(T));
+        }
+        encoded<T>::val = 0;
+        for (const uint8_t x : d) {
+            encoded<T>::val = 256 * encoded<T>::val + x;
+        }
+        for (size_t i=d.length(); i<sizeof(T); i++) {
+            encoded<T>::val = 256 * encoded<T>::val;
+        }
+    }
+
+    varint(const T& rhs) {
+        encoded<T>::val = rhs;
+    }
+
+};
+
 
 /// `class type_codes` is a wrapper class that can be used to print
 /// type codes.
