@@ -220,18 +220,22 @@ class pgsql_msg : public base_protocol {
             if (msg_type.value() == 'p') {
                 // auth message
                 json_object o(a);
-                o.print_key_string("msg_type",get_client_message_code('p'));
-                o.print_key_string("content_type", "password_message");
-                o.print_key_json_string("content",msg_data);
+                json_object r(o,get_client_message_code('p'));
+                //o.print_key_string("msg_type",get_client_message_code('p'));
+                r.print_key_string("content_type", "password_message");
+                r.print_key_json_string("content",msg_data);
+                r.close();
                 o.close();
             }
             else if (msg_type.value() == 'R') {
                 // auth request
                 json_object o(a);
-                o.print_key_string("msg_type",get_server_message_code('R'));
+                json_object r(o, get_server_message_code('R'));
+                //o.print_key_string("msg_type",get_server_message_code('R'));
                 encoded<uint32_t> auth_type{msg_data};
-                o.print_key_string("content_type", get_auth_type((auth_codes)auth_type.value()));
-                o.print_key_hex(get_auth_data_type((auth_codes)auth_type.value()),msg_data);
+                r.print_key_string("content_type", get_auth_type((auth_codes)auth_type.value()));
+                r.print_key_hex(get_auth_data_type((auth_codes)auth_type.value()),msg_data);
+                r.close();
                 o.close();
             }
             else if (msg_type.value() == 'S' && !client) {
@@ -244,9 +248,11 @@ class pgsql_msg : public base_protocol {
                 msg_data.skip(1);
                 if (param_name.is_not_null() && param_value.is_not_null() && msg_data.is_not_null()) {
                     json_object o(a);
-                    o.print_key_string("msg_type",get_server_message_code('S'));
-                    o.print_key_json_string("param_type",param_name);
-                    o.print_key_json_string("param_value",param_value);
+                    json_object r(o,get_server_message_code('S'));
+                    //o.print_key_string("msg_type",get_server_message_code('S'));
+                    r.print_key_json_string("param_type",param_name);
+                    r.print_key_json_string("param_value",param_value);
+                    r.close();
                     o.close();
                 }
 
@@ -259,22 +265,28 @@ class pgsql_msg : public base_protocol {
                 encoded<uint32_t> pid{msg_data};
                 encoded<uint32_t> key{msg_data};
                 json_object o(a);
-                o.print_key_string("msg_type",get_server_message_code('K'));
-                o.print_key_int("pid",pid);
-                o.print_key_int("key",key);
+                json_object r(o,get_server_message_code('K'));
+                //o.print_key_string("msg_type",get_server_message_code('K'));
+                r.print_key_int("pid",pid);
+                r.print_key_int("key",key);
+                r.close();
                 o.close();
 
             }
             else if (client) {
                 json_object o(a);
-                o.print_key_char("msg_type",get_client_message_code(msg_type.value()));
-                o.print_key_int("msg_len", msg_data.length());
+                json_object r(o,get_client_message_code(msg_type.value()));
+                //o.print_key_char("msg_type",get_client_message_code(msg_type.value()));
+                r.print_key_int("msg_len", msg_data.length());
+                r.close();
                 o.close();
             }
             else {
                 json_object o(a);
-                o.print_key_char("msg_type",get_server_message_code(msg_type.value()));
-                o.print_key_int("msg_len", msg_data.length());
+                json_object r(o, get_server_message_code(msg_type.value()));
+                //o.print_key_char("msg_type",get_server_message_code(msg_type.value()));
+                r.print_key_int("msg_len", msg_data.length());
+                r.close();
                 o.close();
             }
         }
@@ -312,8 +324,10 @@ class pgsql_msg : public base_protocol {
 
         bool is_valid() { return msg_data.is_not_null(); };
 
-        void write_json(json_object &record, [[maybe_unused]]bool metadata ) {
-            record.print_key_string("msg_type", get_special_msg_type(tag.value()));
+        void write_json(json_array &record, [[maybe_unused]]bool metadata ) {
+            json_object o(record);
+            json_object r(o,"special_pkt");
+            r.print_key_string("msg_type", get_special_msg_type(tag.value()));
             if (startup) {
                 datum tmp = msg_data;
                 // while (tmp.is_not_empty()) {
@@ -332,8 +346,10 @@ class pgsql_msg : public base_protocol {
                 //     }
                 // }
                 if (tmp.is_not_empty()) {
-                    record.print_key_hex("msg_data",tmp);
+                    r.print_key_hex("msg_data",tmp);
                 }
+                r.close();
+                o.close();
                 return;
             }
         }
@@ -388,7 +404,9 @@ public:
         json_object pgsql_record(record,"pgsql");
         pgsql_record.print_key_bool("client",is_client);
         if (has_special_pkt) {
-            special_pkt.write_json(pgsql_record,metadata);
+            json_array msg_list_json (pgsql_record, "pgsql_pkts");
+            special_pkt.write_json(msg_list_json,metadata);
+            msg_list_json.close();
             pgsql_record.close();
             return;
         }
