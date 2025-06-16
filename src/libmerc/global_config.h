@@ -131,7 +131,7 @@ public:
     std::string crypto_assess_policy;
     bool reassembly = false;              /* reassemble protocol segments      */
     bool stats_blocking = false;          /* stats mode: lossless but blocking */
-    bool network_behavioral_detections = false; /* perform network behavorial detections */
+    bool network_behavioral_detections = false; /* perform network behavioral detections */
     fingerprint_format fp_format;    // default fingerprint format
     bool minimize_ram = false;
 

@@ -79,6 +79,13 @@ struct common_data {
     ssize_t res_proxy_idx = -1;
     bool doh_enabled = false;
     bool domain_faking_enabled = false;
+
+    void initialize_behavioral_detections() {
+        if (attr_name.is_accepting_new_names()) {
+            res_proxy_idx = attr_name.get_index("residential_proxy");
+            attr_name.stop_accepting_new_names();
+        }
+    }
 };
 
 
