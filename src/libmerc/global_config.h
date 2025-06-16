@@ -133,6 +133,7 @@ public:
     bool stats_blocking = false;          /* stats mode: lossless but blocking */
     bool network_behavioral_detections = false; /* perform network behavorial detections */
     fingerprint_format fp_format;    // default fingerprint format
+    bool minimize_ram = false;
 
     global_config() : libmerc_config(), reassembly{false}, network_behavioral_detections{false} {};
     global_config(const libmerc_config& c) : libmerc_config(c), reassembly{false}, network_behavioral_detections{false} {
@@ -288,6 +289,7 @@ static void setup_extended_fields(global_config* lc, const std::string& config) 
         {"stats-blocking", "", "", SETTER_FUNCTION(&lc){ lc->stats_blocking = true; }},
         {"raw-features", "", "", SETTER_FUNCTION(&lc){ lc->set_raw_features(s); }},
         {"crypto-assess", "", "", SETTER_FUNCTION(&lc){ lc->set_crypto_assess(s); }},
+        {"minimize-ram", "", "", SETTER_FUNCTION(&lc){ lc->minimize_ram = true; }}
     };
 
     parse_additional_options(options, config, *lc);
