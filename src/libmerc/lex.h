@@ -125,10 +125,42 @@ public:
 };
 
 class hex_digits : public one_or_more<hex_digits> {
-    public:
-        inline static bool in_class(uint8_t x) {
-            return (x >= '0' && x <= '9') || (x >= 'a' && x <= 'f') || (x >= 'A' && x <= 'F');
-        }
-    };
+public:
+    inline static bool in_class(uint8_t x) {
+        return (x >= '0' && x <= '9') || (x >= 'a' && x <= 'f') || (x >= 'A' && x <= 'F');
+    }
+};
 
+class alpha_numeric : public one_or_more<alpha_numeric> {
+public:
+    inline static bool in_class(uint8_t x) {
+        return std::isalnum(static_cast<unsigned char>(x));
+    }
+};
+
+template <uint8_t byte>
+class one_or_more_up_to_byte : public datum {
+public:
+    one_or_more_up_to_byte(datum &d) {
+        if (d.data == nullptr || d.data == d.data_end) {
+            d.set_null();
+            return;
+        }
+        const uint8_t *location = (const uint8_t *)memchr(d.data, byte, d.length());
+        if (location == nullptr) {
+            this->set_null();
+            d.set_null();
+        }
+        data_end = location;
+        data = d.data;
+        d.data = location;
+    }
+};
+
+class crlf {
+    literal_byte<'\r', '\n'> value;
+
+public:
+    crlf(struct datum &p) : value(p) { }
+};
 #endif // LEX_H

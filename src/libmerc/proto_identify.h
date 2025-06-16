@@ -48,39 +48,8 @@
 #include "gre.h"
 #include "geneve.hpp"
 #include "vxlan.hpp"
-
-enum tcp_msg_type {
-    tcp_msg_type_unknown = 0,
-    tcp_msg_type_http_request,
-    tcp_msg_type_http_response,
-    tcp_msg_type_tls_client_hello,
-    tcp_msg_type_tls_server_hello,
-    tcp_msg_type_tls_certificate,
-    tcp_msg_type_ssh,
-    tcp_msg_type_ssh_kex,
-    tcp_msg_type_smtp_client,
-    tcp_msg_type_smtp_server,
-    tcp_msg_type_dns,
-    tcp_msg_type_smb1,
-    tcp_msg_type_smb2,
-    tcp_msg_type_iec,
-    tcp_msg_type_dnp3,
-    tcp_msg_type_nbss,
-    tcp_msg_type_openvpn,
-    tcp_msg_type_bittorrent,
-    tcp_msg_type_mysql_server,
-    tcp_msg_type_mysql_login_request,
-    tcp_msg_type_tofsee_initial_message,
-    tcp_msg_type_socks4,
-    tcp_msg_type_socks5_hello,
-    tcp_msg_type_socks5_req_resp,
-    tcp_msg_type_ldap,
-    tcp_msg_type_rfb,
-    tcp_msg_type_tacacs,
-    tcp_msg_type_ftp_request,
-    tcp_msg_type_ftp_response,
-    tcp_msg_type_rdp,
-};
+#include "clear_proto.hpp"
+#include "lex.h"
 
 enum udp_msg_type {
     udp_msg_type_unknown = 0,
@@ -260,6 +229,9 @@ class traffic_selector {
     bool select_geneve{false};
     bool select_vxlan{false};
     bool select_mysql_login_request{false};
+    bool select_http_request{false};
+    bool select_http_response{false};
+    bool select_smtp{false};
 
 public:
 
@@ -317,6 +289,12 @@ public:
 
     bool mysql_login_request() const { return select_mysql_login_request; }
 
+    bool http_request() const { return select_http_request; }
+
+    bool http_response() const { return select_http_response; }
+
+    bool smtp() const { return select_smtp; }
+
     void disable_all() {
         tcp.disable_all();
         tcp4.disable_all();
@@ -350,6 +328,9 @@ public:
         select_geneve = false;
         select_vxlan = false;
         select_mysql_login_request = false;
+        select_http_request = false;
+        select_http_response = false;
+        select_smtp = false;
 
     }
 
@@ -384,11 +365,11 @@ public:
             tcp.add_protocol(ssh_kex_init::matcher, tcp_msg_type_ssh_kex);
         }
         if (protocols["smtp"] || protocols["all"]) {
-            tcp.add_protocol(smtp_client::matcher, tcp_msg_type_smtp_client);
             tcp.add_protocol(smtp_server::matcher, tcp_msg_type_smtp_server);
+            select_smtp = true;
         }
         if (protocols["rfb"] || protocols["all"]) {
-            tcp.add_protocol(rfb::protocol_version_handshake::matcher, tcp_msg_type_rfb);
+            select_rfb = true;
         }
         if (protocols["rdp"] || protocols["all"]) {
             select_rdp = true;
@@ -411,29 +392,20 @@ public:
         else if(protocols["ftp.request"])
         {
             select_ftp_request = true;
-            // tcp.add_protocol(ftp::request::user_matcher, tcp_msg_type_ftp_request);
-            // tcp.add_protocol(ftp::request::pass_matcher, tcp_msg_type_ftp_request);
-            // tcp.add_protocol(ftp::request::stor_matcher, tcp_msg_type_ftp_request);
-            // tcp.add_protocol(ftp::request::retr_matcher, tcp_msg_type_ftp_request);
-
         }
-        if (protocols["http"] || protocols["all"]) {
-            tcp.add_protocol(http_response::matcher, tcp_msg_type_http_response);  // note: must come before http_request::matcher
-            tcp.add_protocol(http_request::matcher, tcp_msg_type_http_request);
+        if (protocols["http"] || protocols["all"])
+        {
+            select_http_request = true;
+            select_http_response = true;
         }
         else if(protocols["http.request"])
         {
-            tcp.add_protocol(http_request::get_matcher, tcp_msg_type_http_request);
-            tcp.add_protocol(http_request::post_matcher, tcp_msg_type_http_request);
-            tcp.add_protocol(http_request::connect_matcher, tcp_msg_type_http_request);
-            tcp.add_protocol(http_request::put_matcher, tcp_msg_type_http_request);
-            tcp.add_protocol(http_request::head_matcher, tcp_msg_type_http_request);
+            select_http_request = true;
         }
         else if(protocols["http.response"])
         {
-            tcp.add_protocol(http_response::matcher, tcp_msg_type_http_response);
+            select_http_response = true;
         }
-
 
         // booleans not yet implemented
         //
@@ -598,7 +570,42 @@ public:
 
     }
 
-    size_t get_tcp_msg_type(datum &pkt) const {
+    const std::vector<tcp_msg_type>* get_tcp_clear_text_msg_type(datum pkt) const {
+        alpha_numeric clear_text{pkt};
+
+        if (clear_text.length()) {
+            return clear_text_protos::find_proto(clear_text.get_string());
+        }
+        return nullptr;
+    }
+
+    tcp_msg_type get_preference(const std::vector<tcp_msg_type>* protos, struct tcp_packet *tcp_pkt) {
+        if (protos and protos->size() == 1) {
+            return protos->front();
+        }
+
+        if (tcp_pkt == nullptr or tcp_pkt->header == nullptr) {
+            return tcp_msg_type_unknown;
+        }
+
+        enum tcp_msg_type type = tcp_msg_type_unknown;
+        switch(ntoh<uint16_t>(tcp_pkt->header->dst_port)) {
+            case 21:
+                type = tcp_msg_type_ftp_request;
+                break;
+            case 25:
+                type =  tcp_msg_type_smtp_client;
+                break;
+            default:
+                break;
+        }
+        if (std::find(protos->begin(), protos->end(), type) != protos->end()) {
+            return type;
+        } 
+        return tcp_msg_type_unknown;
+    }
+ 
+    size_t  get_tcp_msg_type(datum &pkt) const {
         size_t type = tcp.get_msg_type(pkt);
         if (type == tcp_msg_type_unknown)  {
             type = tcp4.get_msg_type(pkt);
@@ -669,11 +676,6 @@ public:
             return tcp_msg_type_ftp_response;
         }
 
-        if (ftp_request() and ((tcp_pkt->header->dst_port == hton<uint16_t>(21))))
-        {
-            return tcp_msg_type_ftp_request;
-        }
-
         if (tacacs() and (tcp_pkt->header->src_port == hton<uint16_t>(49) or tcp_pkt->header->dst_port == hton<uint16_t>(49)) ) {
             return tcp_msg_type_tacacs;
         }
@@ -692,3 +694,4 @@ public:
 };
 
 #endif /* PROTO_IDENTIFY_H */
+
