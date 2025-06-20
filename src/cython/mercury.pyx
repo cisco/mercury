@@ -433,7 +433,6 @@ cdef class Mercury:
 
         if is_faketls_util(ciphersuites_c):
             self.clf.set_faketls_attribute(ar)
-            self.clf.set_faketls_attribute(ar)
 
         attributes = self.extract_attributes(ar)
         if len(attributes) > 0:

@@ -70,7 +70,7 @@ class fp {
     
             // ignore "quic/" or "http/" prefix, if need be
             //
-            for (const auto &prefix : { std::string{"http/"}, std::string{"quic/"} }) {
+            for (const auto &prefix : { std::string{"http/"} }) {
                 if (!s.compare(0, prefix.length(), prefix)) {
                     fprintf(stderr, "note: ignoring %s fingerprint\n", prefix.c_str());
                     return;
@@ -83,21 +83,34 @@ class fp {
             std::string prefix = "tls/";
             if (!s.compare(0, prefix.length(), prefix)) {
                 c += prefix.length();
-            }
-    
-            // remove format version identifier, if need be
-            //
-            fprintf(stderr, "searching for / in %s\n", s.c_str());
-            size_t first_slash = s.find_first_of('/');
-            if (first_slash != std::string::npos) {
-                size_t second_slash = s.find_first_of('/', first_slash+1);
-                if (second_slash != std::string::npos) {
-                    s.erase(first_slash, second_slash - first_slash);
+                size_t first_slash = s.find_first_of('/');
+                if (first_slash != std::string::npos) {
+                    size_t second_slash = s.find_first_of('/', first_slash+1);
+                    if (second_slash != std::string::npos) {
+                        s.erase(first_slash, second_slash - first_slash);
+                    }
                 }
+                version = parse_value_from_str(&c);
+                ciphersuite_vector = parse_value_from_str(&c);
             }
     
-            version = parse_value_from_str(&c);
-            ciphersuite_vector = parse_value_from_str(&c);
+            // remove leading "quic/" prefix, if need be
+            //
+            prefix = "quic/";
+            if (!s.compare(0, prefix.length(), prefix)) {
+                c += prefix.length();
+                // remove format version identifier, if need be
+                size_t first_slash = s.find_first_of('/');
+                if (first_slash != std::string::npos) {
+                    size_t second_slash = s.find_first_of('/', first_slash+1);
+                    if (second_slash != std::string::npos) {
+                        s.erase(first_slash, second_slash - first_slash);
+                    }
+                }
+                version = parse_value_from_str(&c);
+                std::string temp = parse_value_from_str(&c);
+                ciphersuite_vector = parse_value_from_str(&c);
+            }
     
             if (*c++ == open) {
                 while (true) {
