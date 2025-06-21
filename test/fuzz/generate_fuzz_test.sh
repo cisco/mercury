@@ -50,6 +50,9 @@ done
 #specific_test="none"
 
 if [[ "$coverage_enabled" -eq "1" ]]; then
+    if [[ "$CFLAGS" == *"-O3"* ]]; then
+        CFLAGS=$(echo "$CFLAGS" | sed -E 's/(^| )-O3( |$)/ /g')
+    fi;
     flags+=" -fprofile-instr-generate -fcoverage-mapping -O0"
     LDFLAGS+=" -lgcov"
 fi;

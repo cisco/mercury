@@ -17,7 +17,11 @@ LDFLAGS = -g -ggdb -O3 -L/opt/homebrew/lib
 LDLIBS =
 
 ifeq ($(COVERAGE_ENABLED),1)
-CFLAGS += -fprofile-arcs --coverage -ggdb -O0
+ifeq ($(filter -O3, $(CFLAGS)), -O3)
+    CFLAGS := $(filter-out -O3,$(CFLAGS))
+	CFLAGS += -O0
+endif
+CFLAGS += -fprofile-arcs --coverage -ggdb -fprofile-update=atomic
 LDFLAGS += --coverage
 endif
 
