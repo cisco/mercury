@@ -68,7 +68,7 @@ class fp {
                 close = '>';
             }
     
-            // ignore "quic/" or "http/" prefix, if need be
+            // ignore "http/" prefix, if need be
             //
             for (const auto &prefix : { std::string{"http/"} }) {
                 if (!s.compare(0, prefix.length(), prefix)) {
