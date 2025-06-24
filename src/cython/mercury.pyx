@@ -226,14 +226,13 @@ fp_type_dict = {
 }
 
 def get_ciphersuites(fp):
-    # input:  tls/1/(0303)(c028c027c014c013009f009e009d009cc02cc02bc024c023c00ac009003d003c0035002f006a004000380032000a001300050004)[...]
-    # output: c028c027c014c013009f009e009d009cc02cc02bc024c023c00ac009003d003c0035002f006a004000380032000a001300050004
-
-    # input:  tls/1/(0303)(0eee661e7502166d484dda61a784f76f109324a1fc898087d19bcdbdf98f696a9b73ad40a087423aa5c7)[...]
-    # output: 0eee661e7502166d484dda61a784f76f109324a1fc898087d19bcdbdf98f696a9b73ad40a087423aa5c7
-
-    # input:  quic/(00000001)(0303)(0eee661e7502166d484dda61a784f76f109324a1fc898087d19bcdbdf98f696a9b73ad40a087423aa5c7)[...]
-    # output: 0eee661e7502166d484dda61a784f76f109324a1fc898087d19bcdbdf98f696a9b73ad40a087423aa5c7
+    """
+    Extracts the ciphersuites from a fingerprint string.
+    :param fp: fingerprint string
+    :type fp: str
+    :return: ciphersuites as a string
+    :rtype: str
+    """
 
     if fp.startswith('tls'):
         # split on the first parenthesis
