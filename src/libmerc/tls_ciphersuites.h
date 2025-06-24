@@ -1,3 +1,6 @@
+#ifndef MERCURY_TLS_CIPHERSUITES_H
+#define MERCURY_TLS_CIPHERSUITES_H
+
 #include "tls.h"
 
 inline bool is_faketls_util(const datum ciphersuite_vector) {
@@ -28,3 +31,5 @@ inline bool is_faketls_util(const datum ciphersuite_vector) {
 
     return false;
 }
+
+#endif
