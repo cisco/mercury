@@ -989,7 +989,7 @@ void tls_client_hello::compute_fingerprint(class fingerprint &fp, size_t format_
 }
 
 bool tls_client_hello::is_faketls() const {
-    return is_faketls_util(&ciphersuite_vector);
+    return is_faketls_util(ciphersuite_vector);
 }
 
 

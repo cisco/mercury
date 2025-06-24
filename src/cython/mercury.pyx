@@ -148,18 +148,8 @@ cdef extern from "../libmerc/watchlist.hpp":
             on
         string get_normalized_domain_name(detail detailed_output)
 
-cdef extern from "../fingerprint.h":
-    cdef struct char_pair:
-        pass
-
-    cdef cppclass fp:
-        pass
-
-    fp* fp_init(const char *s)
-    string fp_get_ciphersuite_vector(fp *fp_obj)
-
 cdef extern from "../libmerc/tls_ciphersuites.h":
-    bool is_faketls_util(const char * ciphersuites)
+    bool is_faketls_util(const datum ciphersuite_vector)
 
 
 cdef class server_identifier_py:
@@ -235,6 +225,34 @@ fp_type_dict = {
     12: 'quic',
 }
 
+def get_ciphersuites(fp):
+    # input:  tls/1/(0303)(c028c027c014c013009f009e009d009cc02cc02bc024c023c00ac009003d003c0035002f006a004000380032000a001300050004)[...]
+    # output: c028c027c014c013009f009e009d009cc02cc02bc024c023c00ac009003d003c0035002f006a004000380032000a001300050004
+
+    # input:  tls/1/(0303)(0eee661e7502166d484dda61a784f76f109324a1fc898087d19bcdbdf98f696a9b73ad40a087423aa5c7)[...]
+    # output: 0eee661e7502166d484dda61a784f76f109324a1fc898087d19bcdbdf98f696a9b73ad40a087423aa5c7
+
+    # input:  quic/(00000001)(0303)(0eee661e7502166d484dda61a784f76f109324a1fc898087d19bcdbdf98f696a9b73ad40a087423aa5c7)[...]
+    # output: 0eee661e7502166d484dda61a784f76f109324a1fc898087d19bcdbdf98f696a9b73ad40a087423aa5c7
+
+    if fp.startswith('tls'):
+        # split on the first parenthesis
+        parts = fp.split('(')
+        if len(parts) < 3:
+            return ''
+        # get the second part and remove the closing parenthesis
+        ciphersuites = parts[2].split(')')[0]
+        return ciphersuites
+    elif fp.startswith('quic'):
+        # split on the first parenthesis
+        parts = fp.split('(')
+        if len(parts) < 4:
+            return ''
+        # get the third part and remove the closing parenthesis
+        ciphersuites = parts[3].split(')')[0]
+        return ciphersuites
+    else:
+        return ''
 
 cdef class Mercury:
     """
@@ -413,26 +431,26 @@ cdef class Mercury:
         result['analysis']['p_malware'] = prob_malware
 
         cdef analysis_result ar = ac.result
-        
+
+        ciphersuites = get_ciphersuites(fp_string)
+        ciphersuites_str = ''.join([chr(int(ciphersuites[i:i+2], 16)) for i in range(0, len(ciphersuites), 2)])
+        cdef bytes ciphersuites_b = ciphersuites_str.encode()
+
+        cdef unsigned int len_ = len(ciphersuites_b)
+        cdef const unsigned char* c_string_ref = ciphersuites_b
+        cdef datum ciphersuites_datum = datum(c_string_ref, c_string_ref + len_)
+
+        if is_faketls_util(ciphersuites_datum):
+            self.clf.set_faketls_attribute(ar)
+
+        if ar.max_mal and fp_string.startswith('tls'):
+            self.clf.set_enc_channel_attribute(ar)
+
         if result['fingerprint_info']['status'] != 'unlabled':
             attributes = self.extract_attributes(ar)
             if len(attributes) > 0:
                 result['analysis']['attributes'] = attributes
-
             return result
-
-        cdef bytes fp_str_b = fp_string.encode()
-        cdef char* fp_str_c = fp_str_b
-
-        fp = fp_init(fp_str_c)
-        ciphersuites = fp_get_ciphersuite_vector(fp)
-        ciphersuites_str = str(ciphersuites)
-
-        cdef bytes ciphersuites_b = ciphersuites_str[2:-1].encode()
-        cdef char* ciphersuites_c = ciphersuites_b
-
-        if is_faketls_util(ciphersuites_c):
-            self.clf.set_faketls_attribute(ar)
 
         attributes = self.extract_attributes(ar)
         if len(attributes) > 0:
@@ -472,14 +490,15 @@ cdef class Mercury:
             ar.attr.initialize(&(self.clf.get_common_data().attr_name.value()), self.clf.get_common_data().attr_name.get_names_char())
         self.clf.check_additional_attributes_util(ar, server_name_c, dst_ip_c)
 
-        fp = fp_init(fp_str_c)
-        ciphersuites = fp_get_ciphersuite_vector(fp)
-        ciphersuites_str = str(ciphersuites)
+        ciphersuites = get_ciphersuites(fp_str)
+        ciphersuites_str = ''.join([chr(int(ciphersuites[i:i+2], 16)) for i in range(0, len(ciphersuites), 2)])
+        cdef bytes ciphersuites_b = ciphersuites_str.encode()
 
-        cdef bytes ciphersuites_b = ciphersuites_str[2:-1].encode()
-        cdef char* ciphersuites_c = ciphersuites_b
+        cdef unsigned int len_ = len(ciphersuites_b)
+        cdef const unsigned char* c_string_ref = ciphersuites_b
+        cdef datum ciphersuites_datum = datum(c_string_ref, c_string_ref + len_)
 
-        if is_faketls_util(ciphersuites_c):
+        if is_faketls_util(ciphersuites_datum):
             self.clf.set_faketls_attribute(ar)
 
         if ar.max_mal and fp_str.startswith('tls'):
