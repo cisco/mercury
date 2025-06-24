@@ -126,7 +126,7 @@ test-coverage:
 	mkdir -p coverage
 
 	$(MAKE)
-	make clean > /dev/null
+	make clean-helper > /dev/null
 	$(MAKE) --directory=src COVERAGE_ENABLED=1 use_fsanitize=no run_unit_test > /dev/null
 	lcov -q --directory . --capture --output-file ./coverage/mercury_unit_tests_1.info
 	echo "Successfully created coverage file for unit tests!"
