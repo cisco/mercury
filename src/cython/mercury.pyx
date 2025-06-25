@@ -148,7 +148,7 @@ cdef extern from "../libmerc/watchlist.hpp":
             on
         string get_normalized_domain_name(detail detailed_output)
 
-cdef extern from "../libmerc/tls_ciphersuites.h":
+cdef extern from "../libmerc/tls.h":
     bool is_faketls_util(const datum ciphersuite_vector)
 
 
