@@ -152,6 +152,14 @@ test-coverage:
 	echo "Successfully created coverage file for other unit tests!"
 	make clean-helper > /dev/null
 
+	lcov --add-tracefile ./coverage/mercury_unit_tests_1.info --add-tracefile ./coverage/mercury_libmerc_driver_tls_only.info --add-tracefile ./coverage/mercury_libmerc_driver_multiprotocol.info --add-tracefile ./coverage/mercury_unit_tests_2.info --output-file ./coverage/mercury_total.info 2>&1 | grep -v "function data mismatch"
+	lcov -q --remove ./coverage/mercury_total.info '/usr/include/*' '*/src/libmerc/rapidjson/*' '*/unit_tests/*' -o ./coverage/mercury_filtered_coverage.info
+	genhtml --no-function-coverage --output-directory coverage_html_report ./coverage/mercury_filtered_coverage.info
+	echo "Successfully created coverage report!"
+
+.PHONY: test-coverage-fuzz
+test-coverage-fuzz: test-coverage
+
 	$(MAKE) --directory=test COVERAGE_ENABLED=1 fuzz-test > /dev/null
 	find . -name "*.profraw" | xargs -I {} sh -c 'llvm-profdata merge -sparse "{}" -o $$(dirname "{}")/default.profdata'
 	find . -name "*exec" | xargs -I {} sh -c 'llvm-cov export -format=lcov --instr-profile $$(dirname "{}")/default.profdata {} > $$(dirname "{}")/default.info'
@@ -160,10 +168,10 @@ test-coverage:
 	echo "Successfully created coverage file for fuzz tests!!"
 	make clean-helper > /dev/null
 
-	lcov --add-tracefile ./coverage/mercury_unit_tests_1.info --add-tracefile ./coverage/mercury_libmerc_driver_tls_only.info --add-tracefile ./coverage/mercury_libmerc_driver_multiprotocol.info --add-tracefile ./coverage/mercury_unit_tests_2.info --add-tracefile ./coverage/mercury_fuzz_test_1.info --add-tracefile ./coverage/mercury_fuzz_test_2.info --output-file ./coverage/mercury_total.info 2>&1 | grep -v "function data mismatch"
-	lcov -q --remove ./coverage/mercury_total.info '/usr/include/*' '*/src/libmerc/rapidjson/*' '*/unit_tests/*' '*/test/fuzz/*' -o ./coverage/mercury_filtered_coverage.info
-	genhtml --no-function-coverage --output-directory coverage_html_report ./coverage/mercury_filtered_coverage.info
-	echo "Successfully created coverage report!"
+	lcov --add-tracefile ./coverage/mercury_fuzz_test_1.info --add-tracefile ./coverage/mercury_fuzz_test_2.info --add-tracefile ./coverage/mercury_filtered_coverage.info --output-file ./coverage/mercury_total_with_fuzz.info 2>&1 | grep -v "function data mismatch"
+	lcov -q --remove ./coverage/mercury_total_with_fuzz.info '/usr/include/*'  '*/src/libmerc/rapidjson/*' '*/test/fuzz/*' -o ./coverage/mercury_filtered_coverage_with_fuzz.info
+	genhtml --no-function-coverage --output-directory coverage_html_report_with_fuzz ./coverage/mercury_filtered_coverage_with_fuzz.info
+	echo "Successfully created coverage report with fuzz tests"
 
 .PHONY: test_strict
 test_strict:
@@ -206,7 +214,7 @@ ifneq ($(wildcard src/Makefile), src/Makefile)
 else
 	$(MAKE) clean-helper
 	rm -rf doc/latex
-	rm -rf coverage coverage_html_report
+	rm -rf coverage coverage_html_report coverage_html_report_with_fuzz
 	rm -rf coverage
 endif
 
