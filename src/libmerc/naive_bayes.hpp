@@ -84,6 +84,11 @@ public:
                     //  map "unknown" values in classes_ip_as to zero
                     //
                     add_update(0, process_index, y.value.GetUint64(), total_count);
+                } else if (strcmp(itr->name.GetString(), "classes_user_agent") == 0 && strcmp(y.name.GetString(), "None") == 0) {
+                    //
+                    // map "None" values in classes_user_agent to the empty string
+                    //
+                    add_update(convert(""), process_index, y.value.GetUint64(), total_count);
                 } else {
                     add_update(convert(y.name.GetString()), process_index, y.value.GetUint64(), total_count);
                 }
@@ -124,6 +129,18 @@ public:
             for (const auto &x : u->second) {
                 assert(x.index < prob_vector.size());
                 prob_vector[x.index] += x.value;
+            }
+        }
+    }
+
+    // apply a naive bayes feature update to prob_vector, using a custom weight \param w
+    //
+    void update(std::vector<floating_point_type> &prob_vector, const T &value, floating_point_type w) const {
+        auto u = updates.find(value);
+        if (u != updates.end()) {
+            for (const auto &x : u->second) {
+                assert(x.index < prob_vector.size());
+                prob_vector[x.index] += x.value * (w / weight);
             }
         }
     }
@@ -294,6 +311,26 @@ public:
             if (ip_ip_update != ipv6_updates.end()) {
                 for (const auto &x : ip_ip_update->second) {
                     prob_vector[x.index] += x.value;
+                }
+            }
+        } else {
+            printf_err(log_err, "unknown type destination ip %s\n", dst_ip_str.c_str());
+        }
+    }
+
+    void update(std::vector<floating_point_type> &prob_vector, const std::string &dst_ip_str, floating_point_type w) const {
+        if (lookahead<ipv4_address_string> ipv4{datum{dst_ip_str}}) {
+            auto ip_ip_update = ipv4_updates.find(ipv4.value.get_value());
+            if (ip_ip_update != ipv4_updates.end()) {
+                for (const auto &x : ip_ip_update->second) {
+                    prob_vector[x.index] += x.value * (w / weight);
+                }
+            }
+        } else if (lookahead<ipv6_address_string> ipv6{datum{dst_ip_str}}) {
+            auto ip_ip_update = ipv6_updates.find(ipv6.value.get_value_array());
+            if (ip_ip_update != ipv6_updates.end()) {
+                for (const auto &x : ip_ip_update->second) {
+                    prob_vector[x.index] += x.value * (w / weight);
                 }
             }
         } else {
@@ -478,6 +515,39 @@ public:
         }
     }
 
+    /// updates the probability vector \param process_score based on
+    /// the feature \param server_name_str, using the custom weights
+    /// \param w_domain and \param w_sni
+    ///
+    void update(std::vector<floating_point_type> &process_score,
+                const std::string &server_name_str,
+                floating_point_type w_domain,
+                floating_point_type w_sni
+                ) const
+    {
+
+        std::string domain = get_tld_domain_name(server_name_str.c_str());
+
+        auto hostname_domain_update = hostname_domain_updates.find(domain);
+        if (hostname_domain_update != hostname_domain_updates.end()) {
+            for (const auto &x : hostname_domain_update->second) {
+                assert(x.index < process_score.size());
+                process_score[x.index] += x.value * (w_domain / domain_weight);
+            }
+        }
+
+        server_identifier server_id{server_name_str};
+        std::string normalized_server_name_str = server_id.get_normalized_domain_name(server_identifier::detail::on);
+
+        auto hostname_sni_update = hostname_sni_updates.find(normalized_server_name_str);
+        if (hostname_sni_update != hostname_sni_updates.end()) {
+            for (const auto &x : hostname_sni_update->second) {
+                assert(x.index < process_score.size());
+                process_score[x.index] += x.value * (w_sni / sni_weight);
+            }
+        }
+    }
+
     /// get_tld_domain_name() returns the string containing the top two
     /// domains of the input string; that is, given "s3.amazonaws.com",
     /// it returns "amazonaws.com".  If there is only one name, it is
@@ -565,13 +635,26 @@ struct feature_weights {
 class naive_bayes {
 
     std::vector<floating_point_type> prior_prob;  // vector of prior probabilities
+    floating_point_type base_prior;
 
 public:
 
     std::vector<floating_point_type> get_prior_prob() const { return prior_prob; }
 
+    std::vector<floating_point_type> get_prior_prob(floating_point_type new_weight_sum, floating_point_type old_weight_sum) {
+        if (new_weight_sum == old_weight_sum) {
+            return get_prior_prob();
+        }
+
+        for (auto &p: prior_prob) {
+            p = p + base_prior * new_weight_sum - base_prior * old_weight_sum;
+        }
+
+        return get_prior_prob();
+    }
+
     void add_class(size_t count, size_t total_count, floating_point_type weight_sum=1.0) {
-        floating_point_type base_prior = log(0.1 / total_count);
+        base_prior = log(0.1 / total_count);
         floating_point_type proc_prior = log(.1);
         floating_point_type prob_process_given_fp = (floating_point_type)count / total_count;
         floating_point_type score = log(prob_process_given_fp);
@@ -596,11 +679,19 @@ public:
 
 };
 
-#define DONT_USE_DST_ADDR
-
 /// implements a (possibly weighted) naive bayes classifier
 ///
 class naive_bayes_tls_quic_http : public naive_bayes {
+
+    domain_name_model domain_name;
+    feature<uint16_t> dst_port_feature;
+    ip_addr_feature dst_addr_feature;
+    feature<uint32_t> asn_feature;
+    feature<std::string> user_agent_feature;
+    bool minimize_ram;
+    const feature_weights &weights;
+
+public:
 
     static constexpr feature_weights default_weights {
         0.13924, // as_weight
@@ -611,25 +702,22 @@ class naive_bayes_tls_quic_http : public naive_bayes {
         1.0      // ua_weight
     };
 
-    domain_name_model domain_name;
-    feature<uint16_t> dst_port_feature;
-    ip_addr_feature dst_addr_feature;
-    feature<uint32_t> asn_feature;
-    feature<std::string> user_agent_feature;
-
 public:
 
     /// constructs a naive_bayes classifier by reading a JSON array
     ///
     naive_bayes_tls_quic_http(const rapidjson::Value &process_info,
                               size_t total_count,
-                              const feature_weights &w = default_weights
+                              bool _minimize_ram,
+                              const feature_weights &w
                               ) :
         domain_name{"classes_hostname_domains","classes_hostname_sni",w.domain, w.sni},
         dst_port_feature{"classes_port_port", w.port},
         dst_addr_feature{"classes_ip_ip", w.ip},
         asn_feature{"classes_ip_as", w.as},
-        user_agent_feature{"classes_user_agent", w.ua}
+        user_agent_feature{"classes_user_agent", w.ua},
+        minimize_ram{_minimize_ram},
+        weights{w}
     {
 
         size_t index = 0;   // zero-based index of process in probability vector
@@ -646,9 +734,9 @@ public:
                 dst_port_feature.add_updates_from_object_by_name(x, index, total_count);
                 asn_feature.add_updates_from_object_by_name(x, index, total_count);
                 user_agent_feature.add_updates_from_object_by_name(x, index, total_count, true);
-#ifndef DONT_USE_DST_ADDR
-                dst_addr_feature.add_updates_from_object_by_name(x, index, total_count);
-#endif
+                if (!minimize_ram) {
+                    dst_addr_feature.add_updates_from_object_by_name(x, index, total_count);
+                }
             }
 
             // construct vector of prior probabilities
@@ -664,22 +752,43 @@ public:
                                               uint16_t dst_port,
                                               const std::string &server_name_str,
                                               const std::string &dst_ip_str,
-                                              const char *user_agent
+                                              const std::string &user_agent
                                               ) const {
 
         std::vector<floating_point_type> process_score = get_prior_prob();  // working copy of probability vector
 
         asn_feature.update(process_score, asn_int);
         dst_port_feature.update(process_score, dst_port);
-#ifndef DONT_USE_DST_ADDR
-        dst_addr_feature.update(process_score, dst_ip_str);
-#else
-        (void)dst_ip_str;   // suppress compiler warnings
-#endif
-        if (user_agent != nullptr) {
-            user_agent_feature.update(process_score, user_agent);
+        if (minimize_ram) {
+            (void)dst_ip_str;   // suppress compiler warnings
+        } else {
+            dst_addr_feature.update(process_score, dst_ip_str);
         }
+        user_agent_feature.update(process_score, user_agent);
         domain_name.update(process_score, server_name_str);
+
+        return process_score;
+    }
+
+    std::vector<floating_point_type> classify(uint32_t asn_int,
+                                              uint16_t dst_port,
+                                              const std::string &server_name_str,
+                                              const std::string &dst_ip_str,
+                                              const std::string &user_agent,
+                                              const feature_weights &w        // custom feature weights
+                                              ) {
+
+        std::vector<floating_point_type> process_score = get_prior_prob(w.sum(), weights.sum());  // working copy of probability vector
+
+        asn_feature.update(process_score, asn_int, w.as);
+        dst_port_feature.update(process_score, dst_port, w.port);
+        if (minimize_ram) {
+            (void)dst_ip_str;
+        } else { 
+            dst_addr_feature.update(process_score, dst_ip_str, w.ip);
+        }
+        user_agent_feature.update(process_score, user_agent, w.ua);
+        domain_name.update(process_score, server_name_str, w.domain, w.sni);
 
         return process_score;
     }
