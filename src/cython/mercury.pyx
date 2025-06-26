@@ -7,6 +7,7 @@ from base64 import b64decode
 from libcpp.unordered_map cimport unordered_map
 from libcpp.vector cimport vector
 from libcpp.string cimport string
+from libcpp.vector cimport vector
 from libcpp cimport bool
 from libc.stdio cimport *
 from libc.stdint cimport *
@@ -100,7 +101,9 @@ cdef extern from "../libmerc/libmerc.h":
 cdef extern from "../libmerc/result.h":
     cdef cppclass attribute_result:
         void write_json(char *buffer, int buffer_size)
-    cdef cppclass analysis_result:
+        bool is_initialized()
+        void initialize (const vector[string] *_tag_names, const char *const *names_char)
+    cdef class analysis_result:
         fingerprint_status status
         char max_proc[256]
         long double max_score
@@ -112,14 +115,28 @@ cdef extern from "../libmerc/result.h":
         vector[double] normalized_process_scores
     cdef struct analysis_context:
         analysis_result result
+    cdef cppclass attribute_names:
+        const vector[string] &value()
+        const char* const* get_names_char()
+
+        
 
 
 cdef extern from "../libmerc/analysis.h":
     classifier *analysis_init_from_archive(int verbosity, const char *archive_name, const uint8_t *enc_key, enc_key_type key_type,
                                            float fp_proc_threshold, float proc_dst_threshold, bool report_os);
+    
+    cdef struct common_data:
+        attribute_names attr_name;
+
     cdef cppclass classifier:
         detailed_analysis_result perform_detailed_analysis(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port, const char *user_agent)
         analysis_result perform_analysis(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port, const char *user_agent)
+        const common_data &get_common_data()
+        void check_additional_attributes_util(analysis_result &result, const char *server_name, const char *dst_ip)
+        void set_faketls_attribute(analysis_result &result)
+        void set_enc_channel_attribute(analysis_result &result)
+
 
         analysis_result perform_analysis_with_weights(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port, const char *user_agent,
                                  double new_as_weight, double new_domain_weight,
@@ -135,6 +152,9 @@ cdef extern from "../libmerc/watchlist.hpp":
             off=0,
             on
         string get_normalized_domain_name(detail detailed_output)
+
+cdef extern from "../libmerc/tls.h":
+    bool is_faketls_util(const datum ciphersuite_vector)
 
 
 cdef class server_identifier_py:
@@ -210,6 +230,33 @@ fp_type_dict = {
     12: 'quic',
 }
 
+def get_ciphersuites(fp):
+    """
+    Extracts the ciphersuites from a fingerprint string.
+    :param fp: fingerprint string
+    :type fp: str
+    :return: ciphersuites as a string
+    :rtype: str
+    """
+
+    if fp.startswith('tls'):
+        # split on the first parenthesis
+        parts = fp.split('(')
+        if len(parts) < 3:
+            return ''
+        # get the second part and remove the closing parenthesis
+        ciphersuites = parts[2].split(')')[0]
+        return ciphersuites
+    elif fp.startswith('quic'):
+        # split on the first parenthesis
+        parts = fp.split('(')
+        if len(parts) < 4:
+            return ''
+        # get the third part and remove the closing parenthesis
+        ciphersuites = parts[3].split(')')[0]
+        return ciphersuites
+    else:
+        return ''
 
 cdef class Mercury:
     """
@@ -387,7 +434,29 @@ cdef class Mercury:
         result['analysis']['malware']   = is_malware
         result['analysis']['p_malware'] = prob_malware
 
-        attributes = self.extract_attributes(ac.result)
+        cdef analysis_result ar = ac.result
+
+        ciphersuites = get_ciphersuites(fp_string)
+        ciphersuites_str = ''.join([chr(int(ciphersuites[i:i+2], 16)) for i in range(0, len(ciphersuites), 2)])
+        cdef bytes ciphersuites_b = ciphersuites_str.encode()
+
+        cdef unsigned int len_ = len(ciphersuites_b)
+        cdef const unsigned char* c_string_ref = ciphersuites_b
+        cdef datum ciphersuites_datum = datum(c_string_ref, c_string_ref + len_)
+
+        if is_faketls_util(ciphersuites_datum):
+            self.clf.set_faketls_attribute(ar)
+
+        if ar.max_mal and fp_string.startswith('tls'):
+            self.clf.set_enc_channel_attribute(ar)
+
+        if result['fingerprint_info']['status'] != 'unlabled':
+            attributes = self.extract_attributes(ar)
+            if len(attributes) > 0:
+                result['analysis']['attributes'] = attributes
+            return result
+
+        attributes = self.extract_attributes(ar)
         if len(attributes) > 0:
             result['analysis']['attributes'] = attributes
 
@@ -449,6 +518,23 @@ cdef class Mercury:
         cdef char* dst_ip_c = dst_ip_b
 
         cdef analysis_result ar = self.clf.perform_analysis(fp_str_c, server_name_c, dst_ip_c, dst_port, '')
+        if ar.attr.is_initialized() == False:
+            ar.attr.initialize(&(self.clf.get_common_data().attr_name.value()), self.clf.get_common_data().attr_name.get_names_char())
+        self.clf.check_additional_attributes_util(ar, server_name_c, dst_ip_c)
+
+        ciphersuites = get_ciphersuites(fp_str)
+        ciphersuites_str = ''.join([chr(int(ciphersuites[i:i+2], 16)) for i in range(0, len(ciphersuites), 2)])
+        cdef bytes ciphersuites_b = ciphersuites_str.encode()
+
+        cdef unsigned int len_ = len(ciphersuites_b)
+        cdef const unsigned char* c_string_ref = ciphersuites_b
+        cdef datum ciphersuites_datum = datum(c_string_ref, c_string_ref + len_)
+
+        if is_faketls_util(ciphersuites_datum):
+            self.clf.set_faketls_attribute(ar)
+
+        if ar.max_mal and fp_str.startswith('tls'):
+            self.clf.set_enc_channel_attribute(ar)
 
         cdef fingerprint_status fp_status_enum = ar.status
         fp_status = fp_status_dict[fp_status_enum]
@@ -641,6 +727,7 @@ cdef class Mercury:
         cdef char* user_agent_c = user_agent_b
 
         cdef analysis_result ar = self.clf.perform_analysis(fp_str_c, server_name_c, dst_ip_c, dst_port, user_agent_c)
+        self.clf.check_additional_attributes_util(ar, server_name_c, dst_ip_c)
 
         cdef fingerprint_status fp_status_enum = ar.status
         fp_status = fp_status_dict[fp_status_enum]

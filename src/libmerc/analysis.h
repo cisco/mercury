@@ -514,13 +514,26 @@ public:
         const char* server_name = analysis.destination.sn_str;
         const char* dst_ip = analysis.destination.dst_ip_str;
 
+        check_additional_attributes_util(analysis.result, server_name, dst_ip);
+    }
+
+    void check_additional_attributes_util(analysis_result &result, const char* server_name, const char* dst_ip) {
+
         if (common.doh_enabled && ((common.doh_watchlist.contains(server_name) || common.doh_watchlist.contains_addr(dst_ip)))) {
-            analysis.result.attr.set_attr(common.doh_idx, 1.0);
+            result.attr.set_attr(common.doh_idx, 1.0);
         }
 
         if (common.domain_faking_enabled && subnets.is_domain_faking(server_name, dst_ip)) {
-            analysis.result.attr.set_attr(common.domain_faking_idx, 1.0);
+            result.attr.set_attr(common.domain_faking_idx, 1.0);
         }
+    }
+
+    void set_faketls_attribute(analysis_result &result) {
+        result.attr.set_attr(common.faketls_idx, 1.0);
+    }
+
+    void set_enc_channel_attribute(analysis_result &result) {
+        result.attr.set_attr(common.enc_channel_idx, result.malware_prob);
     }
 
     void process_watchlist_line(std::string &line_str) {
