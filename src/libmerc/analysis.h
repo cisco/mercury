@@ -154,7 +154,6 @@ public:
             std::vector<struct os_information> os_info_vector;
             if (report_os && x.HasMember("os_info") && x["os_info"].IsObject()) {
                 for (auto &y : x["os_info"].GetObject()) {
-                    fprintf(stderr, "os_info_vector: adding %s\n", y.name.GetString());
                     if (std::string(y.name.GetString()) != "") {
                         const char *os = os_dictionary.get(y.name.GetString());
                         struct os_information tmp{(char *)os, y.value.GetUint64()};
