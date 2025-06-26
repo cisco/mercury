@@ -103,7 +103,7 @@ cdef extern from "../libmerc/result.h":
         void write_json(char *buffer, int buffer_size)
         bool is_initialized()
         void initialize (const vector[string] *_tag_names, const char *const *names_char)
-    cdef class analysis_result:
+    cdef cppclass analysis_result:
         fingerprint_status status
         char max_proc[256]
         long double max_score
