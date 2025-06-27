@@ -186,7 +186,7 @@ namespace asn1 {
                         FILE *f=nullptr) {
         if (lhs != rhs) {
             if (f) {
-                fprintf(stderr, "error: test case mismatch\n");
+                fprintf(f, "error: test case mismatch\n");
                 fprintf(f, "computed: { ");
                 for (const auto &x : lhs) {
                     fprintf(f, "0x%02x, ", x);

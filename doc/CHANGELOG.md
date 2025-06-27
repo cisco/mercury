@@ -1,5 +1,7 @@
 # CHANGELOG for Mercury
 
+* Removed some direct calls to `fprintf(stderr, ...)` from `libmerc.so`.
+
 ## VERSION 2.7.1
 * Updated QUIC reassembly logic for reordered QUIC crypto frames
 * Refactored the IP subnet reading code to minimize the amount of
