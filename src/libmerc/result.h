@@ -281,6 +281,30 @@ public:
     }
 };
 
+struct detailed_analysis_result : public analysis_result {
+
+    std::vector<std::string> process_names;
+    std::vector<double> normalized_process_scores;
+
+    detailed_analysis_result(): analysis_result() {}
+
+    detailed_analysis_result(fingerprint_status s): analysis_result(s) {}
+
+    detailed_analysis_result(fingerprint_status s, long double mal_prob,
+                             std::vector<std::string>& _process_names,
+                             std::vector<double>& _normalized_process_scores): analysis_result(s) {
+        malware_prob = mal_prob;
+        process_names = _process_names;
+        normalized_process_scores = _normalized_process_scores;
+    }
+
+    void reinit() {
+        analysis_result::reinit();
+        process_names.clear();
+        normalized_process_scores.clear();
+    }
+};
+
 
 // helper functions and constants
 
