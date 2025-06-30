@@ -94,6 +94,8 @@ check_result () {
 # report if struct/class has fuzz_test() but dir does not exist
 exec_testcase () {
     dir_name=$1;
+    fuzz_type=$3;
+
     #check for specific testcase case option
     if [[ "$specific_test" != "none" ]]; then
         if [[ "$specific_test" != $dir_name ]]; then
@@ -114,13 +116,35 @@ exec_testcase () {
     # generate the test .cc file
     echo "" > "fuzz_test_$dir_name.c"
     #echo "#include ../$LIBMERC_FOLDER/$2.h"
+
 cat <<EOF >> "fuzz_test_$dir_name.c"
 #include "../$LIBMERC_FOLDER$2"
+EOF
+
+if [[ "$fuzz_type" == "one" ]]; then
+cat <<EOF >> "fuzz_test_$dir_name.c"
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size) {
     return ${dir_name}_fuzz_test(Data, Size);
 }
 EOF
+
+elif [[ "$fuzz_type" == "two" ]]; then
+cat <<EOF >> "fuzz_test_$dir_name.c"
+
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size) {
+    size_t mid = Size / 2;
+    
+    const uint8_t *Data1 = Data;
+    size_t Size1 = mid;
+
+    const uint8_t *Data2 = Data + mid;
+    size_t Size2 = Size - mid;
+
+    return ${dir_name}_fuzz_2_test(Data1, Size1, Data2, Size2);
+}
+EOF
+fi;
 
     # make fuzz_test
     $CXX -g -O0 -fno-omit-frame-pointer -x c++ -std=c++17 -fsanitize=fuzzer,address,leak ${flags} -I../../src/libmerc -Wno-narrowing -Wno-deprecated-declarations $LDFLAGS -L./.. "fuzz_test_$dir_name.c" -l:libmerc.a -lssl -lcrypto -lz -o "fuzz_${dir_name}_exec"
@@ -161,13 +185,22 @@ cp ./libmerc.a $parent_path/.
 for header in *.h *.hpp; do
     echo "check $header for test function"
     total_headers=$((total_headers+1))
-    result=$(grep -oE "\s(.+)_fuzz_test.*[^;]$" $header)
+
+    result1=$(grep -oE "\s(.+)_fuzz_test.*[^;]$" $header)
     while read -r line; do
         class=$(echo $line | grep -oE "\s(.+)_fuzz_test" | sed -nr 's/.* (.+)_fuzz_test/\1/p')
         echo "$class :"
-        exec_testcase "$class" "$header"
+        exec_testcase "$class" "$header" "one"
         total_test_function=$((total_test_function+1));
-    done < <(echo "$result" | grep -v "^$")
+    done < <(echo "$result1" | grep -v "^$")
+
+    result2=$(grep -oE "\s(.+)_fuzz_2_test.*[^;]$" $header)
+    while read -r line; do
+        class=$(echo $line | grep -oE "\s(.+)_fuzz_2_test" | sed -nr 's/.* (.+)_fuzz_2_test/\1/p')
+        echo "$class :"
+        exec_testcase "$class" "$header" "two"
+        total_test_function=$((total_test_function+1));
+    done < <(echo "$result2" | grep -v "^$")
 
 done
 
@@ -175,9 +208,9 @@ done
 wait
 
 for header in *.h *.hpp; do
-    result=$(grep -oE "\s(.+)_fuzz_test.*[^;]$" $header)
+    result=$(grep -oE "\s(.+)(_fuzz_test|_fuzz_2_test).*[^;]$" $header)
     while read -r line; do
-        class=$(echo $line | grep -oE "\s(.+)_fuzz_test" | sed -nr 's/.* (.+)_fuzz_test/\1/p')
+        class=$(echo $line | grep -oE "\s(.+)(_fuzz_test|_fuzz_2_test)" | sed -nr 's/.* (.+)(_fuzz_test|_fuzz_2_test)/\1/p')
         check_result "$class" "$header"
     done < <(echo "$result" | grep -v "^$")
 

@@ -190,4 +190,12 @@ namespace tftp {
 
 } // namespace tftp
 
+namespace {
+
+    [[maybe_unused]] inline int tftp_packet_fuzz_test(const uint8_t *data, size_t size) {
+        return json_output_fuzzer<tftp::packet>(data, size);
+    }
+
+};
+
 #endif // TFTP_HPP

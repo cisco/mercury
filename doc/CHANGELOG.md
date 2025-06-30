@@ -10,6 +10,9 @@
   the RAM usage of mercury library when enabled
 * Added changes to allow classifier to use custom weights
   and introduced new cython interface
+* Added additional fuzz tests. Updated the `generate_fuzz_test.sh` script to
+  support generating fuzz functions that test functions requiring two fuzzed inputs. 
+  Also hardened some datum functions.
 
 ## VERSION 2.7.0
 * Added minimal RDP (Remote Desktop Protocol) support, which
