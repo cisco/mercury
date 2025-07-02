@@ -441,7 +441,7 @@ struct datum {
     ///     assert(d.cmp(d) == 0);
     ///
     int cmp(const datum &p) const {
-        int cmp = (::memcmp)(data, p.data, (std::min)(length(), p.length()));
+        int cmp = ::memcmp(data, p.data, (std::min)(length(), p.length()));
         if (cmp == 0) {
             return length() - p.length();
         }
@@ -812,7 +812,7 @@ struct datum {
 
     int compare(const void *x, ssize_t x_len) {
         if (data && length() == x_len) {
-            return (::memcmp)(x, data, x_len);
+            return ::memcmp(x, data, x_len);
         }
         return (std::numeric_limits<int>::min)();
     }

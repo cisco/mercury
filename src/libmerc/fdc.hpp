@@ -34,7 +34,7 @@ namespace cbor_fingerprint {
         }
     };
 
-    static void fprint(FILE *f, datum &d) {
+    inline void fprint(FILE *f, datum &d) {
         while (lookahead<cbor::initial_byte> ib{d}) {
             if (ib.value.is_byte_string()) {
                 cbor::byte_string bs = cbor::byte_string::decode(d);
@@ -55,13 +55,13 @@ namespace cbor_fingerprint {
         }
     }
 
-    static void encode_cbor_data(datum &d, writeable &w) {
+    inline void encode_cbor_data(datum &d, writeable &w) {
         literal_byte<'('>{d};
         cbor::byte_string_from_hex{hex_digits{d}}.write(w);
         literal_byte<')'>{d};
     }
 
-    static void encode_cbor_list(datum &d, writeable &w) {
+    inline void encode_cbor_list(datum &d, writeable &w) {
         literal_byte<'('>{d};
         cbor::output::array a{w};
         while(lookahead<encoded<uint8_t>> c{d}) {
@@ -81,7 +81,7 @@ namespace cbor_fingerprint {
         unsorted = false
     };
 
-    static void encode_cbor_sorted_list(datum &d, writeable &w, array_type sorted=array_type::sorted) {
+    inline void encode_cbor_sorted_list(datum &d, writeable &w, array_type sorted=array_type::sorted) {
         if (sorted) {
             literal_byte<'['>{d};
         } else {
@@ -118,7 +118,7 @@ namespace cbor_fingerprint {
         }
     }
 
-    static void encode_cbor_tls_fingerprint(datum d, writeable &w) {
+    inline void encode_cbor_tls_fingerprint(datum d, writeable &w) {
         cbor::output::map m{w};
 
         if (lookahead<literal_byte<'r', 'a', 'n', 'd', 'o', 'm', 'i', 'z', 'e', 'd'>> peek{d}) {
@@ -153,7 +153,7 @@ namespace cbor_fingerprint {
         m.close();
      }
 
-    static void encode_cbor_http_fingerprint(datum d, writeable &w) {
+    inline void encode_cbor_http_fingerprint(datum d, writeable &w) {
         cbor::output::map m{w};
         if (lookahead<literal_byte<'('>>{d}) {
             cbor::uint64{0}.write(m);      // fingerprint version
@@ -171,7 +171,7 @@ namespace cbor_fingerprint {
         m.close();
     }
 
-    static void encode_cbor_quic_fingerprint(datum d, writeable &w) {
+    inline void encode_cbor_quic_fingerprint(datum d, writeable &w) {
         cbor::output::map m{w};
         if (lookahead<literal_byte<'('>>{d}) {
             cbor::uint64{0}.write(m);      // fingerprint version
@@ -209,7 +209,7 @@ namespace cbor_fingerprint {
         return 0;
     }
 
-    static void encode_cbor_tofsee_fingerprint(datum d, writeable &w) {
+    inline void encode_cbor_tofsee_fingerprint(datum d, writeable &w) {
         cbor::output::map m{w};
         if (lookahead<literal_byte<'1', '/'>> version_one{d}) {
             d = version_one.advance();
@@ -221,7 +221,7 @@ namespace cbor_fingerprint {
         }
     }
 
-    static void encode_cbor_fingerprint(datum d, writeable &w) {
+    inline void encode_cbor_fingerprint(datum d, writeable &w) {
         fingerprint_type fp_type = fingerprint_type_unknown;
         if (lookahead<literal_byte<'t', 'l', 's', '/'>> tls{d}) {
             fp_type = fingerprint_type_tls;
@@ -259,7 +259,7 @@ namespace cbor_fingerprint {
         // fprintf(stderr, "fingerprint type %d\n", fp_type);
     }
 
-    static void decode_cbor_data(datum &d, writeable &w) {
+    inline void decode_cbor_data(datum &d, writeable &w) {
         cbor::byte_string data = cbor::byte_string::decode(d);
         //        if (d.is_null()) { return; }
         w.copy('(');
@@ -267,7 +267,7 @@ namespace cbor_fingerprint {
         w.copy(')');
     }
 
-    static void decode_cbor_list(datum &d, writeable &w) {
+    inline void decode_cbor_list(datum &d, writeable &w) {
         cbor::array a{d};
         w.copy('(');
         while (a.value().is_not_empty()) {
@@ -282,7 +282,7 @@ namespace cbor_fingerprint {
         a.close();
     }
 
-    static void decode_cbor_sorted_list(datum &d, writeable &w) {
+    inline void decode_cbor_sorted_list(datum &d, writeable &w) {
         char open = '(';
         char close = ')';
         if (lookahead<cbor::tag> tag{d}) {
@@ -311,7 +311,7 @@ namespace cbor_fingerprint {
         cbor::initial_byte{d};
     }
 
-    static void decode_http_fp(datum &d, writeable &w) {
+    inline void decode_http_fp(datum &d, writeable &w) {
         cbor::map m{d};
         cbor::uint64 format_version{m.value()};
         if (format_version.value() == 0) {
@@ -330,7 +330,7 @@ namespace cbor_fingerprint {
         m.close();
     }
 
-    static void decode_tls_fp(datum &d, writeable &w) {
+    inline void decode_tls_fp(datum &d, writeable &w) {
         cbor::map m{d};
         cbor::uint64 format_version{m.value()};
         if (format_version.value() == 0) {
@@ -358,7 +358,7 @@ namespace cbor_fingerprint {
         m.close();
     }
 
-    static void decode_quic_fp(datum &d, writeable &w) {
+    inline void decode_quic_fp(datum &d, writeable &w) {
         cbor::map m{d};
         cbor::uint64 format_version{m.value()};
         if (format_version.value() == 0) {
@@ -378,7 +378,7 @@ namespace cbor_fingerprint {
         m.close();
     }
 
-    static void decode_tofsee_fp(datum &d, writeable &w) {
+    inline void decode_tofsee_fp(datum &d, writeable &w) {
         cbor::map m{d};
         cbor::uint64 format_version{m.value()};
         if (format_version.value() == 1) {
@@ -391,7 +391,7 @@ namespace cbor_fingerprint {
         m.close();
     }
 
-    static void decode_fp(unsigned int fp_type,
+    inline void decode_fp(unsigned int fp_type,
                    datum &d,
                    writeable &w) {
 
@@ -416,7 +416,7 @@ namespace cbor_fingerprint {
 
     }
 
-    static void decode_cbor_fingerprint(datum &d, writeable &w) {
+    inline void decode_cbor_fingerprint(datum &d, writeable &w) {
 
         cbor::map m{d};
         if (m.value().is_readable()) {
@@ -703,7 +703,7 @@ private:
 
 };
 
-static std::string get_json_decoded_fdc(const char *fdc_blob, ssize_t blob_len) {
+[[maybe_unused]] static std::string get_json_decoded_fdc(const char *fdc_blob, ssize_t blob_len) {
     datum fdc_data = datum{(uint8_t*)fdc_blob,(uint8_t*)(fdc_blob+blob_len)};
     static const size_t MAX_FP_STR_LEN     = 4096;
     char fp_str[MAX_FP_STR_LEN];
