@@ -36,6 +36,7 @@ CFLAGS += -I/opt/homebrew/include
 CXXFLAGS += -I/opt/homebrew/include
 LDFLAGS += -L/opt/homebrew/lib
 endif
+CFLAGS += -I./xsimd/include
 
 # libmerc.so performs selective packet parsing and fingerprint extraction
 # LIBMERC and LIBMERC_H hold the core source and header files,
@@ -57,6 +58,14 @@ LIBMERC     += asn1/oid.cc
 LIBMERC 	+= config_generator.cc
 LIBMERC     += smb2.cc
 LIBMERC     += bencode.cc
+ifeq ($(platform), intel)
+LIBMERC     += softmax_avx.cc
+LIBMERC     += softmax_avx2.cc
+LIBMERC     += softmax_sse2.cc
+endif
+ifeq ($(platform), arm)
+LIBMERC     += softmax_neon.cc
+endif
 LIBMERC     += $(PYANALYSIS)
 
 LIBMERC_H   =  addr.h
@@ -101,6 +110,7 @@ LIBMERC_H   += bencode.h
 LIBMERC_H   += bittorrent.h
 LIBMERC_H   += tls_extensions.h
 LIBMERC_H   += naive_bayes.hpp
+LIBMERC_H   += softmax.hpp
 
 # asn1/oid.cc and asn1/oid.h are auto-built from ASN1 files in the
 # asn1 subdirectory; this is a pattern target that builds both files
@@ -138,8 +148,16 @@ minor=$(subst .,,$(shell cat ../../VERSION | grep -o "\.[0-9]*\."))
 patch=$(shell cat ../../VERSION | grep -o "[0-9]*$$")
 version=$(major).$(minor).$(patch)
 MSV ="-DMERCURY_SEMANTIC_VERSION=$(major),$(minor),$(patch)"
+ifeq ($(platform), intel)
+softmax_sse2.o: softmax_sse2.cc
+	$(CXX) $(CFLAGS) -msse2 -c $< -o $@
 
+softmax_avx.o: softmax_avx.cc
+	$(CXX) $(CFLAGS) -mavx -c $< -o $@
 
+softmax_avx2.o: softmax_avx2.cc
+	$(CXX) $(CFLAGS) -mavx2 -c $< -o $@
+endif
 # rule to build library
 #
 LIBMERC_OBJ = $(LIBMERC:%.cc=%.o)

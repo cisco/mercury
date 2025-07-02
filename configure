@@ -656,6 +656,7 @@ USE_FSANITIZE
 USE_NO_GNU_UNIQUE
 IS_MACOS_ARM
 IS_MACOS
+PLATFORM
 host_os
 host_vendor
 host_cpu
@@ -4657,6 +4658,27 @@ shift; shift
 host_os=$*
 IFS=$ac_save_IFS
 case $host_os in *\ *) host_os=`echo "$host_os" | sed 's/ /-/g'`;; esac
+
+
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for platform architecture" >&5
+printf %s "checking for platform architecture... " >&6; }
+case "$host_cpu" in
+    i?86 | x86_64)
+        PLATFORM="intel"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: Intel-compatible ($host_cpu)" >&5
+printf "%s\n" "Intel-compatible ($host_cpu)" >&6; }
+        ;;
+    arm* | aarch64)
+        PLATFORM="arm"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: ARM-compatible ($host_cpu)" >&5
+printf "%s\n" "ARM-compatible ($host_cpu)" >&6; }
+        ;;
+    *)
+        PLATFORM="unknown"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: Unknown architecture: $host_cpu" >&5
+printf "%s\n" "$as_me: WARNING: Unknown architecture: $host_cpu" >&2;}
+        ;;
+esac
 
 
 # Update lib and include paths for Apple Silicon
