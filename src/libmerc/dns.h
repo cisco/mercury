@@ -110,6 +110,20 @@
  * \endverbatim
  */
 
+#ifdef _WIN32
+/** DNS header structure */
+#pragma pack(1)
+typedef struct {
+    uint16_t id;
+    uint16_t flags;
+    uint16_t qdcount;
+    uint16_t ancount;
+    uint16_t nscount;
+    uint16_t arcount;
+} dns_hdr;
+#pragma pack()
+#else
+
 #if CPU_IS_BIG_ENDIAN
 
 /** DNS header structure */
@@ -134,7 +148,9 @@ typedef struct {
     uint16_t arcount;
 } __attribute__((__packed__)) dns_hdr;
 
-#endif
+#endif // CPU_IS_BIG_ENDIAN
+
+#endif // ifdef _WIN32
 
 enum class dns_rr_type : uint16_t {
     unknown  = 0,

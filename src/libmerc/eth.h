@@ -28,6 +28,27 @@ struct eth_addr : public datum {
 
 #define ETH_ADDR_LEN 6
 
+#ifdef _WIN32
+#pragma pack(1)
+struct eth_hdr {
+    uint8_t  dhost[ETH_ADDR_LEN];
+    uint8_t  shost[ETH_ADDR_LEN];
+    uint16_t ether_type;
+};
+
+struct eth_dot1q_tag {
+    uint16_t tci;
+    uint16_t ether_type;
+};
+
+struct eth_dot1ad_tag {
+    uint16_t inner_tci;
+    uint16_t ether_type;
+};
+#pragma pack()
+
+#else
+
 struct eth_hdr {
   uint8_t  dhost[ETH_ADDR_LEN];
   uint8_t  shost[ETH_ADDR_LEN];
@@ -43,6 +64,8 @@ struct eth_dot1ad_tag {
     uint16_t inner_tci;
     uint16_t ether_type;
 } __attribute__ ((__packed__));
+
+#endif // #ifdef _WIN32
 
 #define MPLS_HDR_LEN 4
 #define MPLS_BOTTOM_OF_STACK 0x100

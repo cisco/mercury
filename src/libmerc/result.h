@@ -9,6 +9,7 @@
 #define RESULT_H
 
 #include <stdbool.h>
+#include <algorithm>
 #include "libmerc.h"
 #include "json_object.h"
 #include "addr.h"
@@ -80,7 +81,7 @@ public:
             return;
         }
 
-        struct buffer_stream buf{(char *)buffer, buffer_size};
+        struct buffer_stream buf{(char *)buffer, (int)buffer_size};
         struct json_object record{&buf};
         write_json(record);
         record.close();
@@ -349,6 +350,14 @@ struct destination_context {
         alpn_length = alpn.length();
     }
 
+    void reset() {
+        dst_ip_str[0] = '\0';
+        sn_str[0] = '\0';
+        ua_str[0] = '\0';
+        alpn_array[0] = 0;
+        alpn_length = 0;
+        dst_port = 0;
+    }
 
 };
 

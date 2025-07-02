@@ -34,7 +34,7 @@ namespace cbor_fingerprint {
         }
     };
 
-    void fprint(FILE *f, datum &d) {
+    inline void fprint(FILE *f, datum &d) {
         while (lookahead<cbor::initial_byte> ib{d}) {
             if (ib.value.is_byte_string()) {
                 cbor::byte_string bs = cbor::byte_string::decode(d);
@@ -55,13 +55,13 @@ namespace cbor_fingerprint {
         }
     }
 
-    void encode_cbor_data(datum &d, writeable &w) {
+    inline void encode_cbor_data(datum &d, writeable &w) {
         literal_byte<'('>{d};
         cbor::byte_string_from_hex{hex_digits{d}}.write(w);
         literal_byte<')'>{d};
     }
 
-    void encode_cbor_list(datum &d, writeable &w) {
+    inline void encode_cbor_list(datum &d, writeable &w) {
         literal_byte<'('>{d};
         cbor::output::array a{w};
         while(lookahead<encoded<uint8_t>> c{d}) {
@@ -81,7 +81,7 @@ namespace cbor_fingerprint {
         unsorted = false
     };
 
-    void encode_cbor_sorted_list(datum &d, writeable &w, array_type sorted=array_type::sorted) {
+    inline void encode_cbor_sorted_list(datum &d, writeable &w, array_type sorted=array_type::sorted) {
         if (sorted) {
             literal_byte<'['>{d};
         } else {
@@ -118,7 +118,7 @@ namespace cbor_fingerprint {
         }
     }
 
-    void encode_cbor_tls_fingerprint(datum d, writeable &w) {
+    inline void encode_cbor_tls_fingerprint(datum d, writeable &w) {
         cbor::output::map m{w};
 
         if (lookahead<literal_byte<'r', 'a', 'n', 'd', 'o', 'm', 'i', 'z', 'e', 'd'>> peek{d}) {
@@ -153,7 +153,7 @@ namespace cbor_fingerprint {
         m.close();
      }
 
-    void encode_cbor_http_fingerprint(datum d, writeable &w) {
+    inline void encode_cbor_http_fingerprint(datum d, writeable &w) {
         cbor::output::map m{w};
         if (lookahead<literal_byte<'('>>{d}) {
             cbor::uint64{0}.write(m);      // fingerprint version
@@ -171,7 +171,7 @@ namespace cbor_fingerprint {
         m.close();
     }
 
-    void encode_cbor_quic_fingerprint(datum d, writeable &w) {
+    inline void encode_cbor_quic_fingerprint(datum d, writeable &w) {
         cbor::output::map m{w};
         if (lookahead<literal_byte<'('>>{d}) {
             cbor::uint64{0}.write(m);      // fingerprint version
@@ -209,7 +209,7 @@ namespace cbor_fingerprint {
         return 0;
     }
 
-    void encode_cbor_tofsee_fingerprint(datum d, writeable &w) {
+    inline void encode_cbor_tofsee_fingerprint(datum d, writeable &w) {
         cbor::output::map m{w};
         if (lookahead<literal_byte<'1', '/'>> version_one{d}) {
             d = version_one.advance();
@@ -221,12 +221,12 @@ namespace cbor_fingerprint {
         }
     }
 
-    void encode_cbor_fingerprint(datum d, writeable &w) {
+    inline void encode_cbor_fingerprint(datum d, writeable &w) {
         fingerprint_type fp_type = fingerprint_type_unknown;
         if (lookahead<literal_byte<'t', 'l', 's', '/'>> tls{d}) {
             fp_type = fingerprint_type_tls;
             cbor::output::map m{w};
-            cbor::uint64{fp_type}.write(w);
+            cbor::uint64{(uint64_t)fp_type}.write(w);
             d = tls.advance();
             encode_cbor_tls_fingerprint(d, m);
             m.close();
@@ -234,7 +234,7 @@ namespace cbor_fingerprint {
         } else if (lookahead<literal_byte<'h', 't', 't', 'p', '/'>> http{d}) {
             fp_type = fingerprint_type_http;
             cbor::output::map m{w};
-            cbor::uint64{fp_type}.write(w);
+            cbor::uint64{(uint64_t)fp_type}.write(w);
             d = http.advance();
             encode_cbor_http_fingerprint(d, w);
             m.close();
@@ -242,7 +242,7 @@ namespace cbor_fingerprint {
         } else if (lookahead<literal_byte<'q', 'u', 'i', 'c', '/'>> quic{d}) {
             fp_type = fingerprint_type_quic;
             cbor::output::map m{w};
-            cbor::uint64{fp_type}.write(w);
+            cbor::uint64{(uint64_t)fp_type}.write(w);
             d = quic.advance();
             encode_cbor_quic_fingerprint(d, w);
             m.close();
@@ -250,7 +250,7 @@ namespace cbor_fingerprint {
         } else if (lookahead<literal_byte<'t', 'o', 'f', 's', 'e', 'e', '/'>> tofsee{d}) {
             fp_type = fingerprint_type_tofsee;
             cbor::output::map m{w};
-            cbor::uint64{fp_type}.write(w);
+            cbor::uint64{(uint64_t)fp_type}.write(w);
             d = tofsee.advance();
             encode_cbor_tofsee_fingerprint(d, w);
             m.close();
@@ -259,7 +259,7 @@ namespace cbor_fingerprint {
         // fprintf(stderr, "fingerprint type %d\n", fp_type);
     }
 
-    void decode_cbor_data(datum &d, writeable &w) {
+    inline void decode_cbor_data(datum &d, writeable &w) {
         cbor::byte_string data = cbor::byte_string::decode(d);
         //        if (d.is_null()) { return; }
         w.copy('(');
@@ -267,7 +267,7 @@ namespace cbor_fingerprint {
         w.copy(')');
     }
 
-    void decode_cbor_list(datum &d, writeable &w) {
+    inline void decode_cbor_list(datum &d, writeable &w) {
         cbor::array a{d};
         w.copy('(');
         while (a.value().is_not_empty()) {
@@ -282,7 +282,7 @@ namespace cbor_fingerprint {
         a.close();
     }
 
-    void decode_cbor_sorted_list(datum &d, writeable &w) {
+    inline void decode_cbor_sorted_list(datum &d, writeable &w) {
         char open = '(';
         char close = ')';
         if (lookahead<cbor::tag> tag{d}) {
@@ -311,7 +311,7 @@ namespace cbor_fingerprint {
         cbor::initial_byte{d};
     }
 
-    void decode_http_fp(datum &d, writeable &w) {
+    inline void decode_http_fp(datum &d, writeable &w) {
         cbor::map m{d};
         cbor::uint64 format_version{m.value()};
         if (format_version.value() == 0) {
@@ -330,7 +330,7 @@ namespace cbor_fingerprint {
         m.close();
     }
 
-    void decode_tls_fp(datum &d, writeable &w) {
+    inline void decode_tls_fp(datum &d, writeable &w) {
         cbor::map m{d};
         cbor::uint64 format_version{m.value()};
         if (format_version.value() == 0) {
@@ -358,7 +358,7 @@ namespace cbor_fingerprint {
         m.close();
     }
 
-    void decode_quic_fp(datum &d, writeable &w) {
+    inline void decode_quic_fp(datum &d, writeable &w) {
         cbor::map m{d};
         cbor::uint64 format_version{m.value()};
         if (format_version.value() == 0) {
@@ -378,7 +378,7 @@ namespace cbor_fingerprint {
         m.close();
     }
 
-    void decode_tofsee_fp(datum &d, writeable &w) {
+    inline void decode_tofsee_fp(datum &d, writeable &w) {
         cbor::map m{d};
         cbor::uint64 format_version{m.value()};
         if (format_version.value() == 1) {
@@ -391,7 +391,7 @@ namespace cbor_fingerprint {
         m.close();
     }
 
-    void decode_fp(unsigned int fp_type,
+    inline void decode_fp(unsigned int fp_type,
                    datum &d,
                    writeable &w) {
 
@@ -416,7 +416,7 @@ namespace cbor_fingerprint {
 
     }
 
-    void decode_cbor_fingerprint(datum &d, writeable &w) {
+    inline void decode_cbor_fingerprint(datum &d, writeable &w) {
 
         cbor::map m{d};
         if (m.value().is_readable()) {
@@ -458,7 +458,7 @@ namespace cbor_fingerprint {
     // cbor_fingerprint::unit_test() returns `true` if all unit tests
     // pass, `false` otherwise
     //
-    static bool unit_test(FILE *f=nullptr) {
+    [[maybe_unused]] static bool unit_test(FILE *f=nullptr) {
 
         // example fingerprints
         //
@@ -479,6 +479,31 @@ namespace cbor_fingerprint {
     }
 };
 
+// define types of reassembly or truncation possible in the FDC object.
+// Currently has "none", reassembled, "truncated", and "reassembled_truncated"
+// With L7 support, there may be a need to specify the truncated elements like "tls_cert"
+enum class truncation_status : uint64_t {
+    none = 0,
+    reassembled = 1,
+    truncated = 2,
+    reassembled_truncated = 3,
+    max = 4
+};
+
+static const char* const trunc_str[(uint64_t)truncation_status::max] = {
+    "none",
+    "reassembled",
+    "truncated",
+    "reassembled_truncated"
+};
+
+static const char* get_truncation_str(truncation_status status) {
+    if ((uint64_t)status < (uint64_t)truncation_status::max) {
+        return trunc_str[(uint64_t)status];
+    }
+    return "unknown";
+}
+
 /// represents a fingerprint and destination context
 ///
 class fdc {
@@ -487,6 +512,7 @@ class fdc {
     cbor::text_string domain_name;
     cbor::text_string dst_ip_str;
     cbor::uint64 dst_port;
+    cbor::uint64 truncation;
     bool valid;
 
 public:
@@ -497,12 +523,14 @@ public:
         const char *ua,
         const char *name,
         const char *d_ip,
-        uint16_t d_port) :
+        uint16_t d_port,
+        truncation_status status) :
         fingerprint{fp},
         user_agent{ua},
         domain_name{name},
         dst_ip_str{d_ip},
         dst_port{d_port},
+        truncation{(uint64_t)status},
         valid{
             fingerprint.is_not_null()
             and domain_name.is_valid()
@@ -525,6 +553,7 @@ public:
         dst_ip_str.write(a);
         dst_port.write(a);
         user_agent.write(a);
+        truncation.write(a);
         a.close();
         m.close();
         return !w.is_null();
@@ -537,7 +566,8 @@ public:
                        writeable &&sn_str,
                        writeable &&dst_ip_str,
                        uint16_t &dst_port,
-                       writeable &&ua_str)
+                       writeable &&ua_str,
+                       uint64_t &truncation )
     {
         cbor::map m{d};
         cbor::uint64 fdc_version{d};
@@ -551,6 +581,7 @@ public:
         dst_ip_str << cbor::text_string::decode(a).value() << '\0';
         dst_port = cbor::uint64::decode_max(a, 0xffff).value();
         ua_str << cbor::text_string::decode(a).value() << '\0';
+        truncation = cbor::uint64::decode_max(a, 0xffff).value();
         a.close();
         m.close();
 
@@ -573,21 +604,39 @@ public:
         //
         const char *tls_fp = "tls/1/(0301)(c014c00a00390038c00fc0050035c012c00800160013c00dc003000ac013c00900330032c00ec004002fc011c007c00cc002000500040015001200090014001100080006000300ff)[(0000)(000a00340032000100020003000400050006000700080009000a000b000c000d000e000f0010001100120013001400150016001700180019)(000b000403000102)(0023)]";
         const char *http_fp = "http/(434f4e4e454354)(485454502f312e31)((486f7374)(557365722d4167656e74))";
-        static constexpr size_t num_tests = 2;
+        static constexpr size_t num_tests = 4;
         fdc fdc_object[num_tests]{
             {
                 datum{tls_fp},
                 nullptr,
                 "npmjs.org",
                 "104.16.30.34",
-                443
+                443,
+                truncation_status::none
             },
             {
                 datum{http_fp},
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
                 "clientservices.googleapis.com:443",
                 "72.163.217.105",
-                80
+                80,
+                truncation_status::none
+            },
+            {
+                datum{tls_fp},
+                nullptr,
+                "npmjs.org",
+                "104.16.30.34",
+                443,
+                truncation_status::truncated
+            },
+            {
+                datum{http_fp},
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+                "clientservices.googleapis.com:443",
+                "72.163.217.105",
+                80,
+                truncation_status::reassembled_truncated
             }
         };
         for (size_t i = 0; i < num_tests; i++){
@@ -607,13 +656,15 @@ public:
             char sn_str[MAX_SNI_LEN];
             char ua_str[MAX_USER_AGENT_LEN];
             uint16_t dst_port;
+            uint64_t truncation;
 
             bool decoding_ok = fdc::decode(encoded_fdc,
                                            writeable{(uint8_t*)fp_str, MAX_FP_STR_LEN},
                                            writeable{(uint8_t*)sn_str, MAX_SNI_LEN},
                                            writeable{(uint8_t*)dst_ip_str, MAX_ADDR_STR_LEN},
                                            dst_port,
-                                           writeable{(uint8_t*)ua_str, MAX_USER_AGENT_LEN});
+                                           writeable{(uint8_t*)ua_str, MAX_USER_AGENT_LEN},
+                                           truncation );
             if (decoding_ok == false) {
                 return false;
             }
@@ -621,7 +672,8 @@ public:
                             ua_str,
                             sn_str,
                             dst_ip_str,
-                            dst_port);
+                            dst_port,
+                            (truncation_status)truncation);
 
             // compare the decoded_fdc to the original one; the test
             // passes only if they are equal
@@ -651,7 +703,7 @@ private:
 
 };
 
-std::string get_json_decoded_fdc(const char *fdc_blob, ssize_t blob_len) {
+[[maybe_unused]] static std::string get_json_decoded_fdc(const char *fdc_blob, ssize_t blob_len) {
     datum fdc_data = datum{(uint8_t*)fdc_blob,(uint8_t*)(fdc_blob+blob_len)};
     static const size_t MAX_FP_STR_LEN     = 4096;
     char fp_str[MAX_FP_STR_LEN];
@@ -659,6 +711,7 @@ std::string get_json_decoded_fdc(const char *fdc_blob, ssize_t blob_len) {
     char sn_str[MAX_SNI_LEN];
     char ua_str[MAX_USER_AGENT_LEN];
     uint16_t dst_port;
+    uint64_t truncation;
 
     char buffer[8192];
     struct buffer_stream buf_json(buffer, sizeof(buffer));
@@ -669,7 +722,8 @@ std::string get_json_decoded_fdc(const char *fdc_blob, ssize_t blob_len) {
                           writeable{(uint8_t*)sn_str, MAX_SNI_LEN},
                           writeable{(uint8_t*)dst_ip_str, MAX_ADDR_STR_LEN},
                           dst_port,
-                          writeable{(uint8_t*)ua_str, MAX_USER_AGENT_LEN});
+                          writeable{(uint8_t*)ua_str, MAX_USER_AGENT_LEN},
+                          truncation);
     if (ok) {
         json_object fdc_json(record,"fdc");
         fdc_json.print_key_string("fingerprint",fp_str);
@@ -677,6 +731,7 @@ std::string get_json_decoded_fdc(const char *fdc_blob, ssize_t blob_len) {
         fdc_json.print_key_string("dst_ip_str",dst_ip_str);
         fdc_json.print_key_int("dst_port",dst_port);
         fdc_json.print_key_string("user_agent",ua_str);
+        fdc_json.print_key_string("truncation",get_truncation_str(((truncation_status)truncation)));
         fdc_json.close();
         record.close();
         buf_json.write_char('\0');  // null terminate

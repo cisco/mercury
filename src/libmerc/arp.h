@@ -12,7 +12,10 @@
 #include "ip_address.hpp"
 
 class arp_packet {
-
+#ifdef _WIN32
+// TODO: REFACTOR to use encoded<>
+#pragma pack(1)
+#endif
     struct header {
         uint16_t hardware_type;
         uint16_t protocol_type;
@@ -60,7 +63,13 @@ class arp_packet {
             return "unknown";
         }
 
-    } __attribute__((__packed__));
+    }
+#ifdef _WIN32
+    ;
+#pragma pack()
+#else
+    __attribute__((__packed__));
+#endif
 
 
 

@@ -260,7 +260,7 @@ public:
     bittorrent_peer_message(datum &d) :
         message_length{d},
         message_type{d},
-        message{d, message_length - 1},
+        message{d, (ssize_t)(message_length - 1)},
         valid{d.is_not_null()}
     {
     }

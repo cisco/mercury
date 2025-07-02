@@ -427,7 +427,7 @@ struct tlv {
     //
     explicit tlv(uint8_t tag_, datum value_) :
         tag{tag_},
-        length{value_.length()},
+        length{value_.length() > 0 ? (uint64_t)value_.length() : 0},    // TODO : reflect 0 len TLV as failure
         value{value_}
     { }
 
@@ -500,10 +500,10 @@ struct tlv {
 
         size_t total = 0;
         if (length <= 127) {
-            buf << encoded<uint8_t>{length};
+            buf << encoded<uint8_t>{(uint8_t)length};
             total += 1;
         } else {
-            buf << encoded<uint8_t>{0x80 | (length_of_length_field(length) - 1)};
+            buf << encoded<uint8_t>{(uint8_t)(0x80 | (length_of_length_field(length) - 1))};
             total += 1;
             size_t tmp = length;
             if (tmp >= 0x1000000) {

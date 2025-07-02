@@ -18,7 +18,6 @@
 #include "lex.h"
 #include "ip_address.hpp"
 
-
 // From Section 2.1 of RFC 1123:
 //
 //     If a dotted-decimal number can be entered without such
@@ -167,6 +166,7 @@ using host_identifier = std::variant<std::monostate, ipv4_t, ipv6_array_t, dns_n
 /// Returns a \ref host_identifier constructed by parsing the text
 /// string in a datum.
 ///
+
 static inline host_identifier host_identifier_constructor(datum d) {
 
     if (d.is_null()            // null line
@@ -191,11 +191,11 @@ static inline host_identifier host_identifier_constructor(datum d) {
         d = ipv4.advance();
         return ipv4.value.get_value();
 
+
     }
     if (lookahead<ipv6_address_string> ipv6{d}) {
         d = ipv6.advance();
         return ipv6.value.get_value_array();
-
     } else {
         printf_err(log_warning, "invalid host identifier string\n");
     }
@@ -591,7 +591,8 @@ public:
         datum d = get_datum(addr);
         if (lookahead<ipv4_address_string> ipv4{d}) {
             return contains(ipv4.value.get_value());
-        } else if (lookahead<ipv6_address_string> ipv6{d}) {
+        }
+        else if (lookahead<ipv6_address_string> ipv6{d}) {
             return contains(ipv6.value.get_value_array());
         }
         return false;
@@ -638,11 +639,13 @@ public:
             dns_names.insert(dns.value.get_string());
             d = dns.advance();
 
-        } else if (lookahead<ipv6_address_string> ipv6{d}) {
+        }
+        else if (lookahead<ipv6_address_string> ipv6{d}) {
+            // fprintf(stdout, "ipv6_address_string:\t");  ipv6.value.print();
             ipv6_addrs.insert(ipv6.value.get_value_array());
             d = ipv6.advance();
-
-        } else {
+        }
+        else {
             if (verbose) { printf_err(log_warning, "warning: invalid line in watchlist::process_line\n"); }
             return false;
         }

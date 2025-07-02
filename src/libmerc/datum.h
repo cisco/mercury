@@ -14,7 +14,14 @@
 #include <inttypes.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
+#ifdef _WIN32
+#include <io.h>
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t;
+#else
 #include <unistd.h>
+#endif
 #include <array>
 #include <vector>
 #include <bitset>
@@ -42,6 +49,9 @@
 /// `uint64_t` integers.
 ///
 
+#ifndef HAVE_HTON_DEF
+#define HAVE_HTON_DEF
+
 #ifdef _WIN32
 
 static constexpr bool host_little_endian = true;
@@ -49,17 +59,17 @@ static constexpr bool host_little_endian = true;
 /// returns an integer equal to x with its byte order reversed (from
 /// little endian to big endian or vice-versa)
 ///
-inline static constexpr uint16_t swap_byte_order(uint16_t x) { return _byteswap_ushort(x); }
+inline static uint16_t swap_byte_order(uint16_t x) { return _byteswap_ushort(x); }
 
 /// returns an integer equal to x with its byte order reversed (from
 /// little endian to big endian or vice-versa)
 ///
-inline static constexpr uint32_t swap_byte_order(uint32_t x) { return _byteswap_ulong(x); }
+inline static  uint32_t swap_byte_order(uint32_t x) { return _byteswap_ulong(x); }
 
 /// returns an integer equal to x with its byte order reversed (from
 /// little endian to big endian or vice-versa)
 ///
-inline static constexpr uint64_t swap_byte_order(uint64_t x) { return _byteswap_uint64(x); }
+inline static uint64_t swap_byte_order(uint64_t x) { return _byteswap_uint64(x); }
 
 #else
 
@@ -89,8 +99,13 @@ inline static constexpr uint64_t swap_byte_order(uint64_t x) { return __builtin_
 /// template function `ntoh(x)` returns an unsigned integer in host
 /// byte order with the same type and value.
 ///
+#ifdef _WIN32
+template <typename T>
+inline static T ntoh(T x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
+#else
 template <typename T>
 inline static constexpr T ntoh(T x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
+#endif
 
 /// when `x` is in host byte order, `hton(x)` returns the value of `x`
 /// in network byte order
@@ -105,9 +120,15 @@ inline static constexpr T ntoh(T x) { if (host_little_endian) { return swap_byte
 /// The specialization must be used because otherwise a compiler error
 /// will result from amiguity over the integer type.
 ///
+#ifdef _WIN32
+template <typename T>
+inline static T hton(T x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
+#else
 template <typename T>
 inline static constexpr T hton(T x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
+#endif
 
+#endif
 /// @} -- end of integeroperations
 
 /// returns the lowercase ASCII character corresponding to `x`, if `x`
@@ -426,7 +447,7 @@ struct datum {
     ///     assert(d.cmp(d) == 0);
     ///
     int cmp(const datum &p) const {
-        int cmp = ::memcmp(data, p.data, std::min(length(), p.length()));
+        int cmp = ::memcmp(data, p.data, (std::min)(length(), p.length()));
         if (cmp == 0) {
             return length() - p.length();
         }
@@ -800,7 +821,7 @@ struct datum {
         if (data && length() == x_len) {
             return ::memcmp(x, data, x_len);
         }
-        return std::numeric_limits<int>::min();
+        return (std::numeric_limits<int>::min)();
     }
 
     bool compare_nbytes(const void *x, ssize_t x_len) {

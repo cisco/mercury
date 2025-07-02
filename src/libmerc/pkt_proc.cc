@@ -9,7 +9,9 @@
 #include <variant>
 #include <set>
 #include <tuple>
+#ifndef _WIN32
 #include <netinet/in.h>
+#endif
 
 #include "libmerc.h"
 #include "pkt_proc.h"
@@ -69,6 +71,7 @@
 #include "tftp.hpp"
 #include "ppoe.hpp"
 #include "vxlan.hpp"
+#include "fdc.hpp"
 
 // double malware_prob_threshold = -1.0; // TODO: document hidden option
 
@@ -582,15 +585,24 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
 
     if ((r_state == reassembly_state::reassembly_none) && tcp_pkt.additional_bytes_needed){
         // init reassembly
-        tcp_segment seg{true,tcp_pkt.data_length,tcp_pkt.seq(),tcp_pkt.additional_bytes_needed,ts->tv_sec, (indefinite_reassembly_type)tcp_pkt.indefinite_reassembly};
+        tcp_segment seg{true,tcp_pkt.data_length,tcp_pkt.seq(),tcp_pkt.additional_bytes_needed,(uint64_t)ts->tv_sec, (indefinite_reassembly_type)tcp_pkt.indefinite_reassembly};
         reassembler->process_tcp_data_pkt(k,ts->tv_sec,seg,pkt_copy);
         reassembler->dump_pkt = true;
     }
     else if (r_state == reassembly_state::reassembly_progress){
         // continue reassembly
-        tcp_segment seg{false,tcp_pkt.data_length,tcp_pkt.seq(),0,ts->tv_sec, (indefinite_reassembly_type)tcp_pkt.indefinite_reassembly};
-        reassembler->process_tcp_data_pkt(k,ts->tv_sec,seg,pkt_copy);
-        reassembler->dump_pkt = true;
+        if (!tcp_pkt.seq()) {
+            // 0 seq number, inorder reassembly, seq = existing_data
+            reassembly_map_iterator curr_flow = reassembler->get_current_flow();
+            uint32_t tmp_seq = curr_flow->second.curr_contiguous_data;
+            tcp_segment seg{false,tcp_pkt.data_length,tmp_seq,0,(uint64_t)ts->tv_sec, (indefinite_reassembly_type)tcp_pkt.indefinite_reassembly};
+            reassembler->process_tcp_data_pkt(k,ts->tv_sec,seg,pkt_copy);
+            reassembler->dump_pkt = true; 
+        } else {
+            tcp_segment seg{false,tcp_pkt.data_length,tcp_pkt.seq(),0,(uint64_t)ts->tv_sec, (indefinite_reassembly_type)tcp_pkt.indefinite_reassembly};
+            reassembler->process_tcp_data_pkt(k,ts->tv_sec,seg,pkt_copy);
+            reassembler->dump_pkt = true;
+        }
     }
     else if (r_state == reassembly_state::reassembly_consumed) {
         // this will never happen
@@ -698,7 +710,7 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
     else if ((r_state == reassembly_state::reassembly_none) && udp_pkt.additional_bytes_needed()){
         if (!missing_crypto_frames) {
             // init reassembly
-            quic_segment seg{true,crypto_len,crypto_offset,udp_pkt.additional_bytes_needed(),ts->tv_sec, cid};
+            quic_segment seg{true,crypto_len,crypto_offset,udp_pkt.additional_bytes_needed(),(uint64_t)ts->tv_sec, cid};
             reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+crypto_offset,crypto_data+crypto_offset+crypto_len});
             reassembler->dump_pkt = true;
         }
@@ -711,12 +723,12 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
             
             // init
             if (min_crypto_data) {
-                quic_segment seg{true,cryptographic_buffer::min_crypto_data_len,frames[first_frame_idx].offset(),udp_pkt.additional_bytes_needed(),ts->tv_sec, cid};
+                quic_segment seg{true,cryptographic_buffer::min_crypto_data_len,(uint32_t)(frames[first_frame_idx].offset()),udp_pkt.additional_bytes_needed(),(uint64_t)ts->tv_sec, cid};
                 reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[first_frame_idx].offset(),
                                 crypto_data+frames[first_frame_idx].offset()+cryptographic_buffer::min_crypto_data_len});
             }
             else {
-                quic_segment seg{true,frames[first_frame_idx].length(),frames[first_frame_idx].offset(),udp_pkt.additional_bytes_needed(),ts->tv_sec, cid};
+                quic_segment seg{true,(uint32_t)(frames[first_frame_idx].length()),(uint32_t)(frames[first_frame_idx].offset()),udp_pkt.additional_bytes_needed(),(uint64_t)ts->tv_sec, cid};
                 reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[first_frame_idx].offset(),
                                 crypto_data+frames[first_frame_idx].offset()+frames[first_frame_idx].length()});
 
@@ -724,7 +736,7 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
             
             for (uint16_t i = 0; i < frame_count; i++) {
                 if (i != first_frame_idx) { // skip already processed first frame
-                    quic_segment seg{false,frames[i].length(),frames[i].offset(),0,ts->tv_sec, cid};
+                    quic_segment seg{false,(uint32_t)(frames[i].length()),(uint32_t)(frames[i].offset()),0,(uint64_t)ts->tv_sec, cid};
                     reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[i].offset(),crypto_data+frames[i].offset()+frames[i].length()});
                 }  
             }
@@ -734,7 +746,7 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
     else if (r_state == reassembly_state::reassembly_progress){
         if (!missing_crypto_frames) {
             // continue reassembly
-            quic_segment seg{false,crypto_len,crypto_offset,0,ts->tv_sec, cid};
+            quic_segment seg{false,crypto_len,crypto_offset,0,(uint64_t)ts->tv_sec, cid};
             reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+crypto_offset,crypto_data+crypto_offset+crypto_len});
             reassembler->dump_pkt = true;
         }
@@ -744,7 +756,7 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
             const crypto* frames = std::get<quic_init>(x).get_crypto_frames(frame_count,first_frame_idx);
 
             for (uint16_t i = 0; i < frame_count; i++) {
-                quic_segment seg{false,frames[i].length(),frames[i].offset(),0,ts->tv_sec, cid};
+                quic_segment seg{false,(uint32_t)(frames[i].length()),(uint32_t)(frames[i].offset()),0,(uint64_t)ts->tv_sec, cid};
                 reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[i].offset(),crypto_data+frames[i].offset()+frames[i].length()});
               
             }
@@ -894,7 +906,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
                                         struct timespec *ts,
                                         struct tcp_reassembler *reassembler) {
 
-    struct buffer_stream buf{(char *)buffer, buffer_size};
+    struct buffer_stream buf{(char *)buffer, (int)buffer_size};
     struct key k;
     struct datum pkt{ip_packet, ip_packet+length};
     ip ip_pkt{pkt, k};
@@ -971,7 +983,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         udp::ports ports = udp_pkt.get_ports();
         if (selector.ipsec() and ports.either_matches(ike::default_port)) {
                 x.emplace<ike::packet>(pkt);
-        } else if (selector.ipsec() and ports.either_matches_any(esp::default_port)) {   // esp or ike over udp
+        } else if (selector.ipsec() and ports.either_matches_any(esp_default_port)) {   // esp or ike over udp
             if (lookahead<ike::non_esp_marker> non_esp{pkt}) {
                 x.emplace<ike::packet>(pkt);
             } else {
@@ -1125,7 +1137,7 @@ size_t stateful_pkt_proc::write_json(void *buffer,
     // write out link layer protocol metadata, if there is any
     //
     if (std::visit(is_not_empty{}, x)) {
-        struct buffer_stream buf{(char *)buffer, buffer_size};
+        struct buffer_stream buf{(char *)buffer, (int)buffer_size};
         struct json_object record{&buf};
         std::visit(write_metadata{record, false, false, false}, x);
         record.print_key_timestamp("event_start", ts);
@@ -1198,6 +1210,157 @@ static void enumerate_protocol_types(FILE *f) {
         fprintf(f, "I=%zu\n", I);
         enumerate_protocol_types<I + 1>();
     }
+}
+
+int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
+                        const uint8_t *payload,
+                        const size_t length, 
+                        uint8_t *buffer, 
+                        size_t *buffer_size, 
+                        [[maybe_unused]]const struct analysis_context** context) {
+
+    bool perform_reassembly = true;
+    protocol x;
+    key k_{*k};
+    struct datum pkt{payload, payload+length};
+
+    // add timestamp
+    timespec ts;
+    tsc_clock time_now;
+    ts.tv_sec = time_now.time_in_seconds();
+
+    if (!length) {
+        if (!reassembler_ptr)
+            return 0;
+        reassembly_state state = reassembler_ptr->check_flow(k_,(uint64_t)ts.tv_sec);
+        if (state != reassembly_state::reassembly_progress) {
+            return 0;
+        }
+        datum curr_data = reassembler_ptr->get_reassembled_data(reassembler_ptr->get_current_flow());
+        pkt.data = curr_data.data;
+        pkt.data_end = curr_data.data_end;
+        reassembler_ptr->set_completed(reassembler_ptr->get_current_flow());
+        perform_reassembly = false; // already reassembled some data, cant do further
+    }
+ 
+    if (reassembler_ptr) {
+        reassembler_ptr->dump_pkt = false;
+    }
+    bool truncated_tcp = false;
+    bool truncated_udp = false;
+
+    if (k->protocol == ip::protocol::tcp) {
+        tcp_header tcp_hdr;
+        tcp_hdr.src_port = k_.src_port;
+        tcp_hdr.dst_port = k_.dst_port;
+        // setup a seq no of 0 to denote in-order reassembly
+        tcp_hdr.seq = 0;
+        tcp_packet tcp_pkt{pkt, &tcp_hdr};
+
+        if (reassembler_ptr && global_vars.reassembly && perform_reassembly) {
+            analysis.flow_state_pkts_needed = false;
+            bool ret = process_tcp_data(x, pkt, tcp_pkt, k_, &ts, reassembler_ptr);
+            if (reassembler_ptr->in_progress(reassembler_ptr->curr_flow)) {
+                analysis.flow_state_pkts_needed = true;
+                return fdc_return::MORE_PACKETS_NEEDED;
+            }
+            if (!ret) {
+                return 0;
+            }
+        }
+        else {
+            bool ret = process_tcp_data(x, pkt, tcp_pkt, k_, &ts, nullptr);
+            if (!ret) {
+                return 0;
+            }
+            if (tcp_pkt.additional_bytes_needed) {
+                truncated_tcp = true;
+            }
+        }
+    } 
+    else if (k->protocol == ip::protocol::udp) {
+        class udp udp_pkt{pkt, true};
+        udp_pkt.set_ports(k_);
+
+        if (reassembler_ptr && global_vars.reassembly && perform_reassembly) {
+            bool ret = process_udp_data(x, pkt, udp_pkt, k_, &ts, reassembler_ptr);
+            if (reassembler_ptr->in_progress(reassembler_ptr->curr_flow)) {
+                analysis.flow_state_pkts_needed = true;
+                return fdc_return::MORE_PACKETS_NEEDED;
+            }
+            if (!ret) {
+                return 0;
+            }
+        }
+        else {
+            bool ret = process_udp_data(x, pkt, udp_pkt, k_, &ts, nullptr);
+            if (!ret) {
+                return 0;
+            }
+            if (udp_pkt.additional_bytes_needed()) {
+                truncated_udp = true;
+            }
+        }
+    }
+
+    analysis.result.reinit();
+    analysis.destination.reset();
+    analysis.fp.init();
+
+    if (std::visit(is_not_empty{}, x)) {
+        std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
+    }
+
+    if (analysis.fp.get_type() == fingerprint_type_unknown) {
+        return 0;
+    }
+
+    std::visit(do_analysis{k_, analysis, c}, x);
+
+    if (context != nullptr and analysis.result.is_valid()) {
+        *context = &analysis;
+    }
+    
+    truncation_status status = truncation_status::none;
+    
+    if (reassembler_ptr) {
+        if (reassembler_ptr->is_done(reassembler_ptr->curr_flow)) {
+            if (truncated_tcp || truncated_udp) {
+                status = truncation_status::reassembled_truncated;
+            }
+            else {
+                status = truncation_status::reassembled;
+            }
+        }
+    }
+    else if (truncated_tcp || truncated_udp) {
+        status = truncation_status::truncated;
+    }
+
+    size_t internal_buffer_size = *buffer_size;
+    writeable output{buffer, buffer + internal_buffer_size};
+    fdc fdc_object{
+        datum{analysis.fp.string()},
+        analysis.destination.ua_str,
+        analysis.destination.sn_str,
+        analysis.destination.dst_ip_str,
+        analysis.destination.dst_port,
+        status
+    };
+
+    if (reassembler_ptr) {
+        if (reassembler_ptr->is_done(reassembler_ptr->curr_flow)) {
+            analysis.flow_state_pkts_needed = false;
+        }
+        reassembler_ptr->clean_curr_flow();
+    }
+
+    bool encoding_ok = fdc_object.encode(output);
+    if (encoding_ok == false) {
+        *buffer_size = 2 * internal_buffer_size;
+        return -1;
+    }
+    return internal_buffer_size - output.writeable_length();
 }
 
 bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
