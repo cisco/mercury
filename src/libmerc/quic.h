@@ -1755,7 +1755,7 @@ public:
 
         analysis_.destination.init(sn, user_agent, alpn, k_);
 
-        if(c_ == nullptr) {
+        if (c_ == nullptr) {
             return false;
         }
 

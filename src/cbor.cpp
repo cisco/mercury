@@ -104,8 +104,8 @@ int main(int argc, char *argv[]) {
                 fprintf(stdout, "\"sni\": \"%s\",", sn_str);
                 fprintf(stdout, "\"dst_ip_str\": \"%s\",", dst_ip_str);
                 fprintf(stdout, "\"dst_port\": %u,", dst_port);
-                fprintf(stdout, "\"user-agent\": \"%s\"", ua_str);
-                fprintf(stdout, "\"truncation\": %u,", truncation);
+                fprintf(stdout, "\"user-agent\": \"%s\",", ua_str);
+                fprintf(stdout, "\"truncation\": %u", truncation);
                 fprintf(stdout, "}}\n");
             } else {
                 fprintf(stderr, "error: could not decode FDC\n");

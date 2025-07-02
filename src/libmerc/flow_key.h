@@ -62,7 +62,7 @@ struct key {
         dst_port = k.dst_port;
         protocol = k.protocol;
         ip_vers = k.ip_vers;
-        if(ip_vers == 4) {
+        if (ip_vers == 4) {
             addr.ipv4.src = k.addr.ipv4.src;
             addr.ipv4.dst = k.addr.ipv4.dst;
         } 
