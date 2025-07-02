@@ -43,14 +43,6 @@ enum linktype : uint16_t {
     LINKTYPE_LINUX_SLL = 113, // Linux "cooked" capture encapsualtion
 };
 
-enum fieldtype : uint8_t {
-    FINGERPRINT = 0,
-    USER_AGENT  = 1,
-    DOMAIN_NAME      = 2,
-    DST_IP_STR  = 3,
-    DST_PORT    = 4
-};
-
 /**
  * struct mercury holds state that is used by one or more
  * mercury_packet_processor

@@ -192,7 +192,8 @@ static inline host_identifier host_identifier_constructor(datum d) {
         return ipv4.value.get_value();
 
 
-    } else if (lookahead<ipv6_address_string> ipv6{d}) {
+    }
+    if (lookahead<ipv6_address_string> ipv6{d}) {
         d = ipv6.advance();
         return ipv6.value.get_value_array();
     } else {

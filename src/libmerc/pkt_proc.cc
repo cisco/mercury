@@ -1228,7 +1228,6 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
     timespec ts;
     tsc_clock time_now;
     ts.tv_sec = time_now.time_in_seconds();
-// TODO: fix the timespec unit to uint64_t
 
     if (!length) {
         if (!reassembler_ptr)
@@ -1249,8 +1248,6 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
     }
     bool truncated_tcp = false;
     bool truncated_udp = false;
-
-    // TODO: add logic for zero length pkt
 
     if (k->protocol == ip::protocol::tcp) {
         tcp_header tcp_hdr;
@@ -1360,8 +1357,8 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
 
     bool encoding_ok = fdc_object.encode(output);
     if (encoding_ok == false) {
-        *buffer_size = 2 * internal_buffer_size;     // TODO: round up
-        return -1;                                   // TODO: coordinate return values
+        *buffer_size = 2 * internal_buffer_size;
+        return -1;
     }
     return internal_buffer_size - output.writeable_length();
 }
