@@ -365,8 +365,6 @@ else
 	@echo $(COLOR_YELLOW) "clang++ unavailable; cannot perform fuzz test" $(COLOR_OFF)
 endif
 
-temp:
-	echo "inside temp"
 # fuzz testing with american fuzzy lop
 #
 FUZZ_CMD = --metadata --dns-json --certs-json --analysis -f /dev/null
