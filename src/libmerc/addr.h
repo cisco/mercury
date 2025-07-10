@@ -11,13 +11,18 @@
 #ifndef ADDR_H
 #define ADDR_H
 
+#ifdef _WIN32
+#include <Ws2tcpip.h>
+#else
+#include <arpa/inet.h>
+#endif
+
 #include <unordered_map>
 #include <unordered_set>
 #include <string>
 #include <stdexcept>
 #include "archive.h"
 
-#include <arpa/inet.h>
 #include "lctrie/lctrie.h"
 
 struct Ipv6AddrHash {

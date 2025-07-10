@@ -2,7 +2,12 @@
 #define __LC_TRIE_BGP_H__
 // begin #ifndef guard
 
+#ifdef _WIN32
+#include <Ws2tcpip.h>
+#else
 #include <arpa/inet.h>
+#endif
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>

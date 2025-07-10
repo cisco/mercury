@@ -866,7 +866,7 @@ public:
                     got_domain_faking_subnets = true;
                 }
             }
-            if (got_fp_db && got_fp_prevalence && got_version && got_pyasn_db && got_doh_watchlist && got_domain_faking_subnets){
+            if (got_fp_db && got_fp_prevalence && got_version && got_pyasn_db && got_doh_watchlist && got_domain_faking_subnets) {
                 break; // got all data, we're done here
             }
             entry = archive.get_next_entry();

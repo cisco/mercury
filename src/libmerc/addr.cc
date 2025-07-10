@@ -402,7 +402,7 @@ int subnet_data::lct_add_domain_mapping_v6(ipv6_addr_t &addr, uint8_t &mask_leng
         subnet_itr = &domains_prefix_v6[domains_prefix_v6_num];
         subnet_itr->addr = addr;
         subnet_itr->len = mask_length;
-        subnet_itr->info.type = IP_SUBNET_BGP;
+        subnet_itr->info.type = IP_SUBNET_DOMAIN;
         subnet_itr->info.domain.domain_idx_arr_len = 1;
         subnet_itr->info.domain.domain_idx_arr = (uint8_t *)malloc(sizeof(uint8_t));
         subnet_itr->info.domain.domain_idx_arr[0] = domain_idx;
@@ -604,7 +604,7 @@ void subnet_data::process_final_v6() {
     // de-duplicate subnets and shrink the buffer down to its
     // actual size and split into prefixes and bases
     num_v6 -= subnet_dedup(prefix_v6, num_v6);
-    lct_subnet_v6_t *tmp = (lct_subnet_v6_t *)realloc(prefix_v6, num * sizeof(lct_subnet_v6_t));
+    lct_subnet_v6_t *tmp = (lct_subnet_v6_t *)realloc(prefix_v6, num_v6 * sizeof(lct_subnet_v6_t));
     if (tmp != NULL) {
         prefix_v6 = tmp;
     } else {

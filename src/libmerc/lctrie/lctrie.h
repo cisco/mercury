@@ -137,7 +137,7 @@ static uint8_t compute_branch(lct<T> *trie, uint32_t prefix, uint32_t first,
     bits++;
     maxpat = maxpat << bits;
     if (num < ((FILLFACT * ((unsigned int)1<<bits)) / 100) ||
-        newprefix + bits > sizeof(uint32_t))
+        newprefix + bits > sizeof(T) * 8)
       break;
     i = first;
     pat = 0;
