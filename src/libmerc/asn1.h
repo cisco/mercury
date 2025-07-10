@@ -804,7 +804,6 @@ struct tlv {
             return;
         }
         o.print_key_json_string(name, value);
-        //o.print_key_escaped_string(name, value);
         if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
@@ -812,8 +811,7 @@ struct tlv {
         if (!is_valid()) {
             return;
         }
-        utc_time t{value};
-        o.print_key_value(name, t);
+        o.print_key_value(name, utc_time{value});
         if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
@@ -821,8 +819,7 @@ struct tlv {
         if (!is_valid()) {
             return;
         }
-        generalized_time gt{value};
-        o.print_key_value(name, gt);
+        o.print_key_value(name, generalized_time{value});
         if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
     void print_as_json_ip_address(struct json_object_asn1 &o, const char *name) const {
