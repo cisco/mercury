@@ -470,6 +470,8 @@ public:
             return fingerprint_type_quic;
         } else if (s == "tofsee") {
             return fingerprint_type_tofsee;
+        } else if (s == "ssh") {
+            return fingerprint_type_ssh;
         }
         return fingerprint_type_unknown;
     }
@@ -526,6 +528,8 @@ public:
                     type = fingerprint_type_quic;
                 } else if (s.compare(0, idx, "tofsee") == 0) {
                     type = fingerprint_type_tofsee;
+                } else if (s.compare(0, idx, "ssh") == 0) {
+                    type = fingerprint_type_ssh;
                 }
                 std::string version_and_tail{s.substr(idx+1)};
 

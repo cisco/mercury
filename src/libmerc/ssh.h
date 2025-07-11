@@ -462,6 +462,19 @@ struct ssh_init_packet : public base_protocol {
         { 'S',  'S',  'H',  '-',  0x00, 0x00, 0x00, 0x00}
     };
 
+    bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
+        std::string protocol_string_str = std::string((char*)protocol_string.data,protocol_string.length());
+        std::string comment_string_str = std::string((char*)comment_string.data,comment_string.length());
+        std::string user_agent_str = protocol_string_str+comment_string_str;
+        datum user_agent{user_agent_str};
+
+        analysis_.destination.init({nullptr, nullptr}, user_agent, {nullptr, nullptr}, k_);
+        if (c_ == nullptr) {
+            return false;
+        }
+        return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+}
+
 };
 
 [[maybe_unused]] inline int ssh_init_packet_fuzz_test(const uint8_t *data, size_t size) {
