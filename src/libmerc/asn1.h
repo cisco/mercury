@@ -22,7 +22,10 @@ static const char *oid_empty_string = "";
 class raw_oid : public datum {
 public:
 
-    void fingerprint(struct buffer_stream &b) const {  // TODO: check is_null()?
+    void fingerprint(struct buffer_stream &b) const {
+        if (this->is_null()) {
+            return;  // error; attempt to write a null datum object
+        }
         const char *output = oid::get_string(this);
         if (output != oid_empty_string) {
             b.puts(output);
