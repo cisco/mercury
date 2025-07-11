@@ -3,7 +3,7 @@
 // generic asn1 parsing
 //
 // compilation:
-//    g++ -Wall -Wno-deprecated-declarations -Wno-narrowing asn1.cpp libmerc/asn1.cc libmerc/asn1/oid.cc libmerc/utils.cc -o asn1
+//    g++ -Wall -Wno-deprecated-declarations -Wno-narrowing asn1.cpp libmerc/asn1/oid.cc libmerc/utils.cc -o asn1
 
 #include "libmerc/datum.h"
 #include "libmerc/asn1.h"

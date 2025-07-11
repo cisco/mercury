@@ -188,7 +188,6 @@ set(libmerc_src
     tls.cc
     utils.cc
     wireguard.cc
-    asn1.cc
     config_generator.cc
     smb2.cc
     bencode.cc

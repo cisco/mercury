@@ -60,7 +60,6 @@ sources = [
     "{mercury_dir}/src/libmerc/http.cc".format(mercury_dir=mercury_dir),
     "{mercury_dir}/src/libmerc/pkt_proc.cc".format(mercury_dir=mercury_dir),
     "{mercury_dir}/src/libmerc/tls.cc".format(mercury_dir=mercury_dir),
-    "{mercury_dir}/src/libmerc/asn1.cc".format(mercury_dir=mercury_dir),
     "{mercury_dir}/src/libmerc/smb2.cc".format(mercury_dir=mercury_dir),
     "{mercury_dir}/src/libmerc/config_generator.cc".format(mercury_dir=mercury_dir),
     "{mercury_dir}/src/libmerc/bencode.cc".format(mercury_dir=mercury_dir),
