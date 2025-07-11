@@ -27,7 +27,7 @@ void parse_and_write_json(datum &d) {
         return;
     }
     output_buffer<8192> buf;
-    json_object_asn1 o{&buf};
+    json_object o{&buf};
     msg.write_json(o);
     o.close();
     buf.write_line(stdout);
@@ -108,7 +108,7 @@ int main(int argc, char *argv[]) {
         //
         // ocsp::response msg{d};
         // output_buffer<4096> buf;
-        // json_object_asn1 o{&buf};
+        // json_object o{&buf};
         // msg.write_json(o);
         // o.close();
         // buf.write_line(stdout);

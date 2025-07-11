@@ -30,7 +30,7 @@ int main(int, char *[]) {
         // representation
         //
         output_buffer<4096> buf;
-        json_array_asn1 a{&buf};
+        json_array a{&buf};
         tlv::recursive_parse(d, a);
         a.close();
         buf.write_line(stdout);
