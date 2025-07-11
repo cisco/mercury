@@ -1,7 +1,12 @@
 # CHANGELOG for Mercury
+
+* Removed duplicate UTF-8 and IP address output code used in
+  ASN.1, added classes `utc_time`, `generalized_time`, and `raw_oid`
+  to facilitate JSON output, removed `json_object_asn1` and
+ `json_array_asn1` and some unused function definitions and
+  declarations.
 * Added changes to leverage SIMD instructions to improve
   performance. Added xsimd library as a git submodule
-
 * Removed some direct calls to `fprintf(stderr, ...)` from `libmerc.so`.
 
 ## VERSION 2.7.1
