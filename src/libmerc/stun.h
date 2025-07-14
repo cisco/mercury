@@ -11,6 +11,7 @@
 #include "match.h"
 #include "fingerprint.h"
 #include "result.h"
+#include "analysis.h"
 #include <unordered_map>
 
 namespace stun {
