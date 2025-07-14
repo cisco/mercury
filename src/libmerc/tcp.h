@@ -15,6 +15,24 @@
 #include "json_object.h"
 #include "flow_key.h"
 
+#ifdef _WIN32
+
+#pragma pack(1)
+struct tcp_header {
+    uint16_t src_port;
+    uint16_t dst_port;
+    uint32_t seq;
+    uint32_t ack;
+    uint8_t  offrsv;
+    uint8_t  flags;
+    uint16_t window;
+    uint16_t checksum;
+    uint16_t urgent_ptr;
+};
+#pragma pack()
+
+#else
+
 struct tcp_header {
     uint16_t src_port;
     uint16_t dst_port;
@@ -26,6 +44,8 @@ struct tcp_header {
     uint16_t checksum;
     uint16_t urgent_ptr;
 } __attribute__ ((__packed__));
+
+#endif  // #ifdef _WIN32
 
 /*
  * modular arithmetic comparisons, for tcp Seq and Ack processing

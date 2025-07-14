@@ -145,6 +145,11 @@ struct tcp_packet : public base_protocol {
         parse(p);
     };
 
+    tcp_packet(datum &p, tcp_header *h, ip *outer=nullptr): ip_pkt{outer} {
+        header = h;
+        data_length = p.length();
+    }
+
     void parse(struct datum &p) {
         header = p.get_pointer<tcp_header>();
         if (header == nullptr) {
@@ -267,6 +272,14 @@ struct tcp_packet : public base_protocol {
             }
         }
     }
+};
+
+namespace {
+
+    [[maybe_unused]] inline int tcp_packet_fuzz_test(const uint8_t *data, size_t size) {
+        return json_output_fuzzer<tcp_packet>(data, size);
+    }
+
 };
 
 #endif /* TCPIP_H */

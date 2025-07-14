@@ -32,7 +32,6 @@ public:
     bool do_analysis(const struct key &, struct analysis_context &, classifier*) { return false; }
 
     bool do_network_behavioral_detections(const struct key &, struct analysis_context &, classifier*, struct common_data &) { return false; }
-
 };
 
 #endif // PROTOCOL_H

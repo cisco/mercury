@@ -1,0 +1,3 @@
+[submodule "src/libmerc/xsimd"]
+	path = src/libmerc/xsimd
+	url = https://github.com/xtensor-stack/xsimd.git

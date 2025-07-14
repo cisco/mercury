@@ -1,4 +1,8 @@
 # CHANGELOG for Mercury
+* Added changes to leverage SIMD instructions to improve
+  performance. Added xsimd library as a git submodule
+
+* Removed some direct calls to `fprintf(stderr, ...)` from `libmerc.so`.
 
 * Added a new configuration option, network-behavioral-detections,
   which enables behavioral detections without a resources file.
@@ -11,6 +15,9 @@
   the RAM usage of mercury library when enabled
 * Added changes to allow classifier to use custom weights
   and introduced new cython interface
+* Added additional fuzz tests. Updated the `generate_fuzz_test.sh` script to
+  support generating fuzz functions that test functions requiring two fuzzed inputs. 
+  Also hardened some datum functions.
 
 ## VERSION 2.7.0
 * Added minimal RDP (Remote Desktop Protocol) support, which

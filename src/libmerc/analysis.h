@@ -33,6 +33,8 @@
 #include "archive.h"
 #include "static_dict.hpp"
 #include "naive_bayes.hpp"
+#include "xsimd/xsimd.hpp"
+#include "softmax.hpp"
 
 
 class classifier *analysis_init_from_archive(int verbosity,
@@ -105,6 +107,35 @@ class fingerprint_data {
     common_data *common = nullptr;
 
 public:
+
+    // Create the dispatching function, specifying the architectures we want to target.
+#if defined(__i386__) || defined(__x86_64__)
+    using simd_arch_list = xsimd::arch_list<xsimd::avx2, xsimd::avx, xsimd::sse2>;
+#elif defined(__aarch64__)
+    using simd_arch_list = xsimd::arch_list<xsimd::neon64>;
+#endif
+
+    static xsimd::detail::dispatcher<exp_functor, simd_arch_list>& get_dispatched() {
+        static xsimd::detail::dispatcher<exp_functor, simd_arch_list> dispatched =
+            xsimd::dispatch<simd_arch_list>(exp_functor{});
+        return dispatched;
+    }
+
+    static bool check_simd() {
+        // Static variable to store the result of the SIMD check
+        static bool is_simd_available = []() -> bool {
+            auto archs = xsimd::available_architectures();
+            if (archs.has(xsimd::sse2{}) || archs.has(xsimd::neon64{})) {
+                auto dispatched = get_dispatched();
+                dispatched();
+                return true;
+            }
+            return false;
+        }();
+
+        return is_simd_available;
+    }
+
     uint8_t refcnt = 0;
     uint64_t total_count;
 
@@ -163,7 +194,6 @@ public:
             std::vector<struct os_information> os_info_vector;
             if (report_os && x.HasMember("os_info") && x["os_info"].IsObject()) {
                 for (auto &y : x["os_info"].GetObject()) {
-                    fprintf(stderr, "os_info_vector: adding %s\n", y.name.GetString());
                     if (std::string(y.name.GetString()) != "") {
                         const char *os = os_dictionary.get(y.name.GetString());
                         struct os_information tmp{(char *)os, y.value.GetUint64()};
@@ -188,6 +218,108 @@ public:
 
     ~fingerprint_data() {  }
 
+    void compute_score_and_probability(std::vector<floating_point_type> &process_score,
+                                       floating_point_type &max_score,
+                                       floating_point_type &sec_score,
+                                       uint64_t &index_max,
+                                       uint64_t &index_sec,
+                                       floating_point_type &score_sum,
+                                       floating_point_type &score_sum_without_max,
+                                       floating_point_type &malware_prob,
+                                       std::array<floating_point_type, attribute_result::MAX_TAGS> &attr_prob) {
+
+        max_score = std::numeric_limits<floating_point_type>::lowest();
+        sec_score = std::numeric_limits<floating_point_type>::lowest();
+        index_max = 0;
+        index_sec = 0;
+        score_sum = 0.0;
+        score_sum_without_max = 0.0;
+        malware_prob = 0.0;
+
+        for (uint64_t i = 0; i < process_score.size(); i++) {
+            if (process_score[i] > max_score) {
+                sec_score = max_score;
+                index_sec = index_max;
+                max_score = process_score[i];
+                index_max = i;
+            } else if (process_score[i] > sec_score) {
+                sec_score = process_score[i];
+                index_sec = i;
+            }
+        }
+
+        if (check_simd()) {
+            auto dispatched = get_dispatched();
+            dispatched(process_score, malware, attr, max_score, score_sum, index_max, score_sum_without_max, malware_prob, attr_prob);
+        } else {
+            // No SIMD instruction set available.
+            for (uint64_t i = 0; i < process_score.size(); ++i) {
+                process_score[i] = expf((float)(process_score[i] - max_score));
+                score_sum += process_score[i];
+                if (i != index_max) {
+                    score_sum_without_max += process_score[i];
+                }
+                if (malware[i]) {
+                    malware_prob += process_score[i];
+                }
+                for (int j = 0; j < attribute_result::MAX_TAGS; j++) {
+                    if (attr[i][j]) {
+                        attr_prob[j] += process_score[i];
+                    }
+                }
+            }
+        }
+
+        max_score = process_score[index_max];  // set max_score to probability
+        sec_score = process_score[index_sec]; 
+
+        if (score_sum > 0.0 && malware_db) {
+            malware_prob /= score_sum;
+        }
+
+        if (malware_db && process_name[index_max] == "generic dmz process" && malware[index_sec] == false) {
+            process_score[index_max] = 0; //check this
+            index_max = index_sec;
+            score_sum = score_sum_without_max;
+            max_score = sec_score;
+        }
+
+        // Calculate attribute probabilities
+        attr_prob.fill(0.0);
+        for (uint64_t i=0; i < process_score.size(); i++) {
+            for (int j = 0; j < attribute_result::MAX_TAGS; j++) {
+                if (attr[i][j]) {
+                    attr_prob[j] += process_score[i];
+                }
+            }
+        }
+    }
+
+    struct detailed_analysis_result perform_detailed_analysis(const char *server_name, const char *dst_ip,
+                                                              uint16_t dst_port, const char *user_agent,
+                                                              enum fingerprint_status status) {
+        uint32_t asn_int = subnet_data_ptr->get_asn_info(dst_ip);
+        std::string dst_ip_str(dst_ip);
+
+        std::vector<floating_point_type> process_score = classifier.classify(asn_int, dst_port, server_name, dst_ip_str, user_agent);
+        return get_detailed_analysis_result(process_score, status);
+    }
+
+    struct detailed_analysis_result get_detailed_analysis_result(std::vector<floating_point_type> &process_score, fingerprint_status status) {
+
+        std::vector<floating_point_type> normalized_process_score(process_score.size(), 0.0);
+        floating_point_type max_score, sec_score, score_sum, score_sum_without_max, malware_prob;
+        uint64_t index_max, index_sec;
+        std::array<floating_point_type, attribute_result::MAX_TAGS> attr_prob;
+        compute_score_and_probability(process_score, max_score, sec_score, index_max, index_sec, score_sum, score_sum_without_max, malware_prob, attr_prob);
+
+        for (uint64_t i = 0; i < process_score.size(); i++) {
+            normalized_process_score[i] = process_score[i] / score_sum;
+        }
+
+        return detailed_analysis_result(status, malware_prob, process_name, normalized_process_score);
+    }
+
     struct analysis_result perform_analysis(const char *server_name, const char *dst_ip, uint16_t dst_port,
                                             const char *user_agent, enum fingerprint_status status) {
 
@@ -208,69 +340,17 @@ public:
         return get_analysis_result(process_score, status);
     }
 
+
     struct analysis_result get_analysis_result(std::vector<floating_point_type> &process_score, enum fingerprint_status status) {
 
         // compute max_score, sec_score, index_max, and index_sec
         //
-        floating_point_type max_score = std::numeric_limits<floating_point_type>::lowest();
-        floating_point_type sec_score = std::numeric_limits<floating_point_type>::lowest();
-        uint64_t index_max = 0;
-        uint64_t index_sec = 0;
-        for (uint64_t i=0; i < process_score.size(); i++) {
-            if (process_score[i] > max_score) {
-                sec_score = max_score;
-                index_sec = index_max;
-                max_score = process_score[i];
-                index_max = i;
-            } else if (process_score[i] > sec_score) {
-                sec_score = process_score[i];
-                index_sec = i;
-            }
-        }
+        floating_point_type max_score, sec_score, score_sum, score_sum_without_max, malware_prob;
+        uint64_t index_max, index_sec;
 
-        // convert process_score from log-prob values to probability
-        // values, and compute score_sum, score_sum_without_max,
-        // malware_prob, and the attr_prob vector.
-        //
-        floating_point_type score_sum = 0.0;
-        floating_point_type score_sum_without_max = 0.0;
-        floating_point_type malware_prob = 0.0;
         std::array<floating_point_type, attribute_result::MAX_TAGS> attr_prob;
-        attr_prob.fill(0.0);
-        for (uint64_t i=0; i < process_score.size(); i++) {
-            process_score[i] = expf((float)(process_score[i] - max_score));
-            score_sum += process_score[i];
-            if (i != index_max) {
-                score_sum_without_max += process_score[i];
-            }
-            if (malware[i]) {
-                malware_prob += process_score[i];
-            }
-            for (int j = 0; j < attribute_result::MAX_TAGS; j++) {
-                if (attr[i][j]) {
-                    attr_prob[j] += process_score[i];
-                }
-            }
-        }
+        compute_score_and_probability(process_score, max_score, sec_score, index_max, index_sec, score_sum, score_sum_without_max, malware_prob, attr_prob);
 
-        max_score = process_score[index_max];  // set max_score to probability
-        sec_score = process_score[index_sec];  // set sec_score to probability
-
-        if (score_sum > 0.0) {
-            if (malware_db) {
-                malware_prob /= score_sum;
-            }
-        }
-
-        if (malware_db && process_name[index_max] == "generic dmz process" && malware[index_sec] == false) {
-            // the most probable process is unlabeled, so choose the
-            // next most probable one if it isn't malware, and adjust
-            // the normalization sum as appropriate
-
-            index_max = index_sec;
-            score_sum = score_sum_without_max;
-            max_score = sec_score;
-        }
         if (score_sum > 0.0) {
             max_score /= score_sum;
             for (int j = 0; j < attribute_result::MAX_TAGS; j++) {
@@ -381,13 +461,13 @@ class classifier {
     std::unordered_map<std::string, std::pair<uint32_t, size_t>> fp_count_and_format;
 
     bool disabled = false;   // if the classfier has not been initialised or disabled
-
 public:
     // the common object holds data that is common across all
     // fingerprint-specific classifiers, and is used by those
     // classifiers
     //
     common_data common;
+
 
     static fingerprint_type get_fingerprint_type(const std::string &s) {
         if (s == "tls") {
@@ -484,13 +564,26 @@ public:
         const char* server_name = analysis.destination.sn_str;
         const char* dst_ip = analysis.destination.dst_ip_str;
 
+        check_additional_attributes_util(analysis.result, server_name, dst_ip);
+    }
+
+    void check_additional_attributes_util(analysis_result &result, const char* server_name, const char* dst_ip) {
+
         if (common.doh_enabled && ((common.doh_watchlist.contains(server_name) || common.doh_watchlist.contains_addr(dst_ip)))) {
-            analysis.result.attr.set_attr(common.doh_idx, 1.0);
+            result.attr.set_attr(common.doh_idx, 1.0);
         }
 
         if (common.domain_faking_enabled && subnets.is_domain_faking(server_name, dst_ip)) {
-            analysis.result.attr.set_attr(common.domain_faking_idx, 1.0);
+            result.attr.set_attr(common.domain_faking_idx, 1.0);
         }
+    }
+
+    void set_faketls_attribute(analysis_result &result) {
+        result.attr.set_attr(common.faketls_idx, 1.0);
+    }
+
+    void set_enc_channel_attribute(analysis_result &result) {
+        result.attr.set_attr(common.enc_channel_idx, result.malware_prob);
     }
 
     void process_watchlist_line(std::string &line_str) {
@@ -684,6 +777,9 @@ public:
                float proc_dst_threshold,
                bool report_os,
                bool minimize_ram) : os_dictionary{}, subnets{}, fpdb{}, resource_version{} {
+        if (!fingerprint_data::check_simd()) {
+            printf_err(log_debug, "No SIMD instruction set available\n");
+        }
 
         // reserve attribute for encrypted_dns watchlist
         //
@@ -889,47 +985,59 @@ public:
     }
 
     template <typename PerformAnalysisFn>
-    struct analysis_result perform_analysis_common(const char *fp_str, PerformAnalysisFn perform_analysis_fn) {
-
+    auto perform_analysis_common(const char *fp_str, PerformAnalysisFn perform_analysis_fn) {
         const auto fpdb_entry = fpdb.find(fp_str);
         if (fpdb_entry == fpdb.end()) {
             if (fp_prevalence.contains(fp_str)) {
                 fp_prevalence.update(fp_str);
-                return analysis_result(fingerprint_status_unlabled);
-            } else {
-                fp_prevalence.update(fp_str);
-                /*
-                 * Resource file has info about randomized fingerprints in the format
-                 * protocol/format/randomized
-                 * Eg: tls/1/randomized
-                 */
-                std::string randomized_str;
-                const char *c = &fp_str[0];
-                while (*c != '\0' && *c != '(') {
-                    randomized_str.append(c, 1);
-                    c++;
-                }
-                randomized_str.append("randomized");
-
-                const auto fpdb_entry_randomized = fpdb.find(randomized_str);
-                if (fpdb_entry_randomized == fpdb.end()) {
-                    return analysis_result(fingerprint_status_randomized);  // TODO: does this actually happen?
-                }
-                fingerprint_data *fp_data = fpdb_entry_randomized->second;
-                return perform_analysis_fn(fp_data, fingerprint_status_randomized);
+                return perform_analysis_fn(nullptr, fingerprint_status_unlabled);
             }
+
+            fp_prevalence.update(fp_str);
+            /*
+            * Resource file has info about randomized fingerprints in the format
+            * protocol/format/randomized
+            * Eg: tls/1/randomized
+            */
+            std::string randomized_str;
+            const char *c = fp_str;
+            while (*c != '\0' && *c != '(') {
+                randomized_str.append(c, 1);
+                c++;
+            }
+            randomized_str.append("randomized");
+
+            const auto fpdb_entry_randomized = fpdb.find(randomized_str);
+            if (fpdb_entry_randomized == fpdb.end()) {
+                return perform_analysis_fn(nullptr, fingerprint_status_randomized);
+            }
+            fingerprint_data *fp_data = fpdb_entry_randomized->second;
+            return perform_analysis_fn(fp_data, fingerprint_status_randomized);
         }
         fingerprint_data *fp_data = fpdb_entry->second;
-
         return perform_analysis_fn(fp_data, fingerprint_status_labeled);
     }
 
     struct analysis_result perform_analysis(const char *fp_str, const char *server_name, const char *dst_ip,
                                             uint16_t dst_port, const char *user_agent) {
         auto perform_analysis_fn = [&](fingerprint_data *fp_data, fingerprint_status status) {
+            if (fp_data == nullptr) {
+                return analysis_result(status);  
+            }
             return fp_data->perform_analysis(server_name, dst_ip, dst_port, user_agent, status);
         };
         return perform_analysis_common(fp_str, perform_analysis_fn);
+    }
+
+    struct detailed_analysis_result perform_detailed_analysis(const char *fp_str, const char *server_name, const char *dst_ip,
+                                                              uint16_t dst_port, const char *user_agent) {
+        auto perform_detailed_fn = [&](fingerprint_data *fp_data, fingerprint_status status) {
+            if (fp_data == nullptr) {
+                return detailed_analysis_result(status);  
+            }
+            return fp_data->perform_detailed_analysis(server_name, dst_ip, dst_port, user_agent, status);
+        };
+        return perform_analysis_common(fp_str, perform_detailed_fn);
     }
 
     /*

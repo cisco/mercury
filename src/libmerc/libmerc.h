@@ -25,9 +25,13 @@
 // object library even if the -fvisibility=hidden option is passed to
 // the compiler; for background, see
 // https://www.gnu.org/software/gnulib/manual/html_node/Exported-Symbols-of-Shared-Libraries.html
+// https://learn.microsoft.com/en-us/cpp/build/exporting-from-a-dll-using-declspec-dllexport?view=msvc-170
 //
+#ifdef _WIN32
+#define LIBMERC_DLL_EXPORTED __declspec(dllexport)
+#else
 #define LIBMERC_DLL_EXPORTED __attribute__((__visibility__("default")))
-
+#endif
 //
 // start of libmerc version 2 API
 //
@@ -774,5 +778,93 @@ size_t get_stats_aggregator_num_entries(mercury_context mc);
 extern "C" LIBMERC_DLL_EXPORTED
 #endif
 const struct attribute_context *mercury_packet_processor_get_attributes(mercury_packet_processor processor);
+
+/**
+ * @brief struct ipv6_addr_ext represents an ipv6 address with 4 32-bit integers.
+ * 
+ * The FDC API `mercury_packet_processor_get_analysis_context_fdc` requires a flow key that requires
+ * a valid ipv4 or ipv6 address. This struct is used to represent an ipv6 address. ipv4 addresses are 
+ * represented by the use of a single 32-bit integer.
+ */
+struct ipv6_addr_ext {
+    uint32_t a;
+    uint32_t b;
+    uint32_t c;
+    uint32_t d;
+}; 
+
+/**
+ * @brief struct flow_key_ext represents a flow key which src/dst ports, protocol and ip version.
+ * 
+ * The FDC API `mercury_packet_processor_get_analysis_context_fdc` requires a pointer to a flow key
+ * that requires a valid ipv4 or ipv6 address. This struct is used to represent a flow key with
+ * additional fields for src/dst ports, protocol and ip version.
+ */
+struct flow_key_ext {
+    uint16_t src_port;
+    uint16_t dst_port;
+    uint8_t protocol;
+    uint8_t ip_vers;
+    union {
+        struct {
+            uint32_t src;
+            uint32_t dst;
+        } ipv4;
+        struct {
+            struct ipv6_addr_ext src;
+            struct ipv6_addr_ext dst;
+        } ipv6;
+    } addr;
+}; 
+
+/**
+ * return codes used by mercury
+ */
+enum fdc_return {
+    FDC_WRITE_INSUFFICIENT_SPACE = -1,
+    FDC_WRITE_FAILURE = -2,
+    MORE_PACKETS_NEEDED = -3,
+    UNKNOWN_ERROR = -4
+};
+
+/**
+ * mercury_packet_processor_get_analysis_context_fdc() processes a TCP/UDP payload 
+ * and writes analysis vars to an opaque buffer passed to it.
+ * @param processor (input) is a packet processor context to be used.
+ * @param key (input) is a pointer to the flow key object received externally.
+ * @param data (input) is a pointer to the tcp payload contents.
+ * @param len (input) is the size of the tcp payload
+ * @param buffer (input) is a pointer to the output buffer where the analysis vars will be written.
+ * @param buffer_size (input) is the max size of the output buffer.
+ * @param ac (input) is a pointer to the location an analysis_context object that points to an analysis context 
+ * if `do_analysis` is anabled and a valid resources file is set.
+ * 
+ * @param buffer_size (output) the value of buffer_size will be updated to a larger 
+ * number of bytes if the write to FDC buffer fails with a return code of `FDC_WRITE_INSUFFICIENT_SPACE`.
+ * 
+ * @return one of the following enum values (int):
+ *        - `FDC_WRITE_INSUFFICIENT_SPACE`: Write to the FDC buffer failed, `buffer_size` was too small
+ *        - `MORE_PACKETS_NEEDED`: Fragmented payload, more packets needed to complete the analysis
+ *        - `FDC_WRITE_FAILURE`: FDC buffer write failed, in place for forward compatibility
+ *        - `UNKNOWN_ERROR`: Something goes wrong in the libmerc api invocation
+ * 
+ * The function expects the size of FDC buffer to be `buffer_size` number of bytes, in case the 
+ * write to FDC fails due to a lack of space, the function will return `FDC_WRITE_INSUFFICIENT_SPACE`.
+ * If the value of`*buffer_size` provided by the caller is not long enough to enable the 
+ * entire FDC to be encoded, the function call will fail, return `FDC_WRITE_INSUFFICIENT_SPACE`, 
+ * and set `*buffer_size` to a suggested value.  
+ * The caller should repeat the call with the increased value of `*buffer_size`, if possible.
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+int mercury_packet_processor_get_analysis_context_fdc(
+    mercury_packet_processor processor,
+    const struct flow_key_ext* key,
+    const uint8_t* data, 
+    const size_t len, 
+    uint8_t *buffer, 
+    size_t* buffer_size, 
+    const struct analysis_context** ac);
 
 #endif /* LIBMERC_H */

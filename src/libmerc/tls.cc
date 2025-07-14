@@ -988,32 +988,7 @@ void tls_client_hello::compute_fingerprint(class fingerprint &fp, size_t format_
 }
 
 bool tls_client_hello::is_faketls() const {
-    size_t len = ciphersuite_vector.length();
-
-    if (len % 2) {
-        len--;    // forces length to be a multiple of 2
-    }
-
-    uint16_t *x = (uint16_t *)ciphersuite_vector.data;
-    uint16_t *x_end = x + (len/2);
-
-    size_t invalid_ciphers = 0;
-
-    while (x < x_end) {
-        uint16_t tmp = hton(degrease_uint16(*x++));
-        if (tls::cipher_suites_list.find(tmp) != tls::cipher_suites_list.end())    // cipher suite found in IANA list
-            continue;
-        else if (tls::faketls_cipher_suite_exceptions.find(tmp) == tls::faketls_cipher_suite_exceptions.end())    // cipher suite not found in IANA and exception list
-            invalid_ciphers++;
-    }
-
-    // flag for faketls only when all the cipher suites used are outside of IANA/exception list
-    //
-    if (invalid_ciphers == len/2) {
-        return true;
-    }
-
-    return false;
+    return is_faketls_util(ciphersuite_vector);
 }
 
 
@@ -1025,6 +1000,9 @@ bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_context
     extensions.set_meta_data(sn, ua, alpn);
 
     analysis_.destination.init(sn, ua, alpn, k_);
+    if (c_ == nullptr) {
+            return false;
+    }
 
     bool ret = c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
 

@@ -115,7 +115,6 @@ public:
                 if (stack.back() == '[') {
                     stack.pop_back();
                 } else {
-                    fprintf(stderr, "error: expected ']', got %c\n", stack.back());
                     return false; // error
                 }
                 break;
