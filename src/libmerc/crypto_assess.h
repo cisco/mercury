@@ -122,56 +122,85 @@ namespace crypto_policy {
         };
 
         bool assess_tls_ciphersuites(datum ciphersuite_vector, json_object &a) const {
+            std::unique_ptr<json_array> cs_array = nullptr;
             bool all_allowed = true;
             bool some_allowed = false;
-            datum tmp = ciphersuite_vector;
-            while (tmp.is_readable()) {
-                encoded<uint16_t> cs{tmp};
-                if (!is_grease(cs) and allowed_ciphersuites.find(cs.value()) != allowed_ciphersuites.end()) {
-                    some_allowed = true;
-                } else {
-                    all_allowed = false;
+
+            while(ciphersuite_vector.is_readable()) {
+                tls::cipher_suites cs{ciphersuite_vector};
+                
+                if(is_grease(cs)) {
+                    continue;
                 }
+
+                bool found = (allowed_ciphersuites.find(cs.value()) != allowed_ciphersuites.end());
+                if(!found) {
+                    all_allowed = false;
+                    if (cs_array == nullptr) {
+                        cs_array = std::make_unique<json_array>(a, "ciphersuites_not_allowed");
+                    }
+                    if (readable_output) {
+                        cs_array->print_string(cs.get_name());
+                    } else {
+                        cs_array->print_uint16_hex(cs);
+                    }
+                }
+                else {
+                    some_allowed = true;
+                }
+            }
+            
+            if (cs_array) {
+                cs_array->close();
             }
             const char *quantifier = "none";
             if (all_allowed) {
                 quantifier = "all";
-            } else if (some_allowed) {
+            }
+            else if (some_allowed) {
                 quantifier = "some";
             }
             a.print_key_string("ciphersuites_allowed", quantifier);
-            if (!all_allowed) {
-                json_array cs_array{a, "ciphersuites_not_allowed"};
-                datum tmp = ciphersuite_vector;
-                while (tmp.is_readable()) {
-                    tls::cipher_suites cs{tmp};
-                    if (!is_grease(cs) and allowed_ciphersuites.find(cs.value()) == allowed_ciphersuites.end()) {
-                        if (readable_output) {
-                            cs_array.print_string(cs.get_name());
-                        } else {
-                            cs_array.print_uint16_hex(cs);
-                        }
-                    }
-                }
-                cs_array.close();
-            }
-
             return true;
         }
 
         bool assess_tls_extensions(const tls_extensions &extensions, json_object &a) const {
+            std::unique_ptr<json_array> ng_array = nullptr;
             bool all_allowed = true;
             bool some_allowed = false;
+
             datum named_groups = extensions.get_supported_groups();
             xtn named_groups_xtn{named_groups};
-            encoded<uint16_t> named_groups_len{named_groups_xtn.value};
-            while (named_groups_xtn.value.is_readable()) {
-                encoded<uint16_t> named_group{named_groups_xtn.value};
-                if (!is_grease(named_group) and allowed_groups.find(named_group.value()) == allowed_groups.end()) {
+            encoded<uint16_t> named_gropus_len{named_groups_xtn.value};
+            
+            while(named_groups_xtn.value.is_readable()) {
+                tls::supported_groups named_group{named_groups_xtn.value};
+
+                if(is_grease(named_group)) {
+                    continue;
+                }
+
+                bool found = (allowed_groups.find(named_group.value()) != allowed_groups.end());
+                if(!found) {
                     all_allowed = false;
-                } else {
+                    if(ng_array == nullptr) {
+                        ng_array = std::make_unique<json_array>(a, "groups_not_allowed");
+                    }
+                    if(readable_output) {
+                        if (readable_output) {
+                            ng_array->print_string(named_group.get_name());
+                        } else {
+                            ng_array->print_uint16_hex(named_group);
+                        }
+                    }
+                }
+                else {
                     some_allowed = true;
                 }
+            }
+
+            if(ng_array != nullptr) {
+                ng_array->close();
             }
             const char *quantifier = "none";
             if (all_allowed) {
@@ -180,27 +209,8 @@ namespace crypto_policy {
                 quantifier = "some";
             }
             a.print_key_string("groups_allowed", quantifier);
-            if (!all_allowed) {
-                json_array ng_array{a, "groups_not_allowed"};
-                datum named_groups = extensions.get_supported_groups();
-                xtn named_groups_xtn{named_groups};
-                encoded<uint16_t> named_groups_len{named_groups_xtn.value};
-                while (named_groups_xtn.value.is_readable()) {
-                    tls::supported_groups named_group{named_groups_xtn.value};
-                    if (!is_grease(named_group) and allowed_groups.find(named_group.value()) == allowed_groups.end()) {
-                        if (readable_output) {
-                            ng_array.print_string(named_group.get_name());
-                        } else {
-                            ng_array.print_uint16_hex(named_group);
-                        }
-                    } else {
-                    }
-                }
-                ng_array.close();
-            }
 
             // required extensions
-            //
             bool have_tls_cert_with_extern_psk = false;
             datum tmp = extensions;
             while (tmp.is_readable()) {
@@ -213,8 +223,9 @@ namespace crypto_policy {
                     ;
                 }
             }
+            
             a.print_key_bool("tls_cert_with_extern_psk", have_tls_cert_with_extern_psk);
-
+            
             return true;
         }
 
@@ -246,93 +257,87 @@ namespace crypto_policy {
         };
 
         bool assess_ssh_kex_methods(const name_list &kex_list, json_object &a) const {
+            std::unique_ptr<json_array> cs_array = nullptr;
             bool all_allowed = true;
             bool some_allowed = false;
             name_list tmp_list = kex_list;
-            while (tmp_list.is_readable()) {
+
+            while(tmp_list.is_readable()) {
                 datum tmp{};
-                tmp.parse_up_to_delim(tmp_list,',');
-                if (tmp.end() == tmp_list.end()) {
-                    // end of list
+                tmp.parse_up_to_delim(tmp_list, ',');
+                if(tmp.end() == tmp_list.end()) {
                     tmp_list.set_null();
                 }
-                tmp_list.skip(1);    // skip ','
-                if (ssh_allowed_kex.find(std::string{(char*)tmp.data,(size_t)tmp.length()}) != ssh_allowed_kex.end()) {
-                    some_allowed = true;
-                } else {
+                tmp_list.skip(1); // skip ','
+
+                bool found = (ssh_allowed_kex.find(std::string{(char*)tmp.data, (size_t)tmp.length()}) != ssh_allowed_kex.end());
+                if(!found) {
                     all_allowed = false;
+                    if(cs_array == nullptr) {
+                        cs_array = std::make_unique<json_array>(a, "kex_not_allowed");
+                    }
+                    cs_array->print_string(std::string{(char*)tmp.data,(size_t)tmp.length()}.c_str());
+                }
+                else {
+                    some_allowed = true;
                 }
             }
+
+            if(cs_array != nullptr) {
+                cs_array->close();
+            }
+
             const char *quantifier = "none";
             if (all_allowed) {
                 quantifier = "all";
             } else if (some_allowed) {
                 quantifier = "some";
             }
+
             a.print_key_string("kex_allowed", quantifier);
-            if (!all_allowed) {
-                json_array cs_array{a, "kex_not_allowed"}; 
-                name_list tmp_list = kex_list;
-                while (tmp_list.is_readable()) {
-                    datum tmp{};
-                    tmp.parse_up_to_delim(tmp_list,',');
-                    if (tmp.end() == tmp_list.end()) {
-                       // end of list
-                        tmp_list.set_null();
-                    }
-                    tmp_list.skip(1);    // skip ','
-                    if (ssh_allowed_kex.find(std::string{(char*)tmp.data,(size_t)tmp.length()}) == ssh_allowed_kex.end()) {
-                        cs_array.print_string(std::string{(char*)tmp.data,(size_t)tmp.length()}.c_str());
-                    }
-                }
-                cs_array.close();
-            }
 
             return true;
         }
 
         bool assess_ssh_ciphers(const name_list &ciphers, json_object &a) const {
+            std::unique_ptr<json_array> cs_array = nullptr;
             bool all_allowed = true;
             bool some_allowed = false;
             name_list tmp_list = ciphers;
-            while (tmp_list.is_readable()) {
+
+            while(tmp_list.is_readable()) {
                 datum tmp{};
-                tmp.parse_up_to_delim(tmp_list,',');
-                if (tmp.end() == tmp_list.end()) {
-                    // end of list
+                tmp.parse_up_to_delim(tmp_list, ',');
+                if(tmp.end() == tmp_list.end()) {
                     tmp_list.set_null();
                 }
-                tmp_list.skip(1);    // skip ','
-                if (ssh_allowed_ciphers.find(std::string{(char*)tmp.data,(size_t)tmp.length()}) != ssh_allowed_ciphers.end()) {
-                    some_allowed = true;
-                } else {
+                tmp_list.skip(1); // skips ','
+
+                bool found = ssh_allowed_ciphers.find(std::string{(char*)tmp.data, (size_t)tmp.length()}) != ssh_allowed_ciphers.end();
+                if(!found) {
                     all_allowed = false;
+                    if(cs_array == nullptr) {
+                        cs_array = std::make_unique<json_array>(a, "ciphersuites_not_allowed");
+                    }
+                    cs_array->print_string(std::string{(char*)tmp.data,(size_t)tmp.length()}.c_str());
+                }
+                else {
+                    some_allowed = true;
                 }
             }
+
+            if(cs_array != nullptr) {
+                cs_array->close();
+            }
+
             const char *quantifier = "none";
             if (all_allowed) {
                 quantifier = "all";
             } else if (some_allowed) {
                 quantifier = "some";
             }
+
             a.print_key_string("ciphersuites_allowed", quantifier);
-            if (!all_allowed) {
-                json_array cs_array{a, "ciphersuites_not_allowed"}; 
-                name_list tmp_list = ciphers;
-                while (tmp_list.is_readable()) {
-                    datum tmp{};
-                    tmp.parse_up_to_delim(tmp_list,',');
-                    if (tmp.end() == tmp_list.end()) {
-                       // end of list
-                        tmp_list.set_null();
-                    }
-                    tmp_list.skip(1);    // skip ','
-                    if (ssh_allowed_ciphers.find(std::string{(char*)tmp.data,(size_t)tmp.length()}) == ssh_allowed_ciphers.end()) {
-                        cs_array.print_string(std::string{(char*)tmp.data,(size_t)tmp.length()}.c_str());
-                    }
-                }
-                cs_array.close();
-            }
 
             return true;
         }
