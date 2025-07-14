@@ -468,6 +468,8 @@ public:
             return fingerprint_type_http;
         } else if (s == "quic") {
             return fingerprint_type_quic;
+        } else if (s == "stun") {
+            return fingerprint_type_stun;
         } else if (s == "tofsee") {
             return fingerprint_type_tofsee;
         }
@@ -524,6 +526,8 @@ public:
                     type = fingerprint_type_http;
                 } else if (s.compare(0, idx, "quic") == 0) {
                     type = fingerprint_type_quic;
+                } else if (s.compare(0, idx, "stun") == 0) {
+                    type = fingerprint_type_stun;
                 } else if (s.compare(0, idx, "tofsee") == 0) {
                     type = fingerprint_type_tofsee;
                 }
