@@ -49,7 +49,7 @@ void thread_queues_init(struct thread_queues *tqs, int n, float frac) {
     }
 
     if (qlen < 8 * LLQ_MAX_MSG_SIZE) {
-        fprintf(stderr, "Only able to allocate output queue lengths of %llu (minimum %d)\n", qlen, 8 * LLQ_MAX_MSG_SIZE);
+        fprintf(stderr, "Only able to allocate output queue lengths of %" PRIu64 " (minimum %d)\n", qlen, 8 * LLQ_MAX_MSG_SIZE);
         exit(255);
     }
 
@@ -441,7 +441,7 @@ void *output_thread_func(void *arg) {
 
             if (drops > 0) {
                 total_drops += drops;
-                fprintf(stderr, "[OUTPUT] Output queue %d reported %llu drops\n", q, drops);
+                fprintf(stderr, "[OUTPUT] Output queue %d reported %" PRIu64 " drops\n", q, drops);
 
                 /* Subtract all the drops we just counted */
                 __sync_sub_and_fetch(&(out_ctx->qs.queue[q].drops), drops);
@@ -450,7 +450,7 @@ void *output_thread_func(void *arg) {
 
             if (drops_trunc > 0) {
                 total_drops_trunc += drops_trunc;
-                fprintf(stderr, "[OUTPUT] Output queue %d reported %llu truncations\n", q, drops_trunc);
+                fprintf(stderr, "[OUTPUT] Output queue %d reported %" PRIu64 " truncations\n", q, drops_trunc);
 
                 /* Subtract all the drops we just counted */
                 __sync_sub_and_fetch(&(out_ctx->qs.queue[q].drops_trunc), drops_trunc);

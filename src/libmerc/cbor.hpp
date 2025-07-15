@@ -622,7 +622,7 @@ namespace cbor {
                     {
                         uint64 tmp{d};
                         if (d.is_null()) { return false; }
-                        fprintf(f, "%.*sunsigned integer: %llu\n", r, tabs, tmp.value());
+                        fprintf(f, "%.*sunsigned integer: %" PRIu64 "\n", r, tabs, tmp.value());
                     }
                     break;
                 case byte_string_type:
@@ -670,7 +670,7 @@ namespace cbor {
                     {
                         tag tmp{d};
                         if (d.is_null()) { return false; }
-                        fprintf(f, "%.*stag: %llu\n", r, tabs, tmp.value());
+                        fprintf(f, "%.*stag: %" PRIu64 "\n", r, tabs, tmp.value());
                     }
                     break;
                 case simple_or_float_type:
@@ -1046,7 +1046,7 @@ namespace cbor {
             if (f) {
                 fprintf(f, "encoded: ");
                 for (const auto & ee : tc.first) { fprintf(f, "%02x", ee);  }
-                fprintf(f, "\tdecoded: %llu\tre-encoded: ", u.value());
+                fprintf(f, "\tdecoded: %" PRIu64 "\tre-encoded: ", u.value());
                 for (const auto & ee : dbuf.contents()) { fprintf(f, "%02x", ee);  }
                 fprintf(f, "\t%s\n", passed ? "passed" : "failed");
             }
