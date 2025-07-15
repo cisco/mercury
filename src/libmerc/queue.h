@@ -9,9 +9,14 @@
 #define QUEUE_H
 
 #include <string.h>
+#ifdef _WIN32
+#include <io.h>
+#else
 #include <unistd.h>
+#endif
 #include <mutex>
 #include <tuple>
+#include <chrono>
 
 typedef std::tuple<std::string, std::string, std::string, std::string> event_msg;
 #define EVENT_BUF_SIZE 512
@@ -69,7 +74,7 @@ public:
                 while (is_full()) {
                     blocked_count++;
                     m_lock.unlock();
-                    usleep(SLEEP_MICROSEC);
+                    std::this_thread::sleep_for(std::chrono::microseconds(SLEEP_MICROSEC));
                     m_lock.lock();
                 }
                 //fprintf(stderr, "%s: message_queue %p blocked for %lu microseconds\n",

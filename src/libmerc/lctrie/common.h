@@ -4,7 +4,77 @@
 
 #include <stdint.h>
 #include <typeinfo>
-#include "../datum.h"
+
+#ifndef HAVE_HTON_DEF
+#define HAVE_HTON_DEF
+
+#ifdef _WIN32
+
+static constexpr bool host_little_endian = true;
+
+/// returns an integer equal to x with its byte order reversed (from
+/// little endian to big endian or vice-versa)
+///
+inline static uint16_t swap_byte_order(uint16_t x) { return _byteswap_ushort(x); }
+
+/// returns an integer equal to x with its byte order reversed (from
+/// little endian to big endian or vice-versa)
+///
+inline static uint32_t swap_byte_order(uint32_t x) { return _byteswap_ulong(x); }
+
+/// returns an integer equal to x with its byte order reversed (from
+/// little endian to big endian or vice-versa)
+///
+inline static uint64_t swap_byte_order(uint64_t x) { return _byteswap_uint64(x); }
+
+#else
+
+static constexpr bool host_little_endian = (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__);
+
+/// returns an integer equal to x with its byte order reversed (from
+/// little endian to big endian or vice-versa)
+///
+inline static uint16_t swap_byte_order(uint16_t x) { return __builtin_bswap16(x); }
+
+/// returns an integer equal to x with its byte order reversed (from
+/// little endian to big endian or vice-versa)
+///
+inline static uint32_t swap_byte_order(uint32_t x) { return __builtin_bswap32(x); }
+
+/// returns an integer equal to x with its byte order reversed (from
+/// little endian to big endian or vice-versa)
+///
+inline static uint64_t swap_byte_order(uint64_t x) { return __builtin_bswap64(x); }
+
+#endif
+
+/// when `x` is in network byte order, `ntoh(x)` returns the value of
+/// `x` in host byte order
+///
+/// Given an unsigned integer variable `x` in network byte order, the
+/// template function `ntoh(x)` returns an unsigned integer in host
+/// byte order with the same type and value.
+///
+template <typename T>
+inline static T ntoh(T x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
+
+/// when `x` is in host byte order, `hton(x)` returns the value of `x`
+/// in network byte order
+///
+/// Given an unsigned variable `x` in host byte order, the template
+/// function `hton(x)` returns an unsigned integer in network byte
+/// order with the same type and value.
+///
+/// To apply `hton()` an unsigned literal, use the appropriate
+/// template specialization.  For instance, `hton<uint16_t>(443)`
+/// obtains a `uint16_t` in network byte order for the literal 443.  The
+/// specialization must be used because otherwise a compiler error
+/// will result from amiguity over the integer type.
+///
+template <typename T>
+inline static T hton(T x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
+
+#endif
 
 
 //uint32_t EXTRACT(unsigned int pos, unsigned int num, uint32_t str);
@@ -79,6 +149,8 @@ T REMOVE(unsigned int p, T str) {
     return nullptr;
 }
 
+#ifndef _WIN32
+// disable __uint128 based operations
 
 // __uint128_t ntoh() is suitable for IPv6 addresses
 //
@@ -96,6 +168,6 @@ inline __uint128_t ntoh(__uint128_t addr) {
     out[0] = ntoh(in[7]);
     return output;
 }
-
+#endif
 
 #endif // COMMON_H

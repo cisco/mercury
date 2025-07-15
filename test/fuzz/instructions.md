@@ -18,6 +18,9 @@ namespace {
 ```
 for e.g. look here [quic_init_fuzz_test](../../src/libmerc/quic.h).
 
+### _fuzz_2_test functions
+For cases where a function requires two separate fuzzed inputs, use the naming convention ```{class_name/struct_name/snippet_name}_fuzz_2_test```. These functions are useful for testing code that processes or compares two independent inputs. The fuzzing framework will automatically split the input and pass two buffers to these functions.
+
 ## Test case directory
 
 Each fuzz-test has a corresponding test case directory in [this dir](.) . The test directory name should be {class_name/struct_name/snippet_name}, same as what was used in the test-case function name, less {_fuzz_test}.

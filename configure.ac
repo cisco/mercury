@@ -6,6 +6,23 @@ AC_USE_SYSTEM_EXTENSIONS
 #AC_PROG_CC
 AC_PROG_CXX
 AC_CANONICAL_HOST
+AC_MSG_CHECKING([for platform architecture])
+case "$host_cpu" in
+    i?86 | x86_64)
+        PLATFORM="intel"
+        AC_MSG_RESULT([Intel-compatible ($host_cpu)])
+        ;;
+    arm* | aarch64)
+        PLATFORM="arm"
+        AC_MSG_RESULT([ARM-compatible ($host_cpu)])
+        ;;
+    *)
+        PLATFORM="unknown"
+        AC_MSG_WARN([Unknown architecture: $host_cpu])
+        ;;
+esac
+AC_SUBST([PLATFORM])
+
 # Update lib and include paths for Apple Silicon
 case $host_os in
     darwin* )

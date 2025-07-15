@@ -30,7 +30,6 @@ public:
     void compute_fingerprint(fingerprint &) const { }
 
     bool do_analysis(const struct key &, struct analysis_context &, classifier*) { return false; }
-
 };
 
 #endif // PROTOCOL_H

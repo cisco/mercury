@@ -108,7 +108,7 @@ public:
         floating_point_type base_prior = log(0.1 / total_count);
         std::pair<T,size_t> value_and_count = { feature_value, count };
         const auto x = updates.find(value_and_count.first);
-        class update u{ process_index, (log((floating_point_type)value_and_count.second / total_count) - base_prior) * weight };
+        class update u{ (unsigned int)process_index, (log((floating_point_type)value_and_count.second / total_count) - base_prior) * weight };
         if (x != updates.end()) {
             x->second.push_back(u);
         } else {
@@ -275,7 +275,7 @@ public:
                     )
     {
         floating_point_type base_prior = log(0.1 / total_count);
-        class update u{ process_index, (log((floating_point_type)count / total_count) - base_prior) * weight };
+        class update u{ (unsigned int)process_index, (log((floating_point_type)count / total_count) - base_prior) * weight };
 
         if (lookahead<ipv4_address_string> ipv4{datum{feature_value}}) {
             uint32_t addr = ipv4.value.get_value();
@@ -427,7 +427,7 @@ public:
         std::pair<std::string,size_t> domains_and_count{ hostname_domains, count };
 
         const auto x = hostname_domain_updates.find(domains_and_count.first);
-        class update u{ index, (log((floating_point_type)domains_and_count.second / total_count) - base_prior) * domain_weight };
+        class update u{ (unsigned int)index, (log((floating_point_type)domains_and_count.second / total_count) - base_prior) * domain_weight };
         if (x != hostname_domain_updates.end()) {
 
             // check for previous occurence of this index
@@ -461,7 +461,7 @@ public:
         std::pair<std::string,size_t> sni_and_count{ hostname_sni, count };
 
         const auto x = hostname_sni_updates.find(sni_and_count.first);
-        class update u{ index, (log((floating_point_type)sni_and_count.second / total_count) - base_prior) * sni_weight };
+        class update u{ (unsigned int)index, (log((floating_point_type)sni_and_count.second / total_count) - base_prior) * sni_weight };
         if (x != hostname_sni_updates.end()) {
 
             // check for previous occurence of this index

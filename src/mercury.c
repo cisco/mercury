@@ -672,6 +672,9 @@ int main(int argc, char *argv[]) {
     if (libmerc_cfg.packet_filter_cfg == NULL) {
         additional_args.append("select=all;");
     }
+    if (libmerc_cfg.resources == NULL) {
+        libmerc_cfg.resources = (char *)DEFAULT_RESOURCE_FILE;
+    }
     if (!using_config_file || (using_config_file && libmerc_cfg.packet_filter_cfg == nullptr)) {
         libmerc_cfg.packet_filter_cfg = (char *)additional_args.c_str();
     }

@@ -43,6 +43,25 @@
 //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //
 //
+#ifdef _WIN32
+
+#pragma pack(1)
+struct ipv4_header {
+    unsigned char  vhl;    /* version and hdr length */
+    unsigned char  tos;    /* type of service        */
+    unsigned short len;    /* packet length          */
+    unsigned short id;     /* identification         */
+    unsigned short flgoff; /* flags, frag off field  */
+    unsigned char  ttl;    /* time to live           */
+    unsigned char  prot;   /* protocol               */
+    unsigned short cksum;  /* checksum               */
+    uint32_t       src_addr;  /* source address         */
+    uint32_t       dst_addr;  /* destination address    */
+};
+#pragma pack()
+
+#else
+
 struct ipv4_header {
     unsigned char  vhl;    /* version and hdr length */
     unsigned char  tos;    /* type of service        */
@@ -55,6 +74,8 @@ struct ipv4_header {
     uint32_t       src_addr;  /* source address         */
     uint32_t       dst_addr;  /* destination address    */
 } __attribute__((packed));
+
+#endif  // #ifdef _WIN32
 
 class ipv4_packet {
     struct ipv4_header *header;
@@ -341,6 +362,34 @@ public:
     }
 };
 
+#ifdef _WIN32
+
+#pragma pack(1)
+struct ipv6_header {
+    uint8_t bytes[4];
+    unsigned short  len;      // payload length
+    unsigned char   nxh;      // next header
+    unsigned char   ttl;      // hop limit (time to live)
+    ipv6_address    src_addr; // source address
+    ipv6_address    dst_addr; // destination address
+
+    uint8_t version() const {
+        return bytes[0] & 0xf0;
+    }
+
+    uint8_t traffic_class() const {
+        return (bytes[0] << 4) | (bytes[1] >> 4);
+    }
+
+    uint32_t flow_label() const {
+        return (uint32_t)bytes[1] << 16 | (uint32_t)bytes[2] << 8 | bytes[3];
+    }
+
+};
+#pragma pack()
+
+#else
+
 struct ipv6_header {
     uint8_t bytes[4];
     unsigned short  len;      // payload length
@@ -363,6 +412,7 @@ struct ipv6_header {
 
 } __attribute__((packed));
 
+#endif  // #ifdef _WIN32
 
 class ipv6_packet {
     const struct ipv6_header *header;

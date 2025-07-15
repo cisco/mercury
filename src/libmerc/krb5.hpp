@@ -71,7 +71,7 @@ namespace krb5 {
             bit_string.parse(&p, tlv::BIT_STRING);
         }
 
-        void print_as_json(struct json_object_asn1 &o, const char *name) const {
+        void print_as_json(struct json_object &o, const char *name) const {
             varint<uint32_t> flags{bit_string.value, varint<uint32_t>::asn1_bitstring};
             json_array_bitflags f{o, name, flags};
             f.flag<1>("forwardable");
@@ -262,7 +262,7 @@ namespace krb5 {
         }
 
         void write_json(json_object &record) const {
-            json_object_asn1 o{record, "body"};
+            json_object o{record, "body"};
             kdc_options{kdc_opt.value}.print_as_json(o, "kdc_options");
             if (cname) {
                 principal_name{cname.value}.write_json(o, "cname");
@@ -330,9 +330,9 @@ namespace krb5 {
             }
         }
 
-        void write_json(json_object_asn1 &o) const {
+        void write_json(json_object &o) const {
             if (!valid) { return; }
-            json_object_asn1 pad{o, "pa_data"};
+            json_object pad{o, "pa_data"};
             //pa_data_type.print_as_json(pad, "type");
             datum tmp = type.value;
             pa_data_type<uint32_t>{to_uint64(tlv{tmp})}.write_json(pad);
@@ -392,9 +392,9 @@ namespace krb5 {
             valid = seq.value.is_not_null();
         }
 
-        void write_json(json_object_asn1 &o) const {
+        void write_json(json_object &o) const {
             //            if (!valid) { return; }
-            json_object_asn1 kdc_req_json{o, "kdc_req"};
+            json_object kdc_req_json{o, "kdc_req"};
             kdc_req_json.print_key_hex("pvno", pvno.value);
             kdc_req_json.print_key_hex("msg_type", msg_type.value);
             // kdc_req_json.print_key_hex("padata", padata.value);
@@ -501,7 +501,7 @@ namespace krb5 {
         }
 
         void write_json(json_object &o) const {
-            json_object_asn1 error_json{o, "error"};
+            json_object error_json{o, "error"};
             error_json.print_key_hex("pvno", pvno.value);
             error_json.print_key_hex("msg_type", msg_type.value);
             if (ctime) {
@@ -585,7 +585,7 @@ namespace krb5 {
         }
 
         void write_json(json_object &o) const {
-            json_object_asn1 kdc_rep_json{o, "kdc_rep"};
+            json_object kdc_rep_json{o, "kdc_rep"};
             kdc_rep_json.print_key_hex("pnvo", pvno.value);
             kdc_rep_json.print_key_hex("msg_type", msg_type.value);
             //kdc_rep_json.print_key_hex("padata", padata.value);
@@ -606,9 +606,9 @@ namespace krb5 {
     using message = std::variant<std::monostate, error, kdc_req, kdc_rep>;
 
     struct do_write_json {
-        json_object_asn1 &record;
+        json_object &record;
 
-        do_write_json(json_object_asn1 &obj) : record{obj} { }
+        do_write_json(json_object &obj) : record{obj} { }
 
         void operator()(const std::monostate &) { }
 
@@ -650,8 +650,8 @@ namespace krb5 {
 
         void write_json(json_object &o, bool metadata=false) const {
             (void)metadata;
-            json_object_asn1 krb_json{o, "kerberos"};
-            // json_array_asn1 raw_krb{krb_json, "raw"};
+            json_object krb_json{o, "kerberos"};
+            // json_array raw_krb{krb_json, "raw"};
             // tlv tmp{app2};
             // tlv::recursive_parse(tmp.value, raw_krb);
             // raw_krb.close();

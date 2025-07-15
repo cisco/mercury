@@ -12,7 +12,10 @@
 #include "ip_address.hpp"
 
 class arp_packet {
-
+#ifdef _WIN32
+// TODO: REFACTOR to use encoded<>
+#pragma pack(1)
+#endif
     struct header {
         uint16_t hardware_type;
         uint16_t protocol_type;
@@ -60,7 +63,13 @@ class arp_packet {
             return "unknown";
         }
 
-    } __attribute__((__packed__));
+    }
+#ifdef _WIN32
+    ;
+#pragma pack()
+#else
+    __attribute__((__packed__));
+#endif
 
 
 
@@ -102,18 +111,17 @@ public:
             if (hdr->hw_addr_len() == eth_addr::bytes_in_addr
                 && hdr->proto_addr_len() == ipv4_addr::bytes_in_addr) {
                 eth_addr sender_hw_addr{addresses};
-                arp_obj.print_key_hex("sender_hw_addr", sender_hw_addr);
-
                 ipv4_addr sender_proto_addr;
                 sender_proto_addr.parse(addresses);
-                arp_obj.print_key_value("sender_proto_addr", sender_proto_addr);
-
                 eth_addr target_hw_addr{addresses};
-                arp_obj.print_key_hex("target_hw_addr", target_hw_addr);
-
                 ipv4_addr target_proto_addr;
                 target_proto_addr.parse(addresses);
-                arp_obj.print_key_value("target_proto_addr", target_proto_addr);
+                if (addresses.is_not_null()) {
+                    arp_obj.print_key_hex("sender_hw_addr", sender_hw_addr);
+                    arp_obj.print_key_value("sender_proto_addr", sender_proto_addr);
+                    arp_obj.print_key_hex("target_hw_addr", target_hw_addr);
+                    arp_obj.print_key_value("target_proto_addr", target_proto_addr);
+                }
             }
 
         }

@@ -436,7 +436,7 @@ public:
             } else {
                 break;
             }
-            if (value > std::numeric_limits<uint8_t>::max()) {
+            if (value > (std::numeric_limits<uint8_t>::max)()) {
                 d.set_null();
                 return;
             }
@@ -600,7 +600,11 @@ public:
 // IPv6 address strings (textual representation)
 //
 
+#ifdef _WIN32
+// TODO: Define IPV6 for Windows
+#else
 using uint128_t = __uint128_t; // defined by GCC at least
+#endif
 
 // IPv6 address string parsing, as per RFC 4291.
 //
@@ -757,6 +761,7 @@ public:
         fputc('\n', f);
     }
 
+#ifndef _WIN32    
     uint128_t get_value() const {
         uint128_t x = 0;
 
@@ -797,6 +802,7 @@ public:
             hton<uint32_t>(tmp & 0xffffffff)
         };
     }
+#endif
 
     ipv6_array_t get_value_array() const {
         ipv6_array_t x;

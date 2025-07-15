@@ -15,7 +15,6 @@
 #define PROTO_IDENTIFY_H
 
 #include <stdint.h>
-#include <arpa/inet.h>
 
 #include <vector>
 #include <array>

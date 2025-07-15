@@ -8,13 +8,21 @@
 #ifndef STATS_H
 #define STATS_H
 
+#ifdef _WIN32
+#include <io.h>
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t;
+typedef uint32_t useconds_t;
+#else
 #include <unistd.h>
+#endif
 #include <stdint.h>
 #include <stdio.h>
 #include <string>
 #include <unordered_map>
 #include <algorithm>
 #include <thread>
+#include <chrono>
 #include <atomic>
 #include <zlib.h>
 #include <functional>
@@ -340,7 +348,7 @@ class data_aggregator {
         //fprintf(stderr, "note: running consumer in %p\n", (void *)this);
         while(shutdown_requested.load() == false) {
             process_event_queues();
-            usleep(consumer_sleep); // sleep somewhere between 1us and 50us
+            std::this_thread::sleep_for(std::chrono::microseconds(consumer_sleep)); // sleep for consumer_sleep microseconds
         }
     }
 

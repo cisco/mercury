@@ -336,7 +336,7 @@ public:
     }
 
     void handleErrors() {
-        fprintf(stderr, "error: EVP hash failure\n");
+        throw std::runtime_error("EVP hash failure");
     }
 };
 

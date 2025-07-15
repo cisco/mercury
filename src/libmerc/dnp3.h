@@ -452,12 +452,12 @@ public:
         src_addr{frame, true},
         hdr_crc{frame},
         valid{true},
-        data_len{len - 5},
+        data_len{(uint8_t) (len > 5 ? (len - 5) : 0)},
         block_count((data_len%16 ? (data_len/16 + 1) : data_len/16)),
         data{},
         block_crc{}
         {
-            if (!frame.is_not_null()) {
+            if (!frame.is_not_null() || !data_len) {
                 valid = false;
                 return;
             }

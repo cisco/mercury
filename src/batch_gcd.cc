@@ -736,7 +736,7 @@ public:
 
                 // char databuf[4096];
                 // buffer_stream buf{databuf, sizeof(databuf)};
-                // json_object_asn1 record{&buf};
+                // json_object record{&buf};
                 // // cert.subjectPublicKeyInfo.print_as_json(record, "subject_public_key_info");
                 rsa_public_key rsa_pub = cert.subjectPublicKeyInfo.get_rsa_public_key();
                 // rsa_pub.print_as_json(record, "rsa_pub");

@@ -3,7 +3,7 @@
 // generic asn1 parsing
 //
 // compilation:
-//    g++ -Wall -Wno-deprecated-declarations -Wno-narrowing asn1.cpp libmerc/asn1.cc libmerc/asn1/oid.cc libmerc/utils.cc -o asn1
+//    g++ -Wall -Wno-deprecated-declarations -Wno-narrowing asn1.cpp libmerc/asn1/oid.cc libmerc/utils.cc -o asn1
 
 #include "libmerc/datum.h"
 #include "libmerc/asn1.h"
@@ -30,7 +30,7 @@ int main(int, char *[]) {
         // representation
         //
         output_buffer<4096> buf;
-        json_array_asn1 a{&buf};
+        json_array a{&buf};
         tlv::recursive_parse(d, a);
         a.close();
         buf.write_line(stdout);

@@ -15,6 +15,10 @@
 #include <time.h>
 #include <stdint.h>
 #include <stdio.h>
+#ifdef _WIN32
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t;
+#endif
 
 #ifdef DONT_USE_STDERR
 #include "libmerc.h"
@@ -1179,7 +1183,7 @@ public:
     /// than, to match, or be greater.
 
     int memcmp(const void *s, size_t n) {
-        size_t comp_length = std::min(n, (size_t)doff);
+        size_t comp_length = (std::min)(n, (size_t)doff);
         return ::memcmp(buffer, s, comp_length);
     }
 

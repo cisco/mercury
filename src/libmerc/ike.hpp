@@ -28,7 +28,11 @@ namespace ike {
     // UDP port 4500, in which case it is usually multiplexed with
     // ESP-over-UDP
     //
+#ifdef _WIN32
+    static uint16_t default_port = hton<uint16_t>(500);
+#else
     static constexpr uint16_t default_port = hton<uint16_t>(500);
+#endif
 
     //                          1                   2                   3
     //     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -351,7 +355,7 @@ namespace ike {
             type{d},
             reserved2{d},
             transform_id{d},
-            attributes{d, transform_length - bytes_in_transform_header},
+            attributes{d, (ssize_t)(transform_length - bytes_in_transform_header)},
             valid{d.is_not_null()}
         {}
 
@@ -436,7 +440,7 @@ namespace ike {
             spi_size{d},
             num_transforms{d},
             spi{d, spi_size},
-            transforms{d, proposal_length - bytes_in_proposal_header - spi_size},
+            transforms{d, (ssize_t)(proposal_length - bytes_in_proposal_header - spi_size)},
             valid{d.is_not_null()}
         { }
 
@@ -489,7 +493,7 @@ namespace ike {
             payload_length_{d},
             valid{d.is_not_null()},
             this_payload{payload_type},
-            payload{d, payload_length_ - bytes_in_generic_payload_header}
+            payload{d, (ssize_t)(payload_length_ - bytes_in_generic_payload_header)}
         { }
 
         uint16_t payload_length() const {
@@ -549,7 +553,7 @@ namespace ike {
     public:
         packet(datum &d) :
             hdr{d},
-            body{d, hdr.body_length()}
+            body{d, (ssize_t)hdr.body_length()}
         { }
 
         bool is_not_empty() const { return is_valid(); }
@@ -566,7 +570,7 @@ namespace ike {
             datum tmp = body;
             while (tmp.is_not_empty()) {
                 json_object p{payloads};
-                generic_payload gp{tmp, payload_type};
+                generic_payload gp{tmp, (uint8_t)payload_type};
                 gp.write_json(p);
                 p.close();
                 payload_type = gp.get_next_payload();

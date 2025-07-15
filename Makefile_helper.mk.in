@@ -35,9 +35,15 @@ is_macos = @IS_MACOS@
 #
 is_macos_arm = @IS_MACOS_ARM@
 
+#The variable platform is used to represent intel or arm based architecture.
+# platform=intel   for intel based platform
+#         =arm     for arm based platform
+#         =unknown otherwise
+platform = @PLATFORM@
+
 CXX     = @CXX@
 CC      = @CC@
-CFLAGS  = --std=c++17
+CFLAGS  += --std=c++17
 CFLAGS += -O3
 # CFLAGS += -march=x86-64 -mtune=generic
 CFLAGS += -Wall -Wextra -Wno-deprecated $(CDEFS) $(MSV)

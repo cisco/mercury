@@ -17,17 +17,29 @@
 #include "tsc_clock.hpp"
 
 #ifndef  MERCURY_SEMANTIC_VERSION
+#ifdef _WIN32
+#pragma message(MERCURY_SEMANTIC_VERSION is not defined)
+#else
 #warning MERCURY_SEMANTIC_VERSION is not defined
+#endif
 #define  MERCURY_SEMANTIC_VERSION 0,0,0
 #endif
 
 #ifndef  GIT_COMMIT_ID
+#ifdef _WIN32
+#pragma message(GIT_COMMIT_ID is not defined)
+#else
 #warning GIT_COMMIT_ID is not defined
+#endif
 #define  GIT_COMMIT_ID "commit unknown"
 #endif
 
 #ifndef  GIT_COUNT
+#ifdef _WIN32
+#pragma message(GIT_COUNT is not defined)
+#else
 #warning GIT_COUNT is not defined
+#endif
 #define  GIT_COUNT 0
 #endif
 
@@ -165,6 +177,23 @@ const struct analysis_context *mercury_packet_processor_get_analysis_context(mer
         printf_err(log_err, "%s\n", e.what());
     }
     return NULL;
+}
+
+int mercury_packet_processor_get_analysis_context_fdc(
+    mercury_packet_processor processor,
+    const struct flow_key_ext* k,
+    const uint8_t* payload, 
+    const size_t len, 
+    uint8_t *buffer, 
+    size_t *buffer_size, 
+    const struct analysis_context **context) { 
+    try {
+        return processor->analyze_payload_fdc(k, payload, len, buffer, buffer_size, context);
+    }
+    catch (std::exception &e) {
+        printf_err(log_err, "%s\n", e.what());
+    }
+    return fdc_return::UNKNOWN_ERROR;
 }
 
 const struct analysis_context *mercury_packet_processor_get_analysis_context_linktype(mercury_packet_processor processor, uint8_t *packet, size_t length, struct timespec* ts, uint16_t linktype)

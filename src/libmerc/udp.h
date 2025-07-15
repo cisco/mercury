@@ -47,6 +47,25 @@ class udp {
 
     // struct header represents a UDP header
     //
+#ifdef _WIN32
+
+#pragma pack(1)
+struct header {
+        uint16_t src_port;
+        uint16_t dst_port;
+        uint16_t length;
+        uint16_t checksum;
+    };
+#pragma pack()
+
+    const struct header *header;
+    uint32_t more_bytes_needed;
+    // ports if header is null
+    uint16_t src_port;
+    uint16_t dst_port;
+
+#else
+
     struct header {
         uint16_t src_port;
         uint16_t dst_port;
@@ -55,12 +74,21 @@ class udp {
     } __attribute__ ((__packed__));
 
     const struct header *header;
-
     uint32_t more_bytes_needed;
+    // ports if neader is null
+    uint16_t src_port = 0;
+    uint16_t dst_port = 0;
+
+#endif
 
 public:
 
-    udp(struct datum &d) : header{NULL}, more_bytes_needed{0} { parse(d); };
+    udp(struct datum &d, bool payload_only=false) : header{NULL}, more_bytes_needed{0} { 
+        if(payload_only) {
+            return;
+        }
+        parse(d);
+    };
 
     void parse(struct datum &d) {
         header = d.get_pointer<struct header>();
@@ -103,6 +131,9 @@ public:
         if (header) {
             return { header->src_port, header->dst_port };
         }
+        else if (src_port && dst_port) {
+            return {src_port,dst_port};
+        }
         return { 0, 0 };
     }
 
@@ -115,6 +146,11 @@ public:
             k.dst_port = ntoh(header->dst_port);
             k.protocol = 17; // udp
         }
+    }
+
+    void set_ports(const key &k) {
+        src_port = hton(k.src_port);
+        dst_port = hton(k.dst_port);
     }
 
     uint16_t get_len() const {

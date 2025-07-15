@@ -13,6 +13,8 @@
 
 #include "lctrie_ip.h"
 
+#ifndef _WIN32
+// disable IPv6 on Windows
 template <typename T>
 void ipv6_print(FILE *f, const __uint128_t *addr) {
     uint16_t *a = (uint16_t *)addr;
@@ -38,7 +40,7 @@ void ipv6_print_rev(FILE *f, const __uint128_t *addr) {
     }
     fprintf(f, "%x", *iterator);
 }
-
+#endif
 
 typedef struct lct_bgp_asn {
   uint32_t num;
@@ -76,6 +78,8 @@ lct_subnet_set_from_string(lct_subnet<uint32_t> *subnet, const char *subnet_stri
   return -1;  /* error parsing subnet_string */
 }
 
+#ifndef _WIN32
+// disable IPV6 on Windows
 inline int
 lct_subnet_set_from_string(lct_subnet<__uint128_t> *subnet, const char *subnet_string) {
   uint32_t asn;
@@ -182,7 +186,7 @@ lct_subnet_set_from_string(lct_subnet<__uint128_t> *subnet, const char *subnet_s
   subnet->info.bgp.asn = asn;
   return 0;
 }
-
+#endif
 
 // read the subnet to ASN file
 // return number of entries read

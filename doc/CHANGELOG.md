@@ -1,5 +1,14 @@
 # CHANGELOG for Mercury
 
+* Removed duplicate UTF-8 and IP address output code used in
+  ASN.1, added classes `utc_time`, `generalized_time`, and `raw_oid`
+  to facilitate JSON output, removed `json_object_asn1` and
+ `json_array_asn1` and some unused function definitions and
+  declarations.
+* Added changes to leverage SIMD instructions to improve
+  performance. Added xsimd library as a git submodule
+* Removed some direct calls to `fprintf(stderr, ...)` from `libmerc.so`.
+
 ## VERSION 2.7.1
 * Updated QUIC reassembly logic for reordered QUIC crypto frames
 * Refactored the IP subnet reading code to minimize the amount of
@@ -8,6 +17,9 @@
   the RAM usage of mercury library when enabled
 * Added changes to allow classifier to use custom weights
   and introduced new cython interface
+* Added additional fuzz tests. Updated the `generate_fuzz_test.sh` script to
+  support generating fuzz functions that test functions requiring two fuzzed inputs. 
+  Also hardened some datum functions.
 
 ## VERSION 2.7.0
 * Added minimal RDP (Remote Desktop Protocol) support, which
