@@ -335,7 +335,7 @@ public:
 
     }
 
-    void handleErrors() {
+    [[noreturn]] void handleErrors() {
         throw std::runtime_error("EVP hash failure");
     }
 };

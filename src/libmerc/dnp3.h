@@ -281,8 +281,8 @@ public:
 };
 
 class dnp3_app {
-    bool is_resp;
-    bool outstation_resp;
+    [[maybe_unused]] bool is_resp;
+    [[maybe_unused]] bool outstation_resp;
     datum data;
     dnp3_app_hdr app_hdr;
     bool valid;

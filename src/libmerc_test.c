@@ -224,7 +224,7 @@ void print_out_analysis_context(const struct analysis_context *c) {
                                              &os_info_len)) {
                 const struct os_information *os = os_info;
                 for (unsigned int i=0; i < os_info_len; i++) {
-                    fprintf(stdout, "OS and prevalence: %s\t%lu\n", os->os_name, os->os_prevalence);
+                    fprintf(stdout, "OS and prevalence: %s\t%llu\n", os->os_name, os->os_prevalence);
                     os++;
                 }
             } else {
