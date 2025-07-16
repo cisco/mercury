@@ -605,7 +605,7 @@ namespace cbor {
     template <size_t N>
     class compact_map : public map {
     public:
-        compact_map([[maybe_unused]] const std::array<const char *, N> &a, datum &d) : map{d} { }
+        compact_map(const std::array<const char *, N> &a [[maybe_unused]], datum &d) : map{d} { }
     };
 
     static inline bool decode_data(datum &d, FILE *f, int r=0) {
