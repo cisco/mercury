@@ -56,10 +56,10 @@ void subnet_mask_v6(lct_subnet<ipv6_addr_t> *subnets, size_t size) {
 
           prefix = p->addr;
           prefix2 = newaddr;
-          if (!ntop(address_family<ipv6_addr_t>::typecode, &(prefix.a), pstr, sizeof(pstr))) {
+          if (!inet_ntop(address_family<ipv6_addr_t>::typecode, &(prefix.a), pstr, sizeof(pstr))) {
               fprintf(stderr, "ERROR: %s\n", strerror(errno));
           }
-          if (!ntop(address_family<ipv6_addr_t>::typecode, &(prefix2.a), pstr2, sizeof(pstr2))) {
+          if (!inet_ntop(address_family<ipv6_addr_t>::typecode, &(prefix2.a), pstr2, sizeof(pstr2))) {
               fprintf(stderr, "ERROR: %s\n", strerror(errno));
           }
 

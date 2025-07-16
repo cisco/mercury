@@ -51,15 +51,16 @@ inline bool operator!=(const ipv6_addr_t &left, const ipv6_addr_t &right) {
     return !(left == right);
 }
 
-// increment operator for ipv6_addr_t
+// addition operator for ipv6_addr_t
 //
-inline ipv6_addr_t operator++(const ipv6_addr_t &addr) {
+inline ipv6_addr_t operator+(const ipv6_addr_t &left, const uint64_t &right) {
     ipv6_addr_t result;
-    if (addr.a[1] == 0xFFFFFFFFFFFFFFFF) {
-        result.a[0] = addr.a[0] + 1;
+    result.a[0] = left.a[0];
+    if (left.a[1] == 0xFFFFFFFFFFFFFFFF) {
+        result.a[1] = right;
+        result.a[0]++;
     } else {
-        result.a[0] = addr.a[0];
-        result.a[1] = addr.a[1] + 1;
+        result.a[1] = left.a[1] + right;
     }
     return result;
 }

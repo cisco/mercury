@@ -74,6 +74,8 @@ inline static T ntoh(T x) { if (host_little_endian) { return swap_byte_order(x);
 template <typename T>
 inline static T hton(T x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
 
+#else 
+#include "../datum.h"
 #endif
 
 // Extract num bits from the bit string str starting at pos bit

@@ -135,9 +135,8 @@ static uint8_t compute_branch(lct<T> *trie, uint32_t prefix, uint32_t first,
   maxpat = 1;
   do {
     bits++;
-    maxpat = maxpat << bits;
     if (num < ((FILLFACT * ((unsigned int)1<<bits)) / 100) ||
-        newprefix + bits > sizeof(T) * 8)
+        (newprefix + bits) > (sizeof(T) * 8))
       break;
     i = first;
     pat = 0;
@@ -147,13 +146,13 @@ static uint8_t compute_branch(lct<T> *trie, uint32_t prefix, uint32_t first,
     while (pat < maxpat) {
       patfound = 0;
       while (i < first + num &&
-             pat == EXTRACT(newprefix, bits, trie->nets[trie->bases[i]].addr)) {
+            pat == EXTRACT(newprefix, bits, trie->nets[trie->bases[i]].addr)) {
         i++;
         patfound = 1;
       }
       if (patfound)
         count++;
-      ++pat;
+      pat = pat + 1;
     }
   } while (count >= ((FILLFACT * ((unsigned int)1<<bits)) / 100));
   return bits - 1;
