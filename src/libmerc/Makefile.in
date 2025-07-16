@@ -38,7 +38,9 @@ LDFLAGS += -L/opt/homebrew/lib
 endif
 CFLAGS += -I./xsimd/include
 
-# Uncomment to apply address sanitization to libmerc (do not use in production)
+# Uncomment to apply ASAN to libmerc (do not use in production)
+# TODO: make a global change: either compile everything with ASAN (both make and
+# make test) or compile nothing with ASAN, and use a top-level option to control
 #ifeq ($(use_fsanitize),yes)
 #CFLAGS += -fsanitize=address
 #LDFLAGS += -fsanitize=address
