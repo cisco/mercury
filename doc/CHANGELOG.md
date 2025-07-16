@@ -1,8 +1,9 @@
 # CHANGELOG for Mercury
 * Added changes to leverage SIMD instructions to improve
   performance. Added xsimd library as a git submodule
-
 * Removed some direct calls to `fprintf(stderr, ...)` from `libmerc.so`.
+* Added experimental support for building mercury on macOS Apple Silicon. (Note:
+  interface capture is disabled, since AF_PACKET is Linux specific.)
 
 ## VERSION 2.7.1
 * Updated QUIC reassembly logic for reordered QUIC crypto frames
@@ -13,7 +14,7 @@
 * Added changes to allow classifier to use custom weights
   and introduced new cython interface
 * Added additional fuzz tests. Updated the `generate_fuzz_test.sh` script to
-  support generating fuzz functions that test functions requiring two fuzzed inputs. 
+  support generating fuzz functions that test functions requiring two fuzzed inputs.
   Also hardened some datum functions.
 
 ## VERSION 2.7.0
@@ -365,7 +366,7 @@
         --stats-time=T                        # write stats every T seconds
         --stats-limit=L                       # limit stats to L entries
 * Added [SMTP](src/libmerc/smtp.h) parsing.
-* Gathered together most of libmerc's global variables, to enable multiple libmerc instances to be used concurrently.   This makes it possible to update libmerc by loading a newer version of limberc.so. 
+* Gathered together most of libmerc's global variables, to enable multiple libmerc instances to be used concurrently.   This makes it possible to update libmerc by loading a newer version of limberc.so.
 * Added the [libmerc_driver](src/libmerc_driver.cc) test program to test concurrent uses of libmerc.
 
 ## Version 2.4.0
@@ -417,4 +418,3 @@
 * The --select (or -s) command now accepts an optional argument that specifies one or more protocols to select.  The argument --select=tls,dns causes mercury to process only TLS and DNS packets, for instance.
 * Added support for VXLAN and MPLS
 * Per-packet output is no longer supported
-

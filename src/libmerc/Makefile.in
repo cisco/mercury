@@ -38,6 +38,14 @@ LDFLAGS += -L/opt/homebrew/lib
 endif
 CFLAGS += -I./xsimd/include
 
+# Uncomment to apply ASAN to libmerc (do not use in production)
+# TODO: make a global change: either compile everything with ASAN (both make and
+# make test) or compile nothing with ASAN, and use a top-level option to control
+#ifeq ($(use_fsanitize),yes)
+#CFLAGS += -fsanitize=address
+#LDFLAGS += -fsanitize=address
+#endif
+
 # libmerc.so performs selective packet parsing and fingerprint extraction
 # LIBMERC and LIBMERC_H hold the core source and header files,
 # respectively, for that library
@@ -165,10 +173,10 @@ libmerc.so: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
 	ar -x lctrie/liblctrie.a
 #	ar rcs libmerc.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o
 ifeq ($(is_macos),yes)
-	$(CXX) -shared -fPIC -Wl,-install_name,$(LIBMERC_SONAME) $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto -o libmerc.so
+	$(CXX) $(CFLAGS) -shared -fPIC -Wl,-install_name,$(LIBMERC_SONAME) $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto -o libmerc.so
 	$(STRIP) -x libmerc.so
 else
-	$(CXX) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto -o libmerc.so
+	$(CXX) $(CFLAGS) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto -o libmerc.so
 	$(STRIP) libmerc.so
 	PATH=$(PATH):/sbin ldconfig -n .
 endif
@@ -176,11 +184,11 @@ endif
 libmerc_coverage.so: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
 	ar -x lctrie/liblctrie.a
 ifeq ($(is_macos),yes)
-	$(CXX) -shared -fPIC -Wl,-install_name,$(LIBMERC_SONAME) -o libmerc_coverage.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto --coverage
+	$(CXX) $(CFLAGS) -shared -fPIC -Wl,-install_name,$(LIBMERC_SONAME) -o libmerc_coverage.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto --coverage
 	$(STRIP) -x libmerc_coverage.so
 	cp libmerc_coverage.so libmerc.so
 else
-	$(CXX) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) -o libmerc_coverage.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto --coverage
+	$(CXX) $(CFLAGS) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) -o libmerc_coverage.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto --coverage
 	$(STRIP) libmerc_coverage.so
 	cp libmerc_coverage.so libmerc.so
 	PATH=$(PATH):/sbin ldconfig -n .

@@ -8,9 +8,7 @@
 #ifndef DATUM_H
 #define DATUM_H
 
-#ifndef __STDC_FORMAT_MACROS
-#define __STDC_FORMAT_MACROS 1
-#endif
+#define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -403,7 +401,7 @@ struct datum {
     }
 
     bool case_insensitive_match(const char * name) const {
-        if (name == nullptr) return false; 
+        if (name == nullptr) return false;
         const uint8_t *d = data;
         const char *k = name;
         while (d < data_end) {
@@ -517,7 +515,7 @@ struct datum {
         const unsigned char *tmp_data = data;
         const unsigned char *pattern = delim;
         const unsigned char *pattern_end = delim + length;
-        
+
         while (pattern < pattern_end && tmp_data < data_end)
         {
             if (*tmp_data != *pattern)
@@ -2023,7 +2021,7 @@ public:
 };
 
 namespace {
-    
+
     [[maybe_unused]] int datum_fuzz_test(const uint8_t *data, size_t size) {
         datum d{data, data+size};
         d.isupper();
@@ -2037,13 +2035,13 @@ namespace {
         datum d2{str};
         return 0;
     }
-    
+
     [[maybe_unused]] int datum_trim_leading_whitespace_fuzz_test(const uint8_t *data, size_t size) {
         datum d{data, data+size};
         d.trim_leading_whitespace();
         return 0;
     }
-    
+
     [[maybe_unused]] int datum_bits_in_data_fuzz_test(const uint8_t *data, size_t size) {
         datum d{data, data+size};
         d.bits_in_data();
@@ -2068,7 +2066,7 @@ namespace {
         return 0;
     }
 
-    [[maybe_unused]] int datum_parse_up_to_delim_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) { 
+    [[maybe_unused]] int datum_parse_up_to_delim_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
         datum d1;
         datum d2{data1, data1+size1};
         uint8_t delim;
@@ -2150,7 +2148,7 @@ namespace {
         d.skip_up_to_delim(reinterpret_cast<const unsigned char*>(data2), size2);
         return 0;
     }
-    
+
     [[maybe_unused]] int datum_trim_trail_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, [[maybe_unused]] size_t size2) {
         datum d{data1, data1+size1};
         unsigned char trail = data2[0];
@@ -2270,13 +2268,13 @@ namespace {
 
     [[maybe_unused]] int dynamic_buffer_fuzz_test(const uint8_t *data, [[maybe_unused]] size_t size) {
         size_t initial_capacity = data[0];
-        dynamic_buffer buffer(initial_capacity);    
-        
+        dynamic_buffer buffer(initial_capacity);
+
         buffer.reset();
         buffer.is_not_empty();
         buffer.readable_length();
         buffer.contents();
-    
+
         return 0;
     }
 };

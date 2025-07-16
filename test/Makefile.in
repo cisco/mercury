@@ -130,7 +130,7 @@ comp: $(COMP_FILES) $(MCAP_COMP_FILES) $(JSON_COMP_FILES)
 %.fp: %.json
 ifneq ($(have_jq),yes)
 	@echo $(COLOR_RED) "jq is missing; cannot create .fp file from .json file" $(COLOR_OFF)
-	@/bin/false
+	@false
 else
 	cat $< | jq .fingerprints.tls | grep -v null | tr -d "\"" > $@
 endif
@@ -216,7 +216,7 @@ capture:
 	@echo "running capture test"
 ifeq ($(IFNAME),)
 	@echo $(COLOR_RED) "error: IFNAME unspecified (run as 'make capture IFNAME=wlan0', for instance)" $(COLOR_OFF)
-	@/bin/false
+	@false
 else
 ifeq ($(shell id -u),0)
 	$(MERCURY) -c $(IFNAME) $(DROP_ROOT) -f tmp.json & echo $$! > mercury.PID
@@ -229,7 +229,7 @@ endif
 	@echo $(COLOR_GREEN) "passed capture test" $(COLOR_OFF)
 else
 	@echo $(COLOR_RED) "error: capture test must be run as root" $(COLOR_OFF)
-	@/bin/false
+	@false
 endif
 endif
 
@@ -238,7 +238,7 @@ endif
 dummy-capture:
 ifneq ($(shell id -u),0)
 	@echo $(COLOR_RED) "error: dummy interface capture test must be run as root" $(COLOR_OFF)
-	@/bin/false
+	@false
 endif
 ifeq ($(do_dummy_capture),yes)
 	@echo "running dummy interface capture test"
@@ -246,7 +246,7 @@ ifeq ($(do_dummy_capture),yes)
 	ip link set dev dummy0 up || true
 ifneq ($(shell ip link show dummy0 > /dev/null 2>&1; echo $$?),0)
 	@echo $(COLOR_RED) "error: network interface dummy0 unavailable (create with 'sudo ip link add dummy0 type dummy', for instance)" $(COLOR_OFF)
-	@/bin/false
+	@false
 endif
 	rm -f tmp.json
 	rm -f mercury.PID
@@ -315,9 +315,11 @@ ifeq ($(have_valgrind),yes)
 	cat memcheck.tmp | grep "ERROR SUMMARY: 0"
 	rm -f memcheck.tmp
 	@echo $(COLOR_GREEN) "passed memcheck" $(COLOR_OFF)
+else ifeq ($(is_macos_arm),yes)
+	@echo $(COLOR_GREEN) "valgrind unavailable on macOS ARM; skipping memcheck" $(COLOR_OFF)
 else
 	@echo $(COLOR_YELLOW) "valgrind unavailable; cannot perform memcheck" $(COLOR_OFF)
-	@/bin/false
+	@false
 endif
 
 # consistency test - compares mercury and pmercury output

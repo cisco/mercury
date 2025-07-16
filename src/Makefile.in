@@ -29,7 +29,7 @@ python      = @PY@
 have_py3    = @PYTHON3@
 have_pip3   = @PIP3@
 have_tpkt3  = @HAVE_TPACKET_V3@
-CDEFS       = $(filter -DHAVE_PYTHON3=1 -DHAVE_X86INTRIN_H=1, @DEFS@) -DDEFAULT_RESOURCE_DIR="\"$(datarootdir)\""
+CDEFS       = $(filter -DHAVE_PYTHON3=1 -DHAVE_X86INTRIN_H=1 -DHAVE_GETTID=1, @DEFS@) -DDEFAULT_RESOURCE_DIR="\"$(datarootdir)\""
 
 include ../Makefile_helper.mk
 
@@ -38,8 +38,10 @@ include ../Makefile_helper.mk
 # MERC   =  mercury.c
 ifeq ($(have_tpkt3),yes)
 MERC   += af_packet_v3.c
+MERC   += signal_handling_linux.c
 else
 MERC   += capture.c
+MERC   += signal_handling_stub.c
 endif
 MERC   += config.c
 MERC   += json_file_io.c
@@ -48,7 +50,6 @@ MERCC  += pkt_processing.cc
 MERC   += pcap_file_io.c
 MERC   += pcap_reader.c
 MERC   += rnd_pkt_drop.c
-MERC   += signal_handling.c
 
 MERC_H =  mercury.h
 MERC_H += af_packet_v3.h
@@ -90,6 +91,14 @@ CFLAGS += -I/opt/homebrew/include
 CXXFLAGS += -I/opt/homebrew/include
 LDFLAGS += -L/opt/homebrew/lib
 endif
+
+# Uncomment to try to apply ASAN everywhere (do not use in production)
+# TODO: make a global change: either compile everything with ASAN (both make and
+# make test) or compile nothing with ASAN, and use a top-level option to control
+#ifeq ($(use_fsanitize),yes)
+#CFLAGS += -fsanitize=address
+#LDFLAGS += -fsanitize=address
+#endif
 
 all: compiler_version mercury libmerc_test cert_analyze libmerc_util intercept_server # tls_scanner batch_gcd
 
@@ -246,7 +255,7 @@ endif
 #MERC_OBJ = $(MERC:%.o=%.c)
 
 libmerc_test: run_unit_test libmerc_test.c $(LIBMERC_SO) Makefile.in
-	$(CC) -Wall -std=c11 libmerc_test.c -pthread -L./libmerc $(LIBMERC_SO) -lz -lcrypto -o libmerc_test
+	$(CC) -Wall -std=c11 libmerc_test.c -pthread $(LDFLAGS) -L./libmerc $(LIBMERC_SO) -lz -lcrypto -o libmerc_test
 	@echo $(COLOR_GREEN) "To run before 'make install', export LD_LIBRARY_PATH=$(shell pwd)/libmerc" $(COLOR_OFF)
 
 libmerc_driver:

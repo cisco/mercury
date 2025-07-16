@@ -4,6 +4,7 @@ include ../Makefile_helper.mk
 
 ifeq ($(use_fsanitize),yes)
 FSANITIZE = -fsanitize=address
+LDFLAGS += -fsanitize=address
 endif
 
 ifeq ($(openssl_newer),yes)
@@ -11,9 +12,9 @@ CFLAGS += -DSSLNEW
 endif
 
 ifeq ($(is_macos_arm),yes)
-CFLAGS = -I/opt/homebrew/include ${CLFAGS}
-CXXFLAGS = -I/opt/homebrew/include ${CXXFLAGS}
-LDFLAGS += -L/opt/homebrew/lib ${LDFLAGS}
+CFLAGS += -I/opt/homebrew/include
+CXXFLAGS += -I/opt/homebrew/include
+LDFLAGS += -L/opt/homebrew/lib
 endif
 
 CFLAGS += -UNDEBUG
@@ -62,21 +63,21 @@ libmerc_driver_tls_only: debug-libmerc-tls $(UNIT_TESTS_TLS_ONLY) Makefile.in $(
 	cp $(LIBMERC_SO) $(LIBMERC_SO).alt
 	cp $(LIBMERC_SO) $(LIBMERC_SO_tls)
 	mv $(LIBMERC_SO) $(LIBMERC_SO_tls).alt
-	$(CXX) $(CFLAGS) -I ../src/ -I../src/libmerc $(UNIT_TESTS_TLS_ONLY) -pthread -o libmerc_driver_tls_only -DLIBMERC_SO_PATH="\"$(LIBMERC_SO_tls)\"" $(FSANITIZE) -L$(LIBMERC_DEBUG_FOLDER) $(LIBMERC_SO_tls) -lcrypto -ldl -lz
+	$(CXX) $(CFLAGS) -I ../src/ -I../src/libmerc $(UNIT_TESTS_TLS_ONLY) -pthread -o libmerc_driver_tls_only -DLIBMERC_SO_PATH="\"$(LIBMERC_SO_tls)\"" $(FSANITIZE) $(LDFLAGS) -L$(LIBMERC_DEBUG_FOLDER) $(LIBMERC_SO_tls) -lcrypto -ldl -lz
 
 libmerc_driver_multiprotocol: debug-libmerc $(UNIT_TESTS_TLS_HTTP_QUIC) Makefile.in $(UNIT_TESTS_H)
 	@echo "creating copy of libmerc.so for testing purposes"
 	cp $(LIBMERC_SO) $(LIBMERC_SO).alt
 	cp $(LIBMERC_SO) $(LIBMERC_SO_multiprotocol)
 	mv $(LIBMERC_SO) $(LIBMERC_SO_multiprotocol).alt
-	$(CXX) $(CFLAGS) -I ../src/ -I../src/libmerc $(UNIT_TESTS_TLS_HTTP_QUIC) -pthread -o libmerc_driver_multiprotocol -DLIBMERC_SO_PATH="\"$(LIBMERC_SO_multiprotocol)\"" $(FSANITIZE) -L$(LIBMERC_DEBUG_FOLDER) $(LIBMERC_SO_multiprotocol) -lcrypto -ldl -lz
+	$(CXX) $(CFLAGS) -I ../src/ -I../src/libmerc $(UNIT_TESTS_TLS_HTTP_QUIC) -pthread -o libmerc_driver_multiprotocol -DLIBMERC_SO_PATH="\"$(LIBMERC_SO_multiprotocol)\"" $(FSANITIZE) $(LDFLAGS) -L$(LIBMERC_DEBUG_FOLDER) $(LIBMERC_SO_multiprotocol) -lcrypto -ldl -lz
 
 libmerc_driver_fdc: debug-libmerc-fdc $(UNIT_TESTS_TLS_FDC) Makefile.in $(UNIT_TESTS_H)
 	@echo "creating copy of libmerc.so for testing purposes"
 	cp $(LIBMERC_SO) $(LIBMERC_SO).alt
 	cp $(LIBMERC_SO) $(LIBMERC_SO_fdc)
 	mv $(LIBMERC_SO) $(LIBMERC_SO_fdc).alt
-	$(CXX) $(CFLAGS) -I ../src/ -I../src/libmerc $(UNIT_TESTS_FDC) -pthread -o libmerc_driver_fdc -DLIBMERC_SO_PATH="\"$(LIBMERC_SO_fdc)\"" $(FSANITIZE) -L$(LIBMERC_DEBUG_FOLDER) $(LIBMERC_SO_fdc) -lcrypto -ldl -lz
+	$(CXX) $(CFLAGS) -I ../src/ -I../src/libmerc $(UNIT_TESTS_FDC) -pthread -o libmerc_driver_fdc -DLIBMERC_SO_PATH="\"$(LIBMERC_SO_fdc)\"" $(FSANITIZE) $(LDFLAGS) -L$(LIBMERC_DEBUG_FOLDER) $(LIBMERC_SO_fdc) -lcrypto -ldl -lz
 
 libmerc_driver_coverage: libmerc_driver_multiprotocol_coverage libmerc_driver_tls_coverage
 
@@ -85,17 +86,17 @@ libmerc_driver_tls_coverage: debug-libmerc_tls_gcov $(UNIT_TESTS_TLS_ONLY) Makef
 	cp $(LIBMERC_SO) $(LIBMERC_SO).alt
 	cp $(LIBMERC_SO) $(LIBMERC_SO_tls)
 	mv $(LIBMERC_SO) $(LIBMERC_SO_tls).alt
-	$(CXX) $(CFLAGS) -I ../src/ -I../src/libmerc $(UNIT_TESTS_TLS_ONLY) -pthread -o libmerc_driver_tls_only -DLIBMERC_SO_PATH="\"$(LIBMERC_SO_tls)\"" $(FSANITIZE) -L$(LIBMERC_DEBUG_FOLDER) $(LIBMERC_SO_tls) -lcrypto -ldl -lz --coverage
+	$(CXX) $(CFLAGS) -I ../src/ -I../src/libmerc $(UNIT_TESTS_TLS_ONLY) -pthread -o libmerc_driver_tls_only -DLIBMERC_SO_PATH="\"$(LIBMERC_SO_tls)\"" $(FSANITIZE) $(LDFLAGS) -L$(LIBMERC_DEBUG_FOLDER) $(LIBMERC_SO_tls) -lcrypto -ldl -lz --coverage
 
 libmerc_driver_multiprotocol_coverage: debug-libmerc_gcov $(UNIT_TESTS_TLS_HTTP_QUIC) Makefile.in $(UNIT_TESTS_H)
 	@echo "creating copy of libmerc.so for testing purposes"
 	cp $(LIBMERC_SO) $(LIBMERC_SO).alt
 	cp $(LIBMERC_SO) $(LIBMERC_SO_multiprotocol)
 	mv $(LIBMERC_SO) $(LIBMERC_SO_multiprotocol).alt
-	$(CXX) $(CFLAGS) -I ../src/ -I../src/libmerc $(UNIT_TESTS_TLS_HTTP_QUIC) -pthread -o libmerc_driver_multiprotocol -DLIBMERC_SO_PATH="\"$(LIBMERC_SO_multiprotocol)\"" $(FSANITIZE) -L$(LIBMERC_DEBUG_FOLDER) $(LIBMERC_SO_multiprotocol) -lcrypto -ldl -lz --coverage
+	$(CXX) $(CFLAGS) -I ../src/ -I../src/libmerc $(UNIT_TESTS_TLS_HTTP_QUIC) -pthread -o libmerc_driver_multiprotocol -DLIBMERC_SO_PATH="\"$(LIBMERC_SO_multiprotocol)\"" $(FSANITIZE) $(LDFLAGS) -L$(LIBMERC_DEBUG_FOLDER) $(LIBMERC_SO_multiprotocol) -lcrypto -ldl -lz --coverage
 
 pdu_verifier: debug-libmerc pdu_verifier.cc
-	$(CXX) $(CFLAGS) -I ../src/ -I ../src/libmerc pdu_verifier.cc $(FSANITIZE) -L./libmerc $(LIBMERC_SO) -lcrypto -ldl -lz -o pdu_verifier
+	$(CXX) $(CFLAGS) -I ../src/ -I ../src/libmerc pdu_verifier.cc $(FSANITIZE) -L./libmerc $(LDFLAGS) $(LIBMERC_SO) -lcrypto -ldl -lz -o pdu_verifier
 
 .PHONY: debug-libmerc_tls_gcov
 debug-libmerc_tls_gcov:
@@ -103,7 +104,7 @@ debug-libmerc_tls_gcov:
 	cd ../src && $(MAKE) OPTFLAGS=-DSTATIC_CFG_SELECT='\"tls\"' debug-libmerc_gcov
 
 .PHONY: debug-libmerc_gcov
-debug-libmerc_gcov: 
+debug-libmerc_gcov:
 	mkdir -p $(LIBMERC_DEBUG_FOLDER)
 	cd ../src && $(MAKE) debug-libmerc_gcov
 
@@ -127,14 +128,28 @@ perfect-hash-test:
 	$(CXX) $(CFLAGS) -I ../src/libmerc ph_driver.cc -o ph_driver
 	./ph_driver | grep -e 'Unordered Map lookup' -e 'Perfect Hash generation table' -e 'Perfect Hash lookup' -e 'failed' -e 'Perfect Hash.' -e 'Unordered Map.'
 
+# FIXME: the next tests suppress ASAN container overflow detection.  This is
+# necessary because some parts of the code are compiled with ASAN and other
+# parts are not.  The ideal behavior would be to go back and compile
+# everything with ASAN, instead of pulling in already-compiled .o files.
+# https://github.com/google/sanitizers/wiki/AddressSanitizerContainerOverflow
 .PHONY: run
 run: xtra/resources/resources-mp.tgz # xtra data needed for unit tests
+ifeq ($(is_macos_arm),yes)
 	cd ../unit_tests/debug-libs/ && (rm -f libmerc.so.0) && (ln -s libmerc_tls.so libmerc.so.0)
-	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ./libmerc_driver_tls_only -s
+	export DYLD_LIBRARY_PATH=$$DYLD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER):. && ASAN_OPTIONS=detect_container_overflow=0 ./libmerc_driver_tls_only -s
 	cd ../unit_tests/debug-libs/ && rm -f libmerc.so.0 && ln -s libmerc_multiprotocol.so libmerc.so.0
-	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ./libmerc_driver_multiprotocol -s
+	export DYLD_LIBRARY_PATH=$$DYLD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER):. && ASAN_OPTIONS=detect_container_overflow=0 ./libmerc_driver_multiprotocol -s
 	cd ../unit_tests/debug-libs/ && (rm -f libmerc.so.0) && (ln -s libmerc_fdc.so libmerc.so.0)
-	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ./libmerc_driver_fdc -s
+	export DYLD_LIBRARY_PATH=$$DYLD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ASAN_OPTIONS=detect_container_overflow=0 ./libmerc_driver_fdc -s
+else
+	cd ../unit_tests/debug-libs/ && (rm -f libmerc.so.0) && (ln -s libmerc_tls.so libmerc.so.0)
+	export LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER):. && ASAN_OPTIONS=detect_container_overflow=0 ./libmerc_driver_tls_only -s
+	cd ../unit_tests/debug-libs/ && rm -f libmerc.so.0 && ln -s libmerc_multiprotocol.so libmerc.so.0
+	export LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ASAN_OPTIONS=detect_container_overflow=0 ./libmerc_driver_multiprotocol -s
+	cd ../unit_tests/debug-libs/ && (rm -f libmerc.so.0) && (ln -s libmerc_fdc.so libmerc.so.0)
+	export LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ASAN_OPTIONS=detect_container_overflow=0 ./libmerc_driver_fdc -s
+endif
 
 .PHONY: clean
 clean:
