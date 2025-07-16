@@ -95,7 +95,7 @@ enum status open_and_dispatch(struct mercury_config *cfg, mercury_context mc, st
     pcap_file_processing_thread_func(&tc);
 #else
 
-    // Some platforms (like OS X) have stack sizes that are too small
+    // Set the stack size to a large value, since some platforms (like OS X) have stack sizes that are too small
     pthread_attr_t pt_stack_size;
     err = pthread_attr_init(&pt_stack_size);
     if (err != 0) {
@@ -129,4 +129,3 @@ enum status open_and_dispatch(struct mercury_config *cfg, mercury_context mc, st
 
     return status_ok;
 }
-

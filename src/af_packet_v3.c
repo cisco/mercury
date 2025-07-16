@@ -1013,7 +1013,7 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
         }
     }
 
-    // Some platforms (like OS X) have stack sizes that are too small
+    // Set the stack size to a large value, since some platforms (like OS X) have stack sizes that are too small
     pthread_attr_t pt_stack_size;
 
     err = pthread_attr_init(&pt_stack_size);
