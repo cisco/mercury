@@ -37,6 +37,12 @@ elseif(mac_arch MATCHES universal)
     message(STATUS "mac_arch - ${mac_arch}")
 endif()
 
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64|i.86)$")
+    set(intel_platform TRUE)
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64|armv7)$")
+    set(arm_platform TRUE)
+endif()
+
 ## optional lib paths
 set(opt_library_path "")
 
@@ -50,6 +56,7 @@ endif()
 if(DEFINED zlib_path)
     link_directories(${zlib_path})
 endif()
+find_package(ZLIB REQUIRED)
 
 ## Platform specific paths
 if(is_mac_arm)
@@ -76,7 +83,6 @@ CHECK_INCLUDE_FILES(zlib.h             HAVE_ZLIB_H)
 if(NOT ${HAVE_ZLIB_H})
     message(FATAL_ERROR "A working zlib is required")
 endif()
-
 # functions
 INCLUDE(CheckFunctionExists)
 CHECK_FUNCTION_EXISTS(gettimeofday    HAVE_GETTIMEOFDAY)
@@ -117,6 +123,8 @@ endif()
 
 # libcrypto checks
 # precedence to custom crypto path
+find_package(OpenSSL REQUIRED)
+set(CMAKE_REQUIRED_INCLUDES ${OPENSSL_INCLUDE_DIR})
 if(DEFINED have_openssl_new)
     SET(HAVE_CUSTOM_CRYPTO_NEW TRUE)
 elseif(DEFINED openssl_path)
@@ -161,7 +169,7 @@ if (NOT DEFINED libmerc_only)
     add_subdirectory(asn1)
 endif()
 add_subdirectory(lctrie)
-
+add_subdirectory(xsimd)
 
 ## link paths
 #
@@ -170,6 +178,7 @@ add_subdirectory(lctrie)
 include_directories(asn1)
 include_directories(lctrie)
 include_directories(rapidjson)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/xsimd/include)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 
@@ -192,6 +201,24 @@ set(libmerc_src
     smb2.cc
     bencode.cc
 )
+
+# Platform-specific SIMD files
+if(intel_platfrom)
+    list(APPEND libmerc_src
+        softmax_sse2.cc
+        softmax_avx.cc
+        softmax_avx2.cc
+    )
+
+    set_source_files_properties(softmax_sse2.cc PROPERTIES COMPILE_FLAGS "-msse2")
+    set_source_files_properties(softmax_avx.cc  PROPERTIES COMPILE_FLAGS "-mavx")
+    set_source_files_properties(softmax_avx2.cc PROPERTIES COMPILE_FLAGS "-mavx2")
+
+elseif(arm_platform)
+    list(APPEND libmerc_src softmax_neon.cc)
+    # Uncomment below line if you need specific flags
+    # set_source_files_properties(softmax_neon.cc PROPERTIES COMPILE_FLAGS "-mfpu=neon")
+endif()
 
 ## default libmerc compile options
 if (is_win)
@@ -255,8 +282,8 @@ endif()
 ## TARGET : libmerc (shared) {
 add_library(libmerc SHARED ${libmerc_src})
 target_link_directories(libmerc PUBLIC lctrie ${CMAKE_CURRENT_SOURCE_DIR})
-target_include_directories(libmerc PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(libmerc PUBLIC lctrie z crypto)
+target_include_directories(libmerc PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${ZLIB_INCLUDE_DIRS})
+target_link_libraries(libmerc PUBLIC lctrie xsimd ${ZLIB_LIBRARIES} OpenSSL::Crypto)
 add_dependencies(libmerc lctrie)
 if (NOT DEFINED libmerc_only)
     add_dependencies(libmerc asn1)
@@ -272,8 +299,8 @@ set_target_properties(libmerc PROPERTIES PREFIX "")
 ## TARGET : libmerc_static (static) {
 add_library(libmerc_static STATIC ${libmerc_src})
 target_link_directories(libmerc_static PUBLIC lctrie ${CMAKE_CURRENT_SOURCE_DIR})
-target_include_directories(libmerc_static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(libmerc_static PUBLIC lctrie z crypto)
+target_include_directories(libmerc_static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${ZLIB_INCLUDE_DIRS})
+target_link_libraries(libmerc_static PUBLIC lctrie z crypto ${ZLIB_LIBRARIES} OpenSSL::Crypto)
 add_dependencies(libmerc_static lctrie)
 if (NOT DEFINED libmerc_only)
     add_dependencies(libmerc_static asn1)
