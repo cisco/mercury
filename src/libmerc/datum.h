@@ -922,6 +922,7 @@ struct datum {
         //
         ssize_t terminator = null_terminated ? 1 : 0;
         if (is_null() or (data_end - data) + terminator > 2 * (ssize_t)num_bytes) {
+            fprintf(stderr, "GOT HERE\n");
             return -1;
         }
 

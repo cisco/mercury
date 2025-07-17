@@ -118,6 +118,8 @@ int main(int argc, char *argv[]) {
 
     } else if (encode_fp) {
 
+        size_t num_fails = 0;
+
         std::ios::sync_with_stdio(false);  // for performance
         std::string line;
         while (std::getline(std::cin, line)) {
@@ -129,7 +131,7 @@ int main(int argc, char *argv[]) {
             //
             if (!cbor_fingerprint::test_fingerprint(line.c_str(), verbose_output)) {
                 fprintf(stderr, "error: could not encode/decode fingerprint %s\n", line.c_str());
-                return EXIT_FAILURE;
+                num_fails++;
             }
 
             // convert fingerprint to CBOR
@@ -145,6 +147,10 @@ int main(int argc, char *argv[]) {
             // print out human-readable CBOR
             //
             cbor::decode_fprint(data_buf.contents(), stdout);
+        }
+        if (num_fails) {
+            fprintf(stderr, "error: could not encode/decode %zu fingerprints\n", num_fails);
+            return EXIT_FAILURE;
         }
         return EXIT_SUCCESS;
 

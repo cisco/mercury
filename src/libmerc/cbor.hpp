@@ -348,6 +348,12 @@ namespace cbor {
             buf << value__;
         }
 
+        /// writes an empty `byte_string` into \param buf
+        ///
+        static void write_empty(writeable &buf) {
+            uint64{0, byte_string_type}.write(buf);
+        }
+
         /// `cbor::byte_string::unit_test()` performs unit tests on
         /// the class \ref cbor::byte_string and returns `true` if
         /// they all pass, and `false` otherwise.  If \param f ==
