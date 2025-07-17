@@ -464,7 +464,7 @@ namespace cbor_fingerprint {
             decode_tofsee_fp(d, w);
             break;
         case fingerprint_type_stun:
-            decode_tofsee_fp(d, w);
+            decode_stun_fp(d, w);
             break;
         default:
             ;
@@ -489,26 +489,27 @@ namespace cbor_fingerprint {
     // test cbor fingerprint encoding and decoding
     //
     static bool test_fingerprint(const char *fingerprint_string, FILE *f=nullptr) {
-            data_buffer<2048> data_buf;
-            datum fp_data{(uint8_t *)fingerprint_string, (uint8_t *)fingerprint_string + strlen(fingerprint_string)};
-            cbor_fingerprint::encode_cbor_fingerprint(fp_data, data_buf);
+        data_buffer<2048> data_buf;
+        datum fp_data{(uint8_t *)fingerprint_string, (uint8_t *)fingerprint_string + strlen(fingerprint_string)};
+        cbor_fingerprint::encode_cbor_fingerprint(fp_data, data_buf);
 
-            data_buffer<2048> out_buf;
-            datum encoded_data{data_buf.contents()};
-            cbor_fingerprint::decode_cbor_fingerprint(encoded_data, out_buf);
-            if (out_buf.contents().cmp(fp_data) != 0) {
-                if (f) {
-                    fprintf(f, "ERROR: MISMATCH\n");
-                    fprintf(f, "fingerprint:              %s\n", fingerprint_string);
-                    fprintf(f, "CBOR encoded fingerprint: ");
-                    data_buf.contents().fprint_hex(f); fputc('\n', f);
-                    fprintf(f, "decoded fingerprint:      ");
-                    out_buf.contents().fprint(f); fputc('\n', f);
-                    cbor::decode_fprint(data_buf.contents(), f);
-                }
-                return false;
+        data_buffer<2048> out_buf;
+        datum encoded_data{data_buf.contents()};
+        cbor_fingerprint::decode_cbor_fingerprint(encoded_data, out_buf);
+
+        if (out_buf.contents().cmp(fp_data) != 0) {
+            if (f) {
+                fprintf(f, "ERROR: MISMATCH\n");
+                fprintf(f, "fingerprint:              %s\n", fingerprint_string);
+                fprintf(f, "CBOR encoded fingerprint: ");
+                data_buf.contents().fprint_hex(f); fputc('\n', f);
+                fprintf(f, "decoded fingerprint:      ");
+                out_buf.contents().fprint(f); fputc('\n', f);
+                cbor::decode_fprint(data_buf.contents(), f);
             }
-            return true;
+            return false;
+        }
+        return true;
     };
 
     // cbor_fingerprint::unit_test() returns `true` if all unit tests

@@ -127,7 +127,7 @@ int main(int argc, char *argv[]) {
 
             // verify that we can represent this fingerprint in CBOR
             //
-            if (!cbor_fingerprint::test_fingerprint(line.c_str()), verbose_output){
+            if (!cbor_fingerprint::test_fingerprint(line.c_str(), verbose_output)) {
                 fprintf(stderr, "error: could not encode/decode fingerprint %s\n", line.c_str());
                 return EXIT_FAILURE;
             }
