@@ -190,6 +190,29 @@ namespace cbor_fingerprint {
         m.close();
     }
 
+    inline void encode_cbor_stun_fingerprint(datum d, writeable &w) {
+        cbor::output::map m{w};
+
+        if (lookahead<literal_byte<'1', '/'>> version_one{d}) {
+            d = version_one.advance();
+            cbor::uint64{1}.write(w);      // fingerprint version
+
+            if (lookahead<literal_byte<'r', 'a', 'n', 'd', 'o', 'm', 'i', 'z', 'e', 'd'>> peek{d}) {
+                constexpr size_t idx = fp_labels.index("randomized");
+                cbor::uint64{idx}.write(m);
+            } else {
+                cbor::output::array a{w};
+                encode_cbor_data(d, a);         // class
+                encode_cbor_data(d, a);         // method
+                encode_cbor_data(d, a);         // magic
+                encode_cbor_list(d, a);         // attributes
+                a.close();
+            }
+
+        }
+        m.close();
+     }
+
     constexpr uint64_t randomized = 0;
     constexpr uint64_t generic = 1;
 
@@ -253,6 +276,14 @@ namespace cbor_fingerprint {
             cbor::uint64{(uint64_t)fp_type}.write(w);
             d = tofsee.advance();
             encode_cbor_tofsee_fingerprint(d, w);
+            m.close();
+
+        } else if (lookahead<literal_byte<'s', 't', 'u', 'n', '/'>> stun{d}) {
+            fp_type = fingerprint_type_stun;
+            cbor::output::map m{w};
+            cbor::uint64{(uint64_t)fp_type}.write(w);
+            d = stun.advance();
+            encode_cbor_stun_fingerprint(d, w);
             m.close();
 
         }
@@ -391,6 +422,28 @@ namespace cbor_fingerprint {
         m.close();
     }
 
+    inline void decode_stun_fp(datum &d, writeable &w) {
+        cbor::map m{d};
+        cbor::uint64 format_version{m.value()};
+        if (format_version.value() == 1) {
+            w.copy('1');
+            w.copy('/');
+            if (lookahead<cbor::uint64> label{m.value()}) {
+                if (label.value.value() == fp_labels.index("randomized")) {
+                    w << datum{"randomized"};
+                }
+            } else {
+                cbor::array a{m.value()};
+                decode_cbor_data(m.value(), w);         // class
+                decode_cbor_data(m.value(), w);         // method
+                decode_cbor_data(m.value(), w);         // magic
+                decode_cbor_list(m.value(), w);         // attributes
+                a.close();
+            }
+        }
+        m.close();
+    }
+
     inline void decode_fp(unsigned int fp_type,
                    datum &d,
                    writeable &w) {
@@ -408,6 +461,9 @@ namespace cbor_fingerprint {
             decode_quic_fp(d, w);
             break;
         case fingerprint_type_tofsee:
+            decode_tofsee_fp(d, w);
+            break;
+        case fingerprint_type_stun:
             decode_tofsee_fp(d, w);
             break;
         default:
