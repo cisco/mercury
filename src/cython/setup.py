@@ -76,7 +76,7 @@ if arch in ["x86_64", "i386"]:
         (f"{mercury_dir}/src/libmerc/softmax_avx.cc", ["-mavx"]),
         (f"{mercury_dir}/src/libmerc/softmax_avx2.cc", ["-mavx2"]),
     ]
-elif arch == "aarch64":
+elif arch in ["aarch64", "arm64"]:
     simd_sources = [
         (f"{mercury_dir}/src/libmerc/softmax_neon.cc", [])
     ]

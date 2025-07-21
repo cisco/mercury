@@ -44,7 +44,7 @@ ifneq ($(MERCURY_CFG),)
 	$(INSTALLDATA) $(MERCURY_CFG) /etc/mercury/mercury.cfg
 else
 	@echo $(COLOR_RED) "error: no configuration file specified; run as 'make install MERCURY_CFG=filename'" $(COLOR_OFF)
-	@/bin/false
+	@false
 endif
 endif
 
@@ -158,7 +158,7 @@ clean: sphinx-clean
 	for file in Makefile README.md configure.ac Doxyfile; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 ifneq ($(wildcard src/Makefile), src/Makefile)
 	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
-	@/bin/false
+	@false
 else
 	cd src && $(MAKE) clean
 	cd test && $(MAKE) clean
@@ -170,7 +170,7 @@ endif
 distclean: clean
 ifneq ($(wildcard src/Makefile), src/Makefile)
 	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
-	@/bin/false
+	@false
 else
 	cd src  && $(MAKE) distclean
 	cd test && $(MAKE) distclean
