@@ -99,6 +99,12 @@ public:
     }
 
     const struct attribute_context *get_attributes() {
+        for (int i = 0; (i < MAX_TAGS) && (i < tag_names->size()); i++) {
+            // if the attribute bit is not set, the probability score is 0
+            if(!tag[i]) {
+                prob_score[i] = 0;
+            }
+        }
         attr_ctx.tag_names = tag_names_char;
         attr_ctx.prob_scores = prob_score.data();
         attr_ctx.attributes_len = tag_names->size();
