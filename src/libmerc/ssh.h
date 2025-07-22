@@ -328,10 +328,11 @@ struct ssh_init_packet : public base_protocol {
     struct datum comment_string;
     ssh_binary_packet binary_pkt;
     ssh_kex_init kex_pkt;
+    data_buffer<MAX_USER_AGENT_LEN> user_agent;
 
     static constexpr size_t max_data_size = 8192;
 
-    ssh_init_packet(datum &p) : protocol_string{NULL, NULL}, comment_string{NULL, NULL}, binary_pkt{}, kex_pkt{} {
+    ssh_init_packet(datum &p) : protocol_string{NULL, NULL}, comment_string{NULL, NULL}, binary_pkt{}, kex_pkt{}, user_agent{} {
         parse(p);
     }
 
@@ -463,12 +464,17 @@ struct ssh_init_packet : public base_protocol {
     };
 
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
-        std::string protocol_string_str = std::string((char*)protocol_string.data,protocol_string.length());
-        std::string comment_string_str = std::string((char*)comment_string.data,comment_string.length());
-        std::string user_agent_str = protocol_string_str+comment_string_str;
-        datum user_agent{user_agent_str};
+        if (!kex_pkt.is_not_empty()) {
+            return false;
+        }
+        
+        // concatenate protocol and comment strings for analysis
+        datum tmp_prtocol_str = protocol_string;
+        datum tmp_comment_str = comment_string;
+        user_agent.parse(tmp_prtocol_str);
+        user_agent.parse(tmp_comment_str);
 
-        analysis_.destination.init({nullptr, nullptr}, user_agent, {nullptr, nullptr}, k_);
+        analysis_.destination.init({nullptr, nullptr}, user_agent.contents(), {nullptr, nullptr}, k_);
         if (c_ == nullptr) {
             return false;
         }
