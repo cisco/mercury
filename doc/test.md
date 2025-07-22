@@ -6,7 +6,7 @@ The `test-coverage` and `test-coverage-fuzz` targets are used to generate a comp
 There are two targets for generating coverage reports:
 
 - **`test-coverage`**: Runs all tests **except fuzz tests** and creates the coverage report.
-- **`test-coverage-fuzz`**: First calls `test-coverage` and then generates a coverage report **including coverage from fuzz tests** as well.
+- **`test-coverage-fuzz`**: Runs **fuzz tests** and creates the coverage report.
 
 > **Note:**  
 > The `test-coverage-fuzz` target will **not work on RHEL-based Linux distributions** due to toolchain compatibility issues with coverage instrumentation. It is supported and will work correctly **only on Debian-based Linux distributions**.
@@ -25,7 +25,7 @@ There are two targets for generating coverage reports:
     make test-coverage
     ```
 
-The generated report can be found in the `coverage_html_report` directory.
+The generated report can be found in the `coverage_html_report` or `coverage_html_report_fuzz` directory depending on the target.
 
 ### Viewing the Report
 To view the report, you can take the `coverage_html_report` folder to a web server and open that in a web browser.
