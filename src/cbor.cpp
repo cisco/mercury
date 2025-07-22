@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
             }
         }
         if (decode_fdc) {
-            static const size_t MAX_FP_STR_LEN     = 4096;
+            static const size_t MAX_FP_STR_LEN     = 8192;
             char fp_str[MAX_FP_STR_LEN];
             char dst_ip_str[MAX_ADDR_STR_LEN];
             char sn_str[MAX_SNI_LEN];
