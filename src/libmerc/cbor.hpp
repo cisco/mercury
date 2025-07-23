@@ -605,7 +605,7 @@ namespace cbor {
     template <size_t N>
     class compact_map : public map {
     public:
-        compact_map(const std::array<const char *, N> &a, datum &d) : map{d} { }
+        compact_map(const std::array<const char *, N> &a [[maybe_unused]], datum &d) : map{d} { }
     };
 
     static inline bool decode_data(datum &d, FILE *f, int r=0) {
@@ -622,7 +622,7 @@ namespace cbor {
                     {
                         uint64 tmp{d};
                         if (d.is_null()) { return false; }
-                        fprintf(f, "%.*sunsigned integer: %zu\n", r, tabs, tmp.value());
+                        fprintf(f, "%.*sunsigned integer: %" PRIu64 "\n", r, tabs, tmp.value());
                     }
                     break;
                 case byte_string_type:
@@ -670,7 +670,7 @@ namespace cbor {
                     {
                         tag tmp{d};
                         if (d.is_null()) { return false; }
-                        fprintf(f, "%.*stag: %zu\n", r, tabs, tmp.value());
+                        fprintf(f, "%.*stag: %" PRIu64 "\n", r, tabs, tmp.value());
                     }
                     break;
                 case simple_or_float_type:
@@ -1046,7 +1046,7 @@ namespace cbor {
             if (f) {
                 fprintf(f, "encoded: ");
                 for (const auto & ee : tc.first) { fprintf(f, "%02x", ee);  }
-                fprintf(f, "\tdecoded: %zu\tre-encoded: ", u.value());
+                fprintf(f, "\tdecoded: %" PRIu64 "\tre-encoded: ", u.value());
                 for (const auto & ee : dbuf.contents()) { fprintf(f, "%02x", ee);  }
                 fprintf(f, "\t%s\n", passed ? "passed" : "failed");
             }
