@@ -147,12 +147,12 @@ perfect-hash-test:
 .PHONY: run_libmerc_tls_only_tests
 run_libmerc_tls_only_tests: xtra/resources/resources-mp.tgz
 	cd ../unit_tests/debug-libs/ && (rm -f libmerc.so.0) && (ln -s libmerc_tls.so libmerc.so.0)
-	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ./libmerc_driver_tls_only -s
+	export LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ./libmerc_driver_tls_only -s
 
 .PHONY: run_libmerc_multiprotocol_tests
 run_libmerc_multiprotocol_tests: xtra/resources/resources-mp.tgz
 	cd ../unit_tests/debug-libs/ && rm -f libmerc.so.0 && ln -s libmerc_multiprotocol.so libmerc.so.0
-	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ./libmerc_driver_multiprotocol -s
+	export LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ./libmerc_driver_multiprotocol -s
 
 .PHONY: run
 run: xtra/resources/resources-mp.tgz # xtra data needed for unit tests
