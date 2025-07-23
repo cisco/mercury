@@ -41,27 +41,6 @@ void fprintf_raw_as_hex(FILE *f, const uint8_t *data, unsigned int len) {
     }
 }
 
-void fprintf_json_string_escaped(FILE *f, const char *key, const uint8_t *data, unsigned int len) {
-    const unsigned char *x = data;
-    const unsigned char *end = data + len;
-
-    fprintf(f, "\"%s\":\"", key);
-    while (x < end) {
-        if (*x < 0x20) {                   /* escape control characters   */
-            fprintf(f, "\\u%04x", *x);
-        } else if (*x > 0x7f) {            /* escape non-ASCII characters */
-            fprintf(f, "\\u%04x", *x);
-        } else {
-            if (*x == '"' || *x == '\\') { /* escape special characters   */
-                fprintf(f, "\\");
-            }
-            fprintf(f, "%c", *x);
-        }
-        x++;
-    }
-    fprintf(f, "\"");
-}
-
 size_t hex_to_raw(const void *output,
                   size_t output_buf_len,
                   const char *null_terminated_hex_string) {

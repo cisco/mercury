@@ -138,7 +138,7 @@ endif()
 
 if(HAVE_CRYPTO_NEW OR HAVE_CUSTOM_CRYPTO_NEW OR HAVE_ARM_CRYPTO_NEW)
     message(STATUS "Switching to new libcrypto functions")
-    add_compile_definitions(-DSSLNEW)
+    add_compile_definitions(SSLNEW)
 elseif(HAVE_CRYPTO_OLD OR HAVE_CUSTOM_CRYPTO_OLD OR HAVE_ARM_CRYPTO_OLD)
     message(STATUS "Switching to legacy libcrypto functions")
 else()
@@ -188,7 +188,6 @@ set(libmerc_src
     tls.cc
     utils.cc
     wireguard.cc
-    asn1.cc
     config_generator.cc
     smb2.cc
     bencode.cc
@@ -265,7 +264,7 @@ endif()
 target_compile_options(libmerc PUBLIC ${libmerc_compile_opt})
 target_compile_definitions(libmerc PUBLIC -DNDEBUG -DDONT_USE_STDERR)
 #target_link_options(libmerc PUBLIC  -lz -lcrypto)
-#target_compile_definitions(libmerc PRIVATE -DSSLNEW)
+#target_compile_definitions(libmerc PRIVATE SSLNEW)
 set_target_properties(libmerc PROPERTIES PREFIX "")
 #set_target_properties(libmerc PROPERTIES PREFIX "" OUTPUT_NAME "libmerc.so.0")
 # }
@@ -282,7 +281,7 @@ endif()
 target_compile_options(libmerc_static PUBLIC ${libmerc_compile_opt})
 target_compile_definitions(libmerc_static PUBLIC -DNDEBUG -DDONT_USE_STDERR)
 #target_link_options(libmerc PUBLIC  -lz -lcrypto)
-#target_compile_definitions(libmerc PRIVATE -DSSLNEW)
+#target_compile_definitions(libmerc PRIVATE SSLNEW)
 set_target_properties(libmerc_static PROPERTIES PREFIX "")
 #set_target_properties(libmerc PROPERTIES PREFIX "" OUTPUT_NAME "libmerc.so.0")
 # }

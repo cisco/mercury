@@ -509,7 +509,7 @@ int output_thread_init(struct output_file &out_ctx, const struct mercury_config 
     //fprintf(stderr, "DEBUG: fingerprint filename: %s\n", cfg.fingerprint_filename);
     //fprintf(stderr, "DEBUG: max records: %ld\n", out_ctx.out_jf.max_records);
 
-    // Some platforms (like OS X) have stack sizes that are too small
+    // Set the stack size to a large value, since some platforms (like OS X) have stack sizes that are too small
     pthread_attr_t pt_stack_size;
     int err = pthread_attr_init(&pt_stack_size);
     if (err != 0) {

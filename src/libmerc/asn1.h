@@ -14,229 +14,56 @@
 #include "json_object.h"
 #include "utils.h"
 #include "asn1/oid.h"
+#include "time.hpp"
 
-namespace std {
-    template <>  struct hash<struct datum>  {
-        std::size_t operator()(const struct datum& p) const {
-            size_t x = 5381;
-            const uint8_t *tmp = p.data;
-            while (tmp < p.data_end) {
-                x = (33 * x) + *tmp;
-            }
-            return x;
-        }
-    };
-}
-
-/*
- * utility functions
- */
-
-static void utc_to_generalized_time(uint8_t gt[15], const uint8_t utc[13]) {
-    if (utc[0] < '5') {
-        gt[0] = '2';
-        gt[1] = '0';
-    } else {
-        gt[0] = '1';
-        gt[1] = '9';
-    }
-    memcpy(gt + 2, utc, 13);
-}
-
-
-void fprintf_json_string_escaped(struct buffer_stream &buf, const char *key, const uint8_t *data, unsigned int len);
-void fprintf_json_char_escaped(FILE *f, unsigned char x);
-void fprintf_json_char_escaped(struct buffer_stream &buf, unsigned char x);
-void fprintf_ip_address(FILE *f, const uint8_t *buffer, size_t length);
-void fprintf_ip_address(struct buffer_stream &buf, const uint8_t *buffer, size_t length);
-void fprintf_json_utctime(FILE *f, const char *key, const uint8_t *data, unsigned int len);
-void fprintf_json_generalized_time(FILE *f, const char *key, const uint8_t *data, unsigned int len);
-void fprintf_json_utctime(struct buffer_stream &buf, const char *key, const uint8_t *data, unsigned int len);
-void fprintf_json_generalized_time(struct buffer_stream &buf, const char *key, const uint8_t *data, unsigned int len);
-int generalized_time_gt(const uint8_t *d1, unsigned int l1, const uint8_t *d2, unsigned int l2);
-int utctime_to_generalized_time(uint8_t *gt, size_t gt_len, const uint8_t *utc_time, size_t utc_len);
-inline uint8_t hex_to_raw(const char *hex);
-void hex_string_print_as_oid(FILE *f, const char *c, size_t length);
-void raw_string_print_as_oid(FILE *f, const uint8_t *raw, size_t length);
-void raw_string_print_as_oid(struct buffer_stream &buf, const uint8_t *raw, size_t length);
-
-
-/*
- * json_object extensions for printing to TLVs
- */
 
 static const char *oid_empty_string = "";
 
-struct json_object_asn1 : public json_object {
-    explicit json_object_asn1(struct buffer_stream *buf) : json_object(buf) {}
-    json_object_asn1(struct json_object &object, const char *name) : json_object(object, name) {
-        //fprintf(stderr, "json_object_asn1 constructor\n");
-    }
-    explicit json_object_asn1(struct json_object &object) : json_object(object) {
-        //fprintf(stderr, "json_object_asn1 constructor\n");
-    }
-    explicit json_object_asn1(struct json_array &array);
+class raw_oid : public datum {
+public:
 
-    void print_key_oid(const char *k, const struct datum &value) {
-        const char *output = oid::get_string(&value);
-        write_comma(comma);
+    void fingerprint(struct buffer_stream &b) const {
+        if (this->is_null()) {
+            return;  // error; attempt to write a null datum object
+        }
+        const char *output = oid::get_string(this);
         if (output != oid_empty_string) {
-            b->snprintf("\"%s\":\"%s\"", k, output);
+            b.puts(output);
         } else {
-            b->snprintf("\"%s\":\"", k);
-            if (value.data && value.data_end) {
-                raw_string_print_as_oid(*b, value.data, value.data_end - value.data);
-            }
-            b->write_char('\"');
+            print_as_oid(b);
         }
     }
 
-    void print_key_bitstring_flags(const char *name, const struct datum &value, char * const *flags) {
-        struct json_array a{*this, name};
-        if (value.is_not_empty()) {
-            struct datum p = value;
-            char *const *tmp = flags;
-            uint8_t number_of_unused_bits = 0;
-            p.read_uint8(&number_of_unused_bits);
-            while (p.data < p.data_end-1) {
-                for (uint8_t x = 0x80; x > 0; x=x>>1) {
-                    if (x & *p.data) {
-                        if (*tmp) {
-                            a.print_string(*tmp);
-                        }         // note: we don't report excess length
-                    }
-                    if (*tmp) {
-                        tmp++;
-                    }
-                }
-                p.data++;
-            }
-            if (p.is_not_empty()) {
-                uint8_t terminus = 0x80 >> (8-number_of_unused_bits);
-                for (uint8_t x = 0x80; x > terminus; x=x>>1) {
-                    if (x & *p.data) {
-                        if (*tmp) {
-                            a.print_string(*tmp);
-                        }         // note: we don't report excess length
-                    }
-                    if (*tmp) {
-                        tmp++;
-                    }
-                }
+    void print_as_oid(struct buffer_stream &buf) const {
+        if (is_not_readable()) {
+            return;  // error: invalid input
+        }
+        size_t length = this->length();
+        const uint8_t *raw = this->data;
+        uint32_t component = *raw;
+        uint32_t div = component / 40;
+        uint32_t rem = component - (div * 40);
+        if (div > 2 || rem > 39) {
+            return; // error: invalid input
+        }
+        buf.snprintf("%u.%u", div, rem);
+
+        raw++;
+        component = 0;
+        for (unsigned int i=1; i<length; i++) {
+            uint8_t tmp = *raw++;
+            if (tmp & 0x80) {
+                component = component * 128 + (tmp & 0x7f);
+            } else {
+                component = component * 128 + tmp;
+                buf.snprintf(".%u", component);
+                component = 0;
             }
         }
-        a.close();
-        comma = true;
-    }
-
-    void print_key_escaped_string(const char *k, const struct datum &value) {
-        write_comma(comma);
-        fprintf_json_string_escaped(*b, k, value.data, value.data_end - value.data);
-    }
-
-    /*
-     * UTCTime (Coordinated Universal Time) consists of 13 bytes that
-     * encode the Greenwich Mean Time in the format YYMMDDhhmmssZ.  For
-     * instance, the bytes 17 0d 31 35 31 30 32 38 31 38 35 32 31 32 5a
-     * encode the string "151028185212Z", which represents the time
-     * "2015-10-28 18:52:12"
-     */
-    void print_key_utctime(const char *key, const uint8_t *data, unsigned int len) {
-        write_comma(comma);
-        b->snprintf("\"%s\":\"", key);
-        if (len != 13) {
-            b->snprintf("malformed\"");
-            return;
-        }
-        if (data[0] < '5') {
-            b->snprintf("20");
-        } else {
-            b->snprintf("19");
-        }
-        fprintf_json_char_escaped(*b, data[0]);
-        fprintf_json_char_escaped(*b, data[1]);
-        b->write_char('-');
-        fprintf_json_char_escaped(*b, data[2]);
-        fprintf_json_char_escaped(*b, data[3]);
-        b->write_char('-');
-        fprintf_json_char_escaped(*b, data[4]);
-        fprintf_json_char_escaped(*b, data[5]);
-        b->write_char(' ');
-        fprintf_json_char_escaped(*b, data[6]);
-        fprintf_json_char_escaped(*b, data[7]);
-        b->write_char(':');
-        fprintf_json_char_escaped(*b, data[8]);
-        fprintf_json_char_escaped(*b, data[9]);
-        b->write_char(':');
-        fprintf_json_char_escaped(*b, data[10]);
-        fprintf_json_char_escaped(*b, data[11]);
-        fprintf_json_char_escaped(*b, data[12]);
-        b->write_char('\"');
-    }
-
-    /*
-     *  For the purposes of [RFC 5280], GeneralizedTime values MUST be
-     *  expressed in Greenwich Mean Time (Zulu) and MUST include seconds
-     *  (i.e., times are YYYYMMDDHHMMSSZ), even where the number of
-     *  seconds is zero.
-     */
-    void print_key_generalized_time(const char *key, const uint8_t *data, unsigned int len) {
-        write_comma(comma);
-        b->snprintf("\"%s\":\"", key);
-        if (len != 15) {
-            b->snprintf("malformed (length %u)\"", len);
-            return;
-        }
-        fprintf_json_char_escaped(*b, data[0]);
-        fprintf_json_char_escaped(*b, data[1]);
-        fprintf_json_char_escaped(*b, data[2]);
-        fprintf_json_char_escaped(*b, data[3]);
-        b->write_char('-');
-        fprintf_json_char_escaped(*b, data[4]);
-        fprintf_json_char_escaped(*b, data[5]);
-        b->write_char('-');
-        fprintf_json_char_escaped(*b, data[6]);
-        fprintf_json_char_escaped(*b, data[7]);
-        b->write_char(' ');
-        fprintf_json_char_escaped(*b, data[8]);
-        fprintf_json_char_escaped(*b, data[9]);
-        b->write_char(':');
-        fprintf_json_char_escaped(*b, data[10]);
-        fprintf_json_char_escaped(*b, data[11]);
-        b->write_char(':');
-        fprintf_json_char_escaped(*b, data[12]);
-        fprintf_json_char_escaped(*b, data[13]);
-        fprintf_json_char_escaped(*b, data[14]);
-        b->write_char('\"');
-    }
-
-    void print_key_ip_address(const char *name, const datum &value) {
-        write_comma(comma);
-        b->snprintf("\"%s\":\"", name);
-        fprintf_ip_address(*b, value.data, value.data_end - value.data);
-        b->write_char('\"');
     }
 
 };
 
-
-struct json_array_asn1 : public json_array {
-    explicit json_array_asn1(struct buffer_stream *b) : json_array(b) { }
-    explicit json_array_asn1(struct json_object &object, const char *name) : json_array(object, name) { }
-    void print_oid(const struct datum &value) {
-        const char *output = oid::get_string(&value);
-        write_comma(comma);
-        if (output != oid_empty_string) {
-            b->snprintf("\"%s\"", output);
-        } else {
-            b->write_char('\"');
-            if (value.data && value.data_end) {
-                raw_string_print_as_oid(*b, value.data, value.data_end - value.data);
-            }
-            b->write_char('\"');
-        }
-    }
-};
 
 /*
  * struct tlv holds the tag, length, and (pointers to the beginning
@@ -755,46 +582,35 @@ struct tlv {
         if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
-    void print_as_json_oid(struct json_object_asn1 &o, const char *name) const {
+    void print_as_json_oid(struct json_object &o, const char *name) const {
         if (!is_valid()) {
             return;
         }
-        o.print_key_oid(name, value);
+        o.print_key_value(name, raw_oid{value});
         if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
-    void print_as_json_escaped_string(struct json_object_asn1 &o, const char *name) const {
+    void print_as_json_escaped_string(struct json_object &o, const char *name) const {
         if (!is_valid()) {
             return;
         }
-        o.print_key_escaped_string(name, value);
+        o.print_key_json_string(name, value);
         if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
-    void print_as_json_utctime(struct json_object_asn1 &o, const char *name) const {
+    void print_as_json_utctime(struct json_object &o, const char *name) const {
         if (!is_valid()) {
             return;
         }
-        o.print_key_utctime(name, value.data, value.data_end - value.data);
+        o.print_key_value(name, utc_time{value});
         if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
-    void print_as_json_generalized_time(struct json_object_asn1 &o, const char *name) const {
+    void print_as_json_generalized_time(struct json_object &o, const char *name) const {
         if (!is_valid()) {
             return;
         }
-        o.print_key_generalized_time(name, value.data, value.data_end - value.data);
-        if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
-    }
-    void print_as_json_ip_address(struct json_object_asn1 &o, const char *name) const {
-        if (!is_valid()) {
-            return;
-        }
-        o.write_comma(o.comma);
-        o.b->snprintf("\"%s\":\"", name);
-        fprintf_ip_address(*o.b, value.data, value.data_end - value.data);
-        o.b->write_char('\"');
-        o.comma = ',';
+        o.print_key_value(name, generalized_time{value});
         if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
@@ -833,7 +649,7 @@ struct tlv {
         if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
-    void print_as_json_bitstring_flags(struct json_object_asn1 &o, const char *name, char * const *flags) const {
+    void print_as_json_bitstring_flags(struct json_object &o, const char *name, char * const *flags) const {
         if (!is_valid()) {
             return;
         }
@@ -841,7 +657,7 @@ struct tlv {
         if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
     }
 
-    void print_as_json(struct json_object_asn1 &o, const char *name) const {
+    void print_as_json(struct json_object &o, const char *name) const {
         if (!is_valid()) {
             return;
         }
@@ -876,7 +692,7 @@ struct tlv {
         o.print_key_hex(name, p);
     }
 
-    static bool recursive_parse(datum &d, json_array_asn1 &a) {
+    static bool recursive_parse(datum &d, json_array &a) {
 
         if (d.is_empty()) {
             return true;    // nothing to parse
@@ -885,15 +701,15 @@ struct tlv {
         if (!x.is_valid()) {
             return false;
         }
-        json_object_asn1 o{a};
+        json_object o{a};
         if ((x.tag) == tlv::SEQUENCE) {
-            json_array_asn1 seq{o, "SEQUENCE"};
+            json_array seq{o, "SEQUENCE"};
             recursive_parse(x.value, seq);
             seq.close();
         } else if ((x.tag & 31) == tlv::OCTET_STRING) {
             datum tmp{x.value};
             x.print_as_json(o, x.get_type());
-            json_array_asn1 asn1{o, "content"};
+            json_array asn1{o, "content"};
             recursive_parse(tmp, asn1);
             asn1.close();
         } else {
@@ -902,7 +718,7 @@ struct tlv {
             if (true or !x.is_constructed()) {
                 x.print_as_json(o, x.get_type());
             } else {
-                json_array_asn1 cons{o, "CONSTRUCTED"};
+                json_array cons{o, "CONSTRUCTED"};
                 [[maybe_unused]] datum tmp{x.value};
                 //                recursive_parse(tmp, cons);
                 cons.close();
@@ -922,9 +738,9 @@ struct tlv {
 
         bool is_valid() const { return value.is_not_null(); }
 
-        void write_json(json_object_asn1 &o) const {
+        void write_json(json_object &o) const {
             datum tmp{value};
-            json_array_asn1 a{o, "arbitrary"};
+            json_array a{o, "arbitrary"};
             recursive_parse(tmp, a);
             a.close();
         }
