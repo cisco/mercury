@@ -31,6 +31,26 @@ namespace krb5 {
         return to_uint64(x.value);
     }
 
+
+    // Ticket          ::= [APPLICATION 1] SEQUENCE {
+    //         tkt-vno         [0] INTEGER (5),
+    //         realm           [1] Realm,
+    //         sname           [2] PrincipalName,
+    //         enc-part        [3] EncryptedData -- EncTicketPart
+    // }
+    //
+    class ticket {
+        tlv tkt_vno;
+        tlv realm;
+        tlv sname;
+        tlv enc_part;
+
+    public:
+        ticket(datum &d) {
+        }
+    };
+
+
     // KerberosFlags   ::= BIT STRING (SIZE (32..MAX))
     //                     -- minimum number of bits shall be sent,
     //                     -- but no fewer than 32
@@ -277,7 +297,7 @@ namespace krb5 {
             // o.print_key_hex("from", from.value);
             till.print_as_json_generalized_time(o, "till");
             if (rtime) {
-                o.print_key_hex("rtime", rtime.value);
+                rtime.print_as_json_generalized_time(o, "rtime");
             }
             o.print_key_hex("nonce", nonce.value);
             // o.print_key_hex("etype", etype.value);
@@ -519,7 +539,7 @@ namespace krb5 {
             }
             error_json.print_key_json_string("realm", realm.value);
             principal_name{sname.value}.write_json(o, "sname");
-            error_json.print_key_hex("e_text", e_text.value);
+            error_json.print_key_json_string("e_text", e_text.value);
             error_json.print_key_hex("e_data", e_data.value);
             error_json.close();
         }
