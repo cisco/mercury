@@ -2053,7 +2053,7 @@ namespace {
         datum d1;
         datum d2{data1, data1+size1};
         ssize_t num_bytes;
-        memcpy(&num_bytes, data2, std::min(sizeof(ssize_t), size2));
+        memcpy(&num_bytes, data2, (std::min)(sizeof(ssize_t), size2));
         d1.parse(d2, num_bytes);
         return 0;
     }
@@ -2062,7 +2062,7 @@ namespace {
         datum d1;
         datum d2{data1, data1+size1};
         size_t num_bytes;
-        memcpy(&num_bytes, data2, std::min(sizeof(size_t), size2));
+        memcpy(&num_bytes, data2, (std::min)(sizeof(size_t), size2));
         d1.parse_soft_fail(d2, num_bytes);
         return 0;
     }
@@ -2071,7 +2071,7 @@ namespace {
         datum d1;
         datum d2{data1, data1+size1};
         uint8_t delim;
-        memcpy(&delim, data2, std::min(sizeof(uint8_t), size2));
+        memcpy(&delim, data2, (std::min)(sizeof(uint8_t), size2));
         d1.parse_up_to_delim(d2, delim);
         return 0;
     }
@@ -2079,7 +2079,7 @@ namespace {
     [[maybe_unused]] int datum_skip_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
         datum d{data1, data1+size1};
         size_t length;
-        memcpy(&length, data2, std::min(sizeof(size_t), size2));
+        memcpy(&length, data2, (std::min)(sizeof(size_t), size2));
         d.skip(length);
         return 0;
     }
@@ -2087,7 +2087,7 @@ namespace {
     [[maybe_unused]] int datum_trim_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
         datum d{data1, data1+size1};
         size_t length;
-        memcpy(&length, data2, std::min(sizeof(size_t), size2));
+        memcpy(&length, data2, (std::min)(sizeof(size_t), size2));
         d.trim(length);
         return 0;
     }
@@ -2095,7 +2095,7 @@ namespace {
     [[maybe_unused]] int datum_trim_to_length_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
         datum d{data1, data1+size1};
         size_t length;
-        memcpy(&length, data2, std::min(sizeof(size_t), size2));
+        memcpy(&length, data2, (std::min)(sizeof(size_t), size2));
         d.trim_to_length(length);
         return 0;
     }
@@ -2178,7 +2178,7 @@ namespace {
     [[maybe_unused]] int datum_lookahead_uint_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
         datum d{data1, data1+size1};
         unsigned int num_bytes;
-        memcpy(&num_bytes, data2, std::min(sizeof(unsigned int), size2));
+        memcpy(&num_bytes, data2, (std::min)(sizeof(unsigned int), size2));
         uint64_t output;
         d.lookahead_uint(num_bytes, &output);
         return 0;
@@ -2193,7 +2193,7 @@ namespace {
     [[maybe_unused]] int datum_fprint_hex_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
         datum d{data1, data1 + size1};
         size_t length;
-        memcpy(&length, data2, std::min(sizeof(size_t), size2));
+        memcpy(&length, data2, (std::min)(sizeof(size_t), size2));
         FILE *temp_file = tmpfile();
         d.fprint_hex(temp_file, length);
         fclose(temp_file);
@@ -2214,7 +2214,7 @@ namespace {
     [[maybe_unused]] int datum_fprint_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
         datum d{data1, data1 + size1};
         size_t length;
-        memcpy(&length, data2, std::min(sizeof(size_t), size2));
+        memcpy(&length, data2, (std::min)(sizeof(size_t), size2));
         FILE *temp_file = tmpfile();
         d.fprint(temp_file, length);
         fclose(temp_file);
