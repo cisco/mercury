@@ -356,8 +356,6 @@ struct prune_table {
 };
 End comment reassembly pruning logic */
 
-void fprintf_json_string_escaped(FILE *f, const char *key, const uint8_t *data, unsigned int len);
-
 struct flow_table {
     std::unordered_map<struct key, unsigned int> table;
     std::unordered_map<struct key, unsigned int>::iterator reap_it;
