@@ -216,8 +216,7 @@ if(intel_platfrom)
 
 elseif(arm_platform)
     list(APPEND libmerc_src softmax_neon.cc)
-    # Uncomment below line if you need specific flags
-    # set_source_files_properties(softmax_neon.cc PROPERTIES COMPILE_FLAGS "-mfpu=neon")
+    set_source_files_properties(softmax_neon.cc PROPERTIES COMPILE_FLAGS "-mfpu=neon")
 endif()
 
 ## default libmerc compile options
