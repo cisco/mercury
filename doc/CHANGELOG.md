@@ -22,6 +22,8 @@
 * Added additional fuzz tests. Updated the `generate_fuzz_test.sh` script to
   support generating fuzz functions that test functions requiring two fuzzed inputs.
   Also hardened some datum functions.
+* Added `test-coverage` and `test-coverage-fuzz` targets to generate a 
+  comprehensive code coverage report for the Mercury library.
 
 ## VERSION 2.7.0
 * Added minimal RDP (Remote Desktop Protocol) support, which

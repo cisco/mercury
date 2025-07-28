@@ -121,6 +121,69 @@ libs:
 test:
 	cd src && $(MAKE) test
 
+.PHONY: test-coverage
+test-coverage:
+	@bash -e -c -o pipefail ' \
+		mkdir -p coverage && \
+		make && \
+		make clean-helper > /dev/null && \
+		make --directory=src COVERAGE_ENABLED=1 use_fsanitize=no run_unit_test > /dev/null && \
+		lcov -q --directory . --capture --output-file ./coverage/mercury_unit_tests_1.info && \
+		echo -e $(COLOR_GREEN) "created coverage file for unit tests" $(COLOR_OFF) && \
+		make clean-helper > /dev/null && \
+		\
+		make --directory=src/libmerc COVERAGE_ENABLED=1 use_fsanitize=no libmerc.so > /dev/null && \
+		make --directory=unit_tests COVERAGE_ENABLED=1 use_fsanitize=no libmerc_driver_tls_only > /dev/null && \
+		make --directory=unit_tests run_libmerc_tls_only_tests > /dev/null && \
+		lcov -q --directory . --capture --output-file ./coverage/mercury_libmerc_driver_tls_only.info && \
+		echo -e $(COLOR_GREEN) "created coverage file for libmerc driver tls tests" $(COLOR_OFF) && \
+		make clean-helper > /dev/null && \
+		\
+		make --directory=src/libmerc COVERAGE_ENABLED=1 use_fsanitize=no libmerc.so > /dev/null && \
+		make --directory=unit_tests COVERAGE_ENABLED=1 use_fsanitize=no libmerc_driver_multiprotocol > /dev/null && \
+		make --directory=unit_tests run_libmerc_multiprotocol_tests > /dev/null && \
+		lcov -q --directory . --capture --output-file ./coverage/mercury_libmerc_driver_multiprotocol.info && \
+		echo -e $(COLOR_GREEN) "created coverage file for libmerc driver multiprotocol tests" $(COLOR_OFF) && \
+		make clean-helper > /dev/null && \
+		\
+		make --directory=src COVERAGE_ENABLED=1 use_fsanitize=no mercury > /dev/null && \
+		make --directory=test COVERAGE_ENABLED=1 clean comp analysis cert-check memcheck json-validity-test stats > /dev/null && \
+		lcov -q --directory . --capture --output-file ./coverage/mercury_unit_tests_2.info && \
+		echo -e $(COLOR_GREEN) "created coverage file for other unit tests" $(COLOR_OFF) && \
+		make clean-helper > /dev/null && \
+		\
+		lcov --add-tracefile ./coverage/mercury_unit_tests_1.info \
+		     --add-tracefile ./coverage/mercury_libmerc_driver_tls_only.info \
+		     --add-tracefile ./coverage/mercury_libmerc_driver_multiprotocol.info \
+		     --add-tracefile ./coverage/mercury_unit_tests_2.info \
+		     --output-file ./coverage/mercury_total.info 2>&1 | grep -v "function data mismatch" && \
+		lcov -q --remove ./coverage/mercury_total.info "/usr/include/*" "*/src/libmerc/rapidjson/*" "*/unit_tests/*" -o ./coverage/mercury_filtered_coverage.info && \
+		genhtml --no-function-coverage --output-directory coverage_html_report ./coverage/mercury_filtered_coverage.info && \
+		echo -e $(COLOR_GREEN) "created coverage report" $(COLOR_OFF) \
+	' || { echo $(COLOR_RED) "failed to build coverage report" $(COLOR_OFF); exit 1; }
+
+.PHONY: test-coverage-fuzz
+test-coverage-fuzz:
+	@bash -e -c -o pipefail ' \
+		mkdir -p coverage_fuzz && \
+		make --directory=test COVERAGE_ENABLED=1 fuzz-test &&  \
+		find . -name "*.profraw" | xargs -I {} sh -c "llvm-profdata merge -sparse '{}' -o \$$(dirname '{}')/default.profdata" && \
+		find . -name "*exec" | xargs -I {} sh -c "llvm-cov export -format=lcov --instr-profile \$$(dirname '{}')/default.profdata {} > \$$(dirname '{}')/default.info" && \
+		find ./test/fuzz -name "*.info" | sed "s/\\(\\S\\+\\)/--add-tracefile \\1/g" | xargs lcov --output-file ./coverage_fuzz/mercury_fuzz_test_1.info > /dev/null && \
+		lcov -q --directory ./src --capture --output-file ./coverage_fuzz/mercury_fuzz_test_2.info && \
+		echo -e $(COLOR_GREEN) "created coverage files for fuzz tests" $(COLOR_OFF) && \
+		make clean-helper > /dev/null && \
+		\
+		lcov --add-tracefile ./coverage_fuzz/mercury_fuzz_test_1.info \
+		     --add-tracefile ./coverage_fuzz/mercury_fuzz_test_2.info \
+		     --output-file ./coverage_fuzz/mercury_total_with_fuzz.info 2>&1 | grep -v "function data mismatch" && \
+		lcov -q --remove ./coverage_fuzz/mercury_total_with_fuzz.info \
+		        "/usr/include/*" "*/src/libmerc/rapidjson/*" "*/test/fuzz/*" \
+		        -o ./coverage_fuzz/mercury_filtered_coverage_with_fuzz.info && \
+		genhtml --no-function-coverage --output-directory coverage_html_report_fuzz ./coverage_fuzz/mercury_filtered_coverage_with_fuzz.info && \
+		echo -e $(COLOR_GREEN) "created final fuzz coverage report" $(COLOR_OFF) \
+	' || { echo $(COLOR_RED) "failed to build fuzz coverage report" $(COLOR_OFF); exit 1; }
+
 .PHONY: test_strict
 test_strict:
 	cd src && $(MAKE) test
@@ -160,10 +223,9 @@ ifneq ($(wildcard src/Makefile), src/Makefile)
 	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
 	@false
 else
-	cd src && $(MAKE) clean
-	cd test && $(MAKE) clean
-	cd unit_tests && $(MAKE) clean
+	$(MAKE) clean-helper
 	rm -rf doc/latex
+	rm -rf coverage coverage_fuzz coverage_html_report coverage_html_report_fuzz
 endif
 
 .PHONY: distclean
@@ -177,6 +239,15 @@ else
 	rm -rf autom4te.cache config.log config.status Makefile_helper.mk
 	rm -f lib/*.so
 endif
+
+.PHONY: clean-helper
+clean-helper:
+	find . -name "*.gcda" -delete
+	find . -name "*.gcno" -delete
+	find . -name "*.gcov" -delete
+	cd src && $(MAKE) clean
+	cd test && $(MAKE) clean
+	cd unit_tests && $(MAKE) clean
 
 .PHONY: package-deb
 package-deb: mercury
