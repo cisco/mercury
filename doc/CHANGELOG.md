@@ -1,5 +1,6 @@
 # CHANGELOG for Mercury
 
+* Added CBOR encoding/decoding for SSH and STUN fingerprints.
 * Removed duplicate UTF-8 and IP address output code used in
   ASN.1, added classes `utc_time`, `generalized_time`, and `raw_oid`
   to facilitate JSON output, removed `json_object_asn1` and
