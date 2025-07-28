@@ -26,7 +26,7 @@ using ipv4_addr_t = uint32_t;
 #define IP_SUBNET_BOGON       8
 #define IP_SUBNET_USER        9
 
-#define IP_SUBNET_DOMAIN            11
+#define IP_SUBNET_DOMAIN            11  // domain faking detection - domain mapped subnets
 #define IP_SUBNET_DOMAIN_EXCEPTION  12  // domain faking exceptions - proxy and sinkhole subnets
 
 #define LCT_IP_DEBUG_PREFIXES 0

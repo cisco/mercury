@@ -210,15 +210,16 @@ uint32_t subnet_data::get_asn_info(const char* dst_ip) const {
             return subnet->info.bgp.asn;
         }
     }
-
-    ipv6_addr_t ipv6_addr;
-    if (ipv6_subnet_array&& inet_pton(AF_INET6, dst_ip, &ipv6_addr.a)) {
-        lct_subnet_v6_t *subnet = lct_find(&ipv6_subnet_trie, ipv6_addr);
-        if (subnet == NULL) {
-            return 0;
-        }
-        if (subnet->info.type == IP_SUBNET_BGP) {
-            return subnet->info.bgp.asn;
+    else {
+        ipv6_addr_t ipv6_addr;
+        if (ipv6_subnet_array && inet_pton(AF_INET6, dst_ip, &ipv6_addr.a)) {
+            lct_subnet_v6_t *subnet = lct_find(&ipv6_subnet_trie, ipv6_addr);
+            if (subnet == NULL) {
+                return 0;
+            }
+            if (subnet->info.type == IP_SUBNET_BGP) {
+                return subnet->info.bgp.asn;
+            }
         }
     }
 
@@ -472,7 +473,7 @@ int subnet_data::process_domain_mapping_subnets_v6(const std::vector<std::pair<s
 
 
 int subnet_data::process_domain_mapping_line(std::string &line_str, std::vector<std::pair<std::string, std::string>> &subnets,
-    std::vector<std::pair<std::string, std::string>> &subnets_v6) {
+    std::vector<std::pair<std::string, std::string>> &subnets_v6, bool &minimize_ram) {
 
     rapidjson::Document domain_obj;
     domain_obj.Parse(line_str.c_str());
@@ -510,14 +511,13 @@ int subnet_data::process_domain_mapping_line(std::string &line_str, std::vector<
     else if (subnet_type == "proxy" || subnet_type == "sinkhole") {
         subnets.push_back(std::make_pair(subnet_str, subnet_type));
     }
-    else if (subnet_type == "domain_mapping_v6") {
+    else if (!minimize_ram && subnet_type == "domain_mapping_v6") {
         subnets_v6.push_back(std::make_pair(subnet_str, subnet_tag));
     }
-    else if (subnet_type == "proxy_v6" || subnet_type == "sinkhole_v6") {
+    else if (!minimize_ram && (subnet_type == "proxy_v6" || subnet_type == "sinkhole_v6")) {
         subnets_v6.push_back(std::make_pair(subnet_str, subnet_type));
     }
     else {
-        printf_err(log_warning, "unknown subnet type '%s' in resource archive\n", subnet_type.c_str());
         return -1;  // failure
     }
 
@@ -786,29 +786,48 @@ bool subnet_data::is_domain_faking(const char *domain_name_, const char* dst_ip)
     }
 
     uint32_t ipv4_addr;
-    if (!char_string_to_ipv4_addr(dst_ip, ipv4_addr)) {
-        return false; // IPv6 or invalid address
-    }
+    if (char_string_to_ipv4_addr(dst_ip, ipv4_addr)) {
 
-    ipv4_address ip4(ipv4_addr);
-    if (ip4.get_addr_type() == ipv4_address::addr_type::private_use) {
-        return false; // not domain-faking - as the IP is a private address
-    }
+        ipv4_address ip4(ipv4_addr);
+            if (ip4.get_addr_type() == ipv4_address::addr_type::private_use) {
+                return false; // not domain-faking - as the IP is a private address
+        }
 
-    lct_subnet_t *subnet = lct_find(&ipv4_domain_trie, ntoh(ipv4_addr));
-    if (subnet == NULL) {
-        return true; // IP not found in trie - domain-faking
-    }
+        lct_subnet_t *subnet = lct_find(&ipv4_domain_trie, ntoh(ipv4_addr));
+        if (subnet == NULL) {
+            return true; // IP not found in trie - domain-faking
+        }
 
-    if (subnet->info.type == IP_SUBNET_DOMAIN) {
-        for (uint8_t domain_idx_itr = 0; domain_idx_itr < subnet->info.domain.domain_idx_arr_len; domain_idx_itr++) {
-            if (subnet->info.domain.domain_idx_arr[domain_idx_itr] == domain_idx) {
-                return false; // match - domain is mapped to the subnet - not domain-faking
+        if (subnet->info.type == IP_SUBNET_DOMAIN) {
+            for (uint8_t domain_idx_itr = 0; domain_idx_itr < subnet->info.domain.domain_idx_arr_len; domain_idx_itr++) {
+                if (subnet->info.domain.domain_idx_arr[domain_idx_itr] == domain_idx) {
+                    return false; // match - domain is mapped to the subnet - not domain-faking
+                }
             }
         }
+        else if (subnet->info.type == IP_SUBNET_DOMAIN_EXCEPTION) {
+            return false; // subnet is an exception - not domain-faking
+        }
     }
-    else if (subnet->info.type == IP_SUBNET_DOMAIN_EXCEPTION) {
-        return false; // subnet is an exception - not domain-faking
+    else {
+        ipv6_addr_t ipv6_addr;
+        if (ipv6_subnet_array && inet_pton(AF_INET6, dst_ip, &ipv6_addr.a)) {
+            lct_subnet_v6_t *subnet = lct_find(&ipv6_domain_trie, ipv6_addr);
+            if (subnet == NULL) {
+                return true; // IP not found in trie - domain-faking
+            }
+            
+            if (subnet->info.type == IP_SUBNET_DOMAIN) {
+                for (uint8_t domain_idx_itr = 0; domain_idx_itr < subnet->info.domain.domain_idx_arr_len; domain_idx_itr++) {
+                    if (subnet->info.domain.domain_idx_arr[domain_idx_itr] == domain_idx) {
+                        return false; // match - domain is mapped to the subnet - not domain-faking
+                    }
+                }
+            }
+            else if (subnet->info.type == IP_SUBNET_DOMAIN_EXCEPTION) {
+                return false; // subnet is an exception - not domain-faking
+            }
+        }
     }
 
     return true; // no match - domain-faking

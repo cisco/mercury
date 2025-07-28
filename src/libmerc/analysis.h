@@ -838,7 +838,7 @@ public:
                         if (line_str.find(".") != std::string::npos) {
                             asn_subnets_str.push_back(line_str);       // v4 subnet
                         }
-                        else {
+                        else if (!minimize_ram) {   // don't load ipv6 subnets if minimize_ram is set
                             asn_subnets_v6_str.push_back(line_str);    // v6 subnet
                         }
                         // failure to parse will be handled within respective process_asn_subnets functions
@@ -846,7 +846,8 @@ public:
                     // process the parsed asn subnets and store them in prefix array for final processing
                     //
                     subnets.process_asn_subnets(asn_subnets_str);
-                    subnets.process_asn_subnets_v6(asn_subnets_v6_str);
+                    if (!minimize_ram)
+                        subnets.process_asn_subnets_v6(asn_subnets_v6_str);
                     got_pyasn_db = true;
                 } else if (name == "doh-watchlist.txt") {
                     while (archive.getline(line_str)) {
@@ -857,12 +858,13 @@ public:
                     std::vector<std::pair<std::string, std::string>> domain_mapping_subnets_str;
                     std::vector<std::pair<std::string, std::string>> domain_mapping_subnets_v6_str;
                     while (archive.getline(line_str)) {
-                        subnets.process_domain_mapping_line(line_str, domain_mapping_subnets_str, domain_mapping_subnets_v6_str);
+                        subnets.process_domain_mapping_line(line_str, domain_mapping_subnets_str, domain_mapping_subnets_v6_str, minimize_ram);
                     }
                     // process the parsed domain_mapping subnets and store them in domains_prefix array for final processing
                     //
                     subnets.process_domain_mapping_subnets(domain_mapping_subnets_str);
-                    subnets.process_domain_mapping_subnets_v6(domain_mapping_subnets_v6_str);
+                    if (!minimize_ram)
+                        subnets.process_domain_mapping_subnets_v6(domain_mapping_subnets_v6_str);
                     got_domain_faking_subnets = true;
                 }
             }

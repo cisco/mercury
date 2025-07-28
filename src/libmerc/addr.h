@@ -126,7 +126,7 @@ public:
     int process_asn_subnets_v6(const std::vector<std::string> &subnets);
 
     int process_domain_mapping_line(std::string &line_str, std::vector<std::pair<std::string, std::string>> &subnets,
-        std::vector<std::pair<std::string, std::string>> &subnets_v6);
+        std::vector<std::pair<std::string, std::string>> &subnets_v6, bool &minimize_ram);
     int process_domain_mapping_subnets(const std::vector<std::pair<std::string, std::string>> &subnets);
     int process_domain_mapping_subnets_v6(const std::vector<std::pair<std::string, std::string>> &subnets);
     int lct_add_domain_mapping(uint32_t &addr, uint8_t &mask_length, std::string &domain,

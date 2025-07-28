@@ -10,20 +10,24 @@ typedef struct ipv6_addr_t {
     // Default constructor
     ipv6_addr_t() = default;
 
+    // Constructor for initializing ipv6 address with 64 least significant bits
+    explicit ipv6_addr_t(uint64_t low) {
+        a[0] = 0;
+        a[1] = low;
+    }
+
     // Copy constructor
-    constexpr ipv6_addr_t(const ipv6_addr_t& other) noexcept 
+    constexpr ipv6_addr_t(const ipv6_addr_t& other) 
         : a{other.a[0], other.a[1]} {}
 
     // Assignment operator
-    constexpr ipv6_addr_t& operator=(const ipv6_addr_t& other) noexcept {
-        if (this != &other) {
-            a[0] = other.a[0];
-            a[1] = other.a[1];
-        }
+    constexpr ipv6_addr_t& operator=(const ipv6_addr_t& other) {
+        a[0] = other.a[0];
+        a[1] = other.a[1];
         return *this;
     }
-    
-    constexpr ipv6_addr_t& operator=(const uint64_t& other) noexcept {
+
+    constexpr ipv6_addr_t& operator=(const uint64_t& other) {
         a[0] = 0;
         a[1] = other;
         return *this;
