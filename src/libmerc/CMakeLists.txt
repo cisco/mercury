@@ -203,7 +203,7 @@ set(libmerc_src
 )
 
 # Platform-specific SIMD files
-if(intel_platfrom)
+if(intel_platform)
     list(APPEND libmerc_src
         softmax_sse2.cc
         softmax_avx.cc
