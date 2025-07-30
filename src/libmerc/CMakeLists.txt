@@ -24,17 +24,16 @@ if(${CMAKE_SYSTEM_NAME} MATCHES Darwin)
     if(${CMAKE_SYSTEM_PROCESSOR} MATCHES arm64)
         set(is_mac_arm TRUE)
     endif()
+    ## universal mac binary
+    # if cmake -Dmac_arch=universal
+    if(NOT DEFINED mac_arch)
+        message(STATUS "mac_arch - ${CMAKE_SYSTEM_PROCESSOR}")
+    elseif(mac_arch MATCHES universal)
+        set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
+        message(STATUS "mac_arch - ${mac_arch}")
+    endif()
 elseif(${CMAKE_SYSTEM_NAME} MATCHES Windows)
     set(is_win TRUE)
-endif()
-
-## universal mac binary
-# if cmake -Dmac_arch=universal
-if(NOT DEFINED mac_arch)
-    message(STATUS "mac_arch - ${CMAKE_SYSTEM_PROCESSOR}")
-elseif(mac_arch MATCHES universal)
-    set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
-    message(STATUS "mac_arch - ${mac_arch}")
 endif()
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64|i.86)$")
@@ -44,19 +43,22 @@ elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64|armv7)$")
 endif()
 
 ## optional lib paths
-set(opt_library_path "")
+# set(opt_library_path "")
 
 ## exported / cmake options
 # custom openssl path
 if(DEFINED openssl_path)
     link_directories(${openssl_path})
     set(custom_ssl_path "${openssl_path}")
+else()
+    find_package(OpenSSL REQUIRED)
 endif()
 # custom zlib path
 if(DEFINED zlib_path)
     link_directories(${zlib_path})
+else()
+    find_package(ZLIB REQUIRED)
 endif()
-find_package(ZLIB REQUIRED)
 
 ## Platform specific paths
 if(is_mac_arm)
@@ -123,7 +125,6 @@ endif()
 
 # libcrypto checks
 # precedence to custom crypto path
-find_package(OpenSSL REQUIRED)
 set(CMAKE_REQUIRED_INCLUDES ${OPENSSL_INCLUDE_DIR})
 if(DEFINED have_openssl_new)
     SET(HAVE_CUSTOM_CRYPTO_NEW TRUE)
