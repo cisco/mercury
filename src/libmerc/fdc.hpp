@@ -592,6 +592,39 @@ public:
             and !dst_ip_str.is_null();
     }
 
+    static void decode_version_one(datum &d, struct json_object &record) {
+        static const size_t MAX_FP_STR_LEN     = 4096;
+        char fp_str[MAX_FP_STR_LEN];
+        char dst_ip_str[MAX_ADDR_STR_LEN];
+        char sn_str[MAX_SNI_LEN];
+        char ua_str[MAX_USER_AGENT_LEN];
+        uint16_t dst_port;
+        uint64_t truncation;
+
+        bool ok = fdc::decode(d,
+                            writeable{(uint8_t*)fp_str, MAX_FP_STR_LEN},
+                            writeable{(uint8_t*)sn_str, MAX_SNI_LEN},
+                            writeable{(uint8_t*)dst_ip_str, MAX_ADDR_STR_LEN},
+                            dst_port,
+                            writeable{(uint8_t*)ua_str, MAX_USER_AGENT_LEN},
+                            truncation);
+        if (ok) {
+            json_object fdc_json(record,"fdc");
+            fdc_json.print_key_string("fingerprint",fp_str);
+            fdc_json.print_key_string("sni",sn_str);
+            fdc_json.print_key_string("dst_ip_str",dst_ip_str);
+            fdc_json.print_key_int("dst_port",dst_port);
+            fdc_json.print_key_string("user_agent",ua_str);
+            fdc_json.print_key_string("truncation",get_truncation_str(((truncation_status)truncation)));
+            fdc_json.close();
+            record.close();
+        }
+    }
+
+    static void decode_version_two(datum &d, struct json_object &record) {
+        decode_version_one(d, record);
+    }
+
     /// perform unit tests on class fdc, returning `true` if they pass
     /// and `false` otherwise
     ///
@@ -703,6 +736,48 @@ private:
 
 };
 
+class eve_metadata {
+public:
+ 
+    static constexpr uint64_t eve_metadata_version = 2;
+    static std::string decode_cbor_data(datum d) {
+        datum data{d};
+        cbor::map m{d};
+        cbor::uint64 version{d};
+        char buffer[8192];
+        struct buffer_stream buf_json(buffer, sizeof(buffer));
+        struct json_object record(&buf_json);
+
+        switch(version.value()) {
+            case 1:
+                fdc::decode_version_one(data, record);
+                record.close();
+                break;
+            case 2:
+                decode_version_two(d, record);
+                break;
+            default:
+                return "";
+        }
+        return buf_json.get_string();
+    }
+
+    static void decode_version_two(datum d, struct json_object &record) {
+        while(d.is_readable()) {
+
+            datum key{cbor::text_string::decode(d).value()};
+
+            if (key.equals(std::array<uint8_t, 3>{'f', 'd', 'c'})) {
+                fdc::decode_version_two(d, record);
+
+            } else {
+                json_buffer o{record.b};
+                cbor::decode_and_write_json(d, o);
+            }
+        }
+        return;
+    }
+};
 [[maybe_unused]] static std::string get_json_decoded_fdc(const char *fdc_blob, ssize_t blob_len) {
     datum fdc_data = datum{(uint8_t*)fdc_blob,(uint8_t*)(fdc_blob+blob_len)};
     static const size_t MAX_FP_STR_LEN     = 4096;

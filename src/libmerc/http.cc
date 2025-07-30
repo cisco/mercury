@@ -266,6 +266,33 @@ void http_request::write_json(struct json_object &record, bool output_metadata) 
 
 }
 
+void http_request::write_l7_metadata(writeable &m, bool) {
+    if (this->is_not_empty()) {
+        cbor::text_string{"http_request"}.write(m);
+        cbor::output::map http{m};
+        cbor::text_string{"method"}.write(http);
+        cbor::text_string{method}.write(http);
+        cbor::text_string{"uri"}.write(http);
+        cbor::text_string{uri}.write(http);
+        cbor::text_string{"protocol"}.write(http);
+        cbor::text_string{protocol}.write(http);
+        headers.write_l7_metadata(http);
+        cbor::text_string{"user_agent"}.write(http);
+        cbor::text_string{get_header("user-agent")}.write(http);
+        cbor::text_string{"host"}.write(http);
+        cbor::text_string{get_header("host")}.write(http);
+        cbor::text_string{"x_forwarded_for"}.write(http);
+        cbor::text_string{get_header("x-forwarded-for")}.write(http);
+        cbor::text_string{"via"}.write(http);
+        cbor::text_string{get_header("via")}.write(http);
+        cbor::text_string{"upgrade"}.write(http);
+        cbor::text_string{get_header("upgrade")}.write(http);
+        cbor::text_string{"referer"}.write(http);
+        cbor::text_string{get_header("referer")}.write(http);
+        http.close();
+    } 
+}
+
 void http_response::parse(struct datum &p) {
     /* process request line */
     version.parse_up_to_delim(p, ' ');
@@ -302,6 +329,19 @@ void http_response::write_json(struct json_object &record, bool metadata) {
     http_response.close();
     http.close();
 
+}
+
+void http_response::write_l7_metadata(writeable &m, bool) {
+    if (this->is_not_empty()) { 
+        cbor::text_string{"http_response"}.write(m);
+        cbor::output::map http{m};
+        cbor::text_string{"status_code"}.write(http);
+        cbor::text_string{status_code}.write(http);
+        cbor::text_string{"status_reason"}.write(http);
+        cbor::text_string{status_reason}.write(http);
+        headers.write_l7_metadata(http);
+        http.close();
+    } 
 }
 
 void http_request::fingerprint(struct buffer_stream &b) {

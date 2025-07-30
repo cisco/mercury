@@ -298,6 +298,32 @@ struct write_metadata {
 
 };
 
+struct write_l7_metadata {
+    writeable &buf;
+    bool metadata_output_;
+    bool certs_json_output_;
+    bool dns_json_output_;
+
+    write_l7_metadata(writeable &output,
+                   bool metadata_output=false) : buf{output},
+                                             metadata_output_{metadata_output}
+    {}
+
+    template <typename T>
+    void operator()(T &) { }
+
+    void operator()(http_request &r) {
+        r.write_l7_metadata(buf, metadata_output_);
+    }
+
+    void operator()(http_response &r) {
+        r.write_l7_metadata(buf, metadata_output_);
+    }
+
+    void operator()(std::monostate &) { }
+};
+
+
 struct compute_fingerprint {
     fingerprint &fp_;
     fingerprint_format format_version;
