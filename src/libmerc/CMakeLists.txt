@@ -103,9 +103,9 @@ CHECK_TYPE_SIZE("pid_t"      SIZE_PID_T)
 CHECK_TYPE_SIZE("size_t"     SIZE_SIZE_T)
 CHECK_TYPE_SIZE("ssize_t"    SIZE_SSIZE_T)
 CHECK_TYPE_SIZE("uid_t"      SIZE_UID_T)
-CHECK_TYPE_SIZE("uint16_t"   SIZE_UINT16_T) 
-CHECK_TYPE_SIZE("uint32_t"   SIZE_UIN32_T) 
-CHECK_TYPE_SIZE("uint64_t"   SIZE_UINT64_T) 
+CHECK_TYPE_SIZE("uint16_t"   SIZE_UINT16_T)
+CHECK_TYPE_SIZE("uint32_t"   SIZE_UIN32_T)
+CHECK_TYPE_SIZE("uint64_t"   SIZE_UINT64_T)
 CHECK_TYPE_SIZE("uint8_t"    SIZE_UINT8_T)
 CHECK_TYPE_SIZE("ptrdiff_t"  SIZE_PTRDIFF_T)
 
@@ -183,7 +183,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 
 ## libmerc source files
-set(libmerc_src 
+set(libmerc_src
     ${CMAKE_CURRENT_SOURCE_DIR}/asn1/oid.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/asn1/oid.h
     analysis.cc
@@ -269,13 +269,13 @@ CHECK_CXX_COMPILER_FLAG(-fno-gnu-unique use_no_gnu_unique)
 if(use_no_gnu_unique)
     add_compile_options(-fno-gnu-unique)
 else()
-    message(STATUS "no support for use_no_gnu_unique") 
+    message(STATUS "no support for use_no_gnu_unique")
 endif()
 CHECK_CXX_COMPILER_FLAG(-fsanitize=address addr_sanitizer_avail)
 if(addr_sanitizer_avail)
     message(STATUS "-fsanitize=address - supported")
 else()
-    message(STATUS "no address sanitizer support") 
+    message(STATUS "no address sanitizer support")
 endif()
 
 ## TARGET : libmerc (shared) {
