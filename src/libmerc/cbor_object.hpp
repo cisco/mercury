@@ -131,6 +131,8 @@ public:
         cbor::initial_byte{cbor::simple_or_float_type, cbor::initial_byte::null}.write(m);
     }
 
+    ~cbor_object_compact() { close(); }
+    
 };
 
 template <size_t N>

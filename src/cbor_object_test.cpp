@@ -105,6 +105,7 @@ int main() {
         {
             "metadata",
             "flow_key",
+            "start_time"
         }
     };
     static_dictionary<5> flow_key_dict{
@@ -116,13 +117,16 @@ int main() {
             "protocol"
         }
     };
-    cbor_object_compact compact{data_buf, dict};
-    compact.print_key_string("metadata", "none");
-    cbor_object_compact nested_object{compact, "flow_key", flow_key_dict};
-    nested_object.print_key_string("src_ip", "192.168.1.1");
-    nested_object.print_key_uint("src_port", 443);
-    nested_object.close();
-    compact.close();
+    {
+        cbor_object_compact compact{data_buf, dict};
+        compact.print_key_string("metadata", "none");
+        {
+            cbor_object_compact nested_object{compact, "flow_key", flow_key_dict};
+            nested_object.print_key_string("src_ip", "192.168.1.1");
+            nested_object.print_key_uint("src_port", 443);
+        }
+        compact.print_key_uint("start_time", 1753877684);
+    }
     data_buf.contents().fprint_hex(stdout); fputc('\n', stdout);
 
     return 0;
