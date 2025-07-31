@@ -586,7 +586,7 @@ public:
 
         // truncation is an optional field at the array's end, so we check if it exists
         if (d.is_not_empty() && (lookahead<encoded<uint8_t>>{d}).value != 0xff) {
-            truncation = cbor::uint64::decode_max(a, 0xffff).value();
+            truncation = cbor::uint64::decode_max(a, (uint64_t)truncation_status::max).value();
         } else {
             truncation = (uint64_t)truncation_status::unknown;
         }
