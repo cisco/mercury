@@ -100,16 +100,16 @@ int main() {
     // o2.close();
     // buf2.write_line(stdout);
 
-    data_buf.reset();
-    static_dictionary<3> dict{
+    // cbor_object_compact uses short integers as keys, instead of
+    // text strings, to reduce the size of maps
+    //
+    static_dictionary<10> dict = {
         {
+            "unknown",
             "metadata",
             "flow_key",
-            "start_time"
-        }
-    };
-    static_dictionary<5> flow_key_dict{
-        {
+            "event_start",
+            "unknown",
             "src_ip",
             "dst_ip",
             "src_port",
@@ -117,17 +117,37 @@ int main() {
             "protocol"
         }
     };
+    data_buf.reset();
     {
         cbor_object_compact compact{data_buf, dict};
         compact.print_key_string("metadata", "none");
         {
-            cbor_object_compact nested_object{compact, "flow_key", flow_key_dict};
+            cbor_object_compact nested_object{compact, "flow_key", dict};
             nested_object.print_key_string("src_ip", "192.168.1.1");
             nested_object.print_key_uint("src_port", 443);
         }
-        compact.print_key_uint("start_time", 1753877684);
+        compact.print_key_uint("event_start", 1753877684);
+        //compact.print_key_uint("this_key_is_not_in_the_dictionary", 0);
     }
     data_buf.contents().fprint_hex(stdout); fputc('\n', stdout);
+
+    // write static_dictionary into a CBOR record, to facilitate translation
+    //
+    data_buf.reset();
+    {
+        cbor_object encoded_dict{data_buf};
+        {
+            cbor_array words{encoded_dict, "words"};
+            for (const auto & word : dict) {
+                words.print_string(word);
+            }
+        }
+    }
+    data_buf.contents().fprint_hex(stdout); fputc('\n', stdout);
+
+    datum encoded_dict_data = data_buf.contents();
+    vocabulary voc{encoded_dict_data};
+    voc.dump();
 
     return 0;
 }
