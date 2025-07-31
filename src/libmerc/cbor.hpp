@@ -445,10 +445,9 @@ namespace cbor {
             return text_string{len, val};
         }
 
-        text_string(datum d) :
-             length{d, text_string_type},
-             value__{d, length.value()}
-         { }
+        text_string(datum &d) :
+            length{d.length(), text_string_type},
+            value__{d} { }
 
         // // construct a text_string for writing
         // //
@@ -725,7 +724,7 @@ namespace cbor {
                 {
                     array tmp{d};
                     json_buffer arr{o, true};
-                    while(!is_break(d)) {
+                    while(d.is_readable() && !is_break(d)) {
                         decode_and_write_json(d, arr);
                     }
                     arr.close();
@@ -735,14 +734,14 @@ namespace cbor {
                 {
                     map tmp{d};
                     json_buffer map{o};
-                    while(!is_break(d)) {
+                    while(d.is_readable() && !is_break(d)) {
                         if (lookahead<initial_byte> ib{d}) {
                             if (ib.value.major_type() != text_string_type) {
                                 printf("error: expected string as key, got %u\n", ib.value.major_type());
                                 return false;
                             }
                         }
-                        text_string ts{d};
+                        text_string ts = text_string::decode(d);
                         map.print_key_string(ts.value());
                         decode_and_write_json(d, map);
                     }
@@ -762,6 +761,24 @@ namespace cbor {
         }
         return true;
     }
+
+    static inline bool decode_map_and_write_json(datum &d, json_buffer &o) {
+        while(d.is_readable() && !is_break(d)) {
+            if (lookahead<initial_byte> ib{d}) {
+                if (ib.value.major_type() != text_string_type) {
+                    printf("error: expected string as key, got %u\n", ib.value.major_type());
+                    return false;
+                }   
+            }
+            text_string ts = text_string::decode(d);
+            o.print_key_string(ts.value());
+            if (!decode_and_write_json(d, o)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
 
     /// decode the sequence of CBOR items in the \ref datum \param d,
     /// and print a human-readable description of the items to \param f.

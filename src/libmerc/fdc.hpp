@@ -759,63 +759,34 @@ public:
             default:
                 return "";
         }
+        buf_json.write_char('\0');
         return buf_json.get_string();
     }
 
     static void decode_version_two(datum d, struct json_object &record) {
-        while(d.is_readable()) {
+        bool is_fdc = false;
+        datum buf_copy = d;
+        datum buf_copy_key{cbor::text_string::decode(buf_copy).value()};
 
-            datum key{cbor::text_string::decode(d).value()};
-
-            if (key.equals(std::array<uint8_t, 3>{'f', 'd', 'c'})) {
-                fdc::decode_version_two(d, record);
-
-            } else {
-                json_buffer o{record.b};
-                cbor::decode_and_write_json(d, o);
-            }
+        if (buf_copy_key.equals(std::array<uint8_t, 3>{'f', 'd', 'c'})) {
+            fdc::decode_version_two(buf_copy, record);
+            is_fdc = true;
         }
+        
+        if (is_fdc) {
+            d = buf_copy;
+            record.comma = true;
+        }
+
+        json_buffer o{record};
+        cbor::decode_map_and_write_json(d, o);
+        record.close();
         return;
     }
 };
-[[maybe_unused]] static std::string get_json_decoded_fdc(const char *fdc_blob, ssize_t blob_len) {
+[[maybe_unused]] std::string get_json_decoded_fdc(const char *fdc_blob, ssize_t blob_len) {
     datum fdc_data = datum{(uint8_t*)fdc_blob,(uint8_t*)(fdc_blob+blob_len)};
-    static const size_t MAX_FP_STR_LEN     = 4096;
-    char fp_str[MAX_FP_STR_LEN];
-    char dst_ip_str[MAX_ADDR_STR_LEN];
-    char sn_str[MAX_SNI_LEN];
-    char ua_str[MAX_USER_AGENT_LEN];
-    uint16_t dst_port;
-    uint64_t truncation;
-
-    char buffer[8192];
-    struct buffer_stream buf_json(buffer, sizeof(buffer));
-    struct json_object record(&buf_json);
-
-    bool ok = fdc::decode(fdc_data,
-                          writeable{(uint8_t*)fp_str, MAX_FP_STR_LEN},
-                          writeable{(uint8_t*)sn_str, MAX_SNI_LEN},
-                          writeable{(uint8_t*)dst_ip_str, MAX_ADDR_STR_LEN},
-                          dst_port,
-                          writeable{(uint8_t*)ua_str, MAX_USER_AGENT_LEN},
-                          truncation);
-    if (ok) {
-        json_object fdc_json(record,"fdc");
-        fdc_json.print_key_string("fingerprint",fp_str);
-        fdc_json.print_key_string("sni",sn_str);
-        fdc_json.print_key_string("dst_ip_str",dst_ip_str);
-        fdc_json.print_key_int("dst_port",dst_port);
-        fdc_json.print_key_string("user_agent",ua_str);
-        fdc_json.print_key_string("truncation",get_truncation_str(((truncation_status)truncation)));
-        fdc_json.close();
-        record.close();
-        buf_json.write_char('\0');  // null terminate
-        return buf_json.get_string();
-        
-    } else {
-        return "";
-    }
-   
+    return eve_metadata::decode_cbor_data(fdc_data);
 }
 
 

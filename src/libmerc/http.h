@@ -266,6 +266,7 @@ public:
     void write_l7_metadata(writeable &m) {
         httpheader h = get_next_header(header_body);
         if (h.is_valid()) {
+            cbor::text_string{"headers"}.write(m);
             cbor::output::array hdrs{m};
             cbor::text_string{h.name}.write(hdrs);
             while(1) { 

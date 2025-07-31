@@ -271,24 +271,36 @@ void http_request::write_l7_metadata(writeable &m, bool) {
         cbor::text_string{"http_request"}.write(m);
         cbor::output::map http{m};
         cbor::text_string{"method"}.write(http);
-        cbor::text_string{method}.write(http);
+        cbor::text_string m{method};
+        m.write(http);
         cbor::text_string{"uri"}.write(http);
         cbor::text_string{uri}.write(http);
         cbor::text_string{"protocol"}.write(http);
         cbor::text_string{protocol}.write(http);
         headers.write_l7_metadata(http);
+        datum ua = get_header("user-agent");
         cbor::text_string{"user_agent"}.write(http);
-        cbor::text_string{get_header("user-agent")}.write(http);
+        cbor::text_string{ua}.write(http);
+
+        datum host = get_header("host");
         cbor::text_string{"host"}.write(http);
-        cbor::text_string{get_header("host")}.write(http);
+        cbor::text_string{host}.write(http);
+
+        datum xff = get_header("x-forwarded-for");
         cbor::text_string{"x_forwarded_for"}.write(http);
-        cbor::text_string{get_header("x-forwarded-for")}.write(http);
+        cbor::text_string{xff}.write(http);
+
+        datum via = get_header("via");
         cbor::text_string{"via"}.write(http);
-        cbor::text_string{get_header("via")}.write(http);
+        cbor::text_string{via}.write(http);
+
+        datum upgrade = get_header("upgrade");
         cbor::text_string{"upgrade"}.write(http);
-        cbor::text_string{get_header("upgrade")}.write(http);
+        cbor::text_string{upgrade}.write(http);
+
+        datum referer = get_header("referer");
         cbor::text_string{"referer"}.write(http);
-        cbor::text_string{get_header("referer")}.write(http);
+        cbor::text_string{referer}.write(http);
         http.close();
     } 
 }
@@ -340,7 +352,7 @@ void http_response::write_l7_metadata(writeable &m, bool) {
         cbor::text_string{"status_reason"}.write(http);
         cbor::text_string{status_reason}.write(http);
         headers.write_l7_metadata(http);
-        http.close();
+            http.close();
     } 
 }
 

@@ -6,6 +6,7 @@
 #define STATIC_DICT_HPP
 
 #include <iterator>   // for std::distance()
+#include <array>
 
 static constexpr bool streq(const char *l, const char *r) {
     while (*l and *r) {
