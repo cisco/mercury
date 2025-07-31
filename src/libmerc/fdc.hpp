@@ -487,14 +487,16 @@ enum class truncation_status : uint64_t {
     reassembled = 1,
     truncated = 2,
     reassembled_truncated = 3,
-    max = 4
+    unknown = 4,
+    max = 5
 };
 
 static const char* const trunc_str[(uint64_t)truncation_status::max] = {
     "none",
     "reassembled",
     "truncated",
-    "reassembled_truncated"
+    "reassembled_truncated",
+    "unknown"
 };
 
 static const char* get_truncation_str(truncation_status status) {
@@ -581,7 +583,13 @@ public:
         dst_ip_str << cbor::text_string::decode(a).value() << '\0';
         dst_port = cbor::uint64::decode_max(a, 0xffff).value();
         ua_str << cbor::text_string::decode(a).value() << '\0';
-        truncation = cbor::uint64::decode_max(a, 0xffff).value();
+
+        // truncation is an optional field at the array's end, so we check if it exists
+        if (d.is_not_empty() && (lookahead<encoded<uint8_t>>{d}).value != 0xff) {
+            truncation = cbor::uint64::decode_max(a, 0xffff).value();
+        } else {
+            truncation = (uint64_t)truncation_status::unknown;
+        }
         a.close();
         m.close();
 
