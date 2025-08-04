@@ -10,6 +10,7 @@
 
 #include <vector>
 #include <unordered_map>
+#include <string_view>
 
 enum tcp_msg_type {
     tcp_msg_type_unknown = 0,
@@ -45,7 +46,7 @@ enum tcp_msg_type {
 };
 
 class clear_text_protos {
-    inline static std::unordered_map<std::string, std::vector<tcp_msg_type>> protos = {
+    inline static std::unordered_map<std::string_view, std::vector<tcp_msg_type>> protos = {
 //HTTP methods taken from https://www.iana.org/assignments/http-methods/http-methods.xhtm
 		{"ACL",              {tcp_msg_type_http_request}},
 		{"BASELINE",         {tcp_msg_type_http_request}},
@@ -168,7 +169,17 @@ class clear_text_protos {
 
 public:
     
-   static const std::vector<tcp_msg_type>* find_proto(std::string keyword) {
+   static const std::vector<tcp_msg_type>* find_proto(const char* data, size_t length) {
+        std::string_view keyword(data, length);
+        auto it = protos.find(keyword);
+        if (it != protos.end()) {
+            return &it->second;
+        }
+        return nullptr;
+    }
+ 
+   static const std::vector<tcp_msg_type>* find_proto(const datum &d) {
+        std::string_view keyword(reinterpret_cast<const char*>(d.data), d.length());
         auto it = protos.find(keyword);
         if (it != protos.end()) {
             return &it->second;

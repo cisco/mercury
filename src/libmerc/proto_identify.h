@@ -574,7 +574,7 @@ public:
         alpha_numeric clear_text{pkt};
 
         if (clear_text.length()) {
-            return clear_text_protos::find_proto(clear_text.get_string());
+            return clear_text_protos::find_proto(clear_text);
         }
         return nullptr;
     }
