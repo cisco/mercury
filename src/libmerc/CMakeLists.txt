@@ -220,16 +220,23 @@ set(libmerc_src
 
 # Platform-specific SIMD files
 if(intel_platform)
-    list(APPEND libmerc_src
-        softmax_sse2.cc
-        softmax_avx.cc
-        softmax_avx2.cc
-    )
+    if(is_win)
+        list(APPEND libmerc_src
+            softmax_sse2.cc
+        )
 
-    set_source_files_properties(softmax_sse2.cc PROPERTIES COMPILE_FLAGS "-msse2")
-    set_source_files_properties(softmax_avx.cc  PROPERTIES COMPILE_FLAGS "-mavx")
-    set_source_files_properties(softmax_avx2.cc PROPERTIES COMPILE_FLAGS "-mavx2")
+        set_source_files_properties(softmax_sse2.cc PROPERTIES COMPILE_FLAGS "-msse2")
+    else()
+        list(APPEND libmerc_src
+            softmax_sse2.cc
+            softmax_avx.cc
+            softmax_avx2.cc
+        )
 
+        set_source_files_properties(softmax_sse2.cc PROPERTIES COMPILE_FLAGS "-msse2")
+        set_source_files_properties(softmax_avx.cc  PROPERTIES COMPILE_FLAGS "-mavx")
+        set_source_files_properties(softmax_avx2.cc PROPERTIES COMPILE_FLAGS "-mavx2")
+    endif()
 elseif(arm_platform)
     list(APPEND libmerc_src softmax_neon.cc)
     set_source_files_properties(softmax_neon.cc PROPERTIES COMPILE_FLAGS "-mfpu=neon")

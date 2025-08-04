@@ -101,7 +101,11 @@ public:
 
     // Create the dispatching function, specifying the architectures we want to target.
 #if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
+#ifdef _WIN32
+    using simd_arch_list = xsimd::arch_list<xsimd::sse2>;
+#else
     using simd_arch_list = xsimd::arch_list<xsimd::avx2, xsimd::avx, xsimd::sse2>;
+#endif
 #elif defined(__aarch64__) || defined(_M_ARM64)
     using simd_arch_list = xsimd::arch_list<xsimd::neon64>;
 #endif
