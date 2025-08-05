@@ -343,25 +343,26 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
     // note: std::get<T>() throws exceptions; it might be better to
     // use get_if<T>(), which does not
 
-    const std::vector<tcp_msg_type> *protos  = selector.get_tcp_msg_type_from_keyword(pkt);
-    if (protos) {
-        tcp_msg_type msg_type = selector.get_preference(protos, tcp_pkt);
-        if (parse_clear_text_protocol(x, pkt, msg_type)) {
-            return; 
-        }
- 
-        for (const auto type : *protos) {
-            if (type == msg_type) {
-                continue;
-            }
-            if (parse_clear_text_protocol(x, pkt, type)) {
-                return;
-            }
-        }
-    } 
     enum tcp_msg_type msg_type = (tcp_msg_type) selector.get_tcp_msg_type(pkt);
     if (msg_type == tcp_msg_type_unknown) {
         msg_type = (tcp_msg_type) selector.get_tcp_msg_type_from_ports(tcp_pkt);
+    } else if (msg_type == tcp_msg_type_unknown) {
+        const std::vector<tcp_msg_type> *protos  = selector.get_tcp_msg_type_from_keyword(pkt);
+        if (protos) {
+            tcp_msg_type msg_type = selector.get_preference(protos, tcp_pkt);
+            if (parse_clear_text_protocol(x, pkt, msg_type)) {
+                return; 
+            }
+     
+            for (const auto type : *protos) {
+                if (type == msg_type) {
+                    continue;
+                }
+                if (parse_clear_text_protocol(x, pkt, type)) {
+                    return;
+                }
+            }
+        } 
     }
     switch(msg_type) {
     case tcp_msg_type_tls_client_hello:
