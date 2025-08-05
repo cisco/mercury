@@ -1,11 +1,9 @@
-/*
- * cbor_object_test.cc
- *
- * test driver for json output code
- *
- * Copyright (c) 2021 Cisco Systems, Inc.  All rights reserved.  License at
- * https://github.com/cisco/mercury/blob/master/LICENSE
- */
+// cbor_object_test.cpp
+//
+// Test/example driver for the classes cbor_object, cbor_array,
+// cbor_object_compact, and cbor_to_json_translator.
+//
+// License: https://github.com/cisco/mercury/blob/master/LICENSE
 
 #include <stdio.h>
 
@@ -30,6 +28,8 @@ int main() {
     // r.print_key_float("event_start", 1565099169.266276);
     r.close();
     data_buf.contents().fprint_hex(stdout); fputc('\n', stdout);
+
+    decode_fprint_json(data_buf.contents(), stdout);
 
     // write some test output
     //
@@ -72,6 +72,11 @@ int main() {
             oa.print_key_string("title", "Gravity's Rainbow");
             oa.close();
         }
+        {
+            cbor_array nested_array{a};
+            nested_array.print_string("this string is in a nested array");
+            nested_array.close();
+        }
         a.close();
     }
 
@@ -81,35 +86,34 @@ int main() {
     o.close();
     data_buf.contents().fprint_hex(stdout); fputc('\n', stdout);
 
-    // struct cbor_object o2{&buf2};
-    // {
-    //     struct cbor_array a{o2, "features"};
-    //     {
-    //         cbor_array b{a};
-    //         b.print_string("abc");
-    //         b.print_string("def");
-    //         b.close();
-    //         //a.print_string("xzy");
-    //         cbor_array b2{a};
-    //         b2.print_string("abc");
-    //         b2.print_string("def");
-    //         b2.close();
-    //     }
-    //     a.close();
-    // }
-    // o2.close();
-    // buf2.write_line(stdout);
+    decode_fprint_json(data_buf.contents(), stdout);
+
+    data_buf.reset();
+    {
+        cbor_object nested_array_example{data_buf};
+        {
+            cbor_array outer_array{nested_array_example, "outer_array"};
+            {
+                cbor_array inner_array{outer_array};
+                inner_array.print_string("foobar");
+                inner_array.close();
+            }
+            outer_array.close();
+        }
+        nested_array_example.close();
+    }
+    data_buf.contents().fprint_hex(stdout); fputc('\n', stdout);
+    decode_fprint_json(data_buf.contents(), stdout);
 
     // cbor_object_compact uses short integers as keys, instead of
     // text strings, to reduce the size of maps
     //
-    static_dictionary<10> dict = {
+    constexpr static_dictionary<9> dict = {
         {
             "unknown",
             "metadata",
             "flow_key",
             "event_start",
-            "unknown",
             "src_ip",
             "dst_ip",
             "src_port",
@@ -125,11 +129,17 @@ int main() {
             cbor_object_compact nested_object{compact, "flow_key", dict};
             nested_object.print_key_string("src_ip", "192.168.1.1");
             nested_object.print_key_uint("src_port", 443);
+            nested_object.close();
         }
         compact.print_key_uint("event_start", 1753877684);
         //compact.print_key_uint("this_key_is_not_in_the_dictionary", 0);
+        compact.close();
     }
     data_buf.contents().fprint_hex(stdout); fputc('\n', stdout);
+    decode_fprint_json(data_buf.contents(), stdout);
+
+    vocabulary v{dict};
+    decode_fprint_json(data_buf.contents(), stdout, &v);
 
     // write static_dictionary into a CBOR record, to facilitate translation
     //
@@ -141,13 +151,25 @@ int main() {
             for (const auto & word : dict) {
                 words.print_string(word);
             }
+            words.close();
         }
+        encoded_dict.close();
     }
     data_buf.contents().fprint_hex(stdout); fputc('\n', stdout);
+    decode_fprint_json(data_buf.contents(), stdout);
 
     datum encoded_dict_data = data_buf.contents();
     vocabulary voc{encoded_dict_data};
-    voc.dump();
+
+    /// TODO:
+    ///
+    ///   - simpify and push functionality into base classes
+    ///   - constexpr
+    ///   - unit tests
+    ///   - fuzz tests
+    ///   - document
+    ///   - use tag to indicate "process the following data as a fingerprint"???
+    ///
 
     return 0;
 }
