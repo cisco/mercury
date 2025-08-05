@@ -254,6 +254,12 @@ struct json_array {
             c = true;
         }
     }
+    void start_array(json_object &object, const char *name) {
+        write_comma(object.comma);
+        b->write_char('\"');
+        b->puts(name);
+        b->puts("\":[");
+    }
     explicit json_array(struct buffer_stream *buf) : b{buf} {
         b->write_char('[');
     }
@@ -261,6 +267,7 @@ struct json_array {
         write_comma(a.comma);
         b->write_char('[');
     }
+    json_array(json_object &object) : b{object.b} {}
     json_array(struct json_object &object, const char *name) : b{object.b} {
         write_comma(object.comma);
         b->write_char('\"');
