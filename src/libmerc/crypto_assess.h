@@ -122,7 +122,6 @@ namespace crypto_policy {
         };
 
         bool assess_tls_ciphersuites(datum ciphersuite_vector, json_object &a) const {
-            // std::unique_ptr<json_array> cs_array = nullptr;
             json_array cs_array(a);
             bool all_allowed = true;
             bool some_allowed = false;
@@ -166,7 +165,6 @@ namespace crypto_policy {
         }
 
         bool assess_tls_extensions(const tls_extensions &extensions, json_object &a) const {
-            // std::unique_ptr<json_array> ng_array = nullptr;
             json_array ng_array(a);
             bool all_allowed = true;
             bool some_allowed = false;
