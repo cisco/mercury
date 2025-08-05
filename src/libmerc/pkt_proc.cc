@@ -343,7 +343,7 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
     // note: std::get<T>() throws exceptions; it might be better to
     // use get_if<T>(), which does not
 
-    const std::vector<tcp_msg_type> *protos  = selector.get_tcp_clear_text_msg_type(pkt);
+    const std::vector<tcp_msg_type> *protos  = selector.get_tcp_msg_type_from_keyword(pkt);
     if (protos) {
         tcp_msg_type msg_type = selector.get_preference(protos, tcp_pkt);
         if (parse_clear_text_protocol(x, pkt, msg_type)) {

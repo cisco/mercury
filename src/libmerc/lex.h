@@ -163,4 +163,11 @@ class crlf {
 public:
     crlf(struct datum &p) : value(p) { }
 };
+
+class uppercase : public one_or_more<uppercase> {
+public:
+    inline static bool in_class(uint8_t x) {
+        return x >= 'A' && x <= 'Z';
+    }
+};
 #endif // LEX_H
