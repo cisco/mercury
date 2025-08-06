@@ -718,7 +718,7 @@ public:
         dst_addr_feature{"classes_ip_ip", w.ip},
         asn_feature{"classes_ip_as", w.as},
         user_agent_feature{"classes_user_agent", w.ua},
-        minimize_ram{false},
+        minimize_ram{_minimize_ram},
         weights{w}
     {
 
