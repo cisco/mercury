@@ -124,6 +124,16 @@ public:
         return;
     }
 
+    void write_l7_metadata(writeable &buf, bool) {
+        if (!is_not_empty()) {
+            return;
+        }
+        cbor_object o{buf, false};
+        cbor_object ssdp{o, "ssdp"};
+        ssdp.close();
+        o.close();
+    }
+
     /*
      *    Matchers for ssdp msg types
      *    static constexpr mask_and_value<8> matcher_notify{

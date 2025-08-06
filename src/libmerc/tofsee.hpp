@@ -112,6 +112,13 @@ public:
         tofsee.close();
     }
 
+    void write_l7_metadata(writeable &buf, bool) {
+        cbor_object o{buf, false};
+        cbor_object tofsee{o, "tofsee_initial_message"};
+        tofsee.close();
+        o.close();
+    }
+
     bool is_not_empty() const {
         if ( (!ipv4.is_not_null()) or (ipv4.is_not_null() and ipv4.matches(std::array<uint8_t,4>{0,0,0,0})) ) {
             return false;  // not a tofsee message, probably contains a run of bytes

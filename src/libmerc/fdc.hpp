@@ -617,7 +617,6 @@ public:
             fdc_json.print_key_string("user_agent",ua_str);
             fdc_json.print_key_string("truncation",get_truncation_str(((truncation_status)truncation)));
             fdc_json.close();
-            record.close();
         }
     }
 

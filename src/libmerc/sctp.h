@@ -179,6 +179,7 @@ public:
             json.close();
         }
     }
+
 };
 
 [[maybe_unused]] inline int sctp_init_fuzz_test(const uint8_t *data, size_t size) {

@@ -441,6 +441,13 @@ public:
         }
     }
 
+    void write_l7_metadata(writeable &buf, bool) {
+        cbor_object o{buf, false};
+        cbor_object openvpn{o, "openvpn"};
+        openvpn.close();
+        o.close();
+    }
+
     void fingerprint(struct buffer_stream &buf) const {
         if (!fp_true) {
             return;

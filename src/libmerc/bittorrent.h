@@ -55,6 +55,13 @@ public:
         }
     }
 
+    void write_l7_metadata(writeable &buf, bool) {
+        cbor_object o{buf, false};
+        cbor_object dht{o, "bittorrent_dht"};
+        dht.close();
+        o.close();
+    }
+
     bool is_not_empty() { return dict.is_not_empty(); }
 
     static constexpr mask_and_value<8> matcher {
@@ -240,6 +247,13 @@ public:
             }
             lsd.close();
         }
+    }
+
+    void write_l7_metadata(writeable &buf, bool) {
+        cbor_object o{buf, false};
+        cbor_object lsd{o, "bittorrent_lsd"};
+        lsd.close();
+        o.close();
     }
 
     static constexpr mask_and_value<8> matcher {
@@ -442,7 +456,14 @@ public:
             }
             bt.close();
         }
-    }    
+    }
+
+    void write_l7_metadata(writeable &buf, bool) {
+        cbor_object o{buf, false};
+        cbor_object bt{o, "bittorrent"};
+        bt.close();
+        o.close();
+    }
 
     void fprint(FILE *f) const {
         fprintf(f, "extension_bytes:   ");  extension_bytes.fprint_hex(f);   fputc('\n', f);

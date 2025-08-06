@@ -470,6 +470,13 @@ struct dhcp_discover : public base_protocol {
         json_dhcp.close();
     }
 
+    void write_l7_metadata(writeable &buf, bool) {
+        cbor_object o{buf, false};
+        cbor_object dhcp{o, "dhcp"};
+        dhcp.close();
+        o.close();
+    }
+
     void write_json_complete(struct json_object &o) {
         struct json_object json_dhcp{o, "dhcp"};
         //json_dhcp.print_key_hex("options_hex", options);

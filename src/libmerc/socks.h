@@ -142,6 +142,16 @@ public:
         socks4_pkt.close();
     }
 
+    void write_l7_metadata(writeable &buf, bool) {
+        if (!is_valid) {
+            return;
+        }
+        cbor_object o{buf, false};
+        cbor_object socks4{o, "socks4"};
+        socks4.close();
+        o.close();
+    }
+
     bool is_not_empty() const { return (is_valid); }
 };
 
@@ -183,6 +193,7 @@ struct socks5_auth_code {
     void write_json(struct json_array &record) {
         record.print_string(get_code_str());
     }
+
 };
 
 //  socks5_hello
@@ -237,6 +248,16 @@ public:
         }
         auth_list.close();
         socks_pkt.close(); 
+    }
+
+    void write_l7_metadata(writeable &buf, bool) {
+        if (!valid) {
+            return;
+        }
+        cbor_object o{buf, false};
+        cbor_object socks5{o, "socks5"};
+        socks5.close();
+        o.close();
     }
 };
 
@@ -512,6 +533,16 @@ public:
         addr.write_json(socks5_pkt,metadata);
         socks5_pkt.print_key_int("dst_port",dst_port);
         socks5_pkt.close();
+    }
+
+    void write_l7_metadata(writeable &buf, bool) {
+        if (!valid) {
+            return;
+        }
+        cbor_object o{buf, false};
+        cbor_object socks5{o, "socks5_req_resp"};
+        socks5.close();
+        o.close();
     }
 };
 

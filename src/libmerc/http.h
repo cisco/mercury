@@ -19,6 +19,7 @@
 #include "perfect_hash.h"
 #include "flow_key.h"
 #include "cbor.hpp"
+#include "cbor_object.hpp"
 
 struct http_headers : public datum {
     bool complete;
@@ -263,12 +264,11 @@ public:
         }
     }
 
-    void write_l7_metadata(writeable &m) {
+    void write_l7_metadata(cbor_object &o) {
         httpheader h = get_next_header(header_body);
         if (h.is_valid()) {
-            cbor::text_string{"headers"}.write(m);
-            cbor::output::array hdrs{m};
-            cbor::text_string{h.name}.write(hdrs);
+            cbor_array hdrs{o, "headers"};
+            hdrs.print_string(h.name);
             while(1) { 
                 delimiter d(header_body, delim);
                 if (d.is_valid()) {
@@ -278,7 +278,7 @@ public:
                 if (!h.is_valid()) {
                     break;
                 }
-                cbor::text_string{h.name}.write(hdrs);
+                hdrs.print_string(h.name);
             }
             hdrs.close();
         }

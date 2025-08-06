@@ -305,6 +305,13 @@ public:
             nbds.close();
         }
     }
+
+    void write_l7_metadata(writeable &buf, bool) {
+        cbor_object o{buf, false};
+        cbor_object nbds{o, "nbds"};
+        nbds.close();
+        o.close();
+    }
 };
 
 namespace {

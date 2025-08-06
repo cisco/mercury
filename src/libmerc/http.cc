@@ -268,39 +268,21 @@ void http_request::write_json(struct json_object &record, bool output_metadata) 
 
 void http_request::write_l7_metadata(writeable &m, bool) {
     if (this->is_not_empty()) {
-        cbor::text_string{"http_request"}.write(m);
-        cbor::output::map http{m};
-        cbor::text_string{"method"}.write(http);
-        cbor::text_string m{method};
-        m.write(http);
-        cbor::text_string{"uri"}.write(http);
-        cbor::text_string{uri}.write(http);
-        cbor::text_string{"protocol"}.write(http);
-        cbor::text_string{protocol}.write(http);
-        headers.write_l7_metadata(http);
-        datum ua = get_header("user-agent");
-        cbor::text_string{"user_agent"}.write(http);
-        cbor::text_string{ua}.write(http);
+        cbor_object o{m, false};
+        cbor_object http{o, "http"};
+        cbor_object http_request{http, "request"};
+        http_request.print_key_string("method", method);
+        http_request.print_key_string("uri", uri);
+        http_request.print_key_string("protocol", protocol);
+        headers.write_l7_metadata(http_request);
+        http_request.print_key_string("user_agent", get_header("user-agent"));
+        http_request.print_key_string("host", get_header("host"));
+        http_request.print_key_string("x_forwarded_for", get_header("x-forwarded-for"));
+        http_request.print_key_string("via", get_header("via"));
+        http_request.print_key_string("upgrade", get_header("upgrade"));
+        http_request.print_key_string("referer", get_header("referer"));
 
-        datum host = get_header("host");
-        cbor::text_string{"host"}.write(http);
-        cbor::text_string{host}.write(http);
-
-        datum xff = get_header("x-forwarded-for");
-        cbor::text_string{"x_forwarded_for"}.write(http);
-        cbor::text_string{xff}.write(http);
-
-        datum via = get_header("via");
-        cbor::text_string{"via"}.write(http);
-        cbor::text_string{via}.write(http);
-
-        datum upgrade = get_header("upgrade");
-        cbor::text_string{"upgrade"}.write(http);
-        cbor::text_string{upgrade}.write(http);
-
-        datum referer = get_header("referer");
-        cbor::text_string{"referer"}.write(http);
-        cbor::text_string{referer}.write(http);
+        http_request.close();
         http.close();
     } 
 }
@@ -345,14 +327,19 @@ void http_response::write_json(struct json_object &record, bool metadata) {
 
 void http_response::write_l7_metadata(writeable &m, bool) {
     if (this->is_not_empty()) { 
-        cbor::text_string{"http_response"}.write(m);
-        cbor::output::map http{m};
-        cbor::text_string{"status_code"}.write(http);
-        cbor::text_string{status_code}.write(http);
-        cbor::text_string{"status_reason"}.write(http);
-        cbor::text_string{status_reason}.write(http);
-        headers.write_l7_metadata(http);
-            http.close();
+        cbor_object o{m, false};
+        cbor_object http{o, "http"};
+        cbor_object http_response{http, "response"};
+        http_response.print_key_string("version", version);
+        http_response.print_key_string("status_code", status_code);
+        http_response.print_key_string("status_reason", status_reason);
+        http_response.print_key_string("content_type", get_header("content-type"));
+        http_response.print_key_string("content_length", get_header("content-length"));
+        http_response.print_key_string("server", get_header("server"));
+        http_response.print_key_string("via", get_header("via"));
+        headers.write_l7_metadata(http_response);
+        http_response.close();
+        http.close();
     } 
 }
 

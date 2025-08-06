@@ -525,6 +525,13 @@ public:
         return;
     }
 
+    void write_l7_metadata(writeable &buf, bool) {
+        cbor_object o{buf, false};
+        cbor_object dnp3{o, "dnp3"};
+        dnp3.close();
+        o.close();
+    }
+
 };
 
 namespace {

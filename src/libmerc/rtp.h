@@ -120,6 +120,13 @@ namespace rtp {
             rtp.close();
         }
 
+        void write_l7_metadata(writeable &buf, bool) {
+            cbor_object o{buf, false};
+            cbor_object rtp{o, "rtp"};
+            rtp.close();
+            o.close();
+        }
+
         bool is_not_empty() const { return hdr.is_valid(); }
 
         static constexpr mask_and_value<8> matcher{

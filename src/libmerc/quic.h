@@ -1722,6 +1722,13 @@ public:
         quic_record.close();
     }
 
+    void write_l7_metadata(writeable &buf, bool) {
+        cbor_object o{buf, false};
+        cbor_object quic{o, "quic"};
+        quic.close();
+        o.close();
+    }
+
     void compute_fingerprint(class fingerprint &fp, size_t format_version) const {
 
         // fingerprint format:  quic:(quic_version)(tls fingerprint)

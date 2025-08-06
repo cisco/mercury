@@ -310,13 +310,7 @@ struct write_l7_metadata {
     {}
 
     template <typename T>
-    void operator()(T &) { }
-
-    void operator()(http_request &r) {
-        r.write_l7_metadata(buf, metadata_output_);
-    }
-
-    void operator()(http_response &r) {
+    void operator()(T &r) {
         r.write_l7_metadata(buf, metadata_output_);
     }
 

@@ -56,6 +56,13 @@ struct mdns_packet : public base_protocol {
         dns_pkt.write_json(o);
     }
 
+    void write_l7_metadata(writeable &buf, bool) {
+        cbor_object o{buf, false};
+        cbor_object mdns{o, "mdns"};
+        mdns.close();
+        o.close();
+    }
+
     static bool check_if_mdns(const struct key& k) {
         static constexpr uint32_t mdns_v4_addr = 0xE00000FB; /* Hex representation of 224.0.0.251 */
         /* Mdns Multicast IPv6 address ff02::fb */

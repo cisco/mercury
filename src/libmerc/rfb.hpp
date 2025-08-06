@@ -38,6 +38,13 @@ namespace rfb {
             }
         }
 
+        void write_l7_metadata(writeable &buf, bool) {
+            cbor_object o{buf, false};
+            cbor_object rfb{o, "vnc"};
+            rfb.close();
+            o.close();
+        }
+
         static constexpr mask_and_value<8> matcher{
             { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
             { 'R', 'F', 'B', ' ', '0', '0', '3', '.' }

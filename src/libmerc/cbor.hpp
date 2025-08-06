@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <string>
 #include <stdexcept>
+#include <cinttypes>  // for PRIu64
 #include "json_buffer.h"
 
 // a simple CBOR decoder, following RFC 8949
@@ -768,17 +769,14 @@ namespace cbor {
                 if (ib.value.major_type() != text_string_type) {
                     printf("error: expected string as key, got %u\n", ib.value.major_type());
                     return false;
-                }   
+                }
             }
             text_string ts = text_string::decode(d);
             o.print_key_string(ts.value());
-            if (!decode_and_write_json(d, o)) {
-                return false;
-            }
+            decode_and_write_json(d, o);
         }
         return true;
     }
-
 
     /// decode the sequence of CBOR items in the \ref datum \param d,
     /// and print a human-readable description of the items to \param f.
@@ -854,17 +852,22 @@ namespace cbor::output {
     //
     class map {
         writeable &w;
+        bool write;
 
     public:
 
         // construct an indefinite-length map for writing
         //
-        map(writeable &buf) : w{buf} {
-            w << initial_byte{map_type, 31};  // 0xbf
+        map(writeable &buf, bool _write=true) : w{buf}, write{_write} {
+            if (write) {
+                w << initial_byte{map_type, 31};  // 0xbf
+            }
         }
 
         void close() {
-            w << initial_byte{simple_or_float_type, 31}; // 0xff
+            if (write) {
+                w << initial_byte{simple_or_float_type, 31}; // 0xff
+            }
         }
 
         // encode a key and value to the map

@@ -847,6 +847,13 @@ public:
         }
     }
 
+    void write_l7_metadata(writeable &buf, bool) {
+        cbor_object o{buf, false};
+        cbor_object smb2{o, "smb2"};
+        smb2.close();
+        o.close();
+    }
+
     static constexpr mask_and_value<8> matcher {
         { 0x00, //Message type
           0x00, 0x00, 0x00 , //Length

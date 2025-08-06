@@ -162,6 +162,13 @@ public:
         }
     }
 
+    void write_l7_metadata(writeable &buf, bool) {
+        cbor_object o{buf, false};
+        cbor_object smtp{o, "smtp"};
+        smtp.close();
+        o.close();
+    }
+
     bool is_not_empty() const { return parameters.is_not_empty(); }
 
     static constexpr mask_and_value<8> matcher{
@@ -226,6 +233,13 @@ public:
             smtp_response.close();
             smtp.close();
         }
+    }
+
+    void write_l7_metadata(writeable &buf, bool) {
+        cbor_object o{buf, false};
+        cbor_object smtp{o, "smtp"};
+        smtp.close();
+        o.close();
     }
 
     void compute_fingerprint(class fingerprint &fp) const {

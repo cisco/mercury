@@ -17,6 +17,7 @@
 #include "json_object.h"
 #include "fingerprint.h"
 #include "match.h"
+#include "cbor_object.hpp"
 
 // #define L_ssh_version_string                   8
 // #define L_ssh_packet_length                    4
@@ -444,6 +445,16 @@ struct ssh_init_packet : public base_protocol {
 
         json_ssh.close();
 
+    }
+
+    void write_l7_metadata(writeable &buf, bool) {
+        if (!is_not_empty()) {
+            return;
+        }
+        cbor_object o{buf, false};
+        cbor_object ssh{o, "ssh"};
+        ssh.close();
+        o.close();
     }
 
     size_t more_bytes_needed() const {

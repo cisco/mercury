@@ -397,6 +397,13 @@ namespace ldap {
             ldap_json.close();
         }
 
+        void write_l7_metadata(writeable &buf, bool) {
+            cbor_object o{buf, false};
+            cbor_object ldap{o, "ldap"};
+            ldap.close();
+            o.close();
+        }
+
         // empty functions for unsupported functionality
         //
         void compute_fingerprint(fingerprint &) const { }

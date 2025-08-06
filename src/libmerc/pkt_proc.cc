@@ -1329,7 +1329,7 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
     }
 
-    if (analysis.fp.get_type() == fingerprint_type_unknown) {
+    if (analysis.fp.get_type() == fingerprint_type_unknown && std::get_if<std::monostate>(&x) != nullptr) {
         return 0;
     }
 

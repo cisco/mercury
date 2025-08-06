@@ -481,6 +481,13 @@ namespace krb5 {
             krb_json.close();
         }
 
+        void write_l7_metadata(writeable &buf, bool) {
+            cbor_object o{buf, false};
+            cbor_object krb{o, "kerberos"};
+            krb.close();
+            o.close();
+        }
+
         // weight 14 matcher, derived from example PCAPs
         //
         static constexpr mask_and_value<8> matcher{

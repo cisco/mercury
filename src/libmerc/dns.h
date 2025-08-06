@@ -19,6 +19,7 @@
 #include "ip_address.hpp"
 #include "match.h"
 #include "ech.hpp"
+#include "cbor_object.hpp"
 
 /**
  * \file dns.h
@@ -1106,6 +1107,13 @@ struct dns_packet : public base_protocol {
         dns_json.print_key_uint_hex("id", header->id);
 
         dns_json.close();
+    }
+
+    void write_l7_metadata(writeable &buf, bool) {
+        cbor_object o{buf, false};
+        cbor_object dns{o, "dns"};   //TODO: check for netbios too
+        dns.close();
+        o.close();
     }
 
     // mask:   0040fe8eff00ff00fee0

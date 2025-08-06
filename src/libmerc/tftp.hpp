@@ -132,6 +132,12 @@ namespace tftp {
             }
         }
 
+        void write_l7_metadata(writeable &buf, bool) {
+            cbor_object o{buf, false};
+            cbor_object tftp{o, "tftp"};
+            tftp.close();
+            o.close();
+        }
     };
 
     /// runs unit tests on tftp::packet and returns true if all pass, and false otherwise

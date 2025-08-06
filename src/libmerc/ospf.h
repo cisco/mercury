@@ -116,6 +116,9 @@ public:
         }
     }
 
+    void write_l7_metadata(writeable &, bool) {
+    }
+
 };
 
 [[maybe_unused]] inline int ospf_fuzz_test(const uint8_t *data, size_t size) {

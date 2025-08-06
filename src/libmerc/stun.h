@@ -817,6 +817,13 @@ namespace stun {
             }
         }
 
+        void write_l7_metadata(writeable &buf, bool) {
+            cbor_object o{buf, false};
+            cbor_object stun{o, "stun"};
+            stun.close();
+            o.close();
+        }
+
         void write_raw_features(json_object &o) const {
             data_buffer<2048> buf;
             buf.copy('[');

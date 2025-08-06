@@ -115,6 +115,13 @@ public:
         ntp_json.print_key_uint("transmit_timestamp", transmit_timestamp);
         ntp_json.close();
     }
+
+    void write_l7_metadata(writeable &buf, bool) {
+        cbor_object o{buf, false};
+        cbor_object ntp{o, "ntp"};
+        ntp.close();
+        o.close();
+    }
 };
 
 [[maybe_unused]] inline int ntp_fuzz_test(const uint8_t *data, size_t size) {
