@@ -310,11 +310,14 @@ struct write_l7_metadata {
     {}
 
     template <typename T>
-    void operator()(T &r) {
-        r.write_l7_metadata(buf, metadata_output_);
+    bool operator()(T &r) {
+        if (r.is_not_empty()) {
+            return r.write_l7_metadata(buf, metadata_output_);
+        }
+        return true;
     }
 
-    void operator()(std::monostate &) { }
+    bool operator()(std::monostate &) { return true; }
 };
 
 

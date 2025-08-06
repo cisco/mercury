@@ -112,11 +112,12 @@ public:
         tofsee.close();
     }
 
-    void write_l7_metadata(writeable &buf, bool) {
+    bool write_l7_metadata(writeable &buf, bool) {
         cbor_object o{buf, false};
         cbor_object tofsee{o, "tofsee_initial_message"};
         tofsee.close();
         o.close();
+        return !buf.is_null();
     }
 
     bool is_not_empty() const {

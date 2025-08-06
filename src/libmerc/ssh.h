@@ -447,14 +447,12 @@ struct ssh_init_packet : public base_protocol {
 
     }
 
-    void write_l7_metadata(writeable &buf, bool) {
-        if (!is_not_empty()) {
-            return;
-        }
+    bool write_l7_metadata(writeable &buf, bool) {  
         cbor_object o{buf, false};
         cbor_object ssh{o, "ssh"};
         ssh.close();
         o.close();
+        return !buf.is_null();
     }
 
     size_t more_bytes_needed() const {

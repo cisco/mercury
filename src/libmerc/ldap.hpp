@@ -397,11 +397,12 @@ namespace ldap {
             ldap_json.close();
         }
 
-        void write_l7_metadata(writeable &buf, bool) {
+        bool write_l7_metadata(writeable &buf, bool) {
             cbor_object o{buf, false};
             cbor_object ldap{o, "ldap"};
             ldap.close();
             o.close();
+            return !buf.is_null();
         }
 
         // empty functions for unsupported functionality

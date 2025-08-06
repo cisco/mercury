@@ -272,7 +272,6 @@ struct tcp_packet : public base_protocol {
             }
         }
     }
-
 };
 
 namespace {

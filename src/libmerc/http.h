@@ -366,7 +366,7 @@ struct http_request : public base_protocol {
 
     void write_json(struct json_object &record, bool output_metadata);
 
-    void write_l7_metadata(writeable &output, bool output_metadata);
+    bool write_l7_metadata(writeable &output, bool output_metadata);
 
     void fingerprint(struct buffer_stream &b);
 
@@ -431,7 +431,7 @@ struct http_response : public base_protocol {
 
     void write_json(struct json_object &record, bool metadata=false);
 
-    void write_l7_metadata(writeable &output, bool output_metadata);
+    bool write_l7_metadata(writeable &output, bool output_metadata);
 
     void fingerprint(struct buffer_stream &buf);
 

@@ -32,7 +32,7 @@ public:
 
     bool do_analysis(const struct key &, struct analysis_context &, classifier*) { return false; }
 
-    void write_l7_metadata(writeable &, bool) { }
+    bool write_l7_metadata(writeable &, bool) { return true; }
 };
 
 #endif // PROTOCOL_H

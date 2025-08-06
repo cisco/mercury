@@ -56,11 +56,12 @@ struct mdns_packet : public base_protocol {
         dns_pkt.write_json(o);
     }
 
-    void write_l7_metadata(writeable &buf, bool) {
+    bool write_l7_metadata(writeable &buf, bool) {
         cbor_object o{buf, false};
         cbor_object mdns{o, "mdns"};
         mdns.close();
         o.close();
+        return !buf.is_null();
     }
 
     static bool check_if_mdns(const struct key& k) {

@@ -54,7 +54,7 @@ namespace ftp
             ftp_object.close();
         }
 
-        void write_l7_metadata(writeable &buf, bool) {
+        bool write_l7_metadata(writeable &buf, bool) {
             cbor_object o{buf, false};
             cbor_object ftp{o, "ftp"};
             cbor_object ftp_request{ftp, "request"};
@@ -63,6 +63,7 @@ namespace ftp
             ftp_request.close();
             ftp.close();
             o.close();
+            return !buf.is_null();
         }
 
         bool is_not_empty() const { return isValid; }
@@ -118,7 +119,7 @@ namespace ftp
             ftp_object.close();
         }
 
-        void write_l7_metadata(writeable &buf, bool) {
+        bool write_l7_metadata(writeable &buf, bool) {
             cbor_object o{buf, false};
             cbor_object ftp{o, "ftp"};
             cbor_object ftp_response{ftp, "response"};
@@ -127,6 +128,7 @@ namespace ftp
             ftp_response.close();
             ftp.close();
             o.close();
+            return !buf.is_null();
         }
     };
 

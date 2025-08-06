@@ -38,11 +38,12 @@ namespace rfb {
             }
         }
 
-        void write_l7_metadata(writeable &buf, bool) {
+        bool write_l7_metadata(writeable &buf, bool) {
             cbor_object o{buf, false};
             cbor_object rfb{o, "vnc"};
             rfb.close();
             o.close();
+            return !buf.is_null();
         }
 
         static constexpr mask_and_value<8> matcher{

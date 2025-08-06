@@ -557,11 +557,12 @@ public:
         }
     }
 
-    void write_l7_metadata(writeable &buf, bool) {
+    bool write_l7_metadata(writeable &buf, bool) {
         cbor_object o{buf, false};
         cbor_object iec{o, "iec60870_5_104"};
         iec.close();
         o.close();
+        return !buf.is_null();
     }
 
     static int iec60870_5_104_fuzz_test(const uint8_t *data, size_t size);

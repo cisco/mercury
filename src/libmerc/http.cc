@@ -266,7 +266,7 @@ void http_request::write_json(struct json_object &record, bool output_metadata) 
 
 }
 
-void http_request::write_l7_metadata(writeable &m, bool) {
+bool http_request::write_l7_metadata(writeable &m, bool) {
     if (this->is_not_empty()) {
         cbor_object o{m, false};
         cbor_object http{o, "http"};
@@ -285,6 +285,7 @@ void http_request::write_l7_metadata(writeable &m, bool) {
         http_request.close();
         http.close();
     } 
+    return !m.is_null();
 }
 
 void http_response::parse(struct datum &p) {
@@ -325,7 +326,7 @@ void http_response::write_json(struct json_object &record, bool metadata) {
 
 }
 
-void http_response::write_l7_metadata(writeable &m, bool) {
+bool http_response::write_l7_metadata(writeable &m, bool) {
     if (this->is_not_empty()) { 
         cbor_object o{m, false};
         cbor_object http{o, "http"};
@@ -340,7 +341,8 @@ void http_response::write_l7_metadata(writeable &m, bool) {
         headers.write_l7_metadata(http_response);
         http_response.close();
         http.close();
-    } 
+    }
+    return !m.is_null();
 }
 
 void http_request::fingerprint(struct buffer_stream &b) {

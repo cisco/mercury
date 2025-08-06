@@ -1058,23 +1058,23 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             encaps.write_json(record);
         }
 
-        uint8_t buffer[4096];
-        writeable output{buffer, buffer + sizeof(buffer)};
-        uint64_t fdc_version = 2;
-        cbor::output::map m{output};
-        cbor::uint64{fdc_version}.write(m);
-        std::visit(write_l7_metadata{m, global_vars.metadata_output}, x);
-        m.close();
+        // uint8_t buffer[4096];
+        // writeable output{buffer, buffer + sizeof(buffer)};
+        // uint64_t fdc_version = 2;
+        // cbor::output::map m{output};
+        // cbor::uint64{fdc_version}.write(m);
+        // std::visit(write_l7_metadata{m, global_vars.metadata_output}, x);
+        // m.close();
 
-        for (int i = 0; i < sizeof(buffer) - output.writeable_length(); i++) {
-            printf("0x%02x, ", buffer[i]);
-            if (i % 16 == 15) {
-                printf("\n");
-            }
-        }
-        printf("\n");
+        // for (int i = 0; i < sizeof(buffer) - output.writeable_length(); i++) {
+        //     printf("0x%02x, ", buffer[i]);
+        //     if (i % 16 == 15) {
+        //         printf("\n");
+        //     }
+        // }
+        // printf("\n");
 
-        printf("%s\n", get_json_decoded_fdc((const char *)buffer, sizeof(buffer) - output.writeable_length()).c_str());
+        // printf("%s\n", get_json_decoded_fdc((const char *)buffer, sizeof(buffer) - output.writeable_length()).c_str());
 
         write_flow_key(record, k);
 
@@ -1386,7 +1386,11 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         return -1;
     }
 
-    std::visit(write_l7_metadata{m, global_vars.metadata_output}, x);
+    encoding_ok = std::visit(write_l7_metadata{m, global_vars.metadata_output}, x);
+    if (encoding_ok == false) {
+        *buffer_size = 2 * internal_buffer_size;
+        return -1;
+    }
     m.close();
 
     return internal_buffer_size - output.writeable_length();

@@ -16,6 +16,7 @@
 #include "tls_parameters.hpp"
 #include "flow_key.h"
 
+
 // class xtn represents a TLS extension
 //
 class xtn {
@@ -442,11 +443,12 @@ struct tls_client_hello : public base_protocol {
         additional_bytes_needed = 0;
     }
 
-    void write_l7_metadata(writeable &buf, bool) {
+    bool write_l7_metadata(writeable &buf, bool) {
         cbor_object o{buf, false};
         cbor_object tls{o, "tls"};
         tls.close();
         o.close();
+        return !buf.is_null();
     }
 
 };
@@ -576,11 +578,12 @@ public:
         }
     }
 
-    void write_l7_metadata(writeable &buf, bool) {
+    bool write_l7_metadata(writeable &buf, bool) {
         cbor_object o{buf, false};
         cbor_object tls{o, "tls"};
         tls.close();
         o.close();
+        return !buf.is_null();
     }
 
     void compute_fingerprint(fingerprint &fp) const {

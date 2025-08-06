@@ -142,14 +142,12 @@ public:
         socks4_pkt.close();
     }
 
-    void write_l7_metadata(writeable &buf, bool) {
-        if (!is_valid) {
-            return;
-        }
+    bool write_l7_metadata(writeable &buf, bool) {
         cbor_object o{buf, false};
         cbor_object socks4{o, "socks4"};
         socks4.close();
         o.close();
+        return !buf.is_null();
     }
 
     bool is_not_empty() const { return (is_valid); }
@@ -193,7 +191,6 @@ struct socks5_auth_code {
     void write_json(struct json_array &record) {
         record.print_string(get_code_str());
     }
-
 };
 
 //  socks5_hello
@@ -250,14 +247,12 @@ public:
         socks_pkt.close(); 
     }
 
-    void write_l7_metadata(writeable &buf, bool) {
-        if (!valid) {
-            return;
-        }
+    bool write_l7_metadata(writeable &buf, bool) {
         cbor_object o{buf, false};
         cbor_object socks5{o, "socks5"};
         socks5.close();
         o.close();
+        return !buf.is_null();
     }
 };
 
@@ -535,14 +530,12 @@ public:
         socks5_pkt.close();
     }
 
-    void write_l7_metadata(writeable &buf, bool) {
-        if (!valid) {
-            return;
-        }
+    bool write_l7_metadata(writeable &buf, bool) {
         cbor_object o{buf, false};
         cbor_object socks5{o, "socks5_req_resp"};
         socks5.close();
         o.close();
+        return !buf.is_null();
     }
 };
 

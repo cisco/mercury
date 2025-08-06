@@ -124,14 +124,12 @@ public:
         return;
     }
 
-    void write_l7_metadata(writeable &buf, bool) {
-        if (!is_not_empty()) {
-            return;
-        }
+    bool write_l7_metadata(writeable &buf, bool) {
         cbor_object o{buf, false};
         cbor_object ssdp{o, "ssdp"};
         ssdp.close();
         o.close();
+        return !buf.is_null();
     }
 
     /*

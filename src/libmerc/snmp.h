@@ -269,14 +269,15 @@ namespace snmp {
             snmp.close();
         }
 
-        void write_l7_metadata(writeable &buf, bool) {
+        bool write_l7_metadata(writeable &buf, bool) {
             if (!is_not_empty()) {
-                return;
-            }
+                return false;
+             }
             cbor_object o{buf, false};
             cbor_object snmp{o, "snmp"};
             snmp.close();
             o.close();
+            return !buf.is_null();
         }
 
         bool is_not_empty() const {

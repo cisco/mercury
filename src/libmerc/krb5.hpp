@@ -481,11 +481,12 @@ namespace krb5 {
             krb_json.close();
         }
 
-        void write_l7_metadata(writeable &buf, bool) {
+        bool write_l7_metadata(writeable &buf, bool) {
             cbor_object o{buf, false};
             cbor_object krb{o, "kerberos"};
             krb.close();
             o.close();
+            return !buf.is_null();
         }
 
         // weight 14 matcher, derived from example PCAPs

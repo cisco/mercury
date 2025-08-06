@@ -251,11 +251,12 @@ namespace rdp {
             rdp.close();
         }
 
-        void write_l7_metadata(writeable &buf, bool) {
+        bool write_l7_metadata(writeable &buf, bool) {
             cbor_object o{buf, false};
             cbor_object rdp{o, "rdp"};
             rdp.close();
             o.close();
+            return !buf.is_null();
         }
 
     };
