@@ -325,7 +325,7 @@ struct tlv {
         // base 256, most significant digit first.
         //
 
-        size_t total = 0;
+        [[maybe_unused]] size_t total = 0;
         if (length <= 127) {
             buf << encoded<uint8_t>{(uint8_t)length};
             total += 1;
@@ -719,7 +719,7 @@ struct tlv {
                 x.print_as_json(o, x.get_type());
             } else {
                 json_array cons{o, "CONSTRUCTED"};
-                datum tmp{x.value};
+                [[maybe_unused]] datum tmp{x.value};
                 //                recursive_parse(tmp, cons);
                 cons.close();
             }

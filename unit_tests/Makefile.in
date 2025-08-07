@@ -17,6 +17,15 @@ CXXFLAGS += -I/opt/homebrew/include
 LDFLAGS += -L/opt/homebrew/lib
 endif
 
+ifeq ($(COVERAGE_ENABLED),1)
+ifeq ($(filter -O3, $(CFLAGS)), -O3)
+    CFLAGS := $(filter-out -O3,$(CFLAGS))
+	CFLAGS += -O0
+endif
+CFLAGS += -fprofile-arcs --coverage -ggdb -fprofile-update=atomic
+LDFLAGS += --coverage
+endif
+
 CFLAGS += -UNDEBUG
 CFLAGS += -march=native -I../src/libmerc/xsimd/include
 export LD_LIBRARY_PATH =../src/libmerc
@@ -111,12 +120,12 @@ debug-libmerc_gcov:
 .PHONY: debug-libmerc
 debug-libmerc:
 	mkdir -p $(LIBMERC_DEBUG_FOLDER)
-	cd ../src && $(MAKE) debug-libmerc
+	cd ../src && $(MAKE) COVERAGE_ENABLED=$(COVERAGE_ENABLED) debug-libmerc
 
 .PHONY: debug-libmerc-tls
 debug-libmerc-tls:
 	mkdir -p $(LIBMERC_DEBUG_FOLDER)
-	cd ../src && $(MAKE) OPTFLAGS=-DSTATIC_CFG_SELECT='\"tls\"' debug-libmerc
+	cd ../src && $(MAKE) OPTFLAGS=-DSTATIC_CFG_SELECT='\"tls\"' COVERAGE_ENABLED=$(COVERAGE_ENABLED) debug-libmerc
 
 .PHONY: debug-libmerc-fdc
 debug-libmerc-fdc:
@@ -128,11 +137,33 @@ perfect-hash-test:
 	$(CXX) $(CFLAGS) -I ../src/libmerc ph_driver.cc -o ph_driver
 	./ph_driver | grep -e 'Unordered Map lookup' -e 'Perfect Hash generation table' -e 'Perfect Hash lookup' -e 'failed' -e 'Perfect Hash.' -e 'Unordered Map.'
 
+
 # FIXME: the next tests suppress ASAN container overflow detection.  This is
 # necessary because some parts of the code are compiled with ASAN and other
 # parts are not.  The ideal behavior would be to go back and compile
 # everything with ASAN, instead of pulling in already-compiled .o files.
 # https://github.com/google/sanitizers/wiki/AddressSanitizerContainerOverflow
+
+.PHONY: run_libmerc_tls_only_tests
+run_libmerc_tls_only_tests: xtra/resources/resources-mp.tgz
+ifeq ($(is_macos_arm),yes)
+	cd ../unit_tests/debug-libs/ && (rm -f libmerc.so.0) && (ln -s libmerc_tls.so libmerc.so.0)
+	export DYLD_LIBRARY_PATH=$$DYLD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER):. && ASAN_OPTIONS=detect_container_overflow=0 ./libmerc_driver_tls_only -s
+else
+	cd ../unit_tests/debug-libs/ && (rm -f libmerc.so.0) && (ln -s libmerc_tls.so libmerc.so.0)
+	export LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER):. && ASAN_OPTIONS=detect_container_overflow=0 ./libmerc_driver_tls_only -s
+endif
+
+.PHONY: run_libmerc_multiprotocol_tests
+run_libmerc_multiprotocol_tests: xtra/resources/resources-mp.tgz
+ifeq ($(is_macos_arm),yes)
+	cd ../unit_tests/debug-libs/ && rm -f libmerc.so.0 && ln -s libmerc_multiprotocol.so libmerc.so.0
+	export DYLD_LIBRARY_PATH=$$DYLD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER):. && ASAN_OPTIONS=detect_container_overflow=0 ./libmerc_driver_multiprotocol -s
+else
+	cd ../unit_tests/debug-libs/ && rm -f libmerc.so.0 && ln -s libmerc_multiprotocol.so libmerc.so.0
+	export LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ASAN_OPTIONS=detect_container_overflow=0 ./libmerc_driver_multiprotocol -s
+endif
+
 .PHONY: run
 run: xtra/resources/resources-mp.tgz # xtra data needed for unit tests
 ifeq ($(is_macos_arm),yes)

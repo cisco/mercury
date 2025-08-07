@@ -1,6 +1,8 @@
 # CHANGELOG for Mercury
 
 * Added CBOR encoding/decoding for SSH and STUN fingerprints.
+* CMake changes required to add xsimd as submodule and fixing
+  windows compilation issues
 * Removed duplicate UTF-8 and IP address output code used in
   ASN.1, added classes `utc_time`, `generalized_time`, and `raw_oid`
   to facilitate JSON output, removed `json_object_asn1` and
@@ -23,6 +25,8 @@
 * Added additional fuzz tests. Updated the `generate_fuzz_test.sh` script to
   support generating fuzz functions that test functions requiring two fuzzed inputs.
   Also hardened some datum functions.
+* Added `test-coverage` and `test-coverage-fuzz` targets to generate a 
+  comprehensive code coverage report for the Mercury library.
 
 ## VERSION 2.7.0
 * Added minimal RDP (Remote Desktop Protocol) support, which
