@@ -119,7 +119,7 @@ struct stateful_pkt_proc {
         analysis{},
         mq{nullptr},
         m{mc},
-        c{nullptr},
+        c{mc->c},
         ag{nullptr},
         global_vars{mc->global_vars},
         selector{mc->selector},
@@ -137,10 +137,9 @@ struct stateful_pkt_proc {
 
         // set config and classifier to (refer to) context m
         // analysis requires `do_analysis` & `resources` to be set
-        if (m->c == nullptr && m->global_vars.do_analysis && m->global_vars.resources != nullptr) {
+        if (c == nullptr && global_vars.do_analysis && global_vars.resources != nullptr) {
             throw std::runtime_error("error: classifier pointer is null");
         }
-        this->c = m->c;
 
         // setting protocol based configuration option to output the raw features
         set_raw_features(global_vars.raw_features);
