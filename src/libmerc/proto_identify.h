@@ -738,7 +738,7 @@ public:
     const std::vector<tcp_msg_type>* get_tcp_msg_type_from_keyword(datum pkt) const {
         uppercase keyword{pkt};
 
-        if (keyword.is_readable() and keyword.length() > 3) {
+        if (keyword.is_readable() and keyword.length() >= 3) {
             return tcp_keyword_matcher::get_tcp_msg_type_from_keyword(keyword);
         }
         return nullptr;

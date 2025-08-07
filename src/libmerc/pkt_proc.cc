@@ -346,7 +346,8 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
     enum tcp_msg_type msg_type = (tcp_msg_type) selector.get_tcp_msg_type(pkt);
     if (msg_type == tcp_msg_type_unknown) {
         msg_type = (tcp_msg_type) selector.get_tcp_msg_type_from_ports(tcp_pkt);
-    } else if (msg_type == tcp_msg_type_unknown) {
+    }
+    if (msg_type == tcp_msg_type_unknown) {
         const std::vector<tcp_msg_type> *protos  = selector.get_tcp_msg_type_from_keyword(pkt);
         if (protos) {
             tcp_msg_type msg_type = selector.get_preference(protos, tcp_pkt);
