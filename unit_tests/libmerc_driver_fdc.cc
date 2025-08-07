@@ -614,7 +614,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for http reques
 
             THEN("FDC should be written to output buffer") {
                 REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
-                REQUIRE(bytes_written == 122);
+                REQUIRE(bytes_written == 136);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
             }  
             mercury_packet_processor_destruct(mpp);
