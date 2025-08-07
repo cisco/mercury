@@ -1183,7 +1183,7 @@ public:
     /// than, to match, or be greater.
 
     int memcmp(const void *s, size_t n) {
-        size_t comp_length = (std::min)(n, (size_t)doff);
+        size_t comp_length = std::min(n, (size_t)doff);
         return ::memcmp(buffer, s, comp_length);
     }
 
