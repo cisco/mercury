@@ -446,7 +446,7 @@ struct datum {
     ///     assert(d.cmp(d) == 0);
     ///
     int cmp(const datum &p) const {
-        int cmp = ::memcmp(data, p.data, (std::min)(length(), p.length()));
+        int cmp = ::memcmp(data, p.data, std::min(length(), p.length()));
         if (cmp == 0) {
             return length() - p.length();
         }
