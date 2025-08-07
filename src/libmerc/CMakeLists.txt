@@ -43,6 +43,9 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64|i.86)$")
     set(INTEL_PLATFORM TRUE)
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64|armv7)$")
     set(ARM_PLATFORM TRUE)
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "^armv7$")
+        set(ARMV7_PLATFORM TRUE)
+    endif()
 endif()
 
 
@@ -212,7 +215,9 @@ if(INTEL_PLATFORM)
     endif()
 elseif(ARM_PLATFORM)
     list(APPEND libmerc_src softmax_neon.cc)
-    set_source_files_properties(softmax_neon.cc PROPERTIES COMPILE_FLAGS "-mfpu=neon")
+    if(ARMV7_PLATFORM)
+        set_source_files_properties(softmax_neon.cc PROPERTIES COMPILE_FLAGS "-mfpu=neon")
+    endif()
 endif()
 
 ## default libmerc compile options
