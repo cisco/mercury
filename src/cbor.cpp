@@ -6,6 +6,8 @@
 #include <iostream>
 #include <fstream>
 
+#define printf_err(level, ...) fprintf(stderr, __VA_ARGS__)
+
 #include "options.h"
 #include "libmerc/cbor.hpp"
 #include "libmerc/fdc.hpp"
