@@ -58,6 +58,7 @@ CFLAGS += -Wno-deprecated-declarations
 CFLAGS += -Wno-long-long
 CFLAGS += -Wmissing-noreturn
 CFLAGS += -Wunreachable-code
+CFLAGS += -Wno-psabi
 CFLAGS += -fvisibility=hidden
 CFLAGS += -DNDEBUG
 # CFLAGS += -g
