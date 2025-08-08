@@ -11,8 +11,10 @@
 #include "libmerc.h"  // for fingerprint_type
 
 class fingerprint {
-    enum fingerprint_type type;
+public:
     static const size_t MAX_FP_STR_LEN = 8192;
+private:
+    enum fingerprint_type type;
     char fp_str[MAX_FP_STR_LEN];
     struct buffer_stream fp_buf;
 

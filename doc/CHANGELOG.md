@@ -1,5 +1,6 @@
 # CHANGELOG for Mercury
 
+* Fixed `get_json_decoded_fdc()` to not assume UTF-8 inputs.
 * Added CBOR encoding/decoding for SSH and STUN fingerprints.
 * Fixing compiler warnings related to ABI differences
 * CMake changes required to add xsimd as submodule and fixing

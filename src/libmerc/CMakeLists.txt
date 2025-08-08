@@ -318,8 +318,8 @@ set(cbor_src
     ../cbor.cpp
 )
 add_executable(cbor ${cbor_src})
-target_compile_options(cbor PUBLIC ${LIBMERC_COMPILE_OPT})
-target_link_libraries(cbor ZLIB::ZLIB)
+target_compile_options(cbor PUBLIC ${LIBMERC_COMPILE_OPT} -UDONT_USE_STDERR)
+target_link_libraries(cbor ZLIB::ZLIB )
 # }
 
 

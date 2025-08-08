@@ -87,30 +87,10 @@ int main(int argc, char *argv[]) {
             }
         }
         if (decode_fdc) {
-            static const size_t MAX_FP_STR_LEN     = 8192;
-            char fp_str[MAX_FP_STR_LEN];
-            char dst_ip_str[MAX_ADDR_STR_LEN];
-            char sn_str[MAX_SNI_LEN];
-            char ua_str[MAX_USER_AGENT_LEN];
-            uint16_t dst_port;
-            uint64_t truncation;
 
-            bool ok = fdc::decode(input,
-                                  writeable{(uint8_t*)fp_str, MAX_FP_STR_LEN},
-                                  writeable{(uint8_t*)sn_str, MAX_SNI_LEN},
-                                  writeable{(uint8_t*)dst_ip_str, MAX_ADDR_STR_LEN},
-                                  dst_port,
-                                  writeable{(uint8_t*)ua_str, MAX_USER_AGENT_LEN},
-                                  truncation);
-            if (ok) {
-                fprintf(stdout, "{\"fdc\":{");
-                fprintf(stdout, "\"fingerprint\": \"%s\",", fp_str);
-                fprintf(stdout, "\"sni\": \"%s\",", sn_str);
-                fprintf(stdout, "\"dst_ip_str\": \"%s\",", dst_ip_str);
-                fprintf(stdout, "\"dst_port\": %u,", dst_port);
-                fprintf(stdout, "\"user-agent\": \"%s\",", ua_str);
-                fprintf(stdout, "\"truncation\": %lu", truncation);
-                fprintf(stdout, "}}\n");
+            std::string json_string = get_json_decoded_fdc((const char *)input.data, input.length());
+            if (json_string != "") {
+                fprintf(stdout , "%s\n", json_string.c_str());
             } else {
                 fprintf(stderr, "error: could not decode FDC\n");
             }
