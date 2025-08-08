@@ -1230,6 +1230,17 @@ static void enumerate_protocol_types(FILE *f) {
     }
 }
 
+bool is_fdc_writable(fingerprint_type fp_type) {
+    switch(fp_type) {
+        case fingerprint_type_tls:
+        case fingerprint_type_http:
+        case fingerprint_type_quic:
+        case fingerprint_type_tofsee:
+            return true;
+        default:
+            return false;
+    }
+}
 int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
                         const uint8_t *payload,
                         const size_t length, 
@@ -1361,32 +1372,33 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
     uint64_t fdc_version = 2;
     cbor::output::map m{output};
     cbor::uint64{fdc_version}.write(m);
-    if (analysis.fp.get_type() != fingerprint_type_unknown) {
+    if (is_fdc_writable(analysis.fp.get_type())) {
         cbor::text_string{"fdc"}.write(m);
-    }
-    fdc fdc_object{
-        datum{analysis.fp.string()},
-        analysis.destination.ua_str,
-        analysis.destination.sn_str,
-        analysis.destination.dst_ip_str,
-        analysis.destination.dst_port,
-        status
-    };
+    
+        fdc fdc_object{
+            datum{analysis.fp.string()},
+            analysis.destination.ua_str,
+            analysis.destination.sn_str,
+            analysis.destination.dst_ip_str,
+            analysis.destination.dst_port,
+            status
+        };
 
-    if (reassembler_ptr) {
-        if (reassembler_ptr->is_done(reassembler_ptr->curr_flow)) {
-            analysis.flow_state_pkts_needed = false;
+        if (reassembler_ptr) {
+            if (reassembler_ptr->is_done(reassembler_ptr->curr_flow)) {
+                analysis.flow_state_pkts_needed = false;
+            }
+            reassembler_ptr->clean_curr_flow();
         }
-        reassembler_ptr->clean_curr_flow();
+
+        bool encoding_ok = fdc_object.encode(output);
+        if (encoding_ok == false) {
+            *buffer_size = 2 * internal_buffer_size;
+            return -1;
+        }
     }
 
-    bool encoding_ok = fdc_object.encode(output);
-    if (encoding_ok == false) {
-        *buffer_size = 2 * internal_buffer_size;
-        return -1;
-    }
-
-    encoding_ok = std::visit(write_l7_metadata{m, global_vars.metadata_output}, x);
+    bool encoding_ok = std::visit(write_l7_metadata{m, global_vars.metadata_output}, x);
     if (encoding_ok == false) {
         *buffer_size = 2 * internal_buffer_size;
         return -1;
