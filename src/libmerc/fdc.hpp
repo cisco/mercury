@@ -57,8 +57,13 @@ namespace cbor_fingerprint {
 
     inline void encode_cbor_data(datum &d, writeable &w) {
         literal_byte<'('>{d};
-        cbor::byte_string_from_hex{hex_digits{d}}.write(w);
-        literal_byte<')'>{d};
+        if (lookahead<literal_byte<')'>> close{d}) {
+            cbor::byte_string::write_empty(w);
+            d = close.advance();
+        } else {
+            cbor::byte_string_from_hex{hex_digits{d}}.write(w);
+            literal_byte<')'>{d};
+        }
     }
 
     inline void encode_cbor_list(datum &d, writeable &w) {
@@ -190,6 +195,55 @@ namespace cbor_fingerprint {
         m.close();
     }
 
+    inline void encode_cbor_stun_fingerprint(datum d, writeable &w) {
+        cbor::output::map m{w};
+
+        if (lookahead<literal_byte<'1', '/'>> version_one{d}) {
+            d = version_one.advance();
+            cbor::uint64{1}.write(w);      // fingerprint version
+
+            if (lookahead<literal_byte<'r', 'a', 'n', 'd', 'o', 'm', 'i', 'z', 'e', 'd'>> peek{d}) {
+                constexpr size_t idx = fp_labels.index("randomized");
+                cbor::uint64{idx}.write(m);
+            } else {
+                cbor::output::array a{w};
+                encode_cbor_data(d, a);         // class
+                encode_cbor_data(d, a);         // method
+                encode_cbor_data(d, a);         // magic
+                encode_cbor_list(d, a);         // attributes
+                a.close();
+            }
+
+        }
+        m.close();
+     }
+
+    inline void encode_cbor_ssh_fingerprint(datum d, writeable &w) {
+        cbor::output::map m{w};
+
+        cbor::uint64{0}.write(w);      // fingerprint version
+
+        if (lookahead<literal_byte<'r', 'a', 'n', 'd', 'o', 'm', 'i', 'z', 'e', 'd'>> peek{d}) {
+            constexpr size_t idx = fp_labels.index("randomized");
+            cbor::uint64{idx}.write(m);
+        } else {
+            cbor::output::array a{w};
+            encode_cbor_data(d, a);         // kex_algorithms
+            encode_cbor_data(d, a);         // server_host_key_algorithms
+            encode_cbor_data(d, a);         // encryption_algorithms_client_to_server
+            encode_cbor_data(d, a);         // encryption_algorithms_server_to_client
+            encode_cbor_data(d, a);         // mac_algorithms_client_to_server
+            encode_cbor_data(d, a);         // mac_algorithms_server_to_client
+            encode_cbor_data(d, a);         // compression_algorithms_client_to_server
+            encode_cbor_data(d, a);         // compression_algorithms_server_to_client
+            encode_cbor_data(d, a);         // languages_client_to_server
+            encode_cbor_data(d, a);         // languages_server_to_client
+            a.close();
+        }
+
+        m.close();
+     }
+
     constexpr uint64_t randomized = 0;
     constexpr uint64_t generic = 1;
 
@@ -255,13 +309,28 @@ namespace cbor_fingerprint {
             encode_cbor_tofsee_fingerprint(d, w);
             m.close();
 
+        } else if (lookahead<literal_byte<'s', 't', 'u', 'n', '/'>> stun{d}) {
+            fp_type = fingerprint_type_stun;
+            cbor::output::map m{w};
+            cbor::uint64{(uint64_t)fp_type}.write(w);
+            d = stun.advance();
+            encode_cbor_stun_fingerprint(d, w);
+            m.close();
+
+        } else if (lookahead<literal_byte<'s', 's', 'h', '/'>> ssh{d}) {
+            fp_type = fingerprint_type_ssh;
+            cbor::output::map m{w};
+            cbor::uint64{(uint64_t)fp_type}.write(w);
+            d = ssh.advance();
+            encode_cbor_ssh_fingerprint(d, w);
+            m.close();
+
         }
         // fprintf(stderr, "fingerprint type %d\n", fp_type);
     }
 
     inline void decode_cbor_data(datum &d, writeable &w) {
         cbor::byte_string data = cbor::byte_string::decode(d);
-        //        if (d.is_null()) { return; }
         w.copy('(');
         w.write_hex(data.value().data, data.value().length());
         w.copy(')');
@@ -391,6 +460,54 @@ namespace cbor_fingerprint {
         m.close();
     }
 
+    inline void decode_stun_fp(datum &d, writeable &w) {
+        cbor::map m{d};
+        cbor::uint64 format_version{m.value()};
+        if (format_version.value() == 1) {
+            w.copy('1');
+            w.copy('/');
+            if (lookahead<cbor::uint64> label{m.value()}) {
+                if (label.value.value() == fp_labels.index("randomized")) {
+                    w << datum{"randomized"};
+                }
+            } else {
+                cbor::array a{m.value()};
+                decode_cbor_data(m.value(), w);         // class
+                decode_cbor_data(m.value(), w);         // method
+                decode_cbor_data(m.value(), w);         // magic
+                decode_cbor_list(m.value(), w);         // attributes
+                a.close();
+            }
+        }
+        m.close();
+    }
+
+    inline void decode_ssh_fp(datum &d, writeable &w) {
+        cbor::map m{d};
+        cbor::uint64 format_version{m.value()};
+        if (format_version.value() == 0) {
+            if (lookahead<cbor::uint64> label{m.value()}) {
+                if (label.value.value() == fp_labels.index("randomized")) {
+                    w << datum{"randomized"};
+                }
+            } else {
+                cbor::array a{m.value()};
+                decode_cbor_data(m.value(), w);   // kex_algorithms
+                decode_cbor_data(m.value(), w);   // server_host_key_algorithms
+                decode_cbor_data(m.value(), w);   // encryption_algorithms_client_to_server
+                decode_cbor_data(m.value(), w);   // encryption_algorithms_server_to_client
+                decode_cbor_data(m.value(), w);   // mac_algorithms_client_to_server
+                decode_cbor_data(m.value(), w);   // mac_algorithms_server_to_client
+                decode_cbor_data(m.value(), w);   // compression_algorithms_client_to_server
+                decode_cbor_data(m.value(), w);   // compression_algorithms_server_to_client
+                decode_cbor_data(m.value(), w);   // languages_client_to_server
+                decode_cbor_data(m.value(), w);   // languages_server_to_client
+                a.close();
+            }
+        }
+        m.close();
+    }
+
     inline void decode_fp(unsigned int fp_type,
                    datum &d,
                    writeable &w) {
@@ -409,6 +526,12 @@ namespace cbor_fingerprint {
             break;
         case fingerprint_type_tofsee:
             decode_tofsee_fp(d, w);
+            break;
+        case fingerprint_type_stun:
+            decode_stun_fp(d, w);
+            break;
+        case fingerprint_type_ssh:
+            decode_ssh_fp(d, w);
             break;
         default:
             ;
@@ -433,26 +556,27 @@ namespace cbor_fingerprint {
     // test cbor fingerprint encoding and decoding
     //
     static bool test_fingerprint(const char *fingerprint_string, FILE *f=nullptr) {
-            data_buffer<2048> data_buf;
-            datum fp_data{(uint8_t *)fingerprint_string, (uint8_t *)fingerprint_string + strlen(fingerprint_string)};
-            cbor_fingerprint::encode_cbor_fingerprint(fp_data, data_buf);
+        data_buffer<2048> data_buf;
+        datum fp_data{(uint8_t *)fingerprint_string, (uint8_t *)fingerprint_string + strlen(fingerprint_string)};
+        cbor_fingerprint::encode_cbor_fingerprint(fp_data, data_buf);
 
-            data_buffer<2048> out_buf;
-            datum encoded_data{data_buf.contents()};
-            cbor_fingerprint::decode_cbor_fingerprint(encoded_data, out_buf);
-            if (out_buf.contents().cmp(fp_data) != 0) {
-                if (f) {
-                    fprintf(f, "ERROR: MISMATCH\n");
-                    fprintf(f, "fingerprint:              %s\n", fingerprint_string);
-                    fprintf(f, "CBOR encoded fingerprint: ");
-                    data_buf.contents().fprint_hex(f); fputc('\n', f);
-                    fprintf(f, "decoded fingerprint:      ");
-                    out_buf.contents().fprint(f); fputc('\n', f);
-                    cbor::decode_fprint(data_buf.contents(), f);
-                }
-                return false;
+        data_buffer<2048> out_buf;
+        datum encoded_data{data_buf.contents()};
+        cbor_fingerprint::decode_cbor_fingerprint(encoded_data, out_buf);
+
+        if (out_buf.contents().cmp(fp_data) != 0) {
+            if (f) {
+                fprintf(f, "ERROR: MISMATCH\n");
+                fprintf(f, "fingerprint:              %s\n", fingerprint_string);
+                fprintf(f, "CBOR encoded fingerprint: ");
+                data_buf.contents().fprint_hex(f); fputc('\n', f);
+                fprintf(f, "decoded fingerprint:      ");
+                out_buf.contents().fprint(f); fputc('\n', f);
+                cbor::decode_fprint(data_buf.contents(), f);
             }
-            return true;
+            return false;
+        }
+        return true;
     };
 
     // cbor_fingerprint::unit_test() returns `true` if all unit tests
@@ -469,7 +593,10 @@ namespace cbor_fingerprint {
             "quic/(00000001)(0303)(130113021303)[(000a000a00086399001d00170018)(002b0003020304)((0039)[(01)(03)(04)(05)(06)(07)(08)(09)(0f)(1b)(20)(80004752)(80ff73db)])(4469)]",
             "http/randomized",
             "tls/1/randomized",
-            "quic/randomized"
+            "quic/randomized",
+            "stun/1/randomized",
+            "stun/1/(00)(0001)(01)((8022)(0006)(0020)(0008)(8028))",
+            "ssh/(656364682d736861322d6e697374703235362c656364682d736861322d6e697374703338342c656364682d736861322d6e697374703532312c6469666669652d68656c6c6d616e2d67726f757031342d736861312c6469666669652d68656c6c6d616e2d67726f75702d65786368616e67652d7368613235362c6469666669652d68656c6c6d616e2d67726f75702d65786368616e67652d736861312c6469666669652d68656c6c6d616e2d67726f7570312d73686131)(7373682d7273612c7373682d6473732c65636473612d736861322d6e697374703235362c65636473612d736861322d6e697374703338342c65636473612d736861322d6e69737470353231)(6165733132382d6374722c6165733132382d6362632c336465732d6374722c336465732d6362632c626c6f77666973682d6362632c6165733139322d6374722c6165733139322d6362632c6165733235362d6374722c6165733235362d636263)(6165733132382d6374722c6165733132382d6362632c336465732d6374722c336465732d6362632c626c6f77666973682d6362632c6165733139322d6374722c6165733139322d6362632c6165733235362d6374722c6165733235362d636263)(686d61632d6d64352c686d61632d736861312c686d61632d736861322d3235362c686d61632d736861312d39362c686d61632d6d64352d3936)(686d61632d6d64352c686d61632d736861312c686d61632d736861322d3235362c686d61632d736861312d39362c686d61632d6d64352d3936)(6e6f6e65)(6e6f6e65)()()"
         };
         bool all_tests_passed = true;
         for (const auto & fp_str : fps) {

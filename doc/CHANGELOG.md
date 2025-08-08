@@ -1,5 +1,6 @@
 # CHANGELOG for Mercury
 
+* Added CBOR encoding/decoding for SSH and STUN fingerprints.
 * Fixing compiler warnings related to ABI differences
 * CMake changes required to add xsimd as submodule and fixing
   windows compilation issues
