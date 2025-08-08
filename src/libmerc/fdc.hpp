@@ -785,7 +785,7 @@ public:
 
             // decode the data in the buffer to decoded_fdc
             //
-            static const size_t MAX_FP_STR_LEN     = 4096;
+            static const size_t MAX_FP_STR_LEN     = 8192;
             char fp_str[MAX_FP_STR_LEN];
             char dst_ip_str[MAX_ADDR_STR_LEN];
             char sn_str[MAX_SNI_LEN];
@@ -840,7 +840,7 @@ private:
 
 [[maybe_unused]] static std::string get_json_decoded_fdc(const char *fdc_blob, ssize_t blob_len) {
     datum fdc_data = datum{(uint8_t*)fdc_blob,(uint8_t*)(fdc_blob+blob_len)};
-    static const size_t MAX_FP_STR_LEN     = 4096;
+    static const size_t MAX_FP_STR_LEN     = 8192;
     char fp_str[MAX_FP_STR_LEN];
     char dst_ip_str[MAX_ADDR_STR_LEN];
     char sn_str[MAX_SNI_LEN];

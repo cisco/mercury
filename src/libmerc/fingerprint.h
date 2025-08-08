@@ -12,7 +12,7 @@
 
 class fingerprint {
     enum fingerprint_type type;
-    static const size_t MAX_FP_STR_LEN = 4096;
+    static const size_t MAX_FP_STR_LEN = 8192;
     char fp_str[MAX_FP_STR_LEN];
     struct buffer_stream fp_buf;
 
