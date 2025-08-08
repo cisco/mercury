@@ -469,9 +469,9 @@ struct ssh_init_packet : public base_protocol {
         }
         
         // concatenate protocol and comment strings for analysis
-        datum tmp_prtocol_str = protocol_string;
+        datum tmp_protocol_str = protocol_string;
         datum tmp_comment_str = comment_string;
-        user_agent.parse(tmp_prtocol_str);
+        user_agent.parse(tmp_protocol_str);
         user_agent.parse(tmp_comment_str);
 
         analysis_.destination.init({nullptr, nullptr}, user_agent.contents(), {nullptr, nullptr}, k_);
