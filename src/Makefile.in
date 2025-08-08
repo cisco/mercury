@@ -100,6 +100,15 @@ endif
 #LDFLAGS += -fsanitize=address
 #endif
 
+ifeq ($(COVERAGE_ENABLED),1)
+ifeq ($(filter -O3, $(CFLAGS)), -O3)
+    CFLAGS := $(filter-out -O3,$(CFLAGS))
+	CFLAGS += -O0
+endif
+CFLAGS += -fprofile-arcs --coverage -ggdb -fprofile-update=atomic
+LDFLAGS += --coverage
+endif
+
 all: compiler_version mercury libmerc_test cert_analyze libmerc_util intercept_server # tls_scanner batch_gcd
 
 # the version target just reports the c++ compiler version; we report
@@ -143,7 +152,7 @@ setcap: mercury
 	sudo setcap $(CAP) $<
 
 libmerc.a:
-	$(MAKE) -j --directory=libmerc libmerc.a
+	$(MAKE) -j --directory=libmerc COVERAGE_ENABLED=$(COVERAGE_ENABLED) libmerc.a
 
 libmerc/libmerc.so:
 	$(MAKE) -j --directory=libmerc libmerc.so
@@ -167,7 +176,7 @@ debug-libmerc_gcov:
 .PHONY: debug-libmerc
 debug-libmerc:
 	$(MAKE) --directory=libmerc clean
-	$(MAKE) -j --directory=libmerc debug-libmerc.so
+	$(MAKE) -j --directory=libmerc COVERAGE_ENABLED=$(COVERAGE_ENABLED) debug-libmerc.so
 
 .PHONY: unstripped-libmerc
 unstripped-libmerc:
@@ -192,13 +201,13 @@ tls_scanner: tls_scanner.cc libmerc.a libmerc/crypto_hash.hpp libmerc/verbosity.
 
 batch_gcd: CFLAGS += -march=native -flto=auto
 batch_gcd: batch_gcd.cc
-	$(CXX) $(CFLAGS) batch_gcd.cc libmerc/asn1.cc libmerc/asn1/oid.cc -lgmpxx -lgmp -pthread -o batch_gcd
+	$(CXX) $(CFLAGS) batch_gcd.cc libmerc/asn1/oid.cc -lgmpxx -lgmp -pthread -o batch_gcd
 
 cert_analyze: cert_analyze.cc libmerc/asn1.h
-	$(CXX) $(CFLAGS) cert_analyze.cc libmerc/asn1.cc libmerc/asn1/oid.cc -pthread $(LDFLAGS) -lcrypto -o cert_analyze
+	$(CXX) $(CFLAGS) cert_analyze.cc libmerc/asn1/oid.cc -pthread $(LDFLAGS) -lcrypto -o cert_analyze
 
 cms: cms.cpp libmerc/asn1.h
-	$(CXX) $(CFLAGS) cms.cpp libmerc/asn1.cc libmerc/asn1/oid.cc $(LDFLAGS) -lcrypto -o cms
+	$(CXX) $(CFLAGS) cms.cpp libmerc/asn1/oid.cc $(LDFLAGS) -lcrypto -o cms
 
 dns-trie: dns-trie.cpp dns_trie.hpp fpdb_reader.hpp
 	$(CXX) $(CFLAGS) dns-trie.cpp -o dns-trie
@@ -224,8 +233,8 @@ decode: decode.cc
 pcap: pcap.cc pcap_file_io.h
 	$(CXX) $(CFLAGS) pcap.cc -o pcap
 
-remap: remap.cpp libmerc/tls.cc libmerc/http.cc libmerc/match.cc libmerc/asn1.cc libmerc/asn1/oid.cc libmerc/addr.cc
-	$(CXX) $(CFLAGS) -std=c++20 remap.cpp libmerc/tls.cc libmerc/http.cc libmerc/match.cc libmerc/asn1.cc libmerc/asn1/oid.cc libmerc/addr.cc -lcrypto -o remap
+remap: remap.cpp libmerc/tls.cc libmerc/http.cc libmerc/match.cc libmerc/asn1/oid.cc libmerc/addr.cc
+	$(CXX) $(CFLAGS) -std=c++20 remap.cpp libmerc/tls.cc libmerc/http.cc libmerc/match.cc libmerc/asn1/oid.cc libmerc/addr.cc -lcrypto -o remap
 
 pcap_filter: pcap_filter.cc pcap_file_io.c libmerc
 	$(CXX) $(CFLAGS) pcap_filter.cc pcap_file_io.c libmerc/libmerc.a -lz -lcrypto -pthread -o pcap_filter

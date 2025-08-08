@@ -63,6 +63,15 @@ else
 DROP_ROOT =
 endif
 
+ifeq ($(COVERAGE_ENABLED),1)
+ifeq ($(filter -O3, $(CFLAGS)), -O3)
+    CFLAGS := $(filter-out -O3,$(CFLAGS))
+	CFLAGS += -O0
+endif
+CFLAGS += -fprofile-arcs --coverage -ggdb -fprofile-update=atomic
+LDFLAGS += --coverage
+endif
+
 # all test files go in the ./tests subdirectory
 #
 vpath %.pcap ./data
@@ -298,6 +307,9 @@ clean:
 	find ./fuzz/ -name "*.log" -exec rm -v {} +
 	find ./fuzz/ -name "*.c" -exec rm -v {} +
 	find ./fuzz/ -name "crash*" -exec rm -v {} +
+	find ./fuzz/ -name "*.profraw" -delete
+	find ./fuzz/ -name "*.profdata" -delete
+	find ./fuzz/ -name "*.info" -delete
 	@echo "cleaned all targets"
 
 .PHONY: distclean
@@ -343,11 +355,11 @@ endif
 fuzz-test:
 ifeq ($(have_clang),yes)
 	@echo "checking libmerc.a for fuzz test"
-	cd ../src && $(MAKE) libmerc.a
+	cd ../src && $(MAKE) COVERAGE_ENABLED=$(COVERAGE_ENABLED) libmerc.a
 ifeq ($(openssl_newer),yes)
-	cd fuzz && ./generate_fuzz_test.sh -n none -t 200 -r 1000000000 -s true
+	cd fuzz && ./generate_fuzz_test.sh -n none -t 200 -r 1000000000 -s true $(if $(COVERAGE_ENABLED),-c $(COVERAGE_ENABLED))
 else
-	cd fuzz && ./generate_fuzz_test.sh -n none -t 200 -r 1000000000
+	cd fuzz && ./generate_fuzz_test.sh -n none -t 200 -r 1000000000 $(if $(COVERAGE_ENABLED),-c $(COVERAGE_ENABLED))
 endif
 else
 	@echo $(COLOR_YELLOW) "clang++ unavailable; cannot perform fuzz test" $(COLOR_OFF)

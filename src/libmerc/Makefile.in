@@ -46,6 +46,15 @@ CFLAGS += -I./xsimd/include
 #LDFLAGS += -fsanitize=address
 #endif
 
+ifeq ($(COVERAGE_ENABLED),1)
+ifeq ($(filter -O3, $(CFLAGS)), -O3)
+    CFLAGS := $(filter-out -O3,$(CFLAGS))
+	CFLAGS += -O0
+endif
+CFLAGS += -fprofile-arcs --coverage -ggdb -fprofile-update=atomic
+LDFLAGS += --coverage
+endif
+
 # libmerc.so performs selective packet parsing and fingerprint extraction
 # LIBMERC and LIBMERC_H hold the core source and header files,
 # respectively, for that library
@@ -61,7 +70,6 @@ LIBMERC     += ssh.cc
 LIBMERC     += tls.cc
 LIBMERC     += utils.cc
 LIBMERC     += wireguard.cc
-LIBMERC     += asn1.cc
 LIBMERC     += asn1/oid.cc
 LIBMERC 	+= config_generator.cc
 LIBMERC     += smb2.cc
@@ -124,7 +132,7 @@ LIBMERC_H   += softmax.hpp
 # asn1 subdirectory; this is a pattern target that builds both files
 #
 asn1/oid%cc asn1/oid%h:
-	cd asn1 && $(MAKE)
+	cd asn1 && $(MAKE) COVERAGE_ENABLED=$(COVERAGE_ENABLED)
 
 ifeq ($(have_py3),yes)
 # PYANALYSIS = python_interface.c
@@ -253,7 +261,7 @@ libmerc.a: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
 export CXX
 export CC
 lctrie/liblctrie.a:
-	cd lctrie && $(MAKE) liblctrie.a
+	cd lctrie && $(MAKE) COVERAGE_ENABLED=$(COVERAGE_ENABLED) liblctrie.a
 
 # rules for automatically determining dependancies via the compiler's
 # -MM option, which is essential for correctly handling changes to
