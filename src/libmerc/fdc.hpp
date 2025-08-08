@@ -739,7 +739,7 @@ public:
         //
         const char *tls_fp = "tls/1/(0301)(c014c00a00390038c00fc0050035c012c00800160013c00dc003000ac013c00900330032c00ec004002fc011c007c00cc002000500040015001200090014001100080006000300ff)[(0000)(000a00340032000100020003000400050006000700080009000a000b000c000d000e000f0010001100120013001400150016001700180019)(000b000403000102)(0023)]";
         const char *http_fp = "http/(434f4e4e454354)(485454502f312e31)((486f7374)(557365722d4167656e74))";
-        static constexpr size_t num_tests = 4;
+        static constexpr size_t num_tests = 5;
         fdc fdc_object[num_tests]{
             {
                 datum{tls_fp},
@@ -772,7 +772,15 @@ public:
                 "72.163.217.105",
                 80,
                 truncation_status::reassembled_truncated
-            }
+            },
+            {
+                datum{http_fp},
+                "user-agent with utf8: stra\u00DFe \r\n\"",
+                "abc.com",
+                "72.163.217.105",
+                80,
+                truncation_status::reassembled_truncated
+            },
         };
         for (size_t i = 0; i < num_tests; i++){
 
@@ -785,8 +793,7 @@ public:
 
             // decode the data in the buffer to decoded_fdc
             //
-            static const size_t MAX_FP_STR_LEN     = 8192;
-            char fp_str[MAX_FP_STR_LEN];
+            char fp_str[fingerprint::MAX_FP_STR_LEN];
             char dst_ip_str[MAX_ADDR_STR_LEN];
             char sn_str[MAX_SNI_LEN];
             char ua_str[MAX_USER_AGENT_LEN];
@@ -794,7 +801,7 @@ public:
             uint64_t truncation;
 
             bool decoding_ok = fdc::decode(encoded_fdc,
-                                           writeable{(uint8_t*)fp_str, MAX_FP_STR_LEN},
+                                           writeable{(uint8_t*)fp_str, fingerprint::MAX_FP_STR_LEN},
                                            writeable{(uint8_t*)sn_str, MAX_SNI_LEN},
                                            writeable{(uint8_t*)dst_ip_str, MAX_ADDR_STR_LEN},
                                            dst_port,
@@ -840,20 +847,19 @@ private:
 
 [[maybe_unused]] static std::string get_json_decoded_fdc(const char *fdc_blob, ssize_t blob_len) {
     datum fdc_data = datum{(uint8_t*)fdc_blob,(uint8_t*)(fdc_blob+blob_len)};
-    static const size_t MAX_FP_STR_LEN     = 8192;
-    char fp_str[MAX_FP_STR_LEN];
+    char fp_str[fingerprint::MAX_FP_STR_LEN];
     char dst_ip_str[MAX_ADDR_STR_LEN];
     char sn_str[MAX_SNI_LEN];
     char ua_str[MAX_USER_AGENT_LEN];
     uint16_t dst_port;
     uint64_t truncation;
 
-    char buffer[8192];
+    char buffer[10240];
     struct buffer_stream buf_json(buffer, sizeof(buffer));
     struct json_object record(&buf_json);
 
     bool ok = fdc::decode(fdc_data,
-                          writeable{(uint8_t*)fp_str, MAX_FP_STR_LEN},
+                          writeable{(uint8_t*)fp_str, fingerprint::MAX_FP_STR_LEN},
                           writeable{(uint8_t*)sn_str, MAX_SNI_LEN},
                           writeable{(uint8_t*)dst_ip_str, MAX_ADDR_STR_LEN},
                           dst_port,
@@ -861,21 +867,21 @@ private:
                           truncation);
     if (ok) {
         json_object fdc_json(record,"fdc");
-        fdc_json.print_key_string("fingerprint",fp_str);
-        fdc_json.print_key_string("sni",sn_str);
-        fdc_json.print_key_string("dst_ip_str",dst_ip_str);
-        fdc_json.print_key_int("dst_port",dst_port);
-        fdc_json.print_key_string("user_agent",ua_str);
-        fdc_json.print_key_string("truncation",get_truncation_str(((truncation_status)truncation)));
+        fdc_json.print_key_string("fingerprint", fp_str);
+        fdc_json.print_key_json_string("sni", datum{sn_str});
+        fdc_json.print_key_json_string("dst_ip_str", datum{dst_ip_str});
+        fdc_json.print_key_int("dst_port", dst_port);
+        fdc_json.print_key_json_string("user_agent", datum{ua_str});
+        fdc_json.print_key_string("truncation", get_truncation_str(((truncation_status)truncation)));
         fdc_json.close();
         record.close();
         buf_json.write_char('\0');  // null terminate
         return buf_json.get_string();
-        
+
     } else {
         return "";
     }
-   
+
 }
 
 
