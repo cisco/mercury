@@ -783,7 +783,7 @@ public:
         return;
     }
 };
-[[maybe_unused]] std::string get_json_decoded_fdc(const char *fdc_blob, ssize_t blob_len) {
+[[maybe_unused]] inline std::string get_json_decoded_fdc(const char *fdc_blob, ssize_t blob_len) {
     datum fdc_data = datum{(uint8_t*)fdc_blob,(uint8_t*)(fdc_blob+blob_len)};
     return eve_metadata::decode_cbor_data(fdc_data);
 }

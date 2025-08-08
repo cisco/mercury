@@ -446,6 +446,8 @@ struct tls_client_hello : public base_protocol {
     bool write_l7_metadata(writeable &buf, bool) {
         cbor_object o{buf, false};
         cbor_object tls{o, "tls"};
+        cbor_object tls_client{tls, "client"};
+        tls_client.print_key_hex("random", random);
         tls.close();
         o.close();
         return !buf.is_null();
