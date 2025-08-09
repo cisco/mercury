@@ -61,7 +61,8 @@ int main(int argc, char *argv[]) {
     //
     struct sockaddr_un name;
     name.sun_family = AF_UNIX;
-    strcpy(name.sun_path, SOCKET_PATH);
+    strncpy(name.sun_path, SOCKET_PATH, sizeof(name.sun_path) - 1);
+    name.sun_path[sizeof(name.sun_path) - 1] = '\0';
 
     // if an old copy of the named socket is still around, remove it
     //

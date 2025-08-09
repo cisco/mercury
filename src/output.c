@@ -16,6 +16,12 @@
 #define gettid() syscall(SYS_gettid)
 #endif
 
+/* macOS doesn't have gettid(), use pthread_self() instead */
+#ifdef __APPLE__
+#include <pthread.h>
+#define gettid() ((pid_t)(uintptr_t)pthread_self())
+#endif
+
 #include <stdlib.h>
 #include <sys/time.h>
 #include <string.h>

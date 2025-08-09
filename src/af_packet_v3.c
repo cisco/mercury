@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE    /* Needed for gettid() definition from unistd.h */
@@ -505,7 +506,7 @@ int create_dedicated_socket(struct thread_storage *thread_stor, int fanout_arg) 
      * The start of each block is a struct tpacket_block_desc so make
      * array of pointers to the start of each block struct
      */
-    struct tpacket_block_desc **block_header = (struct tpacket_block_desc**)malloc(thread_stor->ring_params.tp_block_nr * sizeof(struct tpacket_hdr_v1 *));
+    struct tpacket_block_desc **block_header = (struct tpacket_block_desc**)malloc(thread_stor->ring_params.tp_block_nr * sizeof(struct tpacket_block_desc *));
     if (block_header == NULL) {
         fprintf(stderr, "error: could not allocate block_header pointer array for thread %d\n", thread_stor->tnum);
         munmap(mapped_buffer, map_buf_len);
@@ -885,15 +886,29 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
     statst.verbosity = cfg->verbosity;
 
     struct thread_storage *tstor;  // Holds the array of struct thread_storage, one for each thread
-    tstor = (struct thread_storage *)malloc(num_threads * sizeof(struct thread_storage));
+    size_t tstor_size = num_threads * sizeof(struct thread_storage);
+    if (num_threads > 0 && tstor_size / num_threads != sizeof(struct thread_storage)) {
+        fprintf(stderr, "error: integer overflow in thread storage allocation\n");
+        return -1;
+    }
+    tstor = (struct thread_storage *)malloc(tstor_size);
     if (!tstor) {
-        perror("could not allocate memory for strocut thread_storage array\n");
+        perror("could not allocate memory for struct thread_storage array\n");
+        return -1;
     }
     statst.tstor = tstor; // The stats thread needs to know how to access the socket for each packet worker
 
-    global_thread_stall = (struct thread_stall *)malloc((num_threads + 1) * sizeof(struct thread_stall));
+    size_t stall_size = (num_threads + 1) * sizeof(struct thread_stall);
+    if (num_threads > SIZE_MAX - 1 || stall_size / (num_threads + 1) != sizeof(struct thread_stall)) {
+        fprintf(stderr, "error: integer overflow in thread stall allocation\n");
+        free(tstor);
+        return -1;
+    }
+    global_thread_stall = (struct thread_stall *)malloc(stall_size);
     if (!global_thread_stall) {
         perror("could not allocate memory for global thread stall structs\n");
+        free(tstor);
+        return -1;
     }
     for (int i = 0; i <= num_threads; i++) {
         global_thread_stall[i].used = 0;
