@@ -16,7 +16,8 @@
  */
 enum status bind_and_dispatch(struct mercury_config *,
                               mercury_context,
-                              struct output_file *) {
+                              struct output_file *,
+                              struct cap_stats *) {
 
   fprintf(stderr, "error: packet capture is unavailable; AF_PACKET TPACKETv3 not present\n");
 

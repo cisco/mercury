@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE    /* Needed for gettid() definition from unistd.h */
@@ -505,7 +506,7 @@ int create_dedicated_socket(struct thread_storage *thread_stor, int fanout_arg) 
      * The start of each block is a struct tpacket_block_desc so make
      * array of pointers to the start of each block struct
      */
-    struct tpacket_block_desc **block_header = (struct tpacket_block_desc**)malloc(thread_stor->ring_params.tp_block_nr * sizeof(struct tpacket_hdr_v1 *));
+    struct tpacket_block_desc **block_header = (struct tpacket_block_desc**)malloc(thread_stor->ring_params.tp_block_nr * sizeof(struct tpacket_block_desc *));
     if (block_header == NULL) {
         fprintf(stderr, "error: could not allocate block_header pointer array for thread %d\n", thread_stor->tnum);
         munmap(mapped_buffer, map_buf_len);
@@ -841,6 +842,17 @@ void *packet_capture_thread_func(void *arg)  {
     return NULL;
 }
 
+/* Helper function to clean up allocated resources */
+static void cleanup_resources(struct thread_storage *tstor, int num_threads) {
+    if (tstor != NULL) {
+        free(tstor);
+    }
+    if (global_thread_stall != NULL) {
+        free(global_thread_stall);
+        global_thread_stall = NULL;
+    }
+}
+
 enum status bind_and_dispatch(struct mercury_config *cfg,
                               mercury_context mc,
                               struct output_file *out_ctx,
@@ -849,12 +861,12 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
      /* sanity check memory fractions */
     if (cfg->buffer_fraction < 0.0 || cfg->buffer_fraction > 1.0 ) {
         fprintf(stdout, "error: refusing to allocate buffer fraction %.3f\n", cfg->buffer_fraction);
-        exit(255);
+        return status_err;
     }
 
     if (cfg->io_balance_frac < 0.0 || cfg->io_balance_frac > 1.0 ) {
         fprintf(stdout, "error: refusing to balance io buffers with %.3f\n", cfg->io_balance_frac);
-        exit(255);
+        return status_err;
     }
 
     /* initialize the ring limits from the configuration */
@@ -885,15 +897,29 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
     statst.verbosity = cfg->verbosity;
 
     struct thread_storage *tstor;  // Holds the array of struct thread_storage, one for each thread
-    tstor = (struct thread_storage *)malloc(num_threads * sizeof(struct thread_storage));
+    size_t tstor_size = num_threads * sizeof(struct thread_storage);
+    if (num_threads > 0 && tstor_size / num_threads != sizeof(struct thread_storage)) {
+        fprintf(stderr, "error: integer overflow in thread storage allocation\n");
+        return -1;
+    }
+    tstor = (struct thread_storage *)malloc(tstor_size);
     if (!tstor) {
-        perror("could not allocate memory for strocut thread_storage array\n");
+        perror("could not allocate memory for struct thread_storage array\n");
+        return -1;
     }
     statst.tstor = tstor; // The stats thread needs to know how to access the socket for each packet worker
 
-    global_thread_stall = (struct thread_stall *)malloc((num_threads + 1) * sizeof(struct thread_stall));
+    size_t stall_size = (num_threads + 1) * sizeof(struct thread_stall);
+    if (num_threads > SIZE_MAX - 1 || stall_size / (num_threads + 1) != sizeof(struct thread_stall)) {
+        fprintf(stderr, "error: integer overflow in thread stall allocation\n");
+        free(tstor);
+        return -1;
+    }
+    global_thread_stall = (struct thread_stall *)malloc(stall_size);
     if (!global_thread_stall) {
         perror("could not allocate memory for global thread stall structs\n");
+        free(tstor);
+        return -1;
     }
     for (int i = 0; i <= num_threads; i++) {
         global_thread_stall[i].used = 0;
@@ -921,13 +947,15 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
     uint32_t thread_ring_blockcount = thread_ring_size / thread_ring_blocksize;
     if (thread_ring_blockcount < rl.af_min_blocks) {
         fprintf(stderr, "Error: only able to allocate %u blocks per thread (minimum %u)\n", thread_ring_blockcount, rl.af_min_blocks);
-        exit(255);
+        cleanup_resources(tstor, num_threads);
+        return status_err;
     }
 
     /* blocks must be a multiple of the framesize */
     if (thread_ring_blocksize % rl.af_framesize != 0) {
         fprintf(stderr, "Error: computed thread blocksize (%u) is not a multiple of the framesize (%u)\n", thread_ring_blocksize, rl.af_framesize);
-        exit(255);
+        cleanup_resources(tstor, num_threads);
+        return status_err;
     }
 
     if ((uint64_t)num_threads * (uint64_t)thread_ring_blockcount * (uint64_t)thread_ring_blocksize < rl.af_desired_memory) {
@@ -963,14 +991,16 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
         err = pthread_attr_init(&(tstor[thread].thread_attributes));
         if (err) {
             fprintf(stderr, "%s: error initializing attributes for thread %d\n", strerror(err), thread);
-            exit(255);
+            cleanup_resources(tstor, num_threads);
+            return status_err;
         }
 
         pthread_mutexattr_t m_attr;
         err = pthread_mutexattr_init(&m_attr);
         if (err) {
             fprintf(stderr, "%s: error initializing block streak mutex attributes for thread %d\n", strerror(err), thread);
-            exit(255);
+            cleanup_resources(tstor, num_threads);
+            return status_err;
         }
 
         memcpy(&(tstor[thread].ring_params), &thread_ring_req, sizeof(thread_ring_req));
@@ -979,7 +1009,8 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
 
         if (err != 0) {
             fprintf(stderr, "error creating dedicated socket for thread %d\n", thread);
-            exit(255);
+            cleanup_resources(tstor, num_threads);
+            return status_err;
         }
     }
 
@@ -1009,7 +1040,8 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
     err = pthread_create(&(statst.tid), NULL, stats_thread_func, &statst);
     if (err != 0) {
         perror("error creating stats thread");
-        exit(255);
+        cleanup_resources(tstor, num_threads);
+        return status_err;
     }
 
     for (int thread = 0; thread < num_threads; thread++) {
@@ -1017,13 +1049,15 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
         err = pthread_attr_init(&thread_attributes);
         if (err) {
             fprintf(stderr, "%s: error initializing attributes for thread %d\n", strerror(err), thread);
-            exit(255);
+            cleanup_resources(tstor, num_threads);
+            return status_err;
         }
 
         err = pthread_create(&(tstor[thread].tid), &thread_attributes, packet_capture_thread_func, &(tstor[thread]));
         if (err) {
             fprintf(stderr, "%s: error creating af_packet capture thread %d\n", strerror(err), thread);
-            exit(255);
+            cleanup_resources(tstor, num_threads);
+            return status_err;
         }
     }
 
@@ -1032,7 +1066,8 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
     err = pthread_cond_broadcast(&(out_ctx->t_output_c)); /* Wake up output */
     if (err != 0) {
         printf("%s: error broadcasting all clear on output start condition\n", strerror(err));
-        exit(255);
+        cleanup_resources(tstor, num_threads);
+        return status_err;
     }
 
     /* At this point all threads are started but they're waiting on
@@ -1042,7 +1077,8 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
     err = pthread_cond_broadcast(&t_start_c); // Wake up all the waiting threads
     if (err != 0) {
         printf("%s: error broadcasting all clear on clean start condition\n", strerror(err));
-        exit(255);
+        cleanup_resources(tstor, num_threads);
+        return status_err;
     }
 
     /* Wait for the stats thread to close (which only happens on a sigint/sigterm) */

@@ -525,7 +525,8 @@ struct daemon_output : public output {
             perror("opening datagram socket");
         }
         name.sun_family = AF_UNIX;
-        strcpy(name.sun_path, socket_name);
+        strncpy(name.sun_path, socket_name, sizeof(name.sun_path) - 1);
+        name.sun_path[sizeof(name.sun_path) - 1] = '\0';
 
     }
     void write_buffer(struct buffer_stream &buf) {

@@ -75,12 +75,12 @@ namespace pcap {
 
                 if (*this == magic_nsec || alt == magic_nsec) {
                     char errmsg_buf[34] = "unsupported file magic: ";
-                    sprintf(errmsg_buf + 25, "%08x", this->value());
+                    snprintf(errmsg_buf + 25, 9, "%08x", this->value());
                     throw std::runtime_error(errmsg_buf);
                 }
 
                 char errmsg_buf[34] = "unrecognized file magic: ";
-                sprintf(errmsg_buf + 25, "%08x", this->value());
+                snprintf(errmsg_buf + 25, 9, "%08x", this->value());
                 throw std::runtime_error(errmsg_buf);
             }
         }

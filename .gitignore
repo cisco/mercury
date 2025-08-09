@@ -20,3 +20,25 @@ unit_tests/pcaps/*.pcap
 *.tgz
 src/libmerc/asn1/oid.cc
 src/libmerc/asn1/oid.h
+
+# Build artifacts
+src/cert_analyze
+src/intercept_server
+src/libmerc/.depend
+src/libmerc/__.SYMDEF*
+src/libmerc/lctrie/.d/
+src/libmerc/lctrie/liblctrie.a
+src/libmerc_test
+src/libmerc_util
+src/unit_test
+src/libmerc/*.o
+src/libmerc/asn1/*.o
+src/libmerc/libmerc.a
+src/libmerc/libmerc.so
+unit_tests/Makefile
+unit_tests/*.o
+unit_tests/mercury_test
+
+# macOS specific
+.DS_Store
+*.dSYM/

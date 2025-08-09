@@ -289,6 +289,8 @@ class dnp3_app {
 
 public:
     dnp3_app(datum seg_data):
+    is_resp{false},
+    outstation_resp{false},
     data{seg_data},
     app_hdr{data},
     valid{data.is_not_empty()}

@@ -9,6 +9,9 @@
  */
 
 #include <stdlib.h>
+#include <time.h>
+#include <pthread.h>
+#include <stdint.h>
 
 int rnd_pkt_drop_percent_accept = 0; /* default */
 
@@ -35,7 +38,11 @@ int increment_percent_accept(int incr) {
 
 int select_random(int percent) {
     /* get random number in the range of 1 to 101 */
-    int random_num = rand() % 101 + 1;
+    static __thread unsigned int seed = 0;
+    if (seed == 0) {
+        seed = (unsigned int)time(NULL) ^ (unsigned int)(uintptr_t)pthread_self();
+    }
+    int random_num = rand_r(&seed) % 101 + 1;
 
     /**
      * from the random_num, determine if we want to select this packet

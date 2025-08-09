@@ -63,6 +63,7 @@ __attribute__((noreturn)) void sig_backtrace (int signal_arg) {
     }
 
     /* Find an execution context to restore */
+#ifdef __linux__
     pthread_t tid = pthread_self();
     int tnum = 0;
 
@@ -80,6 +81,7 @@ __attribute__((noreturn)) void sig_backtrace (int signal_arg) {
 
         tnum++;
     }
+#endif
 
     /* We are never supposed to get to the end of this signal handler since
      * we longjmp out

@@ -258,13 +258,15 @@ void subnet_data::process_final() {
     if (tmp != NULL) {
         prefix = tmp;
     } else {
-        return;  // TODO: leak check
+        free(prefix);
+        return;  // cleaned up
     }
 
     // allocate a buffer for the IP stats
     lct_ip_stats_t *stats = (lct_ip_stats_t *) calloc(num, sizeof(lct_ip_stats_t));
     if (!stats) {
-        return;  // TODO: leak check
+        free(prefix);
+        return;  // cleaned up
     }
 
     // count which subnets are prefixes of other subnets

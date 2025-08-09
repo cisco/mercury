@@ -306,7 +306,12 @@ int main(int argc, char *argv[]) {
     if (!compare(pemdata2, out)) { fprintf(stderr, "error: mismatch between input and output\n"); }
     std::string outfile_name{"outfile"};
     outfile_name += argv[1];
-    write_pem(fopen(outfile_name.c_str(), "w"), out.data, out.length());
+    FILE *fp = fopen(outfile_name.c_str(), "w");
+    if (fp != NULL) {
+        write_pem(fp, out.data, out.length());
+    } else {
+        fprintf(stderr, "error: could not open file %s for writing\n", outfile_name.c_str());
+    }
 
     return 0;  // EARLY RETURN
 
@@ -367,7 +372,12 @@ int main(int argc, char *argv[]) {
     fprintf(stdout, "result length: %lu\n", result2.length());
     fprintf(stdout, "result: "); result2.fprint_hex(stdout); fputc('\n', stdout);
 
-    write_pem(fopen("pkcs8.pem", "w+"), result2.data, result2.length());
+    FILE *fp2 = fopen("pkcs8.pem", "w+");
+    if (fp2 != NULL) {
+        write_pem(fp2, result2.data, result2.length());
+    } else {
+        fprintf(stderr, "error: could not open file pkcs8.pem for writing\n");
+    }
 
     output_buffer<4096> buf;
     json_object o{&buf};

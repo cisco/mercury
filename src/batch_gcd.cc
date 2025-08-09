@@ -794,7 +794,12 @@ public:
             ++linenum;
             if (*next_line_to_write == linenum) {
                 std::string filename = base_filename + "-line-" + std::to_string(linenum) + ".cert.pem";
-                write_pem(fopen(filename.c_str(), "w+"), pemdata.data, pemdata.length(), "CERTIFICATE");
+                FILE *fp = fopen(filename.c_str(), "w+");
+                if (fp != NULL) {
+                    write_pem(fp, pemdata.data, pemdata.length(), "CERTIFICATE");
+                } else {
+                    fprintf(stderr, "error: could not open file %s for writing\n", filename.c_str());
+                }
                 ++next_line_to_write;
             }
         }

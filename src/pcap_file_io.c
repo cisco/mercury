@@ -132,6 +132,8 @@ enum status pcap_file_open(struct pcap_file *f,
         f->fd = fileno(f->file_ptr); // save file descriptor
         if (f->fd < 0) {
             printf("%s: error getting file descriptor for pcap file %s\n", strerror(errno), fname);
+            fclose(f->file_ptr);
+            f->file_ptr = NULL;
             return status_err; /* system call failed */
         }
 
@@ -188,6 +190,8 @@ enum status pcap_file_open(struct pcap_file *f,
         f->fd = fileno(f->file_ptr);  // save file descriptor
         if (f->fd < 0) {
             printf("%s: error getting file descriptor for read file %s\n", strerror(errno), fname);
+            fclose(f->file_ptr);
+            f->file_ptr = NULL;
             return status_err; /* system call failed */
         }
 

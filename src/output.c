@@ -16,9 +16,16 @@
 #define gettid() syscall(SYS_gettid)
 #endif
 
+/* macOS doesn't have gettid(), use pthread_self() instead */
+#ifdef __APPLE__
+#include <pthread.h>
+#define gettid() ((pid_t)(uintptr_t)pthread_self())
+#endif
+
 #include <stdlib.h>
 #include <sys/time.h>
 #include <string.h>
+#include <inttypes.h>
 #include "output.h"
 #include "pcap_file_io.h"  // for write_pcap_file_header()
 #include "libmerc/utils.h"
@@ -41,7 +48,7 @@ void thread_queues_init(struct thread_queues *tqs, int n, float frac) {
     }
 
     if (qlen < 8 * LLQ_MAX_MSG_SIZE) {
-        fprintf(stderr, "Only able to allocate output queue lengths of %lu (minimum %d)\n", qlen, 8 * LLQ_MAX_MSG_SIZE);
+        fprintf(stderr, "Only able to allocate output queue lengths of %" PRIu64 " (minimum %d)\n", qlen, 8 * LLQ_MAX_MSG_SIZE);
         exit(255);
     }
 
@@ -129,8 +136,10 @@ enum status open_outfile(struct output_file *ojf, bool is_pri) {
 
     char time_str[128];
     struct timeval now;
+    struct tm timeinfo;
     gettimeofday(&now, NULL);
-    strftime(time_str, sizeof(time_str) - 1, "%Y%m%d%H%M%S", localtime(&now.tv_sec));
+    localtime_r(&now.tv_sec, &timeinfo);
+    strftime(time_str, sizeof(time_str) - 1, "%Y%m%d%H%M%S", &timeinfo);
     status = filename_append(outfile, outfile, "-", time_str);
     if (status) {
         ojf->file_error = true;
@@ -328,7 +337,7 @@ void *output_thread_func(void *arg) {
     out_ctx->kpid = gettid();
 
     if (out_ctx->from_network == 1) {
-        fprintf(stderr, "[OUTPUT] Thread with pthread id %lu (PID %u) started...\n", out_ctx->tid, out_ctx->kpid);
+        fprintf(stderr, "[OUTPUT] Thread with pthread id %p (PID %u) started...\n", (void*)out_ctx->tid, out_ctx->kpid);
     }
 
     int err;
@@ -433,7 +442,7 @@ void *output_thread_func(void *arg) {
 
             if (drops > 0) {
                 total_drops += drops;
-                fprintf(stderr, "[OUTPUT] Output queue %d reported %lu drops\n", q, drops);
+                fprintf(stderr, "[OUTPUT] Output queue %d reported %" PRIu64 " drops\n", q, drops);
 
                 /* Subtract all the drops we just counted */
                 __sync_sub_and_fetch(&(out_ctx->qs.queue[q].drops), drops);
@@ -442,7 +451,7 @@ void *output_thread_func(void *arg) {
 
             if (drops_trunc > 0) {
                 total_drops_trunc += drops_trunc;
-                fprintf(stderr, "[OUTPUT] Output queue %d reported %lu truncations\n", q, drops_trunc);
+                fprintf(stderr, "[OUTPUT] Output queue %d reported %" PRIu64 " truncations\n", q, drops_trunc);
 
                 /* Subtract all the drops we just counted */
                 __sync_sub_and_fetch(&(out_ctx->qs.queue[q].drops_trunc), drops_trunc);
@@ -475,7 +484,7 @@ void *output_thread_func(void *arg) {
     }
 
     if (out_ctx->from_network == 1) {
-        fprintf(stderr, "[OUTPUT] Thread with pthread id %lu (PID %u) exiting...\n", out_ctx->tid, out_ctx->kpid);
+        fprintf(stderr, "[OUTPUT] Thread with pthread id %p (PID %u) exiting...\n", (void*)out_ctx->tid, out_ctx->kpid);
     }
 
     return NULL;
