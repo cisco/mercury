@@ -43,8 +43,10 @@ enum status json_file_rotate(struct json_file *jf) {
 
         char time_str[128];
         struct timeval now;
+        struct tm timeinfo;
         gettimeofday(&now, NULL);
-        strftime(time_str, sizeof(time_str) - 1, "%Y%m%d%H%M%S", localtime(&now.tv_sec));
+        localtime_r(&now.tv_sec, &timeinfo);
+        strftime(time_str, sizeof(time_str) - 1, "%Y%m%d%H%M%S", &timeinfo);
         status = filename_append(outfile, outfile, "-", time_str);
         if (status) {
             return status;

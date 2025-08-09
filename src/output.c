@@ -136,8 +136,10 @@ enum status open_outfile(struct output_file *ojf, bool is_pri) {
 
     char time_str[128];
     struct timeval now;
+    struct tm timeinfo;
     gettimeofday(&now, NULL);
-    strftime(time_str, sizeof(time_str) - 1, "%Y%m%d%H%M%S", localtime(&now.tv_sec));
+    localtime_r(&now.tv_sec, &timeinfo);
+    strftime(time_str, sizeof(time_str) - 1, "%Y%m%d%H%M%S", &timeinfo);
     status = filename_append(outfile, outfile, "-", time_str);
     if (status) {
         ojf->file_error = true;
