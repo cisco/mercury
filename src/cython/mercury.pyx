@@ -33,7 +33,7 @@ from cython.operator import dereference
 #   CC=g++ CXX=g++ python setup.py install
 
 # TODO: actually handle version
-__version__ = '2.7.1'
+__version__ = '2.8.0'
 
 # imports from mercury's dns
 cdef extern from "../libmerc/dns.h":
