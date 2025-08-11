@@ -111,5 +111,17 @@ class ppp {
 
 };
 
+namespace {
+
+    [[maybe_unused]] inline int ppp_fuzz_test(const uint8_t *data, size_t size) {
+        struct datum pkt_data{data, data+size};
+        ppp ppp_frame{pkt_data};
+        if (pkt_data.is_not_null()) {
+            ppp::is_ip(pkt_data);
+        }
+        return 0;
+    }
+
+};
 
 #endif  /* PPP_H */

@@ -78,7 +78,7 @@ namespace cbor {
         // construct an initial_byte for writing
         //
         initial_byte(uint8_t type, uint8_t info) :
-            value__{type << 5 | info}
+            value__{(uint8_t)(type << 5 | info)}
         {
             // printf("major_type: %u\n", major_type());
             // printf("additional_info: %u\n", additional_info());
@@ -222,16 +222,16 @@ namespace cbor {
             ib.write(buf);
             switch (ib.additional_info()) {
             case 24:
-                encoded<uint8_t>{value__}.write(buf, true);
+                encoded<uint8_t>{(uint8_t)value__}.write(buf, true);
                 break;
             case 25:
-                encoded<uint16_t>{value__}.write(buf, true);
+                encoded<uint16_t>{(uint16_t)value__}.write(buf, true);
                 break;
             case 26:
-                encoded<uint32_t>{value__}.write(buf, true);
+                encoded<uint32_t>{(uint32_t)value__}.write(buf, true);
                 break;
             case 27:
-                encoded<uint64_t>{value__}.write(buf, true);
+                encoded<uint64_t>{(uint64_t)value__}.write(buf, true);
                 break;
             default:
                 ;
@@ -313,7 +313,7 @@ namespace cbor {
         ///
         static byte_string decode(datum &d) {
             uint64 len{d, byte_string_type};
-            datum val{d, len.value()};
+            datum val{d, (ssize_t)len.value()};
             return byte_string{len, val};
         }
 
@@ -321,7 +321,7 @@ namespace cbor {
         /// bytes in the \ref datum \param d
         ///
         static byte_string construct(const datum &d) {
-            uint64 len{d.length(), byte_string_type};
+            uint64 len{(uint64_t)d.length(), byte_string_type};
             datum val{d};
             return byte_string{len, val};
         }
@@ -348,6 +348,12 @@ namespace cbor {
             buf << value__;
         }
 
+        /// writes an empty `byte_string` into \param buf
+        ///
+        static void write_empty(writeable &buf) {
+            uint64{0, byte_string_type}.write(buf);
+        }
+
         /// `cbor::byte_string::unit_test()` performs unit tests on
         /// the class \ref cbor::byte_string and returns `true` if
         /// they all pass, and `false` otherwise.  If \param f ==
@@ -365,7 +371,7 @@ namespace cbor {
     public:
 
         byte_string_from_hex(const hex_digits &hex_string) :
-            length{hex_string.length() / 2, byte_string_type},
+            length{((uint64_t)hex_string.length()) / 2, byte_string_type},
             hex_value{hex_string}
         { }
 
@@ -422,7 +428,7 @@ namespace cbor {
         ///
         static text_string decode(datum &d) {
             uint64 len{d, text_string_type};
-            datum val{d, len.value()};
+            datum val{d, (ssize_t)len.value()};
             return text_string{len, val};
         }
 
@@ -430,7 +436,7 @@ namespace cbor {
         /// bytes in the \ref datum \param d
         ///
         static text_string construct(const datum &d) {
-            uint64 len{d.length(), text_string_type};
+            uint64 len{(uint64_t)d.length(), text_string_type};
             datum val{d};
             return text_string{len, val};
         }
@@ -450,7 +456,7 @@ namespace cbor {
         // construct a text_string for writing
         //
         text_string(const char *null_terminated_string) :
-            length{datum_from_str(null_terminated_string).length(), text_string_type},
+            length{(uint64_t)(datum_from_str(null_terminated_string).length()), text_string_type},
             value__{datum_from_str(null_terminated_string)}
         { }
 
@@ -605,7 +611,7 @@ namespace cbor {
     template <size_t N>
     class compact_map : public map {
     public:
-        compact_map(const std::array<const char *, N> &a, datum &d) : map{d} { }
+        compact_map(const std::array<const char *, N> &a [[maybe_unused]], datum &d) : map{d} { }
     };
 
     static inline bool decode_data(datum &d, FILE *f, int r=0) {
@@ -622,7 +628,7 @@ namespace cbor {
                     {
                         uint64 tmp{d};
                         if (d.is_null()) { return false; }
-                        fprintf(f, "%.*sunsigned integer: %zu\n", r, tabs, tmp.value());
+                        fprintf(f, "%.*sunsigned integer: %" PRIu64 "\n", r, tabs, tmp.value());
                     }
                     break;
                 case byte_string_type:
@@ -670,7 +676,7 @@ namespace cbor {
                     {
                         tag tmp{d};
                         if (d.is_null()) { return false; }
-                        fprintf(f, "%.*stag: %zu\n", r, tabs, tmp.value());
+                        fprintf(f, "%.*stag: %" PRIu64 "\n", r, tabs, tmp.value());
                     }
                     break;
                 case simple_or_float_type:
@@ -1010,7 +1016,7 @@ namespace cbor {
 
     // static unit test function for cbor::uint64
     //
-    bool cbor::uint64::unit_test(FILE *f) {
+    inline bool cbor::uint64::unit_test(FILE *f) {
 
         // valid input and output pairs
         //
@@ -1046,7 +1052,7 @@ namespace cbor {
             if (f) {
                 fprintf(f, "encoded: ");
                 for (const auto & ee : tc.first) { fprintf(f, "%02x", ee);  }
-                fprintf(f, "\tdecoded: %zu\tre-encoded: ", u.value());
+                fprintf(f, "\tdecoded: %" PRIu64 "\tre-encoded: ", u.value());
                 for (const auto & ee : dbuf.contents()) { fprintf(f, "%02x", ee);  }
                 fprintf(f, "\t%s\n", passed ? "passed" : "failed");
             }
@@ -1079,7 +1085,7 @@ namespace cbor {
 
     // static unit test function for cbor::byte_string
     //
-    bool cbor::byte_string::unit_test(FILE *f) {
+    inline bool cbor::byte_string::unit_test(FILE *f) {
 
         // valid input and output pairs
         //
@@ -1138,7 +1144,7 @@ namespace cbor {
 
     // static unit test function for cbor::text_string
     //
-    bool cbor::text_string::unit_test(FILE *f) {
+    inline bool cbor::text_string::unit_test(FILE *f) {
 
         // valid input and output pairs
         //

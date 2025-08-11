@@ -639,6 +639,7 @@ ac_includes_default="\
 ac_header_c_list=
 ac_func_c_list=
 ac_subst_vars='LTLIBOBJS
+LCOV
 LLVM
 CLANGPP
 HAVE_AFL
@@ -656,6 +657,7 @@ USE_FSANITIZE
 USE_NO_GNU_UNIQUE
 IS_MACOS_ARM
 IS_MACOS
+PLATFORM
 host_os
 host_vendor
 host_cpu
@@ -4659,6 +4661,27 @@ IFS=$ac_save_IFS
 case $host_os in *\ *) host_os=`echo "$host_os" | sed 's/ /-/g'`;; esac
 
 
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for platform architecture" >&5
+printf %s "checking for platform architecture... " >&6; }
+case "$host_cpu" in
+    i?86 | x86_64)
+        PLATFORM="intel"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: Intel-compatible ($host_cpu)" >&5
+printf "%s\n" "Intel-compatible ($host_cpu)" >&6; }
+        ;;
+    arm* | aarch64)
+        PLATFORM="arm"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: ARM-compatible ($host_cpu)" >&5
+printf "%s\n" "ARM-compatible ($host_cpu)" >&6; }
+        ;;
+    *)
+        PLATFORM="unknown"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: Unknown architecture: $host_cpu" >&5
+printf "%s\n" "$as_me: WARNING: Unknown architecture: $host_cpu" >&2;}
+        ;;
+esac
+
+
 # Update lib and include paths for Apple Silicon
 case $host_os in
     darwin* )
@@ -5869,6 +5892,49 @@ printf "%s\n" "no" >&6; }
 fi
 
 
+# Extract the first word of "lcov", so it can be a program name with args.
+set dummy lcov; ac_word=$2
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+printf %s "checking for $ac_word... " >&6; }
+if test ${ac_cv_prog_LCOV+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) if test -n "$LCOV"; then
+  ac_cv_prog_LCOV="$LCOV" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  case $as_dir in #(((
+    '') as_dir=./ ;;
+    */) ;;
+    *) as_dir=$as_dir/ ;;
+  esac
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
+    ac_cv_prog_LCOV="yes"
+    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+fi ;;
+esac
+fi
+LCOV=$ac_cv_prog_LCOV
+if test -n "$LCOV"; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $LCOV" >&5
+printf "%s\n" "$LCOV" >&6; }
+else
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+fi
+
+
 if test "x$TCPREPLAY" = xyes
 then :
 
@@ -5923,6 +5989,14 @@ then :
 else case e in #(
   e) { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: llvm not found; make fuzz-test may not work" >&5
 printf "%s\n" "$as_me: WARNING: llvm not found; make fuzz-test may not work" >&2;} ;;
+esac
+fi
+if test "x$LCOV" = xyes
+then :
+
+else case e in #(
+  e) { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: lcov not found; make test-coverage and test-coverage-fuzz will not work" >&5
+printf "%s\n" "$as_me: WARNING: lcov not found; make test-coverage and test-coverage-fuzz will not work" >&2;} ;;
 esac
 fi
 ac_config_files="$ac_config_files src/libmerc/Makefile src/cython/Makefile src/Makefile test/Makefile unit_tests/Makefile Makefile_helper.mk install_mercury/mercury.service"

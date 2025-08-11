@@ -9,6 +9,7 @@
 #define RESULT_H
 
 #include <stdbool.h>
+#include <algorithm>
 #include "libmerc.h"
 #include "json_object.h"
 #include "addr.h"
@@ -80,7 +81,7 @@ public:
             return;
         }
 
-        struct buffer_stream buf{(char *)buffer, buffer_size};
+        struct buffer_stream buf{(char *)buffer, (int)buffer_size};
         struct json_object record{&buf};
         write_json(record);
         record.close();
@@ -98,6 +99,12 @@ public:
     }
 
     const struct attribute_context *get_attributes() {
+        for (ssize_t i = 0; (i < MAX_TAGS) && ((size_t)i < tag_names->size()); i++) {
+            // if the attribute bit is not set, the probability score is 0
+            if(!tags[i]) {
+                prob_score[i] = 0;
+            }
+        }
         attr_ctx.tag_names = tag_names_char;
         attr_ctx.prob_scores = prob_score.data();
         attr_ctx.attributes_len = tag_names->size();
@@ -281,6 +288,30 @@ public:
     }
 };
 
+struct detailed_analysis_result : public analysis_result {
+
+    std::vector<std::string> process_names;
+    std::vector<double> normalized_process_scores;
+
+    detailed_analysis_result(): analysis_result() {}
+
+    detailed_analysis_result(fingerprint_status s): analysis_result(s) {}
+
+    detailed_analysis_result(fingerprint_status s, long double mal_prob,
+                             std::vector<std::string>& _process_names,
+                             std::vector<double>& _normalized_process_scores): analysis_result(s) {
+        malware_prob = mal_prob;
+        process_names = _process_names;
+        normalized_process_scores = _normalized_process_scores;
+    }
+
+    void reinit() {
+        analysis_result::reinit();
+        process_names.clear();
+        normalized_process_scores.clear();
+    }
+};
+
 
 // helper functions and constants
 
@@ -325,6 +356,14 @@ struct destination_context {
         alpn_length = alpn.length();
     }
 
+    void reset() {
+        dst_ip_str[0] = '\0';
+        sn_str[0] = '\0';
+        ua_str[0] = '\0';
+        alpn_array[0] = 0;
+        alpn_length = 0;
+        dst_port = 0;
+    }
 
 };
 

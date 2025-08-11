@@ -82,4 +82,12 @@ namespace rfb {
 
 };
 
+namespace {
+
+    [[maybe_unused]] inline int rfb_protocol_version_handshake_fuzz_test(const uint8_t *data, size_t size) {
+        return json_output_fuzzer<rfb::protocol_version_handshake>(data, size);
+    }
+
+};
+
 #endif // RFB_HPP

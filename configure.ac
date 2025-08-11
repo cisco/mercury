@@ -6,6 +6,23 @@ AC_USE_SYSTEM_EXTENSIONS
 #AC_PROG_CC
 AC_PROG_CXX
 AC_CANONICAL_HOST
+AC_MSG_CHECKING([for platform architecture])
+case "$host_cpu" in
+    i?86 | x86_64)
+        PLATFORM="intel"
+        AC_MSG_RESULT([Intel-compatible ($host_cpu)])
+        ;;
+    arm* | aarch64)
+        PLATFORM="arm"
+        AC_MSG_RESULT([ARM-compatible ($host_cpu)])
+        ;;
+    *)
+        PLATFORM="unknown"
+        AC_MSG_WARN([Unknown architecture: $host_cpu])
+        ;;
+esac
+AC_SUBST([PLATFORM])
+
 # Update lib and include paths for Apple Silicon
 case $host_os in
     darwin* )
@@ -32,6 +49,7 @@ AC_CHECK_FUNCS([munmap])
 AC_CHECK_FUNCS([socket]) 
 AC_CHECK_FUNCS([strerror]) 
 AC_CHECK_FUNCS([strtol]) 
+AC_CHECK_FUNCS([gettid], [AC_DEFINE([HAVE_GETTID], [1], [Define if gettid exists.])])
 AC_CHECK_HEADERS([arpa/inet.h])
 AC_CHECK_HEADERS([fcntl.h])
 AC_CHECK_HEADERS([stddef.h])
@@ -81,6 +99,7 @@ AC_CHECK_PROG(VALGRIND,valgrind,yes)
 AC_CHECK_PROG(HAVE_AFL,afl-g++,yes)
 AC_CHECK_PROG(CLANGPP, clang++, yes)
 AC_CHECK_PROG(LLVM,llvm-link,yes)
+AC_CHECK_PROG(LCOV, lcov, yes)
 AS_IF([test "x$TCPREPLAY" = xyes],
     [],
     [AC_MSG_WARN([tcpreplay not found; test/Makefile dummy-capture test will not work])])
@@ -102,5 +121,8 @@ AS_IF([test "x$CLANGPP" = xyes],
 AS_IF([test "x$LLVM" = xyes],
     [],
     [AC_MSG_WARN([llvm not found; make fuzz-test may not work])])
+AS_IF([test "x$LCOV" = xyes],
+    [],
+    [AC_MSG_WARN([lcov not found; make test-coverage and test-coverage-fuzz will not work])])
 AC_CONFIG_FILES(src/libmerc/Makefile src/cython/Makefile src/Makefile test/Makefile unit_tests/Makefile Makefile_helper.mk install_mercury/mercury.service)
 AC_OUTPUT

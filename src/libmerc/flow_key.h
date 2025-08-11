@@ -10,6 +10,7 @@
 
 #include "ip_address.hpp"
 #include "json_object.h"
+#include "libmerc.h" // flow_key_ext
 
 #define MAX_ADDR_STR_LEN 48
 #define MAX_PORT_STR_LEN 6
@@ -55,6 +56,35 @@ struct key {
         ip_vers = 0;       // null key can be distinguished by ip_vers field
         addr.ipv6.src = { 0, 0, 0, 0 };
         addr.ipv6.dst = { 0, 0, 0, 0 };
+    }
+    key(struct flow_key_ext k) {
+        src_port = k.src_port;
+        dst_port = k.dst_port;
+        protocol = k.protocol;
+        ip_vers = k.ip_vers;
+        if (ip_vers == 4) {
+            addr.ipv4.src = k.addr.ipv4.src;
+            addr.ipv4.dst = k.addr.ipv4.dst;
+        } 
+        else if (ip_vers == 6) { // ip_vers == 6
+            addr.ipv6.src.a[0] = k.addr.ipv6.src.a;
+            addr.ipv6.src.a[1] = k.addr.ipv6.src.b;
+            addr.ipv6.src.a[2] = k.addr.ipv6.src.c;
+            addr.ipv6.src.a[3] = k.addr.ipv6.src.d;
+    
+            addr.ipv6.dst.a[0] = k.addr.ipv6.dst.a;
+            addr.ipv6.dst.a[1] = k.addr.ipv6.dst.b;
+            addr.ipv6.dst.a[2] = k.addr.ipv6.dst.c;
+            addr.ipv6.dst.a[3] = k.addr.ipv6.dst.d;
+        }
+        else {
+            src_port = 0;
+            dst_port = 0;
+            protocol = 0;
+            ip_vers = 0;       // null key can be distinguished by ip_vers field
+            addr.ipv6.src = { 0, 0, 0, 0 };
+            addr.ipv6.dst = { 0, 0, 0, 0 };
+        }
     }
     void zeroize() {
         ip_vers = 0;
@@ -110,15 +140,12 @@ struct key {
         return addr.ipv6.dst.is_global();
     }
 
-    // write out the (optionally normalized) destination address
+    // write out the destination address
     //
-    void sprintf_dst_addr(char *dst_addr_str, bool norm=true) const {
+    void sprintf_dst_addr(char *dst_addr_str) const {
 
         if (ip_vers == 4) {
             ipv4_address tmp_addr{addr.ipv4.dst};
-            if (norm) {
-                normalize(tmp_addr);
-            }
             uint8_t *d = (uint8_t *)&tmp_addr;
             snprintf(dst_addr_str,
                      MAX_ADDR_STR_LEN,
@@ -127,9 +154,6 @@ struct key {
 
         } else if (ip_vers == 6) {
             ipv6_address tmp_addr{addr.ipv6.dst};
-            if (norm) {
-                normalize(tmp_addr);
-            }
             uint8_t *d = (uint8_t *)&tmp_addr;
             sprintf_ipv6_addr(dst_addr_str, d);
         } else {

@@ -5,7 +5,6 @@
  * License at https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
-#include <pthread.h>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -23,9 +22,6 @@
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
 
-#ifndef DEFAULT_RESOURCE_FILE
-#define DEFAULT_RESOURCE_FILE "/usr/local/share/mercury/resources.tgz"
-#endif
 
 classifier *analysis_init_from_archive(int, //verbosity
                                        const char *archive_name,
@@ -41,7 +37,7 @@ classifier *analysis_init_from_archive(int, //verbosity
     }
 
     if (archive_name == nullptr) {
-        archive_name = DEFAULT_RESOURCE_FILE;
+        return nullptr;
     }
 
     encrypted_compressed_archive archive{archive_name, enc_key}; // TODO: key type

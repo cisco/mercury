@@ -299,7 +299,7 @@ int main(int argc, char *argv[]) {
     if (resources_is_set) {
         resources_path = (char *)resources_file.c_str();
     }
-    size_t i=0;
+    [[maybe_unused]] size_t i=0;
     try {
 
         // load libmerc.so from location provided through --libmerc option

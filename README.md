@@ -38,6 +38,21 @@ make
 ```
 to build the package (and check for the programs and python modules required to test it).  TPACKETv3 is present in Linux kernels newer than 3.2.
 
+Building mercury on macOS Apple Silicon is currently experimental.  Note that on
+macOS, standalone mercury can read pcap as input but not capture on an
+interface, since AF_PACKET is Linux-specific.  The following has been tested
+on an M2 mac with Python 3.13.2 installed via the Homebrew command below.
+```
+brew install python openssl zlib
+mkdir -p ~/.envs
+python3 -m venv ~/.envs/merc
+source ~/.envs/merc/bin/activate
+python3 -m pip install --upgrade pip
+python3 -m pip install --upgrade jsonschema cryptography Cython wheel setuptools
+./configure && make
+cd src/cython && make && make wheel
+```
+
 ### Installation
 In the root directory, edit mercury.cfg with the network interface you want to capture from, then run
 ```
@@ -77,7 +92,7 @@ which will remove the mercury program, resources directory, user, group, and sys
 ### Compile-time options
 To create a debugging version of mercury, use the **make debug-mercury** target in the src/ subdirectory.  Be sure to run **make clean** first.
 
-There are compile-time options that can tune mercury for your hardware.  Each of these options is set via a C/C++ preprocessor directive, which should be passed as an argument to "make" through the OPTFLAGS variable.   Frst run **make clean** to remove the previous build, then run **make "OPTFLAGS=<DIRECTIVE>"**.   This runs make, telling it to pass <DIRECTIVE> to the C/C++ compiler.  The available compile time options are:
+There are compile-time options that can tune mercury for your hardware.  Each of these options is set via a C/C++ preprocessor directive, which should be passed as an argument to "make" through the OPTFLAGS variable.   First run **make clean** to remove the previous build, then run **make "OPTFLAGS=<DIRECTIVE>"**.   This runs make, telling it to pass <DIRECTIVE> to the C/C++ compiler.  The available compile time options are:
 
    * -DDEBUG, which turns on debugging, and
    * -FBUFSIZE=16384, which sets the fwrite/fread buffer to 16,384 bytes (for instance).
@@ -212,7 +227,7 @@ DETAILS
    --reassembly enables reassembly
    This option allows mercury to keep track of tcp or udp segment state and
    and reassemble these segments based on the application in payload
- 
+
    "[-u or --user] u" sets the UID and GID to those of user u, so that
    output file(s) are owned by this user.  If this option is not set, then
    the UID is set to SUDO_UID, so that privileges are dropped to those of
@@ -310,9 +325,9 @@ are grateful to the copyright holders for making their excellent
 software available under licensing terms that allow its
 redistribution.
    * RapidJSON
-      [https://github.com/cisco/mercury/src/rapidjson/license.txt](src/rapidjson/license.txt);
+      [https://github.com/cisco/mercury/blob/main/src/libmerc/rapidjson/license.txt](src/libmerc/rapidjson/license.txt);
       this package is Copyright 2015 THL A29 Limited, a Tencent company,
       and Milo Yip.
-   * lctrie [https://github.com/cisco/mercury/src/lctrie](src/lctrie);
+   * lctrie [https://github.com/cisco/mercury/tree/main/src/libmerc/lctrie](src/libmerc/lctrie);
       this package is copyright 2016-2017 Charles Stewart
       <chuckination_at_gmail_dot_com>

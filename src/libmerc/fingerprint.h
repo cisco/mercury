@@ -11,8 +11,10 @@
 #include "libmerc.h"  // for fingerprint_type
 
 class fingerprint {
+public:
+    static const size_t MAX_FP_STR_LEN = 8192;
+private:
     enum fingerprint_type type;
-    static const size_t MAX_FP_STR_LEN = 4096;
     char fp_str[MAX_FP_STR_LEN];
     struct buffer_stream fp_buf;
 
@@ -115,7 +117,6 @@ public:
                 if (stack.back() == '[') {
                     stack.pop_back();
                 } else {
-                    fprintf(stderr, "error: expected ']', got %c\n", stack.back());
                     return false; // error
                 }
                 break;

@@ -43,9 +43,6 @@ class subnet_data {
     // list of domains, for which domain-faking checking has to be done
     std::unordered_map<std::string, uint32_t> domains_watchlist;
 
-    // stores proxies and sinkhole subnets, to be exempted from domain-faking check
-    std::unordered_set<uint32_t> domain_faking_exceptions;
-
 public:
 
     subnet_data() {
@@ -80,6 +77,7 @@ public:
 
     int process_domain_mapping_subnets(const std::vector<std::string> &subnets);
     int lct_add_domain_mapping(uint32_t &addr, uint8_t &mask_length, std::string &domain, std::unordered_map<uint32_t, ssize_t> &subnet_map);
+    int lct_add_domain_exception(uint32_t &addr, uint8_t &mask_length);
 
     bool is_domain_faking(const char *server_name, const char *dst_ip) const;
 };

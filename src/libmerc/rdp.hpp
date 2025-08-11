@@ -54,7 +54,11 @@ public:
 
 namespace rdp {
 
+#ifdef _WIN32
+    static uint16_t default_port = hton<uint16_t>(3389);
+#else
     static constexpr uint16_t default_port = hton<uint16_t>(3389);
+#endif
 
     // A TPKT consists of two parts: a packet-header and a TPDU.  The
     // format of the header is constant regardless of the type of

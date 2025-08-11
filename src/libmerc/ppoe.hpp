@@ -31,4 +31,15 @@ public:
         session_id(d, 2),
         length(d, 2) { }
 };
+
+namespace {
+
+    [[maybe_unused]] inline int ppoe_fuzz_test(const uint8_t *data, size_t size) {
+        struct datum pkt_data{data, data+size};
+        ppoe ppoe_object{pkt_data};
+        return 0;
+    }
+
+};
+
 #endif

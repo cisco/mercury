@@ -29,6 +29,7 @@ int main(int argc, char *argv[]) {
             { argument::none,     "--encode-fingerprint", "encode fingerprint string as CBOR" },
             { argument::required, "--input-file",         "read data from file <filename>" },
             { argument::none,     "--verbose-tests",      "run unit tests in verbose mode" },
+            { argument::none,     "--verbose",            "provide verbose output" },
             { argument::none,     "--help",               "print out help message" },
         });
 
@@ -42,11 +43,14 @@ int main(int argc, char *argv[]) {
     bool decode_fdc     = opt.is_set("--decode-fdc");
     bool encode_fp      = opt.is_set("--encode-fingerprint");
     bool verbose_tests  = opt.is_set("--verbose-tests");
+    bool verbose        = opt.is_set("--verbose");
     bool help_needed    = opt.is_set("--help");
     if (help_needed) {
         opt.usage(stdout, argv[0], summary);
         return 0;
     }
+
+    FILE *verbose_output = verbose ? stderr : nullptr;
 
     if (verbose_tests) {
         bool sd_result = static_dictionary<0>::unit_test(stdout);
@@ -83,33 +87,18 @@ int main(int argc, char *argv[]) {
             }
         }
         if (decode_fdc) {
-            static const size_t MAX_FP_STR_LEN     = 4096;
-            char fp_str[MAX_FP_STR_LEN];
-            char dst_ip_str[MAX_DST_ADDR_LEN];
-            char sn_str[MAX_SNI_LEN];
-            char ua_str[MAX_USER_AGENT_LEN];
-            uint16_t dst_port;
 
-            bool ok = fdc::decode(input,
-                                  writeable{(uint8_t*)fp_str, MAX_FP_STR_LEN},
-                                  writeable{(uint8_t*)sn_str, MAX_SNI_LEN},
-                                  writeable{(uint8_t*)dst_ip_str, MAX_DST_ADDR_LEN},
-                                  dst_port,
-                                  writeable{(uint8_t*)ua_str, MAX_USER_AGENT_LEN});
-            if (ok) {
-                fprintf(stdout, "{\"fdc\":{");
-                fprintf(stdout, "\"fingerprint\": \"%s\",", fp_str);
-                fprintf(stdout, "\"sni\": \"%s\",", sn_str);
-                fprintf(stdout, "\"dst_ip_str\": \"%s\",", dst_ip_str);
-                fprintf(stdout, "\"dst_port\": %u,", dst_port);
-                fprintf(stdout, "\"user-agent\": \"%s\"", ua_str);
-                fprintf(stdout, "}}\n");
+            std::string json_string = get_json_decoded_fdc((const char *)input.data, input.length());
+            if (json_string != "") {
+                fprintf(stdout , "%s\n", json_string.c_str());
             } else {
                 fprintf(stderr, "error: could not decode FDC\n");
             }
         }
 
     } else if (encode_fp) {
+
+        size_t num_fails = 0;
 
         std::ios::sync_with_stdio(false);  // for performance
         std::string line;
@@ -120,9 +109,9 @@ int main(int argc, char *argv[]) {
 
             // verify that we can represent this fingerprint in CBOR
             //
-            if (!cbor_fingerprint::test_fingerprint(line.c_str())){
+            if (!cbor_fingerprint::test_fingerprint(line.c_str(), verbose_output)) {
                 fprintf(stderr, "error: could not encode/decode fingerprint %s\n", line.c_str());
-                return EXIT_FAILURE;
+                num_fails++;
             }
 
             // convert fingerprint to CBOR
@@ -138,6 +127,10 @@ int main(int argc, char *argv[]) {
             // print out human-readable CBOR
             //
             cbor::decode_fprint(data_buf.contents(), stdout);
+        }
+        if (num_fails) {
+            fprintf(stderr, "error: could not encode/decode %zu fingerprints\n", num_fails);
+            return EXIT_FAILURE;
         }
         return EXIT_SUCCESS;
 
