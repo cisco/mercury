@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          detch-depth: 1
+          fetch-depth: 1
 
       - name: Install packages
         run: sudo apt-get update && sudo apt-get install -y zlib1g-dev libssl-dev make
