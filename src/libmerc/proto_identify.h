@@ -121,45 +121,42 @@ class tcp_keyword_matcher {
 public:
     inline static std::unordered_map<std::string_view, std::vector<tcp_msg_type>> tcp_keyword_map = {
         //HTTP methods taken from https://www.iana.org/assignments/http-methods/http-methods.xhtm
-        {"ACL",              {tcp_msg_type_http_request}},
-        {"BASELINE",         {tcp_msg_type_http_request}},
+        {"ACL ",              {tcp_msg_type_http_request}},
+        {"BASE",         {tcp_msg_type_http_request}},
         {"BIND",             {tcp_msg_type_http_request}},
-        {"CHECKIN",          {tcp_msg_type_http_request}},
-        {"CHECKOUT",         {tcp_msg_type_http_request}},
-        {"CONNECT",          {tcp_msg_type_http_request}},
+        {"CHEC",          {tcp_msg_type_http_request}},
+        {"CONN",          {tcp_msg_type_http_request}},
         {"COPY",             {tcp_msg_type_http_request}},
-        {"DELETE",           {tcp_msg_type_http_request}},
-        {"GET",              {tcp_msg_type_http_request}},
+        {"DELE",           {tcp_msg_type_http_request}},
+        {"GET ",              {tcp_msg_type_http_request}},
         {"HEAD",             {tcp_msg_type_http_request}},
-        {"LABEL",            {tcp_msg_type_http_request}},
+        {"LABE",            {tcp_msg_type_http_request}},
         {"LINK",             {tcp_msg_type_http_request}},
         {"LOCK",             {tcp_msg_type_http_request}},
-        {"MERGE",            {tcp_msg_type_http_request}},
-        {"MKACTIVITY",       {tcp_msg_type_http_request}},
-        {"MKCALENDAR",       {tcp_msg_type_http_request}},
-        {"MKCOL",            {tcp_msg_type_http_request}},
-        {"MKREDIRECTREF",    {tcp_msg_type_http_request}},
-        {"MKWORKSPACE",      {tcp_msg_type_http_request}},
+        {"MERG",            {tcp_msg_type_http_request}},
+        {"MKAC",       {tcp_msg_type_http_request}},
+        {"MKCA",       {tcp_msg_type_http_request}},
+        {"MKCO",            {tcp_msg_type_http_request}},
+        {"MKRE",    {tcp_msg_type_http_request}},
+        {"MKWO",      {tcp_msg_type_http_request}},
         {"MOVE",             {tcp_msg_type_http_request}},
-        {"OPTIONS",          {tcp_msg_type_http_request}},
-        {"ORDERPATCH",       {tcp_msg_type_http_request}},
-        {"PATCH",            {tcp_msg_type_http_request}},
+        {"OPTI",          {tcp_msg_type_http_request}},
+        {"ORDE",       {tcp_msg_type_http_request}},
+        {"PATC",            {tcp_msg_type_http_request}},
         {"POST",             {tcp_msg_type_http_request}},
-        {"PRI",              {tcp_msg_type_http_request}},
-        {"PROPFIND",         {tcp_msg_type_http_request}},
-        {"PROPPATCH",        {tcp_msg_type_http_request}},
-        {"PUT",              {tcp_msg_type_http_request}},
-        {"REBIND",           {tcp_msg_type_http_request}},
-        {"REPORT",           {tcp_msg_type_http_request}},
-        {"SEARCH",           {tcp_msg_type_http_request}},
-        {"TRACE",            {tcp_msg_type_http_request}},
-        {"UNBIND",           {tcp_msg_type_http_request}},
-        {"UNCHECKOUT",       {tcp_msg_type_http_request}},
-        {"UNLINK",           {tcp_msg_type_http_request}},
-        {"UNLOCK",           {tcp_msg_type_http_request}},
-        {"UPDATE",           {tcp_msg_type_http_request}},
-        {"UPDATEREDIRECTREF",{tcp_msg_type_http_request}},
-        {"VERSION",          {tcp_msg_type_http_request}},
+        {"PRI ",              {tcp_msg_type_http_request}},
+        {"PROP",         {tcp_msg_type_http_request}},
+        {"PUT ",              {tcp_msg_type_http_request}},
+        {"REBI",           {tcp_msg_type_http_request}},
+        {"REPO",           {tcp_msg_type_http_request}},
+        {"SEAR",           {tcp_msg_type_http_request}},
+        {"TRAC",            {tcp_msg_type_http_request}},
+        {"UNBI",           {tcp_msg_type_http_request}},
+        {"UNCH",       {tcp_msg_type_http_request}},
+        {"UNLI",           {tcp_msg_type_http_request}},
+        {"UNLO",           {tcp_msg_type_http_request}},
+        {"UPDA",           {tcp_msg_type_http_request}},
+        {"VERS",          {tcp_msg_type_http_request}},
         //Extensions taken from https://www.iana.org/assignments/ftp-commands-extensions/ftp-commands-extensions.xhtml
         {"ABOR",             {tcp_msg_type_ftp_request}},
         {"ACCT",             {tcp_msg_type_ftp_request}},
@@ -168,12 +165,12 @@ public:
         {"ALLO",             {tcp_msg_type_ftp_request}},
         {"APPE",             {tcp_msg_type_ftp_request}},
         {"AUTH",             {tcp_msg_type_ftp_request, tcp_msg_type_smtp_client}},
-        {"CCC",              {tcp_msg_type_ftp_request}},
+        {"CCC ",              {tcp_msg_type_ftp_request}},
         {"CDUP",             {tcp_msg_type_ftp_request}},
         {"CONF",             {tcp_msg_type_ftp_request}},
-        {"CWD",              {tcp_msg_type_ftp_request}},
+        {"CWD ",              {tcp_msg_type_ftp_request}},
         {"DELE",             {tcp_msg_type_ftp_request}},
-        {"ENC",              {tcp_msg_type_ftp_request}},
+        {"ENC ",              {tcp_msg_type_ftp_request}},
         {"EPRT",             {tcp_msg_type_ftp_request}},
         {"EPSV",             {tcp_msg_type_ftp_request}},
         {"FEAT",             {tcp_msg_type_ftp_request}},
@@ -184,8 +181,8 @@ public:
         {"LPRT",             {tcp_msg_type_ftp_request}},
         {"LPSV",             {tcp_msg_type_ftp_request}},
         {"MDTM",             {tcp_msg_type_ftp_request}},
-        {"MIC",              {tcp_msg_type_ftp_request}},
-        {"MKD",              {tcp_msg_type_ftp_request}},
+        {"MIC ",              {tcp_msg_type_ftp_request}},
+        {"MKD ",              {tcp_msg_type_ftp_request}},
         {"MLSD",             {tcp_msg_type_ftp_request}},
         {"MLST",             {tcp_msg_type_ftp_request}},
         {"MODE",             {tcp_msg_type_ftp_request}},
@@ -232,7 +229,7 @@ public:
         {"HELO",             {tcp_msg_type_smtp_client}},
         {"MAIL",             {tcp_msg_type_smtp_client}},
         {"RCPT",             {tcp_msg_type_smtp_client}},
-        {"STARTTLS",         {tcp_msg_type_smtp_client}},
+        {"STAR",         {tcp_msg_type_smtp_client}},
         {"VRFY",             {tcp_msg_type_smtp_client}},
         //HTTP response
         {"HTTP",             {tcp_msg_type_http_response}},
@@ -736,12 +733,12 @@ public:
     }
 
     const std::vector<tcp_msg_type>* get_tcp_msg_type_from_keyword(datum pkt) const {
-        uppercase keyword{pkt};
-
-        if (keyword.is_readable() and keyword.length() >= 3) {
-            return tcp_keyword_matcher::get_tcp_msg_type_from_keyword(keyword);
+        if (pkt.length() < 4) {
+            return nullptr;
         }
-        return nullptr;
+
+        datum keyword{pkt, 4};   
+        return tcp_keyword_matcher::get_tcp_msg_type_from_keyword(keyword);
     }
 
     tcp_msg_type get_preference(const std::vector<tcp_msg_type>* protos, struct tcp_packet *tcp_pkt) {
