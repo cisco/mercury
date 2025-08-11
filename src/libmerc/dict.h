@@ -35,9 +35,8 @@ public:
     std::unordered_map<std::string, uint32_t> d;
     unsigned int count;
     std::vector<const char *> inverse;
-    unsigned int inverse_size;
 
-    dict() : d{}, count{0}, inverse{}, inverse_size{0} { }
+    dict() : d{}, count{0}, inverse{} { }
 
     unsigned int get(const std::string &value) {
         auto x = d.find(value);
@@ -64,11 +63,10 @@ public:
 
         try {
             inverse.clear();
-            inverse.reserve(d.size());
+            inverse.resize(d.size());
             for (const auto &x : d) {
                 inverse[x.second] = x.first.c_str();
             }
-            inverse_size = inverse.capacity();
             return true;
         }
         catch (...) {
@@ -77,7 +75,7 @@ public:
     }
 
     const char *get_inverse(unsigned int index) const {
-        if (index < inverse_size) {
+        if (index < inverse.size()) {
             return inverse[index];
         }
         return unknown_fp_string;
@@ -101,7 +99,7 @@ public:
                 passed = false;
             }
         }
-        for (unsigned int i = 0; i < inverse_size; i++) {
+        for (unsigned int i = 0; i < inverse.size(); i++) {
             if (get(inverse[i]) != i) {
                 if (f) {
                     fprintf(f, "dict unit test error: mismatch at inverse table entry (%s: %u)\n", inverse[i], i);
