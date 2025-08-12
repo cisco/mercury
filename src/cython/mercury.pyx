@@ -492,14 +492,19 @@ cdef class Mercury:
         self.clf.check_additional_attributes_util(ar, server_name_c, dst_ip_c)
 
         # check for faketls tag
-        ciphersuites                        = get_ciphersuites(fp_str)
-        ciphersuites_str                    = ''.join([chr(int(ciphersuites[i:i+2], 16)) for i in range(0, len(ciphersuites), 2)])
-        cdef bytes ciphersuites_b           = ciphersuites_str.encode()
-        cdef unsigned int len_              = len(ciphersuites_b)
-        cdef const unsigned char* c_str_ref = ciphersuites_b
-        cdef datum ciphersuites_datum       = datum(c_str_ref, c_str_ref + len_)
-        if is_faketls_util(ciphersuites_datum):
-            self.clf.set_faketls_attribute(ar)
+        cdef bytes ciphersuites_b
+        cdef unsigned int len_
+        cdef const unsigned char* c_str_ref
+        cdef datum ciphersuites_datum
+        if fp_str.startswith('tls'):
+            ciphersuites       = get_ciphersuites(fp_str)
+            ciphersuites_str   = ''.join([chr(int(ciphersuites[i:i+2], 16)) for i in range(0, len(ciphersuites), 2)])
+            ciphersuites_b     = ciphersuites_str.encode()
+            len_               = len(ciphersuites_b)
+            c_str_ref          = ciphersuites_b
+            ciphersuites_datum = datum(c_str_ref, c_str_ref + len_)
+            if is_faketls_util(ciphersuites_datum):
+                self.clf.set_faketls_attribute(ar)
 
         # check for encrypted channel tag
         if ar.max_mal and fp_str.startswith('tls'):
@@ -549,14 +554,19 @@ cdef class Mercury:
         self.clf.check_additional_attributes_util(ar, server_name_c, dst_ip_c)
 
         # check for faketls tag
-        ciphersuites                        = get_ciphersuites(fp_str)
-        ciphersuites_str                    = ''.join([chr(int(ciphersuites[i:i+2], 16)) for i in range(0, len(ciphersuites), 2)])
-        cdef bytes ciphersuites_b           = ciphersuites_str.encode()
-        cdef unsigned int len_              = len(ciphersuites_b)
-        cdef const unsigned char* c_str_ref = ciphersuites_b
-        cdef datum ciphersuites_datum       = datum(c_str_ref, c_str_ref + len_)
-        if is_faketls_util(ciphersuites_datum):
-            self.clf.set_faketls_attribute(ar)
+        cdef bytes ciphersuites_b
+        cdef unsigned int len_
+        cdef const unsigned char* c_str_ref
+        cdef datum ciphersuites_datum
+        if fp_str.startswith('tls'):
+            ciphersuites       = get_ciphersuites(fp_str)
+            ciphersuites_str   = ''.join([chr(int(ciphersuites[i:i+2], 16)) for i in range(0, len(ciphersuites), 2)])
+            ciphersuites_b     = ciphersuites_str.encode()
+            len_               = len(ciphersuites_b)
+            c_str_ref          = ciphersuites_b
+            ciphersuites_datum = datum(c_str_ref, c_str_ref + len_)
+            if is_faketls_util(ciphersuites_datum):
+                self.clf.set_faketls_attribute(ar)
 
         # check for encrypted channel tag
         if ar.max_mal and fp_str.startswith('tls'):
