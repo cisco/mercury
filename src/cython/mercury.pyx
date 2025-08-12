@@ -600,12 +600,30 @@ cdef class Mercury:
 
 
     cpdef dict perform_detailed_analysis(self, str fp_str, str server_name, str dst_ip, int dst_port):
+        """
+        Directly call into mercury's detailed analysis functionality by providing all needed data features.
+        Unlike perform_analysis() which returns only the single best-match process, this method returns all
+        candidate processes with their confidence scores.
+
+        :param fp_str: mercury-generated network protocol fingerprint
+        :type fp_str: str
+        :param server_name: The visible, fully qualified domain name, found in the server_name extension
+        :type server_name: str
+        :param dst_ip: The destination IP address associated with the packet of interest
+        :type dst_ip: str
+        :param dst_port: The destination port associated with the packet of interest
+        :type dst_port: int
+        :return: JSON-encoded analysis output
+        :rtype: dict
+        """
         return self.perform_detailed_analysis_common(fp_str, server_name, dst_ip, dst_port)
 
 
     cpdef dict perform_analysis(self, str fp_str, str server_name, str dst_ip, int dst_port):
         """
-        Directly call into mercury analysis functionality by providing all needed data features.
+        Directly call into mercury's analysis functionality by providing all needed data features. Returns
+        the single best-match process, use perform_detailed_analysis() to get all candidate processes with
+        their confidence scores.
 
         :param fp_str: mercury-generated network protocol fingerprint
         :type fp_str: str
@@ -621,13 +639,57 @@ cdef class Mercury:
         return self.perform_analysis_common(fp_str, server_name, dst_ip, dst_port)
 
 
+    cpdef dict perform_detailed_analysis_with_user_agent(self, str fp_str, str server_name, str dst_ip, int dst_port, str user_agent):
+        """
+        Directly call into mercury's detailed analysis functionality by providing all needed data features.
+        Unlike perform_analysis_with_user_agent() which returns only the single best-match process, this
+        method returns all candidate processes with their confidence scores.
+
+        :param fp_str: mercury-generated network protocol fingerprint
+        :type fp_str: str
+        :param server_name: The visible, fully qualified domain name, found in the server_name extension or the HTTP Host field
+        :type server_name: str
+        :param dst_ip: The destination IP address associated with the packet of interest
+        :type dst_ip: str
+        :param dst_port: The destination port associated with the packet of interest
+        :type dst_port: int
+        :param user_agent: If analyzing an HTTP packet, provide the contents of the HTTP User-Agent field
+        :type user_agent: str
+        :return: JSON-encoded analysis output
+        :rtype: dict
+        """
+        return self.perform_detailed_analysis_common(fp_str, server_name, dst_ip, dst_port, user_agent=user_agent)
+
+
+    cpdef dict perform_analysis_with_user_agent(self, str fp_str, str server_name, str dst_ip, int dst_port, str user_agent):
+        """
+        Directly call into mercury's analysis functionality by providing all needed data features. Returns
+        the single best-match process, use perform_detailed_analysis_with_user_agent() to get all candidate
+        processes with their confidence scores.
+
+        :param fp_str: mercury-generated network protocol fingerprint
+        :type fp_str: str
+        :param server_name: The visible, fully qualified domain name, found in the server_name extension or the HTTP Host field
+        :type server_name: str
+        :param dst_ip: The destination IP address associated with the packet of interest
+        :type dst_ip: str
+        :param dst_port: The destination port associated with the packet of interest
+        :type dst_port: int
+        :param user_agent: If analyzing an HTTP packet, provide the contents of the HTTP User-Agent field
+        :type user_agent: str
+        :return: JSON-encoded analysis output
+        :rtype: dict
+        """
+        return self.perform_analysis_common(fp_str, server_name, dst_ip, dst_port, user_agent=user_agent)
+
+
     cpdef dict perform_analysis_with_weights(self, str fp_str, str server_name, str dst_ip, int dst_port, str user_agent,
                                              double new_as_weight, double new_domain_weight,
                                              double new_port_weight, double new_ip_weight,
                                              double new_sni_weight, double new_ua_weight):
         """
         Directly call into mercury analysis functionality by providing all needed data features. Additionally,
-        supply custom weights for each data feature.
+        supply custom weights for each data feature. Returns the single best-match process.
 
         :param fp_str: mercury-generated network protocol fingerprint
         :type fp_str: str
@@ -677,47 +739,6 @@ cdef class Mercury:
             return ret_
         except:
             return []
-
-    cpdef dict perform_detailed_analysis_with_user_agent(self, str fp_str, str server_name, str dst_ip, int dst_port, str user_agent):
-        """
-        Directly call into mercury detailed analysis functionality by providing all needed data features. Additionally,
-        supply custom weights for each data feature.
-
-        :param fp_str: mercury-generated network protocol fingerprint
-        :type fp_str: str
-        :param server_name: The visible, fully qualified domain name, found in the server_name extension or the HTTP Host field
-        :type server_name: str
-        :param dst_ip: The destination IP address associated with the packet of interest
-        :type dst_ip: str
-        :param dst_port: The destination port associated with the packet of interest
-        :type dst_port: int
-        :param user_agent: If analyzing an HTTP packet, provide the contents of the HTTP User-Agent field
-        :type user_agent: str
-        :return: JSON-encoded analysis output
-        :rtype: dict
-        """
-        return self.perform_detailed_analysis_common(fp_str, server_name, dst_ip, dst_port, user_agent=user_agent)
-
-
-    cpdef dict perform_analysis_with_user_agent(self, str fp_str, str server_name, str dst_ip, int dst_port, str user_agent):
-        """
-        Directly call into mercury analysis functionality by providing all needed data features. Additionally,
-        supply custom weights for each data feature.
-
-        :param fp_str: mercury-generated network protocol fingerprint
-        :type fp_str: str
-        :param server_name: The visible, fully qualified domain name, found in the server_name extension or the HTTP Host field
-        :type server_name: str
-        :param dst_ip: The destination IP address associated with the packet of interest
-        :type dst_ip: str
-        :param dst_port: The destination port associated with the packet of interest
-        :type dst_port: int
-        :param user_agent: If analyzing an HTTP packet, provide the contents of the HTTP User-Agent field
-        :type user_agent: str
-        :return: JSON-encoded analysis output
-        :rtype: dict
-        """
-        return self.perform_analysis_common(fp_str, server_name, dst_ip, dst_port, user_agent=user_agent)
 
 
     cdef str get_server_name(self, const analysis_context* ac):
