@@ -70,6 +70,7 @@ public:
             return true;
         }
         catch (...) {
+            inverse.clear();
             return false;
         }
     }
