@@ -104,5 +104,24 @@ class TestMercuryPython(unittest.TestCase):
                          f"ECH public_name should be {ech_config['public_name']}")
 
 
+    def test_unlabeled_analysis_result(self):
+        str_repr    = 'tls/1/(0303)(abcdef01)[(0000)]'
+        dst_ip      = '173.37.145.84'
+        server_name = 'www.cisco.com'
+        dst_port    = 443
+
+        cls_result = self.libmerc.perform_analysis_with_user_agent(str_repr, server_name, dst_ip, dst_port, '')
+        self.assertEqual(cls_result['fingerprint_info']['status'], f"randomized",
+                         f"Fingerprint should be randomized initially")
+        self.assertEqual(cls_result['analysis']['attributes'][0]['name'], f"faketls",
+                         f"FakeTLS should be the only attribute in the randomized case")
+
+        cls_result = self.libmerc.perform_analysis_with_user_agent(str_repr, server_name, dst_ip, dst_port, '')
+        self.assertEqual(cls_result['fingerprint_info']['status'], f"unlabled",
+                         f"Fingerprint should be unlabeled")
+        self.assertEqual(cls_result['analysis']['attributes'][0]['name'], f"faketls",
+                         f"FakeTLS should be the only attribute in the unlabeled case")
+
+
 if __name__ == '__main__':
     unittest.main()
