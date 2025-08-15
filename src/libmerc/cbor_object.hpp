@@ -214,7 +214,7 @@ public:
         if (idx < a.size()) {
             return a[idx].c_str();
         }
-        return "UKNOWN";  // note: could report unknown integer value as string
+        return "UNKNOWN";  // note: could report unknown integer value as string
     }
 
 };
