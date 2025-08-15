@@ -691,7 +691,7 @@ class naive_bayes_tls_quic_http : public naive_bayes {
     feature<uint32_t> asn_feature;
     feature<std::string> user_agent_feature;
     bool minimize_ram;
-    const feature_weights &weights;
+    const feature_weights weights;
 
 public:
 
