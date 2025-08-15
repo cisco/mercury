@@ -13,7 +13,6 @@
 #ifdef _WIN32
 #include <io.h>
 #include <BaseTsd.h>
-#include <windows.h>
 //#include <sysinfoapi.h>
 typedef SSIZE_T ssize_t;
 #else
