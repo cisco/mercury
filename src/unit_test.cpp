@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <cstdio>
 #include "libmerc/datum.h"
+#include "libmerc/cbor_object.hpp"
 #include "libmerc/base64.h"
 #include "libmerc/tofsee.hpp"
 #include "libmerc/snmp.h"
@@ -124,6 +125,10 @@ int main(int, char *[]) {
         {
             "dns_trie",
             &dns_trie<std::string>::unit_test
+        },
+        {
+            "cbor_object",
+            &cbor_object_unit_test
         },
     };
     for (const auto &tc : test_cases_verbose) {
