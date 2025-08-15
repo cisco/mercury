@@ -1391,13 +1391,6 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
             status
         };
 
-        if (reassembler_ptr) {
-            if (reassembler_ptr->is_done(reassembler_ptr->curr_flow)) {
-                analysis.flow_state_pkts_needed = false;
-            }
-            reassembler_ptr->clean_curr_flow();
-        }
-
         bool encoding_ok = fdc_object.encode(output);
         if (encoding_ok == false) {
             *buffer_size = 2 * internal_buffer_size;
@@ -1405,11 +1398,20 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         }
     }
 
+    // Write L7 metadata before cleaning up flow to avoid use-after-free
     bool encoding_ok = std::visit(write_l7_metadata{m, global_vars.metadata_output}, x);
     if (encoding_ok == false) {
         *buffer_size = 2 * internal_buffer_size;
         return -1;
     }
+
+    if (reassembler_ptr) {
+        if (reassembler_ptr->is_done(reassembler_ptr->curr_flow)) {
+            analysis.flow_state_pkts_needed = false;
+        }
+        reassembler_ptr->clean_curr_flow();
+    }
+
     m.close();
 
     return internal_buffer_size - output.writeable_length();
