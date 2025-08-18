@@ -117,6 +117,9 @@ namespace cbor {
         static constexpr uint8_t True = 21;
         static constexpr uint8_t null = 22;
         static constexpr uint8_t undefined = 23;
+        static constexpr uint8_t float16 = 25;      // IEEE 754 Half-Precision Float (16 bits)
+        static constexpr uint8_t float32 = 26;      // IEEE 754 Single-Precision Float (32 bits)
+        static constexpr uint8_t float64 = 27;      // IEEE 754 Double-Precision Float (64 bits)
         static constexpr uint8_t break_code = 31;
 
     };
