@@ -35,44 +35,41 @@ struct flow_key_and_transport_data {
         switch(ethertype) {
         case ETH_TYPE_IP:
         case ETH_TYPE_IPV6:
-            // fprintf(stdout, "packet.ethertype: %u\n", ethertype);
             {
                 key k;
                 ip ip_pkt{pkt_data, k};
                 ip::protocol protocol = ip_pkt.transport_protocol();
-                // fprintf(stdout, "packet.ip.protocol: %u\n", protocol);
                 if (protocol == ip::protocol::tcp) {
                     struct tcp_packet tcp_pkt{pkt_data};
                     tcp_pkt.set_key(k);
                     set_flow_key(k);
                     transport_data = pkt_data.data;
                     transport_data_length = pkt_data.length();
-                    // fprintf(stdout, "packet.ip.tcp.data.length: %zd\n", pkt_data.length());
-                    // fprintf(stdout, "packet.ip.tcp.data:");
-                    // pkt_data.fprint_hex(stdout);
-                    // fputc('\n', stdout);
+                    is_valid = true;
                 } else if (protocol == ip::protocol::udp) {
                     class udp udp_pkt{pkt_data};
                     udp_pkt.set_key(k);
                     set_flow_key(k);
                     transport_data = pkt_data.data;
                     transport_data_length = pkt_data.length();
-                    // fprintf(stdout, "packet.ip.udp.data.length: %zd\n", pkt_data.length());
-                    // fprintf(stdout, "packet.ip.udp.data:");
-                    // pkt_data.fprint_hex(stdout);
-                    // fputc('\n', stdout);
+                    is_valid = true;
                 } else {
-                    fputs("packet.data: ", stdout);
-                    pkt_data.fprint_hex(stdout);
-                    fputc('\n', stdout);
+                    //
+                    // ignore other transport protocols
+                    //
                 }
             }
             break;
         default:
-            fprintf(stdout, "unknown ethertype (%u)\n", ethertype);
+            //
+            // ignore other ethertypes
+            //
+            ;
         }
 
     }
+
+    explicit operator bool() const { return is_valid; }
 
     void set_flow_key(key &k) {
         flow_key.src_port = k.src_port;
@@ -429,23 +426,23 @@ int main(int argc, char *argv[]) {
 
                 uint8_t buffer[4096];
                 size_t data_buf_len = 4096;
+                if (flow_key_and_transport_data fktd{pkt_data}) {
 
-                flow_key_and_transport_data fktd{pkt_data};
-                int retval = mercury.get_analysis_context_fdc(mpp,
-                                                              &fktd.flow_key,
-                                                              fktd.transport_data,
-                                                              fktd.transport_data_length,
-                                                              buffer,
-                                                              &data_buf_len,
-                                                              &ac);
+                    int retval = mercury.get_analysis_context_fdc(mpp,
+                                                                  &fktd.flow_key,
+                                                                  fktd.transport_data,
+                                                                  fktd.transport_data_length,
+                                                                  buffer,
+                                                                  &data_buf_len,
+                                                                  &ac);
 
-
-                if (retval > 0) {
-                    datum outbuf{buffer, buffer + retval};
-                    outbuf.fprint_hex(stdout); fputc('\n', stdout);
-                    decode_fprint_json(outbuf, stdout);
-                } else if (retval < 0) {
-                    fprintf(stdout, "retval: %d\tdata_buf_len: %zu\n", retval, data_buf_len);
+                    if (retval > 0) {
+                        datum outbuf{buffer, buffer + retval};
+                        outbuf.fprint_hex(stdout); fputc('\n', stdout);
+                        decode_fprint_json(outbuf, stdout);
+                    } else if (retval < 0) {
+                        fprintf(stdout, "retval: %d\tdata_buf_len: %zu\n", retval, data_buf_len);
+                    }
                 }
 
             } else {
