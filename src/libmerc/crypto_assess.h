@@ -140,14 +140,15 @@ namespace crypto_policy {
                     json_array cs_array(a, "ciphersuites_not_allowed");
 
                     // Inner while loop through remaining ciphersuite vector, writing out json array
-                    while(true) {
-                        if(!is_grease(cs)) {
+                    while (true) {
+                        if (!is_grease(cs)) {
                             found = (allowed_ciphersuites.find(cs.value()) != allowed_ciphersuites.end());
-                            if(!found) {
+                            if (!found) {
                                 all_allowed = false;
                                 if (readable_output) {
                                     cs_array.print_string(cs.get_name());
-                                } else {
+                                } 
+                                else {
                                     cs_array.print_uint16_hex(cs);
                                 }
                             }
@@ -155,7 +156,7 @@ namespace crypto_policy {
                                 some_allowed = true;
                             }
                         }
-                        if(!ciphersuite_vector.is_readable()) break;
+                        if (!ciphersuite_vector.is_readable()) break;
                         cs = tls::cipher_suites{ciphersuite_vector};
                     }
 
@@ -171,7 +172,8 @@ namespace crypto_policy {
             const char *quantifier = "none";
             if (all_allowed) {
                 quantifier = "all";
-            } else if (some_allowed) {
+            } 
+            else if (some_allowed) {
                 quantifier = "some";
             }
             a.print_key_string("ciphersuites_allowed", quantifier);
@@ -185,24 +187,24 @@ namespace crypto_policy {
 
             datum named_groups = extensions.get_supported_groups();
             xtn named_groups_xtn{named_groups};
-            encoded<uint16_t> named_gropus_len{named_groups_xtn.value};
+            encoded<uint16_t> named_groups_len{named_groups_xtn.value};
 
-            while(named_groups_xtn.value.is_readable()) {
+            while (named_groups_xtn.value.is_readable()) {
                 tls::supported_groups named_group{named_groups_xtn.value};
 
-                if(is_grease(named_group)) {
+                if (is_grease(named_group)) {
                     continue;
                 }
 
                 bool found = (allowed_groups.find(named_group.value()) != allowed_groups.end());
-                if(!found) {
+                if (!found) {
                     all_allowed = false;
                     json_array ng_array(a, "groups_not_allowed");
 
-                    while(true) {
-                        if(!is_grease(named_group)) {
+                    while (true) {
+                        if (!is_grease(named_group)) {
                             found = (allowed_groups.find(named_group.value()) != allowed_groups.end());
-                            if(!found) {
+                            if (!found) {
                                 all_allowed = false;
                                 if (readable_output) {
                                     ng_array.print_string(named_group.get_name());
@@ -230,7 +232,8 @@ namespace crypto_policy {
             const char *quantifier = "none";
             if (all_allowed) {
                 quantifier = "all";
-            } else if (some_allowed) {
+            } 
+            else if (some_allowed) {
                 quantifier = "some";
             }
             a.print_key_string("groups_allowed", quantifier);
@@ -287,23 +290,23 @@ namespace crypto_policy {
             bool some_allowed = false;
             name_list tmp_list = kex_list;
 
-            while(tmp_list.is_readable()) {
+            while (tmp_list.is_readable()) {
                 datum tmp{};
                 tmp.parse_up_to_delim(tmp_list, ',');
-                if(tmp.end() == tmp_list.end()) {
+                if (tmp.end() == tmp_list.end()) {
                     tmp_list.set_null();
                 }
                 tmp_list.skip(1); // skip ','
 
                 bool found = (ssh_allowed_kex.find(std::string{(char*)tmp.data, (size_t)tmp.length()}) != ssh_allowed_kex.end());
-                if(!found) {
+                if (!found) {
                     all_allowed = false;
                     json_array cs_array(a, "kex_not_allowed");
                     
-                    while(true) {
+                    while (true) {
                         
                         found = (ssh_allowed_kex.find(std::string{(char*)tmp.data, (size_t)tmp.length()}) != ssh_allowed_kex.end());
-                        if(!found) {
+                        if (!found) {
                             all_allowed = false;
                             cs_array.print_string(std::string{(char*)tmp.data,(size_t)tmp.length()}.c_str());
                         }
@@ -311,13 +314,13 @@ namespace crypto_policy {
                             some_allowed = true;
                         }
 
-                        if(!tmp_list.is_readable()) {
+                        if (!tmp_list.is_readable()) {
                             break;
                         }
 
                         datum tmp{};
                         tmp.parse_up_to_delim(tmp_list, ',');
-                        if(tmp.end() == tmp_list.end()) {
+                        if (tmp.end() == tmp_list.end()) {
                             tmp_list.set_null();
                         }
                         tmp_list.skip(1); // skip ','
@@ -333,7 +336,8 @@ namespace crypto_policy {
             const char *quantifier = "none";
             if (all_allowed) {
                 quantifier = "all";
-            } else if (some_allowed) {
+            } 
+            else if (some_allowed) {
                 quantifier = "some";
             }
 
@@ -347,22 +351,22 @@ namespace crypto_policy {
             bool some_allowed = false;
             name_list tmp_list = ciphers;
 
-            while(tmp_list.is_readable()) {
+            while (tmp_list.is_readable()) {
                 datum tmp{};
                 tmp.parse_up_to_delim(tmp_list, ',');
-                if(tmp.end() == tmp_list.end()) {
+                if (tmp.end() == tmp_list.end()) {
                     tmp_list.set_null();
                 }
                 tmp_list.skip(1); // skips ','
 
                 bool found = ssh_allowed_ciphers.find(std::string{(char*)tmp.data, (size_t)tmp.length()}) != ssh_allowed_ciphers.end();
-                if(!found) {
+                if (!found) {
                     all_allowed = false;
                     json_array cs_array(a, "ciphersuites_not_allowed");
 
-                    while(true) {
+                    while (true) {
                         found = ssh_allowed_ciphers.find(std::string{(char*)tmp.data, (size_t)tmp.length()}) != ssh_allowed_ciphers.end();
-                        if(!found) {
+                        if (!found) {
                             all_allowed = false;
                             cs_array.print_string(std::string{(char*)tmp.data,(size_t)tmp.length()}.c_str());
                         }
@@ -370,13 +374,13 @@ namespace crypto_policy {
                             some_allowed = true;
                         }
 
-                        if(!tmp_list.is_readable()) {
+                        if (!tmp_list.is_readable()) {
                             break;
                         }
 
                         datum tmp{};
                         tmp.parse_up_to_delim(tmp_list, ',');
-                        if(tmp.end() == tmp_list.end()) {
+                        if (tmp.end() == tmp_list.end()) {
                             tmp_list.set_null();
                         }
                         tmp_list.skip(1); // skips ','
@@ -393,7 +397,8 @@ namespace crypto_policy {
             const char *quantifier = "none";
             if (all_allowed) {
                 quantifier = "all";
-            } else if (some_allowed) {
+            } 
+            else if (some_allowed) {
                 quantifier = "some";
             }
 
