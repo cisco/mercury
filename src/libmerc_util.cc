@@ -72,8 +72,8 @@ struct flow_key_and_transport_data {
     explicit operator bool() const { return is_valid; }
 
     void set_flow_key(key &k) {
-        flow_key.src_port = k.src_port;
-        flow_key.dst_port = k.dst_port;
+        flow_key.src_port = ntoh(k.src_port);
+        flow_key.dst_port = ntoh(k.dst_port);
         flow_key.protocol = k.protocol;
         flow_key.ip_vers = k.ip_vers;
         if (k.ip_vers == 4) {

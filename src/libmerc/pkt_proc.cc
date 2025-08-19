@@ -1237,17 +1237,20 @@ static void enumerate_protocol_types(FILE *f) {
     }
 }
 
-bool is_fdc_writable(fingerprint_type fp_type) {
+inline bool is_fdc_writable(fingerprint_type fp_type) {
     switch(fp_type) {
-        case fingerprint_type_tls:
-        case fingerprint_type_http:
-        case fingerprint_type_quic:
-        case fingerprint_type_tofsee:
+    case fingerprint_type_tls:
+    case fingerprint_type_http:
+    case fingerprint_type_quic:
+    case fingerprint_type_tofsee:
+    case fingerprint_type_stun:
+    case fingerprint_type_ssh:
             return true;
         default:
             return false;
     }
 }
+
 int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
                                            const uint8_t *payload,
                                            const size_t length,
@@ -1329,6 +1332,7 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
             }
         }
         else {
+
             bool ret = process_udp_data(x, pkt, udp_pkt, k_, &ts, nullptr);
             if (!ret) {
                 return 0;
@@ -1381,7 +1385,7 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         if (is_fdc_writable(analysis.fp.get_type())) {
 
             cbor::output::map m{output};
-            cbor::uint64{fdc_version}.write(m);
+            cbor::uint64{fdc_version}.write(m);            // write key
             fdc fdc_object{
                 datum{analysis.fp.string()},
                 analysis.destination.ua_str,
@@ -1403,8 +1407,12 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         cbor_object outer_map{output};
         cbor_object v2_map{outer_map, fdc_version};
 
-        // cbor_array fingerprints{v2_map, "fingerprints"};
-        // fingerprints.close();
+        if (is_fdc_writable(analysis.fp.get_type())) {
+            cbor_array fingerprint_array{v2_map, "fingerprints"};
+            datum fp_string{analysis.fp.string()};
+            cbor_fingerprint::encode_cbor_fingerprint(fp_string, fingerprint_array.get_writeable());
+            fingerprint_array.close();
+        }
 
         std::visit(write_l7_metadata{v2_map, global_vars.metadata_output}, x);
         v2_map.close();
@@ -1412,10 +1420,11 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
 
         if (output.is_null()) {
             *buffer_size = 2 * internal_buffer_size;
-            return -1;
+            return fdc_return::FDC_WRITE_INSUFFICIENT_SPACE;
         }
+
     } else {
-        return fdc_return::UNKNOWN_ERROR;
+        return fdc_return::UNKNOWN_ERROR;  // unsupported FDC version
     }
 
     if (reassembler_ptr) {

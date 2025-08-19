@@ -120,6 +120,7 @@ public:
 
     void close() { a.close(); }
 
+    writeable & get_writeable() { return a; }
 };
 
 inline cbor_object::cbor_object(cbor_array &outer) : m{outer.a} { }
