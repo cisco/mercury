@@ -92,12 +92,9 @@ public:
         hello.write_json(record, output_metadata);
     }
 
-    bool write_l7_metadata(writeable &buf, bool) {
-        cbor_object o{buf, false};
+    void write_l7_metadata(cbor_object &o, bool) {
         cbor_object dtls{o, "dtls"};
         dtls.close();
-        o.close();
-        return !buf.is_null();
     }
 
     bool is_not_empty() const {
@@ -133,12 +130,9 @@ public:
         hello.write_json(o, write_metadata);
     }
 
-    bool write_l7_metadata(writeable &buf, bool) {
-        cbor_object o{buf, false};
+    void write_l7_metadata(cbor_object &o, bool) {
         cbor_object dtls{o, "dtls"};
         dtls.close();
-        o.close();
-        return !buf.is_null();
     }
 
     void compute_fingerprint(class fingerprint &fp) const {

@@ -1108,12 +1108,12 @@ struct dns_packet : public base_protocol {
         dns_json.close();
     }
 
-    bool write_l7_metadata(writeable &buf, bool) {
-        cbor_object o{buf, false};
+    void write_l7_metadata(cbor_object &o, bool) {
+        if (header == nullptr) {
+            return;
+        }
         cbor_object dns{o, "dns"};   //TODO: check for netbios too
         dns.close();
-        o.close();
-        return !buf.is_null();
     }
 
     // mask:   0040fe8eff00ff00fee0

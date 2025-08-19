@@ -142,12 +142,9 @@ public:
         socks4_pkt.close();
     }
 
-    bool write_l7_metadata(writeable &buf, bool) {
-        cbor_object o{buf, false};
+    void write_l7_metadata(cbor_object &o, bool) {
         cbor_object socks4{o, "socks4"};
         socks4.close();
-        o.close();
-        return !buf.is_null();
     }
 
     bool is_not_empty() const { return (is_valid); }
@@ -247,12 +244,9 @@ public:
         socks_pkt.close(); 
     }
 
-    bool write_l7_metadata(writeable &buf, bool) {
-        cbor_object o{buf, false};
+    void write_l7_metadata(cbor_object &o, bool) {
         cbor_object socks5{o, "socks5"};
         socks5.close();
-        o.close();
-        return !buf.is_null();
     }
 };
 
@@ -530,12 +524,9 @@ public:
         socks5_pkt.close();
     }
 
-    bool write_l7_metadata(writeable &buf, bool) {
-        cbor_object o{buf, false};
+    void write_l7_metadata(cbor_object &o, bool) {
         cbor_object socks5{o, "socks5_req_resp"};
         socks5.close();
-        o.close();
-        return !buf.is_null();
     }
 };
 

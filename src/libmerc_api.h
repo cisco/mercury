@@ -69,7 +69,6 @@ struct libmerc_api {
     decltype(mercury_packet_processor_destruct)                      *packet_processor_destruct = nullptr;
     decltype(mercury_packet_processor_get_analysis_context)          *get_analysis_context = nullptr;
     decltype(mercury_packet_processor_get_analysis_context_linktype) *get_analysis_context_linktype = nullptr;
-    decltype(mercury_packet_processor_get_analysis_context_fdc)      *get_analysis_context_fdc = nullptr;
     decltype(mercury_packet_processor_more_pkts_needed)              *more_pkts_needed = nullptr;
     decltype(analysis_context_get_fingerprint_type)                  *get_fingerprint_type = nullptr;
     decltype(analysis_context_get_fingerprint_status)                *get_fingerprint_status = nullptr;
@@ -82,6 +81,7 @@ struct libmerc_api {
     decltype(mercury_write_stats_data)                               *write_stats_data = nullptr;
     decltype(register_printf_err_callback)                           *register_printf_err = nullptr;
     decltype(mercury_packet_processor_get_attributes)                        *get_attributes = nullptr;
+    decltype(mercury_packet_processor_get_analysis_context_fdc)      *get_analysis_context_fdc = nullptr;
 
     dll_type dl_handle = nullptr;
 
@@ -102,7 +102,6 @@ struct libmerc_api {
         packet_processor_construct =    (decltype(packet_processor_construct))    dlsym(dl_handle, "mercury_packet_processor_construct");
         packet_processor_destruct =     (decltype(packet_processor_destruct))     dlsym(dl_handle, "mercury_packet_processor_destruct");
         get_analysis_context =          (decltype(get_analysis_context))          dlsym(dl_handle, "mercury_packet_processor_get_analysis_context");
-        get_analysis_context_fdc =      (decltype(get_analysis_context_fdc))      dlsym(dl_handle, "mercury_packet_processor_get_analysis_context_fdc");
         get_fingerprint_type =          (decltype(get_fingerprint_type))          dlsym(dl_handle, "analysis_context_get_fingerprint_type");
         get_fingerprint_status =        (decltype(get_fingerprint_status))        dlsym(dl_handle, "analysis_context_get_fingerprint_status");
         get_fingerprint_string =        (decltype(get_fingerprint_string))        dlsym(dl_handle, "analysis_context_get_fingerprint_string");
@@ -185,6 +184,17 @@ struct libmerc_api {
 
         fprintf(stderr, "libmerc api version %u found\n", libmerc_version);
         fprintf(stderr, "mercury_bind() succeeded with handle %p\n", dl_handle);
+
+        // libmerc v7 API
+        get_analysis_context_fdc = (decltype(get_analysis_context_fdc)) dlsym(dl_handle, "mercury_packet_processor_get_analysis_context_fdc");
+
+        // verify all v7 function symbols were found
+        //
+        if (get_analysis_context_fdc == nullptr) {
+            fprintf(stderr, "note: could not initialize one or more libmerc v7 function pointers\n");
+        } else {
+            libmerc_version = 7;
+        }
 
         return 0; // success
     }

@@ -288,12 +288,9 @@ namespace tacacs {
             tacacs_json.close();
         }
 
-        bool  write_l7_metadata(writeable &buf, bool) {
-            cbor_object o{buf, false};
+        void write_l7_metadata(cbor_object &o, bool) {
             cbor_object tacacs{o, "tacacs"};
             tacacs.close();
-            o.close();
-            return !buf.is_null();
         }
 
         void print_type_code(json_object &o) const {

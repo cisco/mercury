@@ -34,9 +34,11 @@ class cbor_object {
 
 public:
 
-    cbor_object(writeable &w, bool ignore=false) : m{w} { }
+    cbor_object(writeable &w) : m{w} { }
 
     cbor_object(cbor_object &o, const char *key) : m{create_named_map(key, o)} { }
+
+    cbor_object(cbor_object &o, uint64_t k) : m{create_named_map(k, o)} { }
 
     template <size_t N>
     cbor_object(cbor_object_compact<N> &o, const char *key);

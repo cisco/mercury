@@ -1249,11 +1249,11 @@ bool is_fdc_writable(fingerprint_type fp_type) {
     }
 }
 int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
-                        const uint8_t *payload,
-                        const size_t length, 
-                        uint8_t *buffer, 
-                        size_t *buffer_size, 
-                        [[maybe_unused]]const struct analysis_context** context) {
+                                           const uint8_t *payload,
+                                           const size_t length,
+                                           uint8_t *buffer,
+                                           size_t *buffer_size,
+                                           [[maybe_unused]]const struct analysis_context** context) {
 
     bool perform_reassembly = true;
     protocol x;
@@ -1278,7 +1278,7 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         reassembler_ptr->set_completed(reassembler_ptr->get_current_flow());
         perform_reassembly = false; // already reassembled some data, cant do further
     }
- 
+
     if (reassembler_ptr) {
         reassembler_ptr->dump_pkt = false;
     }
@@ -1313,8 +1313,8 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
                 truncated_tcp = true;
             }
         }
-    } 
-    else if (k->protocol == ip::protocol::udp) {
+
+    } else if (k->protocol == ip::protocol::udp) {
         class udp udp_pkt{pkt, true};
         udp_pkt.set_ports(k_);
 
@@ -1356,9 +1356,9 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
     if (context != nullptr and analysis.result.is_valid()) {
         *context = &analysis;
     }
-    
+
     truncation_status status = truncation_status::none;
-    
+
     if (reassembler_ptr) {
         if (reassembler_ptr->is_done(reassembler_ptr->curr_flow)) {
             if (truncated_tcp || truncated_udp) {
@@ -1377,32 +1377,45 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
     writeable output{buffer, buffer + internal_buffer_size};
 
     uint64_t fdc_version = 2;
-    cbor::output::map m{output};
-    cbor::uint64{fdc_version}.write(m);
-    if (is_fdc_writable(analysis.fp.get_type())) {
-        cbor::text_string{"fdc"}.write(m);
-    
-        fdc fdc_object{
-            datum{analysis.fp.string()},
-            analysis.destination.ua_str,
-            analysis.destination.sn_str,
-            analysis.destination.dst_ip_str,
-            analysis.destination.dst_port,
-            status
-        };
+    if (fdc_version == 1) {
+        if (is_fdc_writable(analysis.fp.get_type())) {
 
-        bool encoding_ok = fdc_object.encode(output);
-        if (encoding_ok == false) {
+            cbor::output::map m{output};
+            cbor::uint64{fdc_version}.write(m);
+            fdc fdc_object{
+                datum{analysis.fp.string()},
+                analysis.destination.ua_str,
+                analysis.destination.sn_str,
+                analysis.destination.dst_ip_str,
+                analysis.destination.dst_port,
+                status
+            };
+            bool encoding_ok = fdc_object.encode(output);  // write value
+            if (encoding_ok == false) {
+                *buffer_size = 2 * internal_buffer_size;
+                return -1;
+            }
+            m.close();
+
+        }
+    } else if (fdc_version == 2) {
+
+        cbor_object outer_map{output};
+        cbor_object v2_map{outer_map, fdc_version};
+
+        // cbor_array fingerprints{v2_map, "fingerprints"};
+        // fingerprints.close();
+
+        std::visit(write_l7_metadata{v2_map, global_vars.metadata_output}, x);
+        v2_map.close();
+        outer_map.close();
+
+        if (output.is_null()) {
             *buffer_size = 2 * internal_buffer_size;
             return -1;
         }
-    }
-
-    // Write L7 metadata before cleaning up flow to avoid use-after-free
-    bool encoding_ok = std::visit(write_l7_metadata{m, global_vars.metadata_output}, x);
-    if (encoding_ok == false) {
-        *buffer_size = 2 * internal_buffer_size;
-        return -1;
+    } else {
+        return fdc_return::UNKNOWN_ERROR;
     }
 
     if (reassembler_ptr) {
@@ -1411,8 +1424,6 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         }
         reassembler_ptr->clean_curr_flow();
     }
-
-    m.close();
 
     return internal_buffer_size - output.writeable_length();
 }

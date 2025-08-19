@@ -162,12 +162,9 @@ public:
         }
     }
 
-    bool write_l7_metadata(writeable &buf, bool) {
-        cbor_object o{buf, false};
+    void write_l7_metadata(cbor_object &o, bool) {
         cbor_object smtp{o, "smtp"};
         smtp.close();
-        o.close();
-        return !buf.is_null();
     }
 
     bool is_not_empty() const { return parameters.is_not_empty(); }
@@ -236,12 +233,9 @@ public:
         }
     }
 
-    bool write_l7_metadata(writeable &buf, bool) {
-        cbor_object o{buf, false};
+    void write_l7_metadata(cbor_object &o, bool) {
         cbor_object smtp{o, "smtp"};
         smtp.close();
-        o.close();
-        return !buf.is_null();
     }
 
     void compute_fingerprint(class fingerprint &fp) const {

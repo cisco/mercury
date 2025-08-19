@@ -120,7 +120,7 @@ namespace rtp {
             rtp.close();
         }
 
-        bool write_l7_metadata(writeable &buf, bool) {
+        bool write_l7_metadata(cbor_object &o, bool) {
             cbor_object o{buf, false};
             cbor_object rtp{o, "rtp"};
             rtp.close();

@@ -104,13 +104,11 @@ public:
         }
     }
 
-    bool write_l7_metadata(writeable &buf, bool) {
-        cbor_object o{buf, false};
+    void write_l7_metadata(cbor_object &o, bool) {
         cbor_object esp{o, "esp"};
         esp.close();
-        o.close();
-        return !buf.is_null();
     }
+
 };
 
 [[maybe_unused]] inline int esp_fuzz_test(const uint8_t *data, size_t size) {

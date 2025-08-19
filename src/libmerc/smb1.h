@@ -302,12 +302,10 @@ public:
         }
     }
 
-    bool write_l7_metadata(writeable &buf, bool) {
-        cbor_object o{buf, false};
-        cbor_object smb1{o, "smb1"};    
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_object smb1{o, "smb1"};
         smb1.close();
         o.close();
-        return !buf.is_null();
     }
 
     static constexpr mask_and_value<8> matcher {

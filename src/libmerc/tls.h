@@ -443,15 +443,13 @@ struct tls_client_hello : public base_protocol {
         additional_bytes_needed = 0;
     }
 
-    bool write_l7_metadata(writeable &buf, bool) {
-        cbor_object o{buf, false};
+    void write_l7_metadata(cbor_object &o, bool) {
         cbor_object tls{o, "tls"};
         cbor_object tls_client{tls, "client"};
         tls_client.print_key_hex("random", random);
+        tls_client.close();
         tls.close();
-        o.close();
-        return !buf.is_null();
-    }
+     }
 
 };
 
@@ -580,12 +578,9 @@ public:
         }
     }
 
-    bool write_l7_metadata(writeable &buf, bool) {
-        cbor_object o{buf, false};
+    void write_l7_metadata(cbor_object &o, bool) {
         cbor_object tls{o, "tls"};
         tls.close();
-        o.close();
-        return !buf.is_null();
     }
 
     void compute_fingerprint(fingerprint &fp) const {
@@ -706,6 +701,13 @@ public:
             tls.close();
 
         }
+    }
+
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_object tls{o, "tls"};
+        cbor_object tls_certificate{tls, "certificate"};
+        tls_certificate.close();
+        tls.close();
     }
 
 };

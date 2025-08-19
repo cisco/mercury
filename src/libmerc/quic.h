@@ -1722,13 +1722,10 @@ public:
         quic_record.close();
     }
 
-    bool write_l7_metadata(writeable &buf, bool) {
-        cbor_object o{buf, false};
+    void write_l7_metadata(cbor_object &o, bool) {
         cbor_object quic{o, "quic"};
         quic.close();
-        o.close();
-        return !buf.is_null();
-    }   
+    }
 
     void compute_fingerprint(class fingerprint &fp, size_t format_version) const {
 
@@ -1754,7 +1751,7 @@ public:
         if(pre_decrypted) {
             return decry_pkt.do_analysis(k_, analysis_, c_);
         }
-        
+
         struct datum sn{NULL, NULL};
         struct datum user_agent {NULL, NULL};
         datum alpn;

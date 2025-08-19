@@ -579,12 +579,9 @@ namespace ike {
             ike_json.close();
         }
 
-        bool write_l7_metadata(writeable &buf, bool) {
-            cbor_object o{buf, false};
+        void write_l7_metadata(cbor_object &o, bool) {
             cbor_object ike{o, "ike"};
             ike.close();
-            o.close();
-            return !buf.is_null();
         }
 
     };

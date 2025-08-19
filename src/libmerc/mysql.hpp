@@ -568,12 +568,9 @@ public:
             mysql_json.close();
         }
 
-        bool write_l7_metadata(writeable &buf, bool) {
-            cbor_object o{buf, false};
+       void write_l7_metadata(cbor_object &o, bool) {
             cbor_object mysql{o, "mysql"};
             mysql.close();
-            o.close();
-            return !buf.is_null();
         }
 
         static constexpr mask_value_and_offset<8> matcher {
@@ -754,12 +751,9 @@ public:
         login_req.close();
     }
 
-    bool write_l7_metadata(writeable &buf, bool) {
-        cbor_object o{buf, false};
+    void write_l7_metadata(cbor_object &o, bool) {
         cbor_object mysql{o, "mysql"};
         mysql.close();
-        o.close();
-        return !buf.is_null();
     }
 
     bool is_not_empty() { return valid; }

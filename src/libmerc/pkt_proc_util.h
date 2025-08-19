@@ -299,25 +299,25 @@ struct write_metadata {
 };
 
 struct write_l7_metadata {
-    writeable &buf;
+    cbor_object &o;
     bool metadata_output_;
     bool certs_json_output_;
     bool dns_json_output_;
 
-    write_l7_metadata(writeable &output,
-                   bool metadata_output=false) : buf{output},
-                                             metadata_output_{metadata_output}
+    write_l7_metadata(cbor_object &output,
+                      bool metadata_output=false) :
+        o{output},
+        metadata_output_{metadata_output}
     {}
 
     template <typename T>
-    bool operator()(T &r) {
+    void operator()(T &r) {
         if (r.is_not_empty()) {
-            return r.write_l7_metadata(buf, metadata_output_);
+            r.write_l7_metadata(o, metadata_output_);
         }
-        return true;
     }
 
-    bool operator()(std::monostate &) { return true; }
+    void operator()(std::monostate &) { }
 };
 
 

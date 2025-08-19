@@ -11,7 +11,6 @@
 #include <string>
 #include <stdexcept>
 #include <cinttypes>  // for PRIu64
-#include "json_buffer.h"
 
 // a simple CBOR decoder, following RFC 8949
 //
@@ -131,7 +130,7 @@ namespace cbor {
         }
     }
 
-    static bool is_break(datum &d) {
+    [[maybe_unused]] static bool is_break(datum &d) {
         lookahead<initial_byte> ib{d};
         if (ib.value.is_break()) {
             d = ib.advance();
@@ -707,86 +706,6 @@ namespace cbor {
         return true;
     }
 
-    static inline bool decode_and_write_json(datum &d, json_buffer &o) {
-        if (lookahead<initial_byte> ib{d}) {
-            //fprintf(f, "initial_byte: %02x\tmajor_type: %u\n", ib.value.value(), ib.value.major_type());
-            switch (ib.value.major_type()) {
-            case unsigned_integer_type:
-                {
-                    uint64 tmp{d};
-                    printf("unsigned integer: %" PRIu64 "\n", tmp.value());
-                    o.print_value_uint64(tmp.value());
-                }
-                break;
-            case byte_string_type:
-                {
-                    byte_string tmp = byte_string::decode(d);
-                    o.print_value_hex(tmp.value());
-                }
-                break;
-            case text_string_type:
-                {
-                    text_string tmp = text_string::decode(d);
-                    o.print_value_string(tmp.value());
-                }
-                break;
-            case array_type:
-                {
-                    array tmp{d};
-                    json_buffer arr{o, true};
-                    while(d.is_readable() && !is_break(d)) {
-                        decode_and_write_json(d, arr);
-                    }
-                    arr.close();
-                }
-                break;
-            case map_type:
-                {
-                    map tmp{d};
-                    json_buffer map{o};
-                    while(d.is_readable() && !is_break(d)) {
-                        if (lookahead<initial_byte> ib{d}) {
-                            if (ib.value.major_type() != text_string_type) {
-                                printf("error: expected string as key, got %u\n", ib.value.major_type());
-                                return false;
-                            }
-                        }
-                        text_string ts = text_string::decode(d);
-                        map.print_key_string(ts.value());
-                        decode_and_write_json(d, map);
-                    }
-                    map.close();
-                }
-                break;
-            case tagged_item_type:
-                {
-                    tag tmp{d};
-                    o.print_value_uint64(tmp.value());
-                }
-                break;
-            default:
-                printf("unknown initial byte: %02x\n", ib.value.value());
-                return false;
-            }
-        }
-        return true;
-    }
-
-    static inline bool decode_map_and_write_json(datum &d, json_buffer &o) {
-        while(d.is_readable() && !is_break(d)) {
-            if (lookahead<initial_byte> ib{d}) {
-                if (ib.value.major_type() != text_string_type) {
-                    printf("error: expected string as key, got %u\n", ib.value.major_type());
-                    return false;
-                }
-            }
-            text_string ts = text_string::decode(d);
-            o.print_key_string(ts.value());
-            decode_and_write_json(d, o);
-        }
-        return true;
-    }
-
     /// decode the sequence of CBOR items in the \ref datum \param d,
     /// and print a human-readable description of the items to \param f.
     ///
@@ -888,6 +807,7 @@ namespace cbor::output {
         }
 
         operator writeable & () { return w; }
+
     };
 
 };
