@@ -1434,6 +1434,9 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         reassembler_ptr->clean_curr_flow();
     }
 
+    if (internal_buffer_size - output.writeable_length() == 5) {
+        return 0;     // empty message; nothing to report
+    }
     return internal_buffer_size - output.writeable_length();
 }
 
