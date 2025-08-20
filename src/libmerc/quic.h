@@ -1523,9 +1523,11 @@ public:
             if (!analysis_.result.attr.is_initialized() && c_) {
                 analysis_.result.attr.initialize(&(c_->get_common_data().attr_name.value()),c_->get_common_data().attr_name.get_names_char());
             }
-            if (hello.is_faketls()) {
-                analysis_.result.attr.set_attr(c_->get_common_data().faketls_idx, 1.0);
-            }
+            // QUIC FakeTLS Check
+            // 
+            // if (hello.is_faketls()) {
+            //     analysis_.result.attr.set_attr(c_->get_common_data().faketls_idx, 1.0);
+            // }
         }
 
         return ret;
@@ -1765,9 +1767,11 @@ public:
             if (!analysis_.result.attr.is_initialized() && c_) {
                 analysis_.result.attr.initialize(&(c_->get_common_data().attr_name.value()),c_->get_common_data().attr_name.get_names_char());
             }
-            if (hello.is_faketls()) {
-                analysis_.result.attr.set_attr(c_->get_common_data().faketls_idx, 1.0);
-            }
+            // QUIC FakeTLS Check
+            // 
+            // if (hello.is_faketls()) {
+            //     analysis_.result.attr.set_attr(c_->get_common_data().faketls_idx, 1.0);
+            // }
         }
 
         return ret;
