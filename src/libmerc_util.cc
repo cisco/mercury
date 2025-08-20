@@ -28,7 +28,7 @@ struct flow_key_and_transport_data {
     size_t transport_data_length;
     bool is_valid = false;
 
-    flow_key_and_transport_data(struct datum &pkt_data) {
+    flow_key_and_transport_data(struct datum &pkt_data, FILE *verbose=nullptr) {
 
         eth ethernet{pkt_data};
         uint16_t ethertype = ethernet.get_ethertype();
@@ -57,10 +57,12 @@ struct flow_key_and_transport_data {
                     //
                     // ignore other transport protocols
                     //
+                    if (verbose) { fprintf(verbose, "unknown transport protocol (ip.protocol %u)\n", protocol); }
                 }
             }
             break;
         default:
+            if (verbose) { fprintf(verbose, "unknown ethertype (%04x)\n", ntoh(ethertype)); }
             //
             // ignore other ethertypes
             //
@@ -72,8 +74,8 @@ struct flow_key_and_transport_data {
     explicit operator bool() const { return is_valid; }
 
     void set_flow_key(key &k) {
-        flow_key.src_port = k.src_port;
-        flow_key.dst_port = k.dst_port;
+        flow_key.src_port = hton(k.src_port);
+        flow_key.dst_port = hton(k.dst_port);
         flow_key.protocol = k.protocol;
         flow_key.ip_vers = k.ip_vers;
         if (k.ip_vers == 4) {
@@ -426,7 +428,7 @@ int main(int argc, char *argv[]) {
 
                 uint8_t buffer[4096];
                 size_t data_buf_len = 4096;
-                if (flow_key_and_transport_data fktd{pkt_data}) {
+                if (flow_key_and_transport_data fktd{pkt_data, verbose ? stderr : nullptr}) {
 
                     int retval = mercury.get_analysis_context_fdc(mpp,
                                                                   &fktd.flow_key,
@@ -441,8 +443,9 @@ int main(int argc, char *argv[]) {
                         outbuf.fprint_hex(stdout); fputc('\n', stdout);
                         decode_fprint_json(outbuf, stdout);
                     } else if (retval < 0) {
-                        fprintf(stdout, "retval: %d\tdata_buf_len: %zu\n", retval, data_buf_len);
+                        if (verbose) { fprintf(stderr, "get_analysis_context_fdc retval: %d\tdata_buf_len: %zu\n", retval, data_buf_len); }
                     }
+
                 }
 
             } else {

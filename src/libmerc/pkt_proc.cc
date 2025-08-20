@@ -1318,11 +1318,10 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         }
 
     } else if (k->protocol == ip::protocol::udp) {
-        class udp udp_pkt{pkt, true};
-        udp_pkt.set_ports(k_);
+        udp udp_pseudoheader{k_};
 
         if (reassembler_ptr && global_vars.reassembly && perform_reassembly) {
-            bool ret = process_udp_data(x, pkt, udp_pkt, k_, &ts, reassembler_ptr);
+            bool ret = process_udp_data(x, pkt, udp_pseudoheader, k_, &ts, reassembler_ptr);
             if (reassembler_ptr->in_progress(reassembler_ptr->curr_flow)) {
                 analysis.flow_state_pkts_needed = true;
                 return fdc_return::MORE_PACKETS_NEEDED;
@@ -1333,11 +1332,11 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         }
         else {
 
-            bool ret = process_udp_data(x, pkt, udp_pkt, k_, &ts, nullptr);
+            bool ret = process_udp_data(x, pkt, udp_pseudoheader, k_, &ts, nullptr);
             if (!ret) {
                 return 0;
             }
-            if (udp_pkt.additional_bytes_needed()) {
+            if (udp_pseudoheader.additional_bytes_needed()) {
                 truncated_udp = true;
             }
         }
@@ -1415,6 +1414,10 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         }
 
         std::visit(write_l7_metadata{v2_map, global_vars.metadata_output}, x);
+
+        // v2_map.print_key_uint("src_port", k_.src_port);
+        // v2_map.print_key_uint("dst_port", k_.dst_port);
+
         v2_map.close();
         outer_map.close();
 
