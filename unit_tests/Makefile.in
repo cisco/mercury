@@ -164,6 +164,16 @@ else
 	export LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ./libmerc_driver_multiprotocol -s
 endif
 
+.PHONY: run_libmerc_fdc_tests
+run_libmerc_fdc_tests: xtra/resources/resources-mp.tgz
+ifeq ($(is_macos_arm),yes)
+	cd ../unit_tests/debug-libs/ && (rm -f libmerc.so.0) && (ln -s libmerc_fdc.so libmerc.so.0)
+	export DYLD_LIBRARY_PATH=$$DYLD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ./libmerc_driver_fdc -s
+else
+	cd ../unit_tests/debug-libs/ && (rm -f libmerc.so.0) && (ln -s libmerc_fdc.so libmerc.so.0)
+	export LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ./libmerc_driver_fdc -s
+endif
+
 .PHONY: run
 run: xtra/resources/resources-mp.tgz # xtra data needed for unit tests
 ifeq ($(is_macos_arm),yes)
