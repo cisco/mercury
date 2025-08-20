@@ -168,10 +168,10 @@ endif
 run_libmerc_fdc_tests: xtra/resources/resources-mp.tgz
 ifeq ($(is_macos_arm),yes)
 	cd ../unit_tests/debug-libs/ && (rm -f libmerc.so.0) && (ln -s libmerc_fdc.so libmerc.so.0)
-	export DYLD_LIBRARY_PATH=$$DYLD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ASAN_OPTIONS=detect_container_overflow=0 ./libmerc_driver_fdc -s
+	export DYLD_LIBRARY_PATH=$$DYLD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ./libmerc_driver_fdc -s
 else
 	cd ../unit_tests/debug-libs/ && (rm -f libmerc.so.0) && (ln -s libmerc_fdc.so libmerc.so.0)
-	export LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ASAN_OPTIONS=detect_container_overflow=0 ./libmerc_driver_fdc -s
+	export LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ./libmerc_driver_fdc -s
 endif
 
 .PHONY: run
