@@ -1519,7 +1519,7 @@ public:
 
         bool ret = c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
 
-        // QUIC FakeTLS detection - re-enable when have suffcient data is available
+        // QUIC FakeTLS detection - re-enable when suffcient data is available
         // 
         // if (analysis_.result.status == fingerprint_status_randomized) {    // check for faketls on randomized connections only
         //     if (!analysis_.result.attr.is_initialized() && c_) {
@@ -1763,7 +1763,7 @@ public:
 
          bool ret = c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
 
-        // QUIC FakeTLS detection - re-enable when have suffcient data is available
+        // QUIC FakeTLS detection - re-enable when suffcient data is available
         // 
         // if (analysis_.result.status == fingerprint_status_randomized) {    // check for faketls on randomized connections only
         //     if (!analysis_.result.attr.is_initialized() && c_) {
