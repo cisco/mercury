@@ -821,6 +821,7 @@ struct flow_key_ext {
  * return codes used by mercury
  */
 enum fdc_return {
+    NO_DATA = 0,
     FDC_WRITE_INSUFFICIENT_SPACE = -1,
     FDC_WRITE_FAILURE = -2,
     MORE_PACKETS_NEEDED = -3,
@@ -842,7 +843,10 @@ enum fdc_return {
  * @param buffer_size (output) the value of buffer_size will be updated to a larger 
  * number of bytes if the write to FDC buffer fails with a return code of `FDC_WRITE_INSUFFICIENT_SPACE`.
  * 
- * @return one of the following enum values (int):
+ * @return either a positive number indicating the number of bytes
+ * written to @param buffer, or one of the following non-positive @ref enum fdc_return
+ * values (int):
+ *        - `NO_DATA`: No data to return
  *        - `FDC_WRITE_INSUFFICIENT_SPACE`: Write to the FDC buffer failed, `buffer_size` was too small
  *        - `MORE_PACKETS_NEEDED`: Fragmented payload, more packets needed to complete the analysis
  *        - `FDC_WRITE_FAILURE`: FDC buffer write failed, in place for forward compatibility
