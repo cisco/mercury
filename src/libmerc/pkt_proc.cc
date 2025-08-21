@@ -1387,8 +1387,6 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
     if (fdc_version == 1) {
         if (is_fdc_writable(analysis.fp.get_type())) {
 
-            cbor::output::map m{output};
-            cbor::uint64{fdc_version}.write(m);            // write key
             fdc fdc_object{
                 datum{analysis.fp.string()},
                 analysis.destination.ua_str,
@@ -1397,12 +1395,11 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
                 analysis.destination.dst_port,
                 status
             };
-            bool encoding_ok = fdc_object.encode(output);  // write value
+            bool encoding_ok = fdc_object.encode(output);
             if (encoding_ok == false) {
                 *buffer_size = 2 * internal_buffer_size;
                 return -1;
             }
-            m.close();
 
         }
     } else if (fdc_version == 2) {
@@ -1418,6 +1415,7 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
             //
             cbor_array fingerprint_array{v2_map, "fingerprints"};
             datum fp_string{analysis.fp.string()};
+            cbor::tag{tag_npf_fingerprint}.write(fingerprint_array.get_writeable());
             cbor_fingerprint::encode_cbor_fingerprint(fp_string, fingerprint_array.get_writeable());
             fingerprint_array.close();
         }

@@ -9,6 +9,7 @@
 #include "options.h"
 #include "libmerc/cbor.hpp"
 #include "libmerc/fdc.hpp"
+#include "libmerc/l7m.hpp"
 #include "libmerc/file_datum.hpp"
 
 using namespace mercury_option;

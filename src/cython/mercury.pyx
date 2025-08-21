@@ -39,8 +39,8 @@ __version__ = '2.8.0'
 cdef extern from "../libmerc/dns.h":
     string dns_get_json_string(const char *dns_pkt, ssize_t pkt_len)
 
-# imports from mercury's FDC
-cdef extern from "../libmerc/fdc.hpp":
+# imports from mercury's FDC/L7 metadata
+cdef extern from "../libmerc/l7m.hpp":
     string get_json_decoded_fdc(const char *fdc_blob, ssize_t blob_len)
 
 

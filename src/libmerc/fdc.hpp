@@ -8,7 +8,6 @@
 #include "static_dict.hpp"
 #include "result.h"
 #include "cbor.hpp"
-#include "cbor_object.hpp"
 #include "fingerprint.h"  // for fingerprint_type
 
 // cbor_fingerprint decodes a CBOR representation of a Network
@@ -755,11 +754,6 @@ public:
         }
     }
 
-    //// ????????????????????????????
-    static void decode_version_two(datum &d, struct json_object &record) {
-        decode_version_one(d, record);
-    }
-
     /// perform unit tests on class fdc, returning `true` if they pass
     /// and `false` otherwise
     ///
@@ -877,62 +871,5 @@ private:
     }
 
 };
-
-class eve_metadata {
-public:
-
-    static constexpr uint64_t eve_metadata_version = 2;
-    static std::string decode_cbor_data(datum d) {
-        datum data{d};
-        cbor::map m{d};
-        cbor::uint64 version{d};
-        char buffer[8192];
-        struct buffer_stream buf_json(buffer, sizeof(buffer));
-        struct json_object record(&buf_json);
-
-        switch(version.value()) {
-            case 1:
-                fdc::decode_version_one(data, record);
-                record.close();
-                break;
-            case 2:
-                decode_version_two(d, record);
-                break;
-            default:
-                return "";
-        }
-        buf_json.write_char('\0');
-        return buf_json.get_string();
-    }
-
-    static void decode_version_two(datum d, struct json_object &record) {
-        bool is_fdc = false;
-        datum buf_copy = d;
-        datum buf_copy_key{cbor::text_string::decode(buf_copy).value()};
-
-        if (buf_copy_key.equals(std::array<uint8_t, 3>{'f', 'd', 'c'})) {
-            fdc::decode_version_two(buf_copy, record);
-            is_fdc = true;
-        }
-        if (is_fdc) {
-            d = buf_copy;
-            record.comma = true;
-        }
-
-        // json_buffer o{record};
-        // cbor::decode_map_and_write_json(d, o);
-        // record.close();
-
-        cbor_to_json_translator xltr;
-        xltr.decode_cbor_map_to_json(d, record);
-
-        return;
-    }
-};
-
-[[maybe_unused]] inline std::string get_json_decoded_fdc(const char *fdc_blob, ssize_t blob_len) {
-    datum fdc_data = datum{(uint8_t*)fdc_blob,(uint8_t*)(fdc_blob+blob_len)};
-    return eve_metadata::decode_cbor_data(fdc_data);
-}
 
 #endif // FDC_HPP

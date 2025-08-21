@@ -14,6 +14,7 @@
 #include "packet.h"
 #include "libmerc/datum.h"
 #include "libmerc/json_object.h"
+#include "libmerc/l7m.hpp"
 
 #include "libmerc/eth.h"
 #include "libmerc/ip.h"
@@ -447,7 +448,7 @@ int main(int argc, char *argv[]) {
                     if (retval > 0) {
                         datum outbuf{buffer, buffer + retval};
                         outbuf.fprint_hex(stdout); fputc('\n', stdout);
-                        decode_fprint_json(outbuf, stdout);
+                        printf("%s\n", translate_l7_metadata_to_json_string(outbuf).c_str());
                     } else if (retval < 0) {
                         if (verbose) { fprintf(stderr, "get_analysis_context_fdc retval: %d\tdata_buf_len: %zu\n", retval, data_buf_len); }
                     }
