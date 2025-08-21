@@ -243,7 +243,7 @@ namespace crypto_policy {
             datum tmp = extensions;
             while (tmp.is_readable()) {
                 xtn extension{tmp};
-                switch(extension.type()) {
+                switch (extension.type()) {
                 case tls::extensions<uint16_t>::code::tls_cert_with_extern_psk:
                     have_tls_cert_with_extern_psk = true;
                     break;
@@ -261,7 +261,7 @@ namespace crypto_policy {
         /*
         * SSH kex init paramaters - key exchange methods and encryption algorithms
         */
-        static inline std::unordered_set<std::string> ssh_allowed_kex {
+        static inline const std::unordered_set<std::string_view> ssh_allowed_kex {
             "sntrup761x25519-sha512",    // not NIST approved, but considered PQ safe
             "mlkem768nistp256-sha256",
             "mlkem1024nistp384-sha384",
@@ -273,7 +273,7 @@ namespace crypto_policy {
 
         // TODO: mine for other cipher names
         // considering blowfish, ctr and cbc etc. to be weak
-        static inline std::unordered_set<std::string> ssh_allowed_ciphers {
+        static inline const std::unordered_set<std::string_view> ssh_allowed_ciphers {
             "AEAD_AES_128_GCM",
             "AEAD_AES_192_GCM",
             "AEAD_AES_256_GCM",
@@ -293,22 +293,23 @@ namespace crypto_policy {
             while (tmp_list.is_readable()) {
                 datum tmp{};
                 tmp.parse_up_to_delim(tmp_list, ',');
+                std::string_view tmp_sv{(char*)tmp.data, (size_t)tmp.length()};
                 if (tmp.end() == tmp_list.end()) {
                     tmp_list.set_null();
                 }
                 tmp_list.skip(1); // skip ','
 
-                bool found = (ssh_allowed_kex.find(std::string{(char*)tmp.data, (size_t)tmp.length()}) != ssh_allowed_kex.end());
+                bool found = (ssh_allowed_kex.find(tmp_sv) != ssh_allowed_kex.end());
                 if (!found) {
                     all_allowed = false;
                     json_array cs_array(a, "kex_not_allowed");
                     
                     while (true) {
                         
-                        found = (ssh_allowed_kex.find(std::string{(char*)tmp.data, (size_t)tmp.length()}) != ssh_allowed_kex.end());
+                        found = (ssh_allowed_kex.find(tmp_sv) != ssh_allowed_kex.end());
                         if (!found) {
                             all_allowed = false;
-                            cs_array.print_string(std::string{(char*)tmp.data,(size_t)tmp.length()}.c_str());
+                            cs_array.print_string(tmp_sv.data(), tmp_sv.length());
                         }
                         else {
                             some_allowed = true;
@@ -318,8 +319,9 @@ namespace crypto_policy {
                             break;
                         }
 
-                        datum tmp{};
+                        tmp.set_null();
                         tmp.parse_up_to_delim(tmp_list, ',');
+                        tmp_sv = {(char*)tmp.data, (size_t)tmp.length()};
                         if (tmp.end() == tmp_list.end()) {
                             tmp_list.set_null();
                         }
@@ -354,21 +356,22 @@ namespace crypto_policy {
             while (tmp_list.is_readable()) {
                 datum tmp{};
                 tmp.parse_up_to_delim(tmp_list, ',');
+                std::string_view tmp_sv{(char*)tmp.data, (size_t)tmp.length()};
                 if (tmp.end() == tmp_list.end()) {
                     tmp_list.set_null();
                 }
                 tmp_list.skip(1); // skips ','
 
-                bool found = ssh_allowed_ciphers.find(std::string{(char*)tmp.data, (size_t)tmp.length()}) != ssh_allowed_ciphers.end();
+                bool found = ssh_allowed_ciphers.find(tmp_sv) != ssh_allowed_ciphers.end();
                 if (!found) {
                     all_allowed = false;
                     json_array cs_array(a, "ciphersuites_not_allowed");
 
                     while (true) {
-                        found = ssh_allowed_ciphers.find(std::string{(char*)tmp.data, (size_t)tmp.length()}) != ssh_allowed_ciphers.end();
+                        found = ssh_allowed_ciphers.find(tmp_sv) != ssh_allowed_ciphers.end();
                         if (!found) {
                             all_allowed = false;
-                            cs_array.print_string(std::string{(char*)tmp.data,(size_t)tmp.length()}.c_str());
+                            cs_array.print_string(tmp_sv.data(), tmp_sv.length());
                         }
                         else {
                             some_allowed = true;
@@ -378,8 +381,9 @@ namespace crypto_policy {
                             break;
                         }
 
-                        datum tmp{};
+                        tmp.set_null();
                         tmp.parse_up_to_delim(tmp_list, ',');
+                        tmp_sv = {(char*)tmp.data, (size_t)tmp.length()};
                         if (tmp.end() == tmp_list.end()) {
                             tmp_list.set_null();
                         }
