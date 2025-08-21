@@ -865,24 +865,6 @@ def parse_dns(str b64_dns):
     return json.loads(dns_get_json_string(c_string_ref, len_).decode())
 
 
-def decode_mercury_fdc(str b64_fdc):
-    """
-    Return a JSON representation of a decoded mercury FDC object.
-
-    :param b64_fdc: Base64-encoded mercury FDC object.
-    :type b64_fdc: str
-    :return: JSON-encoded mercury decoded FDC.
-    :rtype: dict
-    """
-    cdef bytes fdc_blob = b64decode(b64_fdc)
-    cdef unsigned int len_ = len(fdc_blob)
-
-    # create reference to fdc_blob so that it doesn't get garbage collected
-    cdef char* c_string_ref = fdc_blob
-
-    # use mercury's FDC decoder to decode the FDC object
-    return json.loads(get_json_decoded_fdc(c_string_ref, len_).decode())
-
 def decode_fdc(bytes fdc_blob):
     """
     Return a JSON representation of a decoded mercury FDC object.
@@ -896,7 +878,22 @@ def decode_fdc(bytes fdc_blob):
 
     # create reference to fdc_blob so that it doesn't get garbage collected
     cdef char* c_string_ref = fdc_blob
-    return json.loads(get_json_decoded_fdc(fdc_blob, len_).decode())
+    return json.loads(get_json_decoded_fdc(c_string_ref, len_).decode())
+
+
+def decode_mercury_fdc(str b64_fdc):
+    """
+    Return a JSON representation of a decoded mercury FDC object.
+
+    :param b64_fdc: Base64-encoded mercury FDC object.
+    :type b64_fdc: str
+    :return: JSON-encoded mercury decoded FDC.
+    :rtype: dict
+    """
+    cdef bytes fdc_blob = b64decode(b64_fdc)
+
+    return decode_fdc(fdc_blob)
+
 
 # imports from mercury's asn1 parser
 cdef extern from "../libmerc/x509.h":

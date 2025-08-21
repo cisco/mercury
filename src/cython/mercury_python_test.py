@@ -1,6 +1,7 @@
 import json
 import os
 import unittest
+from base64 import b64decode
 from binascii import unhexlify
 
 import mercury
@@ -121,6 +122,30 @@ class TestMercuryPython(unittest.TestCase):
                          f"Fingerprint should be unlabeled")
         self.assertEqual(cls_result['analysis']['attributes'][0]['name'], f"faketls",
                          f"FakeTLS should be the only attribute in the unlabeled case")
+
+
+    def test_cbor_decoding(self):
+        b64_fdc = ('vwGfvwG/AZ9CAwNYJMAswCvAMMAvwCTAI8AowCfACsAJwBTAEwCdAJwAPQA8ADUAL9j7n0IAAEkABQAFAQAAAABMAAoACAAG'
+                   'AB0AFwAYRgALAAIBAFgeAA0AGgAYCAQIBQgGBAEFAQIBBAMFAwIDAgIGAQYDUgAQAA4ADAJoMghodHRwLzEuMUIAF0IAI0L/'
+                   'Af////94H3NldHRpbmdzLXdpbi5kYXRhLm1pY3Jvc29mdC5jb21sNTIuMTY3LjE3Ljk3GQG7YP//')
+        fdc = b64decode(b64_fdc)
+
+        decoded_data = mercury.decode_mercury_fdc(b64_fdc)
+        self.assertEqual(decoded_data['fdc']['sni'], f"settings-win.data.microsoft.com",
+                         f"Domain feature decoded improperly")
+        self.assertEqual(decoded_data['fdc']['dst_ip_str'], f"52.167.17.97",
+                         f"Destination IP feature decoded improperly")
+        self.assertEqual(decoded_data['fdc']['dst_port'], 443,
+                         f"Destination port feature decoded improperly")
+
+        decoded_data = mercury.decode_fdc(fdc)
+        self.assertEqual(decoded_data['fdc']['sni'], f"settings-win.data.microsoft.com",
+                         f"Domain feature decoded improperly")
+        self.assertEqual(decoded_data['fdc']['dst_ip_str'], f"52.167.17.97",
+                         f"Destination IP feature decoded improperly")
+        self.assertEqual(decoded_data['fdc']['dst_port'], 443,
+                         f"Destination port feature decoded improperly")
+
 
 
 if __name__ == '__main__':
