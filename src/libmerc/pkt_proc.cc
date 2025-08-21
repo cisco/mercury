@@ -1258,6 +1258,10 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
                                            size_t *buffer_size,
                                            [[maybe_unused]]const struct analysis_context** context) {
 
+    if (k == nullptr or payload == nullptr or buffer == nullptr) {
+        return fdc_return::INVALID_INPUT;
+    }
+
     bool perform_reassembly = true;
     protocol x;
     key k_{*k};

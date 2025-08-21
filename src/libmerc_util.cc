@@ -409,7 +409,13 @@ int main(int argc, char *argv[]) {
             return -1;
         }
 
+        // open PCAP file for reading
+        //
         pcap::file_reader pcap{pcap_file.c_str()};
+        if (strcmp(pcap.get_linktype(), "ETHERNET") != 0) {
+            fprintf(stderr, "error: linktype %s not supported\n", pcap.get_linktype());
+            exit(EXIT_FAILURE);
+        }
         packet<65536> pkt;
         while (true) {
 

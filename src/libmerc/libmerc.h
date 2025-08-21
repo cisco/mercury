@@ -825,7 +825,8 @@ enum fdc_return {
     FDC_WRITE_INSUFFICIENT_SPACE = -1,
     FDC_WRITE_FAILURE = -2,
     MORE_PACKETS_NEEDED = -3,
-    UNKNOWN_ERROR = -4
+    UNKNOWN_ERROR = -4,
+    INVALID_INPUT = -5,
 };
 
 /**
@@ -850,7 +851,8 @@ enum fdc_return {
  *        - `FDC_WRITE_INSUFFICIENT_SPACE`: Write to the FDC buffer failed, `buffer_size` was too small
  *        - `MORE_PACKETS_NEEDED`: Fragmented payload, more packets needed to complete the analysis
  *        - `FDC_WRITE_FAILURE`: FDC buffer write failed, in place for forward compatibility
- *        - `UNKNOWN_ERROR`: Something goes wrong in the libmerc api invocation
+ *        - `UNKNOWN_ERROR`: Something went wrong in the libmerc api invocation
+ *        - `INVALID_INPUT`: One or more function arguments were invalid
  * 
  * The function expects the size of FDC buffer to be `buffer_size` number of bytes, in case the 
  * write to FDC fails due to a lack of space, the function will return `FDC_WRITE_INSUFFICIENT_SPACE`.
