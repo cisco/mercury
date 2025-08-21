@@ -302,14 +302,14 @@ namespace crypto_policy {
                 bool found = (ssh_allowed_kex.find(tmp_sv) != ssh_allowed_kex.end());
                 if (!found) {
                     all_allowed = false;
-                    json_array cs_array(a, "kex_not_allowed");
+                    json_array kex_array(a, "kex_not_allowed");
                     
                     while (true) {
                         
                         found = (ssh_allowed_kex.find(tmp_sv) != ssh_allowed_kex.end());
                         if (!found) {
                             all_allowed = false;
-                            cs_array.print_string(tmp_sv.data(), tmp_sv.length());
+                            kex_array.print_string(tmp_sv.data(), tmp_sv.length());
                         }
                         else {
                             some_allowed = true;
@@ -327,7 +327,7 @@ namespace crypto_policy {
                         }
                         tmp_list.skip(1); // skip ','
                     }
-                    cs_array.close();
+                    kex_array.close();
                     break;
                 }
                 else {
