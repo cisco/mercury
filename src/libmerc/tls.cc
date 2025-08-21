@@ -1172,7 +1172,7 @@ void tls_server_certificate::write_json(struct json_array &a, bool json_output) 
 
         struct json_object o{a};
         if (json_output) {
-            struct json_object_asn1 cert{o, "cert"};
+            struct json_object cert{o, "cert"};
             struct x509_cert c;
             c.parse(tmp_cert_list.data, tmp_len);
             c.print_as_json(cert, {}, NULL);

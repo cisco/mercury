@@ -54,7 +54,7 @@ namespace ocsp {
             valid = sequence.value.is_not_null();
         }
 
-        void write_json(json_object_asn1 &o) const {
+        void write_json(json_object &o) const {
             if (!valid) { return; }
             alg_id.print_as_json(o, "hash_algorithm");
             issuer_name_hash.print_as_json_hex(o, "issuer_name_hash");
@@ -85,7 +85,7 @@ namespace ocsp {
             valid = d.is_not_null();
         }
 
-        void write_json(json_object_asn1 &o) const {
+        void write_json(json_object &o) const {
             if (!valid) {
                 return;
             }
@@ -96,7 +96,7 @@ namespace ocsp {
                 if (!sequence.value.is_not_null()) {
                     break;
                 }
-                json_object_asn1 tmp{array};
+                json_object tmp{array};
                 cid.write_json(tmp);
                 tmp.close();
             }
@@ -132,10 +132,10 @@ namespace ocsp {
             parse(d);
         }
 
-        void write_json(json_object_asn1 &o) const {
-            json_object_asn1 json{o, "ocsp_request"};
+        void write_json(json_object &o) const {
+            json_object json{o, "ocsp_request"};
             json_array a{json, "cert_requests"};
-            json_object_asn1 tmp{a};
+            json_object tmp{a};
             cert_req.write_json(tmp);
             tmp.close();
             a.close();
@@ -162,11 +162,11 @@ namespace ocsp {
 
         void write_json(json_object &o, bool metadata=false) const {
             (void)metadata;
-            json_object_asn1 asn1_obj{o};
+            json_object asn1_obj{o};
             tbs.write_json(asn1_obj);
         }
 
-        void write_json(json_object_asn1 &asn1_obj) const {
+        void write_json(json_object &asn1_obj) const {
             tbs.write_json(asn1_obj);
         }
 
@@ -190,7 +190,7 @@ namespace ocsp {
             ocsp::request req{d};
 
             output_buffer<2048> buf;
-            json_object_asn1 o{&buf};
+            json_object o{&buf};
             req.write_json(o);
             o.close();
             // buf.write_line(stdout);
@@ -213,7 +213,7 @@ namespace ocsp {
             choice{d, 0x00, "responder_id.choice"} // ???
         { }
 
-        void write_json(json_object_asn1 &o) const {
+        void write_json(json_object &o) const {
             choice.print_as_json(o, "choice");
             datum tmp{choice.value};
             while (tmp.is_not_empty()) {
@@ -260,7 +260,7 @@ namespace ocsp {
             sequence_of_responses{explicit_tag.value}
         { }
 
-        void write_json(json_object_asn1 &o) const {
+        void write_json(json_object &o) const {
             responder.write_json(o);
             // responder_id.print_as_json(o, "responder_id");
             produced_at.print_as_json(o, "produced_at");
@@ -299,15 +299,15 @@ namespace ocsp {
             sequence{d, tlv::SEQUENCE, "id_pkix_ocsp_basic.sequence"}
         { }
 
-        void write_json(json_object_asn1 &o) const {
-            json_object_asn1 obj{o, "id_pkix_ocsp_basic"};
+        void write_json(json_object &o) const {
+            json_object obj{o, "id_pkix_ocsp_basic"};
             datum tmp{sequence.value};
             response_data{tmp}.write_json(obj);
             obj.close();
-            // json_array_asn1 a{o, "id_pkix_ocsp_basic"};
+            // json_array a{o, "id_pkix_ocsp_basic"};
             // datum tmp{sequence.value};
             // while (tmp.is_readable()) {
-            //     json_object_asn1 obj{a};
+            //     json_object obj{a};
             //     tlv{tmp}.print_as_json(obj, "tlv");
             //     obj.close();
             // }
@@ -354,7 +354,7 @@ namespace ocsp {
             response{sequence.value, tlv::OCTET_STRING}
         { }
 
-        void write_json(json_object_asn1 &o) const {
+        void write_json(json_object &o) const {
             response_type.print_as_json(o, "type");
             //   o.print_key_hex("oid_hex", response_type.value);
             if (response_type.value.cmp(oid_id_pkix_ocsp_basic)) {
@@ -389,8 +389,8 @@ namespace ocsp {
 
         bool is_valid() { return sequence.is_not_null(); } // arb.is_valid(); }  // sequence.is_not_null(); }
 
-        void write_json(json_object_asn1 &o) {
-            json_object_asn1 response{o, "response"};
+        void write_json(json_object &o) {
+            json_object response{o, "response"};
             response_status.print_as_json(response, "status");
             bytes.write_json(response);
             response.close();

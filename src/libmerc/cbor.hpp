@@ -115,6 +115,9 @@ namespace cbor {
         static constexpr uint8_t True = 21;
         static constexpr uint8_t null = 22;
         static constexpr uint8_t undefined = 23;
+        static constexpr uint8_t float16 = 25;      // IEEE 754 Half-Precision Float (16 bits)
+        static constexpr uint8_t float32 = 26;      // IEEE 754 Single-Precision Float (32 bits)
+        static constexpr uint8_t float64 = 27;      // IEEE 754 Double-Precision Float (64 bits)
         static constexpr uint8_t break_code = 31;
 
     };
@@ -346,6 +349,12 @@ namespace cbor {
         void write(writeable &buf) const {
             length.write(buf);
             buf << value__;
+        }
+
+        /// writes an empty `byte_string` into \param buf
+        ///
+        static void write_empty(writeable &buf) {
+            uint64{0, byte_string_type}.write(buf);
         }
 
         /// `cbor::byte_string::unit_test()` performs unit tests on
@@ -605,7 +614,7 @@ namespace cbor {
     template <size_t N>
     class compact_map : public map {
     public:
-        compact_map(const std::array<const char *, N> &a, datum &d) : map{d} { }
+        compact_map(const std::array<const char *, N> &a [[maybe_unused]], datum &d) : map{d} { }
     };
 
     static inline bool decode_data(datum &d, FILE *f, int r=0) {
@@ -622,7 +631,7 @@ namespace cbor {
                     {
                         uint64 tmp{d};
                         if (d.is_null()) { return false; }
-                        fprintf(f, "%.*sunsigned integer: %zu\n", r, tabs, tmp.value());
+                        fprintf(f, "%.*sunsigned integer: %" PRIu64 "\n", r, tabs, tmp.value());
                     }
                     break;
                 case byte_string_type:
@@ -670,7 +679,7 @@ namespace cbor {
                     {
                         tag tmp{d};
                         if (d.is_null()) { return false; }
-                        fprintf(f, "%.*stag: %zu\n", r, tabs, tmp.value());
+                        fprintf(f, "%.*stag: %" PRIu64 "\n", r, tabs, tmp.value());
                     }
                     break;
                 case simple_or_float_type:
@@ -1046,7 +1055,7 @@ namespace cbor {
             if (f) {
                 fprintf(f, "encoded: ");
                 for (const auto & ee : tc.first) { fprintf(f, "%02x", ee);  }
-                fprintf(f, "\tdecoded: %zu\tre-encoded: ", u.value());
+                fprintf(f, "\tdecoded: %" PRIu64 "\tre-encoded: ", u.value());
                 for (const auto & ee : dbuf.contents()) { fprintf(f, "%02x", ee);  }
                 fprintf(f, "\t%s\n", passed ? "passed" : "failed");
             }

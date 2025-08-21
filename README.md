@@ -38,6 +38,21 @@ make
 ```
 to build the package (and check for the programs and python modules required to test it).  TPACKETv3 is present in Linux kernels newer than 3.2.
 
+Building mercury on macOS Apple Silicon is currently experimental.  Note that on
+macOS, standalone mercury can read pcap as input but not capture on an
+interface, since AF_PACKET is Linux-specific.  The following has been tested
+on an M2 mac with Python 3.13.2 installed via the Homebrew command below.
+```
+brew install python openssl zlib
+mkdir -p ~/.envs
+python3 -m venv ~/.envs/merc
+source ~/.envs/merc/bin/activate
+python3 -m pip install --upgrade pip
+python3 -m pip install --upgrade jsonschema cryptography Cython wheel setuptools
+./configure && make
+cd src/cython && make && make wheel
+```
+
 ### Installation
 In the root directory, edit mercury.cfg with the network interface you want to capture from, then run
 ```

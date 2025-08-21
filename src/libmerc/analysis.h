@@ -109,9 +109,13 @@ class fingerprint_data {
 public:
 
     // Create the dispatching function, specifying the architectures we want to target.
-#if defined(__i386__) || defined(__x86_64__)
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
+#ifdef _WIN32
+    using simd_arch_list = xsimd::arch_list<xsimd::sse2>;
+#else
     using simd_arch_list = xsimd::arch_list<xsimd::avx2, xsimd::avx, xsimd::sse2>;
-#elif defined(__aarch64__)
+#endif
+#elif defined(__aarch64__) || defined(_M_ARM64)
     using simd_arch_list = xsimd::arch_list<xsimd::neon64>;
 #endif
 
@@ -478,6 +482,8 @@ public:
             return fingerprint_type_quic;
         } else if (s == "tofsee") {
             return fingerprint_type_tofsee;
+        } else if (s == "ssh") {
+            return fingerprint_type_ssh;
         }
         return fingerprint_type_unknown;
     }
@@ -534,6 +540,8 @@ public:
                     type = fingerprint_type_quic;
                 } else if (s.compare(0, idx, "tofsee") == 0) {
                     type = fingerprint_type_tofsee;
+                } else if (s.compare(0, idx, "ssh") == 0) {
+                    type = fingerprint_type_ssh;
                 }
                 std::string version_and_tail{s.substr(idx+1)};
 

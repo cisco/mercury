@@ -1,8 +1,20 @@
 # CHANGELOG for Mercury
+
+* Fixed `get_json_decoded_fdc()` to not assume UTF-8 inputs.
+* Added CBOR encoding/decoding for SSH and STUN fingerprints.
+* Fixing compiler warnings related to ABI differences
+* CMake changes required to add xsimd as submodule and fixing
+  windows compilation issues
+* Removed duplicate UTF-8 and IP address output code used in
+  ASN.1, added classes `utc_time`, `generalized_time`, and `raw_oid`
+  to facilitate JSON output, removed `json_object_asn1` and
+ `json_array_asn1` and some unused function definitions and
+  declarations.
 * Added changes to leverage SIMD instructions to improve
   performance. Added xsimd library as a git submodule
-
 * Removed some direct calls to `fprintf(stderr, ...)` from `libmerc.so`.
+* Added experimental support for building mercury on macOS Apple Silicon. (Note:
+  interface capture is disabled, since AF_PACKET is Linux specific.)
 
 * Added a new configuration option, network-behavioral-detections,
   which enables behavioral detections without a resources file.
@@ -16,8 +28,10 @@
 * Added changes to allow classifier to use custom weights
   and introduced new cython interface
 * Added additional fuzz tests. Updated the `generate_fuzz_test.sh` script to
-  support generating fuzz functions that test functions requiring two fuzzed inputs. 
+  support generating fuzz functions that test functions requiring two fuzzed inputs.
   Also hardened some datum functions.
+* Added `test-coverage` and `test-coverage-fuzz` targets to generate a 
+  comprehensive code coverage report for the Mercury library.
 
 ## VERSION 2.7.0
 * Added minimal RDP (Remote Desktop Protocol) support, which
@@ -368,7 +382,7 @@
         --stats-time=T                        # write stats every T seconds
         --stats-limit=L                       # limit stats to L entries
 * Added [SMTP](src/libmerc/smtp.h) parsing.
-* Gathered together most of libmerc's global variables, to enable multiple libmerc instances to be used concurrently.   This makes it possible to update libmerc by loading a newer version of limberc.so. 
+* Gathered together most of libmerc's global variables, to enable multiple libmerc instances to be used concurrently.   This makes it possible to update libmerc by loading a newer version of limberc.so.
 * Added the [libmerc_driver](src/libmerc_driver.cc) test program to test concurrent uses of libmerc.
 
 ## Version 2.4.0
@@ -420,4 +434,3 @@
 * The --select (or -s) command now accepts an optional argument that specifies one or more protocols to select.  The argument --select=tls,dns causes mercury to process only TLS and DNS packets, for instance.
 * Added support for VXLAN and MPLS
 * Per-packet output is no longer supported
-

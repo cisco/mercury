@@ -60,7 +60,6 @@ sources = [
     "{mercury_dir}/src/libmerc/http.cc".format(mercury_dir=mercury_dir),
     "{mercury_dir}/src/libmerc/pkt_proc.cc".format(mercury_dir=mercury_dir),
     "{mercury_dir}/src/libmerc/tls.cc".format(mercury_dir=mercury_dir),
-    "{mercury_dir}/src/libmerc/asn1.cc".format(mercury_dir=mercury_dir),
     "{mercury_dir}/src/libmerc/smb2.cc".format(mercury_dir=mercury_dir),
     "{mercury_dir}/src/libmerc/config_generator.cc".format(mercury_dir=mercury_dir),
     "{mercury_dir}/src/libmerc/bencode.cc".format(mercury_dir=mercury_dir),
@@ -76,7 +75,7 @@ if arch in ["x86_64", "i386"]:
         (f"{mercury_dir}/src/libmerc/softmax_avx.cc", ["-mavx"]),
         (f"{mercury_dir}/src/libmerc/softmax_avx2.cc", ["-mavx2"]),
     ]
-elif arch == "aarch64":
+elif arch in ["aarch64", "arm64"]:
     simd_sources = [
         (f"{mercury_dir}/src/libmerc/softmax_neon.cc", [])
     ]

@@ -15,50 +15,19 @@
 #include "libmerc.h" // for enum status
 #include "buffer_stream.h"
 
-/*
- * obsolete macros
- */
-#define PARENT_NODE_INDICATOR 0x8000
-#define LENGTH_MASK           0x7fff
-
 /* utility functions */
-
-void encode_uint16(uint8_t *p, uint16_t x);
-
-uint16_t decode_uint16(const void *x);
-
-void packet_handler_null(uint8_t *ignore,
-			 const struct pcap_pkthdr *pcap_pkthdr,
-			 const uint8_t *packet);
-
-void packet_handler_printf(uint8_t *ignore,
-			   const struct pcap_pkthdr *pcap_pkthdr,
-			   const uint8_t *packet);
 
 size_t hex_to_raw(const void *output,
 		       size_t output_buf_len,
 		       const char *null_terminated_hex_string);
 
-void fprintf_json_hex_string(FILE *file,
-                            const unsigned char *data,
-                            unsigned int len);
-
 void fprintf_raw_as_hex(FILE *f, const uint8_t *data, unsigned int len);
-
-void fprintf_json_hex_string(FILE *f, const char *key, const uint8_t *data, unsigned int len);
-
-
-void fprintf_json_string(FILE *f, const char *key, const uint8_t *data, unsigned int len);
 
 extern "C" LIBMERC_DLL_EXPORTED
 enum status drop_root_privileges(const char *username, const char *directory);
 
 extern "C" LIBMERC_DLL_EXPORTED
 int copy_string_into_buffer(char *dst, size_t dst_len, const char *src, size_t max_src_len);
-
-void fprintf_json_base64_string(FILE *file, const unsigned char *data, size_t input_length);
-
-void printf_raw_as_hex(const uint8_t *data, unsigned int len);
 
 /*
  * get_readable_number_float() provides an imprecise but
