@@ -83,6 +83,7 @@ std::string get_version_from_archive(std::string n_archive)
                 break;
             }
         }
+        entry = archive.get_next_entry();
     }
     return recourse_version;
 }
