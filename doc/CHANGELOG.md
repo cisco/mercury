@@ -1,5 +1,10 @@
 # CHANGELOG for Mercury
 
+## VERSION 2.8.1
+* Changed the order of domain name normalization in the classifier
+  to normalize a FQDN before extracting the domain name.
+
+## VERSION 2.8.0
 * Fixed `get_json_decoded_fdc()` to not assume UTF-8 inputs.
 * Added CBOR encoding/decoding for SSH and STUN fingerprints.
 * Fixing compiler warnings related to ABI differences
