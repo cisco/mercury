@@ -495,7 +495,9 @@ public:
                 ) const
     {
 
-        std::string domain = get_tld_domain_name(server_name_str.c_str());
+        server_identifier server_id{server_name_str};
+        std::string normalized_server_name_str = server_id.get_normalized_domain_name(server_identifier::detail::on);
+        std::string domain = get_tld_domain_name(normalized_server_name_str.c_str());
 
         auto hostname_domain_update = hostname_domain_updates.find(domain);
         if (hostname_domain_update != hostname_domain_updates.end()) {
@@ -504,9 +506,6 @@ public:
                 process_score[x.index] += x.value;
             }
         }
-
-        server_identifier server_id{server_name_str};
-        std::string normalized_server_name_str = server_id.get_normalized_domain_name(server_identifier::detail::on);
 
         auto hostname_sni_update = hostname_sni_updates.find(normalized_server_name_str);
         if (hostname_sni_update != hostname_sni_updates.end()) {
@@ -528,7 +527,9 @@ public:
                 ) const
     {
 
-        std::string domain = get_tld_domain_name(server_name_str.c_str());
+        server_identifier server_id{server_name_str};
+        std::string normalized_server_name_str = server_id.get_normalized_domain_name(server_identifier::detail::on);
+        std::string domain = get_tld_domain_name(normalized_server_name_str.c_str());
 
         auto hostname_domain_update = hostname_domain_updates.find(domain);
         if (hostname_domain_update != hostname_domain_updates.end()) {
@@ -537,9 +538,6 @@ public:
                 process_score[x.index] += x.value * (w_domain / domain_weight);
             }
         }
-
-        server_identifier server_id{server_name_str};
-        std::string normalized_server_name_str = server_id.get_normalized_domain_name(server_identifier::detail::on);
 
         auto hostname_sni_update = hostname_sni_updates.find(normalized_server_name_str);
         if (hostname_sni_update != hostname_sni_updates.end()) {
@@ -691,7 +689,7 @@ class naive_bayes_tls_quic_http : public naive_bayes {
     feature<uint32_t> asn_feature;
     feature<std::string> user_agent_feature;
     bool minimize_ram;
-    const feature_weights &weights;
+    const feature_weights weights;
 
 public:
 
