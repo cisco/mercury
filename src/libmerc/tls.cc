@@ -411,7 +411,7 @@ struct tls_extension {
             p.data += length;
         }
 
-        // Initialize with degreased extension 
+        // Initialize with degreased extension
         if (is_grease()) {
             encoded_type = 0x0a0a;
         } else {
@@ -686,7 +686,7 @@ void tls_extensions::fingerprint_format2(struct buffer_stream &b, enum tls_role 
     std::array<std::array<tls_extension, tls_extensions::max_repeat_extensions>, tls_extensions_assign::include_list_len> extensions_list;
 
     int32_t index = -1;
-    
+
     // Store the sorted index of all extensions
 
     while (ext_parser.length() > 0) {
@@ -713,7 +713,7 @@ void tls_extensions::fingerprint_format2(struct buffer_stream &b, enum tls_role 
 
         if (index >= 0) {
             int cnt = extensions_list[index][0].cnt;
-            
+
             if (cnt < tls_extensions::max_repeat_extensions) {
                 extensions_list[index][cnt] = x;
                 extensions_list[index][0].cnt++;
@@ -747,7 +747,7 @@ void tls_extensions::fingerprint_format2(struct buffer_stream &b, enum tls_role 
             x.fingerprint_format1(b, role);
         }
     }
-   b.write_char(']'); 
+   b.write_char(']');
 }
 
 void tls_extensions::write_raw_features(writeable &buf) const {
@@ -1203,4 +1203,3 @@ void tls_server_certificate::write_json(struct json_array &a, bool json_output) 
         }
     }
 }
-
