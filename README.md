@@ -133,6 +133,7 @@ GENERAL OPTIONS
    --certs-json                          # output certs as JSON, not base64
    --metadata                            # output more protocol metadata in JSON
    --raw-features                        # select protocols to write out raw features string(see --help)
+   --network-behavioral-detections       # perform network behavioral detections
    --minimize-ram                        # minimize the ram usage of mercury library
    [-v or --verbose]                     # additional information sent to stderr
    --license                             # write license information to stdout
@@ -276,8 +277,13 @@ DETAILS
        none            None of the above
       <no option>     None of the above
 
+   --network-behavioral-detections performs analysis on packets, sessions, and
+    sets of sessions independent of the core mercury analysis functionality. These
+    are not driven by the resources file. An example detection includes detecting
+    residential proxies.
+
    --minimize-ram minimizes the ram usage of mercury library by reducing classifer
-   features and minimizing the maximum reassembly segments."
+   features and minimizing the maximum reassembly segments.
 
    [-v or --verbose] writes additional information to the standard error,
    including the packet count, byte count, elapsed time and processing rate, as

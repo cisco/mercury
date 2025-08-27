@@ -1035,12 +1035,12 @@ bool tls_client_hello::do_network_behavioral_detections(const struct key &k_, st
 
 
 bool tls_client_hello::check_residential_proxy(const struct key &k_, datum random) {
-    static const uint16_t max_nonce_entries = 1000;
+    static const uint16_t max_nonce_entries = 1024;
     static uint16_t nonce_index = 0;
-    static std::shared_mutex res_proxy_mutex;
-    static std::vector<std::array<uint8_t,32>> current_nonces(max_nonce_entries);
-    static std::unordered_map<std::array<uint8_t,32>, uint32_t> nonce_ip_map;
-    std::array<uint8_t,32> random_nonce;
+    static std::mutex res_proxy_mutex;
+    static std::vector<std::array<uint8_t,L_Random>> current_nonces(max_nonce_entries);
+    static std::unordered_map<std::array<uint8_t,L_Random>, uint32_t> nonce_ip_map;
+    std::array<uint8_t,L_Random> random_nonce;
 
     if (k_.ip_vers != 4) {
         return false; /* only support ipv4 for now, need to update nonce_ip_map to support ipv6 */
@@ -1055,10 +1055,17 @@ bool tls_client_hello::check_residential_proxy(const struct key &k_, datum rando
      *   and if so, start tracking random nonce
      */
     if ((is_src_ip_global == true) && (is_dst_ip_global == false)) {
-        std::memcpy(random_nonce.data(), random.data, 32);
+        if (random.length() != L_Random) {
+            return false;
+        }
+        std::memcpy(random_nonce.data(), random.data, L_Random);
         std::lock_guard lock(res_proxy_mutex);
         if (nonce_ip_map.find(random_nonce) != nonce_ip_map.end()) { /* nonce collision */
             return false;
+        }
+
+        if (current_nonces.size() == max_nonce_entries) { /* cache is full, delete oldest entry */
+            nonce_ip_map.erase(current_nonces[nonce_index]);
         }
 
         current_nonces[nonce_index] = random_nonce;
@@ -1074,8 +1081,11 @@ bool tls_client_hello::check_residential_proxy(const struct key &k_, datum rando
      *   the dst_ip is external
      */
     if ((is_src_ip_global == false) && (is_dst_ip_global == true)) {
-        std::memcpy(random_nonce.data(), random.data, 32);
-        std::shared_lock lock(res_proxy_mutex);
+        if (random.length() != L_Random) {
+            return false;
+        }
+        std::memcpy(random_nonce.data(), random.data, L_Random);
+        std::lock_guard lock(res_proxy_mutex);
         if (nonce_ip_map.find(random_nonce) == nonce_ip_map.end()) { /* nonce not found */
             return false;
         }
