@@ -1042,6 +1042,8 @@ bool tls_client_hello::check_residential_proxy(const struct key &k_, datum rando
     static std::unordered_map<std::array<uint8_t,L_Random>, uint32_t> nonce_ip_map;
     std::array<uint8_t,L_Random> random_nonce;
 
+    nonce_ip_map.reserve(max_nonce_entries);
+
     if (k_.ip_vers != 4) {
         return false; /* only support ipv4 for now, need to update nonce_ip_map to support ipv6 */
     }
@@ -1064,7 +1066,7 @@ bool tls_client_hello::check_residential_proxy(const struct key &k_, datum rando
             return false;
         }
 
-        if (current_nonces.size() == max_nonce_entries) { /* cache is full, delete oldest entry */
+        if (nonce_ip_map.size() == max_nonce_entries) { /* cache is full, delete oldest entry */
             nonce_ip_map.erase(current_nonces[nonce_index]);
         }
 
