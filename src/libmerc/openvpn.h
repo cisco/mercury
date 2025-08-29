@@ -442,8 +442,9 @@ public:
     }
 
     void write_l7_metadata(cbor_object &o, bool) {
-        cbor_object openvpn{o, "openvpn"};
-        openvpn.close();
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("openvpn");
+        protocols.close();
     }
 
     void fingerprint(struct buffer_stream &buf) const {

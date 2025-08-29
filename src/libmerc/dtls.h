@@ -93,8 +93,9 @@ public:
     }
 
     void write_l7_metadata(cbor_object &o, bool) {
-        cbor_object dtls{o, "dtls"};
-        dtls.close();
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("dtls");
+        protocols.close();
     }
 
     bool is_not_empty() const {
@@ -131,8 +132,9 @@ public:
     }
 
     void write_l7_metadata(cbor_object &o, bool) {
-        cbor_object dtls{o, "dtls"};
-        dtls.close();
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("dtls");
+        protocols.close();
     }
 
     void compute_fingerprint(class fingerprint &fp) const {

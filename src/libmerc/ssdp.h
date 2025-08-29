@@ -125,8 +125,9 @@ public:
     }
 
     void write_l7_metadata(cbor_object &o, bool) {
-        cbor_object ssdp{o, "ssdp"};
-        ssdp.close();
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("ssdp");
+        protocols.close();
     }
 
     /*

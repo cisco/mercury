@@ -120,12 +120,10 @@ namespace rtp {
             rtp.close();
         }
 
-        bool write_l7_metadata(cbor_object &o, bool) {
-            cbor_object o{buf, false};
-            cbor_object rtp{o, "rtp"};
-            rtp.close();
-            o.close();
-            return !buf.is_null();
+        void write_l7_metadata(cbor_object &o, bool) {
+            cbor_array protocols{o, "protocols"};
+            protocols.print_string("rtp");
+            protocols.close();
         }
 
         bool is_not_empty() const { return hdr.is_valid(); }

@@ -133,8 +133,9 @@ namespace tftp {
         }
 
         void write_l7_metadata(cbor_object &o, bool) {
-            cbor_object tftp{o, "tftp"};
-            tftp.close();
+            cbor_array protocols{o, "protocols"};
+            protocols.print_string("tftp");
+            protocols.close();
         }
 
     };

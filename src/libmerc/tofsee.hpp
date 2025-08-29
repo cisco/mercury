@@ -113,8 +113,9 @@ public:
     }
 
     void write_l7_metadata(cbor_object &o, bool) {
-        cbor_object tofsee{o, "tofsee_initial_message"};
-        tofsee.close();
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("tofsee_initial_message");
+        protocols.close();
     }
 
     bool is_not_empty() const {

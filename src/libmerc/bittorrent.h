@@ -56,8 +56,9 @@ public:
     }
 
     void write_l7_metadata(cbor_object &o, bool) {
-        cbor_object dht{o, "bittorrent_dht"};
-        dht.close();
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("bittorrent_dht");
+        protocols.close();
     }
 
     bool is_not_empty() { return dict.is_not_empty(); }
@@ -248,8 +249,9 @@ public:
     }
 
     void write_l7_metadata(cbor_object &o, bool) {
-        cbor_object lsd{o, "bittorrent_lsd"};
-        lsd.close();
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("bittorrent_lsd");
+        protocols.close();
     }
 
     static constexpr mask_and_value<8> matcher {
@@ -455,8 +457,9 @@ public:
     }
 
     void write_l7_metadata(cbor_object &o, bool) {
-        cbor_object bt{o, "bittorrent"};
-        bt.close();
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("bittorrent");
+        protocols.close();
     }
 
     void fprint(FILE *f) const {

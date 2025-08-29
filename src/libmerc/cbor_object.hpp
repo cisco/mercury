@@ -100,8 +100,6 @@ class cbor_array {
 
 public:
 
-    //  cbor_array(writeable &w) : a{w} { }
-
     cbor_array(cbor_object &o, const char *key) : a{create_named_array(key, o)} { }
 
 
@@ -162,6 +160,11 @@ public:
     }
 
     void print_key_hex(const char *key, datum bytes) {
+        cbor::uint64{dict.index(key)}.write(m);
+        cbor::byte_string::construct(bytes).write(m);
+    }
+
+    void print_key_float(const char *key, datum bytes) {
         cbor::uint64{dict.index(key)}.write(m);
         cbor::byte_string::construct(bytes).write(m);
     }
@@ -239,6 +242,9 @@ public:
 
 };
 
+#include "json_object.h"
+#include "utf8.hpp"
+
 class cbor_to_json_translator {
     const vocabulary *keys;
 
@@ -261,7 +267,6 @@ public:
 
         while (d.is_readable()) {
             if (lookahead<cbor::initial_byte> ib{d}) {
-                // fprintf(stderr, "initial_byte: %02x\tmajor_type: %u\tadditional_info: %u\n", ib.value.value(), ib.value.major_type(), ib.value.additional_info());
 
                 if (expected_type == type::key) { // store key for use with next value
                     switch (ib.value.major_type()) {
@@ -403,7 +408,6 @@ public:
 inline bool cbor_to_json_translator::decode_cbor_array_to_json(datum &d, json_array &a) {
     while (d.is_readable()) {
         if (lookahead<cbor::initial_byte> ib{d}) {
-            //fprintf(f, "initial_byte: %02x\tmajor_type: %u\n", ib.value.value(), ib.value.major_type());
             switch (ib.value.major_type()) {
             case cbor::unsigned_integer_type:
                 {

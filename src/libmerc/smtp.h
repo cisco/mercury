@@ -163,8 +163,9 @@ public:
     }
 
     void write_l7_metadata(cbor_object &o, bool) {
-        cbor_object smtp{o, "smtp"};
-        smtp.close();
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("smtp");
+        protocols.close();
     }
 
     bool is_not_empty() const { return parameters.is_not_empty(); }
@@ -234,8 +235,9 @@ public:
     }
 
     void write_l7_metadata(cbor_object &o, bool) {
-        cbor_object smtp{o, "smtp"};
-        smtp.close();
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("smtp");
+        protocols.close();
     }
 
     void compute_fingerprint(class fingerprint &fp) const {

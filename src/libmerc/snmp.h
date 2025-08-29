@@ -270,11 +270,9 @@ namespace snmp {
         }
 
         void write_l7_metadata(cbor_object &o, bool) {
-            if (!is_not_empty()) {
-                return;
-             }
-            cbor_object snmp{o, "snmp"};
-            snmp.close();
+            cbor_array protocols{o, "protocols"};
+            protocols.print_string("snmp");
+            protocols.close();
         }
 
         bool is_not_empty() const {

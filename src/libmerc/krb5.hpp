@@ -482,8 +482,9 @@ namespace krb5 {
         }
 
         void write_l7_metadata(cbor_object &o, bool) {
-            cbor_object krb{o, "kerberos"};
-            krb.close();
+            cbor_array protocols{o, "protocols"};
+            protocols.print_string("kerberos");
+            protocols.close();
         }
 
         // weight 14 matcher, derived from example PCAPs

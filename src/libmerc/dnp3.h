@@ -526,8 +526,9 @@ public:
     }
 
     void write_l7_metadata(cbor_object &o, bool) {
-        cbor_object dnp3{o, "dnp3"};
-        dnp3.close();
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("dnp3");
+        protocols.close();
     }
 
 };

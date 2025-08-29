@@ -17,7 +17,6 @@
 #include "json_object.h"
 #include "fingerprint.h"
 #include "match.h"
-#include "cbor_object.hpp"
 
 // #define L_ssh_version_string                   8
 // #define L_ssh_packet_length                    4
@@ -449,7 +448,13 @@ struct ssh_init_packet : public base_protocol {
     }
 
     void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("ssh");
+        protocols.close();
+
         cbor_object ssh{o, "ssh"};
+        ssh.print_key_string("protocol", protocol_string);
+        ssh.print_key_string("comment", comment_string);
         ssh.close();
     }
 

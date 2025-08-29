@@ -289,8 +289,9 @@ namespace tacacs {
         }
 
         void write_l7_metadata(cbor_object &o, bool) {
-            cbor_object tacacs{o, "tacacs"};
-            tacacs.close();
+            cbor_array protocols{o, "protocols"};
+            protocols.print_string("tacacs");
+            protocols.close();
         }
 
         void print_type_code(json_object &o) const {

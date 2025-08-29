@@ -143,8 +143,9 @@ public:
     }
 
     void write_l7_metadata(cbor_object &o, bool) {
-        cbor_object socks4{o, "socks4"};
-        socks4.close();
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("socks4");
+        protocols.close();
     }
 
     bool is_not_empty() const { return (is_valid); }
@@ -245,8 +246,9 @@ public:
     }
 
     void write_l7_metadata(cbor_object &o, bool) {
-        cbor_object socks5{o, "socks5"};
-        socks5.close();
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("socks5");
+        protocols.close();
     }
 };
 
@@ -525,8 +527,9 @@ public:
     }
 
     void write_l7_metadata(cbor_object &o, bool) {
-        cbor_object socks5{o, "socks5_req_resp"};
-        socks5.close();
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("socks5_req_resp");
+        protocols.close();
     }
 };
 

@@ -24,7 +24,7 @@
         fdc::decode_version_one(d, record);
         record.close();
 
-    } else if (lookahead<literal_byte<0xbf, 0x02>> tmp{d}) {
+    } else {
         if (decode_cbor_map_to_json(d, buf_json, nullptr) == false) {
             return "";
         }

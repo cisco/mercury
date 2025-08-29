@@ -569,8 +569,9 @@ public:
         }
 
        void write_l7_metadata(cbor_object &o, bool) {
-            cbor_object mysql{o, "mysql"};
-            mysql.close();
+            cbor_array protocols{o, "protocols"};
+            protocols.print_string("mysql");
+            protocols.close();
         }
 
         static constexpr mask_value_and_offset<8> matcher {
@@ -752,8 +753,9 @@ public:
     }
 
     void write_l7_metadata(cbor_object &o, bool) {
-        cbor_object mysql{o, "mysql"};
-        mysql.close();
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("mysql");
+        protocols.close();
     }
 
     bool is_not_empty() { return valid; }

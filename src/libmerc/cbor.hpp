@@ -10,7 +10,6 @@
 #include <cstdio>
 #include <string>
 #include <stdexcept>
-#include <cinttypes>  // for PRIu64
 
 // a simple CBOR decoder, following RFC 8949
 //
@@ -128,15 +127,6 @@ namespace cbor {
         if (!ib.is_break()) {
             d.set_null();
         }
-    }
-
-    [[maybe_unused]] static bool is_break(datum &d) {
-        lookahead<initial_byte> ib{d};
-        if (ib.value.is_break()) {
-            d = ib.advance();
-            return true;
-        }
-        return false;
     }
 
     // Major type 0: An unsigned integer in the range 0..2^64-1
@@ -775,16 +765,12 @@ namespace cbor::output {
 
         // construct an indefinite-length map for writing
         //
-        map(writeable &buf, bool _write=true) : w{buf}, write{_write} {
-            if (write) {
-                w << initial_byte{map_type, 31};  // 0xbf
-            }
+        map(writeable &buf) : w{buf} {
+            w << initial_byte{map_type, 31};  // 0xbf
         }
 
         void close() {
-            if (write) {
-                w << initial_byte{simple_or_float_type, 31}; // 0xff
-            }
+            w << initial_byte{simple_or_float_type, 31}; // 0xff
         }
 
         // encode a key and value to the map
@@ -796,7 +782,6 @@ namespace cbor::output {
         }
 
         operator writeable & () { return w; }
-
     };
 
 };

@@ -1723,8 +1723,13 @@ public:
     }
 
     void write_l7_metadata(cbor_object &o, bool) {
-        cbor_object quic{o, "quic"};
-        quic.close();
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("quic");
+        protocols.close();
+
+        if (hello.is_not_empty()) {
+            hello.write_l7_metadata(o, false);
+        }
     }
 
     void compute_fingerprint(class fingerprint &fp, size_t format_version) const {

@@ -57,8 +57,9 @@ struct mdns_packet : public base_protocol {
     }
 
     void write_l7_metadata(cbor_object &o, bool) {
-        cbor_object mdns{o, "mdns"};
-        mdns.close();
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("mdns");
+        protocols.close();
     }
 
     static bool check_if_mdns(const struct key& k) {

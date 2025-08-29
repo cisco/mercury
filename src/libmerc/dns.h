@@ -1109,11 +1109,13 @@ struct dns_packet : public base_protocol {
     }
 
     void write_l7_metadata(cbor_object &o, bool) {
-        if (header == nullptr) {
-            return;
+        cbor_array protocols{o, "protocols"};
+        if (is_netbios) {
+            protocols.print_string("nbns");
+        } else {
+            protocols.print_string("dns");
         }
-        cbor_object dns{o, "dns"};   //TODO: check for netbios too
-        dns.close();
+        protocols.close();
     }
 
     // mask:   0040fe8eff00ff00fee0

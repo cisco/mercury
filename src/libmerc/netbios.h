@@ -95,6 +95,12 @@ public:
             nbss.close();
         }
     }
+
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("nbss");
+        protocols.close();
+    }
 };
 
 /*
@@ -307,8 +313,9 @@ public:
     }
 
     void write_l7_metadata(cbor_object &o, bool) {
-        cbor_object nbds{o, "nbds"};
-        nbds.close();
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("nbds");
+        protocols.close();
     }
 };
 

@@ -116,12 +116,10 @@ public:
         ntp_json.close();
     }
 
-    bool write_l7_metadata(cbor_object &o, bool) {
-        cbor_object o{buf, false};
-        cbor_object ntp{o, "ntp"};
-        ntp.close();
-        o.close();
-        return !buf.is_null();
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("ntp");
+        protocols.close();
     }
 };
 
