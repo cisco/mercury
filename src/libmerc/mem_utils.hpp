@@ -15,8 +15,12 @@
 #include <type_traits>
 #include <stdexcept>
 
-template <typename T, std::size_t N>
+template <typename T, size_t N>
 class FixedAllocator {
+    typename std::aligned_storage<sizeof(T), alignof(T)>::type pool_[N];
+    bool used_[N]{};
+    size_t allocated_;
+
 public:
     using value_type = T;
 
@@ -25,10 +29,10 @@ public:
     template <typename U>
     FixedAllocator(const FixedAllocator<U, N>&) noexcept {}
 
-    T* allocate(std::size_t n) {
+    T* allocate(size_t n) {
         if (n != 1 || allocated_ >= N)
             throw std::bad_alloc();
-        for (std::size_t i = 0; i < N; ++i) {
+        for (size_t i = 0; i < N; ++i) {
             if (!used_[i]) {
                 used_[i] = true;
                 ++allocated_;
@@ -38,7 +42,7 @@ public:
         throw std::bad_alloc();
     }
 
-    void deallocate(T* p, std::size_t n) noexcept {
+    void deallocate(T* p, size_t n) noexcept {
         if (n != 1) return;
         auto idx = reinterpret_cast<char*>(p) - reinterpret_cast<char*>(pool_);
         idx /= sizeof(T);
@@ -56,11 +60,6 @@ public:
     // Comparison operators
     bool operator==(const FixedAllocator&) const noexcept { return true; }
     bool operator!=(const FixedAllocator&) const noexcept { return false; }
-
-private:
-    typename std::aligned_storage<sizeof(T), alignof(T)>::type pool_[N];
-    bool used_[N]{};
-    std::size_t allocated_;
 };
 
 
