@@ -13,6 +13,7 @@
 #include "fingerprint.h"
 #include "tls_extensions.h"
 #include "ech.hpp"
+#include "mem_utils.hpp"
 
 /* TLS Constants */
 
@@ -1039,7 +1040,15 @@ bool tls_client_hello::check_residential_proxy(const struct key &k_, datum rando
     static uint16_t nonce_index = 0;
     static std::mutex res_proxy_mutex;
     static std::vector<std::array<uint8_t,L_Random>> current_nonces(max_nonce_entries);
-    static std::unordered_map<std::array<uint8_t,L_Random>, uint32_t> nonce_ip_map(max_nonce_entries);
+
+    // Use a custom allocator for the unordered_map
+    using nonce_map_allocator = std::allocator<std::pair<const std::array<uint8_t, L_Random>, uint32_t>>;
+    static std::unordered_map<
+        std::array<uint8_t, L_Random>,
+        uint32_t,
+        std::hash<std::array<uint8_t, L_Random>>,
+        std::equal_to<std::array<uint8_t, L_Random>>,
+        nonce_map_allocator> nonce_ip_map(max_nonce_entries);
     std::array<uint8_t,L_Random> random_nonce;
 
     if (k_.ip_vers != 4) {
