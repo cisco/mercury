@@ -135,11 +135,8 @@ namespace crypto_policy {
                 bool found = (allowed_ciphersuites.find(cs.value()) != allowed_ciphersuites.end());
                 if (!found) {
                     all_allowed = false;
-
-                    // Initialize json array for "ciphersuites_not_allowed" inside the if block
                     json_array cs_array(a, "ciphersuites_not_allowed");
 
-                    // Inner while loop through remaining ciphersuite vector, writing out json array
                     while (true) {
                         if (!is_grease(cs)) {
                             found = (allowed_ciphersuites.find(cs.value()) != allowed_ciphersuites.end());
@@ -156,12 +153,13 @@ namespace crypto_policy {
                                 some_allowed = true;
                             }
                         }
+
                         if (!ciphersuite_vector.is_readable()) break;
                         cs = tls::cipher_suites{ciphersuite_vector};
                     }
 
                     cs_array.close();
-                    break; // Break out of the outer while loop
+                    break;
                 }
                 else {
                     some_allowed = true;
@@ -216,6 +214,7 @@ namespace crypto_policy {
                                 some_allowed = true;
                             }
                         }
+
                         if(!named_groups_xtn.value.is_readable()) break;
                         named_group = tls::supported_groups{named_groups_xtn.value};
                     }
@@ -251,11 +250,9 @@ namespace crypto_policy {
                     ;
                 }
             }
-            
             a.print_key_bool("tls_cert_with_extern_psk", have_tls_cert_with_extern_psk);
             
             return true;
-
         }
 
         /*
@@ -305,7 +302,6 @@ namespace crypto_policy {
                     json_array kex_array(a, "kex_not_allowed");
                     
                     while (true) {
-                        
                         found = (ssh_allowed_kex.find(tmp_sv) != ssh_allowed_kex.end());
                         if (!found) {
                             all_allowed = false;
@@ -342,7 +338,6 @@ namespace crypto_policy {
             else if (some_allowed) {
                 quantifier = "some";
             }
-
             a.print_key_string("kex_allowed", quantifier);
 
             return true;
@@ -405,7 +400,6 @@ namespace crypto_policy {
             else if (some_allowed) {
                 quantifier = "some";
             }
-
             a.print_key_string("ciphersuites_allowed", quantifier);
 
             return true;
