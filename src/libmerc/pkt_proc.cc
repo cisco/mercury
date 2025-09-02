@@ -1381,7 +1381,7 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         // and return immediately if no metadata was written
         //
         ssize_t previous = output.writeable_length();
-        std::visit(write_l7_metadata{outer_map, global_vars.metadata_output}, x);
+        std::visit(write_l7_metadata{outer_map}, x);
         if (output.writeable_length() == previous) {
             return fdc_return::NO_DATA;     // empty message; nothing to report
         }

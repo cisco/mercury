@@ -345,6 +345,7 @@ int main(int argc, char *argv[]) {
         { argument::required,   "--resources", "use resource file <arg>" },
         { argument::none,       "--stats",     "generate stats.json.gz file" },
         { argument::none,       "--fdc",       "output FDC" },
+        { argument::optional,   "--l7-output", "redirect L7 metadata JSON output to file <arg>" },
         { argument::none,       "--verbose",   "turn on verbose output" },
         { argument::none,       "--help",      "print out help message" }
     });
@@ -356,6 +357,7 @@ int main(int argc, char *argv[]) {
     auto [ pcap_is_set, pcap_file ] = opt.get_value("--read");
     auto [ libmerc_is_set, libmerc_file ] = opt.get_value("--libmerc");
     auto [ resources_is_set, resources_file ] = opt.get_value("--resources");
+    auto [ l7_output_is_set, l7_output_file ] = opt.get_value("--l7-output");
     bool verbose = opt.is_set("--verbose");
     bool do_stats = opt.is_set("--stats");
     bool do_fdc = opt.is_set("--fdc");
@@ -410,11 +412,23 @@ int main(int argc, char *argv[]) {
             return -1;
         }
 
+        // open L7 output file if specified
+        //
+        FILE *l7_output_fp = nullptr;
+        if (l7_output_is_set) {
+            l7_output_fp = fopen(l7_output_file.c_str(), "w");
+            if (l7_output_fp == nullptr) {
+                fprintf(stderr, "error: could not open L7 output file %s for writing\n", l7_output_file.c_str());
+                exit(EXIT_FAILURE);
+            }
+        }
+
         // open PCAP file for reading
         //
         pcap::file_reader pcap{pcap_file.c_str()};
         if (strcmp(pcap.get_linktype(), "ETHERNET") != 0) {
             fprintf(stderr, "error: linktype %s not supported\n", pcap.get_linktype());
+            if (l7_output_fp) fclose(l7_output_fp);
             exit(EXIT_FAILURE);
         }
         packet<65536> pkt;
@@ -447,8 +461,14 @@ int main(int argc, char *argv[]) {
 
                     if (retval > 0) {
                         datum outbuf{buffer, buffer + retval};
-                        outbuf.fprint_hex(stdout); fputc('\n', stdout);
-                        printf("%s\n", translate_l7_metadata_to_json_string(outbuf).c_str());
+                        std::string l7_json = translate_l7_metadata_to_json_string(outbuf);
+                        if (l7_output_fp) {
+                            fprintf(l7_output_fp, "%s\n", l7_json.c_str());
+                            fflush(l7_output_fp);  // Ensure immediate write
+                        } else {
+                            outbuf.fprint_hex(stdout); fputc('\n', stdout);
+                            printf("%s\n", l7_json.c_str());
+                        }
                     } else if (retval < 0) {
                         if (verbose) { fprintf(stderr, "get_analysis_context_fdc retval: %d\tdata_buf_len: %zu\n", retval, data_buf_len); }
                     }
@@ -469,6 +489,12 @@ int main(int argc, char *argv[]) {
             }
 
             i++;
+        }
+
+        // close L7 output file if it was opened
+        //
+        if (l7_output_fp) {
+            fclose(l7_output_fp);
         }
 
         // destroy packet processor

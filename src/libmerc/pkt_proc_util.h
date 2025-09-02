@@ -305,7 +305,7 @@ struct write_l7_metadata {
     bool dns_json_output_;
 
     write_l7_metadata(cbor_object &output,
-                      bool metadata_output=false) :
+                      bool metadata_output=true) :
         o{output},
         metadata_output_{metadata_output}
     {}

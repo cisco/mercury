@@ -449,7 +449,7 @@ struct tls_client_hello : public base_protocol {
         additional_bytes_needed = 0;
     }
 
-    void write_l7_metadata(cbor_object &o, bool metadata=true) {
+    void write_l7_metadata(cbor_object &o, bool metadata) {
         if (metadata) {
             cbor_array protocols{o, "protocols"};
             protocols.print_string("tls");
