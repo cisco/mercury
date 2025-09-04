@@ -1,5 +1,5 @@
 /*
- * tls.c
+ * tls.cc
  *
  * Copyright (c) 2021 Cisco Systems, Inc. All rights reserved.  License at
  * https://github.com/cisco/mercury/blob/master/LICENSE
@@ -1042,7 +1042,7 @@ bool tls_client_hello::check_residential_proxy(const struct key &k_, datum rando
     static std::vector<std::array<uint8_t,L_Random>> current_nonces(max_nonce_entries);
 
     // Use a custom allocator for the unordered_map
-    using nonce_map_allocator = std::allocator<std::pair<const std::array<uint8_t, L_Random>, uint32_t>>;
+    using nonce_map_allocator = fixed_fifo_allocator<std::pair<const std::array<uint8_t, L_Random>, uint32_t>, max_nonce_entries>;
     static std::unordered_map<
         std::array<uint8_t, L_Random>,
         uint32_t,
@@ -1052,53 +1052,58 @@ bool tls_client_hello::check_residential_proxy(const struct key &k_, datum rando
     std::array<uint8_t,L_Random> random_nonce;
 
     if (k_.ip_vers != 4) {
-        return false; /* only support ipv4 for now, need to update nonce_ip_map to support ipv6 */
+        return false; // only support ipv4 for now, need to update nonce_ip_map to support ipv6
     }
 
-    /* determine if IP addresses are internal/external */
+    // determine if IP addresses are internal/external
     bool is_src_ip_global = k_.src_is_global();
     bool is_dst_ip_global = k_.dst_is_global();
 
-    /*
-     * check if src_ip is external and dst_ip is internal,
-     *   and if so, start tracking random nonce
-     */
+    //
+    // check if src_ip is external and dst_ip is internal,
+    //   and if so, start tracking random nonce
     if ((is_src_ip_global == true) && (is_dst_ip_global == false)) {
         if (random.length() != L_Random) {
             return false;
         }
+
         std::memcpy(random_nonce.data(), random.data, L_Random);
         std::lock_guard lock(res_proxy_mutex);
-        if (nonce_ip_map.find(random_nonce) != nonce_ip_map.end()) { /* nonce collision */
+
+        auto nonce_iter = nonce_ip_map.find(random_nonce);
+        if (nonce_iter != nonce_ip_map.end()) { // nonce collision
             return false;
         }
 
-        if (nonce_ip_map.size() == max_nonce_entries) { /* cache is full, delete oldest entry */
+
+        if (nonce_ip_map.size() == max_nonce_entries) { // cache is full, delete oldest entry
             nonce_ip_map.erase(current_nonces[nonce_index]);
         }
 
         current_nonces[nonce_index] = random_nonce;
         nonce_index = (nonce_index + 1) % max_nonce_entries;
-        nonce_ip_map[random_nonce] = (uint32_t)k_.addr.ipv4.dst;
+        nonce_ip_map.insert(nonce_iter, {random_nonce, (uint32_t)k_.addr.ipv4.dst});
 
         return false;
     }
 
-    /*
-     * check if we have seen the random nonce before,
-     *   and if so, check if the src_ip is internal and
-     *   the dst_ip is external
-     */
+    //
+    // check if we have seen the random nonce before,
+    //   and if so, check if the src_ip is internal and
+    //   the dst_ip is external
+    //
     if ((is_src_ip_global == false) && (is_dst_ip_global == true)) {
         if (random.length() != L_Random) {
             return false;
         }
         std::memcpy(random_nonce.data(), random.data, L_Random);
         std::lock_guard lock(res_proxy_mutex);
-        if (nonce_ip_map.find(random_nonce) == nonce_ip_map.end()) { /* nonce not found */
+
+        auto nonce_iter = nonce_ip_map.find(random_nonce);
+        if (nonce_iter == nonce_ip_map.end()) { // nonce not found
             return false;
         }
-        if (nonce_ip_map[random_nonce] == (uint32_t)k_.addr.ipv4.src) {
+        if (nonce_iter->second == (uint32_t)k_.addr.ipv4.src) {
             return true;
         }
         return false;
