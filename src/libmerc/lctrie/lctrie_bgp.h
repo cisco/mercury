@@ -81,6 +81,7 @@ lct_subnet_set_from_string(lct_subnet<ipv6_addr_t> *subnet, const char *subnet_s
     char parsed_subnet_string[LCTRIE_INET6_ADDRSTRLEN];
     strncpy(parsed_subnet_string, addr_str, LCTRIE_INET6_ADDRSTRLEN);
     inet_pton(AF_INET6, parsed_subnet_string, &addr.a);
+    ntoh(addr);
     subnet->addr = addr;
     subnet->len = mask_length;
     subnet->info.type = IP_SUBNET_BGP;

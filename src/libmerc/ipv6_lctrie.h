@@ -34,6 +34,24 @@ typedef struct ipv6_addr_t {
     }
 } ipv6_addr_t;
 
+inline void fprint_addr(FILE *f, const char* key, const ipv6_addr_t *addr) {
+    const uint8_t *n1 = (const uint8_t *)&addr->a[0];
+    const uint8_t *n2 = (const uint8_t *)&addr->a[1];
+
+    fprintf(f, "%s: %02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x\n", key,
+        n1[0], n1[1], n1[2], n1[3], n1[4], n1[5], n1[6], n1[7],
+        n2[0], n2[1], n2[2], n2[3], n2[4], n2[5], n2[6], n2[7]);
+}
+
+inline void fprint_addr_rev(FILE *f, const char* key, const ipv6_addr_t *addr) {
+    const uint8_t *n1 = (const uint8_t *)&addr->a[0];
+    const uint8_t *n2 = (const uint8_t *)&addr->a[1];
+
+    fprintf(f, "%s: %02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x\n", key,
+        n1[7], n1[6], n1[5], n1[4], n1[3], n1[2], n1[1], n1[0],
+        n2[7], n2[6], n2[5], n2[4], n2[3], n2[2], n2[1], n2[0]);
+}
+
 // comparison operators for ipv6_addr_t
 //
 inline bool operator<(const ipv6_addr_t &left, const ipv6_addr_t &right) {
@@ -93,14 +111,27 @@ inline ipv6_addr_t operator~(const ipv6_addr_t &addr) {
 }
 
 inline ipv6_addr_t operator<<(const ipv6_addr_t &addr, unsigned int shift) {
+
     ipv6_addr_t result;
+
+    if (shift == 0) {
+        return addr;
+    }
+
+    if (shift >= 128) {
+        result.a[0] = 0;
+        result.a[1] = 0;
+        return result;
+    }
+
     if (shift < 64) {
+        result.a[0] = (addr.a[0] << shift) | (addr.a[1] >> (64 - shift));
         result.a[1] = addr.a[1] << shift;
-        result.a[0] = (addr.a[0] << shift) | (addr.a[0] >> (64 - shift));
     } else {
         result.a[0] = addr.a[1] << (shift - 64);
         result.a[1] = 0;
     }
+
     return result;
 }
 
@@ -181,22 +212,32 @@ inline ipv6_addr_t REMOVE(unsigned int p, ipv6_addr_t str) {
 
 // ipv6_addr_t ntoh() is suitable for IPv6 addresses
 //
-inline ipv6_addr_t ntoh(ipv6_addr_t addr) {
+inline void ntoh(ipv6_addr_t &addr) {
     ipv6_addr_t output;
     output.a[0] = output.a[1] = 0;
-    uint16_t *in = (uint16_t *)&addr.a;
-    uint16_t *out = (uint16_t *)&output.a;
 
-    out[7] = ntoh(in[0]);
-    out[6] = ntoh(in[1]);
-    out[5] = ntoh(in[2]);
-    out[4] = ntoh(in[3]);
-    out[3] = ntoh(in[4]);
-    out[2] = ntoh(in[5]);
-    out[1] = ntoh(in[6]);
-    out[0] = ntoh(in[7]);
+    uint8_t *in1 = (uint8_t *)&addr.a[0];
+    uint8_t *in2 = (uint8_t *)&addr.a[1];
+    uint8_t *out1 = (uint8_t *)&output.a[0];
+    uint8_t *out2 = (uint8_t *)&output.a[1];
 
-    return output;
+    out1[0] = in1[7];
+    out1[1] = in1[6];
+    out1[2] = in1[5];
+    out1[3] = in1[4];
+    out1[4] = in1[3];
+    out1[5] = in1[2];
+    out1[6] = in1[1];
+    out1[7] = in1[0];
+    out2[0] = in2[7];
+    out2[1] = in2[6];
+    out2[2] = in2[5];
+    out2[3] = in2[4];
+    out2[4] = in2[3];
+    out2[5] = in2[2];
+    out2[6] = in2[1];
+    out2[7] = in2[0];
+    addr = output;
 }
 
 #endif  // IPV6_LCTRIE_H

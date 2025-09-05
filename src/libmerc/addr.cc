@@ -34,16 +34,9 @@ void subnet_mask_v6(lct_subnet<ipv6_addr_t> *subnets, size_t size) {
 
         ipv6_addr_t netmask;
         netmask.a[0] = netmask.a[1] = -1;
-        
+
         if (p->len < bits_in_T) {
-            for (unsigned int j = 0; j < p->len; ++j) {
-                ipv6_addr_t shift;
-                shift.a[0] = 0;
-                shift.a[1] = 1;
-                shift = shift << j;
-                shift = ~shift;
-                netmask = netmask & shift;
-            }
+            netmask = netmask << (bits_in_T - p->len);
         }
 
       ipv6_addr_t newaddr;
@@ -84,9 +77,7 @@ void subnet_mask_v4(lct_subnet<ipv4_addr_t> *subnets, size_t size) {
 
         uint32_t netmask = -1;
         if (p->len < bits_in_T) {
-            for (unsigned int j = 0; j < (bits_in_T - p->len); ++j) {
-                netmask &= ~((ipv4_addr_t)1 << j);
-            }
+            netmask = netmask << (bits_in_T - p->len);
         }
 
       ipv4_addr_t newaddr = p->addr & netmask;
@@ -213,6 +204,7 @@ uint32_t subnet_data::get_asn_info(const char* dst_ip) const {
     else {
         ipv6_addr_t ipv6_addr;
         if (ipv6_subnet_array && inet_pton(AF_INET6, dst_ip, &ipv6_addr.a)) {
+            ntoh(ipv6_addr);
             lct_subnet_v6_t *subnet = lct_find(&ipv6_subnet_trie, ipv6_addr);
             if (subnet == NULL) {
                 return 0;
@@ -456,6 +448,7 @@ int subnet_data::process_domain_mapping_subnets_v6(const std::vector<std::pair<s
             char parsed_subnet_string[LCTRIE_INET6_ADDRSTRLEN];
             strncpy(parsed_subnet_string, addr_str, LCTRIE_INET6_ADDRSTRLEN);
             inet_pton(AF_INET6, parsed_subnet_string, &addr.a);
+            ntoh(addr);
 
             if (subnet_tag == "proxy_v6" || subnet_tag == "sinkhole_v6") {
                 if (lct_add_domain_exception_v6(addr, mask_length) != 0) {
@@ -812,6 +805,7 @@ bool subnet_data::is_domain_faking(const char *domain_name_, const char* dst_ip)
     else {
         ipv6_addr_t ipv6_addr;
         if (ipv6_subnet_array && inet_pton(AF_INET6, dst_ip, &ipv6_addr.a)) {
+            ntoh(ipv6_addr);
             lct_subnet_v6_t *subnet = lct_find(&ipv6_domain_trie, ipv6_addr);
             if (subnet == NULL) {
                 return true; // IP not found in trie - domain-faking
