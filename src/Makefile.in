@@ -212,8 +212,8 @@ cms: cms.cpp libmerc/asn1.h
 dns-trie: dns-trie.cpp dns_trie.hpp fpdb_reader.hpp
 	$(CXX) $(CFLAGS) dns-trie.cpp -o dns-trie
 
-unit_test: unit_test.cpp
-	$(CXX) $(CFLAGS) -UNDEBUG unit_test.cpp -o unit_test
+unit_test: unit_test.cpp libmerc.a
+	$(CXX) $(CFLAGS) -UNDEBUG unit_test.cpp libmerc/libmerc.a $(LDFLAGS) -pthread -lz -lcrypto -o unit_test
 
 os_identifier: os_identifier.cc os-identification/os_identifier.h
 	$(CXX) $(CFLAGS) -I libmerc/ os_identifier.cc -lz -o os_identifier
