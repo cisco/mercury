@@ -121,6 +121,29 @@ namespace crypto_policy {
             // tls::supported_groups::code::arbitrary_explicit_char2_curves,
         };
 
+        /*
+        * Common Two-Loop Assessment Pattern:
+        * 
+        * All assessment functions (assess_tls_ciphersuites, assess_tls_extensions, 
+        * assess_ssh_kex_methods, assess_ssh_ciphers) use a similar two-loop approach:
+        * 
+        * OUTER LOOP: Iterates through items sequentially checking if all are allowed.
+        * As soon as it encounters a non-allowed item, it immediately enters the inner loop.
+        * 
+        * INNER LOOP: Processes the remaining items in the vector/list starting from 
+        * the current non-allowed item. This ensures we complete the entire traversal
+        * in a single pass while collecting all non-allowed items.
+        * 
+        * Key Design Decisions:
+        * 1. The JSON array (e.g., "ciphersuites_not_allowed") is created ONLY when the 
+        *    first non-allowed item is encountered, not beforehand. This prevents empty 
+        *    arrays from appearing in the output when all items are allowed.
+        * 
+        * 2. Single-pass efficiency: We traverse the entire input vector/list exactly 
+        *    once, switching from the outer loop to the inner loop seamlessly when needed.
+        * 
+        */
+
         bool assess_tls_ciphersuites(datum ciphersuite_vector, json_object &a) const {
             bool all_allowed = true;
             bool some_allowed = false;
@@ -144,12 +167,10 @@ namespace crypto_policy {
                                 all_allowed = false;
                                 if (readable_output) {
                                     cs_array.print_string(cs.get_name());
-                                } 
-                                else {
+                                } else {
                                     cs_array.print_uint16_hex(cs);
                                 }
-                            }
-                            else {
+                            } else {
                                 some_allowed = true;
                             }
                         }
@@ -160,8 +181,7 @@ namespace crypto_policy {
 
                     cs_array.close();
                     break;
-                }
-                else {
+                } else {
                     some_allowed = true;
                 }
 
@@ -170,8 +190,7 @@ namespace crypto_policy {
             const char *quantifier = "none";
             if (all_allowed) {
                 quantifier = "all";
-            } 
-            else if (some_allowed) {
+            } else if (some_allowed) {
                 quantifier = "some";
             }
             a.print_key_string("ciphersuites_allowed", quantifier);
@@ -209,8 +228,7 @@ namespace crypto_policy {
                                 } else {
                                     ng_array.print_uint16_hex(named_group);
                                 }
-                            }
-                            else {
+                            } else {
                                 some_allowed = true;
                             }
                         }
@@ -221,8 +239,7 @@ namespace crypto_policy {
 
                     ng_array.close();
                     break;
-                }
-                else {
+                } else {
                     some_allowed = true;
                 }
 
@@ -231,8 +248,7 @@ namespace crypto_policy {
             const char *quantifier = "none";
             if (all_allowed) {
                 quantifier = "all";
-            } 
-            else if (some_allowed) {
+            } else if (some_allowed) {
                 quantifier = "some";
             }
             a.print_key_string("groups_allowed", quantifier);
@@ -293,8 +309,9 @@ namespace crypto_policy {
                 std::string_view tmp_sv{(char*)tmp.data, (size_t)tmp.length()};
                 if (tmp.end() == tmp_list.end()) {
                     tmp_list.set_null();
+                } else {
+                    tmp_list.skip(1); // skip ','
                 }
-                tmp_list.skip(1); // skip ','
 
                 bool found = (ssh_allowed_kex.find(tmp_sv) != ssh_allowed_kex.end());
                 if (!found) {
@@ -306,8 +323,7 @@ namespace crypto_policy {
                         if (!found) {
                             all_allowed = false;
                             kex_array.print_string(tmp_sv.data(), tmp_sv.length());
-                        }
-                        else {
+                        } else {
                             some_allowed = true;
                         }
 
@@ -320,13 +336,13 @@ namespace crypto_policy {
                         tmp_sv = {(char*)tmp.data, (size_t)tmp.length()};
                         if (tmp.end() == tmp_list.end()) {
                             tmp_list.set_null();
+                        } else {
+                            tmp_list.skip(1); // skip ','
                         }
-                        tmp_list.skip(1); // skip ','
                     }
                     kex_array.close();
                     break;
-                }
-                else {
+                } else {
                     some_allowed = true;
                 }
             }
@@ -334,8 +350,7 @@ namespace crypto_policy {
             const char *quantifier = "none";
             if (all_allowed) {
                 quantifier = "all";
-            } 
-            else if (some_allowed) {
+            } else if (some_allowed) {
                 quantifier = "some";
             }
             a.print_key_string("kex_allowed", quantifier);
@@ -354,8 +369,9 @@ namespace crypto_policy {
                 std::string_view tmp_sv{(char*)tmp.data, (size_t)tmp.length()};
                 if (tmp.end() == tmp_list.end()) {
                     tmp_list.set_null();
+                } else {
+                    tmp_list.skip(1); // skips ','
                 }
-                tmp_list.skip(1); // skips ','
 
                 bool found = ssh_allowed_ciphers.find(tmp_sv) != ssh_allowed_ciphers.end();
                 if (!found) {
@@ -367,8 +383,7 @@ namespace crypto_policy {
                         if (!found) {
                             all_allowed = false;
                             cs_array.print_string(tmp_sv.data(), tmp_sv.length());
-                        }
-                        else {
+                        } else {
                             some_allowed = true;
                         }
 
@@ -381,14 +396,14 @@ namespace crypto_policy {
                         tmp_sv = {(char*)tmp.data, (size_t)tmp.length()};
                         if (tmp.end() == tmp_list.end()) {
                             tmp_list.set_null();
+                        } else {
+                            tmp_list.skip(1); // skips ','
                         }
-                        tmp_list.skip(1); // skips ','
 
                     }
                     cs_array.close();
                     break;
-                }
-                else {
+                } else {
                     some_allowed = true;
                 }
             }
@@ -396,8 +411,7 @@ namespace crypto_policy {
             const char *quantifier = "none";
             if (all_allowed) {
                 quantifier = "all";
-            } 
-            else if (some_allowed) {
+            } else if (some_allowed) {
                 quantifier = "some";
             }
             a.print_key_string("ciphersuites_allowed", quantifier);
