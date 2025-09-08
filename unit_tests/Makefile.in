@@ -212,7 +212,7 @@ libmerc_l7_metadata_test: libmerc-util debug-libmerc xtra/resources/resources-mp
 	cp $(LIBMERC_SO) $(LIBMERC_SO).alt
 	cp $(LIBMERC_SO) $(LIBMERC_SO_multiprotocol)
 	mv $(LIBMERC_SO) $(LIBMERC_SO_multiprotocol).alt
-	$(CXX) $(CFLAGS) -I ../src/ -I../src/libmerc catch2main.cc libmerc_driver_helper.cc libmerc_fixture.cc libmerc_util_behavior_test.cc -pthread -o libmerc_util_behavior_test -DLIBMERC_SO_PATH="\"$(LIBMERC_SO_multiprotocol)\"" $(FSANITIZE) $(LDFLAGS) -L$(LIBMERC_DEBUG_FOLDER) $(LIBMERC_SO_multiprotocol) -lcrypto -ldl -lz
+	$(CXX) $(CFLAGS) -I ../src/ -I../src/libmerc catch2main.cc libmerc_driver_helper.cc libmerc_fixture.cc libmerc_util_behavior_test.cc -pthread -o libmerc_util_behavior_test -DLIBMERC_SO_PATH="\"$(LIBMERC_SO_multiprotocol)\"" $(FSANITIZE) $(LDFLAGS) -L$(LIBMERC_DEBUG_FOLDER) $(LIBMERC_SO_multiprotocol) -lcrypto -ldl -lz -lstdc++fs
 	@echo "Running libmerc_util_behavior_test..."
 ifeq ($(is_macos_arm),yes)
 	cd debug-libs && ln -sf libmerc_multiprotocol.so libmerc.so.0
