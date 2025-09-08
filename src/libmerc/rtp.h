@@ -8,6 +8,7 @@
 #include "datum.h"
 #include "match.h"
 #include "json_object.h"
+#include "cbor_object.hpp"
 
 namespace rtp {
 
