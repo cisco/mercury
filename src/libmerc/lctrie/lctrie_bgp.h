@@ -73,7 +73,7 @@ lct_subnet_set_from_string(lct_subnet<ipv6_addr_t> *subnet, const char *subnet_s
         return -1;
     }
 
-    ssize_t addr_len = strlen(addr_str);
+    uint32_t addr_len = strlen(addr_str);
     if (addr_len >= LCTRIE_INET6_ADDRSTRLEN) {
         fprintf(stderr, "ERROR: IPv6 address string too long: %s\n", addr_str);
         return -1;
