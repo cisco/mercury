@@ -844,11 +844,10 @@ struct datum {
     }
 
     void fprint_c_array(FILE *f, const char *name) const {
-        // TODO: It should have a length parameter as well to prevent the case when this c_string is not null terminated
         if (f == nullptr || name == nullptr) { return; }
         size_t count = 1;
         const uint8_t *x = data;
-        fprintf(f, "uint8_t %s[] = {\n    ", name);
+        fprintf(f, "uint8_t %s[%zd] = {\n    ", name, length());
         while (x < data_end - 1) {
             fprintf(f, "0x%02x,", *x++);
             if (count++ % 8 == 0) {

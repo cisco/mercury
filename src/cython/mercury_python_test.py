@@ -146,7 +146,16 @@ class TestMercuryPython(unittest.TestCase):
         self.assertEqual(decoded_data['fdc']['dst_port'], 443,
                          f"Destination port feature decoded improperly")
 
+    def test_normalized_domain_result(self):
+        str_repr    = 'http/(0123)(4567)((89abcdef))'
+        dst_ip      = '1.1.1.1'
+        server_name = '1.1.1.1:443'
+        dst_port    = 443
 
+        cls_result = self.libmerc.perform_analysis(str_repr, server_name, dst_ip, dst_port)
+        print(cls_result)
+        self.assertEqual(cls_result['analysis']['process'], f"good",
+                         f"The classifier is using 1.1:443 as the domain feature")
 
 if __name__ == '__main__':
     unittest.main()

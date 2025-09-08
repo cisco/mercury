@@ -1,5 +1,16 @@
 # CHANGELOG for Mercury
 
+## VERSION 2.8.1
+* Bug fixes: ASAN container overflow in stats collection, dangling reference in
+  Naive Bayes classifier weights, faulty unit test for resource file version.
+* Disabled Fake TLS detection for QUIC.  Will re-enable when feature is ready.
+* Added fdc (fingerprint and destination context) tests to code coverage report.
+* Added internal CBOR encoding classes with translation to JSON and a
+  key-compaction option.
+* Changed the order of domain name normalization in the classifier to normalize
+  a FQDN before extracting the domain name.
+
+## VERSION 2.8.0
 * Fixed `get_json_decoded_fdc()` to not assume UTF-8 inputs.
 * Added CBOR encoding/decoding for SSH and STUN fingerprints.
 * Fixing compiler warnings related to ABI differences
@@ -27,7 +38,7 @@
 * Added additional fuzz tests. Updated the `generate_fuzz_test.sh` script to
   support generating fuzz functions that test functions requiring two fuzzed inputs.
   Also hardened some datum functions.
-* Added `test-coverage` and `test-coverage-fuzz` targets to generate a 
+* Added `test-coverage` and `test-coverage-fuzz` targets to generate a
   comprehensive code coverage report for the Mercury library.
 
 ## VERSION 2.7.0
