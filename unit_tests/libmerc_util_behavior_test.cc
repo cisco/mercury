@@ -14,7 +14,7 @@
 struct protocol_counts {
     std::unordered_map<std::string, int> protocol_map;
     int total_lines = 0;
-    
+
     // Helper methods for backward compatibility
     int get_count(const std::string& protocol) const {
         auto it = protocol_map.find(protocol);
@@ -26,19 +26,19 @@ protocol_counts count_protocols_in_l7_output(const std::string& l7_output_file) 
     protocol_counts counts;
     std::ifstream file(l7_output_file);
     std::string line;
-    
+
     while (std::getline(file, line)) {
         if (line.empty()) continue;
         counts.total_lines++;
-        
+
         rapidjson::Document doc;
         doc.Parse(line.c_str());
-        
+
         if (!doc.HasParseError() && doc.IsObject()) {
             // Check if protocols array exists
             if (doc.HasMember("protocols") && doc["protocols"].IsArray()) {
                 const rapidjson::Value& protocols = doc["protocols"];
-                
+
                 // Iterate through protocols array
                 for (rapidjson::SizeType i = 0; i < protocols.Size(); i++) {
                     if (protocols[i].IsString()) {
@@ -49,56 +49,56 @@ protocol_counts count_protocols_in_l7_output(const std::string& l7_output_file) 
             }
         }
     }
-    
+
     return counts;
 }
 
 // Helper function to test a specific PCAP file
-void test_pcap_file(const std::string& pcap_filename, int expected_total_lines, 
+void test_pcap_file(const std::string& pcap_filename, int expected_total_lines,
                    const std::unordered_map<std::string, int>& expected_protocols = {}) {
     const std::string libmerc_util_path = "../src/libmerc_util";
     const std::string libmerc_so_path = "./debug-libs/libmerc_multiprotocol.so";
     const std::string pcap_file = "pcaps/" + pcap_filename;
     const std::string resources_file = "xtra/resources/resources-mp.tgz";
     const std::string l7_output_file = "test_l7_output_" + pcap_filename + ".json";
-    
+
     // Check prerequisites
     REQUIRE(std::filesystem::exists(libmerc_util_path));
     REQUIRE(std::filesystem::exists(libmerc_so_path));
     REQUIRE(std::filesystem::exists(pcap_file));
-    
+
     // Build and execute command
     std::stringstream cmd;
-    cmd << libmerc_util_path 
+    cmd << libmerc_util_path
         << " --libmerc " << libmerc_so_path
         << " --read " << pcap_file
         << " --resources " << resources_file
         << " --fdc"
         << " --l7-output " << l7_output_file;
-    
+
     INFO("Testing PCAP: " << pcap_filename);
     int result = std::system(cmd.str().c_str());
     REQUIRE(result == 0);
-    
+
     // Analyze results
     if (std::filesystem::exists(l7_output_file)) {
         protocol_counts counts = count_protocols_in_l7_output(l7_output_file);
-        
+
         INFO("Results for " << pcap_filename << ":");
         INFO("  Total L7 JSON lines: " << counts.total_lines);
-        
+
         // Log all detected protocols
         for (const auto& [protocol, count] : counts.protocol_map) {
             INFO("  " << protocol << ": " << count << " records");
         }
-      
+
         REQUIRE(counts.total_lines == expected_total_lines);
-        
+
         // Check expected protocol counts if specified
         for (const auto& [protocol, expected_count] : expected_protocols) {
             REQUIRE(counts.get_count(protocol) == expected_count);
         }
-        
+
         // Cleanup
         std::filesystem::remove(l7_output_file);
     } else {
@@ -141,7 +141,7 @@ TEST_CASE("emix.pcap") {
         {"tls", 5},
         {"quic", 4}
     };
-    
+
     test_pcap_file("emix.pcap", 1317, expected_protocols);
 }
 
