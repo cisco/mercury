@@ -91,6 +91,10 @@ int main(int, char *[]) {
             "tacacs",
             &tacacs::unit_test
         },
+        {
+            "crypto_policy",
+            &crypto_policy::unit_test
+        }
     };
     size_t num_tests = 0;
     size_t num_passed = 0;
@@ -130,10 +134,6 @@ int main(int, char *[]) {
         {
             "cbor_object",
             &cbor_object_unit_test
-        },
-        {
-            "crypto_policy",
-            &crypto_policy::unit_test
         },
     };
     for (const auto &tc : test_cases_verbose) {
