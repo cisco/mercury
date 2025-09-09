@@ -350,6 +350,11 @@ inline void fprint_addr(FILE *f, const char *key, const uint32_t *addr) {
     fprintf(f, "%s: %u.%u.%u.%u\n", key, n[0], n[1], n[2], n[3]);
 }
 
+inline void fprint_addr_rev(FILE *f, const char *key, const uint32_t *addr) {
+    const uint8_t *n = (const uint8_t *)addr;
+    fprintf(f, "%s: %u.%u.%u.%u\n", key, n[3], n[2], n[1], n[0]);
+}
+
 // three-way subnet comparison for qsort
 //extern int subnet_cmp(const void *di, const void *dj);
 

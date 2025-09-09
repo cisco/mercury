@@ -43,16 +43,14 @@ void subnet_mask_v6(lct_subnet<ipv6_addr_t> *subnets, size_t size) {
       newaddr = p->addr & netmask;
 
       if (newaddr != p->addr) {
-          fprint_addr(stderr, "address", &p->addr);
-          fprint_addr(stderr, "netmask", &netmask);
-          fprint_addr(stderr, "newaddr", &newaddr);
+          fprint_addr_rev(stderr, "address", &p->addr);
+          fprint_addr_rev(stderr, "netmask", &netmask);
+          fprint_addr_rev(stderr, "newaddr", &newaddr);
 
-          prefix = p->addr;
-          prefix2 = newaddr;
-          if (!inet_ntop(address_family<ipv6_addr_t>::typecode, &(prefix.a), pstr, sizeof(pstr))) {
+          if (!inet_ntop(address_family<ipv6_addr_t>::typecode, &(p->addr.a), pstr, sizeof(pstr))) {
               fprintf(stderr, "ERROR: %s\n", strerror(errno));
           }
-          if (!inet_ntop(address_family<ipv6_addr_t>::typecode, &(prefix2.a), pstr2, sizeof(pstr2))) {
+          if (!inet_ntop(address_family<ipv6_addr_t>::typecode, &(newaddr.a), pstr2, sizeof(pstr2))) {
               fprintf(stderr, "ERROR: %s\n", strerror(errno));
           }
 
@@ -83,9 +81,9 @@ void subnet_mask_v4(lct_subnet<ipv4_addr_t> *subnets, size_t size) {
       ipv4_addr_t newaddr = p->addr & netmask;
 
       if (newaddr != p->addr) {
-          fprint_addr(stderr, "address", &p->addr);
-          fprint_addr(stderr, "netmask", &netmask);
-          fprint_addr(stderr, "newaddr", &newaddr);
+          fprint_addr_rev(stderr, "address", &p->addr);
+          fprint_addr_rev(stderr, "netmask", &netmask);
+          fprint_addr_rev(stderr, "newaddr", &newaddr);
 
           prefix = hton(p->addr);
           prefix2 = hton(newaddr);
@@ -822,6 +820,8 @@ bool subnet_data::is_domain_faking(const char *domain_name_, const char* dst_ip)
                 return false; // subnet is an exception - not domain-faking
             }
         }
+        else
+            return false; // not a valid IP address or we don't have IPv6 domain mappings
     }
 
     return true; // no match - domain-faking
