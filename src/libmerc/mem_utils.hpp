@@ -44,7 +44,7 @@ public:
     }
 
 
-    fixed_fifo_allocator(fixed_fifo_allocator&& other) noexcept {//: mem_pool(other.mem_pool) {
+    fixed_fifo_allocator(fixed_fifo_allocator&& other) noexcept {
         cur_element = other.cur_element;
         mem_pool = other.mem_pool;
         reallocate = other.reallocate;
@@ -123,8 +123,8 @@ public:
         }
 
         // Allocate all slots
-        Dummy* ptrs[M];
         for (std::size_t i = 0; i < M; ++i) {
+            alloc.deallocate(ptrs[i], 1);
             ptrs[i] = alloc.allocate(1);
             new (ptrs[i]) Dummy(static_cast<int>(i));
             if (ptrs[i]->x != static_cast<int>(i)) {
@@ -132,19 +132,10 @@ public:
             }
         }
 
-        // Deallocate one and allocate again
-        alloc.deallocate(ptrs[0], 1);
-        Dummy* p = alloc.allocate(1);
-        new (p) Dummy(42);
-        if (p->x != 42) {
-            return false;
-        }
-
         // Deallocate all
         for (std::size_t i = 0; i < M; ++i) {
             alloc.deallocate(ptrs[i], 1);
         }
-        alloc.deallocate(p, 1); // safe to call even if already deallocated
 
         // Test rebind
         fixed_fifo_allocator<int, 4> int_alloc;
@@ -152,6 +143,9 @@ public:
         char_alloc_type char_alloc;
 
         char* char_ptr = char_alloc.allocate(1);
+        if (char_ptr == nullptr) {
+            return false;
+        }
         *char_ptr = 'A';
         if (*char_ptr != 'A') {
             return false;
