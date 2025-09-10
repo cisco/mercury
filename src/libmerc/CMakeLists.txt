@@ -150,7 +150,7 @@ check_type_size("uint64_t"   SIZE_UINT64_T)
 check_type_size("uint8_t"    SIZE_UINT8_T)
 check_type_size("ptrdiff_t"  SIZE_PTRDIFF_T)
 
-if(DEFINED have_openssl_new)
+if(DEFINED openssl_path)
     message(STATUS "Switching to newer libcrypto functions")
     add_compile_definitions(SSLNEW)
 else()

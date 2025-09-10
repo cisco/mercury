@@ -6,10 +6,10 @@ set( CMAKE_VERBOSE_MAKEFILE on )
 
 # Check for windows and set some paths to prevent VScode and other prefix appending
 if (IS_WIN)
-    set(CMAKE_BINARY_DIR "$<1:${CMAKE_CURRENT_SOURCE_DIR}>")
-    set(EXECUTABLE_OUTPUT_PATH "$<1:${CMAKE_CURRENT_SOURCE_DIR}>")
-    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "$<1:${CMAKE_CURRENT_SOURCE_DIR}>")
-    set(CMAKE_BUILD_FILES_DIRECTORY "$<1:${CMAKE_CURRENT_SOURCE_DIR}>")
+    set(CMAKE_BINARY_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+    set(EXECUTABLE_OUTPUT_PATH {CMAKE_CURRENT_SOURCE_DIR})
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+    set(CMAKE_BUILD_FILES_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
     set(CMAKE_MSVCIDE_RUN_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 endif()
 
@@ -31,7 +31,7 @@ file(GLOB asn1_files ${CMAKE_CURRENT_SOURCE_DIR}/*.asn1)
 list(SORT asn1_files)
 
 if (IS_WIN)
-    set(oid_exec_cmd cd /D ${CMAKE_CURRENT_SOURCE_DIR} && oidc ${asn1_files})
+    set(oid_exec_cmd cmd /c "cd /D ${CMAKE_CURRENT_SOURCE_DIR} && $<TARGET_FILE:oidc> ${asn1_files}")
 else()
     set(oid_exec_cmd oidc ${asn1_files})
 endif()
