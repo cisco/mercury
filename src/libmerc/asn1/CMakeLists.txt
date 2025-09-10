@@ -18,6 +18,18 @@ if (IS_WIN)
     set(CMAKE_MSVCIDE_RUN_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 endif()
 
+# CMake automatically adds optimization/debug flags based on CMAKE_BUILD_TYPE:
+#   Windows (MSVC):
+#     Debug: /MDd /Zi /Ob0 /Od /RTC1 (no optimization, runtime checks)
+#     Release: /MD /O2 /Ob2 /DNDEBUG (optimize for speed)
+#     RelWithDebInfo: /MD /Zi /O2 /Ob1 /DNDEBUG (optimized with debug symbols)
+#     MinSizeRel: /MD /O1 /Ob1 /DNDEBUG (optimize for size)
+#   Linux/Mac (GCC/Clang):
+#     Debug: -g (debug symbols only)
+#     Release: -O3 -DNDEBUG (aggressive optimization)
+#     RelWithDebInfo: -O2 -g -DNDEBUG (moderate optimization with debug symbols)
+#     MinSizeRel: -Os -DNDEBUG (optimize for size)
+
 # CMake automatically adds optimization and debug flags based on CMAKE_BUILD_TYPE.
 # Typical values for CMAKE_BUILD_TYPE: Debug, Release, RelWithDebInfo, MinSizeRel.
 # These flags are added to CMAKE_CXX_FLAGS_<CONFIG> variables:

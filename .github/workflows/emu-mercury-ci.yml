@@ -1,0 +1,185 @@
+name: "[EMU] Mercury CI"
+
+on:
+  workflow_dispatch:
+    inputs:
+      run-linux:
+        description: 'Run Linux builds'
+        type: boolean
+        default: true
+      run-macos:
+        description: 'Run macOS build'
+        type: boolean
+        default: true
+      run-windows:
+        description: 'Run Windows build'
+        type: boolean
+        default: true
+  push:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  # ========== Linux Multi-Distro Build and Test ==========
+
+  define-matrix:
+    if: github.event_name != 'workflow_dispatch' || inputs.run-linux
+    runs-on: ubuntu-latest
+    outputs:
+      testplatforms: ${{ steps.testplatforms.outputs.testplatforms }}
+    steps:
+      - name: Define Test Platforms
+        id: testplatforms
+        run: |
+          echo 'testplatforms=["almalinux8","almalinux9","almalinux10","ubuntu2004","ubuntu2204","ubuntu2404","debian11","debian12","debian13"]' >> "$GITHUB_OUTPUT"
+
+  linux-ci:
+    if: github.event_name != 'workflow_dispatch' || inputs.run-linux
+    needs: define-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        testplatform: ${{ fromJSON(needs.define-matrix.outputs.testplatforms) }}
+    container:
+      image: ghcr.io/cisco-netintel/${{matrix.testplatform}}:buildenv
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.github_token }}
+    steps:
+      - name: Echo OS version
+        run: cat /etc/os-release
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+      - name: configure
+        run: ./configure
+      - name: make
+        run: make --debug=basic OPTFLAGS=-g
+      # Alternative: Get resources from S3 using Conjur secrets
+      # - name: Get Secrets
+      #   id: get-secrets
+      #   uses: ns-actions/secrets@v2
+      #   with:
+      #     secret_manager: conjur
+      #     secret_map: |
+      #       sbg/netintel/mercury/aws/AWS_ACCESS_KEY_ID,
+      #       sbg/netintel/mercury/aws/AWS_SECRET_ACCESS_KEY
+      #     url: https://conjur-nonprod.cisco.com
+      #     account: cisco
+      #     username: ${{ secrets.SECRET_MANAGER_USERNAME }}
+      #     password: ${{ secrets.SECRET_MANAGER_PASSWORD }}
+      # - name: Get Proprietary Resources File
+      #   env:
+      #     AWS_ACCESS_KEY_ID: ${{ steps.get-secrets.outputs.AWS_ACCESS_KEY_ID }}
+      #     AWS_SECRET_ACCESS_KEY: ${{ steps.get-secrets.outputs.AWS_SECRET_ACCESS_KEY }}
+      #   run: |
+      #     mkdir -p unit_tests/xtra/resources
+      #     aws s3 cp s3://netintel-fingerprints/mercury-resources/current/resources-mp.tgz unit_tests/xtra/resources/resources-mp.tgz --no-progress --region us-east-1
+      - name: Generate token for cross-repo access
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.REPO_READER_APP_ID }}
+          private-key: ${{ secrets.REPO_READER_PRIVATE_KEY }}
+          owner: cisco-netintel
+      - name: Checkout mercury-resources
+        uses: actions/checkout@v5
+        with:
+          repository: cisco-netintel/mercury-resources
+          ref: trunk
+          path: unit_tests/xtra/resources
+          token: ${{ steps.app-token.outputs.token }}
+      - name: Run mercury make test
+        run: make --debug=basic OPTFLAGS=-g test
+
+  # ========== macOS Build and Test ==========
+
+  macos-ci:
+    if: github.event_name != 'workflow_dispatch' || inputs.run-macos
+    runs-on: macos-latest
+    steps:
+      - name: Get system hardware information
+        run: system_profiler SPHardwareDataType
+      - name: Get system software information
+        run: system_profiler SPSoftwareDataType
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+      - name: Install Homebrew dependencies
+        run: |
+          brew install zlib  # already installed: python, openssl, cmake
+      - name: Install pip packages
+        run: |
+          mkdir -p ~/.envs
+          python3 -m venv ~/.envs/merc
+          source ~/.envs/merc/bin/activate
+          python3 -m pip install --upgrade pip
+          python3 -m pip install --upgrade jsonschema cryptography Cython wheel setuptools
+      - name: Build libmerc via CMake
+        working-directory: src/libmerc
+        run: |
+          cmake -DCMAKE_BUILD_TYPE=Debug -DLIBMERC_ONLY=TRUE -B build-debug
+          cmake --build build-debug --parallel 1
+          cmake -DCMAKE_BUILD_TYPE=Release -DLIBMERC_ONLY=TRUE -B build-release
+          cmake --build build-release --parallel 1
+      - name: Clean up CMake build directories
+        working-directory: src/libmerc
+        run: rm -rf build-debug build-release
+      - name: Build Mercury via configure and make
+        run: |
+          ./configure
+          make OPTFLAGS=-g
+      - name: Generate token for cross-repo access
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.REPO_READER_APP_ID }}
+          private-key: ${{ secrets.REPO_READER_PRIVATE_KEY }}
+          owner: cisco-netintel
+      - name: Checkout mercury-resources
+        uses: actions/checkout@v5
+        with:
+          repository: cisco-netintel/mercury-resources
+          ref: trunk
+          path: unit_tests/xtra/resources
+          token: ${{ steps.app-token.outputs.token }}
+      - name: Run mercury make test
+        run: |
+          make --debug=basic OPTFLAGS=-g test
+
+  # ========== Windows Build ==========
+
+  windows-build-only:
+    if: github.event_name != 'workflow_dispatch' || inputs.run-windows
+    runs-on: windows-2022
+    env:
+      CMAKE_TOOLCHAIN_FILE: C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+      - name: Get system information
+        run: systeminfo
+      - name: Get vcpkg location
+        run: where.exe vcpkg
+      - name: Install dependencies via vcpkg
+        run: vcpkg install openssl zlib
+      - name: List vcpkg installed packages
+        run: vcpkg list
+      - name: Build libmerc via CMake
+        working-directory: src/libmerc
+        run: |
+          cmake -DCMAKE_BUILD_TYPE=Debug -DLIBMERC_ONLY=TRUE -B build-debug
+          cmake --build build-debug --parallel 1
+          cmake -DCMAKE_BUILD_TYPE=Release -DLIBMERC_ONLY=TRUE -B build-release
+          cmake --build build-release --parallel 1

@@ -1,0 +1,18 @@
+FROM ubuntu:24.04
+RUN apt-get update \
+    && apt-get install -y git build-essential \
+    pkg-config wget python3-dev python3-pip python3-venv \
+    valgrind jq tcpreplay iproute2 sudo \
+    snapd curl unzip \
+    zlib1g-dev libssl-dev ruby-dev rubygems --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/* \
+    && python3 -m venv /opt/venv \
+    && curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" \
+    && unzip awscliv2.zip \
+    && ./aws/install
+
+ENV PATH="/opt/venv/bin:$PATH"
+RUN pip3 install --upgrade pip \
+    && pip3 install setuptools wheel \
+    && pip3 install jsonschema cryptography Cython
+RUN gem install fpm

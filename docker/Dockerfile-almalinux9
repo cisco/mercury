@@ -1,0 +1,23 @@
+FROM almalinux:9
+RUN yum install -y epel-release \
+    && yum update -y \
+    && yum install -y git make \
+    gcc-toolset-13-gcc gcc-toolset-13-gcc-c++ gcc-toolset-13-libasan-devel \
+    pkg-config wget python3.11 python3.11-devel python3.11-pip valgrind \
+    jq tcpreplay iproute sudo zlib-devel \
+    openssl-devel awscli \
+    && yum update -y \
+    && alternatives --install /usr/bin/gcc gcc /opt/rh/gcc-toolset-13/root/usr/bin/gcc 60 \
+    && alternatives --install /usr/bin/g++ g++ /opt/rh/gcc-toolset-13/root/usr/bin/g++ 60 \
+    && alternatives --install /usr/bin/cc cc /opt/rh/gcc-toolset-13/root/usr/bin/gcc 60 \
+    && yum clean all \
+    && rm -rf /var/cache/yum \
+    && python3.11 -m venv /opt/venv
+
+ENV PATH="/opt/venv/bin:$PATH"
+RUN pip3.11 install --upgrade pip \
+    && pip3.11 install setuptools wheel \
+    && pip3.11 install jsonschema cryptography Cython
+
+RUN yum install -y ruby rpm-build squashfs-tools \
+    && gem install dotenv fpm

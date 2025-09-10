@@ -1,4 +1,4 @@
-name: Mercury wheels Build and Publish to PyPI
+name: "[PUB] Python Wheels"
 
 on:
   workflow_dispatch:

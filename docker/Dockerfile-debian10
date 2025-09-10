@@ -1,0 +1,14 @@
+FROM debian:10
+RUN apt-get update \
+    && apt-get install -y git pkg-config wget jq tcpreplay iproute2 sudo \
+    debconf zlib1g-dev libssl-dev \
+    valgrind libc-dev make dpkg-dev gcc g++ python3-dev python3-pip python3-venv \
+    --no-install-recommends \
+    && apt-get -f install \
+    && rm -rf /var/lib/apt/lists/* \
+    && python3 -m venv /opt/venv
+
+ENV PATH="/opt/venv/bin:$PATH"
+RUN pip3 install --upgrade pip \
+    && pip3 install setuptools wheel \
+    && pip3 install jsonschema cryptography Cython
