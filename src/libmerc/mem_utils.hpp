@@ -25,20 +25,55 @@
 //
 template <typename T, size_t N>
 class fixed_fifo_allocator {
-    typename std::aligned_storage<sizeof(T), alignof(T)>::type mem_pool[N];
+    using fixed_storage = typename std::aligned_storage<sizeof(T), alignof(T)>::type;
+    fixed_storage *mem_pool = nullptr;
     size_t cur_element;
+    bool reallocate = false;
 
 public:
     using value_type = T;
 
-    fixed_fifo_allocator() noexcept : mem_pool{}, cur_element{0} {}
+    fixed_fifo_allocator() noexcept : cur_element{0} {
+        mem_pool = new fixed_storage[N];
+    }
+
 
     template <typename U>
-    fixed_fifo_allocator(const fixed_fifo_allocator<U, N>&) noexcept : mem_pool{}, cur_element{0} {}
+    fixed_fifo_allocator(const fixed_fifo_allocator<U, N>&) noexcept : cur_element{0} {
+        mem_pool = new fixed_storage[N];
+    }
+
+
+    fixed_fifo_allocator(fixed_fifo_allocator&& other) noexcept {//: mem_pool(other.mem_pool) {
+        cur_element = other.cur_element;
+        mem_pool = other.mem_pool;
+        reallocate = other.reallocate;
+
+        if (this != &other) {
+            other.mem_pool = nullptr;
+        }
+    }
+
+
+    ~fixed_fifo_allocator() {
+        if (mem_pool != nullptr) {
+            delete[] reinterpret_cast<fixed_storage *>(mem_pool);
+        }
+    }
+
 
     T* allocate(size_t n) {
         if (n != 1) { // allocate bucket data
-            return reinterpret_cast<T*>(new typename std::aligned_storage<sizeof(T), alignof(T)>::type[n]);
+            if (reallocate) {
+                throw std::bad_alloc();
+            }
+            if (n > N) {
+                delete[] reinterpret_cast<fixed_storage *>(mem_pool);
+                mem_pool = new fixed_storage[n];
+                reallocate = true;
+            }
+
+            return reinterpret_cast<T*>(mem_pool);
         }
 
         if (cur_element >= N) {
@@ -47,22 +82,22 @@ public:
         return reinterpret_cast<T*>(&mem_pool[cur_element++]);
     }
 
-    void deallocate(T* p, size_t n) noexcept {
-        if (n != 1) { // deallocate bucket data
-            delete[] reinterpret_cast<typename std::aligned_storage<sizeof(T), alignof(T)>::type *>(p);
-            return;
-        }
-        // no need to deallocate node data
+
+    void deallocate(T*, size_t) noexcept {
+        // no need to deallocate
+        return ;
     }
+
 
     template <typename U>
     struct rebind {
         using other = fixed_fifo_allocator<U, N>;
     };
 
+
     // Comparison operators
-    bool operator==(const fixed_fifo_allocator&) const noexcept { return true; }
-    bool operator!=(const fixed_fifo_allocator&) const noexcept { return false; }
+    bool operator==(const fixed_fifo_allocator&) const noexcept { return false; }
+    bool operator!=(const fixed_fifo_allocator&) const noexcept { return true; }
 
 
 #ifndef NDEBUG
@@ -76,6 +111,16 @@ public:
     static bool unit_test() {
         constexpr size_t M = 4;
         fixed_fifo_allocator<Dummy, M> alloc;
+
+        // Allocate all slots
+        Dummy* ptrs[M];
+        for (std::size_t i = 0; i < M; ++i) {
+            ptrs[i] = alloc.allocate(1);
+            new (ptrs[i]) Dummy(static_cast<int>(i));
+            if (ptrs[i]->x != static_cast<int>(i)) {
+                return false;
+            }
+        }
 
         // Allocate all slots
         Dummy* ptrs[M];
@@ -102,17 +147,20 @@ public:
         alloc.deallocate(p, 1); // safe to call even if already deallocated
 
         // Test rebind
-        fixed_fifo_allocator<int, M> alloc2;
-        int* iptr = alloc2.allocate(1);
-        *iptr = 123;
-        if (*iptr != 123) {
+        fixed_fifo_allocator<int, 4> int_alloc;
+        using char_alloc_type = fixed_fifo_allocator<int, 4>::rebind<char>::other;
+        char_alloc_type char_alloc;
+
+        char* char_ptr = char_alloc.allocate(1);
+        *char_ptr = 'A';
+        if (*char_ptr != 'A') {
             return false;
         }
-        alloc2.deallocate(iptr, 1);
+        char_alloc.deallocate(char_ptr, 1);
 
         // Test comparison operators
-        fixed_fifo_allocator<Dummy, M> alloc3;
-        if (alloc != alloc3) {
+        fixed_fifo_allocator<Dummy, M> alloc2;
+        if (alloc == alloc2) { // we don't want alloc2 to release alloc memory
             return false;
         }
 
