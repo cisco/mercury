@@ -39,6 +39,21 @@ public:
 
 
     // copy constructor
+    fixed_fifo_allocator(const fixed_fifo_allocator& other) noexcept {
+        if (this != &other) {
+            mem_pool = nullptr;
+            if (other.mem_pool != nullptr) {
+                mem_pool = new fixed_storage[N];
+                for (size_t i = 0; i < N; ++i) {
+                    mem_pool[i] = other.mem_pool[i];
+                }
+            }
+            cur_element = other.cur_element;
+        }
+    }
+
+
+    // copy constructor
     template <typename U>
     fixed_fifo_allocator(const fixed_fifo_allocator<U, N>&) noexcept
         : mem_pool{nullptr}, cur_element{0} { }
@@ -87,8 +102,8 @@ public:
 
 
     // Comparison operators
-    bool operator==(const fixed_fifo_allocator&) const noexcept { return false; }
-    bool operator!=(const fixed_fifo_allocator&) const noexcept { return true; }
+    bool operator==(const fixed_fifo_allocator&) const noexcept { return true; }
+    bool operator!=(const fixed_fifo_allocator&) const noexcept { return false; }
 
 
 #ifndef NDEBUG
@@ -145,7 +160,7 @@ public:
 
         // Test comparison operators
         fixed_fifo_allocator<Dummy, M> alloc2;
-        if (alloc == alloc2) { // we don't want alloc2 to release alloc memory
+        if (alloc != alloc2) {
             return false;
         }
 
