@@ -1043,12 +1043,13 @@ bool tls_client_hello::check_residential_proxy(const struct key &k_, datum rando
 
     // Use a custom allocator for the unordered_map
     using nonce_map_allocator = fixed_fifo_allocator<std::pair<const std::array<uint8_t, L_Random>, uint32_t>, max_nonce_entries>;
+    static nonce_map_allocator fifo_alloc;
     static std::unordered_map<
         std::array<uint8_t, L_Random>,
         uint32_t,
         std::hash<std::array<uint8_t, L_Random>>,
         std::equal_to<std::array<uint8_t, L_Random>>,
-        nonce_map_allocator> nonce_ip_map(max_nonce_entries);
+        nonce_map_allocator> nonce_ip_map(max_nonce_entries, fifo_alloc);
     std::array<uint8_t,L_Random> random_nonce;
 
     if (k_.ip_vers != 4) {
