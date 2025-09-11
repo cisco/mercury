@@ -16,36 +16,39 @@
 #include <stdexcept>
 
 
-// fixed_fifo_allocator is a custom memory allocator intended to be
-//   used by an unordered_map. It has two important properties:
+// fixed_fifo_allocator is a custom memory allocator intended to be used
+//   by an unordered_map. It has two important properties:
 //     1. inserts/deletes do not invoke memory allocations/deallocations
 //     2. elements are removed on a first-in/first-out basis
-//   This allocator is not a general purpose allocator and should be
-//   used with caution when the FIFO property holds for your use case.
+//   This allocator is not a general purpose allocator and should be used
+//   with extreme caution when the FIFO property holds for your use case.
 //
 template <typename T, size_t N>
 class fixed_fifo_allocator {
     using fixed_storage = typename std::aligned_storage<sizeof(T), alignof(T)>::type;
     fixed_storage *mem_pool;
     size_t cur_element;
+    bool internal;
 
 public:
     using value_type = T;
 
     // constructor
-    fixed_fifo_allocator() noexcept
-        : mem_pool{nullptr}, cur_element{0} { }
+    fixed_fifo_allocator() noexcept : cur_element{0}, internal{false} {
+        mem_pool = new fixed_storage[N];
+    }
 
     // copy constructor
     template <typename U>
     fixed_fifo_allocator(const fixed_fifo_allocator<U, N>&) noexcept
-        : mem_pool{nullptr}, cur_element{0} { }
+        : mem_pool{nullptr}, cur_element{0}, internal{true} { }
 
     // move constructor
     fixed_fifo_allocator(fixed_fifo_allocator&& other) noexcept {
         if (this != &other) {
             cur_element = other.cur_element;
             mem_pool = other.mem_pool;
+            internal = other.internal;
 
             other.mem_pool = nullptr;
         }
@@ -60,12 +63,12 @@ public:
 
 
     T* allocate(size_t n) {
-        if (n != 1) { // allocate new array/bucket data
+        if ((n != 1) || (internal)) { // allocate new array/bucket data
             return reinterpret_cast<T*>(new typename std::aligned_storage<sizeof(T), alignof(T)>::type[n]);
         }
 
         if (mem_pool == nullptr) {
-            mem_pool = new fixed_storage[N];
+            throw std::bad_alloc();
         }
 
         if (cur_element >= N) {
@@ -76,7 +79,7 @@ public:
 
 
     void deallocate(T* p, size_t n) noexcept {
-        if (n != 1) { // deallocate array/bucket data
+        if ((n != 1) || (internal)) { // deallocate array/bucket data
             delete[] reinterpret_cast<typename std::aligned_storage<sizeof(T), alignof(T)>::type *>(p);
             return;
         }
