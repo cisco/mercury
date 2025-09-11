@@ -47,7 +47,7 @@ public:
     // destructor
     ~fixed_fifo_allocator() {
         if (mem_pool != nullptr) {
-            delete[] reinterpret_cast<fixed_storage *>(mem_pool);
+            delete[] mem_pool;
         }
     }
 
