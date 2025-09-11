@@ -93,8 +93,8 @@ public:
 
 
     // Comparison operators
-    bool operator==(const fixed_fifo_allocator& other) const noexcept { return false; }
-    bool operator!=(const fixed_fifo_allocator& other) const noexcept { return true; }
+    bool operator==(const fixed_fifo_allocator&) const noexcept { return false; }
+    bool operator!=(const fixed_fifo_allocator&) const noexcept { return true; }
 
 
 #ifndef NDEBUG
