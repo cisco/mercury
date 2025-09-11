@@ -28,31 +28,21 @@ class fixed_fifo_allocator {
     using fixed_storage = typename std::aligned_storage<sizeof(T), alignof(T)>::type;
     fixed_storage *mem_pool;
     size_t cur_element;
-    bool internal;
 
 public:
     using value_type = T;
 
     // constructor
-    fixed_fifo_allocator() noexcept : cur_element{0}, internal{false} {
+    fixed_fifo_allocator() noexcept : cur_element{0} {
         mem_pool = new fixed_storage[N];
     }
+
 
     // copy constructor
     template <typename U>
     fixed_fifo_allocator(const fixed_fifo_allocator<U, N>&) noexcept
-        : mem_pool{nullptr}, cur_element{0}, internal{true} { }
+        : mem_pool{nullptr}, cur_element{0} { }
 
-    // move constructor
-    fixed_fifo_allocator(fixed_fifo_allocator&& other) noexcept {
-        if (this != &other) {
-            cur_element = other.cur_element;
-            mem_pool = other.mem_pool;
-            internal = other.internal;
-
-            other.mem_pool = nullptr;
-        }
-    }
 
     // destructor
     ~fixed_fifo_allocator() {
@@ -63,23 +53,24 @@ public:
 
 
     T* allocate(size_t n) {
-        if ((n != 1) || (internal)) { // allocate new array/bucket data
+        if (n != 1) { // allocate new array/bucket data
             return reinterpret_cast<T*>(new typename std::aligned_storage<sizeof(T), alignof(T)>::type[n]);
         }
 
         if (mem_pool == nullptr) {
-            throw std::bad_alloc();
+            mem_pool = new fixed_storage[N];
         }
 
         if (cur_element >= N) {
             cur_element = cur_element % N;
         }
+
         return reinterpret_cast<T*>(&mem_pool[cur_element++]);
     }
 
 
     void deallocate(T* p, size_t n) noexcept {
-        if ((n != 1) || (internal)) { // deallocate array/bucket data
+        if (n != 1) { // deallocate array/bucket data
             delete[] reinterpret_cast<typename std::aligned_storage<sizeof(T), alignof(T)>::type *>(p);
             return;
         }
