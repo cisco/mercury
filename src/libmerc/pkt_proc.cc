@@ -1231,10 +1231,10 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
 
     if (!length) {
         if (!reassembler_ptr)
-            return fdc_return::NO_DATA;
+            return fdc_return::FDC_NO_DATA;
         reassembly_state state = reassembler_ptr->check_flow(k_,(uint64_t)ts.tv_sec);
         if (state != reassembly_state::reassembly_progress) {
-            return fdc_return::NO_DATA;
+            return fdc_return::FDC_NO_DATA;
         }
         datum curr_data = reassembler_ptr->get_reassembled_data(reassembler_ptr->get_current_flow());
         pkt.data = curr_data.data;
@@ -1265,13 +1265,13 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
                 return fdc_return::MORE_PACKETS_NEEDED;
             }
             if (!ret) {
-                return fdc_return::NO_DATA;
+                return fdc_return::FDC_NO_DATA;
             }
         }
         else {
             bool ret = process_tcp_data(x, pkt, tcp_pkt, k_, &ts, nullptr);
             if (!ret) {
-                return fdc_return::NO_DATA;
+                return fdc_return::FDC_NO_DATA;
             }
             if (tcp_pkt.additional_bytes_needed) {
                 truncated_tcp = true;
@@ -1288,14 +1288,14 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
                 return fdc_return::MORE_PACKETS_NEEDED;
             }
             if (!ret) {
-                return fdc_return::NO_DATA;
+                return fdc_return::FDC_NO_DATA;
             }
         }
         else {
 
             bool ret = process_udp_data(x, pkt, udp_pseudoheader, k_, &ts, nullptr);
             if (!ret) {
-                return fdc_return::NO_DATA;
+                return fdc_return::FDC_NO_DATA;
             }
             if (udp_pseudoheader.additional_bytes_needed()) {
                 truncated_udp = true;
@@ -1312,7 +1312,7 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
     }
 
     if (analysis.fp.get_type() == fingerprint_type_unknown && std::get_if<std::monostate>(&x) != nullptr) {
-        return fdc_return::NO_DATA;
+        return fdc_return::FDC_NO_DATA;
     }
 
     std::visit(do_analysis{k_, analysis, c}, x);
@@ -1383,7 +1383,7 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         ssize_t previous = output.writeable_length();
         std::visit(write_l7_metadata{outer_map}, x);
         if (output.writeable_length() == previous) {
-            return fdc_return::NO_DATA;     // empty message; nothing to report
+            return fdc_return::FDC_NO_DATA;     // empty message; nothing to report
         }
 
         // write out the truncation status of the record
