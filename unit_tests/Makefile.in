@@ -128,11 +128,20 @@ perfect-hash-test:
 	./ph_driver | grep -e 'Unordered Map lookup' -e 'Perfect Hash generation table' -e 'Perfect Hash lookup' -e 'failed' -e 'Perfect Hash.' -e 'Unordered Map.'
 
 .PHONY: run
-run: xtra/resources/resources-mp.tgz # xtra data needed for unit tests
+run: run_libmerc_driver_tls_only run_libmerc_driver_multiprotocol run_libmerc_driver_fdc
+
+.PHONY: run_libmerc_driver_tls_only
+run_libmerc_driver_tls_only: libmerc_driver_tls_only xtra/resources/resources-mp.tgz
 	cd ../unit_tests/debug-libs/ && (rm -f libmerc.so.0) && (ln -s libmerc_tls.so libmerc.so.0)
 	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ./libmerc_driver_tls_only -s
+
+.PHONY: run_libmerc_driver_multiprotocol
+run_libmerc_driver_multiprotocol: libmerc_driver_multiprotocol xtra/resources/resources-mp.tgz
 	cd ../unit_tests/debug-libs/ && rm -f libmerc.so.0 && ln -s libmerc_multiprotocol.so libmerc.so.0
 	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ./libmerc_driver_multiprotocol -s
+
+.PHONY: run_libmerc_driver_fdc
+run_libmerc_driver_fdc:  libmerc_driver_fdc xtra/resources/resources-mp.tgz
 	cd ../unit_tests/debug-libs/ && (rm -f libmerc.so.0) && (ln -s libmerc_fdc.so libmerc.so.0)
 	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ./libmerc_driver_fdc -s
 
