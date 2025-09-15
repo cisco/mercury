@@ -29,7 +29,7 @@ public:
 
     // MAX_TAGS denotes the maximum number of attribute tags supported
     //
-    static constexpr ssize_t MAX_TAGS = 12;
+    static constexpr ssize_t MAX_TAGS = 13;
     typedef std::bitset<MAX_TAGS> bitset;
 
 private:
