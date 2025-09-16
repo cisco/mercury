@@ -160,7 +160,7 @@ public:
 
         // Test comparison operators
         fixed_fifo_allocator<Dummy, M> alloc2;
-        if (alloc != alloc2) {
+        if (alloc == alloc2) {
             return false;
         }
 
