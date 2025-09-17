@@ -298,6 +298,29 @@ struct write_metadata {
 
 };
 
+struct write_l7_metadata {
+    cbor_object &o;
+    bool metadata_output_;
+    bool certs_json_output_;
+    bool dns_json_output_;
+
+    write_l7_metadata(cbor_object &output,
+                      bool metadata_output=true) :
+        o{output},
+        metadata_output_{metadata_output}
+    {}
+
+    template <typename T>
+    void operator()(T &r) {
+        if (r.is_not_empty()) {
+            r.write_l7_metadata(o, metadata_output_);
+        }
+    }
+
+    void operator()(std::monostate &) { }
+};
+
+
 struct compute_fingerprint {
     fingerprint &fp_;
     fingerprint_format format_version;

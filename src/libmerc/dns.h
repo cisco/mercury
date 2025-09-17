@@ -1108,6 +1108,16 @@ struct dns_packet : public base_protocol {
         dns_json.close();
     }
 
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        if (is_netbios) {
+            protocols.print_string("nbns");
+        } else {
+            protocols.print_string("dns");
+        }
+        protocols.close();
+    }
+
     // mask:   0040fe8eff00ff00fee0
     // value:  00000000000000000000
 

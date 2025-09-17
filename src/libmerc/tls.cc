@@ -111,7 +111,7 @@ void tls_extensions::print(struct json_object &o, const char *key) const {
     array.close();
 }
 
-void tls_extensions::print_server_name(struct json_object &o, const char *key) const {
+datum tls_extensions::get_server_name() const {
 
     struct datum ext_parser{this->data, this->data_end};
 
@@ -133,13 +133,17 @@ void tls_extensions::print_server_name(struct json_object &o, const char *key) c
 
         if (tmp_type == type_sni) {
             struct datum ext{data, data_end};
-            //            tls.print_key_json_string("server_name", pf.x.packet_data.value + SNI_HDR_LEN, pf.x.packet_data.length - SNI_HDR_LEN);
-            // o.print_key_json_string(key, ext.data + SNI_HDR_LEN, ext.length() - SNI_HDR_LEN);
             ext.skip(SNI_HDR_LEN);
-            o.print_key_json_string(key, ext);
+            return ext;
         }
     }
+    return datum{nullptr, nullptr};
 
+}
+
+void tls_extensions::print_server_name(struct json_object &o, const char *key) const {
+    datum server_name = get_server_name();
+    o.print_key_json_string(key, server_name);
 }
 
 datum tls_extensions::get_supported_groups() const {

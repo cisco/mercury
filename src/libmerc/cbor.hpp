@@ -444,18 +444,6 @@ namespace cbor {
             return text_string{len, val};
         }
 
-        // text_string(datum &d) :
-        //     length{d, text_string_type},
-        //     value__{d, length.value()}
-        // { }
-
-        // // construct a text_string for writing
-        // //
-        // text_string(const datum &d) :
-        //     length{d.length(), text_string_type},
-        //     value__{d}
-        // { }
-
         // construct a text_string for writing
         //
         text_string(const char *null_terminated_string) :
@@ -474,7 +462,7 @@ namespace cbor {
 
         // operator bool() const { return value__.is_not_null(); }
 
-        /// `cbor::_textstring::unit_test()` performs unit tests on
+        /// `cbor::_text_string::unit_test()` performs unit tests on
         /// the class \ref cbor::_textstring and returns `true` if
         /// they all pass, and `false` otherwise.  If \param f ==
         /// `nullptr`, then no outupt is written; otherwise, output is
@@ -771,6 +759,7 @@ namespace cbor::output {
     //
     class map {
         writeable &w;
+        bool write;
 
     public:
 

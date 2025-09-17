@@ -1724,6 +1724,16 @@ public:
         quic_record.close();
     }
 
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("quic");
+        protocols.close();
+
+        if (hello.is_not_empty()) {
+            hello.write_l7_metadata(o, false);
+        }
+    }
+
     void compute_fingerprint(class fingerprint &fp, size_t format_version) const {
 
         // fingerprint format:  quic:(quic_version)(tls fingerprint)
@@ -1748,7 +1758,7 @@ public:
         if(pre_decrypted) {
             return decry_pkt.do_analysis(k_, analysis_, c_);
         }
-        
+
         struct datum sn{NULL, NULL};
         struct datum user_agent {NULL, NULL};
         datum alpn;
