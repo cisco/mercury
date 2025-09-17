@@ -128,10 +128,14 @@ public:
             }
         }
 
-        // Allocate all slots
+        // Allocate all slots again, making sure they wrap correctly
         for (std::size_t i = 0; i < M; ++i) {
+            Dummy *old_ptr = ptrs[i];
             alloc.deallocate(ptrs[i], 1);
             ptrs[i] = alloc.allocate(1);
+            if (ptrs[i] != old_ptr) { // old_ptr slot should be reused
+                return false;
+            }
             new (ptrs[i]) Dummy(static_cast<int>(i));
             if (ptrs[i]->x != static_cast<int>(i)) {
                 return false;
