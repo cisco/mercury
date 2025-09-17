@@ -39,8 +39,8 @@ __version__ = '2.8.1'
 cdef extern from "../libmerc/dns.h":
     string dns_get_json_string(const char *dns_pkt, ssize_t pkt_len)
 
-# imports from mercury's FDC
-cdef extern from "../libmerc/fdc.hpp":
+# imports from mercury's FDC/L7 metadata
+cdef extern from "../libmerc/l7m.hpp":
     string get_json_decoded_fdc(const char *fdc_blob, ssize_t blob_len)
 
 
@@ -868,6 +868,22 @@ def parse_dns(str b64_dns):
     return json.loads(dns_get_json_string(c_string_ref, len_).decode())
 
 
+def decode_fdc(bytes fdc_blob):
+    """
+    Return a JSON representation of a decoded mercury FDC object.
+
+    :param fdc_blob: Hex bytes of mercury FDC object.
+    :type fdc_blob: bytes
+    :return: JSON-encoded mercury decoded FDC.
+    :rtype: dict
+    """
+    cdef unsigned int len_ = len(fdc_blob)
+
+    # create reference to fdc_blob so that it doesn't get garbage collected
+    cdef char* c_string_ref = fdc_blob
+    return json.loads(get_json_decoded_fdc(c_string_ref, len_).decode())
+
+
 def decode_mercury_fdc(str b64_fdc):
     """
     Return a JSON representation of a decoded mercury FDC object.
@@ -878,14 +894,8 @@ def decode_mercury_fdc(str b64_fdc):
     :rtype: dict
     """
     cdef bytes fdc_blob = b64decode(b64_fdc)
-    cdef unsigned int len_ = len(fdc_blob)
 
-    # create reference to fdc_blob so that it doesn't get garbage collected
-    cdef char* c_string_ref = fdc_blob
-
-    # use mercury's FDC decoder to decode the FDC object
-    return json.loads(get_json_decoded_fdc(c_string_ref, len_).decode())
-
+    return decode_fdc(fdc_blob)
 
 
 # imports from mercury's asn1 parser

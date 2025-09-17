@@ -55,6 +55,12 @@ public:
         }
     }
 
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("bittorrent_dht");
+        protocols.close();
+    }
+
     bool is_not_empty() { return dict.is_not_empty(); }
 
     static constexpr mask_and_value<8> matcher {
@@ -62,7 +68,7 @@ public:
         {'d', '1', ':', 0x00, 'd', '2', ':', 'i'}
     };
 };
-      
+
 // Local Service Discovery (LSD) uses the following multicast groups:
 // A) 239.192.152.143:6771 (org-local) and B) [ff15::efc0:988f]:6771
 // (site-local)
@@ -242,11 +248,17 @@ public:
         }
     }
 
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("bittorrent_lsd");
+        protocols.close();
+    }
+
     static constexpr mask_and_value<8> matcher {
         {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
         {'B', 'T', '-', 'S', 'E', 'A', 'R', 'C'}
     };
-        
+
 };
 
 class bittorrent_peer_message {
@@ -256,7 +268,7 @@ class bittorrent_peer_message {
     bool valid;
 
 public:
-    
+
     bittorrent_peer_message(datum &d) :
         message_length{d},
         message_type{d},
@@ -442,7 +454,13 @@ public:
             }
             bt.close();
         }
-    }    
+    }
+
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("bittorrent");
+        protocols.close();
+    }
 
     void fprint(FILE *f) const {
         fprintf(f, "extension_bytes:   ");  extension_bytes.fprint_hex(f);   fputc('\n', f);

@@ -266,6 +266,29 @@ void http_request::write_json(struct json_object &record, bool output_metadata) 
 
 }
 
+void http_request::write_l7_metadata(cbor_object &o, bool) {
+    cbor_array protocols{o, "protocols"};
+    protocols.print_string("http");
+    protocols.close();
+
+    cbor_object http{o, "http"};
+    cbor_object http_request{http, "request"};
+    http_request.print_key_string("method", method);
+    http_request.print_key_string("uri", uri);
+    http_request.print_key_string("protocol", protocol);
+
+    headers.write_l7_metadata(http_request);
+    http_request.print_key_string("user_agent", get_header("user-agent"));
+    http_request.print_key_string("host", get_header("host"));
+    http_request.print_key_string("x_forwarded_for", get_header("x-forwarded-for"));
+    http_request.print_key_string("via", get_header("via"));
+    http_request.print_key_string("upgrade", get_header("upgrade"));
+    http_request.print_key_string("referer", get_header("referer"));
+
+    http_request.close();
+    http.close();
+}
+
 void http_response::parse(struct datum &p) {
     /* process request line */
     version.parse_up_to_delim(p, ' ');
@@ -302,6 +325,25 @@ void http_response::write_json(struct json_object &record, bool metadata) {
     http_response.close();
     http.close();
 
+}
+
+void http_response::write_l7_metadata(cbor_object &o, bool) {
+    cbor_array protocols{o, "protocols"};
+    protocols.print_string("http");
+    protocols.close();
+
+    cbor_object http{o, "http"};
+    cbor_object http_response{http, "response"};
+    http_response.print_key_string("version", version);
+    http_response.print_key_string("status_code", status_code);
+    http_response.print_key_string("status_reason", status_reason);
+    http_response.print_key_string("content_type", get_header("content-type"));
+    http_response.print_key_string("content_length", get_header("content-length"));
+    http_response.print_key_string("server", get_header("server"));
+    http_response.print_key_string("via", get_header("via"));
+    headers.write_l7_metadata(http_response);
+    http_response.close();
+    http.close();
 }
 
 void http_request::fingerprint(struct buffer_stream &b) {

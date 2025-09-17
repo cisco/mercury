@@ -320,6 +320,8 @@ struct tls_extensions : public datum {
 
     void print(struct json_object &o, const char *key) const;
 
+    datum get_server_name() const;
+
     void print_server_name(struct json_object &o, const char *key) const;
 
     void print_quic_transport_parameters(struct json_object &o, const char *key) const;
@@ -342,6 +344,10 @@ struct tls_extensions : public datum {
     void write_raw_features(writeable &buf) const;
  
     datum get_supported_groups() const;
+
+    void write_l7_metadata(cbor_object &o) const {
+        o.print_key_string("server_name", get_server_name());
+    }
 
 #ifndef NDEBUG
     static bool unit_test() {
@@ -446,6 +452,21 @@ struct tls_client_hello : public base_protocol {
         is_quic_hello = false;
         additional_bytes_needed = 0;
     }
+
+    void write_l7_metadata(cbor_object &o, bool metadata) {
+        if (metadata) {
+            cbor_array protocols{o, "protocols"};
+            protocols.print_string("tls");
+            protocols.close();
+        }
+
+        cbor_object tls{o, "tls"};
+        cbor_object tls_client{tls, "client"};
+        tls_client.print_key_hex("random", random);
+        extensions.write_l7_metadata(tls_client);
+        tls_client.close();
+        tls.close();
+     }
 
 };
 
@@ -572,6 +593,12 @@ public:
                 tls.close();
             }
         }
+    }
+
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("tls");
+        protocols.close();
     }
 
     void compute_fingerprint(fingerprint &fp) const {
