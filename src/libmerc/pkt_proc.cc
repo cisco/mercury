@@ -252,9 +252,9 @@ struct do_observation {
 
 };
 
-bool stateful_pkt_proc::parse_clear_text_protocol(protocol &x,
-                        datum pkt_copy,
-                        tcp_msg_type msg_type) {
+bool stateful_pkt_proc::set_tcp_protocol_from_keyword(protocol &x,
+                                                      datum pkt_copy,
+                                                      tcp_msg_type msg_type) {
     switch(msg_type) {
         case tcp_msg_type_http_request:
         {
@@ -336,9 +336,9 @@ bool stateful_pkt_proc::parse_clear_text_protocol(protocol &x,
 // unrecognized packet that is the first data packet in a flow.
 //
 void stateful_pkt_proc::set_tcp_protocol(protocol &x,
-                    struct datum &pkt,
-                    bool is_new,
-                    struct tcp_packet *tcp_pkt) {
+                                         struct datum &pkt,
+                                         bool is_new,
+                                         struct tcp_packet *tcp_pkt) {
 
     // note: std::get<T>() throws exceptions; it might be better to
     // use get_if<T>(), which does not
@@ -350,8 +350,8 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
     if (msg_type == tcp_msg_type_unknown) {
         const std::vector<tcp_msg_type> *protos  = selector.get_tcp_msg_type_from_keyword(pkt);
         if (protos) {
-            tcp_msg_type msg_type = selector.get_preference(protos, tcp_pkt);
-            if (parse_clear_text_protocol(x, pkt, msg_type)) {
+            tcp_msg_type msg_type = selector.get_tcp_msg_type_preference_from_port(protos, tcp_pkt);
+            if (set_tcp_protocol_from_keyword(x, pkt, msg_type)) {
                 return; 
             }
      
@@ -359,7 +359,7 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
                 if (type == msg_type) {
                     continue;
                 }
-                if (parse_clear_text_protocol(x, pkt, type)) {
+                if (set_tcp_protocol_from_keyword(x, pkt, type)) {
                     return;
                 }
             }
