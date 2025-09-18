@@ -1245,6 +1245,11 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
     tsc_clock time_now;
     ts.tv_sec = time_now.time_in_seconds();
 
+    if (reassembler_ptr) {
+        reassembler_ptr->clean_curr_flow();
+        reassembler_ptr->dump_pkt = false;
+    }
+
     if (!length) {
         if (!reassembler_ptr)
             return fdc_return::FDC_NO_DATA;
@@ -1259,9 +1264,6 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         perform_reassembly = false; // already reassembled some data, cant do further
     }
 
-    if (reassembler_ptr) {
-        reassembler_ptr->dump_pkt = false;
-    }
     bool truncated_tcp = false;
     bool truncated_udp = false;
 
