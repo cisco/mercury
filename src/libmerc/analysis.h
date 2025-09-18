@@ -78,9 +78,18 @@ struct common_data {
     ssize_t enc_channel_idx = -1;
     ssize_t domain_faking_idx = -1;
     ssize_t faketls_idx = -1;
+    ssize_t res_proxy_idx = -1;
     bool doh_enabled = false;
     bool domain_faking_enabled = false;
+
+    void initialize_behavioral_detections() {
+        if (attr_name.is_accepting_new_names()) {
+            res_proxy_idx = attr_name.get_index("residential_proxy");
+            attr_name.stop_accepting_new_names();
+        }
+    }
 };
+
 
 class fingerprint_data {
 
@@ -453,16 +462,15 @@ class classifier {
 
     std::vector<fingerprint_type> fp_types;
 
+    std::unordered_map<std::string, std::pair<uint32_t, size_t>> fp_count_and_format;
+
+    bool disabled = false;   // if the classfier has not been initialised or disabled
+public:
     // the common object holds data that is common across all
     // fingerprint-specific classifiers, and is used by those
     // classifiers
     //
     common_data common;
-
-    std::unordered_map<std::string, std::pair<uint32_t, size_t>> fp_count_and_format;
-
-    bool disabled = false;   // if the classfier has not been initialised or disabled
-public:
 
 
     static fingerprint_type get_fingerprint_type(const std::string &s) {
@@ -784,6 +792,10 @@ public:
         // reserve attribute for encrypted_dns watchlist
         //
         common.doh_idx = common.attr_name.get_index("encrypted_dns");
+
+        // reserve attribute for residential_proxy detection
+        //
+        common.res_proxy_idx = common.attr_name.get_index("residential_proxy");
 
         // reserve attribute for encrypted_channel
         //

@@ -16,7 +16,7 @@ from mercury import *
 
 class MercuryInterface:
 
-    def __init__(self, interface, pcap_file, output, analyze=False, resources=None, reassembly=False):
+    def __init__(self, interface, pcap_file, output, analyze=False, resources=None, reassembly=False, network_behavioral_detections=False):
 
         self.output    = output
         self.analyze   = analyze
@@ -25,12 +25,13 @@ class MercuryInterface:
         packet_filter_cfg_str = b'all'
         if reassembly:
             packet_filter_cfg_str += b';reassembly'
+        if network_behavioral_detections:
+            packet_filter_cfg_str += b';network-behavioral-detections'
 
         if self.analyze == True and self.resources != None:
             self.libmerc = Mercury(do_analysis=True, resources=self.resources.encode(), packet_filter_cfg=packet_filter_cfg_str)
         else:
             self.libmerc = Mercury(packet_filter_cfg=packet_filter_cfg_str)
-        self.libmerc.mercury_init()
 
         if self.output != sys.stdout:
             self.out_file_pointer = open(output, 'w', buffering=8192*64)
@@ -88,6 +89,8 @@ def main():
                       help='use resources file <resources>',default=None)
     parser.add_argument('--reassembly',action='store_true',dest='reassembly',
                       help='turn on reassembly',default=False)
+    parser.add_argument('--network-behavioral-detections',action='store_true',dest='network_behavioral_detections',
+                      help='turn on network behavioral detections, does not require a resources file',default=False)
     options = parser.parse_args()
 
     if (options.pcap_file == None) and (options.capture_interface == None):
@@ -95,7 +98,7 @@ def main():
         sys.exit(0)
 
     MercuryInterface(options.capture_interface, options.pcap_file, options.output_file, options.analyze,
-                     options.resources, options.reassembly)
+                     options.resources, options.reassembly, options.network_behavioral_detections)
 
 
 if __name__ == '__main__':

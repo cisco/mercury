@@ -1539,7 +1539,7 @@ public:
 
 // class quic_init represents an initial quic message
 //
-class quic_init {
+class quic_init : public base_protocol {
     quic_initial_packet initial_packet;
     quic_crypto_engine &quic_crypto;
     cryptographic_buffer crypto_buffer;

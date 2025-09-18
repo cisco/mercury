@@ -33,6 +33,9 @@ public:
     bool do_analysis(const struct key &, struct analysis_context &, classifier*) { return false; }
 
     void write_l7_metadata(cbor_object &, bool) { }
+
+    bool do_network_behavioral_detections(const struct key &, struct analysis_context &, classifier*, struct common_data &) { return false; }
+
 };
 
 #endif // PROTOCOL_H

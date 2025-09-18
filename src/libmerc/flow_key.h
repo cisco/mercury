@@ -132,6 +132,14 @@ struct key {
         snprintf(dst_port_string, MAX_PORT_STR_LEN, "%u", dst_port);
     }
 
+    bool src_is_global() const {
+        if (ip_vers == 4) {
+            ipv4_address a{addr.ipv4.src};
+            return a.is_global();
+        }
+        return addr.ipv6.src.is_global();
+    }
+
     bool dst_is_global() const {
         if (ip_vers == 4) {
             ipv4_address a{addr.ipv4.dst};
