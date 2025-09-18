@@ -42,7 +42,11 @@ namespace ftp
         bool isValid;
 
     public:
-        request(datum &d) : command{d}, sp{d}, argument{d}, isValid{command.length() >= 3 and command.length() <= 4} {}
+        request(datum &d) :
+        command{d},
+        sp{d},
+        argument{d},
+        isValid{command.length() >= 3 && command.length() <= 4 && d.is_empty()} {}
 
         void write_json(struct json_object &record, bool)
         {
