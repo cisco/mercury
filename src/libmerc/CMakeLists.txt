@@ -11,11 +11,20 @@ set(CMAKE_CXX_FLAGS "${CXXFLAGS} ${CFLAGS} ${CMAKE_CXX_FLAGS}")
 #
 # Usage: cmake -DFOO=x -DBAR=y ...
 #
-# LIBMERC_ONLY=TRUE : build only libmerc src and skip asn1 build by using prebuilt oid.cc oid.h
-# MAC_ARCH=universal : build Mach-O universal type for Mac
-# HAVE_OPENSSL_NEW : Force to use newer style OpenSSL calls
-# OPENSSL_ROOT_DIR=path : Custom OpenSSL dir (containing include/openssl/*.h and lib/libcrypto.*)
-# ZLIB_ROOT=path : Custom zlib dir (containing include/zlib.h and lib/libz.* or lib/zlib.lib)
+#  LIBMERC_ONLY=TRUE : build only libmerc src and skip asn1 build by using prebuilt oid.cc oid.h
+#  TARGET_MAC_ARCH=x86_64 : build for macOS x86_64 or arm64 (replace value with arm64)
+#  ZLIB_ROOT=path : Custom zlib dir (containing include/zlib.h and lib/libz.* or lib/zlib.lib)
+#  OPENSSL_ROOT_DIR=path : Custom OpenSSL dir (containing include/openssl/*.h and lib/libcrypto.*)
+#  OPENSSL_CUSTOM_LIB_DIR=path : Custom OpenSSL library-only dir (containing libcrypto.*)
+#
+# Note: OpenSSL has two options.  If your OpenSSL installation follows the
+# standard directory layout where a single top-level directory contains both
+# include/openssl/*.h and lib/libcrypto.*, you can provide a path to that
+# top-level directory via OPENSSL_ROOT_DIR (as specified in
+# https://cmake.org/cmake/help/latest/module/FindOpenSSL.html).  If your OpenSSL
+# installation does NOT follow the standard layout, you can specify the exact
+# directory that contains just the compiled library itself (libcrypto.*) using
+# OPENSSL_CUSTOM_LIB_DIR.
 
 
 ## Platform checks
@@ -23,31 +32,26 @@ set(CMAKE_CXX_FLAGS "${CXXFLAGS} ${CFLAGS} ${CMAKE_CXX_FLAGS}")
 message(STATUS "Platform - ${CMAKE_SYSTEM_NAME}")
 message(STATUS "Architecture - ${CMAKE_SYSTEM_PROCESSOR}")
 
-if(${CMAKE_SYSTEM_NAME} MATCHES Darwin)
-    set(IS_MAC TRUE)
-    if(${CMAKE_SYSTEM_PROCESSOR} MATCHES arm64)
-        set(IS_MAC_ARM TRUE)
-    endif()
-    # universal mac binary if cmake -DMAC_ARCH=universal
-    if(NOT DEFINED MAC_ARCH)
-        message(STATUS "MAC_ARCH - ${CMAKE_SYSTEM_PROCESSOR}")
-    elseif(MAC_ARCH MATCHES universal)
-        set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
-        message(STATUS "MAC_ARCH - ${MAC_ARCH}")
-    endif()
-elseif(${CMAKE_SYSTEM_NAME} MATCHES Windows)
+# Operating system selection
+if(${CMAKE_SYSTEM_NAME} MATCHES Windows)
     set(IS_WIN TRUE)
 endif()
 
+if(${CMAKE_SYSTEM_NAME} MATCHES Darwin)
+    if(${CMAKE_SYSTEM_PROCESSOR} MATCHES arm64)
+        set(IS_MAC_ARM TRUE)
+    endif()
+endif()
+
 # Platform detection based on target architecture, not host system
-if(DEFINED mac_arch)
+if(DEFINED TARGET_MAC_ARCH)
     # Use the target architecture specified by build script
-    if(mac_arch MATCHES "x86_64")
+    if(TARGET_MAC_ARCH MATCHES "x86_64")
         set(INTEL_PLATFORM TRUE)
-        message(STATUS "Target platform: Intel x86_64 (specified by mac_arch)")
-    elseif(mac_arch MATCHES "arm64")
+        message(STATUS "Target platform: Intel x86_64 (specified by TARGET_MAC_ARCH)")
+    elseif(TARGET_MAC_ARCH MATCHES "arm64")
         set(ARM_PLATFORM TRUE)
-        message(STATUS "Target platform: ARM64 (specified by mac_arch)")
+        message(STATUS "Target platform: ARM64 (specified by TARGET_MAC_ARCH)")
     endif()
 else()
     # Fall back to system processor detection
@@ -59,9 +63,11 @@ else()
             set(ARMV7_PLATFORM TRUE)
         endif()
     endif()
+    message(STATUS "Target platform: ${CMAKE_SYSTEM_PROCESSOR} (auto-detected)")
 endif()
 
-## Platform specific paths
+
+## Platform specific paths (only if Homebrew is installed)
 if(IS_MAC_ARM)
     if(IS_DIRECTORY "/opt/homebrew")
         message(STATUS "Homebrew detected: adding /opt/homebrew to search paths")
@@ -83,9 +89,9 @@ endif()
 message(STATUS "Library search paths (CMAKE_PREFIX_PATH): ${CMAKE_PREFIX_PATH}")
 
 # Custom OpenSSL path handling (for build script compatibility)
-if(DEFINED openssl_path)
-    message(STATUS "Using custom OpenSSL path: ${openssl_path}")
-    link_directories(${openssl_path})
+if(DEFINED OPENSSL_CUSTOM_LIB_DIR)
+    message(STATUS "Using custom OpenSSL library path: ${OPENSSL_CUSTOM_LIB_DIR}")
+    link_directories(${OPENSSL_CUSTOM_LIB_DIR})
     set(OpenSSL_FOUND TRUE)
 else()
     # OpenSSL: https://cmake.org/cmake/help/latest/module/FindOpenSSL.html
@@ -150,8 +156,8 @@ check_type_size("uint64_t"   SIZE_UINT64_T)
 check_type_size("uint8_t"    SIZE_UINT8_T)
 check_type_size("ptrdiff_t"  SIZE_PTRDIFF_T)
 
-if(DEFINED openssl_path)
-    message(STATUS "Switching to newer libcrypto functions")
+if(DEFINED OPENSSL_CUSTOM_LIB_DIR)
+    message(STATUS "Assuming newer libcrypto functions (>= 1.1.0) for custom OpenSSL")
     add_compile_definitions(SSLNEW)
 else()
     # libcrypto version checks
@@ -307,10 +313,11 @@ endif()
 add_library(libmerc SHARED ${libmerc_src})
 target_link_directories(libmerc PUBLIC lctrie ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(libmerc PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${ZLIB_INCLUDE_DIRS})
-if(DEFINED openssl_path)
-    target_link_libraries(libmerc PUBLIC lctrie xsimd ZLIB::ZLIB crypto)
+target_link_libraries(libmerc PUBLIC lctrie xsimd ZLIB::ZLIB)
+if(DEFINED OPENSSL_CUSTOM_LIB_DIR)
+    target_link_libraries(libmerc PUBLIC crypto)
 else()
-    target_link_libraries(libmerc PUBLIC lctrie xsimd ZLIB::ZLIB OpenSSL::Crypto)
+    target_link_libraries(libmerc PUBLIC OpenSSL::Crypto)
 endif()
 add_dependencies(libmerc lctrie)
 if (NOT LIBMERC_ONLY)
@@ -328,10 +335,11 @@ set_target_properties(libmerc PROPERTIES PREFIX "")
 add_library(libmerc_static STATIC ${libmerc_src})
 target_link_directories(libmerc_static PUBLIC lctrie ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(libmerc_static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${ZLIB_INCLUDE_DIRS})
-if(DEFINED openssl_path)
-    target_link_libraries(libmerc_static PUBLIC lctrie z crypto ZLIB::ZLIB)
+target_link_libraries(libmerc_static PUBLIC lctrie xsimd ZLIB::ZLIB)
+if(DEFINED OPENSSL_CUSTOM_LIB_DIR)
+    target_link_libraries(libmerc_static PUBLIC crypto)
 else()
-    target_link_libraries(libmerc_static PUBLIC lctrie z crypto ZLIB::ZLIB OpenSSL::Crypto)
+    target_link_libraries(libmerc_static PUBLIC OpenSSL::Crypto)
 endif()
 add_dependencies(libmerc_static lctrie)
 if(NOT LIBMERC_ONLY)
