@@ -33,7 +33,6 @@
 #include "archive.h"
 #include "static_dict.hpp"
 #include "naive_bayes.hpp"
-#include "xsimd/xsimd.hpp"
 #include "softmax.hpp"
 
 
@@ -98,38 +97,6 @@ class fingerprint_data {
     common_data *common = nullptr;
 
 public:
-
-    // Create the dispatching function, specifying the architectures we want to target.
-#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
-#ifdef _WIN32
-    using simd_arch_list = xsimd::arch_list<xsimd::sse2>;
-#else
-    using simd_arch_list = xsimd::arch_list<xsimd::avx2, xsimd::avx, xsimd::sse2>;
-#endif
-#elif defined(__aarch64__) || defined(_M_ARM64)
-    using simd_arch_list = xsimd::arch_list<xsimd::neon64>;
-#endif
-
-    static xsimd::detail::dispatcher<exp_functor, simd_arch_list>& get_dispatched() {
-        static xsimd::detail::dispatcher<exp_functor, simd_arch_list> dispatched =
-            xsimd::dispatch<simd_arch_list>(exp_functor{});
-        return dispatched;
-    }
-
-    static bool check_simd() {
-        // Static variable to store the result of the SIMD check
-        static bool is_simd_available = []() -> bool {
-            auto archs = xsimd::available_architectures();
-            if (archs.has(xsimd::sse2{}) || archs.has(xsimd::neon64{})) {
-                auto dispatched = get_dispatched();
-                dispatched();
-                return true;
-            }
-            return false;
-        }();
-
-        return is_simd_available;
-    }
 
     uint8_t refcnt = 0;
     uint64_t total_count;
@@ -243,27 +210,29 @@ public:
             }
         }
 
-        if (check_simd()) {
-            auto dispatched = get_dispatched();
-            dispatched(process_score, malware, attr, max_score, score_sum, index_max, score_sum_without_max, malware_prob, attr_prob);
-        } else {
-            // No SIMD instruction set available.
-            for (uint64_t i = 0; i < process_score.size(); ++i) {
-                process_score[i] = expf((float)(process_score[i] - max_score));
-                score_sum += process_score[i];
-                if (i != index_max) {
-                    score_sum_without_max += process_score[i];
-                }
-                if (malware[i]) {
-                    malware_prob += process_score[i];
-                }
-                for (int j = 0; j < attribute_result::MAX_TAGS; j++) {
-                    if (attr[i][j]) {
-                        attr_prob[j] += process_score[i];
-                    }
-                }
-            }
-        }
+        softmax(process_score, malware, attr, max_score, score_sum, index_max, score_sum_without_max, malware_prob, attr_prob);
+
+        // if (check_simd()) {
+        //     auto dispatched = get_dispatched();
+        //     dispatched(process_score, malware, attr, max_score, score_sum, index_max, score_sum_without_max, malware_prob, attr_prob);
+        // } else {
+        //     // No SIMD instruction set available.
+        //     for (uint64_t i = 0; i < process_score.size(); ++i) {
+        //         process_score[i] = expf((float)(process_score[i] - max_score));
+        //         score_sum += process_score[i];
+        //         if (i != index_max) {
+        //             score_sum_without_max += process_score[i];
+        //         }
+        //         if (malware[i]) {
+        //             malware_prob += process_score[i];
+        //         }
+        //         for (int j = 0; j < attribute_result::MAX_TAGS; j++) {
+        //             if (attr[i][j]) {
+        //                 attr_prob[j] += process_score[i];
+        //             }
+        //         }
+        //     }
+        // }
 
         max_score = process_score[index_max];  // set max_score to probability
         sec_score = process_score[index_sec]; 
@@ -777,7 +746,7 @@ public:
                float proc_dst_threshold,
                bool report_os,
                bool minimize_ram) : os_dictionary{}, subnets{}, fpdb{}, resource_version{} {
-        if (!fingerprint_data::check_simd()) {
+        if (!check_simd()) {
             printf_err(log_debug, "No SIMD instruction set available\n");
         }
 
