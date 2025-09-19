@@ -32,7 +32,7 @@ set(CMAKE_CXX_FLAGS "${CXXFLAGS} ${CFLAGS} ${CMAKE_CXX_FLAGS}")
 message(STATUS "Platform - ${CMAKE_SYSTEM_NAME}")
 message(STATUS "Architecture - ${CMAKE_SYSTEM_PROCESSOR}")
 
-# Operating system selection
+# Operating System Selection
 if(${CMAKE_SYSTEM_NAME} MATCHES Windows)
     set(IS_WIN TRUE)
 endif()
@@ -43,8 +43,8 @@ if(${CMAKE_SYSTEM_NAME} MATCHES Darwin)
     endif()
 endif()
 
-# Platform detection based on target architecture, not host system
-if(DEFINED TARGET_MAC_ARCH)
+# Processor Architecture Selection
+if(DEFINED TARGET_MAC_ARCH)  # Explicit target architecture: may not match host system
     # Use the target architecture specified by build script
     if(TARGET_MAC_ARCH MATCHES "x86_64")
         set(INTEL_PLATFORM TRUE)
