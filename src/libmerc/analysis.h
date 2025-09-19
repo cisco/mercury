@@ -212,28 +212,6 @@ public:
 
         softmax(process_score, malware, attr, max_score, score_sum, index_max, score_sum_without_max, malware_prob, attr_prob);
 
-        // if (check_simd()) {
-        //     auto dispatched = get_dispatched();
-        //     dispatched(process_score, malware, attr, max_score, score_sum, index_max, score_sum_without_max, malware_prob, attr_prob);
-        // } else {
-        //     // No SIMD instruction set available.
-        //     for (uint64_t i = 0; i < process_score.size(); ++i) {
-        //         process_score[i] = expf((float)(process_score[i] - max_score));
-        //         score_sum += process_score[i];
-        //         if (i != index_max) {
-        //             score_sum_without_max += process_score[i];
-        //         }
-        //         if (malware[i]) {
-        //             malware_prob += process_score[i];
-        //         }
-        //         for (int j = 0; j < attribute_result::MAX_TAGS; j++) {
-        //             if (attr[i][j]) {
-        //                 attr_prob[j] += process_score[i];
-        //             }
-        //         }
-        //     }
-        // }
-
         max_score = process_score[index_max];  // set max_score to probability
         sec_score = process_score[index_sec]; 
 
