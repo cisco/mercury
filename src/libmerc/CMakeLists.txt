@@ -11,7 +11,6 @@ set(CMAKE_CXX_FLAGS "${CXXFLAGS} ${CFLAGS} ${CMAKE_CXX_FLAGS}")
 #
 # Usage: cmake -DFOO=x -DBAR=y ...
 #
-#  LIBMERC_ONLY=TRUE : build only libmerc src and skip asn1 build by using prebuilt oid.cc oid.h
 #  TARGET_MAC_ARCH=x86_64 : build for macOS x86_64 or arm64 (replace value with arm64)
 #  ZLIB_ROOT=path : Custom zlib dir (containing include/zlib.h and lib/libz.* or lib/zlib.lib)
 #  OPENSSL_ROOT_DIR=path : Custom OpenSSL dir (containing include/openssl/*.h and lib/libcrypto.*)
@@ -189,9 +188,7 @@ endif()
 
 
 ## recursive subdirectories
-if (NOT LIBMERC_ONLY)
-    add_subdirectory(asn1)
-endif()
+add_subdirectory(asn1)
 add_subdirectory(lctrie)
 add_subdirectory(xsimd)
 
@@ -320,9 +317,7 @@ else()
     target_link_libraries(libmerc PUBLIC OpenSSL::Crypto)
 endif()
 add_dependencies(libmerc lctrie)
-if (NOT LIBMERC_ONLY)
-    add_dependencies(libmerc asn1)
-endif()
+add_dependencies(libmerc asn1)
 target_compile_options(libmerc PUBLIC ${LIBMERC_COMPILE_OPT})
 target_compile_definitions(libmerc PUBLIC -DNDEBUG -DDONT_USE_STDERR)
 #target_link_options(libmerc PUBLIC  -lz -lcrypto)
@@ -342,9 +337,7 @@ else()
     target_link_libraries(libmerc_static PUBLIC OpenSSL::Crypto)
 endif()
 add_dependencies(libmerc_static lctrie)
-if(NOT LIBMERC_ONLY)
-    add_dependencies(libmerc_static asn1)
-endif()
+add_dependencies(libmerc_static asn1)
 target_compile_options(libmerc_static PUBLIC ${LIBMERC_COMPILE_OPT})
 target_compile_definitions(libmerc_static PUBLIC -DNDEBUG -DDONT_USE_STDERR)
 #target_link_options(libmerc PUBLIC  -lz -lcrypto)
