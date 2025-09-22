@@ -6,6 +6,7 @@
 
 #include "x509.h"
 #include "json_object.h"
+#include "cbor_object.hpp"
 #include "match.h"
 
 namespace snmp {
@@ -267,6 +268,12 @@ namespace snmp {
                 msgData.write_json(o);
             }
             snmp.close();
+        }
+
+        void write_l7_metadata(cbor_object &o, bool) {
+            cbor_array protocols{o, "protocols"};
+            protocols.print_string("snmp");
+            protocols.close();
         }
 
         bool is_not_empty() const {

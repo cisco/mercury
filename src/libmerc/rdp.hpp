@@ -251,6 +251,12 @@ namespace rdp {
             rdp.close();
         }
 
+        void write_l7_metadata(cbor_object &o, bool) {
+            cbor_array protocols{o, "protocols"};
+            protocols.print_string("rdp");
+            protocols.close();
+        }
+
     };
 
     [[maybe_unused]] static bool unit_test() {

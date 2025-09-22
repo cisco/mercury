@@ -302,6 +302,12 @@ public:
         }
     }
 
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("smb1");
+        protocols.close();
+    }
+
     static constexpr mask_and_value<8> matcher {
         { 0x00, //Message type
           0x00, 0x00, 0x00 , //Length

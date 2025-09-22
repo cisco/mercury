@@ -18,6 +18,8 @@
 #include "fingerprint.h"
 #include "perfect_hash.h"
 #include "flow_key.h"
+#include "cbor.hpp"
+#include "cbor_object.hpp"
 
 struct http_headers : public datum {
     bool complete;
@@ -262,6 +264,27 @@ public:
         }
     }
 
+    void write_l7_metadata(cbor_object &o) {
+        httpheader h = get_next_header(header_body);
+        if (h.is_valid()) {
+            cbor_array hdrs{o, "headers"};
+            hdrs.print_string(h.name);
+            while(1) { 
+                delimiter d(header_body, delim);
+                if (d.is_valid()) {
+                    break;
+                }
+                httpheader h = get_next_header(header_body);
+                if (!h.is_valid()) {
+                    break;
+                }
+                hdrs.print_string(h.name);
+            }
+            hdrs.close();
+        }
+    }
+
+
     /*
      * HTTP headers are parsed during fingerprinting. When there
      * are headers of interest, their values are stored in the
@@ -343,6 +366,8 @@ struct http_request : public base_protocol {
 
     void write_json(struct json_object &record, bool output_metadata);
 
+    void write_l7_metadata(cbor_object &o, bool output_metadata);
+
     void fingerprint(struct buffer_stream &b);
 
     void compute_fingerprint(class fingerprint &fp);
@@ -405,6 +430,8 @@ struct http_response : public base_protocol {
     bool is_not_empty() const { return status_code.is_not_empty(); }
 
     void write_json(struct json_object &record, bool metadata=false);
+
+    void write_l7_metadata(cbor_object &o, bool output_metadata);
 
     void fingerprint(struct buffer_stream &buf);
 

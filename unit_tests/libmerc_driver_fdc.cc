@@ -498,7 +498,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for http reques
 
             THEN("FDC should be written to output buffer") {
                 REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
-                REQUIRE(bytes_written == 129);
+                REQUIRE(bytes_written == 276);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
             }  
             mercury_packet_processor_destruct(mpp);
@@ -546,7 +546,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc with resources 
                 &ac);
             THEN("FDC should be written to output buffer") {
                 REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
-                REQUIRE(bytes_written == 176);
+                REQUIRE(bytes_written == 284);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
                 if(ac != nullptr) {
                     printf("ac->result.is_valid() = %d\n", ac->result.is_valid());
@@ -614,7 +614,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for http reques
 
             THEN("FDC should be written to output buffer") {
                 REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
-                REQUIRE(bytes_written == 136);
+                REQUIRE(bytes_written == 276);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
             }  
             mercury_packet_processor_destruct(mpp);
@@ -660,7 +660,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for tls client 
 
             THEN("FDC should be written to output buffer") {
                 REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
-                REQUIRE(bytes_written == 159);
+                REQUIRE(bytes_written == 259);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
             }  
             mercury_packet_processor_destruct(mpp);
@@ -706,7 +706,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
 
             THEN("FDC should be written to output buffer") {
                 REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
-                REQUIRE(bytes_written == 205);
+                REQUIRE(bytes_written == 305);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
             }  
             mercury_packet_processor_destruct(mpp);
@@ -763,7 +763,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
                 REQUIRE(bytes_written_1 != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
                 REQUIRE(bytes_written_1 == fdc_return::MORE_PACKETS_NEEDED);
                 REQUIRE(bytes_written_2 != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
-                REQUIRE(bytes_written_2 == 217);
+                REQUIRE(bytes_written_2 == 317);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
             }
         }
@@ -821,7 +821,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
                 REQUIRE(bytes_written_1 != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
                 REQUIRE(bytes_written_1 == fdc_return::MORE_PACKETS_NEEDED);
                 REQUIRE(bytes_written_2 != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
-                REQUIRE(bytes_written_2 == 205);
+                REQUIRE(bytes_written_2 == -5);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
             }
         }
@@ -868,7 +868,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for quic init p
 
             THEN("FDC should be written to output buffer") {
                 REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
-                REQUIRE(bytes_written == 176);
+                REQUIRE(bytes_written == 284);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
             }  
             mercury_packet_processor_destruct(mpp);
@@ -914,7 +914,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
 
             THEN("FDC should be written to output buffer") {
                 REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
-                REQUIRE(bytes_written == 46);
+                REQUIRE(bytes_written == 141);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
             }  
             mercury_packet_processor_destruct(mpp);
@@ -971,7 +971,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
                 REQUIRE(bytes_written_1 != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
                 REQUIRE(bytes_written_1 == fdc_return::MORE_PACKETS_NEEDED);
                 REQUIRE(bytes_written_2 != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
-                REQUIRE(bytes_written_2 == 192);
+                REQUIRE(bytes_written_2 == 300);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
             }
         }
@@ -1029,7 +1029,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
                 REQUIRE(bytes_written_1 != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
                 REQUIRE(bytes_written_1 == fdc_return::MORE_PACKETS_NEEDED);
                 REQUIRE(bytes_written_2 != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
-                REQUIRE(bytes_written_2 == 0);
+                REQUIRE(bytes_written_2 == -5);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
             }
         }

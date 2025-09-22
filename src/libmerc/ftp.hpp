@@ -54,6 +54,19 @@ namespace ftp
             ftp_object.close();
         }
 
+        void write_l7_metadata(cbor_object &o, bool) {
+            cbor_array protocols{o, "protocols"};
+            protocols.print_string("ftp");
+            protocols.close();
+
+            cbor_object ftp{o, "ftp"};
+            cbor_object ftp_request{ftp, "request"};
+            ftp_request.print_key_string("command", command);
+            ftp_request.print_key_string("argument", argument);
+            ftp_request.close();
+            ftp.close();
+        }
+
         bool is_not_empty() const { return isValid; }
 
         // static constexpr mask_and_value<8> user_matcher{
@@ -105,6 +118,19 @@ namespace ftp
             ftp_response.print_key_json_string("reply_text", reply_text);
             ftp_response.close();
             ftp_object.close();
+        }
+
+        void write_l7_metadata(cbor_object &o, bool) {
+            cbor_array protocols{o, "protocols"};
+            protocols.print_string("ftp");
+            protocols.close();
+
+            cbor_object ftp{o, "ftp"};
+            cbor_object ftp_response{ftp, "response"};
+            ftp_response.print_key_string("status_code", status_code);
+            ftp_response.print_key_string("reply_text", reply_text);
+            ftp_response.close();
+            ftp.close();
         }
     };
 

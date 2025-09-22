@@ -39,8 +39,8 @@ __version__ = '2.8.1'
 cdef extern from "../libmerc/dns.h":
     string dns_get_json_string(const char *dns_pkt, ssize_t pkt_len)
 
-# imports from mercury's FDC
-cdef extern from "../libmerc/fdc.hpp":
+# imports from mercury's FDC/L7 metadata
+cdef extern from "../libmerc/l7m.hpp":
     string get_json_decoded_fdc(const char *fdc_blob, ssize_t blob_len)
 
 
@@ -295,7 +295,8 @@ cdef class Mercury:
     cdef bool do_analysis
 
     def __init__(self, bool do_analysis=False, bytes resources=b'', bool output_tcp_initial_data=False, bool output_udp_initial_data=False,
-                 bytes packet_filter_cfg=b'all', bool metadata_output=True, bool dns_json_output=True, bool certs_json_output=True):
+                 bytes packet_filter_cfg=b'all', bool metadata_output=True, bool dns_json_output=True, bool certs_json_output=True,
+                 bool network_behavioral_detections=False):
         self.do_analysis = do_analysis
         self.py_config = {
             'output_tcp_initial_data': output_tcp_initial_data,
@@ -307,6 +308,8 @@ cdef class Mercury:
             'do_analysis': do_analysis,
             'resources':   resources,
         }
+        if network_behavioral_detections:
+            self.py_config['packet_filter_cfg'] += b';network-behavioral-detections'
         self.default_ts.tv_sec = 0
         self.default_ts.tv_nsec = 0
 
@@ -865,6 +868,22 @@ def parse_dns(str b64_dns):
     return json.loads(dns_get_json_string(c_string_ref, len_).decode())
 
 
+def decode_fdc(bytes fdc_blob):
+    """
+    Return a JSON representation of a decoded mercury FDC object.
+
+    :param fdc_blob: Hex bytes of mercury FDC object.
+    :type fdc_blob: bytes
+    :return: JSON-encoded mercury decoded FDC.
+    :rtype: dict
+    """
+    cdef unsigned int len_ = len(fdc_blob)
+
+    # create reference to fdc_blob so that it doesn't get garbage collected
+    cdef char* c_string_ref = fdc_blob
+    return json.loads(get_json_decoded_fdc(c_string_ref, len_).decode())
+
+
 def decode_mercury_fdc(str b64_fdc):
     """
     Return a JSON representation of a decoded mercury FDC object.
@@ -875,14 +894,8 @@ def decode_mercury_fdc(str b64_fdc):
     :rtype: dict
     """
     cdef bytes fdc_blob = b64decode(b64_fdc)
-    cdef unsigned int len_ = len(fdc_blob)
 
-    # create reference to fdc_blob so that it doesn't get garbage collected
-    cdef char* c_string_ref = fdc_blob
-
-    # use mercury's FDC decoder to decode the FDC object
-    return json.loads(get_json_decoded_fdc(c_string_ref, len_).decode())
-
+    return decode_fdc(fdc_blob)
 
 
 # imports from mercury's asn1 parser

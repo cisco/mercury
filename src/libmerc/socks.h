@@ -142,6 +142,12 @@ public:
         socks4_pkt.close();
     }
 
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("socks4");
+        protocols.close();
+    }
+
     bool is_not_empty() const { return (is_valid); }
 };
 
@@ -237,6 +243,12 @@ public:
         }
         auth_list.close();
         socks_pkt.close(); 
+    }
+
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("socks5");
+        protocols.close();
     }
 };
 
@@ -512,6 +524,12 @@ public:
         addr.write_json(socks5_pkt,metadata);
         socks5_pkt.print_key_int("dst_port",dst_port);
         socks5_pkt.close();
+    }
+
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("socks5_req_resp");
+        protocols.close();
     }
 };
 

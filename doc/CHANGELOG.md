@@ -27,6 +27,9 @@
 * Added experimental support for building mercury on macOS Apple Silicon. (Note:
   interface capture is disabled, since AF_PACKET is Linux specific.)
 
+* Added a new configuration option, network-behavioral-detections,
+  which enables behavioral detections without a resources file.
+
 ## VERSION 2.7.1
 * Updated QUIC reassembly logic for reordered QUIC crypto frames
 * Refactored the IP subnet reading code to minimize the amount of

@@ -8,6 +8,7 @@
 #include "datum.h"
 #include "match.h"
 #include "json_object.h"
+#include "cbor_object.hpp"
 
 namespace rtp {
 
@@ -118,6 +119,12 @@ namespace rtp {
             rtp.print_key_uint("payload_length", payload.length());
             rtp.print_key_hex("payload", payload);
             rtp.close();
+        }
+
+        void write_l7_metadata(cbor_object &o, bool) {
+            cbor_array protocols{o, "protocols"};
+            protocols.print_string("rtp");
+            protocols.close();
         }
 
         bool is_not_empty() const { return hdr.is_valid(); }

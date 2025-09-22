@@ -579,6 +579,12 @@ namespace ike {
             ike_json.close();
         }
 
+        void write_l7_metadata(cbor_object &o, bool) {
+            cbor_array protocols{o, "protocols"};
+            protocols.print_string("ike");
+            protocols.close();
+        }
+
     };
 };
 
