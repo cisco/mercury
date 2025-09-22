@@ -368,4 +368,29 @@ struct do_analysis {
 
 };
 
+struct do_network_behavioral_detections {
+    const struct key &k_;
+    struct analysis_context &analysis_;
+    classifier *c_;
+    struct common_data &nbd_common_;
+
+    do_network_behavioral_detections(const struct key &k,
+                                     struct analysis_context &analysis,
+                                     classifier *c,
+                                     struct common_data &nbd_common) :
+        k_{k},
+        analysis_{analysis},
+        c_{c},
+        nbd_common_{nbd_common}
+    {}
+
+    template <typename T>
+    bool operator()(T &msg) {
+        return msg.do_network_behavioral_detections(k_, analysis_, c_, nbd_common_);
+    }
+
+    bool operator()(std::monostate &) { return false; }
+
+};
+
 #endif  /* PKT_PROC_UTIL_HPP */

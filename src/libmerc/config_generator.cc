@@ -39,7 +39,8 @@ static std::vector<libmerc_option> config_mapper = {
     {"reassembly", "", "",           SETTER_FUNCTION(){ c.reassembly = s.empty() ? true : s.compare("1") == 0;}},
     {"fp_proc_threshold", "", "",    SETTER_FUNCTION(){ c.fp_proc_threshold = std::stof(s); }},
     {"proc_dst_threshold", "", "",   SETTER_FUNCTION(){ c.proc_dst_threshold = std::stof(s); }},
-    {"max_stats_entries", "", "",    SETTER_FUNCTION(){ c.max_stats_entries = std::stoull(s); }}
+    {"max_stats_entries", "", "",    SETTER_FUNCTION(){ c.max_stats_entries = std::stoull(s); }},
+    {"network-behavioral-detections", "", "", SETTER_FUNCTION(){ c.network_behavioral_detections = s.empty() ? true : s.compare("1") == 0;}},
 };
 
 struct config_token
