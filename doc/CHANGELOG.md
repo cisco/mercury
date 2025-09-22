@@ -1,6 +1,8 @@
 # CHANGELOG for Mercury
 
 ## VERSION NEXT
+* Added a new configuration option, network-behavioral-detections,
+  which enables behavioral detections without a resources file.
 * Fix buffer overread in OID compiler, which is run only at compile time.
 
 ## VERSION 2.8.1
@@ -29,9 +31,6 @@
 * Removed some direct calls to `fprintf(stderr, ...)` from `libmerc.so`.
 * Added experimental support for building mercury on macOS Apple Silicon. (Note:
   interface capture is disabled, since AF_PACKET is Linux specific.)
-
-* Added a new configuration option, network-behavioral-detections,
-  which enables behavioral detections without a resources file.
 
 ## VERSION 2.7.1
 * Updated QUIC reassembly logic for reordered QUIC crypto frames
