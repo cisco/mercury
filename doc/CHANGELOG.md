@@ -1,5 +1,8 @@
 # CHANGELOG for Mercury
 
+## VERSION NEXT
+* Fix buffer overread in OID compiler, which is run only at compile time.
+
 ## VERSION 2.8.1
 * Bug fixes: ASAN container overflow in stats collection, dangling reference in
   Naive Bayes classifier weights, faulty unit test for resource file version.
