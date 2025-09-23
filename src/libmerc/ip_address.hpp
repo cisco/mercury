@@ -821,6 +821,47 @@ public:
     }
 #endif
 
+std::tuple<uint64_t, uint64_t> get_2tuple() const {
+    uint64_t a = 0, b = 0;
+
+    ssize_t prefix_length = 0;
+    ssize_t zero_run_length = 0;
+
+    if (double_colon_index == -1) {
+        prefix_length = pieces.size();  // should be eight
+    } else {
+        prefix_length = double_colon_index;
+        zero_run_length = 8 - pieces.size();
+    }
+
+    // Create a temporary array to hold all 8 pieces (including zeros)
+    uint16_t full_pieces[8] = {0};
+    
+    // Copy prefix pieces
+    for (ssize_t i = 0; i < prefix_length; i++) {
+        full_pieces[i] = pieces[i];
+    }
+    
+    // Skip zero run (already initialized to 0)
+    
+    // Copy suffix pieces
+    for (ssize_t i = prefix_length; i < (ssize_t)pieces.size(); i++) {
+        full_pieces[zero_run_length + i] = pieces[i];
+    }
+
+    // Pack first 4 pieces into 'a' (high 64 bits)
+    for (int i = 0; i < 4; i++) {
+        a = (a << 16) | full_pieces[i];
+    }
+    
+    // Pack last 4 pieces into 'b' (low 64 bits)
+    for (int i = 4; i < 8; i++) {
+        b = (b << 16) | full_pieces[i];
+    }
+
+    return {a, b};
+}
+
     ipv6_array_t get_value_array() const {
         ipv6_array_t x;
 

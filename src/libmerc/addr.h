@@ -11,12 +11,6 @@
 #ifndef ADDR_H
 #define ADDR_H
 
-#ifdef _WIN32
-#include <Ws2tcpip.h>
-#else
-#include <arpa/inet.h>
-#endif
-
 #include <unordered_map>
 #include <unordered_set>
 #include <string>
@@ -26,7 +20,7 @@
 #include "lctrie/lctrie.h"
 
 struct Ipv6AddrHash {
-    std::size_t operator()(const ipv6_addr_t& addr) const {
+    std::size_t operator()(const ipv6_addr_lct& addr) const {
         std::size_t hash1 = std::hash<uint64_t>()(addr.a[0]);
         std::size_t hash2 = std::hash<uint64_t>()(addr.a[1]);
         return hash1 ^ (hash2 << 1);
@@ -42,7 +36,7 @@ class subnet_data {
     lct<ipv4_addr_t> ipv4_subnet_trie;
     lct_subnet_t *ipv4_subnet_array;
 
-    lct<ipv6_addr_t> ipv6_subnet_trie;
+    lct<ipv6_addr_lct> ipv6_subnet_trie;
     lct_subnet_v6_t *ipv6_subnet_array;
 
     // ipv4 domain tries used for domain-faking detection
@@ -50,21 +44,21 @@ class subnet_data {
     lct_subnet_t *ipv4_domain_array;
 
     // ipv6 domain tries used for domain-faking detection
-    lct<ipv6_addr_t> ipv6_domain_trie;
+    lct<ipv6_addr_lct> ipv6_domain_trie;
     lct_subnet_v6_t *ipv6_domain_array;
 
     // data used during construction
     lct_subnet<ipv4_addr_t> *prefix = nullptr;
     int num = 0;
 
-    lct_subnet<ipv6_addr_t> *prefix_v6 = nullptr;
+    lct_subnet<ipv6_addr_lct> *prefix_v6 = nullptr;
     int num_v6 = 0;
 
     // ip domain mapping arrays used during construction of lctrie for domain-faking detection
     lct_subnet<ipv4_addr_t> *domains_prefix = nullptr;
     int domains_prefix_num = 0;
 
-    lct_subnet<ipv6_addr_t> *domains_prefix_v6 = nullptr;
+    lct_subnet<ipv6_addr_lct> *domains_prefix_v6 = nullptr;
     int domains_prefix_v6_num = 0;
 
     // list of domains, for which domain-faking checking has to be done
@@ -132,8 +126,8 @@ public:
     int lct_add_domain_mapping(uint32_t &addr, uint8_t &mask_length, std::string &domain,
         std::unordered_map<uint32_t, ssize_t> &subnet_map);
     int lct_add_domain_exception(uint32_t &addr, uint8_t &mask_length);
-    int lct_add_domain_mapping_v6(ipv6_addr_t &addr, uint8_t &mask_length, std::string &domain_name, std::unordered_map<ipv6_addr_t, ssize_t, Ipv6AddrHash> &subnet_map);
-    int lct_add_domain_exception_v6(ipv6_addr_t &addr, uint8_t &mask_length);
+    int lct_add_domain_mapping_v6(ipv6_addr_lct &addr, uint8_t &mask_length, std::string &domain_name, std::unordered_map<ipv6_addr_lct, ssize_t, Ipv6AddrHash> &subnet_map);
+    int lct_add_domain_exception_v6(ipv6_addr_lct &addr, uint8_t &mask_length);
 
     bool is_domain_faking(const char *server_name, const char *dst_ip) const;
 };

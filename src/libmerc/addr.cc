@@ -24,22 +24,22 @@
 
 // apply netmasks to IPv6 entries, should be done prior to sorting the subnet array
 //
-void subnet_mask_v6(lct_subnet<ipv6_addr_t> *subnets, size_t size) {
+void subnet_mask_v6(lct_subnet<ipv6_addr_lct> *subnets, size_t size) {
     char pstr[LCTRIE_INET6_ADDRSTRLEN], pstr2[LCTRIE_INET6_ADDRSTRLEN];
-    ipv6_addr_t prefix, prefix2;
+    ipv6_addr_lct prefix, prefix2;
 
-    constexpr unsigned int bits_in_T = sizeof(ipv6_addr_t) * 8;
+    constexpr unsigned int bits_in_T = sizeof(ipv6_addr_lct) * 8;
     for (size_t i = 0; i < size; ++i) {
-        lct_subnet<ipv6_addr_t> *p = &subnets[i];
+        lct_subnet<ipv6_addr_lct> *p = &subnets[i];
 
-        ipv6_addr_t netmask;
+        ipv6_addr_lct netmask;
         netmask.a[0] = netmask.a[1] = -1;
 
         if (p->len < bits_in_T) {
             netmask = netmask << (bits_in_T - p->len);
         }
 
-      ipv6_addr_t newaddr;
+      ipv6_addr_lct newaddr;
       newaddr = p->addr & netmask;
 
       if (newaddr != p->addr) {
@@ -47,12 +47,12 @@ void subnet_mask_v6(lct_subnet<ipv6_addr_t> *subnets, size_t size) {
           fprint_addr_rev(stderr, "netmask", &netmask);
           fprint_addr_rev(stderr, "newaddr", &newaddr);
 
-          if (!inet_ntop(address_family<ipv6_addr_t>::typecode, &(p->addr.a), pstr, sizeof(pstr))) {
-              fprintf(stderr, "ERROR: %s\n", strerror(errno));
-          }
-          if (!inet_ntop(address_family<ipv6_addr_t>::typecode, &(newaddr.a), pstr2, sizeof(pstr2))) {
-              fprintf(stderr, "ERROR: %s\n", strerror(errno));
-          }
+        //   if (!inet_ntop(address_family<ipv6_addr_lct>::typecode, &(p->addr.a), pstr, sizeof(pstr))) {
+        //       fprintf(stderr, "ERROR: %s\n", strerror(errno));
+        //   }
+        //   if (!inet_ntop(address_family<ipv6_addr_lct>::typecode, &(newaddr.a), pstr2, sizeof(pstr2))) {
+        //       fprintf(stderr, "ERROR: %s\n", strerror(errno));
+        //   }
 
           fprintf(stderr, "Subnet %s/%d has not been properly masked, should be %s/%d\n",
                   pstr, p->len, pstr2, p->len);
@@ -199,17 +199,27 @@ uint32_t subnet_data::get_asn_info(const char* dst_ip) const {
             return subnet->info.bgp.asn;
         }
     }
-    else {
-        ipv6_addr_t ipv6_addr;
-        if (ipv6_subnet_array && inet_pton(AF_INET6, dst_ip, &ipv6_addr.a)) {
-            ntoh(ipv6_addr);
-            lct_subnet_v6_t *subnet = lct_find(&ipv6_subnet_trie, ipv6_addr);
-            if (subnet == NULL) {
-                return 0;
-            }
-            if (subnet->info.type == IP_SUBNET_BGP) {
-                return subnet->info.bgp.asn;
-            }
+    else if (ipv6_subnet_array) {
+        ipv6_addr_lct ipv6_addr;
+        datum addr_datum = get_datum(dst_ip);
+        ipv6_address_string addr_parser{addr_datum};
+
+        if (!addr_parser.is_valid()) {
+            fprintf(stderr, "ERROR: Invalid IPv6 address format: %s\n", dst_ip);
+            return 0;
+        }
+
+        std::tuple<uint64_t, uint64_t> addr_tuple = addr_parser.get_2tuple();
+        ipv6_addr.a[0] = std::get<0>(addr_tuple);
+        ipv6_addr.a[1] = std::get<1>(addr_tuple);
+
+        lct_subnet_v6_t *subnet = lct_find(&ipv6_subnet_trie, ipv6_addr);
+        if (subnet == NULL) {
+            return 0;
+        }
+        if (subnet->info.type == IP_SUBNET_BGP) {
+            fprintf(stderr, "IPv6 asn found: %u\n", subnet->info.bgp.asn);
+            return subnet->info.bgp.asn;
         }
     }
 
@@ -274,7 +284,7 @@ int subnet_data::lct_add_domain_mapping(uint32_t &addr, uint8_t &mask_length, st
     lct_subnet<uint32_t> *subnet_itr;
     if (subnet_map.find(addr) != subnet_map.end()) {    // subnet present in map, domain_idx needs to be appended
         subnet_itr = &domains_prefix[subnet_map[addr]];
-        if (subnet_itr->info.type == IP_SUBNET_DOMAIN && subnet_itr->addr == addr && subnet_itr->len == mask_length) {
+        if (subnet_itr->info.type == IP_DOMAIN_MAPPING && subnet_itr->addr == addr && subnet_itr->len == mask_length) {
             uint8_t *old_arr = subnet_itr->info.domain.domain_idx_arr;
 
             ++subnet_itr->info.domain.domain_idx_arr_len;
@@ -296,7 +306,7 @@ int subnet_data::lct_add_domain_mapping(uint32_t &addr, uint8_t &mask_length, st
 
         subnet_itr->addr = addr;
         subnet_itr->len = mask_length;
-        subnet_itr->info.type = IP_SUBNET_DOMAIN;
+        subnet_itr->info.type = IP_DOMAIN_MAPPING;
         subnet_itr->info.domain.domain_idx_arr_len = 1;
         subnet_itr->info.domain.domain_idx_arr = (uint8_t *)malloc(sizeof(uint8_t));
         subnet_itr->info.domain.domain_idx_arr[0] = domain_idx;
@@ -314,7 +324,7 @@ int subnet_data::lct_add_domain_exception(uint32_t &addr, uint8_t &mask_length) 
     subnet_itr = &domains_prefix[domains_prefix_num];
     subnet_itr->addr = addr;
     subnet_itr->len = mask_length;
-    subnet_itr->info.type = IP_SUBNET_DOMAIN_EXCEPTION;
+    subnet_itr->info.type = IP_DOMAIN_MAPPING_EXCEPTION;
     domains_prefix_num++;
 
     return 0;       // success
@@ -359,7 +369,7 @@ int subnet_data::process_domain_mapping_subnets(const std::vector<std::pair<std:
     return 0;
 }
 
-int subnet_data::lct_add_domain_mapping_v6(ipv6_addr_t &addr, uint8_t &mask_length, std::string &domain_name, std::unordered_map<ipv6_addr_t, ssize_t, Ipv6AddrHash> &subnet_map) {
+int subnet_data::lct_add_domain_mapping_v6(ipv6_addr_lct &addr, uint8_t &mask_length, std::string &domain_name, std::unordered_map<ipv6_addr_lct, ssize_t, Ipv6AddrHash> &subnet_map) {
 
     uint32_t domain_idx;
     if (domains_watchlist.find(domain_name) == domains_watchlist.end()) {    // new domain; assign a domain id and save in the domain watchlist
@@ -369,10 +379,10 @@ int subnet_data::lct_add_domain_mapping_v6(ipv6_addr_t &addr, uint8_t &mask_leng
         domain_idx = domains_watchlist[domain_name];    // domain already seen; retrieve domain id
     }
 
-    lct_subnet<ipv6_addr_t> *subnet_itr;
+    lct_subnet<ipv6_addr_lct> *subnet_itr;
     if (subnet_map.find(addr) != subnet_map.end()) {    // subnet present in map, domain_idx needs to be appended
         subnet_itr = &domains_prefix_v6[subnet_map[addr]];
-        if (subnet_itr->info.type == IP_SUBNET_DOMAIN && subnet_itr->addr == addr && subnet_itr->len == mask_length) {
+        if (subnet_itr->info.type == IP_DOMAIN_MAPPING && subnet_itr->addr == addr && subnet_itr->len == mask_length) {
             uint8_t *old_arr = subnet_itr->info.domain.domain_idx_arr;
 
             ++subnet_itr->info.domain.domain_idx_arr_len;
@@ -393,7 +403,7 @@ int subnet_data::lct_add_domain_mapping_v6(ipv6_addr_t &addr, uint8_t &mask_leng
         subnet_itr = &domains_prefix_v6[domains_prefix_v6_num];
         subnet_itr->addr = addr;
         subnet_itr->len = mask_length;
-        subnet_itr->info.type = IP_SUBNET_DOMAIN;
+        subnet_itr->info.type = IP_DOMAIN_MAPPING;
         subnet_itr->info.domain.domain_idx_arr_len = 1;
         subnet_itr->info.domain.domain_idx_arr = (uint8_t *)malloc(sizeof(uint8_t));
         subnet_itr->info.domain.domain_idx_arr[0] = domain_idx;
@@ -405,13 +415,13 @@ int subnet_data::lct_add_domain_mapping_v6(ipv6_addr_t &addr, uint8_t &mask_leng
     return 0;
 }
 
-int subnet_data::lct_add_domain_exception_v6(ipv6_addr_t &addr, uint8_t &mask_length) {
+int subnet_data::lct_add_domain_exception_v6(ipv6_addr_lct &addr, uint8_t &mask_length) {
 
     lct_subnet_v6_t *subnet_itr;
     subnet_itr = &domains_prefix_v6[domains_prefix_v6_num];
     subnet_itr->addr = addr;
     subnet_itr->len = mask_length;
-    subnet_itr->info.type = IP_SUBNET_DOMAIN_EXCEPTION;
+    subnet_itr->info.type = IP_DOMAIN_MAPPING_EXCEPTION;
     domains_prefix_v6_num++;
 
     return 0;       // success
@@ -419,7 +429,7 @@ int subnet_data::lct_add_domain_exception_v6(ipv6_addr_t &addr, uint8_t &mask_le
 
 int subnet_data::process_domain_mapping_subnets_v6(const std::vector<std::pair<std::string, std::string>> &subnets) {
 
-    std::unordered_map<ipv6_addr_t, ssize_t, Ipv6AddrHash> subnet_map;
+    std::unordered_map<ipv6_addr_lct, ssize_t, Ipv6AddrHash> subnet_map;
     domains_prefix_v6 = (lct_subnet_v6_t *)calloc(sizeof(lct_subnet_v6_t), subnets.size());
     if (domains_prefix_v6 == nullptr) {
         throw std::runtime_error("error: could not initialize domains_prefix");
@@ -430,10 +440,10 @@ int subnet_data::process_domain_mapping_subnets_v6(const std::vector<std::pair<s
         std::string subnet_str = subnet_entry.first;
         std::string subnet_tag = subnet_entry.second;
 
-        ipv6_addr_t addr;
+        ipv6_addr_lct addr;
         uint8_t mask_length;
         char addr_str[LCTRIE_INET6_ADDRSTRLEN];
-        constexpr unsigned int bits_in_T = sizeof(ipv6_addr_t) * 8;
+        constexpr unsigned int bits_in_T = sizeof(ipv6_addr_lct) * 8;
 
         int num_items_parsed = sscanf(subnet_str.c_str(),"%45[^/]/%hhu", addr_str, &mask_length);
 
@@ -445,8 +455,18 @@ int subnet_data::process_domain_mapping_subnets_v6(const std::vector<std::pair<s
 
             char parsed_subnet_string[LCTRIE_INET6_ADDRSTRLEN];
             strncpy(parsed_subnet_string, addr_str, LCTRIE_INET6_ADDRSTRLEN);
-            inet_pton(AF_INET6, parsed_subnet_string, &addr.a);
-            ntoh(addr);
+
+            datum addr_datum = get_datum(parsed_subnet_string);
+            ipv6_address_string addr_parser{addr_datum};
+            if (!addr_parser.is_valid()) {
+                fprintf(stderr, "ERROR: Invalid IPv6 address format: %s\n", parsed_subnet_string);
+                continue;
+            }
+
+            std::tuple<uint64_t, uint64_t> addr_tuple = addr_parser.get_2tuple();
+            addr.a[0] = std::get<0>(addr_tuple);
+            addr.a[1] = std::get<1>(addr_tuple);
+
 
             if (subnet_tag == "proxy_v6" || subnet_tag == "sinkhole_v6") {
                 if (lct_add_domain_exception_v6(addr, mask_length) != 0) {
@@ -590,7 +610,7 @@ void subnet_data::process_final_v6() {
     // validate subnet prefixes against their netmasks
     // and sort the resulting array
     subnet_mask_v6(prefix_v6, num_v6);
-    qsort(prefix_v6, num_v6, sizeof(lct_subnet<ipv6_addr_t>), subnet_cmp<ipv6_addr_t>);
+    qsort(prefix_v6, num_v6, sizeof(lct_subnet<ipv6_addr_lct>), subnet_cmp<ipv6_addr_lct>);
 
     // de-duplicate subnets and shrink the buffer down to its
     // actual size and split into prefixes and bases
@@ -625,7 +645,7 @@ void subnet_data::process_final_v6() {
     }
 
     // actually build the trie and get the trie node count for statistics printing
-    memset(&ipv6_subnet_trie, 0, sizeof(lct<ipv6_addr_t>));
+    memset(&ipv6_subnet_trie, 0, sizeof(lct<ipv6_addr_lct>));
     lct_build(&ipv6_subnet_trie, prefix_v6, num_v6);
 
     // set subnet array to actual value; after this, the subnet_data
@@ -709,7 +729,7 @@ void subnet_data::process_domain_mappings_final_v6() {
     // validate subnet prefixes against their netmasks
     // and sort the resulting array
     subnet_mask_v6(domains_prefix_v6, domains_prefix_v6_num);
-    qsort(domains_prefix_v6, domains_prefix_v6_num, sizeof(lct_subnet<ipv6_addr_t>), subnet_cmp<ipv6_addr_t>);
+    qsort(domains_prefix_v6, domains_prefix_v6_num, sizeof(lct_subnet<ipv6_addr_lct>), subnet_cmp<ipv6_addr_lct>);
 
     // de-duplicate subnets and shrink the buffer down to its
     // actual size and split into prefixes and bases
@@ -744,7 +764,7 @@ void subnet_data::process_domain_mappings_final_v6() {
     }
 
     // actually build the trie and get the trie node count for statistics printing
-    memset(&ipv6_domain_trie, 0, sizeof(lct<ipv6_addr_t>));
+    memset(&ipv6_domain_trie, 0, sizeof(lct<ipv6_addr_lct>));
     lct_build(&ipv6_domain_trie, domains_prefix_v6, domains_prefix_v6_num);
 
     // set subnet array to actual value; after this, the subnet_data
@@ -789,39 +809,48 @@ bool subnet_data::is_domain_faking(const char *domain_name_, const char* dst_ip)
             return true; // IP not found in trie - domain-faking
         }
 
-        if (subnet->info.type == IP_SUBNET_DOMAIN) {
+        if (subnet->info.type == IP_DOMAIN_MAPPING) {
             for (uint8_t domain_idx_itr = 0; domain_idx_itr < subnet->info.domain.domain_idx_arr_len; domain_idx_itr++) {
                 if (subnet->info.domain.domain_idx_arr[domain_idx_itr] == domain_idx) {
                     return false; // match - domain is mapped to the subnet - not domain-faking
                 }
             }
         }
-        else if (subnet->info.type == IP_SUBNET_DOMAIN_EXCEPTION) {
+        else if (subnet->info.type == IP_DOMAIN_MAPPING_EXCEPTION) {
             return false; // subnet is an exception - not domain-faking
         }
     }
-    else {
-        ipv6_addr_t ipv6_addr;
-        if (ipv6_subnet_array && inet_pton(AF_INET6, dst_ip, &ipv6_addr.a)) {
-            ntoh(ipv6_addr);
-            lct_subnet_v6_t *subnet = lct_find(&ipv6_domain_trie, ipv6_addr);
-            if (subnet == NULL) {
-                return true; // IP not found in trie - domain-faking
-            }
-            
-            if (subnet->info.type == IP_SUBNET_DOMAIN) {
-                for (uint8_t domain_idx_itr = 0; domain_idx_itr < subnet->info.domain.domain_idx_arr_len; domain_idx_itr++) {
-                    if (subnet->info.domain.domain_idx_arr[domain_idx_itr] == domain_idx) {
-                        return false; // match - domain is mapped to the subnet - not domain-faking
-                    }
+    else if (ipv6_subnet_array) { // try IPv6 only if we have IPv6 domain mappings
+        ipv6_addr_lct ipv6_addr;
+        datum addr_datum = get_datum(dst_ip);
+        ipv6_address_string addr_parser{addr_datum};
+        if (!addr_parser.is_valid()) {
+            return false; // not a valid IP address
+        }
+        std::tuple<uint64_t, uint64_t> addr_tuple = addr_parser.get_2tuple();
+        ipv6_addr.a[0] = std::get<0>(addr_tuple);
+        ipv6_addr.a[1] = std::get<1>(addr_tuple);
+
+        lct_subnet_v6_t *subnet = lct_find(&ipv6_domain_trie, ipv6_addr);
+        if (subnet == NULL) {
+            return true; // IP not found in trie - domain-faking
+        }
+
+        if (subnet->info.type == IP_DOMAIN_MAPPING) {
+            for (uint8_t domain_idx_itr = 0; domain_idx_itr < subnet->info.domain.domain_idx_arr_len; domain_idx_itr++) {
+                if (subnet->info.domain.domain_idx_arr[domain_idx_itr] == domain_idx) {
+                    return false; // match - domain is mapped to the subnet - not domain-faking
                 }
             }
-            else if (subnet->info.type == IP_SUBNET_DOMAIN_EXCEPTION) {
-                return false; // subnet is an exception - not domain-faking
-            }
+        }
+        else if (subnet->info.type == IP_DOMAIN_MAPPING_EXCEPTION) {
+            return false; // subnet is an exception - not domain-faking
         }
         else
             return false; // not a valid IP address or we don't have IPv6 domain mappings
+    }
+    else {
+        return false; // not a valid IP address or we don't have IPv6 domain mappings
     }
 
     return true; // no match - domain-faking

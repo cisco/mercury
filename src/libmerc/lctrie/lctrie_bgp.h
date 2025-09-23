@@ -2,12 +2,6 @@
 #define __LC_TRIE_BGP_H__
 // begin #ifndef guard
 
-#ifdef _WIN32
-#include <Ws2tcpip.h>
-#else
-#include <arpa/inet.h>
-#endif
-
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -18,6 +12,7 @@
 #include <fstream>
 
 #include "lctrie_ip.h"
+#include "../ip_address.hpp"
 
 typedef struct lct_bgp_asn {
   uint32_t num;
@@ -57,13 +52,13 @@ lct_subnet_set_from_string(lct_subnet<uint32_t> *subnet, const char *subnet_stri
 
 // disable IPV6 on Windows
 inline int
-lct_subnet_set_from_string(lct_subnet<ipv6_addr_t> *subnet, const char *subnet_string) {
-  ipv6_addr_t addr;
+lct_subnet_set_from_string(lct_subnet<ipv6_addr_lct> *subnet, const char *subnet_string) {
+  ipv6_addr_lct addr;
   uint32_t asn;
   uint8_t mask_length;
   char addr_str[LCTRIE_INET6_ADDRSTRLEN];
 
-  constexpr unsigned int bits_in_T = sizeof(ipv6_addr_t) * 8;
+  constexpr unsigned int bits_in_T = sizeof(ipv6_addr_lct) * 8;
 
   int num_items_parsed = sscanf(subnet_string,"%45[^/]/%hhu\t%u", addr_str, &mask_length, &asn);
 
@@ -78,10 +73,19 @@ lct_subnet_set_from_string(lct_subnet<ipv6_addr_t> *subnet, const char *subnet_s
         fprintf(stderr, "ERROR: IPv6 address string too long: %s\n", addr_str);
         return -1;
     }
-    char parsed_subnet_string[LCTRIE_INET6_ADDRSTRLEN];
-    strncpy(parsed_subnet_string, addr_str, LCTRIE_INET6_ADDRSTRLEN);
-    inet_pton(AF_INET6, parsed_subnet_string, &addr.a);
-    ntoh(addr);
+
+    datum addr_datum = get_datum(addr_str);
+    ipv6_address_string addr_parser{addr_datum};
+    
+    if (!addr_parser.is_valid()) {
+        fprintf(stderr, "ERROR: Invalid IPv6 address format: %s\n", addr_str);
+        return -1;
+    }
+
+    std::tuple<uint64_t, uint64_t> addr_tuple = addr_parser.get_2tuple();
+    addr.a[0] = std::get<0>(addr_tuple);
+    addr.a[1] = std::get<1>(addr_tuple);
+
     subnet->addr = addr;
     subnet->len = mask_length;
     subnet->info.type = IP_SUBNET_BGP;

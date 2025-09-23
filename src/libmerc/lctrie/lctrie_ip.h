@@ -26,8 +26,8 @@ using ipv4_addr_t = uint32_t;
 #define IP_SUBNET_BOGON       8
 #define IP_SUBNET_USER        9
 
-#define IP_SUBNET_DOMAIN            11  // domain faking detection - domain mapped subnets
-#define IP_SUBNET_DOMAIN_EXCEPTION  12  // domain faking exceptions - proxy and sinkhole subnets
+#define IP_DOMAIN_MAPPING            11  // domain faking detection - domain mapped subnets
+#define IP_DOMAIN_MAPPING_EXCEPTION  12  // domain faking exceptions - proxy and sinkhole subnets
 
 #define LCT_IP_DEBUG_PREFIXES 0
 
@@ -113,7 +113,7 @@ using lct_subnet_t = lct_subnet<uint32_t>;
 
 // ipv6 subnet
 //
-using lct_subnet_v6_t = lct_subnet<ipv6_addr_t>;
+using lct_subnet_v6_t = lct_subnet<ipv6_addr_lct>;
 
 
 typedef struct lct_ip_stats {
@@ -128,7 +128,7 @@ template <> struct address_family<uint32_t> {
     constexpr static const int typecode = LCTRIE_AF_INET;
 };
 
-template <> struct address_family<ipv6_addr_t> {
+template <> struct address_family<ipv6_addr_lct> {
     constexpr static const int typecode = LCTRIE_AF_INET6;
 };
 
@@ -138,7 +138,7 @@ int get_address_family() {
     int address_family = 0;
     if (typeid(T) == typeid(ipv4_addr_t)) {
         address_family = AF_INET;
-    } else if (typeid(T) == typeid(ipv6_addr_t)) {
+    } else if (typeid(T) == typeid(ipv6_addr_lct)) {
         address_family = AF_INET6;
     } else {
         throw std::runtime_error("unsupported address family");
