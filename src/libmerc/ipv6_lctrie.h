@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <typeinfo>
+#include <unordered_map>
 
 typedef struct ipv6_addr_lct {
     uint64_t a[2];
@@ -100,13 +101,6 @@ inline ipv6_addr_lct operator&(const ipv6_addr_lct &left, const ipv6_addr_lct &r
     ipv6_addr_lct result;
     result.a[0] = left.a[0] & right.a[0];
     result.a[1] = left.a[1] & right.a[1];
-    return result;
-}
-
-inline ipv6_addr_lct operator~(const ipv6_addr_lct &addr) {
-    ipv6_addr_lct result;
-    result.a[0] = ~addr.a[0];
-    result.a[1] = ~addr.a[1];
     return result;
 }
 
@@ -209,6 +203,17 @@ inline ipv6_addr_lct REMOVE(unsigned int p, ipv6_addr_lct str) {
 
     return output;
 }
+
+namespace std {
+    template <>
+    struct hash<ipv6_addr_lct> {
+        std::size_t operator()(const ipv6_addr_lct& addr) const {
+            std::size_t hash1 = std::hash<uint64_t>()(addr.a[0]);
+            std::size_t hash2 = std::hash<uint64_t>()(addr.a[1]);
+            return hash1 ^ (hash2 << 1);
+        }
+    };
+};
 
 // ipv6_addr_lct ntoh() is suitable for IPv6 addresses
 //

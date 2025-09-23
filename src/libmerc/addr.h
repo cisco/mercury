@@ -19,13 +19,6 @@
 
 #include "lctrie/lctrie.h"
 
-struct Ipv6AddrHash {
-    std::size_t operator()(const ipv6_addr_lct& addr) const {
-        std::size_t hash1 = std::hash<uint64_t>()(addr.a[0]);
-        std::size_t hash2 = std::hash<uint64_t>()(addr.a[1]);
-        return hash1 ^ (hash2 << 1);
-    }
-};
 
 class subnet_data {
 
@@ -126,7 +119,7 @@ public:
     int lct_add_domain_mapping(uint32_t &addr, uint8_t &mask_length, std::string &domain,
         std::unordered_map<uint32_t, ssize_t> &subnet_map);
     int lct_add_domain_exception(uint32_t &addr, uint8_t &mask_length);
-    int lct_add_domain_mapping_v6(ipv6_addr_lct &addr, uint8_t &mask_length, std::string &domain_name, std::unordered_map<ipv6_addr_lct, ssize_t, Ipv6AddrHash> &subnet_map);
+    int lct_add_domain_mapping_v6(ipv6_addr_lct &addr, uint8_t &mask_length, std::string &domain_name, std::unordered_map<ipv6_addr_lct, ssize_t> &subnet_map);
     int lct_add_domain_exception_v6(ipv6_addr_lct &addr, uint8_t &mask_length);
 
     bool is_domain_faking(const char *server_name, const char *dst_ip) const;

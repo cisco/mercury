@@ -50,7 +50,6 @@ lct_subnet_set_from_string(lct_subnet<uint32_t> *subnet, const char *subnet_stri
   return -1;  /* error parsing subnet_string */
 }
 
-// disable IPV6 on Windows
 inline int
 lct_subnet_set_from_string(lct_subnet<ipv6_addr_lct> *subnet, const char *subnet_string) {
   ipv6_addr_lct addr;

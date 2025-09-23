@@ -730,6 +730,58 @@ public:
         return std::count(version_str.begin(),version_str.end(),';');
     }
 
+    int process_domain_mapping_line(std::string &line_str, std::vector<std::pair<std::string, std::string>> &subnets,
+        std::vector<std::pair<std::string, std::string>> &subnets_v6, bool &minimize_ram) {
+
+        rapidjson::Document domain_obj;
+        domain_obj.Parse(line_str.c_str());
+        if(!domain_obj.IsObject()) {
+            printf_err(log_warning, "invalid JSON line in resource file\n");
+            return -1;  // failure
+        }
+
+        std::string subnet_type;
+        std::string subnet_str;
+        std::string subnet_tag;
+
+        if (domain_obj.HasMember("subnet") && domain_obj["subnet"].IsString()) {
+            subnet_str = domain_obj["subnet"].GetString();
+        }
+        else {
+            return -1;  // failure
+        }
+        if (domain_obj.HasMember("type") && domain_obj["type"].IsString()) {
+            subnet_type = domain_obj["type"].GetString();
+        }
+        else {
+            return -1;  // failure
+        }
+        if (domain_obj.HasMember("tag") && domain_obj["tag"].IsString()) {
+            subnet_tag = domain_obj["tag"].GetString();
+        }
+        else {
+            return -1;  // failure
+        }
+
+        if (subnet_type == "domain_mapping") {
+            subnets.push_back(std::make_pair(subnet_str, subnet_tag));
+        }
+        else if (subnet_type == "proxy" || subnet_type == "sinkhole") {
+            subnets.push_back(std::make_pair(subnet_str, subnet_type));
+        }
+        else if (!minimize_ram && subnet_type == "domain_mapping_v6") {
+            subnets_v6.push_back(std::make_pair(subnet_str, subnet_tag));
+        }
+        else if (!minimize_ram && (subnet_type == "proxy_v6" || subnet_type == "sinkhole_v6")) {
+            subnets_v6.push_back(std::make_pair(subnet_str, subnet_type));
+        }
+        else {
+            return -1;  // failure
+        }
+
+        return 0;   // success
+    }
+
     classifier(class encrypted_compressed_archive &archive,
                float fp_proc_threshold,
                float proc_dst_threshold,
@@ -858,7 +910,7 @@ public:
                     std::vector<std::pair<std::string, std::string>> domain_mapping_subnets_str;
                     std::vector<std::pair<std::string, std::string>> domain_mapping_subnets_v6_str;
                     while (archive.getline(line_str)) {
-                        subnets.process_domain_mapping_line(line_str, domain_mapping_subnets_str, domain_mapping_subnets_v6_str, minimize_ram);
+                        process_domain_mapping_line(line_str, domain_mapping_subnets_str, domain_mapping_subnets_v6_str, minimize_ram);
                     }
                     // process the parsed domain_mapping subnets and store them in domains_prefix array for final processing
                     //

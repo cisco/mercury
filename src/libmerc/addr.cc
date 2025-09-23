@@ -14,6 +14,7 @@
 #include "addr.h"
 #include "archive.h"
 #include "datum.h"  // for ntoh()
+#include "ipv6_lctrie.h"
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
 #include "ip_address.hpp"
@@ -39,13 +40,13 @@ void subnet_mask_v6(lct_subnet<ipv6_addr_lct> *subnets, size_t size) {
             netmask = netmask << (bits_in_T - p->len);
         }
 
-      ipv6_addr_lct newaddr;
-      newaddr = p->addr & netmask;
+    ipv6_addr_lct newaddr;
+    newaddr = p->addr & netmask;
 
-      if (newaddr != p->addr) {
-          fprint_addr_rev(stderr, "address", &p->addr);
-          fprint_addr_rev(stderr, "netmask", &netmask);
-          fprint_addr_rev(stderr, "newaddr", &newaddr);
+    if (newaddr != p->addr) {
+        fprint_addr_rev(stderr, "address", &p->addr);
+        fprint_addr_rev(stderr, "netmask", &netmask);
+        fprint_addr_rev(stderr, "newaddr", &newaddr);
 
         //   if (!inet_ntop(address_family<ipv6_addr_lct>::typecode, &(p->addr.a), pstr, sizeof(pstr))) {
         //       fprintf(stderr, "ERROR: %s\n", strerror(errno));
@@ -54,8 +55,10 @@ void subnet_mask_v6(lct_subnet<ipv6_addr_lct> *subnets, size_t size) {
         //       fprintf(stderr, "ERROR: %s\n", strerror(errno));
         //   }
 
-          fprintf(stderr, "Subnet %s/%d has not been properly masked, should be %s/%d\n",
-                  pstr, p->len, pstr2, p->len);
+        // ipv6_address_string addr_parser;
+
+        fprintf(stderr, "Subnet %s/%d has not been properly masked, should be %s/%d\n", 
+                pstr, p->len, pstr2, p->len);
 
           p->addr = newaddr;
     }
@@ -218,7 +221,6 @@ uint32_t subnet_data::get_asn_info(const char* dst_ip) const {
             return 0;
         }
         if (subnet->info.type == IP_SUBNET_BGP) {
-            fprintf(stderr, "IPv6 asn found: %u\n", subnet->info.bgp.asn);
             return subnet->info.bgp.asn;
         }
     }
@@ -369,7 +371,7 @@ int subnet_data::process_domain_mapping_subnets(const std::vector<std::pair<std:
     return 0;
 }
 
-int subnet_data::lct_add_domain_mapping_v6(ipv6_addr_lct &addr, uint8_t &mask_length, std::string &domain_name, std::unordered_map<ipv6_addr_lct, ssize_t, Ipv6AddrHash> &subnet_map) {
+int subnet_data::lct_add_domain_mapping_v6(ipv6_addr_lct &addr, uint8_t &mask_length, std::string &domain_name, std::unordered_map<ipv6_addr_lct, ssize_t> &subnet_map) {
 
     uint32_t domain_idx;
     if (domains_watchlist.find(domain_name) == domains_watchlist.end()) {    // new domain; assign a domain id and save in the domain watchlist
@@ -429,7 +431,7 @@ int subnet_data::lct_add_domain_exception_v6(ipv6_addr_lct &addr, uint8_t &mask_
 
 int subnet_data::process_domain_mapping_subnets_v6(const std::vector<std::pair<std::string, std::string>> &subnets) {
 
-    std::unordered_map<ipv6_addr_lct, ssize_t, Ipv6AddrHash> subnet_map;
+    std::unordered_map<ipv6_addr_lct, ssize_t> subnet_map;
     domains_prefix_v6 = (lct_subnet_v6_t *)calloc(sizeof(lct_subnet_v6_t), subnets.size());
     if (domains_prefix_v6 == nullptr) {
         throw std::runtime_error("error: could not initialize domains_prefix");
@@ -480,59 +482,6 @@ int subnet_data::process_domain_mapping_subnets_v6(const std::vector<std::pair<s
     }
 
     return 0;
-}
-
-
-int subnet_data::process_domain_mapping_line(std::string &line_str, std::vector<std::pair<std::string, std::string>> &subnets,
-    std::vector<std::pair<std::string, std::string>> &subnets_v6, bool &minimize_ram) {
-
-    rapidjson::Document domain_obj;
-    domain_obj.Parse(line_str.c_str());
-    if(!domain_obj.IsObject()) {
-        printf_err(log_warning, "invalid JSON line in resource file\n");
-        return -1;  // failure
-    }
-
-    std::string subnet_type;
-    std::string subnet_str;
-    std::string subnet_tag;
-
-    if (domain_obj.HasMember("subnet") && domain_obj["subnet"].IsString()) {
-        subnet_str = domain_obj["subnet"].GetString();
-    }
-    else {
-        return -1;  // failure
-    }
-    if (domain_obj.HasMember("type") && domain_obj["type"].IsString()) {
-        subnet_type = domain_obj["type"].GetString();
-    }
-    else {
-        return -1;  // failure
-    }
-    if (domain_obj.HasMember("tag") && domain_obj["tag"].IsString()) {
-        subnet_tag = domain_obj["tag"].GetString();
-    }
-    else {
-        return -1;  // failure
-    }
-
-    if (subnet_type == "domain_mapping") {
-        subnets.push_back(std::make_pair(subnet_str, subnet_tag));
-    }
-    else if (subnet_type == "proxy" || subnet_type == "sinkhole") {
-        subnets.push_back(std::make_pair(subnet_str, subnet_type));
-    }
-    else if (!minimize_ram && subnet_type == "domain_mapping_v6") {
-        subnets_v6.push_back(std::make_pair(subnet_str, subnet_tag));
-    }
-    else if (!minimize_ram && (subnet_type == "proxy_v6" || subnet_type == "sinkhole_v6")) {
-        subnets_v6.push_back(std::make_pair(subnet_str, subnet_type));
-    }
-    else {
-        return -1;  // failure
-    }
-
-    return 0;   // success
 }
 
 void subnet_data::process_final() {
