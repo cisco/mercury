@@ -15,8 +15,6 @@
 #include "archive.h"
 #include "datum.h"  // for ntoh()
 #include "ipv6_lctrie.h"
-#include "rapidjson/document.h"
-#include "rapidjson/stringbuffer.h"
 #include "ip_address.hpp"
 
 #include "lctrie/lctrie.h"
@@ -26,8 +24,6 @@
 // apply netmasks to IPv6 entries, should be done prior to sorting the subnet array
 //
 void subnet_mask_v6(lct_subnet<ipv6_addr_lct> *subnets, size_t size) {
-    char pstr[LCTRIE_INET6_ADDRSTRLEN], pstr2[LCTRIE_INET6_ADDRSTRLEN];
-    ipv6_addr_lct prefix, prefix2;
 
     constexpr unsigned int bits_in_T = sizeof(ipv6_addr_lct) * 8;
     for (size_t i = 0; i < size; ++i) {
@@ -40,37 +36,24 @@ void subnet_mask_v6(lct_subnet<ipv6_addr_lct> *subnets, size_t size) {
             netmask = netmask << (bits_in_T - p->len);
         }
 
-    ipv6_addr_lct newaddr;
-    newaddr = p->addr & netmask;
+        ipv6_addr_lct newaddr;
+        newaddr = p->addr & netmask;
 
-    if (newaddr != p->addr) {
-        fprint_addr_rev(stderr, "address", &p->addr);
-        fprint_addr_rev(stderr, "netmask", &netmask);
-        fprint_addr_rev(stderr, "newaddr", &newaddr);
+        if (newaddr != p->addr) {
+            fprint_addr(stderr, "address", &p->addr);
+            fprint_addr(stderr, "netmask", &netmask);
+            fprint_addr(stderr, "newaddr", &newaddr);
 
-        //   if (!inet_ntop(address_family<ipv6_addr_lct>::typecode, &(p->addr.a), pstr, sizeof(pstr))) {
-        //       fprintf(stderr, "ERROR: %s\n", strerror(errno));
-        //   }
-        //   if (!inet_ntop(address_family<ipv6_addr_lct>::typecode, &(newaddr.a), pstr2, sizeof(pstr2))) {
-        //       fprintf(stderr, "ERROR: %s\n", strerror(errno));
-        //   }
+            fprintf(stderr, "Subnet parsed address has not been properly masked, should be expected address");
 
-        // ipv6_address_string addr_parser;
-
-        fprintf(stderr, "Subnet %s/%d has not been properly masked, should be %s/%d\n", 
-                pstr, p->len, pstr2, p->len);
-
-          p->addr = newaddr;
+            p->addr = newaddr;
+        }
     }
-  }
 }
-
 
 // apply netmasks to IPv4 entries, should be done prior to sorting the subnet array
 //
 void subnet_mask_v4(lct_subnet<ipv4_addr_t> *subnets, size_t size) {
-    char pstr[LCTRIE_INET6_ADDRSTRLEN], pstr2[LCTRIE_INET6_ADDRSTRLEN];
-    ipv4_addr_t prefix, prefix2;
 
     constexpr unsigned int bits_in_T = sizeof(ipv4_addr_t) * 8;
     for (size_t i = 0; i < size; ++i) {
@@ -81,28 +64,18 @@ void subnet_mask_v4(lct_subnet<ipv4_addr_t> *subnets, size_t size) {
             netmask = netmask << (bits_in_T - p->len);
         }
 
-      ipv4_addr_t newaddr = p->addr & netmask;
+        ipv4_addr_t newaddr = p->addr & netmask;
 
-      if (newaddr != p->addr) {
-          fprint_addr_rev(stderr, "address", &p->addr);
-          fprint_addr_rev(stderr, "netmask", &netmask);
-          fprint_addr_rev(stderr, "newaddr", &newaddr);
+        if (newaddr != p->addr) {
+            fprint_addr_rev(stderr, "parsed address", &p->addr);
+            fprint_addr_rev(stderr, "expected address", &newaddr);
+            fprint_addr_rev(stderr, "netmask", &netmask);
 
-          prefix = hton(p->addr);
-          prefix2 = hton(newaddr);
-          if (!ntop(address_family<ipv4_addr_t>::typecode, &(prefix), pstr, sizeof(pstr))) {
-              fprintf(stderr, "ERROR: %s\n", strerror(errno));
-          }
-          if (!ntop(address_family<ipv4_addr_t>::typecode, &(prefix2), pstr2, sizeof(pstr2))) {
-              fprintf(stderr, "ERROR: %s\n", strerror(errno));
-          }
+            fprintf(stderr, "Subnet parsed address has not been properly masked, should be expected address");
 
-          fprintf(stderr, "Subnet %s/%d has not been properly masked, should be %s/%d\n",
-                  pstr, p->len, pstr2, p->len);
-
-          p->addr = newaddr;
+            p->addr = newaddr;
+        }
     }
-  }
 }
 
 // char_string_to_ipv4_addr(s, addr) parses a dotted quad IPv4 address
