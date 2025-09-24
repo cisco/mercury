@@ -47,10 +47,10 @@ if(DEFINED TARGET_MAC_ARCH)  # Explicit target architecture: may not match host 
     # Use the target architecture specified by build script
     if(TARGET_MAC_ARCH MATCHES "x86_64")
         set(INTEL_PLATFORM TRUE)
-        message(STATUS "Target platform: Intel x86_64 (specified by TARGET_MAC_ARCH)")
+        message(STATUS "Target architecture: Intel x86_64 (specified by TARGET_MAC_ARCH)")
     elseif(TARGET_MAC_ARCH MATCHES "arm64")
         set(ARM_PLATFORM TRUE)
-        message(STATUS "Target platform: ARM64 (specified by TARGET_MAC_ARCH)")
+        message(STATUS "Target architecture: ARM64 (specified by TARGET_MAC_ARCH)")
     endif()
 else()
     # Fall back to system processor detection
@@ -62,7 +62,7 @@ else()
             set(ARMV7_PLATFORM TRUE)
         endif()
     endif()
-    message(STATUS "Target platform: ${CMAKE_SYSTEM_PROCESSOR} (auto-detected)")
+    message(STATUS "Target architecture: ${CMAKE_SYSTEM_PROCESSOR} (auto-detected)")
 endif()
 
 
@@ -272,7 +272,6 @@ else()
         -Wall -Wextra -Wno-deprecated ${CDEFS} ${MSV}
         -Wno-missing-braces
         -Wno-narrowing
-        -shared
         -fPIC
         -DDONT_USE_STDERR
         -fno-rtti
