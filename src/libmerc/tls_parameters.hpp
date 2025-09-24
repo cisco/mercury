@@ -745,7 +745,7 @@ public:
     }
 };
 
-const static std::unordered_set<uint16_t> cipher_suites_list = {
+const static inline std::unordered_set<uint16_t> cipher_suites_list = {
     0x0000,
     0x0001,
     0x0002,
@@ -1100,7 +1100,7 @@ const static std::unordered_set<uint16_t> cipher_suites_list = {
     0xD005,
 };
 
-const static std::unordered_set<uint16_t> faketls_cipher_suite_exceptions = {
+const static inline std::unordered_set<uint16_t> faketls_cipher_suite_exceptions = {
     0x0a0a,
     0xffa8,
     0xffa7,
@@ -1311,4 +1311,3 @@ public:
 }    // namespace tls
 
 #endif // TLS_PARAMETERS_HPP
-
