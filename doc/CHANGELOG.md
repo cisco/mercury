@@ -4,6 +4,7 @@
 * Added a new configuration option, network-behavioral-detections,
   which enables behavioral detections without a resources file.
 * Fix buffer overread in OID compiler, which is run only at compile time.
+* Bug fix to clean up reassembly flow state before processing new flow.
 
 ## VERSION 2.8.1
 * Bug fixes: ASAN container overflow in stats collection, dangling reference in
