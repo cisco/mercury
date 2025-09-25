@@ -764,16 +764,20 @@ public:
         }
 
         if (subnet_type == "domain_mapping") {
-            subnets.push_back(std::make_pair(subnet_str, subnet_tag));
+            if (subnet_str.find(".") != std::string::npos) {
+                subnets.push_back(std::make_pair(subnet_str, subnet_tag));       // v4 subnet
+            }
+            else if (!minimize_ram) {   // don't load ipv6 subnets if minimize_ram is set
+                subnets_v6.push_back(std::make_pair(subnet_str, subnet_tag));
+            }
         }
         else if (subnet_type == "proxy" || subnet_type == "sinkhole") {
-            subnets.push_back(std::make_pair(subnet_str, subnet_type));
-        }
-        else if (!minimize_ram && subnet_type == "domain_mapping_v6") {
-            subnets_v6.push_back(std::make_pair(subnet_str, subnet_tag));
-        }
-        else if (!minimize_ram && (subnet_type == "proxy_v6" || subnet_type == "sinkhole_v6")) {
-            subnets_v6.push_back(std::make_pair(subnet_str, subnet_type));
+            if (subnet_str.find(".") != std::string::npos) {
+                subnets.push_back(std::make_pair(subnet_str, subnet_type));
+            }
+            else if (!minimize_ram) {   // don't load ipv6 subnets if minimize_ram is set
+                subnets_v6.push_back(std::make_pair(subnet_str, subnet_type));
+            }
         }
         else {
             return -1;  // failure

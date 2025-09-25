@@ -4,12 +4,16 @@
 #include <stdint.h>
 #include <typeinfo>
 #include <unordered_map>
+#include "libmerc.h"
 
 typedef struct ipv6_addr_lct {
     uint64_t a[2];
 
     // Default constructor
-    ipv6_addr_lct() = default;
+    ipv6_addr_lct() {
+        a[0] = 0;
+        a[1] = 0;
+    };
 
     // Constructor for initializing ipv6 address with 64 least significant bits
     explicit ipv6_addr_lct(uint64_t low) {
@@ -122,7 +126,7 @@ inline ipv6_addr_lct operator<<(const ipv6_addr_lct &addr, unsigned int shift) {
         result.a[0] = (addr.a[0] << shift) | (addr.a[1] >> (64 - shift));
         result.a[1] = addr.a[1] << shift;
     } else {
-        result.a[0] = addr.a[1] << (shift - 64);
+        result.a[0] = addr.a[0] << (shift - 64);
         result.a[1] = 0;
     }
 
@@ -144,7 +148,7 @@ inline ipv6_addr_lct EXTRACT(unsigned int pos, unsigned int num, ipv6_addr_lct s
         num1 = pos + num - 64;
         num2 = num - num1;
         out[0] = (in[0] << pos) >> (64 - num1);
-        out[1] = (in[1] << 0) >> (64 - num2);
+        out[1] = in[1] << (64 - num2);
     } else {
         out[1] = (in[1] << pos) >> (64 - num);
     }
@@ -243,6 +247,151 @@ inline void ntoh(ipv6_addr_lct &addr) {
     out2[6] = in2[1];
     out2[7] = in2[0];
     addr = output;
+}
+
+static inline bool ipv6_address_lct_unit_test(FILE *f = nullptr) {
+
+    // Test case 1: Copy constructor and default constructor
+    {
+        ipv6_addr_lct addr1;
+        ipv6_addr_lct addr2 = addr1;
+        if (f) fprintf(f, "Test case 1: Copy constructor\n");
+        if (addr2.a[0] != 0 || addr2.a[1] != 0) {
+            if (f) fprintf(f, "Failed: Copy constructor did not copy correctly\n");
+            return false;
+        }
+    }
+
+    // Test case 2: Assignment operator
+    {
+        ipv6_addr_lct addr1;
+        addr1 = 1;
+        if (f) fprintf(f, "Test case 2: Assignment operator\n");
+        if (addr1.a[0] != 0 || addr1.a[1] != 1) {
+            if (f) fprintf(f, "Failed: Assignment operator did not assign correctly\n");
+            return false;
+        }
+    }
+
+    // Test case 3: Comparison operators
+    {
+        ipv6_addr_lct addr1, addr2;
+        addr1 = 1;
+        addr2 = 2;
+        if (f) fprintf(f, "Test case 3: Comparison operators\n");
+        if (!(addr1 < addr2) || !(addr2 > addr1) || (addr1 == addr2) || !(addr1 != addr2)) {
+            if (f) fprintf(f, "Failed: Comparison operators did not work correctly\n");
+            return false;
+        }
+    }
+
+    // Test case 4: Addition operator
+    {
+        ipv6_addr_lct addr1;
+        addr1 = 1;
+        ipv6_addr_lct addr2 = addr1 + 1;
+        if (f) fprintf(f, "Test case 4: Addition operator\n");
+        if (addr2.a[0] != 0 || addr2.a[1] != 2) {
+            if (f) fprintf(f, "Failed: Addition operator did not add correctly\n");
+            return false;
+        }
+    }
+
+    // Test case 5: Bitwise logical operators
+    {
+        ipv6_addr_lct addr1, addr2;
+        addr1.a[0] = 0x0F0F0F0F0F0F0F0F;
+        addr1.a[1] = 0x0F0F0F0F0F0F0F0F;
+        addr2.a[0] = 0x3333333333333333;
+        addr2.a[1] = 0x3333333333333333;
+        ipv6_addr_lct addr_and = addr1 & addr2;
+        ipv6_addr_lct addr_xor = addr1 ^ addr2;
+        if (f) fprintf(f, "Test case 5: Bitwise logical operators\n");
+        if (addr_and.a[0] != 0x0303030303030303 || addr_and.a[1] != 0x0303030303030303) {
+            if (f) fprintf(f, "Failed: Bitwise AND operator did not work correctly\n");
+            return false;
+        }
+        if (addr_xor.a[0] != 0x3C3C3C3C3C3C3C3C || addr_xor.a[1] != 0x3C3C3C3C3C3C3C3C) {
+            if (f) fprintf(f, "Failed: Bitwise XOR operator did not work correctly\n");
+            return false;
+        }
+    }
+
+    // Test case 6: EXTRACT and EXTRACT_IDX functions
+    {
+        ipv6_addr_lct addr;
+        addr.a[0] = 0xFFFFFFFFFFFFFFFF;
+        addr.a[1] = 0xFFFFFFFFFFFFFFFF;
+
+        // extract 8 bits starting at 60
+        ipv6_addr_lct extracted1 = EXTRACT(48, 8, addr);
+        if (f) fprintf(f, "Test case 6a: EXTRACT function\n");
+        if (extracted1.a[0] != 0x0000000000000FF || extracted1.a[1] != 0x0000000000000000) {
+            if (f) fprintf(f, "Failed: EXTRACT function did not extract correctly\n");
+            return false;
+        }
+
+        ipv6_addr_lct extracted = EXTRACT(60, 8, addr);
+        uint64_t extracted_idx = EXTRACT_IDX(60, 8, addr);
+        if (f) fprintf(f, "Test case 6: EXTRACT and EXTRACT_IDX functions\n");
+        if (extracted.a[0] != 0x000000000000000F || extracted.a[1] != 0xF000000000000000) {
+            printf_err(log_err, "extracted: %016lx %016lx\n", extracted.a[0], extracted.a[1]);
+            if (f) fprintf(f, "Failed: EXTRACT function did not extract correctly\n");
+            return false;
+        }
+        if (extracted_idx != 0xFF) {
+            if (f) fprintf(f, "Failed: EXTRACT_IDX function did not extract index correctly\n");
+            return false;
+        }
+    }
+
+    // Test case 7: REMOVE function
+    {
+        ipv6_addr_lct addr;
+        addr.a[0] = 0xFFFFFFFFFFFFFFFF;
+        addr.a[1] = 0xFFFFFFFFFFFFFFFF;
+        ipv6_addr_lct removed = REMOVE(64, addr);
+        if (f) fprintf(f, "Test case 7: REMOVE function\n");
+        if (removed.a[0] != 0x0000000000000000 || removed.a[1] != 0xFFFFFFFFFFFFFFFF) {
+            if (f) fprintf(f, "Failed: REMOVE function did not remove correctly\n");
+            return false;
+        }
+    }
+
+    // Test case 8: Left shift operator
+    {
+        ipv6_addr_lct addr;
+        addr.a[0] = 0x0000000000000001;
+        addr.a[1] = 0x0000000000000000;
+
+        // shift beyond lower 64 bits
+        ipv6_addr_lct shifted = addr << 65;
+        if (f) fprintf(f, "Test case 8: Left shift operator\n");
+        if (shifted.a[0] != 0x0000000000000002 || shifted.a[1] != 0x0000000000000000) {
+            if (f) fprintf(f, "Failed: Left shift operator did not shift correctly\n");
+            return false;
+        }
+
+        // shift beyond 128 bits
+        ipv6_addr_lct shifted2 = addr << 130;
+        if (shifted2.a[0] != 0x0000000000000000 || shifted2.a[1] != 0x0000000000000000) {
+            if (f) fprintf(f, "Failed: Left shift operator did not handle large shift correctly\n");
+            return false;
+        }
+
+        // shift within lower 64 bits
+        ipv6_addr_lct addr2;
+        addr2.a[0] = 0x0000000000000001;
+        addr2.a[1] = 0x0000000000000001;
+        ipv6_addr_lct shifted3 = addr2 << 4;
+        fprintf(f, "Test case 8: Left shift operator within 64 bits\n");
+        if (shifted3.a[0] != 0x0000000000000010 || shifted3.a[1] != 0x0000000000000010) {
+            if (f) fprintf(f, "Failed: Left shift operator did not shift within 64 bits correctly\n");
+            return false;
+        }
+    }
+
+    return true;
 }
 
 #endif  // IPV6_LCTRIE_H

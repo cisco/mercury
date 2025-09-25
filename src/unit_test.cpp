@@ -158,9 +158,13 @@ int main(int, char *[]) {
             "writeable",
             &writeable_unit_test::run
         },
+        {
+            "ipv6_addr_lct",
+            &ipv6_address_lct_unit_test
+        }
     };
     for (const auto &tc : test_cases_verbose) {
-        bool result = tc.func(nullptr);
+        bool result = tc.func(stdout);
         fprintf(f, "%s::unit_test(): %s\n", tc.class_name, result ? passed : failed);
         num_tests++;
         if (result == true) {

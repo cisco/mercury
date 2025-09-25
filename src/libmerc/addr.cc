@@ -742,7 +742,7 @@ bool subnet_data::is_domain_faking(const char *domain_name_, const char* dst_ip)
             return false; // subnet is an exception - not domain-faking
         }
     }
-    else if (ipv6_subnet_array) { // try IPv6 only if we have IPv6 domain mappings
+    else if (ipv6_domain_array) { // try IPv6 only if we have IPv6 domain mappings
         ipv6_addr_lct ipv6_addr;
         datum addr_datum = get_datum(dst_ip);
         ipv6_address_string addr_parser{addr_datum};
