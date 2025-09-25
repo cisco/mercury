@@ -132,8 +132,8 @@ libmerc_driver:
 cython-test:
 ifeq ($(do_cython_interface_test), yes)
 	@echo "running cython interface validation test"
-	cd ../src/cython && $(MAKE)
 	$(python) cython_test.py
+	cd ../src/cython && $(python) mercury_python_test.py
 	@echo $(COLOR_GREEN) "passed cython interface test" $(COLOR_OFF)
 else
 	@echo $(COLOR_YELLOW) "omitting cython interface test due to missing dependencies" $(COLOR_OFF)
