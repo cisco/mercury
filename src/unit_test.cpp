@@ -164,7 +164,7 @@ int main(int, char *[]) {
         }
     };
     for (const auto &tc : test_cases_verbose) {
-        bool result = tc.func(stdout);
+        bool result = tc.func(nullptr);
         fprintf(f, "%s::unit_test(): %s\n", tc.class_name, result ? passed : failed);
         num_tests++;
         if (result == true) {
