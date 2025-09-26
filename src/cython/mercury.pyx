@@ -436,16 +436,10 @@ cdef class Mercury:
 
         cdef analysis_result ar = ac.result
 
-        ciphersuites = get_ciphersuites(fp_string)
-        ciphersuites_str = ''.join([chr(int(ciphersuites[i:i+2], 16)) for i in range(0, len(ciphersuites), 2)])
-        cdef bytes ciphersuites_b = ciphersuites_str.encode()
-
-        cdef unsigned int len_ = len(ciphersuites_b)
-        cdef const unsigned char* c_string_ref = ciphersuites_b
-        cdef datum ciphersuites_datum = datum(c_string_ref, c_string_ref + len_)
-
-        if is_faketls_util(ciphersuites_datum):
-            self.clf.set_faketls_attribute(ar)
+        if fp_string.startswith('tls'):
+            is_faketls = self.check_faketls(fp_string)
+            if is_faketls:
+                self.clf.set_faketls_attribute(ar)
 
         if ar.max_mal and fp_string.startswith('tls'):
             self.clf.set_enc_channel_attribute(ar)
@@ -495,18 +489,9 @@ cdef class Mercury:
         self.clf.check_additional_attributes_util(ar, server_name_c, dst_ip_c)
 
         # check for faketls tag
-        cdef bytes ciphersuites_b
-        cdef unsigned int len_
-        cdef const unsigned char* c_str_ref
-        cdef datum ciphersuites_datum
         if fp_str.startswith('tls'):
-            ciphersuites       = get_ciphersuites(fp_str)
-            ciphersuites_str   = ''.join([chr(int(ciphersuites[i:i+2], 16)) for i in range(0, len(ciphersuites), 2)])
-            ciphersuites_b     = ciphersuites_str.encode()
-            len_               = len(ciphersuites_b)
-            c_str_ref          = ciphersuites_b
-            ciphersuites_datum = datum(c_str_ref, c_str_ref + len_)
-            if is_faketls_util(ciphersuites_datum):
+            is_faketls = self.check_faketls(fp_str)
+            if is_faketls:
                 self.clf.set_faketls_attribute(ar)
 
         # check for encrypted channel tag
@@ -728,6 +713,22 @@ cdef class Mercury:
             'new_ua_weight':     new_ua_weight
         }
         return self.perform_analysis_common(fp_str, server_name, dst_ip, dst_port, user_agent=user_agent, weights=weights)
+
+
+    cdef bool check_faketls(self, str fp_string):
+        if not fp_string.startswith('tls'):
+            return False
+        ciphersuites = get_ciphersuites(fp_string)
+        ciphersuites_str = ''.join([chr(int(ciphersuites[i:i+2], 16)) for i in range(0, len(ciphersuites), 2)])
+        cdef bytes ciphersuites_b = ciphersuites_str.encode()
+
+        cdef unsigned int len_ = len(ciphersuites_b)
+        cdef const unsigned char* c_string_ref = ciphersuites_b
+        cdef datum ciphersuites_datum = datum(c_string_ref, c_string_ref + len_)
+
+        if is_faketls_util(ciphersuites_datum):
+            return True
+        return False
 
 
     cdef list extract_attributes(self, analysis_result ar):
