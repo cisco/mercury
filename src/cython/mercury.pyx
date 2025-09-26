@@ -719,8 +719,7 @@ cdef class Mercury:
         if not fp_string.startswith('tls'):
             return False
         ciphersuites = get_ciphersuites(fp_string)
-        ciphersuites_str = ''.join([chr(int(ciphersuites[i:i+2], 16)) for i in range(0, len(ciphersuites), 2)])
-        cdef bytes ciphersuites_b = ciphersuites_str.encode()
+        cdef bytes ciphersuites_b = bytes.fromhex(ciphersuites)
 
         cdef unsigned int len_ = len(ciphersuites_b)
         cdef const unsigned char* c_string_ref = ciphersuites_b
