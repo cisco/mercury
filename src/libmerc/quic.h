@@ -1519,14 +1519,16 @@ public:
 
         bool ret = c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
 
-        if (analysis_.result.status == fingerprint_status_randomized) {    // check for faketls on randomized connections only
-            if (!analysis_.result.attr.is_initialized() && c_) {
-                analysis_.result.attr.initialize(&(c_->get_common_data().attr_name.value()),c_->get_common_data().attr_name.get_names_char());
-            }
-            if (hello.is_faketls()) {
-                analysis_.result.attr.set_attr(c_->get_common_data().faketls_idx, 1.0);
-            }
-        }
+        // QUIC FakeTLS detection - re-enable when suffcient data is available
+        // 
+        // if (analysis_.result.status == fingerprint_status_randomized) {    // check for faketls on randomized connections only
+        //     if (!analysis_.result.attr.is_initialized() && c_) {
+        //         analysis_.result.attr.initialize(&(c_->get_common_data().attr_name.value()),c_->get_common_data().attr_name.get_names_char());
+        //     }
+        //     if (hello.is_faketls()) {
+        //         analysis_.result.attr.set_attr(c_->get_common_data().faketls_idx, 1.0);
+        //     }
+        // }
 
         return ret;
     }
@@ -1537,7 +1539,7 @@ public:
 
 // class quic_init represents an initial quic message
 //
-class quic_init {
+class quic_init : public base_protocol {
     quic_initial_packet initial_packet;
     quic_crypto_engine &quic_crypto;
     cryptographic_buffer crypto_buffer;
@@ -1722,6 +1724,16 @@ public:
         quic_record.close();
     }
 
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("quic");
+        protocols.close();
+
+        if (hello.is_not_empty()) {
+            hello.write_l7_metadata(o, false);
+        }
+    }
+
     void compute_fingerprint(class fingerprint &fp, size_t format_version) const {
 
         // fingerprint format:  quic:(quic_version)(tls fingerprint)
@@ -1746,7 +1758,7 @@ public:
         if(pre_decrypted) {
             return decry_pkt.do_analysis(k_, analysis_, c_);
         }
-        
+
         struct datum sn{NULL, NULL};
         struct datum user_agent {NULL, NULL};
         datum alpn;
@@ -1761,14 +1773,16 @@ public:
 
          bool ret = c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
 
-        if (analysis_.result.status == fingerprint_status_randomized) {    // check for faketls on randomized connections only
-            if (!analysis_.result.attr.is_initialized() && c_) {
-                analysis_.result.attr.initialize(&(c_->get_common_data().attr_name.value()),c_->get_common_data().attr_name.get_names_char());
-            }
-            if (hello.is_faketls()) {
-                analysis_.result.attr.set_attr(c_->get_common_data().faketls_idx, 1.0);
-            }
-        }
+        // QUIC FakeTLS detection - re-enable when suffcient data is available
+        // 
+        // if (analysis_.result.status == fingerprint_status_randomized) {    // check for faketls on randomized connections only
+        //     if (!analysis_.result.attr.is_initialized() && c_) {
+        //         analysis_.result.attr.initialize(&(c_->get_common_data().attr_name.value()),c_->get_common_data().attr_name.get_names_char());
+        //     }
+        //     if (hello.is_faketls()) {
+        //         analysis_.result.attr.set_attr(c_->get_common_data().faketls_idx, 1.0);
+        //     }
+        // }
 
         return ret;
     }

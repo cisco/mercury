@@ -8,9 +8,7 @@
 #ifndef DATUM_H
 #define DATUM_H
 
-#ifndef __STDC_FORMAT_MACROS
-#define __STDC_FORMAT_MACROS 1
-#endif
+#define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -28,6 +26,7 @@ typedef SSIZE_T ssize_t;
 #include <limits>
 #include <string>
 #include <cassert>
+#include <memory>
 #include "buffer_stream.h"
 
 /// `mercury_debug` is a compile-time option that turns on debugging output
@@ -403,7 +402,7 @@ struct datum {
     }
 
     bool case_insensitive_match(const char * name) const {
-        if (name == nullptr) return false; 
+        if (name == nullptr) return false;
         const uint8_t *d = data;
         const char *k = name;
         while (d < data_end) {
@@ -447,7 +446,7 @@ struct datum {
     ///     assert(d.cmp(d) == 0);
     ///
     int cmp(const datum &p) const {
-        int cmp = ::memcmp(data, p.data, (std::min)(length(), p.length()));
+        int cmp = ::memcmp(data, p.data, std::min(length(), p.length()));
         if (cmp == 0) {
             return length() - p.length();
         }
@@ -517,7 +516,7 @@ struct datum {
         const unsigned char *tmp_data = data;
         const unsigned char *pattern = delim;
         const unsigned char *pattern_end = delim + length;
-        
+
         while (pattern < pattern_end && tmp_data < data_end)
         {
             if (*tmp_data != *pattern)
@@ -845,11 +844,10 @@ struct datum {
     }
 
     void fprint_c_array(FILE *f, const char *name) const {
-        // TODO: It should have a length parameter as well to prevent the case when this c_string is not null terminated
         if (f == nullptr || name == nullptr) { return; }
         size_t count = 1;
         const uint8_t *x = data;
-        fprintf(f, "uint8_t %s[] = {\n    ", name);
+        fprintf(f, "uint8_t %s[%zd] = {\n    ", name, length());
         while (x < data_end - 1) {
             fprintf(f, "0x%02x,", *x++);
             if (count++ % 8 == 0) {
@@ -2023,7 +2021,7 @@ public:
 };
 
 namespace {
-    
+
     [[maybe_unused]] int datum_fuzz_test(const uint8_t *data, size_t size) {
         datum d{data, data+size};
         d.isupper();
@@ -2032,18 +2030,18 @@ namespace {
         d.is_printable();
         uint8_t output;
         d.lookahead_uint8(&output);
-        char str[size + 1];
+        auto str = std::make_unique<char[]>(size + 1);
         str[size] = '\0';
-        datum d2{str};
+        datum d2{str.get()};
         return 0;
     }
-    
+
     [[maybe_unused]] int datum_trim_leading_whitespace_fuzz_test(const uint8_t *data, size_t size) {
         datum d{data, data+size};
         d.trim_leading_whitespace();
         return 0;
     }
-    
+
     [[maybe_unused]] int datum_bits_in_data_fuzz_test(const uint8_t *data, size_t size) {
         datum d{data, data+size};
         d.bits_in_data();
@@ -2068,7 +2066,7 @@ namespace {
         return 0;
     }
 
-    [[maybe_unused]] int datum_parse_up_to_delim_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) { 
+    [[maybe_unused]] int datum_parse_up_to_delim_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
         datum d1;
         datum d2{data1, data1+size1};
         uint8_t delim;
@@ -2110,10 +2108,10 @@ namespace {
 
     [[maybe_unused]] int datum_case_insensitive_match_2_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
         datum d{data1, data1+size1};
-        char name[size2+1];
-        memcpy(name, data2, size2);
+        auto name = std::make_unique<char []>(size2 + 1);
+        memcpy(name.get(), data2, size2);
         name[size2] = '\0';
-        d.case_insensitive_match(name);
+        d.case_insensitive_match(name.get());
         return 0;
     }
 
@@ -2150,7 +2148,7 @@ namespace {
         d.skip_up_to_delim(reinterpret_cast<const unsigned char*>(data2), size2);
         return 0;
     }
-    
+
     [[maybe_unused]] int datum_trim_trail_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, [[maybe_unused]] size_t size2) {
         datum d{data1, data1+size1};
         unsigned char trail = data2[0];
@@ -2167,10 +2165,11 @@ namespace {
 
     [[maybe_unused]] int datum_accept_byte_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
         datum d{data1, data1+size1};
-        uint8_t alternative[size2+1], output;
-        memcpy(alternative, data2, size2);
+        auto alternative = std::make_unique<uint8_t []>(size2 + 1);
+        uint8_t output;
+        memcpy(alternative.get(), data2, size2);
         alternative[size2] = 0;
-        d.accept_byte(alternative, &output);
+        d.accept_byte(alternative.get(), &output);
         return 0;
     }
 
@@ -2202,11 +2201,11 @@ namespace {
 
     [[maybe_unused]] int datum_fprint_c_array_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
         datum d{data1, data1 + size1};
-        char name[size2 + 1];
-        memcpy(name, data2, size2);
+        auto name = std::make_unique<char []>(size2 + 1);
+        memcpy(name.get(), data2, size2);
         name[size2] = '\0';
         FILE *temp_file = tmpfile();
-        d.fprint_c_array(temp_file, NULL);
+        d.fprint_c_array(temp_file, name.get());
         fclose(temp_file);
         return 0;
     }
@@ -2222,38 +2221,38 @@ namespace {
     }
 
     [[maybe_unused]] int writeable_copy_1_fuzz_2_test([[maybe_unused]] const uint8_t *data1, size_t size1, const uint8_t *data2, [[maybe_unused]] size_t size2) {
-        uint8_t buffer[size1];
-        writeable w{buffer, buffer+size1};
+        auto buffer = std::make_unique<uint8_t []>(size1);
+        writeable w{buffer.get(), buffer.get()+size1};
         uint8_t x = data2[0];
         w.copy(x);
         return 0;
     }
 
     [[maybe_unused]] int writeable_copy_2_fuzz_2_test([[maybe_unused]] const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
-        uint8_t buffer[size1];
-        writeable w{buffer, buffer+size1};
+        auto buffer = std::make_unique<uint8_t []>(size1);
+        writeable w{buffer.get(), buffer.get()+size1};
         w.copy(data2, size2);
         return 0;
     }
 
     [[maybe_unused]] int writeable_write_hex_fuzz_2_test( [[maybe_unused]] const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
-        uint8_t buffer[size1];
-        writeable w{buffer, buffer+size1};
+        auto buffer = std::make_unique<uint8_t []>(size1);
+        writeable w{buffer.get(), buffer.get()+size1};
         w.write_hex(data2, size2);
         return 0;
     }
 
 
     [[maybe_unused]] int writeable_write_quote_enclosed_hex_1_fuzz_2_test([[maybe_unused]] const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
-        uint8_t buffer[size1];
-        writeable w{buffer, buffer+size1};
+        auto buffer = std::make_unique<uint8_t []>(size1);
+        writeable w{buffer.get(), buffer.get()+size1};
         w.write_quote_enclosed_hex(data2, size2);
         return 0;
     }
 
     [[maybe_unused]] int writeable_write_quote_enclosed_hex_2_fuzz_2_test([[maybe_unused]] const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
-        uint8_t buffer[size1];
-        writeable w{buffer, buffer+size1};
+        auto buffer = std::make_unique<uint8_t []>(size1);
+        writeable w{buffer.get(), buffer.get()+size1};
         datum d{data2, data2+size2};
         w.write_quote_enclosed_hex(d);
         return 0;
@@ -2261,8 +2260,8 @@ namespace {
 
 
     [[maybe_unused]] int writeable_copy_from_hex_fuzz_2_test([[maybe_unused]] const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
-        uint8_t buffer[size1];
-        writeable w{buffer, buffer+size1};
+        auto buffer = std::make_unique<uint8_t []>(size1);
+        writeable w{buffer.get(), buffer.get()+size1};
         w.copy_from_hex(data2, size2);
         return 0;
     }
@@ -2270,13 +2269,13 @@ namespace {
 
     [[maybe_unused]] int dynamic_buffer_fuzz_test(const uint8_t *data, [[maybe_unused]] size_t size) {
         size_t initial_capacity = data[0];
-        dynamic_buffer buffer(initial_capacity);    
-        
+        dynamic_buffer buffer(initial_capacity);
+
         buffer.reset();
         buffer.is_not_empty();
         buffer.readable_length();
         buffer.contents();
-    
+
         return 0;
     }
 };

@@ -1,6 +1,10 @@
 ## Description
 
-Replace with description of pull request.
+Replace this description. What change is being made? (one-line TLDR summary)
+
+Why are these changes being made?  Provide context and any design decisions that
+are not reflected in the source code.  One good framing: problem, root cause,
+solution.
 
 ## Sample Output
 
@@ -11,7 +15,7 @@ Sample JSON or other output.
 
 ## Checklist
 
-<!-- Either complete or explain below why it is not applicable -->
+<!-- If not applicable, append with "- N/A" and check the box. -->
 
 - Configuration
   - [ ] Command line option(s)
@@ -27,4 +31,10 @@ Sample JSON or other output.
 - Documentation
   - [ ] Update `--help`
   - [ ] Update `README.md` (includes output of `--help`)
-  - [ ] Update `doc/CHANGELOG.md`
+
+## Changelog Entry
+
+Replace this with the text to be included in `doc/CHANGELOG.md`, so that
+reviewers can check the changelog entry for completeness and spelling.  Once
+this PR is approved, add this entry to `doc/CHANGELOG.md` and commit it just
+before merging the PR.

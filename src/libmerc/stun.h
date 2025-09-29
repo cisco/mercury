@@ -818,6 +818,18 @@ namespace stun {
             }
         }
 
+        void write_l7_metadata(cbor_object &o, bool) {
+            cbor_array protocols{o, "protocols"};
+            protocols.print_string("stun");
+            protocols.close();
+
+            if (software.is_not_empty()) {
+                cbor_object stun{o, "stun"};
+                stun.print_key_string("software", software);
+                stun.close();
+            }
+        }
+
         void write_raw_features(json_object &o) const {
             data_buffer<2048> buf;
             buf.copy('[');

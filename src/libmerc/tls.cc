@@ -1,5 +1,5 @@
 /*
- * tls.c
+ * tls.cc
  *
  * Copyright (c) 2021 Cisco Systems, Inc. All rights reserved.  License at
  * https://github.com/cisco/mercury/blob/master/LICENSE
@@ -13,6 +13,7 @@
 #include "fingerprint.h"
 #include "tls_extensions.h"
 #include "ech.hpp"
+#include "mem_utils.hpp"
 
 /* TLS Constants */
 
@@ -111,7 +112,7 @@ void tls_extensions::print(struct json_object &o, const char *key) const {
     array.close();
 }
 
-void tls_extensions::print_server_name(struct json_object &o, const char *key) const {
+datum tls_extensions::get_server_name() const {
 
     struct datum ext_parser{this->data, this->data_end};
 
@@ -133,13 +134,17 @@ void tls_extensions::print_server_name(struct json_object &o, const char *key) c
 
         if (tmp_type == type_sni) {
             struct datum ext{data, data_end};
-            //            tls.print_key_json_string("server_name", pf.x.packet_data.value + SNI_HDR_LEN, pf.x.packet_data.length - SNI_HDR_LEN);
-            // o.print_key_json_string(key, ext.data + SNI_HDR_LEN, ext.length() - SNI_HDR_LEN);
             ext.skip(SNI_HDR_LEN);
-            o.print_key_json_string(key, ext);
+            return ext;
         }
     }
+    return datum{nullptr, nullptr};
 
+}
+
+void tls_extensions::print_server_name(struct json_object &o, const char *key) const {
+    datum server_name = get_server_name();
+    o.print_key_json_string(key, server_name);
 }
 
 datum tls_extensions::get_supported_groups() const {
@@ -411,7 +416,7 @@ struct tls_extension {
             p.data += length;
         }
 
-        // Initialize with degreased extension 
+        // Initialize with degreased extension
         if (is_grease()) {
             encoded_type = 0x0a0a;
         } else {
@@ -686,7 +691,7 @@ void tls_extensions::fingerprint_format2(struct buffer_stream &b, enum tls_role 
     std::array<std::array<tls_extension, tls_extensions::max_repeat_extensions>, tls_extensions_assign::include_list_len> extensions_list;
 
     int32_t index = -1;
-    
+
     // Store the sorted index of all extensions
 
     while (ext_parser.length() > 0) {
@@ -713,7 +718,7 @@ void tls_extensions::fingerprint_format2(struct buffer_stream &b, enum tls_role 
 
         if (index >= 0) {
             int cnt = extensions_list[index][0].cnt;
-            
+
             if (cnt < tls_extensions::max_repeat_extensions) {
                 extensions_list[index][cnt] = x;
                 extensions_list[index][0].cnt++;
@@ -747,7 +752,7 @@ void tls_extensions::fingerprint_format2(struct buffer_stream &b, enum tls_role 
             x.fingerprint_format1(b, role);
         }
     }
-   b.write_char(']'); 
+   b.write_char(']');
 }
 
 void tls_extensions::write_raw_features(writeable &buf) const {
@@ -895,7 +900,7 @@ void tls_client_hello::write_raw_features(writeable &buf) const {
     extensions.write_raw_features(buf);
     buf.copy(']');
 }
-    
+
 
 void tls_client_hello::write_json(struct json_object &record, bool output_metadata) const {
     if (ciphersuite_vector.is_not_readable()) {
@@ -1018,6 +1023,99 @@ bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_context
     return ret;
 }
 
+
+bool tls_client_hello::do_network_behavioral_detections(const struct key &k_, struct analysis_context &analysis_,
+                                                        classifier *c_, struct common_data &nbd_common) {
+    if (check_residential_proxy(k_, random)) {
+        if (c_) {
+            analysis_.result.attr.set_attr(c_->common.res_proxy_idx, 1.0);
+            return true;
+        } else if (nbd_common.res_proxy_idx != -1) {
+            analysis_.result.attr.set_attr(nbd_common.res_proxy_idx, 1.0);
+            return true;
+        }
+    }
+    return false;
+}
+
+
+bool tls_client_hello::check_residential_proxy(const struct key &k_, datum random) {
+    constexpr uint16_t max_nonce_entries = 1024;
+    static uint16_t nonce_index = 0;
+    static std::mutex res_proxy_mutex;
+    static std::vector<std::array<uint8_t,L_Random>> current_nonces(max_nonce_entries);
+
+    // Use a custom allocator for the unordered_map
+    using nonce_map_allocator = fixed_fifo_allocator<std::pair<const std::array<uint8_t, L_Random>, uint32_t>, max_nonce_entries>;
+    static std::unordered_map<
+        std::array<uint8_t, L_Random>,
+        uint32_t,
+        std::hash<std::array<uint8_t, L_Random>>,
+        std::equal_to<std::array<uint8_t, L_Random>>,
+        nonce_map_allocator> nonce_ip_map(max_nonce_entries);
+    std::array<uint8_t,L_Random> random_nonce;
+
+    if (k_.ip_vers != 4) {
+        return false; // only support ipv4 for now, need to update nonce_ip_map to support ipv6
+    }
+
+    // determine if IP addresses are internal/external
+    bool is_src_ip_global = k_.src_is_global();
+    bool is_dst_ip_global = k_.dst_is_global();
+
+    //
+    // check if src_ip is external and dst_ip is internal,
+    //   and if so, start tracking random nonce
+    if ((is_src_ip_global == true) && (is_dst_ip_global == false)) {
+        if (random.length() != L_Random) {
+            return false;
+        }
+
+        std::memcpy(random_nonce.data(), random.data, L_Random);
+        std::lock_guard lock(res_proxy_mutex);
+
+        auto nonce_iter = nonce_ip_map.find(random_nonce);
+        if (nonce_iter != nonce_ip_map.end()) { // nonce collision
+            return false;
+        }
+
+
+        if (nonce_ip_map.size() == max_nonce_entries) { // cache is full, delete oldest entry
+            nonce_ip_map.erase(current_nonces[nonce_index]);
+        }
+
+        current_nonces[nonce_index] = random_nonce;
+        nonce_index = (nonce_index + 1) % max_nonce_entries;
+        nonce_ip_map.insert(nonce_iter, {random_nonce, (uint32_t)k_.addr.ipv4.dst});
+
+        return false;
+    }
+
+    //
+    // check if we have seen the random nonce before,
+    //   and if so, check if the src_ip is internal and
+    //   the dst_ip is external
+    //
+    if ((is_src_ip_global == false) && (is_dst_ip_global == true)) {
+        if (random.length() != L_Random) {
+            return false;
+        }
+        std::memcpy(random_nonce.data(), random.data, L_Random);
+        std::lock_guard lock(res_proxy_mutex);
+
+        auto nonce_iter = nonce_ip_map.find(random_nonce);
+        if (nonce_iter == nonce_ip_map.end()) { // nonce not found
+            return false;
+        }
+        if (nonce_iter->second == (uint32_t)k_.addr.ipv4.src) {
+            return true;
+        }
+        return false;
+    }
+
+    return false;
+}
+
 void tls_server_hello::parse(struct datum &p) {
     mercury_debug("%s: processing packet with %td bytes\n", __func__, p.data_end - p.data);
 
@@ -1102,7 +1200,7 @@ void tls_server_certificate::write_json(struct json_array &a, bool json_output) 
 
         struct json_object o{a};
         if (json_output) {
-            struct json_object_asn1 cert{o, "cert"};
+            struct json_object cert{o, "cert"};
             struct x509_cert c;
             c.parse(tmp_cert_list.data, tmp_len);
             c.print_as_json(cert, {}, NULL);
@@ -1121,4 +1219,3 @@ void tls_server_certificate::write_json(struct json_array &a, bool json_output) 
         }
     }
 }
-

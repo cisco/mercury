@@ -281,8 +281,6 @@ public:
 };
 
 class dnp3_app {
-    bool is_resp;
-    bool outstation_resp;
     datum data;
     dnp3_app_hdr app_hdr;
     bool valid;
@@ -525,6 +523,12 @@ public:
         }
 
         return;
+    }
+
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("dnp3");
+        protocols.close();
     }
 
 };

@@ -328,10 +328,11 @@ struct ssh_init_packet : public base_protocol {
     struct datum comment_string;
     ssh_binary_packet binary_pkt;
     ssh_kex_init kex_pkt;
+    data_buffer<MAX_USER_AGENT_LEN> user_agent;
 
     static constexpr size_t max_data_size = 8192;
 
-    ssh_init_packet(datum &p) : protocol_string{NULL, NULL}, comment_string{NULL, NULL}, binary_pkt{}, kex_pkt{} {
+    ssh_init_packet(datum &p) : protocol_string{NULL, NULL}, comment_string{NULL, NULL}, binary_pkt{}, kex_pkt{}, user_agent{} {
         parse(p);
     }
 
@@ -446,6 +447,17 @@ struct ssh_init_packet : public base_protocol {
 
     }
 
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("ssh");
+        protocols.close();
+
+        cbor_object ssh{o, "ssh"};
+        ssh.print_key_string("protocol", protocol_string);
+        ssh.print_key_string("comment", comment_string);
+        ssh.close();
+    }
+
     size_t more_bytes_needed() const {
         if (kex_pkt.is_not_empty()) {
             // check binary pkt for additional bytes
@@ -461,6 +473,24 @@ struct ssh_init_packet : public base_protocol {
         { 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00},
         { 'S',  'S',  'H',  '-',  0x00, 0x00, 0x00, 0x00}
     };
+
+    bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
+        if (!kex_pkt.is_not_empty()) {
+            return false;
+        }
+        
+        // concatenate protocol and comment strings for analysis
+        datum tmp_protocol_str = protocol_string;
+        datum tmp_comment_str = comment_string;
+        user_agent.parse(tmp_protocol_str);
+        user_agent.parse(tmp_comment_str);
+
+        analysis_.destination.init({nullptr, nullptr}, user_agent.contents(), {nullptr, nullptr}, k_);
+        if (c_ == nullptr) {
+            return false;
+        }
+        return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+}
 
 };
 

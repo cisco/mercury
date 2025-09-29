@@ -6,6 +6,7 @@
 #define STATIC_DICT_HPP
 
 #include <iterator>   // for std::distance()
+#include <array>
 
 static constexpr bool streq(const char *l, const char *r) {
     while (*l and *r) {
@@ -28,6 +29,7 @@ public:
 
     constexpr size_t index(const char *s) const {
         for (auto x = a.begin(); x < a.end(); x++) {
+            assert(*x != nullptr && "null element in static_dictionary");
             if (streq(*x, s)) {
                 return std::distance(a.begin(), x);
             }
@@ -38,6 +40,9 @@ public:
     constexpr const char *value(size_t idx) const {
         return a[idx];
     }
+
+    auto begin() const { return a.begin(); }
+    auto end() const { return a.end(); }
 
     static bool unit_test(FILE *f=nullptr) {
 

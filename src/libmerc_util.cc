@@ -14,8 +14,88 @@
 #include "packet.h"
 #include "libmerc/datum.h"
 #include "libmerc/json_object.h"
+#include "libmerc/l7m.hpp"
+
+#include "libmerc/eth.h"
+#include "libmerc/ip.h"
+#include "libmerc/tcpip.h"
+#include "libmerc/udp.h"
 
 using namespace mercury_option;  //from options.h
+
+struct flow_key_and_transport_data {
+    flow_key_ext flow_key;
+    const uint8_t *transport_data;
+    size_t transport_data_length;
+    bool is_valid = false;
+
+    flow_key_and_transport_data(struct datum &pkt_data, FILE *verbose=nullptr) {
+
+        eth ethernet{pkt_data};
+        uint16_t ethertype = ethernet.get_ethertype();
+        switch(ethertype) {
+        case ETH_TYPE_IP:
+        case ETH_TYPE_IPV6:
+            {
+                key k;
+                ip ip_pkt{pkt_data, k};
+                ip::protocol protocol = ip_pkt.transport_protocol();
+                if (protocol == ip::protocol::tcp) {
+                    struct tcp_packet tcp_pkt{pkt_data};
+                    tcp_pkt.set_key(k);
+                    set_flow_key(k);
+                    transport_data = pkt_data.data;
+                    transport_data_length = pkt_data.length();
+                    is_valid = true;
+                } else if (protocol == ip::protocol::udp) {
+                    class udp udp_pkt{pkt_data};
+                    udp_pkt.set_key(k);
+                    set_flow_key(k);
+                    transport_data = pkt_data.data;
+                    transport_data_length = pkt_data.length();
+                    is_valid = true;
+                } else {
+                    //
+                    // ignore other transport protocols
+                    //
+                    if (verbose) { fprintf(verbose, "unknown transport protocol (ip.protocol %u)\n", protocol); }
+                }
+            }
+            break;
+        default:
+            if (verbose) { fprintf(verbose, "unknown ethertype (%04x)\n", ntoh(ethertype)); }
+            //
+            // ignore other ethertypes
+            //
+            ;
+        }
+
+    }
+
+    explicit operator bool() const { return is_valid; }
+
+    void set_flow_key(key &k) {
+        flow_key.src_port = hton(k.src_port);
+        flow_key.dst_port = hton(k.dst_port);
+        flow_key.protocol = k.protocol;
+        flow_key.ip_vers = k.ip_vers;
+        if (k.ip_vers == 4) {
+            flow_key.addr.ipv4.src = k.addr.ipv4.src;
+            flow_key.addr.ipv4.dst = k.addr.ipv4.dst;
+        } else if (k.ip_vers == 6) {
+            flow_key.addr.ipv6.src.a = k.addr.ipv6.src.a[0];
+            flow_key.addr.ipv6.src.b = k.addr.ipv6.src.a[1];
+            flow_key.addr.ipv6.src.c = k.addr.ipv6.src.a[2];
+            flow_key.addr.ipv6.src.d = k.addr.ipv6.src.a[3];
+            flow_key.addr.ipv6.dst.a = k.addr.ipv6.dst.a[0];
+            flow_key.addr.ipv6.dst.b = k.addr.ipv6.dst.a[1];
+            flow_key.addr.ipv6.dst.c = k.addr.ipv6.dst.a[2];
+            flow_key.addr.ipv6.dst.d = k.addr.ipv6.dst.a[3];
+        }
+    }
+
+};
+
 
 class length_and_data {
     const uint8_t *data;
@@ -264,6 +344,8 @@ int main(int argc, char *argv[]) {
         { argument::required,   "--libmerc",   "use libmerc.so file <arg>" },
         { argument::required,   "--resources", "use resource file <arg>" },
         { argument::none,       "--stats",     "generate stats.json.gz file" },
+        { argument::none,       "--fdc",       "output FDC" },
+        { argument::optional,   "--l7-output", "redirect L7 metadata JSON output to file <arg>" },
         { argument::none,       "--verbose",   "turn on verbose output" },
         { argument::none,       "--help",      "print out help message" }
     });
@@ -275,8 +357,10 @@ int main(int argc, char *argv[]) {
     auto [ pcap_is_set, pcap_file ] = opt.get_value("--read");
     auto [ libmerc_is_set, libmerc_file ] = opt.get_value("--libmerc");
     auto [ resources_is_set, resources_file ] = opt.get_value("--resources");
+    auto [ l7_output_is_set, l7_output_file ] = opt.get_value("--l7-output");
     bool verbose = opt.is_set("--verbose");
     bool do_stats = opt.is_set("--stats");
+    bool do_fdc = opt.is_set("--fdc");
     bool print_help = opt.is_set("--help");
 
     if (print_help) {
@@ -299,7 +383,7 @@ int main(int argc, char *argv[]) {
     if (resources_is_set) {
         resources_path = (char *)resources_file.c_str();
     }
-    size_t i=0;
+    [[maybe_unused]] size_t i=0;
     try {
 
         // load libmerc.so from location provided through --libmerc option
@@ -328,7 +412,25 @@ int main(int argc, char *argv[]) {
             return -1;
         }
 
-	pcap::file_reader pcap{pcap_file.c_str()};
+        // open L7 output file if specified
+        //
+        FILE *l7_output_fp = nullptr;
+        if (l7_output_is_set) {
+            l7_output_fp = fopen(l7_output_file.c_str(), "w");
+            if (l7_output_fp == nullptr) {
+                fprintf(stderr, "error: could not open L7 output file %s for writing\n", l7_output_file.c_str());
+                exit(EXIT_FAILURE);
+            }
+        }
+
+        // open PCAP file for reading
+        //
+        pcap::file_reader pcap{pcap_file.c_str()};
+        if (strcmp(pcap.get_linktype(), "ETHERNET") != 0) {
+            fprintf(stderr, "error: linktype %s not supported\n", pcap.get_linktype());
+            if (l7_output_fp) fclose(l7_output_fp);
+            exit(EXIT_FAILURE);
+        }
         packet<65536> pkt;
         while (true) {
 
@@ -341,15 +443,58 @@ int main(int argc, char *argv[]) {
 
             // analyze packet, get analysis result and write it out
             //
-            struct timespec ts; // TODO: set from pkt
-            const struct analysis_context *ctx = mercury.get_analysis_context(mpp, (uint8_t *)pkt_data.data, pkt_data.length(), &ts);
-            if (ctx) {
-                mercury.fprint_json_analysis_context(stdout, ctx);
+            if (do_fdc) {
+
+                const struct analysis_context *ac;
+
+                uint8_t buffer[4096];
+                size_t data_buf_len = 4096;
+                if (flow_key_and_transport_data fktd{pkt_data, verbose ? stderr : nullptr}) {
+
+                    int retval = mercury.get_analysis_context_fdc(mpp,
+                                                                  &fktd.flow_key,
+                                                                  fktd.transport_data,
+                                                                  fktd.transport_data_length,
+                                                                  buffer,
+                                                                  &data_buf_len,
+                                                                  &ac);
+
+                    if (retval > 0) {
+                        datum outbuf{buffer, buffer + retval};
+                        std::string l7_json = translate_l7_metadata_to_json_string(outbuf);
+                        if (l7_output_fp) {
+                            fprintf(l7_output_fp, "%s\n", l7_json.c_str());
+                            fflush(l7_output_fp);  // Ensure immediate write
+                        } else {
+                            outbuf.fprint_hex(stdout); fputc('\n', stdout);
+                            printf("%s\n", l7_json.c_str());
+                        }
+                    } else if (retval < 0) {
+                        if (verbose) { fprintf(stderr, "get_analysis_context_fdc retval: %d\tdata_buf_len: %zu\n", retval, data_buf_len); }
+                    }
+
+                }
+
+            } else {
+
+                // invoke the get_analysis_context() function to process ethernet frames
+                //
+                struct timespec ts; // TODO: set from pkt
+                const struct analysis_context *ctx = mercury.get_analysis_context(mpp, (uint8_t *)pkt_data.data, pkt_data.length(), &ts);
+                if (ctx) {
+                    mercury.fprint_json_analysis_context(stdout, ctx);
+                }
+                bool need_more_pkts = mercury.more_pkts_needed(mpp);
+                fprintf(stdout, "{more_pkts_needed:%s}\n", need_more_pkts ? "true" : "false");
             }
-            bool need_more_pkts = mercury.more_pkts_needed(mpp);
-            fprintf(stdout, "{more_pkts_needed:%s}\n", need_more_pkts ? "true" : "false");
 
             i++;
+        }
+
+        // close L7 output file if it was opened
+        //
+        if (l7_output_fp) {
+            fclose(l7_output_fp);
         }
 
         // destroy packet processor

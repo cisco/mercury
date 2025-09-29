@@ -29,7 +29,8 @@ Mercury produces fingerprint strings for TLS, DTLS, SSH, HTTP, TCP, and other pr
 Mercury itself has minimal dependencies other than a g++ or llvm build environment, but to run the automated tests and ancillary programs in this package, you will need to install additional packages, as in the following Debian/Ubuntu example:
 ```
 sudo apt install g++ jq git zlib1g-dev tcpreplay valgrind python3-pip libssl-dev clang
-pip3 install jsonschema
+python3 -m pip install --upgrade pip
+python3 -m pip install --upgrade jsonschema cryptography Cython wheel setuptools
 ```
 To build mercury, in the root directory, run
 ```
@@ -37,6 +38,32 @@ To build mercury, in the root directory, run
 make
 ```
 to build the package (and check for the programs and python modules required to test it).  TPACKETv3 is present in Linux kernels newer than 3.2.
+
+Building mercury on macOS Apple Silicon is currently experimental.  Note that on
+macOS, standalone mercury can read pcap as input but not capture on an
+interface, since AF_PACKET is Linux-specific.  The following has been tested
+on an M2 mac with Python 3.13.2 installed via the Homebrew command below.
+```
+brew install python openssl zlib
+brew install cmake     # optional: libmerc can be also built with CMake
+mkdir -p ~/.envs
+python3 -m venv ~/.envs/merc
+source ~/.envs/merc/bin/activate
+python3 -m pip install --upgrade pip
+python3 -m pip install --upgrade jsonschema cryptography Cython wheel setuptools
+./configure && make
+cd src/cython && make && make wheel
+```
+
+In terms of runtime dependencies, the `mercury` standalone binary should only require:
+- [zlib](https://zlib.net)
+- [OpenSSL](https://www.openssl.org/)
+
+The included [Dockerfile](Dockerfile) provides a working example on Debian.
+Ancillary tools such as the ones listed below may require other packages.
+- [pmercury](python/README.md) and associated tools: Python 3.8+ and several pip
+  packages.
+- `batch_gcd`: [GNU Multiple Precision Arithmetic Library (GMP)](https://gmplib.org/)
 
 ### Installation
 In the root directory, edit mercury.cfg with the network interface you want to capture from, then run
@@ -118,6 +145,7 @@ GENERAL OPTIONS
    --certs-json                          # output certs as JSON, not base64
    --metadata                            # output more protocol metadata in JSON
    --raw-features                        # select protocols to write out raw features string(see --help)
+   --network-behavioral-detections       # perform network behavioral detections
    --minimize-ram                        # minimize the ram usage of mercury library
    [-v or --verbose]                     # additional information sent to stderr
    --license                             # write license information to stdout
@@ -261,8 +289,13 @@ DETAILS
        none            None of the above
       <no option>     None of the above
 
+   --network-behavioral-detections performs analysis on packets, sessions, and
+    sets of sessions independent of the core mercury analysis functionality. These
+    are not driven by the resources file. An example detection includes detecting
+    residential proxies.
+
    --minimize-ram minimizes the ram usage of mercury library by reducing classifer
-   features and minimizing the maximum reassembly segments."
+   features and minimizing the maximum reassembly segments.
 
    [-v or --verbose] writes additional information to the standard error,
    including the packet count, byte count, elapsed time and processing rate, as

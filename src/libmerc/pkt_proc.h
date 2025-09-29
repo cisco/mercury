@@ -102,11 +102,12 @@ struct stateful_pkt_proc {
     struct flow_table_tcp tcp_flow_table;
     struct tcp_initial_message_filter tcp_init_msg_filter;
     struct analysis_context analysis;
+    struct common_data nbd_common_data;
     class message_queue *mq;
     mercury_context m;
     classifier *c;        // TODO: change to reference
     data_aggregator *ag;
-    global_config global_vars;
+    const global_config &global_vars;
     class traffic_selector &selector;
     quic_crypto_engine quic_crypto;
     struct tcp_reassembler *reassembler_ptr = nullptr;
@@ -117,9 +118,10 @@ struct stateful_pkt_proc {
         tcp_flow_table{(unsigned int)prealloc_size},
         tcp_init_msg_filter{},
         analysis{},
+        nbd_common_data{},
         mq{nullptr},
         m{mc},
-        c{nullptr},
+        c{mc->c},
         ag{nullptr},
         global_vars{mc->global_vars},
         selector{mc->selector},
@@ -137,11 +139,9 @@ struct stateful_pkt_proc {
 
         // set config and classifier to (refer to) context m
         // analysis requires `do_analysis` & `resources` to be set
-        if (m->c == nullptr && m->global_vars.do_analysis && m->global_vars.resources != nullptr) {
+        if (c == nullptr && global_vars.do_analysis && global_vars.resources != nullptr) {
             throw std::runtime_error("error: classifier pointer is null");
         }
-        this->c = m->c;
-        this->global_vars = m->global_vars;
 
         // setting protocol based configuration option to output the raw features
         set_raw_features(global_vars.raw_features);
@@ -289,26 +289,26 @@ struct stateful_pkt_proc {
 
     bool dump_pkt ();
 
-    void set_raw_features(std::unordered_map<std::string, bool> &raw_features) {
-        if (raw_features["all"] or raw_features["tls"]) {
+    void set_raw_features(const std::unordered_map<std::string, bool> &raw_features) {
+        if (raw_features.at("all") or raw_features.at("tls")) {
             tls_client_hello::set_raw_features(true);
         }
-        
-        if (raw_features["all"] or raw_features["stun"]) {
+
+        if (raw_features.at("all") or raw_features.at("stun")) {
             stun::message::set_raw_features(true);
         }
-        
-        if (raw_features["all"] or raw_features["bittorrent"]) {
+
+        if (raw_features.at("all") or raw_features.at("bittorrent")) {
             bittorrent_dht::set_raw_features(true);
             bittorrent_lsd::set_raw_features(true);
             bittorrent_handshake::set_raw_features(true);
         }
-        
-        if (raw_features["all"] or raw_features["smb"]) {
+
+        if (raw_features.at("all") or raw_features.at("smb")) {
             smb2_packet::set_raw_features(true);
         }
-        
-        if (raw_features["all"] or raw_features["ssdp"]) {
+
+        if (raw_features.at("all") or raw_features.at("ssdp")) {
             ssdp::set_raw_features(true);
         }
     }
