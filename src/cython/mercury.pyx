@@ -33,7 +33,7 @@ from cython.operator import dereference
 #   CC=g++ CXX=g++ python setup.py install
 
 # TODO: actually handle version
-__version__ = '2.8.1'
+__version__ = '2.9.0'
 
 # imports from mercury's dns
 cdef extern from "../libmerc/dns.h":
@@ -1001,4 +1001,3 @@ def parse_ech_config(str b64_ech_config):
     ech_obj = ECHConfig(ech_config)
 
     return ech_obj.get_json_string()
-
