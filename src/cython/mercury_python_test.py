@@ -124,6 +124,16 @@ class TestMercuryPython(unittest.TestCase):
                          f"FakeTLS should be the only attribute in the unlabeled case")
 
 
+    def test_faketls(self):
+        merc_analysis_result = TestMercuryPython.libmerc.analyze_packet(unhexlify(faketls_pkt))
+        self.assertEqual(merc_analysis_result['analysis']['attributes'][0]['name'], f"faketls",
+                         f"FakeTLS should be the only attribute")
+
+        merc_analysis_result = TestMercuryPython.libmerc.analyze_packet(unhexlify(http_post_pkt))
+        self.assertNotIn('attributes', merc_analysis_result['analysis'],
+                         f"FakeTLS should not show up for HTTP sessions")
+
+
     def test_cbor_decoding(self):
         b64_fdc = ('vwGfvwG/AZ9CAwNYJMAswCvAMMAvwCTAI8AowCfACsAJwBTAEwCdAJwAPQA8ADUAL9j7n0IAAEkABQAFAQAAAABMAAoACAAG'
                    'AB0AFwAYRgALAAIBAFgeAA0AGgAYCAQIBQgGBAEFAQIBBAMFAwIDAgIGAQYDUgAQAA4ADAJoMghodHRwLzEuMUIAF0IAI0L/'
@@ -153,7 +163,6 @@ class TestMercuryPython(unittest.TestCase):
         dst_port    = 443
 
         cls_result = self.libmerc.perform_analysis(str_repr, server_name, dst_ip, dst_port)
-        print(cls_result)
         self.assertEqual(cls_result['analysis']['process'], f"good",
                          f"The classifier is using 1.1:443 as the domain feature")
 
