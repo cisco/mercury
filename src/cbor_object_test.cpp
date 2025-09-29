@@ -35,15 +35,15 @@ int main() {
     // write some test output
     //
     data_buf.reset();
-    struct cbor_object o{data_buf};
+    cbor_object o{data_buf};
     o.print_key_string("key", "value");
     o.print_key_string("another_key", "another_value");
     {
-        struct cbor_object n{o, "nested"};
+        cbor_object n{o, "nested"};
         n.print_key_string("day", "Monday");
         n.print_key_string("month", "April");
         {
-            struct cbor_object nn{n, "double_nested"};
+            cbor_object nn{n, "double_nested"};
             nn.print_key_uint("two_plus_two", 5);
             nn.print_key_string("note", "for very large values of two");
             nn.close();

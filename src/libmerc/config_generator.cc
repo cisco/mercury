@@ -25,7 +25,7 @@ static inline void trim(std::string &s) {
     rtrim(s);
 }
 
-static std::vector<libmerc_option> config_mapper = {
+static inline std::vector<libmerc_option> config_mapper = {
     {"analysis", "-a", "--analysis", SETTER_FUNCTION(){ c.do_analysis = s.empty() ? true : s.compare("1") == 0; }},
     {"select", "-s", "--select",     SETTER_FUNCTION(){ c.packet_filter_cfg = (c.temp_proto_str.assign(s)).data(); }},
     {"dns-json", "", "",             SETTER_FUNCTION(){ c.dns_json_output = s.empty() ? true : s.compare("1") == 0; }},
@@ -149,7 +149,7 @@ void parse_additional_options(std::vector<libmerc_option> options, std::string c
         bool setter_invoked = false;
         for(libmerc_option op : options) {
             if(op.perform_option_check(token.key_)) {
-                setter_invoked = true; 
+                setter_invoked = true;
                 op.perform_setter(token.value_, lc);
             }
         }

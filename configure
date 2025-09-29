@@ -639,6 +639,8 @@ ac_includes_default="\
 ac_header_c_list=
 ac_func_c_list=
 ac_subst_vars='LTLIBOBJS
+HAVE_DOT
+HAVE_DOXYGEN
 LCOV
 LLVM
 CLANGPP
@@ -647,10 +649,21 @@ VALGRIND
 WGET
 JQ
 TCPREPLAY
-HAVE_JSONSCHEMA
-PYTHON3
-OPENSSL_NEWER
+CAN_BUILD_DOCS
+CAN_RUN_ALL_TESTS
+CAN_BUILD_CYTHON_PACKAGE
+HAVE_PYTHON_BREATHE
+HAVE_PYTHON_SPHINX_AUTODOC_TYPEHINTS
+HAVE_PYTHON_SPHINX_RTD_THEME
+HAVE_PYTHON_SPHINX
+HAVE_PYTHON_SETUPTOOLS
+HAVE_PYTHON_WHEEL
+HAVE_PYTHON_CYTHON
+HAVE_PYTHON_CRYPTOGRAPHY
+HAVE_PYTHON_JSONSCHEMA
+HAVE_PYTHON3
 PY
+OPENSSL_NEWER
 LIBOBJS
 HAVE_TPACKET_V3
 USE_FSANITIZE
@@ -4854,6 +4867,19 @@ then :
 
 fi
 
+
+  for ac_func in gettid
+do :
+  ac_fn_c_check_func "$LINENO" "gettid" "ac_cv_func_gettid"
+if test "x$ac_cv_func_gettid" = xyes
+then :
+  printf "%s\n" "#define HAVE_GETTID 1" >>confdefs.h
+
+printf "%s\n" "#define HAVE_GETTID 1" >>confdefs.h
+
+fi
+
+done
 ac_fn_c_check_header_compile "$LINENO" "arpa/inet.h" "ac_cv_header_arpa_inet_h" "$ac_includes_default"
 if test "x$ac_cv_header_arpa_inet_h" = xyes
 then :
@@ -5321,54 +5347,6 @@ printf "%s\n" "#define uint8_t $ac_cv_c_uint8_t" >>confdefs.h
 ;;
   esac
 
-for ac_prog in python3 python python2
-do
-  # Extract the first word of "$ac_prog", so it can be a program name with args.
-set dummy $ac_prog; ac_word=$2
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-printf %s "checking for $ac_word... " >&6; }
-if test ${ac_cv_prog_PY+y}
-then :
-  printf %s "(cached) " >&6
-else case e in #(
-  e) if test -n "$PY"; then
-  ac_cv_prog_PY="$PY" # Let the user override the test.
-else
-as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  case $as_dir in #(((
-    '') as_dir=./ ;;
-    */) ;;
-    *) as_dir=$as_dir/ ;;
-  esac
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
-    ac_cv_prog_PY="$ac_prog"
-    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-fi ;;
-esac
-fi
-PY=$ac_cv_prog_PY
-if test -n "$PY"; then
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $PY" >&5
-printf "%s\n" "$PY" >&6; }
-else
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-fi
-
-
-  test -n "$PY" && break
-done
-
        for ac_header in zlib.h
 do :
   ac_fn_c_check_header_compile "$LINENO" "zlib.h" "ac_cv_header_zlib_h" "$ac_includes_default"
@@ -5524,16 +5502,22 @@ else case e in #(
 esac
 fi
 
-# Extract the first word of "python3", so it can be a program name with args.
-set dummy python3; ac_word=$2
+
+###############################################################################
+# Check for Python3 and packages
+###############################################################################
+for ac_prog in python3 python
+do
+  # Extract the first word of "$ac_prog", so it can be a program name with args.
+set dummy $ac_prog; ac_word=$2
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 printf %s "checking for $ac_word... " >&6; }
-if test ${ac_cv_prog_PYTHON3+y}
+if test ${ac_cv_prog_PY+y}
 then :
   printf %s "(cached) " >&6
 else case e in #(
-  e) if test -n "$PYTHON3"; then
-  ac_cv_prog_PYTHON3="$PYTHON3" # Let the user override the test.
+  e) if test -n "$PY"; then
+  ac_cv_prog_PY="$PY" # Let the user override the test.
 else
 as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
 for as_dir in $PATH
@@ -5546,7 +5530,7 @@ do
   esac
     for ac_exec_ext in '' $ac_executable_extensions; do
   if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
-    ac_cv_prog_PYTHON3="yes"
+    ac_cv_prog_PY="$ac_prog"
     printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
     break 2
   fi
@@ -5557,40 +5541,385 @@ IFS=$as_save_IFS
 fi ;;
 esac
 fi
-PYTHON3=$ac_cv_prog_PYTHON3
-if test -n "$PYTHON3"; then
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $PYTHON3" >&5
-printf "%s\n" "$PYTHON3" >&6; }
+PY=$ac_cv_prog_PY
+if test -n "$PY"; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $PY" >&5
+printf "%s\n" "$PY" >&6; }
 else
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
 fi
 
 
-if test "x$PYTHON3" = xyes
-then :
+  test -n "$PY" && break
+done
 
-printf "%s\n" "#define HAVE_PYTHON3 1" >>confdefs.h
-
-fi
-#
-if test "x$PYTHON3" = xyes
+# Extract the first word of "python3", so it can be a program name with args.
+set dummy python3; ac_word=$2
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+printf %s "checking for $ac_word... " >&6; }
+if test ${ac_cv_prog_HAVE_PYTHON3+y}
 then :
-  if python3 ./package_test.py
-then :
-  HAVE_JSONSCHEMA=yes
-
+  printf %s "(cached) " >&6
 else case e in #(
-  e) { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: python3 package jsonschema not found; test/Makefile will not work, install with 'pip3 install jsonschema'" >&5
-printf "%s\n" "$as_me: WARNING: python3 package jsonschema not found; test/Makefile will not work, install with 'pip3 install jsonschema'" >&2;} ;;
+  e) if test -n "$HAVE_PYTHON3"; then
+  ac_cv_prog_HAVE_PYTHON3="$HAVE_PYTHON3" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  case $as_dir in #(((
+    '') as_dir=./ ;;
+    */) ;;
+    *) as_dir=$as_dir/ ;;
+  esac
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
+    ac_cv_prog_HAVE_PYTHON3="yes"
+    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+fi ;;
 esac
 fi
+HAVE_PYTHON3=$ac_cv_prog_HAVE_PYTHON3
+if test -n "$HAVE_PYTHON3"; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $HAVE_PYTHON3" >&5
+printf "%s\n" "$HAVE_PYTHON3" >&6; }
+else
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
 fi
-#AC_ARG_ENABLE(python, AS_HELP_STRING([--disable-python], [omit embedded python analysis engine]), [], [AC_CHECK_PROG(PIP3,pip3,yes)])
-#AS_IF([test "x$PIP3" = xyes],
-#    [AC_CHECK_HEADERS([pcap.h], [], [AC_MSG_ERROR([pcap.h not found; lipcap-dev seems not to be installed])])])
-#AS_IF([test "x$PIP3" = xyes],
-#    [AC_CONFIG_COMMANDS([pip3], [pip3 install cython ujson pyasn])])
+
+
+# Check for Python packages using the custom macro below.
+# Usage: CHECK_PYTHON_PACKAGE([OUTPUT_VARIABLE], [reason description], [packagename], [importname(optional)])
+# Output: OUTPUT_VARIABLE=yes or no.
+
+if test "x$HAVE_PYTHON3" = xyes
+then :
+
+    # Python-assisted testing of C++ code
+
+    if test "x" != "x"; then
+        IMPORTNAME=
+    else
+        IMPORTNAME=jsonschema
+    fi
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for python package jsonschema" >&5
+printf %s "checking for python package jsonschema... " >&6; }
+    if python3 -c "import $IMPORTNAME" 2>/dev/null
+then :
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+        HAVE_PYTHON_JSONSCHEMA=yes
+
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+        HAVE_PYTHON_JSONSCHEMA=no
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: python package 'jsonschema' not found (needed for 'make test').  Install with 'python3 -m pip install jsonschema'" >&5
+printf "%s\n" "$as_me: WARNING: python package 'jsonschema' not found (needed for 'make test').  Install with 'python3 -m pip install jsonschema'" >&2;}
+     ;;
+esac
+fi
+
+
+    if test "x" != "x"; then
+        IMPORTNAME=
+    else
+        IMPORTNAME=cryptography
+    fi
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for python package cryptography" >&5
+printf %s "checking for python package cryptography... " >&6; }
+    if python3 -c "import $IMPORTNAME" 2>/dev/null
+then :
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+        HAVE_PYTHON_CRYPTOGRAPHY=yes
+
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+        HAVE_PYTHON_CRYPTOGRAPHY=no
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: python package 'cryptography' not found (needed for 'make test').  Install with 'python3 -m pip install cryptography'" >&5
+printf "%s\n" "$as_me: WARNING: python package 'cryptography' not found (needed for 'make test').  Install with 'python3 -m pip install cryptography'" >&2;}
+     ;;
+esac
+fi
+
+
+    # Mercury Cython package
+
+    if test "x" != "x"; then
+        IMPORTNAME=
+    else
+        IMPORTNAME=Cython
+    fi
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for python package Cython" >&5
+printf %s "checking for python package Cython... " >&6; }
+    if python3 -c "import $IMPORTNAME" 2>/dev/null
+then :
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+        HAVE_PYTHON_CYTHON=yes
+
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+        HAVE_PYTHON_CYTHON=no
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: python package 'Cython' not found (needed for Cython package).  Install with 'python3 -m pip install Cython'" >&5
+printf "%s\n" "$as_me: WARNING: python package 'Cython' not found (needed for Cython package).  Install with 'python3 -m pip install Cython'" >&2;}
+     ;;
+esac
+fi
+
+
+    if test "x" != "x"; then
+        IMPORTNAME=
+    else
+        IMPORTNAME=wheel
+    fi
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for python package wheel" >&5
+printf %s "checking for python package wheel... " >&6; }
+    if python3 -c "import $IMPORTNAME" 2>/dev/null
+then :
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+        HAVE_PYTHON_WHEEL=yes
+
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+        HAVE_PYTHON_WHEEL=no
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: python package 'wheel' not found (needed for Cython package).  Install with 'python3 -m pip install wheel'" >&5
+printf "%s\n" "$as_me: WARNING: python package 'wheel' not found (needed for Cython package).  Install with 'python3 -m pip install wheel'" >&2;}
+     ;;
+esac
+fi
+
+
+    if test "x" != "x"; then
+        IMPORTNAME=
+    else
+        IMPORTNAME=setuptools
+    fi
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for python package setuptools" >&5
+printf %s "checking for python package setuptools... " >&6; }
+    if python3 -c "import $IMPORTNAME" 2>/dev/null
+then :
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+        HAVE_PYTHON_SETUPTOOLS=yes
+
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+        HAVE_PYTHON_SETUPTOOLS=no
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: python package 'setuptools' not found (needed for Cython package).  Install with 'python3 -m pip install setuptools'" >&5
+printf "%s\n" "$as_me: WARNING: python package 'setuptools' not found (needed for Cython package).  Install with 'python3 -m pip install setuptools'" >&2;}
+     ;;
+esac
+fi
+
+
+    # Auto-generated documentation
+
+    if test "x" != "x"; then
+        IMPORTNAME=
+    else
+        IMPORTNAME=sphinx
+    fi
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for python package sphinx" >&5
+printf %s "checking for python package sphinx... " >&6; }
+    if python3 -c "import $IMPORTNAME" 2>/dev/null
+then :
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+        HAVE_PYTHON_SPHINX=yes
+
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+        HAVE_PYTHON_SPHINX=no
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: python package 'sphinx' not found (needed for generating docs).  Install with 'python3 -m pip install sphinx'" >&5
+printf "%s\n" "$as_me: WARNING: python package 'sphinx' not found (needed for generating docs).  Install with 'python3 -m pip install sphinx'" >&2;}
+     ;;
+esac
+fi
+
+
+    if test "xsphinx_rtd_theme" != "x"; then
+        IMPORTNAME=sphinx_rtd_theme
+    else
+        IMPORTNAME=sphinx-rtd-theme
+    fi
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for python package sphinx-rtd-theme" >&5
+printf %s "checking for python package sphinx-rtd-theme... " >&6; }
+    if python3 -c "import $IMPORTNAME" 2>/dev/null
+then :
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+        HAVE_PYTHON_SPHINX_RTD_THEME=yes
+
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+        HAVE_PYTHON_SPHINX_RTD_THEME=no
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: python package 'sphinx-rtd-theme' not found (needed for generating docs).  Install with 'python3 -m pip install sphinx-rtd-theme'" >&5
+printf "%s\n" "$as_me: WARNING: python package 'sphinx-rtd-theme' not found (needed for generating docs).  Install with 'python3 -m pip install sphinx-rtd-theme'" >&2;}
+     ;;
+esac
+fi
+
+
+    if test "xsphinx_autodoc_typehints" != "x"; then
+        IMPORTNAME=sphinx_autodoc_typehints
+    else
+        IMPORTNAME=sphinx-autodoc-typehints
+    fi
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for python package sphinx-autodoc-typehints" >&5
+printf %s "checking for python package sphinx-autodoc-typehints... " >&6; }
+    if python3 -c "import $IMPORTNAME" 2>/dev/null
+then :
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+        HAVE_PYTHON_SPHINX_AUTODOC_TYPEHINTS=yes
+
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+        HAVE_PYTHON_SPHINX_AUTODOC_TYPEHINTS=no
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: python package 'sphinx-autodoc-typehints' not found (needed for generating docs).  Install with 'python3 -m pip install sphinx-autodoc-typehints'" >&5
+printf "%s\n" "$as_me: WARNING: python package 'sphinx-autodoc-typehints' not found (needed for generating docs).  Install with 'python3 -m pip install sphinx-autodoc-typehints'" >&2;}
+     ;;
+esac
+fi
+
+
+    if test "x" != "x"; then
+        IMPORTNAME=
+    else
+        IMPORTNAME=breathe
+    fi
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for python package breathe" >&5
+printf %s "checking for python package breathe... " >&6; }
+    if python3 -c "import $IMPORTNAME" 2>/dev/null
+then :
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+        HAVE_PYTHON_BREATHE=yes
+
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+        HAVE_PYTHON_BREATHE=no
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: python package 'breathe' not found (needed for generating docs).  Install with 'python3 -m pip install breathe'" >&5
+printf "%s\n" "$as_me: WARNING: python package 'breathe' not found (needed for generating docs).  Install with 'python3 -m pip install breathe'" >&2;}
+     ;;
+esac
+fi
+
+
+    # Composite variables
+    if test "x$HAVE_PYTHON_CYTHON" = xyes -a "x$HAVE_PYTHON_WHEEL" = xyes -a "x$HAVE_PYTHON_SETUPTOOLS" = xyes
+then :
+
+        CAN_BUILD_CYTHON_PACKAGE=yes
+
+
+else case e in #(
+  e)
+        CAN_BUILD_CYTHON_PACKAGE=no
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: Cython package building will be disabled due to missing dependencies" >&5
+printf "%s\n" "$as_me: WARNING: Cython package building will be disabled due to missing dependencies" >&2;}
+     ;;
+esac
+fi
+    if test "x$HAVE_PYTHON_JSONSCHEMA" = xyes -a "x$HAVE_PYTHON_CRYPTOGRAPHY" = xyes -a \
+                "x$CAN_BUILD_CYTHON_PACKAGE" = xyes
+then :
+
+        CAN_RUN_ALL_TESTS=yes
+
+
+else case e in #(
+  e)
+        CAN_RUN_ALL_TESTS=no
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: 'make test' will be partially disabled due to missing dependencies" >&5
+printf "%s\n" "$as_me: WARNING: 'make test' will be partially disabled due to missing dependencies" >&2;}
+     ;;
+esac
+fi
+    if test "x$HAVE_PYTHON_SPHINX" = xyes -a "x$HAVE_PYTHON_SPHINX_RTD_THEME" = xyes -a \
+                "x$HAVE_PYTHON_SPHINX_AUTODOC_TYPEHINTS" = xyes -a "x$HAVE_PYTHON_BREATHE" = xyes
+then :
+
+        CAN_BUILD_DOCS=yes
+
+
+else case e in #(
+  e)
+        CAN_BUILD_DOCS=no
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: 'make doc' will fail due to missing dependencies" >&5
+printf "%s\n" "$as_me: WARNING: 'make doc' will fail due to missing dependencies" >&2;}
+     ;;
+esac
+fi
+
+else case e in #(
+  e) { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: python3 not found; make test, make doc, and building the Cython package will not work" >&5
+printf "%s\n" "$as_me: WARNING: python3 not found; make test, make doc, and building the Cython package will not work" >&2;} ;;
+esac
+fi
+
+###############################################################################
+# Check for other command line tools
+###############################################################################
 # Extract the first word of "tcpreplay", so it can be a program name with args.
 set dummy tcpreplay; ac_word=$2
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
@@ -5935,6 +6264,92 @@ printf "%s\n" "no" >&6; }
 fi
 
 
+# Extract the first word of "doxygen", so it can be a program name with args.
+set dummy doxygen; ac_word=$2
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+printf %s "checking for $ac_word... " >&6; }
+if test ${ac_cv_prog_HAVE_DOXYGEN+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) if test -n "$HAVE_DOXYGEN"; then
+  ac_cv_prog_HAVE_DOXYGEN="$HAVE_DOXYGEN" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  case $as_dir in #(((
+    '') as_dir=./ ;;
+    */) ;;
+    *) as_dir=$as_dir/ ;;
+  esac
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
+    ac_cv_prog_HAVE_DOXYGEN="yes"
+    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+fi ;;
+esac
+fi
+HAVE_DOXYGEN=$ac_cv_prog_HAVE_DOXYGEN
+if test -n "$HAVE_DOXYGEN"; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $HAVE_DOXYGEN" >&5
+printf "%s\n" "$HAVE_DOXYGEN" >&6; }
+else
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+fi
+
+
+# Extract the first word of "dot", so it can be a program name with args.
+set dummy dot; ac_word=$2
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+printf %s "checking for $ac_word... " >&6; }
+if test ${ac_cv_prog_HAVE_DOT+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) if test -n "$HAVE_DOT"; then
+  ac_cv_prog_HAVE_DOT="$HAVE_DOT" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  case $as_dir in #(((
+    '') as_dir=./ ;;
+    */) ;;
+    *) as_dir=$as_dir/ ;;
+  esac
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
+    ac_cv_prog_HAVE_DOT="yes"
+    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+fi ;;
+esac
+fi
+HAVE_DOT=$ac_cv_prog_HAVE_DOT
+if test -n "$HAVE_DOT"; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $HAVE_DOT" >&5
+printf "%s\n" "$HAVE_DOT" >&6; }
+else
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+fi
+
+
 if test "x$TCPREPLAY" = xyes
 then :
 
@@ -5999,6 +6414,23 @@ else case e in #(
 printf "%s\n" "$as_me: WARNING: lcov not found; make test-coverage and test-coverage-fuzz will not work" >&2;} ;;
 esac
 fi
+if test "x$HAVE_DOXYGEN" = xyes
+then :
+
+else case e in #(
+  e) { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: doxygen not found; make doc will not work" >&5
+printf "%s\n" "$as_me: WARNING: doxygen not found; make doc will not work" >&2;} ;;
+esac
+fi
+if test "x$HAVE_DOT" = xyes
+then :
+
+else case e in #(
+  e) { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: dot (from graphviz) not found; make doc will not work" >&5
+printf "%s\n" "$as_me: WARNING: dot (from graphviz) not found; make doc will not work" >&2;} ;;
+esac
+fi
+
 ac_config_files="$ac_config_files src/libmerc/Makefile src/cython/Makefile src/Makefile test/Makefile unit_tests/Makefile Makefile_helper.mk install_mercury/mercury.service"
 
 cat >confcache <<\_ACEOF

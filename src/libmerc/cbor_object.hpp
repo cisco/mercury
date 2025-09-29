@@ -11,7 +11,7 @@
 #include "utf8.hpp"
 #include <stdexcept>
 
-constexpr uint64_t tag_npf_fingerprint = 0x4650; // application tag 18000, "FP"; NPF representation hint 
+constexpr uint64_t tag_npf_fingerprint = 0x4650; // application tag 18000, "FP"; NPF representation hint
 
 // forward declarations
 //
@@ -304,7 +304,7 @@ public:
                     default:
                         fprintf(stderr, "unexpected initial byte in cbor map key: 0x%02x\n", ib.value.value());
                         fprintf(stderr, "remaining bytes in cbor data: ");
-                        d.fprint_hex(stderr); fputc('\n', stderr); 
+                        d.fprint_hex(stderr); fputc('\n', stderr);
                         return false;
                     }
 
@@ -570,15 +570,15 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
     // second test
     //
     data_buf.reset();
-    struct cbor_object o{data_buf};
+    cbor_object o{data_buf};
     o.print_key_string("key", "value");
     o.print_key_string("another_key", "another_value");
     {
-        struct cbor_object n{o, "nested"};
+        cbor_object n{o, "nested"};
         n.print_key_string("day", "Monday");
         n.print_key_string("month", "April");
         {
-            struct cbor_object nn{n, "double_nested"};
+            cbor_object nn{n, "double_nested"};
             nn.print_key_uint("two_plus_two", 5);
             nn.print_key_string("note", "for very large values of two");
             nn.close();

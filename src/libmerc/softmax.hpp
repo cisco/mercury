@@ -133,13 +133,13 @@ using simd_arch_list = xsimd::arch_list<xsimd::avx2, xsimd::avx, xsimd::sse2>;
 using simd_arch_list = xsimd::arch_list<xsimd::neon64>;
 #endif
 
-static xsimd::detail::dispatcher<exp_functor, simd_arch_list>& get_dispatched() {
+static inline xsimd::detail::dispatcher<exp_functor, simd_arch_list>& get_dispatched() {
     static xsimd::detail::dispatcher<exp_functor, simd_arch_list> dispatched =
         xsimd::dispatch<simd_arch_list>(exp_functor{});
     return dispatched;
 }
 
-static bool check_simd() {
+static inline bool check_simd() {
     // Static variable to store the result of the SIMD check
     static bool is_simd_available = []() -> bool {
         auto archs = xsimd::available_architectures();
