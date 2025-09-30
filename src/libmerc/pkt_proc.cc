@@ -904,8 +904,11 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     ip ip_pkt{pkt, k};
     bool truncated_tcp = false;
     bool truncated_quic = false;
+
+    analysis.reinit();
     if (reassembler) {
         reassembler->dump_pkt = false;
+        reassembler_ptr->clean_curr_flow();
     }
 
     class encapsulations encaps{pkt, ip_pkt, k, selector};
