@@ -447,6 +447,17 @@ struct ssh_init_packet : public base_protocol {
 
     }
 
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("ssh");
+        protocols.close();
+
+        cbor_object ssh{o, "ssh"};
+        ssh.print_key_string("protocol", protocol_string);
+        ssh.print_key_string("comment", comment_string);
+        ssh.close();
+    }
+
     size_t more_bytes_needed() const {
         if (kex_pkt.is_not_empty()) {
             // check binary pkt for additional bytes

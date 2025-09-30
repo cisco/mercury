@@ -102,6 +102,15 @@ std::string raw_to_hex_array(std::vector<uint8_t> v) {
 std::vector<uint8_t> oid_to_raw_string(std::vector<uint32_t> oid) {
     std::vector<uint8_t> raw;
 
+    if (oid.size() < 2) { // ASN.1 encodable OIDs have minimum length 2
+        std::cerr << "Error: non-encodable OID (length < 2): ";
+        for (uint32_t node_number: oid) {
+            std::cerr << " " << node_number;
+        }
+        std::cerr << std::endl;
+        return raw;       // return empty vector
+    }
+
     raw.push_back(40 * oid[0] + oid[1]);
     for (size_t i = 2; i < oid.size(); i++) {
         uint32_t tmp = oid[i];
@@ -341,7 +350,7 @@ struct oid_set {
             //std::cout << s << std::endl;
             while (1) {
                 v.erase(v.end() - 1);
-                if (v.empty()) {
+                if (v.size() < 2) { // encodable OIDs have minimum length 2
                     break;
                 }
                 std::string oid_hex_string = oid_to_hex_string(v);
@@ -806,7 +815,7 @@ int main(int argc, char *argv[]) {
     }
 
     for (int i=1; i<argc; i++) {
-        // cerr << "reading file " << argv[i] << endl;
+        cerr << "reading file " << argv[i] << endl;
         parse_asn1_file(argv[i]);
     }
 

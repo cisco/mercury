@@ -83,12 +83,23 @@ struct header {
 
 public:
 
-    udp(struct datum &d, bool payload_only=false) : header{NULL}, more_bytes_needed{0} { 
-        if(payload_only) {
-            return;
-        }
+    /// construct a udp object by parsing a UDP header from datum
+    /// \param d
+    ///
+    udp(struct datum &d) : header{NULL}, more_bytes_needed{0} {
         parse(d);
     };
+
+    /// construct a udp pseudoheader object from the flow key \param
+    /// k; this should only be done when there is no UDP header to be
+    /// parsed.
+    ///
+    udp(const key &k) :
+        header{NULL},
+        more_bytes_needed{0},
+        src_port{k.src_port},
+        dst_port{k.dst_port}
+    { }
 
     void parse(struct datum &d) {
         header = d.get_pointer<struct header>();
@@ -146,11 +157,6 @@ public:
             k.dst_port = ntoh(header->dst_port);
             k.protocol = 17; // udp
         }
-    }
-
-    void set_ports(const key &k) {
-        src_port = hton(k.src_port);
-        dst_port = hton(k.dst_port);
     }
 
     uint16_t get_len() const {

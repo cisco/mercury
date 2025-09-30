@@ -727,6 +727,33 @@ public:
             and !dst_ip_str.is_null();
     }
 
+    static void decode_version_one(datum &d, struct json_object &record) {
+        char fp_str[fingerprint::MAX_FP_STR_LEN];
+        char dst_ip_str[MAX_ADDR_STR_LEN];
+        char sn_str[MAX_SNI_LEN];
+        char ua_str[MAX_USER_AGENT_LEN];
+        uint16_t dst_port;
+        uint64_t truncation;
+
+        bool ok = fdc::decode(d,
+                              writeable{(uint8_t*)fp_str, fingerprint::MAX_FP_STR_LEN},
+                              writeable{(uint8_t*)sn_str, MAX_SNI_LEN},
+                              writeable{(uint8_t*)dst_ip_str, MAX_ADDR_STR_LEN},
+                              dst_port,
+                              writeable{(uint8_t*)ua_str, MAX_USER_AGENT_LEN},
+                              truncation);
+        if (ok) {
+            json_object fdc_json(record,"fdc");
+            fdc_json.print_key_string("fingerprint", fp_str);
+            fdc_json.print_key_json_string("sni", datum{sn_str});
+            fdc_json.print_key_json_string("dst_ip_str", datum{dst_ip_str});
+            fdc_json.print_key_int("dst_port", dst_port);
+            fdc_json.print_key_json_string("user_agent", datum{ua_str});
+            fdc_json.print_key_string("truncation", get_truncation_str(((truncation_status)truncation)));
+            fdc_json.close();
+        }
+    }
+
     /// perform unit tests on class fdc, returning `true` if they pass
     /// and `false` otherwise
     ///
@@ -844,45 +871,5 @@ private:
     }
 
 };
-
-[[maybe_unused]] static std::string get_json_decoded_fdc(const char *fdc_blob, ssize_t blob_len) {
-    datum fdc_data = datum{(uint8_t*)fdc_blob,(uint8_t*)(fdc_blob+blob_len)};
-    char fp_str[fingerprint::MAX_FP_STR_LEN];
-    char dst_ip_str[MAX_ADDR_STR_LEN];
-    char sn_str[MAX_SNI_LEN];
-    char ua_str[MAX_USER_AGENT_LEN];
-    uint16_t dst_port;
-    uint64_t truncation;
-
-    char buffer[10240];
-    struct buffer_stream buf_json(buffer, sizeof(buffer));
-    struct json_object record(&buf_json);
-
-    bool ok = fdc::decode(fdc_data,
-                          writeable{(uint8_t*)fp_str, fingerprint::MAX_FP_STR_LEN},
-                          writeable{(uint8_t*)sn_str, MAX_SNI_LEN},
-                          writeable{(uint8_t*)dst_ip_str, MAX_ADDR_STR_LEN},
-                          dst_port,
-                          writeable{(uint8_t*)ua_str, MAX_USER_AGENT_LEN},
-                          truncation);
-    if (ok) {
-        json_object fdc_json(record,"fdc");
-        fdc_json.print_key_string("fingerprint", fp_str);
-        fdc_json.print_key_json_string("sni", datum{sn_str});
-        fdc_json.print_key_json_string("dst_ip_str", datum{dst_ip_str});
-        fdc_json.print_key_int("dst_port", dst_port);
-        fdc_json.print_key_json_string("user_agent", datum{ua_str});
-        fdc_json.print_key_string("truncation", get_truncation_str(((truncation_status)truncation)));
-        fdc_json.close();
-        record.close();
-        buf_json.write_char('\0');  // null terminate
-        return buf_json.get_string();
-
-    } else {
-        return "";
-    }
-
-}
-
 
 #endif // FDC_HPP

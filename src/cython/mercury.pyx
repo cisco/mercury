@@ -33,14 +33,14 @@ from cython.operator import dereference
 #   CC=g++ CXX=g++ python setup.py install
 
 # TODO: actually handle version
-__version__ = '2.8.1'
+__version__ = '2.9.0'
 
 # imports from mercury's dns
 cdef extern from "../libmerc/dns.h":
     string dns_get_json_string(const char *dns_pkt, ssize_t pkt_len)
 
-# imports from mercury's FDC
-cdef extern from "../libmerc/fdc.hpp":
+# imports from mercury's FDC/L7 metadata
+cdef extern from "../libmerc/l7m.hpp":
     string get_json_decoded_fdc(const char *fdc_blob, ssize_t blob_len)
 
 
@@ -295,7 +295,8 @@ cdef class Mercury:
     cdef bool do_analysis
 
     def __init__(self, bool do_analysis=False, bytes resources=b'', bool output_tcp_initial_data=False, bool output_udp_initial_data=False,
-                 bytes packet_filter_cfg=b'all', bool metadata_output=True, bool dns_json_output=True, bool certs_json_output=True):
+                 bytes packet_filter_cfg=b'all', bool metadata_output=True, bool dns_json_output=True, bool certs_json_output=True,
+                 bool network_behavioral_detections=False):
         self.do_analysis = do_analysis
         self.py_config = {
             'output_tcp_initial_data': output_tcp_initial_data,
@@ -307,6 +308,8 @@ cdef class Mercury:
             'do_analysis': do_analysis,
             'resources':   resources,
         }
+        if network_behavioral_detections:
+            self.py_config['packet_filter_cfg'] += b';network-behavioral-detections'
         self.default_ts.tv_sec = 0
         self.default_ts.tv_nsec = 0
 
@@ -433,16 +436,10 @@ cdef class Mercury:
 
         cdef analysis_result ar = ac.result
 
-        ciphersuites = get_ciphersuites(fp_string)
-        ciphersuites_str = ''.join([chr(int(ciphersuites[i:i+2], 16)) for i in range(0, len(ciphersuites), 2)])
-        cdef bytes ciphersuites_b = ciphersuites_str.encode()
-
-        cdef unsigned int len_ = len(ciphersuites_b)
-        cdef const unsigned char* c_string_ref = ciphersuites_b
-        cdef datum ciphersuites_datum = datum(c_string_ref, c_string_ref + len_)
-
-        if is_faketls_util(ciphersuites_datum):
-            self.clf.set_faketls_attribute(ar)
+        if fp_string.startswith('tls'):
+            is_faketls = self.check_faketls(fp_string)
+            if is_faketls:
+                self.clf.set_faketls_attribute(ar)
 
         if ar.max_mal and fp_string.startswith('tls'):
             self.clf.set_enc_channel_attribute(ar)
@@ -492,18 +489,9 @@ cdef class Mercury:
         self.clf.check_additional_attributes_util(ar, server_name_c, dst_ip_c)
 
         # check for faketls tag
-        cdef bytes ciphersuites_b
-        cdef unsigned int len_
-        cdef const unsigned char* c_str_ref
-        cdef datum ciphersuites_datum
         if fp_str.startswith('tls'):
-            ciphersuites       = get_ciphersuites(fp_str)
-            ciphersuites_str   = ''.join([chr(int(ciphersuites[i:i+2], 16)) for i in range(0, len(ciphersuites), 2)])
-            ciphersuites_b     = ciphersuites_str.encode()
-            len_               = len(ciphersuites_b)
-            c_str_ref          = ciphersuites_b
-            ciphersuites_datum = datum(c_str_ref, c_str_ref + len_)
-            if is_faketls_util(ciphersuites_datum):
+            is_faketls = self.check_faketls(fp_str)
+            if is_faketls:
                 self.clf.set_faketls_attribute(ar)
 
         # check for encrypted channel tag
@@ -727,6 +715,21 @@ cdef class Mercury:
         return self.perform_analysis_common(fp_str, server_name, dst_ip, dst_port, user_agent=user_agent, weights=weights)
 
 
+    cdef bool check_faketls(self, str fp_string):
+        if not fp_string.startswith('tls'):
+            return False
+        ciphersuites = get_ciphersuites(fp_string)
+        cdef bytes ciphersuites_b = bytes.fromhex(ciphersuites)
+
+        cdef unsigned int len_ = len(ciphersuites_b)
+        cdef const unsigned char* c_string_ref = ciphersuites_b
+        cdef datum ciphersuites_datum = datum(c_string_ref, c_string_ref + len_)
+
+        if is_faketls_util(ciphersuites_datum):
+            return True
+        return False
+
+
     cdef list extract_attributes(self, analysis_result ar):
         cdef char tags_buf[8192]
         memset(tags_buf, 0, 8192)
@@ -865,6 +868,22 @@ def parse_dns(str b64_dns):
     return json.loads(dns_get_json_string(c_string_ref, len_).decode())
 
 
+def decode_fdc(bytes fdc_blob):
+    """
+    Return a JSON representation of a decoded mercury FDC object.
+
+    :param fdc_blob: Hex bytes of mercury FDC object.
+    :type fdc_blob: bytes
+    :return: JSON-encoded mercury decoded FDC.
+    :rtype: dict
+    """
+    cdef unsigned int len_ = len(fdc_blob)
+
+    # create reference to fdc_blob so that it doesn't get garbage collected
+    cdef char* c_string_ref = fdc_blob
+    return json.loads(get_json_decoded_fdc(c_string_ref, len_).decode())
+
+
 def decode_mercury_fdc(str b64_fdc):
     """
     Return a JSON representation of a decoded mercury FDC object.
@@ -875,14 +894,8 @@ def decode_mercury_fdc(str b64_fdc):
     :rtype: dict
     """
     cdef bytes fdc_blob = b64decode(b64_fdc)
-    cdef unsigned int len_ = len(fdc_blob)
 
-    # create reference to fdc_blob so that it doesn't get garbage collected
-    cdef char* c_string_ref = fdc_blob
-
-    # use mercury's FDC decoder to decode the FDC object
-    return json.loads(get_json_decoded_fdc(c_string_ref, len_).decode())
-
+    return decode_fdc(fdc_blob)
 
 
 # imports from mercury's asn1 parser
@@ -988,4 +1001,3 @@ def parse_ech_config(str b64_ech_config):
     ech_obj = ECHConfig(ech_config)
 
     return ech_obj.get_json_string()
-

@@ -29,7 +29,7 @@ public:
 
     // MAX_TAGS denotes the maximum number of attribute tags supported
     //
-    static constexpr ssize_t MAX_TAGS = 12;
+    static constexpr ssize_t MAX_TAGS = 13;
     typedef std::bitset<MAX_TAGS> bitset;
 
 private:
@@ -87,7 +87,7 @@ public:
         record.close();
     }
 
-    bool is_valid() {
+    bool is_valid() const {
         return tags.any();
     }
 
@@ -95,7 +95,7 @@ public:
 
     void initialize (const std::vector<std::string> *_tag_names, const char *const *names_char) {
         tag_names = _tag_names;
-        tag_names_char = names_char;    
+        tag_names_char = names_char;
     }
 
     const struct attribute_context *get_attributes() {
@@ -112,6 +112,9 @@ public:
     }
 
     void set_attr (ssize_t idx, long double prob) {
+        if (tag_names == nullptr) {
+            return;
+        }
         if ((idx < 0) || (idx >= MAX_TAGS) || ((size_t)idx >= tag_names->size()) )
             return;
         tags[idx] = true;
@@ -152,6 +155,10 @@ public:
         accept_more_names = false;
         for (size_t i = 0; i < names.size(); i++)
             names_char[i] = names[i].c_str();
+    }
+
+    bool is_accepting_new_names() {
+        return accept_more_names;
     }
 
     const std::vector<std::string> &value() const { return names; }
@@ -235,12 +242,13 @@ public:
             attr.write_json(analysis);
         } else {
             analysis.print_key_string("status", "unknown");
+            attr.write_json(analysis);
         }
         analysis.close();
     }
 
     bool is_valid() const {
-        return status != fingerprint_status_no_info_available;
+        return ((status != fingerprint_status_no_info_available) || (attr.is_valid()));
     }
 
     void reinit() {
@@ -405,6 +413,13 @@ struct analysis_context {
 
     bool more_pkts_needed() {
         return flow_state_pkts_needed;
+    }
+
+    void reinit() {
+        fp.init();
+        destination.reset();
+        result.reinit();
+        flow_state_pkts_needed = false;
     }
 };
 

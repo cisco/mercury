@@ -568,6 +568,12 @@ public:
             mysql_json.close();
         }
 
+       void write_l7_metadata(cbor_object &o, bool) {
+            cbor_array protocols{o, "protocols"};
+            protocols.print_string("mysql");
+            protocols.close();
+        }
+
         static constexpr mask_value_and_offset<8> matcher {
         {0xF8, 0xFF, 0xF0, 0xFF, 0xF0, 0xE0, 0xE0, 0x00},
         {0x00, 0x0A, 0x30, 0x2E, 0x30, 0x20, 0x20, 0x00},
@@ -744,6 +750,12 @@ public:
         }
 
         login_req.close();
+    }
+
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("mysql");
+        protocols.close();
     }
 
     bool is_not_empty() { return valid; }
