@@ -18,6 +18,8 @@
   been an interaction between dlclose and ASAN. Fix CMake build for windows and
   add CMake support for non-standard OpenSSL library installations. Fix buffer
   overread in OID compiler, which is run only at compile time.
+* Clean analysis context and reassembly flow, before packet processing,
+  to clean stale content from previous flows.
 
 ## VERSION 2.8.1
 * Bug fixes: ASAN container overflow in stats collection, dangling reference in

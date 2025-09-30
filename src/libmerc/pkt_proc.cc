@@ -904,8 +904,11 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     ip ip_pkt{pkt, k};
     bool truncated_tcp = false;
     bool truncated_quic = false;
+
+    analysis.reinit();
     if (reassembler) {
         reassembler->dump_pkt = false;
+        reassembler_ptr->clean_curr_flow();
     }
 
     class encapsulations encaps{pkt, ip_pkt, k, selector};
@@ -1440,9 +1443,13 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
     protocol x;
     class encapsulations encaps{pkt, ip_pkt, k, selector};
     uint8_t transport_proto = ip_pkt.transport_protocol();
+
+    analysis.reinit();
     if (reassembler) {
         reassembler->dump_pkt = false;
+        reassembler_ptr->clean_curr_flow();
     }
+
     bool truncated_tcp = false;
     bool truncated_udp = false;
 
