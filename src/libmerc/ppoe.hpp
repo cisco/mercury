@@ -25,7 +25,7 @@ class ppoe {
     datum length;
 
 public:
-    ppoe(struct datum &d) : 
+    ppoe(struct datum &d) :
         version_and_type(d, 1),
         code(d, 1),
         session_id(d, 2),

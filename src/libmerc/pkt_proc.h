@@ -249,9 +249,9 @@ struct stateful_pkt_proc {
 
     int analyze_payload_fdc(const struct flow_key_ext *k,
                             const uint8_t *payload,
-                            const size_t length, 
-                            uint8_t *buffer, 
-                            size_t *buffer_size, 
+                            const size_t length,
+                            uint8_t *buffer,
+                            size_t *buffer_size,
                             const struct analysis_context** context);
 
     bool tcp_data_set_analysis_result(struct analysis_result *r,

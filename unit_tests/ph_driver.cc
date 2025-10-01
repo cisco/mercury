@@ -41,10 +41,10 @@ SCENARIO("Perfect Hash. Key len = 20; Elements = 100; Lookup count = 100")
 {
     prepare_data(loop_count_1, key_len_1);
 
-    
+
 
     std::vector<perfect_hash_entry<int>> test_data;
-    
+
     std::string select = {};
 
     srand(time(NULL));
@@ -60,7 +60,7 @@ SCENARIO("Perfect Hash. Key len = 20; Elements = 100; Lookup count = 100")
     {
         ph = new perfect_hash<int>(test_data);
     }
-    
+
     std::vector<int*> res;
     res.reserve(loop_count_1);
     bool valid = false;
@@ -122,7 +122,7 @@ SCENARIO("Perfect Hash. Key len = 50; Elements = 100000; Lookup count = 100000")
     prepare_data(loop_count_2, key_len_2);
 
     std::vector<perfect_hash_entry<int>> test_data;
-    
+
     std::string select = {};
 
     srand(time(NULL));
@@ -138,7 +138,7 @@ SCENARIO("Perfect Hash. Key len = 50; Elements = 100000; Lookup count = 100000")
     {
         ph = new perfect_hash<int>(test_data);
     }
-    
+
     std::vector<int*> res;
     res.reserve(loop_count_2);
     bool valid = false;

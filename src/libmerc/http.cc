@@ -38,7 +38,7 @@ void http_request::parse(struct datum &p) {
         protocol.set_null();
         return;            // invalid format; unrecognized protocol
     }
- 
+
     delimiter d(p);  //parse the delimiter
     const datum delim = d.get_delimiter();
 
@@ -71,7 +71,7 @@ void http_headers::print_matching_name(struct json_object &o, const char *key, c
         if (keyword.case_insensitive_match(key)) {
             header_name = name;
         }
-        
+
         const uint8_t *value_start = p.data;
         if (p.skip_up_to_delim(crlf, sizeof(crlf)) == false) {
             return;

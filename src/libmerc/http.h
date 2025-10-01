@@ -76,7 +76,7 @@ struct http_headers : public datum {
 class token : public datum {
 public:
     token (struct datum& d) {
-        datum::parse_up_to_delim(d, ':'); 
+        datum::parse_up_to_delim(d, ':');
     }
 };
 
@@ -118,7 +118,7 @@ public:
             check_standard_delim(p);
         }
     }
- 
+
     void check_standard_delim(struct datum &p) {
         if (p.compare_nbytes(crlf, sizeof(crlf))) {
             delimit.parse(p, sizeof(crlf));
@@ -138,7 +138,7 @@ public:
     bool is_valid() const {
         return delimit.is_not_empty();
     }
- 
+
 };
 
 struct httpheader {
@@ -244,7 +244,7 @@ public:
         if (h.is_valid()) {
             json_array hdrs{record, "headers"};
             h.write_json(hdrs);
-            while(1) { 
+            while(1) {
                 delimiter d(header_body, delim);
                 if (d.is_valid()) {
                     break;
@@ -269,7 +269,7 @@ public:
         if (h.is_valid()) {
             cbor_array hdrs{o, "headers"};
             hdrs.print_string(h.name);
-            while(1) { 
+            while(1) {
                 delimiter d(header_body, delim);
                 if (d.is_valid()) {
                     break;
@@ -359,7 +359,7 @@ struct http_request : public base_protocol {
     datum get_header(const char *name) const {
         return(headers.get_header(req_hdrs.index(name)));
     }
- 
+
     void parse(struct datum &p);
 
     bool is_not_empty() const { return protocol.is_not_empty(); }
