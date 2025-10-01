@@ -414,6 +414,13 @@ struct analysis_context {
     bool more_pkts_needed() {
         return flow_state_pkts_needed;
     }
+
+    void reinit() {
+        fp.init();
+        destination.reset();
+        result.reinit();
+        flow_state_pkts_needed = false;
+    }
 };
 
 
