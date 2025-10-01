@@ -427,6 +427,8 @@ public:
             return fingerprint_type_http;
         } else if (s == "quic") {
             return fingerprint_type_quic;
+        } else if (s == "stun") {
+            return fingerprint_type_stun;
         } else if (s == "tofsee") {
             return fingerprint_type_tofsee;
         } else if (s == "ssh") {
@@ -485,6 +487,8 @@ public:
                     type = fingerprint_type_http;
                 } else if (s.compare(0, idx, "quic") == 0) {
                     type = fingerprint_type_quic;
+                } else if (s.compare(0, idx, "stun") == 0) {
+                    type = fingerprint_type_stun;
                 } else if (s.compare(0, idx, "tofsee") == 0) {
                     type = fingerprint_type_tofsee;
                 } else if (s.compare(0, idx, "ssh") == 0) {
@@ -939,35 +943,57 @@ public:
 
     }
 
+    /// returns true if the null-terminated fingerprint string \param
+    /// fp_str is a TLS fingerprint, and returns false otherwise
+    ///
+    static bool fp_str_is_tls(const char *fp_str) {
+        if (fp_str != nullptr &&
+            (fp_str[0] == 't') &&
+            (fp_str[1] == 'l') &&
+            (fp_str[2] == 's') &&
+            (fp_str[3] == '/')) {
+            return true;
+        }
+        return false;
+    }
+
     template <typename PerformAnalysisFn>
     auto perform_analysis_common(const char *fp_str, PerformAnalysisFn perform_analysis_fn) {
         const auto fpdb_entry = fpdb.find(fp_str);
         if (fpdb_entry == fpdb.end()) {
-            if (fp_prevalence.contains(fp_str)) {
+
+            // if the fingerprint is TLS, check to see if it is in the
+            // "randomized" set; otherwise, consider it "unlabeled"
+            //
+            if (fp_str_is_tls(fp_str)) {
+
+                if (fp_prevalence.contains(fp_str)) {
+                    fp_prevalence.update(fp_str);
+                    return perform_analysis_fn(nullptr, fingerprint_status_unlabled);
+                }
+
                 fp_prevalence.update(fp_str);
-                return perform_analysis_fn(nullptr, fingerprint_status_unlabled);
-            }
+                /*
+                 * Resource file has info about randomized fingerprints in the format
+                 * protocol/format/randomized
+                 * Eg: tls/1/randomized
+                 */
+                std::string randomized_str;
+                const char *c = fp_str;
+                while (*c != '\0' && *c != '(') {
+                    randomized_str.append(c, 1);
+                    c++;
+                }
+                randomized_str.append("randomized");
 
-            fp_prevalence.update(fp_str);
-            /*
-            * Resource file has info about randomized fingerprints in the format
-            * protocol/format/randomized
-            * Eg: tls/1/randomized
-            */
-            std::string randomized_str;
-            const char *c = fp_str;
-            while (*c != '\0' && *c != '(') {
-                randomized_str.append(c, 1);
-                c++;
+                const auto fpdb_entry_randomized = fpdb.find(randomized_str);
+                if (fpdb_entry_randomized == fpdb.end()) {
+                    return perform_analysis_fn(nullptr, fingerprint_status_randomized);
+                }
+                fingerprint_data *fp_data = fpdb_entry_randomized->second;
+                return perform_analysis_fn(fp_data, fingerprint_status_randomized);
             }
-            randomized_str.append("randomized");
-
-            const auto fpdb_entry_randomized = fpdb.find(randomized_str);
-            if (fpdb_entry_randomized == fpdb.end()) {
-                return perform_analysis_fn(nullptr, fingerprint_status_randomized);
-            }
-            fingerprint_data *fp_data = fpdb_entry_randomized->second;
-            return perform_analysis_fn(fp_data, fingerprint_status_randomized);
+            return perform_analysis_fn(nullptr, fingerprint_status_unlabled);
         }
         fingerprint_data *fp_data = fpdb_entry->second;
         return perform_analysis_fn(fp_data, fingerprint_status_labeled);

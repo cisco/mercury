@@ -546,6 +546,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test attributes with resources-mp")
 
     auto destination_check_callback = [](size_t attr_count, size_t expected_attr_count)
     {
+        fprintf(stderr, "attr_count: %zu, expected_attr_count: %zu\n", attr_count, expected_attr_count);
         CHECK((attr_count == expected_attr_count));
     };
 
