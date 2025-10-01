@@ -189,24 +189,7 @@ else
 endif
 
 .PHONY: run
-run: xtra/resources/resources-mp.tgz # xtra data needed for unit tests
-ifeq ($(is_macos_arm),yes)
-	cd ../unit_tests/debug-libs/ && (rm -f libmerc.so.0) && (ln -s libmerc_tls.so libmerc.so.0)
-	export DYLD_LIBRARY_PATH=$$DYLD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER):. && ./libmerc_driver_tls_only -s
-	cd ../unit_tests/debug-libs/ && rm -f libmerc.so.0 && ln -s libmerc_multiprotocol.so libmerc.so.0
-	export DYLD_LIBRARY_PATH=$$DYLD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER):. && ./libmerc_driver_multiprotocol -s
-	export DYLD_LIBRARY_PATH=$$DYLD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ./libmerc_util_behavior_test -s
-	cd ../unit_tests/debug-libs/ && (rm -f libmerc.so.0) && (ln -s libmerc_fdc.so libmerc.so.0)
-	export DYLD_LIBRARY_PATH=$$DYLD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ./libmerc_driver_fdc -s
-else
-	cd ../unit_tests/debug-libs/ && (rm -f libmerc.so.0) && (ln -s libmerc_tls.so libmerc.so.0)
-	export LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER):. && ./libmerc_driver_tls_only -s
-	cd ../unit_tests/debug-libs/ && rm -f libmerc.so.0 && ln -s libmerc_multiprotocol.so libmerc.so.0
-	export LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ./libmerc_driver_multiprotocol -s
-	export LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ./libmerc_util_behavior_test -s
-	cd ../unit_tests/debug-libs/ && (rm -f libmerc.so.0) && (ln -s libmerc_fdc.so libmerc.so.0)
-	export LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ./libmerc_driver_fdc -s
-endif
+run: run_libmerc_tls_only_tests run_libmerc_multiprotocol_tests run_libmerc_fdc_tests libmerc_l7_metadata_test
 
 # Target to build and run libmerc_util_behavior_test
 .PHONY: libmerc_l7_metadata_test
