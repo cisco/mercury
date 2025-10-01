@@ -56,7 +56,7 @@ namespace mysql_consts{
         "CAPABILITY_EXTENSION",
         "SSL_VERIFY_SERVER_CERT",
         "REMEMBER_OPTIONS"
-    };    
+    };
 
     struct capabilities {
         uint16_t val;
@@ -426,7 +426,7 @@ namespace mysql_consts{
                 }
                 status_str.close();
             }
-        }        
+        }
     };
 
 };
@@ -500,7 +500,7 @@ public:
                 return;
             }
             partial_salt = !is_ver_less_41;
-            
+
             if (is_mariadb) {
                 pkt.skip(6);
                 mariadb_ext_cap = encoded<uint32_t>{pkt}.value();
@@ -539,7 +539,7 @@ public:
             if (!partial_salt) {
                 datum salt = salt_1;
                 salt.trim(1);
-                mysql_json.print_key_json_string("salt",salt);   
+                mysql_json.print_key_json_string("salt",salt);
             }
             else {
                 data_buffer<32> salt;
@@ -597,7 +597,7 @@ struct lenenc_int {
                 len = 1;
                 pkt.skip(1);
                 break;
-            
+
             case 0xFC: // 2 bytes length in host order
                 len = encoded<uint16_t>{pkt,true};
                 if (pkt.length() < len) {
@@ -661,7 +661,7 @@ public:
             return;
         }
         pkt.skip(19);
-        
+
         mariadb_ext_cap = encoded<uint32_t>{pkt};
         if (mariadb_ext_cap) {
             is_mariadb = true;  // ideally atleast one bit should be set for mariadb
@@ -671,7 +671,7 @@ public:
             request_ssl = true;
             return;
         }
-        
+
         username.parse_up_to_delim(pkt,'\0');
         if (pkt.is_empty()) {
             valid = false;

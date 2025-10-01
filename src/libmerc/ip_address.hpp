@@ -774,7 +774,7 @@ public:
         fputc('\n', f);
     }
 
-#ifndef _WIN32    
+#ifndef _WIN32
     uint128_t get_value() const {
         uint128_t x = 0;
 

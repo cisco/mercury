@@ -35,7 +35,7 @@ if (IS_WIN)
 else()
     set(oid_exec_cmd oidc ${asn1_files})
 endif()
-add_custom_target( 
+add_custom_target(
         oid
     COMMAND
         ${oid_exec_cmd}

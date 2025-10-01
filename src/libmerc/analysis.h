@@ -222,7 +222,7 @@ public:
         softmax(process_score, malware, attr, max_score, score_sum, index_max, score_sum_without_max, malware_prob, attr_prob);
 
         max_score = process_score[index_max];  // set max_score to probability
-        sec_score = process_score[index_sec]; 
+        sec_score = process_score[index_sec];
 
         if (score_sum > 0.0 && malware_db) {
             malware_prob /= score_sum;
@@ -857,7 +857,7 @@ public:
 
         clock_t load_end_time = clock();
         double load_elapsed_seconds = double(load_end_time - load_start_time) / CLOCKS_PER_SEC;
-        
+
         if (load_elapsed_seconds >= 20) {
             printf_err(log_debug, "time taken to load resource archive: %.2f seconds\n", load_elapsed_seconds);
         }
@@ -1003,7 +1003,7 @@ public:
                                             uint16_t dst_port, const char *user_agent) {
         auto perform_analysis_fn = [&](fingerprint_data *fp_data, fingerprint_status status) {
             if (fp_data == nullptr) {
-                return analysis_result(status);  
+                return analysis_result(status);
             }
             return fp_data->perform_analysis(server_name, dst_ip, dst_port, user_agent, status);
         };
@@ -1014,7 +1014,7 @@ public:
                                                               uint16_t dst_port, const char *user_agent) {
         auto perform_detailed_fn = [&](fingerprint_data *fp_data, fingerprint_status status) {
             if (fp_data == nullptr) {
-                return detailed_analysis_result(status);  
+                return detailed_analysis_result(status);
             }
             return fp_data->perform_detailed_analysis(server_name, dst_ip, dst_port, user_agent, status);
         };

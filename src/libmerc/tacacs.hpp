@@ -512,7 +512,7 @@ namespace {
     [[maybe_unused]] inline int tacacs_authentication_start_fuzz_test(const uint8_t *data, size_t size) {
         return json_output_fuzzer<tacacs::authentication_start>(data, size);
     }
-    
+
     [[maybe_unused]] inline int tacacs_auth_reply_fuzz_test(const uint8_t *data, size_t size) {
         return json_output_fuzzer<tacacs::auth_reply>(data, size);
     }

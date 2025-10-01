@@ -20,9 +20,9 @@ enum class indefinite_reassembly_type : uint8_t {
     ssh = 1
 };
 
-// tcp_segment contains info about the tcp segment 
+// tcp_segment contains info about the tcp segment
 // to be used in reassembly - seq no, data len, timestamp
-// 
+//
 // if the segment is first segment, {init_seg == true},
 // it also holds additional_byte_needed for reassembly
 //
@@ -111,14 +111,14 @@ static const char* reassembly_overlaps_str[] = {
 //
 enum class reassembly_state : uint8_t {
     reassembly_none = 0,         // no reassembly {requried/in progress}
-    reassembly_progress = 1,     // reassembly in progress 
+    reassembly_progress = 1,     // reassembly in progress
     reassembly_success = 2,      // reassembly success
     reassembly_truncated = 3,    // reassembly failed, output truncated, either max segments or timeout
     reassembly_consumed = 4,     // reassembly data already consumed, either success or truncated
     reassembly_quic_discard = 5, // mismatching cid, discard this flow from reassembly
 };
 
-//static constexpr unsigned int reassembly_timeout = 15; 
+//static constexpr unsigned int reassembly_timeout = 15;
 
 // reassembly_flow_context contains all the state associated with a particular
 // tcp flow under reassembly, including reassembly buffer, flags etc.
@@ -177,7 +177,7 @@ struct reassembly_flow_context {
         is_quic{false},
         cid{},
         cid_len{0} {
-    
+
         seg_list.reserve(max_segments);
         seg_list.push_back({seg.seq - init_seq, seg.seq - init_seq + seg.data_length - 1});
         curr_seg_count = 1;
@@ -204,11 +204,11 @@ struct reassembly_flow_context {
         is_quic{true},
         cid{},
         cid_len{(size_t)seg.cid.length()} {
-    
+
         seg_list.reserve(max_segments);
         seg_list.push_back({seg.seq - init_seq, seg.seq - init_seq + seg.data_length - 1});
         curr_seg_count = 1;
-        
+
         // copy cid
         memcpy(cid,seg.cid.data,seg.cid.length());
 
@@ -228,7 +228,7 @@ struct reassembly_flow_context {
 
     const datum get_cid_datum() const;
 
-private:    
+private:
 
     void simplify_seglist (size_t idx);
 
@@ -305,7 +305,7 @@ inline void reassembly_flow_context::simplify_seglist (size_t idx) {
 
     if (idx != (seg_list.size()-1)) {
         // check for multiple superset overlaps
-        size_t i = idx + 1; 
+        size_t i = idx + 1;
         for (; i < seg_list.size()-1; i++) {
             if ( (seg_list[i].first <= seg_list[idx].second) && (seg_list[i].second <= seg_list[idx].second) ) {
                 front_overlap = seg_list[i].second - seg_list[i].first + 1;
@@ -407,7 +407,7 @@ inline void reassembly_flow_context::process_tcp_segment(const T &seg, const dat
     uint32_t rel_seq_st = seg.seq - init_seq;       // start index
     uint32_t dlen = seg.data_length;
     uint32_t rel_seq_en = ( (rel_seq_st + dlen - 1) >= (max_data_size-1) ? (max_data_size-1) : (rel_seq_st + dlen - 1) );     // end index
-    
+
     curr_seg_count++;
     if (curr_seg_count > max_segments) {
         // use existing max contiguous bytes and exit
@@ -572,7 +572,7 @@ inline reassembly_state tcp_reassembler::check_flow(const struct key &k, uint64_
     else {
         passive_reap(sec);  // passive: try to clean expired entries
     }
-    
+
     curr_flow = table.find(k);
     if (curr_flow != table.end()) {
         return curr_flow->second.state;
@@ -594,7 +594,7 @@ inline reassembly_state tcp_reassembler::check_flow(const struct key &k, uint64_
     else {
         passive_reap(sec);  // passive: try to clean expired entries
     }
-    
+
     curr_flow = table.find(k);
     if (curr_flow != table.end()) {
         const datum cid = curr_flow->second.get_cid_datum();
@@ -732,7 +732,7 @@ inline void tcp_reassembler::set_completed(reassembly_map_iterator it) {
 
 inline void tcp_reassembler::clean_curr_flow() {
     if ((curr_flow!=table.end()) && is_done(curr_flow)) {
-        reap_it = table.erase(curr_flow);   
+        reap_it = table.erase(curr_flow);
     }
     curr_flow = table.end();
 }

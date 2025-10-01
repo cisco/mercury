@@ -63,4 +63,3 @@ Datum
 
 .. doxygengroup:: bitoperations
    :project: mercury
-

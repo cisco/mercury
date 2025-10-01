@@ -15,7 +15,7 @@ ifeq ($(is_macos_arm),yes)
 CFLAGS += -I/opt/homebrew/include
 CXXFLAGS += -I/opt/homebrew/include
 LDFLAGS += -L/opt/homebrew/lib
-STDFSLIB = 
+STDFSLIB =
 else
 STDFSLIB = -lstdc++fs
 endif
