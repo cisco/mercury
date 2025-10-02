@@ -116,8 +116,3 @@ $ALT_MERC_PATH/src/mercury  $COMMANDS > $ALT_NAME.json
 # differing lines of $NAME.json (top) and $ALT_NAME.json (bottom)
 #
 diff $NAME.json $ALT_NAME.json | sed - -e 's/< //' -e '/---/d' -e 's/> //' -e '/^[a-z0-9,]*$/d' > diff-$NAME-$ALT_NAME.json
-
-
-
-
-

@@ -1,7 +1,7 @@
 #include "libmerc_fixture.h"
 
 
-LibmercTestFixture::LibmercTestFixture() 
+LibmercTestFixture::LibmercTestFixture()
 {
     m_pcap_file_name = nullptr;
     m_pcap = nullptr;
@@ -17,7 +17,7 @@ LibmercTestFixture::~LibmercTestFixture()
 void LibmercTestFixture::initialize()
 {
     m_mercury = new libmerc_api(m_libmerc_library_path.c_str());
-    
+
     m_mc = m_mercury->init(&m_config, verbosity);
 
     m_mpp = mercury_packet_processor_construct(m_mc);
@@ -25,7 +25,7 @@ void LibmercTestFixture::initialize()
 void LibmercTestFixture::initialize(const struct libmerc_config &config)
 {
     m_mercury = new libmerc_api(m_libmerc_library_path.c_str());
-    
+
     m_mc = m_mercury->init(&config, verbosity);
 
     m_mpp = mercury_packet_processor_construct(m_mc);
@@ -70,7 +70,7 @@ void LibmercTestFixture::set_library_path(std::string path)
 void LibmercTestFixture::set_pcap(const char * fname)
 {
     /*to avoid memory leak we need to delete previous record if exist.*/
-    if(m_pcap) delete m_pcap; 
+    if(m_pcap) delete m_pcap;
     if(m_pcap_file_name) free(m_pcap_file_name);
 
     const char pcap_f[9] = "./pcaps/";
@@ -80,7 +80,7 @@ void LibmercTestFixture::set_pcap(const char * fname)
     }
 
     printf("\n\n%s\n\n", m_pcap_file_name);
-    
+
     m_pcap = new pcap::file_reader(m_pcap_file_name);
 }
 
@@ -222,16 +222,16 @@ int LibmercTestFixture::counter(fingerprint_type fp_type, std::function<void()> 
         {
             break;
         }
-        
+
         auto json = mercury_packet_processor_write_json(m_mpp, m_output, 4096,
                                                         (unsigned char *)m_data_packet.first,
                                                         m_data_packet.second - m_data_packet.first,
                                                         &m_time);
         if (json > 0) {
-            if (m_mpp->analysis.fp.get_type() == fp_type) 
+            if (m_mpp->analysis.fp.get_type() == fp_type)
             {
                 count_of_packets++;
-            
+
             if (callback)
                 callback();
             }

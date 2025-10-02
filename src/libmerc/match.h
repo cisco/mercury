@@ -59,7 +59,7 @@ public:
         const uint32_t *d = (const uint32_t *)data_in;
         const uint32_t *m = (const uint32_t *)mask_in;
         const uint32_t *v = (const uint32_t *)value_in;
-        
+
         if (N == 4) {
             return ((d[0] & m[0]) == v[0]);
         }

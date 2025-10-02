@@ -7,12 +7,12 @@ To minimize the amount of C++ code that must be written in order to handle assig
 The goals of the auto-generation system are:
 
 * to minimize the amount of tedious and error-prone manual work involved in implementing protocols,
-  
+
 * to provide a uniform programmatic interface and JSON output syntax for different assigned numbers, and
-  
+
 * to have tooling that can be re-run in the future so that new assigned number values can be easily brought into the software
   once they are registered with IANA,
-  
+
 * to track assigned numbers that are not registered with IANA, and be able to combine this information with IANA data.
 
 We used the following approach.  Each assigned number is represented by a single C++ class, which is generated from one or more CSV files, using the `csv` utility.  A Makefile controls the downloading of CSV files from IANA files, and the running of `csv`, to create a single C++ header-only library that includes all of the assigned number classes for a particular protocol.  The `wget` utility is used for downloading files.  The resulting protocol library header file is written into the `src/tables/` subdirectory; it must be manually copied into the `src/libmerc` subdirectory to be used in mercury.  Any protocol library used in mercury must be copied into that directory and committed into the mercury git repo, so that it doesn’t need to be auto-generated for each build.
@@ -63,7 +63,7 @@ Value,Name,Reference
 0x03-0xff,Unassigned,
 ```
 
-As with the IANA conventions, the cells in the first line describes the data in their columns.  The last cell in the other lines are empty, which is acceptable, although each line must have the same number of cells. 
+As with the IANA conventions, the cells in the first line describes the data in their columns.  The last cell in the other lines are empty, which is acceptable, although each line must have the same number of cells.
 
 Let's run `csv` on that file, from the `src/tables` directory, and write the output into `example.h`:
 
@@ -133,11 +133,11 @@ As implemented, the `csv` utility provides minimal error reporting.  Users deser
 
 When working with additional protocols, it may be necessary to tweak the code to handle slightly different CSV file conventions.
 
-One important limitation of the current system is that ranges (such as 0x03-0xff) are not handled.  A future version could add provide the information about what range a number is in through the `get_name()`member function, or a new member function. 
+One important limitation of the current system is that ranges (such as 0x03-0xff) are not handled.  A future version could add provide the information about what range a number is in through the `get_name()`member function, or a new member function.
 
-Additional information about a number could be provided through additional member functions.  The RFC numbers associated with most IANA registrations could be used to determine the year that a protocol option was standardized, and this information could be provided through a member function.   The range of years associated with the assigned numbers in a protocol message give a strong indication of the year that the implementation was completed.   Another useful bit of information is the RFC reference itself, which could be provided as a URL to facilitate quick lookups.  
+Additional information about a number could be provided through additional member functions.  The RFC numbers associated with most IANA registrations could be used to determine the year that a protocol option was standardized, and this information could be provided through a member function.   The range of years associated with the assigned numbers in a protocol message give a strong indication of the year that the implementation was completed.   Another useful bit of information is the RFC reference itself, which could be provided as a URL to facilitate quick lookups.
 
-There are well-known addresses that are managed by IANA, which could be handled as assigned numbers.  
+There are well-known addresses that are managed by IANA, which could be handled as assigned numbers.
 
 Well-known ports could also be handled as assigned numbers, though implementations often use nonstandard destination ports, and IANA registrations should be taken with a grain of salt.
 

@@ -8,7 +8,7 @@ There are two targets for generating coverage reports:
 - **`test-coverage`**: Runs all tests **except fuzz tests** and creates the coverage report.
 - **`test-coverage-fuzz`**: Runs **fuzz tests** and creates the coverage report.
 
-> **Note:**  
+> **Note:**
 > The `test-coverage-fuzz` target will **not work on RHEL-based Linux distributions** due to toolchain compatibility issues with coverage instrumentation. It is supported and will work correctly **only on Debian-based Linux distributions**.
 
 ### Requirements

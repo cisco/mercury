@@ -784,7 +784,7 @@ public:
         dst_port_feature.update(process_score, dst_port, w.port);
         if (minimize_ram) {
             (void)dst_ip_str;
-        } else { 
+        } else {
             dst_addr_feature.update(process_score, dst_ip_str, w.ip);
         }
         user_agent_feature.update(process_score, user_agent, w.ua);

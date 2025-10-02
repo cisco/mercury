@@ -84,7 +84,7 @@ namespace tftp { class packet; }
 class gre_header;
 class geneve;
 class ip_encapsulation;
-class vxlan; 
+class vxlan;
 
 using protocol = std::variant<std::monostate,
                               http_request,                      // start of tcp protocols
