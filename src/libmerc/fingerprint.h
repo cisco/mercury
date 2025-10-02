@@ -53,7 +53,7 @@ public:
 
     template <typename T>
     void add(T &msg) {
-        msg.fingerprint(fp_buf);
+        return msg.fingerprint(fp_buf);
     }
 
     template <typename T>
@@ -134,6 +134,10 @@ public:
     }
 
     void final() {
+        if (fp_buf.is_truncated()) {
+            init();  // reset to fingerprint_type_unknown
+            return;
+        }
         fp_buf.write_char('\0'); // null-terminate
         assert(fingerprint_is_well_formed());
     }

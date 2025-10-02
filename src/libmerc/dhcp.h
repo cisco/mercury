@@ -343,7 +343,9 @@ struct dhcp_option : public datum {
         case dhcp_option_type::Address_Request:
             if (datum::length() == 4) {
                 json_opt.print_key_ipv4_addr("requested_address", this->data);
-            } // TBD: IPv6
+            } else if (datum::length() == 16) {
+                json_opt.print_key_ipv6_addr("requested_address", this->data);
+            }
             break;
         case dhcp_option_type::Hostname:
             json_opt.print_key_json_string("hostname", *this);
@@ -523,12 +525,110 @@ struct dhcp_discover : public base_protocol {
         fp.final();
     }
 
-    constexpr static mask_and_value<8> matcher = {
-       { 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00 },
-       { 0x01, 0x01, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00 }
-    };
+    // constexpr static mask_and_value<8> matcher = {
+    //    { 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00 },
+    //    { 0x01, 0x01, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00 }
+    // };
 
 };
+
+class dhcp_message : public base_protocol {
+    struct datum options;
+
+    constexpr static std::array<uint8_t, 4> magic_cookie{99, 130, 83, 99};
+
+public:
+
+    dhcp_message(datum &p) { parse(p); };
+
+    void parse(struct datum &p) {
+        p.skip(L_dhcp_fixed_header);
+        p.skip(L_dhcp_magic_cookie);
+        options = p;
+    }
+
+    bool is_not_empty() const { return options.is_not_empty(); }
+
+    void write_json(struct json_object &o, bool metadata) {
+        if (metadata) {
+            write_json_complete(o);
+            return;
+        }
+        struct json_object json_dhcp{o, "dhcp"};
+        struct datum tmp = options;
+        while (tmp.is_not_empty()) {
+            struct dhcp_option opt;
+            opt.parse(tmp);
+            opt.write_json(json_dhcp);
+        }
+        json_dhcp.close();
+    }
+
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("dhcp");
+        protocols.close();
+    }
+
+    void write_json_complete(struct json_object &o) {
+        struct json_object json_dhcp{o, "dhcp"};
+        //json_dhcp.print_key_hex("options_hex", options);
+        //json_dhcp.print_key_datum("options", options);
+
+        struct json_array option_array{json_dhcp, "options"};
+        struct datum tmp = options;
+        while (tmp.is_not_empty()) {
+            struct dhcp_option opt;
+            opt.parse(tmp);
+            opt.write_json_complete(option_array);
+        }
+        option_array.close();
+        json_dhcp.close();
+    }
+
+    void fingerprint(struct buffer_stream &b) const {
+
+        b.write_char('(');
+        struct datum tmp = options;
+        while (tmp.is_not_empty()) {
+            struct dhcp_option opt;
+            opt.parse(tmp);
+
+            // only return a fingerprint string if the message type is REQUEST
+            //
+            if (opt.tag == DHCP_OPT_MESSAGE_TYPE) {
+                if (lookahead<encoded<uint8_t>> msg_type{opt}) {
+                    if (msg_type.value.value() != 3) {
+                        b.set_truncated();
+                    }
+                }
+            }
+            if (opt.tag == DHCP_OPT_PARAMETER_LIST || opt.tag == DHCP_OPT_VENDOR_CLASS || opt.tag == DHCP_OPT_MESSAGE_TYPE) {
+                // copy entire option into fingerprint string
+                b.write_char('(');
+                b.raw_as_hex(&opt.tag, sizeof(opt.tag));
+                b.raw_as_hex(&opt.length, sizeof(opt.length));
+                b.raw_as_hex(opt.data, opt.data_end - opt.data);
+                b.write_char(')');
+
+            } else if (opt.tag != DHCP_OPT_PAD) {
+                // copy only option tag into fingerprint string
+                b.write_char('(');
+                b.raw_as_hex(&opt.tag, sizeof(opt.tag));
+                b.write_char(')');
+            }
+        }
+        b.write_char(')');
+    }
+
+    void compute_fingerprint(class fingerprint &fp) const {
+        fp.set_type(fingerprint_type_dhcp);
+        fp.add(*this);
+        fp.final();
+    }
+
+};
+
 
 [[maybe_unused]] inline int dhcp_discover_fuzz_test(const uint8_t *data, size_t size) {
     return json_output_fuzzer<dhcp_discover>(data, size);

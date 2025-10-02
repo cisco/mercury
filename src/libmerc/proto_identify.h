@@ -263,6 +263,7 @@ class traffic_selector {
     bool select_geneve{false};
     bool select_vxlan{false};
     bool select_mysql_login_request{false};
+    bool select_dhcp{false};
 
 public:
 
@@ -320,6 +321,8 @@ public:
 
     bool mysql_login_request() const { return select_mysql_login_request; }
 
+    bool dhcp() const { return select_dhcp; }
+
     void disable_all() {
         tcp.disable_all();
         tcp4.disable_all();
@@ -353,6 +356,7 @@ public:
         select_geneve = false;
         select_vxlan = false;
         select_mysql_login_request = false;
+        select_dhcp = false;
 
     }
 
@@ -460,7 +464,8 @@ public:
             select_tcp_syn_ack = true;
         }
         if (protocols["dhcp"] || protocols["all"]) {
-            udp.add_protocol(dhcp_discover::matcher, udp_msg_type_dhcp);
+            select_dhcp = true;
+            // udp.add_protocol(dhcp_discover::matcher, udp_msg_type_dhcp);
         }
         if (protocols["dns"] || protocols["nbns"] || protocols["mdns"] || protocols["all"]) {
             if (protocols["all"]) {
@@ -662,6 +667,10 @@ public:
 
         if (gre() and ports.dst == hton<uint16_t>(gre_header::dst_port)) {
             return udp_msg_type_gre;
+        }
+
+        if (dhcp() and (ports.dst == hton<uint16_t>(67) or ports.dst == hton<uint16_t>(68))) {
+            return udp_msg_type_dhcp;
         }
 
         return udp_msg_type_unknown;
