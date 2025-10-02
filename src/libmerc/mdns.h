@@ -33,7 +33,7 @@
  * multicast address 224.0.0.251 or its IPv6 equivalent FF02::FB, except
  * when generating a reply to a query that explicitly requested a
  * unicast response.
- * 
+ *
  * Multicast DNS implementations
  * MUST silently ignore any Multicast DNS responses they receive where
  * the source UDP port is not 5353.

@@ -20,4 +20,3 @@ DeprecatedAuthorityKeyIdentifier OBJECT IDENTIFIER ::= {
 DeprecatedpolicyConstraints OBJECT IDENTIFIER ::= {
     joint-iso-itu-t(2) ds(5) certificateExtension(29) policyConstraints(34)
 }
-

@@ -118,17 +118,17 @@ namespace bencoding {
         if (!valid) {
             return;
         }
-        
+
         if (lookahead<list_or_dict_end> is_end{tmp}) {
             tmp = is_end.advance();
             return;
         }
-        
+
         struct json_array a{o, "attributes"};
-        
+
         while(tmp.is_not_empty()) {
             struct json_object items(a);
-            
+
             byte_string key{tmp};
             items.print_key_json_string("key", key.value());
             if (nesting_level > MAX_DEPTH) {
@@ -136,7 +136,7 @@ namespace bencoding {
                 tmp.skip(tmp.length());
                 break;
             }
-            
+
             bencoded_data value{tmp, static_cast<uint8_t>(nesting_level + 1)};
             value.write_json(items);
             items.close();
@@ -199,4 +199,3 @@ namespace bencoding {
         }
     }
 }
-

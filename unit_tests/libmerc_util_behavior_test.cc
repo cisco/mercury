@@ -144,5 +144,3 @@ TEST_CASE("emix.pcap") {
 
     test_pcap_file("emix.pcap", 1317, expected_protocols);
 }
-
-

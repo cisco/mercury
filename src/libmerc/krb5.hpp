@@ -512,4 +512,3 @@ namespace krb5 {
 }
 
 #endif // KRB5_H
-

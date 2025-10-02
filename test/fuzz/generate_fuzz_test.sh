@@ -147,7 +147,7 @@ cat <<EOF >> "fuzz_test_$dir_name.c"
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size) {
     size_t mid = Size / 2;
-    
+
     const uint8_t *Data1 = Data;
     size_t Size1 = mid;
 

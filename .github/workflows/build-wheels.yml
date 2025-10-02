@@ -60,7 +60,7 @@ jobs:
           CIBW_TEST_COMMAND: cd {project} && python mercury_python_test.py
 
       - name: Upload to S3
-        env: 
+        env:
           AWS_ACCESS_KEY_ID: ${{secrets.ACCESS_KEY_ID}}
           AWS_SECRET_ACCESS_KEY: ${{secrets.ACCESS_KEY_SECRET}}
           AWS_DEFAULT_REGION: us-east-1

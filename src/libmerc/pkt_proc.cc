@@ -181,7 +181,7 @@ public:
         event = std::make_tuple(src_ip_str, analysis.fp.string(), analysis.destination.ua_str, dest_context);
         return event;
     }
-    
+
     template <typename T>
     event_msg construct_event_string_proto([[maybe_unused]] T &msg) {
         char src_ip_str[MAX_ADDR_STR_LEN];
@@ -195,9 +195,9 @@ public:
         dest_context.append(dst_port_str).append(")");
 
         event = std::make_tuple(src_ip_str, analysis.fp.string(), analysis.destination.ua_str, dest_context);
-        return event; 
+        return event;
     }
-    
+
     event_msg construct_event_string() {
         return construct_event_string_proto(message_pkt);
     }
@@ -595,7 +595,7 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
             uint32_t tmp_seq = curr_flow->second.curr_contiguous_data;
             tcp_segment seg{false,tcp_pkt.data_length,tmp_seq,0,(uint64_t)ts->tv_sec, (indefinite_reassembly_type)tcp_pkt.indefinite_reassembly};
             reassembler->process_tcp_data_pkt(k,ts->tv_sec,seg,pkt_copy);
-            reassembler->dump_pkt = true; 
+            reassembler->dump_pkt = true;
         } else {
             tcp_segment seg{false,tcp_pkt.data_length,tcp_pkt.seq(),0,(uint64_t)ts->tv_sec, (indefinite_reassembly_type)tcp_pkt.indefinite_reassembly};
             reassembler->process_tcp_data_pkt(k,ts->tv_sec,seg,pkt_copy);
@@ -712,7 +712,7 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
             uint16_t frame_count = 0;
             uint16_t first_frame_idx = 0;
             const crypto* frames = std::get<quic_init>(x).get_crypto_frames(frame_count,first_frame_idx);
-            
+
             // init
             if (min_crypto_data) {
                 quic_segment seg{true,cryptographic_buffer::min_crypto_data_len,(uint32_t)(frames[first_frame_idx].offset()),udp_pkt.additional_bytes_needed(),(uint64_t)ts->tv_sec, cid};
@@ -725,12 +725,12 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
                                 crypto_data+frames[first_frame_idx].offset()+frames[first_frame_idx].length()});
 
             }
-            
+
             for (uint16_t i = 0; i < frame_count; i++) {
                 if (i != first_frame_idx) { // skip already processed first frame
                     quic_segment seg{false,(uint32_t)(frames[i].length()),(uint32_t)(frames[i].offset()),0,(uint64_t)ts->tv_sec, cid};
                     reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[i].offset(),crypto_data+frames[i].offset()+frames[i].length()});
-                }  
+                }
             }
             reassembler->dump_pkt = true;
         }
@@ -750,9 +750,9 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
             for (uint16_t i = 0; i < frame_count; i++) {
                 quic_segment seg{false,(uint32_t)(frames[i].length()),(uint32_t)(frames[i].offset()),0,(uint64_t)ts->tv_sec, cid};
                 reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[i].offset(),crypto_data+frames[i].offset()+frames[i].length()});
-              
+
             }
-            reassembler->dump_pkt = true;            
+            reassembler->dump_pkt = true;
         }
     }
     else if (r_state == reassembly_state::reassembly_consumed) {

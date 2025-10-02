@@ -23,4 +23,3 @@ std::string dns_get_json_string(const char *dns_pkt, ssize_t pkt_len) {
     std::string tmp_str(buffer, buf.length());
     return tmp_str;
 }
-

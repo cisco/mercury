@@ -297,4 +297,3 @@ public:
 
 
 #endif // TACACS_PLUS_PARAMS_HPP
-
