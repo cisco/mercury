@@ -543,7 +543,7 @@ public:
 
     void parse(struct datum &p) {
         p.skip(L_dhcp_fixed_header);
-        p.skip(L_dhcp_magic_cookie);
+        p.accept(magic_cookie);
         options = p;
     }
 

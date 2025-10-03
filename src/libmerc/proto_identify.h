@@ -465,7 +465,6 @@ public:
         }
         if (protocols["dhcp"] || protocols["all"]) {
             select_dhcp = true;
-            // udp.add_protocol(dhcp_discover::matcher, udp_msg_type_dhcp);
         }
         if (protocols["dns"] || protocols["nbns"] || protocols["mdns"] || protocols["all"]) {
             if (protocols["all"]) {
