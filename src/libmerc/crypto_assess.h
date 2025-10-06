@@ -351,23 +351,6 @@ namespace crypto_policy {
                 quantifier = "some";
             }
             a.print_key_string("kex_allowed", quantifier);
-            if (!all_allowed) {
-                json_array cs_array{a, "kex_not_allowed"};
-                name_list tmp_list = kex_list;
-                while (tmp_list.is_readable()) {
-                    datum tmp{};
-                    tmp.parse_up_to_delim(tmp_list,',');
-                    if (tmp.end() == tmp_list.end()) {
-                       // end of list
-                        tmp_list.set_null();
-                    }
-                    tmp_list.skip(1);    // skip ','
-                    if (ssh_allowed_kex.find(std::string{(char*)tmp.data,(size_t)tmp.length()}) == ssh_allowed_kex.end()) {
-                        cs_array.print_string(std::string{(char*)tmp.data,(size_t)tmp.length()}.c_str());
-                    }
-                }
-                cs_array.close();
-            }
 
             return true;
         }
@@ -428,23 +411,6 @@ namespace crypto_policy {
                 quantifier = "some";
             }
             a.print_key_string("ciphersuites_allowed", quantifier);
-            if (!all_allowed) {
-                json_array cs_array{a, "ciphersuites_not_allowed"};
-                name_list tmp_list = ciphers;
-                while (tmp_list.is_readable()) {
-                    datum tmp{};
-                    tmp.parse_up_to_delim(tmp_list,',');
-                    if (tmp.end() == tmp_list.end()) {
-                       // end of list
-                        tmp_list.set_null();
-                    }
-                    tmp_list.skip(1);    // skip ','
-                    if (ssh_allowed_ciphers.find(std::string{(char*)tmp.data,(size_t)tmp.length()}) == ssh_allowed_ciphers.end()) {
-                        cs_array.print_string(std::string{(char*)tmp.data,(size_t)tmp.length()}.c_str());
-                    }
-                }
-                cs_array.close();
-            }
 
             return true;
         }
