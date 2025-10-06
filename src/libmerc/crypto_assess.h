@@ -164,7 +164,6 @@ namespace crypto_policy {
                         if (!is_grease(cs)) {
                             found = (allowed_ciphersuites.find(cs.value()) != allowed_ciphersuites.end());
                             if (!found) {
-                                all_allowed = false;
                                 if (readable_output) {
                                     cs_array.print_string(cs.get_name());
                                 } else {
@@ -222,7 +221,6 @@ namespace crypto_policy {
                         if (!is_grease(named_group)) {
                             found = (allowed_groups.find(named_group.value()) != allowed_groups.end());
                             if (!found) {
-                                all_allowed = false;
                                 if (readable_output) {
                                     ng_array.print_string(named_group.get_name());
                                 } else {
@@ -272,7 +270,7 @@ namespace crypto_policy {
         }
 
         /*
-        * SSH kex init paramaters - key exchange methods and encryption algorithms
+        * SSH kex init parameters - key exchange methods and encryption algorithms
         */
         static inline const std::unordered_set<std::string_view> ssh_allowed_kex {
             "sntrup761x25519-sha512",    // not NIST approved, but considered PQ safe
@@ -321,7 +319,6 @@ namespace crypto_policy {
                     while (true) {
                         found = (ssh_allowed_kex.find(tmp_sv) != ssh_allowed_kex.end());
                         if (!found) {
-                            all_allowed = false;
                             kex_array.print_string(tmp_sv.data(), tmp_sv.length());
                         } else {
                             some_allowed = true;
@@ -381,7 +378,6 @@ namespace crypto_policy {
                     while (true) {
                         found = ssh_allowed_ciphers.find(tmp_sv) != ssh_allowed_ciphers.end();
                         if (!found) {
-                            all_allowed = false;
                             cs_array.print_string(tmp_sv.data(), tmp_sv.length());
                         } else {
                             some_allowed = true;
@@ -509,15 +505,14 @@ namespace crypto_policy {
         quantum_safe assessor{true};
         char buff[1024];
 
-        // test-1
-        // 
-        // 0x008D0xC0A90x7a7a0xffff
+        // --------------- TLS EXTENSIONS AND CIPHERSUITES ---------------
+        // TEST-1
         // 
         uint8_t tls_ciphers[] = {
-            0x00, 0x8d,
-            0xc0, 0xa9,
-            0x7a, 0x7a,
-            0xc0, 0x06
+            0x00, 0x8d, // TLS_PSK_WITH_AES_256_CBC_SHA (allowed)
+            0xc0, 0xa9, // TLS_PSK_WITH_AES_256_CCM_8 (allowed)
+            0x7a, 0x7a, // grease
+            0xc0, 0x06  // TLS_ECDHE_ECDSA_WITH_NULL_SHA (not allowed)
         };
         datum ciphersuites_vector{tls_ciphers, tls_ciphers + sizeof(tls_ciphers)};
         buffer_stream tls_cphrs_buff_strm{buff, 1024};
@@ -525,29 +520,50 @@ namespace crypto_policy {
         assessor.assess_tls_ciphersuites(ciphersuites_vector, c);
         c.close();
 
-        // {"ciphersuites_not_allowed":["TLS_ECDHE_ECDSA_WITH_NULL_SHA"],"ciphersuites_allowed":"some"}
-        // 
-        uint8_t tls_ciphers_output[] = {
-            0x7B, 0x22, 0x63, 0x69, 0x70, 0x68, 0x65, 0x72,
-            0x73, 0x75, 0x69, 0x74, 0x65, 0x73, 0x5F, 0x6E,
-            0x6F, 0x74, 0x5F, 0x61, 0x6C, 0x6C, 0x6F, 0x77,
-            0x65, 0x64, 0x22, 0x3A, 0x5B, 0x22, 0x54, 0x4C,
-            0x53, 0x5F, 0x45, 0x43, 0x44, 0x48, 0x45, 0x5F,
-            0x45, 0x43, 0x44, 0x53, 0x41, 0x5F, 0x57, 0x49,
-            0x54, 0x48, 0x5F, 0x4E, 0x55, 0x4C, 0x4C, 0x5F,
-            0x53, 0x48, 0x41, 0x22, 0x5D, 0x2C, 0x22, 0x63,
-            0x69, 0x70, 0x68, 0x65, 0x72, 0x73, 0x75, 0x69,
-            0x74, 0x65, 0x73, 0x5F, 0x61, 0x6C, 0x6C, 0x6F,
-            0x77, 0x65, 0x64, 0x22, 0x3A, 0x22, 0x73, 0x6F,
-            0x6D, 0x65, 0x22, 0x7D
-        };
+        std::string tls_ciphers_output_str = "{\"ciphersuites_not_allowed\":[\"TLS_ECDHE_ECDSA_WITH_NULL_SHA\"],\"ciphersuites_allowed\":\"some\"}";
 
-        if (memcmp(tls_ciphers_output, c.b->dstr, 92) != 0) {
+        if (tls_ciphers_output_str.length() > (unsigned long)c.b->dlen || memcmp(tls_ciphers_output_str.c_str(), c.b->dstr, tls_ciphers_output_str.length()) != 0) {
+            return false;
+        }
+
+        // TEST-2
+        // 
+        uint8_t tls_ciphers_all_allowed[] = {
+            0x00, 0x8d, // TLS_PSK_WITH_AES_256_CBC_SHA (allowed)
+            0xc0, 0xa9, // TLS_PSK_WITH_AES_256_CCM_8 (allowed)
+            0x7a, 0x7a, // grease
+        };
+        datum ciphersuites_vector_all_allowed{tls_ciphers_all_allowed, tls_ciphers_all_allowed + sizeof(tls_ciphers_all_allowed)};
+        buffer_stream tls_cphrs_buff_strm_all_allowed{buff, 1024};
+        json_object c_all_allowed{&tls_cphrs_buff_strm_all_allowed};
+        assessor.assess_tls_ciphersuites(ciphersuites_vector_all_allowed, c_all_allowed);
+        c_all_allowed.close();
+
+        std::string tls_ciphers_all_allowed_output_str = "{\"ciphersuites_allowed\":\"all\"}";
+
+        if (tls_ciphers_all_allowed_output_str.length() > (unsigned long)c_all_allowed.b->dlen || memcmp(tls_ciphers_all_allowed_output_str.c_str(), c_all_allowed.b->dstr, tls_ciphers_all_allowed_output_str.length()) != 0) {
+            return false;
+        }
+
+        // TEST-3
+        uint8_t tls_ciphers_none_allowed[] = {
+            0xc0, 0x06, // TLS_ECDHE_ECDSA_WITH_NULL_SHA (not allowed)
+            0x7a, 0x7a, // grease
+            0xc0, 0x07  // TLS_ECDHE_ECDSA_WITH_RC4_128_SHA (not allowed)
+        };
+        datum ciphersuites_vector_none_allowed{tls_ciphers_none_allowed, tls_ciphers_none_allowed + sizeof(tls_ciphers_none_allowed)};
+        buffer_stream tls_cphrs_buff_strm_none_allowed{buff, 1024};
+        json_object c_none_allowed{&tls_cphrs_buff_strm_none_allowed};
+        assessor.assess_tls_ciphersuites(ciphersuites_vector_none_allowed, c_none_allowed);
+        c_none_allowed.close();
+
+        std::string tls_ciphers_none_allowed_output_str = "{\"ciphersuites_not_allowed\":[\"TLS_ECDHE_ECDSA_WITH_NULL_SHA\",\"TLS_ECDHE_ECDSA_WITH_RC4_128_SHA\"],\"ciphersuites_allowed\":\"none\"}";
+        if (tls_ciphers_none_allowed_output_str.length() > (unsigned long)c_none_allowed.b->dlen || memcmp(tls_ciphers_none_allowed_output_str.c_str(), c_none_allowed.b->dstr, tls_ciphers_none_allowed_output_str.length()) != 0) {
             return false;
         }
 
 
-        // test-2
+        // TEST-4
         // 
         uint8_t tls_extensions_data[] = {
             0x00, 0x0A, // type (supported group)
@@ -564,111 +580,246 @@ namespace crypto_policy {
         assessor.assess_tls_extensions(extensions, d);
         d.close();
 
-        // {"groups_not_allowed":["sect163k1"],"groups_allowed":"some","tls_cert_with_extern_psk":false}
-        // 
-        uint8_t tls_extensions_output[] = {
-            0x7B, 0x22, 0x67, 0x72, 0x6F, 0x75, 0x70, 0x73,
-            0x5F, 0x6E, 0x6F, 0x74, 0x5F, 0x61, 0x6C, 0x6C, 
-            0x6F, 0x77, 0x65, 0x64, 0x22, 0x3A, 0x5B, 0x22, 
-            0x73, 0x65, 0x63, 0x74, 0x31, 0x36, 0x33, 0x6B, 
-            0x31, 0x22, 0x5D, 0x2C, 0x22, 0x67, 0x72, 0x6F, 
-            0x75, 0x70, 0x73, 0x5F, 0x61, 0x6C, 0x6C, 0x6F, 
-            0x77, 0x65, 0x64, 0x22, 0x3A, 0x22, 0x73, 0x6F, 
-            0x6D, 0x65, 0x22, 0x2C, 0x22, 0x74, 0x6C, 0x73, 
-            0x5F, 0x63, 0x65, 0x72, 0x74, 0x5F, 0x77, 0x69, 
-            0x74, 0x68, 0x5F, 0x65, 0x78, 0x74, 0x65, 0x72, 
-            0x6E, 0x5F, 0x70, 0x73, 0x6B, 0x22, 0x3A, 0x66, 
-            0x61, 0x6C, 0x73, 0x65, 0x7D
-        };
+        std::string tls_extensions_output_str = "{\"groups_not_allowed\":[\"sect163k1\"],\"groups_allowed\":\"some\",\"tls_cert_with_extern_psk\":false}";
 
-        if (memcmp(tls_extensions_output, d.b->dstr, 93) != 0) {
+        if (tls_extensions_output_str.length() > (unsigned long)d.b->dlen || memcmp(tls_extensions_output_str.c_str(), d.b->dstr, tls_extensions_output_str.length()) != 0) {
             return false;
         }
 
-        // test-3
+        // TEST-5
         // 
-        // mlkem1024nistp384-sha384,mlkem768-sha256,abc,xyz
-        // 
-        uint8_t kex_alogorithms[] = {
-            0x00, 0x00, 0x00, 0x30,
-            0x6D, 0x6C, 0x6B, 0x65, 0x6D, 0x31, 0x30, 0x32,
-            0x34, 0x6E, 0x69, 0x73, 0x74, 0x70, 0x33, 0x38,
-            0x34, 0x2D, 0x73, 0x68, 0x61, 0x33, 0x38, 0x34,
-            0x2C, 0x6D, 0x6c, 0x6B, 0x65, 0x6D, 0x37, 0x36,
-            0x38, 0x2D, 0x73, 0x68, 0x61, 0x32, 0x35, 0x36,
-            0x2C, 0x61, 0x62, 0x63, 0x2C, 0x78, 0x79, 0x7A
+        uint8_t tls_extensions_data_all_allowed[] = {
+            0x00, 0x0A, // type (supported group)
+            0x00, 0x08, // length
+            0x00, 0x06, // named groups length
+            0x02, 0x00, // MLKEM512 (allowed)
+            0x0A, 0x0A, // grease
+            0x02, 0x01  // MLKEM768 (allowed)
         };
 
-        datum data{kex_alogorithms, kex_alogorithms + sizeof(kex_alogorithms)};
-        name_list kex_alogorithms_data{};
-        kex_alogorithms_data.parse(data);
+        tls_extensions extensions_all_allowed{tls_extensions_data_all_allowed, tls_extensions_data_all_allowed + sizeof(tls_extensions_data_all_allowed)};
+        buffer_stream tls_extn_buff_strm_all_allowed{buff, 1024};
+        json_object d_all_allowed{&tls_extn_buff_strm_all_allowed};
+        assessor.assess_tls_extensions(extensions_all_allowed, d_all_allowed);
+        d_all_allowed.close();
+
+        std::string tls_extensions_all_allowed_output_str = "{\"groups_allowed\":\"all\",\"tls_cert_with_extern_psk\":false}";
+
+        if (tls_extensions_all_allowed_output_str.length() > (unsigned long)d_all_allowed.b->dlen || memcmp(tls_extensions_all_allowed_output_str.c_str(), d_all_allowed.b->dstr, tls_extensions_all_allowed_output_str.length()) != 0) {
+            return false;
+        }
+
+        // TEST-6
+        // 
+        uint8_t tls_extensions_data_no_allowed[] = {
+            0x00, 0x0A, // type (supported group)
+            0x00, 0x08, // length
+            0x00, 0x06, // named groups length
+            0x00, 0x01, // sect163k1 (not allowed)
+            0x0A, 0x0A, // grease
+            0x00, 0x02  // sect163r1 (not allowed)
+        };
+
+        tls_extensions extensions_no_allowed{tls_extensions_data_no_allowed, tls_extensions_data_no_allowed + sizeof(tls_extensions_data_no_allowed)};
+        buffer_stream tls_extn_buff_strm_no_allowed{buff, 1024};
+        json_object d_no_allowed{&tls_extn_buff_strm_no_allowed};
+        assessor.assess_tls_extensions(extensions_no_allowed, d_no_allowed);
+        d_no_allowed.close();
+
+        std::string tls_extensions_no_allowed_output_str = "{\"groups_not_allowed\":[\"sect163k1\",\"sect163r1\"],\"groups_allowed\":\"none\",\"tls_cert_with_extern_psk\":false}";
+
+        if (tls_extensions_no_allowed_output_str.length() > (unsigned long)d_no_allowed.b->dlen || memcmp(tls_extensions_no_allowed_output_str.c_str(), d_no_allowed.b->dstr, tls_extensions_no_allowed_output_str.length()) != 0) {
+            return false;
+        }
+
+        // --------------- SSH KEX METHODS AND CIPHERSUITES ---------------
+        // TEST-7
+        // 
+        uint8_t kex_algorithms[] = {
+            0x00, 0x00, 0x00, 0x30, // length 48
+            0x6D, 0x6C, 0x6B, 0x65, 0x6D, 0x31, 0x30, 0x32, //
+            0x34, 0x6E, 0x69, 0x73, 0x74, 0x70, 0x33, 0x38, //
+            0x34, 0x2D, 0x73, 0x68, 0x61, 0x33, 0x38, 0x34, // mlkem1024nistp384-sha384,mlkem768-sha256,abc,xyz
+            0x2C, 0x6D, 0x6c, 0x6B, 0x65, 0x6D, 0x37, 0x36, //
+            0x38, 0x2D, 0x73, 0x68, 0x61, 0x32, 0x35, 0x36, //
+            0x2C, 0x61, 0x62, 0x63, 0x2C, 0x78, 0x79, 0x7A  //
+        };
+
+        datum kex_algo_dtm{kex_algorithms, kex_algorithms + sizeof(kex_algorithms)};
+        name_list kex_algorithms_data{};
+        kex_algorithms_data.parse(kex_algo_dtm);
         buffer_stream buff_strm{buff, 1024};
         json_object a{&buff_strm};
 
-        assessor.assess_ssh_kex_methods(kex_alogorithms_data, a);
+        assessor.assess_ssh_kex_methods(kex_algorithms_data, a);
         a.close();
 
-        // {"kex_not_allowed":["abc,"xyz"],"kex_allowed":"some"}
-        // 
-        uint8_t json_output[] = {
-            0x7B, 0x22, 0x6B, 0x65, 0x78, 0x5F, 0x6E, 0x6F,
-            0x74, 0x5F, 0x61, 0x6C, 0x6C, 0x6F, 0x77, 0x65, 
-            0x64, 0x22, 0x3A, 0x5B, 0x22, 0x61, 0x62, 0x63, 
-            0x22, 0x2C, 0x22, 0x78, 0x79, 0x7A, 0x22, 0x5D, 
-            0x2C, 0x22, 0x6B, 0x65, 0x78, 0x5F, 0x61, 0x6C, 
-            0x6C, 0x6F, 0x77, 0x65, 0x64, 0x22, 0x3A, 0x22, 
-            0x73, 0x6F, 0x6D, 0x65, 0x22, 0x7D
-        };
+        std::string kex_algorithms_output_str = "{\"kex_not_allowed\":[\"abc\",\"xyz\"],\"kex_allowed\":\"some\"}";
 
-        if (memcmp(json_output, a.b->dstr, 54) != 0) {
+        if (kex_algorithms_output_str.length() > (unsigned long)a.b->dlen || memcmp(kex_algorithms_output_str.c_str(), a.b->dstr, kex_algorithms_output_str.length()) != 0) {
             return false;
         }
 
-        // test-4
+        // TEST-8
         // 
-        // AEAD_AES_128_GCM,aes256-gcm,abc,xyz
-        // 
-        uint8_t ssh_ciphers[] = {
-            0x00, 0x00, 0x00, 0x23,
-            0x41, 0x45, 0x41, 0x44, 0x5F, 0x41, 0x45, 0x53,
-            0x5F, 0x31, 0x32, 0x38, 0x5F, 0x47, 0x43, 0x4D, 
-            0x2C, 0x61, 0x65, 0x73, 0x32, 0x35, 0x36, 0x2D, 
-            0x67, 0x63, 0x6D, 0x2C, 0x61, 0x62, 0x63, 0x2C, 
-            0x78, 0x79, 0x7A
+        uint8_t kex_algorithms_all_allowed[] = {
+            0x00, 0x00, 0x00, 0x28, // length 40
+            0x6D, 0x6C, 0x6B, 0x65, 0x6D, 0x31, 0x30, 0x32, //
+            0x34, 0x6E, 0x69, 0x73, 0x74, 0x70, 0x33, 0x38, //
+            0x34, 0x2D, 0x73, 0x68, 0x61, 0x33, 0x38, 0x34, // mlkem1024nistp384-sha384,mlkem768-sha256
+            0x2C, 0x6D, 0x6c, 0x6B, 0x65, 0x6D, 0x37, 0x36, //
+            0x38, 0x2D, 0x73, 0x68, 0x61, 0x32, 0x35, 0x36  //
         };
 
-        data.data = ssh_ciphers;
-        data.data_end = ssh_ciphers + sizeof(ssh_ciphers);
+        datum kex_algo_all_allowed_dtm{kex_algorithms_all_allowed, kex_algorithms_all_allowed + sizeof(kex_algorithms_all_allowed)};
+        name_list kex_algorithms_all_allowed_data{};
+        kex_algorithms_all_allowed_data.parse(kex_algo_all_allowed_dtm);
+        buffer_stream buff_strm_all_allowed{buff, 1024};
+        json_object a_all_allowed{&buff_strm_all_allowed};
+
+        assessor.assess_ssh_kex_methods(kex_algorithms_all_allowed_data, a_all_allowed);
+        a_all_allowed.close();
+
+        std::string kex_algorithms_all_allowed_output_str = "{\"kex_allowed\":\"all\"}";
+
+        if (kex_algorithms_all_allowed_output_str.length() > (unsigned long)a_all_allowed.b->dlen || memcmp(kex_algorithms_all_allowed_output_str.c_str(), a_all_allowed.b->dstr, kex_algorithms_all_allowed_output_str.length()) != 0) {
+            return false;
+        }
+
+        // TEST-9
+        //
+        uint8_t kex_algorithms_none_allowed[] = {
+            0x00, 0x00, 0x00, 0x0F, // length 15
+            0x61, 0x62, 0x63, 0x2C, //
+            0x78, 0x79, 0x7A, 0x2C, //
+            0x61, 0x62, 0x63, 0x2C, // abc,xyz,abc,xyz
+            0x78, 0x79, 0x7A        //
+        };
+
+        datum kex_algo_none_allowed_dtm{kex_algorithms_none_allowed, kex_algorithms_none_allowed + sizeof(kex_algorithms_none_allowed)};
+        name_list kex_algorithms_none_allowed_data{};
+        kex_algorithms_none_allowed_data.parse(kex_algo_none_allowed_dtm);
+        buffer_stream buff_strm_none_allowed{buff, 1024};
+        json_object a_none_allowed{&buff_strm_none_allowed};
+
+        assessor.assess_ssh_kex_methods(kex_algorithms_none_allowed_data, a_none_allowed);
+        a_none_allowed.close();
+
+        std::string kex_algorithms_none_allowed_output_str = "{\"kex_not_allowed\":[\"abc\",\"xyz\",\"abc\",\"xyz\"],\"kex_allowed\":\"none\"}";
+        
+        if (kex_algorithms_none_allowed_output_str.length() > (unsigned long)a_none_allowed.b->dlen || memcmp(kex_algorithms_none_allowed_output_str.c_str(), a_none_allowed.b->dstr, kex_algorithms_none_allowed_output_str.length()) != 0) {
+            return false;
+        }
+
+        // TEST-10
+        // 
+        uint8_t ssh_ciphers[] = {
+            0x00, 0x00, 0x00, 0x23, // length 35
+            0x41, 0x45, 0x41, 0x44, 0x5F, 0x41, 0x45, 0x53, //
+            0x5F, 0x31, 0x32, 0x38, 0x5F, 0x47, 0x43, 0x4D, //
+            0x2C, 0x61, 0x65, 0x73, 0x32, 0x35, 0x36, 0x2D, // AEAD_AES_128_GCM,aes256-gcm,abc,xyz
+            0x67, 0x63, 0x6D, 0x2C, 0x61, 0x62, 0x63, 0x2C, //
+            0x78, 0x79, 0x7A                                //
+        };
+
+        datum ssh_ciphers_dtm{ssh_ciphers, ssh_ciphers + sizeof(ssh_ciphers)};
         name_list ssh_ciphers_data{};
-        ssh_ciphers_data.parse(data);
+        ssh_ciphers_data.parse(ssh_ciphers_dtm);
         buffer_stream ssh_buff_strm{buff, 1024};
         json_object b{&ssh_buff_strm};
 
         assessor.assess_ssh_ciphers(ssh_ciphers_data, b);
         b.close();
 
-        // {"ciphersuites_not_allowed":["abc","xyz"],"ciphersuites_allowed":"some"}
-        // 
-        uint8_t ssh_ciphers_output[] = {
-            0x7B, 0x22, 0x63, 0x69, 0x70, 0x68, 0x65, 0x72,
-            0x73, 0x75, 0x69, 0x74, 0x65, 0x73, 0x5F, 0x6E, 
-            0x6F, 0x74, 0x5F, 0x61, 0x6C, 0x6C, 0x6F, 0x77, 
-            0x65, 0x64, 0x22, 0x3A, 0x5B, 0x22, 0x61, 0x62, 
-            0x63, 0x22, 0x2C, 0x22, 0x78, 0x79, 0x7A, 0x22, 
-            0x5D, 0x2C, 0x22, 0x63, 0x69, 0x70, 0x68, 0x65, 
-            0x72, 0x73, 0x75, 0x69, 0x74, 0x65, 0x73, 0x5F, 
-            0x61, 0x6C, 0x6C, 0x6F, 0x77, 0x65, 0x64, 0x22, 
-            0x3A, 0x22, 0x73, 0x6F, 0x6D, 0x65, 0x22, 0x7D
+        std::string ssh_ciphers_output_str = "{\"ciphersuites_not_allowed\":[\"abc\",\"xyz\"],\"ciphersuites_allowed\":\"some\"}";
+
+        if (ssh_ciphers_output_str.length() > (unsigned long)b.b->dlen || memcmp(ssh_ciphers_output_str.c_str(), b.b->dstr, ssh_ciphers_output_str.length()) != 0) {
+            return false;
+        }
+
+        // TEST-11
+        //
+        uint8_t ssh_ciphers_all_allowed[] = {
+            0x00, 0x00, 0x00, 0x1B, // length 27
+            0x41, 0x45, 0x41, 0x44, 0x5F, 0x41, 0x45, 0x53, //
+            0x5F, 0x31, 0x32, 0x38, 0x5F, 0x47, 0x43, 0x4D, // AEAD_AES_128_GCM,aes256-gcm
+            0x2C, 0x61, 0x65, 0x73, 0x32, 0x35, 0x36, 0x2D, //
+            0x67, 0x63, 0x6D                                //
         };
 
-        if (memcmp(ssh_ciphers_output, b.b->dstr, 72) != 0) {
+        datum ssh_ciphers_all_allowed_dtm{ssh_ciphers_all_allowed, ssh_ciphers_all_allowed + sizeof(ssh_ciphers_all_allowed)};
+        name_list ssh_ciphers_all_allowed_data{};
+        ssh_ciphers_all_allowed_data.parse(ssh_ciphers_all_allowed_dtm);
+        buffer_stream ssh_buff_strm_all_allowed{buff, 1024};
+        json_object b_all_allowed{&ssh_buff_strm_all_allowed};
+
+        assessor.assess_ssh_ciphers(ssh_ciphers_all_allowed_data, b_all_allowed);
+        b_all_allowed.close();
+
+        std::string ssh_ciphers_all_allowed_output_str = "{\"ciphersuites_allowed\":\"all\"}";
+
+        if (ssh_ciphers_all_allowed_output_str.length() > (unsigned long)b_all_allowed.b->dlen || memcmp(ssh_ciphers_all_allowed_output_str.c_str(), b_all_allowed.b->dstr, ssh_ciphers_all_allowed_output_str.length()) != 0) {
+            return false;
+        }
+
+        // TEST-12
+        //
+        uint8_t ssh_ciphers_none_allowed[] = {
+            0x00, 0x00, 0x00, 0x0F, // length 15
+            0x61, 0x62, 0x63, 0x2C, //
+            0x78, 0x79, 0x7A, 0x2C, //
+            0x61, 0x62, 0x63, 0x2C, // abc,xyz,abc,xyz
+            0x78, 0x79, 0x7A        //
+        };
+
+        datum ssh_ciphers_none_allowed_dtm{ssh_ciphers_none_allowed, ssh_ciphers_none_allowed + sizeof(ssh_ciphers_none_allowed)};
+        name_list ssh_ciphers_none_allowed_data{};
+        ssh_ciphers_none_allowed_data.parse(ssh_ciphers_none_allowed_dtm);
+        buffer_stream ssh_buff_strm_none_allowed{buff, 1024};
+        json_object b_none_allowed{&ssh_buff_strm_none_allowed};
+
+        assessor.assess_ssh_ciphers(ssh_ciphers_none_allowed_data, b_none_allowed);
+        b_none_allowed.close();
+
+        std::string ssh_ciphers_none_allowed_output_str = "{\"ciphersuites_not_allowed\":[\"abc\",\"xyz\",\"abc\",\"xyz\"],\"ciphersuites_allowed\":\"none\"}";
+
+        if (ssh_ciphers_none_allowed_output_str.length() > (unsigned long)b_none_allowed.b->dlen || memcmp(ssh_ciphers_none_allowed_output_str.c_str(), b_none_allowed.b->dstr, ssh_ciphers_none_allowed_output_str.length()) != 0) {
+            return false;
+        }
+
+        // TEST-13
+        // 
+        uint8_t ssh_ciphers_malformed[] = {
+            0x00, 0x00, 0x00, 0x3D, // length 61
+            0x2C, 0x2C, 0x61, 0x62, 0x63, 0x2D, 0x61, 0x62, //
+            0x63, 0x28, 0x61, 0x62, 0x63, 0x29, 0x40, 0x78, //
+            0x79, 0x7A, 0x2E, 0x63, 0x6F, 0x6D, 0x2C, 0x2C, //
+            0x61, 0x22, 0x62, 0x63, 0x22, 0x78, 0x79, 0x7A, // ,,abc-abc(abc)@xyz.com,,a"bc"xyz@abc.com,abc\-/xyz@domain.org
+            0x40, 0x61, 0x62, 0x63, 0x2E, 0x63, 0x6F, 0x6D, //
+            0x2C, 0x61, 0x62, 0x63, 0x5C, 0x2D, 0x2F, 0x78, //
+            0x79, 0x7A, 0x40, 0x64, 0x6F, 0x6D, 0x61, 0x69, //
+            0x6E, 0x2E, 0x6F, 0x72, 0x67                    //
+        };
+
+        datum ssh_ciphers_malformed_dtm{ssh_ciphers_malformed, ssh_ciphers_malformed + sizeof(ssh_ciphers_malformed)};
+        name_list ssh_ciphers_malformed_data{};
+        ssh_ciphers_malformed_data.parse(ssh_ciphers_malformed_dtm);
+        buffer_stream ssh_buff_strm_malformed{buff, 1024};
+        json_object b_malformed{&ssh_buff_strm_malformed};
+
+        assessor.assess_ssh_ciphers(ssh_ciphers_malformed_data, b_malformed);
+        b_malformed.close();
+
+        std::string ssh_ciphers_malformed_output_str = "{\"ciphersuites_not_allowed\":[\"\",\"\",\"abc-abc(abc)@xyz.com\",\"\",\"a\"bc\"xyz@abc.com\",\"abc\\-/xyz@domain.org\"],\"ciphersuites_allowed\":\"none\"}";
+
+        if (ssh_ciphers_malformed_output_str.length() > (unsigned long)b_malformed.b->dlen || memcmp(ssh_ciphers_malformed_output_str.c_str(), b_malformed.b->dstr, ssh_ciphers_malformed_output_str.length()) != 0) {
             return false;
         }
 
         return true;
     }
 
-}; // namespace crypto_policiy
+}; // namespace crypto_policy
 
 // #include "nist_sp800_52.hpp"
 
