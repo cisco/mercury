@@ -102,6 +102,7 @@ struct stateful_pkt_proc {
     struct flow_table_tcp tcp_flow_table;
     struct tcp_initial_message_filter tcp_init_msg_filter;
     struct analysis_context analysis;
+    struct common_data nbd_common_data;
     class message_queue *mq;
     mercury_context m;
     classifier *c;        // TODO: change to reference
@@ -117,6 +118,7 @@ struct stateful_pkt_proc {
         tcp_flow_table{(unsigned int)prealloc_size},
         tcp_init_msg_filter{},
         analysis{},
+        nbd_common_data{},
         mq{nullptr},
         m{mc},
         c{mc->c},
@@ -247,9 +249,9 @@ struct stateful_pkt_proc {
 
     int analyze_payload_fdc(const struct flow_key_ext *k,
                             const uint8_t *payload,
-                            const size_t length, 
-                            uint8_t *buffer, 
-                            size_t *buffer_size, 
+                            const size_t length,
+                            uint8_t *buffer,
+                            size_t *buffer_size,
                             const struct analysis_context** context);
 
     bool tcp_data_set_analysis_result(struct analysis_result *r,

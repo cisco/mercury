@@ -5,8 +5,13 @@
 
 #include "datum.h"
 #include "cbor.hpp"
+#include "fdc.hpp"                // for cbor_fingerprint::encode_fingerprint()
 #include "static_dict.hpp"
+#include "json_object.h"
+#include "utf8.hpp"
 #include <stdexcept>
+
+constexpr uint64_t tag_npf_fingerprint = 0x4650; // application tag 18000, "FP"; NPF representation hint
 
 // forward declarations
 //
@@ -38,6 +43,8 @@ public:
 
     cbor_object(cbor_object &o, const char *key) : m{create_named_map(key, o)} { }
 
+    cbor_object(cbor_object &o, uint64_t k) : m{create_named_map(k, o)} { }
+
     template <size_t N>
     cbor_object(cbor_object_compact<N> &o, const char *key);
 
@@ -53,9 +60,18 @@ public:
         cbor::text_string{str}.write(m);
     }
 
+    void print_key_string(const char *key, datum d) {
+        if (d.is_readable()) {
+            cbor::text_string{key}.write(m);
+            cbor::text_string::construct(d).write(m);
+        }
+    }
+
     void print_key_hex(const char *key, datum bytes) {
-        cbor::text_string{key}.write(m);
-        cbor::byte_string::construct(bytes).write(m);
+        if (bytes.is_readable()) {
+            cbor::text_string{key}.write(m);
+            cbor::byte_string::construct(bytes).write(m);
+        }
     }
 
     void print_key_bool(const char *key, bool b) {
@@ -99,11 +115,18 @@ public:
         cbor::text_string{str}.write(a);
     }
 
+    void print_string(datum s) {
+        if (s.is_readable()) {
+            cbor::text_string::construct(s).write(a);
+        }
+    }
+
     void close() { a.close(); }
 
+    writeable & get_writeable() { return a; }
 };
 
-cbor_object::cbor_object(cbor_array &outer) : m{outer.a} { }
+inline cbor_object::cbor_object(cbor_array &outer) : m{outer.a} { }
 
 
 template <size_t N>
@@ -244,7 +267,6 @@ public:
 
         while (d.is_readable()) {
             if (lookahead<cbor::initial_byte> ib{d}) {
-                // fprintf(stderr, "initial_byte: %02x\tmajor_type: %u\tadditional_info: %u\n", ib.value.value(), ib.value.major_type(), ib.value.additional_info());
 
                 if (expected_type == type::key) { // store key for use with next value
                     switch (ib.value.major_type()) {
@@ -281,6 +303,8 @@ public:
                         [[fallthrough]];
                     default:
                         fprintf(stderr, "unexpected initial byte in cbor map key: 0x%02x\n", ib.value.value());
+                        fprintf(stderr, "remaining bytes in cbor data: ");
+                        d.fprint_hex(stderr); fputc('\n', stderr);
                         return false;
                     }
 
@@ -339,6 +363,7 @@ public:
                         {
                             cbor::tag tmp{d};
                             if (d.is_null()) { return false; }
+                            o.print_key_uint("tag", tmp.value());
                         }
                         break;
                     case cbor::simple_or_float_type:
@@ -383,7 +408,6 @@ public:
 inline bool cbor_to_json_translator::decode_cbor_array_to_json(datum &d, json_array &a) {
     while (d.is_readable()) {
         if (lookahead<cbor::initial_byte> ib{d}) {
-            //fprintf(f, "initial_byte: %02x\tmajor_type: %u\n", ib.value.value(), ib.value.major_type());
             switch (ib.value.major_type()) {
             case cbor::unsigned_integer_type:
                 {
@@ -431,7 +455,13 @@ inline bool cbor_to_json_translator::decode_cbor_array_to_json(datum &d, json_ar
                 {
                     cbor::tag tmp{d};
                     if (d.is_null()) { return false; }
-                    // ??????????????????????
+                    if (tmp.value() == tag_npf_fingerprint) {
+                        data_buffer<fingerprint::MAX_FP_STR_LEN> fp_out_buf;
+                        cbor_fingerprint::decode_cbor_fingerprint(d, fp_out_buf);
+                        a.print_json_string(fp_out_buf.contents());
+                    } else {
+                        a.print_uint(tmp.value());  // ??????????????????????
+                    }
                 }
                 break;
             case cbor::simple_or_float_type:
@@ -481,9 +511,10 @@ static inline bool decode_cbor_map_to_json(datum &d, buffer_stream &buf, vocabul
 /// \return `true if all of the items in \param d could be
 /// decoded, and `false` otherwise
 ///
+template <size_t N=2048>
 static inline bool decode_fprint_json(datum d, FILE *f, vocabulary *v=nullptr) {
 
-    output_buffer<2048> buf;
+    output_buffer<N> buf;
     bool result = decode_cbor_map_to_json(d, buf, v);
     buf.write_line(f);
     return result;
@@ -539,15 +570,15 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
     // second test
     //
     data_buf.reset();
-    struct cbor_object o{data_buf};
+    cbor_object o{data_buf};
     o.print_key_string("key", "value");
     o.print_key_string("another_key", "another_value");
     {
-        struct cbor_object n{o, "nested"};
+        cbor_object n{o, "nested"};
         n.print_key_string("day", "Monday");
         n.print_key_string("month", "April");
         {
-            struct cbor_object nn{n, "double_nested"};
+            cbor_object nn{n, "double_nested"};
             nn.print_key_uint("two_plus_two", 5);
             nn.print_key_string("note", "for very large values of two");
             nn.close();

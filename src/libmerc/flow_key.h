@@ -65,13 +65,13 @@ struct key {
         if (ip_vers == 4) {
             addr.ipv4.src = k.addr.ipv4.src;
             addr.ipv4.dst = k.addr.ipv4.dst;
-        } 
+        }
         else if (ip_vers == 6) { // ip_vers == 6
             addr.ipv6.src.a[0] = k.addr.ipv6.src.a;
             addr.ipv6.src.a[1] = k.addr.ipv6.src.b;
             addr.ipv6.src.a[2] = k.addr.ipv6.src.c;
             addr.ipv6.src.a[3] = k.addr.ipv6.src.d;
-    
+
             addr.ipv6.dst.a[0] = k.addr.ipv6.dst.a;
             addr.ipv6.dst.a[1] = k.addr.ipv6.dst.b;
             addr.ipv6.dst.a[2] = k.addr.ipv6.dst.c;
@@ -130,6 +130,14 @@ struct key {
 
     void sprint_dst_port(char dst_port_string[MAX_PORT_STR_LEN]) const {
         snprintf(dst_port_string, MAX_PORT_STR_LEN, "%u", dst_port);
+    }
+
+    bool src_is_global() const {
+        if (ip_vers == 4) {
+            ipv4_address a{addr.ipv4.src};
+            return a.is_global();
+        }
+        return addr.ipv6.src.is_global();
     }
 
     bool dst_is_global() const {

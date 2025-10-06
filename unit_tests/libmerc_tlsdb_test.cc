@@ -13,7 +13,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "proccesing null packet")
 
 TEST_CASE_METHOD(LibmercTestFixture, "test tcp filtering")
 {
-    
+
     auto tcp_check = [&](int expected_count, const struct libmerc_config &config)
     {
         initialize(config);
@@ -41,7 +41,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test tcp filtering")
              .m_pc{"bad_tcp.pcap"}},
          0}};
 
-    // TODO: add for tcp_only.pcap 
+    // TODO: add for tcp_only.pcap
 
     for (auto &[config, count] : test_set_up)
     {
@@ -91,7 +91,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test tls filtering")
                 .packet_filter_cfg = (char *)"tls"},
              .m_pc{"capture2.pcap"},
              .fp_t = fingerprint_type_tls},
-         60} 
+         60}
     };
 
     for (auto &[config, count] : test_set_up)
@@ -156,7 +156,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test http filtering")
 
 TEST_CASE_METHOD(LibmercTestFixture, "test quic filtering")
 {
-    
+
     auto http_check = [&](int expected_count, const struct libmerc_config &config)
     {
         initialize(config);

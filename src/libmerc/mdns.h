@@ -33,7 +33,7 @@
  * multicast address 224.0.0.251 or its IPv6 equivalent FF02::FB, except
  * when generating a reply to a query that explicitly requested a
  * unicast response.
- * 
+ *
  * Multicast DNS implementations
  * MUST silently ignore any Multicast DNS responses they receive where
  * the source UDP port is not 5353.
@@ -54,6 +54,12 @@ struct mdns_packet : public base_protocol {
 
     void write_json(struct json_object &o) const {
         dns_pkt.write_json(o);
+    }
+
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("mdns");
+        protocols.close();
     }
 
     static bool check_if_mdns(const struct key& k) {

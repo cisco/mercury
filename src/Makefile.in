@@ -26,10 +26,11 @@ LIBMERC_SO = libmerc/libmerc.so
 # set parameters from configure (autoconf)
 #
 python      = @PY@
-have_py3    = @PYTHON3@
+have_python3 = @HAVE_PYTHON3@
 have_pip3   = @PIP3@
 have_tpkt3  = @HAVE_TPACKET_V3@
-CDEFS       = $(filter -DHAVE_PYTHON3=1 -DHAVE_X86INTRIN_H=1 -DHAVE_GETTID=1, @DEFS@) -DDEFAULT_RESOURCE_DIR="\"$(datarootdir)\""
+can_build_cython_package = @CAN_BUILD_CYTHON_PACKAGE@
+CDEFS       = $(filter -DHAVE_X86INTRIN_H=1 -DHAVE_GETTID=1, @DEFS@) -DDEFAULT_RESOURCE_DIR="\"$(datarootdir)\""
 
 include ../Makefile_helper.mk
 
@@ -67,7 +68,7 @@ MERC_H += signal_handling.h
 
 MERC_OBJ = $(MERCC:%.cc=%.o) $(MERC:%.c=%.o)
 
-ifeq ($(have_py3),yes)
+ifeq ($(have_python3),yes)
 # PYANALYSIS = python_interface.c
 # CDEFS     += -Wl,--no-as-needed -ldl -lutil $(shell pkg-config --libs --cflags python3)
 # CYTARGETS  = python-inference/tls_fingerprint_min.cpp python-inference/tls_fingerprint_min.h python-inference/tls_fingerprint_min_api.h
@@ -109,7 +110,7 @@ CFLAGS += -fprofile-arcs --coverage -ggdb -fprofile-update=atomic
 LDFLAGS += --coverage
 endif
 
-all: compiler_version mercury libmerc_test cert_analyze libmerc_util intercept_server # tls_scanner batch_gcd
+all: compiler_version mercury libmerc_test cert_analyze libmerc_util intercept_server mercury_cython # tls_scanner batch_gcd
 
 # the version target just reports the c++ compiler version; we report
 # this so that it is present in e.g. Jenkins logs
@@ -193,6 +194,15 @@ endif
 libmerc_util: libmerc_util.cc libmerc_api.h
 	$(CXX) $(CFLAGS) libmerc_util.cc pcap_file_io.c -pthread -ldl -std=c++17 -o libmerc_util
 
+.PHONY: mercury_cython
+mercury_cython:
+ifeq ($(can_build_cython_package),yes)
+	cd cython && $(MAKE)
+	cd cython && $(MAKE) wheel
+else
+	@echo $(COLOR_YELLOW) "omitted mercury cython build due to missing dependencies" $(COLOR_OFF)
+endif
+
 intercept_server: intercept_server.cc
 	$(CXX) $(CFLAGS) intercept_server.cc -std=c++17 -o intercept_server
 
@@ -257,7 +267,7 @@ classify: classify.cpp libmerc/analysis.cc libmerc/utils.cc libmerc/addr.cc
 # rule to build the cython/python analysis engine in python-inference
 #
 $(CYTARGETS): $(CYPREREQ)
-ifeq ($(have_py3),yes)
+ifeq ($(have_python3),yes)
 	python3 python-inference/setup.py build_ext --inplace
 endif
 

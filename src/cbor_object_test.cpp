@@ -8,6 +8,7 @@
 #include <stdio.h>
 
 #include "libmerc/cbor_object.hpp"
+#include "libmerc/fdc.hpp"
 
 int main() {
 
@@ -34,15 +35,15 @@ int main() {
     // write some test output
     //
     data_buf.reset();
-    struct cbor_object o{data_buf};
+    cbor_object o{data_buf};
     o.print_key_string("key", "value");
     o.print_key_string("another_key", "another_value");
     {
-        struct cbor_object n{o, "nested"};
+        cbor_object n{o, "nested"};
         n.print_key_string("day", "Monday");
         n.print_key_string("month", "April");
         {
-            struct cbor_object nn{n, "double_nested"};
+            cbor_object nn{n, "double_nested"};
             nn.print_key_uint("two_plus_two", 5);
             nn.print_key_string("note", "for very large values of two");
             nn.close();
@@ -161,9 +162,22 @@ int main() {
     datum encoded_dict_data = data_buf.contents();
     vocabulary voc{encoded_dict_data};
 
+    constexpr uint64_t tag_npf_fingerprint = 0x4650; // 18000, 'F' 'P'
+
+    data_buf.reset();
+    cbor_object m{data_buf};
+    cbor_array fp_array{m, "fp_array"};
+    datum fp_string{"tls/(0303)(130213031301c02cc030009fcca9cca8ccaac02bc02f009ec024c028006bc023c0270067c00ac0140039c009c0130033009d009c003d003c0035002f00ff)((0000)(000b000403000102)(000a000c000a001d0017001e00190018)(0023)(0016)(0017)(000d0030002e040305030603080708080809080a080b080408050806040105010601030302030301020103020202040205020602)(002b0009080304030303020301)(002d00020101)(0033))"};
+    cbor::tag{tag_npf_fingerprint}.write(fp_array.get_writeable());
+    cbor_fingerprint::encode_cbor_fingerprint(fp_string, fp_array.get_writeable());
+    fp_array.close();
+    m.close();
+
+    data_buf.contents().fprint_hex(stdout); fputc('\n', stdout);
+    decode_fprint_json(data_buf.contents(), stdout);
+
     /// TODO:
     ///
-    ///   - simpify and push functionality into base classes
     ///   - constexpr
     ///   - unit tests
     ///   - fuzz tests
