@@ -83,6 +83,35 @@ enum tcp_msg_type {
     tcp_msg_type_rdp,
 };
 
+// Template-based stack-allocated structure to replace std::vector<T>
+// Uses a small fixed-size array to avoid heap allocation
+// Can be used for tcp_msg_type, udp_msg_type, or other enum types
+template<typename MsgType, MsgType UnknownValue = static_cast<MsgType>(0), size_t MaxTypes = 2>
+struct msg_types {
+    static constexpr size_t max_types = MaxTypes;
+    std::array<MsgType, max_types> types;
+    size_t count;
+
+    // Constructor for single type
+    constexpr msg_types(MsgType type) : types{type, UnknownValue}, count(1) {}
+
+    // Constructor for two types
+    constexpr msg_types(MsgType type1, MsgType type2) : types{type1, type2}, count(2) {}
+
+    // Iterator support for range-based for loops
+    constexpr auto begin() const { return types.begin(); }
+    constexpr auto end() const { return types.begin() + count; }
+
+    // Size and access methods
+    constexpr size_t size() const { return count; }
+    constexpr MsgType front() const { return types[0]; }
+    constexpr const MsgType& operator[](size_t index) const { return types[index]; }
+};
+
+// Type aliases for convenience
+using tcp_msg_types = msg_types<tcp_msg_type, tcp_msg_type_unknown, 2>;
+//using udp_msg_types = msg_types<udp_msg_type, udp_msg_type_unknown, 2>;
+
 enum udp_msg_type {
     udp_msg_type_unknown = 0,
     udp_msg_type_dns,
@@ -119,7 +148,10 @@ struct matcher_type_and_offset {
 
 class tcp_keyword_matcher {
 public:
-    inline static std::unordered_map<std::string_view, std::vector<tcp_msg_type>> tcp_keyword_map = {
+    // Static member for unknown type - can be used anywhere an unknown tcp_msg_types is needed
+    inline static const tcp_msg_types unknown_type{tcp_msg_type_unknown};
+
+    inline static std::unordered_map<std::string_view, tcp_msg_types> tcp_keyword_map = {
         //HTTP methods taken from https://www.iana.org/assignments/http-methods/http-methods.xhtm
         {"ACL ",              {tcp_msg_type_http_request}},
         {"BASE",              {tcp_msg_type_http_request}},
@@ -164,7 +196,7 @@ public:
         {"ALGS",              {tcp_msg_type_ftp_request}},
         {"ALLO",              {tcp_msg_type_ftp_request}},
         {"APPE",              {tcp_msg_type_ftp_request}},
-        {"AUTH",              {tcp_msg_type_ftp_request, tcp_msg_type_smtp_client}},
+        {"AUTH",              tcp_msg_types(tcp_msg_type_ftp_request, tcp_msg_type_smtp_client)},
         {"CCC ",              {tcp_msg_type_ftp_request}},
         {"CDUP",              {tcp_msg_type_ftp_request}},
         {"CONF",              {tcp_msg_type_ftp_request}},
@@ -174,7 +206,7 @@ public:
         {"EPRT",              {tcp_msg_type_ftp_request}},
         {"EPSV",              {tcp_msg_type_ftp_request}},
         {"FEAT",              {tcp_msg_type_ftp_request}},
-        {"HELP",              {tcp_msg_type_ftp_request, tcp_msg_type_smtp_client}},
+        {"HELP",              tcp_msg_types(tcp_msg_type_ftp_request, tcp_msg_type_smtp_client)},
         {"HOST",              {tcp_msg_type_ftp_request}},
         {"LANG",              {tcp_msg_type_ftp_request}},
         {"LIST",              {tcp_msg_type_ftp_request}},
@@ -187,15 +219,15 @@ public:
         {"MLST",              {tcp_msg_type_ftp_request}},
         {"MODE",              {tcp_msg_type_ftp_request}},
         {"NLST",              {tcp_msg_type_ftp_request}},
-        {"NOOP",              {tcp_msg_type_ftp_request, tcp_msg_type_smtp_client}},
+        {"NOOP",              tcp_msg_types(tcp_msg_type_ftp_request, tcp_msg_type_smtp_client)},
         {"OPTS",              {tcp_msg_type_ftp_request}},
         {"PASS",              {tcp_msg_type_ftp_request}},
         {"PASV",              {tcp_msg_type_ftp_request}},
         {"PBSZ",              {tcp_msg_type_ftp_request}},
         {"PORT",              {tcp_msg_type_ftp_request}},
         {"PROT",              {tcp_msg_type_ftp_request}},
-        {"PWD",               {tcp_msg_type_ftp_request}},
-        {"QUIT",              {tcp_msg_type_ftp_request, tcp_msg_type_smtp_client}},
+        {"PWD ",              {tcp_msg_type_ftp_request}},
+        {"QUIT",              tcp_msg_types(tcp_msg_type_ftp_request, tcp_msg_type_smtp_client)},
         {"REIN",              {tcp_msg_type_ftp_request}},
         {"REST",              {tcp_msg_type_ftp_request}},
         {"RETR",              {tcp_msg_type_ftp_request}},
@@ -234,16 +266,16 @@ public:
         //HTTP response
         {"HTTP",              {tcp_msg_type_http_response}},
         //RFB
-        {"RFB",               {tcp_msg_type_rfb}}
+        {"RFB ",               {tcp_msg_type_rfb}}
     };
 
-    static const std::vector<tcp_msg_type>* get_tcp_msg_type_from_keyword(const datum &d) {
+    static const tcp_msg_types& get_tcp_msg_type_from_keyword(const datum &d) {
         std::string_view keyword(reinterpret_cast<const char*>(d.data), d.length());
         auto it = tcp_keyword_map.find(keyword);
         if (it != tcp_keyword_map.end()) {
-            return &it->second;
+            return it->second;
         }
-        return nullptr;
+        return unknown_type;
     }
 };
 
@@ -731,19 +763,19 @@ public:
 
     }
 
-    const std::vector<tcp_msg_type>* get_tcp_msg_type_from_keyword(datum pkt) const {
+    const tcp_msg_types& get_tcp_msg_type_from_keyword(datum pkt) const {
         if (pkt.length() < 4) {
-            return nullptr;
+            return tcp_keyword_matcher::unknown_type;
         }
 
         datum keyword{pkt, 4};   
         return tcp_keyword_matcher::get_tcp_msg_type_from_keyword(keyword);
     }
 
-    tcp_msg_type get_tcp_msg_type_preference_from_port(const std::vector<tcp_msg_type>* protos,
+    tcp_msg_type get_tcp_msg_type_preference_from_port(const tcp_msg_types& protos,
                                                        struct tcp_packet *tcp_pkt) {
-        if (protos and protos->size() == 1) {
-            return protos->front();
+        if (protos.size() == 1) {
+            return protos.front();
         }
 
         if (tcp_pkt == nullptr or tcp_pkt->header == nullptr) {
@@ -761,7 +793,7 @@ public:
             default:
                 break;
         }
-        if (std::find(protos->begin(), protos->end(), type) != protos->end()) {
+        if (std::find(protos.begin(), protos.end(), type) != protos.end()) {
             return type;
         } 
         return tcp_msg_type_unknown;

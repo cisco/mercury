@@ -348,14 +348,14 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         msg_type = (tcp_msg_type) selector.get_tcp_msg_type_from_ports(tcp_pkt);
     }
     if (msg_type == tcp_msg_type_unknown) {
-        const std::vector<tcp_msg_type> *protos  = selector.get_tcp_msg_type_from_keyword(pkt);
-        if (protos) {
+        const tcp_msg_types &protos  = selector.get_tcp_msg_type_from_keyword(pkt);
+        if (protos.front() != tcp_msg_type_unknown) {
             tcp_msg_type msg_type = selector.get_tcp_msg_type_preference_from_port(protos, tcp_pkt);
             if (set_tcp_protocol_from_keyword(x, pkt, msg_type)) {
                 return; 
             }
      
-            for (const auto type : *protos) {
+            for (const auto type : protos) {
                 if (type == msg_type) {
                     continue;
                 }
