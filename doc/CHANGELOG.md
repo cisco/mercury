@@ -20,6 +20,8 @@
   overread in OID compiler, which is run only at compile time.
 * Clean analysis context and reassembly flow, before packet processing,
   to clean stale content from previous flows.
+* Optimized crypto assessment functions in `crypto_assess.h`, 
+  corrected GREASE handling in TLS extensions, and added corresponding unit tests.
 
 ## VERSION 2.8.1
 * Bug fixes: ASAN container overflow in stats collection, dangling reference in
