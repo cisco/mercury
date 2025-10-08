@@ -425,6 +425,7 @@ class traffic_selector {
     bool select_http_request{false};
     bool select_http_response{false};
     bool select_smtp{false};
+    bool select_tofsee{false};
 
 public:
 
@@ -488,6 +489,7 @@ public:
 
     bool smtp() const { return select_smtp; }
 
+    bool tofsee() const { return select_tofsee; }
     void disable_all() {
         tcp.disable_all();
         tcp4.disable_all();
@@ -524,6 +526,7 @@ public:
         select_http_request = false;
         select_http_response = false;
         select_smtp = false;
+        select_tofsee = false;
 
     }
 
@@ -740,10 +743,8 @@ public:
             select_tacacs = true;
         }
 
-        // add tofsee, but keep at the absolute end of matcher lists, as tofsee only
-        // has a length based matcher
         if (protocols["tofsee"] || protocols["all"]) {
-            tcp4.add_protocol(tofsee_initial_message::matcher, tcp_msg_type_tofsee_initial_message);
+            select_tofsee = true;
         }
 
         if (protocols["geneve"] || protocols["all"]) {

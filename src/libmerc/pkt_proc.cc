@@ -365,6 +365,12 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
             }
         } 
     }
+    if (msg_type == tcp_msg_type_unknown) {
+         // Tofsee detection based on pkt length
+         if (selector.tofsee() && pkt.length() == tofsee_initial_message::pkt_length) {
+            msg_type = tcp_msg_type_tofsee_initial_message;
+        }
+    }
     switch(msg_type) {
     case tcp_msg_type_tls_client_hello:
         {
