@@ -455,8 +455,8 @@ struct datum {
 
     // Compare two possibly different length datums up to the length of the shorter one,
     // if any one is longer than the passed expected length or else perform a full compare
-    int prefix_cmp(const datum &p, ssize_t length) const {
-        if ((length() > length) || (p.length() > length)) {
+    int prefix_cmp(const datum &p, ssize_t len) const {
+        if ((length() > len) || (p.length() > len)) {
             return ::memcmp(data, p.data, std::min(length(), p.length()));
         }
         else
