@@ -180,7 +180,18 @@ public:
         }
     }
 
-    bool is_not_empty() const { return parameters.is_valid(); }
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("smtp");
+        protocols.close();
+    }
+
+    bool is_not_empty() const { return parameters.is_not_empty(); }
+
+    static constexpr mask_and_value<8> matcher{
+        { 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00 },
+        { 0x45, 0x48, 0x4c, 0x4f, 0x20, 0x00, 0x00, 0x00 }
+    };
 
 };
 
@@ -235,6 +246,12 @@ public:
             smtp_response.close();
             smtp.close();
         }
+    }
+
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("smtp");
+        protocols.close();
     }
 
     void compute_fingerprint(class fingerprint &fp) const {

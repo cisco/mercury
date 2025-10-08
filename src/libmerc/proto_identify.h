@@ -49,6 +49,8 @@
 #include "geneve.hpp"
 #include "vxlan.hpp"
 #include "lex.h"
+#include "ike.hpp"
+#include "esp.hpp"
 
 enum tcp_msg_type {
     tcp_msg_type_unknown = 0,
@@ -132,6 +134,7 @@ enum udp_msg_type {
     udp_msg_type_tftp,
     udp_msg_type_geneve,
     udp_msg_type_gre,
+    udp_msg_type_ike
 };
 
 template <size_t N>
@@ -808,18 +811,36 @@ public:
         return type;
     }
 
-    size_t get_udp_msg_type(datum &pkt) const {
-        size_t type = udp.get_msg_type(pkt);
+    size_t get_udp_msg_type(datum &pkt, udp::ports ports) const {
+        size_t type = udp_msg_type_unknown;
+        if (ipsec() and ports.either_matches_any(esp_default_port)) {   // esp or ike over udp
+            if (lookahead<ike::non_esp_marker> non_esp{pkt}) {
+                type = udp_msg_type_ike;
+            } else {
+                type = udp_msg_type_esp;
+            }
+            return type;
+        }
+
+        type = udp.get_msg_type(pkt);
         if (type == udp_msg_type_unknown)  {
             type = udp16.get_msg_type(pkt);
         }
         if (type == udp_msg_type_unknown)  {
             type = udp4.get_msg_type(pkt);
         }
+
+        if (type == udp_msg_type_unknown) {
+            type = get_udp_msg_type_from_ports(ports);
+        }
+
         return type;
     }
 
     udp_msg_type get_udp_msg_type_from_ports(udp::ports ports) const {
+        if (ipsec() and ports.either_matches(ike::default_port)) {
+            return udp_msg_type_ike;
+        }
 
         if (nbds() and ports.src == hton<uint16_t>(138) and ports.dst == hton<uint16_t>(138)) {
             return udp_msg_type_nbds;

@@ -96,6 +96,10 @@ LIBMERC_H   += fingerprint.h
 LIBMERC_H   += http.h
 LIBMERC_H   += ip_address.hpp
 LIBMERC_H   += json_object.h
+LIBMERC_H   += cbor_object.hpp
+LIBMERC_H   += cbor.hpp
+LIBMERC_H   += fdc.hpp
+LIBMERC_H   += l7m.hpp
 LIBMERC_H   += libmerc.h
 LIBMERC_H   += match.h
 LIBMERC_H   += proto_identify.h
@@ -134,7 +138,7 @@ LIBMERC_H   += softmax.hpp
 asn1/oid%cc asn1/oid%h:
 	cd asn1 && $(MAKE) COVERAGE_ENABLED=$(COVERAGE_ENABLED)
 
-ifeq ($(have_py3),yes)
+ifeq ($(have_python3),yes)
 # PYANALYSIS = python_interface.c
 # CDEFS     += -Wl,--no-as-needed -ldl -lutil $(shell pkg-config --libs --cflags python3)
 # CYTARGETS  = python-inference/tls_fingerprint_min.cpp python-inference/tls_fingerprint_min.h python-inference/tls_fingerprint_min_api.h
@@ -263,7 +267,7 @@ export CC
 lctrie/liblctrie.a:
 	cd lctrie && $(MAKE) COVERAGE_ENABLED=$(COVERAGE_ENABLED) liblctrie.a
 
-# rules for automatically determining dependancies via the compiler's
+# rules for automatically determining dependencies via the compiler's
 # -MM option, which is essential for correctly handling changes to
 # header file
 #
@@ -283,7 +287,7 @@ endif
 # rule to build the cython/python analysis engine in python-inference
 #
 $(CYTARGETS): $(CYPREREQ)
-ifeq ($(have_py3),yes)
+ifeq ($(have_python3),yes)
 	python3 python-inference/setup.py build_ext --inplace
 endif
 

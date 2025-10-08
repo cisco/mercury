@@ -227,7 +227,7 @@ inline auto feature<uint64_t>::convert(const char *s) -> uint64_t {
 ///
 class ip_addr_feature {
     std::unordered_map<uint32_t, std::vector<class update>> ipv4_updates;
-    std::unordered_map<ipv6_array_t, std::vector<class update>> ipv6_updates;
+    std::unordered_map<ipv6_address, std::vector<class update>> ipv6_updates;
 
 public:
     std::string json_name;
@@ -278,15 +278,15 @@ public:
         class update u{ (unsigned int)process_index, (log((floating_point_type)count / total_count) - base_prior) * weight };
 
         if (lookahead<ipv4_address_string> ipv4{datum{feature_value}}) {
-            uint32_t addr = ipv4.value.get_value();
-            auto update = ipv4_updates.find(addr);
+            ipv4_address addr = normalize(ipv4.value.get_value());
+            auto update = ipv4_updates.find(addr.get_value());
             if (update != ipv4_updates.end()) {
                 update->second.push_back(u);
             } else {
-                ipv4_updates[addr] = { u };
+                ipv4_updates[addr.get_value()] = { u };
             }
         } else if (lookahead<ipv6_address_string> ipv6{datum{feature_value}}) {
-            ipv6_array_t addr = ipv6.value.get_value_array();
+            ipv6_address addr = normalize(ipv6.value.get_address());
             auto update = ipv6_updates.find(addr);
             if (update != ipv6_updates.end()) {
                 update->second.push_back(u);
@@ -300,14 +300,15 @@ public:
     //
     void update(std::vector<floating_point_type> &prob_vector, const std::string &dst_ip_str) const {
         if (lookahead<ipv4_address_string> ipv4{datum{dst_ip_str}}) {
-            auto ip_ip_update = ipv4_updates.find(ipv4.value.get_value());
+            ipv4_address addr = normalize(ipv4.value.get_value());
+            auto ip_ip_update = ipv4_updates.find(addr.get_value());
             if (ip_ip_update != ipv4_updates.end()) {
                 for (const auto &x : ip_ip_update->second) {
                     prob_vector[x.index] += x.value;
                 }
             }
         } else if (lookahead<ipv6_address_string> ipv6{datum{dst_ip_str}}) {
-            auto ip_ip_update = ipv6_updates.find(ipv6.value.get_value_array());
+            auto ip_ip_update = ipv6_updates.find(normalize(ipv6.value.get_address()));
             if (ip_ip_update != ipv6_updates.end()) {
                 for (const auto &x : ip_ip_update->second) {
                     prob_vector[x.index] += x.value;
@@ -320,14 +321,15 @@ public:
 
     void update(std::vector<floating_point_type> &prob_vector, const std::string &dst_ip_str, floating_point_type w) const {
         if (lookahead<ipv4_address_string> ipv4{datum{dst_ip_str}}) {
-            auto ip_ip_update = ipv4_updates.find(ipv4.value.get_value());
+            ipv4_address addr = normalize(ipv4.value.get_value());
+            auto ip_ip_update = ipv4_updates.find(addr.get_value());
             if (ip_ip_update != ipv4_updates.end()) {
                 for (const auto &x : ip_ip_update->second) {
                     prob_vector[x.index] += x.value * (w / weight);
                 }
             }
         } else if (lookahead<ipv6_address_string> ipv6{datum{dst_ip_str}}) {
-            auto ip_ip_update = ipv6_updates.find(ipv6.value.get_value_array());
+            auto ip_ip_update = ipv6_updates.find(normalize(ipv6.value.get_address()));
             if (ip_ip_update != ipv6_updates.end()) {
                 for (const auto &x : ip_ip_update->second) {
                     prob_vector[x.index] += x.value * (w / weight);
@@ -493,7 +495,9 @@ public:
                 ) const
     {
 
-        std::string domain = get_tld_domain_name(server_name_str.c_str());
+        server_identifier server_id{server_name_str};
+        std::string normalized_server_name_str = server_id.get_normalized_domain_name(server_identifier::detail::on);
+        std::string domain = get_tld_domain_name(normalized_server_name_str.c_str());
 
         auto hostname_domain_update = hostname_domain_updates.find(domain);
         if (hostname_domain_update != hostname_domain_updates.end()) {
@@ -502,9 +506,6 @@ public:
                 process_score[x.index] += x.value;
             }
         }
-
-        server_identifier server_id{server_name_str};
-        std::string normalized_server_name_str = server_id.get_normalized_domain_name(server_identifier::detail::on);
 
         auto hostname_sni_update = hostname_sni_updates.find(normalized_server_name_str);
         if (hostname_sni_update != hostname_sni_updates.end()) {
@@ -526,7 +527,9 @@ public:
                 ) const
     {
 
-        std::string domain = get_tld_domain_name(server_name_str.c_str());
+        server_identifier server_id{server_name_str};
+        std::string normalized_server_name_str = server_id.get_normalized_domain_name(server_identifier::detail::on);
+        std::string domain = get_tld_domain_name(normalized_server_name_str.c_str());
 
         auto hostname_domain_update = hostname_domain_updates.find(domain);
         if (hostname_domain_update != hostname_domain_updates.end()) {
@@ -535,9 +538,6 @@ public:
                 process_score[x.index] += x.value * (w_domain / domain_weight);
             }
         }
-
-        server_identifier server_id{server_name_str};
-        std::string normalized_server_name_str = server_id.get_normalized_domain_name(server_identifier::detail::on);
 
         auto hostname_sni_update = hostname_sni_updates.find(normalized_server_name_str);
         if (hostname_sni_update != hostname_sni_updates.end()) {
@@ -689,7 +689,7 @@ class naive_bayes_tls_quic_http : public naive_bayes {
     feature<uint32_t> asn_feature;
     feature<std::string> user_agent_feature;
     bool minimize_ram;
-    const feature_weights &weights;
+    const feature_weights weights;
 
 public:
 
@@ -784,7 +784,7 @@ public:
         dst_port_feature.update(process_score, dst_port, w.port);
         if (minimize_ram) {
             (void)dst_ip_str;
-        } else { 
+        } else {
             dst_addr_feature.update(process_score, dst_ip_str, w.ip);
         }
         user_agent_feature.update(process_score, user_agent, w.ua);

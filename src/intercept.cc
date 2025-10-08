@@ -721,7 +721,7 @@ public:
     // get_ports returns a pair of src port and dst port that can be used for protocol identification
     //
     std::pair<uint16_t,uint16_t> get_ports(int fd) {
-        
+
         if (!fd_is_socket(fd)) {
             return {0,0};
         }
@@ -877,7 +877,7 @@ public:
         udp::ports udp_ports;
         udp_ports.src = ports.first;
         udp_ports.dst = ports.second;
-        if (msg_type == udp_msg_type_unknown) { 
+        if (msg_type == udp_msg_type_unknown) {
             // TODO: wrap this up in a traffic_selector member function
             msg_type = (udp_msg_type)(pkt_proc_ctx->selector.get_udp_msg_type_from_ports(udp_ports));
         }
@@ -1223,7 +1223,7 @@ void intercept::process_tls_client_hello(int fd, const uint8_t *data, ssize_t le
             // write fingerprint into record
             fp.write(record);
             hello.write_json(record, true);
-        
+
             record.close();
             out->write_buffer(buf);
         }
@@ -1422,7 +1422,7 @@ ssize_t gnutls_record_send(gnutls_session_t session,
 
     int fd = (r < 32 && r > 0) ? r : 0;
     //intrcptr->process_outbound_plaintext(fd, (uint8_t *)data, (ssize_t) data_size);
-    intrcptr->process_data_pkt_send_recv(fd, (uint8_t *)data, (ssize_t) data_size, std::string("gnutls_record_send").c_str()); 
+    intrcptr->process_data_pkt_send_recv(fd, (uint8_t *)data, (ssize_t) data_size, std::string("gnutls_record_send").c_str());
 
     //print_flow_key(r);
     //write_data_to_file(pid, data, data_size);
@@ -1477,7 +1477,7 @@ extern "C" INTERCEPT_DLL_EXPORTED
 #endif
 ssize_t send(int sockfd, const void *buf, size_t len, int flags) {
     if (verbose) { fprintf(stderr, BLUE(tty, "send() invoked\n")); }
-    intrcptr->process_data_pkt_send_recv(sockfd, (uint8_t *)buf, len, std::string("send").c_str()); 
+    intrcptr->process_data_pkt_send_recv(sockfd, (uint8_t *)buf, len, std::string("send").c_str());
     invoke_original(send, sockfd, buf, len, flags);
 }
 
@@ -1525,10 +1525,10 @@ int sendmmsg(int sockfd, struct mmsghdr *msgvec, unsigned int vlen, int flags) {
                     void *msg_buf = msg->msg_iov[j].iov_base;
                     size_t msg_len = msg->msg_iov[j].iov_len;
                     if (msg_buf and msg_len) {
-                        intrcptr->process_data_pkt_send_recv(sockfd, (uint8_t *)msg_buf, msg_len, std::string("sendmmsg").c_str()); 
+                        intrcptr->process_data_pkt_send_recv(sockfd, (uint8_t *)msg_buf, msg_len, std::string("sendmmsg").c_str());
                     }
                 }
-            } 
+            }
         }
     }
     invoke_original(sendmmsg, sockfd, msgvec, vlen, flags);
@@ -1539,7 +1539,7 @@ extern "C" INTERCEPT_DLL_EXPORTED
 #endif
 ssize_t recv(int sockfd, void *buf, size_t len, int flags) {
     if (verbose) { fprintf(stderr, BLUE(tty, "recv() invoked\n")); }
-    intrcptr->process_data_pkt_send_recv(sockfd, (uint8_t *)buf, len, std::string("recv").c_str()); 
+    intrcptr->process_data_pkt_send_recv(sockfd, (uint8_t *)buf, len, std::string("recv").c_str());
     invoke_original(recv, sockfd, buf, len, flags);
 }
 
@@ -1548,7 +1548,7 @@ extern "C" INTERCEPT_DLL_EXPORTED
 #endif
 ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags, struct sockaddr *address, socklen_t *address_len) {
     if (verbose) { fprintf(stderr, BLUE(tty, "recvfrom() invoked\n")); }
-    intrcptr->process_data_pkt_sendto_recvfrom(sockfd, (uint8_t *)buf, len, std::string("recvfrom").c_str(), address, address_len); 
+    intrcptr->process_data_pkt_sendto_recvfrom(sockfd, (uint8_t *)buf, len, std::string("recvfrom").c_str(), address, address_len);
     invoke_original(recvfrom, sockfd, buf, len, flags, address, address_len);
 
 }

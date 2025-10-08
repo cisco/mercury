@@ -481,6 +481,12 @@ namespace krb5 {
             krb_json.close();
         }
 
+        void write_l7_metadata(cbor_object &o, bool) {
+            cbor_array protocols{o, "protocols"};
+            protocols.print_string("kerberos");
+            protocols.close();
+        }
+
         // weight 14 matcher, derived from example PCAPs
         //
         static constexpr mask_and_value<8> matcher{
@@ -506,4 +512,3 @@ namespace krb5 {
 }
 
 #endif // KRB5_H
-

@@ -1,5 +1,6 @@
 #include "libmerc_driver_helper.hpp"
 #include "fdc.hpp"
+#include "l7m.hpp"
 
 unsigned char http_tcp_payload[] = {
     0x47, 0x45, 0x54, 0x20, 0x2f, 0x20, 0x48, 0x54, 0x54, 0x50, 0x2f, 0x31,
@@ -460,13 +461,24 @@ unsigned char quic_fragment_2[] = {0xcd, 0x0, 0x0, 0x0, 0x1, 0x8, 0x93, 0xa1,
     0xdf, 0x5, 0xea, 0xc3, 0x69, 0x73, 0xa2, 0x1a, 0x2c, 0xc8, 0x3b, 0x5e, 0x1a,
     0xc3, 0xbe, 0x27, 0x6c, 0xe8, 0x10, 0x9, 0xcf, 0xa1, 0xfc, 0xad, 0xf2, 0xea};
 
+unsigned char dns_payload[] = {
+        0x48, 0x4e, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03,
+        0x31, 0x33, 0x31, 0x03, 0x32, 0x32, 0x36, 0x03, 0x31, 0x37, 0x30, 0x03, 0x31,
+        0x30, 0x38, 0x07, 0x69, 0x6e, 0x2d, 0x61, 0x64, 0x64, 0x72, 0x04, 0x61, 0x72,
+        0x70, 0x61, 0x00, 0x00, 0x0c, 0x00, 0x01
+};
+
+unsigned char quic_empty_payload[] = {};
+
+unsigned char tls_empty_payload[] = {};
+
 SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for http request payload") {
     GIVEN("mercury packet processor") {
         libmerc_config config = create_config();
         mercury_context mc = initialize_mercury(config);
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
         const analysis_context* ac = nullptr;
-        
+
         const int max_buffer_allocation = 1500;
         uint8_t wbuffer_http[max_buffer_allocation];
 
@@ -488,19 +500,19 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for http reques
         WHEN("write to FDC buffer for tcp payload of http request") {
             size_t fdc_buffer_len = max_buffer_allocation;
             int bytes_written = mercury_packet_processor_get_analysis_context_fdc(
-                mpp, 
-                &k_http, 
-                http_tcp_payload, 
-                sizeof(http_tcp_payload), 
-                wbuffer_http, 
-                &fdc_buffer_len, 
+                mpp,
+                &k_http,
+                http_tcp_payload,
+                sizeof(http_tcp_payload),
+                wbuffer_http,
+                &fdc_buffer_len,
                 &ac);
 
             THEN("FDC should be written to output buffer") {
                 REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
-                REQUIRE(bytes_written == 129);
+                REQUIRE(bytes_written == 276);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
-            }  
+            }
             mercury_packet_processor_destruct(mpp);
         }
         mercury_finalize(mc);
@@ -520,7 +532,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc with resources 
         const int max_buffer_allocation = 1500;
         uint8_t wbuffer_quic[max_buffer_allocation];
 
-        uint32_t src_ip_quic = 16843009; // 1.1.1.1 -- IP -> reversed IP: 1.1.1.1 
+        uint32_t src_ip_quic = 16843009; // 1.1.1.1 -- IP -> reversed IP: 1.1.1.1
         uint32_t dst_ip_quic = 33686018; // 2.2.2.2 -- IP -> reversed IP: 2.2.2.2
         uint16_t src_port_quic = 43822;
         uint16_t dst_port_quic = 443;
@@ -537,22 +549,22 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc with resources 
         WHEN("write to FDC buffer for tcp payload of quic init packet") {
             size_t fdc_buffer_len = max_buffer_allocation;
             int bytes_written = mercury_packet_processor_get_analysis_context_fdc(
-                mpp, 
-                &k_quic, 
-                quic_init_payload, 
-                sizeof(quic_init_payload), 
-                wbuffer_quic, 
-                &fdc_buffer_len, 
+                mpp,
+                &k_quic,
+                quic_init_payload,
+                sizeof(quic_init_payload),
+                wbuffer_quic,
+                &fdc_buffer_len,
                 &ac);
             THEN("FDC should be written to output buffer") {
                 REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
-                REQUIRE(bytes_written == 176);
+                REQUIRE(bytes_written == 284);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
                 if(ac != nullptr) {
                     printf("ac->result.is_valid() = %d\n", ac->result.is_valid());
                     REQUIRE(ac->result.is_valid() == false);
                 }
-            }  
+            }
             mercury_packet_processor_destruct(mpp);
         }
         mercury_finalize(mc);
@@ -565,7 +577,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for http reques
         mercury_context mc = initialize_mercury(config);
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
         const analysis_context* ac = nullptr;
-        
+
         const int max_buffer_allocation = 1500;
         uint8_t wbuffer_http[max_buffer_allocation];
 
@@ -590,7 +602,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for http reques
         k_ipv6.dst_port = dst_port;
         k_ipv6.ip_vers = 6;
         k_ipv6.protocol = proto;
-        
+
         k_ipv6.addr.ipv6.src.a = src.a;
         k_ipv6.addr.ipv6.src.b = src.b;
         k_ipv6.addr.ipv6.src.c = src.c;
@@ -604,19 +616,19 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for http reques
         WHEN("write to FDC buffer for tcp payload of http request") {
             size_t fdc_buffer_len = max_buffer_allocation;
             int bytes_written = mercury_packet_processor_get_analysis_context_fdc(
-                mpp, 
-                &k_ipv6, 
-                http_tcp_payload, 
-                sizeof(http_tcp_payload), 
-                wbuffer_http, 
-                &fdc_buffer_len, 
+                mpp,
+                &k_ipv6,
+                http_tcp_payload,
+                sizeof(http_tcp_payload),
+                wbuffer_http,
+                &fdc_buffer_len,
                 &ac);
 
             THEN("FDC should be written to output buffer") {
                 REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
-                REQUIRE(bytes_written == 122);
+                REQUIRE(bytes_written == 276);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
-            }  
+            }
             mercury_packet_processor_destruct(mpp);
         }
         mercury_finalize(mc);
@@ -629,11 +641,11 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for tls client 
         mercury_context mc = initialize_mercury(config);
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
         const analysis_context* ac = nullptr;
-        
+
         const int max_buffer_allocation = 1500;
         uint8_t wbuffer_tls[max_buffer_allocation];
 
-        uint32_t src_ip_tls = 2684463296; // 192.168.1.160 -- IP -> reversed IP: 160.1.168.192 
+        uint32_t src_ip_tls = 2684463296; // 192.168.1.160 -- IP -> reversed IP: 160.1.168.192
         uint32_t dst_ip_tls = 734393816; // 216.245.197.43 -- IP -> reversed IP: 43.197.245.216
         uint16_t src_port_tls = 49160;
         uint16_t dst_port_tls = 443;
@@ -650,19 +662,19 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for tls client 
         WHEN("write to FDC buffer for tcp payload of tls client hello") {
             size_t fdc_buffer_len = max_buffer_allocation;
             int bytes_written = mercury_packet_processor_get_analysis_context_fdc(
-                mpp, 
-                &k_tls, 
-                tls_client_hello_tcp_payload, 
-                sizeof(tls_client_hello_tcp_payload), 
-                wbuffer_tls, 
-                &fdc_buffer_len, 
+                mpp,
+                &k_tls,
+                tls_client_hello_tcp_payload,
+                sizeof(tls_client_hello_tcp_payload),
+                wbuffer_tls,
+                &fdc_buffer_len,
                 &ac);
 
             THEN("FDC should be written to output buffer") {
                 REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
-                REQUIRE(bytes_written == 159);
+                REQUIRE(bytes_written == 259);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
-            }  
+            }
             mercury_packet_processor_destruct(mpp);
         }
         mercury_finalize(mc);
@@ -675,11 +687,11 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
         mercury_context mc = initialize_mercury(config);
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
         const analysis_context* ac = nullptr;
-        
+
         const int max_buffer_allocation = 1500;
         uint8_t wbuffer_tls[max_buffer_allocation];
 
-        uint32_t src_ip_tls = 2684463296; // 192.168.1.160 -- IP -> reversed IP: 160.1.168.192 
+        uint32_t src_ip_tls = 2684463296; // 192.168.1.160 -- IP -> reversed IP: 160.1.168.192
         uint32_t dst_ip_tls = 734393816; // 216.245.197.43 -- IP -> reversed IP: 43.197.245.216
         uint16_t src_port_tls = 49160;
         uint16_t dst_port_tls = 443;
@@ -696,19 +708,19 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
         WHEN("write to FDC buffer for 1st tcp payload of tls client hello") {
             size_t fdc_buffer_len = max_buffer_allocation;
             int bytes_written = mercury_packet_processor_get_analysis_context_fdc(
-                mpp, 
-                &k_tls, 
-                tls_fragment_1, 
-                sizeof(tls_fragment_1), 
-                wbuffer_tls, 
-                &fdc_buffer_len, 
+                mpp,
+                &k_tls,
+                tls_fragment_1,
+                sizeof(tls_fragment_1),
+                wbuffer_tls,
+                &fdc_buffer_len,
                 &ac);
 
             THEN("FDC should be written to output buffer") {
                 REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
-                REQUIRE(bytes_written == 205);
+                REQUIRE(bytes_written == 305);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
-            }  
+            }
             mercury_packet_processor_destruct(mpp);
         }
         mercury_finalize(mc);
@@ -718,15 +730,15 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
 SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented tls client hello payload with reassembly and within number of packets limit") {
     GIVEN("mercury packet processor") {
         libmerc_config config = create_config();
-        config.packet_filter_cfg = "tls.client_hello,quic,http;format=tls/1;reassembly;minimize-ram";
-        mercury_context mc = initialize_mercury(config); 
+        config.packet_filter_cfg = "all;format=tls/1;reassembly;minimize-ram";
+        mercury_context mc = initialize_mercury(config);
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
         const analysis_context* ac = nullptr;
-        
+
         const int max_buffer_allocation = 1500;
         uint8_t wbuffer_tls[max_buffer_allocation];
 
-        uint32_t src_ip_tls = 2684463296; // 192.168.1.160 -- IP -> reversed IP: 160.1.168.192 
+        uint32_t src_ip_tls = 2684463296; // 192.168.1.160 -- IP -> reversed IP: 160.1.168.192
         uint32_t dst_ip_tls = 734393816; // 216.245.197.43 -- IP -> reversed IP: 43.197.245.216
         uint16_t src_port_tls = 49160;
         uint16_t dst_port_tls = 443;
@@ -743,27 +755,25 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
         WHEN("write to FDC buffer for the 2 tcp segments of tls client hello") {
             size_t fdc_buffer_len = max_buffer_allocation;
             int bytes_written_1 = mercury_packet_processor_get_analysis_context_fdc(
-                mpp, 
-                &k_tls, 
-                tls_fragment_1, 
-                sizeof(tls_fragment_1), 
-                wbuffer_tls, 
-                &fdc_buffer_len, 
+                mpp,
+                &k_tls,
+                tls_fragment_1,
+                sizeof(tls_fragment_1),
+                wbuffer_tls,
+                &fdc_buffer_len,
                 &ac);
             int bytes_written_2 = mercury_packet_processor_get_analysis_context_fdc(
-                mpp, 
-                &k_tls, 
-                tls_fragment_2, 
-                sizeof(tls_fragment_2), 
-                wbuffer_tls, 
-                &fdc_buffer_len, 
+                mpp,
+                &k_tls,
+                tls_fragment_2,
+                sizeof(tls_fragment_2),
+                wbuffer_tls,
+                &fdc_buffer_len,
                 &ac);
 
             THEN("FDC should be written to output buffer") {
-                REQUIRE(bytes_written_1 != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
                 REQUIRE(bytes_written_1 == fdc_return::MORE_PACKETS_NEEDED);
-                REQUIRE(bytes_written_2 != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
-                REQUIRE(bytes_written_2 == 217);
+                REQUIRE(bytes_written_2 == 317);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
             }
         }
@@ -776,15 +786,15 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
 SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented tls client hello payload with reassembly and exceeding number of packets limit") {
     GIVEN("mercury packet processor") {
         libmerc_config config = create_config();
-        config.packet_filter_cfg = "tls.client_hello,quic,http;format=tls/1;reassembly;minimize-ram";
-        mercury_context mc = initialize_mercury(config); 
+        config.packet_filter_cfg = "all;format=tls/1;reassembly;minimize-ram";
+        mercury_context mc = initialize_mercury(config);
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
         const analysis_context* ac = nullptr;
-        
+
         const int max_buffer_allocation = 1500;
         uint8_t wbuffer_tls[max_buffer_allocation];
 
-        uint32_t src_ip_tls = 2684463296; // 192.168.1.160 -- IP -> reversed IP: 160.1.168.192 
+        uint32_t src_ip_tls = 2684463296; // 192.168.1.160 -- IP -> reversed IP: 160.1.168.192
         uint32_t dst_ip_tls = 734393816; // 216.245.197.43 -- IP -> reversed IP: 43.197.245.216
         uint16_t src_port_tls = 49160;
         uint16_t dst_port_tls = 443;
@@ -801,28 +811,30 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
         WHEN("write to FDC buffer for 1st tcp segment of tls client hello") {
             size_t fdc_buffer_len = max_buffer_allocation;
             int bytes_written_1 = mercury_packet_processor_get_analysis_context_fdc(
-                mpp, 
-                &k_tls, 
-                tls_fragment_1, 
-                sizeof(tls_fragment_1), 
-                wbuffer_tls, 
-                &fdc_buffer_len, 
+                mpp,
+                &k_tls,
+                tls_fragment_1,
+                sizeof(tls_fragment_1),
+                wbuffer_tls,
+                &fdc_buffer_len,
                 &ac);
             int bytes_written_2 = mercury_packet_processor_get_analysis_context_fdc(
-                mpp, 
-                &k_tls, 
-                nullptr, 
-                0, 
-                wbuffer_tls, 
-                &fdc_buffer_len, 
+                mpp,
+                &k_tls,
+                tls_empty_payload,
+                sizeof(tls_empty_payload),
+                wbuffer_tls,
+                &fdc_buffer_len,
                 &ac);
+            if (bytes_written_2 > 0) {
+                datum outbuf{wbuffer_tls, wbuffer_tls + bytes_written_2};
+                std::string json = translate_l7_metadata_to_json_string(outbuf);
+                printf("%s\n", json.c_str());
+            }
 
             THEN("FDC should be written to output buffer") {
-                REQUIRE(bytes_written_1 != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
                 REQUIRE(bytes_written_1 == fdc_return::MORE_PACKETS_NEEDED);
-                REQUIRE(bytes_written_2 != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
-                REQUIRE(bytes_written_2 == 205);
-                REQUIRE(fdc_buffer_len == max_buffer_allocation);
+                REQUIRE(bytes_written_2 == 305);
             }
         }
 
@@ -837,11 +849,11 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for quic init p
         mercury_context mc = initialize_mercury(config);
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
         const analysis_context* ac = nullptr;
-        
+
         const int max_buffer_allocation = 1500;
         uint8_t wbuffer_quic[max_buffer_allocation];
 
-        uint32_t src_ip_quic = 16843009; // 1.1.1.1 -- IP -> reversed IP: 1.1.1.1 
+        uint32_t src_ip_quic = 16843009; // 1.1.1.1 -- IP -> reversed IP: 1.1.1.1
         uint32_t dst_ip_quic = 33686018; // 2.2.2.2 -- IP -> reversed IP: 2.2.2.2
         uint16_t src_port_quic = 43822;
         uint16_t dst_port_quic = 443;
@@ -858,19 +870,19 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for quic init p
         WHEN("write to FDC buffer for tcp payload of quic init packet") {
             size_t fdc_buffer_len = max_buffer_allocation;
             int bytes_written = mercury_packet_processor_get_analysis_context_fdc(
-                mpp, 
-                &k_quic, 
-                quic_init_payload, 
-                sizeof(quic_init_payload), 
-                wbuffer_quic, 
-                &fdc_buffer_len, 
+                mpp,
+                &k_quic,
+                quic_init_payload,
+                sizeof(quic_init_payload),
+                wbuffer_quic,
+                &fdc_buffer_len,
                 &ac);
 
             THEN("FDC should be written to output buffer") {
                 REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
-                REQUIRE(bytes_written == 176);
+                REQUIRE(bytes_written == 284);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
-            }  
+            }
             mercury_packet_processor_destruct(mpp);
         }
         mercury_finalize(mc);
@@ -883,11 +895,11 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
         mercury_context mc = initialize_mercury(config);
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
         const analysis_context* ac = nullptr;
-        
+
         const int max_buffer_allocation = 1500;
         uint8_t wbuffer_quic[max_buffer_allocation];
 
-        uint32_t src_ip_quic = 16843009; // 1.1.1.1 -- IP -> reversed IP: 1.1.1.1 
+        uint32_t src_ip_quic = 16843009; // 1.1.1.1 -- IP -> reversed IP: 1.1.1.1
         uint32_t dst_ip_quic = 33686018; // 2.2.2.2 -- IP -> reversed IP: 2.2.2.2
         uint16_t src_port_quic = 43822;
         uint16_t dst_port_quic = 443;
@@ -904,19 +916,19 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
         WHEN("write to FDC buffer for 1st QUIC payload") {
             size_t fdc_buffer_len = max_buffer_allocation;
             int bytes_written = mercury_packet_processor_get_analysis_context_fdc(
-                mpp, 
-                &k_quic, 
-                quic_fragment_1, 
-                sizeof(quic_fragment_1), 
-                wbuffer_quic, 
-                &fdc_buffer_len, 
+                mpp,
+                &k_quic,
+                quic_fragment_1,
+                sizeof(quic_fragment_1),
+                wbuffer_quic,
+                &fdc_buffer_len,
                 &ac);
 
             THEN("FDC should be written to output buffer") {
                 REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
-                REQUIRE(bytes_written == 46);
+                REQUIRE(bytes_written == 141);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
-            }  
+            }
             mercury_packet_processor_destruct(mpp);
         }
         mercury_finalize(mc);
@@ -926,15 +938,15 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
 SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented QUIC payload with reassembly and within number of packets limit") {
     GIVEN("mercury packet processor") {
         libmerc_config config = create_config();
-        config.packet_filter_cfg = "tls.client_hello,quic,http;format=tls/1;reassembly;minimize-ram";
-        mercury_context mc = initialize_mercury(config); 
+        config.packet_filter_cfg = "all;format=tls/1;reassembly;minimize-ram";
+        mercury_context mc = initialize_mercury(config);
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
         const analysis_context* ac = nullptr;
-        
+
         const int max_buffer_allocation = 1500;
         uint8_t wbuffer_quic[max_buffer_allocation];
 
-        uint32_t src_ip_quic = 16843009; // 1.1.1.1 -- IP -> reversed IP: 1.1.1.1 
+        uint32_t src_ip_quic = 16843009; // 1.1.1.1 -- IP -> reversed IP: 1.1.1.1
         uint32_t dst_ip_quic = 33686018; // 2.2.2.2 -- IP -> reversed IP: 2.2.2.2
         uint16_t src_port_quic = 43822;
         uint16_t dst_port_quic = 443;
@@ -951,27 +963,27 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
         WHEN("write to FDC buffer for the 2 QUIC segments") {
             size_t fdc_buffer_len = max_buffer_allocation;
             int bytes_written_1 = mercury_packet_processor_get_analysis_context_fdc(
-                mpp, 
-                &k_quic, 
-                quic_fragment_1, 
-                sizeof(quic_fragment_1), 
-                wbuffer_quic, 
-                &fdc_buffer_len, 
+                mpp,
+                &k_quic,
+                quic_fragment_1,
+                sizeof(quic_fragment_1),
+                wbuffer_quic,
+                &fdc_buffer_len,
                 &ac);
             int bytes_written_2 = mercury_packet_processor_get_analysis_context_fdc(
-                mpp, 
-                &k_quic, 
-                quic_fragment_2, 
-                sizeof(quic_fragment_2), 
-                wbuffer_quic, 
-                &fdc_buffer_len, 
+                mpp,
+                &k_quic,
+                quic_fragment_2,
+                sizeof(quic_fragment_2),
+                wbuffer_quic,
+                &fdc_buffer_len,
                 &ac);
 
             THEN("FDC should be written to output buffer") {
                 REQUIRE(bytes_written_1 != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
                 REQUIRE(bytes_written_1 == fdc_return::MORE_PACKETS_NEEDED);
                 REQUIRE(bytes_written_2 != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
-                REQUIRE(bytes_written_2 == 192);
+                REQUIRE(bytes_written_2 == 300);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
             }
         }
@@ -984,15 +996,15 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
 SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented QUIC payload with reassembly and exceeding number of packets limit") {
     GIVEN("mercury packet processor") {
         libmerc_config config = create_config();
-        config.packet_filter_cfg = "tls.client_hello,quic,http;format=tls/1;reassembly;minimize-ram";
-        mercury_context mc = initialize_mercury(config); 
+        config.packet_filter_cfg = "all;format=tls/1;reassembly;minimize-ram";
+        mercury_context mc = initialize_mercury(config);
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
         const analysis_context* ac = nullptr;
-        
+
         const int max_buffer_allocation = 1500;
         uint8_t wbuffer_quic[max_buffer_allocation];
 
-        uint32_t src_ip_quic = 16843009; // 1.1.1.1 -- IP -> reversed IP: 1.1.1.1 
+        uint32_t src_ip_quic = 16843009; // 1.1.1.1 -- IP -> reversed IP: 1.1.1.1
         uint32_t dst_ip_quic = 33686018; // 2.2.2.2 -- IP -> reversed IP: 2.2.2.2
         uint16_t src_port_quic = 43822;
         uint16_t dst_port_quic = 443;
@@ -1009,27 +1021,27 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
         WHEN("Skip writing to FDC buffer for the 1st QUIC payload") {
             size_t fdc_buffer_len = max_buffer_allocation;
             int bytes_written_1 = mercury_packet_processor_get_analysis_context_fdc(
-                mpp, 
-                &k_quic, 
-                quic_fragment_1, 
-                sizeof(quic_fragment_1), 
-                wbuffer_quic, 
-                &fdc_buffer_len, 
+                mpp,
+                &k_quic,
+                quic_fragment_1,
+                sizeof(quic_fragment_1),
+                wbuffer_quic,
+                &fdc_buffer_len,
                 &ac);
             int bytes_written_2 = mercury_packet_processor_get_analysis_context_fdc(
-                mpp, 
-                &k_quic, 
-                nullptr, 
-                0, 
-                wbuffer_quic, 
-                &fdc_buffer_len, 
+                mpp,
+                &k_quic,
+                nullptr,
+                0,
+                wbuffer_quic,
+                &fdc_buffer_len,
                 &ac);
 
             THEN("FDC should be written to output buffer") {
                 REQUIRE(bytes_written_1 != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
                 REQUIRE(bytes_written_1 == fdc_return::MORE_PACKETS_NEEDED);
                 REQUIRE(bytes_written_2 != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
-                REQUIRE(bytes_written_2 == 0);
+                REQUIRE(bytes_written_2 == -5);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
             }
         }
@@ -1045,11 +1057,11 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for tls client 
         mercury_context mc = initialize_mercury(config);
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
         const analysis_context* ac = nullptr;
-        
+
         const int max_buffer_allocation = 150;
         uint8_t wbuffer_tls[max_buffer_allocation];
 
-        uint32_t src_ip_tls = 2684463296; // 192.168.1.160 -- IP -> reversed IP: 160.1.168.192 
+        uint32_t src_ip_tls = 2684463296; // 192.168.1.160 -- IP -> reversed IP: 160.1.168.192
         uint32_t dst_ip_tls = 734393816; // 216.245.197.43 -- IP -> reversed IP: 43.197.245.216
         uint16_t src_port_tls = 49160;
         uint16_t dst_port_tls = 443;
@@ -1066,20 +1078,94 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for tls client 
         WHEN("write to FDC buffer for tcp payload of tls client hello") {
             size_t fdc_buffer_len = max_buffer_allocation;
             int bytes_written = mercury_packet_processor_get_analysis_context_fdc(
-                mpp, 
-                &k_tls, 
-                tls_client_hello_tcp_payload, 
-                sizeof(tls_client_hello_tcp_payload), 
-                wbuffer_tls, 
-                &fdc_buffer_len, 
+                mpp,
+                &k_tls,
+                tls_client_hello_tcp_payload,
+                sizeof(tls_client_hello_tcp_payload),
+                wbuffer_tls,
+                &fdc_buffer_len,
                 &ac);
 
             THEN("FDC write to output buffer fails due to insufficient buffer size") {
                 REQUIRE(bytes_written == fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
                 REQUIRE(fdc_buffer_len == 2*max_buffer_allocation);
-            }  
+            }
             mercury_packet_processor_destruct(mpp);
         }
+        mercury_finalize(mc);
+    }
+}
+
+SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for combination of fragmented QUIC + dns + completed QUIC fragment") {
+    GIVEN("mercury packet processor") {
+        libmerc_config config = create_config();
+        config.packet_filter_cfg = "all;format=tls/1;reassembly;minimize-ram";
+        mercury_context mc = initialize_mercury(config);
+        mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
+        const analysis_context* ac = nullptr;
+
+        const int max_buffer_allocation = 1500;
+        uint8_t wbuffer[max_buffer_allocation];
+
+        uint32_t src_ip = 16843009; // 1.1.1.1 -- IP -> reversed IP: 1.1.1.1
+        uint32_t dst_ip = 33686018; // 2.2.2.2 -- IP -> reversed IP: 2.2.2.2
+        uint16_t src_port_quic = 43822;
+        uint16_t dst_port_quic = 443;
+        uint8_t proto_quic = ip::protocol::udp;
+
+        struct flow_key_ext k_quic;
+        k_quic.src_port = src_port_quic;
+        k_quic.dst_port = dst_port_quic;
+        k_quic.addr.ipv4.src = src_ip;
+        k_quic.addr.ipv4.dst = dst_ip;
+        k_quic.protocol = proto_quic;
+        k_quic.ip_vers = 4;
+
+        struct flow_key_ext k_dns;
+        k_dns.src_port = 43432;
+        k_dns.dst_port = 53;
+        k_dns.addr.ipv4.src = src_ip;
+        k_dns.addr.ipv4.dst = dst_ip;
+        k_dns.protocol = ip::protocol::udp;
+        k_dns.ip_vers = 4;
+
+        WHEN("write to FDC buffer for the 2 QUIC segments and the dns payload") {
+            size_t fdc_buffer_len = max_buffer_allocation;
+            int bytes_written_1 = mercury_packet_processor_get_analysis_context_fdc(
+                mpp,
+                &k_quic,
+                quic_fragment_1,
+                sizeof(quic_fragment_1),
+                wbuffer,
+                &fdc_buffer_len,
+                &ac);
+
+            int bytes_written_2 = mercury_packet_processor_get_analysis_context_fdc(
+                mpp,
+                &k_dns,
+                dns_payload,
+                sizeof(dns_payload),
+                wbuffer,
+                &fdc_buffer_len,
+                &ac);
+
+            int bytes_written_3 = mercury_packet_processor_get_analysis_context_fdc(
+                mpp,
+                &k_quic,
+                quic_fragment_2,
+                sizeof(quic_fragment_2),
+                wbuffer,
+                &fdc_buffer_len,
+                &ac);
+
+            THEN("FDC should be written to output buffer") {
+                REQUIRE(bytes_written_1 == fdc_return::MORE_PACKETS_NEEDED);  // For quic fragment 1
+                REQUIRE(bytes_written_2 == 39); // For dns payload
+                REQUIRE(bytes_written_3 == 300); // For quic fragment 2
+            }
+        }
+
+        mercury_packet_processor_destruct(mpp);
         mercury_finalize(mc);
     }
 }

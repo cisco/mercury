@@ -59,6 +59,7 @@ char mercury_help[] =
     "   --certs-json                          # output certs as JSON, not base64\n"
     "   --metadata                            # output more protocol metadata in JSON\n"
     "   --raw-features                        # select protocols to write out raw features string(see --help)\n"
+    "   --network-behavioral-detections       # perform network behavioral detections\n"
     "   --minimize-ram                        # minimize the ram usage of mercury library\n"
     "   [-v or --verbose]                     # additional information sent to stderr\n"
     "   --license                             # write license information to stdout\n"
@@ -135,7 +136,7 @@ char mercury_extended_help[] =
     "      tofsee            Tofsee malware communication\n"
     "      wireguard         WG handshake initiation message\n"
     "      geneve            Geneve encapsulation\n"
-    "      vxlan             VXLAN encapsulation\n" 
+    "      vxlan             VXLAN encapsulation\n"
     "      all               all of the above\n"
     "      <no option>       all of the above\n"
     "      none              none of the above\n"
@@ -155,7 +156,7 @@ char mercury_extended_help[] =
     "   --reassembly enables reassembly\n"
     "   This option allows mercury to keep track of tcp or udp segment state and \n"
     "   and reassemble these segments based on the application in payload\n"
-    "\n" 
+    "\n"
     "   \"[-u or --user] u\" sets the UID and GID to those of user u, so that\n"
     "   output file(s) are owned by this user.  If this option is not set, then\n"
     "   the UID is set to SUDO_UID, so that privileges are dropped to those of\n"
@@ -206,6 +207,11 @@ char mercury_extended_help[] =
     "       all             All of the above\n"
     "       none            None of the above\n"
     "       <no option>     None of the above\n"
+    "\n"
+    "   --network-behavioral-detections performs analysis on packets, sessions, and\n"
+   "    sets of sessions independent of the core mercury analysis functionality. These\n"
+   "    are not driven by the resources file. An example detection includes detecting\n"
+   "    residential proxies.\n"
     "\n"
     "   [-v or --verbose] writes additional information to the standard error,\n"
     "   including the packet count, byte count, elapsed time and processing rate, as\n"
@@ -268,42 +274,43 @@ int main(int argc, char *argv[]) {
     std::string additional_args;
 
     while(1) {
-        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13, reassembly=14, format=15, raw_features=16, crypto_assess=17, minimize_ram=18,};
+        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13, reassembly=14, format=15, raw_features=16, crypto_assess=17, minimize_ram=18, network_behavioral_detections=19, };
         int opt_idx = 0;
         static struct option long_opts[] = {
-            { "config",      required_argument, NULL, config  },
-            { "resources",   required_argument, NULL, resources },
-            { "stats",       required_argument, NULL, write_stats },
-            { "version",     no_argument,       NULL, version },
-            { "license",     no_argument,       NULL, license },
-            { "dns-json",    no_argument,       NULL, dns_json },
-            { "certs-json",  no_argument,       NULL, certs_json },
-            { "metadata",    no_argument,       NULL, metadata },
-            { "nonselected-tcp-data", no_argument, NULL, tcp_init_data },
-            { "nonselected-udp-data", no_argument, NULL, udp_init_data },
-            { "stats-limit", required_argument, NULL, stats_limit },
-            { "stats-time",  required_argument, NULL, stats_time },
-            { "output-time", required_argument, NULL, output_time },
-            { "reassembly",  no_argument,    NULL, reassembly },
-            { "crypto-assess", optional_argument, NULL, crypto_assess },
-            { "format",      required_argument, NULL, format },
-            { "read",        required_argument, NULL, 'r' },
-            { "write",       required_argument, NULL, 'w' },
-            { "directory",   required_argument, NULL, 'd' },
-            { "capture",     required_argument, NULL, 'c' },
-            { "fingerprint", required_argument, NULL, 'f' },
-            { "analysis",    no_argument,       NULL, 'a' },
-            { "threads",     required_argument, NULL, 't' },
-            { "threshold",   required_argument, NULL, 'x' },  // TODO - expose hidden command
-            { "buffer",      required_argument, NULL, 'b' },
-            { "limit",       required_argument, NULL, 'l' },
-            { "user",        required_argument, NULL, 'u' },
-            { "help",        no_argument,       NULL, 'h' },
-            { "select",      optional_argument, NULL, 's' },
-            { "raw-features", required_argument, NULL, raw_features },
-            { "verbose",     no_argument,       NULL, 'v' },
-            { "minimize-ram", no_argument,      NULL, minimize_ram },
-            { NULL,          0,                 0,     0  }
+            { "config",                        required_argument, NULL,                        config },
+            { "resources",                     required_argument, NULL,                     resources },
+            { "stats",                         required_argument, NULL,                   write_stats },
+            { "version",                             no_argument, NULL,                       version },
+            { "license",                             no_argument, NULL,                       license },
+            { "dns-json",                            no_argument, NULL,                      dns_json },
+            { "certs-json",                          no_argument, NULL,                    certs_json },
+            { "metadata",                            no_argument, NULL,                      metadata },
+            { "nonselected-tcp-data",                no_argument, NULL,                 tcp_init_data },
+            { "nonselected-udp-data",                no_argument, NULL,                 udp_init_data },
+            { "stats-limit",                   required_argument, NULL,                   stats_limit },
+            { "stats-time",                    required_argument, NULL,                    stats_time },
+            { "output-time",                   required_argument, NULL,                   output_time },
+            { "reassembly",                          no_argument, NULL,                    reassembly },
+            { "crypto-assess",                 optional_argument, NULL,                 crypto_assess },
+            { "format",                        required_argument, NULL,                        format },
+            { "read",                          required_argument, NULL,                           'r' },
+            { "write",                         required_argument, NULL,                           'w' },
+            { "directory",                     required_argument, NULL,                           'd' },
+            { "capture",                       required_argument, NULL,                           'c' },
+            { "fingerprint",                   required_argument, NULL,                           'f' },
+            { "analysis",                            no_argument, NULL,                           'a' },
+            { "threads",                       required_argument, NULL,                           't' },
+            { "threshold",                     required_argument, NULL,                           'x' },  // TODO - expose hidden command
+            { "buffer",                        required_argument, NULL,                           'b' },
+            { "limit",                         required_argument, NULL,                           'l' },
+            { "user",                          required_argument, NULL,                           'u' },
+            { "help",                                no_argument, NULL,                           'h' },
+            { "select",                        optional_argument, NULL,                           's' },
+            { "raw-features",                  required_argument, NULL,                  raw_features },
+            { "minimize-ram",                        no_argument, NULL,                  minimize_ram },
+            { "network-behavioral-detections",       no_argument, NULL, network_behavioral_detections },
+            { "verbose",                             no_argument, NULL,                           'v' },
+            { NULL,                                            0,    0,                             0 }
         };
         int c = getopt_long(argc, argv, "r:w:c:f:t:b:l:u:s::oham:vp:d:", long_opts, &opt_idx);
         if (c < 0) {
@@ -403,6 +410,13 @@ int main(int argc, char *argv[]) {
                 raw_features_set = true;
             } else {
                 usage(argv[0], "option raw_features requires comma separated protocols as argument", extended_help_off);
+            }
+            break;
+        case network_behavioral_detections:
+            if (optarg) {
+                usage(argv[0], "option network-behavioral-detections does not use an argument", extended_help_off);
+            } else {
+                additional_args.append("network-behavioral-detections;");
             }
             break;
         case crypto_assess:

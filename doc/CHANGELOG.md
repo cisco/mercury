@@ -1,5 +1,42 @@
 # CHANGELOG for Mercury
 
+## VERSION 2.9.0
+* Added a new configuration option, network-behavioral-detections,
+  which enables behavioral detections without a resources file.
+* Added code to identify residential proxies through random nonces.
+* Fixed a bug in the cython interface that resulted in all HTTP packets being
+  labeled as FakeTLS when using the analyze_packet(bytes pkt_data) function.
+* Added a feature to the libmerc utility that can generate layer 7 metadata
+  using libmerc_util --fdc.  This does not affect the normal output of mercury or
+  libmerc, but is useful in other integrations.
+* Bug fix to clean up reassembly flow state before processing new flow. Affects
+  layer 7 metadata processing.
+* Internal code refactoring: encapsulate all softmax functionality (including
+  XSIMD) into its own header file.
+* Build improvements: Graceful detection of python dependencies. Partial fix for
+  intermittent ASAN crash on repeated dlopen/dlclose of libmerc, which may have
+  been an interaction between dlclose and ASAN. Fix CMake build for windows and
+  add CMake support for non-standard OpenSSL library installations. Fix buffer
+  overread in OID compiler, which is run only at compile time.
+* Clean analysis context and reassembly flow, before packet processing,
+  to clean stale content from previous flows.
+
+## VERSION 2.8.1
+* Bug fixes: ASAN container overflow in stats collection, dangling reference in
+  Naive Bayes classifier weights, faulty unit test for resource file version.
+* Disabled Fake TLS detection for QUIC.  Will re-enable when feature is ready.
+* Added fdc (fingerprint and destination context) tests to code coverage report.
+* Added internal CBOR encoding classes with translation to JSON and a
+  key-compaction option.
+* Changed the order of domain name normalization in the classifier to normalize
+  a FQDN before extracting the domain name.
+
+## VERSION 2.8.0
+* Fixed `get_json_decoded_fdc()` to not assume UTF-8 inputs.
+* Added CBOR encoding/decoding for SSH and STUN fingerprints.
+* Fixing compiler warnings related to ABI differences
+* CMake changes required to add xsimd as submodule and fixing
+  windows compilation issues
 * Removed duplicate UTF-8 and IP address output code used in
   ASN.1, added classes `utc_time`, `generalized_time`, and `raw_oid`
   to facilitate JSON output, removed `json_object_asn1` and
@@ -22,7 +59,7 @@
 * Added additional fuzz tests. Updated the `generate_fuzz_test.sh` script to
   support generating fuzz functions that test functions requiring two fuzzed inputs.
   Also hardened some datum functions.
-* Added `test-coverage` and `test-coverage-fuzz` targets to generate a 
+* Added `test-coverage` and `test-coverage-fuzz` targets to generate a
   comprehensive code coverage report for the Mercury library.
 
 ## VERSION 2.7.0

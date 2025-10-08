@@ -506,7 +506,7 @@ static inline int append_uint64_hex(char *dstr, int *doff, int dlen, int *trunc,
     for (auto i = 0; i < 16; i++) {
         outs[i] = hex_table[(n & mask) >> (15 - i) *4];
         mask = mask >> 4;
-    } 
+    }
 
     r += append_memcpy(dstr, doff, dlen, trunc,
                        outs, 16);
@@ -1183,7 +1183,7 @@ public:
     /// than, to match, or be greater.
 
     int memcmp(const void *s, size_t n) {
-        size_t comp_length = (std::min)(n, (size_t)doff);
+        size_t comp_length = std::min(n, (size_t)doff);
         return ::memcmp(buffer, s, comp_length);
     }
 

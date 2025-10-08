@@ -6,7 +6,7 @@
 #include <map>
 #include <string>
 #include <algorithm>
-#include <unordered_map> 
+#include <unordered_map>
 #include <sstream>
 
 // the preprocessor directive STATIC_CFG_SELECT can be used as a
@@ -131,11 +131,12 @@ public:
     std::string crypto_assess_policy;
     bool reassembly = false;              /* reassemble protocol segments      */
     bool stats_blocking = false;          /* stats mode: lossless but blocking */
+    bool network_behavioral_detections = false; /* perform network behavioral detections */
     fingerprint_format fp_format;    // default fingerprint format
     bool minimize_ram = false;
 
-    global_config() : libmerc_config(), reassembly{false} {};
-    global_config(const libmerc_config& c) : libmerc_config(c), reassembly{false} {
+    global_config() : libmerc_config(), reassembly{false}, network_behavioral_detections{false} {};
+    global_config(const libmerc_config& c) : libmerc_config(c), reassembly{false}, network_behavioral_detections{false} {
         if (c.resources) {
            resource_file = c.resources;
         }
@@ -288,7 +289,8 @@ static void setup_extended_fields(global_config* lc, const std::string& config) 
         {"stats-blocking", "", "", SETTER_FUNCTION(&lc){ lc->stats_blocking = true; }},
         {"raw-features", "", "", SETTER_FUNCTION(&lc){ lc->set_raw_features(s); }},
         {"crypto-assess", "", "", SETTER_FUNCTION(&lc){ lc->set_crypto_assess(s); }},
-        {"minimize-ram", "", "", SETTER_FUNCTION(&lc){ lc->minimize_ram = true; }}
+        {"minimize-ram", "", "", SETTER_FUNCTION(&lc){ lc->minimize_ram = true; }},
+        {"network-behavioral-detections", "", "", SETTER_FUNCTION(&lc){ lc->network_behavioral_detections = true; }}
     };
 
     parse_additional_options(options, config, *lc);

@@ -115,6 +115,9 @@ namespace cbor {
         static constexpr uint8_t True = 21;
         static constexpr uint8_t null = 22;
         static constexpr uint8_t undefined = 23;
+        static constexpr uint8_t float16 = 25;      // IEEE 754 Half-Precision Float (16 bits)
+        static constexpr uint8_t float32 = 26;      // IEEE 754 Single-Precision Float (32 bits)
+        static constexpr uint8_t float64 = 27;      // IEEE 754 Double-Precision Float (64 bits)
         static constexpr uint8_t break_code = 31;
 
     };
@@ -348,6 +351,12 @@ namespace cbor {
             buf << value__;
         }
 
+        /// writes an empty `byte_string` into \param buf
+        ///
+        static void write_empty(writeable &buf) {
+            uint64{0, byte_string_type}.write(buf);
+        }
+
         /// `cbor::byte_string::unit_test()` performs unit tests on
         /// the class \ref cbor::byte_string and returns `true` if
         /// they all pass, and `false` otherwise.  If \param f ==
@@ -435,18 +444,6 @@ namespace cbor {
             return text_string{len, val};
         }
 
-        // text_string(datum &d) :
-        //     length{d, text_string_type},
-        //     value__{d, length.value()}
-        // { }
-
-        // // construct a text_string for writing
-        // //
-        // text_string(const datum &d) :
-        //     length{d.length(), text_string_type},
-        //     value__{d}
-        // { }
-
         // construct a text_string for writing
         //
         text_string(const char *null_terminated_string) :
@@ -465,7 +462,7 @@ namespace cbor {
 
         // operator bool() const { return value__.is_not_null(); }
 
-        /// `cbor::_textstring::unit_test()` performs unit tests on
+        /// `cbor::_text_string::unit_test()` performs unit tests on
         /// the class \ref cbor::_textstring and returns `true` if
         /// they all pass, and `false` otherwise.  If \param f ==
         /// `nullptr`, then no outupt is written; otherwise, output is
@@ -762,6 +759,7 @@ namespace cbor::output {
     //
     class map {
         writeable &w;
+        bool write;
 
     public:
 

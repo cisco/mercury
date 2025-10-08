@@ -13,7 +13,6 @@
 #ifdef _WIN32
 #include <io.h>
 #include <BaseTsd.h>
-#include <windows.h>
 //#include <sysinfoapi.h>
 typedef SSIZE_T ssize_t;
 #else
@@ -68,7 +67,7 @@ size_t hex_to_raw(const void *output,
 enum status drop_root_privileges(const char *username, const char *directory) {
 
 #ifndef _WIN32
-  
+
     gid_t gid;
     uid_t uid;
     const char *new_username;
@@ -309,4 +308,3 @@ uint64_t timer_stop(struct timer *t) {
     }
     return nano_sec;
 }
-

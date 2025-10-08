@@ -86,8 +86,8 @@ public:
     const char* get_code_str() const{
         return get_dialect_string();
     };
-};    
-         
+};
+
 class dialects {
 public:
     std::vector<dialect> dialects_list;
@@ -251,7 +251,7 @@ public:
             count++;
         }
     }
-    
+
     void write_json(struct json_object &o) const {
         o.print_key_uint16("cipher_count", cipher_count.value());
         struct json_array ids{o, "ciphers"};
@@ -304,7 +304,7 @@ public:
         o.print_key_uint_hex("flags", flags.value());
         struct json_array comp_algos{o, "compression_algorithms"};
         for (const auto& val : compression_algos) {
-            comp_algos.print_string(get_comp_algo_string(val));    
+            comp_algos.print_string(get_comp_algo_string(val));
         }
         comp_algos.close();
     }
@@ -360,7 +360,7 @@ public:
 class smb2_signing_capa {
     encoded<uint16_t> signing_algo_count;
     std::vector<uint16_t> signing_algos;
- 
+
     const char * get_id_string(const uint16_t& val) const {
         switch(val) {
         case 0x0000:        return "HMAC-SHA256";
@@ -375,7 +375,7 @@ public:
         signing_algo_count(d, byte_swap) {
         signing_algos.reserve(signing_algo_count.value());
         uint16_t count = 0;
-        while(count < signing_algo_count and d.is_not_empty()) {       
+        while(count < signing_algo_count and d.is_not_empty()) {
             encoded<uint16_t> id(d, byte_swap);
             signing_algos.push_back(id);
             count++;
@@ -401,7 +401,7 @@ class negotiate_context {
     encoded<uint16_t> context_type;
     encoded<uint16_t> data_length;
     skip_bytes<4> reserved;
-    datum body;    
+    datum body;
     bool byte_swap;
     bool valid;
 
@@ -439,7 +439,7 @@ public:
         case SMB2_SIGNING_CAPABILITIES:                  return "SMB2_SIGNING_CAPABILITIES";
         default:                                         return nullptr;
         }
-    } 
+    }
 
     uint16_t get_code() const {return context_type.value();}
 
@@ -503,7 +503,7 @@ public:
  *
  * NegotiateContextOffset - specifies the offset, in bytes, from the
  * beginning of the SMB2 header to the first NegotiateContextList.
- * 
+ *
  * SMB2 header - 64 bytes in length
  * Number of bytes till reserved2 member of smb2_negotiate_request is 100
  * Then follows the variable length dialect lists which contains dialects
@@ -520,7 +520,7 @@ public:
         d.skip(padding_bytes);
     }
 };
-         
+
 class smb2_negotiate_request {
     encoded<uint16_t> structure_size;
     encoded<uint16_t> dialect_count;
@@ -538,7 +538,7 @@ class smb2_negotiate_request {
 
     static constexpr bool byte_swap = true;
 public:
-    smb2_negotiate_request (datum &d) : 
+    smb2_negotiate_request (datum &d) :
         structure_size(d, byte_swap),
         dialect_count(d, byte_swap),
         sec_mode(d, byte_swap),
@@ -665,9 +665,9 @@ public:
     const char* get_code_str() const {
         return dialect_num.get_code_str();
     }
-    
+
 };
- 
+
 class smb2_command {
 public:
     encoded<uint16_t> command;
@@ -776,7 +776,7 @@ public:
         buf.write_quote_enclosed_hex(next_cmd);
         buf.copy(']');
     }
-        
+
     void write_json(struct json_object &o) const;
 
     uint16_t get_code() const {return cmd.command.value();}
@@ -784,7 +784,7 @@ public:
     const char* get_code_str() const {
         return cmd.get_string();
     }
-    
+
 };
 
 class smb2_packet : public base_protocol {
@@ -847,10 +847,16 @@ public:
         }
     }
 
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("smb2");
+        protocols.close();
+    }
+
     static constexpr mask_and_value<8> matcher {
         { 0x00, //Message type
           0x00, 0x00, 0x00 , //Length
-          0xff, 0xff, 0xff, 0xff // 
+          0xff, 0xff, 0xff, 0xff //
         },
         { 0x00, 0x00, 0x00, 0x00, 0xfe, 0x53, 0x4d, 0x42}
     };
@@ -863,7 +869,7 @@ namespace {
         char buffer[8192];
         struct buffer_stream buf_json(buffer, sizeof(buffer));
         struct json_object record(&buf_json);
-        
+
 
         smb2_packet request{request_data};
         if (request.is_not_empty()) {

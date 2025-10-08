@@ -84,7 +84,7 @@ namespace tftp { class packet; }
 class gre_header;
 class geneve;
 class ip_encapsulation;
-class vxlan; 
+class vxlan;
 
 using protocol = std::variant<std::monostate,
                               http_request,                      // start of tcp protocols
@@ -298,6 +298,29 @@ struct write_metadata {
 
 };
 
+struct write_l7_metadata {
+    cbor_object &o;
+    bool metadata_output_;
+    bool certs_json_output_;
+    bool dns_json_output_;
+
+    write_l7_metadata(cbor_object &output,
+                      bool metadata_output=true) :
+        o{output},
+        metadata_output_{metadata_output}
+    {}
+
+    template <typename T>
+    void operator()(T &r) {
+        if (r.is_not_empty()) {
+            r.write_l7_metadata(o, metadata_output_);
+        }
+    }
+
+    void operator()(std::monostate &) { }
+};
+
+
 struct compute_fingerprint {
     fingerprint &fp_;
     fingerprint_format format_version;
@@ -339,6 +362,31 @@ struct do_analysis {
     template <typename T>
     bool operator()(T &msg) {
         return msg.do_analysis(k_, analysis_, c_);
+    }
+
+    bool operator()(std::monostate &) { return false; }
+
+};
+
+struct do_network_behavioral_detections {
+    const struct key &k_;
+    struct analysis_context &analysis_;
+    classifier *c_;
+    struct common_data &nbd_common_;
+
+    do_network_behavioral_detections(const struct key &k,
+                                     struct analysis_context &analysis,
+                                     classifier *c,
+                                     struct common_data &nbd_common) :
+        k_{k},
+        analysis_{analysis},
+        c_{c},
+        nbd_common_{nbd_common}
+    {}
+
+    template <typename T>
+    bool operator()(T &msg) {
+        return msg.do_network_behavioral_detections(k_, analysis_, c_, nbd_common_);
     }
 
     bool operator()(std::monostate &) { return false; }

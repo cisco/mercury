@@ -136,10 +136,10 @@ int subnet_data::lct_add_domain_mapping(uint32_t &addr, uint8_t &mask_length, st
         subnet_itr = &domains_prefix[subnet_map[addr]];
         if (subnet_itr->info.type == IP_SUBNET_DOMAIN && subnet_itr->addr == addr && subnet_itr->len == mask_length) {
             uint8_t *old_arr = subnet_itr->info.domain.domain_idx_arr;
-            
+
             ++subnet_itr->info.domain.domain_idx_arr_len;
             uint8_t *new_domain_idx_arr = (uint8_t *)realloc(subnet_itr->info.domain.domain_idx_arr, subnet_itr->info.domain.domain_idx_arr_len * sizeof(uint8_t));
-            
+
             if (new_domain_idx_arr == NULL) {
                 free(old_arr);
                 old_arr = nullptr;
@@ -153,7 +153,7 @@ int subnet_data::lct_add_domain_mapping(uint32_t &addr, uint8_t &mask_length, st
     }
     else {    // create a new entry in the map
         subnet_itr = &domains_prefix[domains_prefix_num];
-        
+
         subnet_itr->addr = addr;
         subnet_itr->len = mask_length;
         subnet_itr->info.type = IP_SUBNET_DOMAIN;
@@ -164,7 +164,7 @@ int subnet_data::lct_add_domain_mapping(uint32_t &addr, uint8_t &mask_length, st
         subnet_map[addr] = domains_prefix_num;
         domains_prefix_num++;
     }
-    
+
     return 0;       // success
 }
 
@@ -188,7 +188,7 @@ int subnet_data::process_domain_mapping_subnets(const std::vector<std::string> &
         throw std::runtime_error("error: could not initialize domains_prefix");
     }
 
-    for (const std::string &line_str : subnets) { 
+    for (const std::string &line_str : subnets) {
         rapidjson::Document domain_obj;
         domain_obj.Parse(line_str.c_str());
         if(!domain_obj.IsObject()) {
@@ -199,7 +199,7 @@ int subnet_data::process_domain_mapping_subnets(const std::vector<std::string> &
         std::string subnet_type;
         std::string subnet_str;
         std::string subnet_tag;
-        
+
         uint32_t addr;
         unsigned char *dq = (unsigned char *)&addr;
         uint8_t mask_length;

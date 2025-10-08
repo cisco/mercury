@@ -11,6 +11,7 @@
 #include "match.h"
 #include "fingerprint.h"
 #include "result.h"
+#include "analysis.h"
 #include <unordered_map>
 
 namespace stun {
@@ -817,6 +818,18 @@ namespace stun {
             }
         }
 
+        void write_l7_metadata(cbor_object &o, bool) {
+            cbor_array protocols{o, "protocols"};
+            protocols.print_string("stun");
+            protocols.close();
+
+            if (software.is_not_empty()) {
+                cbor_object stun{o, "stun"};
+                stun.print_key_string("software", software);
+                stun.close();
+            }
+        }
+
         void write_raw_features(json_object &o) const {
             data_buffer<2048> buf;
             buf.copy('[');
@@ -984,7 +997,7 @@ namespace stun {
         // request format: dst_addr, dst_port
         // response format: src_addr, src_port
 
-        bool do_analysis(const struct key &flow_key, struct analysis_context &ac, classifier*) {
+        bool do_analysis(const struct key &flow_key, struct analysis_context &ac, classifier* c) {
 
             // create a json-friendly utf8 copy of the SOFTWARE atribute's value field
             //
@@ -1008,7 +1021,10 @@ namespace stun {
                                 k                          // flow key, used for dst_addr and dst_port
                                 );
 
-            return false;
+            if (c == nullptr) {
+                return false;
+            }
+            return c->analyze_fingerprint_and_destination_context(ac.fp, ac.destination, ac.result);
         }
 
     };

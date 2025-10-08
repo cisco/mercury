@@ -397,6 +397,12 @@ namespace ldap {
             ldap_json.close();
         }
 
+        void write_l7_metadata(cbor_object &o, bool) {
+            cbor_array protocols{o, "protocols"};
+            protocols.print_string("ldap");
+            protocols.close();
+        }
+
         // empty functions for unsupported functionality
         //
         void compute_fingerprint(fingerprint &) const { }

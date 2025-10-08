@@ -320,6 +320,8 @@ struct tls_extensions : public datum {
 
     void print(struct json_object &o, const char *key) const;
 
+    datum get_server_name() const;
+
     void print_server_name(struct json_object &o, const char *key) const;
 
     void print_quic_transport_parameters(struct json_object &o, const char *key) const;
@@ -340,8 +342,12 @@ struct tls_extensions : public datum {
     void fingerprint(struct buffer_stream &b, enum tls_role role) const;
 
     void write_raw_features(writeable &buf) const;
- 
+
     datum get_supported_groups() const;
+
+    void write_l7_metadata(cbor_object &o) const {
+        o.print_key_string("server_name", get_server_name());
+    }
 
 #ifndef NDEBUG
     static bool unit_test() {
@@ -386,7 +392,7 @@ struct tls_extensions : public datum {
         return true;
 
     }
-#endif //NDEBUG 
+#endif //NDEBUG
 };
 
 struct tls_client_hello : public base_protocol {
@@ -425,6 +431,10 @@ struct tls_client_hello : public base_protocol {
 
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c);
 
+    bool do_network_behavioral_detections(const struct key &k_, struct analysis_context &analysis_, classifier *c, struct common_data &nbd_common);
+
+    static bool check_residential_proxy(const struct key &k_, datum random_nonce);
+
     static constexpr mask_and_value<8> matcher{
         { 0xff, 0xff, 0xfc, 0x00, 0x00, 0xff, 0x00, 0x00 },
         { 0x16, 0x03, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00 }
@@ -442,6 +452,21 @@ struct tls_client_hello : public base_protocol {
         is_quic_hello = false;
         additional_bytes_needed = 0;
     }
+
+    void write_l7_metadata(cbor_object &o, bool metadata) {
+        if (metadata) {
+            cbor_array protocols{o, "protocols"};
+            protocols.print_string("tls");
+            protocols.close();
+        }
+
+        cbor_object tls{o, "tls"};
+        cbor_object tls_client{tls, "client"};
+        tls_client.print_key_hex("random", random);
+        extensions.write_l7_metadata(tls_client);
+        tls_client.close();
+        tls.close();
+     }
 
 };
 
@@ -568,6 +593,12 @@ public:
                 tls.close();
             }
         }
+    }
+
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("tls");
+        protocols.close();
     }
 
     void compute_fingerprint(fingerprint &fp) const {
@@ -806,7 +837,7 @@ namespace {
         char buffer_2[8192];
         struct buffer_stream buf_fp(buffer_2, sizeof(buffer_2));
         struct json_object record(&buf_json);
-        
+
 
         tls_client_hello hello{hello_data};
         if (hello.is_not_empty()) {
@@ -815,7 +846,7 @@ namespace {
         }
 
         return 0;
-    } 
+    }
 
     [[maybe_unused]] int tls_server_hello_and_certificate_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
         datum pkt_data{data1, data1+size1};
