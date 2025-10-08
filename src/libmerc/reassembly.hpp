@@ -203,14 +203,14 @@ struct reassembly_flow_context {
         seg_list{},
         is_quic{true},
         cid{},
-        cid_len{(size_t)(seg.cid.length() > 20 ? 20 : seg.cid.length())} {
+        cid_len{(size_t)(seg.cid.length() > max_cid_len ? max_cid_len : seg.cid.length())} {
 
         seg_list.reserve(max_segments);
         seg_list.push_back({seg.seq - init_seq, seg.seq - init_seq + seg.data_length - 1});
         curr_seg_count = 1;
 
         // copy cid
-        memcpy(cid,seg.cid.data,( seg.cid.length() > 20 ? 20 : seg.cid.length()));  // copy max 20 byte cid
+        memcpy(cid,seg.cid.data,( seg.cid.length() > max_cid_len ? max_cid_len : seg.cid.length()));  // copy max 20 byte cid
 
         // process the pkt
         memcpy(buffer,crypto_buf.data, (seg.data_length > max_data_size ? max_data_size : seg.data_length));
@@ -598,7 +598,7 @@ inline reassembly_state tcp_reassembler::check_flow(const struct key &k, uint64_
     curr_flow = table.find(k);
     if (curr_flow != table.end()) {
         const datum cid = curr_flow->second.get_cid_datum();
-        if (cid.is_empty() || (cid.prefix_cmp(cid_) == 0))
+        if (cid.is_empty() || (cid.prefix_cmp(cid_,max_cid_len) == 0))
             return curr_flow->second.state;
         else
             return reassembly_state::reassembly_quic_discard;

@@ -453,9 +453,14 @@ struct datum {
         return cmp;
     }
 
-    // Compare two possibly different length datums up to the length of the shorter one
-    int prefix_cmp(const datum &p) const {
-        return ::memcmp(data, p.data, std::min(length(), p.length()));
+    // Compare two possibly different length datums up to the length of the shorter one,
+    // if any one is longer than the passed expected length or else perform a full compare
+    int prefix_cmp(const datum &p, ssize_t length) const {
+        if ((length() > length) || (p.length() > length)) {
+            return ::memcmp(data, p.data, std::min(length(), p.length()));
+        }
+        else
+            return cmp(p);
     }
 
     /// compares this \ref datum to `a` lexicographically, and returns
