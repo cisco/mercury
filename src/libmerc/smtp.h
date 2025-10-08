@@ -186,7 +186,7 @@ public:
         protocols.close();
     }
 
-    bool is_not_empty() const { return parameters.is_not_empty(); }
+    bool is_not_empty() const { return parameters.is_valid(); }
 
     static constexpr mask_and_value<8> matcher{
         { 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00 },
