@@ -142,5 +142,5 @@ TEST_CASE("emix.pcap") {
         {"quic", 4}
     };
 
-    test_pcap_file("emix.pcap", 1317, expected_protocols);
+    test_pcap_file("emix.pcap", 1322, expected_protocols);
 }
