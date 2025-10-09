@@ -172,7 +172,7 @@ public:
         {"CHEC"_uint32,              {tcp_msg_type_http_request}},
         {"CONN"_uint32,              {tcp_msg_type_http_request}},
         {"COPY"_uint32,              {tcp_msg_type_http_request}},
-        {"DELE"_uint32,              {tcp_msg_type_http_request}},
+        {"DELE"_uint32,              tcp_msg_types(tcp_msg_type_http_request, tcp_msg_type_ftp_request)},
         {"GET "_uint32,              {tcp_msg_type_http_request}},
         {"HEAD"_uint32,              {tcp_msg_type_http_request}},
         {"LABE"_uint32,              {tcp_msg_type_http_request}},
@@ -211,11 +211,13 @@ public:
         {"APPE"_uint32,              {tcp_msg_type_ftp_request}},
         {"AUTH"_uint32,              tcp_msg_types(tcp_msg_type_ftp_request, tcp_msg_type_smtp_client)},
         {"CCC "_uint32,              {tcp_msg_type_ftp_request}},
+        {"CCC\r"_uint32,             {tcp_msg_type_ftp_request}},
         {"CDUP"_uint32,              {tcp_msg_type_ftp_request}},
         {"CONF"_uint32,              {tcp_msg_type_ftp_request}},
         {"CWD "_uint32,              {tcp_msg_type_ftp_request}},
-        {"DELE"_uint32,              {tcp_msg_type_ftp_request}},
+        {"CWD\r"_uint32,             {tcp_msg_type_ftp_request}},
         {"ENC "_uint32,              {tcp_msg_type_ftp_request}},
+        {"ENC\r"_uint32,             {tcp_msg_type_ftp_request}},
         {"EPRT"_uint32,              {tcp_msg_type_ftp_request}},
         {"EPSV"_uint32,              {tcp_msg_type_ftp_request}},
         {"FEAT"_uint32,              {tcp_msg_type_ftp_request}},
@@ -227,7 +229,9 @@ public:
         {"LPSV"_uint32,              {tcp_msg_type_ftp_request}},
         {"MDTM"_uint32,              {tcp_msg_type_ftp_request}},
         {"MIC "_uint32,              {tcp_msg_type_ftp_request}},
+        {"MIC\r"_uint32,             {tcp_msg_type_ftp_request}},
         {"MKD "_uint32,              {tcp_msg_type_ftp_request}},
+        {"MKD\r"_uint32,             {tcp_msg_type_ftp_request}},
         {"MLSD"_uint32,              {tcp_msg_type_ftp_request}},
         {"MLST"_uint32,              {tcp_msg_type_ftp_request}},
         {"MODE"_uint32,              {tcp_msg_type_ftp_request}},
@@ -240,11 +244,13 @@ public:
         {"PORT"_uint32,              {tcp_msg_type_ftp_request}},
         {"PROT"_uint32,              {tcp_msg_type_ftp_request}},
         {"PWD "_uint32,              {tcp_msg_type_ftp_request}},
+        {"PWD\r"_uint32,             {tcp_msg_type_ftp_request}},
         {"QUIT"_uint32,              tcp_msg_types(tcp_msg_type_ftp_request, tcp_msg_type_smtp_client)},
         {"REIN"_uint32,              {tcp_msg_type_ftp_request}},
         {"REST"_uint32,              {tcp_msg_type_ftp_request}},
         {"RETR"_uint32,              {tcp_msg_type_ftp_request}},
         {"RMD "_uint32,              {tcp_msg_type_ftp_request}},
+        {"RMD\r"_uint32,             {tcp_msg_type_ftp_request}},
         {"RNFR"_uint32,              {tcp_msg_type_ftp_request}},
         {"RNTO"_uint32,              {tcp_msg_type_ftp_request}},
         {"SITE"_uint32,              {tcp_msg_type_ftp_request}},
@@ -279,7 +285,7 @@ public:
         //HTTP response
         {"HTTP"_uint32,              {tcp_msg_type_http_response}},
         //RFB
-        {"RFB "_uint32,               {tcp_msg_type_rfb}}
+        {"RFB "_uint32,              {tcp_msg_type_rfb}}
     };
 
     static const tcp_msg_types& get_tcp_msg_type_from_keyword(const datum &d) {
