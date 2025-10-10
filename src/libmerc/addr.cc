@@ -16,6 +16,7 @@
 #include "datum.h"  // for ntoh()
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
+#include "ip_address.hpp"
 
 #include "lctrie/lctrie.h"
 #include "lctrie/lctrie_bgp.h"
@@ -393,6 +394,11 @@ bool subnet_data::is_domain_faking(const char *domain_name_, const char* dst_ip)
     uint32_t ipv4_addr;
     if (!char_string_to_ipv4_addr(dst_ip, ipv4_addr)) {
         return false; // IPv6 or invalid address
+    }
+
+    ipv4_address ip4(ipv4_addr);
+    if (ip4.get_addr_type() == ipv4_address::addr_type::private_use) {
+        return false; // not domain-faking - as the IP is a private address
     }
 
     lct_subnet_t *subnet = lct_find(&ipv4_domain_trie, ntoh(ipv4_addr));
