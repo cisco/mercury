@@ -155,9 +155,9 @@ struct matcher_type_and_offset {
 
 constexpr uint32_t operator "" _uint32(const char* str, size_t length) {
     if (str == nullptr || length != 4) {
-        return 0;
+        throw std::invalid_argument("_uint32 must be exactly 4 characters");
     }
-    return (uint32_t)str[3] << 24 | (uint32_t)str[2] << 16 | (uint32_t)str[1] << 8 | str[0];
+    return (uint32_t)str[0] << 24 | (uint32_t)str[1] << 16 | (uint32_t)str[2] << 8 | (uint32_t)str[3];
 }
 
 class tcp_keyword_matcher {
@@ -288,9 +288,7 @@ public:
         {"RFB "_uint32,              {tcp_msg_type_rfb}}
     };
 
-    static const tcp_msg_types& get_tcp_msg_type_from_keyword(const datum &d) {
-        assert(d.length() == 4);
-        uint32_t keyword = operator""_uint32(reinterpret_cast<const char*>(d.data), 4);
+    static const tcp_msg_types& get_tcp_msg_type_from_keyword(uint32_t keyword) {
         auto it = tcp_keyword_map.find(keyword);
         if (it != tcp_keyword_map.end()) {
             return it->second;
@@ -303,7 +301,7 @@ template <size_t N>
 class protocol_identifier {
     std::vector<matcher_and_type<N>> matchers;
     std::vector<matcher_type_and_offset<N>> matchers_and_offset;
-    
+
 public:
 
     protocol_identifier() : matchers{}, matchers_and_offset{} {  }
@@ -789,8 +787,8 @@ public:
             return tcp_keyword_matcher::unknown_type;
         }
 
-        datum keyword{pkt, 4};   
-        return tcp_keyword_matcher::get_tcp_msg_type_from_keyword(keyword);
+        encoded<uint32_t> keyword{pkt};
+        return tcp_keyword_matcher::get_tcp_msg_type_from_keyword(keyword.value());
     }
 
     tcp_msg_type get_tcp_msg_type_preference_from_port(const tcp_msg_types& protos,
@@ -816,10 +814,10 @@ public:
         }
         if (std::find(protos.begin(), protos.end(), type) != protos.end()) {
             return type;
-        } 
+        }
         return tcp_msg_type_unknown;
     }
- 
+
     size_t  get_tcp_msg_type(datum &pkt) const {
         size_t type = tcp.get_msg_type(pkt);
         if (type == tcp_msg_type_unknown)  {
@@ -927,4 +925,3 @@ public:
 };
 
 #endif /* PROTO_IDENTIFY_H */
-

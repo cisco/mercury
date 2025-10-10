@@ -333,7 +333,7 @@ bool stateful_pkt_proc::set_tcp_protocol_from_keyword(protocol &x,
         default:
             break;
     }
-    return false; 
+    return false;
 }
 // set_tcp_protocol() sets the protocol variant record to the data
 // structure resulting from the parsing of the TCP data field, which
@@ -360,9 +360,9 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         if (protos.front() != tcp_msg_type_unknown) {
             tcp_msg_type msg_type = selector.get_tcp_msg_type_preference_from_port(protos, tcp_pkt);
             if (set_tcp_protocol_from_keyword(x, pkt, msg_type)) {
-                return; 
+                return;
             }
-     
+
             for (const auto type : protos) {
                 if (type == msg_type) {
                     continue;
@@ -371,7 +371,7 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
                     return;
                 }
             }
-        } 
+        }
     }
     if (msg_type == tcp_msg_type_unknown) {
          // Tofsee detection based on pkt length
@@ -492,7 +492,7 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         }
         break;
     }
- 
+
     //fprintf(stderr, "2nd got tcp_msg_type: %d\n", msg_type);
 }
 

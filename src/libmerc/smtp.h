@@ -37,8 +37,8 @@ struct smtp_parameter {
     one_or_more_up_to_byte<'\r'> parameter;
     crlf delimiter;
     bool valid;
-    
-    smtp_parameter(struct datum &p) : 
+
+    smtp_parameter(struct datum &p) :
         parameter(p),
         delimiter(p),
         valid(p.is_not_null()) { }
@@ -55,9 +55,9 @@ struct smtp_parameter {
     bool is_not_empty() const {
         return valid and parameter.is_not_empty();
     }
-    
+
 };
- 
+
 struct smtp_parameters {
     datum parameters;
     bool valid = true;
@@ -67,7 +67,7 @@ struct smtp_parameters {
     }
 
     void parse(struct datum &p) {
-        
+
         while (p.is_not_empty()) {
             smtp_parameter param{p};
             if (!param.is_valid()) {
@@ -75,8 +75,8 @@ struct smtp_parameters {
                 break;
             }
         }
-    }    
-        
+    }
+
     void fingerprint(struct buffer_stream &buf) const {
         unsigned char crlf[2] = { '\r', '\n' };
         unsigned char domain[1] = { '.' };                    /* used to identify domain parameter */
@@ -84,9 +84,9 @@ struct smtp_parameters {
 
         datum p{parameters};
         if (!valid) {
-            return; 
+            return;
         }
-    
+
         while (p.length() > 0) {
             if (p.compare(crlf, sizeof(crlf)) == 0) {
                 break;  /* at end of parameters */
@@ -162,7 +162,7 @@ class smtp_client : public base_protocol {
 
 public:
 
-    smtp_client(datum &pkt) : 
+    smtp_client(datum &pkt) :
         command{pkt},
         sp{pkt},
         parameters{pkt} { }
