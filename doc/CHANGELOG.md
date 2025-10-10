@@ -1,5 +1,8 @@
 # CHANGELOG for Mercury
 
+## VERSION 2.9.1
+* Defensive code around memcpy operations in QUIC reassembly
+
 ## VERSION 2.9.0
 * Added a new configuration option, network-behavioral-detections,
   which enables behavioral detections without a resources file.
