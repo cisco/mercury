@@ -112,7 +112,7 @@ TEST_CASE("emix.pcap") {
         {"bittorrent", 2},
         {"bittorrent_dht", 5},
         {"bittorrent_lsd", 9},
-        {"dhcp", 6},
+        {"dhcp", 11},
         {"dnp3", 15},
         {"dns", 240},
         {"esp", 6},
