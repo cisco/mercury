@@ -453,20 +453,6 @@ struct datum {
         return cmp;
     }
 
-    // Compare two possibly different length datums up to the length of the shorter one,
-    // if any one is longer than the passed expected length or else perform a full compare
-    int prefix_cmp(const datum &p, ssize_t max_safe_len) const {
-        // Truncate both to max safe length, then compare fully
-        ssize_t safe_len1 = std::min(length(), max_safe_len);
-        ssize_t safe_len2 = std::min(p.length(), max_safe_len);
-    
-        if (safe_len1 != safe_len2) {
-            return safe_len1 - safe_len2;  // Different lengths
-        }
-        // Same length: compare safely truncated portions
-        return ::memcmp(data, p.data, static_cast<size_t>(safe_len1));
-    }
-
     /// compares this \ref datum to `a` lexicographically, and returns
     /// `true` if it exactly matches, and `false` otherwise
     ///
