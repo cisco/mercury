@@ -135,7 +135,15 @@ public:
 
     void final() {
         if (fp_buf.is_truncated()) {
-            init();  // reset to fingerprint_type_unknown
+            //
+            // If fp_buf has been truncated, then either the length of
+            // a fingerprint exceeded that of the buffer, or the
+            // protocol-parsing code determined that the message that
+            // it was parsing did not contain a valid fingerprint, and
+            // set the fp_buf truncation bit.  In either case, we want
+            // to ignore this fingerprint, so we reset to fingerprint_type_unknown.
+            //
+            init();
             return;
         }
         fp_buf.write_char('\0'); // null-terminate

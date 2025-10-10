@@ -663,9 +663,6 @@ struct datum {
         set_null();
     }
 
-     /// reads a `uint8_t` in network byte order, without advancing the
-
-
     /// reads a `uint8_t` in network byte order, without advancing the
     /// data pointer
     ///
