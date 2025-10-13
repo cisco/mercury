@@ -27,7 +27,8 @@ public:
             return;  // error; attempt to write a null datum object
         }
         const char *output = oid::get_string(this);
-        if (output != oid_empty_string) {
+        //  fprintf(stderr, "output: %p\toid_empty_string: %p\n", output, oid_empty_string);
+        if (output != oid_empty_string and strlen(output) != 0) {
             b.puts(output);
         } else {
             print_as_oid(b);
@@ -481,6 +482,10 @@ struct tlv {
     const char *get_class() const {
         return tag_class[tag >> 6];
     }
+
+    bool is_context_specific() const { return tag >> 6 == 2; }
+
+    uint8_t tag_number() const { return tag & 31; }
 
     void fprint_tlv(FILE *f, const char *tlv_name) const {
         if (!is_valid()) {
