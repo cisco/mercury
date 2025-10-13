@@ -258,8 +258,6 @@ void print_flow_key(int fd) {
 #include "libmerc/proto_identify.h"
 #include <ctype.h>
 
-#include "libmerc/protocols.hpp"
-
 #include <unordered_set>
 #include <string>
 
