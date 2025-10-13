@@ -21,9 +21,15 @@
 #include "match.h"
 
 #include "arp.h"
+#include "cdp.h"
+#include "eth.h"
+#include "icmp.h"
 #include "ip.h"
+#include "lldp.h"
+#include "ospf.h"
+#include "ppp.h"
+#include "sctp.h"
 #include "tcp.h"
-
 
 #include "tls.h"   // tcp protocols
 #include "http.h"
@@ -62,17 +68,6 @@
 #include "mdns.h"
 #include "krb5.hpp"
 #include "tftp.hpp"
-
-#include "eth.h"
-#include "icmp.h"
-#include "cdp.h"
-#include "lldp.h"
-#include "ospf.h"
-#include "sctp.h"
-#include "analysis.h"
-#include "buffer_stream.h"
-#include "stats.h"
-#include "ppp.h"
 
 enum tcp_msg_type {
     tcp_msg_type_unknown = 0,
