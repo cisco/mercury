@@ -128,7 +128,7 @@ public:
 
     };
 
-    static constexpr uint16_t port = hton<uint16_t>(514);
+    // static constexpr uint16_t port = hton<uint16_t>(514);
 
     syslog(datum &d) : body{d} { }
 
