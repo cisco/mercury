@@ -539,7 +539,7 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
         }
         break;
     case udp_msg_type_dhcp:
-        x.emplace<dhcp_discover>(pkt);
+        x.emplace<dhcp_message>(pkt);
         break;
     case udp_msg_type_quic:
         x.emplace<quic_init>(pkt, quic_crypto);

@@ -444,6 +444,7 @@ class traffic_selector {
     bool select_http_response{false};
     bool select_smtp{false};
     bool select_tofsee{false};
+    bool select_dhcp{false};
 
 public:
 
@@ -508,6 +509,9 @@ public:
     bool smtp() const { return select_smtp; }
 
     bool tofsee() const { return select_tofsee; }
+
+    bool dhcp() const { return select_dhcp; }
+
     void disable_all() {
         tcp.disable_all();
         tcp4.disable_all();
@@ -545,6 +549,7 @@ public:
         select_http_response = false;
         select_smtp = false;
         select_tofsee = false;
+        select_dhcp = false;
 
     }
 
@@ -643,7 +648,7 @@ public:
             select_tcp_syn_ack = true;
         }
         if (protocols["dhcp"] || protocols["all"]) {
-            udp.add_protocol(dhcp_discover::matcher, udp_msg_type_dhcp);
+            select_dhcp = true;
         }
         if (protocols["dns"] || protocols["nbns"] || protocols["mdns"] || protocols["all"]) {
             if (protocols["all"]) {
@@ -879,6 +884,10 @@ public:
 
         if (gre() and ports.dst == hton<uint16_t>(gre_header::dst_port)) {
             return udp_msg_type_gre;
+        }
+
+        if (dhcp() and (ports.dst == hton<uint16_t>(67) or ports.dst == hton<uint16_t>(68))) {
+            return udp_msg_type_dhcp;
         }
 
         return udp_msg_type_unknown;
