@@ -34,7 +34,7 @@
  */
 
 struct smtp_parameter {
-    one_or_more_up_to_byte<'\r'> parameter;
+    up_to_required_byte<'\r'> parameter;
     crlf delimiter;
     bool valid;
 

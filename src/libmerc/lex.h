@@ -139,9 +139,9 @@ public:
 };
 
 template <uint8_t byte>
-class one_or_more_up_to_byte : public datum {
+class up_to_required_byte : public datum {
 public:
-    one_or_more_up_to_byte(datum &d) {
+    up_to_required_byte(datum &d) {
         if (d.data == nullptr || d.data == d.data_end) {
             d.set_null();
             return;

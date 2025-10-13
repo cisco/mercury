@@ -38,7 +38,7 @@ namespace ftp
     {
         ftp_command command;
         optional<literal_byte<' '>>  sp;
-        one_or_more_up_to_byte<'\r'> argument;
+        up_to_required_byte<'\r'> argument;
         crlf delimiter;
         bool isValid;
 
