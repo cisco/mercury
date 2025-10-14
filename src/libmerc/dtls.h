@@ -71,6 +71,15 @@ struct dtls_handshake {
         body.init_from_outer_parser(&d, length);
     }
 
+    static constexpr mask_and_value<8> dtls_matcher = {
+        {
+         0xff, 0xff, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00
+        },
+        {
+         0x16, 0xfe, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00
+        }
+    };
+
 };
 
 class dtls_client_hello : public base_protocol {
@@ -115,6 +124,47 @@ public:
         }
     };
 
+};
+
+class dtls_hello_verify_request: public base_protocol {
+    encoded<uint16_t> protocol_version;
+    encoded<uint8_t> cookie_len;
+    datum cookie;
+    bool valid;
+
+public:
+    static constexpr bool verbose = false;
+
+    dtls_hello_verify_request(struct datum &p) :
+        protocol_version{p},
+        cookie_len{p},
+        cookie{p, cookie_len.value()},
+        valid{p.is_not_null()} {}
+
+    void write_json(struct json_object &record, bool metadata) const {
+        (void)metadata;  // ignore parameter
+
+        if (!verbose || !valid) {
+            return;
+        }
+
+        struct json_object dtls{record, "dtls"};
+        struct json_object dtls_server{dtls, "hello_verify_request"};
+        dtls_server.print_key_uint16_hex("version", protocol_version);
+        dtls_server.print_key_hex("cookie", cookie);
+        dtls_server.close();
+        dtls.close();
+    }
+
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("dtls");
+        protocols.close();
+    }
+
+    bool is_not_empty() const {
+        return valid;
+    }
 };
 
 class dtls_server_hello : public base_protocol {
@@ -168,6 +218,10 @@ public:
 
 [[maybe_unused]] inline int dtls_server_hello_fuzz_test(const uint8_t *data, size_t size) {
     return json_output_fuzzer<dtls_server_hello>(data, size);
+}
+
+[[maybe_unused]] inline int dtls_hello_retry_request_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<dtls_hello_retry_request>(data, size);
 }
 
 #endif /* DTLS_H */
