@@ -3,6 +3,7 @@
 ## VERSION 2.9.1
 * Defensive code around memcpy operations in QUIC reassembly
 * Exempted private IP addresses from Domain Faking check
+* Enhanced protocol matcher and SMTP enhancements to support more commands
 
 ## VERSION 2.9.0
 * Added a new configuration option, network-behavioral-detections,
