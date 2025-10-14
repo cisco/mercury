@@ -186,6 +186,14 @@ public:
         protocols.close();
     }
 
+    /*
+     * is_not_empty() returns true if the protocol is valid and has data to report,
+     *   false otherwise.
+     *
+     * An SMTP command can be valid without parameters. Examples of valid commands
+     * without parameters are "QUIT\r\n" and "DATA\r\n". It's sufficient to ensure
+     * the SMTP parameter is valid (with/without parameters) and ends with \r\n.
+     */
     bool is_not_empty() const { return parameters.is_valid(); }
 
     static constexpr mask_and_value<8> matcher{
@@ -260,6 +268,13 @@ public:
         fp.final();
     }
 
+    /*
+     * is_not_empty() returns true if the protocol is valid and has data to report,
+     *   false otherwise.
+     *
+     * It's sufficient to ensure the SMTP parameter is valid (with/without parameters)
+     * and ends with \r\n.
+     */
     bool is_not_empty() const { return parameters.is_valid(); }
 
     bool do_analysis(const struct key, struct analysis_context, classifier*) { return false; }
