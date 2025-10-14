@@ -116,7 +116,7 @@ TEST_CASE("emix.pcap") {
         {"dnp3", 15},
         {"dns", 240},
         {"esp", 6},
-        {"ftp", 44},
+        {"ftp", 58},
         {"http", 10},
         {"iec60870_5_104", 42},
         {"ike", 30},
@@ -142,5 +142,5 @@ TEST_CASE("emix.pcap") {
         {"quic", 4}
     };
 
-    test_pcap_file("emix.pcap", 1322, expected_protocols);
+    test_pcap_file("emix.pcap", 1336, expected_protocols);
 }
