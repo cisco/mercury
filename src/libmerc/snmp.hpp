@@ -558,12 +558,13 @@ namespace snmp {
         }
     };
 
-    // SNMP Engine ID
+    // class engine_id represents an SNMP Engine ID as defined by the
+    // "SnmpEngineID TEXTUAL-CONVENTION" in RFC 3411; v3 formats and
+    // pre-v3 formats are both handled
     //
     class engine_id {
-        bool recommended_format;
+        bool v3_format;
         encoded<uint32_t> enterprise_number;
-        encoded<uint8_t> format_type;
         datum body;
 
         static bool initial_bit(const datum & d) {
@@ -576,9 +577,8 @@ namespace snmp {
     public:
 
         engine_id(datum d) :
-            recommended_format{initial_bit(d)},
+            v3_format{initial_bit(d)},
             enterprise_number{d},
-            format_type{d},
             body{d}
         { }
 
@@ -590,43 +590,68 @@ namespace snmp {
             ipv6_address = 2,
             mac_address  = 3,
             text         = 4,
-            other        = 5
+            octets       = 5,
+            local        = 6,   // RFC 5343
         };
 
         void write_json(json_object &o) const {
+            if (!this->is_valid()) {
+                return;
+            }
             json_object eid{o, "engine_id"};
-            if (recommended_format) {
+            eid.print_key_bool("v3_format", v3_format);
+            if (v3_format) {
+
                 eid.print_key_uint("enterprise_number", enterprise_number.value() & 0x7fffffff);
-                switch (format_type.value()) {
-                case format::ipv4_address:
-                    if (body.length() == 4) {
-                        eid.print_key_ipv4_addr("address", body.data);
+
+                if (lookahead<encoded<uint8_t>> format_type{body}) {
+
+                    datum remainder = format_type.advance();
+
+                    switch (format_type.value.value()) {
+                    case format::ipv4_address:
+                        if (remainder.length() == 4) {
+                            eid.print_key_ipv4_addr("address", remainder.data);
+                        }
+                        break;
+                    case format::ipv6_address:
+                        if (remainder.length() == 16) {
+                            eid.print_key_ipv6_addr("address", remainder.data);
+                        }
+                        break;
+                    case format::mac_address:
+                        eid.print_key_hex("mac", remainder);
+                        break;
+                    case format::text:
+                        eid.print_key_json_string("text", remainder);
+                        break;
+                    case format::octets:
+                        eid.print_key_hex("octets", remainder);
+                        break;
+                    case format::local:
+                        eid.print_key_hex("octets", remainder);
+                        break;
+                    default:
+                        eid.print_key_uint("format_type", format_type.value.value());
+                        eid.print_key_hex("data", remainder);
                     }
-                    break;
-                case format::ipv6_address:
-                    if (body.length() == 16) {
-                        eid.print_key_ipv6_addr("address", body.data);
-                    }
-                    break;
-                case format::mac_address:
-                    eid.print_key_hex("mac", body);
-                    break;
-                case format::text:
-                    eid.print_key_json_string("text", body);
-                    break;
-                case format::other:
-                    eid.print_key_hex("other", body);
-                    break;
-                default:
-                    eid.print_key_uint("format_type", format_type.value());
-                    eid.print_key_hex("data", body);
+
                 }
 
-            } else {
-                ;
+            } else { // v3_format == false
+
+                eid.print_key_uint("enterprise_number", enterprise_number.value());
+                if (body.length() == 8) {
+                    eid.print_key_hex("agent_id", body);
+                } else {
+                    eid.print_key_hex("data", body);
+                }
             }
+
             eid.close();
         }
+
+        bool is_valid() const { return body.is_not_null(); }
 
     };
 
@@ -687,9 +712,10 @@ namespace snmp {
         { }
 
        void write_json(json_object &o, const datum & pdu_copy) const {
-           //o.print_key_hex("engine_id_raw", authoritative_engine_id.value);
+           o.print_key_hex("engine_id_raw", authoritative_engine_id.value);
 
            engine_id{authoritative_engine_id.value}.write_json(o);
+
            o.print_key_json_string("user_name", user_name.value);
 
            auto pwd_recovery_string = get_password_recovery_string(pdu_copy, authoritative_engine_id.value, authentication_parameters.value);
@@ -736,6 +762,8 @@ namespace snmp {
             body{seq.value}
         { }
 
+        static constexpr bool verbose = false;  // suppress verbose output
+
         void write_json(json_object &o, bool metadata=false) const {
             (void)metadata;
             if (!is_not_empty()) {
@@ -746,14 +774,18 @@ namespace snmp {
             if (true) {
                 hd.write_json(o);
             }
-            o.print_key_hex("msgSecurityParameters", msgSecurityParameters.value);
+            if (verbose) {
+                o.print_key_hex("msgSecurityParameters", msgSecurityParameters.value);
+            }
             usm_security_parameters usm_params{msgSecurityParameters.value};
             usm_params.write_json(o, pdu_copy);
 
             datum tmp = body;
             if (hd.priv) {
                 tlv encrypted_pdu{&tmp, 0x00, "encrypted-pdu"}; // TODO: implement decryption
-                o.print_key_hex("encrypted_pdu", body);
+                if (verbose) {
+                    o.print_key_hex("encrypted_pdu", body);
+                }
             } else {
                 scoped_pdu_data msgData{tmp};
                 msgData.write_json(o);
