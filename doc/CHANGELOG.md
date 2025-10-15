@@ -1,5 +1,10 @@
 # CHANGELOG for Mercury
 
+* Added `examples.cpp` to provide example usage of data parsing
+  classes.
+* Replaced `class literal<>` with a more efficient but otherwise
+ equivalent class.
+
 ## VERSION 2.9.1
 * Defensive code around memcpy operations in QUIC reassembly
 * Exempted private IP addresses from Domain Faking check
