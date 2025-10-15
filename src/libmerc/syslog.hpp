@@ -13,6 +13,21 @@ class syslog : public base_protocol {
 
 public:
 
+    // Following RFC 5424 Section 6.2.1 and RFC 3164 Section 4.1.1:
+    //
+    //    The PRI part MUST have three, four, or five characters and will be
+    //    bound with angle brackets as the first and last characters.  The PRI
+    //    part starts with a leading "<" ('less-than' character, %d60),
+    //    followed by a number, which is followed by a ">" ('greater-than'
+    //    character, %d62).  The number contained within these angle brackets
+    //    is known as the Priority value (PRIVAL) and represents both the
+    //    Facility and Severity.  The Priority value consists of one, two, or
+    //    three decimal integers (ABNF DIGITS) using values of %d48 (for "0")
+    //    through %d57 (for "9").
+
+    /// class priority represents the PRI part of a message, which
+    /// encodes the facility and the severity
+    ///
     class priority {
         literal_byte<'<'> lparen;
         digits number;
@@ -34,7 +49,7 @@ public:
             for (const auto & x : number) {
                 value *= 10;
                 value += (x - '0');
-                if (value > 191) {
+                if (value > 191) {   // note: maxiumum value is 23 * 8 + 7
                     d.set_null();
                 }
             }
@@ -42,19 +57,37 @@ public:
 
         bool is_valid() const { return valid; }
 
-        uint32_t get_value() const {
+        /// returns the numerical priority value
+        ///
+        unsigned int get_value() const {
             return value;
         }
 
         void write_json(json_object &o) const {
             unsigned int priority = value;
             o.print_key_uint("pri", priority);
-            unsigned int severity = priority % 8;
-            unsigned int facility = (priority - severity)/8;
-            o.print_key_string("severity", get_severity_string(severity));
-            o.print_key_string("facility", get_facility_string(facility));
+            o.print_key_string("severity", get_severity_string(get_severity(priority)));
+            o.print_key_string("facility", get_facility_string(get_facility(priority)));
         }
 
+        /// returns the numerical severity level associated with the
+        /// priority (PRI) value \param priority
+        ///
+        static unsigned int get_severity(unsigned int priority) { return priority % 8; }
+
+        /// returns the numerical facility level associated with the
+        /// priority (PRI) value \param priority
+        ///
+        static unsigned int get_facility(unsigned int priority) {
+            unsigned int severity = priority % 8;
+            return (priority - severity) / 8;
+        }
+
+        /// returns a short string describing the facility associated
+        /// with the numerical facility level \param f
+        ///
+        /// \note facility levels are defined in RFC 5424 Section 6.2.1.
+        ///
         static const char * get_facility_string(unsigned int f) {
             switch(f) {
             case  0: return "kernel messages";
@@ -87,6 +120,11 @@ public:
             return "UNKNOWN";
         }
 
+        /// returns a short string describing the severity associated
+        /// with the numerical severity level \param s
+        ///
+        /// \note severity levels are defined in RFC 5424 Section 6.2.1.
+        ///
         static const char * get_severity_string(unsigned int s) {
             switch(s) {
             case 0: return "emergency";
@@ -105,43 +143,36 @@ public:
 
     };
 
-    class format {
-        literal_byte<'<'> lparen;
-        digits pri;
-        literal_byte<'>'> rparen;
-        datum body;
-
-    public:
-
-        format(datum &d) :
-            lparen{d},
-            pri{d},
-            rparen{d},
-            body{d}
-        {
-
-        }
-
-        void write_json(json_object &) const {
-            //            o.print_key_uint("pri", pri.get_value());
-        }
-
-    };
-
     // static constexpr uint16_t port = hton<uint16_t>(514);
 
+    /// construct a \ref syslog message by parsing the data in the
+    /// \ref datum \param d
+    ///
     syslog(datum &d) : body{d} { }
 
+    /// write a json representation of this syslog message to the \ref
+    /// json_object \param o
+    ///
+    /// \note the optional parameter \param metadata is present only
+    /// for function signature compatibility with other classes
+    ///
     void write_json(json_object &o, bool metadata=false) const {
         (void)metadata;
         json_object syslog{o, "syslog"};
 
+        // if the message starts with PRI, then write out the priority
+        // value, facility, and severity
+        //
+        // note: this operation does not change the value of \ref body
+        //
         if (lookahead<priority> p{body}) {
             p.value.write_json(syslog);
         }
 
+        // write the complete message body into a JSON-escaped UTF-8
+        // string
+        //
         syslog.print_key_json_string("body", body);
-
 
         syslog.close();
     }
