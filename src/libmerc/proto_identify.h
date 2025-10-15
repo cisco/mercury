@@ -20,6 +20,17 @@
 #include <array>
 #include "match.h"
 
+#include "arp.h"
+#include "cdp.h"
+#include "eth.h"
+#include "icmp.h"
+#include "ip.h"
+#include "lldp.h"
+#include "ospf.h"
+#include "ppp.h"
+#include "sctp.h"
+#include "tcp.h"
+
 #include "tls.h"   // tcp protocols
 #include "http.h"
 #include "ssh.h"
@@ -28,6 +39,10 @@
 #include "smb2.h"
 #include "iec60870_5_104.h"
 #include "ftp.hpp"
+#include "tcpip.h"
+#include "ldap.hpp"
+#include "tacacs.hpp"
+#include "rdp.hpp"
 
 #include "dhcp.h"  // udp protocols
 #include "quic.h"
@@ -51,6 +66,9 @@
 #include "lex.h"
 #include "ike.hpp"
 #include "esp.hpp"
+#include "mdns.h"
+#include "krb5.hpp"
+#include "tftp.hpp"
 
 enum tcp_msg_type {
     tcp_msg_type_unknown = 0,
