@@ -2,36 +2,16 @@
 * Code changes to report dtls hello verify request in l7 metadata and
   revamped dtls fingerprint format
 
-## VERSION 2.11.1
-* Fixed crypto assessment handling of GREASE extensions. Optimized the crypto
-  assessment processing to produce clean JSON output in a single pass.
-* Added proper UTF-8 escaping of user-agent strings during stats reporting.
+* Added `examples.cpp` to provide example usage of data parsing
+  classes.
+* Replaced `class literal<>` with a more efficient but otherwise
+ equivalent class.
 
-## VERSION 2.11.0
-* Added SNMP protocol identification with JSON and CBOR output.
-* Added Syslog protocol identification with JSON and CBOR output.
-* Report a password-recovery string for TACACS+ protocol.
-* Added decimal_integer class to provide text-to-integer functionality suitable
-  for packet processing. The class includes error checking and avoids copying,
-  exception throwing, or memory allocation.
-* Improved configuration file parsing robustness to handle malformed input.
-* Removed adaptive random packet drop feature, which is no longer used
-  and probably not appropriate for current mercury scenarios.
-* Removed usage of deprecated OpenSSL APIs and adopted recommended OpenSSL 3.x
-  interfaces whenever a sufficiently new OpenSSL version is available.
-* Removed obsolete Python scripts.
-* Added examples.cpp to provide example usage of data parsing classes.
-* Replaced class literal<> with a more efficient but otherwise equivalent class.
-
-## VERSION 2.10.0
-* Added defensive code around memcpy operations in QUIC reassembly.
-* Exempted private IP addresses from Domain Faking check.
-* Enhanced protocol matcher and SMTP enhancements to support more commands.
-* Fixed compilation of experimental tool intercept.so.
-* Integrated STUN classifier into Mercury's analysis path.
-* Extended DHCP to report on all message types, not just responses.
-* Bugfix: removed user_agent reset code from do_observation struct.
-* STUN fingerprints are generated for client requests but not server responses.
+## VERSION 2.9.1
+* Defensive code around memcpy operations in QUIC reassembly
+* Exempted private IP addresses from Domain Faking check
+* Enhanced protocol matcher and SMTP enhancements to support more commands
+* Fix compilation of experimental tool intercept.so
 
 ## VERSION 2.9.0
 * Added a new configuration option, network-behavioral-detections,
