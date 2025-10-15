@@ -1012,6 +1012,10 @@ struct buffer_stream {
         append_null(dstr, &doff, dlen, &trunc);
     }
 
+    void set_truncated() { trunc = 1; }
+
+    bool is_truncated() const { return trunc == 1; }
+
     int snprintf(const char *fmt, ...) {
 
         if (trunc == 1) {

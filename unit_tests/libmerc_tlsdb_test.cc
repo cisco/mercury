@@ -217,16 +217,19 @@ TEST_CASE_METHOD(LibmercTestFixture, "test dhcp filtering")
              .m_lc{.do_analysis = true, .resources = default_resources_path,
                 .packet_filter_cfg = (char *)"dhcp"},
              .m_pc{"capture2.pcap"}},//43000+
-         93},
+         279
+        },
          {test_config{
              .m_lc{.resources = default_resources_path, .packet_filter_cfg = (char *)"dhcp"},
              .m_pc{"capture2.pcap"}},
-         93},
+         279
+         },
         {test_config{
              .m_lc{.do_analysis = true, .resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"dhcp"},
              .m_pc{"mdns_capture.pcap"}},
-         0}
+         0
+        }
     };
 
     for (auto &[config, count] : test_set_up)

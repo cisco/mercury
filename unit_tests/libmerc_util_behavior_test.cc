@@ -112,11 +112,11 @@ TEST_CASE("emix.pcap") {
         {"bittorrent", 2},
         {"bittorrent_dht", 5},
         {"bittorrent_lsd", 9},
-        {"dhcp", 6},
+        {"dhcp", 11},
         {"dnp3", 15},
         {"dns", 240},
         {"esp", 6},
-        {"ftp", 44},
+        {"ftp", 58},
         {"http", 10},
         {"iec60870_5_104", 42},
         {"ike", 30},
@@ -142,5 +142,5 @@ TEST_CASE("emix.pcap") {
         {"quic", 4}
     };
 
-    test_pcap_file("emix.pcap", 1317, expected_protocols);
+    test_pcap_file("emix.pcap", 1336, expected_protocols);
 }

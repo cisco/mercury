@@ -1294,6 +1294,11 @@ struct cryptographic_buffer
 
     void extend(crypto& d)
     {
+        // Check for integer overflow first
+        if (d.offset() > sizeof(buffer) || d.length() > sizeof(buffer)) {
+            return;  // Invalid offset or length
+        }
+
         if (d.offset() + d.length() <= sizeof(buffer)) {
             memcpy(buffer + d.offset(), d.data().data, d.length());
             if (d.offset() + d.length() > buf_len) {
