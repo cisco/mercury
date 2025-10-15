@@ -1713,16 +1713,28 @@ public:
 
 };
 
-/// class literal is a literal `std::array` of characters
+
+/// returns a `std::array<uint8_t,N>` formed from the successive
+/// \param Args
 ///
-template <size_t N>
+/// \example `to_array<'G', 'E', 'T'>` returns `std::array<uint8_t,3>{
+/// 0x47, 0x45, 0x54 }`
+///
+template<typename T, typename... Args>
+constexpr auto to_array(Args&&... args) {
+    std::array<T, sizeof...(Args)> result{};
+    size_t index = 0;
+    ((result[index++] = static_cast<T>(args)), ...);
+    return result;
+}
+
+/// class literal accepts a literal `std::array` of `uint8_t`s
+///
+template <uint8_t... Args>
 class literal {
 public:
-    [[deprecated("Use literal_byte<> instead.")]]
-    literal(datum &d, const std::array<uint8_t, N> &a) {
-        for (const auto &c : a) {
-            d.accept(c);
-        }
+    literal(datum &d) {
+        d.accept(to_array<uint8_t>(Args...));
     }
 };
 
