@@ -4,8 +4,6 @@
 #ifndef SNMP_HPP
 #define SNMP_HPP
 
-#define ASN1_DEBUG 1
-
 #include "x509.h"
 #include "json_object.h"
 #include "cbor_object.hpp"
@@ -234,24 +232,19 @@ namespace snmp {
     //          }
     //
     class v2_pdu {
-        tlv seq;
         tlv request_id;
         tlv error_status;
         tlv error_index;
         tlv variable_bindings;
-        tlv var_bind_list_seq;
         bool valid;
 
     public:
 
         v2_pdu(datum &d) :
-            // seq{&d, 0x00, "v2_pdu_seq"},
-            // seq{&d, tlv::SEQUENCE, "v2_pdu_seq"},
             request_id{&d, 0x00, "request_id"},
             error_status{&d, tlv::INTEGER, "error_status"},
             error_index{&d, tlv::INTEGER, "error_index"},
             variable_bindings{&d, 0x00, "variable_bindings"},
-            var_bind_list_seq{variable_bindings.value, tlv::SEQUENCE, "var_bind_list_seq"},
             valid{d.is_not_null()}
         { }
 
@@ -265,7 +258,6 @@ namespace snmp {
             pdu.print_key_hex("error_status", error_status.value);
             pdu.print_key_hex("error_index", error_index.value);
             pdu.print_key_hex("variable_bindings", variable_bindings.value);
-            // pdu.print_key_hex("var_bind_list_seq", var_bind_list_seq.value);
 
             json_array a{pdu, "variable_binding_list"};
             datum tmp{variable_bindings.value};
@@ -278,19 +270,6 @@ namespace snmp {
                 } else {
                     break;
                 }
-                // // tmp.fprint_hex(stderr); fputc('\n', stderr);
-                // // tlv oid{&tmp, tlv::OBJECT_IDENTIFIER, "oid"};
-                // a.print_hex(tmp);
-                // tlv oid{tmp, tlv::OBJECT_IDENTIFIER, "oid"};
-                // tlv value{tmp, 0x00, "value"};
-                // if (oid.is_valid()) {
-                //     json_object obj{a};
-                //     raw_oid ro{oid.value};
-                //     obj.print_key_hex("oid_hex", ro);
-                //     obj.print_key_value("oid", ro);
-                //     obj.print_key_hex("value", value.value);
-                //     obj.close();
-                // }
             }
             a.close();
 
