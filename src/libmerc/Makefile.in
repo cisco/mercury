@@ -64,7 +64,8 @@ endif
 # LIBMERC and LIBMERC_H hold the core source and header files,
 # respectively, for that library
 #
-LIBMERC     =  addr.cc
+LIBMERC     =  analysis.cc
+LIBMERC     += addr.cc
 LIBMERC     += http.cc
 LIBMERC     += libmerc.cc
 LIBMERC     += pkt_proc.cc

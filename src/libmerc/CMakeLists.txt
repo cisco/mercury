@@ -217,7 +217,6 @@ set(libmerc_src
     http.cc
     libmerc.cc
     pkt_proc.cc
-    utils.cc
     config_generator.cc
     smb2.cc
     bencode.cc

@@ -65,10 +65,7 @@ class uint32_hbo {
     uint64_t value=0;
 public:
     uint32_hbo(datum d) { d.read_uint(&value, 4); }
-
-    /// write a textual representation of this uint32 into \param b
-    ///
-    void write(buffer_stream &b) { b.write_hex_uint(ntoh(value)); }
+    void fingerprint(buffer_stream &b) { b.write_hex_uint(ntoh(value)); }
 };
 
 inline void wireguard_handshake_init::write_json(struct json_object &o, bool write_metadata) {
