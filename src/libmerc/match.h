@@ -34,8 +34,6 @@ inline unsigned int u32_compare_masked_data_to_value(const void *data,
     const uint32_t *m = (const uint32_t *)mask;
     const uint32_t *v = (const uint32_t *)value;
 
-    mercury_debug("%s: data: %x, mask: %x, value: %x\n", __func__, d[0], m[0], v[0]);
-
     return ((d[0] & m[0]) == v[0]) && ((d[1] & m[1]) == v[1]);
 }
 
@@ -46,9 +44,6 @@ inline unsigned int u64_compare_masked_data_to_value(const void *data,
     const uint64_t *d = (const uint64_t *)data;
     const uint64_t *m = (const uint64_t *)mask;
     const uint64_t *v = (const uint64_t *)value;
-
-    mercury_debug("%s: data: %lx, mask: %lx, value: %lx\n", __func__, d[0], m[0], v[0]);
-    // fprintf(stderr, "%s: data: %016lx, mask: %016lx, value: %016lx\n", __func__, d[0], m[0], v[0]);
 
     return ((d[0] & m[0]) == v[0]) && ((d[1] & m[1]) == v[1]);
 }
