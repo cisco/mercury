@@ -12,54 +12,22 @@
 
 #include <variant>
 
+inline uint64_t get_integer(const datum &d) {
+    uint64_t result = 0;
+    if (d.is_readable()) {
+        for (const auto & byte : d) {
+            result *= 256;
+            result += byte;
+        }
+    }
+    return result;
+}
+
 namespace snmp {
 
     // forward declarations
     //
     inline uint8_t snmp_version_get_uint(const tlv &version);
-
-    // The trap_pdu type was defined in SNMPv1, and was obsoleted by
-    // the snmpv2_trap type
-    //
-    // Trap-PDU ::=
-    //         [4]
-    //
-    //              IMPLICIT SEQUENCE {
-    //                 enterprise          -- type of object generating
-    //                                     -- trap, see sysObjectID in [2]
-    //                     OBJECT IDENTIFIER,
-    //
-    //                 agent-addr          -- address of object generating
-    //                     NetworkAddress, -- trap
-    //
-    //                 generic-trap        -- generic trap type
-    //                     INTEGER {
-    //                         coldStart(0),
-    //                         warmStart(1),
-    //                         linkDown(2),
-    //                         linkUp(3),
-    //                         authenticationFailure(4),
-    //                         egpNeighborLoss(5),
-    //                         enterpriseSpecific(6)
-    //                     },
-    //
-    //                 specific-trap     -- specific code, present even
-    //                     INTEGER,      -- if generic-trap is not
-    //                                   -- enterpriseSpecific
-    //
-    //                 time-stamp        -- time elapsed between the last
-    //                   TimeTicks,      -- (re)initialization of the network
-    //                                   -- entity and the generation of the
-    //                                      trap
-    //
-    //                 variable-bindings   -- "interesting" information
-    //                      VarBindList
-    //             }
-    //
-    class trap {
-
-    };
-
 
     //    ObjectName ::= OBJECT IDENTIFIER
     //
@@ -105,8 +73,6 @@ namespace snmp {
         bool is_not_empty() const { return body.is_not_empty(); }
 
         void write_json(json_object &o) const {
-            // json_object value{o, "value"};
-            // value.print_key_hex("body", body);
             json_object &value = o;
 
             datum tmp{body};
@@ -114,10 +80,9 @@ namespace snmp {
             if (!object.is_valid()) {
                 return;
             }
-            value.print_key_uint("tag", object.tag & 31);
             switch(object.tag & 31) {
             case 0:
-                value.print_key_hex("ipv4_address", object.value);
+                value.print_key_ipv4("ipv4_address", object.value);
                 break;
             case 1:
                 value.print_key_uint("counter32", encoded<uint32_t>{object.value}.value());
@@ -126,7 +91,7 @@ namespace snmp {
                 value.print_key_uint("unsigned32", encoded<uint32_t>{object.value}.value());
                 break;
             case 3:
-                value.print_key_hex("time_ticks", object.value);
+                value.print_key_uint("time_ticks", encoded<uint32_t>{object.value}.value());  // note: could report value/100 as float
                 break;
             case 4:
                 value.print_key_hex("opaque", object.value);
@@ -139,9 +104,9 @@ namespace snmp {
                 break;
             default:
                 value.print_key_hex("unknown", object.value);
+                value.print_key_uint("unknown_tag", object.tag & 31);
             }
 
-            // value.close();
         }
 
     };
@@ -187,11 +152,113 @@ namespace snmp {
         void write_json(json_object &o) const {
             o.print_key_value("name", raw_oid{name.value});
             value.write_json(o);
-            // o.print_key_hex("value", value.value); // TODO: handle different types
+        }
+
+        void write_json(json_array &a) const {
+            json_object o{a};
+            o.print_key_value("name", raw_oid{name.value});
+            value.write_json(o);
+            o.close();
         }
 
         bool is_not_empty() const { return valid; }
 
+    };
+
+    // The trap_pdu type was defined in SNMPv1, and was obsoleted by
+    // the snmpv2_trap type in SNMPv2
+    //
+    // Trap-PDU ::=
+    //         [4]
+    //
+    //              IMPLICIT SEQUENCE {
+    //                 enterprise          -- type of object generating
+    //                                     -- trap, see sysObjectID in [2]
+    //                     OBJECT IDENTIFIER,
+    //
+    //                 agent-addr          -- address of object generating
+    //                     NetworkAddress, -- trap
+    //
+    //                 generic-trap        -- generic trap type
+    //                     INTEGER {
+    //                         coldStart(0),
+    //                         warmStart(1),
+    //                         linkDown(2),
+    //                         linkUp(3),
+    //                         authenticationFailure(4),
+    //                         egpNeighborLoss(5),
+    //                         enterpriseSpecific(6)
+    //                     },
+    //
+    //                 specific-trap     -- specific code, present even
+    //                     INTEGER,      -- if generic-trap is not
+    //                                   -- enterpriseSpecific
+    //
+    //                 time-stamp        -- time elapsed between the last
+    //                   TimeTicks,      -- (re)initialization of the network
+    //                                   -- entity and the generation of the
+    //                                      trap
+    //
+    //                 variable-bindings   -- "interesting" information
+    //                      VarBindList
+    //             }
+    //
+    class trap {
+        tlv enterprise_oid;
+        tlv agent_addr;
+        tlv generic_trap;
+        tlv specific_trap;
+        tlv timestamp;
+        tlv variable_bindings_list;
+        datum remainder;
+
+    public:
+
+        trap(datum &d) :
+            enterprise_oid{d, tlv::OBJECT_IDENTIFIER, "enterprise_oid"},
+            agent_addr{d, 0x00, "agent_addr"},
+            generic_trap{d, tlv::INTEGER, "generic_trap"},
+            specific_trap{d, tlv::INTEGER, "specific_trap"},
+            timestamp{d, 0x00, "timestamp"},
+            variable_bindings_list{d, tlv::SEQUENCE, "variable_bindings_list"},
+            remainder{d}
+        { }
+
+        static const char *trap_number_get_string(unsigned int n) {
+            switch(n) {
+            case 0: return "cold_start";
+            case 1: return "warm_start";
+            case 2: return "link_down";
+            case 3: return "link_up";
+            case 4: return "authentication_failure";
+            case 5: return "egp_neighbor_loss";
+            case 6: return "enterprise_specific";
+            default:
+                ;
+            }
+            return "UNKNOWN";
+        }
+
+        void write_json(json_object &o, bool metadata=false) const {
+            (void)metadata;
+            if (remainder.is_null()) {
+                return;  // object is invalid
+            }
+
+            json_object trap{o, "trap"};
+            trap.print_key_value("enterprise", raw_oid{enterprise_oid.value});
+            trap.print_key_hex("agent_addr", agent_addr.value);
+            trap.print_key_string("generic_trap", trap_number_get_string(get_integer(generic_trap.value)));
+            trap.print_key_hex("specific_trap", specific_trap.value);
+            trap.print_key_hex("timestamp", timestamp.value);
+
+            trap.write_json_array_of<var_bind>(variable_bindings_list.value, "var_bind_list");
+
+             trap.print_key_hex("remainder", remainder);
+            trap.close();
+        }
+
+        bool is_not_empty() const { return !remainder.is_null(); }
     };
 
     // From RFC 1905 Section 3:
@@ -259,19 +326,7 @@ namespace snmp {
             pdu.print_key_hex("error_index", error_index.value);
             pdu.print_key_hex("variable_bindings", variable_bindings.value);
 
-            json_array a{pdu, "variable_binding_list"};
-            datum tmp{variable_bindings.value};
-            while (tmp.is_readable()) {
-                var_bind vb{tmp};
-                if (vb.is_not_empty()) {
-                    json_object bindings{a};
-                    vb.write_json(bindings);
-                    bindings.close();
-                } else {
-                    break;
-                }
-            }
-            a.close();
+            pdu.write_json_array_of<var_bind>(variable_bindings.value, "var_bind_list");
 
             pdu.close();
         }
@@ -282,16 +337,27 @@ namespace snmp {
 
     static const char *UNKNOWN = "UNKNOWN";
 
+    enum pdu_type_code {
+        get_request       = 0,
+        get_next_request  = 1,
+        get_response      = 2,
+        set_request       = 3,
+        v1_trap           = 4,
+        get_bulk_request  = 5,
+        inform_request    = 6,
+        snmpv2_trap       = 7,
+    };
+
     const char *v2_pdu_type(uint8_t tag_number) {
         switch(tag_number) {
-        case 0: return "get_request";
-        case 1: return "get_next_request";
-        case 2: return "get_response";
-        case 3: return "set_request";
-        case 4: return "trap";
-        case 5: return "get_bulk_request";
-        case 6: return "inform_request";
-        case 7: return "snmpv2_trap";
+        case get_request:      return "get_request";
+        case get_next_request: return "get_next_request";
+        case get_response:     return "get_response";
+        case set_request:      return "set_request";
+        case v1_trap:          return "trap";
+        case get_bulk_request: return "get_bulk_request";
+        case inform_request:   return "inform_request";
+        case snmpv2_trap:      return "snmpv2_trap";
         default:
             ;
         }
@@ -323,22 +389,23 @@ namespace snmp {
             json_object snmp{o, "snmp"};
             snmp.print_key_uint("version", snmp_version_get_uint(version));
             snmp.print_key_json_string("community", community.value);
-            // snmp.print_key_hex("data", data.value);
-            // snmp.print_key_uint("data.explicit_tag", data.tag_number());
 
-            const char *pdu_type = v2_pdu_type(data.tag_number());
+            uint8_t pdu_code = data.tag_number();
+            const char *pdu_type = v2_pdu_type(pdu_code);
             if (pdu_type != UNKNOWN) {
                 snmp.print_key_string("pdu_type", pdu_type);
             } else {
                 snmp.print_key_unknown_code("pdu_type", data.tag_number());
             }
 
-            snmp.print_key_hex("pdu", data.value);
+            snmp.print_key_hex("pdu_hex", data.value);
             datum tmp{data.value};
-            v2_pdu pdu{tmp};
-            if (pdu.is_not_empty()) {
-                pdu.write_json(snmp);
+            if (pdu_code == pdu_type_code::v1_trap) {
+                trap{tmp}.write_json(snmp);
+            } else {
+                v2_pdu{tmp}.write_json(snmp);
             }
+
             snmp.close();
         }
 
@@ -394,16 +461,7 @@ namespace snmp {
             error_status{&d, tlv::INTEGER, "error-status"},
             error_index{&d, tlv::INTEGER, "error-index"},
             any{&d, 0x00, "any"}
-        {
-            // tlv request_id;
-            // request_id.parse(&d, tlv::INTEGER, "request-id");
-            // tlv error_status;
-            // error_status.parse(&d, tlv::INTEGER, "error-status");
-            // tlv error_index;
-            // error_index.parse(&d, tlv::INTEGER, "error-index");
-            // tlv any;
-            // any.parse(&d, 0x00, "any");
-        }
+        { }
 
         void write_json(json_object &o) const {
             o.print_key_hex("request_id", request_id.value);
@@ -669,7 +727,7 @@ namespace snmp {
     //               msgPrivacyParameters         OCTET STRING
     //     }
     //
-   class usm_security_parameters {
+    class usm_security_parameters {
        tlv seq;
        tlv authoritative_engine_id;
        tlv authoritative_engine_boots;
@@ -749,7 +807,7 @@ namespace snmp {
                 return;
             }
             json_object snmp{o, "snmp"};
-            snmp.print_key_uint("version", snmp_version_get_uint(version));
+            snmp.print_key_uint("version", get_integer(version.value));
             if (true) {
                 hd.write_json(o);
             }
@@ -796,7 +854,7 @@ namespace snmp {
             tlv seq{d, tlv::SEQUENCE};
             tlv version{&seq.value, tlv::INTEGER};
             if (seq.value.is_not_null() and version.length == 1) {
-                return version.value.data[0];
+                return get_integer(version.value);
             }
             return 255; // not a valid version
         }
@@ -881,13 +939,15 @@ namespace snmp {
 }
 
 [[maybe_unused]] static int snmp_fuzz_test(const uint8_t *data, size_t size) {
-    datum snmp_data{data, data+size};
-    snmp::packet snmp{snmp_data};
-    output_buffer<4096> buf;
-    json_object o{&buf};
-    snmp.write_json(o);
-    o.close();
-    return 0;
+    return json_output_fuzzer<snmp::packet>(data, size);
+}
+
+[[maybe_unused]] static int snmp_trap_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<snmp::trap>(data, size);
+}
+
+[[maybe_unused]] static int snmp_v2_pdu_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<snmp::v2_pdu>(data, size);
 }
 
 #endif // SNMP_HPP

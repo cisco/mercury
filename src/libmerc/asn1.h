@@ -16,7 +16,6 @@
 #include "asn1/oid.h"
 #include "time.hpp"
 
-
 static const char *oid_empty_string = "";
 
 class raw_oid : public datum {
@@ -189,7 +188,7 @@ struct tlv {
             return;
         }
         if (p->length() < 2) {
-            p->set_empty();  // parser is no longer good for reading
+            p->set_null();  // parser is no longer good for reading
             // fprintf(stderr, "error: incomplete data (only %ld bytes in %s)\n", p->data_end - p->data, tlv_name ? tlv_name : "unknown TLV");
             handle_parse_error("warning: incomplete data", tlv_name);
             return;  // leave tlv uninitialized
@@ -198,6 +197,8 @@ struct tlv {
         if (expected_tag && p->data[0] != expected_tag) {
             // fprintf(stderr, "note: unexpected type (got %02x, expected %02x)\n", p->data[0], expected_tag);
             // p->set_empty();  // TODO: do we want this?  parser is no longer good for reading
+
+            p->set_null();
 
             handle_parse_error("note: unexpected type", tlv_name);
             return;  // unexpected type

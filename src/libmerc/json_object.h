@@ -241,6 +241,18 @@ struct json_object {
         b->snprintf("\"data_end\":\"%p\"", d.data_end);
         b->write_char('}');
     }
+
+    /// parse \param body as a sequence of objects of type \param T,
+    /// and write each one into a \ref json_array named \param
+    /// array_name that is created in this \ref json_object
+    ///
+    /// note: type \param T must have a member function
+    /// `T::write_json(json_array &a)`
+    ///
+    template <typename T>
+    void write_json_array_of(datum body,
+                             const char *array_name);
+
     void print_key_bitstring_flags(const char *name, const struct datum &bitstring, char * const *flags);
 };
 
@@ -359,6 +371,26 @@ inline void json_object::reinit(struct json_array &array) {
     comma = false;
     array.comma = true;
 }
+
+template <typename T>
+void json_object::write_json_array_of(datum body,
+                                      const char *array_name)
+{
+    if (body.is_null() or array_name == nullptr) {
+        return;
+    }
+    json_array a{*this, array_name};
+    while (body.is_readable()) {
+        T obj{body};
+        if (body.is_not_null()) {
+            obj.write_json(a);
+        } else {
+            break;
+        }
+    }
+    a.close();
+}
+
 
 /// enable libfuzz to test a class T that parses a data buffer and
 /// writes out JSON, by providing a template function that does most
