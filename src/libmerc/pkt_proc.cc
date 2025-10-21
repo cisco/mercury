@@ -889,7 +889,7 @@ public:
     encapsulations(struct datum &pkt,
                    ip &ip_pkt,
                    struct key &k,
-                   const traffic_selxector &selector) {
+                   const traffic_selector &selector) {
         process_encapsulations(pkt, ip_pkt, k, selector);
     }
 
