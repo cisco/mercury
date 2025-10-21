@@ -217,6 +217,7 @@ struct do_observation {
     {}
 
     void operator()(tls_client_hello &m) {
+        // create event and send it to the data/stats aggregator
         event_string ev_str{k_, analysis_, m};
         mq_->push(ev_str.construct_event_string());
     }
@@ -231,28 +232,24 @@ struct do_observation {
         // create event and send it to the data/stats aggregator
         event_string ev_str{k_, analysis_, tofsee_pkt};
         mq_->push(ev_str.construct_event_string());
-        analysis_.reset_user_agent();
     }
 
     void operator()(http_request &m) {
         // create event and send it to the data/stats aggregator
         event_string ev_str{k_, analysis_, m};
         mq_->push(ev_str.construct_event_string());
-        analysis_.reset_user_agent();
     }
 
     void operator()(stun::message &m) {
         // create event and send it to the data/stats aggregator
         event_string ev_str{k_, analysis_, m};
         mq_->push(ev_str.construct_event_string());
-        analysis_.reset_user_agent();
     }
 
     void operator()(ssh_init_packet &m) {
         // create event and send it to the data/stats aggregator
         event_string ev_str{k_, analysis_, m};
         mq_->push(ev_str.construct_event_string());
-        analysis_.reset_user_agent();
     }
 
     template <typename T>
@@ -892,7 +889,7 @@ public:
     encapsulations(struct datum &pkt,
                    ip &ip_pkt,
                    struct key &k,
-                   const traffic_selector &selector) {
+                   const traffic_selxector &selector) {
         process_encapsulations(pkt, ip_pkt, k, selector);
     }
 
