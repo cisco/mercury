@@ -334,7 +334,6 @@ namespace snmp {
             pdu.print_key_hex("request_id", request_id.value);
             pdu.print_key_hex("error_status", error_status.value);
             pdu.print_key_hex("error_index", error_index.value);
-            pdu.print_key_hex("variable_bindings", variable_bindings.value);
 
             pdu.write_json_array_of<var_bind>(variable_bindings.value, "var_bind_list");
 
@@ -408,7 +407,6 @@ namespace snmp {
                 snmp.print_key_unknown_code("pdu_type", data.tag_number());
             }
 
-            snmp.print_key_hex("pdu_hex", data.value);
             datum tmp{data.value};
             if (pdu_code == pdu_type_code::v1_trap) {
                 trap{tmp}.write_json(snmp);
