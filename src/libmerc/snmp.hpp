@@ -82,16 +82,24 @@ namespace snmp {
             }
             switch(object.tag & 31) {
             case 0:
-                value.print_key_ipv4("ipv4_address", object.value);
+                if (object.value.length() == 4) {
+                    value.print_key_ipv4_addr("ipv4_address", object.value.data);
+                }
                 break;
             case 1:
-                value.print_key_uint("counter32", encoded<uint32_t>{object.value}.value());
+                if (object.value.length() == 4) {
+                    value.print_key_uint("counter32", get_integer(object.value));
+                }
                 break;
             case 2:
-                value.print_key_uint("unsigned32", encoded<uint32_t>{object.value}.value());
+                if (object.value.length() == 4) {
+                    value.print_key_uint("unsigned32", encoded<uint32_t>{object.value}.value());
+                }
                 break;
             case 3:
-                value.print_key_uint("time_ticks", encoded<uint32_t>{object.value}.value());  // note: could report value/100 as float
+                if (object.value.length() == 4) {
+                    value.print_key_uint("time_ticks", encoded<uint32_t>{object.value}.value());  // note: could report value/100 as float
+                }
                 break;
             case 4:
                 value.print_key_hex("opaque", object.value);
@@ -100,11 +108,13 @@ namespace snmp {
                 value.print_key_null("null");
                 break;
             case 6:
-                value.print_key_uint("counter64", encoded<uint64_t>{object.value}.value());
+                if (object.value.length() == 8) {
+                    value.print_key_uint("counter64", encoded<uint64_t>{object.value}.value());
+                }
                 break;
             default:
-                value.print_key_hex("unknown", object.value);
                 value.print_key_uint("unknown_tag", object.tag & 31);
+                value.print_key_hex("unknown_value", object.value);
             }
 
         }
