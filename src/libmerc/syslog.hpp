@@ -13,6 +13,11 @@ class syslog : public base_protocol {
 
 public:
 
+    /// determines the largest message that will be printed in full;
+    /// longer messages will be truncated
+    ///
+    inline static ssize_t max_message_length = 8192 - 128;
+
     // Following RFC 5424 Section 6.2.1 and RFC 3164 Section 4.1.1:
     //
     //    The PRI part MUST have three, four, or five characters and will be
@@ -172,7 +177,12 @@ public:
         // write the complete message body into a JSON-escaped UTF-8
         // string
         //
-        syslog.print_key_json_string("body", body);
+        datum truncated{body};
+        if (body.length() > max_message_length) {
+            truncated.trim_to_length(max_message_length);
+            syslog.print_key_uint("original_length", body.length());
+        }
+        syslog.print_key_json_string("body", truncated);
 
         syslog.close();
     }
