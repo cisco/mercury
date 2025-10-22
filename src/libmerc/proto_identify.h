@@ -663,7 +663,7 @@ public:
             return udp_msg_type_krb5;
         }
 
-        if (syslog() and (ports.src == hton<uint16_t>(514) or ports.dst == hton<uint16_t>(514))) {
+        if (syslog() and (ports.dst == hton<uint16_t>(514))) {
             return udp_msg_type_syslog;
         }
 
