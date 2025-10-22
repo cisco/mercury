@@ -1,5 +1,7 @@
 # CHANGELOG for Mercury
 
+* Added SYSLOG protocol identification with JSON and CBOR output.
+
 ## VERSION 2.9.1
 * Defensive code around memcpy operations in QUIC reassembly
 * Exempted private IP addresses from Domain Faking check
