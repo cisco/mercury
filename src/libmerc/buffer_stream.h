@@ -1152,6 +1152,16 @@ struct buffer_stream {
             return std::string{};
     }
 
+    /// returns the number of writeable bytes remaining in this
+    /// buffer_stream
+    ///
+    size_t writeable_length() const {
+        if (trunc) {
+            return 0;
+        }
+        return dlen - doff;
+    }
+
 };
 
 struct timestamp_writer {

@@ -13,10 +13,12 @@ class syslog : public base_protocol {
 
 public:
 
-    /// determines the largest message that will be printed in full;
-    /// longer messages will be truncated
+    /// the number of bytes used in the json representation of data
+    /// fields other than the syslog.body; this value is used to check
+    /// if truncation is needed in order that the syslog json record
+    /// will fit into an output buffer
     ///
-    inline static ssize_t max_message_length = 8192 - 128;
+    constexpr static ssize_t other_json_length = 280;
 
     // Following RFC 5424 Section 6.2.1 and RFC 3164 Section 4.1.1:
     //
@@ -163,6 +165,7 @@ public:
     ///
     void write_json(json_object &o, bool metadata=false) const {
         (void)metadata;
+
         json_object syslog{o, "syslog"};
 
         // if the message starts with PRI, then write out the priority
@@ -178,6 +181,7 @@ public:
         // string
         //
         datum truncated{body};
+        ssize_t max_message_length = syslog.remaining_output_capacity() - other_json_length;
         if (body.length() > max_message_length) {
             truncated.trim_to_length(max_message_length);
             syslog.print_key_uint("original_length", body.length());
