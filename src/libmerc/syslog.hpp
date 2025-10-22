@@ -8,8 +8,24 @@
 #include "lex.h"
 #include "protocol.h"
 
+
+/// returns `true` if the \ref datum \param d is readable and contains
+/// no non-ASCII characters in the first `std::min(d.length(), \param
+/// num_bytes_to_check bytes), and `false` otherwise
+///
+inline bool is_ascii(datum d, ssize_t num_bytes_to_check) {
+    d.trim(num_bytes_to_check);
+    for (const auto & byte : d ) {
+        if (byte & 0x80) {
+            return false;
+        }
+    }
+    return true;
+}
+
 class syslog : public base_protocol {
     datum body;
+    bool valid;
 
 public:
 
@@ -152,10 +168,15 @@ public:
 
     // static constexpr uint16_t port = hton<uint16_t>(514);
 
+    /// determines the maximum number of bytes of that are verified to
+    /// contain ASCII data when a syslog message is constructed
+    ///
+    static constexpr ssize_t ascii_check_len = 32;
+
     /// construct a \ref syslog message by parsing the data in the
     /// \ref datum \param d
     ///
-    syslog(datum &d) : body{d} { }
+    syslog(datum &d) : body{d} , valid{is_ascii(body, ascii_check_len)} { }
 
     /// write a json representation of this syslog message to the \ref
     /// json_object \param o
@@ -189,6 +210,21 @@ public:
         syslog.print_key_json_string("body", truncated);
 
         syslog.close();
+    }
+
+    /// write a cbor representation of this syslog message to the \ref
+    /// cbor_object \param o
+    ///
+    /// \note the optional parameter \param metadata is present only
+    /// for function signature compatibility with other classes
+    ///
+    void write_l7_metadata(cbor_object &o, bool) {
+        if (!valid) {
+            return;
+        }
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("syslog");
+        protocols.close();
     }
 
     bool is_not_empty() const {
