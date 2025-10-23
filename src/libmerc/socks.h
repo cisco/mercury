@@ -23,7 +23,7 @@
 //
 
 //  socks4_req
-//   0                   1                   2                   3  
+//   0                   1                   2                   3
 //   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //  |      VER      |      CMD      |            Dst port           |
@@ -103,7 +103,7 @@ public:
         }
         if ((pkt.length() == 1 && *pkt.data == 0x00)
             || ((*pkt.data>=32 || *pkt.data==0x00) && *(pkt.data_end-2)>=32 && *(pkt.data_end-1)==0x00)) {
-                return len; 
+                return len;
         }
         else {
             return 0;
@@ -192,7 +192,7 @@ struct socks5_auth_code {
 };
 
 //  socks5_hello
-//   0                   1                   2                   3  
+//   0                   1                   2                   3
 //   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //  |      VER      |    NAUTH(x)   |                               |
@@ -242,7 +242,7 @@ public:
             code.write_json(auth_list);
         }
         auth_list.close();
-        socks_pkt.close(); 
+        socks_pkt.close();
     }
 
     void write_l7_metadata(cbor_object &o, bool) {
@@ -253,7 +253,7 @@ public:
 };
 
 //  socks5_usr_pass
-//   0                   1                   2                   3  
+//   0                   1                   2                   3
 //   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //  |      VER      |   IDLENH(x)   |                               |
@@ -319,7 +319,7 @@ public:
 };
 
 //  socks5_gss
-//  0                   1                   2                   3  
+//  0                   1                   2                   3
 //   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //  |      VER      |     MTYPE     |             LEN(x)            |
@@ -402,7 +402,7 @@ struct socks5_addr {
     var_addr addr;
 
     void write_json_addr(socks5_domain &domain, json_object &o) { domain.write_json(o); }
-    
+
     void write_json_addr(encoded<uint32_t> &ip, json_object &o) {
         uint32_t ip_val = (ip.value());
         o.print_key_ipv4_addr("ipv4",(uint8_t*)&ip_val);
@@ -415,7 +415,7 @@ struct socks5_addr {
     void write_json_addr(std::monostate &, json_object &o) {
         o.print_key_string("addr","invalid");
     }
-    
+
     template <typename T> void write_json_addr(T &,json_object &o ) {
         o.print_key_string("addr","invalid");
     }
@@ -455,7 +455,7 @@ struct socks5_addr {
 };
 
 //  socks5_req_resp
-//  0                   1                   2                   3  
+//  0                   1                   2                   3
 //   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //  |      VER      |      CMD      |      RSV      |               |
@@ -602,4 +602,4 @@ namespace {
 
 };
 
-#endif  // SOCKS_H 
+#endif  // SOCKS_H

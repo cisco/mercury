@@ -75,4 +75,3 @@ openssl enc -aes128 -in tmpfile -out $FILE.enc -nosalt -p -K $KEY -iv 0000000000
 
 # cleanup
 rm tmpfile
-

@@ -506,7 +506,7 @@ static inline int append_uint64_hex(char *dstr, int *doff, int dlen, int *trunc,
     for (auto i = 0; i < 16; i++) {
         outs[i] = hex_table[(n & mask) >> (15 - i) *4];
         mask = mask >> 4;
-    } 
+    }
 
     r += append_memcpy(dstr, doff, dlen, trunc,
                        outs, 16);
@@ -1011,6 +1011,10 @@ struct buffer_stream {
     void add_null() {
         append_null(dstr, &doff, dlen, &trunc);
     }
+
+    void set_truncated() { trunc = 1; }
+
+    bool is_truncated() const { return trunc == 1; }
 
     int snprintf(const char *fmt, ...) {
 

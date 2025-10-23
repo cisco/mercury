@@ -79,7 +79,7 @@ struct libmerc_api {
         packet_processor_construct =    (decltype(packet_processor_construct))    dlsym(dl_handle, "mercury_packet_processor_construct");
         packet_processor_destruct =     (decltype(packet_processor_destruct))     dlsym(dl_handle, "mercury_packet_processor_destruct");
         get_analysis_context =          (decltype(get_analysis_context))          dlsym(dl_handle, "mercury_packet_processor_get_analysis_context");
-        get_analysis_context_linktype = (decltype(get_analysis_context_linktype)) dlsym(dl_handle, "mercury_packet_processor_get_analysis_context_linktype"); 
+        get_analysis_context_linktype = (decltype(get_analysis_context_linktype)) dlsym(dl_handle, "mercury_packet_processor_get_analysis_context_linktype");
         more_pkts_needed =              (decltype(more_pkts_needed))              dlsym(dl_handle, "mercury_packet_processor_more_pkts_needed");
         get_fingerprint_type =          (decltype(get_fingerprint_type))          dlsym(dl_handle, "analysis_context_get_fingerprint_type");
         get_fingerprint_status =        (decltype(get_fingerprint_status))        dlsym(dl_handle, "analysis_context_get_fingerprint_status");

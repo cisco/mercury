@@ -342,7 +342,7 @@ struct tls_extensions : public datum {
     void fingerprint(struct buffer_stream &b, enum tls_role role) const;
 
     void write_raw_features(writeable &buf) const;
- 
+
     datum get_supported_groups() const;
 
     void write_l7_metadata(cbor_object &o) const {
@@ -837,7 +837,7 @@ namespace {
         char buffer_2[8192];
         struct buffer_stream buf_fp(buffer_2, sizeof(buffer_2));
         struct json_object record(&buf_json);
-        
+
 
         tls_client_hello hello{hello_data};
         if (hello.is_not_empty()) {
@@ -846,7 +846,7 @@ namespace {
         }
 
         return 0;
-    } 
+    }
 
     [[maybe_unused]] int tls_server_hello_and_certificate_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
         datum pkt_data{data1, data1+size1};

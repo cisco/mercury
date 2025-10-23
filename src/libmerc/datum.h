@@ -649,6 +649,20 @@ struct datum {
         return true;
     }
 
+    /// reads and accepts a `std::array` of `uint8_t`s of length
+    /// \param N; otherwise, sets this \ref datum to `null`.
+    ///
+    template <size_t N>
+    void accept(const std::array<uint8_t, N> &a) {
+        if (data and data + N <= data_end) {
+            if (memcmp(data, a.data(), N) == 0) {
+                data += N;
+                return;
+            }
+        }
+        set_null();
+    }
+
     /// reads a `uint8_t` in network byte order, without advancing the
     /// data pointer
     ///

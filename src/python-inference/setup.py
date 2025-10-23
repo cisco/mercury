@@ -19,6 +19,3 @@ setup(
   name = "tls_fingerprint_min",
   cmdclass = {"build_ext": build_ext},
     ext_modules = ext_modules)
-
-
-

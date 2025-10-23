@@ -249,9 +249,9 @@ struct stateful_pkt_proc {
 
     int analyze_payload_fdc(const struct flow_key_ext *k,
                             const uint8_t *payload,
-                            const size_t length, 
-                            uint8_t *buffer, 
-                            size_t *buffer_size, 
+                            const size_t length,
+                            uint8_t *buffer,
+                            size_t *buffer_size,
                             const struct analysis_context** context);
 
     bool tcp_data_set_analysis_result(struct analysis_result *r,
@@ -274,6 +274,10 @@ struct stateful_pkt_proc {
                           struct key &k,
                           struct timespec *ts,
                           struct tcp_reassembler *reassembler);
+
+    bool set_tcp_protocol_from_keyword(protocol &x,
+                                       datum pkt_copy,
+                                       tcp_msg_type msg_type);
 
     void set_tcp_protocol(protocol &x,
                           struct datum &pkt,

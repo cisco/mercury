@@ -16,6 +16,7 @@
 #include "datum.h"  // for ntoh()
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
+#include "ip_address.hpp"
 
 #include "lctrie/lctrie.h"
 #include "lctrie/lctrie_bgp.h"
@@ -136,10 +137,10 @@ int subnet_data::lct_add_domain_mapping(uint32_t &addr, uint8_t &mask_length, st
         subnet_itr = &domains_prefix[subnet_map[addr]];
         if (subnet_itr->info.type == IP_SUBNET_DOMAIN && subnet_itr->addr == addr && subnet_itr->len == mask_length) {
             uint8_t *old_arr = subnet_itr->info.domain.domain_idx_arr;
-            
+
             ++subnet_itr->info.domain.domain_idx_arr_len;
             uint8_t *new_domain_idx_arr = (uint8_t *)realloc(subnet_itr->info.domain.domain_idx_arr, subnet_itr->info.domain.domain_idx_arr_len * sizeof(uint8_t));
-            
+
             if (new_domain_idx_arr == NULL) {
                 free(old_arr);
                 old_arr = nullptr;
@@ -153,7 +154,7 @@ int subnet_data::lct_add_domain_mapping(uint32_t &addr, uint8_t &mask_length, st
     }
     else {    // create a new entry in the map
         subnet_itr = &domains_prefix[domains_prefix_num];
-        
+
         subnet_itr->addr = addr;
         subnet_itr->len = mask_length;
         subnet_itr->info.type = IP_SUBNET_DOMAIN;
@@ -164,7 +165,7 @@ int subnet_data::lct_add_domain_mapping(uint32_t &addr, uint8_t &mask_length, st
         subnet_map[addr] = domains_prefix_num;
         domains_prefix_num++;
     }
-    
+
     return 0;       // success
 }
 
@@ -188,7 +189,7 @@ int subnet_data::process_domain_mapping_subnets(const std::vector<std::string> &
         throw std::runtime_error("error: could not initialize domains_prefix");
     }
 
-    for (const std::string &line_str : subnets) { 
+    for (const std::string &line_str : subnets) {
         rapidjson::Document domain_obj;
         domain_obj.Parse(line_str.c_str());
         if(!domain_obj.IsObject()) {
@@ -199,7 +200,7 @@ int subnet_data::process_domain_mapping_subnets(const std::vector<std::string> &
         std::string subnet_type;
         std::string subnet_str;
         std::string subnet_tag;
-        
+
         uint32_t addr;
         unsigned char *dq = (unsigned char *)&addr;
         uint8_t mask_length;
@@ -393,6 +394,11 @@ bool subnet_data::is_domain_faking(const char *domain_name_, const char* dst_ip)
     uint32_t ipv4_addr;
     if (!char_string_to_ipv4_addr(dst_ip, ipv4_addr)) {
         return false; // IPv6 or invalid address
+    }
+
+    ipv4_address ip4(ipv4_addr);
+    if (ip4.get_addr_type() == ipv4_address::addr_type::private_use) {
+        return false; // not domain-faking - as the IP is a private address
     }
 
     lct_subnet_t *subnet = lct_find(&ipv4_domain_trie, ntoh(ipv4_addr));

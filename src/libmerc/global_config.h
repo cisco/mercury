@@ -6,7 +6,7 @@
 #include <map>
 #include <string>
 #include <algorithm>
-#include <unordered_map> 
+#include <unordered_map>
 #include <sstream>
 
 // the preprocessor directive STATIC_CFG_SELECT can be used as a

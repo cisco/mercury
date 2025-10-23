@@ -51,7 +51,7 @@ analysis_context_get_process_info(c, &probable_process, &probability_score);
 bool probable_process_is_malware = 0;
 double probability_malware = 0.0;
 analysis_context_get_malware_info(analysis_ctx, &probable_process_is_malware, &probability_malware);
-        
+
 const struct os_information *os_info = NULL;
 size_t os_info_len = 0;
 analysis_context_get_os_info(analysis_ctx, &os_info, &os_info_len);

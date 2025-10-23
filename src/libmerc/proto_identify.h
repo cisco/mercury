@@ -20,6 +20,17 @@
 #include <array>
 #include "match.h"
 
+#include "arp.h"
+#include "cdp.h"
+#include "eth.h"
+#include "icmp.h"
+#include "ip.h"
+#include "lldp.h"
+#include "ospf.h"
+#include "ppp.h"
+#include "sctp.h"
+#include "tcp.h"
+
 #include "tls.h"   // tcp protocols
 #include "http.h"
 #include "ssh.h"
@@ -28,6 +39,10 @@
 #include "smb2.h"
 #include "iec60870_5_104.h"
 #include "ftp.hpp"
+#include "tcpip.h"
+#include "ldap.hpp"
+#include "tacacs.hpp"
+#include "rdp.hpp"
 
 #include "dhcp.h"  // udp protocols
 #include "quic.h"
@@ -48,8 +63,12 @@
 #include "gre.h"
 #include "geneve.hpp"
 #include "vxlan.hpp"
+#include "lex.h"
 #include "ike.hpp"
 #include "esp.hpp"
+#include "mdns.h"
+#include "krb5.hpp"
+#include "tftp.hpp"
 
 enum tcp_msg_type {
     tcp_msg_type_unknown = 0,
@@ -83,6 +102,35 @@ enum tcp_msg_type {
     tcp_msg_type_ftp_response,
     tcp_msg_type_rdp,
 };
+
+// Template-based stack-allocated structure to replace std::vector<T>
+// Uses a small fixed-size array to avoid heap allocation
+// Can be used for tcp_msg_type, udp_msg_type, or other enum types
+template<typename MsgType, MsgType UnknownValue = static_cast<MsgType>(0), size_t MaxTypes = 2>
+struct msg_types {
+    static constexpr size_t max_types = MaxTypes;
+    std::array<MsgType, max_types> types;
+    size_t count;
+
+    // Constructor for single type
+    constexpr msg_types(MsgType type) : types{type, UnknownValue}, count(1) {}
+
+    // Constructor for two types
+    constexpr msg_types(MsgType type1, MsgType type2) : types{type1, type2}, count(2) {}
+
+    // Iterator support for range-based for loops
+    constexpr auto begin() const { return types.begin(); }
+    constexpr auto end() const { return types.begin() + count; }
+
+    // Size and access methods
+    constexpr size_t size() const { return count; }
+    constexpr MsgType front() const { return types[0]; }
+    constexpr const MsgType& operator[](size_t index) const { return types[index]; }
+};
+
+// Type aliases for convenience
+using tcp_msg_types = msg_types<tcp_msg_type, tcp_msg_type_unknown, 2>;
+//using udp_msg_types = msg_types<udp_msg_type, udp_msg_type_unknown, 2>;
 
 enum udp_msg_type {
     udp_msg_type_unknown = 0,
@@ -119,6 +167,153 @@ struct matcher_type_and_offset {
     size_t type;
 };
 
+// User Defined Literal for converting 4-character strings to uint32_t
+// It returns a `uint32_t` whose bytes match those of the input string
+// when considered as an unsigned integer in network byte order
+
+constexpr uint32_t operator "" _uint32(const char* str, size_t length) {
+    if (str == nullptr || length != 4) {
+        throw std::invalid_argument("_uint32 must be exactly 4 characters");
+    }
+    return (uint32_t)str[0] << 24 | (uint32_t)str[1] << 16 | (uint32_t)str[2] << 8 | (uint32_t)str[3];
+}
+
+class tcp_keyword_matcher {
+public:
+    // Static member for unknown type - can be used anywhere an unknown tcp_msg_types is needed
+    inline static const tcp_msg_types unknown_type{tcp_msg_type_unknown};
+    inline static std::unordered_map<uint32_t, tcp_msg_types> tcp_keyword_map = {
+        //HTTP methods taken from https://www.iana.org/assignments/http-methods/http-methods.xhtm
+        {"ACL "_uint32,              {tcp_msg_type_http_request}},
+        {"BASE"_uint32,              {tcp_msg_type_http_request}},
+        {"BIND"_uint32,              {tcp_msg_type_http_request}},
+        {"CHEC"_uint32,              {tcp_msg_type_http_request}},
+        {"CONN"_uint32,              {tcp_msg_type_http_request}},
+        {"COPY"_uint32,              {tcp_msg_type_http_request}},
+        {"DELE"_uint32,              tcp_msg_types(tcp_msg_type_http_request, tcp_msg_type_ftp_request)},
+        {"GET "_uint32,              {tcp_msg_type_http_request}},
+        {"HEAD"_uint32,              {tcp_msg_type_http_request}},
+        {"LABE"_uint32,              {tcp_msg_type_http_request}},
+        {"LINK"_uint32,              {tcp_msg_type_http_request}},
+        {"LOCK"_uint32,              {tcp_msg_type_http_request}},
+        {"MERG"_uint32,              {tcp_msg_type_http_request}},
+        {"MKAC"_uint32,              {tcp_msg_type_http_request}},
+        {"MKCA"_uint32,              {tcp_msg_type_http_request}},
+        {"MKCO"_uint32,              {tcp_msg_type_http_request}},
+        {"MKRE"_uint32,              {tcp_msg_type_http_request}},
+        {"MKWO"_uint32,              {tcp_msg_type_http_request}},
+        {"MOVE"_uint32,              {tcp_msg_type_http_request}},
+        {"OPTI"_uint32,              {tcp_msg_type_http_request}},
+        {"ORDE"_uint32,              {tcp_msg_type_http_request}},
+        {"PATC"_uint32,              {tcp_msg_type_http_request}},
+        {"POST"_uint32,              {tcp_msg_type_http_request}},
+        {"PRI "_uint32,              {tcp_msg_type_http_request}},
+        {"PROP"_uint32,              {tcp_msg_type_http_request}},
+        {"PUT "_uint32,              {tcp_msg_type_http_request}},
+        {"REBI"_uint32,              {tcp_msg_type_http_request}},
+        {"REPO"_uint32,              {tcp_msg_type_http_request}},
+        {"SEAR"_uint32,              {tcp_msg_type_http_request}},
+        {"TRAC"_uint32,              {tcp_msg_type_http_request}},
+        {"UNBI"_uint32,              {tcp_msg_type_http_request}},
+        {"UNCH"_uint32,              {tcp_msg_type_http_request}},
+        {"UNLI"_uint32,              {tcp_msg_type_http_request}},
+        {"UNLO"_uint32,              {tcp_msg_type_http_request}},
+        {"UPDA"_uint32,              {tcp_msg_type_http_request}},
+        {"VERS"_uint32,              {tcp_msg_type_http_request}},
+        //Extensions taken from https://www.iana.org/assignments/ftp-commands-extensions/ftp-commands-extensions.xhtml
+        {"ABOR"_uint32,              {tcp_msg_type_ftp_request}},
+        {"ACCT"_uint32,              {tcp_msg_type_ftp_request}},
+        {"ADAT"_uint32,              {tcp_msg_type_ftp_request}},
+        {"ALGS"_uint32,              {tcp_msg_type_ftp_request}},
+        {"ALLO"_uint32,              {tcp_msg_type_ftp_request}},
+        {"APPE"_uint32,              {tcp_msg_type_ftp_request}},
+        {"AUTH"_uint32,              tcp_msg_types(tcp_msg_type_ftp_request, tcp_msg_type_smtp_client)},
+        {"CCC "_uint32,              {tcp_msg_type_ftp_request}},
+        {"CCC\r"_uint32,             {tcp_msg_type_ftp_request}},
+        {"CDUP"_uint32,              {tcp_msg_type_ftp_request}},
+        {"CONF"_uint32,              {tcp_msg_type_ftp_request}},
+        {"CWD "_uint32,              {tcp_msg_type_ftp_request}},
+        {"CWD\r"_uint32,             {tcp_msg_type_ftp_request}},
+        {"ENC "_uint32,              {tcp_msg_type_ftp_request}},
+        {"ENC\r"_uint32,             {tcp_msg_type_ftp_request}},
+        {"EPRT"_uint32,              {tcp_msg_type_ftp_request}},
+        {"EPSV"_uint32,              {tcp_msg_type_ftp_request}},
+        {"FEAT"_uint32,              {tcp_msg_type_ftp_request}},
+        {"HELP"_uint32,              tcp_msg_types(tcp_msg_type_ftp_request, tcp_msg_type_smtp_client)},
+        {"HOST"_uint32,              {tcp_msg_type_ftp_request}},
+        {"LANG"_uint32,              {tcp_msg_type_ftp_request}},
+        {"LIST"_uint32,              {tcp_msg_type_ftp_request}},
+        {"LPRT"_uint32,              {tcp_msg_type_ftp_request}},
+        {"LPSV"_uint32,              {tcp_msg_type_ftp_request}},
+        {"MDTM"_uint32,              {tcp_msg_type_ftp_request}},
+        {"MIC "_uint32,              {tcp_msg_type_ftp_request}},
+        {"MIC\r"_uint32,             {tcp_msg_type_ftp_request}},
+        {"MKD "_uint32,              {tcp_msg_type_ftp_request}},
+        {"MKD\r"_uint32,             {tcp_msg_type_ftp_request}},
+        {"MLSD"_uint32,              {tcp_msg_type_ftp_request}},
+        {"MLST"_uint32,              {tcp_msg_type_ftp_request}},
+        {"MODE"_uint32,              {tcp_msg_type_ftp_request}},
+        {"NLST"_uint32,              {tcp_msg_type_ftp_request}},
+        {"NOOP"_uint32,              tcp_msg_types(tcp_msg_type_ftp_request, tcp_msg_type_smtp_client)},
+        {"OPTS"_uint32,              {tcp_msg_type_ftp_request}},
+        {"PASS"_uint32,              {tcp_msg_type_ftp_request}},
+        {"PASV"_uint32,              {tcp_msg_type_ftp_request}},
+        {"PBSZ"_uint32,              {tcp_msg_type_ftp_request}},
+        {"PORT"_uint32,              {tcp_msg_type_ftp_request}},
+        {"PROT"_uint32,              {tcp_msg_type_ftp_request}},
+        {"PWD "_uint32,              {tcp_msg_type_ftp_request}},
+        {"PWD\r"_uint32,             {tcp_msg_type_ftp_request}},
+        {"QUIT"_uint32,              tcp_msg_types(tcp_msg_type_ftp_request, tcp_msg_type_smtp_client)},
+        {"REIN"_uint32,              {tcp_msg_type_ftp_request}},
+        {"REST"_uint32,              {tcp_msg_type_ftp_request}},
+        {"RETR"_uint32,              {tcp_msg_type_ftp_request}},
+        {"RMD "_uint32,              {tcp_msg_type_ftp_request}},
+        {"RMD\r"_uint32,             {tcp_msg_type_ftp_request}},
+        {"RNFR"_uint32,              {tcp_msg_type_ftp_request}},
+        {"RNTO"_uint32,              {tcp_msg_type_ftp_request}},
+        {"SITE"_uint32,              {tcp_msg_type_ftp_request}},
+        {"SIZE"_uint32,              {tcp_msg_type_ftp_request}},
+        {"SMNT"_uint32,              {tcp_msg_type_ftp_request}},
+        {"STAT"_uint32,              {tcp_msg_type_ftp_request}},
+        {"STOR"_uint32,              {tcp_msg_type_ftp_request}},
+        {"STOU"_uint32,              {tcp_msg_type_ftp_request}},
+        {"STRU"_uint32,              {tcp_msg_type_ftp_request}},
+        {"SYST"_uint32,              {tcp_msg_type_ftp_request}},
+        {"TYPE"_uint32,              {tcp_msg_type_ftp_request}},
+        {"USER"_uint32,              {tcp_msg_type_ftp_request}},
+        {"XCUP"_uint32,              {tcp_msg_type_ftp_request}},
+        {"XCWD"_uint32,              {tcp_msg_type_ftp_request}},
+        {"XMKD"_uint32,              {tcp_msg_type_ftp_request}},
+        {"XPWD"_uint32,              {tcp_msg_type_ftp_request}},
+        {"XRMD"_uint32,              {tcp_msg_type_ftp_request}},
+        //Extensions not yet present in IANA
+        {"CLNT"_uint32,              {tcp_msg_type_ftp_request}},
+        //SMTP commands collated from https://mailtrap.io/blog/smtp-commands-and-responses
+        {"ATRN"_uint32,              {tcp_msg_type_smtp_client}},
+        {"BDAT"_uint32,              {tcp_msg_type_smtp_client}},
+        {"DATA"_uint32,              {tcp_msg_type_smtp_client}},
+        {"EHLO"_uint32,              {tcp_msg_type_smtp_client}},
+        {"ETRN"_uint32,              {tcp_msg_type_smtp_client}},
+        {"EXPN"_uint32,              {tcp_msg_type_smtp_client}},
+        {"HELO"_uint32,              {tcp_msg_type_smtp_client}},
+        {"MAIL"_uint32,              {tcp_msg_type_smtp_client}},
+        {"RCPT"_uint32,              {tcp_msg_type_smtp_client}},
+        {"STAR"_uint32,              {tcp_msg_type_smtp_client}},
+        {"VRFY"_uint32,              {tcp_msg_type_smtp_client}},
+        //HTTP response
+        {"HTTP"_uint32,              {tcp_msg_type_http_response}},
+        //RFB
+        {"RFB "_uint32,              {tcp_msg_type_rfb}}
+    };
+
+    static const tcp_msg_types& get_tcp_msg_type_from_keyword(uint32_t keyword) {
+        auto it = tcp_keyword_map.find(keyword);
+        if (it != tcp_keyword_map.end()) {
+            return it->second;
+        }
+        return unknown_type;
+    }
+};
 
 template <size_t N>
 class protocol_identifier {
@@ -263,6 +458,11 @@ class traffic_selector {
     bool select_geneve{false};
     bool select_vxlan{false};
     bool select_mysql_login_request{false};
+    bool select_http_request{false};
+    bool select_http_response{false};
+    bool select_smtp{false};
+    bool select_tofsee{false};
+    bool select_dhcp{false};
 
 public:
 
@@ -320,6 +520,16 @@ public:
 
     bool mysql_login_request() const { return select_mysql_login_request; }
 
+    bool http_request() const { return select_http_request; }
+
+    bool http_response() const { return select_http_response; }
+
+    bool smtp() const { return select_smtp; }
+
+    bool tofsee() const { return select_tofsee; }
+
+    bool dhcp() const { return select_dhcp; }
+
     void disable_all() {
         tcp.disable_all();
         tcp4.disable_all();
@@ -353,6 +563,11 @@ public:
         select_geneve = false;
         select_vxlan = false;
         select_mysql_login_request = false;
+        select_http_request = false;
+        select_http_response = false;
+        select_smtp = false;
+        select_tofsee = false;
+        select_dhcp = false;
 
     }
 
@@ -387,11 +602,11 @@ public:
             tcp.add_protocol(ssh_kex_init::matcher, tcp_msg_type_ssh_kex);
         }
         if (protocols["smtp"] || protocols["all"]) {
-            tcp.add_protocol(smtp_client::matcher, tcp_msg_type_smtp_client);
             tcp.add_protocol(smtp_server::matcher, tcp_msg_type_smtp_server);
+            select_smtp = true;
         }
         if (protocols["rfb"] || protocols["all"]) {
-            tcp.add_protocol(rfb::protocol_version_handshake::matcher, tcp_msg_type_rfb);
+            select_rfb = true;
         }
         if (protocols["rdp"] || protocols["all"]) {
             select_rdp = true;
@@ -414,29 +629,20 @@ public:
         else if(protocols["ftp.request"])
         {
             select_ftp_request = true;
-            // tcp.add_protocol(ftp::request::user_matcher, tcp_msg_type_ftp_request);
-            // tcp.add_protocol(ftp::request::pass_matcher, tcp_msg_type_ftp_request);
-            // tcp.add_protocol(ftp::request::stor_matcher, tcp_msg_type_ftp_request);
-            // tcp.add_protocol(ftp::request::retr_matcher, tcp_msg_type_ftp_request);
-
         }
-        if (protocols["http"] || protocols["all"]) {
-            tcp.add_protocol(http_response::matcher, tcp_msg_type_http_response);  // note: must come before http_request::matcher
-            tcp.add_protocol(http_request::matcher, tcp_msg_type_http_request);
+        if (protocols["http"] || protocols["all"])
+        {
+            select_http_request = true;
+            select_http_response = true;
         }
         else if(protocols["http.request"])
         {
-            tcp.add_protocol(http_request::get_matcher, tcp_msg_type_http_request);
-            tcp.add_protocol(http_request::post_matcher, tcp_msg_type_http_request);
-            tcp.add_protocol(http_request::connect_matcher, tcp_msg_type_http_request);
-            tcp.add_protocol(http_request::put_matcher, tcp_msg_type_http_request);
-            tcp.add_protocol(http_request::head_matcher, tcp_msg_type_http_request);
+            select_http_request = true;
         }
         else if(protocols["http.response"])
         {
-            tcp.add_protocol(http_response::matcher, tcp_msg_type_http_response);
+            select_http_response = true;
         }
-
 
         // booleans not yet implemented
         //
@@ -460,7 +666,7 @@ public:
             select_tcp_syn_ack = true;
         }
         if (protocols["dhcp"] || protocols["all"]) {
-            udp.add_protocol(dhcp_discover::matcher, udp_msg_type_dhcp);
+            select_dhcp = true;
         }
         if (protocols["dns"] || protocols["nbns"] || protocols["mdns"] || protocols["all"]) {
             if (protocols["all"]) {
@@ -578,10 +784,8 @@ public:
             select_tacacs = true;
         }
 
-        // add tofsee, but keep at the absolute end of matcher lists, as tofsee only
-        // has a length based matcher
         if (protocols["tofsee"] || protocols["all"]) {
-            tcp4.add_protocol(tofsee_initial_message::matcher, tcp_msg_type_tofsee_initial_message);
+            select_tofsee = true;
         }
 
         if (protocols["geneve"] || protocols["all"]) {
@@ -601,7 +805,43 @@ public:
 
     }
 
-    size_t get_tcp_msg_type(datum &pkt) const {
+    const tcp_msg_types& get_tcp_msg_type_from_keyword(datum pkt) const {
+        if (pkt.length() < 4) {
+            return tcp_keyword_matcher::unknown_type;
+        }
+
+        encoded<uint32_t> keyword{pkt};
+        return tcp_keyword_matcher::get_tcp_msg_type_from_keyword(keyword.value());
+    }
+
+    tcp_msg_type get_tcp_msg_type_preference_from_port(const tcp_msg_types& protos,
+                                                       struct tcp_packet *tcp_pkt) {
+        if (protos.size() == 1) {
+            return protos.front();
+        }
+
+        if (tcp_pkt == nullptr or tcp_pkt->header == nullptr) {
+            return tcp_msg_type_unknown;
+        }
+
+        enum tcp_msg_type type = tcp_msg_type_unknown;
+        switch(ntoh<uint16_t>(tcp_pkt->header->dst_port)) {
+            case 21:
+                type = tcp_msg_type_ftp_request;
+                break;
+            case 25:
+                type =  tcp_msg_type_smtp_client;
+                break;
+            default:
+                break;
+        }
+        if (std::find(protos.begin(), protos.end(), type) != protos.end()) {
+            return type;
+        }
+        return tcp_msg_type_unknown;
+    }
+
+    size_t  get_tcp_msg_type(datum &pkt) const {
         size_t type = tcp.get_msg_type(pkt);
         if (type == tcp_msg_type_unknown)  {
             type = tcp4.get_msg_type(pkt);
@@ -664,6 +904,10 @@ public:
             return udp_msg_type_gre;
         }
 
+        if (dhcp() and (ports.dst == hton<uint16_t>(67) or ports.dst == hton<uint16_t>(68))) {
+            return udp_msg_type_dhcp;
+        }
+
         return udp_msg_type_unknown;
     }
 
@@ -688,11 +932,6 @@ public:
         if (ftp_response() and ((tcp_pkt->header->src_port == hton<uint16_t>(21))))
         {
             return tcp_msg_type_ftp_response;
-        }
-
-        if (ftp_request() and ((tcp_pkt->header->dst_port == hton<uint16_t>(21))))
-        {
-            return tcp_msg_type_ftp_request;
         }
 
         if (tacacs() and (tcp_pkt->header->src_port == hton<uint16_t>(49) or tcp_pkt->header->dst_port == hton<uint16_t>(49)) ) {

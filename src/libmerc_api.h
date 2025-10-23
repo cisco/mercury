@@ -24,7 +24,7 @@ using dll_type = void *;
 
 #include <libloaderapi.h>
 
-using dll_type = HINSTANCE; 
+using dll_type = HINSTANCE;
 
 #define RTLD_LAZY  0
 #define RTLD_LOCAL 0

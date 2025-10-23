@@ -303,8 +303,8 @@ TEST_CASE_METHOD(LibmercTestFixture, "test smtp with resources-mp")
              .m_lc{.dns_json_output = true, .do_analysis = true,
                 .resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"smtp"},
-             .m_pc{"capture2.pcap"}},
-         1},
+             .m_pc{"smtp.pcap"}},
+         4},
         {test_config{
              .m_lc{.do_analysis = true, .resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"smtp"},
@@ -486,13 +486,13 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ftp with resources-mp")
              .m_lc{.metadata_output=true, .do_analysis = true, .resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"ftp"},
              .m_pc{"ftp.pcap"}},
-             
+
          58},
          {test_config{
              .m_lc{.resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"ftp"},
              .m_pc{"ftp2.pcap"}},
-             
+
          23},
 
         {test_config{
@@ -546,6 +546,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test attributes with resources-mp")
 
     auto destination_check_callback = [](size_t attr_count, size_t expected_attr_count)
     {
+        fprintf(stderr, "attr_count: %zu, expected_attr_count: %zu\n", attr_count, expected_attr_count);
         CHECK((attr_count == expected_attr_count));
     };
 
@@ -896,7 +897,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ssh fingerprinting and reassembly")
                 .packet_filter_cfg = (char *)"ssh"},
              .m_pc{"ssh_frag.pcap"},
              .fp_t = fingerprint_type_ssh_kex},
-         2} 
+         2}
     };
 
     for (auto &[config, count] : test_set_up)

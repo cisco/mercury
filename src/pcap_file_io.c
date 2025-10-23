@@ -3,9 +3,9 @@
  *
  * functions for reading and writing packets using the (old) libpcap
  * file format
- * 
- * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at 
- * https://github.com/cisco/mercury/blob/master/LICENSE 
+ *
+ * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at
+ * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
 #ifndef _GNU_SOURCE
@@ -146,7 +146,7 @@ enum status pcap_file_open(struct pcap_file *f,
 
         f->allocated_size = 0; // initialize
         if (fallocate(f->fd, FALLOC_FL_KEEP_SIZE, 0, PRE_ALLOCATE_DISK_SPACE) != 0) {
-            printf("warning: %s: Could not pre-allocate %d MB disk space for pcap file %s\n", 
+            printf("warning: %s: Could not pre-allocate %d MB disk space for pcap file %s\n",
                    strerror(errno), PRE_ALLOCATE_DISK_SPACE, fname);
         } else {
             f->allocated_size = PRE_ALLOCATE_DISK_SPACE;  // initial allocation
@@ -579,4 +579,3 @@ size_t pcap_queue_write(uint8_t *buf,
         return 0;
     }
 }
-
