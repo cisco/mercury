@@ -146,7 +146,6 @@ namespace snmp {
     class var_bind {
         tlv seq;
         tlv name;
-        //tlv value;
         object_syntax value;
         bool valid;
 
@@ -475,7 +474,9 @@ namespace snmp {
             o.print_key_hex("request_id", request_id.value);
             o.print_key_hex("error_status", error_status.value);
             o.print_key_hex("error_index", error_index.value);
-            o.print_key_hex("any", any.value);
+            // o.print_key_hex("any", any.value);
+            tlv tmp{any};
+            v2_pdu{tmp.value}.write_json(o);
         }
     };
 
@@ -531,11 +532,11 @@ namespace snmp {
         void write_json(json_object &o) const {
             if (!valid) { return; }
             if (false) {
-                o.print_key_hex("msgID", msgID.value);
-                o.print_key_hex("msgMaxSize", msgMaxSize.value);
-                o.print_key_hex("msgFlags", msgFlags.value);
+                o.print_key_hex("msg_id", msgID.value);
+                o.print_key_hex("msg_max_size", msgMaxSize.value);
+                o.print_key_hex("msg_flags", msgFlags.value);
             }
-            o.print_key_hex("msgSecurityModel", msgSecurityModel.value);
+            o.print_key_hex("msg_security_model", msgSecurityModel.value);
             o.print_key_bool("priv", priv);
         }
     };
@@ -574,9 +575,9 @@ namespace snmp {
 
         void write_json(json_object &o) const {
 
-            if (false) {
-                o.print_key_hex("contextEngineID", contextEngineID.value);
-                o.print_key_hex("contextName", contextName.value);
+            o.print_key_hex("context_engine_id", contextEngineID.value);
+            if (true) {
+                o.print_key_hex("context_name", contextName.value);
             }
 
             // report PDU type based on explicit tag
@@ -591,13 +592,16 @@ namespace snmp {
             case 7: o.print_key_string("pdu_type", "snmpv2_trap"); break;
             case 8: o.print_key_string("pdu_type", "report"); break;
             default:
-                o.print_key_string("pdu_type", "UNKNOWN PDU"); // (tag: %u)", any.tag); break;
+                o.print_key_unknown_code("pdu_type", (uint8_t)(any.tag & 31));
             }
 
-            if (false) {
-                datum tmp = any.value;
-                pdu data{tmp};
-                data.write_json(o);
+            if (true) {
+                // datum tmp = any.value;
+                // pdu data{tmp};
+                // data.write_json(o);
+
+                tlv tmp{any};
+                v2_pdu{tmp.value}.write_json(o);
             }
 
         }
@@ -736,13 +740,14 @@ namespace snmp {
     //     }
     //
     class usm_security_parameters {
-       tlv seq;
-       tlv authoritative_engine_id;
-       tlv authoritative_engine_boots;
-       tlv authoritative_engine_time;
-       tlv user_name;
-       tlv authentication_parameters;
-       tlv privacy_parameters;
+        tlv seq;
+        tlv authoritative_engine_id;
+        tlv authoritative_engine_boots;
+        tlv authoritative_engine_time;
+        tlv user_name;
+        tlv authentication_parameters;
+        tlv privacy_parameters;
+        bool valid;
 
     public:
 
@@ -753,18 +758,25 @@ namespace snmp {
            authoritative_engine_time{&seq.value, tlv::INTEGER, "time"},
            user_name{&seq.value, tlv::OCTET_STRING, "user_name"},
            authentication_parameters{&seq.value, tlv::OCTET_STRING, "authentication_parameters"},
-           privacy_parameters{&seq.value, tlv::OCTET_STRING, "privacy_parameters"}
+           privacy_parameters{&seq.value, tlv::OCTET_STRING, "privacy_parameters"},
+           valid{d.is_not_null()}
         { }
 
-       void write_json(json_object &o, const datum & pdu_copy) const {
+        void write_json(json_object &o, const datum & pdu_copy, bool is_priv) const {
+           if (!valid) {
+               return;
+           }
+
            o.print_key_hex("engine_id_raw", authoritative_engine_id.value);
 
            engine_id{authoritative_engine_id.value}.write_json(o);
 
            o.print_key_json_string("user_name", user_name.value);
 
-           auto pwd_recovery_string = get_password_recovery_string(pdu_copy, authoritative_engine_id.value, authentication_parameters.value);
-           o.print_key_json_string("password_recovery", pwd_recovery_string.contents());
+           if (is_priv) {
+               auto pwd_recovery_string = get_password_recovery_string(pdu_copy, authoritative_engine_id.value, authentication_parameters.value);
+               o.print_key_json_string("password_recovery", pwd_recovery_string.contents());
+           }
 
        }
 
@@ -822,8 +834,7 @@ namespace snmp {
             if (verbose) {
                 o.print_key_hex("msgSecurityParameters", msgSecurityParameters.value);
             }
-            usm_security_parameters usm_params{msgSecurityParameters.value};
-            usm_params.write_json(o, pdu_copy);
+            usm_security_parameters{msgSecurityParameters.value}.write_json(o, pdu_copy, hd.priv);
 
             datum tmp = body;
             if (hd.priv) {
@@ -839,6 +850,9 @@ namespace snmp {
         }
 
         void write_l7_metadata(cbor_object &o, bool) {
+            if (!valid) {
+                return;
+            }
             cbor_array protocols{o, "protocols"};
             protocols.print_string("snmp");
             protocols.close();
