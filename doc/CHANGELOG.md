@@ -1,10 +1,15 @@
 # CHANGELOG for Mercury
 
-## VERSION 2.9.1
-* Defensive code around memcpy operations in QUIC reassembly
-* Exempted private IP addresses from Domain Faking check
-* Enhanced protocol matcher and SMTP enhancements to support more commands
-* Fix compilation of experimental tool intercept.so
+## VERSION 2.10.0
+* Added defensive code around memcpy operations in QUIC reassembly.
+* Exempted private IP addresses from Domain Faking check.
+* Enhanced protocol matcher and SMTP enhancements to support more commands.
+* Fixed compilation of experimental tool intercept.so.
+* Integrated STUN classifier into Mercury's analysis path.
+* Extended DHCP to report on all message types, not just responses.
+* Bugfix: removed user_agent reset code from do_observation struct.
+* STUN fingerprints are generated for client requests but not server responses.
+
 
 ## VERSION 2.9.0
 * Added a new configuration option, network-behavioral-detections,
