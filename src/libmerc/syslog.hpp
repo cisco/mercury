@@ -88,7 +88,6 @@ public:
 
         void write_json(json_object &o) const {
             unsigned int priority = value;
-            o.print_key_uint("pri", priority);
             o.print_key_string("severity", get_severity_string(get_severity(priority)));
             o.print_key_string("facility", get_facility_string(get_facility(priority)));
         }
