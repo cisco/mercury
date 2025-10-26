@@ -1,5 +1,8 @@
 # CHANGELOG for Mercury
 
+* Added SYSLOG protocol identification with JSON and CBOR output.
+
+=======
 ## VERSION 2.10.0
 * Added defensive code around memcpy operations in QUIC reassembly.
 * Exempted private IP addresses from Domain Faking check.
@@ -9,7 +12,6 @@
 * Extended DHCP to report on all message types, not just responses.
 * Bugfix: removed user_agent reset code from do_observation struct.
 * STUN fingerprints are generated for client requests but not server responses.
-
 
 ## VERSION 2.9.0
 * Added a new configuration option, network-behavioral-detections,

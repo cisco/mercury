@@ -152,7 +152,8 @@ enum udp_msg_type {
     udp_msg_type_tftp,
     udp_msg_type_geneve,
     udp_msg_type_gre,
-    udp_msg_type_ike
+    udp_msg_type_ike,
+    udp_msg_type_syslog,
 };
 
 template <size_t N>
@@ -463,6 +464,7 @@ class traffic_selector {
     bool select_smtp{false};
     bool select_tofsee{false};
     bool select_dhcp{false};
+    bool select_syslog{false};
 
 public:
 
@@ -529,6 +531,8 @@ public:
     bool tofsee() const { return select_tofsee; }
 
     bool dhcp() const { return select_dhcp; }
+
+    bool syslog() const { return select_syslog; }
 
     void disable_all() {
         tcp.disable_all();
@@ -668,6 +672,9 @@ public:
         if (protocols["dhcp"] || protocols["all"]) {
             select_dhcp = true;
         }
+        if (protocols["syslog"] || protocols["all"]) {
+            select_syslog = true;
+         }
         if (protocols["dns"] || protocols["nbns"] || protocols["mdns"] || protocols["all"]) {
             if (protocols["all"]) {
                 select_dns = true;
@@ -890,6 +897,10 @@ public:
 
         if (krb5() and (ports.src == hton<uint16_t>(88) or ports.dst == hton<uint16_t>(88))) {
             return udp_msg_type_krb5;
+        }
+
+        if (syslog() and (ports.dst == hton<uint16_t>(514))) {
+            return udp_msg_type_syslog;
         }
 
         if (vxlan() and ports.dst == hton<uint16_t>(vxlan::dst_port)) {

@@ -73,6 +73,7 @@
 #include "vxlan.hpp"
 #include "fdc.hpp"
 #include "l7m.hpp"
+#include "syslog.hpp"
 
 // double malware_prob_threshold = -1.0; // TODO: document hidden option
 
@@ -534,6 +535,9 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
             }
             x = std::move(packet);
         }
+        break;
+    case udp_msg_type_syslog:
+        x.emplace<syslog>(pkt);
         break;
     case udp_msg_type_dhcp:
         x.emplace<dhcp_message>(pkt);
