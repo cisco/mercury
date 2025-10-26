@@ -12,7 +12,14 @@
 
 #include <variant>
 
-inline uint64_t get_integer(const datum &d) {
+
+/// return the integer formed by interpreting the bytes of \ref datum
+/// \param d as an unsigned integer in network byte order
+///
+/// \note: ASN.1 integers will have a leading 0x00 byte if they are
+/// unsigned
+///
+inline uint64_t get_uint64(const datum &d) {
     uint64_t result = 0;
     if (d.is_readable()) {
         for (const auto & byte : d) {
@@ -80,42 +87,92 @@ namespace snmp {
             if (!object.is_valid()) {
                 return;
             }
-            switch(object.tag & 31) {
-            case 0:
-                if (object.value.length() == 4) {
-                    value.print_key_ipv4_addr("ipv4_address", object.value.data);
+
+            tlv::tag_class tc = object.get_tag_class();
+            if (tc == tlv::tag_class::application) {
+                switch(object.tag_number()) {
+                case 0:
+                    if (object.value.length() == 4) {
+                        value.print_key_ipv4_addr("ipv4_address", object.value.data);
+                        return;
+                    }
+                    break;
+                case 1:
+                    if (object.value.length() <= 5) {
+                        value.print_key_uint("counter32", get_uint64(object.value));
+                        return;
+                    }
+                    break;
+                case 2:
+                    if (object.value.length() <= 5) {
+                        value.print_key_uint("unsigned32", encoded<uint32_t>{object.value}.value());
+                        return;
+                    }
+                    break;
+                case 3:
+                    if (object.value.length() <= 5) {
+                        value.print_key_uint("time_ticks", encoded<uint32_t>{object.value}.value());  // note: could report value/100 as float
+                        return;
+                    }
+                    break;
+                case 4:
+                    value.print_key_hex("opaque", object.value);
+                    return;
+                    break;
+                case 5:
+                    value.print_key_bool("null", true);
+                    return;
+                    break;
+                case 6:
+                    if (object.value.length() <= 9) {
+                        value.print_key_uint("counter64", encoded<uint64_t>{object.value}.value());
+                        return;
+                    }
+                    break;
+                default:
+                    ;     // pass through to end of function
                 }
-                break;
-            case 1:
-                if (object.value.length() == 4) {
-                    value.print_key_uint("counter32", get_integer(object.value));
+
+            } else if (tc == tlv::tag_class::universal) {
+
+                switch(object.get_little_tag()) {
+                case tlv::OBJECT_IDENTIFIER:
+                    object.print_as_json_oid(value, "oid");
+                    return;
+                case tlv::PRINTABLE_STRING:
+                case tlv::T61String:
+                case tlv::VIDEOTEX_STRING:
+                case tlv::IA5String:
+                case tlv::GraphicString:
+                case tlv::VisibleString:
+                    object.print_as_json_escaped_string(value, "string");
+                    return;
+                case tlv::BIT_STRING:
+                    value.print_key_hex("bit_string_hex", object.value);
+                    return;
+                case tlv::OCTET_STRING:
+                    value.print_key_hex("octet_string", object.value);
+                    return;
+                case tlv::INTEGER:
+                    value.print_key_uint("integer", get_uint64(object.value));
+                    return;
+                case tlv::NULL_TAG:
+                    value.print_key_bool("null", true);
+                    return;
+                case tlv::BOOLEAN:
+                    value.print_key_bool("boolean", object.value.matches(std::array<uint8_t,1>{0xff}));
+                    return;
+                default:
+                    ;     // pass through to end of function
                 }
-                break;
-            case 2:
-                if (object.value.length() == 4) {
-                    value.print_key_uint("unsigned32", encoded<uint32_t>{object.value}.value());
-                }
-                break;
-            case 3:
-                if (object.value.length() == 4) {
-                    value.print_key_uint("time_ticks", encoded<uint32_t>{object.value}.value());  // note: could report value/100 as float
-                }
-                break;
-            case 4:
-                value.print_key_hex("opaque", object.value);
-                break;
-            case 5:
-                value.print_key_null("null");
-                break;
-            case 6:
-                if (object.value.length() == 8) {
-                    value.print_key_uint("counter64", encoded<uint64_t>{object.value}.value());
-                }
-                break;
-            default:
-                value.print_key_uint("unknown_tag", object.tag & 31);
-                value.print_key_hex("unknown_value", object.value);
+
             }
+
+            // handle unexpected universal and application tags, as
+            // well as all context-specific tags and private tags, by
+            // writing the raw TLV information
+            //
+            value.print_key_hex("value_tlv_hex", body);
 
         }
 
@@ -146,6 +203,7 @@ namespace snmp {
     class var_bind {
         tlv seq;
         tlv name;
+        datum tmp;
         object_syntax value;
         bool valid;
 
@@ -154,6 +212,7 @@ namespace snmp {
         var_bind(datum &d) :
             seq{d, tlv::SEQUENCE, "seq"},
             name{&seq.value, tlv::OBJECT_IDENTIFIER, "oid"},
+            tmp{seq.value},
             value{seq.value},
             valid{seq.value.is_not_null()}
         { }
@@ -166,6 +225,7 @@ namespace snmp {
         void write_json(json_array &a) const {
             json_object o{a};
             o.print_key_value("name", raw_oid{name.value});
+            // o.print_key_hex("raw_value", tmp);
             value.write_json(o);
             o.close();
         }
@@ -257,13 +317,13 @@ namespace snmp {
             json_object trap{o, "trap"};
             trap.print_key_value("enterprise", raw_oid{enterprise_oid.value});
             trap.print_key_hex("agent_addr", agent_addr.value);
-            trap.print_key_string("generic_trap", trap_number_get_string(get_integer(generic_trap.value)));
+            trap.print_key_string("generic_trap", trap_number_get_string(get_uint64(generic_trap.value)));
             trap.print_key_hex("specific_trap", specific_trap.value);
             trap.print_key_hex("timestamp", timestamp.value);
 
             trap.write_json_array_of<var_bind>(variable_bindings_list.value, "var_bind_list");
 
-             trap.print_key_hex("remainder", remainder);
+            trap.print_key_hex("remainder", remainder);
             trap.close();
         }
 
@@ -330,10 +390,14 @@ namespace snmp {
                 return;
             }
             json_object pdu{o, "pdu"};
-            pdu.print_key_hex("request_id", request_id.value);
-            pdu.print_key_hex("error_status", error_status.value);
-            pdu.print_key_hex("error_index", error_index.value);
-
+            pdu.print_key_uint("request_id", get_uint64(request_id.value));
+            std::array<uint8_t,1> zero{0x00};
+            if (!error_status.value.matches(zero)) {
+                pdu.print_key_hex("error_status", error_status.value);
+            }
+            if (!error_index.value.matches(zero)) {
+                pdu.print_key_hex("error_index", error_index.value);
+            }
             pdu.write_json_array_of<var_bind>(variable_bindings.value, "var_bind_list");
 
             pdu.close();
@@ -420,7 +484,6 @@ namespace snmp {
             return valid;
         }
 
-
     };
 
     //
@@ -471,10 +534,9 @@ namespace snmp {
         { }
 
         void write_json(json_object &o) const {
-            o.print_key_hex("request_id", request_id.value);
+            o.print_key_uint("request_id", get_uint64(request_id.value));
             o.print_key_hex("error_status", error_status.value);
             o.print_key_hex("error_index", error_index.value);
-            // o.print_key_hex("any", any.value);
             tlv tmp{any};
             v2_pdu{tmp.value}.write_json(o);
         }
@@ -516,7 +578,10 @@ namespace snmp {
         bool valid;
 
     public:
-        bool priv;
+        // bool priv;
+
+        bool priv() const { return tmp & 2; }
+        bool auth() const { return tmp & 1; }
 
         header_data(datum &d) :
             seq{&d, tlv::SEQUENCE, "header_data sequence"},
@@ -525,8 +590,7 @@ namespace snmp {
             msgFlags{&seq.value, tlv::OCTET_STRING, "msgFlags"},
             tmp{msgFlags.value},
             msgSecurityModel{&seq.value, tlv::INTEGER, "msgSecurityModel"},
-            valid{seq.value.is_not_null()},
-            priv{tmp & 0x3}
+            valid{seq.value.is_not_null()}
         { }
 
         void write_json(json_object &o) const {
@@ -536,8 +600,9 @@ namespace snmp {
                 o.print_key_hex("msg_max_size", msgMaxSize.value);
                 o.print_key_hex("msg_flags", msgFlags.value);
             }
-            o.print_key_hex("msg_security_model", msgSecurityModel.value);
-            o.print_key_bool("priv", priv);
+            o.print_key_uint("msg_security_model", get_uint64(msgSecurityModel.value));
+            o.print_key_bool("auth", auth());
+            o.print_key_bool("priv", priv());
         }
     };
 
@@ -596,10 +661,6 @@ namespace snmp {
             }
 
             if (true) {
-                // datum tmp = any.value;
-                // pdu data{tmp};
-                // data.write_json(o);
-
                 tlv tmp{any};
                 v2_pdu{tmp.value}.write_json(o);
             }
@@ -704,7 +765,7 @@ namespace snmp {
 
     };
 
-    /// return the password recovery string for an snmpv3
+    /// return the password recover string for an snmpv3
     /// encrypted/authenticated message
     ///
     static auto get_password_recovery_string(const datum &pdu,
@@ -713,7 +774,7 @@ namespace snmp {
     {
         data_buffer<512> result;
 
-        result << datum{"$SNMPv3$1$3$"};
+        result << datum{"$SNMPv3$0$0$"};
         result.write_hex(pdu.data, pdu.length());
         result << datum{"$"};
         result.write_hex(engine_id.data, engine_id.length());
@@ -827,17 +888,17 @@ namespace snmp {
                 return;
             }
             json_object snmp{o, "snmp"};
-            snmp.print_key_uint("version", get_integer(version.value));
+            snmp.print_key_uint("version", get_uint64(version.value));
             if (true) {
                 hd.write_json(o);
             }
             if (verbose) {
                 o.print_key_hex("msgSecurityParameters", msgSecurityParameters.value);
             }
-            usm_security_parameters{msgSecurityParameters.value}.write_json(o, pdu_copy, hd.priv);
+            usm_security_parameters{msgSecurityParameters.value}.write_json(o, pdu_copy, hd.priv());
 
             datum tmp = body;
-            if (hd.priv) {
+            if (hd.priv()) {
                 tlv encrypted_pdu{&tmp, 0x00, "encrypted-pdu"}; // TODO: implement decryption
                 if (verbose) {
                     o.print_key_hex("encrypted_pdu", body);
@@ -876,7 +937,7 @@ namespace snmp {
             tlv seq{d, tlv::SEQUENCE};
             tlv version{&seq.value, tlv::INTEGER};
             if (seq.value.is_not_null() and version.length == 1) {
-                return get_integer(version.value);
+                return get_uint64(version.value);
             }
             return 255; // not a valid version
         }
