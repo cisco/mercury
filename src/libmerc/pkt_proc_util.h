@@ -61,7 +61,7 @@ struct dns_packet;
 struct mdns_packet;
 class dtls_client_hello;
 class dtls_server_hello;
-struct dhcp_discover;
+class dhcp_message;
 class ssdp;
 //class stun::message;
 class unknown_udp_initial_packet;
@@ -86,6 +86,7 @@ class geneve;
 class ip_encapsulation;
 class vxlan;
 namespace snmp { class packet; }
+class syslog;
 
 using protocol = std::variant<std::monostate,
                               http_request,                      // start of tcp protocols
@@ -114,7 +115,7 @@ using protocol = std::variant<std::monostate,
                               mdns_packet,
                               dtls_client_hello,
                               dtls_server_hello,
-                              dhcp_discover,
+                              dhcp_message,
                               ssdp,
                               stun::message,
                               krb5::packet,
@@ -138,8 +139,10 @@ using protocol = std::variant<std::monostate,
                               ike::packet,
                               rfb::protocol_version_handshake,
                               tacacs::packet,
-                              snmp::packet
+                              snmp::packet,
+                              syslog
                               >;
+
 using encapsulation = std::variant<std::monostate,
                               gre_header,
                               geneve,

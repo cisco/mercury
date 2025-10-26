@@ -254,6 +254,12 @@ struct json_object {
                              const char *array_name);
 
     void print_key_bitstring_flags(const char *name, const struct datum &bitstring, char * const *flags);
+
+    /// returns the number of bytes remaining in the output buffer to
+    /// which this \ref json_object is associated
+    ///
+    size_t remaining_output_capacity() const { return b->writeable_length(); }
+
 };
 
 struct json_array {

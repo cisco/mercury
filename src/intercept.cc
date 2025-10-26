@@ -258,40 +258,6 @@ void print_flow_key(int fd) {
 #include "libmerc/proto_identify.h"
 #include <ctype.h>
 
-#include "libmerc/arp.h"
-#include "libmerc/bittorrent.h"
-#include "libmerc/ip.h"
-#include "libmerc/tcp.h"
-#include "libmerc/dns.h"
-#include "libmerc/mdns.h"
-#include "libmerc/tls.h"
-#include "libmerc/http.h"
-#include "libmerc/wireguard.h"
-#include "libmerc/ssh.h"
-#include "libmerc/dhcp.h"
-#include "libmerc/tcpip.h"
-#include "libmerc/eth.h"
-#include "libmerc/gre.h"
-#include "libmerc/icmp.h"
-#include "libmerc/udp.h"
-#include "libmerc/quic.h"
-#include "libmerc/ssdp.h"
-#include "libmerc/stun.h"
-#include "libmerc/smtp.h"
-#include "libmerc/cdp.h"
-#include "libmerc/lldp.h"
-#include "libmerc/ospf.h"
-#include "libmerc/sctp.h"
-#include "libmerc/analysis.h"
-#include "libmerc/buffer_stream.h"
-#include "libmerc/stats.h"
-#include "libmerc/ppp.h"
-#include "libmerc/smb1.h"
-#include "libmerc/smb2.h"
-#include "libmerc/netbios.h"
-#include "libmerc/openvpn.h"
-#include "libmerc/tofsee.hpp"
-
 #include <unordered_set>
 #include <string>
 
@@ -794,10 +760,10 @@ public:
 
         if (!is_tcp) {
             // try checking udp protocols
-            enum udp_msg_type msg_type = (udp_msg_type)(pkt_proc_ctx->selector.get_udp_msg_type(udp_pkt_data));
             udp::ports udp_ports;
             udp_ports.src = ports.first;
             udp_ports.dst = ports.second;
+            enum udp_msg_type msg_type = (udp_msg_type)(pkt_proc_ctx->selector.get_udp_msg_type(udp_pkt_data, udp_ports));
             if (msg_type == udp_msg_type_unknown)
             { // TODO: wrap this up in a traffic_selector member function
                 msg_type = (udp_msg_type)(pkt_proc_ctx->selector.get_udp_msg_type_from_ports(udp_ports));
@@ -806,7 +772,8 @@ public:
             k.src_port = udp_ports.src;
             k.dst_port = udp_ports.dst;
             k.protocol = 17;
-            pkt_proc_ctx->set_udp_protocol(udp_proto, udp_pkt_data, msg_type, true, k);
+            udp udp_pkt{k};
+            pkt_proc_ctx->set_udp_protocol(udp_proto, udp_pkt_data, udp_pkt.get_ports(), true, k, udp_pkt);
             is_udp = (msg_type != udp_msg_type_unknown) && (std::holds_alternative<std::monostate>(udp_proto) == false) && (std::holds_alternative<unknown_udp_initial_packet>(udp_proto) == false);
         }
         if (!is_tcp && !is_udp) {
@@ -873,10 +840,10 @@ public:
         bool is_tcp = false;
         datum udp_pkt_data{data, data+length};
         datum tcp_pkt_data{data, data+length};
-        enum udp_msg_type msg_type = (udp_msg_type)(pkt_proc_ctx->selector.get_udp_msg_type(udp_pkt_data));
         udp::ports udp_ports;
         udp_ports.src = ports.first;
         udp_ports.dst = ports.second;
+        enum udp_msg_type msg_type = (udp_msg_type)(pkt_proc_ctx->selector.get_udp_msg_type(udp_pkt_data, udp_ports));
         if (msg_type == udp_msg_type_unknown) {
             // TODO: wrap this up in a traffic_selector member function
             msg_type = (udp_msg_type)(pkt_proc_ctx->selector.get_udp_msg_type_from_ports(udp_ports));
@@ -885,7 +852,8 @@ public:
         k.src_port = udp_ports.src;
         k.dst_port = udp_ports.dst;
         k.protocol = 17;
-        pkt_proc_ctx->set_udp_protocol(udp_proto, udp_pkt_data, msg_type, true, k);
+        udp udp_pkt{k};
+        pkt_proc_ctx->set_udp_protocol(udp_proto, udp_pkt_data, udp_pkt.get_ports(), true, k, udp_pkt);
         is_udp = (msg_type != udp_msg_type_unknown) && (std::holds_alternative<std::monostate>(udp_proto) == false) && (std::holds_alternative<unknown_udp_initial_packet>(udp_proto) == false);
 
         if (!is_udp) {

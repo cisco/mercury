@@ -191,6 +191,7 @@ public:
             { "ssdp",                   false },
             { "ssh",                    false },
             { "stun",                   false },
+            { "syslog",                 false },
             { "tacacs",                 false },
             { "tcp",                    false },
             { "tcp.message",            false },

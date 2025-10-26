@@ -99,13 +99,18 @@ apt-get download g++
 #
 export LD_PRELOAD=""
 
-# verify that output JSON file is valid, after a pause to give JSON
+# shut down intercept_server, after a pause to give JSON
 # output time to get into file
 #
 # note: the sleep interval used below should exceed that used in the
 # 'run' function above
 #
 sleep 7
+kill -s INT `cat intercept_server.PID`
+rm intercept_server.PID
+sleep 1
+
+# verify that output JSON file is valid
 jq . intercept.json > /dev/null
 retval=$?
 if [ retval==0 ]; then
@@ -115,11 +120,6 @@ else
     echo "retaining output files"
     exit 1
 fi
-
-# shut down intercept_server
-#
-kill -s INT `cat intercept_server.PID`
-rm intercept_server.PID
 
 # back to original directory
 #
