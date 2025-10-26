@@ -275,6 +275,10 @@ struct stateful_pkt_proc {
                           struct timespec *ts,
                           struct tcp_reassembler *reassembler);
 
+    bool set_tcp_protocol_from_keyword(protocol &x,
+                                       datum pkt_copy,
+                                       tcp_msg_type msg_type);
+
     void set_tcp_protocol(protocol &x,
                           struct datum &pkt,
                           bool is_new,

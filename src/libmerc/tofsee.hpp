@@ -94,6 +94,8 @@ public:
         srv_time{pt, 4},
         unknown_2{pt, 48} { }
 
+    static constexpr ssize_t pkt_length = 200;
+
     static constexpr mask_and_value<4> matcher{
         { 0x00, 0x00, 0x00, 0x00 },
         { 0x00, 0x00, 0x00, 0x00 }
