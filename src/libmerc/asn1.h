@@ -470,7 +470,7 @@ struct tlv {
 
     /// holds the classess that a tag can be associated with, in order
     ///
-    static constexpr const char *tag_class[] = {
+    static constexpr const char *tag_class__[] = {
         "universal",        // 0
         "application",      // 1
         "context-specific", // 2
@@ -481,10 +481,23 @@ struct tlv {
     /// class associated with this \ref tlv object
     ///
     const char *get_class() const {
-        return tag_class[tag >> 6];
+        return tag_class__[tag >> 6];
     }
 
-    bool is_context_specific() const { return tag >> 6 == 2; }
+    enum tag_class : uint8_t {
+        universal        = 0,
+        application      = 1,
+        context_specific = 2,
+        private_class    = 4
+    };
+
+    enum tag_class get_tag_class() const { return (tag_class)(tag >> 6); }
+
+    // bool is_context_specific() const { return tag >> 6 == 2; }
+
+    // bool is_application() const { return tag >> 6 == 0; }
+
+    // bool is_universal() const { return tag >> 6 == 0; }
 
     uint8_t tag_number() const { return tag & 31; }
 
