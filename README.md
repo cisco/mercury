@@ -182,6 +182,7 @@ DETAILS
       stun              STUN messages
       ssdp              SSDP (UPnP)
       socks             SOCKS4,SOCKS5 messages
+      tacacs            TACACS+
       tcp               TCP headers
       tcp.message       TCP initial message
       tcp.syn_ack       TCP syn ack message

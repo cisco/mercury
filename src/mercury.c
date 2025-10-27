@@ -125,6 +125,7 @@ char mercury_extended_help[] =
     "      stun              STUN messages\n"
     "      ssdp              SSDP (UPnP)\n"
     "      socks             SOCKS4,SOCKS5 messages\n"
+    "      tacacs            TACACS+\n"
     "      tcp               TCP headers\n"
     "      tcp.message       TCP initial message\n"
     "      tcp.syn_ack       TCP syn ack message\n"
