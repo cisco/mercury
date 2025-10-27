@@ -14,10 +14,10 @@ namespace tacacs {
 
     /// return the hashcat input string for a tacacs+ encrypted message
     ///
-    static data_buffer<128> get_hashcast_string(encoded<uint32_t> session_id,
-                                                encoded<uint8_t> version,
-                                                encoded<uint8_t> seq_no,
-                                                datum ciphertext);
+    static data_buffer<128> get_password_recovery_string(encoded<uint32_t> session_id,
+                                                         encoded<uint8_t> version,
+                                                         encoded<uint8_t> seq_no,
+                                                         datum ciphertext);
 
     //  5.1. The Authentication START Packet Body
     //
@@ -291,10 +291,11 @@ namespace tacacs {
                 //
                 const char *message_type = direction() == msg_type::request ? "encrypted_request" : "encrypted_reply";
                 tacacs_json.print_key_hex(message_type, body);
-            }
 
-            data_buffer<128> hashcat_string = get_hashcast_string(session_id, version, seq_no, body);
-            tacacs_json.print_key_json_string("hashcat", hashcat_string.contents());
+                data_buffer<128> password_recovery_string = get_password_recovery_string(session_id, version, seq_no, body);
+                tacacs_json.print_key_json_string("password_recovery", password_recovery_string.contents());
+
+            }
 
             tacacs_json.close();
         }
@@ -323,12 +324,12 @@ namespace tacacs {
 
     };
 
-    /// return the hashcat input string for a tacacs+ encrypted message
+    /// return the password_recovery input string for a tacacs+ encrypted message
     ///
-    static data_buffer<128> get_hashcast_string(encoded<uint32_t> session_id,
-                                                encoded<uint8_t> version,
-                                                encoded<uint8_t> seq_no,
-                                                datum ciphertext)
+    static data_buffer<128> get_password_recovery_string(encoded<uint32_t> session_id,
+                                                         encoded<uint8_t> version,
+                                                         encoded<uint8_t> seq_no,
+                                                         datum ciphertext)
     {
         data_buffer<128> result;
 
