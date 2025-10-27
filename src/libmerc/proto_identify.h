@@ -153,6 +153,7 @@ enum udp_msg_type {
     udp_msg_type_geneve,
     udp_msg_type_gre,
     udp_msg_type_ike,
+    udp_msg_type_snmp,
     udp_msg_type_syslog,
 };
 
@@ -449,6 +450,7 @@ class traffic_selector {
     bool select_openvpn_tcp{false};
     bool select_ldap{false};
     bool select_krb5{false};
+    bool select_snmp{false};
     bool select_ftp_request{false};
     bool select_ftp_response{false};
     bool select_ipsec{false};
@@ -485,6 +487,8 @@ public:
     bool icmp() const { return select_icmp; }
 
     bool krb5() const { return select_krb5; }
+
+    bool snmp() const { return select_snmp; }
 
     bool ldap() const { return select_ldap; }
 
@@ -661,6 +665,9 @@ public:
            // kerberos is not yet ready for integration
            //
            // select_krb5 = true;
+        }
+        if (protocols["snmp"] || protocols["all"]) {
+            select_snmp = true;
         }
         if (protocols["tcp.message"] || protocols["all"]) {
             // select_tcp_syn = 0;
@@ -897,6 +904,11 @@ public:
 
         if (krb5() and (ports.src == hton<uint16_t>(88) or ports.dst == hton<uint16_t>(88))) {
             return udp_msg_type_krb5;
+        }
+
+        if (snmp() and (ports.src == hton<uint16_t>(161) or ports.src == hton<uint16_t>(162)
+                        or ports.dst == hton<uint16_t>(161) or ports.dst == hton<uint16_t>(162)) ) {
+            return udp_msg_type_snmp;
         }
 
         if (syslog() and (ports.dst == hton<uint16_t>(514))) {

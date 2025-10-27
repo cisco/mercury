@@ -131,6 +131,8 @@ LIBMERC_H   += bittorrent.h
 LIBMERC_H   += tls_extensions.h
 LIBMERC_H   += naive_bayes.hpp
 LIBMERC_H   += softmax.hpp
+LIBMERC_H   += snmp.hpp
+LIBMERC_H   += syslog.hpp
 
 # asn1/oid.cc and asn1/oid.h are auto-built from ASN1 files in the
 # asn1 subdirectory; this is a pattern target that builds both files

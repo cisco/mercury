@@ -1,5 +1,6 @@
 # CHANGELOG for Mercury
 
+* Added SNMP protocol identification with JSON and CBOR output.
 * Added SYSLOG protocol identification with JSON and CBOR output.
 
 =======

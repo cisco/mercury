@@ -8,7 +8,7 @@
 
 #include "libmerc_driver_helper.hpp"
 #include "bencode.h"
-#include "snmp.h"
+#include "snmp.hpp"
 #include "tofsee.hpp"
 #include "ip_address.hpp"
 #include "utf8.hpp"
