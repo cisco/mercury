@@ -480,6 +480,15 @@ namespace snmp {
             snmp.close();
         }
 
+        void write_l7_metadata(cbor_object &o) const {
+            if (!valid) {
+                return;
+            }
+            cbor_array protocols{o, "protocols"};
+            protocols.print_string("snmp");
+            protocols.close();
+        }
+
         bool is_not_empty() const {
             return valid;
         }
@@ -578,7 +587,6 @@ namespace snmp {
         bool valid;
 
     public:
-        // bool priv;
 
         bool priv() const { return tmp & 2; }
         bool auth() const { return tmp & 1; }
@@ -595,7 +603,7 @@ namespace snmp {
 
         void write_json(json_object &o) const {
             if (!valid) { return; }
-            if (false) {
+            if constexpr (false) {
                 o.print_key_hex("msg_id", msgID.value);
                 o.print_key_hex("msg_max_size", msgMaxSize.value);
                 o.print_key_hex("msg_flags", msgFlags.value);
@@ -641,9 +649,7 @@ namespace snmp {
         void write_json(json_object &o) const {
 
             o.print_key_hex("context_engine_id", contextEngineID.value);
-            if (true) {
-                o.print_key_hex("context_name", contextName.value);
-            }
+            o.print_key_hex("context_name", contextName.value);
 
             // report PDU type based on explicit tag
             //
@@ -660,10 +666,8 @@ namespace snmp {
                 o.print_key_unknown_code("pdu_type", (uint8_t)(any.tag & 31));
             }
 
-            if (true) {
-                tlv tmp{any};
-                v2_pdu{tmp.value}.write_json(o);
-            }
+            tlv tmp{any};
+            v2_pdu{tmp.value}.write_json(o);
 
         }
     };
@@ -880,8 +884,6 @@ namespace snmp {
             body{seq.value}
         { }
 
-        static constexpr bool verbose = false;  // suppress verbose output
-
         void write_json(json_object &o, bool metadata=false) const {
             (void)metadata;
             if (!is_not_empty()) {
@@ -889,20 +891,13 @@ namespace snmp {
             }
             json_object snmp{o, "snmp"};
             snmp.print_key_uint("version", get_uint64(version.value));
-            if (true) {
-                hd.write_json(o);
-            }
-            if (verbose) {
-                o.print_key_hex("msgSecurityParameters", msgSecurityParameters.value);
-            }
+            hd.write_json(o);
             usm_security_parameters{msgSecurityParameters.value}.write_json(o, pdu_copy, hd.priv());
 
             datum tmp = body;
             if (hd.priv()) {
-                tlv encrypted_pdu{&tmp, 0x00, "encrypted-pdu"}; // TODO: implement decryption
-                if (verbose) {
-                    o.print_key_hex("encrypted_pdu", body);
-                }
+                tlv encrypted_pdu{&tmp, tlv::OCTET_STRING, "encrypted-pdu"}; // TODO: implement decryption
+                o.print_key_uint("encrypted_pdu_length", encrypted_pdu.length);
             } else {
                 scoped_pdu_data msgData{tmp};
                 msgData.write_json(o);
@@ -910,7 +905,7 @@ namespace snmp {
             snmp.close();
         }
 
-        void write_l7_metadata(cbor_object &o, bool) {
+        void write_l7_metadata(cbor_object &o) const {
             if (!valid) {
                 return;
             }
@@ -948,6 +943,7 @@ namespace snmp {
 
             switch(get_version(d)) {
             case 0x00:
+                [[fallthrough]];
             case 0x01:
                 body.emplace<v2_packet>(d);
                 break;
@@ -974,6 +970,23 @@ namespace snmp {
         void write_json(json_object &o, bool metadata=true) const {
             (void)metadata;
             std::visit(do_write_json{o}, body);
+        }
+
+        struct do_write_l7_metadata {
+            cbor_object &record;
+
+            do_write_l7_metadata(cbor_object &obj) : record{obj} { }
+
+            void operator()(const std::monostate &) { }
+
+            template <typename T>
+            void operator()(T &t) { t.write_l7_metadata(record); }
+
+        };
+
+        void write_l7_metadata(cbor_object &o, bool metadata=true) const {
+            (void)metadata;
+            std::visit(do_write_l7_metadata{o}, body);
         }
 
         struct do_is_not_empty {
