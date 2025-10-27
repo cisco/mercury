@@ -17,6 +17,8 @@
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
 #include <openssl/err.h>
+#include <stdexcept>
+#include <cstring>
 
 #define pt_buf_len 2048
 
@@ -295,21 +297,36 @@ public:
 
 class hasher {
     EVP_MD_CTX *mdctx;
+    const EVP_MD *md = nullptr;
 
 public:
 
-    hasher() : mdctx{nullptr} { }
+    hasher(const char *type) : mdctx{nullptr} {
+
+        if (type == nullptr) {
+            throw std::runtime_error{"nullptr passed to hasher"};
+        }
+        if (strcmp(type, "sha256") == 0) {
+            md = EVP_sha256();
+        } else if (strcmp(type, "sha1") == 0) {
+            md = EVP_sha1();
+        } else if (strcmp(type, "md5") == 0) {
+            md = EVP_md5();
+        } else {
+            throw std::runtime_error{std::string{"unknown hash function "} + type};
+        }
+    }
 
     ~hasher() {
         // EVP_MD_CTX_free() is preferred in v1.1.1, but unavailable in earlier versions
         EVP_MD_CTX_destroy(mdctx);
     }
 
-    constexpr static size_t output_size = 20;
+    size_t output_size() const { return EVP_MD_size(md); }
 
     void hash_buffer(const unsigned char *message, size_t message_len, unsigned char *digest, unsigned int digest_len) {
 
-        if ((unsigned int)EVP_MD_size(EVP_sha1()) > digest_len) {
+        if ((unsigned int)EVP_MD_size(md) > digest_len) {
             handleErrors();
         }
 
@@ -320,7 +337,7 @@ public:
             }
         }
 
-        if (1 != EVP_DigestInit_ex(mdctx, EVP_sha1(), NULL)) {
+        if (1 != EVP_DigestInit_ex(mdctx, md, NULL)) {
             handleErrors();
         }
 
