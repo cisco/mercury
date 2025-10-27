@@ -5,6 +5,9 @@
 #ifndef HTTP2_H
 #define HTTP2_H
 
+#include "datum.h"
+#include "json_object.h"
+
 // HPACK - HTTP2 Header [De]Compression
 //
 
@@ -285,6 +288,36 @@ public:
 
         json_frame.close();
     }
+};
+
+namespace {
+
+    [[maybe_unused]] int http2_frame_fuzz_test(const uint8_t *data, size_t size) {
+        datum d{data, data+size};
+        http2_frame pkt_data;
+        pkt_data.parse(d);
+        if (d.is_not_null()) {
+            char output_buffer[8192];
+            struct buffer_stream buf_json(output_buffer, sizeof(output_buffer));
+            struct json_object record(&buf_json);
+            pkt_data.write_json(record);
+        }
+        return 0;
+    }
+
+    [[maybe_unused]] int http2_header_fuzz_test(const uint8_t *data, size_t size) {
+        datum d{data, data+size};
+        http2_headers pkt_data;
+        pkt_data.parse(d);
+        if (d.is_not_null()) {
+            char output_buffer[8192];
+            struct buffer_stream buf_json(output_buffer, sizeof(output_buffer));
+            struct json_object record(&buf_json);
+            pkt_data.write_json(record);
+        }
+        return 0;
+    }
+
 };
 
 #endif // HTTP2_H

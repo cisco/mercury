@@ -62,7 +62,7 @@ struct attribute {
         attribute_value.parse(&sequence.value, 0, "attribute_value");
     }
 
-    void print_as_json(struct json_object_asn1 &o) const {
+    void print_as_json(struct json_object &o) const {
         if (attribute_type.is_not_null()) {
             const char *oid_string = oid::get_string(&attribute_type.value);
             if (oid_string != oid_empty_string) {
@@ -89,13 +89,13 @@ struct name {
         RDNsequence.parse(p, tlv::SEQUENCE, label);
     }
 
-    void print_as_json(struct json_object_asn1 &o, const char *name) const {
+    void print_as_json(struct json_object &o, const char *name) const {
 
         struct json_array array{o, name};
         struct datum tlv_sequence = RDNsequence.value;
         while (tlv_sequence.is_not_empty()) {
             struct attribute attr(&tlv_sequence);
-            struct json_object_asn1 attr_obj{array};
+            struct json_object attr_obj{array};
             attr.print_as_json(attr_obj);
             attr_obj.close();
         }
@@ -139,14 +139,14 @@ struct basic_constraints {
         }
     }
 
-    void print_as_json(struct json_object_asn1 &o, const char *name) const {
+    void print_as_json(struct json_object &o, const char *name) const {
         bool ca_flag = false;  // default
         unsigned int length = 0;   // default
         // TBD: report actual non-default data
         if (ca.length) {  // Check value as well as length!
             ca_flag = true;
         }
-        struct json_object_asn1 bc{o, name};
+        struct json_object bc{o, name};
         bc.print_key_bool("ca", ca_flag);
         bc.print_key_uint("path_len_constraint", length);
         bc.close();
@@ -169,8 +169,8 @@ struct ext_key_usage {
         sequence.parse(p, 0, "ext_key_usage.sequence");
     }
 
-    void print_as_json(struct json_object_asn1 &o, const char *name) const {
-        struct json_array_asn1 a{o, name};
+    void print_as_json(struct json_object &o, const char *name) const {
+        struct json_array a{o, name};
         struct datum p = sequence.value;
         while (p.is_not_empty()) {
             struct tlv key_purpose_id(&p);
@@ -178,7 +178,7 @@ struct ext_key_usage {
             if (oid_string != oid_empty_string) {
                 a.print_string(oid_string);
             } else {
-                a.print_oid(key_purpose_id.value);
+                a.print_key(raw_oid{key_purpose_id.value});
             }
         }
         a.close();
@@ -213,7 +213,7 @@ struct key_usage {
         bit_string.parse(p, tlv::BIT_STRING);
     }
 
-    void print_as_json(struct json_object_asn1 &o, const char *name) const {
+    void print_as_json(struct json_object &o, const char *name) const {
         char *flags[10] = {
             (char *)"digital_signature",
             (char *)"non_repudiation",
@@ -297,8 +297,8 @@ struct policy_qualifier_info {
             qualifier.parse(&sequence.value);
         }
     }
-    void print_as_json(struct json_object_asn1 &o, const char *name) const {
-        struct json_object_asn1 q{o, name};
+    void print_as_json(struct json_object &o, const char *name) const {
+        struct json_object q{o, name};
         qualifier_id.print_as_json_oid(q, "qualifier_id");
         qualifier.print_as_json_escaped_string(q, "qualifier");
         q.close();
@@ -314,7 +314,7 @@ struct policy_information {
         sequence.parse(p, tlv::SEQUENCE);
         if (sequence.is_null()) { p->set_null(); } // handle unexpected data
     }
-    void print_as_json(struct json_object_asn1 &o, const char *name) const {
+    void print_as_json(struct json_object &o, const char *name) const {
         struct datum tlv_sequence = sequence.value;
         struct tlv policy_identifier(&tlv_sequence, tlv::OBJECT_IDENTIFIER);
         struct tlv policy_qualifiers;
@@ -322,7 +322,7 @@ struct policy_information {
             policy_qualifiers.parse(&tlv_sequence, tlv::SEQUENCE);
         }
         struct json_array a{o, name};
-        struct json_object_asn1 wrapper{a};
+        struct json_object wrapper{a};
         policy_identifier.print_as_json_oid(wrapper, "policy_identifier");
         if (policy_qualifiers.is_not_null()) {
             struct policy_qualifier_info policy_qualifier_info(&policy_qualifiers.value);
@@ -339,12 +339,12 @@ struct certificate_policies {
     explicit certificate_policies(struct datum *p) : sequence{} { //, policy_information{} {
         sequence.parse(p, tlv::SEQUENCE);
     }
-    void print_as_json(struct json_object_asn1 &o, const char *name) const {
+    void print_as_json(struct json_object &o, const char *name) const {
         struct json_array a{o, name};
         struct datum tlv_sequence = sequence.value;
         while (tlv_sequence.is_not_empty()) {
             struct policy_information pi(&tlv_sequence);
-            struct json_object_asn1 wrapper{a};
+            struct json_object wrapper{a};
             pi.print_as_json(wrapper, "policy_information");
             wrapper.close();
         }
@@ -383,15 +383,15 @@ struct private_key_usage_period {
             }
         }
     }
-    void print_as_json(struct json_object_asn1 &o, const char *name) const {
+    void print_as_json(struct json_object &o, const char *name) const {
         struct json_array a{o, name};
         if (notBefore.is_not_null()) {
-            struct json_object_asn1 wrapper{a};
+            struct json_object wrapper{a};
             notBefore.print_as_json_generalized_time(wrapper, "not_before");
             wrapper.close();
         }
         if (notAfter.is_not_null()) {
-            struct json_object_asn1 wrapper{a};
+            struct json_object wrapper{a};
             notAfter.print_as_json_generalized_time(wrapper, "not_after");
             wrapper.close();
         }
@@ -439,12 +439,12 @@ struct general_name {
         explicit_tag.parse(p, expected_tag);
         // explicit_tag.fprint_tlv(stderr, "explicit_tag");
     }
-    void print_as_json(struct json_object_asn1 &o) const {
+    void print_as_json(struct json_object &o) const {
         if (explicit_tag.tag == otherName) {
             struct datum tlv_sequence = explicit_tag.value;
             struct tlv type_id(&tlv_sequence, tlv::OBJECT_IDENTIFIER);
             struct tlv value(&tlv_sequence, 0);
-            struct json_object_asn1 other_name{o, "other_name"};
+            struct json_object other_name{o, "other_name"};
             type_id.print_as_json_oid(other_name, "type_id");
             value.print_as_json_escaped_string(other_name, "value"); // nb: used to be hex
             other_name.close();
@@ -455,7 +455,7 @@ struct general_name {
         } else if (explicit_tag.tag == uniformResourceIdentifier) {
             explicit_tag.print_as_json_escaped_string(o, "uri");
         } else if (explicit_tag.tag == iPAddress) {
-            explicit_tag.print_as_json_ip_address(o, "ip_address");
+            o.print_key_ip_addr("ip_address", explicit_tag.value);
         } else if (explicit_tag.tag == directoryName) {
             struct datum tmp = explicit_tag.value;
             struct name n;
@@ -492,7 +492,7 @@ struct subject_alt_name {
         struct datum tlv_sequence = sequence.value;
         while (tlv_sequence.is_not_empty()) {
             struct general_name general_name(&tlv_sequence);
-            struct json_object_asn1 wrapper{a};
+            struct json_object wrapper{a};
             general_name.print_as_json(wrapper);
             wrapper.close();
         }
@@ -549,14 +549,14 @@ struct distribution_point_name {
         }
     }
 
-    void print_as_json(struct json_object_asn1 &o, const char *name) const {
-        struct json_object_asn1 wrapper{o, name};
+    void print_as_json(struct json_object &o, const char *name) const {
+        struct json_object wrapper{o, name};
         if (full_name.explicit_tag.is_not_null()) {
-            struct json_object_asn1 full{wrapper, "full_name"};
+            struct json_object full{wrapper, "full_name"};
             full_name.print_as_json(full);
             full.close();
         } else if (name_relative_to_crl_issuer.set.is_not_null()) {
-            struct json_object_asn1 relative{wrapper, "name_relative_to_crl_issuer"};
+            struct json_object relative{wrapper, "name_relative_to_crl_issuer"};
             name_relative_to_crl_issuer.print_as_json(relative);
             relative.close();
         }
@@ -574,14 +574,14 @@ struct distribution_point {
 
     explicit distribution_point(struct datum *p) : sequence{p} { }
 
-    void print_as_json(struct json_object_asn1 &o, const char *name) const {
+    void print_as_json(struct json_object &o, const char *name) const {
         struct json_array a{o, name};
         struct datum tlv_sequence = sequence.value;
         while (tlv_sequence.is_not_empty()) {
             struct tlv tmp(&tlv_sequence);
             if (tmp.tag == tlv::explicit_tag_constructed(0)) {
                 struct distribution_point_name distribution_point_name(&tmp.value);
-                struct json_object_asn1 wrapper{a};
+                struct json_object wrapper{a};
                 distribution_point_name.print_as_json(wrapper, "distribution_point_name");
                 wrapper.close();
             }
@@ -595,12 +595,12 @@ struct crl_distribution_points {
 
     explicit crl_distribution_points(struct datum *p) : sequence{p} {  }
 
-    void print_as_json(struct json_object_asn1 &o, const char *name) const {
+    void print_as_json(struct json_object &o, const char *name) const {
         struct json_array a{o, name};
         struct datum tlv_sequence = sequence.value;
         while (tlv_sequence.is_not_empty()) {
             struct distribution_point dp(&tlv_sequence);
-            struct json_object_asn1 tmp{a};
+            struct json_object tmp{a};
             dp.print_as_json(tmp, "crl_distribution_point");
             tmp.close();
         }
@@ -649,8 +649,8 @@ struct authority_key_identifier {
         }
     }
 
-    void print_as_json(struct json_object_asn1 &o, const char *name) const {
-        struct json_object_asn1 aki{o, name};
+    void print_as_json(struct json_object &o, const char *name) const {
+        struct json_object aki{o, name};
         if (key_identifier.is_not_null()) {
             key_identifier.print_as_json_hex(aki, "key_identifier");
         }
@@ -705,8 +705,8 @@ struct general_subtree {
         }
     }
 
-    void print_as_json(struct json_object_asn1 &o, const char *name) const {
-        struct json_object_asn1 gst{o, name};
+    void print_as_json(struct json_object &o, const char *name) const {
+        struct json_object gst{o, name};
         base.print_as_json(gst);
         if (minimum.is_not_null()) {
             // TBD: print out minimum (what about default?)
@@ -740,8 +740,8 @@ struct name_constraints {
         }
     }
 
-    void print_as_json(struct json_object_asn1 &o, const char *name) const {
-        struct json_object_asn1 ps{o, name};
+    void print_as_json(struct json_object &o, const char *name) const {
+        struct json_object ps{o, name};
         if (permitted_subtrees.is_not_null()) {
             struct datum tmp = permitted_subtrees.value;  // to avoid modifying permitted_subtrees
             general_subtree subtree(&tmp);
@@ -787,9 +787,9 @@ struct validity {
         notAfter.parse(&sequence.value, 0, "validity.notAfter");   // tlv::UTCTime or tlv::GeneralizedTime
     }
 
-    void print_as_json(struct json_object_asn1 &o) const {
+    void print_as_json(struct json_object &o) const {
         struct json_array array{o, "validity"};
-        struct json_object_asn1 obj{array};
+        struct json_object obj{array};
         if (notBefore.is_not_null()) {
             notBefore.print_as_json(obj, "not_before");
         }
@@ -835,7 +835,7 @@ struct signed_certificate_timestamp_list {
         serialized_sct.parse(p);
     }
 
-    void print_as_json(struct json_object_asn1 &o, const char *name) const {
+    void print_as_json(struct json_object &o, const char *name) const {
         serialized_sct.print_as_json_hex(o, name);
     }
 
@@ -885,12 +885,12 @@ struct access_description {
         }
     }
 
-    void print_as_json(struct json_object_asn1 &o) const {
+    void print_as_json(struct json_object &o) const {
         if (access_method.is_not_null()) {
             access_method.print_as_json_oid(o, "access_method");
         }
         if (access_location.explicit_tag.is_not_null()) {
-            struct json_object_asn1 al{o, "access_location"};
+            struct json_object al{o, "access_location"};
             access_location.print_as_json(al);
             al.close();
         }
@@ -907,13 +907,13 @@ struct authority_info_access_syntax {
         sequence.parse(p, tlv::SEQUENCE);
     }
 
-    void print_as_json(struct json_object_asn1 &o, const char *name) const {
+    void print_as_json(struct json_object &o, const char *name) const {
         struct json_array a{o, name};
         struct access_description ad;
         struct datum tlv_sequence = sequence.value;
         while (tlv_sequence.is_not_empty()) {
             ad.parse(&tlv_sequence);
-            struct json_object_asn1 wrapper{a};
+            struct json_object wrapper{a};
             ad.print_as_json(wrapper);
             wrapper.close();
             // break; // TBD: FIXME
@@ -959,7 +959,7 @@ struct extension {
         // TBD: if parsing fails, propagate failue upwards
     }
 
-    void print_as_json(struct json_object_asn1 &o) const {
+    void print_as_json(struct json_object &o) const {
         if (sequence.is_constructed()) {
             enum oid::type oid_type = oid::unknown;
             bool critical_flag = false;
@@ -1031,7 +1031,7 @@ struct extension {
                 x.print_as_json_hex(o, "netscape_cert_type");
             } else {
                 struct tlv x(&value);
-                struct json_object_asn1 unsprt{o, "unsupported"};
+                struct json_object unsprt{o, "unsupported"};
                 extnID.print_as_json_oid(unsprt, "oid");
                 x.print_as_json_hex(unsprt, "value");
                 unsprt.close();
@@ -1066,8 +1066,8 @@ struct rsa_public_key {
         exponent.parse(&sequence.value, tlv::INTEGER);
     }
 
-    void print_as_json(struct json_object_asn1 &o, const char *name) const {
-        struct json_object_asn1 pub_key{o, name};
+    void print_as_json(struct json_object &o, const char *name) const {
+        struct json_object pub_key{o, name};
         if (modulus.is_not_null() && exponent.is_not_null()) {
             modulus.print_as_json_hex(pub_key, "modulus");
             exponent.print_as_json_hex(pub_key, "exponent");
@@ -1185,8 +1185,8 @@ struct ec_public_key {
         d = *p;
     }
 
-    void print_as_json(struct json_object_asn1 &o, const char *name) const {
-        struct json_object_asn1 pub_key{o, name};
+    void print_as_json(struct json_object &o, const char *name) const {
+        struct json_object pub_key{o, name};
         ssize_t data_length = d.data_end - d.data;
         const uint8_t *data = d.data;
         if (data && data_length) {
@@ -1246,8 +1246,8 @@ struct ecdsa_signature {
         r.parse(&sequence.value, tlv::INTEGER);
         s.parse(&sequence.value, tlv::INTEGER);
     }
-    void print_as_json(struct json_object_asn1 &o, const char *name) const {
-        struct json_object_asn1 sig{o, name};
+    void print_as_json(struct json_object &o, const char *name) const {
+        struct json_object sig{o, name};
         r.print_as_json_hex(sig, "r");
         s.print_as_json_hex(sig, "s");
         sig.close();
@@ -1292,7 +1292,7 @@ struct algorithm_identifier {
 
     void print_as_json(struct json_object &o, const char *name) const {
         if (algorithm.is_not_null()) {
-            json_object_asn1 alg_id(o, name);
+            json_object alg_id(o, name);
             algorithm.print_as_json_oid(alg_id, "algorithm");
             if (parameters.is_not_null()) {
 
@@ -1361,8 +1361,8 @@ struct subject_public_key_info {
         }
     }
 
-    void print_as_json(struct json_object_asn1 &o, const char *name) const {
-        struct json_object_asn1 alg_id{o, name};
+    void print_as_json(struct json_object &o, const char *name) const {
+        struct json_object alg_id{o, name};
         algorithm.print_as_json(alg_id, "algorithm_identifier");
         struct tlv tmp_key = subject_public_key;
 
@@ -1377,7 +1377,7 @@ struct subject_public_key_info {
             pub_key.print_as_json(alg_id, "subject_public_key");
 
         } else {
-            struct json_object_asn1 key{alg_id, "subject_public_key"};
+            struct json_object key{alg_id, "subject_public_key"};
             subject_public_key.print_as_json_hex(key, "key");
             key.print_key_uint("bits_in_key", subject_public_key.value.bits_in_data());
             key.close();
@@ -1594,11 +1594,11 @@ struct x509_cert {
         buf.write_line(f);
     }
     void print_as_json(struct buffer_stream &buf, const std::list<struct x509_cert> &trusted_certs, struct dictionary *key_group) const {
-        struct json_object_asn1 o{&buf};
+        struct json_object o{&buf};
         print_as_json(o, trusted_certs, key_group);
         o.close();
     }
-    void print_as_json(struct json_object_asn1 &o, const std::list<struct x509_cert> &trusted_certs, struct dictionary *key_group) const {
+    void print_as_json(struct json_object &o, const std::list<struct x509_cert> &trusted_certs, struct dictionary *key_group) const {
 
         if (!version.is_null()) {
             version.print_as_json_hex(o, "version");
@@ -1627,7 +1627,7 @@ struct x509_cert {
             struct datum tlv_sequence = extensions.value;
             while (tlv_sequence.is_not_empty()) {
                 struct extension xtn(tlv_sequence);
-                struct json_object_asn1 wrapper{extensions_array};
+                struct json_object wrapper{extensions_array};
                 xtn.print_as_json(wrapper);
                 wrapper.close();
             }
@@ -1714,7 +1714,7 @@ struct x509_cert {
         } else if (alg_type == oid::type::id_Ed448) {
             ;
         } else {
-            return true; // uknown subject public key type 
+            return true; // uknown subject public key type
         }
         return false;
     }
@@ -1829,7 +1829,7 @@ struct x509_cert {
         return false;
     }
 
-    void report_key_group(struct json_object_asn1 &o, struct dictionary *d) const {
+    void report_key_group(struct json_object &o, struct dictionary *d) const {
         if (d) {
             std::basic_string<uint8_t> s = subjectPublicKeyInfo.subject_public_key.value.get_bytestring();
             unsigned int g = d->get(s);
@@ -1841,7 +1841,7 @@ struct x509_cert {
         s = subjectPublicKeyInfo.subject_public_key.value.get_bytestring();
     }
 
-    void report_violations(struct json_object_asn1 &o,
+    void report_violations(struct json_object &o,
                            const std::list<struct x509_cert> &trusted_certs) const {
         bool not_currently_valid = is_not_currently_valid();
         bool self_issued = is_self_issued();
@@ -1851,7 +1851,7 @@ struct x509_cert {
         bool trusted = is_trusted(trusted_certs);
 
         if (not_currently_valid || self_issued || weak_subject_key || weak_signature || nonconformant || !trusted) {
-            struct json_array_asn1 violations{o, "violations"};
+            struct json_array violations{o, "violations"};
             if (not_currently_valid) {
                 violations.print_string("invalid");
             }
@@ -1876,7 +1876,7 @@ struct x509_cert {
 
     void print_skeleton_as_json(struct buffer_stream &buf) const {
 
-        struct json_object_asn1 o{&buf};
+        struct json_object o{&buf};
         if (!version.is_null()) {
             version.print_tag_as_json_hex(o, "version");
         }
@@ -1904,7 +1904,7 @@ struct x509_cert {
             struct datum tlv_sequence = extensions.value;
             while (tlv_sequence.is_not_empty()) {
                 struct extension xtn(tlv_sequence);
-                struct json_object_asn1 wrapper{extensions_array};
+                struct json_object wrapper{extensions_array};
                 xtn.print_as_json(wrapper);
                 wrapper.close();
             }
@@ -1996,7 +1996,7 @@ struct x509_cert_prefix {
     }
 
     void print_as_json(struct buffer_stream &buf) const {
-        json_object_asn1 o{&buf};
+        json_object o{&buf};
         o.print_key_hex("version", version.value);
         o.print_key_hex("serial_number", serial_number.value);
         issuer.print_as_json(o, "issuer");

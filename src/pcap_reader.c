@@ -94,8 +94,21 @@ enum status open_and_dispatch(struct mercury_config *cfg, mercury_context mc, st
 #ifdef DONT_USE_THREADS
     pcap_file_processing_thread_func(&tc);
 #else
-    err = pthread_create(&(tc.tid), NULL, pcap_file_processing_thread_func, &tc);
-    if (err) {
+
+    // Set the stack size to a large value, since some platforms (like OS X) have stack sizes that are too small
+    pthread_attr_t pt_stack_size;
+    err = pthread_attr_init(&pt_stack_size);
+    if (err != 0) {
+        printf("Unable to init stack size attribute for pcap reader pthread: %s\n", strerror(err));
+    }
+
+    err = pthread_attr_setstacksize(&pt_stack_size, 16 * 1024 * 1024); // 16 MB is plenty big enough
+    if (err != 0) {
+        printf("Unable to set stack size attribute for pcap reader pthread: %s\n", strerror(err));
+    }
+
+    err = pthread_create(&(tc.tid), &pt_stack_size, pcap_file_processing_thread_func, &tc);
+    if (err != 0) {
         printf("%s: error creating file reader thread\n", strerror(err));
         exit(255);
     }
@@ -116,4 +129,3 @@ enum status open_and_dispatch(struct mercury_config *cfg, mercury_context mc, st
 
     return status_ok;
 }
-

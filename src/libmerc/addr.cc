@@ -16,6 +16,7 @@
 #include "datum.h"  // for ntoh()
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
+#include "ip_address.hpp"
 
 #include "lctrie/lctrie.h"
 #include "lctrie/lctrie_bgp.h"
@@ -93,35 +94,53 @@ uint32_t subnet_data::get_asn_info(const char* dst_ip) const {
     return 0;
 }
 
-int subnet_data::process_line(std::string &line_str) {
+int subnet_data::process_asn_subnets(const std::vector<std::string> &subnets) {
 
-    // set the prefix[num] to the subnet and ASN found in line
-    if (lct_subnet_set_from_string(&prefix[num], line_str.c_str()) != 0) {
-        printf_err(log_err, "could not parse subnet string '%s'\n", line_str.c_str());
-        return -1;  // failure
+    prefix = (lct_subnet_t *)calloc(sizeof(lct_subnet_t), subnets.size());
+    if (prefix == nullptr) {
+        throw std::runtime_error("error: could not initialize subnet_data");
     }
-    num++;
+
+    // Add Special and Private subnets to ASN subnets
+    //
+    // parse the subnets and ASN strings    // start with the RFC 1918 and 3927 private and link local
+    // subnets as a basis for any table set
+    //
+    // num += init_private_subnets(&prefix[num], BGP_MAX_ENTRIES);
+    //
+    // fill up the rest of the array with reserved IP subnets
+    //
+    // num += init_special_subnets(&prefix[num], BGP_MAX_ENTRIES);
+
+    for (const std::string &line_str : subnets) {
+        // set the prefix[num] to the subnet and ASN found in line
+        if (lct_subnet_set_from_string(&prefix[num], line_str.c_str()) != 0) {
+            printf_err(log_err, "could not parse subnet string '%s'\n", line_str.c_str());
+            continue;  // failure
+        }
+        num++;
+    }
     return 0;       // success
 }
 
 int subnet_data::lct_add_domain_mapping(uint32_t &addr, uint8_t &mask_length, std::string &domain_name, std::unordered_map<uint32_t, ssize_t> &subnet_map) {
     uint32_t domain_idx;
-    if (domains_watchlist.find(domain_name) == domains_watchlist.end()) {    // new domain; assing a domain id and save in the domain watchlist
+    if (domains_watchlist.find(domain_name) == domains_watchlist.end()) {    // new domain; assign a domain id and save in the domain watchlist
         domain_idx = domains_watchlist.size();
         domains_watchlist[domain_name] = domain_idx;
     } else {
-        domain_idx = domains_watchlist[domain_name];    // domain already see; retrieve domain id
+        domain_idx = domains_watchlist[domain_name];    // domain already seen; retrieve domain id
     }
 
     lct_subnet<uint32_t> *subnet_itr;
-    if (subnet_map.find(addr) != subnet_map.end()) {    // subnet presetn in map, domain_idx needs to be appended
+    if (subnet_map.find(addr) != subnet_map.end()) {    // subnet present in map, domain_idx needs to be appended
         subnet_itr = &domains_prefix[subnet_map[addr]];
         if (subnet_itr->info.type == IP_SUBNET_DOMAIN && subnet_itr->addr == addr && subnet_itr->len == mask_length) {
             uint8_t *old_arr = subnet_itr->info.domain.domain_idx_arr;
-            
+
             ++subnet_itr->info.domain.domain_idx_arr_len;
             uint8_t *new_domain_idx_arr = (uint8_t *)realloc(subnet_itr->info.domain.domain_idx_arr, subnet_itr->info.domain.domain_idx_arr_len * sizeof(uint8_t));
-            
+
             if (new_domain_idx_arr == NULL) {
                 free(old_arr);
                 old_arr = nullptr;
@@ -135,7 +154,7 @@ int subnet_data::lct_add_domain_mapping(uint32_t &addr, uint8_t &mask_length, st
     }
     else {    // create a new entry in the map
         subnet_itr = &domains_prefix[domains_prefix_num];
-        
+
         subnet_itr->addr = addr;
         subnet_itr->len = mask_length;
         subnet_itr->info.type = IP_SUBNET_DOMAIN;
@@ -146,62 +165,85 @@ int subnet_data::lct_add_domain_mapping(uint32_t &addr, uint8_t &mask_length, st
         subnet_map[addr] = domains_prefix_num;
         domains_prefix_num++;
     }
-    
+
     return 0;       // success
 }
 
-int subnet_data::process_domain_mappings_line(std::string &line_str, std::unordered_map<uint32_t, ssize_t> &subnet_map) {
-    rapidjson::Document domain_obj;
-    domain_obj.Parse(line_str.c_str());
-    if(!domain_obj.IsObject()) {
-        printf_err(log_warning, "invalid JSON line in resource file\n");
-        return -1;
+int subnet_data::lct_add_domain_exception(uint32_t &addr, uint8_t &mask_length) {
+
+    lct_subnet_t *subnet_itr;
+    subnet_itr = &domains_prefix[domains_prefix_num];
+    subnet_itr->addr = addr;
+    subnet_itr->len = mask_length;
+    subnet_itr->info.type = IP_SUBNET_DOMAIN_EXCEPTION;
+    domains_prefix_num++;
+
+    return 0;       // success
+}
+
+int subnet_data::process_domain_mapping_subnets(const std::vector<std::string> &subnets) {
+
+    std::unordered_map<uint32_t, ssize_t> subnet_map;
+    domains_prefix = (lct_subnet_t *)calloc(sizeof(lct_subnet_t), subnets.size());
+    if (domains_prefix == nullptr) {
+        throw std::runtime_error("error: could not initialize domains_prefix");
     }
 
-    std::string subnet_type;
-    std::string subnet_str;
-    std::string subnet_tag;
-    
-    uint32_t addr;
-    unsigned char *dq = (unsigned char *)&addr;
-    uint8_t mask_length;
-    constexpr unsigned int bits_in_T = sizeof(uint32_t) * 8;
+    for (const std::string &line_str : subnets) {
+        rapidjson::Document domain_obj;
+        domain_obj.Parse(line_str.c_str());
+        if(!domain_obj.IsObject()) {
+            printf_err(log_warning, "invalid JSON line in resource file\n");
+            continue;
+        }
 
-    if (domain_obj.HasMember("subnet") && domain_obj["subnet"].IsString()) {
-        subnet_str = domain_obj["subnet"].GetString();
-    }
-    else {
-        return -1;
-    }
-    if (domain_obj.HasMember("type") && domain_obj["type"].IsString()) {
-        subnet_type = domain_obj["type"].GetString();
-    }
-    else {
-        return -1;
-    }
-    if (domain_obj.HasMember("tag") && domain_obj["tag"].IsString()) {
-        subnet_tag = domain_obj["tag"].GetString();
-    }
-    else {
-        return -1;
-    }
+        std::string subnet_type;
+        std::string subnet_str;
+        std::string subnet_tag;
 
-    if (subnet_type == "domain_mapping") {
+        uint32_t addr;
+        unsigned char *dq = (unsigned char *)&addr;
+        uint8_t mask_length;
+        constexpr unsigned int bits_in_T = sizeof(uint32_t) * 8;
+
+        if (domain_obj.HasMember("subnet") && domain_obj["subnet"].IsString()) {
+            subnet_str = domain_obj["subnet"].GetString();
+        }
+        else {
+            continue;
+        }
+        if (domain_obj.HasMember("type") && domain_obj["type"].IsString()) {
+            subnet_type = domain_obj["type"].GetString();
+        }
+        else {
+            continue;
+        }
+        if (domain_obj.HasMember("tag") && domain_obj["tag"].IsString()) {
+            subnet_tag = domain_obj["tag"].GetString();
+        }
+        else {
+            continue;
+        }
+
         int num_items_parsed = sscanf(subnet_str.c_str(),"%hhu.%hhu.%hhu.%hhu/%hhu",
-            dq + 3, dq + 2, dq + 1, dq, &mask_length);
-        if (num_items_parsed == 5) {    // invalid IP or IPv6
+                dq + 3, dq + 2, dq + 1, dq, &mask_length);
+        if (num_items_parsed == 5) {
             if ((mask_length == 0) || (mask_length > bits_in_T)) {
-                fprintf(stderr, "ERROR: %u is not a valid prefix length\n", mask_length);
-                return -1;      // failure
-            }
+                    fprintf(stderr, "ERROR: %u is not a valid prefix length\n", mask_length);
+                    continue;      // failure
+                }
 
-            if (lct_add_domain_mapping(addr, mask_length, subnet_tag, subnet_map) != 0) {
-                return -1;      // failure
+            if (subnet_type == "domain_mapping") {
+                if (lct_add_domain_mapping(addr, mask_length, subnet_tag, subnet_map) != 0) {
+                    continue;      // failure
+                }
+            }
+            else if (subnet_type == "proxy" || subnet_type == "sinkhole") {
+                if (lct_add_domain_exception(addr, mask_length) != 0) {
+                    continue;      // failure
+                }
             }
         }
-    }
-    else if (subnet_type == "proxy" || subnet_type == "sinkhole") {
-        domain_faking_exceptions.insert(addr);
     }
 
     return 0;
@@ -354,8 +396,9 @@ bool subnet_data::is_domain_faking(const char *domain_name_, const char* dst_ip)
         return false; // IPv6 or invalid address
     }
 
-    if (domain_faking_exceptions.find(ipv4_addr) != domain_faking_exceptions.end()) {
-        return false; // subnet added to exception - not domain-faking
+    ipv4_address ip4(ipv4_addr);
+    if (ip4.get_addr_type() == ipv4_address::addr_type::private_use) {
+        return false; // not domain-faking - as the IP is a private address
     }
 
     lct_subnet_t *subnet = lct_find(&ipv4_domain_trie, ntoh(ipv4_addr));
@@ -369,6 +412,9 @@ bool subnet_data::is_domain_faking(const char *domain_name_, const char* dst_ip)
                 return false; // match - domain is mapped to the subnet - not domain-faking
             }
         }
+    }
+    else if (subnet->info.type == IP_SUBNET_DOMAIN_EXCEPTION) {
+        return false; // subnet is an exception - not domain-faking
     }
 
     return true; // no match - domain-faking

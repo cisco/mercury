@@ -20,9 +20,9 @@ enum class indefinite_reassembly_type : uint8_t {
     ssh = 1
 };
 
-// tcp_segment contains info about the tcp segment 
+// tcp_segment contains info about the tcp segment
 // to be used in reassembly - seq no, data len, timestamp
-// 
+//
 // if the segment is first segment, {init_seg == true},
 // it also holds additional_byte_needed for reassembly
 //
@@ -32,9 +32,9 @@ struct tcp_segment {
     uint32_t seq;
     uint32_t additional_bytes_needed;
     indefinite_reassembly_type indefinite_reassembly = indefinite_reassembly_type::definite;
-    unsigned int seg_time;
+    uint64_t seg_time;
 
-    tcp_segment(bool init, uint32_t len, uint32_t seq_no, uint32_t additional_bytes, unsigned int seg_time_,
+    tcp_segment(bool init, uint32_t len, uint32_t seq_no, uint32_t additional_bytes, uint64_t seg_time_,
                     indefinite_reassembly_type indef_reassembly = indefinite_reassembly_type::definite) :
         init_seg{init},
         data_length{len},
@@ -56,10 +56,10 @@ struct quic_segment {
     uint32_t seq;   // crypto frame offset
     uint32_t additional_bytes_needed;
     indefinite_reassembly_type indefinite_reassembly = indefinite_reassembly_type::definite;
-    unsigned int seg_time;
+    uint64_t seg_time;
     const datum &cid;
 
-    quic_segment(bool init, uint32_t len, uint32_t offset, uint32_t additional_bytes, unsigned int seg_time_, const datum &cid_,
+    quic_segment(bool init, uint32_t len, uint32_t offset, uint32_t additional_bytes, uint64_t seg_time_, const datum &cid_,
                         indefinite_reassembly_type indef_reassembly = indefinite_reassembly_type::definite) :
         init_seg{init},
         data_length{len},
@@ -111,14 +111,14 @@ static const char* reassembly_overlaps_str[] = {
 //
 enum class reassembly_state : uint8_t {
     reassembly_none = 0,         // no reassembly {requried/in progress}
-    reassembly_progress = 1,     // reassembly in progress 
+    reassembly_progress = 1,     // reassembly in progress
     reassembly_success = 2,      // reassembly success
     reassembly_truncated = 3,    // reassembly failed, output truncated, either max segments or timeout
     reassembly_consumed = 4,     // reassembly data already consumed, either success or truncated
     reassembly_quic_discard = 5, // mismatching cid, discard this flow from reassembly
 };
 
-//static constexpr unsigned int reassembly_timeout = 15; 
+//static constexpr unsigned int reassembly_timeout = 15;
 
 // reassembly_flow_context contains all the state associated with a particular
 // tcp flow under reassembly, including reassembly buffer, flags etc.
@@ -133,7 +133,7 @@ struct reassembly_flow_context {
     std::bitset<7> reassembly_flag_val;
     std::bitset<4> reassembly_overlap_flags;
     reassembly_state state;
-    unsigned int  init_time;
+    uint64_t  init_time;
     uint32_t init_seq;
     uint32_t init_seg_len;
     uint32_t total_bytes_needed;
@@ -177,13 +177,13 @@ struct reassembly_flow_context {
         is_quic{false},
         cid{},
         cid_len{0} {
-    
+
         seg_list.reserve(max_segments);
         seg_list.push_back({seg.seq - init_seq, seg.seq - init_seq + seg.data_length - 1});
         curr_seg_count = 1;
 
         // process the pkt
-        memcpy(buffer,tcp_pkt.data,seg.data_length);
+        memcpy(buffer,tcp_pkt.data, (seg.data_length > max_data_size ? max_data_size : seg.data_length));
     }
 
      // ctor to be called only on inital tcp data segment required for reassembly, for the first time
@@ -203,24 +203,24 @@ struct reassembly_flow_context {
         seg_list{},
         is_quic{true},
         cid{},
-        cid_len{seg.cid.length()} {
-    
+        cid_len{(size_t)(seg.cid.length() > (ssize_t)max_cid_len ? max_cid_len : seg.cid.length())} {
+
         seg_list.reserve(max_segments);
         seg_list.push_back({seg.seq - init_seq, seg.seq - init_seq + seg.data_length - 1});
         curr_seg_count = 1;
-        
+
         // copy cid
-        memcpy(cid,seg.cid.data,seg.cid.length());
+        memcpy(cid,seg.cid.data,( seg.cid.length() > (ssize_t)max_cid_len ? max_cid_len : seg.cid.length()));  // copy max 20 byte cid
 
         // process the pkt
-        memcpy(buffer,crypto_buf.data,seg.data_length);
+        memcpy(buffer,crypto_buf.data, (seg.data_length > max_data_size ? max_data_size : seg.data_length));
     }
 
     template <typename T> void process_tcp_segment(const T &seg, const datum &tcp_pkt);
 
     datum get_reassembled_data();
 
-    bool is_expired( unsigned int curr_time);
+    bool is_expired( uint64_t curr_time);
 
     void set_reassembly_flag(size_t idx);
 
@@ -228,7 +228,7 @@ struct reassembly_flow_context {
 
     const datum get_cid_datum() const;
 
-private:    
+private:
 
     void simplify_seglist (size_t idx);
 
@@ -246,7 +246,7 @@ private:
 inline struct datum reassembly_flow_context::get_reassembled_data() { return datum{buffer, buffer+curr_contiguous_data}; }
 
 // reassembly timeout of 15 s
-inline bool reassembly_flow_context::is_expired(unsigned int curr_time) { return (curr_time - init_time) >= reassembly_timeout; }
+inline bool reassembly_flow_context::is_expired(uint64_t curr_time) { return (curr_time - init_time) >= reassembly_timeout; }
 
 inline void reassembly_flow_context::set_reassembly_flag(size_t idx) { reassembly_flag_val[idx] = true; }
 
@@ -305,7 +305,7 @@ inline void reassembly_flow_context::simplify_seglist (size_t idx) {
 
     if (idx != (seg_list.size()-1)) {
         // check for multiple superset overlaps
-        size_t i = idx + 1; 
+        size_t i = idx + 1;
         for (; i < seg_list.size()-1; i++) {
             if ( (seg_list[i].first <= seg_list[idx].second) && (seg_list[i].second <= seg_list[idx].second) ) {
                 front_overlap = seg_list[i].second - seg_list[i].first + 1;
@@ -407,7 +407,7 @@ inline void reassembly_flow_context::process_tcp_segment(const T &seg, const dat
     uint32_t rel_seq_st = seg.seq - init_seq;       // start index
     uint32_t dlen = seg.data_length;
     uint32_t rel_seq_en = ( (rel_seq_st + dlen - 1) >= (max_data_size-1) ? (max_data_size-1) : (rel_seq_st + dlen - 1) );     // end index
-    
+
     curr_seg_count++;
     if (curr_seg_count > max_segments) {
         // use existing max contiguous bytes and exit
@@ -491,10 +491,10 @@ struct tcp_reassembler {
         curr_flow = table.end();
     }
 
-    reassembly_state check_flow(const struct key &k, unsigned int sec);
-    reassembly_state check_flow(const struct key &k, unsigned int sec, const datum &cid);
-    reassembly_map_iterator process_tcp_data_pkt(const struct key &k, unsigned int sec, const tcp_segment &seg, const datum &d);
-    reassembly_map_iterator process_quic_data_pkt(const struct key &k, unsigned int sec, const quic_segment &seg, const datum &d);
+    reassembly_state check_flow(const struct key &k, uint64_t sec);
+    reassembly_state check_flow(const struct key &k, uint64_t sec, const datum &cid);
+    reassembly_map_iterator process_tcp_data_pkt(const struct key &k, uint64_t sec, const tcp_segment &seg, const datum &d);
+    reassembly_map_iterator process_quic_data_pkt(const struct key &k, uint64_t sec, const quic_segment &seg, const datum &d);
     reassembly_map_iterator get_current_flow();
     bool is_ready(reassembly_map_iterator it);
     bool in_progress(reassembly_map_iterator it);
@@ -507,8 +507,8 @@ struct tcp_reassembler {
 
 private:
     template <typename T> void init_reassembly(const struct key &k, const T &seg, const datum &d);
-    template <typename T> void continue_reassembly(unsigned int sec, const T &seg, const datum &d);
-    void passive_reap(unsigned int sec);
+    template <typename T> void continue_reassembly(uint64_t sec, const T &seg, const datum &d);
+    void passive_reap(uint64_t sec);
     void active_reap();
     void increment_reap_iterator();
 };
@@ -526,7 +526,7 @@ inline void tcp_reassembler::increment_reap_iterator() {
 // passively look for expired entires and clear them
 // best case - 2 entries, worst case - 0 entries cleared
 //
-inline void tcp_reassembler::passive_reap(unsigned int sec) {
+inline void tcp_reassembler::passive_reap(uint64_t sec) {
     // check for expired flows
     increment_reap_iterator();
     if (reap_it != table.end() && reap_it->second.is_expired(sec)) {
@@ -563,7 +563,7 @@ inline void tcp_reassembler::active_reap() {
 // if present return reassembly state or else return reassembly_none
 // sets curr_flow to the flow if found or table.end() otherwise
 //
-inline reassembly_state tcp_reassembler::check_flow(const struct key &k, unsigned int sec) {
+inline reassembly_state tcp_reassembler::check_flow(const struct key &k, uint64_t sec) {
     // housekeeping before find/emplace for maintain iterator validity
     //
     if (table.size() >= max_reassembly_entries) {
@@ -572,7 +572,7 @@ inline reassembly_state tcp_reassembler::check_flow(const struct key &k, unsigne
     else {
         passive_reap(sec);  // passive: try to clean expired entries
     }
-    
+
     curr_flow = table.find(k);
     if (curr_flow != table.end()) {
         return curr_flow->second.state;
@@ -585,7 +585,7 @@ inline reassembly_state tcp_reassembler::check_flow(const struct key &k, unsigne
 
 // QUIC version of check_flow also matches connection ID so that at a time, only one flow is in reassembly per unique 5-tuple
 //
-inline reassembly_state tcp_reassembler::check_flow(const struct key &k, unsigned int sec, const datum &cid_) {
+inline reassembly_state tcp_reassembler::check_flow(const struct key &k, uint64_t sec, const datum &cid_) {
     // housekeeping before find/emplace for maintain iterator validity
     //
     if (table.size() >= max_reassembly_entries) {
@@ -594,11 +594,13 @@ inline reassembly_state tcp_reassembler::check_flow(const struct key &k, unsigne
     else {
         passive_reap(sec);  // passive: try to clean expired entries
     }
-    
+
     curr_flow = table.find(k);
     if (curr_flow != table.end()) {
         const datum cid = curr_flow->second.get_cid_datum();
-        if (cid.is_empty() || (cid == cid_))
+        datum cid_prefix{cid_};
+        cid_prefix.trim_to_length(reassembly_flow_context::max_cid_len);
+        if (cid.is_empty() || (cid.cmp(cid_prefix) == 0))
             return curr_flow->second.state;
         else
             return reassembly_state::reassembly_quic_discard;
@@ -621,7 +623,7 @@ inline void tcp_reassembler::init_reassembly(const struct key &k, const T &seg, 
 // Continue reassembly on existing flow
 //
 template <typename T>
-inline void tcp_reassembler::continue_reassembly(unsigned int sec, const T &seg, const datum &d) {
+inline void tcp_reassembler::continue_reassembly(uint64_t sec, const T &seg, const datum &d) {
     if (curr_flow->second.is_expired(sec)) {
         curr_flow->second.set_expired();
     }
@@ -631,7 +633,7 @@ inline void tcp_reassembler::continue_reassembly(unsigned int sec, const T &seg,
 
 // Entry function for reassembly
 //
-inline reassembly_map_iterator tcp_reassembler::process_tcp_data_pkt(const struct key &k, unsigned int sec, const tcp_segment &seg, const datum &d){
+inline reassembly_map_iterator tcp_reassembler::process_tcp_data_pkt(const struct key &k, uint64_t sec, const tcp_segment &seg, const datum &d){
     reassembly_state flow_state = check_flow(k,sec);
 
     switch (flow_state)
@@ -662,7 +664,7 @@ inline reassembly_map_iterator tcp_reassembler::process_tcp_data_pkt(const struc
     }
 }
 
-inline reassembly_map_iterator tcp_reassembler::process_quic_data_pkt(const struct key &k, unsigned int sec, const quic_segment &seg, const datum &d){
+inline reassembly_map_iterator tcp_reassembler::process_quic_data_pkt(const struct key &k, uint64_t sec, const quic_segment &seg, const datum &d){
     reassembly_state flow_state = check_flow(k,sec,seg.cid);
 
     switch (flow_state)
@@ -732,7 +734,7 @@ inline void tcp_reassembler::set_completed(reassembly_map_iterator it) {
 
 inline void tcp_reassembler::clean_curr_flow() {
     if ((curr_flow!=table.end()) && is_done(curr_flow)) {
-        reap_it = table.erase(curr_flow);   
+        reap_it = table.erase(curr_flow);
     }
     curr_flow = table.end();
 }

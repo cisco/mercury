@@ -1,7 +1,7 @@
 /*
  * general_info_test.cc
  *
- * 
+ *
  * Copyright (c) 2021 Cisco Systems, Inc. All rights reserved.  License at
  * https://github.com/cisco/mercury/blob/master/LICENSE
  */
@@ -83,6 +83,7 @@ std::string get_version_from_archive(std::string n_archive)
                 break;
             }
         }
+        entry = archive.get_next_entry();
     }
     return recourse_version;
 }

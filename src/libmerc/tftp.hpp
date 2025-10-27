@@ -132,6 +132,12 @@ namespace tftp {
             }
         }
 
+        void write_l7_metadata(cbor_object &o, bool) {
+            cbor_array protocols{o, "protocols"};
+            protocols.print_string("tftp");
+            protocols.close();
+        }
+
     };
 
     /// runs unit tests on tftp::packet and returns true if all pass, and false otherwise
@@ -189,5 +195,13 @@ namespace tftp {
 
 
 } // namespace tftp
+
+namespace {
+
+    [[maybe_unused]] inline int tftp_packet_fuzz_test(const uint8_t *data, size_t size) {
+        return json_output_fuzzer<tftp::packet>(data, size);
+    }
+
+};
 
 #endif // TFTP_HPP

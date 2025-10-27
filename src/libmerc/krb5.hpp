@@ -174,9 +174,9 @@ namespace krb5 {
             }
         }
 
-        void write_json(json_object_asn1 &o) const {
+        void write_json(json_object &o) const {
             if (!valid) { return; }
-            json_object_asn1 pad{o, "pa_data"};
+            json_object pad{o, "pa_data"};
             pa_data_type.print_as_json(pad, "type");
             pa_data_value.print_as_json(pad, "value");
             pad.close();
@@ -233,9 +233,9 @@ namespace krb5 {
             valid = seq.value.is_not_null();
         }
 
-        void write_json(json_object_asn1 &o) const {
+        void write_json(json_object &o) const {
             //            if (!valid) { return; }
-            json_object_asn1 kdc_req_json{o, "kdc_req"};
+            json_object kdc_req_json{o, "kdc_req"};
             kdc_req_json.print_key_hex("pvno", pvno.value);
             kdc_req_json.print_key_hex("msg_type", msg_type.value);
             kdc_req_json.print_key_hex("padata", padata.value);
@@ -428,9 +428,9 @@ namespace krb5 {
     using message = std::variant<std::monostate, error, kdc_req, kdc_rep>;
 
     struct do_write_json {
-        json_object_asn1 &record;
+        json_object &record;
 
-        do_write_json(json_object_asn1 &obj) : record{obj} { }
+        do_write_json(json_object &obj) : record{obj} { }
 
         void operator()(const std::monostate &) { }
 
@@ -472,13 +472,19 @@ namespace krb5 {
 
         void write_json(json_object &o, bool metadata=false) const {
             (void)metadata;
-            json_object_asn1 krb_json{o, "kerberos"};
-            json_array_asn1 raw_krb{krb_json, "raw"};
+            json_object krb_json{o, "kerberos"};
+            json_array raw_krb{krb_json, "raw"};
             tlv tmp{app2};
             tlv::recursive_parse(tmp.value, raw_krb);
             raw_krb.close();
             std::visit(do_write_json{krb_json}, msg);
             krb_json.close();
+        }
+
+        void write_l7_metadata(cbor_object &o, bool) {
+            cbor_array protocols{o, "protocols"};
+            protocols.print_string("kerberos");
+            protocols.close();
         }
 
         // weight 14 matcher, derived from example PCAPs
@@ -506,4 +512,3 @@ namespace krb5 {
 }
 
 #endif // KRB5_H
-

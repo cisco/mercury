@@ -7,6 +7,7 @@
 #include "datum.h"
 #include "fingerprint.h"
 #include "flow_key.h"
+#include "cbor_object.hpp"
 
 class classifier; // forward declaration of class used in interface
 
@@ -30,6 +31,10 @@ public:
     void compute_fingerprint(fingerprint &) const { }
 
     bool do_analysis(const struct key &, struct analysis_context &, classifier*) { return false; }
+
+    void write_l7_metadata(cbor_object &, bool) { }
+
+    bool do_network_behavioral_detections(const struct key &, struct analysis_context &, classifier*, struct common_data &) { return false; }
 
 };
 

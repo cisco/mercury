@@ -39,7 +39,7 @@ inline std::string hex_encode(const unsigned char *src, size_t len) {
 * See README for more details.
 */
 
-// 2016-12-12 - Gaspard Petit : Slightly modified to return a std::string 
+// 2016-12-12 - Gaspard Petit : Slightly modified to return a std::string
 // instead of a buffer allocated with malloc.
 
 static const unsigned char base64_table[65] =
@@ -287,11 +287,25 @@ public:
 
 // provide fuzz test functions for libfuzz
 //
-[[maybe_unused]] inline int base64_decode_fuzz_test(const uint8_t *data, size_t size) {
-    uint8_t outbuf[2048];
-    base64::decode(outbuf, sizeof(outbuf), data, size);
-    return 0;
-}
 
+namespace {
+
+    [[maybe_unused]] inline int base64_decode_fuzz_test(const uint8_t *data, size_t size) {
+        uint8_t outbuf[2048];
+        base64::decode(outbuf, sizeof(outbuf), data, size);
+        return 0;
+    }
+
+    [[maybe_unused]] inline int base64_encode_fuzz_test(const uint8_t *data, size_t size) {
+        base64_encode(data, size);
+        return 0;
+    }
+
+    [[maybe_unused]] inline int hex_encode_fuzz_test(const uint8_t *data, size_t size) {
+        hex_encode(data, size);
+        return 0;
+    }
+
+};
 
 #endif // BASE64_H

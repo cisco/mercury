@@ -18,7 +18,6 @@
 #include "fingerprint.h"
 
 
-
 /*
  * SMTP service extension parameters (from RFC 5321)
  *
@@ -33,22 +32,49 @@
  * IANA maintains a list of these parameters here:
  *   https://www.iana.org/assignments/mail-parameters/mail-parameters.xhtml
  */
-struct smtp_parameters : public datum {
-    smtp_parameters() : datum{} {}
+
+struct smtp_parameter {
+    up_to_required_byte<'\r'> parameter;
+    crlf delimiter;
+    bool valid;
+
+    smtp_parameter(struct datum &p) :
+        parameter(p),
+        delimiter(p),
+        valid(p.is_not_null()) { }
+
+    void write_json(struct json_array &a, bool metadata) const {
+        (void)metadata;
+        a.print_json_string(parameter);
+    }
+
+    bool is_valid() const {
+        return valid;
+    }
+
+    bool is_not_empty() const {
+        return valid and parameter.is_not_empty();
+    }
+
+};
+
+struct smtp_parameters {
+    datum parameters;
+    bool valid = true;
+
+    smtp_parameters(struct datum &p) : parameters{p} {
+        parse(p);
+    }
 
     void parse(struct datum &p) {
-        unsigned char crlf[2] = { '\r', '\n' };
 
-        data = p.data;
-        while (p.length() > 0) {
-            if (p.compare(crlf, sizeof(crlf)) == 0) {
-                break;  /* at end of parameters */
-            }
-            if (p.skip_up_to_delim(crlf, sizeof(crlf)) == false) {
+        while (p.is_not_empty()) {
+            smtp_parameter param{p};
+            if (!param.is_valid()) {
+                valid = false;
                 break;
             }
         }
-        data_end = p.data;
     }
 
     void fingerprint(struct buffer_stream &buf) const {
@@ -56,10 +82,10 @@ struct smtp_parameters : public datum {
         unsigned char domain[1] = { '.' };                    /* used to identify domain parameter */
         unsigned char hello[5] = { 'H', 'e', 'l', 'l', 'o' }; /* used to identify domain parameter */
 
-        if (this->is_not_readable()) {
+        datum p{parameters};
+        if (!valid) {
             return;
         }
-        struct datum p{this->data, this->data_end};
 
         while (p.length() > 0) {
             if (p.compare(crlf, sizeof(crlf)) == 0) {
@@ -85,32 +111,27 @@ struct smtp_parameters : public datum {
      * Prints the list of SMTP parameters into json_array. If output_metadata == false, then
      *   only parameters related to domain names are printed.
      */
-    void print_parameters(struct json_array &a, int offset, bool output_metadata) const {
-        unsigned char crlf[2] = { '\r', '\n' };
-        unsigned char domain_match[1] = { '.' };
+    void write_json(struct json_object &record, bool output_metadata) {
+        (void)output_metadata;
 
-        if (this->is_not_readable()) {
+        if (!valid) {
             return;
         }
-        struct datum p{this->data, this->data_end};
 
-        while (p.length() > 0) {
-            if (p.compare(crlf, sizeof(crlf)) == 0) {
-                break;  /* at end of parameters */
-            }
+        smtp_parameter param{parameters};
+        if (param.is_not_empty()) {
+            struct json_array a{record, "parameters"};
+            param.write_json(a, output_metadata);
 
-            struct datum param{p.data, NULL};
-            if (p.skip_up_to_delim(crlf, sizeof(crlf)) == false) {
-                break;
+            while(parameters.is_not_empty()) {
+                smtp_parameter param{parameters};
+                param.write_json(a, output_metadata);
             }
-            param.data_end = p.data - 2;
-            param.data += offset;
-
-            if ((output_metadata) || (param.find_delim(domain_match, sizeof(domain_match)) > 0)) {
-                a.print_json_string(param);
-            }
+            a.close();
         }
     }
+
+    bool is_valid() const { return valid; }
 };
 
 
@@ -133,36 +154,47 @@ struct smtp_parameters : public datum {
  * mercury's processing: identify the EHLO line and report this information
  *   in the parameters list, i.e., "smtp": {"request": {"parameters": []}}
  */
+
 class smtp_client : public base_protocol {
-    struct smtp_parameters parameters;
+    alpha_numeric command;
+    optional<literal_byte<' '>>  sp;
+    smtp_parameters parameters;
 
 public:
 
-    smtp_client(datum &pkt) : parameters{} { parse(pkt); }
-
-    void parse(struct datum &pkt) {
-        parameters.parse(pkt);
-
-        return;
-    }
+    smtp_client(datum &pkt) :
+        command{pkt},
+        sp{pkt},
+        parameters{pkt} { }
 
     void fingerprint(buffer_stream &) const { }
 
-    void write_json(json_object &record, bool) {
-        if (this->is_not_empty()) {
+    void write_json(json_object &record, bool metadata) {
+        if (is_not_empty()) {
             struct json_object smtp{record, "smtp"};
             struct json_object smtp_request{smtp, "request"};
-            struct json_array params{smtp_request, "parameters"};
-
-            parameters.print_parameters(params, 5, true);
-
-            params.close();
+            smtp_request.print_key_json_string("command", command);
+            parameters.write_json(smtp_request, metadata);
             smtp_request.close();
             smtp.close();
         }
     }
 
-    bool is_not_empty() const { return parameters.is_not_empty(); }
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("smtp");
+        protocols.close();
+    }
+
+    /*
+     * is_not_empty() returns true if the protocol is valid and has data to report,
+     *   false otherwise.
+     *
+     * An SMTP command can be valid without parameters. Examples of valid commands
+     * without parameters are "QUIT\r\n" and "DATA\r\n". It's sufficient to ensure
+     * the SMTP parameter is valid (with/without parameters) and ends with \r\n.
+     */
+    bool is_not_empty() const { return parameters.is_valid(); }
 
     static constexpr mask_and_value<8> matcher{
         { 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00 },
@@ -195,17 +227,16 @@ public:
  *   generate a fingerprint string that reports all non-domain parameters.
  */
 class smtp_server : public base_protocol {
-    struct smtp_parameters parameters;
+    alpha_numeric command;
+    optional<literal_byte<' '>>  sp;
+    smtp_parameters parameters;
 
 public:
 
-    smtp_server(datum &pkt) : parameters{} { parse(pkt); }
-
-    void parse(struct datum &pkt) {
-        parameters.parse(pkt);
-
-        return;
-    }
+    smtp_server(datum &pkt) :
+        command{pkt},
+        sp{pkt},
+        parameters{pkt} { }
 
     void fingerprint(buffer_stream &buf) const {
         if (is_not_empty() == false) {
@@ -215,17 +246,20 @@ public:
     }
 
     void write_json(json_object &record, bool output_metadata) {
-        if (this->is_not_empty()) {
+        if (is_not_empty()) {
             struct json_object smtp{record, "smtp"};
             struct json_object smtp_response{smtp, "response"};
-            struct json_array params{smtp_response, "parameters"};
-
-            parameters.print_parameters(params, 4, output_metadata);
-
-            params.close();
+            smtp_response.print_key_json_string("command", command);
+            parameters.write_json(smtp_response, output_metadata);
             smtp_response.close();
             smtp.close();
         }
+    }
+
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("smtp");
+        protocols.close();
     }
 
     void compute_fingerprint(class fingerprint &fp) const {
@@ -234,7 +268,14 @@ public:
         fp.final();
     }
 
-    bool is_not_empty() const { return parameters.is_not_empty(); }
+    /*
+     * is_not_empty() returns true if the protocol is valid and has data to report,
+     *   false otherwise.
+     *
+     * It's sufficient to ensure the SMTP parameter is valid (with/without parameters)
+     * and ends with \r\n.
+     */
+    bool is_not_empty() const { return parameters.is_valid(); }
 
     bool do_analysis(const struct key, struct analysis_context, classifier*) { return false; }
 

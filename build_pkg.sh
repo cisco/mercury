@@ -95,10 +95,14 @@ elif [ "$BUILDTYPE" == "rpm" ]; then
 
     # note: we could detect libssl version here
 
+    # detect platform ID (e.g., "el8" or "el9")
+    source /etc/os-release
+    ELX=$(echo $PLATFORM_ID | cut -f2 -d:)
+
     fpm -s dir -t rpm -n mercury $FPM_LINUX_OPTIONS \
-        --depends 'libssl.so.10()(64bit)' \
-        --depends 'libz.so.1()(64bit)'    \
-        --rpm-dist el7 \
+        --depends 'openssl' \
+        --depends 'zlib'    \
+        --rpm-dist $ELX \
         --rpm-attr 775,mercury,mercury:/usr/local/var/mercury \
         --description "$DESCRIPTION" \
         --after-remove ./install_mercury/postuninstall_rpm \

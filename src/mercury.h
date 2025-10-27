@@ -37,6 +37,10 @@
 #define mercury_debug(...)  (fprintf(stdout, __VA_ARGS__))
 #endif
 
+#ifndef DEFAULT_RESOURCE_FILE
+#define DEFAULT_RESOURCE_FILE "/usr/local/share/mercury/resources.tgz"
+#endif
+
 /*
  * struct mercury_config holds the configuration information for a run
  * of the program

@@ -40,15 +40,15 @@ namespace {
             struct json_object o{&buf};
             datum tmp_tmp_cert_list{tmp_cert_list.data, tmp_cert_list.data + tmp_len};
 
-            struct json_object_asn1 cert{o, "cert"};
+            struct json_object cert{o, "cert"};
             struct x509_cert c;
             c.parse(tmp_cert_list.data, tmp_len);
             c.print_as_json(cert, {}, NULL);
             cert.close();
-            
+
             //struct datum cert_parser{tmp_tmp_cert_list.data, tmp_tmp_cert_list.data + tmp_len};
                 o.print_key_base64("base64", tmp_tmp_cert_list);
-            
+
             o.close();
 
             /*

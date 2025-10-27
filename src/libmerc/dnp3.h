@@ -20,7 +20,7 @@
 
 // DNP3 App Response Header
 //
-//    0                   1          
+//    0                   1
 //    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5
 //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //    |    App Ctrl   |   Func Code   |
@@ -31,7 +31,7 @@
 //
 // DNP3 App Request Header
 //
-//    0                   1          
+//    0                   1
 //    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5
 //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //    |    App Ctrl   |   Func Code   |
@@ -41,16 +41,16 @@
 //
 // DNP3 App Control Byte
 //
-//    0              
+//    0
 //    0   1   2    3   4 5 6 7
 //    +---+---+----+---+-+-+-+-+
 //    |Fin|Fir|Cons|UNS|  SEQ  |
-//    +---+---+----+---+-+-+-+-+    
+//    +---+---+----+---+-+-+-+-+
 //
 //
 // DNP3 Transport
 //
-//    0              
+//    0
 //    0   1   2 3 4 5 6 7
 //    +---+---+-+-+-+-+-+-+
 //    |Fin|Fir|    SEQ    |
@@ -59,7 +59,7 @@
 //
 // DNP3 Link Control Byte
 //
-//     0              
+//     0
 //     0   1   2   3       4  5 6 7
 //     +---+---+---+-------+--+-+-+--+
 //     |Dir|Pri|FCB|FCV/DFC|Func Code|
@@ -68,7 +68,7 @@
 //
 // DNP3 Link layer
 //
-//     0                   1                   2                   3  
+//     0                   1                   2                   3
 //     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 //     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //     |      0x05     |      0x64     |      len      |   ctrl byte   |
@@ -281,8 +281,6 @@ public:
 };
 
 class dnp3_app {
-    bool is_resp;
-    bool outstation_resp;
     datum data;
     dnp3_app_hdr app_hdr;
     bool valid;
@@ -421,7 +419,7 @@ public:
                 if (dfc) {
                     control.print_key_bool("sec_buffer_exceed", true);
                 }
-            } 
+            }
         }
         control.close();
         return;
@@ -452,12 +450,12 @@ public:
         src_addr{frame, true},
         hdr_crc{frame},
         valid{true},
-        data_len{len - 5},
+        data_len{(uint8_t) (len > 5 ? (len - 5) : 0)},
         block_count((data_len%16 ? (data_len/16 + 1) : data_len/16)),
         data{},
         block_crc{}
         {
-            if (!frame.is_not_null()) {
+            if (!frame.is_not_null() || !data_len) {
                 valid = false;
                 return;
             }
@@ -525,6 +523,12 @@ public:
         }
 
         return;
+    }
+
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("dnp3");
+        protocols.close();
     }
 
 };

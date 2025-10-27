@@ -205,6 +205,9 @@ bool ipv4_address::unit_test(FILE *output) {  // output=nullptr by default
     return all_passed;
 }
 
+
+using ipv6_array_t = std::array<uint8_t, 16>;
+
 /// an IP version six address in network byte order.  This class
 /// represents a raw (binary) address; to parse a textual
 /// representation of an IPv6 address, use \ref ipv6_address_string.
@@ -307,11 +310,7 @@ public:
         multicast
     };
 
-    // bool is_global_unicast() const {
-    //     return (a & 0xe0000000) == 0x20000000;
-    // }
     bool is_global_unicast() const {
-        // fprintf(stderr, "check: %08x\t%08x==%08x\n", a, (a & hton<uint32_t>(0xe0000000)),  hton<uint32_t>(0x20000000));
         return (a[0] & hton<uint32_t>(0xe0000000)) == hton<uint32_t>(0x20000000);
     }
     bool is_unique_local_unicast() const {
@@ -327,7 +326,7 @@ public:
         return (a[0] & hton<uint32_t>(0xff000000)) == hton<uint32_t>(0xff000000);
     }
     bool is_global() const {
-        return is_global_unicast();   // TODO: consider global multicast
+        return is_global_unicast() || is_ipv4_mapped();
     }
     bool is_ipv4_mapped() const {
         return (a[0] == 0 && a[1] == 0 && a[2] == hton<uint32_t>(0x0000ffff));
@@ -336,6 +335,20 @@ public:
     static inline bool unit_test();
 
 };
+
+// hasher for ipv6_address
+//
+namespace std {
+    template <>
+    struct hash<ipv6_address> {
+        std::size_t operator()(const ipv6_address& addr) const {
+            return std::hash<uint32_t>{}(addr.a[0])
+                  ^ std::hash<uint32_t>{}(addr.a[1])
+                  ^ std::hash<uint32_t>{}(addr.a[2])
+                  ^ std::hash<uint32_t>{}(addr.a[3]);
+        }
+    };
+}
 
 inline bool ipv6_address::unit_test() {
 
@@ -384,16 +397,18 @@ namespace normalized {
     static const ipv6_address ipv6_unique_local{0x000000fd, 0x00000000, 0x00000000, 0x01000000 };
 };
 
-inline void normalize(ipv4_address &a) {
+inline ipv4_address normalize(const ipv4_address &a) {
     if (!a.is_global()) {
-        a = normalized::ipv4_private_use;
+        return normalized::ipv4_private_use;
     }
+    return a;
 }
 
-inline void normalize(ipv6_address &a) {
+inline ipv6_address normalize(const ipv6_address &a) {
     if (!a.is_global()) {
-        a = normalized::ipv6_unique_local;
+        return normalized::ipv6_unique_local;
     }
+    return a;
 }
 
 struct ip_address {
@@ -436,7 +451,7 @@ public:
             } else {
                 break;
             }
-            if (value > std::numeric_limits<uint8_t>::max()) {
+            if (value > (std::numeric_limits<uint8_t>::max)()) {
                 d.set_null();
                 return;
             }
@@ -543,8 +558,6 @@ T hex_str_to_uint(const hex_digits &d) {
 }
 
 
-using ipv6_array_t = std::array<uint8_t, 16>;
-
 static inline void ipv6_array_print(FILE *f, ipv6_array_t ipv6) {
     fprintf(f,
             "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x",
@@ -600,7 +613,11 @@ public:
 // IPv6 address strings (textual representation)
 //
 
+#ifdef _WIN32
+// TODO: Define IPV6 for Windows
+#else
 using uint128_t = __uint128_t; // defined by GCC at least
+#endif
 
 // IPv6 address string parsing, as per RFC 4291.
 //
@@ -757,6 +774,7 @@ public:
         fputc('\n', f);
     }
 
+#ifndef _WIN32
     uint128_t get_value() const {
         uint128_t x = 0;
 
@@ -797,6 +815,7 @@ public:
             hton<uint32_t>(tmp & 0xffffffff)
         };
     }
+#endif
 
     ipv6_array_t get_value_array() const {
         ipv6_array_t x;
@@ -857,6 +876,11 @@ public:
         //ipv6_array_print(stderr, x); fputc('\n', stderr);
 
         return x;
+    }
+
+    ipv6_address get_address() const {
+        ipv6_array_t arry = get_value_array();
+        return get_ipv6_address(arry);
     }
 
     // unit_test() is a static function that performs a unit test of

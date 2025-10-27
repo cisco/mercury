@@ -18,5 +18,5 @@ unit_tests/pcaps/*.pcap
 .vscode/
 *.mk
 *.tgz
-src/libmerc/asn1/oid.cc
-src/libmerc/asn1/oid.h
+*CMakeCache.txt
+*CMakeFiles/

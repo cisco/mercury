@@ -26,10 +26,11 @@ LIBMERC_SO = libmerc/libmerc.so
 # set parameters from configure (autoconf)
 #
 python      = @PY@
-have_py3    = @PYTHON3@
+have_python3 = @HAVE_PYTHON3@
 have_pip3   = @PIP3@
 have_tpkt3  = @HAVE_TPACKET_V3@
-CDEFS       = $(filter -DHAVE_PYTHON3=1 -DHAVE_X86INTRIN_H=1, @DEFS@) -DDEFAULT_RESOURCE_DIR="\"$(datarootdir)\""
+can_build_cython_package = @CAN_BUILD_CYTHON_PACKAGE@
+CDEFS       = $(filter -DHAVE_X86INTRIN_H=1 -DHAVE_GETTID=1, @DEFS@) -DDEFAULT_RESOURCE_DIR="\"$(datarootdir)\""
 
 include ../Makefile_helper.mk
 
@@ -38,8 +39,10 @@ include ../Makefile_helper.mk
 # MERC   =  mercury.c
 ifeq ($(have_tpkt3),yes)
 MERC   += af_packet_v3.c
+MERC   += signal_handling_linux.c
 else
 MERC   += capture.c
+MERC   += signal_handling_stub.c
 endif
 MERC   += config.c
 MERC   += json_file_io.c
@@ -48,7 +51,6 @@ MERCC  += pkt_processing.cc
 MERC   += pcap_file_io.c
 MERC   += pcap_reader.c
 MERC   += rnd_pkt_drop.c
-MERC   += signal_handling.c
 
 MERC_H =  mercury.h
 MERC_H += af_packet_v3.h
@@ -66,7 +68,7 @@ MERC_H += signal_handling.h
 
 MERC_OBJ = $(MERCC:%.cc=%.o) $(MERC:%.c=%.o)
 
-ifeq ($(have_py3),yes)
+ifeq ($(have_python3),yes)
 # PYANALYSIS = python_interface.c
 # CDEFS     += -Wl,--no-as-needed -ldl -lutil $(shell pkg-config --libs --cflags python3)
 # CYTARGETS  = python-inference/tls_fingerprint_min.cpp python-inference/tls_fingerprint_min.h python-inference/tls_fingerprint_min_api.h
@@ -80,6 +82,7 @@ endif
 CAP        = cap_net_raw,cap_net_admin,cap_dac_override+eip
 EUID       = $(id -u)
 
+CFLAGS += -I./libmerc/xsimd/include
 ifeq ($(openssl_newer),yes)
 CFLAGS += -DSSLNEW
 endif
@@ -90,7 +93,24 @@ CXXFLAGS += -I/opt/homebrew/include
 LDFLAGS += -L/opt/homebrew/lib
 endif
 
-all: compiler_version mercury libmerc_test cert_analyze libmerc_util intercept_server # tls_scanner batch_gcd
+# Uncomment to try to apply ASAN everywhere (do not use in production)
+# TODO: make a global change: either compile everything with ASAN (both make and
+# make test) or compile nothing with ASAN, and use a top-level option to control
+#ifeq ($(use_fsanitize),yes)
+#CFLAGS += -fsanitize=address
+#LDFLAGS += -fsanitize=address
+#endif
+
+ifeq ($(COVERAGE_ENABLED),1)
+ifeq ($(filter -O3, $(CFLAGS)), -O3)
+    CFLAGS := $(filter-out -O3,$(CFLAGS))
+	CFLAGS += -O0
+endif
+CFLAGS += -fprofile-arcs --coverage -ggdb -fprofile-update=atomic
+LDFLAGS += --coverage
+endif
+
+all: compiler_version mercury libmerc_test cert_analyze libmerc_util intercept_server mercury_cython # tls_scanner batch_gcd
 
 # the version target just reports the c++ compiler version; we report
 # this so that it is present in e.g. Jenkins logs
@@ -133,7 +153,7 @@ setcap: mercury
 	sudo setcap $(CAP) $<
 
 libmerc.a:
-	$(MAKE) -j --directory=libmerc libmerc.a
+	$(MAKE) -j --directory=libmerc COVERAGE_ENABLED=$(COVERAGE_ENABLED) libmerc.a
 
 libmerc/libmerc.so:
 	$(MAKE) -j --directory=libmerc libmerc.so
@@ -157,7 +177,7 @@ debug-libmerc_gcov:
 .PHONY: debug-libmerc
 debug-libmerc:
 	$(MAKE) --directory=libmerc clean
-	$(MAKE) -j --directory=libmerc debug-libmerc.so
+	$(MAKE) -j --directory=libmerc COVERAGE_ENABLED=$(COVERAGE_ENABLED) debug-libmerc.so
 
 .PHONY: unstripped-libmerc
 unstripped-libmerc:
@@ -174,6 +194,15 @@ endif
 libmerc_util: libmerc_util.cc libmerc_api.h
 	$(CXX) $(CFLAGS) libmerc_util.cc pcap_file_io.c -pthread -ldl -std=c++17 -o libmerc_util
 
+.PHONY: mercury_cython
+mercury_cython:
+ifeq ($(can_build_cython_package),yes)
+	cd cython && $(MAKE)
+	cd cython && $(MAKE) wheel
+else
+	@echo $(COLOR_YELLOW) "omitted mercury cython build due to missing dependencies" $(COLOR_OFF)
+endif
+
 intercept_server: intercept_server.cc
 	$(CXX) $(CFLAGS) intercept_server.cc -std=c++17 -o intercept_server
 
@@ -182,13 +211,13 @@ tls_scanner: tls_scanner.cc libmerc.a libmerc/crypto_hash.hpp libmerc/verbosity.
 
 batch_gcd: CFLAGS += -march=native -flto=auto
 batch_gcd: batch_gcd.cc
-	$(CXX) $(CFLAGS) batch_gcd.cc libmerc/asn1.cc libmerc/asn1/oid.cc -lgmpxx -lgmp -pthread -o batch_gcd
+	$(CXX) $(CFLAGS) batch_gcd.cc libmerc/asn1/oid.cc -lgmpxx -lgmp -pthread -o batch_gcd
 
 cert_analyze: cert_analyze.cc libmerc/asn1.h
-	$(CXX) $(CFLAGS) cert_analyze.cc libmerc/asn1.cc libmerc/asn1/oid.cc -pthread $(LDFLAGS) -lcrypto -o cert_analyze
+	$(CXX) $(CFLAGS) cert_analyze.cc libmerc/asn1/oid.cc -pthread $(LDFLAGS) -lcrypto -o cert_analyze
 
 cms: cms.cpp libmerc/asn1.h
-	$(CXX) $(CFLAGS) cms.cpp libmerc/asn1.cc libmerc/asn1/oid.cc $(LDFLAGS) -lcrypto -o cms
+	$(CXX) $(CFLAGS) cms.cpp libmerc/asn1/oid.cc $(LDFLAGS) -lcrypto -o cms
 
 dns-trie: dns-trie.cpp dns_trie.hpp fpdb_reader.hpp
 	$(CXX) $(CFLAGS) dns-trie.cpp -o dns-trie
@@ -214,8 +243,8 @@ decode: decode.cc
 pcap: pcap.cc pcap_file_io.h
 	$(CXX) $(CFLAGS) pcap.cc -o pcap
 
-remap: remap.cpp libmerc/tls.cc libmerc/http.cc libmerc/match.cc libmerc/asn1.cc libmerc/asn1/oid.cc libmerc/addr.cc
-	$(CXX) $(CFLAGS) -std=c++20 remap.cpp libmerc/tls.cc libmerc/http.cc libmerc/match.cc libmerc/asn1.cc libmerc/asn1/oid.cc libmerc/addr.cc -lcrypto -o remap
+remap: remap.cpp libmerc/tls.cc libmerc/http.cc libmerc/match.cc libmerc/asn1/oid.cc libmerc/addr.cc
+	$(CXX) $(CFLAGS) -std=c++20 remap.cpp libmerc/tls.cc libmerc/http.cc libmerc/match.cc libmerc/asn1/oid.cc libmerc/addr.cc -lcrypto -o remap
 
 pcap_filter: pcap_filter.cc pcap_file_io.c libmerc
 	$(CXX) $(CFLAGS) pcap_filter.cc pcap_file_io.c libmerc/libmerc.a -lz -lcrypto -pthread -o pcap_filter
@@ -238,14 +267,14 @@ classify: classify.cpp libmerc/analysis.cc libmerc/utils.cc libmerc/addr.cc
 # rule to build the cython/python analysis engine in python-inference
 #
 $(CYTARGETS): $(CYPREREQ)
-ifeq ($(have_py3),yes)
+ifeq ($(have_python3),yes)
 	python3 python-inference/setup.py build_ext --inplace
 endif
 
 #MERC_OBJ = $(MERC:%.o=%.c)
 
 libmerc_test: run_unit_test libmerc_test.c $(LIBMERC_SO) Makefile.in
-	$(CC) -Wall -std=c11 libmerc_test.c -pthread -L./libmerc $(LIBMERC_SO) -lz -lcrypto -o libmerc_test
+	$(CC) -Wall -std=c11 libmerc_test.c -pthread $(LDFLAGS) -L./libmerc $(LIBMERC_SO) -lz -lcrypto -o libmerc_test
 	@echo $(COLOR_GREEN) "To run before 'make install', export LD_LIBRARY_PATH=$(shell pwd)/libmerc" $(COLOR_OFF)
 
 libmerc_driver:

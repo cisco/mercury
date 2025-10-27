@@ -16,6 +16,11 @@
 #include <stdexcept>
 #include <optional>
 
+#ifdef _MSC_VER
+#define strncasecmp _strnicmp
+#define strcasecmp _stricmp
+#endif
+
 template<typename T>
 struct perfect_hash_entry
 {

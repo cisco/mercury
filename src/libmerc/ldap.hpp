@@ -187,9 +187,9 @@ namespace ldap {
             valid = d.is_not_null();
         }
 
-        void write_json(json_object_asn1 &o) const {
+        void write_json(json_object &o) const {
             if (!valid) { return; }
-            json_object_asn1 bind_resp_json{o, "bind_response"};
+            json_object bind_resp_json{o, "bind_response"};
             bind_resp_json.print_key_string("result_code", get_name(result_code));
             matched_dn.print_as_json(bind_resp_json, "matched_dn");
             diagnostic_msg.print_as_json(bind_resp_json, "diagnostic_message");
@@ -230,10 +230,10 @@ namespace ldap {
 
         bool is_not_empty() const { return valid; }
 
-        void write_json(json_object_asn1 &o) const {
+        void write_json(json_object &o) const {
             if (!valid) { return; }
-            json_object_asn1 sasl_json{o, "sasl"};
-            json_object_asn1 mechanism_json{sasl_json, mechanism_type_get_name(get_type(mechanism.value))};
+            json_object sasl_json{o, "sasl"};
+            json_object mechanism_json{sasl_json, mechanism_type_get_name(get_type(mechanism.value))};
             mechanism_json.print_key_base64("base64", credentials.value);
             mechanism_json.close();
             sasl_json.close();
@@ -288,10 +288,10 @@ namespace ldap {
         }
 
         void write_json(json_object &o) const {
-            json_object_asn1 bind_req_json{o, "bind_request"};
+            json_object bind_req_json{o, "bind_request"};
             bind_req_json.print_key_hex("version", version.value);
             ldapdn.print_as_json_escaped_string(bind_req_json, "ldapdn");
-            json_object_asn1 auth_json{bind_req_json, "auth"};
+            json_object auth_json{bind_req_json, "auth"};
             if (auth.tag == 0x80) {
                 auth.print_as_json_escaped_string(auth_json, "simple");
             } else if (auth.tag == 0xa3) {
@@ -367,7 +367,7 @@ namespace ldap {
                 return;   // nothing to report on
             }
             (void)output_metadata;
-            json_object_asn1 ldap_json{o, "ldap"};
+            json_object ldap_json{o, "ldap"};
             ldap_json.print_key_hex("message_id", message_id.value);
             // ldap_json.print_key_hex("protocol_op", protocol_op.value);
 
@@ -395,6 +395,12 @@ namespace ldap {
             }
 
             ldap_json.close();
+        }
+
+        void write_l7_metadata(cbor_object &o, bool) {
+            cbor_array protocols{o, "protocols"};
+            protocols.print_string("ldap");
+            protocols.close();
         }
 
         // empty functions for unsupported functionality

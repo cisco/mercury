@@ -21,9 +21,9 @@ A resource archive MAY contain a `VERSION` file, and MUST contain `fp_prevalence
 - `fingerprint_db.json` and the `VERSION` file contains an identifier including `full`, e.g. `2.0.full`:
     1. The archive is a full archive of the new format.
     2. Classfier ignores the configured `fp_proc_threshold` and `proc_dst_threshold` thresholds and loads the `fingerprint_db.json`
-- `fingerprint_db.json` and no identifier in `VERSION`: 
+- `fingerprint_db.json` and no identifier in `VERSION`:
     1. A regular archive of the depricated format.
-    2. The classifer does not load and disables all protocols from libmerc config. 
+    2. The classifer does not load and disables all protocols from libmerc config.
 - Dual DB: An archive with both `fingerprint_db.json` and `fingerprint_db_lite.json` and the `VERSION` file contains an identifier including `dual`, e.g. `2.0.dual`:
-    1. If atleast one of the thresholds, `fp_proc_threshold` and `proc_dst_threshold`, is configured, the classifier loads `fingerprint_db_lite.json` and ignores the configured thresholds. 
-    2. If neither of the thresholds are configured, the classifier loads `fingerprint_db.json`. 
+    1. If atleast one of the thresholds, `fp_proc_threshold` and `proc_dst_threshold`, is configured, the classifier loads `fingerprint_db_lite.json` and ignores the configured thresholds.
+    2. If neither of the thresholds are configured, the classifier loads `fingerprint_db.json`.

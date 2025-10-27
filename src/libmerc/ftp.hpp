@@ -37,12 +37,18 @@ namespace ftp
     class request : public base_protocol
     {
         ftp_command command;
-        literal_byte<' '> sp;
-        up_to_crlf argument;
+        optional<literal_byte<' '>>  sp;
+        up_to_required_byte<'\r'> argument;
+        crlf delimiter;
         bool isValid;
 
     public:
-        request(datum &d) : command{d}, sp{d}, argument{d}, isValid{command.length() >= 3 and command.length() <= 4} {}
+        request(datum &d) :
+        command{d},
+        sp{d},
+        argument{d},
+        delimiter{d},
+        isValid{command.length() >= 3 && command.length() <= 4 && d.is_empty()} {}
 
         void write_json(struct json_object &record, bool)
         {
@@ -52,6 +58,19 @@ namespace ftp
             ftp_request.print_key_json_string("argument", argument);
             ftp_request.close();
             ftp_object.close();
+        }
+
+        void write_l7_metadata(cbor_object &o, bool) {
+            cbor_array protocols{o, "protocols"};
+            protocols.print_string("ftp");
+            protocols.close();
+
+            cbor_object ftp{o, "ftp"};
+            cbor_object ftp_request{ftp, "request"};
+            ftp_request.print_key_string("command", command);
+            ftp_request.print_key_string("argument", argument);
+            ftp_request.close();
+            ftp.close();
         }
 
         bool is_not_empty() const { return isValid; }
@@ -106,14 +125,27 @@ namespace ftp
             ftp_response.close();
             ftp_object.close();
         }
+
+        void write_l7_metadata(cbor_object &o, bool) {
+            cbor_array protocols{o, "protocols"};
+            protocols.print_string("ftp");
+            protocols.close();
+
+            cbor_object ftp{o, "ftp"};
+            cbor_object ftp_response{ftp, "response"};
+            ftp_response.print_key_string("status_code", status_code);
+            ftp_response.print_key_string("reply_text", reply_text);
+            ftp_response.close();
+            ftp.close();
+        }
     };
 
 #ifndef NDEBUG
     static bool unit_test()
     {
         // Valid Request
-        uint8_t user_command_packet[] = "USER ftpuser\r\n";
-        datum user_command{user_command_packet, user_command_packet + sizeof(user_command_packet)};
+        const char *user_command_packet = "USER ftpuser\r\n";
+        datum user_command{user_command_packet};
         ftp::request valid_request{user_command};
         if (!valid_request.is_not_empty())
         {
@@ -121,8 +153,8 @@ namespace ftp
         }
 
         // Valid Request to check for case insensitive commands
-        uint8_t pass_command_packet[] = "pass ftpuser\r\n";
-        datum pass_command{pass_command_packet, pass_command_packet + sizeof(pass_command_packet)};
+        const char *pass_command_packet = "pass ftpuser\r\n";
+        datum pass_command{pass_command_packet};
         ftp::request valid_case_insensitive_request{pass_command};
         if (!valid_case_insensitive_request.is_not_empty())
         {
@@ -130,8 +162,8 @@ namespace ftp
         }
 
         // Valid Single-Line Response
-        const uint8_t single_line_response[] = "220 Welcome to FTP Server\r\n";
-        datum single_datum{single_line_response, single_line_response + sizeof(single_line_response)};
+        const char *single_line_response = "220 Welcome to FTP Server\r\n";
+        datum single_datum{single_line_response};
         ftp::response single_response{single_datum};
         if (!single_response.is_not_empty())
         {
@@ -139,9 +171,9 @@ namespace ftp
         }
 
         // Valid Multi-Line Response
-        const uint8_t multi_line_response[] = "230-User logged in.\r\n"
-                                              "230 Proceed with file transfer.\r\n";
-        datum multi_datum{multi_line_response, multi_line_response + sizeof(multi_line_response)};
+        const char *multi_line_response = "230-User logged in.\r\n"
+                                          "230 Proceed with file transfer.\r\n";
+        datum multi_datum{multi_line_response};
         ftp::response multi_response{multi_datum};
         if (!multi_response.is_not_empty())
         {
@@ -149,10 +181,10 @@ namespace ftp
         }
 
         //  Valid Multi-Line Response with Embedded Status Codes
-        const uint8_t multi_with_numbers[] = "123-First line\r\n"
-                                             "456 Second line with numbers\r\n"
-                                             "123 Last line\r\n";
-        datum multi_num_datum{multi_with_numbers, multi_with_numbers + sizeof(multi_with_numbers)};
+        const char *multi_with_numbers = "123-First line\r\n"
+                                         "456 Second line with numbers\r\n"
+                                         "123 Last line\r\n";
+        datum multi_num_datum{multi_with_numbers};
         ftp::response multi_num_response{multi_num_datum};
         if (!multi_num_response.is_not_empty())
         {
@@ -160,8 +192,8 @@ namespace ftp
         }
 
         // Valid Request: NOOP command (no argument)
-        uint8_t noop_command_packet[] = "NOOP\r\n";
-        datum noop_command{noop_command_packet, noop_command_packet + sizeof(noop_command_packet)};
+        const char *noop_command_packet = "NOOP\r\n";
+        datum noop_command{noop_command_packet};
         ftp::request valid_noop_request{noop_command};
         if (!valid_noop_request.is_not_empty())
         {
@@ -169,16 +201,16 @@ namespace ftp
         }
 
         // Valid Request: STAT command (with argument)
-        uint8_t stat_with_arg_command_packet[] = "STAT /home/user\r\n";
-        datum stat_with_arg_command{stat_with_arg_command_packet, stat_with_arg_command_packet + sizeof(stat_with_arg_command_packet)};
+        const char *stat_with_arg_command_packet = "STAT /home/user\r\n";
+        datum stat_with_arg_command{stat_with_arg_command_packet};
         ftp::request valid_stat_with_arg_request{stat_with_arg_command};
         if (!valid_stat_with_arg_request.is_not_empty())
         {
             return false;
         }
 
-        uint8_t req_wrong_command_packet[] = "B ftpuser\r\n";
-        datum req_wrong_command{req_wrong_command_packet, req_wrong_command_packet + sizeof(req_wrong_command_packet)};
+        const char *req_wrong_command_packet = "B ftpuser\r\n";
+        datum req_wrong_command{req_wrong_command_packet};
         ftp::request wrong_command{req_wrong_command};
         if (wrong_command.is_not_empty())
         {
@@ -186,16 +218,16 @@ namespace ftp
         }
 
         // False positive test: invalid garbage response
-        const uint8_t invalid_response[] = "XYZ This is not a valid FTP response\r\n";
-        datum invalid_datum{invalid_response, invalid_response + sizeof(invalid_response)};
+        const char *invalid_response = "XYZ This is not a valid FTP response\r\n";
+        datum invalid_datum{invalid_response};
         ftp::response invalid_resp{invalid_datum};
         if (invalid_resp.is_not_empty())
         {
             return false;
         }
 
-        const uint8_t wrong_single_line_response[] = "20 Welcome to FTP Server\r\n";
-        datum wrong_single_datum{wrong_single_line_response, wrong_single_line_response + sizeof(wrong_single_line_response)};
+        const char *wrong_single_line_response = "20 Welcome to FTP Server\r\n";
+        datum wrong_single_datum{wrong_single_line_response};
         ftp::response wrong_single_response{wrong_single_datum};
         if (wrong_single_response.is_not_empty())
         {

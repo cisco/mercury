@@ -81,7 +81,7 @@ struct ssh_binary_packet {
             // fprintf(stderr, "ssh_binary_packet additional_bytes_needed: %zu (wanted: %zd, have: %zu)\n", additional_bytes_needed, bytes_left_in_packet, p.length());
         }
         payload.parse_soft_fail(p, bytes_left_in_binary_packet);
-        
+
         // if trailing data, followup binary pkt
         if (p.is_not_empty()) {
             trailing_data = p;
@@ -160,7 +160,7 @@ struct ssh_kex_init : public base_protocol {
     static constexpr ssize_t ssh_cookie_len = 16;
 
     //ssh_kex_init(datum &p) { parse(p); };
-    
+
     //ssh_kex_init(datum &p, datum trailing) { parse(p,trailing); };
 
     ssh_kex_init(ssh_binary_packet& pkt) {
@@ -189,7 +189,7 @@ struct ssh_kex_init : public base_protocol {
         languages_client_to_server.parse(p);
         languages_server_to_client.parse(p);
     }
-    
+
     void parse(struct datum &p, datum trailing) {
 
         msg_type.parse(p, ssh_msg_code_len);
@@ -246,7 +246,7 @@ struct ssh_kex_init : public base_protocol {
         ssh_client.print_key_json_string("languages_client_to_server", languages_client_to_server.data, languages_client_to_server.length());
         ssh_client.print_key_json_string("languages_server_to_client", languages_server_to_client.data, languages_server_to_client.length());
     }
-    
+
     void write_json(json_object &o, bool output_metadata, bool nested = false) const {
         if (kex_algorithms.is_not_readable()) {
             return;
@@ -328,10 +328,11 @@ struct ssh_init_packet : public base_protocol {
     struct datum comment_string;
     ssh_binary_packet binary_pkt;
     ssh_kex_init kex_pkt;
+    data_buffer<MAX_USER_AGENT_LEN> user_agent;
 
     static constexpr size_t max_data_size = 8192;
 
-    ssh_init_packet(datum &p) : protocol_string{NULL, NULL}, comment_string{NULL, NULL}, binary_pkt{}, kex_pkt{} {
+    ssh_init_packet(datum &p) : protocol_string{NULL, NULL}, comment_string{NULL, NULL}, binary_pkt{}, kex_pkt{}, user_agent{} {
         parse(p);
     }
 
@@ -353,7 +354,7 @@ struct ssh_init_packet : public base_protocol {
 
             return;  // no comment string
         }
-        
+
         p.skip(1);  // skip space
         comment_string.parse_up_to_delim(p, '\n');
         p.skip(1);  // skip linefeed
@@ -368,7 +369,7 @@ struct ssh_init_packet : public base_protocol {
             }
         }
 
-        return;        
+        return;
     }
 
     bool is_not_empty() {
@@ -403,7 +404,7 @@ struct ssh_init_packet : public base_protocol {
     void fingerprint_complete(struct buffer_stream &buf) const {
         kex_pkt.fingerprint(buf);
     }
-    
+
     void fingerprint(struct buffer_stream &buf) const {
         if (kex_pkt.is_not_empty()) {
             fingerprint_complete(buf);
@@ -446,6 +447,17 @@ struct ssh_init_packet : public base_protocol {
 
     }
 
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("ssh");
+        protocols.close();
+
+        cbor_object ssh{o, "ssh"};
+        ssh.print_key_string("protocol", protocol_string);
+        ssh.print_key_string("comment", comment_string);
+        ssh.close();
+    }
+
     size_t more_bytes_needed() const {
         if (kex_pkt.is_not_empty()) {
             // check binary pkt for additional bytes
@@ -461,6 +473,24 @@ struct ssh_init_packet : public base_protocol {
         { 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00},
         { 'S',  'S',  'H',  '-',  0x00, 0x00, 0x00, 0x00}
     };
+
+    bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
+        if (!kex_pkt.is_not_empty()) {
+            return false;
+        }
+
+        // concatenate protocol and comment strings for analysis
+        datum tmp_protocol_str = protocol_string;
+        datum tmp_comment_str = comment_string;
+        user_agent.parse(tmp_protocol_str);
+        user_agent.parse(tmp_comment_str);
+
+        analysis_.destination.init({nullptr, nullptr}, user_agent.contents(), {nullptr, nullptr}, k_);
+        if (c_ == nullptr) {
+            return false;
+        }
+        return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+}
 
 };
 

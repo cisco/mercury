@@ -1,0 +1,179 @@
+// mem_utils.hpp
+//
+// helper classes for memory management
+//
+// Copyright (c) 2025 Cisco Systems, Inc. All rights reserved.
+// License at https://github.com/cisco/mercury/blob/master/LICENSE
+//
+
+#ifndef MEM_UTILS_HPP
+#define MEM_UTILS_HPP
+
+
+#include <cstddef>
+#include <memory>
+#include <type_traits>
+#include <stdexcept>
+
+
+// fixed_fifo_allocator is a custom memory allocator intended to be used
+//   by an unordered_map. It has two important properties:
+//     1. inserts/deletes do not invoke memory allocations/deallocations
+//     2. elements are removed on a first-in/first-out basis
+//   This allocator is not a general purpose allocator and should be used
+//   with extreme caution when the FIFO property holds for your use case.
+//
+template <typename T, size_t N>
+class fixed_fifo_allocator {
+    using fixed_storage = typename std::aligned_storage<sizeof(T), alignof(T)>::type;
+    fixed_storage *mem_pool;
+    size_t cur_element;
+
+public:
+    using value_type = T;
+
+    // constructor
+    fixed_fifo_allocator() noexcept : cur_element{0} {
+        mem_pool = new fixed_storage[N];
+    }
+
+
+    // copy constructor
+    fixed_fifo_allocator(const fixed_fifo_allocator& other) noexcept {
+        if (this != &other) {
+            mem_pool = nullptr;
+            if (other.mem_pool != nullptr) {
+                mem_pool = new fixed_storage[N];
+                for (size_t i = 0; i < N; ++i) {
+                    mem_pool[i] = other.mem_pool[i];
+                }
+            }
+            cur_element = other.cur_element;
+        }
+    }
+
+
+    // copy constructor
+    template <typename U>
+    fixed_fifo_allocator(const fixed_fifo_allocator<U, N>&) noexcept
+        : mem_pool{nullptr}, cur_element{0} { }
+
+
+    // destructor
+    ~fixed_fifo_allocator() {
+        if (mem_pool != nullptr) {
+            delete[] mem_pool;
+        }
+    }
+
+
+    T* allocate(size_t n) {
+        if (n != 1) { // allocate new array/bucket data
+            return reinterpret_cast<T*>(new typename std::aligned_storage<sizeof(T), alignof(T)>::type[n]);
+        }
+
+        if (mem_pool == nullptr) {
+            mem_pool = new fixed_storage[N];
+        }
+
+        if (cur_element >= N) {
+            cur_element = cur_element % N;
+        }
+
+        return reinterpret_cast<T*>(&mem_pool[cur_element++]);
+    }
+
+
+    void deallocate(T* p, size_t n) noexcept {
+        if (n != 1) { // deallocate array/bucket data
+            delete[] reinterpret_cast<typename std::aligned_storage<sizeof(T), alignof(T)>::type *>(p);
+            return;
+        }
+
+        // no need to deallocate for mem_pool
+        return ;
+    }
+
+
+    template <typename U>
+    struct rebind {
+        using other = fixed_fifo_allocator<U, N>;
+    };
+
+
+    // Comparison operators
+    bool operator==(const fixed_fifo_allocator&) const noexcept { return false; }
+    bool operator!=(const fixed_fifo_allocator&) const noexcept { return true; }
+
+
+#ifndef NDEBUG
+
+    struct Dummy {
+        int x;
+        Dummy(int v = 0) : x(v) {}
+        bool operator==(const Dummy& other) const { return x == other.x; }
+    };
+
+    static bool unit_test() {
+        constexpr size_t M = 4;
+        fixed_fifo_allocator<Dummy, M> alloc;
+
+        // Allocate all slots
+        Dummy* ptrs[M];
+        for (std::size_t i = 0; i < M; ++i) {
+            ptrs[i] = alloc.allocate(1);
+            new (ptrs[i]) Dummy(static_cast<int>(i));
+            if (ptrs[i]->x != static_cast<int>(i)) {
+                return false;
+            }
+        }
+
+        // Allocate all slots again, making sure they wrap correctly
+        for (std::size_t i = 0; i < M; ++i) {
+            Dummy *old_ptr = ptrs[i];
+            alloc.deallocate(ptrs[i], 1);
+            ptrs[i] = alloc.allocate(1);
+            if (ptrs[i] != old_ptr) { // old_ptr slot should be reused
+                return false;
+            }
+            new (ptrs[i]) Dummy(static_cast<int>(i));
+            if (ptrs[i]->x != static_cast<int>(i)) {
+                return false;
+            }
+        }
+
+        // Deallocate all
+        for (std::size_t i = 0; i < M; ++i) {
+            alloc.deallocate(ptrs[i], 1);
+        }
+
+        // Test rebind
+        fixed_fifo_allocator<int, 4> int_alloc;
+        using char_alloc_type = fixed_fifo_allocator<int, 4>::rebind<char>::other;
+        char_alloc_type char_alloc;
+
+        char* char_ptr = char_alloc.allocate(1);
+        if (char_ptr == nullptr) {
+            return false;
+        }
+        *char_ptr = 'A';
+        if (*char_ptr != 'A') {
+            return false;
+        }
+        char_alloc.deallocate(char_ptr, 1);
+
+        // Test comparison operators
+        fixed_fifo_allocator<Dummy, M> alloc2;
+        if (alloc == alloc2) {
+            return false;
+        }
+
+        // All tests pass
+        return true;
+    }
+
+#endif // NDEBUG
+
+};
+
+#endif // MEM_UTILS_HPP

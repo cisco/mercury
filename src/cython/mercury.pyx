@@ -5,7 +5,9 @@ import math
 from base64 import b64decode
 
 from libcpp.unordered_map cimport unordered_map
+from libcpp.vector cimport vector
 from libcpp.string cimport string
+from libcpp.vector cimport vector
 from libcpp cimport bool
 from libc.stdio cimport *
 from libc.stdint cimport *
@@ -31,14 +33,14 @@ from cython.operator import dereference
 #   CC=g++ CXX=g++ python setup.py install
 
 # TODO: actually handle version
-__version__ = '2.7.0'
+__version__ = '2.10.0'
 
 # imports from mercury's dns
 cdef extern from "../libmerc/dns.h":
     string dns_get_json_string(const char *dns_pkt, ssize_t pkt_len)
 
-# imports from mercury's FDC
-cdef extern from "../libmerc/fdc.hpp":
+# imports from mercury's FDC/L7 metadata
+cdef extern from "../libmerc/l7m.hpp":
     string get_json_decoded_fdc(const char *fdc_blob, ssize_t blob_len)
 
 
@@ -99,27 +101,44 @@ cdef extern from "../libmerc/libmerc.h":
 cdef extern from "../libmerc/result.h":
     cdef cppclass attribute_result:
         void write_json(char *buffer, int buffer_size)
-    cdef struct analysis_result:
+        bool is_initialized()
+        void initialize (const vector[string] *_tag_names, const char *const *names_char)
+    cdef cppclass analysis_result:
         fingerprint_status status
         char max_proc[256]
         long double max_score
         bool max_mal
         long double malware_prob
         attribute_result attr
+    cdef cppclass detailed_analysis_result(analysis_result):
+        vector[string] process_names
+        vector[double] normalized_process_scores
     cdef struct analysis_context:
         analysis_result result
+    cdef cppclass attribute_names:
+        const vector[string] &value()
+        const char* const* get_names_char()
 
 
 cdef extern from "../libmerc/analysis.h":
     classifier *analysis_init_from_archive(int verbosity, const char *archive_name, const uint8_t *enc_key, enc_key_type key_type,
                                            float fp_proc_threshold, float proc_dst_threshold, bool report_os);
-    cdef cppclass classifier:
-        analysis_result perform_analysis(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port, const char *user_agent)
+    cdef struct common_data:
+        attribute_names attr_name;
 
-        # analysis_result perform_analysis_with_weights(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port, const char *user_agent,
-        #                         long double new_as_weight, long double new_domain_weight,
-        #                         long double new_port_weight, long double new_ip_weight,
-        #                         long double new_sni_weight, long double new_ua_weight)
+    cdef cppclass classifier:
+        detailed_analysis_result perform_detailed_analysis(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port, const char *user_agent)
+        analysis_result perform_analysis(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port, const char *user_agent)
+        const common_data &get_common_data()
+        void check_additional_attributes_util(analysis_result &result, const char *server_name, const char *dst_ip)
+        void set_faketls_attribute(analysis_result &result)
+        void set_enc_channel_attribute(analysis_result &result)
+
+
+        analysis_result perform_analysis_with_weights(const char *fp_str, const char *server_name, const char *dst_ip, uint16_t dst_port, const char *user_agent,
+                                 double new_as_weight, double new_domain_weight,
+                                 double new_port_weight, double new_ip_weight,
+                                 double new_sni_weight, double new_ua_weight)
 
 
 cdef extern from "../libmerc/watchlist.hpp":
@@ -130,6 +149,9 @@ cdef extern from "../libmerc/watchlist.hpp":
             off=0,
             on
         string get_normalized_domain_name(detail detailed_output)
+
+cdef extern from "../libmerc/tls.h":
+    bool is_faketls_util(const datum ciphersuite_vector)
 
 
 cdef class server_identifier_py:
@@ -205,6 +227,33 @@ fp_type_dict = {
     12: 'quic',
 }
 
+def get_ciphersuites(fp):
+    """
+    Extracts the ciphersuites from a fingerprint string.
+    :param fp: fingerprint string
+    :type fp: str
+    :return: ciphersuites as a string
+    :rtype: str
+    """
+
+    if fp.startswith('tls'):
+        # split on the first parenthesis
+        parts = fp.split('(')
+        if len(parts) < 3:
+            return ''
+        # get the second part and remove the closing parenthesis
+        ciphersuites = parts[2].split(')')[0]
+        return ciphersuites
+    elif fp.startswith('quic'):
+        # split on the first parenthesis
+        parts = fp.split('(')
+        if len(parts) < 4:
+            return ''
+        # get the third part and remove the closing parenthesis
+        ciphersuites = parts[3].split(')')[0]
+        return ciphersuites
+    else:
+        return ''
 
 cdef class Mercury:
     """
@@ -246,7 +295,8 @@ cdef class Mercury:
     cdef bool do_analysis
 
     def __init__(self, bool do_analysis=False, bytes resources=b'', bool output_tcp_initial_data=False, bool output_udp_initial_data=False,
-                 bytes packet_filter_cfg=b'all', bool metadata_output=True, bool dns_json_output=True, bool certs_json_output=True):
+                 bytes packet_filter_cfg=b'all', bool metadata_output=True, bool dns_json_output=True, bool certs_json_output=True,
+                 bool network_behavioral_detections=False):
         self.do_analysis = do_analysis
         self.py_config = {
             'output_tcp_initial_data': output_tcp_initial_data,
@@ -258,6 +308,8 @@ cdef class Mercury:
             'do_analysis': do_analysis,
             'resources':   resources,
         }
+        if network_behavioral_detections:
+            self.py_config['packet_filter_cfg'] += b';network-behavioral-detections'
         self.default_ts.tv_sec = 0
         self.default_ts.tv_nsec = 0
 
@@ -382,16 +434,164 @@ cdef class Mercury:
         result['analysis']['malware']   = is_malware
         result['analysis']['p_malware'] = prob_malware
 
-        attributes = self.extract_attributes(ac.result)
+        cdef analysis_result ar = ac.result
+
+        if fp_string.startswith('tls'):
+            is_faketls = self.check_faketls(fp_string)
+            if is_faketls:
+                self.clf.set_faketls_attribute(ar)
+
+        if ar.max_mal and fp_string.startswith('tls'):
+            self.clf.set_enc_channel_attribute(ar)
+
+        if result['fingerprint_info']['status'] != 'unlabled':
+            attributes = self.extract_attributes(ar)
+            if len(attributes) > 0:
+                result['analysis']['attributes'] = attributes
+            return result
+
+        attributes = self.extract_attributes(ar)
         if len(attributes) > 0:
             result['analysis']['attributes'] = attributes
 
         return result
 
 
-    cpdef dict perform_analysis(self, str fp_str, str server_name, str dst_ip, int dst_port):
+    cpdef dict perform_analysis_common(self, str fp_str, str server_name, str dst_ip, int dst_port, str user_agent=None,
+                                       dict weights=None):
+        if not self.do_analysis:
+            print(f'error: classifier not loaded (is do_analysis set to True?)')
+            return None
+
+        cdef bytes fp_str_b = fp_str.encode()
+        cdef char* fp_str_c = fp_str_b
+        cdef bytes server_name_b = server_name.encode()
+        cdef char* server_name_c = server_name_b
+        cdef bytes dst_ip_b = dst_ip.encode()
+        cdef char* dst_ip_c = dst_ip_b
+        if user_agent == None:
+            user_agent = ''
+        cdef bytes user_agent_b = user_agent.encode()
+        cdef char* user_agent_c = user_agent_b
+
+        cdef analysis_result ar
+        if weights != None:
+            ar = self.clf.perform_analysis_with_weights(fp_str_c, server_name_c, dst_ip_c, dst_port, user_agent_c,
+                                                         weights['new_as_weight'], weights['new_domain_weight'],
+                                                         weights['new_port_weight'], weights['new_ip_weight'],
+                                                         weights['new_sni_weight'], weights['new_ua_weight'])
+        else:
+            ar = self.clf.perform_analysis(fp_str_c, server_name_c, dst_ip_c, dst_port, user_agent_c)
+
+        # check for uninitialized attributes due to unlabeled fingerprints
+        if ar.attr.is_initialized() == False:
+            ar.attr.initialize(&(self.clf.get_common_data().attr_name.value()), self.clf.get_common_data().attr_name.get_names_char())
+        self.clf.check_additional_attributes_util(ar, server_name_c, dst_ip_c)
+
+        # check for faketls tag
+        if fp_str.startswith('tls'):
+            is_faketls = self.check_faketls(fp_str)
+            if is_faketls:
+                self.clf.set_faketls_attribute(ar)
+
+        # check for encrypted channel tag
+        if ar.max_mal and fp_str.startswith('tls'):
+            self.clf.set_enc_channel_attribute(ar)
+
+        cdef fingerprint_status fp_status_enum = ar.status
+        fp_status                              = fp_status_dict[fp_status_enum]
+
+        cdef dict result = {}
+        result['fingerprint_info']           = {}
+        result['fingerprint_info']['status'] = fp_status
+        result['analysis']                   = {}
+        result['analysis']['process']        = ar.max_proc.decode('UTF-8')
+        result['analysis']['score']          = ar.max_score
+        result['analysis']['malware']        = ar.max_mal
+        result['analysis']['p_malware']      = ar.malware_prob
+
+        # populate attributes
+        attributes = self.extract_attributes(ar)
+        if len(attributes) > 0:
+            result['analysis']['attributes'] = attributes
+
+        return result
+
+
+    cpdef dict perform_detailed_analysis_common(self, str fp_str, str server_name, str dst_ip, int dst_port, str user_agent=None):
+        if not self.do_analysis:
+            print(f'error: classifier not loaded (is do_analysis set to True?)')
+            return None
+
+        cdef bytes fp_str_b = fp_str.encode()
+        cdef char* fp_str_c = fp_str_b
+        cdef bytes server_name_b = server_name.encode()
+        cdef char* server_name_c = server_name_b
+        cdef bytes dst_ip_b = dst_ip.encode()
+        cdef char* dst_ip_c = dst_ip_b
+        if user_agent == None:
+            user_agent = ''
+        cdef bytes user_agent_b = user_agent.encode()
+        cdef char* user_agent_c = user_agent_b
+
+        cdef detailed_analysis_result ar = self.clf.perform_detailed_analysis(fp_str_c, server_name_c, dst_ip_c, dst_port, user_agent_c)
+
+        # check for uninitialized attributes due to unlabeled fingerprints
+        if ar.attr.is_initialized() == False:
+            ar.attr.initialize(&(self.clf.get_common_data().attr_name.value()), self.clf.get_common_data().attr_name.get_names_char())
+        self.clf.check_additional_attributes_util(ar, server_name_c, dst_ip_c)
+
+        # check for faketls tag
+        cdef bytes ciphersuites_b
+        cdef unsigned int len_
+        cdef const unsigned char* c_str_ref
+        cdef datum ciphersuites_datum
+        if fp_str.startswith('tls'):
+            ciphersuites       = get_ciphersuites(fp_str)
+            ciphersuites_str   = ''.join([chr(int(ciphersuites[i:i+2], 16)) for i in range(0, len(ciphersuites), 2)])
+            ciphersuites_b     = ciphersuites_str.encode()
+            len_               = len(ciphersuites_b)
+            c_str_ref          = ciphersuites_b
+            ciphersuites_datum = datum(c_str_ref, c_str_ref + len_)
+            if is_faketls_util(ciphersuites_datum):
+                self.clf.set_faketls_attribute(ar)
+
+        # check for encrypted channel tag
+        if ar.max_mal and fp_str.startswith('tls'):
+            self.clf.set_enc_channel_attribute(ar)
+
+        cdef fingerprint_status fp_status_enum = ar.status
+        fp_status                              = fp_status_dict[fp_status_enum]
+
+        cdef dict result = {}
+        result['fingerprint_info']           = {}
+        result['fingerprint_info']['status'] = fp_status
+        result['analysis']                   = {}
+        result['analysis']['malware']        = ar.max_mal
+        result['analysis']['p_malware']      = ar.malware_prob
+
+        # add detailed process information
+        result['analysis']['process_details'] = []
+        for i in range(len(ar.process_names)):
+            process_entry = {
+                "process": ar.process_names[i].decode("UTF-8"),
+                "score": float(ar.normalized_process_scores[i])
+            }
+            result['analysis']['process_details'].append(process_entry)
+
+        # populate attributes
+        attributes = self.extract_attributes(ar)
+        if len(attributes) > 0:
+            result['analysis']['attributes'] = attributes
+
+        return result
+
+
+    cpdef dict perform_detailed_analysis(self, str fp_str, str server_name, str dst_ip, int dst_port):
         """
-        Directly call into mercury analysis functionality by providing all needed data features.
+        Directly call into mercury's detailed analysis functionality by providing all needed data features.
+        Unlike perform_analysis() which returns only the single best-match process, this method returns all
+        candidate processes with their confidence scores.
 
         :param fp_str: mercury-generated network protocol fingerprint
         :type fp_str: str
@@ -404,123 +604,34 @@ cdef class Mercury:
         :return: JSON-encoded analysis output
         :rtype: dict
         """
-        if not self.do_analysis:
-            print(f'error: classifier not loaded (is do_analysis set to True?)')
-            return None
-
-        cdef bytes fp_str_b = fp_str.encode()
-        cdef char* fp_str_c = fp_str_b
-        cdef bytes server_name_b = server_name.encode()
-        cdef char* server_name_c = server_name_b
-        cdef bytes dst_ip_b = dst_ip.encode()
-        cdef char* dst_ip_c = dst_ip_b
-
-        cdef analysis_result ar = self.clf.perform_analysis(fp_str_c, server_name_c, dst_ip_c, dst_port, '')
-
-        cdef fingerprint_status fp_status_enum = ar.status
-        fp_status = fp_status_dict[fp_status_enum]
-
-        cdef dict result = {}
-        result['fingerprint_info'] = {}
-        result['fingerprint_info']['status'] = fp_status
-        result['analysis'] = {}
-        result['analysis']['process']   = ar.max_proc.decode('UTF-8')
-        result['analysis']['score']     = ar.max_score
-        result['analysis']['malware']   = ar.max_mal
-        result['analysis']['p_malware'] = ar.malware_prob
-
-        attributes = self.extract_attributes(ar)
-        if len(attributes) > 0:
-            result['analysis']['attributes'] = attributes
-
-        return result
-
-    # cpdef dict perform_analysis_with_weights(self, str fp_str, str server_name, str dst_ip, int dst_port, str user_agent,
-    #                              long double new_as_weight, long double new_domain_weight,
-    #                              long double new_port_weight, long double new_ip_weight,
-    #                              long double new_sni_weight, long double new_ua_weight):
-    #     """
-    #     Directly call into mercury analysis functionality by providing all needed data features. Additionally,
-    #     supply custom weights for each data feature.
-    #
-    #     :param fp_str: mercury-generated network protocol fingerprint
-    #     :type fp_str: str
-    #     :param server_name: The visible, fully qualified domain name, found in the server_name extension or the HTTP Host field
-    #     :type server_name: str
-    #     :param dst_ip: The destination IP address associated with the packet of interest
-    #     :type dst_ip: str
-    #     :param dst_port: The destination port associated with the packet of interest
-    #     :type dst_port: int
-    #     :param user_agent: If analyzing an HTTP packet, provide the contents of the HTTP User-Agent field
-    #     :type user_agent: str
-    #     :param new_as_weight: Updated weight for the Autonomous System data feature
-    #     :type new_as_weight: long double
-    #     :param new_domain_weight: Updated weight for the domain name data feature
-    #     :type new_domain_weight: long double
-    #     :param new_port_weight: Updated weight for the destination port data feature
-    #     :type new_port_weight: long double
-    #     :param new_ip_weight: Updated weight for the destination IP address data feature
-    #     :type new_ip_weight: long double
-    #     :param new_sni_weight: Updated weight for the server_name data feature
-    #     :type new_sni_weight: long double
-    #     :param new_ua_weight: Updated weight for the User-Agent data feature
-    #     :type new_ua_weight: long double
-    #     :return: JSON-encoded analysis output
-    #     :rtype: dict
-    #     """
-    #     if not self.do_analysis:
-    #         print(f'error: classifier not loaded (is do_analysis set to True?)')
-    #         return None
-    #
-    #     cdef bytes fp_str_b = fp_str.encode()
-    #     cdef char* fp_str_c = fp_str_b
-    #     cdef bytes server_name_b = server_name.encode()
-    #     cdef char* server_name_c = server_name_b
-    #     cdef bytes dst_ip_b = dst_ip.encode()
-    #     cdef char* dst_ip_c = dst_ip_b
-    #     if user_agent == None:
-    #         user_agent = 'None'
-    #     cdef bytes user_agent_b = user_agent.encode()
-    #     cdef char* user_agent_c = user_agent_b
-    #     if user_agent == 'None':
-    #         user_agent_c = NULL
-    #
-    #     cdef analysis_result ar = self.clf.perform_analysis_with_weights(fp_str_c, server_name_c, dst_ip_c, dst_port, user_agent_c,
-    #                                                 new_as_weight, new_domain_weight, new_port_weight,
-    #                                                 new_ip_weight, new_sni_weight, new_ua_weight)
-    #
-    #     cdef fingerprint_status fp_status_enum = ar.status
-    #     fp_status = fp_status_dict[fp_status_enum]
-    #
-    #     cdef dict result = {}
-    #     result['fingerprint_info'] = {}
-    #     result['fingerprint_info']['status'] = fp_status
-    #     result['analysis'] = {}
-    #     result['analysis']['process']   = ar.max_proc.decode('UTF-8')
-    #     result['analysis']['score']     = ar.max_score
-    #     result['analysis']['malware']   = ar.max_mal
-    #     result['analysis']['p_malware'] = ar.malware_prob
-    #
-    #     return result
-
-    cdef list extract_attributes(self, analysis_result ar):
-        cdef char tags_buf[8192]
-        memset(tags_buf, 0, 8192)
-        cdef char* tags_buf_p = tags_buf
-        try:
-            ar.attr.write_json(tags_buf_p, 8192)
-            ret_ = []
-            for x in json.loads(tags_buf_p.decode())['attributes']:
-                ret_.append({'name': x['name'], 'probability_score': x['probability_score']})
-            return ret_
-        except:
-            return []
+        return self.perform_detailed_analysis_common(fp_str, server_name, dst_ip, dst_port)
 
 
-    cpdef dict perform_analysis_with_user_agent(self, str fp_str, str server_name, str dst_ip, int dst_port, str user_agent):
+    cpdef dict perform_analysis(self, str fp_str, str server_name, str dst_ip, int dst_port):
         """
-        Directly call into mercury analysis functionality by providing all needed data features. Additionally,
-        supply custom weights for each data feature.
+        Directly call into mercury's analysis functionality by providing all needed data features. Returns
+        the single best-match process, use perform_detailed_analysis() to get all candidate processes with
+        their confidence scores.
+
+        :param fp_str: mercury-generated network protocol fingerprint
+        :type fp_str: str
+        :param server_name: The visible, fully qualified domain name, found in the server_name extension
+        :type server_name: str
+        :param dst_ip: The destination IP address associated with the packet of interest
+        :type dst_ip: str
+        :param dst_port: The destination port associated with the packet of interest
+        :type dst_port: int
+        :return: JSON-encoded analysis output
+        :rtype: dict
+        """
+        return self.perform_analysis_common(fp_str, server_name, dst_ip, dst_port)
+
+
+    cpdef dict perform_detailed_analysis_with_user_agent(self, str fp_str, str server_name, str dst_ip, int dst_port, str user_agent):
+        """
+        Directly call into mercury's detailed analysis functionality by providing all needed data features.
+        Unlike perform_analysis_with_user_agent() which returns only the single best-match process, this
+        method returns all candidate processes with their confidence scores.
 
         :param fp_str: mercury-generated network protocol fingerprint
         :type fp_str: str
@@ -535,44 +646,102 @@ cdef class Mercury:
         :return: JSON-encoded analysis output
         :rtype: dict
         """
-        if not self.do_analysis:
-            print(f'error: classifier not loaded (is do_analysis set to True?)')
-            return None
+        return self.perform_detailed_analysis_common(fp_str, server_name, dst_ip, dst_port, user_agent=user_agent)
 
-        cdef bytes fp_str_b = fp_str.encode()
-        cdef char* fp_str_c = fp_str_b
-        if server_name == None:
-            server_name = 'None'
-        cdef bytes server_name_b = server_name.encode()
-        cdef char* server_name_c = server_name_b
-        cdef bytes dst_ip_b = dst_ip.encode()
-        cdef char* dst_ip_c = dst_ip_b
-        if user_agent == None:
-            user_agent = 'None'
-        cdef bytes user_agent_b = user_agent.encode()
-        cdef char* user_agent_c = user_agent_b
-        if user_agent == 'None':
-            user_agent_c = NULL
 
-        cdef analysis_result ar = self.clf.perform_analysis(fp_str_c, server_name_c, dst_ip_c, dst_port, user_agent_c)
+    cpdef dict perform_analysis_with_user_agent(self, str fp_str, str server_name, str dst_ip, int dst_port, str user_agent):
+        """
+        Directly call into mercury's analysis functionality by providing all needed data features. Returns
+        the single best-match process, use perform_detailed_analysis_with_user_agent() to get all candidate
+        processes with their confidence scores.
 
-        cdef fingerprint_status fp_status_enum = ar.status
-        fp_status = fp_status_dict[fp_status_enum]
+        :param fp_str: mercury-generated network protocol fingerprint
+        :type fp_str: str
+        :param server_name: The visible, fully qualified domain name, found in the server_name extension or the HTTP Host field
+        :type server_name: str
+        :param dst_ip: The destination IP address associated with the packet of interest
+        :type dst_ip: str
+        :param dst_port: The destination port associated with the packet of interest
+        :type dst_port: int
+        :param user_agent: If analyzing an HTTP packet, provide the contents of the HTTP User-Agent field
+        :type user_agent: str
+        :return: JSON-encoded analysis output
+        :rtype: dict
+        """
+        return self.perform_analysis_common(fp_str, server_name, dst_ip, dst_port, user_agent=user_agent)
 
-        cdef dict result = {}
-        result['fingerprint_info'] = {}
-        result['fingerprint_info']['status'] = fp_status
-        result['analysis'] = {}
-        result['analysis']['process']   = ar.max_proc.decode('UTF-8')
-        result['analysis']['score']     = ar.max_score
-        result['analysis']['malware']   = ar.max_mal
-        result['analysis']['p_malware'] = ar.malware_prob
 
-        attributes = self.extract_attributes(ar)
-        if len(attributes) > 0:
-            result['analysis']['attributes'] = attributes
+    cpdef dict perform_analysis_with_weights(self, str fp_str, str server_name, str dst_ip, int dst_port, str user_agent,
+                                             double new_as_weight, double new_domain_weight,
+                                             double new_port_weight, double new_ip_weight,
+                                             double new_sni_weight, double new_ua_weight):
+        """
+        Directly call into mercury analysis functionality by providing all needed data features. Additionally,
+        supply custom weights for each data feature. Returns the single best-match process.
 
-        return result
+        :param fp_str: mercury-generated network protocol fingerprint
+        :type fp_str: str
+        :param server_name: The visible, fully qualified domain name, found in the server_name extension or the HTTP Host field
+        :type server_name: str
+        :param dst_ip: The destination IP address associated with the packet of interest
+        :type dst_ip: str
+        :param dst_port: The destination port associated with the packet of interest
+        :type dst_port: int
+        :param user_agent: If analyzing an HTTP packet, provide the contents of the HTTP User-Agent field
+        :type user_agent: str
+        :param new_as_weight: Updated weight for the Autonomous System data feature
+        :type new_as_weight: long double
+        :param new_domain_weight: Updated weight for the domain name data feature
+        :type new_domain_weight: long double
+        :param new_port_weight: Updated weight for the destination port data feature
+        :type new_port_weight: long double
+        :param new_ip_weight: Updated weight for the destination IP address data feature
+        :type new_ip_weight: long double
+        :param new_sni_weight: Updated weight for the server_name data feature
+        :type new_sni_weight: long double
+        :param new_ua_weight: Updated weight for the User-Agent data feature
+        :type new_ua_weight: long double
+        :return: JSON-encoded analysis output
+        :rtype: dict
+        """
+        cdef dict weights = {
+            'new_as_weight':     new_as_weight,
+            'new_domain_weight': new_domain_weight,
+            'new_port_weight':   new_port_weight,
+            'new_ip_weight':     new_ip_weight,
+            'new_sni_weight':    new_sni_weight,
+            'new_ua_weight':     new_ua_weight
+        }
+        return self.perform_analysis_common(fp_str, server_name, dst_ip, dst_port, user_agent=user_agent, weights=weights)
+
+
+    cdef bool check_faketls(self, str fp_string):
+        if not fp_string.startswith('tls'):
+            return False
+        ciphersuites = get_ciphersuites(fp_string)
+        cdef bytes ciphersuites_b = bytes.fromhex(ciphersuites)
+
+        cdef unsigned int len_ = len(ciphersuites_b)
+        cdef const unsigned char* c_string_ref = ciphersuites_b
+        cdef datum ciphersuites_datum = datum(c_string_ref, c_string_ref + len_)
+
+        if is_faketls_util(ciphersuites_datum):
+            return True
+        return False
+
+
+    cdef list extract_attributes(self, analysis_result ar):
+        cdef char tags_buf[8192]
+        memset(tags_buf, 0, 8192)
+        cdef char* tags_buf_p = tags_buf
+        try:
+            ar.attr.write_json(tags_buf_p, 8192)
+            ret_ = []
+            for x in json.loads(tags_buf_p.decode())['attributes']:
+                ret_.append({'name': x['name'], 'probability_score': x['probability_score']})
+            return ret_
+        except:
+            return []
 
 
     cdef str get_server_name(self, const analysis_context* ac):
@@ -699,6 +868,22 @@ def parse_dns(str b64_dns):
     return json.loads(dns_get_json_string(c_string_ref, len_).decode())
 
 
+def decode_fdc(bytes fdc_blob):
+    """
+    Return a JSON representation of a decoded mercury FDC object.
+
+    :param fdc_blob: Hex bytes of mercury FDC object.
+    :type fdc_blob: bytes
+    :return: JSON-encoded mercury decoded FDC.
+    :rtype: dict
+    """
+    cdef unsigned int len_ = len(fdc_blob)
+
+    # create reference to fdc_blob so that it doesn't get garbage collected
+    cdef char* c_string_ref = fdc_blob
+    return json.loads(get_json_decoded_fdc(c_string_ref, len_).decode())
+
+
 def decode_mercury_fdc(str b64_fdc):
     """
     Return a JSON representation of a decoded mercury FDC object.
@@ -709,14 +894,8 @@ def decode_mercury_fdc(str b64_fdc):
     :rtype: dict
     """
     cdef bytes fdc_blob = b64decode(b64_fdc)
-    cdef unsigned int len_ = len(fdc_blob)
 
-    # create reference to fdc_blob so that it doesn't get garbage collected
-    cdef char* c_string_ref = fdc_blob
-
-    # use mercury's FDC decoder to decode the FDC object
-    return json.loads(get_json_decoded_fdc(c_string_ref, len_).decode())
-
+    return decode_fdc(fdc_blob)
 
 
 # imports from mercury's asn1 parser
@@ -822,4 +1001,3 @@ def parse_ech_config(str b64_ech_config):
     ech_obj = ECHConfig(ech_config)
 
     return ech_obj.get_json_string()
-

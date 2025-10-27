@@ -43,11 +43,11 @@ id-emailAddress      AttributeType ::= { pkcs-9 1 }
 
 id-ce OBJECT IDENTIFIER  ::=  { joint-iso-ccitt(2) ds(5) 29 }
 
--- authority key identifier OID 
+-- authority key identifier OID
 
 id-ce-authorityKeyIdentifier OBJECT IDENTIFIER ::=  { id-ce 35 }
 
--- subject key identifier OID 
+-- subject key identifier OID
 
 id-ce-subjectKeyIdentifier OBJECT IDENTIFIER ::=  { id-ce 14 }
 
@@ -70,7 +70,7 @@ anyPolicy OBJECT IDENTIFIER ::= { id-ce-certificatePolicies 0 }
 id-ce-policyMappings OBJECT IDENTIFIER ::=  { id-ce 33 }
 
 -- subject alternative name extension OID
-   
+
 id-ce-subjectAltName OBJECT IDENTIFIER ::=  { id-ce 17 }
 
 SubjectAltName ::= GeneralNames
@@ -167,4 +167,3 @@ id-holdinstruction-reject OBJECT IDENTIFIER ::= { holdInstruction 3 }
 -- invalidity date CRL entry extension OID
 
 id-ce-invalidityDate OBJECT IDENTIFIER ::= { id-ce 24 }
-

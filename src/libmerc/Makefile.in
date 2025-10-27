@@ -36,6 +36,24 @@ CFLAGS += -I/opt/homebrew/include
 CXXFLAGS += -I/opt/homebrew/include
 LDFLAGS += -L/opt/homebrew/lib
 endif
+CFLAGS += -I./xsimd/include
+
+# Uncomment to apply ASAN to libmerc (do not use in production)
+# TODO: make a global change: either compile everything with ASAN (both make and
+# make test) or compile nothing with ASAN, and use a top-level option to control
+#ifeq ($(use_fsanitize),yes)
+#CFLAGS += -fsanitize=address
+#LDFLAGS += -fsanitize=address
+#endif
+
+ifeq ($(COVERAGE_ENABLED),1)
+ifeq ($(filter -O3, $(CFLAGS)), -O3)
+    CFLAGS := $(filter-out -O3,$(CFLAGS))
+	CFLAGS += -O0
+endif
+CFLAGS += -fprofile-arcs --coverage -ggdb -fprofile-update=atomic
+LDFLAGS += --coverage
+endif
 
 # libmerc.so performs selective packet parsing and fingerprint extraction
 # LIBMERC and LIBMERC_H hold the core source and header files,
@@ -52,11 +70,18 @@ LIBMERC     += ssh.cc
 LIBMERC     += tls.cc
 LIBMERC     += utils.cc
 LIBMERC     += wireguard.cc
-LIBMERC     += asn1.cc
 LIBMERC     += asn1/oid.cc
 LIBMERC 	+= config_generator.cc
 LIBMERC     += smb2.cc
 LIBMERC     += bencode.cc
+ifeq ($(platform), intel)
+LIBMERC     += softmax_avx.cc
+LIBMERC     += softmax_avx2.cc
+LIBMERC     += softmax_sse2.cc
+endif
+ifeq ($(platform), arm)
+LIBMERC     += softmax_neon.cc
+endif
 LIBMERC     += $(PYANALYSIS)
 
 LIBMERC_H   =  addr.h
@@ -71,6 +96,10 @@ LIBMERC_H   += fingerprint.h
 LIBMERC_H   += http.h
 LIBMERC_H   += ip_address.hpp
 LIBMERC_H   += json_object.h
+LIBMERC_H   += cbor_object.hpp
+LIBMERC_H   += cbor.hpp
+LIBMERC_H   += fdc.hpp
+LIBMERC_H   += l7m.hpp
 LIBMERC_H   += libmerc.h
 LIBMERC_H   += match.h
 LIBMERC_H   += proto_identify.h
@@ -101,14 +130,17 @@ LIBMERC_H   += bencode.h
 LIBMERC_H   += bittorrent.h
 LIBMERC_H   += tls_extensions.h
 LIBMERC_H   += naive_bayes.hpp
+LIBMERC_H   += softmax.hpp
+LIBMERC_H   += snmp.hpp
+LIBMERC_H   += syslog.hpp
 
 # asn1/oid.cc and asn1/oid.h are auto-built from ASN1 files in the
 # asn1 subdirectory; this is a pattern target that builds both files
 #
 asn1/oid%cc asn1/oid%h:
-	cd asn1 && $(MAKE)
+	cd asn1 && $(MAKE) COVERAGE_ENABLED=$(COVERAGE_ENABLED)
 
-ifeq ($(have_py3),yes)
+ifeq ($(have_python3),yes)
 # PYANALYSIS = python_interface.c
 # CDEFS     += -Wl,--no-as-needed -ldl -lutil $(shell pkg-config --libs --cflags python3)
 # CYTARGETS  = python-inference/tls_fingerprint_min.cpp python-inference/tls_fingerprint_min.h python-inference/tls_fingerprint_min_api.h
@@ -138,8 +170,16 @@ minor=$(subst .,,$(shell cat ../../VERSION | grep -o "\.[0-9]*\."))
 patch=$(shell cat ../../VERSION | grep -o "[0-9]*$$")
 version=$(major).$(minor).$(patch)
 MSV ="-DMERCURY_SEMANTIC_VERSION=$(major),$(minor),$(patch)"
+ifeq ($(platform), intel)
+softmax_sse2.o: softmax_sse2.cc
+	$(CXX) $(CFLAGS) -msse2 -c $< -o $@
 
+softmax_avx.o: softmax_avx.cc
+	$(CXX) $(CFLAGS) -mavx -c $< -o $@
 
+softmax_avx2.o: softmax_avx2.cc
+	$(CXX) $(CFLAGS) -mavx2 -c $< -o $@
+endif
 # rule to build library
 #
 LIBMERC_OBJ = $(LIBMERC:%.cc=%.o)
@@ -147,10 +187,10 @@ libmerc.so: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
 	ar -x lctrie/liblctrie.a
 #	ar rcs libmerc.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o
 ifeq ($(is_macos),yes)
-	$(CXX) -shared -fPIC -Wl,-install_name,$(LIBMERC_SONAME) $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto -o libmerc.so
+	$(CXX) $(CFLAGS) -shared -fPIC -Wl,-install_name,$(LIBMERC_SONAME) $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto -o libmerc.so
 	$(STRIP) -x libmerc.so
 else
-	$(CXX) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto -o libmerc.so
+	$(CXX) $(CFLAGS) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto -o libmerc.so
 	$(STRIP) libmerc.so
 	PATH=$(PATH):/sbin ldconfig -n .
 endif
@@ -158,11 +198,11 @@ endif
 libmerc_coverage.so: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
 	ar -x lctrie/liblctrie.a
 ifeq ($(is_macos),yes)
-	$(CXX) -shared -fPIC -Wl,-install_name,$(LIBMERC_SONAME) -o libmerc_coverage.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto --coverage
+	$(CXX) $(CFLAGS) -shared -fPIC -Wl,-install_name,$(LIBMERC_SONAME) -o libmerc_coverage.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto --coverage
 	$(STRIP) -x libmerc_coverage.so
 	cp libmerc_coverage.so libmerc.so
 else
-	$(CXX) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) -o libmerc_coverage.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto --coverage
+	$(CXX) $(CFLAGS) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) -o libmerc_coverage.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto --coverage
 	$(STRIP) libmerc_coverage.so
 	cp libmerc_coverage.so libmerc.so
 	PATH=$(PATH):/sbin ldconfig -n .
@@ -227,9 +267,9 @@ libmerc.a: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
 export CXX
 export CC
 lctrie/liblctrie.a:
-	cd lctrie && $(MAKE) liblctrie.a
+	cd lctrie && $(MAKE) COVERAGE_ENABLED=$(COVERAGE_ENABLED) liblctrie.a
 
-# rules for automatically determining dependancies via the compiler's
+# rules for automatically determining dependencies via the compiler's
 # -MM option, which is essential for correctly handling changes to
 # header file
 #
@@ -249,7 +289,7 @@ endif
 # rule to build the cython/python analysis engine in python-inference
 #
 $(CYTARGETS): $(CYPREREQ)
-ifeq ($(have_py3),yes)
+ifeq ($(have_python3),yes)
 	python3 python-inference/setup.py build_ext --inplace
 endif
 

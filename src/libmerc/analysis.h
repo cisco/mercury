@@ -33,6 +33,7 @@
 #include "archive.h"
 #include "static_dict.hpp"
 #include "naive_bayes.hpp"
+#include "softmax.hpp"
 
 
 class classifier *analysis_init_from_archive(int verbosity,
@@ -76,9 +77,18 @@ struct common_data {
     ssize_t enc_channel_idx = -1;
     ssize_t domain_faking_idx = -1;
     ssize_t faketls_idx = -1;
+    ssize_t res_proxy_idx = -1;
     bool doh_enabled = false;
     bool domain_faking_enabled = false;
+
+    void initialize_behavioral_detections() {
+        if (attr_name.is_accepting_new_names()) {
+            res_proxy_idx = attr_name.get_index("residential_proxy");
+            attr_name.stop_accepting_new_names();
+        }
+    }
 };
+
 
 class fingerprint_data {
 
@@ -96,6 +106,7 @@ class fingerprint_data {
     common_data *common = nullptr;
 
 public:
+
     uint8_t refcnt = 0;
     uint64_t total_count;
 
@@ -106,9 +117,10 @@ public:
                      bool &malware_database,
                      size_t total_cnt,
                      bool report_os,
-                     bool minimize_ram
+                     bool minimize_ram,
+                     const feature_weights &weights
                      ) :
-        classifier{process_info, total_cnt, minimize_ram},
+        classifier{process_info, total_cnt, minimize_ram, weights},
         malware_db{malware_database},
         subnet_data_ptr{subnets},
         common{c},
@@ -153,7 +165,6 @@ public:
             std::vector<struct os_information> os_info_vector;
             if (report_os && x.HasMember("os_info") && x["os_info"].IsObject()) {
                 for (auto &y : x["os_info"].GetObject()) {
-                    fprintf(stderr, "os_info_vector: adding %s\n", y.name.GetString());
                     if (std::string(y.name.GetString()) != "") {
                         const char *os = os_dictionary.get(y.name.GetString());
                         struct os_information tmp{(char *)os, y.value.GetUint64()};
@@ -178,21 +189,25 @@ public:
 
     ~fingerprint_data() {  }
 
-    struct analysis_result perform_analysis(const char *server_name, const char *dst_ip, uint16_t dst_port,
-                                            const char *user_agent, enum fingerprint_status status) {
+    void compute_score_and_probability(std::vector<floating_point_type> &process_score,
+                                       floating_point_type &max_score,
+                                       floating_point_type &sec_score,
+                                       uint64_t &index_max,
+                                       uint64_t &index_sec,
+                                       floating_point_type &score_sum,
+                                       floating_point_type &score_sum_without_max,
+                                       floating_point_type &malware_prob,
+                                       std::array<floating_point_type, attribute_result::MAX_TAGS> &attr_prob) {
 
-        uint32_t asn_int = subnet_data_ptr->get_asn_info(dst_ip);
-        std::string dst_ip_str(dst_ip);
+        max_score = std::numeric_limits<floating_point_type>::lowest();
+        sec_score = std::numeric_limits<floating_point_type>::lowest();
+        index_max = 0;
+        index_sec = 0;
+        score_sum = 0.0;
+        score_sum_without_max = 0.0;
+        malware_prob = 0.0;
 
-        std::vector<floating_point_type> process_score = classifier.classify(asn_int, dst_port, server_name, dst_ip_str, user_agent);
-
-        // compute max_score, sec_score, index_max, and index_sec
-        //
-        floating_point_type max_score = std::numeric_limits<floating_point_type>::lowest();
-        floating_point_type sec_score = std::numeric_limits<floating_point_type>::lowest();
-        uint64_t index_max = 0;
-        uint64_t index_sec = 0;
-        for (uint64_t i=0; i < process_score.size(); i++) {
+        for (uint64_t i = 0; i < process_score.size(); i++) {
             if (process_score[i] > max_score) {
                 sec_score = max_score;
                 index_sec = index_max;
@@ -204,49 +219,89 @@ public:
             }
         }
 
-        // convert process_score from log-prob values to probability
-        // values, and compute score_sum, score_sum_without_max,
-        // malware_prob, and the attr_prob vector.
-        //
-        floating_point_type score_sum = 0.0;
-        floating_point_type score_sum_without_max = 0.0;
-        floating_point_type malware_prob = 0.0;
-        std::array<floating_point_type, attribute_result::MAX_TAGS> attr_prob;
+        softmax(process_score, malware, attr, max_score, score_sum, index_max, score_sum_without_max, malware_prob, attr_prob);
+
+        max_score = process_score[index_max];  // set max_score to probability
+        sec_score = process_score[index_sec];
+
+        if (score_sum > 0.0 && malware_db) {
+            malware_prob /= score_sum;
+        }
+
+        if (malware_db && process_name[index_max] == "generic dmz process" && malware[index_sec] == false) {
+            process_score[index_max] = 0; //check this
+            index_max = index_sec;
+            score_sum = score_sum_without_max;
+            max_score = sec_score;
+        }
+
+        // Calculate attribute probabilities
         attr_prob.fill(0.0);
         for (uint64_t i=0; i < process_score.size(); i++) {
-            process_score[i] = expf((float)(process_score[i] - max_score));
-            score_sum += process_score[i];
-            if (i != index_max) {
-                score_sum_without_max += process_score[i];
-            }
-            if (malware[i]) {
-                malware_prob += process_score[i];
-            }
             for (int j = 0; j < attribute_result::MAX_TAGS; j++) {
                 if (attr[i][j]) {
                     attr_prob[j] += process_score[i];
                 }
             }
         }
+    }
 
-        max_score = process_score[index_max];  // set max_score to probability
-        sec_score = process_score[index_sec];  // set sec_score to probability
+    struct detailed_analysis_result perform_detailed_analysis(const char *server_name, const char *dst_ip,
+                                                              uint16_t dst_port, const char *user_agent,
+                                                              enum fingerprint_status status) {
+        uint32_t asn_int = subnet_data_ptr->get_asn_info(dst_ip);
+        std::string dst_ip_str(dst_ip);
 
-        if (score_sum > 0.0) {
-            if (malware_db) {
-                malware_prob /= score_sum;
-            }
+        std::vector<floating_point_type> process_score = classifier.classify(asn_int, dst_port, server_name, dst_ip_str, user_agent);
+        return get_detailed_analysis_result(process_score, status);
+    }
+
+    struct detailed_analysis_result get_detailed_analysis_result(std::vector<floating_point_type> &process_score, fingerprint_status status) {
+
+        std::vector<floating_point_type> normalized_process_score(process_score.size(), 0.0);
+        floating_point_type max_score, sec_score, score_sum, score_sum_without_max, malware_prob;
+        uint64_t index_max, index_sec;
+        std::array<floating_point_type, attribute_result::MAX_TAGS> attr_prob;
+        compute_score_and_probability(process_score, max_score, sec_score, index_max, index_sec, score_sum, score_sum_without_max, malware_prob, attr_prob);
+
+        for (uint64_t i = 0; i < process_score.size(); i++) {
+            normalized_process_score[i] = process_score[i] / score_sum;
         }
 
-        if (malware_db && process_name[index_max] == "generic dmz process" && malware[index_sec] == false) {
-            // the most probable process is unlabeled, so choose the
-            // next most probable one if it isn't malware, and adjust
-            // the normalization sum as appropriate
+        return detailed_analysis_result(status, malware_prob, process_name, normalized_process_score);
+    }
 
-            index_max = index_sec;
-            score_sum = score_sum_without_max;
-            max_score = sec_score;
-        }
+    struct analysis_result perform_analysis(const char *server_name, const char *dst_ip, uint16_t dst_port,
+                                            const char *user_agent, enum fingerprint_status status) {
+
+        uint32_t asn_int = subnet_data_ptr->get_asn_info(dst_ip);
+        std::string dst_ip_str(dst_ip);
+
+        std::vector<floating_point_type> process_score = classifier.classify(asn_int, dst_port, server_name, dst_ip_str, user_agent);
+        return get_analysis_result(process_score, status);
+    }
+
+    struct analysis_result perform_analysis(const char *server_name, const char *dst_ip, uint16_t dst_port,
+                                            const char *user_agent, enum fingerprint_status status, feature_weights &weights) {
+
+        uint32_t asn_int = subnet_data_ptr->get_asn_info(dst_ip);
+        std::string dst_ip_str(dst_ip);
+
+        std::vector<floating_point_type> process_score = classifier.classify(asn_int, dst_port, server_name, dst_ip_str, user_agent, weights);
+        return get_analysis_result(process_score, status);
+    }
+
+
+    struct analysis_result get_analysis_result(std::vector<floating_point_type> &process_score, enum fingerprint_status status) {
+
+        // compute max_score, sec_score, index_max, and index_sec
+        //
+        floating_point_type max_score, sec_score, score_sum, score_sum_without_max, malware_prob;
+        uint64_t index_max, index_sec;
+
+        std::array<floating_point_type, attribute_result::MAX_TAGS> attr_prob;
+        compute_score_and_probability(process_score, max_score, sec_score, index_max, index_sec, score_sum, score_sum_without_max, malware_prob, attr_prob);
+
         if (score_sum > 0.0) {
             max_score /= score_sum;
             for (int j = 0; j < attribute_result::MAX_TAGS; j++) {
@@ -354,17 +409,16 @@ class classifier {
 
     std::vector<fingerprint_type> fp_types;
 
+    std::unordered_map<std::string, std::pair<uint32_t, size_t>> fp_count_and_format;
+
+    bool disabled = false;   // if the classfier has not been initialised or disabled
+public:
     // the common object holds data that is common across all
     // fingerprint-specific classifiers, and is used by those
     // classifiers
     //
     common_data common;
 
-    std::unordered_map<std::string, std::pair<uint32_t, size_t>> fp_count_and_format;
-
-    bool disabled = false;   // if the classfier has not been initialised or disabled
-
-public:
 
     static fingerprint_type get_fingerprint_type(const std::string &s) {
         if (s == "tls") {
@@ -373,8 +427,12 @@ public:
             return fingerprint_type_http;
         } else if (s == "quic") {
             return fingerprint_type_quic;
+        } else if (s == "stun") {
+            return fingerprint_type_stun;
         } else if (s == "tofsee") {
             return fingerprint_type_tofsee;
+        } else if (s == "ssh") {
+            return fingerprint_type_ssh;
         }
         return fingerprint_type_unknown;
     }
@@ -429,8 +487,12 @@ public:
                     type = fingerprint_type_http;
                 } else if (s.compare(0, idx, "quic") == 0) {
                     type = fingerprint_type_quic;
+                } else if (s.compare(0, idx, "stun") == 0) {
+                    type = fingerprint_type_stun;
                 } else if (s.compare(0, idx, "tofsee") == 0) {
                     type = fingerprint_type_tofsee;
+                } else if (s.compare(0, idx, "ssh") == 0) {
+                    type = fingerprint_type_ssh;
                 }
                 std::string version_and_tail{s.substr(idx+1)};
 
@@ -461,13 +523,26 @@ public:
         const char* server_name = analysis.destination.sn_str;
         const char* dst_ip = analysis.destination.dst_ip_str;
 
+        check_additional_attributes_util(analysis.result, server_name, dst_ip);
+    }
+
+    void check_additional_attributes_util(analysis_result &result, const char* server_name, const char* dst_ip) {
+
         if (common.doh_enabled && ((common.doh_watchlist.contains(server_name) || common.doh_watchlist.contains_addr(dst_ip)))) {
-            analysis.result.attr.set_attr(common.doh_idx, 1.0);
+            result.attr.set_attr(common.doh_idx, 1.0);
         }
 
         if (common.domain_faking_enabled && subnets.is_domain_faking(server_name, dst_ip)) {
-            analysis.result.attr.set_attr(common.domain_faking_idx, 1.0);
+            result.attr.set_attr(common.domain_faking_idx, 1.0);
         }
+    }
+
+    void set_faketls_attribute(analysis_result &result) {
+        result.attr.set_attr(common.faketls_idx, 1.0);
+    }
+
+    void set_enc_channel_attribute(analysis_result &result) {
+        result.attr.set_attr(common.enc_channel_idx, result.malware_prob);
     }
 
     void process_watchlist_line(std::string &line_str) {
@@ -568,7 +643,7 @@ public:
         // if there is a feature_weights object, we read it and then
         // pass it on to the naive bayes classifier
         //
-        feature_weights weights;
+        feature_weights weights = naive_bayes_tls_quic_http::default_weights;
         if (fp.HasMember("feature_weights")) {
             weights.read_from_object(fp["feature_weights"]);
         }
@@ -596,7 +671,8 @@ public:
                                                              MALWARE_DB,
                                                              total_count,
                                                              report_os,
-                                                             minimize_ram
+                                                             minimize_ram,
+                                                             weights
                                                              );
 
             if (fp.HasMember("str_repr") && fp["str_repr"].IsString()) {
@@ -660,10 +736,17 @@ public:
                float proc_dst_threshold,
                bool report_os,
                bool minimize_ram) : os_dictionary{}, subnets{}, fpdb{}, resource_version{} {
+        if (!check_simd()) {
+            printf_err(log_debug, "No SIMD instruction set available\n");
+        }
 
         // reserve attribute for encrypted_dns watchlist
         //
         common.doh_idx = common.attr_name.get_index("encrypted_dns");
+
+        // reserve attribute for residential_proxy detection
+        //
+        common.res_proxy_idx = common.attr_name.get_index("residential_proxy");
 
         // reserve attribute for encrypted_channel
         //
@@ -742,9 +825,13 @@ public:
                     legacy_archive = (!dual_db && !lite_db && !full_db);
 
                 } else if (name == "pyasn.db") {
+                    std::vector<std::string> asn_subnets_str;
                     while (archive.getline(line_str)) {
-                        subnets.process_line(line_str);
+                        asn_subnets_str.push_back(line_str);
                     }
+                    // process the parsed asn subnets and store them in prefix array for final processing
+                    //
+                    subnets.process_asn_subnets(asn_subnets_str);
                     got_pyasn_db = true;
                 } else if (name == "doh-watchlist.txt") {
                     while (archive.getline(line_str)) {
@@ -752,12 +839,13 @@ public:
                     }
                     got_doh_watchlist = true;
                 } else if (name == "domain-mappings.db") {
-                    // subnet_map stores the index of subnets in subnet array. This can be used to track subnets mapped to multiple domains
-                    //
-                    std::unordered_map<uint32_t, ssize_t> subnet_map;
+                    std::vector<std::string> domain_mapping_subnets_str;
                     while (archive.getline(line_str)) {
-                        subnets.process_domain_mappings_line(line_str, subnet_map);
+                        domain_mapping_subnets_str.push_back(line_str);
                     }
+                    // process the parsed domain_mapping subnets and store them in domains_prefix array for final processing
+                    //
+                    subnets.process_domain_mapping_subnets(domain_mapping_subnets_str);
                     got_domain_faking_subnets = true;
                 }
             }
@@ -769,7 +857,7 @@ public:
 
         clock_t load_end_time = clock();
         double load_elapsed_seconds = double(load_end_time - load_start_time) / CLOCKS_PER_SEC;
-        
+
         if (load_elapsed_seconds >= 20) {
             printf_err(log_debug, "time taken to load resource archive: %.2f seconds\n", load_elapsed_seconds);
         }
@@ -855,15 +943,35 @@ public:
 
     }
 
-    struct analysis_result perform_analysis(const char *fp_str, const char *server_name, const char *dst_ip,
-                                            uint16_t dst_port, const char *user_agent) {
+    /// returns true if the null-terminated fingerprint string \param
+    /// fp_str is a TLS fingerprint, and returns false otherwise
+    ///
+    static bool fp_str_is_tls(const char *fp_str) {
+        if (fp_str != nullptr &&
+            (fp_str[0] == 't') &&
+            (fp_str[1] == 'l') &&
+            (fp_str[2] == 's') &&
+            (fp_str[3] == '/')) {
+            return true;
+        }
+        return false;
+    }
 
+    template <typename PerformAnalysisFn>
+    auto perform_analysis_common(const char *fp_str, PerformAnalysisFn perform_analysis_fn) {
         const auto fpdb_entry = fpdb.find(fp_str);
         if (fpdb_entry == fpdb.end()) {
-            if (fp_prevalence.contains(fp_str)) {
-                fp_prevalence.update(fp_str);
-                return analysis_result(fingerprint_status_unlabled);
-            } else {
+
+            // if the fingerprint is TLS, check to see if it is in the
+            // "randomized" set; otherwise, consider it "unlabeled"
+            //
+            if (fp_str_is_tls(fp_str)) {
+
+                if (fp_prevalence.contains(fp_str)) {
+                    fp_prevalence.update(fp_str);
+                    return perform_analysis_fn(nullptr, fingerprint_status_unlabled);
+                }
+
                 fp_prevalence.update(fp_str);
                 /*
                  * Resource file has info about randomized fingerprints in the format
@@ -871,7 +979,7 @@ public:
                  * Eg: tls/1/randomized
                  */
                 std::string randomized_str;
-                const char *c = &fp_str[0];
+                const char *c = fp_str;
                 while (*c != '\0' && *c != '(') {
                     randomized_str.append(c, 1);
                     c++;
@@ -880,15 +988,61 @@ public:
 
                 const auto fpdb_entry_randomized = fpdb.find(randomized_str);
                 if (fpdb_entry_randomized == fpdb.end()) {
-                    return analysis_result(fingerprint_status_randomized);  // TODO: does this actually happen?
+                    return perform_analysis_fn(nullptr, fingerprint_status_randomized);
                 }
                 fingerprint_data *fp_data = fpdb_entry_randomized->second;
-                return fp_data->perform_analysis(server_name, dst_ip, dst_port, user_agent, fingerprint_status_randomized);
+                return perform_analysis_fn(fp_data, fingerprint_status_randomized);
             }
+            return perform_analysis_fn(nullptr, fingerprint_status_unlabled);
         }
         fingerprint_data *fp_data = fpdb_entry->second;
+        return perform_analysis_fn(fp_data, fingerprint_status_labeled);
+    }
 
-        return fp_data->perform_analysis(server_name, dst_ip, dst_port, user_agent, fingerprint_status_labeled);
+    struct analysis_result perform_analysis(const char *fp_str, const char *server_name, const char *dst_ip,
+                                            uint16_t dst_port, const char *user_agent) {
+        auto perform_analysis_fn = [&](fingerprint_data *fp_data, fingerprint_status status) {
+            if (fp_data == nullptr) {
+                return analysis_result(status);
+            }
+            return fp_data->perform_analysis(server_name, dst_ip, dst_port, user_agent, status);
+        };
+        return perform_analysis_common(fp_str, perform_analysis_fn);
+    }
+
+    struct detailed_analysis_result perform_detailed_analysis(const char *fp_str, const char *server_name, const char *dst_ip,
+                                                              uint16_t dst_port, const char *user_agent) {
+        auto perform_detailed_fn = [&](fingerprint_data *fp_data, fingerprint_status status) {
+            if (fp_data == nullptr) {
+                return detailed_analysis_result(status);
+            }
+            return fp_data->perform_detailed_analysis(server_name, dst_ip, dst_port, user_agent, status);
+        };
+        return perform_analysis_common(fp_str, perform_detailed_fn);
+    }
+
+    /*
+     * This function perform_analysis_with_weights accepts
+     * weights of features of weighed naive bayes classifier as input
+     * and performs analysis based on the updated weights.
+     * This function is mainly required for tuning the weights and is
+     * intended to be used during the training phase where the
+     * functionality is exposed using cython api and is not
+     * intended to be used in packet processing path.
+     */
+    struct analysis_result perform_analysis_with_weights(const char *fp_str, const char *server_name, const char *dst_ip,
+                                                         uint16_t dst_port, const char *user_agent,
+                                                         floating_point_type new_as_weight, floating_point_type new_domain_weight,
+                                                         floating_point_type new_port_weight, floating_point_type new_ip_weight,
+                                                         floating_point_type new_sni_weight, floating_point_type new_ua_weight) {
+
+
+        feature_weights weights{new_as_weight, new_domain_weight, new_port_weight,
+                                new_ip_weight, new_sni_weight, new_ua_weight};
+        auto perform_analysis_fn = [&](fingerprint_data *fp_data, fingerprint_status status) {
+            return fp_data->perform_analysis(server_name, dst_ip, dst_port, user_agent, status, weights);
+        };
+        return perform_analysis_common(fp_str, perform_analysis_fn);
     }
 
     bool analyze_fingerprint_and_destination_context(const fingerprint &fp,

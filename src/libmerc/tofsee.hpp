@@ -94,6 +94,8 @@ public:
         srv_time{pt, 4},
         unknown_2{pt, 48} { }
 
+    static constexpr ssize_t pkt_length = 200;
+
     static constexpr mask_and_value<4> matcher{
         { 0x00, 0x00, 0x00, 0x00 },
         { 0x00, 0x00, 0x00, 0x00 }
@@ -112,6 +114,12 @@ public:
         tofsee.close();
     }
 
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("tofsee_initial_message");
+        protocols.close();
+    }
+
     bool is_not_empty() const {
         if ( (!ipv4.is_not_null()) or (ipv4.is_not_null() and ipv4.matches(std::array<uint8_t,4>{0,0,0,0})) ) {
             return false;  // not a tofsee message, probably contains a run of bytes
@@ -122,7 +130,7 @@ public:
         }
         size_t weight = 0;
         for (const auto & x : unknown_1) {
-            weight += __builtin_popcount(x);
+            weight += std::bitset<8>{x}.count();
         }
         if (weight < weight_threshold) {
             return true;

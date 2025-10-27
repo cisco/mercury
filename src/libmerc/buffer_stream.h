@@ -15,6 +15,10 @@
 #include <time.h>
 #include <stdint.h>
 #include <stdio.h>
+#ifdef _WIN32
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t;
+#endif
 
 #ifdef DONT_USE_STDERR
 #include "libmerc.h"
@@ -502,7 +506,7 @@ static inline int append_uint64_hex(char *dstr, int *doff, int dlen, int *trunc,
     for (auto i = 0; i < 16; i++) {
         outs[i] = hex_table[(n & mask) >> (15 - i) *4];
         mask = mask >> 4;
-    } 
+    }
 
     r += append_memcpy(dstr, doff, dlen, trunc,
                        outs, 16);
@@ -1008,6 +1012,10 @@ struct buffer_stream {
         append_null(dstr, &doff, dlen, &trunc);
     }
 
+    void set_truncated() { trunc = 1; }
+
+    bool is_truncated() const { return trunc == 1; }
+
     int snprintf(const char *fmt, ...) {
 
         if (trunc == 1) {
@@ -1142,6 +1150,16 @@ struct buffer_stream {
         }
         else
             return std::string{};
+    }
+
+    /// returns the number of writeable bytes remaining in this
+    /// buffer_stream
+    ///
+    size_t writeable_length() const {
+        if (trunc) {
+            return 0;
+        }
+        return dlen - doff;
     }
 
 };

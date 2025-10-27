@@ -8,19 +8,25 @@
 #ifndef DATUM_H
 #define DATUM_H
 
-#ifndef __STDC_FORMAT_MACROS
-#define __STDC_FORMAT_MACROS 1
-#endif
+#define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
+#ifdef _WIN32
+#include <io.h>
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t;
+#else
 #include <unistd.h>
+#endif
 #include <array>
 #include <vector>
 #include <bitset>
 #include <limits>
 #include <string>
 #include <cassert>
+#include <memory>
 #include "buffer_stream.h"
 
 /// `mercury_debug` is a compile-time option that turns on debugging output
@@ -42,6 +48,9 @@
 /// `uint64_t` integers.
 ///
 
+#ifndef HAVE_HTON_DEF
+#define HAVE_HTON_DEF
+
 #ifdef _WIN32
 
 static constexpr bool host_little_endian = true;
@@ -49,17 +58,17 @@ static constexpr bool host_little_endian = true;
 /// returns an integer equal to x with its byte order reversed (from
 /// little endian to big endian or vice-versa)
 ///
-inline static constexpr uint16_t swap_byte_order(uint16_t x) { return _byteswap_ushort(x); }
+inline static uint16_t swap_byte_order(uint16_t x) { return _byteswap_ushort(x); }
 
 /// returns an integer equal to x with its byte order reversed (from
 /// little endian to big endian or vice-versa)
 ///
-inline static constexpr uint32_t swap_byte_order(uint32_t x) { return _byteswap_ulong(x); }
+inline static  uint32_t swap_byte_order(uint32_t x) { return _byteswap_ulong(x); }
 
 /// returns an integer equal to x with its byte order reversed (from
 /// little endian to big endian or vice-versa)
 ///
-inline static constexpr uint64_t swap_byte_order(uint64_t x) { return _byteswap_uint64(x); }
+inline static uint64_t swap_byte_order(uint64_t x) { return _byteswap_uint64(x); }
 
 #else
 
@@ -89,8 +98,13 @@ inline static constexpr uint64_t swap_byte_order(uint64_t x) { return __builtin_
 /// template function `ntoh(x)` returns an unsigned integer in host
 /// byte order with the same type and value.
 ///
+#ifdef _WIN32
+template <typename T>
+inline static T ntoh(T x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
+#else
 template <typename T>
 inline static constexpr T ntoh(T x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
+#endif
 
 /// when `x` is in host byte order, `hton(x)` returns the value of `x`
 /// in network byte order
@@ -105,9 +119,15 @@ inline static constexpr T ntoh(T x) { if (host_little_endian) { return swap_byte
 /// The specialization must be used because otherwise a compiler error
 /// will result from amiguity over the integer type.
 ///
+#ifdef _WIN32
+template <typename T>
+inline static T hton(T x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
+#else
 template <typename T>
 inline static constexpr T hton(T x) { if (host_little_endian) { return swap_byte_order(x); } return x; }
+#endif
 
+#endif
 /// @} -- end of integeroperations
 
 /// returns the lowercase ASCII character corresponding to `x`, if `x`
@@ -210,7 +230,12 @@ struct datum {
     /// construct a datum representing the null-terminated character
     /// string \param str
     ///
-    explicit datum(const char *str) : data{(uint8_t *)str}, data_end{data + strlen(str)} { }
+    explicit datum(const char *str) : data{NULL}, data_end{NULL} {
+        if (str) {
+            data = (uint8_t *)str;
+            data_end = data + strlen(str);
+        }
+    }
 
     /// construct a datum representing the `std::string` \param str
     ///
@@ -377,6 +402,7 @@ struct datum {
     }
 
     bool case_insensitive_match(const char * name) const {
+        if (name == nullptr) return false;
         const uint8_t *d = data;
         const char *k = name;
         while (d < data_end) {
@@ -490,7 +516,7 @@ struct datum {
         const unsigned char *tmp_data = data;
         const unsigned char *pattern = delim;
         const unsigned char *pattern_end = delim + length;
-        
+
         while (pattern < pattern_end && tmp_data < data_end)
         {
             if (*tmp_data != *pattern)
@@ -607,6 +633,7 @@ struct datum {
     }
 
     bool accept_byte(const uint8_t *alternatives, uint8_t *output) {
+        // TODO: This function should also accept a length parameter for the alternatives array to prevent issues when the array is not null-terminated.
         if (data_end > data) {
             uint8_t value = *data;
             while (*alternatives != 0) {
@@ -620,6 +647,20 @@ struct datum {
         }
         set_null();
         return true;
+    }
+
+    /// reads and accepts a `std::array` of `uint8_t`s of length
+    /// \param N; otherwise, sets this \ref datum to `null`.
+    ///
+    template <size_t N>
+    void accept(const std::array<uint8_t, N> &a) {
+        if (data and data + N <= data_end) {
+            if (memcmp(data, a.data(), N) == 0) {
+                data += N;
+                return;
+            }
+        }
+        set_null();
     }
 
     /// reads a `uint8_t` in network byte order, without advancing the
@@ -793,7 +834,7 @@ struct datum {
         if (data && length() == x_len) {
             return ::memcmp(x, data, x_len);
         }
-        return std::numeric_limits<int>::min();
+        return (std::numeric_limits<int>::min)();
     }
 
     bool compare_nbytes(const void *x, ssize_t x_len) {
@@ -804,7 +845,7 @@ struct datum {
     }
 
     void fprint_hex(FILE *f, size_t length=0) const {
-        if (data == nullptr) { return; }
+        if (data == nullptr || f == nullptr) { return; }
         const uint8_t *x = data;
         const uint8_t *end = data_end;
         if (length) {
@@ -817,9 +858,10 @@ struct datum {
     }
 
     void fprint_c_array(FILE *f, const char *name) const {
+        if (f == nullptr || name == nullptr) { return; }
         size_t count = 1;
         const uint8_t *x = data;
-        fprintf(f, "uint8_t %s[] = {\n    ", name);
+        fprintf(f, "uint8_t %s[%zd] = {\n    ", name, length());
         while (x < data_end - 1) {
             fprintf(f, "0x%02x,", *x++);
             if (count++ % 8 == 0) {
@@ -833,6 +875,7 @@ struct datum {
     }
 
     void fprint(FILE *f, size_t length=0) const {
+        if (f == nullptr) { return; }
         const uint8_t *x = data;
         const uint8_t *end = data_end;
         if (length) {
@@ -1146,7 +1189,7 @@ public:
         // check for writeable room; output length is twice the input
         // length
         //
-        if (is_null() or data_end - data < ((ssize_t)num_digits/2)) {
+        if (is_null() or data_end - data < ((ssize_t)num_digits/2) or (num_digits&1) == 1 ) {
             set_null();
             return;
         }
@@ -1991,5 +2034,264 @@ public:
 
 };
 
+namespace {
+
+    [[maybe_unused]] int datum_fuzz_test(const uint8_t *data, size_t size) {
+        datum d{data, data+size};
+        d.isupper();
+        d.is_alnum();
+        d.is_any_alpha();
+        d.is_printable();
+        uint8_t output;
+        d.lookahead_uint8(&output);
+        auto str = std::make_unique<char[]>(size + 1);
+        str[size] = '\0';
+        datum d2{str.get()};
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_trim_leading_whitespace_fuzz_test(const uint8_t *data, size_t size) {
+        datum d{data, data+size};
+        d.trim_leading_whitespace();
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_bits_in_data_fuzz_test(const uint8_t *data, size_t size) {
+        datum d{data, data+size};
+        d.bits_in_data();
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_parse_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d1;
+        datum d2{data1, data1+size1};
+        ssize_t num_bytes;
+        memcpy(&num_bytes, data2, std::min(sizeof(ssize_t), size2));
+        d1.parse(d2, num_bytes);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_parse_soft_fail_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d1;
+        datum d2{data1, data1+size1};
+        size_t num_bytes;
+        memcpy(&num_bytes, data2, std::min(sizeof(size_t), size2));
+        d1.parse_soft_fail(d2, num_bytes);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_parse_up_to_delim_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d1;
+        datum d2{data1, data1+size1};
+        uint8_t delim;
+        memcpy(&delim, data2, std::min(sizeof(uint8_t), size2));
+        d1.parse_up_to_delim(d2, delim);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_skip_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d{data1, data1+size1};
+        size_t length;
+        memcpy(&length, data2, std::min(sizeof(size_t), size2));
+        d.skip(length);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_trim_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d{data1, data1+size1};
+        size_t length;
+        memcpy(&length, data2, std::min(sizeof(size_t), size2));
+        d.trim(length);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_trim_to_length_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d{data1, data1+size1};
+        size_t length;
+        memcpy(&length, data2, std::min(sizeof(size_t), size2));
+        d.trim_to_length(length);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_case_insensitive_match_1_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d1{data1, data1+size1};
+        datum d2{data2, data2+size2};
+        d1.case_insensitive_match(d2);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_case_insensitive_match_2_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d{data1, data1+size1};
+        auto name = std::make_unique<char []>(size2 + 1);
+        memcpy(name.get(), data2, size2);
+        name[size2] = '\0';
+        d.case_insensitive_match(name.get());
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_cmp_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d1{data1, data1+size1};
+        datum d2{data2, data2+size2};
+        d1.cmp(d2);
+        return 0;
+    }
+
+
+    [[maybe_unused]] int datum_find_delim_1_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d{data1, data1+size1};
+        d.find_delim(reinterpret_cast<const unsigned char*>(data2), size2);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_find_delim_2_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, [[maybe_unused]] size_t size2) {
+        datum d{data1, data1+size1};
+        const uint8_t delim = data2[0];
+        d.find_delim(delim);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_skip_up_to_delim_1_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, [[maybe_unused]] size_t size2) {
+        datum d{data1, data1+size1};
+        const uint8_t delim = data2[0];
+        d.skip_up_to_delim(delim);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_skip_up_to_delim_2_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d{data1, data1+size1};
+        d.skip_up_to_delim(reinterpret_cast<const unsigned char*>(data2), size2);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_trim_trail_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, [[maybe_unused]] size_t size2) {
+        datum d{data1, data1+size1};
+        unsigned char trail = data2[0];
+        d.trim_trail(trail);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_accept_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, [[maybe_unused]] size_t size2) {
+        datum d{data1, data1+size1};
+        uint8_t byte = data2[0];
+        d.accept(byte);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_accept_byte_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d{data1, data1+size1};
+        auto alternative = std::make_unique<uint8_t []>(size2 + 1);
+        uint8_t output;
+        memcpy(alternative.get(), data2, size2);
+        alternative[size2] = 0;
+        d.accept_byte(alternative.get(), &output);
+        return 0;
+    }
+
+
+    [[maybe_unused]] int datum_lookahead_uint_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d{data1, data1+size1};
+        unsigned int num_bytes;
+        memcpy(&num_bytes, data2, std::min(sizeof(unsigned int), size2));
+        uint64_t output;
+        d.lookahead_uint(num_bytes, &output);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_compare_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d{data1, data1 + size1};
+        d.compare(data2, size2);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_fprint_hex_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d{data1, data1 + size1};
+        size_t length;
+        memcpy(&length, data2, std::min(sizeof(size_t), size2));
+        FILE *temp_file = tmpfile();
+        d.fprint_hex(temp_file, length);
+        fclose(temp_file);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_fprint_c_array_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d{data1, data1 + size1};
+        auto name = std::make_unique<char []>(size2 + 1);
+        memcpy(name.get(), data2, size2);
+        name[size2] = '\0';
+        FILE *temp_file = tmpfile();
+        d.fprint_c_array(temp_file, name.get());
+        fclose(temp_file);
+        return 0;
+    }
+
+    [[maybe_unused]] int datum_fprint_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        datum d{data1, data1 + size1};
+        size_t length;
+        memcpy(&length, data2, std::min(sizeof(size_t), size2));
+        FILE *temp_file = tmpfile();
+        d.fprint(temp_file, length);
+        fclose(temp_file);
+        return 0;
+    }
+
+    [[maybe_unused]] int writeable_copy_1_fuzz_2_test([[maybe_unused]] const uint8_t *data1, size_t size1, const uint8_t *data2, [[maybe_unused]] size_t size2) {
+        auto buffer = std::make_unique<uint8_t []>(size1);
+        writeable w{buffer.get(), buffer.get()+size1};
+        uint8_t x = data2[0];
+        w.copy(x);
+        return 0;
+    }
+
+    [[maybe_unused]] int writeable_copy_2_fuzz_2_test([[maybe_unused]] const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        auto buffer = std::make_unique<uint8_t []>(size1);
+        writeable w{buffer.get(), buffer.get()+size1};
+        w.copy(data2, size2);
+        return 0;
+    }
+
+    [[maybe_unused]] int writeable_write_hex_fuzz_2_test( [[maybe_unused]] const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        auto buffer = std::make_unique<uint8_t []>(size1);
+        writeable w{buffer.get(), buffer.get()+size1};
+        w.write_hex(data2, size2);
+        return 0;
+    }
+
+
+    [[maybe_unused]] int writeable_write_quote_enclosed_hex_1_fuzz_2_test([[maybe_unused]] const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        auto buffer = std::make_unique<uint8_t []>(size1);
+        writeable w{buffer.get(), buffer.get()+size1};
+        w.write_quote_enclosed_hex(data2, size2);
+        return 0;
+    }
+
+    [[maybe_unused]] int writeable_write_quote_enclosed_hex_2_fuzz_2_test([[maybe_unused]] const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        auto buffer = std::make_unique<uint8_t []>(size1);
+        writeable w{buffer.get(), buffer.get()+size1};
+        datum d{data2, data2+size2};
+        w.write_quote_enclosed_hex(d);
+        return 0;
+    }
+
+
+    [[maybe_unused]] int writeable_copy_from_hex_fuzz_2_test([[maybe_unused]] const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+        auto buffer = std::make_unique<uint8_t []>(size1);
+        writeable w{buffer.get(), buffer.get()+size1};
+        w.copy_from_hex(data2, size2);
+        return 0;
+    }
+
+
+    [[maybe_unused]] int dynamic_buffer_fuzz_test(const uint8_t *data, [[maybe_unused]] size_t size) {
+        size_t initial_capacity = data[0];
+        dynamic_buffer buffer(initial_capacity);
+
+        buffer.reset();
+        buffer.is_not_empty();
+        buffer.readable_length();
+        buffer.contents();
+
+        return 0;
+    }
+};
 
 #endif /* DATUM_H */

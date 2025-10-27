@@ -9,6 +9,7 @@
 #define RESULT_H
 
 #include <stdbool.h>
+#include <algorithm>
 #include "libmerc.h"
 #include "json_object.h"
 #include "addr.h"
@@ -28,7 +29,7 @@ public:
 
     // MAX_TAGS denotes the maximum number of attribute tags supported
     //
-    static constexpr ssize_t MAX_TAGS = 12;
+    static constexpr ssize_t MAX_TAGS = 13;
     typedef std::bitset<MAX_TAGS> bitset;
 
 private:
@@ -80,13 +81,13 @@ public:
             return;
         }
 
-        struct buffer_stream buf{(char *)buffer, buffer_size};
+        struct buffer_stream buf{(char *)buffer, (int)buffer_size};
         struct json_object record{&buf};
         write_json(record);
         record.close();
     }
 
-    bool is_valid() {
+    bool is_valid() const {
         return tags.any();
     }
 
@@ -94,10 +95,16 @@ public:
 
     void initialize (const std::vector<std::string> *_tag_names, const char *const *names_char) {
         tag_names = _tag_names;
-        tag_names_char = names_char;    
+        tag_names_char = names_char;
     }
 
     const struct attribute_context *get_attributes() {
+        for (ssize_t i = 0; (i < MAX_TAGS) && ((size_t)i < tag_names->size()); i++) {
+            // if the attribute bit is not set, the probability score is 0
+            if(!tags[i]) {
+                prob_score[i] = 0;
+            }
+        }
         attr_ctx.tag_names = tag_names_char;
         attr_ctx.prob_scores = prob_score.data();
         attr_ctx.attributes_len = tag_names->size();
@@ -105,6 +112,9 @@ public:
     }
 
     void set_attr (ssize_t idx, long double prob) {
+        if (tag_names == nullptr) {
+            return;
+        }
         if ((idx < 0) || (idx >= MAX_TAGS) || ((size_t)idx >= tag_names->size()) )
             return;
         tags[idx] = true;
@@ -145,6 +155,10 @@ public:
         accept_more_names = false;
         for (size_t i = 0; i < names.size(); i++)
             names_char[i] = names[i].c_str();
+    }
+
+    bool is_accepting_new_names() {
+        return accept_more_names;
     }
 
     const std::vector<std::string> &value() const { return names; }
@@ -228,12 +242,13 @@ public:
             attr.write_json(analysis);
         } else {
             analysis.print_key_string("status", "unknown");
+            attr.write_json(analysis);
         }
         analysis.close();
     }
 
     bool is_valid() const {
-        return status != fingerprint_status_no_info_available;
+        return ((status != fingerprint_status_no_info_available) || (attr.is_valid()));
     }
 
     void reinit() {
@@ -281,6 +296,30 @@ public:
     }
 };
 
+struct detailed_analysis_result : public analysis_result {
+
+    std::vector<std::string> process_names;
+    std::vector<double> normalized_process_scores;
+
+    detailed_analysis_result(): analysis_result() {}
+
+    detailed_analysis_result(fingerprint_status s): analysis_result(s) {}
+
+    detailed_analysis_result(fingerprint_status s, long double mal_prob,
+                             std::vector<std::string>& _process_names,
+                             std::vector<double>& _normalized_process_scores): analysis_result(s) {
+        malware_prob = mal_prob;
+        process_names = _process_names;
+        normalized_process_scores = _normalized_process_scores;
+    }
+
+    void reinit() {
+        analysis_result::reinit();
+        process_names.clear();
+        normalized_process_scores.clear();
+    }
+};
+
 
 // helper functions and constants
 
@@ -314,7 +353,7 @@ struct destination_context {
     // tofsee specific overload, the user_agent prints an ip address as a string
     void init_tofsee(struct datum domain, struct datum ip, datum alpn, const struct key &key) {
         std::string ua;
-        ua = ua + std::to_string((int)ip.data[0]) + "." + std::to_string((int)ip.data[1]) + "." + std::to_string((int)ip.data[2]) + "." + std::to_string((int)ip.data[3]); 
+        ua = ua + std::to_string((int)ip.data[0]) + "." + std::to_string((int)ip.data[1]) + "." + std::to_string((int)ip.data[2]) + "." + std::to_string((int)ip.data[3]);
         datum user_agent_built {(uint8_t*)ua.c_str(), (uint8_t*)ua.c_str() + ua.length()};
         user_agent_built.strncpy(ua_str, MAX_USER_AGENT_LEN);
         domain.strncpy(sn_str, MAX_SNI_LEN);
@@ -325,6 +364,14 @@ struct destination_context {
         alpn_length = alpn.length();
     }
 
+    void reset() {
+        dst_ip_str[0] = '\0';
+        sn_str[0] = '\0';
+        ua_str[0] = '\0';
+        alpn_array[0] = 0;
+        alpn_length = 0;
+        dst_port = 0;
+    }
 
 };
 
@@ -367,8 +414,14 @@ struct analysis_context {
     bool more_pkts_needed() {
         return flow_state_pkts_needed;
     }
+
+    void reinit() {
+        fp.init();
+        destination.reset();
+        result.reinit();
+        flow_state_pkts_needed = false;
+    }
 };
 
 
 #endif // RESULT_H
-

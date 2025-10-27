@@ -95,6 +95,12 @@ public:
             nbss.close();
         }
     }
+
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("nbss");
+        protocols.close();
+    }
 };
 
 /*
@@ -270,7 +276,7 @@ public:
     void write_json(struct json_object &o, bool) {
         if (this->is_not_empty()) {
             struct json_object nbds{o, "nbds"};
-            type_codes<nbds_packet> type_code{*this}; 
+            type_codes<nbds_packet> type_code{*this};
             nbds.print_key_value("msg_type", type_code);
             nbds.print_key_uint8_hex("flags", flags.value());
             nbds.print_key_uint16("datagram_id",  datagram_id);
@@ -304,6 +310,12 @@ public:
             }
             nbds.close();
         }
+    }
+
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("nbds");
+        protocols.close();
     }
 };
 

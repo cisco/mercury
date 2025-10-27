@@ -76,7 +76,7 @@ public:
 };
 
 [[maybe_unused]] inline int gre_header_fuzz_test(const uint8_t *data, size_t size) {
-    key k; 
+    key k;
     struct datum packet_data{data, data+size};
     gre_header pkt{packet_data, k};
     char buffer[8192];

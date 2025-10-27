@@ -191,7 +191,7 @@ class quic_transport_parameter {
 
 public:
 
-    quic_transport_parameter(datum &d) : _id{d}, _length{d}, _value{d, _length.value()} { }
+    quic_transport_parameter(datum &d) : _id{d}, _length{d}, _value{d, (ssize_t)_length.value()} { }
 
     bool is_not_empty() const {
         return _value.is_not_null(); // note: zero-length value is possible
@@ -365,7 +365,7 @@ class crypto {
     datum _data;
 
 public:
-    crypto(datum &p) : _offset{p}, _length{p}, _data{p, _length.value()} {    }
+    crypto(datum &p) : _offset{p}, _length{p}, _data{p, (ssize_t)_length.value()} {    }
 
     crypto(const crypto &c) : _offset{c._offset}, _length{c._length}, _data{c._data} {   }
 
@@ -486,7 +486,7 @@ class connection_close {
     datum reason_phrase;
 
 public:
-    connection_close(datum &p) : error_code{p}, frame_type{p}, reason_phrase_length{p}, reason_phrase{p, reason_phrase_length.value()} { }
+    connection_close(datum &p) : error_code{p}, frame_type{p}, reason_phrase_length{p}, reason_phrase{p, (ssize_t)reason_phrase_length.value()} { }
 
     bool is_valid() const { return reason_phrase.is_not_empty(); }
 
@@ -603,7 +603,7 @@ struct quic_initial_packet {
             case 4278190114:   // draft-34
             case 1:            // version-1
             case 1889161412:   // draft1_draft7_v2
-            case 1798521807:   // version-2 
+            case 1798521807:   // version-2
                 break;
             case 0x51303433:   // Google QUIC Q043
             case 0x51303436:   // Google QUIC Q046
@@ -759,7 +759,7 @@ public:
         const unsigned int quic_hp_label_size;
     public:
 
-        kdf_label(const uint8_t *client, const uint8_t *key, const uint8_t *iv, const uint8_t *hp, const unsigned int client_size, const unsigned int key_size, const unsigned int iv_size, const unsigned int hp_size) : 
+        kdf_label(const uint8_t *client, const uint8_t *key, const uint8_t *iv, const uint8_t *hp, const unsigned int client_size, const unsigned int key_size, const unsigned int iv_size, const unsigned int hp_size) :
         client_in_label{client},
         quic_key_label{key},
         quic_iv_label{iv},
@@ -767,7 +767,7 @@ public:
         client_in_label_size{client_size},
         quic_key_label_size{key_size},
         quic_iv_label_size{iv_size},
-        quic_hp_label_size{hp_size} 
+        quic_hp_label_size{hp_size}
         {}
 
         const uint8_t* get_client_label() const { return client_in_label;}
@@ -801,7 +801,7 @@ public:
 
     std::array<init_pkt_mask_value, 2> init_pkt_masks_values {
         init_pkt_mask_value{0b10110000,0b10000000},
-        init_pkt_mask_value{0b10110000,0b10010000} 
+        init_pkt_mask_value{0b10110000,0b10010000}
     };
 
 private:
@@ -943,12 +943,12 @@ public:
                       quic_pkt.payload.data, quic_pkt.payload.length());
                 return {plaintext, plaintext+plaintext_len};
             }
-            return {nullptr, nullptr}; 
+            return {nullptr, nullptr};
         }
         else {
             // try every salt to decrypt, most likely a version negotiation pkt
             for (auto params : quic_params.get_params_map()) {
-                const std::tuple<quic_parameters::salt_enum, quic_parameters::init_pkt_mask_enum, quic_parameters::hkdf_label_enum> param = params.second; 
+                const std::tuple<quic_parameters::salt_enum, quic_parameters::init_pkt_mask_enum, quic_parameters::hkdf_label_enum> param = params.second;
                 const quic_parameters::salt *initial_salt = quic_params.get_initial_salt(std::get<0>(param));
                 const uint8_t *client_in_label = (quic_params.get_kdf(std::get<2>(param))->get_client_label());
                 const uint8_t *quic_key_label  = (quic_params.get_kdf(std::get<2>(param))->get_key_label());
@@ -1079,8 +1079,8 @@ private:
         if (plaintext_len == -1) {
             plaintext_len = 0;  // error; indicate that there is no plaintext in buffer
         }
-        
-        // reset buffer states after decryption 
+
+        // reset buffer states after decryption
         //
         reset_buffers();
     }
@@ -1217,7 +1217,7 @@ public:
             frame.emplace<ack>(d);
         } else if (type == 0x03) {
             frame.emplace<ack_ecn>(d);
-        } 
+        }
         else {
             // fprintf(stderr, "unknown frame type %02x\n", type);  // TODO: report through JSON
             frame.emplace<std::monostate>();
@@ -1294,6 +1294,11 @@ struct cryptographic_buffer
 
     void extend(crypto& d)
     {
+        // Check for integer overflow first
+        if (d.offset() > sizeof(buffer) || d.length() > sizeof(buffer)) {
+            return;  // Invalid offset or length
+        }
+
         if (d.offset() + d.length() <= sizeof(buffer)) {
             memcpy(buffer + d.offset(), d.data().data, d.length());
             if (d.offset() + d.length() > buf_len) {
@@ -1345,14 +1350,14 @@ struct quic_hdr_fp {
     const datum &version;
 
     quic_hdr_fp(const datum &version_) : version{version_} {};
-    
+
     void fingerprint(struct buffer_stream &buf) const {
         //add version
         //
         buf.write_char('(');
         buf.raw_as_hex(version.data, version.length());
         buf.write_char(')');
-    } 
+    }
 };
 
 // quic_client_hello represents the tls client hello in a quic_init;
@@ -1513,16 +1518,22 @@ public:
 
         analysis_.destination.init(sn, user_agent, alpn, k_);
 
+        if (c_ == nullptr) {
+            return false;
+        }
+
         bool ret = c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
 
-        if (analysis_.result.status == fingerprint_status_randomized) {    // check for faketls on randomized connections only
-            if (!analysis_.result.attr.is_initialized() && c_) {
-                analysis_.result.attr.initialize(&(c_->get_common_data().attr_name.value()),c_->get_common_data().attr_name.get_names_char());
-            }
-            if (hello.is_faketls()) {
-                analysis_.result.attr.set_attr(c_->get_common_data().faketls_idx, 1.0);
-            }
-        }
+        // QUIC FakeTLS detection - re-enable when suffcient data is available
+        //
+        // if (analysis_.result.status == fingerprint_status_randomized) {    // check for faketls on randomized connections only
+        //     if (!analysis_.result.attr.is_initialized() && c_) {
+        //         analysis_.result.attr.initialize(&(c_->get_common_data().attr_name.value()),c_->get_common_data().attr_name.get_names_char());
+        //     }
+        //     if (hello.is_faketls()) {
+        //         analysis_.result.attr.set_attr(c_->get_common_data().faketls_idx, 1.0);
+        //     }
+        // }
 
         return ret;
     }
@@ -1533,7 +1544,7 @@ public:
 
 // class quic_init represents an initial quic message
 //
-class quic_init {
+class quic_init : public base_protocol {
     quic_initial_packet initial_packet;
     quic_crypto_engine &quic_crypto;
     cryptographic_buffer crypto_buffer;
@@ -1646,7 +1657,7 @@ public:
         else
             return initial_packet.scid;
     }
-    
+
     // bool cid_matches (datum cid) const {
     //     return cid == initial_packet.scid;
     // }
@@ -1668,7 +1679,7 @@ public:
         frame_count = crypto_buffer.crypto_frames_count;
         first_frame_idx = crypto_buffer.first_frame_index;
         return crypto_buffer.crypto_frames;
-    } 
+    }
 
     bool min_crypto_data() { return crypto_buffer.min_crypto_data; }
 
@@ -1678,7 +1689,7 @@ public:
 
     bool has_tls() const {
         if (pre_decrypted) {
-            return decry_pkt.hello_is_not_empty(); 
+            return decry_pkt.hello_is_not_empty();
         }
         return hello.is_not_empty();
     }
@@ -1695,7 +1706,7 @@ public:
             decry_pkt.write_json(record,metadata_output);
             return;
         }
-        
+
         if (hello.is_not_empty()) {
             hello.write_json(record, metadata_output);
         }
@@ -1716,6 +1727,16 @@ public:
         // }
         // frame_dump.close();
         quic_record.close();
+    }
+
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("quic");
+        protocols.close();
+
+        if (hello.is_not_empty()) {
+            hello.write_l7_metadata(o, false);
+        }
     }
 
     void compute_fingerprint(class fingerprint &fp, size_t format_version) const {
@@ -1742,7 +1763,7 @@ public:
         if(pre_decrypted) {
             return decry_pkt.do_analysis(k_, analysis_, c_);
         }
-        
+
         struct datum sn{NULL, NULL};
         struct datum user_agent {NULL, NULL};
         datum alpn;
@@ -1751,16 +1772,22 @@ public:
 
         analysis_.destination.init(sn, user_agent, alpn, k_);
 
+        if (c_ == nullptr) {
+            return false;
+        }
+
          bool ret = c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
 
-        if (analysis_.result.status == fingerprint_status_randomized) {    // check for faketls on randomized connections only
-            if (!analysis_.result.attr.is_initialized() && c_) {
-                analysis_.result.attr.initialize(&(c_->get_common_data().attr_name.value()),c_->get_common_data().attr_name.get_names_char());
-            }
-            if (hello.is_faketls()) {
-                analysis_.result.attr.set_attr(c_->get_common_data().faketls_idx, 1.0);
-            }
-        }
+        // QUIC FakeTLS detection - re-enable when suffcient data is available
+        //
+        // if (analysis_.result.status == fingerprint_status_randomized) {    // check for faketls on randomized connections only
+        //     if (!analysis_.result.attr.is_initialized() && c_) {
+        //         analysis_.result.attr.initialize(&(c_->get_common_data().attr_name.value()),c_->get_common_data().attr_name.get_names_char());
+        //     }
+        //     if (hello.is_faketls()) {
+        //         analysis_.result.attr.set_attr(c_->get_common_data().faketls_idx, 1.0);
+        //     }
+        // }
 
         return ret;
     }

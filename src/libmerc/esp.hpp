@@ -47,6 +47,17 @@
 // ESP can be carried in UDP (RFC 3948), in which case the
 // non_esp_marker is used to distinguish ESP from IKE
 //
+
+// ESP can run over IP as protocol 50, or run over UDP, with the
+// default port of 500, in which case it is usually multiplexed
+// with IKE over the same port
+//
+#ifdef _WIN32
+static const uint16_t esp_default_port = hton<uint16_t>(4500);
+#else
+static constexpr uint16_t esp_default_port = hton<uint16_t>(4500);
+#endif
+
 class esp : public base_protocol {
     datum spi;
     datum seq;
@@ -70,12 +81,6 @@ public:
         }
     }
 
-    // ESP can run over IP as protocol 50, or run over UDP, with the
-    // default port of 500, in which case it is usually multiplexed
-    // with IKE over the same port
-    //
-    static constexpr uint16_t default_port = hton<uint16_t>(4500);
-
     bool is_not_empty() {
         return valid;
     }
@@ -98,6 +103,13 @@ public:
             esp_json.close();
         }
     }
+
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("esp");
+        protocols.close();
+    }
+
 };
 
 [[maybe_unused]] inline int esp_fuzz_test(const uint8_t *data, size_t size) {

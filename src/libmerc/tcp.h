@@ -15,6 +15,24 @@
 #include "json_object.h"
 #include "flow_key.h"
 
+#ifdef _WIN32
+
+#pragma pack(1)
+struct tcp_header {
+    uint16_t src_port;
+    uint16_t dst_port;
+    uint32_t seq;
+    uint32_t ack;
+    uint8_t  offrsv;
+    uint8_t  flags;
+    uint16_t window;
+    uint16_t checksum;
+    uint16_t urgent_ptr;
+};
+#pragma pack()
+
+#else
+
 struct tcp_header {
     uint16_t src_port;
     uint16_t dst_port;
@@ -26,6 +44,8 @@ struct tcp_header {
     uint16_t checksum;
     uint16_t urgent_ptr;
 } __attribute__ ((__packed__));
+
+#endif  // #ifdef _WIN32
 
 /*
  * modular arithmetic comparisons, for tcp Seq and Ack processing
@@ -62,7 +82,7 @@ struct tcp_state {
 
 #define TCP_FLAGS_FORMAT "%c%c%c%c "
 #define TCP_FLAGS_PRINT(x) ((x & 0x02) ? 'S' : ' '), ((x & 0x10) ? 'A' : ' '), ((x & 0x01) ? 'F' : ' '), ((x & 0x04) ? 'R' : ' ')
- 
+
 #define TCP_IS_ACK(flags) ((flags) & 0x10)
 #define TCP_IS_PSH(flags) ((flags) & 0x08)
 #define TCP_IS_RST(flags) ((flags) & 0x04)
@@ -336,8 +356,6 @@ struct prune_table {
 };
 End comment reassembly pruning logic */
 
-void fprintf_json_string_escaped(FILE *f, const char *key, const uint8_t *data, unsigned int len);
-
 struct flow_table {
     std::unordered_map<struct key, unsigned int> table;
     std::unordered_map<struct key, unsigned int>::iterator reap_it;
@@ -493,11 +511,11 @@ struct flow_table_tcp {
             else if (it->second.seq_is_greater(seq)) {
                 syn_seq = it->second.get_seq();
                 reap_it = table.erase(it);
-                return syn_seq;       
+                return syn_seq;
             }
         }
         reap(sec);
-        return 0;    
+        return 0;
     }
 
     void reap(unsigned int sec) {

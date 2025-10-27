@@ -221,13 +221,13 @@ struct openvpn_payload {
         if (ctrl_payload) {
             msg_pkt_id = encoded<uint32_t>{d};
         }
- 
+
         // calculate data len
         //        opcode  session id      HMAC            replay pkt-id
-        hdr_len = 1 +      8 +          (tls_auth?HMAC_len:0) +     4 +     
+        hdr_len = 1 +      8 +          (tls_auth?HMAC_len:0) +     4 +
         //         timestamp          pkt-id array len       pkt-id array                               remote session id      msg pkt id
                 (if_net_time?4:0) +    1 +                (pkt_id_array_len?4*pkt_id_array_len:0) + (pkt_id_array_len?8:0)+ (ctrl_payload?4:0);
-        
+
         if (have_data) {
             if (hdr_len >= orignal_pkt_len){
                 return;
@@ -441,6 +441,12 @@ public:
         }
     }
 
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("openvpn");
+        protocols.close();
+    }
+
     void fingerprint(struct buffer_stream &buf) const {
         if (!fp_true) {
             return;
@@ -471,7 +477,7 @@ public:
             key_id = 1;
         }
         buf.write_hex_uint(key_id);
-        buf.write_char(')'); 
+        buf.write_char(')');
 
         // add HMAC len if TLS-auth true or else 0 from 1st ctrl record
         buf.write_char('(');
@@ -502,7 +508,7 @@ namespace {
         char buffer_2[8192];
         struct buffer_stream buf_fp(buffer_2, sizeof(buffer_2));
         struct json_object record(&buf_json);
-        
+
 
         openvpn_tcp pkt_openvpn{pkt_data};
         if (pkt_openvpn.is_not_empty()) {
@@ -516,4 +522,4 @@ namespace {
 };
 
 
-#endif  // OPENVPN_H 
+#endif  // OPENVPN_H

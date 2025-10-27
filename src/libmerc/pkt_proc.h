@@ -10,7 +10,9 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#ifndef _WIN32
 #include <sys/time.h>
+#endif
 #include <stdexcept>
 #include <memory>
 #include "tcp.h"
@@ -41,7 +43,6 @@ enum linktype : uint16_t {
     LINKTYPE_LINUX_SLL = 113, // Linux "cooked" capture encapsualtion
 };
 
-
 /**
  * struct mercury holds state that is used by one or more
  * mercury_packet_processor
@@ -63,7 +64,7 @@ struct mercury {
         if (global_vars.minimize_ram) {
              printf_err(log_info, "Initializing mercury in ram minimized mode\n");
         }
-        if (global_vars.do_analysis) {
+        if (global_vars.do_analysis and (global_vars.get_resource_file() != nullptr)) {
             c = analysis_init_from_archive(verbosity, global_vars.get_resource_file(),
                                            vars->enc_key, vars->key_type,
                                            global_vars.fp_proc_threshold,
@@ -101,24 +102,26 @@ struct stateful_pkt_proc {
     struct flow_table_tcp tcp_flow_table;
     struct tcp_initial_message_filter tcp_init_msg_filter;
     struct analysis_context analysis;
+    struct common_data nbd_common_data;
     class message_queue *mq;
     mercury_context m;
     classifier *c;        // TODO: change to reference
     data_aggregator *ag;
-    global_config global_vars;
+    const global_config &global_vars;
     class traffic_selector &selector;
     quic_crypto_engine quic_crypto;
     struct tcp_reassembler *reassembler_ptr = nullptr;
     const crypto_policy::assessor *crypto_policy = nullptr;
 
     explicit stateful_pkt_proc(mercury_context mc, size_t prealloc_size=0) :
-        ip_flow_table{prealloc_size},
-        tcp_flow_table{prealloc_size},
+        ip_flow_table{(unsigned int)prealloc_size},
+        tcp_flow_table{(unsigned int)prealloc_size},
         tcp_init_msg_filter{},
         analysis{},
+        nbd_common_data{},
         mq{nullptr},
         m{mc},
-        c{nullptr},
+        c{mc->c},
         ag{nullptr},
         global_vars{mc->global_vars},
         selector{mc->selector},
@@ -135,12 +138,10 @@ struct stateful_pkt_proc {
         }
 
         // set config and classifier to (refer to) context m
-        //
-        if (m->c == nullptr && m->global_vars.do_analysis) {
+        // analysis requires `do_analysis` & `resources` to be set
+        if (c == nullptr && global_vars.do_analysis && global_vars.resources != nullptr) {
             throw std::runtime_error("error: classifier pointer is null");
         }
-        this->c = m->c;
-        this->global_vars = m->global_vars;
 
         // setting protocol based configuration option to output the raw features
         set_raw_features(global_vars.raw_features);
@@ -246,6 +247,13 @@ struct stateful_pkt_proc {
                            struct timespec *ts,
                            struct tcp_reassembler *reassembler);
 
+    int analyze_payload_fdc(const struct flow_key_ext *k,
+                            const uint8_t *payload,
+                            const size_t length,
+                            uint8_t *buffer,
+                            size_t *buffer_size,
+                            const struct analysis_context** context);
+
     bool tcp_data_set_analysis_result(struct analysis_result *r,
                                       struct datum &pkt,
                                       const struct key &k,
@@ -267,6 +275,10 @@ struct stateful_pkt_proc {
                           struct timespec *ts,
                           struct tcp_reassembler *reassembler);
 
+    bool set_tcp_protocol_from_keyword(protocol &x,
+                                       datum pkt_copy,
+                                       tcp_msg_type msg_type);
+
     void set_tcp_protocol(protocol &x,
                           struct datum &pkt,
                           bool is_new,
@@ -281,26 +293,26 @@ struct stateful_pkt_proc {
 
     bool dump_pkt ();
 
-    void set_raw_features(std::unordered_map<std::string, bool> &raw_features) {
-        if (raw_features["all"] or raw_features["tls"]) {
+    void set_raw_features(const std::unordered_map<std::string, bool> &raw_features) {
+        if (raw_features.at("all") or raw_features.at("tls")) {
             tls_client_hello::set_raw_features(true);
         }
-        
-        if (raw_features["all"] or raw_features["stun"]) {
+
+        if (raw_features.at("all") or raw_features.at("stun")) {
             stun::message::set_raw_features(true);
         }
-        
-        if (raw_features["all"] or raw_features["bittorrent"]) {
+
+        if (raw_features.at("all") or raw_features.at("bittorrent")) {
             bittorrent_dht::set_raw_features(true);
             bittorrent_lsd::set_raw_features(true);
             bittorrent_handshake::set_raw_features(true);
         }
-        
-        if (raw_features["all"] or raw_features["smb"]) {
+
+        if (raw_features.at("all") or raw_features.at("smb")) {
             smb2_packet::set_raw_features(true);
         }
-        
-        if (raw_features["all"] or raw_features["ssdp"]) {
+
+        if (raw_features.at("all") or raw_features.at("ssdp")) {
             ssdp::set_raw_features(true);
         }
     }

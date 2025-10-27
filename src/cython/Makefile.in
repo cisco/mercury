@@ -8,10 +8,12 @@ ifeq ($(openssl_newer),yes)
 	FLAGS = -DSSLNEW
 endif
 
+FLAGS += -I../../src/libmerc/xsimd/include -O3
+
 ifeq ($(is_macos_arm),yes)
-CFLAGS = -I/opt/homebrew/include ${CLFAGS}
-CXXFLAGS = -I/opt/homebrew/include ${CXXFLAGS}
-LDFLAGS += -L/opt/homebrew/lib ${LDFLAGS}
+CFLAGS += -I/opt/homebrew/include
+CXXFLAGS += -I/opt/homebrew/include
+LDFLAGS += -L/opt/homebrew/lib
 endif
 
 UNAME := $(shell uname -s)
@@ -22,10 +24,10 @@ endif
 export ENV_CFLAGS=${FLAGS}
 
 all:
-	CC=g++ CXX=g++ python3 setup.py build_ext --inplace
+	CC=g++ CXX=g++ CFLAGS="$(CFLAGS)" CXXFLAGS="$(CXXFLAGS)" LDFLAGS="$(LDFLAGS)" python3 setup.py build_ext --inplace
 
 wheel:
-	CC=g++ CXX=g++ python3 setup.py bdist_wheel
+	CC=g++ CXX=g++ CFLAGS="$(CFLAGS)" CXXFLAGS="$(CXXFLAGS)" LDFLAGS="$(LDFLAGS)" python3 setup.py bdist_wheel
 
 clean:
 	rm -f mercury.*.so mercury.cpp

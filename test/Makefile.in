@@ -28,25 +28,41 @@ export LD_LIBRARY_PATH =$(shell pwd)/../src/libmerc
 have_tcpreplay = @TCPREPLAY@
 have_jq = @JQ@
 have_valgrind = @VALGRIND@
-have_py3    = @PYTHON3@
+have_python3    = @HAVE_PYTHON3@
 python      = @PY@
-have_jsonschema = @HAVE_JSONSCHEMA@
+have_python_jsonschema = @HAVE_PYTHON_JSONSCHEMA@
+have_python_cryptography = @HAVE_PYTHON_CRYPTOGRAPHY@
+can_build_cython_package = @CAN_BUILD_CYTHON_PACKAGE@
 have_afl        = @HAVE_AFL@
 have_clang      = @CLANGPP@
 
 BATCH_GCD = ../src/batch_gcd
 
-# check dependancies to see if any tests need to be omitted
+# check dependencies to see if any tests need to be omitted
 #
 omitted_test = no
 
-ifeq ($(have_py3),yes)
-ifeq ($(have_jsonschema),yes)
-do_analysis = yes
+ifeq ($(have_python3),yes)
+do_stats_test = yes
+do_pmercury_consistency_test = yes
+else
+omitted_test = yes
+endif
+
+ifeq ($(have_python_jsonschema),yes)
+do_analysis_test = yes
+else
+omitted_test = yes
+endif
+
+ifeq ($(have_python_cryptography),yes)
 do_cert_check = yes
 else
 omitted_test = yes
 endif
+
+ifeq ($(can_build_cython_package),yes)
+do_cython_interface_test = yes
 else
 omitted_test = yes
 endif
@@ -61,6 +77,15 @@ ifeq ($(SUDO_UID),)
 DROP_ROOT = -u root
 else
 DROP_ROOT =
+endif
+
+ifeq ($(COVERAGE_ENABLED),1)
+ifeq ($(filter -O3, $(CFLAGS)), -O3)
+    CFLAGS := $(filter-out -O3,$(CFLAGS))
+	CFLAGS += -O0
+endif
+CFLAGS += -fprofile-arcs --coverage -ggdb -fprofile-update=atomic
+LDFLAGS += --coverage
 endif
 
 # all test files go in the ./tests subdirectory
@@ -82,12 +107,12 @@ BGCD_TOUT_FILES = $(BGCD_TEST_FILES:%.bgcd-in=%.bgcd-tout) # test run output
 BGCD_COMP_TARG = $(BGCD_TEST_FILES:%.bgcd-in=%.bgcd-comp)  # comp file never exists
 
 .PHONY: all clean
-all: clean comp analysis cert-check memcheck json-validity-test stats libmerc_driver # dummy-capture
+all: clean comp analysis cython-test cert-check memcheck json-validity-test stats libmerc_driver # dummy-capture
 ifeq ($(omitted_test),no)
 	@echo $(COLOR_GREEN) "passed all tests" $(COLOR_OFF)
 else
 	@echo $(COLOR_GREEN) "passed all tests that could be performed" $(COLOR_OFF)
-	@echo $(COLOR_YELLOW) "warning: some tests could not be performed due to missing dependancies" $(COLOR_OFF)
+	@echo $(COLOR_YELLOW) "warning: some tests could not be performed due to missing dependencies" $(COLOR_OFF)
 	@echo $(COLOR_YELLOW) "please install the missing packages mentioned above and re-run ./configure" $(COLOR_OFF)
 endif
 
@@ -102,6 +127,17 @@ pdu_test:
 libmerc_driver:
 	@echo "running unit tests"
 	cd ../unit_tests && $(MAKE) run
+
+.PHONY: cython-test
+cython-test:
+ifeq ($(do_cython_interface_test), yes)
+	@echo "running cython interface validation test"
+	$(python) cython_test.py
+	cd ../src/cython && $(python) mercury_python_test.py
+	@echo $(COLOR_GREEN) "passed cython interface test" $(COLOR_OFF)
+else
+	@echo $(COLOR_YELLOW) "omitting cython interface test due to missing dependencies" $(COLOR_OFF)
+endif
 
 .PHONY: json-validity-test
 json-validity-test:
@@ -123,7 +159,7 @@ comp: $(COMP_FILES) $(MCAP_COMP_FILES) $(JSON_COMP_FILES)
 %.fp: %.json
 ifneq ($(have_jq),yes)
 	@echo $(COLOR_RED) "jq is missing; cannot create .fp file from .json file" $(COLOR_OFF)
-	@/bin/false
+	@false
 else
 	cat $< | jq .fingerprints.tls | grep -v null | tr -d "\"" > $@
 endif
@@ -162,7 +198,7 @@ endif
 
 .PHONY: analysis
 analysis:
-ifeq ($(do_analysis),yes)
+ifeq ($(do_analysis_test),yes)
 	@echo "running analysis test"
 	$(MERCURY) -r data/top-https.pcap -f tmp.json -a --resources=data/resources-test.tgz
 	$(python) json-test.py tmp.json
@@ -201,7 +237,7 @@ ifeq ($(do_cert_check),yes)
 #	@echo $(COLOR_GREEN) "passed test_decrypt certificate test" $(COLOR_OFF)
 #	rm -f tmp.json
 else
-	@echo $(COLOR_YELLOW) "omitting certificate test; python3 or jsonschema unavailable" $(COLOR_OFF)
+	@echo $(COLOR_YELLOW) "omitting certificate test; python3 or cryptography unavailable" $(COLOR_OFF)
 endif
 
 .PHONY: capture
@@ -209,20 +245,22 @@ capture:
 	@echo "running capture test"
 ifeq ($(IFNAME),)
 	@echo $(COLOR_RED) "error: IFNAME unspecified (run as 'make capture IFNAME=wlan0', for instance)" $(COLOR_OFF)
-	@/bin/false
+	@false
 else
 ifeq ($(shell id -u),0)
 	$(MERCURY) -c $(IFNAME) $(DROP_ROOT) -f tmp.json & echo $$! > mercury.PID
 	capture/https-test-driver.sh
 	while kill `cat mercury.PID`; do echo "waiting for mercury capture process to halt"; sleep 1; done
-ifeq ($(have_jsonschema),yes)
+ifeq ($(have_python_jsonschema),yes)
 	$(python) json-test.py tmp.json
+else
+	@echo $(COLOR_YELLOW) "warning: python package jsonschema not available, omitting json-test on capture output" $(COLOR_OFF)
 endif
 	rm mercury.PID tmp.json
 	@echo $(COLOR_GREEN) "passed capture test" $(COLOR_OFF)
 else
 	@echo $(COLOR_RED) "error: capture test must be run as root" $(COLOR_OFF)
-	@/bin/false
+	@false
 endif
 endif
 
@@ -231,7 +269,7 @@ endif
 dummy-capture:
 ifneq ($(shell id -u),0)
 	@echo $(COLOR_RED) "error: dummy interface capture test must be run as root" $(COLOR_OFF)
-	@/bin/false
+	@false
 endif
 ifeq ($(do_dummy_capture),yes)
 	@echo "running dummy interface capture test"
@@ -239,7 +277,7 @@ ifeq ($(do_dummy_capture),yes)
 	ip link set dev dummy0 up || true
 ifneq ($(shell ip link show dummy0 > /dev/null 2>&1; echo $$?),0)
 	@echo $(COLOR_RED) "error: network interface dummy0 unavailable (create with 'sudo ip link add dummy0 type dummy', for instance)" $(COLOR_OFF)
-	@/bin/false
+	@false
 endif
 	rm -f tmp.json
 	rm -f mercury.PID
@@ -248,7 +286,7 @@ endif
 	tcpreplay -t -i dummy0 data/top-https.pcap
 	while kill `cat mercury.PID`; do echo "waiting for mercury dummy capture process to halt"; sleep 1; done
 	bash -c "diff  <( jq . tmp.json | grep -v event_start) <( jq . data/top-https.json | grep -v event_start )"
-ifeq ($(have_jsonschema),yes)
+ifeq ($(have_python_jsonschema),yes)
 	$(python) json-test.py tmp.json
 else
 	@echo $(COLOR_YELLOW) "warning: python package jsonschema not available, omitting json-test" $(COLOR_OFF)
@@ -269,6 +307,7 @@ json-test:
 
 .PHONY: stats
 stats:
+ifeq ($(do_stats_test),yes)
 	@echo "running stats test"
 	rm -f tmp.json stats.json.gz  # pre-clean leftovers from previously failed tests
 	$(MERCURY) -r data/top-https.pcap -f tmp.json --metadata -a --resources=data/resources-test.tgz --stats=stats
@@ -281,6 +320,9 @@ stats:
 	bash -c "$(python) ./compare-stats.py -m tmp.json -s statsfile -a"
 	@echo $(COLOR_GREEN) "passed stats rotate test" $(COLOR_OFF)
 	rm -f tmp.json tempstats.json statsfile*
+else
+	@echo $(COLOR_YELLOW) "omitting stats test; python3 is unavailable" $(COLOR_OFF)
+endif
 
 .PHONY: clean
 clean:
@@ -291,6 +333,9 @@ clean:
 	find ./fuzz/ -name "*.log" -exec rm -v {} +
 	find ./fuzz/ -name "*.c" -exec rm -v {} +
 	find ./fuzz/ -name "crash*" -exec rm -v {} +
+	find ./fuzz/ -name "*.profraw" -delete
+	find ./fuzz/ -name "*.profdata" -delete
+	find ./fuzz/ -name "*.info" -delete
 	@echo "cleaned all targets"
 
 .PHONY: distclean
@@ -308,9 +353,11 @@ ifeq ($(have_valgrind),yes)
 	cat memcheck.tmp | grep "ERROR SUMMARY: 0"
 	rm -f memcheck.tmp
 	@echo $(COLOR_GREEN) "passed memcheck" $(COLOR_OFF)
+else ifeq ($(is_macos_arm),yes)
+	@echo $(COLOR_GREEN) "valgrind unavailable on macOS ARM; skipping memcheck" $(COLOR_OFF)
 else
 	@echo $(COLOR_YELLOW) "valgrind unavailable; cannot perform memcheck" $(COLOR_OFF)
-	@/bin/false
+	@false
 endif
 
 # consistency test - compares mercury and pmercury output
@@ -319,6 +366,7 @@ FILE = afl_data/corner-cases.pcap
 PMERCURY = ../python/pmercury/pmercury
 .PHONY: consistency
 consistency:
+ifeq ($(do_pmercury_consistency_test),yes)
 ifeq ($(wildcard $(PMERCURY)),)
 	@echo $(COLOR_YELLOW) "pmercury unavailable; cannot perform consistency test" $(COLOR_OFF)
 else
@@ -327,6 +375,9 @@ else
 	$(MERCURY)  -r $(FILE) -f m.json
 	$(python) p-mercury-diff.py -p p.json -m m.json
 endif
+else
+	@echo $(COLOR_YELLOW) "omitting pmercury consistency test; python3 is unavailable" $(COLOR_OFF)
+endif
 
 # fuzz testing with libfuzzer
 #
@@ -334,11 +385,11 @@ endif
 fuzz-test:
 ifeq ($(have_clang),yes)
 	@echo "checking libmerc.a for fuzz test"
-	cd ../src && $(MAKE) libmerc.a
+	cd ../src && $(MAKE) COVERAGE_ENABLED=$(COVERAGE_ENABLED) libmerc.a
 ifeq ($(openssl_newer),yes)
-	cd fuzz && ./generate_fuzz_test.sh -n none -t 200 -r 1000000000 -s true
+	cd fuzz && ./generate_fuzz_test.sh -n none -t 200 -r 1000000000 -s true $(if $(COVERAGE_ENABLED),-c $(COVERAGE_ENABLED))
 else
-	cd fuzz && ./generate_fuzz_test.sh -n none -t 200 -r 1000000000
+	cd fuzz && ./generate_fuzz_test.sh -n none -t 200 -r 1000000000 $(if $(COVERAGE_ENABLED),-c $(COVERAGE_ENABLED))
 endif
 else
 	@echo $(COLOR_YELLOW) "clang++ unavailable; cannot perform fuzz test" $(COLOR_OFF)

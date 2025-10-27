@@ -11,8 +11,10 @@
 #include "libmerc.h"  // for fingerprint_type
 
 class fingerprint {
+public:
+    static const size_t MAX_FP_STR_LEN = 8192;
+private:
     enum fingerprint_type type;
-    static const size_t MAX_FP_STR_LEN = 4096;
     char fp_str[MAX_FP_STR_LEN];
     struct buffer_stream fp_buf;
 
@@ -51,7 +53,7 @@ public:
 
     template <typename T>
     void add(T &msg) {
-        msg.fingerprint(fp_buf);
+        return msg.fingerprint(fp_buf);
     }
 
     template <typename T>
@@ -115,7 +117,6 @@ public:
                 if (stack.back() == '[') {
                     stack.pop_back();
                 } else {
-                    fprintf(stderr, "error: expected ']', got %c\n", stack.back());
                     return false; // error
                 }
                 break;
@@ -133,6 +134,18 @@ public:
     }
 
     void final() {
+        if (fp_buf.is_truncated()) {
+            //
+            // If fp_buf has been truncated, then either the length of
+            // a fingerprint exceeded that of the buffer, or the
+            // protocol-parsing code determined that the message that
+            // it was parsing did not contain a valid fingerprint, and
+            // set the fp_buf truncation bit.  In either case, we want
+            // to ignore this fingerprint, so we reset to fingerprint_type_unknown.
+            //
+            init();
+            return;
+        }
         fp_buf.write_char('\0'); // null-terminate
         assert(fingerprint_is_well_formed());
     }

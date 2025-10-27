@@ -4,7 +4,7 @@
 //
 // compile as:
 //
-//   g++ -Wall -Wno-deprecated-declarations -Wno-narrowing pcap_filter.cc pcap_file_io.c libmerc/tls.cc libmerc/http.cc libmerc/match.cc libmerc/asn1.cc libmerc/asn1/oid.cc libmerc/config_generator.cc libmerc/addr.cc libmerc/smb2.cc -lcrypto -lssl -o pcap_filter -std=c++17 -DSSLNEW
+//   g++ -Wall -Wno-deprecated-declarations -Wno-narrowing pcap_filter.cc pcap_file_io.c libmerc/tls.cc libmerc/http.cc libmerc/match.cc libmerc/libmerc/asn1/oid.cc libmerc/config_generator.cc libmerc/addr.cc libmerc/smb2.cc -lcrypto -lssl -o pcap_filter -std=c++17 -DSSLNEW
 
 #include "pcap_file_io.h"
 #include "libmerc/eth.h"
@@ -277,4 +277,3 @@ datum get_tcp_data(struct datum eth_pkt) {
 
     return {nullptr, nullptr};
 }
-

@@ -10,7 +10,14 @@
 #include <stdint.h>
 #include <errno.h>
 #include <string.h>
+#ifdef _WIN32
+#include <io.h>
+#include <BaseTsd.h>
+//#include <sysinfoapi.h>
+typedef SSIZE_T ssize_t;
+#else
 #include <unistd.h>
+#endif
 #include <sys/types.h>
 #include <stdlib.h>
 #include <time.h>
@@ -31,27 +38,6 @@ void fprintf_raw_as_hex(FILE *f, const uint8_t *data, unsigned int len) {
     while (x < end) {
         fprintf(f, "%02x", *x++);
     }
-}
-
-void fprintf_json_string_escaped(FILE *f, const char *key, const uint8_t *data, unsigned int len) {
-    const unsigned char *x = data;
-    const unsigned char *end = data + len;
-
-    fprintf(f, "\"%s\":\"", key);
-    while (x < end) {
-        if (*x < 0x20) {                   /* escape control characters   */
-            fprintf(f, "\\u%04x", *x);
-        } else if (*x > 0x7f) {            /* escape non-ASCII characters */
-            fprintf(f, "\\u%04x", *x);
-        } else {
-            if (*x == '"' || *x == '\\') { /* escape special characters   */
-                fprintf(f, "\\");
-            }
-            fprintf(f, "%c", *x);
-        }
-        x++;
-    }
-    fprintf(f, "\"");
 }
 
 size_t hex_to_raw(const void *output,
@@ -81,7 +67,7 @@ size_t hex_to_raw(const void *output,
 enum status drop_root_privileges(const char *username, const char *directory) {
 
 #ifndef _WIN32
-  
+
     gid_t gid;
     uid_t uid;
     const char *new_username;
@@ -284,6 +270,21 @@ enum status filename_append(char dst[FILENAME_MAX],
     return status_ok;
 }
 
+#ifdef _WIN32
+int clock_gettime(int, struct timespec* spec)
+{
+    timespec ts;
+    if (!timespec_get(&ts, TIME_UTC))
+        return -1;
+    spec->tv_sec = ts.tv_sec;
+    spec->tv_nsec = ts.tv_nsec;
+    return 0;
+}
+
+#define CLOCK_REALTIME 0
+
+#endif
+
 void timer_start(struct timer *t) {
     if (clock_gettime(CLOCK_REALTIME, &t->before) != 0) {
         //
@@ -307,4 +308,3 @@ uint64_t timer_stop(struct timer *t) {
     }
     return nano_sec;
 }
-
