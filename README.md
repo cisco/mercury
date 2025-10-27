@@ -208,9 +208,10 @@ DETAILS
       ssh               SSH handshake and KEX
       smb               SMB v1 and v2
       smtp              SMTP client and server messages
-      stun              STUN messages
-      ssdp              SSDP (UPnP)
+      snmp              SNMP messages
       socks             SOCKS4,SOCKS5 messages
+      ssdp              SSDP (UPnP)
+      stun              STUN messages
       syslog            SYSLOG (BSD and IETF)
       tcp               TCP headers
       tcp.message       TCP initial message

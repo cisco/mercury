@@ -187,6 +187,7 @@ public:
             { "sctp",                   false },
             { "smb",                    false },
             { "smtp",                   false },
+            { "snmp",                   false },
             { "ssdp",                   false },
             { "ssh",                    false },
             { "stun",                   false },

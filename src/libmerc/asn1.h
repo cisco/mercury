@@ -16,7 +16,6 @@
 #include "asn1/oid.h"
 #include "time.hpp"
 
-
 static const char *oid_empty_string = "";
 
 class raw_oid : public datum {
@@ -27,7 +26,8 @@ public:
             return;  // error; attempt to write a null datum object
         }
         const char *output = oid::get_string(this);
-        if (output != oid_empty_string) {
+        //  fprintf(stderr, "output: %p\toid_empty_string: %p\n", output, oid_empty_string);
+        if (output != oid_empty_string and strlen(output) != 0) {
             b.puts(output);
         } else {
             print_as_oid(b);
@@ -188,7 +188,7 @@ struct tlv {
             return;
         }
         if (p->length() < 2) {
-            p->set_empty();  // parser is no longer good for reading
+            p->set_null();  // parser is no longer good for reading
             // fprintf(stderr, "error: incomplete data (only %ld bytes in %s)\n", p->data_end - p->data, tlv_name ? tlv_name : "unknown TLV");
             handle_parse_error("warning: incomplete data", tlv_name);
             return;  // leave tlv uninitialized
@@ -197,6 +197,8 @@ struct tlv {
         if (expected_tag && p->data[0] != expected_tag) {
             // fprintf(stderr, "note: unexpected type (got %02x, expected %02x)\n", p->data[0], expected_tag);
             // p->set_empty();  // TODO: do we want this?  parser is no longer good for reading
+
+            p->set_null();
 
             handle_parse_error("note: unexpected type", tlv_name);
             return;  // unexpected type
@@ -468,7 +470,7 @@ struct tlv {
 
     /// holds the classess that a tag can be associated with, in order
     ///
-    static constexpr const char *tag_class[] = {
+    static constexpr const char *tag_class__[] = {
         "universal",        // 0
         "application",      // 1
         "context-specific", // 2
@@ -479,8 +481,25 @@ struct tlv {
     /// class associated with this \ref tlv object
     ///
     const char *get_class() const {
-        return tag_class[tag >> 6];
+        return tag_class__[tag >> 6];
     }
+
+    enum tag_class : uint8_t {
+        universal        = 0,
+        application      = 1,
+        context_specific = 2,
+        private_class    = 4
+    };
+
+    enum tag_class get_tag_class() const { return (tag_class)(tag >> 6); }
+
+    // bool is_context_specific() const { return tag >> 6 == 2; }
+
+    // bool is_application() const { return tag >> 6 == 0; }
+
+    // bool is_universal() const { return tag >> 6 == 0; }
+
+    uint8_t tag_number() const { return tag & 31; }
 
     void fprint_tlv(FILE *f, const char *tlv_name) const {
         if (!is_valid()) {
