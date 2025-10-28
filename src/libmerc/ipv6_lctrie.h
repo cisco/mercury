@@ -384,7 +384,7 @@ static inline bool ipv6_address_lct_unit_test(FILE *f = nullptr) {
         addr2.a[0] = 0x0000000000000001;
         addr2.a[1] = 0x0000000000000001;
         ipv6_addr_lct shifted3 = addr2 << 4;
-        fprintf(f, "Test case 8: Left shift operator within 64 bits\n");
+        if (f) fprintf(f, "Test case 8: Left shift operator within 64 bits\n");
         if (shifted3.a[0] != 0x0000000000000010 || shifted3.a[1] != 0x0000000000000010) {
             if (f) fprintf(f, "Failed: Left shift operator did not shift within 64 bits correctly\n");
             return false;
