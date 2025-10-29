@@ -213,6 +213,7 @@ DETAILS
       ssdp              SSDP (UPnP)
       stun              STUN messages
       syslog            SYSLOG (BSD and IETF)
+      tacacs            TACACS+
       tcp               TCP headers
       tcp.message       TCP initial message
       tcp.syn_ack       TCP syn ack message
