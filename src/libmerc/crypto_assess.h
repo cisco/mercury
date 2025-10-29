@@ -594,8 +594,8 @@ namespace crypto_policy {
         //
         uint8_t tls_extensions_data_invalid[] = {
             0x00, 0x0A, // type (supported group)
-            0x00, 0x08, // length (invalid length - odd number)
-            0x00, 0x07, // named groups length
+            0x00, 0x08, // length
+            0x00, 0x07, // named groups length (invalid length - odd number)
             0x02, 0x00, // MLKEM512 (allowed)
             0x0A, 0x0A, // grease
             0x00, 0x01  // sect163k1 (not allowed)
