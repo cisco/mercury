@@ -16,10 +16,7 @@
 #include "libmerc/dns_trie.hpp"
 #include "libmerc/tftp.hpp"
 #include "libmerc/tacacs.hpp"
-#include "libmerc/crypto_assess.h"
-#include "libmerc/decimal_int.hpp"
-#include "libmerc/hex.hpp"
-
+#include "libmerc/redis.hpp"
 // Macros to colorize output
 //
 #define RED_ON     "\033[31m"
@@ -94,13 +91,9 @@ int main(int, char *[]) {
             &tacacs::unit_test
         },
         {
-            "crypto_policy",
-            &crypto_policy::unit_test
-        },
-        {
-            "hex_udl",
-            &hex_udl_unit_tests
-        },
+            "redis",
+            &redis::unit_test
+        }
     };
     size_t num_tests = 0;
     size_t num_passed = 0;

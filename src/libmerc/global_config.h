@@ -210,7 +210,10 @@ public:
             { "ftp.response",           false},
             { "ftp.request",            false},
             { "geneve",                 false},
-            { "vxlan",                  false}
+            { "vxlan",                  false},
+            { "redis",                  false},
+            { "redis.request",          false},
+            { "redis.response",         false}
         };
 
     std::unordered_map<std::string, bool> raw_features {

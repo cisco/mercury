@@ -43,6 +43,7 @@
 #include "ldap.hpp"
 #include "tacacs.hpp"
 #include "rdp.hpp"
+#include "redis.hpp"
 
 #include "dhcp.h"  // udp protocols
 #include "quic.h"
@@ -101,12 +102,14 @@ enum tcp_msg_type {
     tcp_msg_type_ftp_request,
     tcp_msg_type_ftp_response,
     tcp_msg_type_rdp,
+    tcp_msg_type_redis_request,
+    tcp_msg_type_redis_response,
 };
 
 // Template-based stack-allocated structure to replace std::vector<T>
 // Uses a small fixed-size array to avoid heap allocation
 // Can be used for tcp_msg_type, udp_msg_type, or other enum types
-template<typename MsgType, MsgType UnknownValue = static_cast<MsgType>(0), size_t MaxTypes = 2>
+template<typename MsgType, MsgType UnknownValue = static_cast<MsgType>(0), size_t MaxTypes = 3>
 struct msg_types {
     static constexpr size_t max_types = MaxTypes;
     std::array<MsgType, max_types> types;
@@ -117,6 +120,9 @@ struct msg_types {
 
     // Constructor for two types
     constexpr msg_types(MsgType type1, MsgType type2) : types{type1, type2}, count(2) {}
+
+    // Constructor for three types
+    constexpr msg_types(MsgType type1, MsgType type2, MsgType type3) : types{type1, type2, type3}, count(3) {}
 
     // Iterator support for range-based for loops
     constexpr auto begin() const { return types.begin(); }
@@ -129,7 +135,7 @@ struct msg_types {
 };
 
 // Type aliases for convenience
-using tcp_msg_types = msg_types<tcp_msg_type, tcp_msg_type_unknown, 2>;
+using tcp_msg_types = msg_types<tcp_msg_type, tcp_msg_type_unknown, 3>;
 //using udp_msg_types = msg_types<udp_msg_type, udp_msg_type_unknown, 2>;
 
 enum udp_msg_type {
@@ -230,7 +236,7 @@ public:
         {"ALGS"_uint32,              {tcp_msg_type_ftp_request}},
         {"ALLO"_uint32,              {tcp_msg_type_ftp_request}},
         {"APPE"_uint32,              {tcp_msg_type_ftp_request}},
-        {"AUTH"_uint32,              tcp_msg_types(tcp_msg_type_ftp_request, tcp_msg_type_smtp_client)},
+        {"AUTH"_uint32,              tcp_msg_types(tcp_msg_type_ftp_request, tcp_msg_type_smtp_client, tcp_msg_type_redis_request)},
         {"CCC "_uint32,              {tcp_msg_type_ftp_request}},
         {"CCC\r"_uint32,             {tcp_msg_type_ftp_request}},
         {"CDUP"_uint32,              {tcp_msg_type_ftp_request}},
@@ -468,6 +474,8 @@ class traffic_selector {
     bool select_tofsee{false};
     bool select_dhcp{false};
     bool select_syslog{false};
+    bool select_redis_request{false};
+    bool select_redis_response{false};
 
 public:
 
@@ -539,6 +547,10 @@ public:
 
     bool syslog() const { return select_syslog; }
 
+    bool redis_request() const { return select_redis_request; }
+
+    bool redis_response() const { return select_redis_response; }
+
     void disable_all() {
         tcp.disable_all();
         tcp4.disable_all();
@@ -577,6 +589,8 @@ public:
         select_smtp = false;
         select_tofsee = false;
         select_dhcp = false;
+        select_redis_request = false;
+        select_redis_response = false;
 
     }
 
@@ -682,7 +696,17 @@ public:
         }
         if (protocols["syslog"] || protocols["all"]) {
             select_syslog = true;
-         }
+        }
+        if (protocols["redis"] || protocols["all"]) {
+            select_redis_request = true;
+            select_redis_response = true;
+        }
+        else if (protocols["redis.request"]) {
+            select_redis_request = true;
+        }
+        else if (protocols["redis.response"]) {
+            select_redis_response = true;
+        }
         if (protocols["dns"] || protocols["nbns"] || protocols["mdns"] || protocols["all"]) {
             if (protocols["all"]) {
                 select_dns = true;
@@ -848,6 +872,9 @@ public:
             case 25:
                 type =  tcp_msg_type_smtp_client;
                 break;
+            case 6379:
+                type = tcp_msg_type_redis_request;
+                break;
             default:
                 break;
         }
@@ -969,6 +996,14 @@ public:
 
         if (mysql_login_request() and ( (tcp_pkt->header->src_port == hton<uint16_t>(3306)) || (tcp_pkt->header->dst_port == hton<uint16_t>(3306)) ) ) {
             return tcp_msg_type_mysql_login_request;
+        }
+
+        if (redis_request() and (tcp_pkt->header->dst_port == hton<uint16_t>(6379))) {
+        return tcp_msg_type_redis_request;
+        }
+        
+        if (redis_response() and (tcp_pkt->header->src_port == hton<uint16_t>(6379))) {
+            return tcp_msg_type_redis_response;
         }
 
         return tcp_msg_type_unknown;
