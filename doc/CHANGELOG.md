@@ -2,6 +2,8 @@
 
 * Added SNMP protocol identification with JSON and CBOR output.
 * Added SYSLOG protocol identification with JSON and CBOR output.
+* Fixed crypto assessment handling of GREASE extensions.
+  Optimized the crypto assessment processing to produce clean JSON output in a single pass.
 
 =======
 ## VERSION 2.10.0
@@ -34,8 +36,6 @@
   overread in OID compiler, which is run only at compile time.
 * Clean analysis context and reassembly flow, before packet processing,
   to clean stale content from previous flows.
-* Optimized crypto assessment functions in `crypto_assess.h`, 
-  corrected GREASE handling in TLS extensions, and added corresponding unit tests.
 
 ## VERSION 2.8.1
 * Bug fixes: ASAN container overflow in stats collection, dangling reference in
