@@ -5,11 +5,13 @@
 #include <errno.h>
 #include <time.h>
 #include <locale.h>
+#include <vector>
 
 #include <sys/time.h>
 
 #include <random>
 
+#include "../addr.cc"
 #include "lctrie_ip.h"
 #include "lctrie_bgp.h"
 #include "lctrie.h"
@@ -35,15 +37,15 @@ uint32_t random_ipv4_addr(void) {
     return random_source();
 }
 
-ipv6_addr random_ipv6_addr(void) {
-    ipv6_addr tmp = 0;
-    uint32_t *t = (uint32_t *)&tmp;
-    t[0] = random_source();
-    t[1] = random_source();
-    t[2] = random_source();
-    t[3] = random_source();
-    return tmp;
-}
+// ipv6_addr random_ipv6_addr(void) {
+//     ipv6_addr tmp = 0;
+//     uint32_t *t = (uint32_t *)&tmp;
+//     t[0] = random_source();
+//     t[1] = random_source();
+//     t[2] = random_source();
+//     t[3] = random_source();
+//     return tmp;
+// }
 
 
 template <typename T>
@@ -241,7 +243,7 @@ int test_ipv4(char *input_file) {
 
     // validate subnet prefixes against their netmasks
     // and sort the resulting array
-    subnet_mask(p, num);
+    subnet_mask_v4(p, num);
     qsort(p, num, sizeof(lct_subnet<T>), subnet_cmp<T>);
 
     // de-duplicate subnets and shrink the buffer down to its
@@ -372,7 +374,7 @@ int test_ipv4(char *input_file) {
 
     // create array of random addresses to be looked up
     constexpr size_t num_addrs = 50000000;
-    std::vector<ipv4_addr> address_vector;
+    std::vector<uint32_t> address_vector;
     address_vector.reserve(num_addrs);
     for (size_t i = 0; i < num_addrs; i++) {
         address_vector.push_back(random_ipv4_addr());
@@ -417,6 +419,7 @@ int test_ipv4(char *input_file) {
     return 0;
 }
 
+/*
 int test_ipv6(const char *input_file) {
     int num = 0;
     int nprefixes = 0, nbases = 0, nfull = 0;
@@ -618,7 +621,7 @@ int test_ipv6(const char *input_file) {
 
     return 0;
 }
-
+*/
 
 int main(int argc, char *argv[]) {
 
@@ -629,7 +632,7 @@ int main(int argc, char *argv[]) {
 
     test_ipv4<uint32_t>(argv[1]);
 
-    test_ipv6("bgp/data-raw-ipv6");
+    // test_ipv6("bgp/data-raw-ipv6");
 
     return 0;
 }

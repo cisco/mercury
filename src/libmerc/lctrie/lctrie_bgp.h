@@ -12,6 +12,7 @@
 #include <fstream>
 
 #include "lctrie_ip.h"
+#include <type_traits>
 #include "../ip_address.hpp"
 
 typedef struct lct_bgp_asn {

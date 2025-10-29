@@ -24,7 +24,7 @@ endif()
 #     CMAKE_CXX_FLAGS_MINSIZEREL: -Os -DNDEBUG (optimize for size)
 
 if(IS_WIN)
-    add_compile_options(/W3 ${OPTFLAGS})
+    add_compile_options(/W3 ${OPTFLAGS} /permissive-)
 else()
     add_compile_options(-Wall -Wpedantic -Wextra -fPIC ${OPTFLAGS})
 endif()
@@ -43,15 +43,15 @@ else()
 endif()
 
 set(lctrie_src
-    lctrie.c
-    lctrie_bgp.c
-    lctrie_ip.c)
+    lctrie.cc
+    lctrie_bgp.cc
+    lctrie_ip.cc)
 set_source_files_properties(${lctrie_src} PROPERTIES LANGUAGE CXX)
 add_library(lctrie STATIC ${lctrie_src})
 
 set(lctrie_test_src
     ${lctrie_src}
-    lctrie_test.c)
+    lctrie_test.cc)
 set_source_files_properties(${lctrie_test_src} PROPERTIES LANGUAGE CXX)
 #add_executable(lctrie_test ${lctrie_test_src})
 

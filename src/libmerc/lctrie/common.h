@@ -4,6 +4,8 @@
 
 #include <stdint.h>
 #include <typeinfo>
+#include <string>
+#include <stdlib.h>
 
 #ifndef HAVE_HTON_DEF
 #define HAVE_HTON_DEF
