@@ -123,25 +123,25 @@ namespace crypto_policy {
 
         /*
         * Common Two-Loop Assessment Pattern:
-        * 
-        * All assessment functions (assess_tls_ciphersuites, assess_tls_extensions, 
+        *
+        * All assessment functions (assess_tls_ciphersuites, assess_tls_extensions,
         * assess_ssh_kex_methods, assess_ssh_ciphers) use a similar two-loop approach:
-        * 
+        *
         * OUTER LOOP: Iterates through items sequentially checking if all are allowed.
         * As soon as it encounters a non-allowed item, it immediately enters the inner loop.
-        * 
-        * INNER LOOP: Processes the remaining items in the vector/list starting from 
+        *
+        * INNER LOOP: Processes the remaining items in the vector/list starting from
         * the current non-allowed item. This ensures we complete the entire traversal
         * in a single pass while collecting all non-allowed items.
-        * 
+        *
         * Key Design Decisions:
-        * 1. The JSON array (e.g., "ciphersuites_not_allowed") is created ONLY when the 
-        *    first non-allowed item is encountered, not beforehand. This prevents empty 
+        * 1. The JSON array (e.g., "ciphersuites_not_allowed") is created ONLY when the
+        *    first non-allowed item is encountered, not beforehand. This prevents empty
         *    arrays from appearing in the output when all items are allowed.
-        * 
-        * 2. Single-pass efficiency: We traverse the entire input vector/list exactly 
+        *
+        * 2. Single-pass efficiency: We traverse the entire input vector/list exactly
         *    once, switching from the outer loop to the inner loop seamlessly when needed.
-        * 
+        *
         */
 
         bool assess_tls_ciphersuites(datum ciphersuite_vector, json_object &a) const {
@@ -196,7 +196,7 @@ namespace crypto_policy {
 
             return true;
         }
-        
+
         bool assess_tls_extensions(const tls_extensions &extensions, json_object &a) const {
             bool all_allowed = true;
             bool some_allowed = false;
@@ -204,6 +204,10 @@ namespace crypto_policy {
             datum named_groups = extensions.get_supported_groups();
             xtn named_groups_xtn{named_groups};
             encoded<uint16_t> named_groups_len{named_groups_xtn.value};
+
+            if (named_groups_len & 1) {
+                return false; // not a valid named groups length
+            }
 
             while (named_groups_xtn.value.is_readable()) {
                 tls::supported_groups named_group{named_groups_xtn.value};
@@ -265,7 +269,7 @@ namespace crypto_policy {
                 }
             }
             a.print_key_bool("tls_cert_with_extern_psk", have_tls_cert_with_extern_psk);
-            
+
             return true;
         }
 
@@ -315,7 +319,7 @@ namespace crypto_policy {
                 if (!found) {
                     all_allowed = false;
                     json_array kex_array(a, "kex_not_allowed");
-                    
+
                     while (true) {
                         found = (ssh_allowed_kex.find(tmp_sv) != ssh_allowed_kex.end());
                         if (!found) {
@@ -500,19 +504,19 @@ namespace crypto_policy {
         }
         return nullptr;   // error: policy not found
     }
-    
+
     [[maybe_unused]] static bool unit_test() {
         quantum_safe assessor{true};
         char buff[1024];
 
         // --------------- TLS EXTENSIONS AND CIPHERSUITES ---------------
         // TEST-1
-        // 
+        //
         uint8_t tls_ciphers[] = {
-            0x00, 0x8d, // TLS_PSK_WITH_AES_256_CBC_SHA (allowed)
-            0xc0, 0xa9, // TLS_PSK_WITH_AES_256_CCM_8 (allowed)
-            0x7a, 0x7a, // grease
-            0xc0, 0x06  // TLS_ECDHE_ECDSA_WITH_NULL_SHA (not allowed)
+            0x00, 0x8D, // TLS_PSK_WITH_AES_256_CBC_SHA (allowed)
+            0xC0, 0xA9, // TLS_PSK_WITH_AES_256_CCM_8 (allowed)
+            0x7A, 0x7A, // grease
+            0xC0, 0x06  // TLS_ECDHE_ECDSA_WITH_NULL_SHA (not allowed)
         };
         datum ciphersuites_vector{tls_ciphers, tls_ciphers + sizeof(tls_ciphers)};
         buffer_stream tls_cphrs_buff_strm{buff, 1024};
@@ -527,11 +531,11 @@ namespace crypto_policy {
         }
 
         // TEST-2
-        // 
+        //
         uint8_t tls_ciphers_all_allowed[] = {
-            0x00, 0x8d, // TLS_PSK_WITH_AES_256_CBC_SHA (allowed)
-            0xc0, 0xa9, // TLS_PSK_WITH_AES_256_CCM_8 (allowed)
-            0x7a, 0x7a, // grease
+            0x00, 0x8D, // TLS_PSK_WITH_AES_256_CBC_SHA (allowed)
+            0xC0, 0xA9, // TLS_PSK_WITH_AES_256_CCM_8 (allowed)
+            0x7A, 0x7A, // grease
         };
         datum ciphersuites_vector_all_allowed{tls_ciphers_all_allowed, tls_ciphers_all_allowed + sizeof(tls_ciphers_all_allowed)};
         buffer_stream tls_cphrs_buff_strm_all_allowed{buff, 1024};
@@ -547,9 +551,9 @@ namespace crypto_policy {
 
         // TEST-3
         uint8_t tls_ciphers_none_allowed[] = {
-            0xc0, 0x06, // TLS_ECDHE_ECDSA_WITH_NULL_SHA (not allowed)
-            0x7a, 0x7a, // grease
-            0xc0, 0x07  // TLS_ECDHE_ECDSA_WITH_RC4_128_SHA (not allowed)
+            0xC0, 0x06, // TLS_ECDHE_ECDSA_WITH_NULL_SHA (not allowed)
+            0x7A, 0x7A, // grease
+            0xC0, 0x07  // TLS_ECDHE_ECDSA_WITH_RC4_128_SHA (not allowed)
         };
         datum ciphersuites_vector_none_allowed{tls_ciphers_none_allowed, tls_ciphers_none_allowed + sizeof(tls_ciphers_none_allowed)};
         buffer_stream tls_cphrs_buff_strm_none_allowed{buff, 1024};
@@ -564,7 +568,7 @@ namespace crypto_policy {
 
 
         // TEST-4
-        // 
+        //
         uint8_t tls_extensions_data[] = {
             0x00, 0x0A, // type (supported group)
             0x00, 0x08, // length
@@ -587,7 +591,31 @@ namespace crypto_policy {
         }
 
         // TEST-5
-        // 
+        //
+        uint8_t tls_extensions_data_invalid[] = {
+            0x00, 0x0A, // type (supported group)
+            0x00, 0x08, // length (invalid length - odd number)
+            0x00, 0x07, // named groups length
+            0x02, 0x00, // MLKEM512 (allowed)
+            0x0A, 0x0A, // grease
+            0x00, 0x01  // sect163k1 (not allowed)
+        };
+
+        tls_extensions extensions_invalid{tls_extensions_data_invalid, tls_extensions_data_invalid + sizeof(tls_extensions_data_invalid)};
+        buffer_stream tls_extn_buff_strm_invalid{buff, 1024};
+        json_object d_invalid{&tls_extn_buff_strm_invalid};
+        if (assessor.assess_tls_extensions(extensions_invalid, d_invalid)) {
+            return false;
+        }
+        d_invalid.close();
+
+        std::string tls_extensions_invalid_output_str = "{}";
+        if (tls_extensions_invalid_output_str.length() != d_invalid.b->length() || memcmp(tls_extensions_invalid_output_str.c_str(), d_invalid.b->dstr, tls_extensions_invalid_output_str.length()) != 0) {
+            return false;
+        }
+
+        // TEST-6
+        //
         uint8_t tls_extensions_data_all_allowed[] = {
             0x00, 0x0A, // type (supported group)
             0x00, 0x08, // length
@@ -609,8 +637,8 @@ namespace crypto_policy {
             return false;
         }
 
-        // TEST-6
-        // 
+        // TEST-7
+        //
         uint8_t tls_extensions_data_no_allowed[] = {
             0x00, 0x0A, // type (supported group)
             0x00, 0x08, // length
@@ -633,8 +661,8 @@ namespace crypto_policy {
         }
 
         // --------------- SSH KEX METHODS AND CIPHERSUITES ---------------
-        // TEST-7
-        // 
+        // TEST-8
+        //
         uint8_t kex_algorithms[] = {
             0x00, 0x00, 0x00, 0x30, // length 48
             0x6D, 0x6C, 0x6B, 0x65, 0x6D, 0x31, 0x30, 0x32, //
@@ -660,8 +688,8 @@ namespace crypto_policy {
             return false;
         }
 
-        // TEST-8
-        // 
+        // TEST-9
+        //
         uint8_t kex_algorithms_all_allowed[] = {
             0x00, 0x00, 0x00, 0x28, // length 40
             0x6D, 0x6C, 0x6B, 0x65, 0x6D, 0x31, 0x30, 0x32, //
@@ -686,7 +714,7 @@ namespace crypto_policy {
             return false;
         }
 
-        // TEST-9
+        // TEST-10
         //
         uint8_t kex_algorithms_none_allowed[] = {
             0x00, 0x00, 0x00, 0x0F, // length 15
@@ -706,13 +734,13 @@ namespace crypto_policy {
         a_none_allowed.close();
 
         std::string kex_algorithms_none_allowed_output_str = "{\"kex_not_allowed\":[\"abc\",\"xyz\",\"abc\",\"xyz\"],\"kex_allowed\":\"none\"}";
-        
+
         if (kex_algorithms_none_allowed_output_str.length() != a_none_allowed.b->length() || memcmp(kex_algorithms_none_allowed_output_str.c_str(), a_none_allowed.b->dstr, kex_algorithms_none_allowed_output_str.length()) != 0) {
             return false;
         }
 
-        // TEST-10
-        // 
+        // TEST-11
+        //
         uint8_t ssh_ciphers[] = {
             0x00, 0x00, 0x00, 0x23, // length 35
             0x41, 0x45, 0x41, 0x44, 0x5F, 0x41, 0x45, 0x53, //
@@ -737,7 +765,7 @@ namespace crypto_policy {
             return false;
         }
 
-        // TEST-11
+        // TEST-12
         //
         uint8_t ssh_ciphers_all_allowed[] = {
             0x00, 0x00, 0x00, 0x1B, // length 27
@@ -762,7 +790,7 @@ namespace crypto_policy {
             return false;
         }
 
-        // TEST-12
+        // TEST-13
         //
         uint8_t ssh_ciphers_none_allowed[] = {
             0x00, 0x00, 0x00, 0x0F, // length 15
@@ -787,8 +815,8 @@ namespace crypto_policy {
             return false;
         }
 
-        // TEST-13
-        // 
+        // TEST-14
+        //
         uint8_t ssh_ciphers_malformed[] = {
             0x00, 0x00, 0x00, 0x3D, // length 61
             0x2C, 0x2C, 0x61, 0x62, 0x63, 0x2D, 0x61, 0x62, //
