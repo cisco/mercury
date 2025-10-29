@@ -48,6 +48,7 @@
 #include "tofsee.hpp"
 #include "cdp.h"
 #include "krb5.hpp"
+#include "snmp.hpp"
 #include "ldap.hpp"
 #include "lldp.h"
 #include "ospf.h"
@@ -73,6 +74,7 @@
 #include "vxlan.hpp"
 #include "fdc.hpp"
 #include "l7m.hpp"
+#include "syslog.hpp"
 
 // double malware_prob_threshold = -1.0; // TODO: document hidden option
 
@@ -217,6 +219,7 @@ struct do_observation {
     {}
 
     void operator()(tls_client_hello &m) {
+        // create event and send it to the data/stats aggregator
         event_string ev_str{k_, analysis_, m};
         mq_->push(ev_str.construct_event_string());
     }
@@ -231,28 +234,24 @@ struct do_observation {
         // create event and send it to the data/stats aggregator
         event_string ev_str{k_, analysis_, tofsee_pkt};
         mq_->push(ev_str.construct_event_string());
-        analysis_.reset_user_agent();
     }
 
     void operator()(http_request &m) {
         // create event and send it to the data/stats aggregator
         event_string ev_str{k_, analysis_, m};
         mq_->push(ev_str.construct_event_string());
-        analysis_.reset_user_agent();
     }
 
     void operator()(stun::message &m) {
         // create event and send it to the data/stats aggregator
         event_string ev_str{k_, analysis_, m};
         mq_->push(ev_str.construct_event_string());
-        analysis_.reset_user_agent();
     }
 
     void operator()(ssh_init_packet &m) {
         // create event and send it to the data/stats aggregator
         event_string ev_str{k_, analysis_, m};
         mq_->push(ev_str.construct_event_string());
-        analysis_.reset_user_agent();
     }
 
     template <typename T>
@@ -260,6 +259,81 @@ struct do_observation {
 
 };
 
+bool stateful_pkt_proc::set_tcp_protocol_from_keyword(protocol &x,
+                                                      datum pkt_copy,
+                                                      tcp_msg_type msg_type) {
+    switch(msg_type) {
+        case tcp_msg_type_http_request:
+        {
+            if (selector.http_request()) {
+                http_request proto(pkt_copy);
+                if (proto.is_not_empty()) {
+                    x = proto;
+                    return true;
+                }
+            }
+            break;
+        }
+        case tcp_msg_type_http_response:
+        {
+            if (selector.http_response()) {
+                http_response proto(pkt_copy);
+                if (proto.is_not_empty()) {
+                    x = proto;
+                    return true;
+                }
+            }
+            break;
+        }
+        case tcp_msg_type_smtp_client:
+        {
+            if (selector.smtp()) {
+                smtp_client proto{pkt_copy};
+                if (proto.is_not_empty()) {
+                    x = proto;
+                    return true;
+                }
+            }
+            break;
+        }
+        case tcp_msg_type_smtp_server:
+        {
+            if (selector.smtp()) {
+                smtp_server proto{pkt_copy};
+                if (proto.is_not_empty()) {
+                    x = proto;
+                    return true;
+                }
+            }
+            break;
+        }
+        case tcp_msg_type_ftp_request:
+        {
+            if (selector.ftp_request()) {
+                ftp::request proto{pkt_copy};
+                if (proto.is_not_empty()) {
+                    x = proto;
+                    return true;
+                }
+            }
+            break;
+        }
+        case tcp_msg_type_rfb:
+        {
+            if (selector.rfb()) {
+                rfb::protocol_version_handshake proto{pkt_copy};
+                if (proto.is_not_empty()) {
+                    x = proto;
+                    return true;
+                }
+            }
+            break;
+        }
+        default:
+            break;
+    }
+    return false;
+}
 // set_tcp_protocol() sets the protocol variant record to the data
 // structure resulting from the parsing of the TCP data field, which
 // will be one of the TCP protocols in that variant.  The default
@@ -269,9 +343,9 @@ struct do_observation {
 // unrecognized packet that is the first data packet in a flow.
 //
 void stateful_pkt_proc::set_tcp_protocol(protocol &x,
-                      struct datum &pkt,
-                      bool is_new,
-                      struct tcp_packet *tcp_pkt) {
+                                         struct datum &pkt,
+                                         bool is_new,
+                                         struct tcp_packet *tcp_pkt) {
 
     // note: std::get<T>() throws exceptions; it might be better to
     // use get_if<T>(), which does not
@@ -280,14 +354,31 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
     if (msg_type == tcp_msg_type_unknown) {
         msg_type = (tcp_msg_type) selector.get_tcp_msg_type_from_ports(tcp_pkt);
     }
+    if (msg_type == tcp_msg_type_unknown) {
+        const tcp_msg_types &protos  = selector.get_tcp_msg_type_from_keyword(pkt);
+        if (protos.front() != tcp_msg_type_unknown) {
+            tcp_msg_type msg_type = selector.get_tcp_msg_type_preference_from_port(protos, tcp_pkt);
+            if (set_tcp_protocol_from_keyword(x, pkt, msg_type)) {
+                return;
+            }
 
+            for (const auto type : protos) {
+                if (type == msg_type) {
+                    continue;
+                }
+                if (set_tcp_protocol_from_keyword(x, pkt, type)) {
+                    return;
+                }
+            }
+        }
+    }
+    if (msg_type == tcp_msg_type_unknown) {
+         // Tofsee detection based on pkt length
+         if (selector.tofsee() && pkt.length() == tofsee_initial_message::pkt_length) {
+            msg_type = tcp_msg_type_tofsee_initial_message;
+        }
+    }
     switch(msg_type) {
-    case tcp_msg_type_http_request:
-        x.emplace<http_request>(pkt);
-        break;
-    case tcp_msg_type_http_response:
-        x.emplace<http_response>(pkt);
-        break;
     case tcp_msg_type_tls_client_hello:
         {
             struct tls_record rec{pkt};
@@ -297,11 +388,11 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
                 //  set pkt type as tls CH, so that initial segments can be fingerprinted as best effort for reassembly failed cases
             }
             x.emplace<tls_client_hello>(handshake.body);
-            break;
+            return;
         }
     case tcp_msg_type_tls_server_hello:
         x.emplace<tls_server_hello_and_certificate>(pkt, tcp_pkt);
-        break;
+        return;
     case tcp_msg_type_tls_certificate:
         x.emplace<tls_certificate>(pkt, tcp_pkt);
         break;
@@ -314,7 +405,7 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
                 return;
             }
         }
-        break;
+        return;
     case tcp_msg_type_ssh_kex:
         {
             struct ssh_binary_packet ssh_pkt{pkt};
@@ -325,23 +416,17 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
                 tcp_pkt->set_supplementary_reassembly();
             }
             x.emplace<ssh_kex_init>(ssh_pkt);
-            break;
+            return;
         }
-    case tcp_msg_type_smtp_client:
-        x.emplace<smtp_client>(pkt);
-        break;
     case tcp_msg_type_smtp_server:
         x.emplace<smtp_server>(pkt);
-        break;
+        return;
     case tcp_msg_type_tacacs:
         x.emplace<tacacs::packet>(pkt);
-        break;
+        return;
     case tcp_msg_type_rdp:
         x.emplace<rdp::connection_request_pdu>(pkt);
-        break;
-    case tcp_msg_type_rfb:
-        x.emplace<rfb::protocol_version_handshake>(pkt);
-        break;
+        return;
     case tcp_msg_type_dns:
     {
         /* Trim the 2 byte length field in case of
@@ -351,56 +436,53 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         pkt.read_uint16(&len);
         pkt.trim_to_length(len);
         x.emplace<dns_packet>(pkt);
-        break;
+        return;
     }
     case tcp_msg_type_smb1:
         x.emplace<smb1_packet>(pkt);
-        break;
+        return;
     case tcp_msg_type_smb2:
         x.emplace<smb2_packet>(pkt);
-        break;
+        return;
     case tcp_msg_type_iec:
         x.emplace<iec60870_5_104>(pkt);
-        break;
+        return;
     case tcp_msg_type_dnp3:
         x.emplace<dnp3>(pkt);
-        break;
+        return;
     case tcp_msg_type_nbss:
         x.emplace<nbss_packet>(pkt);
-        break;
+        return;
     case tcp_msg_type_openvpn:
         x.emplace<openvpn_tcp>(pkt);
-        break;
+        return;
     case tcp_msg_type_bittorrent:
         x.emplace<bittorrent_handshake>(pkt);
-        break;
+        return;
     case tcp_msg_type_mysql_server:
         x.emplace<mysql_server_greet>(pkt);
-        break;
+        return;
     case tcp_msg_type_mysql_login_request:
         x.emplace<mysql_login_request>(pkt);
-        break;
+        return;
     case tcp_msg_type_tofsee_initial_message:
         x.emplace<tofsee_initial_message>(pkt);
-        break;
+        return;
     case tcp_msg_type_socks4:
         x.emplace<socks4_req>(pkt);
-        break;
+        return;
     case tcp_msg_type_socks5_hello:
         x.emplace<socks5_hello>(pkt);
-        break;
+        return;
     case tcp_msg_type_socks5_req_resp:
         x.emplace<socks5_req_resp>(pkt);
-        break;
+        return;
     case tcp_msg_type_ldap:
         x.emplace<ldap::message>(pkt);
-        break;
+        return;
     case tcp_msg_type_ftp_response:
         x.emplace<ftp::response>(pkt);
-        break;
-    case tcp_msg_type_ftp_request:
-        x.emplace<ftp::request>(pkt);
-        break;
+        return;
     default:
         if (is_new && global_vars.output_tcp_initial_data) {
             x.emplace<unknown_initial_packet>(pkt);
@@ -409,6 +491,7 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         }
         break;
     }
+
     //fprintf(stderr, "2nd got tcp_msg_type: %d\n", msg_type);
 }
 
@@ -454,8 +537,11 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
             x = std::move(packet);
         }
         break;
+    case udp_msg_type_syslog:
+        x.emplace<syslog>(pkt);
+        break;
     case udp_msg_type_dhcp:
-        x.emplace<dhcp_discover>(pkt);
+        x.emplace<dhcp_message>(pkt);
         break;
     case udp_msg_type_quic:
         x.emplace<quic_init>(pkt, quic_crypto);
@@ -508,6 +594,9 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
         break;
     case udp_msg_type_krb5:
         x.emplace<krb5::packet>(pkt);
+        break;
+    case udp_msg_type_snmp:
+        x.emplace<snmp::packet>(pkt);
         break;
     case udp_msg_type_tftp:
         x.emplace<tftp::packet>(pkt);

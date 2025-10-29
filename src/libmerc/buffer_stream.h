@@ -1012,6 +1012,10 @@ struct buffer_stream {
         append_null(dstr, &doff, dlen, &trunc);
     }
 
+    void set_truncated() { trunc = 1; }
+
+    bool is_truncated() const { return trunc == 1; }
+
     int snprintf(const char *fmt, ...) {
 
         if (trunc == 1) {
@@ -1146,6 +1150,16 @@ struct buffer_stream {
         }
         else
             return std::string{};
+    }
+
+    /// returns the number of writeable bytes remaining in this
+    /// buffer_stream
+    ///
+    size_t writeable_length() const {
+        if (trunc) {
+            return 0;
+        }
+        return dlen - doff;
     }
 
 };

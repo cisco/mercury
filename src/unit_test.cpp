@@ -8,7 +8,7 @@
 #include "libmerc/cbor_object.hpp"
 #include "libmerc/base64.h"
 #include "libmerc/tofsee.hpp"
-#include "libmerc/snmp.h"
+#include "libmerc/snmp.hpp"
 #include "libmerc/ip_address.hpp"
 #include "libmerc/watchlist.hpp"
 #include "libmerc/rdp.hpp"

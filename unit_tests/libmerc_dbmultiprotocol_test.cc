@@ -303,8 +303,8 @@ TEST_CASE_METHOD(LibmercTestFixture, "test smtp with resources-mp")
              .m_lc{.dns_json_output = true, .do_analysis = true,
                 .resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"smtp"},
-             .m_pc{"capture2.pcap"}},
-         1},
+             .m_pc{"smtp.pcap"}},
+         4},
         {test_config{
              .m_lc{.do_analysis = true, .resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"smtp"},
