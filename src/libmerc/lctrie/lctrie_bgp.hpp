@@ -1,5 +1,5 @@
-#ifndef __LC_TRIE_BGP_H__
-#define __LC_TRIE_BGP_H__
+#ifndef __LC_TRIE_BGP_HPP__
+#define __LC_TRIE_BGP_HPP__
 // begin #ifndef guard
 
 #include <stdlib.h>
@@ -11,7 +11,7 @@
 #include <typeinfo>
 #include <fstream>
 
-#include "lctrie_ip.h"
+#include "lctrie_ip.hpp"
 #include <type_traits>
 #include "../ip_address.hpp"
 

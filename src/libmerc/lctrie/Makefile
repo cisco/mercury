@@ -39,11 +39,6 @@ COMPILE.c = $(CXX) $(DEPFLAGS) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c
 COMPILE.cc = $(CXX) $(DEPFLAGS) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c
 POSTCOMPILE = mv -f $(DEPDIR)/$*.Td $(DEPDIR)/$*.d
 
-# %.o : %.c
-# %.o : %.c $(DEPDIR)/%.d
-# 	$(COMPILE.c) $(OUTPUT_OPTION) $<
-# 	$(POSTCOMPILE)
-
 %.o : %.cc
 %.o : %.cc $(DEPDIR)/%.d
 	$(COMPILE.cc) $(OUTPUT_OPTION) $<

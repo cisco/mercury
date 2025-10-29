@@ -17,8 +17,8 @@
 #include "ipv6_lctrie.h"
 #include "ip_address.hpp"
 
-#include "lctrie/lctrie.h"
-#include "lctrie/lctrie_bgp.h"
+#include "lctrie/lctrie.hpp"
+#include "lctrie/lctrie_bgp.hpp"
 
 
 // apply netmasks to IPv6 entries, should be done prior to sorting the subnet array

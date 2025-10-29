@@ -5,8 +5,8 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-#include "lctrie_ip.h"
-#include "common.h"
+#include "lctrie_ip.hpp"
+#include "common.hpp"
 
 // a large root branch performs best under testing
 // and splits up the search space size of the sub-branchs

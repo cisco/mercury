@@ -1,6 +1,6 @@
 
-#ifndef COMMON_H
-#define COMMON_H
+#ifndef COMMON_HPP
+#define COMMON_HPP
 
 #include <stdint.h>
 #include <typeinfo>
@@ -151,4 +151,4 @@ inline T REMOVE(unsigned int p, T str) {
     return nullptr;
 }
 
-#endif // COMMON_H
+#endif // COMMON_HPP

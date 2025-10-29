@@ -17,7 +17,7 @@
 #include <stdexcept>
 #include "archive.h"
 
-#include "lctrie/lctrie.h"
+#include "lctrie/lctrie.hpp"
 
 
 class subnet_data {

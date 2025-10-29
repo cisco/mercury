@@ -1,5 +1,5 @@
-#include "lctrie.h"
-#include "common.h"
+#include "lctrie.hpp"
+#include "common.hpp"
 
 #include <stdio.h>
 

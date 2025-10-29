@@ -12,9 +12,9 @@
 #include <random>
 
 #include "../addr.cc"
-#include "lctrie_ip.h"
-#include "lctrie_bgp.h"
-#include "lctrie.h"
+#include "lctrie_ip.hpp"
+#include "lctrie_bgp.hpp"
+#include "lctrie.hpp"
 
 
 #define BGP_MAX_ENTRIES             4000000

@@ -1,5 +1,5 @@
-#ifndef __LC_TRIE_IP_H__
-#define __LC_TRIE_IP_H__
+#ifndef __LC_TRIE_IP_HPP__
+#define __LC_TRIE_IP_HPP__
 // begin #ifndef guard
 
 #include <stdlib.h>
@@ -10,7 +10,7 @@
 #include <limits>
 #include <stdexcept>
 
-#include "common.h"
+#include "common.hpp"
 #include "../ipv6_lctrie.h"
 
 using ipv4_addr_t = uint32_t;
