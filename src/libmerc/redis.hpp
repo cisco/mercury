@@ -324,8 +324,8 @@ namespace redis
                     if (parsed_data.is_not_empty())
                     {
                         // Limit to first 100 characters
-                        auto max_len = static_cast<ssize_t>(100);
-                        auto data_len = parsed_data.length();
+                        const size_t max_len = 100;
+                        const auto data_len = static_cast<size_t>(parsed_data.length());
                         if (data_len > max_len)
                         {
                             datum truncated{parsed_data.data, parsed_data.data + max_len};
@@ -384,8 +384,8 @@ namespace redis
                     if (parsed_data.is_not_empty())
                     {
                         // Limit to first 100 characters
-                        auto max_len = static_cast<ssize_t>(100);
-                        auto data_len = parsed_data.length();
+                        const size_t max_len = 100;
+                        const auto data_len = static_cast<size_t>(parsed_data.length());
                         if (data_len > max_len)
                         {
                             datum truncated{parsed_data.data, parsed_data.data + max_len};
