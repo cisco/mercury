@@ -108,7 +108,7 @@ namespace redis
             if (d.is_null())
                 return false;
 
-            std::string len_str{(const char *)length_str.data, length_str.length()};
+            std::string len_str{(const char *)length_str.data, static_cast<size_t>(length_str.length())};
             int length = std::stoi(len_str);
 
             type = BULK_STRING;
@@ -447,7 +447,7 @@ namespace redis
             if (d.is_null())
                 return false;
 
-            std::string len_str{(const char *)length_str.data, length_str.length()};
+            std::string len_str{(const char *)length_str.data, static_cast<size_t>(length_str.length())};
             int length = std::stoi(len_str);
 
             if (length < 0 || d.data + length + 2 > d.data_end) // +2 for \r\n
@@ -475,7 +475,7 @@ namespace redis
             if (d.is_null())
                 return false;
 
-            std::string len_str{(const char *)length_str.data, length_str.length()};
+            std::string len_str{(const char *)length_str.data, static_cast<size_t>(length_str.length())};
             int length = std::stoi(len_str);
 
             if (length <= 0)
