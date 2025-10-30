@@ -3,7 +3,7 @@ all: lctrie_test
 
 # lctrie_test: lctrie_test.o lctrie.o lctrie_bgp.o lctrie_ip.o
 lctrie_test: lctrie_test.o lctrie.o lctrie_bgp.o lctrie_ip.o
-	$(CXX) $(LDFLAGS) -o $@ $^ $(LDLIBS)
+	$(CXX) $(LDFLAGS) -o $@ $^
 
 liblctrie.a: lctrie.o lctrie_bgp.o lctrie_ip.o
 	ar rcs liblctrie.a $^
@@ -16,7 +16,6 @@ clean:
 
 CFLAGS = -g -ggdb -std=c++17 -Wall -O3 -fPIC -I/opt/homebrew/include# -Wno-sign-compare
 LDFLAGS = -g -ggdb -O3 -L/opt/homebrew/lib
-LDLIBS =
 
 ifeq ($(COVERAGE_ENABLED),1)
 ifeq ($(filter -O3, $(CFLAGS)), -O3)

@@ -49,12 +49,6 @@ set(lctrie_src
 set_source_files_properties(${lctrie_src} PROPERTIES LANGUAGE CXX)
 add_library(lctrie STATIC ${lctrie_src})
 
-set(lctrie_test_src
-    ${lctrie_src}
-    lctrie_test.cc)
-set_source_files_properties(${lctrie_test_src} PROPERTIES LANGUAGE CXX)
-#add_executable(lctrie_test ${lctrie_test_src})
-
 # the depends section might not work as it takes src not targets
 # use add_dependency() instead
 add_custom_target(lctrie_lib
