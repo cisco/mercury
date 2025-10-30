@@ -759,7 +759,6 @@ namespace cbor::output {
     //
     class map {
         writeable &w;
-        bool write;
 
     public:
 
