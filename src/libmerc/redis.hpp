@@ -17,13 +17,16 @@ namespace redis
     class response : public base_protocol
     {
     private:
+        
         enum redis_type
         {
             SIMPLE_STRING, // +OK\r\n
             ERROR,         // -Error message\r\n
             INTEGER,       // :1000\r\n
-            BULK_STRING    // $7\r\nabc\rdef\r\n
+            BULK_STRING,    // $7\r\nabc\rdef\r\n
+            // ARRAY,         // *2\r\n$3\r\nSET\r\n$3\r\nfoo\r\n
         } type;
+        
         datum parsed_data;
         bool isValid;
 
@@ -131,7 +134,143 @@ namespace redis
             return false;
         }
 
+        // bool parse_first_packet(const uint8_t *data_start, datum &d)
+        // {
+        //     parsed_data = datum{data_start, d.data};
+        //     return true;
+        // }
+
+        // bool parse_array(datum &d)
+        // {
+        //     literal_byte<'*'> marker{d};
+        //     if (d.is_null())
+        //         return false;
+
+        //     datum length_str;
+        //     length_str.parse_up_to_delim(d, '\r');
+        //     if (!length_str.is_not_empty())
+        //         return false;
+
+        //     literal_byte<'\r', '\n'> length_term{d};
+        //     if (d.is_null())
+        //         return false;
+
+        //     std::string len_str{(const char *)length_str.data, length_str.length()};
+        //     int length = std::stoi(len_str);
+
+        //     type = ARRAY;
+        //     if (length == -1)
+        //     {
+        //         parsed_data = datum{nullptr, nullptr};
+        //         return true;
+        //     }
+
+        //     // Store start position to capture full array data
+        //     const uint8_t *array_data_start = d.data;
+        //     int elements_parsed = 0;
+
+        //     // Parse array elements (supports nested structures)
+        //     // For large arrays that may span multiple packets, we parse the first packet only
+        //     for (int i = 0; i < length; i++)
+        //     {
+        //         if (d.data >= d.data_end)
+        //         {
+
+        //             // How to calculate the additional bytes needed?
+        //             additional_bytes_needed = 1; // non-zero value for truncation marker
+        //             break;                       // Accept partial array
+        //         }
+
+        //         switch (*d.data)
+        //         {
+        //         case '+':
+        //         case '-':
+        //         case ':':
+        //         {
+        //             d.skip(1);
+        //             datum element_content;
+        //             element_content.parse_up_to_delim(d, '\r');
+        //             if (d.data + 1 < d.data_end && d.data[0] == '\r' && d.data[1] == '\n')
+        //             {
+        //                 d.skip(2);
+        //                 elements_parsed++;
+        //             }
+        //             else
+        //             {
+        //                 additional_bytes_needed = 1; // non-zero value for truncation marker
+        //                 break;
+        //             }
+        //         }
+        //         break;
+        //         case '$':
+        //         {
+        //             datum temp_d = d;
+        //             response temp_resp{temp_d};
+        //             if (temp_resp.isValid && temp_resp.type == BULK_STRING)
+        //             {
+        //                 d = temp_d;
+        //                 elements_parsed++;
+        //                 if (temp_resp.additional_bytes_needed)
+        //                 {
+        //                     // Propagate nested truncation
+        //                     additional_bytes_needed = temp_resp.additional_bytes_needed;
+        //                     return parse_first_packet(array_data_start, d);
+        //                 }
+        //             }
+        //             else
+        //             {
+        //                 additional_bytes_needed = 1; // non-zero value for truncation marker
+        //                 return parse_first_packet(array_data_start, d);
+        //             }
+        //         }
+        //         break;
+        //         case '*':
+        //         {
+        //             datum temp_d = d;
+        //             response temp_resp{temp_d};
+        //             if (temp_resp.isValid && temp_resp.type == ARRAY)
+        //             {
+        //                 d = temp_d;
+        //                 elements_parsed++;
+        //                 if (temp_resp.additional_bytes_needed)
+        //                 {
+        //                     additional_bytes_needed = temp_resp.additional_bytes_needed;
+        //                     return parse_first_packet(array_data_start, d);
+        //                 }
+        //             }
+        //             else
+        //             {
+        //                 additional_bytes_needed = 1;
+        //                 return parse_first_packet(array_data_start, d);
+        //             }
+        //         }
+        //         break;
+        //         default:
+        //             additional_bytes_needed = 1;
+        //             return parse_first_packet(array_data_start, d);
+        //         }
+        //     }
+
+        //     if (elements_parsed == length)
+        //     {
+        //         parsed_data = datum{array_data_start, d.data};
+        //         return true;
+        //     }
+
+        //     if (additional_bytes_needed > 0)
+        //     {
+        //         parsed_data = datum{array_data_start, d.data};
+        //         return true;
+        //     }
+
+        //     return false;
+        // }
+
+
     public:
+
+        // size_t additional_bytes_needed = 0;
+
         response(datum &d) : type{SIMPLE_STRING}, parsed_data{d.data, d.data}, isValid{false}
         {
 
@@ -150,6 +289,9 @@ namespace redis
             case '$':
                 isValid = parse_bulk_string(d);
                 break;
+            // case '*':
+            //     isValid = parse_array(d);
+            //     break;
             default:
                 isValid = false;
                 break;
@@ -182,8 +324,9 @@ namespace redis
                     if (parsed_data.is_not_empty())
                     {
                         // Limit to first 100 characters
-                        ssize_t max_len = 100;
-                        if (parsed_data.length() > max_len)
+                        auto max_len = static_cast<ssize_t>(100);
+                        auto data_len = parsed_data.length();
+                        if (data_len > max_len)
                         {
                             datum truncated{parsed_data.data, parsed_data.data + max_len};
                             redis_response.print_key_json_string("data", truncated);
@@ -198,6 +341,17 @@ namespace redis
                         redis_response.print_key_string("data", "null");
                     }
                     break;
+                // case ARRAY:
+                //     redis_response.print_key_string("type", "array");
+                //     if (parsed_data.is_not_empty())
+                //     {
+                //         redis_response.print_key_json_string("data", parsed_data);
+                //     }
+                //     else
+                //     {
+                //         redis_response.print_key_string("data", "null");
+                //     }
+                //     break;
             }
 
             redis_response.close();
@@ -230,8 +384,9 @@ namespace redis
                     if (parsed_data.is_not_empty())
                     {
                         // Limit to first 100 characters
-                        ssize_t max_len = 100;
-                        if (parsed_data.length() > max_len)
+                        auto max_len = static_cast<ssize_t>(100);
+                        auto data_len = parsed_data.length();
+                        if (data_len > max_len)
                         {
                             datum truncated{parsed_data.data, parsed_data.data + max_len};
                             redis_response.print_key_string("data", truncated);
@@ -246,6 +401,17 @@ namespace redis
                         redis_response.print_key_string("data", "null");
                     }
                     break;
+                // case ARRAY:
+                //     redis_response.print_key_string("type", "array");
+                //     if (parsed_data.is_not_empty())
+                //     {
+                //         redis_response.print_key_string("data", parsed_data);
+                //     }
+                //     else
+                //     {
+                //         redis_response.print_key_string("data", "null");
+                //     }
+                //     break;
             }
             redis_response.close();
             redis.close();
