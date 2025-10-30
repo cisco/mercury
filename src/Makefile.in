@@ -83,8 +83,10 @@ CAP        = cap_net_raw,cap_net_admin,cap_dac_override+eip
 EUID       = $(id -u)
 
 CFLAGS += -I./libmerc/xsimd/include
-ifeq ($(openssl_newer),yes)
-CFLAGS += -DSSLNEW
+ifeq ($(openssl_v3_0_or_newer),yes)
+CFLAGS += -DOPENSSL_V3_0
+else ifeq ($(openssl_v1_1_or_newer),yes)
+CFLAGS += -DOPENSSL_V1_1
 endif
 
 ifeq ($(is_macos_arm),yes)

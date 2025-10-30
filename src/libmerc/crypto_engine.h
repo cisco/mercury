@@ -17,6 +17,10 @@
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
 #include <openssl/err.h>
+#ifdef OPENSSL_V3_0
+#include <openssl/core_names.h>
+#include <openssl/params.h>
+#endif
 #include <stdexcept>
 #include <cstring>
 
@@ -140,7 +144,109 @@ public:
         return plaintext_len;
     }
 
-#ifdef SSLNEW
+#ifdef OPENSSL_V3_0
+    void kdf_tls13(uint8_t *secret, unsigned int secret_length, const uint8_t *label, const unsigned int label_len,
+                   uint8_t length, uint8_t *out_, unsigned int *out_len) {
+
+        uint8_t new_label[max_label_len] = {0};
+        new_label[1] = length;
+        new_label[2] = label_len;
+        for (size_t i = 0; i < label_len; i++) {
+            new_label[3+i] = label[i];
+        }
+        size_t new_label_len = 4 + label_len;
+        *out_len = length;
+
+        int md_sz;
+        unsigned char buf[2048];
+        size_t done_len = 0, dig_len, n;
+
+        const EVP_MD *evp_md = EVP_sha256();
+
+        md_sz = EVP_MD_size(evp_md);
+        if (md_sz <= 0) {
+            return;
+        }
+        dig_len = (size_t)md_sz;
+
+        n = length / dig_len;
+        if (length % dig_len) {
+            n++;
+        }
+
+        if (n > 255 || out_ == NULL) {
+            return;
+        }
+
+        EVP_MAC *mac = nullptr;
+        EVP_MAC_CTX *mac_ctx = nullptr;
+
+        mac = EVP_MAC_fetch(NULL, "HMAC", NULL);
+        if (mac == NULL) {
+            return;
+        }
+
+        mac_ctx = EVP_MAC_CTX_new(mac);
+        if (mac_ctx == NULL) {
+            EVP_MAC_free(mac);
+            return;
+        }
+
+        OSSL_PARAM params[] = {
+            OSSL_PARAM_construct_utf8_string("digest", (char*)EVP_MD_get0_name(evp_md), 0),
+            OSSL_PARAM_construct_end()
+        };
+
+        if (!EVP_MAC_init(mac_ctx, secret, secret_length, params)) {
+            EVP_MAC_CTX_free(mac_ctx);
+            EVP_MAC_free(mac);
+            return;
+        }
+
+        for (size_t i = 1; i <= n; i++) {
+            size_t copy_len;
+            const unsigned char ind = i;
+
+            if (i > 1) {
+                if (!EVP_MAC_init(mac_ctx, NULL, 0, NULL)) {
+                    EVP_MAC_CTX_free(mac_ctx);
+                    EVP_MAC_free(mac);
+                    return;
+                }
+                if (!EVP_MAC_update(mac_ctx, buf, dig_len)) {
+                    EVP_MAC_CTX_free(mac_ctx);
+                    EVP_MAC_free(mac);
+                    return;
+                }
+            }
+
+            if (!EVP_MAC_update(mac_ctx, new_label, new_label_len)) {
+                EVP_MAC_CTX_free(mac_ctx);
+                EVP_MAC_free(mac);
+                return;
+            }
+            if (!EVP_MAC_update(mac_ctx, &ind, 1)) {
+                EVP_MAC_CTX_free(mac_ctx);
+                EVP_MAC_free(mac);
+                return;
+            }
+            if (!EVP_MAC_final(mac_ctx, buf, NULL, sizeof(buf))) {
+                EVP_MAC_CTX_free(mac_ctx);
+                EVP_MAC_free(mac);
+                return;
+            }
+
+            copy_len = (done_len + dig_len > length) ? (length-done_len) : dig_len;
+            memcpy(out_ + done_len, buf, copy_len);
+
+            done_len += copy_len;
+        }
+
+        EVP_MAC_CTX_free(mac_ctx);
+        EVP_MAC_free(mac);
+    }
+#elif defined(OPENSSL_V1_1)
+    // OpenSSL 1.1.0+ with HMAC_CTX_new/free
     void kdf_tls13(uint8_t *secret, unsigned int secret_length, const uint8_t *label, const unsigned int label_len,
                    uint8_t length, uint8_t *out_, unsigned int *out_len) {
 
@@ -216,6 +322,7 @@ public:
         HMAC_CTX_free(hmac);
     }
 #else
+    // Legacy OpenSSL (< 1.1.0)
     void kdf_tls13(uint8_t *secret, unsigned int secret_length, const uint8_t *label, const unsigned int label_len,
                    uint8_t length, uint8_t *out_, unsigned int *out_len) {
 
@@ -229,7 +336,7 @@ public:
         *out_len = length;
 
         HMAC_CTX hmac;
-	    HMAC_CTX_init(&hmac);
+        HMAC_CTX_init(&hmac);
         int md_sz;
         unsigned char buf[2048];
         size_t done_len = 0, dig_len, n;

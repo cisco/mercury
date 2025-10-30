@@ -27,8 +27,10 @@ STRIP = strip
 
 CFLAGS += -fPIC
 CFLAGS += -DDONT_USE_STDERR
-ifeq ($(openssl_newer),yes)
-CFLAGS += -DSSLNEW
+ifeq ($(openssl_v3_0_or_newer),yes)
+CFLAGS += -DOPENSSL_V3_0
+else ifeq ($(openssl_v1_1_or_newer),yes)
+CFLAGS += -DOPENSSL_V1_1
 endif
 
 ifeq ($(is_macos_arm),yes)

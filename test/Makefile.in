@@ -386,7 +386,7 @@ fuzz-test:
 ifeq ($(have_clang),yes)
 	@echo "checking libmerc.a for fuzz test"
 	cd ../src && $(MAKE) COVERAGE_ENABLED=$(COVERAGE_ENABLED) libmerc.a
-ifeq ($(openssl_newer),yes)
+ifeq ($(openssl_v1_1_or_newer),yes)
 	cd fuzz && ./generate_fuzz_test.sh -n none -t 200 -r 1000000000 -s true $(if $(COVERAGE_ENABLED),-c $(COVERAGE_ENABLED))
 else
 	cd fuzz && ./generate_fuzz_test.sh -n none -t 200 -r 1000000000 $(if $(COVERAGE_ENABLED),-c $(COVERAGE_ENABLED))
