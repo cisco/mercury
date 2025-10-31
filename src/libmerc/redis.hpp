@@ -362,59 +362,6 @@ namespace redis
             cbor_array protocols{o, "protocols"};
             protocols.print_string("redis");
             protocols.close();
-
-            cbor_object redis{o, "redis"};
-            cbor_object redis_response{redis, "response"};
-            switch (type)
-            {
-                case SIMPLE_STRING:
-                    redis_response.print_key_string("type", "simple_string");
-                    redis_response.print_key_string("data", parsed_data);
-                    break;
-                case ERROR:
-                    redis_response.print_key_string("type", "error");
-                    redis_response.print_key_string("data", parsed_data);
-                    break;
-                case INTEGER:
-                    redis_response.print_key_string("type", "integer");
-                    redis_response.print_key_string("data", parsed_data);
-                    break;
-                case BULK_STRING:
-                    redis_response.print_key_string("type", "bulk_string");
-                    if (parsed_data.is_not_empty())
-                    {
-                        // Limit to first 100 characters
-                        const size_t max_len = 100;
-                        const auto data_len = static_cast<size_t>(parsed_data.length());
-                        if (data_len > max_len)
-                        {
-                            datum truncated{parsed_data.data, parsed_data.data + max_len};
-                            redis_response.print_key_string("data", truncated);
-                        }
-                        else
-                        {
-                            redis_response.print_key_string("data", parsed_data);
-                        }
-                    }
-                    else
-                    {
-                        redis_response.print_key_string("data", "null");
-                    }
-                    break;
-                // case ARRAY:
-                //     redis_response.print_key_string("type", "array");
-                //     if (parsed_data.is_not_empty())
-                //     {
-                //         redis_response.print_key_string("data", parsed_data);
-                //     }
-                //     else
-                //     {
-                //         redis_response.print_key_string("data", "null");
-                //     }
-                //     break;
-            }
-            redis_response.close();
-            redis.close();
         }
     };
 
@@ -615,28 +562,6 @@ namespace redis
             cbor_array protocols{o, "protocols"};
             protocols.print_string("redis");
             protocols.close();
-
-            cbor_object redis{o, "redis"};
-            cbor_object redis_request{redis, "request"};
-            redis_request.print_key_string("command", command_data);
-            if (is_auth_command)
-            {
-                cbor_object auth_object{redis_request, "auth"};
-
-                if (username_data.is_not_empty())
-                {
-                    auth_object.print_key_string("username", username_data);
-                }
-
-                if (password_data.is_not_empty())
-                {
-                    auth_object.print_key_string("password", password_data);
-                }
-
-                auth_object.close();
-            }
-            redis_request.close();
-            redis.close();
         }
     };
 
