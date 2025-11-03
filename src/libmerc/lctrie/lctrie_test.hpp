@@ -130,7 +130,7 @@ bool test_ipv6(const char *input_file, FILE *f) {
     if (f) fprintf(f, "Reading prefixes from %s...\n\n", input_file);
     if (0 > (rc = read_prefix_table<ipv6_addr_lct>(input_file, &p[num], BGP_MAX_ENTRIES - num))) {
         if (f) fprintf(f, "could not read prefix file \"%s\"\n", input_file);
-        return rc;
+        return false;
     }
     num += rc;
 
@@ -143,7 +143,7 @@ bool test_ipv6(const char *input_file, FILE *f) {
     lct_ip_stats_t *stats = (lct_ip_stats_t *) calloc(num, sizeof(lct_ip_stats_t));
     if (!stats) {
         fprintf(stderr, "Failed to allocate prefix statistics buffer\n");
-        return 0;
+        return false;
     }
 
     subnet_prefix(p, stats, num);
@@ -165,6 +165,7 @@ bool test_ipv6(const char *input_file, FILE *f) {
             {"2400:4000:1::", "2400:4000::/26"},
             {"2a02:b000:1::", "2a02:b000::/23"},
             {"2001:1c00:1::", "2001:1c00::/36"},
+            {"2001:1c00:1001:1::", "2001:1c00:1000::/38"},
             {"2c0f:fff0:1::", "2c0f:fff0::/32"},
             {"2001:1208:1::", "2001:1208::/32"},
             {"2c0f:fce8:4000:1::", "2c0f:fce8::/33"},

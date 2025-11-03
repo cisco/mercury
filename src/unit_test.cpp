@@ -167,10 +167,10 @@ int main(int, char *[]) {
             "lctrie_v4",
             &lctrie_v4_unit_test
         },
-        // {
-        //     "lctrie_v6",
-        //     &lctrie_v6_unit_test
-        // }
+        {
+            "lctrie_v6",
+            &lctrie_v6_unit_test
+        }
     };
     for (const auto &tc : test_cases_verbose) {
         bool result = tc.func(nullptr);
