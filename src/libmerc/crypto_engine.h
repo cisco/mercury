@@ -144,188 +144,115 @@ public:
         return plaintext_len;
     }
 
+private:
+    // HMAC wrapper class - abstracts OpenSSL version differences
+    class hmac_wrapper {
+        const EVP_MD *evp_md;
+        // Version-specific members
 #ifdef OPENSSL_V3_0
-    void kdf_tls13(uint8_t *secret, unsigned int secret_length, const uint8_t *label, const unsigned int label_len,
-                   uint8_t length, uint8_t *out_, unsigned int *out_len) {
-
-        uint8_t new_label[max_label_len] = {0};
-        new_label[1] = length;
-        new_label[2] = label_len;
-        for (size_t i = 0; i < label_len; i++) {
-            new_label[3+i] = label[i];
-        }
-        size_t new_label_len = 4 + label_len;
-        *out_len = length;
-
-        int md_sz;
-        unsigned char buf[2048];
-        size_t done_len = 0, dig_len, n;
-
-        const EVP_MD *evp_md = EVP_sha256();
-
-        md_sz = EVP_MD_size(evp_md);
-        if (md_sz <= 0) {
-            return;
-        }
-        dig_len = (size_t)md_sz;
-
-        n = length / dig_len;
-        if (length % dig_len) {
-            n++;
-        }
-
-        if (n > 255 || out_ == NULL) {
-            return;
-        }
-
-        EVP_MAC *mac = nullptr;
-        EVP_MAC_CTX *mac_ctx = nullptr;
-
-        mac = EVP_MAC_fetch(NULL, "HMAC", NULL);
-        if (mac == NULL) {
-            return;
-        }
-
-        mac_ctx = EVP_MAC_CTX_new(mac);
-        if (mac_ctx == NULL) {
-            EVP_MAC_free(mac);
-            return;
-        }
-
-        OSSL_PARAM params[] = {
-            OSSL_PARAM_construct_utf8_string("digest", (char*)EVP_MD_get0_name(evp_md), 0),
-            OSSL_PARAM_construct_end()
-        };
-
-        if (!EVP_MAC_init(mac_ctx, secret, secret_length, params)) {
-            EVP_MAC_CTX_free(mac_ctx);
-            EVP_MAC_free(mac);
-            return;
-        }
-
-        for (size_t i = 1; i <= n; i++) {
-            size_t copy_len;
-            const unsigned char ind = i;
-
-            if (i > 1) {
-                if (!EVP_MAC_init(mac_ctx, NULL, 0, NULL)) {
-                    EVP_MAC_CTX_free(mac_ctx);
-                    EVP_MAC_free(mac);
-                    return;
-                }
-                if (!EVP_MAC_update(mac_ctx, buf, dig_len)) {
-                    EVP_MAC_CTX_free(mac_ctx);
-                    EVP_MAC_free(mac);
-                    return;
-                }
-            }
-
-            if (!EVP_MAC_update(mac_ctx, new_label, new_label_len)) {
-                EVP_MAC_CTX_free(mac_ctx);
-                EVP_MAC_free(mac);
-                return;
-            }
-            if (!EVP_MAC_update(mac_ctx, &ind, 1)) {
-                EVP_MAC_CTX_free(mac_ctx);
-                EVP_MAC_free(mac);
-                return;
-            }
-            if (!EVP_MAC_final(mac_ctx, buf, NULL, sizeof(buf))) {
-                EVP_MAC_CTX_free(mac_ctx);
-                EVP_MAC_free(mac);
-                return;
-            }
-
-            copy_len = (done_len + dig_len > length) ? (length-done_len) : dig_len;
-            memcpy(out_ + done_len, buf, copy_len);
-
-            done_len += copy_len;
-        }
-
-        EVP_MAC_CTX_free(mac_ctx);
-        EVP_MAC_free(mac);
-    }
+        EVP_MAC *mac;
+        EVP_MAC_CTX *mac_ctx;
 #elif defined(OPENSSL_V1_1)
-    // OpenSSL 1.1.0+ with HMAC_CTX_new/free
-    void kdf_tls13(uint8_t *secret, unsigned int secret_length, const uint8_t *label, const unsigned int label_len,
-                   uint8_t length, uint8_t *out_, unsigned int *out_len) {
-
-        uint8_t new_label[max_label_len] = {0};
-        new_label[1] = length;
-        new_label[2] = label_len;
-        for (size_t i = 0; i < label_len; i++) {
-            new_label[3+i] = label[i];
-        }
-        size_t new_label_len = 4 + label_len;
-        *out_len = length;
-
         HMAC_CTX *hmac;
-        int md_sz;
-        unsigned char buf[2048];
-        size_t done_len = 0, dig_len, n;
-
-        const EVP_MD *evp_md = EVP_sha256();
-
-        md_sz = EVP_MD_size(evp_md);
-        if (md_sz <= 0) {
-            return;
-        }
-        dig_len = (size_t)md_sz;
-
-        n = length / dig_len;
-        if (length % dig_len) {
-            n++;
-        }
-
-        if (n > 255 || out_ == NULL || ((hmac = HMAC_CTX_new()) == NULL)) {
-            return;
-        }
-
-        if (!HMAC_Init_ex(hmac, secret, secret_length, evp_md, NULL)) {
-            HMAC_CTX_free(hmac);
-            return;
-        }
-
-        for (size_t i = 1; i <= n; i++) {
-            size_t copy_len;
-            const unsigned char ind = i;
-            if (i > 1) {
-                if (!HMAC_Init_ex(hmac, NULL, 0, NULL, NULL)) {
-                    HMAC_CTX_free(hmac);
-                    return;
-                }
-                if (!HMAC_Update(hmac, buf, dig_len)) {
-                    HMAC_CTX_free(hmac);
-                    return;
-                }
-            }
-
-            if (!HMAC_Update(hmac, new_label, new_label_len)) {
-                HMAC_CTX_free(hmac);
-                return;
-            }
-            if (!HMAC_Update(hmac, &ind, 1)) {
-                HMAC_CTX_free(hmac);
-                return;
-            }
-            if (!HMAC_Final(hmac, buf, NULL)) {
-                HMAC_CTX_free(hmac);
-                return;
-            }
-
-            copy_len = (done_len + dig_len > length) ? (length-done_len) : dig_len;
-            memcpy(out_ + done_len, buf, copy_len);
-
-            done_len += copy_len;
-        }
-
-        HMAC_CTX_free(hmac);
-    }
 #else
-    // Legacy OpenSSL (< 1.1.0)
-    void kdf_tls13(uint8_t *secret, unsigned int secret_length, const uint8_t *label, const unsigned int label_len,
+        HMAC_CTX hmac;
+        bool initialized;
+#endif
+
+    public:
+        // Constructor
+        hmac_wrapper(const EVP_MD *md)
+            : evp_md(md)
+#ifdef OPENSSL_V3_0
+            , mac(nullptr), mac_ctx(nullptr)
+#elif defined(OPENSSL_V1_1)
+            , hmac(nullptr)
+#else
+            , initialized(false)
+#endif
+        {}
+
+        // Destructor
+        ~hmac_wrapper() {
+#ifdef OPENSSL_V3_0
+            if (mac_ctx) EVP_MAC_CTX_free(mac_ctx);
+            if (mac) EVP_MAC_free(mac);
+#elif defined(OPENSSL_V1_1)
+            if (hmac) HMAC_CTX_free(hmac);
+#else
+            if (initialized) HMAC_CTX_cleanup(&hmac);
+#endif
+        }
+
+        // Initialize HMAC with secret
+        bool init(const uint8_t *secret, unsigned int secret_length) {
+#ifdef OPENSSL_V3_0
+            mac = EVP_MAC_fetch(NULL, "HMAC", NULL);
+            if (!mac) return false;
+
+            mac_ctx = EVP_MAC_CTX_new(mac);
+            if (!mac_ctx) return false;
+
+            OSSL_PARAM params[] = {
+                OSSL_PARAM_construct_utf8_string("digest", (char*)EVP_MD_get0_name(evp_md), 0),
+                OSSL_PARAM_construct_end()
+            };
+
+            return EVP_MAC_init(mac_ctx, secret, secret_length, params);
+#elif defined(OPENSSL_V1_1)
+            hmac = HMAC_CTX_new();
+            if (!hmac) return false;
+            return HMAC_Init_ex(hmac, secret, secret_length, evp_md, NULL);
+#else
+            HMAC_CTX_init(&hmac);
+            initialized = true;
+            return HMAC_Init(&hmac, secret, secret_length, evp_md);
+#endif
+        }
+
+        // Re-initialize for next iteration
+        bool reinit() {
+#ifdef OPENSSL_V3_0
+            return EVP_MAC_init(mac_ctx, NULL, 0, NULL);
+#elif defined(OPENSSL_V1_1)
+            return HMAC_Init_ex(hmac, NULL, 0, NULL, NULL);
+#else
+            return HMAC_Init(&hmac, NULL, 0, NULL);
+#endif
+        }
+
+        // Update HMAC with data
+        bool update(const uint8_t *data, size_t len) {
+#ifdef OPENSSL_V3_0
+            return EVP_MAC_update(mac_ctx, data, len);
+#elif defined(OPENSSL_V1_1)
+            return HMAC_Update(hmac, data, len);
+#else
+            return HMAC_Update(&hmac, data, len);
+#endif
+        }
+
+        // Finalize and get HMAC result
+        bool finalize(uint8_t *out, size_t out_len) {
+#ifdef OPENSSL_V3_0
+            return EVP_MAC_final(mac_ctx, out, NULL, out_len);
+#elif defined(OPENSSL_V1_1)
+            (void)out_len;  // unused in this version
+            return HMAC_Final(hmac, out, NULL);
+#else
+            (void)out_len;  // unused in this version
+            return HMAC_Final(&hmac, out, NULL);
+#endif
+        }
+    };
+
+public:
+    // Unified KDF TLS 1.3 implementation - readable algorithm logic
+    void kdf_tls13(uint8_t *secret, unsigned int secret_length,
+                   const uint8_t *label, const unsigned int label_len,
                    uint8_t length, uint8_t *out_, unsigned int *out_len) {
 
+        // Prepare TLS 1.3 HKDF label format: [0x00][length][label_len][label][0x00]
         uint8_t new_label[max_label_len] = {0};
         new_label[1] = length;
         new_label[2] = label_len;
@@ -335,70 +262,54 @@ public:
         size_t new_label_len = 4 + label_len;
         *out_len = length;
 
-        HMAC_CTX hmac;
-        HMAC_CTX_init(&hmac);
-        int md_sz;
-        unsigned char buf[2048];
-        size_t done_len = 0, dig_len, n;
-
+        // Calculate digest parameters
         const EVP_MD *evp_md = EVP_sha256();
-
-        md_sz = EVP_MD_size(evp_md);
-        if (md_sz <= 0) {
+        int md_sz = EVP_MD_size(evp_md);
+        if (md_sz <= 0 || out_ == NULL) {
             return;
         }
-        dig_len = (size_t)md_sz;
+        size_t dig_len = (size_t)md_sz;
 
-        n = length / dig_len;
+        // Calculate number of iterations needed
+        size_t n = length / dig_len;
         if (length % dig_len) {
             n++;
         }
+        if (n > 255) {
+            return;  // Too many iterations
+        }
 
-        if (n > 255 || out_ == NULL) {
+        // Initialize HMAC wrapper
+        hmac_wrapper hmac(evp_md);
+        if (!hmac.init(secret, secret_length)) {
             return;
         }
 
-        if (!HMAC_Init(&hmac, secret, secret_length, evp_md)) {
-            HMAC_CTX_cleanup(&hmac);
-            return;
-        }
+        // HKDF-Expand-Label loop: T(i) = HMAC(T(i-1) || label || i)
+        unsigned char buf[2048];
+        size_t done_len = 0;
 
         for (size_t i = 1; i <= n; i++) {
-            size_t copy_len;
-            const unsigned char ind = i;
+            const unsigned char iteration = i;
+
             if (i > 1) {
-                if (!HMAC_Init(&hmac, NULL, 0, NULL)) {
-                    HMAC_CTX_cleanup(&hmac);
-                    return;
-                }
-                if (!HMAC_Update(&hmac, buf, dig_len)) {
-                    HMAC_CTX_cleanup(&hmac);
+                if (!hmac.reinit() || !hmac.update(buf, dig_len)) {
                     return;
                 }
             }
 
-            if (!HMAC_Update(&hmac, new_label, new_label_len)) {
-                HMAC_CTX_cleanup(&hmac);
-                return;
-            }
-            if (!HMAC_Update(&hmac, &ind, 1)) {
-                HMAC_CTX_cleanup(&hmac);
-                return;
-            }
-            if (!HMAC_Final(&hmac, buf, NULL)) {
-                HMAC_CTX_cleanup(&hmac);
+            if (!hmac.update(new_label, new_label_len) ||
+                !hmac.update(&iteration, 1) ||
+                !hmac.finalize(buf, sizeof(buf))) {
                 return;
             }
 
-            copy_len = (done_len + dig_len > length) ? (length-done_len) : dig_len;
+            // Copy appropriate amount to output
+            size_t copy_len = (done_len + dig_len > length) ? (length - done_len) : dig_len;
             memcpy(out_ + done_len, buf, copy_len);
-
             done_len += copy_len;
         }
-
-        HMAC_CTX_cleanup(&hmac);
     }
-#endif
 
 };
 
