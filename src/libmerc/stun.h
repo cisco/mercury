@@ -11,6 +11,7 @@
 #include "match.h"
 #include "fingerprint.h"
 #include "result.h"
+#include "analysis.h"
 #include <unordered_map>
 
 namespace stun {
@@ -682,6 +683,13 @@ namespace stun {
 
         bool has_magic_cookie() const { return tid_has_magic_cookie; }
 
+        /// returns true if this header corresponds to a success
+        /// response or an error response
+        ///
+        bool is_response() {
+            return (get_message_class() & 0b10) == 0b10;
+        }
+
         // return the number of zero bytes in the transaction_id
         //
         size_t tid_zero_count() const {
@@ -817,6 +825,18 @@ namespace stun {
             }
         }
 
+        void write_l7_metadata(cbor_object &o, bool) {
+            cbor_array protocols{o, "protocols"};
+            protocols.print_string("stun");
+            protocols.close();
+
+            if (software.is_not_empty()) {
+                cbor_object stun{o, "stun"};
+                stun.print_key_string("software", software);
+                stun.close();
+            }
+        }
+
         void write_raw_features(json_object &o) const {
             data_buffer<2048> buf;
             buf.copy('[');
@@ -906,6 +926,17 @@ namespace stun {
                 return;
             }
 
+            if (hdr.is_response()) {
+                //
+                // we don't generate fingerprints for responses, so we
+                // set the truncated bit in the fingerprint buffer, to
+                // indicate that it does not contain an actual
+                // fingerprint
+                //
+                buf.set_truncated();
+                return;
+            }
+
             hdr.write_fingerprint(buf);
 
             // the attr_fingerprint_type determines what data from a
@@ -984,31 +1015,22 @@ namespace stun {
         // request format: dst_addr, dst_port
         // response format: src_addr, src_port
 
-        bool do_analysis(const struct key &flow_key, struct analysis_context &ac, classifier*) {
+        bool do_analysis(const struct key &flow_key, struct analysis_context &ac, classifier* c) {
 
             // create a json-friendly utf8 copy of the SOFTWARE atribute's value field
             //
             utf8_safe_string<MAX_USER_AGENT_LEN> utf8_software{software};
 
-            // handle message classes appropriately: reverse the
-            // addresses and ports in the flow key for responses,
-            // leave the flow key untouched for requests, and ignore
-            // all other message classes
-            //
-            key k{flow_key};
-            if ((hdr.get_message_class() & 0b10) == 0b10) {
-                //
-                // success_resp and error_resp: swap addrs and ports
-                //
-                k.reverse();
-            }
             ac.destination.init({nullptr,nullptr},         // domain name
                                 utf8_software.get_datum(), // user agent
                                 {nullptr,nullptr},         // alpn
-                                k                          // flow key, used for dst_addr and dst_port
+                                flow_key                   // flow key, used for dst_addr and dst_port
                                 );
 
-            return false;
+            if (c == nullptr) {
+                return false;
+            }
+            return c->analyze_fingerprint_and_destination_context(ac.fp, ac.destination, ac.result);
         }
 
     };

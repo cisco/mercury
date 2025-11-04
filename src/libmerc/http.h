@@ -18,6 +18,8 @@
 #include "fingerprint.h"
 #include "perfect_hash.h"
 #include "flow_key.h"
+#include "cbor.hpp"
+#include "cbor_object.hpp"
 
 struct http_headers : public datum {
     bool complete;
@@ -74,7 +76,7 @@ struct http_headers : public datum {
 class token : public datum {
 public:
     token (struct datum& d) {
-        datum::parse_up_to_delim(d, ':'); 
+        datum::parse_up_to_delim(d, ':');
     }
 };
 
@@ -116,7 +118,7 @@ public:
             check_standard_delim(p);
         }
     }
- 
+
     void check_standard_delim(struct datum &p) {
         if (p.compare_nbytes(crlf, sizeof(crlf))) {
             delimit.parse(p, sizeof(crlf));
@@ -136,7 +138,7 @@ public:
     bool is_valid() const {
         return delimit.is_not_empty();
     }
- 
+
 };
 
 struct httpheader {
@@ -242,7 +244,7 @@ public:
         if (h.is_valid()) {
             json_array hdrs{record, "headers"};
             h.write_json(hdrs);
-            while(1) { 
+            while(1) {
                 delimiter d(header_body, delim);
                 if (d.is_valid()) {
                     break;
@@ -261,6 +263,27 @@ public:
             record.print_key_hex("body", body);
         }
     }
+
+    void write_l7_metadata(cbor_object &o) {
+        httpheader h = get_next_header(header_body);
+        if (h.is_valid()) {
+            cbor_array hdrs{o, "headers"};
+            hdrs.print_string(h.name);
+            while(1) {
+                delimiter d(header_body, delim);
+                if (d.is_valid()) {
+                    break;
+                }
+                httpheader h = get_next_header(header_body);
+                if (!h.is_valid()) {
+                    break;
+                }
+                hdrs.print_string(h.name);
+            }
+            hdrs.close();
+        }
+    }
+
 
     /*
      * HTTP headers are parsed during fingerprinting. When there
@@ -336,12 +359,14 @@ struct http_request : public base_protocol {
     datum get_header(const char *name) const {
         return(headers.get_header(req_hdrs.index(name)));
     }
- 
+
     void parse(struct datum &p);
 
     bool is_not_empty() const { return protocol.is_not_empty(); }
 
     void write_json(struct json_object &record, bool output_metadata);
+
+    void write_l7_metadata(cbor_object &o, bool output_metadata);
 
     void fingerprint(struct buffer_stream &b);
 
@@ -405,6 +430,8 @@ struct http_response : public base_protocol {
     bool is_not_empty() const { return status_code.is_not_empty(); }
 
     void write_json(struct json_object &record, bool metadata=false);
+
+    void write_l7_metadata(cbor_object &o, bool output_metadata);
 
     void fingerprint(struct buffer_stream &buf);
 

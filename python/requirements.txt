@@ -1,1 +1,3 @@
-pypcap~=1.3.0
+pypcap
+psutil
+mercury-python

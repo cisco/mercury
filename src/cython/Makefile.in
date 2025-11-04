@@ -1,19 +1,26 @@
 # Makefile for cython interface to mercury
 #
 
-openssl_newer = @OPENSSL_NEWER@
+openssl_v1_1_or_newer = @OPENSSL_V1_1_OR_NEWER@
+openssl_v3_0_or_newer = @OPENSSL_V3_0_OR_NEWER@
 is_macos_arm = @IS_MACOS_ARM@
 
-ifeq ($(openssl_newer),yes)
-	FLAGS = -DSSLNEW
+# OpenSSL 3.0 is default (no flag needed)
+ifeq ($(openssl_v3_0_or_newer),yes)
+	# No flag for OpenSSL 3.0+ (default)
+	FLAGS =
+else ifeq ($(openssl_v1_1_or_newer),yes)
+	FLAGS = -DOPENSSL_V1_1
+else
+	FLAGS = -DOPENSSL_LEGACY
 endif
 
 FLAGS += -I../../src/libmerc/xsimd/include -O3
 
 ifeq ($(is_macos_arm),yes)
-CFLAGS = -I/opt/homebrew/include ${CLFAGS}
-CXXFLAGS = -I/opt/homebrew/include ${CXXFLAGS}
-LDFLAGS += -L/opt/homebrew/lib ${LDFLAGS}
+CFLAGS += -I/opt/homebrew/include
+CXXFLAGS += -I/opt/homebrew/include
+LDFLAGS += -L/opt/homebrew/lib
 endif
 
 UNAME := $(shell uname -s)
@@ -24,10 +31,10 @@ endif
 export ENV_CFLAGS=${FLAGS}
 
 all:
-	CC=g++ CXX=g++ python3 setup.py build_ext --inplace
+	CC=g++ CXX=g++ CFLAGS="$(CFLAGS)" CXXFLAGS="$(CXXFLAGS)" LDFLAGS="$(LDFLAGS)" python3 setup.py build_ext --inplace
 
 wheel:
-	CC=g++ CXX=g++ python3 setup.py bdist_wheel
+	CC=g++ CXX=g++ CFLAGS="$(CFLAGS)" CXXFLAGS="$(CXXFLAGS)" LDFLAGS="$(LDFLAGS)" python3 setup.py bdist_wheel
 
 clean:
 	rm -f mercury.*.so mercury.cpp

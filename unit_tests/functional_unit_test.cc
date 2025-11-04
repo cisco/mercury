@@ -1,20 +1,23 @@
 /*
  * functional_unit_test.cc
  *
- * 
+ *
  * Copyright (c) 2021 Cisco Systems, Inc. All rights reserved.  License at
  * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
 #include "libmerc_driver_helper.hpp"
 #include "bencode.h"
-#include "snmp.h"
+#include "snmp.hpp"
 #include "tofsee.hpp"
 #include "ip_address.hpp"
 #include "utf8.hpp"
 #include "tsc_clock.hpp"
 #include "json_string.hpp"
 #include "ftp.hpp"
+#include "mem_utils.hpp"
+#include "crypto_engine.h"
+
 /*
  * The unit_test() functions defined in header files
  * can be tested here using CHECK framework.
@@ -32,4 +35,6 @@ TEST_CASE("Testing unit_test() defined in class") {
     CHECK(tsc_clock::unit_test() == true);
     CHECK(json_string::unit_test() == true);
     CHECK(ftp::unit_test()==true);
+    CHECK(fixed_fifo_allocator<uint8_t,4>::unit_test()==true);
+    CHECK(crypto_engine::unit_test() == true);
 }

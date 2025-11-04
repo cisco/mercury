@@ -271,7 +271,7 @@ namespace crypto_policy {
             }
             a.print_key_string("kex_allowed", quantifier);
             if (!all_allowed) {
-                json_array cs_array{a, "kex_not_allowed"}; 
+                json_array cs_array{a, "kex_not_allowed"};
                 name_list tmp_list = kex_list;
                 while (tmp_list.is_readable()) {
                     datum tmp{};
@@ -317,7 +317,7 @@ namespace crypto_policy {
             }
             a.print_key_string("ciphersuites_allowed", quantifier);
             if (!all_allowed) {
-                json_array cs_array{a, "ciphersuites_not_allowed"}; 
+                json_array cs_array{a, "ciphersuites_not_allowed"};
                 name_list tmp_list = ciphers;
                 while (tmp_list.is_readable()) {
                     datum tmp{};
@@ -385,7 +385,7 @@ namespace crypto_policy {
             a.close();
             return true;
         }
-        
+
         bool assess(const dtls_client_hello &dtls_ch, json_object &o) const override {
 
             const tls_client_hello &ch = dtls_ch.get_tls_client_hello();

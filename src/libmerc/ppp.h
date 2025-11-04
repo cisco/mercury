@@ -29,9 +29,9 @@
 //  +----------+----------+----------+----------+-------------+---------+------------+----------+
 
 class ppp {
-    
+
     enum protocol : uint16_t {
-        type_none = 0x0000, 
+        type_none = 0x0000,
         ipv4      = 0x0021, // ipv4 encapsulation
         ipv6      = 0x0057  // ipv6 encapsulation
     };
@@ -63,7 +63,7 @@ class ppp {
             }
         }
 
-        ppp::protocol get_proto_type() const { return proto; }    
+        ppp::protocol get_proto_type() const { return proto; }
     };
 
     variable_len_proto protocol_type;
@@ -101,11 +101,11 @@ class ppp {
         }
         else if (curr_byte == PPP_ADDRESS_FIELD) {
             p.read_uint8(&address);
-            p.read_uint8(&control);    
+            p.read_uint8(&control);
         }
 
         protocol_type.set_proto(p);
-        
+
         return;
     }
 

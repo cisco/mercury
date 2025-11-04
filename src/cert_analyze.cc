@@ -24,10 +24,10 @@
 
 // certificate hashing
 
-void fprint_sha1_hash(FILE *f, const void *buffer, unsigned int len) {
+void fprint_hash(FILE *f, const void *buffer, unsigned int len, const char *algo) {
 
-    class hasher h;
-    uint8_t output_buffer[h.output_size];
+    class hasher h{algo};
+    uint8_t output_buffer[h.output_size()];
 
     h.hash_buffer((uint8_t *)buffer, len, output_buffer, sizeof(output_buffer));
 
@@ -392,6 +392,7 @@ struct base64_file_writer {
         "   no option        output certificate(s) as JSON\n"
         "   --prefix         output only the certificate prefix\n"
         "   --prefix-as-hex  output only the certificate prefix as hexadecimal\n"
+        "   --hash-output <a> output hash of certificate with algorithm <a>\n"
         "   --log-malformed <outfile> write malformed certs to <outfile> in DER format\n"
         "   --filter <spec>  output only certificates matching <spec>:\n"
         "            weak\n"
@@ -412,6 +413,7 @@ int main(int argc, char *argv[]) {
     const char *logfile = NULL;
     const char *trust = NULL;
     const char *common_key = NULL;
+    const char *hash_output = nullptr;
     bool prefix = false;
     bool prefix_as_hex = false;
     bool input_is_pem = false;
@@ -420,7 +422,6 @@ int main(int argc, char *argv[]) {
     bool key_group = false;
     bool trunc_test = false;
     bool pem_output = false;
-    bool sha1_output = false;
     bool verbose = false;    // this could be set by a command line option
 
     // parse arguments
@@ -432,7 +433,7 @@ int main(int argc, char *argv[]) {
              case_prefix,
              case_prefix_as_hex,
              case_pem_output,
-             case_sha1_output,
+             case_hash_output,
              case_pem,
              case_json,
              case_der,
@@ -452,7 +453,7 @@ int main(int argc, char *argv[]) {
              {"prefix",         no_argument,       NULL,  case_prefix        },
              {"prefix-as-hex",  no_argument,       NULL,  case_prefix_as_hex },
              {"pem-output",     no_argument,       NULL,  case_pem_output    },
-             {"sha1-output",    no_argument,       NULL,  case_sha1_output   },
+             {"hash-output",    required_argument, NULL,  case_hash_output   },
              {"filter",         required_argument, NULL,  case_filter        },
              {"log-malformed",  required_argument, NULL,  case_log_malformed },
              {"key-group",      no_argument,       NULL,  case_key_group     },
@@ -474,12 +475,12 @@ int main(int argc, char *argv[]) {
             }
             infile = optarg;
             break;
-        case case_sha1_output:
-            if (optarg) {
-                fprintf(stderr, "error: option 'sha1-output' does not accept an argument\n");
+        case case_hash_output:
+            if (!optarg) {
+                fprintf(stderr, "error: option 'hash-output' requires an argument\n");
                 usage(argv[0]);
             }
-            sha1_output = true;
+            hash_output = optarg;
             break;
         case case_pem_output:
             if (optarg) {
@@ -652,9 +653,9 @@ int main(int argc, char *argv[]) {
             }
             // fprintf(stderr, "cert: %u\tprefix length: %zu\n", line_number, p.get_length());
 
-        } else if (sha1_output) {
+        } else if (hash_output) {
 
-            fprint_sha1_hash(stdout, cert_buf, cert_len);
+            fprint_hash(stdout, cert_buf, cert_len, hash_output);
 
         } else {
 

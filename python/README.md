@@ -10,10 +10,11 @@ In additional to `pmercury`, this folder contains two tools to facilitate users 
 
 ## Dependencies
 
-pmercury requires Python 3.6+ along with the following packages:
+pmercury and its associated tools require Python 3.8+ and the following packages:
 
 ```bash
 pip3 install pypcap
+pip3 install psutil
 pip3 install mercury-python
 ```
 

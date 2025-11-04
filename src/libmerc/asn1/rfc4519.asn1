@@ -61,4 +61,3 @@
       userPassword                 OBJECT IDENTIFIER ::= {  2 5 4 35 }
       x121Address                  OBJECT IDENTIFIER ::= {  2 5 4 24 }
       x500UniqueIdentifier         OBJECT IDENTIFIER ::= {  2 5 4 45 }
-

@@ -5,7 +5,7 @@
 -- following table. While this collect lacks many OIDs required by
 -- typical applications, such as the combination of block cipher with
 -- operation modes. The GmSSL follows the GM/T 0006 specification and
--- add more OIDs if required. 
+-- add more OIDs if required.
 
 ISO                                   OBJECT IDENTIFIER ::= { 1 2	                }
 China                                 OBJECT IDENTIFIER ::= { 1 2 156	            }

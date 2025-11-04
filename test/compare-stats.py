@@ -63,7 +63,7 @@ def read_merc_data(in_file):
             continue
 
         src_ip      = r['src_ip']
-        dst_ip      = normalize_address(r['dst_ip'])
+        dst_ip      = r['dst_ip']
         dst_port    = r['dst_port']
         user_agent = ''
         server_name = ''

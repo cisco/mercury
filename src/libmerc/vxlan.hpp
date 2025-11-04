@@ -40,8 +40,8 @@ public:
         if(flags.bit<4>() == 0) {
             valid = true;
             return;
-        }        
-        
+        }
+
         if (!eth::get_ip(d)) {
             return;
         }

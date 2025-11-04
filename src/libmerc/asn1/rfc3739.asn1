@@ -134,4 +134,3 @@
 --   NameRegistrationAuthorities ::= SEQUENCE SIZE (1..MAX) OF GeneralName
 --
 --   END
-

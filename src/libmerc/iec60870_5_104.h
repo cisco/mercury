@@ -211,7 +211,7 @@ class asdu {
         default:    return nullptr;
         }
     }
-        
+
 public:
     asdu (struct datum &d, const uint8_t& _apdu_length) :
         apdu_length(_apdu_length),
@@ -237,7 +237,7 @@ public:
         type_codes<asdu> code{*this};
         function_indicator=false;
         o.print_key_value("type_id", code);
-        
+
         o.print_key_bool("sq", sq);
         o.print_key_uint8("number_of_objects", num_objects);
         o.print_key_bool("test_bit", test);
@@ -279,7 +279,7 @@ public:
                 cnt++;
             }
             info_elem.close();
-            info_obj.close();   
+            info_obj.close();
         } else {
             /*
              * information object_length (bytes) = (APDU_length – ADPU_control_fields (4 bytes)
@@ -342,7 +342,7 @@ public:
  *       |   Rcv  seq no |
  *       +-+-+-+-+-+-+-+-+
  */
-        
+
 class i_frame {
     sequence_number send_seq_number;
     sequence_number recv_seq_number;
@@ -395,7 +395,7 @@ public:
         struct json_object r{o, "s_frame"};
         r.print_key_uint("receive_sequence_number", recv_seq_number.seq_number);
         r.close();
-    } 
+    }
 };
 
 /*
@@ -439,7 +439,7 @@ class u_frame {
     }
 
 public:
-    u_frame (struct datum &d) : 
+    u_frame (struct datum &d) :
         function(d),
         valid(d.is_not_null()) { }
 
@@ -449,7 +449,7 @@ public:
         struct json_object r{o, "u_frame"};
         r.print_key_string("u_frame_function", get_function_string());
         r.close();
-    }            
+    }
 };
 
 struct write_iec_json {
@@ -470,7 +470,7 @@ class is_packet_empty {
 };
 
 /*
- * IEC packet format 
+ * IEC packet format
  *         0 1 2 3 4 5 6 7
  *       +-+-+-+-+-+-+-+-+
  *       |start byte 0x68|
@@ -488,7 +488,7 @@ class is_packet_empty {
  *       |               |
  *       +               +
  *       | Variable      |
- *         length  ASDU  
+ *         length  ASDU
  *       |     ...       |
  *       +               +
  *       |               |
@@ -497,14 +497,14 @@ class is_packet_empty {
 
 template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; }; // (1)
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
- 
+
 class iec60870_5_104 : public base_protocol {
     literal<1> start_byte;
     encoded<uint8_t> apdu_length;
     std::variant<std::monostate, i_frame, s_frame, u_frame> packet;
 
     static constexpr uint8_t frame_type_mask = 0x03;
-  
+
 public:
     iec60870_5_104 (struct datum &d) : start_byte(d, {0x68}), apdu_length{d} {
         uint8_t tmp;
@@ -557,6 +557,12 @@ public:
         }
     }
 
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("iec60870_5_104");
+        protocols.close();
+    }
+
     static int iec60870_5_104_fuzz_test(const uint8_t *data, size_t size);
 };
 
@@ -574,4 +580,4 @@ public:
     return 0;
 }
 
-#endif 
+#endif

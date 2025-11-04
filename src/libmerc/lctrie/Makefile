@@ -16,6 +16,15 @@ CFLAGS = -g -ggdb -std=c++17 -Wall -O3 -fPIC -I/opt/homebrew/include# -Wno-sign-
 LDFLAGS = -g -ggdb -O3 -L/opt/homebrew/lib
 LDLIBS =
 
+ifeq ($(COVERAGE_ENABLED),1)
+ifeq ($(filter -O3, $(CFLAGS)), -O3)
+    CFLAGS := $(filter-out -O3,$(CFLAGS))
+	CFLAGS += -O0
+endif
+CFLAGS += -fprofile-arcs --coverage -ggdb -fprofile-update=atomic
+LDFLAGS += --coverage
+endif
+
 # autodep stuff
 
 DEPDIR := .d

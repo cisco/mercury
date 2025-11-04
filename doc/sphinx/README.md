@@ -36,6 +36,3 @@ $ make html
 This will build the HTML documentation, which will appear in the
 `./build/html` subdirectory.  The file `./build/html/index.html` is a
 good starting point.
-
-
-

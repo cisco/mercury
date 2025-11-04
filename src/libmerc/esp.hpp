@@ -103,6 +103,13 @@ public:
             esp_json.close();
         }
     }
+
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("esp");
+        protocols.close();
+    }
+
 };
 
 [[maybe_unused]] inline int esp_fuzz_test(const uint8_t *data, size_t size) {

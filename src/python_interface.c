@@ -1,8 +1,8 @@
 /*
  * python_interface.c
- * 
- * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at 
- * https://github.com/cisco/mercury/blob/master/LICENSE 
+ *
+ * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at
+ * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
 #include <pthread.h>
@@ -19,10 +19,10 @@ int init_python() {
     if (main_thread_state != NULL) {
         return -1;
     }
-  
-    if (pthread_mutex_init(&lock_fp_cache, NULL) != 0) { 
-        printf("\n mutex init has failed\n"); 
-        return -1; 
+
+    if (pthread_mutex_init(&lock_fp_cache, NULL) != 0) {
+        printf("\n mutex init has failed\n");
+        return -1;
     }
     fp_cache = {};
 
@@ -89,11 +89,11 @@ void py_process_detection(char **results,
 			  char *sni,
 			  char *dst_addr_string,
 			  int dest_port) {
-    
+
     std::string fp_str(fp_string);
     std::string server_name(sni);
     std::string dest_addr(dst_addr_string);
-	
+
     std::stringstream fp_cache_key_;
     fp_cache_key_ << fp_str << server_name << dest_addr << dest_port;
     std::string fp_cache_key = fp_cache_key_.str();
@@ -123,5 +123,3 @@ void py_process_detection(char **results,
         pthread_mutex_unlock(&lock_fp_cache);
     }
 }
-
-

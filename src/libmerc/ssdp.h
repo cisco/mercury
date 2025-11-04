@@ -124,6 +124,12 @@ public:
         return;
     }
 
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("ssdp");
+        protocols.close();
+    }
+
     /*
      *    Matchers for ssdp msg types
      *    static constexpr mask_and_value<8> matcher_notify{

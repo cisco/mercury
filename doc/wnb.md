@@ -8,7 +8,7 @@ Mercury's Fingerprinting with Destination Context (FDC) system identifies the so
 
 FDC takes as input a characteristic fingerprint string (such as "(0303)(1302)((0033)(002b00020304))") and a destination context, which consists of a destination IP address, a destination port, and the server_name field from the TLS client_hello extensions.  These fields represent the destination to which the client_hello was sent.
 
-FDC returns several different types of data about the fingerprint and the process that generated the client_hello, including the finterprint status, information about the most probable process, probable attributes of the process, and a list of Operating Systems that were associated with the process in the ground truth data.  
+FDC returns several different types of data about the fingerprint and the process that generated the client_hello, including the finterprint status, information about the most probable process, probable attributes of the process, and a list of Operating Systems that were associated with the process in the ground truth data.
 
 The fingerprint status is **labeled** if it appears in the fingerprint database, and is **unlabeled** if it appears in the fingerprint prevalence file; otherwise, it is **randomized**.  In the C interface, these states are represented with the fingerprint_status enumeration:
 ```C
@@ -33,10 +33,10 @@ In the fingerprint database, there is a special process name "generic dmz proces
 
 The information about probable attributes is:
 
-* the probability **p_malware** that the process that generated the client_hello is malware, regardless of what the probable process is (as a float between 0.0 and 1.0), and 
+* the probability **p_malware** that the process that generated the client_hello is malware, regardless of what the probable process is (as a float between 0.0 and 1.0), and
 * in the future, there may be an attribute associated with evasive behavior.
 
-To understand the difference between probable_process_is_malware and p_malware, consider the case that the fingerprint is used by both a benign processes and a malware processes.  If the classifier computes that the probability of the benign process was 0.51 and the probability of the malware process was 0.49, then the probable process will be benign and probable_process_is_malware will be **false**, but p_malware will be 0.49.  
+To understand the difference between probable_process_is_malware and p_malware, consider the case that the fingerprint is used by both a benign processes and a malware processes.  If the classifier computes that the probability of the benign process was 0.51 and the probability of the malware process was 0.49, then the probable process will be benign and probable_process_is_malware will be **false**, but p_malware will be 0.49.
 
 The p_malware field is especially important when there is a multitude of similar processes, such as polymorphic malware.   In that case, there are many distinct processes that behave simialrly, and the classifier may not be able to identify the exact process with high confidence, but it can still accurately estimate the probability that the process is malware.  When using the classifier to report malware, the p_malware field is more important than the malware boolean associated with the probable process.
 
@@ -104,7 +104,7 @@ The following is an example of mercury's JSON output:
 ```
 
 
-## Design 
+## Design
 
 Mercury's FDC implementation uses a Weighted Naive Bayes (WNB) classifier to analyze destination context, and it uses the characteristic fingerprint string to select the WNB classifier.   Informally, when a string and a destination context are input, the string is used to select a classifier that is then applied to the destination context.   More formally, the classifier uses probabilities that are conditioned on the fingerprint.  The mathematical details are presented in [*Accurate TLS Fingerprinting using Destination Context and Knowledge Bases*](https://arxiv.org/abs/2009.01939).
 
@@ -124,7 +124,7 @@ The classifier can easily be extended to understand new equivalence classes.   C
 
 ## Implementation
 
-To apply a naive Bayes classifier (weighed or otherwise), it is necessary to loop over all data features and all processes to compute an estimate the probability of each process, then find the maximum of those probabilities.   The straightforward way to do this would be with two nested loops, one for the data features, and one for the processes.  Mercury's WNB classifier avoids this double loop; it only loops over the data features.   For each feature, there is a lookup that returns a set of probability updates.   Each probability update identifies a process to be updated (with an index into a vector processes), and the amount by which it should be updated (with a long double number).  
+To apply a naive Bayes classifier (weighed or otherwise), it is necessary to loop over all data features and all processes to compute an estimate the probability of each process, then find the maximum of those probabilities.   The straightforward way to do this would be with two nested loops, one for the data features, and one for the processes.  Mercury's WNB classifier avoids this double loop; it only loops over the data features.   For each feature, there is a lookup that returns a set of probability updates.   Each probability update identifies a process to be updated (with an index into a vector processes), and the amount by which it should be updated (with a long double number).
 
 
 
@@ -133,14 +133,14 @@ The classification algorithm can be summarized as:
 1. Use the fingerprint string as an index into the table of WNB classifiers.
    1. If the fingerprint string could not be found in the table, return "unknown fingerprint".
    2. If a WNB classifier corresponding to the fingerprint was found, proceed to Step 2.
-2. Find the equivalence classes for each of the data features in the destination context.  
+2. Find the equivalence classes for each of the data features in the destination context.
    1. Find the ASN of the destination IP addres.
    2. Find the second level DNS domain (or first level only, if there is just one) of the server_name.
    3. ...
 3. Initialize a vector of long double numbers to the prior probabilities of each process, by dividing the total count by the count for that process.
 4. For each equivalence class, perform a lookup to find the updates to be performed on the process probability vector.
 5. Find the maximum value of the process probability vector and its corresponding index, and the second highest value and its corresponding index.
-6. Normalize the probability of the most probable process by dividing the probability of the most probable process by the sum of all process probabilities. 
+6. Normalize the probability of the most probable process by dividing the probability of the most probable process by the sum of all process probabilities.
 7. Return the name of the most probable process and its normalized score.
 
 
@@ -153,7 +153,7 @@ The logic that determines the most probable process should be performed before n
 
 The major loss of accuracy of the algorithm occurs during the updating of process probabilities.   It may be worthwhile to use a [compensated summation algorithm](https://en.wikipedia.org/wiki/Kahan_summation_algorithm) to improve the accuracy of those computations.
 
- 
+
 
 
 
@@ -161,5 +161,5 @@ The major loss of accuracy of the algorithm occurs during the updating of proces
 
 
 
-[^equivalence classes]:   Every set can be partitioned into non-overlapping [equivalence classes](https://en.wikipedia.org/wiki/Equivalence_class).  Each element of the set belongs to a single equivalence class.   
+[^equivalence classes]:   Every set can be partitioned into non-overlapping [equivalence classes](https://en.wikipedia.org/wiki/Equivalence_class).  Each element of the set belongs to a single equivalence class.
 [^IPv6]: IPv6 addresses are not yet fully supported, pending a rewrite of the lctrie library.

@@ -92,6 +92,12 @@ public:
         hello.write_json(record, output_metadata);
     }
 
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("dtls");
+        protocols.close();
+    }
+
     bool is_not_empty() const {
         return hello.is_not_empty();
     }
@@ -123,6 +129,12 @@ public:
 
     void write_json(struct json_object &o, bool write_metadata=false) const {
         hello.write_json(o, write_metadata);
+    }
+
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("dtls");
+        protocols.close();
     }
 
     void compute_fingerprint(class fingerprint &fp) const {

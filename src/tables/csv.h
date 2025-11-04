@@ -261,4 +261,3 @@ public:
 
 
 #endif // CSV_H
-

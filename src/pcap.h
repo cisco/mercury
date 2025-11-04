@@ -306,7 +306,7 @@ namespace pcap {
 
     };
 
-    
+
     class file_writer {
         int fd;
         uint16_t linktype = LINKTYPE::NONE; // default

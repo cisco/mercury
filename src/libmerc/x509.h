@@ -1714,7 +1714,7 @@ struct x509_cert {
         } else if (alg_type == oid::type::id_Ed448) {
             ;
         } else {
-            return true; // uknown subject public key type 
+            return true; // uknown subject public key type
         }
         return false;
     }

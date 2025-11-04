@@ -83,15 +83,15 @@ struct ll_queue {
 
         struct llq_msg *m = (struct llq_msg *)&rbuf[widx];
 
-        uint64_t cur_ridx = __atomic_load_n(&ridx, __ATOMIC_RELAXED);
-        uint64_t cur_need_read = __atomic_load_n(&need_read, __ATOMIC_RELAXED);
+        uint64_t cur_ridx = __atomic_load_n(&ridx, __ATOMIC_ACQUIRE);
+        uint64_t cur_need_read = __atomic_load_n(&need_read, __ATOMIC_ACQUIRE);
 
         uint64_t space_available = 0;
 
         if (cur_need_read == 1) {
             if (widx != cur_ridx) {
                 /* Looks like we no longer need a read */
-                __atomic_store_n(&need_read, 0, __ATOMIC_RELAXED);
+                __atomic_store_n(&need_read, 0, __ATOMIC_RELEASE);
                 cur_need_read = 0;
             }
         }
@@ -146,7 +146,7 @@ struct ll_queue {
 
         m->len = length;
 
-        uint64_t cur_ridx = __atomic_load_n(&ridx, __ATOMIC_RELAXED);
+        uint64_t cur_ridx = __atomic_load_n(&ridx, __ATOMIC_ACQUIRE);
 
         uint64_t new_widx = widx + sizeof(struct llq_msg) + length;
 
@@ -160,30 +160,29 @@ struct ll_queue {
 
         if (new_widx == cur_ridx) {
             /* We just ran into reader, we need a read before we can write again */
-            __atomic_store_n(&need_read, 1, __ATOMIC_RELAXED);
+            __atomic_store_n(&need_read, 1, __ATOMIC_RELEASE);
         }
 
-        /* Update writer index: There is a full memory barrier here to
-         * prevent reoredring and speculation into this update which
-         * in rather extreme cases of re-ordering (which may be
-         * impossible) could cause the index to update to the writer
-         * to show "too soon".
+        /* Update writer index: The __ATOMIC_RELEASE should prevent
+         * reoredring and speculation into this update which in rather
+         * extreme cases of re-ordering (which may be impossible on x86)
+         * could cause the index to update to the writer to show "too
+         * soon".
          */
-        __sync_synchronize();
-        __atomic_store_n(&widx, new_widx, __ATOMIC_RELAXED);
+        __atomic_store_n(&widx, new_widx, __ATOMIC_RELEASE);
     }
 
 
     struct llq_msg * try_read() {
         struct llq_msg *m = (struct llq_msg *)&rbuf[ridx];
 
-        uint64_t cur_widx = __atomic_load_n(&widx, __ATOMIC_RELAXED);
+        uint64_t cur_widx = __atomic_load_n(&widx, __ATOMIC_ACQUIRE);
 
         if (cur_widx != ridx) {
             /* we're not at the writer, reading is fine */
             return m;
         } else {
-            int cur_need_read = __atomic_load_n(&need_read, __ATOMIC_RELAXED);
+            int cur_need_read = __atomic_load_n(&need_read, __ATOMIC_ACQUIRE);
 
             if (cur_need_read == 1) {
                 /* Writer is waiting for our read */
@@ -207,11 +206,8 @@ struct ll_queue {
             new_ridx = 0;
         }
 
-        /* Update reader index:
-         * Another barrier here for the same reason that the writer has a barrier
-         */
-        __sync_synchronize();
-        __atomic_store_n(&ridx, new_ridx, __ATOMIC_RELAXED);
+        /* Update reader index with release to enforce well ordering */
+        __atomic_store_n(&ridx, new_ridx, __ATOMIC_RELEASE);
     }
 
 

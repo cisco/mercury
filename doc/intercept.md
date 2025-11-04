@@ -7,7 +7,7 @@ The interceptor library provides deep visibility into the communication of the p
 To build interceptor:
 
    1.  Check out the mercury using git.
-   
+
    2.  Install prerequisites as needed.  On Debian/Ubuntu:
 
      $ sudo apt install libssl-dev libnss3-dev libgnutls28-dev
@@ -52,14 +52,13 @@ The test program [test_intercept.sh](../test/test_intercept.sh) shows how the li
 
 Function interception is currently implemented for these libraries (listed with their Debian/Ubuntu package names):
 
-* openssl (libssl-dev)            
-* NSS (libnss3-dev)           
-* GNUtls (libgnutls28-dev)       
-  
+* openssl (libssl-dev)
+* NSS (libnss3-dev)
+* GNUtls (libgnutls28-dev)
+
 
 
 
 ## Disclaimer
 
 The interceptor library is experimental, and will continue to evolve.  Please do not use it in mission-critical environments.  Feedback is welcome; please send to [mcgrew@cisco.com.](mcgrew@cisco.com).
-

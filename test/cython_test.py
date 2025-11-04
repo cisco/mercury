@@ -20,7 +20,7 @@ def main():
     print("score1:", score1)
     print("score2:", score2)
     print("score3:", score3)
- 
+
     if score1 != score3:
         print('Failed: Weight updates are not correct with perform_analysis_with_weights()')
         sys.exit(1)

@@ -38,6 +38,12 @@ namespace rfb {
             }
         }
 
+        void write_l7_metadata(cbor_object &o, bool) {
+            cbor_array protocols{o, "protocols"};
+            protocols.print_string("vnc");
+            protocols.close();
+        }
+
         static constexpr mask_and_value<8> matcher{
             { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff },
             { 'R', 'F', 'B', ' ', '0', '0', '3', '.' }

@@ -46,4 +46,3 @@ unsigned int u64_compare_masked_data_to_value(const void *data,
 
     return ((d[0] & m[0]) == v[0]) && ((d[1] & m[1]) == v[1]);
 }
-

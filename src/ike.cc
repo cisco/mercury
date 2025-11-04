@@ -98,4 +98,3 @@ void dump_packet_info(struct datum &pkt_data) {
     fputc('\n', stdout);
     fputc('\n', stdout);
 }
-

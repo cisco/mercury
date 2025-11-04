@@ -11,16 +11,24 @@
 #include <stdio.h>
 #include <string.h>
 
+/* The following provides gettid (or a stub function) on all platforms. */
+#if defined(__gnu_linux__) /* Linux */
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE    /* Needed for gettid() definition from unistd.h */
-#endif
+#endif /* _GNU_SOURCE */
 #include <unistd.h>
-
-/* Use system call if gettid() is not available from glibc */
-#if __GLIBC__ == 2 && __GLIBC_MINOR__ < 30
+/* Use system call if gettid() is not available, e.g., before glibc 2.30 */
+#if (!HAVE_GETTID)
 #include <sys/syscall.h>
 #define gettid() syscall(SYS_gettid)
-#endif
+#endif /* (!HAVE_GETTID) */
+#elif defined(__APPLE__) && defined(__MACH__)  /* macOS */
+#define gettid() 0     /* TODO: return a meaningful value on macOS */
+#elif defined(_WIN32) /* defined for both Windows 32-bit and 64-bit */
+#define gettid() 0     /* TODO: return a meaningful value on Windows */
+#else /* Unknown operating system */
+#define gettid() 0
+#endif /* defined(__gnu_linux__) */
 
 #include <signal.h>
 
@@ -1005,8 +1013,21 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
         }
     }
 
+    // Set the stack size to a large value, since some platforms (like OS X) have stack sizes that are too small
+    pthread_attr_t pt_stack_size;
+
+    err = pthread_attr_init(&pt_stack_size);
+    if (err != 0) {
+        printf("Unable to init stack size attribute for worker pthread: %s\n", strerror(err));
+    }
+
+    err = pthread_attr_setstacksize(&pt_stack_size, 16 * 1024 * 1024); // 16 MB is plenty big enough
+    if (err != 0) {
+        printf("Unable to set stack size attribute for worker pthread: %s\n", strerror(err));
+    }
+
     /* Start up the threads */
-    err = pthread_create(&(statst.tid), NULL, stats_thread_func, &statst);
+    err = pthread_create(&(statst.tid), &pt_stack_size, stats_thread_func, &statst);
     if (err != 0) {
         perror("error creating stats thread");
         exit(255);

@@ -343,7 +343,9 @@ struct dhcp_option : public datum {
         case dhcp_option_type::Address_Request:
             if (datum::length() == 4) {
                 json_opt.print_key_ipv4_addr("requested_address", this->data);
-            } // TBD: IPv6
+            } else if (datum::length() == 16) {
+                json_opt.print_key_ipv6_addr("requested_address", this->data);
+            }
             break;
         case dhcp_option_type::Hostname:
             json_opt.print_key_json_string("hostname", *this);
@@ -441,15 +443,18 @@ struct dhcp_option : public datum {
     }
 };
 
-
-struct dhcp_discover : public base_protocol {
+class dhcp_message : public base_protocol {
     struct datum options;
 
-    dhcp_discover(datum &p) { parse(p); };
+    constexpr static std::array<uint8_t, 4> magic_cookie{99, 130, 83, 99};
+
+public:
+
+    dhcp_message(datum &p) { parse(p); };
 
     void parse(struct datum &p) {
         p.skip(L_dhcp_fixed_header);
-        p.skip(L_dhcp_magic_cookie);
+        p.accept(magic_cookie);
         options = p;
     }
 
@@ -468,6 +473,12 @@ struct dhcp_discover : public base_protocol {
             opt.write_json(json_dhcp);
         }
         json_dhcp.close();
+    }
+
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("dhcp");
+        protocols.close();
     }
 
     void write_json_complete(struct json_object &o) {
@@ -493,6 +504,21 @@ struct dhcp_discover : public base_protocol {
         while (tmp.is_not_empty()) {
             struct dhcp_option opt;
             opt.parse(tmp);
+
+            // only return a fingerprint string if the message type is REQUEST
+            //
+            if (opt.tag == DHCP_OPT_MESSAGE_TYPE) {
+                if (lookahead<encoded<uint8_t>> msg_type{opt}) {
+                    if (msg_type.value.value() != 3) {
+                        //
+                        // set the truncated bit in the fingerprint
+                        // buffer, to indicate that it does not
+                        // contain an actual fingerprint
+                        //
+                        b.set_truncated();
+                    }
+                }
+            }
             if (opt.tag == DHCP_OPT_PARAMETER_LIST || opt.tag == DHCP_OPT_VENDOR_CLASS || opt.tag == DHCP_OPT_MESSAGE_TYPE) {
                 // copy entire option into fingerprint string
                 b.write_char('(');
@@ -517,15 +543,11 @@ struct dhcp_discover : public base_protocol {
         fp.final();
     }
 
-    constexpr static mask_and_value<8> matcher = {
-       { 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00 },
-       { 0x01, 0x01, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00 }
-    };
-
 };
 
-[[maybe_unused]] inline int dhcp_discover_fuzz_test(const uint8_t *data, size_t size) {
-    return json_output_fuzzer<dhcp_discover>(data, size);
+
+[[maybe_unused]] inline int dhcp_message_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<dhcp_message>(data, size);
 }
 
 #endif /* DHCP_H */

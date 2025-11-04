@@ -12,7 +12,7 @@ Enterprises commonly monitor DNS names by logging queries sent to a DNS server, 
 
 ### Server Names in TLS
 
-Fortunately, there are other places where we can look for malware server names.  Most Internet communication now takes place over the TLS protocol, which provides the encryption that underlies HTTPS and other protocols.   Server names appear, in unencrypted form, in most TLS sessions, during the handshake phase during which the client and server identify each other, authenticate each other, and agree on the details of the session.   The `client_hello`, the first message that a client sends to a server, often contains the name of the server (in the `server_name` extension).  During that handshake, the server responds with its certificate, which most often contains the server name (in the `subject_alt_name` certificate extension, or in the certificate subject `common_name` field).   These names typically appear in each session, and more directly indicate communication with the server, as opposed to a DNS query.  The TLS protocol has a session resumption feature, the effect of which is similar to DNS caching, but it is often not used.  
+Fortunately, there are other places where we can look for malware server names.  Most Internet communication now takes place over the TLS protocol, which provides the encryption that underlies HTTPS and other protocols.   Server names appear, in unencrypted form, in most TLS sessions, during the handshake phase during which the client and server identify each other, authenticate each other, and agree on the details of the session.   The `client_hello`, the first message that a client sends to a server, often contains the name of the server (in the `server_name` extension).  During that handshake, the server responds with its certificate, which most often contains the server name (in the `subject_alt_name` certificate extension, or in the certificate subject `common_name` field).   These names typically appear in each session, and more directly indicate communication with the server, as opposed to a DNS query.  The TLS protocol has a session resumption feature, the effect of which is similar to DNS caching, but it is often not used.
 
 In TLSv1.2, all of that data is unencrypted and can readily be parsed by a monitoring system.  In TLSv1.3, the most recent version of that standard, the server_name field in the client_hello is never encrypted, but certificates are encrypted.  However, the certificate associated with a server can easily be obtained by "tailgating": the monitoring system can send its own `client_hello` to the server to obtain the server's certificate, and cache the results for future use.
 
@@ -28,7 +28,7 @@ In TLSv1.2, all of that data is unencrypted and can readily be parsed by a monit
 | TLS server certificate common_name      | `.tls.server.certs[].cert.subject[].common_name`             | `--certs-json` |
 | HTTP request host name                  | `.http.request.host`                                         | `--metadata`   |
 
-Mercury's JSON corresponds as closely as possible to the original packet data.  Because of this, DNS names have a trailing dot, like "mb.moatads.com.", while TLS server_name fields almost always do not, such as "mb.moatads.com".   (See [RFC 1034](https://www.ietf.org/rfc/rfc1034.txt) and [RFC 6066](https://tools.ietf.org/html/rfc6066#page-6) for details.)  Some TLS clients will put the trailing dot TLS server_name, regardless of the RFC.  The capitalization of DNS names can vary, and may need to be converted to lowercase before comparison (see [RFC 4343](https://tools.ietf.org/html/rfc4343)).  
+Mercury's JSON corresponds as closely as possible to the original packet data.  Because of this, DNS names have a trailing dot, like "mb.moatads.com.", while TLS server_name fields almost always do not, such as "mb.moatads.com".   (See [RFC 1034](https://www.ietf.org/rfc/rfc1034.txt) and [RFC 6066](https://tools.ietf.org/html/rfc6066#page-6) for details.)  Some TLS clients will put the trailing dot TLS server_name, regardless of the RFC.  The capitalization of DNS names can vary, and may need to be converted to lowercase before comparison (see [RFC 4343](https://tools.ietf.org/html/rfc4343)).
 
 
 ### Statistics
@@ -41,7 +41,7 @@ To quantify the benefits of these additional name sources, we counted the number
 | TLS client hello             | 4,121                    |
 | TLS certificate              | 14,094                   |
 
-1,203 of the names that appear in the TLS client hellos do *not* appear in the DNS data; this shows that monitoring TLS can find IoCs that would not be found through passive DNS monitoring. 
+1,203 of the names that appear in the TLS client hellos do *not* appear in the DNS data; this shows that monitoring TLS can find IoCs that would not be found through passive DNS monitoring.
 
 ## Sunburst
 

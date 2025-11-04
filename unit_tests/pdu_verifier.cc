@@ -9,7 +9,7 @@
 
 void print_usage()
 {
-    printf("Usage : verifier -r [pcap to read] -f [filter] [OPTIONS]\n" 
+    printf("Usage : verifier -r [pcap to read] -f [filter] [OPTIONS]\n"
            "Options : \n"
            "\t-w [pcap to write] - write all parsed packets to [pcap to write]\n"
            "\t-p [number] - print HEX data, [number] declares first N bytes to print\n"

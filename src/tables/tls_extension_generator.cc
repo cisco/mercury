@@ -113,7 +113,7 @@ void write_class(const std::vector<std::tuple<std::string, std::string>> &params
                     smallest_unassigned = lower_range;
                 }
             } else {
-                int val = std::stoi(value); 
+                int val = std::stoi(value);
                 if (val < smallest_unassigned) {
                     smallest_unassigned = val;
                 }
@@ -205,7 +205,7 @@ void populate_include_list_extensions(std::string incl_extensions_file, std::vec
     //Ensure the extensions are sorted
     std::sort(extensions.begin(),extensions.end());
 }
-    
+
 void usage(const char *progname) {
     fprintf(stderr, "usage: %s outfile=<of> include_extensions=<include_extensions_file> <infile.csv>:<classname> [ <infile.csv>:<classname> ... ]\n", progname);
     exit(EXIT_FAILURE);
@@ -289,6 +289,6 @@ int main(int argc, char *argv[]) {
         process_iana_csv_file(std::get<0>(fc), std::get<1>(fc), std::get<2>(fc), outfile, extensions, verbose);
     }
     write_postamble(preproc.c_str(), outfile);
- 
+
     return 0;
 }

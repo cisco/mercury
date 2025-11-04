@@ -8,7 +8,7 @@
 #include "smb2.h"
 
 const char * dialect::get_dialect_string() const {
-    switch (val) {         
+    switch (val) {
         case 0x0202:         return "SMB 2.0.2";
         case 0x0210:         return "SMB 2.1";
         case 0x0222:         return "SMB 2.2.2";
@@ -24,7 +24,7 @@ const char * dialect::get_dialect_string() const {
 
 /*
  * This function checks if the netname has printable ascii
- * characters. 
+ * characters.
  * If yes - it writes the ascii characters to the string
  * name and returns true.
 
@@ -123,7 +123,7 @@ void negotiate_context::write_json(struct json_array &o) const {
     default:
         a.print_key_hex("value", tmp);
         break;
-    }   
+    }
     a.close();
 }
 
@@ -152,7 +152,7 @@ void smb2_negotiate_response::write_json (struct json_object &o) const {
     json_object neg_resp{o, "negotiate_response"};
     neg_resp.print_key_uint16("structure_size", structure_size);
     neg_resp.print_key_uint16_hex("security_mode", sec_mode);
-   
+
     type_codes<smb2_negotiate_response> code{*this};
     neg_resp.print_key_value("dialect", code);
 
@@ -199,7 +199,7 @@ void smb2_header::write_json(struct json_object &o) const {
     o.print_key_uint16("structure_size", structure_size.value());
     o.print_key_uint16("credit_charge", credit_charge.value());
     o.print_key_uint_hex("status", status.value());
-    
+
     type_codes<smb2_header> code{*this};
     o.print_key_value("command", code);
 

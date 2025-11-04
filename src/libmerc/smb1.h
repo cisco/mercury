@@ -142,7 +142,7 @@ public:
     }
 };
 
-/* 
+/*
  * Negotiate protocol request structure:
  * SMB_Parameters
  * {
@@ -257,7 +257,7 @@ public:
         o.print_key_bool("reparse_path", flags2.bit<5>());
         o.print_key_bool("long_name", flags2.bit<9>());
         o.print_key_bool("security_signatures_required", flags2.bit<11>());
-        o.print_key_bool("compressed", flags2.bit<12>()); 
+        o.print_key_bool("compressed", flags2.bit<12>());
         o.print_key_bool("security_signatures_allowed", flags2.bit<13>());
         o.print_key_bool("extended_attributes", flags2.bit<14>());
         o.print_key_bool("long_names_allowed", flags2.bit<15>());
@@ -302,10 +302,16 @@ public:
         }
     }
 
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("smb1");
+        protocols.close();
+    }
+
     static constexpr mask_and_value<8> matcher {
         { 0x00, //Message type
           0x00, 0x00, 0x00 , //Length
-          0xff, 0xff, 0xff, 0xff // 
+          0xff, 0xff, 0xff, 0xff //
         },
         { 0x00, 0x00, 0x00, 0x00, 0xff, 0x53, 0x4d, 0x42}
     };
@@ -318,7 +324,7 @@ namespace {
         char buffer[8192];
         struct buffer_stream buf_json(buffer, sizeof(buffer));
         struct json_object record(&buf_json);
-        
+
 
         smb1_packet request{request_data};
         if (request.is_not_empty()) {

@@ -32,4 +32,3 @@ clean:
 	rm -rf ./build/doctrees
 	rm -rf ./build/html
 	rm -rf ./build/breathe
-

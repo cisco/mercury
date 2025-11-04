@@ -1,7 +1,7 @@
 /*
- * signal_handling.c
+ * signal_handling_linux.c
  *
- * signal handling code for mercury and its threads
+ * signal handling code for mercury and its threads (only on Linux)
  *
  * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.
  * License at https://github.com/cisco/mercury/blob/master/LICENSE

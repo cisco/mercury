@@ -20,6 +20,11 @@ datarootdir = ${prefix}/share/mercury
 
 CFLAGS = --std=c++17 -Wall -Wpedantic -Wextra -O2 $(OPTFLAGS) # -DASN1_DEBUG=1
 
+ifeq ($(COVERAGE_ENABLED),1)
+CFLAGS += -fprofile-arcs --coverage -ggdb -O0 -fprofile-update=atomic
+LDFLAGS += --coverage
+endif
+
 .PHONY: all
 all: oidc oid.h
 

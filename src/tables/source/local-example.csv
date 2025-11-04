@@ -3,4 +3,3 @@ Value,Name,Reference
 0x01,Request,
 0x02,Response,
 0x03-0xff,Unassigned,
-

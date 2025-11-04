@@ -122,4 +122,3 @@ public:
 };
 
 #endif // HPKE_PARAMS_H
-

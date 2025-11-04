@@ -372,7 +372,7 @@ struct dns_name : public data_buffer<256> {
          *
          * Encoding algorithm:
          * Each 4-bit, half-octet of the NetBIOS name is treated as an 8-bit,
-         * right-adjusted, zero-filled binary number.  This number is added to 
+         * right-adjusted, zero-filled binary number.  This number is added to
          * value of the ASCII character 'A' (hexidecimal 41).  The resulting
          * 8-bit number is stored in the appropriate byte.
          *
@@ -386,7 +386,7 @@ struct dns_name : public data_buffer<256> {
             netbios_name.copy(c);
          }
     }
- 
+
     bool is_netbios() const {
         return is_netbios_name;
     }
@@ -795,7 +795,7 @@ struct dns_resource_record {
 
                 /*
                  * The type code 32 or 0x20 has different meaning in netbios.
-                 * In netbios, 
+                 * In netbios,
                  * NBSTAT uses code 32
                  * In DNS, mDNS,
                  * SRV uses code 32
@@ -924,7 +924,7 @@ struct dns_resource_record {
 
                     nb.print_key_uint8("group_name_flag", nb_flags.slice<0,1>());
                     nb.print_key_uint8("owner_node_type", nb_flags.slice<1,3>());
-                    
+
                     struct ipv4_addr addr;
                     addr.parse(tmp_rdata);
                     nb.print_key_value("ipv4_addr", addr);
@@ -1106,6 +1106,16 @@ struct dns_packet : public base_protocol {
         dns_json.print_key_uint_hex("id", header->id);
 
         dns_json.close();
+    }
+
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        if (is_netbios) {
+            protocols.print_string("nbns");
+        } else {
+            protocols.print_string("dns");
+        }
+        protocols.close();
     }
 
     // mask:   0040fe8eff00ff00fee0

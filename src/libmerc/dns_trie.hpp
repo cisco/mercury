@@ -104,7 +104,7 @@ private:
 // a single empty node, which serves as the root of the trie
 //
 template<typename T>
-dns_trie<T>::dns_trie() : nodes{{no_node_value}} { }
+dns_trie<T>::dns_trie() : nodes{no_node_value} { }
 
 
 template<typename T>
@@ -196,7 +196,7 @@ inline std::string dns_trie<T>::search_string(const std::string &label, node_ind
     //
     result += (uint8_t)(ni & 0b11111111);
     ni >>= 7;
-    size_t i = 1;
+    [[maybe_unused]] size_t i = 1;
     while(ni > 0) {
         result += (uint8_t)(ni & 0b01111111);
         ni >>= 7;

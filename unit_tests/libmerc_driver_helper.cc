@@ -255,7 +255,7 @@ void fprint_analysis_context(FILE *f,
 mercury_context initialize_mercury(libmerc_config& config) {
     // bind libmerc
     libmerc_api mercury(path_to_libmerc_library);
-    
+
     // init mercury
     mercury_context mc = mercury.init(&config, verbosity);
 
@@ -276,10 +276,10 @@ libmerc_config create_config(bool dns_json_output,
                              char *packet_filter_cfg,
                              float fp_proc_threshold,
                              float proc_dst_threshold,
-                             size_t max_stats_entries) 
+                             size_t max_stats_entries)
 {
-    libmerc_config config{};     
-    
+    libmerc_config config{};
+
     config.dns_json_output = dns_json_output;
     config.certs_json_output = certs_json_output;
     config.do_analysis = do_analysis;

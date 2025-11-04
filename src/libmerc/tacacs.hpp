@@ -12,6 +12,13 @@ namespace tacacs {
 
 #include "tacacs_plus_params.hpp"
 
+    /// return the hashcat input string for a tacacs+ encrypted message
+    ///
+    static data_buffer<128> get_password_recovery_string(encoded<uint32_t> session_id,
+                                                         encoded<uint8_t> version,
+                                                         encoded<uint8_t> seq_no,
+                                                         datum ciphertext);
+
     //  5.1. The Authentication START Packet Body
     //
     //  1 2 3 4 5 6 7 8  1 2 3 4 5 6 7 8  1 2 3 4 5 6 7 8  1 2 3 4 5 6 7 8
@@ -284,8 +291,19 @@ namespace tacacs {
                 //
                 const char *message_type = direction() == msg_type::request ? "encrypted_request" : "encrypted_reply";
                 tacacs_json.print_key_hex(message_type, body);
+
+                data_buffer<128> password_recovery_string = get_password_recovery_string(session_id, version, seq_no, body);
+                tacacs_json.print_key_json_string("password_recovery", password_recovery_string.contents());
+
             }
+
             tacacs_json.close();
+        }
+
+        void write_l7_metadata(cbor_object &o, bool) {
+            cbor_array protocols{o, "protocols"};
+            protocols.print_string("tacacs");
+            protocols.close();
         }
 
         void print_type_code(json_object &o) const {
@@ -311,6 +329,26 @@ namespace tacacs {
         }
 
     };
+
+    /// return the password_recovery input string for a tacacs+ encrypted message
+    ///
+    static data_buffer<128> get_password_recovery_string(encoded<uint32_t> session_id,
+                                                         encoded<uint8_t> version,
+                                                         encoded<uint8_t> seq_no,
+                                                         datum ciphertext)
+    {
+        data_buffer<128> result;
+
+        result << datum{"$tacacs-plus$0$"};
+        result.write_hex(session_id);
+        result << datum{"$"};
+        result.write_hex(ciphertext.data, std::min<ssize_t>(ciphertext.length(), 32));
+        result << datum{"$"};
+        result.write_hex(version);
+        result.write_hex(seq_no);
+
+        return result;
+    }
 
     [[maybe_unused]] static bool unit_test()  {
 
@@ -506,7 +544,7 @@ namespace {
     [[maybe_unused]] inline int tacacs_authentication_start_fuzz_test(const uint8_t *data, size_t size) {
         return json_output_fuzzer<tacacs::authentication_start>(data, size);
     }
-    
+
     [[maybe_unused]] inline int tacacs_auth_reply_fuzz_test(const uint8_t *data, size_t size) {
         return json_output_fuzzer<tacacs::auth_reply>(data, size);
     }

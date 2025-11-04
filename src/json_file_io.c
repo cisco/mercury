@@ -80,6 +80,3 @@ enum status json_file_init(struct json_file *jf,
 
     return json_file_rotate(jf);
 }
-
-
-

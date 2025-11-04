@@ -45,10 +45,10 @@ namespace {
             c.parse(tmp_cert_list.data, tmp_len);
             c.print_as_json(cert, {}, NULL);
             cert.close();
-            
+
             //struct datum cert_parser{tmp_tmp_cert_list.data, tmp_tmp_cert_list.data + tmp_len};
                 o.print_key_base64("base64", tmp_tmp_cert_list);
-            
+
             o.close();
 
             /*

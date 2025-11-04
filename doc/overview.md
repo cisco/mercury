@@ -8,7 +8,7 @@ Mercury is an open source package for network metadata capture and analysis.   I
 
 [Mercury](../src/mercury.c) is a stand-alone application for high throughput network security monitoring using Linux native AF_PACKET TPACKETv3 interface.  It can process packets at high data rates, operate off of a span port or PCAP files, capture and report metadata including fingerprints for many protocols (using this [JSON schema](schema.md)), and perform fingerprinting with destination context.
 
-[Libmerc.so](../src/libmerc/libmerc.cc) is a shared object library that implements the packet-processing features of mercury; it can extract fingerprints and other metadata, and identify client processes and detect malware through [TLS Fingerprinting with Destination Context (FDC)](wnb.md).   
+[Libmerc.so](../src/libmerc/libmerc.cc) is a shared object library that implements the packet-processing features of mercury; it can extract fingerprints and other metadata, and identify client processes and detect malware through [TLS Fingerprinting with Destination Context (FDC)](wnb.md).
 
 
 
@@ -26,7 +26,7 @@ Mercury is an open source package for network metadata capture and analysis.   I
 
 - [oidc](../src/libmerc/asn1/oidc.cc) is an ASN1 OID compiler that generates the C++ tables used for OID processing by libmerc and cert_analyze.
 - [format](../src/format.cc) detects and reports on the data formats of input strings.
-- [string](../src/string.cc) analyzes input strings; it can compute edit distance, longest common subsequences, longest common substrings, and matching (sub)substrings.  
+- [string](../src/string.cc) analyzes input strings; it can compute edit distance, longest common subsequences, longest common substrings, and matching (sub)substrings.
 
 
 
@@ -34,7 +34,7 @@ Mercury is an open source package for network metadata capture and analysis.   I
 
 - [libmerc_driver](../unit_tests/libmerc_driver.cc) is the main unit test driver for libmerc.   It is a C++ program that tests the whole libmerc 'lifecycle': it loads the libmerc.so shared object library, then uses dlsym() to load the functions in [libmerc.h](../src/libmerc/libmerc.h), then initializes libmerc, reads from a compressed resource archive, and performs a set of tests.
 - [libmerc_test](../src/libmerc_test.c) is another (partly obsolete) test driver for libmerc.   It uses straight C code instead of C++.
-- [archive_reader](../src/archive_reader.cc) is a test driver for the encrypted compressed archive reader (tar.gz.enc).  
+- [archive_reader](../src/archive_reader.cc) is a test driver for the encrypted compressed archive reader (tar.gz.enc).
 - [json_object_test](../src/json_object_test.cc) is a test driver for mercury's fast JSON output code (which is implemented in [libmerc/json_object.h](../src/libmerc/json_object.h)).
 - [lctrie_test](../src/libmerc/lctrie/lctrie_test.c) is a test program for the (3rd party) level compressed trie library.
 
@@ -50,13 +50,13 @@ Mercury is an open source package for network metadata capture and analysis.   I
 
 ## Design
 
-Mercury identifies, extracts, and analyzes data features from network data.   It aims for efficiency (so that high bitrates and high data volumes can be supported), safety (to avoid crashes, data corruption, and vulnerabilities), and flexibility (so that support for new protocol extensions and versions is easy to add).  It also strives to minimize its dependencies; it requires neither DPDK nor libpcap to be built or run.  (Its *tests* do have some dependencies, including [jq](https://stedolan.github.io/jq/), [tcpreplay](https://tcpreplay.appneta.com/), [valgrind](https://www.valgrind.org/), [python3](https://www.python.org/), [jsonschema](https://pypi.org/project/jsonschema/), and [afl](https://lcamtuf.coredump.cx/afl/).   The [./configure](../configure) script checks for these, and omits any tests whose dependencies are not met.)     It has a modular design to allow code reuse across multiple applications (though its components could be further separated, e.g. by replacing each use of  `enum status` from libmerc.h with a local status enum).  
+Mercury identifies, extracts, and analyzes data features from network data.   It aims for efficiency (so that high bitrates and high data volumes can be supported), safety (to avoid crashes, data corruption, and vulnerabilities), and flexibility (so that support for new protocol extensions and versions is easy to add).  It also strives to minimize its dependencies; it requires neither DPDK nor libpcap to be built or run.  (Its *tests* do have some dependencies, including [jq](https://stedolan.github.io/jq/), [tcpreplay](https://tcpreplay.appneta.com/), [valgrind](https://www.valgrind.org/), [python3](https://www.python.org/), [jsonschema](https://pypi.org/project/jsonschema/), and [afl](https://lcamtuf.coredump.cx/afl/).   The [./configure](../configure) script checks for these, and omits any tests whose dependencies are not met.)     It has a modular design to allow code reuse across multiple applications (though its components could be further separated, e.g. by replacing each use of  `enum status` from libmerc.h with a local status enum).
 
 Mercury is written in C++17 (with some C99 code, which should be changed to C++ over time), and follows the [C++ Core Guidelines](http://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines) where possible, with some deviations for the sake of performance.  Packet processing uses compile-time polymorphism with [std::variant](https://www.cppstories.com/2018/06/variant/) (see the function tcp_data_write_json() in [pkt_proc.cc](../src/pkt_proc.cc)), which is a little ugly, but allows us to achieve polymorphism without dynamic memory allocation.
 
-For efficiency and safety, packet data is processed using a [selective parsing](./safe-parsing.md) strategy that allows careful parsing of data, without allocating any memory on the heap.  This strategy is realized by the `class datum` in [datum.h](../src/libmerc/datum.h), which is essentially a pair of pointers to the start and end of a data field, along with member functions that support safe and efficient operations on the data.  
+For efficiency and safety, packet data is processed using a [selective parsing](./safe-parsing.md) strategy that allows careful parsing of data, without allocating any memory on the heap.  This strategy is realized by the `class datum` in [datum.h](../src/libmerc/datum.h), which is essentially a pair of pointers to the start and end of a data field, along with member functions that support safe and efficient operations on the data.
 
- Protocol Identification works by looking at the first several bytes of the packet, to see what protocol (if any) they match, and then attempting to parse the packet as that protocol.   For instance, if the first two bytes of the TCP data field are `0x16 0x03`, it could be a TLS client hello.  This pattern identification is implemented via the simple and fast method of checking mask/value pairs.   As this procedure will have some false positives (in which a packet that is not a TLS client hello will be identified as such), we rely on the fact that the method that attempts to parse the packet quickly detect those false positives.   Fortunately, selective parsing does what we need here. 
+ Protocol Identification works by looking at the first several bytes of the packet, to see what protocol (if any) they match, and then attempting to parse the packet as that protocol.   For instance, if the first two bytes of the TCP data field are `0x16 0x03`, it could be a TLS client hello.  This pattern identification is implemented via the simple and fast method of checking mask/value pairs.   As this procedure will have some false positives (in which a packet that is not a TLS client hello will be identified as such), we rely on the fact that the method that attempts to parse the packet quickly detect those false positives.   Fortunately, selective parsing does what we need here.
 
 Mercury performs packet capture using the Linux kernel's native zero-copy packet processing path, [AF_PACKET TPACKET_V3](https://www.kernel.org/doc/Documentation/networking/packet_mmap.txt), which enables high bandwidth monitoring with relatively low CPU utilization.  Currently, packet capture from network interfaces is only supported on Linux.  Packet Capture (PCAP) files are supported across platforms, with a portable implementation of a PCAP reader and writer (in [pcap_file_io.c](../src/pcap_file_io.c) and [pcap_reader.c](../src/pcap_reader.c)).
 

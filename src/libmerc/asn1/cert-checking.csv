@@ -8,7 +8,7 @@ Subject Key,RSA.modulus >= 2048,Yes,Should improve ASN::INTEGER error checking
 ,RSA key should not have duplicate factors,No,This check requires a large secondary memory
 ,,,
 Signature Algorithm,Alg type must not be on bad list,Yes,List of bad types needs review / contribution (see x509.h: is_weak())
-,Alg type = “” indicates self-signed,Yes,Certs in trust store can be self-signed; 
+,Alg type = “” indicates self-signed,Yes,Certs in trust store can be self-signed;
 ,,,
 Signature,Signature should be checked and valid,No,"We probably don’t want to do this if we can avoid it, but it’s listed here for completeness"
 ,,,

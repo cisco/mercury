@@ -333,7 +333,7 @@ public:
                     a += '.';
                 }
                 ipv4_address addr = std::get<uint32_t>(host_id);
-                normalize(addr);
+                addr = normalize(addr);
                 a += addr.get_dns_label();
             }
             a += "address.alt";
@@ -349,8 +349,7 @@ public:
                     a += '.';
                 }
                 ipv6_array_t addr = std::get<ipv6_array_t>(host_id);
-                ipv6_address tmp = get_ipv6_address(addr);
-                // normalize(tmp);
+                ipv6_address tmp = normalize(get_ipv6_address(addr));
                 a += tmp.get_dns_label();
             }
             a += "address.alt";
@@ -495,7 +494,7 @@ public:
             { "[::ffff:91.222.113.90]:5000", "_5000.--ffff-5bde-715a.address.alt", 5000 },           // IPv6 addr with embedded IPv4 addr, square braces, and port number
             { "2001:db8::2:1", "2001-db8--2-1.address.alt", {} },                                                        // IPv6 addr with zero compression
             { "240d:c000:2010:1a58:0:95fe:d8b7:5a8f", "240d-c000-2010-1a58-0-95fe-d8b7-5a8f.address.alt", {} },          // IPv6 addr without zero compression
-            { "abcd:888::2:1", "abcd-888--2-1.address.alt", {} },                                                        // IPv6 addr that could be confused for server:port
+            { "abcd:888::2:1", "fd00--1.address.alt", {} },                                                              // Non-global IPv6 addr that could be confused for server:port
             { "cisco.com:443", "_443.cisco.com", 443 },                                  // FQDN with port number
             { ":8080", "_8080.missing.alt", 8080 },                                      // missing FQDN with port number
             { "cisco.com.:443", "_443.cisco.com", 443 },                                 // trailing dot with port number
@@ -524,7 +523,7 @@ inline std::string normalize_ip_address(const std::string &s) {
             return "";  // error: trailing data after address
         }
         ipv4_address addr = addr_str.value.get_value();
-        normalize(addr);
+        addr = normalize(addr);
         return addr.get_string();
     }
     if (lookahead<ipv6_address_string> addr_str{d}) {
@@ -533,7 +532,7 @@ inline std::string normalize_ip_address(const std::string &s) {
             return "";  // error: trailing data after address
         }
         ipv6_address addr = get_ipv6_address(addr_str.value.get_value_array());
-        normalize(addr);
+        addr = normalize(addr);
         return addr.get_string();
     }
     return "";  // error: s is neither an ipv4 nor an ipv6 address

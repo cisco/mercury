@@ -1,8 +1,8 @@
 /*
  * pkt_processing.c
- * 
- * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at 
- * https://github.com/cisco/mercury/blob/master/LICENSE 
+ *
+ * Copyright (c) 2019 Cisco Systems, Inc. All rights reserved.  License at
+ * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
 #include <string.h>
@@ -54,5 +54,3 @@ struct pkt_proc *pkt_proc_new_from_config(struct mercury_config *cfg,
 
     return NULL;
 }
-
-

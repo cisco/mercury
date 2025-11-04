@@ -82,7 +82,7 @@ struct tcp_state {
 
 #define TCP_FLAGS_FORMAT "%c%c%c%c "
 #define TCP_FLAGS_PRINT(x) ((x & 0x02) ? 'S' : ' '), ((x & 0x10) ? 'A' : ' '), ((x & 0x01) ? 'F' : ' '), ((x & 0x04) ? 'R' : ' ')
- 
+
 #define TCP_IS_ACK(flags) ((flags) & 0x10)
 #define TCP_IS_PSH(flags) ((flags) & 0x08)
 #define TCP_IS_RST(flags) ((flags) & 0x04)
@@ -511,11 +511,11 @@ struct flow_table_tcp {
             else if (it->second.seq_is_greater(seq)) {
                 syn_seq = it->second.get_seq();
                 reap_it = table.erase(it);
-                return syn_seq;       
+                return syn_seq;
             }
         }
         reap(sec);
-        return 0;    
+        return 0;
     }
 
     void reap(unsigned int sec) {

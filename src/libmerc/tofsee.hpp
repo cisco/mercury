@@ -94,6 +94,8 @@ public:
         srv_time{pt, 4},
         unknown_2{pt, 48} { }
 
+    static constexpr ssize_t pkt_length = 200;
+
     static constexpr mask_and_value<4> matcher{
         { 0x00, 0x00, 0x00, 0x00 },
         { 0x00, 0x00, 0x00, 0x00 }
@@ -110,6 +112,12 @@ public:
         tofsee.print_key_hex("srv_time", srv_time.data, srv_time.length());
         tofsee.print_key_hex("unknown_2", unknown_2.data, unknown_2.length());
         tofsee.close();
+    }
+
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("tofsee_initial_message");
+        protocols.close();
     }
 
     bool is_not_empty() const {

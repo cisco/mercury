@@ -1,7 +1,6 @@
 import os
 import sys
 import json
-import pcap
 import time
 import fcntl
 import socket
@@ -15,6 +14,7 @@ import platform
 from functools import lru_cache
 from threading import Thread
 
+import pcap
 import psutil
 import mercury
 
@@ -265,4 +265,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

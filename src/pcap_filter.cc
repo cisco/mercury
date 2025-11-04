@@ -277,4 +277,3 @@ datum get_tcp_data(struct datum eth_pkt) {
 
     return {nullptr, nullptr};
 }
-

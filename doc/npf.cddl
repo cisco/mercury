@@ -96,4 +96,3 @@ ipv6_flow_key = [
   dst_port: uint,
   protocol: uint
 ]
-

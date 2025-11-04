@@ -61,7 +61,7 @@ struct dns_packet;
 struct mdns_packet;
 class dtls_client_hello;
 class dtls_server_hello;
-struct dhcp_discover;
+class dhcp_message;
 class ssdp;
 //class stun::message;
 class unknown_udp_initial_packet;
@@ -84,7 +84,9 @@ namespace tftp { class packet; }
 class gre_header;
 class geneve;
 class ip_encapsulation;
-class vxlan; 
+class vxlan;
+namespace snmp { class packet; }
+class syslog;
 
 using protocol = std::variant<std::monostate,
                               http_request,                      // start of tcp protocols
@@ -113,7 +115,7 @@ using protocol = std::variant<std::monostate,
                               mdns_packet,
                               dtls_client_hello,
                               dtls_server_hello,
-                              dhcp_discover,
+                              dhcp_message,
                               ssdp,
                               stun::message,
                               krb5::packet,
@@ -136,8 +138,11 @@ using protocol = std::variant<std::monostate,
                               esp,
                               ike::packet,
                               rfb::protocol_version_handshake,
-                              tacacs::packet
+                              tacacs::packet,
+                              snmp::packet,
+                              syslog
                               >;
+
 using encapsulation = std::variant<std::monostate,
                               gre_header,
                               geneve,
@@ -298,6 +303,29 @@ struct write_metadata {
 
 };
 
+struct write_l7_metadata {
+    cbor_object &o;
+    bool metadata_output_;
+    bool certs_json_output_;
+    bool dns_json_output_;
+
+    write_l7_metadata(cbor_object &output,
+                      bool metadata_output=true) :
+        o{output},
+        metadata_output_{metadata_output}
+    {}
+
+    template <typename T>
+    void operator()(T &r) {
+        if (r.is_not_empty()) {
+            r.write_l7_metadata(o, metadata_output_);
+        }
+    }
+
+    void operator()(std::monostate &) { }
+};
+
+
 struct compute_fingerprint {
     fingerprint &fp_;
     fingerprint_format format_version;
@@ -339,6 +367,31 @@ struct do_analysis {
     template <typename T>
     bool operator()(T &msg) {
         return msg.do_analysis(k_, analysis_, c_);
+    }
+
+    bool operator()(std::monostate &) { return false; }
+
+};
+
+struct do_network_behavioral_detections {
+    const struct key &k_;
+    struct analysis_context &analysis_;
+    classifier *c_;
+    struct common_data &nbd_common_;
+
+    do_network_behavioral_detections(const struct key &k,
+                                     struct analysis_context &analysis,
+                                     classifier *c,
+                                     struct common_data &nbd_common) :
+        k_{k},
+        analysis_{analysis},
+        c_{c},
+        nbd_common_{nbd_common}
+    {}
+
+    template <typename T>
+    bool operator()(T &msg) {
+        return msg.do_network_behavioral_detections(k_, analysis_, c_, nbd_common_);
     }
 
     bool operator()(std::monostate &) { return false; }

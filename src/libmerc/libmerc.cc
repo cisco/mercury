@@ -182,11 +182,11 @@ const struct analysis_context *mercury_packet_processor_get_analysis_context(mer
 int mercury_packet_processor_get_analysis_context_fdc(
     mercury_packet_processor processor,
     const struct flow_key_ext* k,
-    const uint8_t* payload, 
-    const size_t len, 
-    uint8_t *buffer, 
-    size_t *buffer_size, 
-    const struct analysis_context **context) { 
+    const uint8_t* payload,
+    const size_t len,
+    uint8_t *buffer,
+    size_t *buffer_size,
+    const struct analysis_context **context) {
     try {
         return processor->analyze_payload_fdc(k, payload, len, buffer, buffer_size, context);
     }

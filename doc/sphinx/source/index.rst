@@ -24,4 +24,3 @@ Indices and tables
 
 Table of Contents
 ^^^^^^^^^^^^^^^^^
-

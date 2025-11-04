@@ -258,40 +258,6 @@ void print_flow_key(int fd) {
 #include "libmerc/proto_identify.h"
 #include <ctype.h>
 
-#include "libmerc/arp.h"
-#include "libmerc/bittorrent.h"
-#include "libmerc/ip.h"
-#include "libmerc/tcp.h"
-#include "libmerc/dns.h"
-#include "libmerc/mdns.h"
-#include "libmerc/tls.h"
-#include "libmerc/http.h"
-#include "libmerc/wireguard.h"
-#include "libmerc/ssh.h"
-#include "libmerc/dhcp.h"
-#include "libmerc/tcpip.h"
-#include "libmerc/eth.h"
-#include "libmerc/gre.h"
-#include "libmerc/icmp.h"
-#include "libmerc/udp.h"
-#include "libmerc/quic.h"
-#include "libmerc/ssdp.h"
-#include "libmerc/stun.h"
-#include "libmerc/smtp.h"
-#include "libmerc/cdp.h"
-#include "libmerc/lldp.h"
-#include "libmerc/ospf.h"
-#include "libmerc/sctp.h"
-#include "libmerc/analysis.h"
-#include "libmerc/buffer_stream.h"
-#include "libmerc/stats.h"
-#include "libmerc/ppp.h"
-#include "libmerc/smb1.h"
-#include "libmerc/smb2.h"
-#include "libmerc/netbios.h"
-#include "libmerc/openvpn.h"
-#include "libmerc/tofsee.hpp"
-
 #include <unordered_set>
 #include <string>
 
@@ -721,7 +687,7 @@ public:
     // get_ports returns a pair of src port and dst port that can be used for protocol identification
     //
     std::pair<uint16_t,uint16_t> get_ports(int fd) {
-        
+
         if (!fd_is_socket(fd)) {
             return {0,0};
         }
@@ -794,10 +760,10 @@ public:
 
         if (!is_tcp) {
             // try checking udp protocols
-            enum udp_msg_type msg_type = (udp_msg_type)(pkt_proc_ctx->selector.get_udp_msg_type(udp_pkt_data));
             udp::ports udp_ports;
             udp_ports.src = ports.first;
             udp_ports.dst = ports.second;
+            enum udp_msg_type msg_type = (udp_msg_type)(pkt_proc_ctx->selector.get_udp_msg_type(udp_pkt_data, udp_ports));
             if (msg_type == udp_msg_type_unknown)
             { // TODO: wrap this up in a traffic_selector member function
                 msg_type = (udp_msg_type)(pkt_proc_ctx->selector.get_udp_msg_type_from_ports(udp_ports));
@@ -806,7 +772,8 @@ public:
             k.src_port = udp_ports.src;
             k.dst_port = udp_ports.dst;
             k.protocol = 17;
-            pkt_proc_ctx->set_udp_protocol(udp_proto, udp_pkt_data, msg_type, true, k);
+            udp udp_pkt{k};
+            pkt_proc_ctx->set_udp_protocol(udp_proto, udp_pkt_data, udp_pkt.get_ports(), true, k, udp_pkt);
             is_udp = (msg_type != udp_msg_type_unknown) && (std::holds_alternative<std::monostate>(udp_proto) == false) && (std::holds_alternative<unknown_udp_initial_packet>(udp_proto) == false);
         }
         if (!is_tcp && !is_udp) {
@@ -873,11 +840,11 @@ public:
         bool is_tcp = false;
         datum udp_pkt_data{data, data+length};
         datum tcp_pkt_data{data, data+length};
-        enum udp_msg_type msg_type = (udp_msg_type)(pkt_proc_ctx->selector.get_udp_msg_type(udp_pkt_data));
         udp::ports udp_ports;
         udp_ports.src = ports.first;
         udp_ports.dst = ports.second;
-        if (msg_type == udp_msg_type_unknown) { 
+        enum udp_msg_type msg_type = (udp_msg_type)(pkt_proc_ctx->selector.get_udp_msg_type(udp_pkt_data, udp_ports));
+        if (msg_type == udp_msg_type_unknown) {
             // TODO: wrap this up in a traffic_selector member function
             msg_type = (udp_msg_type)(pkt_proc_ctx->selector.get_udp_msg_type_from_ports(udp_ports));
         }
@@ -885,7 +852,8 @@ public:
         k.src_port = udp_ports.src;
         k.dst_port = udp_ports.dst;
         k.protocol = 17;
-        pkt_proc_ctx->set_udp_protocol(udp_proto, udp_pkt_data, msg_type, true, k);
+        udp udp_pkt{k};
+        pkt_proc_ctx->set_udp_protocol(udp_proto, udp_pkt_data, udp_pkt.get_ports(), true, k, udp_pkt);
         is_udp = (msg_type != udp_msg_type_unknown) && (std::holds_alternative<std::monostate>(udp_proto) == false) && (std::holds_alternative<unknown_udp_initial_packet>(udp_proto) == false);
 
         if (!is_udp) {
@@ -1223,7 +1191,7 @@ void intercept::process_tls_client_hello(int fd, const uint8_t *data, ssize_t le
             // write fingerprint into record
             fp.write(record);
             hello.write_json(record, true);
-        
+
             record.close();
             out->write_buffer(buf);
         }
@@ -1422,7 +1390,7 @@ ssize_t gnutls_record_send(gnutls_session_t session,
 
     int fd = (r < 32 && r > 0) ? r : 0;
     //intrcptr->process_outbound_plaintext(fd, (uint8_t *)data, (ssize_t) data_size);
-    intrcptr->process_data_pkt_send_recv(fd, (uint8_t *)data, (ssize_t) data_size, std::string("gnutls_record_send").c_str()); 
+    intrcptr->process_data_pkt_send_recv(fd, (uint8_t *)data, (ssize_t) data_size, std::string("gnutls_record_send").c_str());
 
     //print_flow_key(r);
     //write_data_to_file(pid, data, data_size);
@@ -1477,7 +1445,7 @@ extern "C" INTERCEPT_DLL_EXPORTED
 #endif
 ssize_t send(int sockfd, const void *buf, size_t len, int flags) {
     if (verbose) { fprintf(stderr, BLUE(tty, "send() invoked\n")); }
-    intrcptr->process_data_pkt_send_recv(sockfd, (uint8_t *)buf, len, std::string("send").c_str()); 
+    intrcptr->process_data_pkt_send_recv(sockfd, (uint8_t *)buf, len, std::string("send").c_str());
     invoke_original(send, sockfd, buf, len, flags);
 }
 
@@ -1525,10 +1493,10 @@ int sendmmsg(int sockfd, struct mmsghdr *msgvec, unsigned int vlen, int flags) {
                     void *msg_buf = msg->msg_iov[j].iov_base;
                     size_t msg_len = msg->msg_iov[j].iov_len;
                     if (msg_buf and msg_len) {
-                        intrcptr->process_data_pkt_send_recv(sockfd, (uint8_t *)msg_buf, msg_len, std::string("sendmmsg").c_str()); 
+                        intrcptr->process_data_pkt_send_recv(sockfd, (uint8_t *)msg_buf, msg_len, std::string("sendmmsg").c_str());
                     }
                 }
-            } 
+            }
         }
     }
     invoke_original(sendmmsg, sockfd, msgvec, vlen, flags);
@@ -1539,7 +1507,7 @@ extern "C" INTERCEPT_DLL_EXPORTED
 #endif
 ssize_t recv(int sockfd, void *buf, size_t len, int flags) {
     if (verbose) { fprintf(stderr, BLUE(tty, "recv() invoked\n")); }
-    intrcptr->process_data_pkt_send_recv(sockfd, (uint8_t *)buf, len, std::string("recv").c_str()); 
+    intrcptr->process_data_pkt_send_recv(sockfd, (uint8_t *)buf, len, std::string("recv").c_str());
     invoke_original(recv, sockfd, buf, len, flags);
 }
 
@@ -1548,7 +1516,7 @@ extern "C" INTERCEPT_DLL_EXPORTED
 #endif
 ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags, struct sockaddr *address, socklen_t *address_len) {
     if (verbose) { fprintf(stderr, BLUE(tty, "recvfrom() invoked\n")); }
-    intrcptr->process_data_pkt_sendto_recvfrom(sockfd, (uint8_t *)buf, len, std::string("recvfrom").c_str(), address, address_len); 
+    intrcptr->process_data_pkt_sendto_recvfrom(sockfd, (uint8_t *)buf, len, std::string("recvfrom").c_str(), address, address_len);
     invoke_original(recvfrom, sockfd, buf, len, flags, address, address_len);
 
 }

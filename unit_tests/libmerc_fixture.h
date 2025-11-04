@@ -31,15 +31,15 @@ protected:
     int counter(fingerprint_type fp_type, std::function<void()> callback);
     bool counter(size_t expected_attrs_count, std::function<void(size_t, size_t)> callback);
     bool check_attr(std::string &expected_attr);
-    
+
     void check_global_configuraton(libmerc_config config);
-    
+
 protected:
     struct libmerc_api * m_mercury;
 
     mercury_context m_mc;
     mercury_packet_processor m_mpp;
-    
+
     struct timespec m_time;
     std::pair<const uint8_t *, const uint8_t *> m_data_packet;
     struct libmerc_config m_config;

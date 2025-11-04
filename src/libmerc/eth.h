@@ -177,4 +177,3 @@ class eth {
 
 
 #endif  /* ETH_H */
-

@@ -92,7 +92,7 @@ public:
 };
 
 [[maybe_unused]] inline int geneve_fuzz_test(const uint8_t *data, size_t size) {
-    key k; 
+    key k;
     struct datum packet_data{data, data+size};
     geneve pkt{packet_data, k};
     char buffer[8192];

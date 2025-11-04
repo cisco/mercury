@@ -9,6 +9,26 @@
 
 #include "libmerc_driver_helper.hpp"
 
+// Wrapper for pthread_create with configurable stack size
+int pthread_create_with_stack_size(pthread_t *thread, size_t stack_size,
+                                   void *(*start_routine)(void *), void *arg) {
+    pthread_attr_t attr;
+    int result = pthread_attr_init(&attr);
+    if (result != 0) {
+        return result;
+    }
+
+    result = pthread_attr_setstacksize(&attr, stack_size);
+    if (result != 0) {
+        pthread_attr_destroy(&attr);
+        return result;
+    }
+
+    result = pthread_create(thread, &attr, start_routine, arg);
+    pthread_attr_destroy(&attr);
+    return result;
+}
+
 int test_libmerc(const struct libmerc_config *config, int verbosity, bool fail=false) {
     int num_loops = 4;
     constexpr int num_threads = 8;
@@ -39,8 +59,13 @@ int test_libmerc(const struct libmerc_config *config, int verbosity, bool fail=f
              { 7, &mercury, mc }
             };
         //std::array<unsigned int, num_threads> thread_number = { 0, 1, 2, 3, 4, 5, 6, 7 };
+        size_t stack_size = 8 * 1024 * 1024; // 8MB
         for (int idx=0; idx < num_threads; idx++) {
-            pthread_create(&tid_array[idx], NULL, packet_processor, &thread_state[idx]);
+            int result = pthread_create_with_stack_size(&tid_array[idx], stack_size, packet_processor, &thread_state[idx]);
+            if (result != 0) {
+                fprintf(stderr, "error: pthread_create_with_stack_size() failed for thread %d: %s\n", idx, strerror(result));
+                return -1;
+            }
         }
         fprintf(stderr, "created all %zu threads\n", tid_array.size());
 
@@ -129,8 +154,13 @@ int double_bind_test(const struct libmerc_config *config, const struct libmerc_c
              { 6, &mercury_alt, mc_alt },
              { 7, &mercury_alt, mc_alt }
             };
+        size_t stack_size = 8 * 1024 * 1024; // 8MB
         for (int idx=0; idx < num_threads; idx++) {
-            pthread_create(&tid_array[idx], NULL, packet_processor, &thread_state[idx]);
+            int result = pthread_create_with_stack_size(&tid_array[idx], stack_size, packet_processor, &thread_state[idx]);
+            if (result != 0) {
+                fprintf(stderr, "error: pthread_create_with_stack_size() failed for thread %d: %s\n", idx, strerror(result));
+                return -1;
+            }
         }
         fprintf(stderr, "created all %zu threads\n", tid_array.size());
 
@@ -161,7 +191,7 @@ int double_bind_test(const struct libmerc_config *config, const struct libmerc_c
     return 0;
 }
 
-TEST_CASE("double_bind_test") {  
+TEST_CASE("double_bind_test") {
     libmerc_config config = create_config();
     libmerc_config config_lite = create_config(); // note: just different, not really lite
 

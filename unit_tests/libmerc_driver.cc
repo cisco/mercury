@@ -12,7 +12,7 @@
 //TODO: make a scenario
 TEST_CASE("check_global_vars_configuration") {
     libmerc_config config = create_config();
-    
+
     // init mercury
     mercury_context mc = initialize_mercury(config);
     REQUIRE(mc != nullptr);
@@ -25,7 +25,7 @@ TEST_CASE("check_global_vars_configuration") {
 SCENARIO("test_mercury_init") {
     GIVEN("mecrury config") {
         libmerc_config config = create_config();
-    
+
         WHEN("After initialize") {
             THEN("merciry initialized ") {
                 mercury_context mc = initialize_mercury(config);
@@ -53,7 +53,7 @@ SCENARIO("test_mercury_init") {
 SCENARIO("test_mercury_finalize") {
     GIVEN("mecrury context") {
         libmerc_config config = create_config();
-    
+
         // init mercury
         mercury_context mc = initialize_mercury(config);
 
@@ -79,7 +79,7 @@ SCENARIO("test_mercury_finalize") {
         //         //CHECK(mercury_finalize(mc) == -1);  /*check in ~mercury() also needed*/
         //     }
         // }
-    }  
+    }
 }
 
 SCENARIO("test_packet_processor_construct") {
@@ -102,7 +102,7 @@ SCENARIO("test_packet_processor_construct") {
         //          REQUIRE(mercury_packet_processor_construct(mc) == NULL);
         //      }
         // }
-        
+
         /*memory leaks*/
         // WHEN("mercury classifier is nullptr") {
         //     mc->c = nullptr;
@@ -138,7 +138,7 @@ SCENARIO("test_packet_processor_destruct") {
             THEN("no throws catched") {
                 REQUIRE_NOTHROW(mercury_packet_processor_destruct(mpp));
             }
-        }  
+        }
 
         // WHEN("destruct twice") {
         //     THEN("throws catched") {
@@ -241,7 +241,7 @@ SCENARIO("test packet_processor_ip_get_analysis_context") {
             mercury_packet_processor_ip_get_analysis_context(mpp, nullptr, 0, &time);
             THEN("not a valid result") {
                 REQUIRE_FALSE(mpp->analysis.result.is_valid());
- 
+
                 mercury_packet_processor_destruct(mpp);
             }
         }

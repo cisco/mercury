@@ -506,7 +506,7 @@ static inline int append_uint64_hex(char *dstr, int *doff, int dlen, int *trunc,
     for (auto i = 0; i < 16; i++) {
         outs[i] = hex_table[(n & mask) >> (15 - i) *4];
         mask = mask >> 4;
-    } 
+    }
 
     r += append_memcpy(dstr, doff, dlen, trunc,
                        outs, 16);
@@ -1012,6 +1012,10 @@ struct buffer_stream {
         append_null(dstr, &doff, dlen, &trunc);
     }
 
+    void set_truncated() { trunc = 1; }
+
+    bool is_truncated() const { return trunc == 1; }
+
     int snprintf(const char *fmt, ...) {
 
         if (trunc == 1) {
@@ -1148,6 +1152,16 @@ struct buffer_stream {
             return std::string{};
     }
 
+    /// returns the number of writeable bytes remaining in this
+    /// buffer_stream
+    ///
+    size_t writeable_length() const {
+        if (trunc) {
+            return 0;
+        }
+        return dlen - doff;
+    }
+
 };
 
 struct timestamp_writer {
@@ -1183,7 +1197,7 @@ public:
     /// than, to match, or be greater.
 
     int memcmp(const void *s, size_t n) {
-        size_t comp_length = (std::min)(n, (size_t)doff);
+        size_t comp_length = std::min(n, (size_t)doff);
         return ::memcmp(buffer, s, comp_length);
     }
 

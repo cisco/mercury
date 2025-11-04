@@ -69,7 +69,7 @@ public:
         std::unique_lock<std::mutex> m_lock(m);
         if (is_full()) {
             if (blocking) {
-                unsigned long blocked_count = 0;
+                [[maybe_unused]] unsigned long blocked_count = 0;
                 const unsigned long SLEEP_MICROSEC = 2;
                 while (is_full()) {
                     blocked_count++;

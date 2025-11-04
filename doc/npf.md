@@ -430,6 +430,3 @@ A secondary goal is to handle fingerprints generated from truncated protocol mes
 ## Comparison to Existing Fingerprinting Systems
 
 The JA3 fingerprinting system has a relatively compact representation, consisting of 32 hex characters, but it only applies to TLS, is not reversible, and does not utilize GREASE information.  The original mercury fingerprinting system is reversible, utilizes GREASE, and applies to multiple protocols, but it does not contain an explicit indication of the protocol, and is not compact.  Neither system allows to indicate versioning information that would enable the details of the fingerprinting scheme to adapt over time.  This note defines a fingerprint naming scheme that aims to provide the benefits of both systems, along with explicit information about protocols and versions, drawing inspiration from the [Common Platform Enumeration](https://nvd.nist.gov/products/cpe) naming system.
-
-
-

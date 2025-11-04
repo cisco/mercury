@@ -149,7 +149,7 @@ namespace bencoding {
     public:
         blist(datum &d, uint8_t _nesting_level = 1) : tmp(d), nesting_level(_nesting_level) {
             tmp.accept('l');
-            body = tmp; // Create two copies of data. 
+            body = tmp; // Create two copies of data.
                         // One for parsing json ouput and other for raw features.
             valid = d.is_not_null();
         }
@@ -182,7 +182,7 @@ namespace bencoding {
 
         dictionary(datum &d, uint8_t _nesting_level = 1) : tmp(d), nesting_level(_nesting_level) {
             tmp.accept('d');
-            body = tmp; // Create two copies of data. 
+            body = tmp; // Create two copies of data.
                         // One for parsing json ouput and other for raw features.
             valid = d.is_not_null();
         }
@@ -221,7 +221,7 @@ namespace bencoding {
 
             return true;
         }
-#endif //NDEBUG        
+#endif //NDEBUG
     };
 
     class bencoded_data {
