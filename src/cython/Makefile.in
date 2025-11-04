@@ -5,10 +5,14 @@ openssl_v1_1_or_newer = @OPENSSL_V1_1_OR_NEWER@
 openssl_v3_0_or_newer = @OPENSSL_V3_0_OR_NEWER@
 is_macos_arm = @IS_MACOS_ARM@
 
+# OpenSSL 3.0 is default (no flag needed)
 ifeq ($(openssl_v3_0_or_newer),yes)
-	FLAGS = -DOPENSSL_V3_0
+	# No flag for OpenSSL 3.0+ (default)
+	FLAGS =
 else ifeq ($(openssl_v1_1_or_newer),yes)
 	FLAGS = -DOPENSSL_V1_1
+else
+	FLAGS = -DOPENSSL_LEGACY
 endif
 
 FLAGS += -I../../src/libmerc/xsimd/include -O3

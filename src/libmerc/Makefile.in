@@ -27,10 +27,13 @@ STRIP = strip
 
 CFLAGS += -fPIC
 CFLAGS += -DDONT_USE_STDERR
+# OpenSSL 3.0 is default (no flag needed)
 ifeq ($(openssl_v3_0_or_newer),yes)
-CFLAGS += -DOPENSSL_V3_0
+# No flag for OpenSSL 3.0+ (default)
 else ifeq ($(openssl_v1_1_or_newer),yes)
 CFLAGS += -DOPENSSL_V1_1
+else
+CFLAGS += -DOPENSSL_LEGACY
 endif
 
 ifeq ($(is_macos_arm),yes)

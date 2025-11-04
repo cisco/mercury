@@ -17,9 +17,12 @@
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
 #include <openssl/err.h>
-#ifdef OPENSSL_V3_0
+#ifndef OPENSSL_V1_1
+#ifndef OPENSSL_LEGACY
+// OpenSSL 3.0+ is default
 #include <openssl/core_names.h>
 #include <openssl/params.h>
+#endif
 #endif
 #include <stdexcept>
 #include <cstring>
@@ -149,44 +152,60 @@ private:
     class hmac_wrapper {
         const EVP_MD *evp_md;
         // Version-specific members
-#ifdef OPENSSL_V3_0
-        EVP_MAC *mac;
-        EVP_MAC_CTX *mac_ctx;
+#ifdef OPENSSL_LEGACY
+        HMAC_CTX hmac;
+        bool initialized;
 #elif defined(OPENSSL_V1_1)
         HMAC_CTX *hmac;
 #else
-        HMAC_CTX hmac;
-        bool initialized;
+        // OpenSSL 3.0+ (default)
+        EVP_MAC *mac;
+        EVP_MAC_CTX *mac_ctx;
 #endif
 
     public:
         // Constructor
         hmac_wrapper(const EVP_MD *md)
             : evp_md(md)
-#ifdef OPENSSL_V3_0
-            , mac(nullptr), mac_ctx(nullptr)
+#ifdef OPENSSL_LEGACY
+            , initialized(false)
 #elif defined(OPENSSL_V1_1)
             , hmac(nullptr)
 #else
-            , initialized(false)
+            // OpenSSL 3.0+ (default)
+            , mac(nullptr), mac_ctx(nullptr)
 #endif
         {}
 
+        // Prevent copying to avoid double-free
+        hmac_wrapper(const hmac_wrapper&) = delete;
+        hmac_wrapper& operator=(const hmac_wrapper&) = delete;
+
         // Destructor
         ~hmac_wrapper() {
-#ifdef OPENSSL_V3_0
-            if (mac_ctx) EVP_MAC_CTX_free(mac_ctx);
-            if (mac) EVP_MAC_free(mac);
+#ifdef OPENSSL_LEGACY
+            if (initialized) HMAC_CTX_cleanup(&hmac);
 #elif defined(OPENSSL_V1_1)
             if (hmac) HMAC_CTX_free(hmac);
 #else
-            if (initialized) HMAC_CTX_cleanup(&hmac);
+            // OpenSSL 3.0+ (default)
+            if (mac_ctx) EVP_MAC_CTX_free(mac_ctx);
+            if (mac) EVP_MAC_free(mac);
 #endif
         }
 
         // Initialize HMAC with secret
         bool init(const uint8_t *secret, unsigned int secret_length) {
-#ifdef OPENSSL_V3_0
+#ifdef OPENSSL_LEGACY
+            HMAC_CTX_init(&hmac);
+            initialized = true;
+            return HMAC_Init(&hmac, secret, secret_length, evp_md);
+#elif defined(OPENSSL_V1_1)
+            hmac = HMAC_CTX_new();
+            if (!hmac) return false;
+            return HMAC_Init_ex(hmac, secret, secret_length, evp_md, NULL);
+#else
+            // OpenSSL 3.0+ (default)
             mac = EVP_MAC_fetch(NULL, "HMAC", NULL);
             if (!mac) return false;
 
@@ -199,60 +218,53 @@ private:
             };
 
             return EVP_MAC_init(mac_ctx, secret, secret_length, params);
-#elif defined(OPENSSL_V1_1)
-            hmac = HMAC_CTX_new();
-            if (!hmac) return false;
-            return HMAC_Init_ex(hmac, secret, secret_length, evp_md, NULL);
-#else
-            HMAC_CTX_init(&hmac);
-            initialized = true;
-            return HMAC_Init(&hmac, secret, secret_length, evp_md);
 #endif
         }
 
         // Re-initialize for next iteration
         bool reinit() {
-#ifdef OPENSSL_V3_0
-            return EVP_MAC_init(mac_ctx, NULL, 0, NULL);
+#ifdef OPENSSL_LEGACY
+            return HMAC_Init(&hmac, NULL, 0, NULL);
 #elif defined(OPENSSL_V1_1)
             return HMAC_Init_ex(hmac, NULL, 0, NULL, NULL);
 #else
-            return HMAC_Init(&hmac, NULL, 0, NULL);
+            // OpenSSL 3.0+ (default)
+            return EVP_MAC_init(mac_ctx, NULL, 0, NULL);
 #endif
         }
 
         // Update HMAC with data
         bool update(const uint8_t *data, size_t len) {
-#ifdef OPENSSL_V3_0
-            return EVP_MAC_update(mac_ctx, data, len);
+#ifdef OPENSSL_LEGACY
+            return HMAC_Update(&hmac, data, len);
 #elif defined(OPENSSL_V1_1)
             return HMAC_Update(hmac, data, len);
 #else
-            return HMAC_Update(&hmac, data, len);
+            // OpenSSL 3.0+ (default)
+            return EVP_MAC_update(mac_ctx, data, len);
 #endif
         }
 
         // Finalize and get HMAC result
         bool finalize(uint8_t *out, size_t out_len) {
-#ifdef OPENSSL_V3_0
-            return EVP_MAC_final(mac_ctx, out, NULL, out_len);
+#ifdef OPENSSL_LEGACY
+            (void)out_len;  // unused in this version
+            return HMAC_Final(&hmac, out, NULL);
 #elif defined(OPENSSL_V1_1)
             (void)out_len;  // unused in this version
             return HMAC_Final(hmac, out, NULL);
 #else
-            (void)out_len;  // unused in this version
-            return HMAC_Final(&hmac, out, NULL);
+            // OpenSSL 3.0+ (default)
+            return EVP_MAC_final(mac_ctx, out, NULL, out_len);
 #endif
         }
     };
 
 public:
-    // Unified KDF TLS 1.3 implementation - readable algorithm logic
     void kdf_tls13(uint8_t *secret, unsigned int secret_length,
                    const uint8_t *label, const unsigned int label_len,
                    uint8_t length, uint8_t *out_, unsigned int *out_len) {
 
-        // Prepare TLS 1.3 HKDF label format: [0x00][length][label_len][label][0x00]
         uint8_t new_label[max_label_len] = {0};
         new_label[1] = length;
         new_label[2] = label_len;
@@ -310,7 +322,6 @@ public:
             done_len += copy_len;
         }
     }
-
 };
 
 class hasher {
