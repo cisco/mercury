@@ -2,6 +2,8 @@
 
 * Added SNMP protocol identification with JSON and CBOR output.
 * Added SYSLOG protocol identification with JSON and CBOR output.
+* Removed usage of deprecated OpenSSL APIs and adopted recommended
+  OpenSSL 3.x interfaces
 
 =======
 ## VERSION 2.10.0
