@@ -953,7 +953,7 @@ inline bool is_faketls_util(const datum ciphersuite_vector) {
 
 #define type_ech_client_hello                0xfe0d
 
-static uint16_t static_extension_types[num_static_extension_types] = {
+inline constexpr uint16_t static_extension_types[num_static_extension_types] = {
         1,         /* max fragment length                    */
         5,         /* status_request                         */
         7,         /* client authz                           */
