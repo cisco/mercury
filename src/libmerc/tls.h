@@ -18,7 +18,6 @@
 #include "json_object.h"
 #include "x509.h"
 #include "quic_vli.hpp"
-#include "fingerprint.h"
 #include "tls_extensions.h"
 #include "ech.hpp"
 #include "mem_utils.hpp"
