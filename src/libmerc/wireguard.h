@@ -11,6 +11,7 @@
 #include "datum.h"
 #include "protocol.h"
 #include "match.h"
+#include "json_object.h"
 
 struct wireguard_handshake_initiation {
     uint8_t  message_type;                       // 1
