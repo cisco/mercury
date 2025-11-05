@@ -5,6 +5,9 @@
 #ifndef QUIC_VLI_HPP
 #define QUIC_VLI_HPP
 
+#include "datum.h"
+#include "buffer_stream.h"
+
 // class variable_length_integer implements the QUIC variable-length
 // integer encoding (following RFC9000, Section 16).  If there is a
 // parse error, i.e. the datum being parsed is too short, then the datum
