@@ -50,7 +50,6 @@ sources = [
     "mercury.pyx",
     "{mercury_dir}/src/libmerc/asn1/oid.cc".format(mercury_dir=mercury_dir),
     "{mercury_dir}/src/libmerc/utils.cc".format(mercury_dir=mercury_dir),
-    "{mercury_dir}/src/libmerc/analysis.cc".format(mercury_dir=mercury_dir),
     "{mercury_dir}/src/libmerc/libmerc.cc".format(mercury_dir=mercury_dir),
     "{mercury_dir}/src/libmerc/addr.cc".format(mercury_dir=mercury_dir),
     "{mercury_dir}/src/libmerc/http.cc".format(mercury_dir=mercury_dir),
