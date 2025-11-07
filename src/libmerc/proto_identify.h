@@ -999,7 +999,7 @@ public:
         }
 
         if (redis_request() and (tcp_pkt->header->dst_port == hton<uint16_t>(6379))) {
-        return tcp_msg_type_redis_request;
+            return tcp_msg_type_redis_request;
         }
         
         if (redis_response() and (tcp_pkt->header->src_port == hton<uint16_t>(6379))) {
