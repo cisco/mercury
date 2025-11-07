@@ -107,7 +107,7 @@ namespace redis
             len_str[length_str.length()] = '\0';
 
             int length = std::atoi(len_str);
-            if (length == 0 && len_str[0] != '0') {
+            if (length == 0 && (len_str[0] != '0' || len_str[1] != '\0')) {
                 return false; 
             }
 
@@ -376,7 +376,7 @@ namespace redis
             len_str[length_str.length()] = '\0';
 
             int length = std::atoi(len_str);
-            if (length == 0 && len_str[0] != '0') {
+            if (length == 0 && (len_str[0] != '0' || len_str[1] != '\0')) {
                 return false; 
             }
 
