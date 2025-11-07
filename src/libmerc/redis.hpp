@@ -96,7 +96,7 @@ namespace redis
             if (d.is_null())
                 return false;
 
-            // Limit to 10 digits (fits signed 32-bit max value 2,147,483,647)
+            // Limit to 10 digits (The string can be of any size, but by default, Redis limits it to 512 MB)
             constexpr ssize_t n = 10;
             if (length_str.length() < 0 || length_str.length() > n) {
                 return false;
@@ -365,7 +365,7 @@ namespace redis
             if (d.is_null())
                 return false;
 
-            // Limit to 10 digits (fits signed 32-bit max value 2,147,483,647)
+            // Limit to 10 digits (The string can be of any size, but by default, Redis limits it to 512 MB)
             constexpr ssize_t n = 10;
             if (length_str.length() < 0 || length_str.length() > n) {
                 return false;
