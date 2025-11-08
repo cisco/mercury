@@ -509,6 +509,46 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ftp with resources-mp")
     }
 }
 
+TEST_CASE_METHOD(LibmercTestFixture, "test imap with resources-mp")
+{
+
+    auto imap_check = [&](int expected_count, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(expected_count == counter());
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, int>> test_set_up{
+        {test_config{
+             .m_lc{.metadata_output=true, .do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"imap"},
+             .m_pc{"imap.pcap"}},
+
+         52}, 
+         {test_config{
+             .m_lc{.metadata_output=true, .do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"imap"},
+             .m_pc{"imap2.pcap"}},
+
+         5},
+
+        {test_config{
+             .m_lc{.metadata_output=true, .do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"imap"},
+             .m_pc{"top_100_fingerprints.pcap"}},
+         0}
+    };
+
+    for (auto &[config, count] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        imap_check(count, config.m_lc);
+    }
+}
+
 TEST_CASE_METHOD(LibmercTestFixture, "test decrypted quic with resources-mp")
 {
 

@@ -19,6 +19,7 @@
 #include "libmerc/crypto_assess.h"
 #include "libmerc/decimal_int.hpp"
 #include "libmerc/hex.hpp"
+#include "libmerc/imap.hpp"
 
 // Macros to colorize output
 //
@@ -100,6 +101,10 @@ int main(int, char *[]) {
         {
             "hex_udl",
             &hex_udl_unit_tests
+        },
+        {
+            "imap",
+            &imap::unit_test
         },
     };
     size_t num_tests = 0;

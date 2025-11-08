@@ -43,6 +43,7 @@
 #include "ldap.hpp"
 #include "tacacs.hpp"
 #include "rdp.hpp"
+#include "imap.hpp"
 
 #include "dhcp.h"  // udp protocols
 #include "quic.h"
@@ -101,6 +102,8 @@ enum tcp_msg_type {
     tcp_msg_type_ftp_request,
     tcp_msg_type_ftp_response,
     tcp_msg_type_rdp,
+    tcp_msg_type_imap_request,
+    tcp_msg_type_imap_response,
 };
 
 // Template-based stack-allocated structure to replace std::vector<T>
@@ -467,6 +470,8 @@ class traffic_selector {
     bool select_tofsee{false};
     bool select_dhcp{false};
     bool select_syslog{false};
+    bool select_imap_request{false};
+    bool select_imap_response{false};
 
 public:
 
@@ -538,6 +543,10 @@ public:
 
     bool syslog() const { return select_syslog; }
 
+    bool imap_request() const { return select_imap_request; }
+
+    bool imap_response() const { return select_imap_response; }
+
     void disable_all() {
         tcp.disable_all();
         tcp4.disable_all();
@@ -576,6 +585,8 @@ public:
         select_smtp = false;
         select_tofsee = false;
         select_dhcp = false;
+        select_imap_request = false;
+        select_imap_response = false;
 
     }
 
@@ -637,6 +648,19 @@ public:
         else if(protocols["ftp.request"])
         {
             select_ftp_request = true;
+        }
+        if(protocols["imap"] || protocols["all"])
+        {
+            select_imap_request = true;
+            select_imap_response = true;
+        }
+        else if (protocols["imap.request"])
+        {
+            select_imap_request = true;
+        }
+        else if (protocols["imap.response"])
+        {
+            select_imap_response = true;
         }
         if (protocols["http"] || protocols["all"])
         {
@@ -967,6 +991,14 @@ public:
 
         if (mysql_login_request() and ( (tcp_pkt->header->src_port == hton<uint16_t>(3306)) || (tcp_pkt->header->dst_port == hton<uint16_t>(3306)) ) ) {
             return tcp_msg_type_mysql_login_request;
+        }
+
+        if (imap_request() and (tcp_pkt->header->dst_port == hton<uint16_t>(143))) {
+            return tcp_msg_type_imap_request;
+        }
+
+        if (imap_response() and (tcp_pkt->header->src_port == hton<uint16_t>(143))) {
+            return tcp_msg_type_imap_response;
         }
 
         return tcp_msg_type_unknown;
