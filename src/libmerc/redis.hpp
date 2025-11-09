@@ -536,115 +536,66 @@ namespace redis
 #ifndef NDEBUG
     static bool unit_test(){
         // array command parsing with JSON validation
-        uint8_t get_command[] = "*2\r\n$3\r\nGET\r\n$3\r\nkey\r\n";
-        datum get_datum{get_command, get_command + sizeof(get_command) - 1};
-        redis::request get_req{get_datum};
-        if (!get_req.is_not_empty()){
-            return false;
-        }
-
-        // Verify JSON output
-        char actual_buf[1024];
-        buffer_stream actual_bs(actual_buf, sizeof(actual_buf));
-        struct json_object actual_record(&actual_bs);
-        get_req.write_json(actual_record, false);
-        actual_record.close();
-        char expected_buf[1024];
-        buffer_stream expected_bs(expected_buf, sizeof(expected_buf));
-        struct json_object expected_record(&expected_bs);
-        struct json_object redis_obj(expected_record, "redis");
-        struct json_object request_obj(redis_obj, "request");
-        request_obj.print_key_string("command", "GET");
-        request_obj.close();
-        redis_obj.close();
-        expected_record.close();
-
-        if (actual_bs.length() != expected_bs.length() ||
-            memcmp(actual_buf, expected_buf, actual_bs.length()) != 0) {
+        if (!test_json_output<redis::request>(
+            "*2\r\n$3\r\nGET\r\n$3\r\nkey\r\n",
+            "{\"redis\":{\"request\":{\"command\":\"GET\"}}}")
+        ) {
             return false;
         }
 
         // inline command parsing
-        uint8_t ping_command[] = "PING\r\n";
-        datum ping_datum{ping_command, ping_command + sizeof(ping_command) - 1};
-        redis::request ping_req{ping_datum};
-        if (!ping_req.is_not_empty()){
+        if (!test_json_output<redis::request>(
+            "PING\r\n",
+            "{\"redis\":{\"request\":{\"command\":\"PING\"}}}")
+        ) {
             return false;
         }
 
         // simple string response with JSON validation
-        uint8_t ok_response[] = "+OK\r\n";
-        datum ok_datum{ok_response, ok_response + sizeof(ok_response) - 1};
-        redis::response ok_resp{ok_datum};
-        if (!ok_resp.is_not_empty()){
-            return false;
-        }
-        
-        // Verify JSON output
-        char actual_buf2[1024];
-        buffer_stream actual_bs2(actual_buf2, sizeof(actual_buf2));
-        struct json_object actual_record2(&actual_bs2);
-        ok_resp.write_json(actual_record2, false);
-        actual_record2.close();
-        char expected_buf2[1024];
-        buffer_stream expected_bs2(expected_buf2, sizeof(expected_buf2));
-        struct json_object expected_record2(&expected_bs2);
-        struct json_object redis_obj2(expected_record2, "redis");
-        struct json_object response_obj2(redis_obj2, "response");
-        response_obj2.print_key_string("type", "simple_string");
-        response_obj2.print_key_string("data", "OK");
-        response_obj2.close();
-        redis_obj2.close();
-        expected_record2.close();
-
-        if (actual_bs2.length() != expected_bs2.length() ||
-            memcmp(actual_buf2, expected_buf2, actual_bs2.length()) != 0) {
+        if (!test_json_output<redis::response>(
+            "+OK\r\n",
+            "{\"redis\":{\"response\":{\"type\":\"simple_string\",\"data\":\"OK\"}}}")
+        ) {
             return false;
         }
 
         // error response
-        uint8_t error_response[] = "-ERR unknown command\r\n";
-        datum error_datum{error_response, error_response + sizeof(error_response) - 1};
-        redis::response error_resp{error_datum};
-        if (!error_resp.is_not_empty()){
+        if (!test_json_output<redis::response>(
+            "-ERR unknown command\r\n",
+            "{\"redis\":{\"response\":{\"type\":\"error\",\"data\":\"ERR unknown command\"}}}")
+        ) {
             return false;
         }
 
         // integer response
-        uint8_t int_response[] = ":1000\r\n";
-        datum int_datum{int_response, int_response + sizeof(int_response) - 1};
-        redis::response int_resp{int_datum};
-        if (!int_resp.is_not_empty()){
+        if (!test_json_output<redis::response>(
+            ":1000\r\n",
+            "{\"redis\":{\"response\":{\"type\":\"integer\",\"data\":\"1000\"}}}")
+        ) {
             return false;
         }
 
         // bulk string response with JSON validation
-        uint8_t bulk_response[] = "$5\r\nhello\r\n";
-        datum bulk_datum{bulk_response, bulk_response + sizeof(bulk_response) - 1};
-        redis::response bulk_resp{bulk_datum};
-        if (!bulk_resp.is_not_empty()){
+        if (!test_json_output<redis::response>(
+            "$5\r\nhello\r\n",
+            "{\"redis\":{\"response\":{\"type\":\"bulk_string\",\"data\":\"hello\"}}}")
+        ) {
             return false;
         }
 
-        // Verify JSON output
-        char actual_buf3[1024];
-        buffer_stream actual_bs3(actual_buf3, sizeof(actual_buf3));
-        struct json_object actual_record3(&actual_bs3);
-        bulk_resp.write_json(actual_record3, false);
-        actual_record3.close();
-        char expected_buf3[1024];
-        buffer_stream expected_bs3(expected_buf3, sizeof(expected_buf3));
-        struct json_object expected_record3(&expected_bs3);
-        struct json_object redis_obj3(expected_record3, "redis");
-        struct json_object response_obj3(redis_obj3, "response");
-        response_obj3.print_key_string("type", "bulk_string");
-        response_obj3.print_key_string("data", "hello");
-        response_obj3.close();
-        redis_obj3.close();
-        expected_record3.close();
+        // null bulk string response (value is null)
+        if (!test_json_output<redis::response>(
+            "$-1\r\n",
+            "{\"redis\":{\"response\":{\"type\":\"bulk_string\",\"data\":\"null\"}}}")
+        ) {
+            return false;
+        }
 
-        if (actual_bs3.length() != expected_bs3.length() ||
-            memcmp(actual_buf3, expected_buf3, actual_bs3.length()) != 0) {
+        // empty bulk string response (zero length)
+        if (!test_json_output<redis::response>(
+            "$0\r\n\r\n",
+            "{\"redis\":{\"response\":{\"type\":\"bulk_string\",\"data\":\"\"}}}")
+        ) {
             return false;
         }
 
