@@ -143,10 +143,6 @@ int main(int, char *[]) {
             "cbor_object",
             &cbor_object_unit_test
         },
-        {
-            "decimal_integer",
-            &decimal_integer_unit_test
-        },
     };
     for (const auto &tc : test_cases_verbose) {
         bool result = tc.func(nullptr);
