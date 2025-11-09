@@ -416,7 +416,6 @@ namespace redis
             if (!parse_bulk_string_element(d, command_data))
                 return false;
 
-            // Check if command is AUTH (case-insensitive)
             is_auth_command = (command_data.length() == 4 &&
                                (command_data.data[0] == 'A' || command_data.data[0] == 'a') &&
                                (command_data.data[1] == 'U' || command_data.data[1] == 'u') &&
@@ -453,7 +452,6 @@ namespace redis
 
             type = INLINE_COMMAND;
 
-            // Check if command is AUTH (case-insensitive)
             is_auth_command = (command_data.length() == 4 &&
                                (command_data.data[0] == 'A' || command_data.data[0] == 'a') &&
                                (command_data.data[1] == 'U' || command_data.data[1] == 'u') &&
