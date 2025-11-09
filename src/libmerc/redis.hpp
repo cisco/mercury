@@ -301,7 +301,10 @@ namespace redis
                     break;
                 case BULK_STRING:
                     redis_response.print_key_string("type", "bulk_string");
-                    if (parsed_data.is_not_empty()){
+                    if (parsed_data.data == nullptr){
+                        redis_response.print_key_string("data", "NULL");
+                    }
+                    else if (parsed_data.is_not_empty()){
                         // Limit to first 100 characters
                         const size_t max_len = 100;
                         const auto data_len = static_cast<size_t>(parsed_data.length());
@@ -314,7 +317,7 @@ namespace redis
                         }
                     }
                     else{
-                        redis_response.print_key_string("data", "null");
+                        redis_response.print_key_string("data", "");
                     }
                     break;
                 // case ARRAY:
@@ -581,10 +584,10 @@ namespace redis
             return false;
         }
 
-        // null bulk string response (value is null)
+        // null bulk string response (value is NULL)
         if (!test_json_output<redis::response>(
             "$-1\r\n",
-            "{\"redis\":{\"response\":{\"type\":\"bulk_string\",\"data\":\"null\"}}}")
+            "{\"redis\":{\"response\":{\"type\":\"bulk_string\",\"data\":\"NULL\"}}}")
         ) {
             return false;
         }
