@@ -563,218 +563,81 @@ namespace imap {
     };
 
 #ifndef NDEBUG
-    
-    struct test_case {
-        const char *name;
-        const char *input;
-        const char *expected_json;  // Only used for positive tests
-        bool is_request;  // true for requests, false for responses
-        bool is_negative;  // true for negative tests
-    };
-    
-    // Compare actual JSON output against expected JSON using RapidJSON
-    static bool validate_json(const char *test_name, 
-                             const std::string &actual_json,
-                             const std::string &expected_json,
-                             FILE *output = nullptr) {
-        (void)test_name;
-        rapidjson::Document actual_doc;
-        rapidjson::Document expected_doc;
+    static bool unit_test() {
+        // ================================================================
+        // POSITIVE TEST CASES - Requests
+        // ================================================================
         
-        expected_doc.Parse(expected_json.c_str());
-        
-        // Check for parse errors in expected
-        if (expected_doc.HasParseError()) {
-            if (output) {
-                fprintf(output, "  ERROR: Expected JSON Parse Error: %s (offset %zu)\n",
-                       rapidjson::GetParseError_En(expected_doc.GetParseError()),
-                       expected_doc.GetErrorOffset());
-            }
+        // Multi-line IMAP requests
+        if (!test_json_output<imap::imap_requests>(
+            "a0000 CAPABILITY\r\na0001 LOGIN \"neulingern\" \"password\"\r\na0002 LIST\r\n",
+            R"({"imap":[{"request":{"is_tagged":true,"tag":"a0000","command":"CAPABILITY"}},{"request":{"is_tagged":true,"tag":"a0001","command":"LOGIN","username":"\"neulingern\"","password":"\"password\""}},{"request":{"is_tagged":true,"tag":"a0002","command":"LIST"}}]})"
+        )) {
             return false;
         }
         
-        actual_doc.Parse(actual_json.c_str());
-        
-        // Check for parse errors in actual
-        if (actual_doc.HasParseError()) {
-            if (output) {
-                fprintf(output, "  ERROR: Actual JSON Parse Error: %s (offset %zu)\n",
-                       rapidjson::GetParseError_En(actual_doc.GetParseError()),
-                       actual_doc.GetErrorOffset());
-            }
+        // Single line request
+        if (!test_json_output<imap::imap_requests>(
+            "a0001 LOGIN \"neulingern\" \"password\"\r\n",
+            R"({"imap":[{"request":{"is_tagged":true,"tag":"a0001","command":"LOGIN","username":"\"neulingern\"","password":"\"password\""}}]})"
+        )) {
             return false;
         }
         
-        if (output) {
-            fprintf(output, "  Expected: %s\n", expected_json.c_str());
-            fprintf(output, "  Actual:   %s\n", actual_json.c_str());
-        }
-        
-        // Compare the two JSON documents
-        if (actual_doc == expected_doc) {
-            if (output) {
-                fprintf(output, "  JSONs are equal\n");
-            }
-            return true;
-        } else {
-            if (output) {
-                fprintf(output, "  JSONs are not equal\n");
-            }
-            return false;
-        }
-    }
-
-    // Helper function to run a single test case
-    static bool run_test_case(const test_case &tc, int test_num, FILE *output = nullptr) {
-        if (output) fprintf(output, "[Test %d] %s\n", test_num, tc.name);
-        if (output) fprintf(output, "  Input: %s\n", tc.input);
-        
-        datum data{tc.input};
-        char buf[4096];
-        struct buffer_stream stream(buf, sizeof(buf));
-        struct json_object json_obj(&stream);
-        
-        bool parsed = false;
-        if (tc.is_request) {
-            imap::imap_requests reqs{data};
-            if (reqs.is_not_empty()) {
-                reqs.write_json(json_obj, false);
-                parsed = true;
-            }
-        } else {
-            imap::imap_responses resps{data};
-            if (resps.is_not_empty()) {
-                resps.write_json(json_obj, false);
-                parsed = true;
-            }
-        }
-        
-        // Handle negative test cases
-        if (tc.is_negative) {
-            if (!parsed) {
-                if (output) fprintf(output, "  Result: Parser CORRECTLY rejected invalid input\n");
-                if (output) fprintf(output, "PASS [Test %d] - Negative test passed\n\n", test_num);
-                return true;  // PASS - rejected as expected
-            } else {
-                if (output) {
-                    fprintf(output, "  ERROR: Parser SHOULD have rejected this invalid input!\n");
-                    json_obj.close();
-                    std::string json_out(buf, stream.length());
-                    fprintf(output, "  Parser output: %s\n", json_out.c_str());
-                    fprintf(output, "FAIL [Test %d] - Negative test FAILED (parser too lenient)\n\n", test_num);
-                }
-                return false;  // FAIL - should have rejected
-            }
-        }
-        
-        // Handle positive test cases
-        if (!parsed) {
-            if (output) fprintf(output, "  ERROR: Parsing failed!\n");
-            if (output) fprintf(output, "FAIL [Test %d]\n\n", test_num);
+        // UTF-8 in credentials (IMAP4rev2)
+        if (!test_json_output<imap::imap_requests>(
+            "a001 LOGIN \"用户@example.com\" \"密码123\"\r\n",
+            R"({"imap":[{"request":{"is_tagged":true,"tag":"a001","command":"LOGIN","username":"\"\u7528\u6237@example.com\"","password":"\"\u5bc6\u7801123\""}}]})"
+        )) {
             return false;
         }
         
-        if (output) fprintf(output, "  Parsing: SUCCESS\n");
-        json_obj.close();
-        std::string json_out(buf, stream.length());
+        // ================================================================
+        // POSITIVE TEST CASES - Responses
+        // ================================================================
         
-        if (!validate_json(tc.name, json_out, tc.expected_json, output)) {
-            if (output) fprintf(output, "FAIL [Test %d]\n\n", test_num);
+        // Multi-line responses (mixed tagged/untagged)
+        if (!test_json_output<imap::imap_responses>(
+            "* CAPABILITY IMAP4 IMAP4rev1 IDLE\r\na0000 OK CAPABILITY completed.\r\n",
+            R"({"imap":[{"response":{"is_tagged":false,"type":"capability","data":"IMAP4 IMAP4rev1 IDLE"}},{"response":{"is_tagged":true,"tag":"a0000","status":"OK","text":"CAPABILITY completed."}}]})"
+        )) {
             return false;
         }
         
-        if (output) fprintf(output, "  JSON validation: SUCCESS\n");
-        if (output) fprintf(output, "PASS [Test %d]\n\n", test_num);
-        return true;
-    }
-    
-    static bool unit_test(FILE *output = nullptr) {    
-        test_case all_tests[] = {
-            // ================================================================
-            // POSITIVE TEST CASES (Tests 1-4)
-            // ================================================================
-            
-            // Test 1: Multi-line IMAP requests
-            {
-                "Multi-line IMAP requests",
-                "a0000 CAPABILITY\r\na0001 LOGIN \"neulingern\" \"password\"\r\na0002 LIST\r\n",
-                R"({"imap":[{"request":{"is_tagged":true,"tag":"a0000","command":"CAPABILITY"}},{"request":{"is_tagged":true,"tag":"a0001","command":"LOGIN","username":"\"neulingern\"","password":"\"password\""}},{"request":{"is_tagged":true,"tag":"a0002","command":"LIST"}}]})",
-                true,
-                false
-            },
-            // Test 2: Single line request
-            {
-                "Single line request continuation",
-                "a0001 LOGIN \"neulingern\" \"password\"\r\n",
-                R"({"imap":[{"request":{"is_tagged":true,"tag":"a0001","command":"LOGIN","username":"\"neulingern\"","password":"\"password\""}}]})",
-                true,
-                false
-            },
-            // Test 3: Multi-line responses (mixed tagged/untagged)
-            {
-                "Multi-line responses (mixed tagged/untagged)",
-                "* CAPABILITY IMAP4 IMAP4rev1 IDLE\r\na0000 OK CAPABILITY completed.\r\n",
-                R"({"imap":[{"response":{"is_tagged":false,"type":"capability","data":"IMAP4 IMAP4rev1 IDLE"}},{"response":{"is_tagged":true,"tag":"a0000","status":"OK","text":"CAPABILITY completed."}}]})",
-                false,
-                false
-            },
-            // Test 4: Single line response
-            {
-                "Single line response continuation",
-                "a0001 OK LOGIN completed.\r\n",
-                R"({"imap":[{"response":{"is_tagged":true,"tag":"a0001","status":"OK","text":"LOGIN completed."}}]})",
-                false,
-                false
-            },
-            
-            // ================================================================
-            // NEGATIVE TEST CASES (Tests 5-6)
-            // ================================================================
-            
-            // Test 5: Multi-line with garbage on both lines
-            {
-                "Negative: Multi-line all garbage",
-                "\x00\xFF\xFE\x01\x02garbage\r\n\x00\xFF\xFE\x01\x02garbage\r\n",
-                nullptr,  // No expected JSON for negative tests
-                true,
-                true
-            },
-            // Test 6: Missing CRLF terminator
-            {
-                "Negative: Missing CRLF",
-                "a004 CAPABILITY",  // No \r\n at the end
-                nullptr,  // No expected JSON for negative tests
-                true,
-                true
-            },
-            
-            // ================================================================
-            // IMAP4rev2-SPECIFIC TESTS (Tests 7-8)
-            // ================================================================
-            
-            // Test 7: UTF-8 in credentials
-            {
-                "IMAP4rev2: UTF-8 in credentials",
-                "a001 LOGIN \"用户@example.com\" \"密码123\"\r\n",
-                R"({"imap":[{"request":{"is_tagged":true,"tag":"a001","command":"LOGIN","username":"\"\u7528\u6237@example.com\"","password":"\"\u5bc6\u7801123\""}}]})",
-                true,
-                false
-            },
-            // Test 8: New IMAP4rev2 keywords
-            {
-                "IMAP4rev2: New keywords",
-                "* FLAGS (\\\\Seen \\\\Answered $Forwarded $MDNSent)\r\n",
-                "{\"imap\":[{\"response\":{\"is_tagged\":false,\"type\":\"data\",\"data\":\"FLAGS (\\\\\\\\Seen \\\\\\\\Answered $Forwarded $MDNSent)\"}}]}",
-                false,
-                false
-            }
-        };
+        // Single line response
+        if (!test_json_output<imap::imap_responses>(
+            "a0001 OK LOGIN completed.\r\n",
+            R"({"imap":[{"response":{"is_tagged":true,"tag":"a0001","status":"OK","text":"LOGIN completed."}}]})"
+        )) {
+            return false;
+        }
         
-        // Run all tests in a single loop
-        for (size_t i = 0; i < sizeof(all_tests) / sizeof(all_tests[0]); i++) {
-            if (!run_test_case(all_tests[i], i + 1, output)) {
-                return false;
-            }
+        // New IMAP4rev2 keywords
+        if (!test_json_output<imap::imap_responses>(
+            "* FLAGS (\\\\Seen \\\\Answered $Forwarded $MDNSent)\r\n",
+            "{\"imap\":[{\"response\":{\"is_tagged\":false,\"type\":\"data\",\"data\":\"FLAGS (\\\\\\\\Seen \\\\\\\\Answered $Forwarded $MDNSent)\"}}]}"
+        )) {
+            return false;
+        }
+        
+        // ================================================================
+        // NEGATIVE TEST CASES - Should fail to parse
+        // ================================================================
+        
+        // Multi-line with garbage on both lines - should fail
+        if (test_json_output<imap::imap_requests>(
+            "\x00\xFF\xFE\x01\x02garbage\r\n\x00\xFF\xFE\x01\x02garbage\r\n",
+            ""
+        )) {
+            return false;
+        }
+        
+        // Missing CRLF terminator - should fail
+        if (test_json_output<imap::imap_requests>(
+            "a004 CAPABILITY",
+            ""
+        )) {
+            return false;
         }
         
         return true;
