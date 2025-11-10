@@ -122,7 +122,7 @@ namespace {
     }
 
     // accepts zero or more decimal digits from \param d and
-    // accumulates their value into \param value in the positive direction
+    // accumulates their value into \param v in the positive direction
     //
     // \note: this function stops reading from \param d when it
     // encounters the end of the \ref datum, or a character not in the
@@ -142,7 +142,7 @@ namespace {
     }
 
     // accepts zero or more decimal digits from \param d and
-    // accumulates their value into \param value in the negative direction
+    // accumulates their value into \param v in the negative direction
     //
     // \note: this function stops reading from \param d when it
     // encounters the end of the \ref datum, or a character not in the
@@ -194,7 +194,7 @@ inline decimal_integer<T>::decimal_integer(datum &d) {
         accumulate_digits<double_width_t>(value, d);
     }
     ptrdiff_t diff = d.data - tmp;
-    if (diff + 1 > (ptrdiff_t)max_digits<T>()) {
+    if (diff > (ptrdiff_t)max_digits<T>()) {
         d.set_null();
     }
     if (value > std::numeric_limits<T>::max() or value < std::numeric_limits<T>::min()) {
@@ -218,7 +218,7 @@ struct decimal_integer_test_case {
             if (tmp.is_not_null() != is_not_null or (is_not_null and (integer.get_value() != value))) {
                 if (f) {
                     fprintf(f, "input: \""); text.fprint(f); fputs("\"\t", f);
-                    fprintf(f, "error in unit test: expected (%u,%" PRId64 "), got (%u,%" PRId64 ")\n",
+                    fprintf(f, "error in unit test: expected (%u,%ld), got (%u,%ld)\n",
                             is_not_null, (int64_t)value,
                             tmp.is_not_null(), (int64_t)integer.get_value());
                 }
@@ -228,7 +228,7 @@ struct decimal_integer_test_case {
             decimal_integer<T> integer{tmp};
             if (tmp.is_not_null() != is_not_null or (is_not_null and (integer.get_value() != value))) {
                 if (f) {
-                    fprintf(f, "error in unit test: expected (%u,%" PRIu64 "), got (%u,%" PRIu64 ")\n",
+                    fprintf(f, "error in unit test: expected (%u,%lu), got (%u,%lu)\n",
                             is_not_null, (uint64_t)value,
                             tmp.is_not_null(), (uint64_t)integer.get_value());
                 }
@@ -323,25 +323,5 @@ inline bool decimal_integer_unit_test(FILE *f=nullptr) {
 }
 
 #endif // NDEBUG
-
-[[maybe_unused]] static int decimal_integer_fuzz_test(const uint8_t *data, size_t size) {
-    datum text_integer{data, data+size};
-
-    datum copy1{text_integer};
-    decimal_integer<int8_t>{copy1};
-    datum copy2{text_integer};
-    decimal_integer<uint8_t>{copy2};
-    datum copy3{text_integer};
-    decimal_integer<int16_t>{copy3};
-    datum copy4{text_integer};
-    decimal_integer<uint16_t>{copy4};
-    datum copy5{text_integer};
-    decimal_integer<int32_t>{copy5};
-    datum copy6{text_integer};
-    decimal_integer<uint32_t>{copy6};
-
-    return 0;
-}
-
 
 #endif  // DECIMAL_INT_HPP
