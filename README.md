@@ -196,6 +196,9 @@ DETAILS
       iec               IEC 60870-5-104
       lldp              LLDP message
       ldap              LDAP
+      imap              IMAP request and response
+      imap.request      IMAP request
+      imap.response     IMAP response
       mdns              multicast DNS
       mysql             MySQL Client/Server Protocol
       nbns              NetBIOS Name Service
