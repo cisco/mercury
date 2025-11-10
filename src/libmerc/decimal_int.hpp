@@ -324,4 +324,24 @@ inline bool decimal_integer_unit_test(FILE *f=nullptr) {
 
 #endif // NDEBUG
 
+[[maybe_unused]] static int decimal_integer_fuzz_test(const uint8_t *data, size_t size) {
+    datum text_integer{data, data+size};
+
+    datum copy1{text_integer};
+    decimal_integer<int8_t>{copy1};
+    datum copy2{text_integer};
+    decimal_integer<uint8_t>{copy2};
+    datum copy3{text_integer};
+    decimal_integer<int16_t>{copy3};
+    datum copy4{text_integer};
+    decimal_integer<uint16_t>{copy4};
+    datum copy5{text_integer};
+    decimal_integer<int32_t>{copy5};
+    datum copy6{text_integer};
+    decimal_integer<uint32_t>{copy6};
+
+    return 0;
+}
+
+
 #endif  // DECIMAL_INT_HPP
