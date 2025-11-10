@@ -7,6 +7,7 @@
 #ifndef IMAP_HPP
 #define IMAP_HPP
 
+#include <cstring>
 #include "protocol.h"
 #include "datum.h"
 #include "rapidjson/document.h"
@@ -195,6 +196,57 @@ namespace imap {
         bool is_not_empty() const { return isValid; }
     };
 
+    // Validate if command is a known IMAP command per RFC 3501
+    static bool is_valid_imap_command(const datum &cmd) {
+        // command-any: Valid in all states
+        if (cmd.case_insensitive_match("capability") ||
+            cmd.case_insensitive_match("logout") ||
+            cmd.case_insensitive_match("noop")) {
+            return true;
+        }
+        
+        // command-auth: Valid in Authenticated or Selected state
+        if (cmd.case_insensitive_match("append") ||
+            cmd.case_insensitive_match("create") ||
+            cmd.case_insensitive_match("delete") ||
+            cmd.case_insensitive_match("examine") ||
+            cmd.case_insensitive_match("list") ||
+            cmd.case_insensitive_match("lsub") ||
+            cmd.case_insensitive_match("rename") ||
+            cmd.case_insensitive_match("select") ||
+            cmd.case_insensitive_match("status") ||
+            cmd.case_insensitive_match("subscribe") ||
+            cmd.case_insensitive_match("unsubscribe")) {
+            return true;
+        }
+        
+        // command-nonauth: Valid in Not Authenticated state
+        if (cmd.case_insensitive_match("login") ||
+            cmd.case_insensitive_match("authenticate") ||
+            cmd.case_insensitive_match("starttls")) {
+            return true;
+        }
+        
+        // command-select: Valid in Selected state
+        if (cmd.case_insensitive_match("check") ||
+            cmd.case_insensitive_match("close") ||
+            cmd.case_insensitive_match("expunge") ||
+            cmd.case_insensitive_match("copy") ||
+            cmd.case_insensitive_match("fetch") ||
+            cmd.case_insensitive_match("store") ||
+            cmd.case_insensitive_match("uid") ||
+            cmd.case_insensitive_match("search")) {
+            return true;
+        }
+        
+        // IMAP extensions start with 'X' - we'll accept them
+        if (cmd.length() > 0 && (cmd.data[0] == 'X' || cmd.data[0] == 'x')) {
+            return true;
+        }
+        
+        return false;  // Unknown command
+    }
+
     // IMAP client request parser
     // Parses imap request commands: <tag> SP <command> [SP <arguments>] CRLF
     // Used internally by imap_requests multi-line parser
@@ -216,6 +268,12 @@ namespace imap {
             isValid{tag.is_not_empty() && command.is_not_empty() && d.is_empty()}
         {
             mercury_debug("%s: processing IMAP request packet\n", __func__);
+            
+            // Validate command is a known IMAP command
+            if (isValid && !is_valid_imap_command(command)) {
+                mercury_debug("%s: rejecting unknown IMAP command\n", __func__);
+                isValid = false;
+            }
         }
 
         void write_json(struct json_object &record, bool metadata) {
@@ -300,6 +358,63 @@ namespace imap {
             }
         }
 
+        enum class untagged_type {
+            resp_cond_state,  // * OK/NO/BAD
+            capability,       // * CAPABILITY
+            other_data        // mailbox-data / message-data / other
+        };
+
+        // Determine untagged response type from first word
+        static untagged_type classify_untagged_response(const imap_token &first_word) {
+            if (first_word.case_insensitive_match("ok") ||
+                first_word.case_insensitive_match("no") ||
+                first_word.case_insensitive_match("bad")) {
+                return untagged_type::resp_cond_state;
+            }
+            if (first_word.case_insensitive_match("capability")) {
+                return untagged_type::capability;
+            }
+            return untagged_type::other_data;
+        }
+
+        // Print untagged response based on type
+        static void print_untagged_response(struct json_object &imap_response, 
+                                           const imap_token &first_word,
+                                           datum &data_copy,
+                                           const datum &original_data) {
+            untagged_type type = classify_untagged_response(first_word);
+            switch (type) {
+                case untagged_type::resp_cond_state:
+                    // resp-cond-state: * (OK|NO|BAD) SP resp-text
+                    imap_response.print_key_string("type", "resp-cond-state");
+                    imap_response.print_key_json_string("status", first_word);
+                    if (data_copy.is_not_empty() && data_copy.data[0] == ' ') {
+                        data_copy.skip(1);
+                    }
+                    if (data_copy.is_not_empty()) {
+                        imap_response.print_key_json_string("text", data_copy);
+                    }
+                    break;
+                    
+                case untagged_type::capability:
+                    // capability-data: * CAPABILITY ...
+                    imap_response.print_key_string("type", "capability");
+                    if (data_copy.is_not_empty() && data_copy.data[0] == ' ') {
+                        data_copy.skip(1);
+                    }
+                    if (data_copy.is_not_empty()) {
+                        imap_response.print_key_json_string("data", data_copy);
+                    }
+                    break;
+                    
+                case untagged_type::other_data:
+                    // mailbox-data / message-data / other
+                    imap_response.print_key_string("type", "data");
+                    imap_response.print_key_json_string("data", original_data);
+                    break;
+            }
+        }
+
         void write_json(struct json_object &record, bool metadata) {
             (void)metadata;
             if (!isValid) {
@@ -310,41 +425,9 @@ namespace imap {
             imap_response.print_key_bool("is_tagged", !is_untagged);
             
             if (is_untagged) {
-                // Untagged response: differentiate types based on first word
                 datum data_copy = response_data_field;
                 imap_token first_word{data_copy};
-                
-                if (first_word.case_insensitive_match("ok") ||
-                    first_word.case_insensitive_match("no") ||
-                    first_word.case_insensitive_match("bad")) {
-                    // resp-cond-state: * (OK|NO|BAD) SP resp-text
-                    imap_response.print_key_string("type", "resp-cond-state");
-                    imap_response.print_key_json_string("status", first_word);
-                
-                    if (data_copy.is_not_empty() && data_copy.data[0] == ' ') {
-                        data_copy.skip(1);
-                    }
-
-                    if (data_copy.is_not_empty()) {
-                        imap_response.print_key_json_string("text", data_copy);
-                    }
-                    
-                } else if (first_word.case_insensitive_match("capability")) {
-                    // capability-data: * CAPABILITY ...
-                    imap_response.print_key_string("type", "capability");
-                    
-                    if (data_copy.is_not_empty() && data_copy.data[0] == ' ') {
-                        data_copy.skip(1);
-                    }
-                    if (data_copy.is_not_empty()) {
-                        imap_response.print_key_json_string("data", data_copy);
-                    }
-                    
-                } else {
-                    // mailbox-data / message-data / other
-                    imap_response.print_key_string("type", "data");
-                    imap_response.print_key_json_string("data", response_data_field);
-                }
+                print_untagged_response(imap_response, first_word, data_copy, response_data_field);
                 
             } else {
                 // Tagged response: <tag> SP (OK|NO|BAD) SP <response-text> CRLF
@@ -636,6 +719,14 @@ namespace imap {
         if (test_json_output<imap::imap_requests>(
             "a004 CAPABILITY",
             ""
+        )) {
+            return false;
+        }
+        
+        // Multiple junk lines with invalid commands - should not create empty imap array element
+        if (!test_json_output<imap::imap_requests>(
+            "junk line one\r\njunk line two\r\n",
+            "{}"
         )) {
             return false;
         }
