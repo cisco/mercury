@@ -419,11 +419,7 @@ namespace redis
             if (!parse_bulk_string_element(d, command_data))
                 return false;
 
-            is_auth_command = (command_data.length() == 4 &&
-                               (command_data.data[0] == 'A' || command_data.data[0] == 'a') &&
-                               (command_data.data[1] == 'U' || command_data.data[1] == 'u') &&
-                               (command_data.data[2] == 'T' || command_data.data[2] == 't') &&
-                               (command_data.data[3] == 'H' || command_data.data[3] == 'h'));
+            is_auth_command = command_data.case_insensitive_match("auth");
 
             if (is_auth_command){
                 // AUTH command: parse username (optional) and password
@@ -455,11 +451,7 @@ namespace redis
 
             type = INLINE_COMMAND;
 
-            is_auth_command = (command_data.length() == 4 &&
-                               (command_data.data[0] == 'A' || command_data.data[0] == 'a') &&
-                               (command_data.data[1] == 'U' || command_data.data[1] == 'u') &&
-                               (command_data.data[2] == 'T' || command_data.data[2] == 't') &&
-                               (command_data.data[3] == 'H' || command_data.data[3] == 'h'));
+            is_auth_command = command_data.case_insensitive_match("auth");
 
             if (is_auth_command && d.is_readable() && *d.data == ' '){
                 d.skip(1);
@@ -536,6 +528,14 @@ namespace redis
 
 #ifndef NDEBUG
     static bool unit_test(){
+
+        //invalid redis request
+        if(test_json_output<redis::request>(
+            "*2\r\n$3\r\nGET\r\n$3\r\nkey\r\n$3\r\nvalue\r\n",
+            "{\"redis\":{\"request\":{\"command\":\"GET\"}}}")
+        ) {
+            return true;
+        }
         // array command parsing with JSON validation
         if (!test_json_output<redis::request>(
             "*2\r\n$3\r\nGET\r\n$3\r\nkey\r\n",
