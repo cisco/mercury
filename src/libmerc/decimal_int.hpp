@@ -122,7 +122,7 @@ namespace {
     }
 
     // accepts zero or more decimal digits from \param d and
-    // accumulates their value into \param v in the positive direction
+    // accumulates their value into \param value in the positive direction
     //
     // \note: this function stops reading from \param d when it
     // encounters the end of the \ref datum, or a character not in the
@@ -142,7 +142,7 @@ namespace {
     }
 
     // accepts zero or more decimal digits from \param d and
-    // accumulates their value into \param v in the negative direction
+    // accumulates their value into \param value in the negative direction
     //
     // \note: this function stops reading from \param d when it
     // encounters the end of the \ref datum, or a character not in the
