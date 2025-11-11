@@ -194,7 +194,7 @@ inline decimal_integer<T>::decimal_integer(datum &d) {
         accumulate_digits<double_width_t>(value, d);
     }
     ptrdiff_t diff = d.data - tmp;
-    if (diff > (ptrdiff_t)max_digits<T>()) {
+    if (diff + 1 > (ptrdiff_t)max_digits<T>()) {
         d.set_null();
     }
     if (value > std::numeric_limits<T>::max() or value < std::numeric_limits<T>::min()) {
