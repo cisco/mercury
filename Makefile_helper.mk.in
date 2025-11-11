@@ -20,11 +20,15 @@ use_no_gnu_unique = @USE_NO_GNU_UNIQUE@
 #
 use_fsanitize = @USE_FSANITIZE@
 
-# The variable openssl_newer controls the compiler option with the
-# corresponding name, which controls which openssl functions are used
-# depending on availablity
+# The variable openssl_v1_1_or_newer indicates if OpenSSL 1.1.0+ is available,
+# which controls which openssl functions are used depending on availability
 #
-openssl_newer = @OPENSSL_NEWER@
+openssl_v1_1_or_newer = @OPENSSL_V1_1_OR_NEWER@
+
+# The variable openssl_v3_0_or_newer indicates if OpenSSL 3.0+ is available
+# and controls the EVP_MAC API compiler flag
+#
+openssl_v3_0_or_newer = @OPENSSL_V3_0_OR_NEWER@
 
 # The variable is_macos controls certain options specfic for MacOS
 #
