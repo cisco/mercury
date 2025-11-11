@@ -1,5 +1,5 @@
 /*
- * config.cc
+ * config.cpp
  *
  * mercury configuration structures and functions
  *
