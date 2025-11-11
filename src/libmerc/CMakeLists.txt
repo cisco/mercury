@@ -213,17 +213,11 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 set(libmerc_src
     ${CMAKE_CURRENT_SOURCE_DIR}/asn1/oid.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/asn1/oid.h
-    analysis.cc
     addr.cc
-    dns.cc
     http.cc
     libmerc.cc
-    match.cc
     pkt_proc.cc
-    ssh.cc
-    tls.cc
     utils.cc
-    wireguard.cc
     config_generator.cc
     smb2.cc
     bencode.cc

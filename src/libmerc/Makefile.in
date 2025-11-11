@@ -64,17 +64,11 @@ endif
 # LIBMERC and LIBMERC_H hold the core source and header files,
 # respectively, for that library
 #
-LIBMERC     =  analysis.cc
-LIBMERC     += addr.cc
-LIBMERC     += dns.cc
+LIBMERC     =  addr.cc
 LIBMERC     += http.cc
 LIBMERC     += libmerc.cc
-LIBMERC     += match.cc
 LIBMERC     += pkt_proc.cc
-LIBMERC     += ssh.cc
-LIBMERC     += tls.cc
 LIBMERC     += utils.cc
-LIBMERC     += wireguard.cc
 LIBMERC     += asn1/oid.cc
 LIBMERC 	+= config_generator.cc
 LIBMERC     += smb2.cc
