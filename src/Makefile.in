@@ -44,7 +44,7 @@ else
 MERC   += capture.c
 MERC   += signal_handling_stub.c
 endif
-MERC   += config.c
+MERC   += config.cpp
 MERC   += json_file_io.c
 MERC   += output.c
 MERCC  += pkt_processing.cc
