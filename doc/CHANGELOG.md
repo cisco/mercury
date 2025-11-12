@@ -1,5 +1,7 @@
 # CHANGELOG for Mercury
 
+* Removed adaptive random packet drop feature, which is no longer used
+  and probably not appropriate for current mercury scenarios.
 * Added SNMP protocol identification with JSON and CBOR output.
 * Added SYSLOG protocol identification with JSON and CBOR output.
 * Removed usage of deprecated OpenSSL APIs and adopted recommended

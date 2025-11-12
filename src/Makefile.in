@@ -50,7 +50,6 @@ MERC   += output.c
 MERCC  += pkt_processing.cc
 MERC   += pcap_file_io.c
 MERC   += pcap_reader.c
-MERC   += rnd_pkt_drop.c
 
 MERC_H =  mercury.h
 MERC_H += af_packet_v3.h
@@ -62,7 +61,6 @@ MERC_H += output.h
 MERC_H += pkt_processing.h
 MERC_H += pcap_file_io.h
 MERC_H += pcap_reader.h
-MERC_H += rnd_pkt_drop.h
 MERC_H += rotator.h
 MERC_H += signal_handling.h
 
