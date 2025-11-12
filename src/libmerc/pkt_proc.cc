@@ -48,6 +48,7 @@
 #include "tofsee.hpp"
 #include "cdp.h"
 #include "krb5.hpp"
+#include "snmp.hpp"
 #include "ldap.hpp"
 #include "lldp.h"
 #include "ospf.h"
@@ -73,6 +74,7 @@
 #include "vxlan.hpp"
 #include "fdc.hpp"
 #include "l7m.hpp"
+#include "syslog.hpp"
 
 // double malware_prob_threshold = -1.0; // TODO: document hidden option
 
@@ -217,6 +219,7 @@ struct do_observation {
     {}
 
     void operator()(tls_client_hello &m) {
+        // create event and send it to the data/stats aggregator
         event_string ev_str{k_, analysis_, m};
         mq_->push(ev_str.construct_event_string());
     }
@@ -231,28 +234,24 @@ struct do_observation {
         // create event and send it to the data/stats aggregator
         event_string ev_str{k_, analysis_, tofsee_pkt};
         mq_->push(ev_str.construct_event_string());
-        analysis_.reset_user_agent();
     }
 
     void operator()(http_request &m) {
         // create event and send it to the data/stats aggregator
         event_string ev_str{k_, analysis_, m};
         mq_->push(ev_str.construct_event_string());
-        analysis_.reset_user_agent();
     }
 
     void operator()(stun::message &m) {
         // create event and send it to the data/stats aggregator
         event_string ev_str{k_, analysis_, m};
         mq_->push(ev_str.construct_event_string());
-        analysis_.reset_user_agent();
     }
 
     void operator()(ssh_init_packet &m) {
         // create event and send it to the data/stats aggregator
         event_string ev_str{k_, analysis_, m};
         mq_->push(ev_str.construct_event_string());
-        analysis_.reset_user_agent();
     }
 
     template <typename T>
@@ -538,6 +537,9 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
             x = std::move(packet);
         }
         break;
+    case udp_msg_type_syslog:
+        x.emplace<syslog>(pkt);
+        break;
     case udp_msg_type_dhcp:
         x.emplace<dhcp_message>(pkt);
         break;
@@ -592,6 +594,9 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
         break;
     case udp_msg_type_krb5:
         x.emplace<krb5::packet>(pkt);
+        break;
+    case udp_msg_type_snmp:
+        x.emplace<snmp::packet>(pkt);
         break;
     case udp_msg_type_tftp:
         x.emplace<tftp::packet>(pkt);

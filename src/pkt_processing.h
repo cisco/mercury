@@ -13,7 +13,6 @@
 #include <sys/time.h>
 #include <stdexcept>
 #include "pcap_file_io.h"
-#include "rnd_pkt_drop.h"
 #include "llq.h"
 #include "libmerc/libmerc.h"
 #include "libmerc/pkt_proc.h"
@@ -59,11 +58,6 @@ struct pkt_proc_pcap_writer_llq : public pkt_proc {
     }
 
     void apply(struct packet_info *pi, uint8_t *eth) override {
-        extern int rnd_pkt_drop_percent_accept;  /* defined in rnd_pkt_drop.c */
-
-        if (rnd_pkt_drop_percent_accept && drop_this_packet()) {
-            return;  /* random packet drop configured, and this packet got selected to be discarded */
-        }
 
         struct llq_msg *msg = llq->init_msg(block, pi->ts.tv_sec, pi->ts.tv_nsec);
         if (msg) {
@@ -98,11 +92,6 @@ struct pkt_proc_pcap_writer : public pkt_proc {
     pkt_proc_pcap_writer(const char *outfile, int flags) : pcap_file{outfile, io_direction_writer, flags} { }
 
     void apply(struct packet_info *pi, uint8_t *eth) override {
-        extern int rnd_pkt_drop_percent_accept;  /* defined in rnd_pkt_drop.c */
-
-        if (rnd_pkt_drop_percent_accept && drop_this_packet()) {
-            return;  /* random packet drop configured, and this packet got selected to be discarded */
-        }
         pcap_file_write_packet_direct(&pcap_file, eth, pi->len, pi->ts.tv_sec, pi->ts.tv_nsec / 1000);
     }
 
@@ -134,12 +123,6 @@ struct pkt_proc_filter_pcap_writer : public pkt_proc {
     void apply(struct packet_info *pi, uint8_t *eth) override {
         uint8_t *packet = eth;
         unsigned int length = pi->len;
-
-        extern int rnd_pkt_drop_percent_accept;  /* defined in rnd_pkt_drop.c */
-
-        if (rnd_pkt_drop_percent_accept && drop_this_packet()) {
-            return;  /* random packet drop configured, and this packet got selected to be discarded */
-        }
 
         uint8_t buf[LLQ_MAX_MSG_SIZE];
         if (processor.write_json(buf, LLQ_MAX_MSG_SIZE, packet, length, &pi->ts) != 0 || processor.dump_pkt()) {
@@ -285,12 +268,6 @@ struct pkt_proc_filter_pcap_writer_llq : public pkt_proc {
     void apply(struct packet_info *pi, uint8_t *eth) override {
         uint8_t *packet = eth;
         unsigned int length = pi->len;
-
-        extern int rnd_pkt_drop_percent_accept;  /* defined in rnd_pkt_drop.c */
-
-        if (rnd_pkt_drop_percent_accept && drop_this_packet()) {
-            return;  /* random packet drop configured, and this packet got selected to be discarded */
-        }
 
         uint8_t buf[LLQ_MAX_MSG_SIZE];
         if (processor.write_json(buf, LLQ_MAX_MSG_SIZE, packet, length, &pi->ts) != 0 || processor.dump_pkt()) {

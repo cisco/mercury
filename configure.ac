@@ -76,8 +76,25 @@ AC_TYPE_UINT64_T
 AC_TYPE_UINT8_T
 AC_CHECK_HEADERS(zlib.h, [], [AC_MSG_ERROR([A working zlib is required])])
 AC_SEARCH_LIBS(deflate, z, [], [AC_MSG_ERROR([A working zlib is required])])
-AC_SEARCH_LIBS(HMAC_CTX_new, crypto, [AC_SUBST([OPENSSL_NEWER],yes)],
-[AC_SUBST([OPENSSL_NEWER],no)])
+# Check for OpenSSL version and set appropriate flags
+# First check for OpenSSL 3.0+ (EVP_MAC_fetch function)
+AC_SEARCH_LIBS(EVP_MAC_fetch, crypto, [
+    AC_MSG_NOTICE([OpenSSL 3.0+ detected - using EVP_MAC API])
+    AC_SUBST([OPENSSL_V1_1_OR_NEWER],yes)
+    AC_SUBST([OPENSSL_V3_0_OR_NEWER],yes)
+], [
+    # If not OpenSSL 3.0+, check for OpenSSL 1.1.0+ (HMAC_CTX_new function)
+    AC_SEARCH_LIBS(HMAC_CTX_new, crypto, [
+        AC_MSG_NOTICE([OpenSSL 1.1.0+ detected - using HMAC_CTX_new API])
+        AC_SUBST([OPENSSL_V1_1_OR_NEWER],yes)
+        AC_SUBST([OPENSSL_V3_0_OR_NEWER],no)
+    ], [
+        # Legacy OpenSSL < 1.1.0
+        AC_MSG_NOTICE([Legacy OpenSSL < 1.1.0 detected - using deprecated HMAC API])
+        AC_SUBST([OPENSSL_V1_1_OR_NEWER],no)
+        AC_SUBST([OPENSSL_V3_0_OR_NEWER],no)
+    ])
+])
 
 ###############################################################################
 # Check for Python3 and packages

@@ -663,7 +663,8 @@ HAVE_PYTHON_CRYPTOGRAPHY
 HAVE_PYTHON_JSONSCHEMA
 HAVE_PYTHON3
 PY
-OPENSSL_NEWER
+OPENSSL_V3_0_OR_NEWER
+OPENSSL_V1_1_OR_NEWER
 LIBOBJS
 HAVE_TPACKET_V3
 USE_FSANITIZE
@@ -5430,7 +5431,84 @@ else case e in #(
 esac
 fi
 
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for library containing HMAC_CTX_new" >&5
+# Check for OpenSSL version and set appropriate flags
+# First check for OpenSSL 3.0+ (EVP_MAC_fetch function)
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for library containing EVP_MAC_fetch" >&5
+printf %s "checking for library containing EVP_MAC_fetch... " >&6; }
+if test ${ac_cv_search_EVP_MAC_fetch+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) ac_func_search_save_LIBS=$LIBS
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.
+   The 'extern "C"' is for builds by C++ compilers;
+   although this is not generally supported in C code supporting it here
+   has little cost and some practical benefit (sr 110532).  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char EVP_MAC_fetch (void);
+int
+main (void)
+{
+return EVP_MAC_fetch ();
+  ;
+  return 0;
+}
+_ACEOF
+for ac_lib in '' crypto
+do
+  if test -z "$ac_lib"; then
+    ac_res="none required"
+  else
+    ac_res=-l$ac_lib
+    LIBS="-l$ac_lib  $ac_func_search_save_LIBS"
+  fi
+  if ac_fn_c_try_link "$LINENO"
+then :
+  ac_cv_search_EVP_MAC_fetch=$ac_res
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext
+  if test ${ac_cv_search_EVP_MAC_fetch+y}
+then :
+  break
+fi
+done
+if test ${ac_cv_search_EVP_MAC_fetch+y}
+then :
+
+else case e in #(
+  e) ac_cv_search_EVP_MAC_fetch=no ;;
+esac
+fi
+rm conftest.$ac_ext
+LIBS=$ac_func_search_save_LIBS ;;
+esac
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_search_EVP_MAC_fetch" >&5
+printf "%s\n" "$ac_cv_search_EVP_MAC_fetch" >&6; }
+ac_res=$ac_cv_search_EVP_MAC_fetch
+if test "$ac_res" != no
+then :
+  test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: OpenSSL 3.0+ detected - using EVP_MAC API" >&5
+printf "%s\n" "$as_me: OpenSSL 3.0+ detected - using EVP_MAC API" >&6;}
+    OPENSSL_V1_1_OR_NEWER=yes
+
+    OPENSSL_V3_0_OR_NEWER=yes
+
+
+else case e in #(
+  e)
+    # If not OpenSSL 3.0+, check for OpenSSL 1.1.0+ (HMAC_CTX_new function)
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for library containing HMAC_CTX_new" >&5
 printf %s "checking for library containing HMAC_CTX_new... " >&6; }
 if test ${ac_cv_search_HMAC_CTX_new+y}
 then :
@@ -5494,10 +5572,27 @@ ac_res=$ac_cv_search_HMAC_CTX_new
 if test "$ac_res" != no
 then :
   test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
-  OPENSSL_NEWER=yes
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: OpenSSL 1.1.0+ detected - using HMAC_CTX_new API" >&5
+printf "%s\n" "$as_me: OpenSSL 1.1.0+ detected - using HMAC_CTX_new API" >&6;}
+        OPENSSL_V1_1_OR_NEWER=yes
+
+        OPENSSL_V3_0_OR_NEWER=no
+
 
 else case e in #(
-  e) OPENSSL_NEWER=no
+  e)
+        # Legacy OpenSSL < 1.1.0
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: Legacy OpenSSL < 1.1.0 detected - using deprecated HMAC API" >&5
+printf "%s\n" "$as_me: Legacy OpenSSL < 1.1.0 detected - using deprecated HMAC API" >&6;}
+        OPENSSL_V1_1_OR_NEWER=no
+
+        OPENSSL_V3_0_OR_NEWER=no
+
+     ;;
+esac
+fi
+
  ;;
 esac
 fi
