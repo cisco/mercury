@@ -4,10 +4,10 @@
 * Added SNMP protocol identification with JSON and CBOR output.
 * Added Syslog protocol identification with JSON and CBOR output.
 * Report a password-recovery string for TACACS+ protocol.
-* Fixed compilation of experimental tool intercept.so.
 * Added decimal_integer class to provide text-to-integer functionality suitable
   for packet processing. The class includes error checking and avoids copying,
   exception throwing, or memory allocation.
+* Improved configuration file parsing robustness to handle malformed input.
 * Removed adaptive random packet drop feature, which is no longer used
   and probably not appropriate for current mercury scenarios.
 * Removed usage of deprecated OpenSSL APIs and adopted recommended OpenSSL 3.x
