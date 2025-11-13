@@ -152,7 +152,9 @@ enum udp_msg_type {
     udp_msg_type_tftp,
     udp_msg_type_geneve,
     udp_msg_type_gre,
-    udp_msg_type_ike
+    udp_msg_type_ike,
+    udp_msg_type_snmp,
+    udp_msg_type_syslog,
 };
 
 template <size_t N>
@@ -448,6 +450,7 @@ class traffic_selector {
     bool select_openvpn_tcp{false};
     bool select_ldap{false};
     bool select_krb5{false};
+    bool select_snmp{false};
     bool select_ftp_request{false};
     bool select_ftp_response{false};
     bool select_ipsec{false};
@@ -463,6 +466,7 @@ class traffic_selector {
     bool select_smtp{false};
     bool select_tofsee{false};
     bool select_dhcp{false};
+    bool select_syslog{false};
 
 public:
 
@@ -483,6 +487,8 @@ public:
     bool icmp() const { return select_icmp; }
 
     bool krb5() const { return select_krb5; }
+
+    bool snmp() const { return select_snmp; }
 
     bool ldap() const { return select_ldap; }
 
@@ -529,6 +535,8 @@ public:
     bool tofsee() const { return select_tofsee; }
 
     bool dhcp() const { return select_dhcp; }
+
+    bool syslog() const { return select_syslog; }
 
     void disable_all() {
         tcp.disable_all();
@@ -658,6 +666,9 @@ public:
            //
            // select_krb5 = true;
         }
+        if (protocols["snmp"] || protocols["all"]) {
+            select_snmp = true;
+        }
         if (protocols["tcp.message"] || protocols["all"]) {
             // select_tcp_syn = 0;
             // tcp_message_filter_cutoff = 1;
@@ -668,6 +679,9 @@ public:
         if (protocols["dhcp"] || protocols["all"]) {
             select_dhcp = true;
         }
+        if (protocols["syslog"] || protocols["all"]) {
+            select_syslog = true;
+         }
         if (protocols["dns"] || protocols["nbns"] || protocols["mdns"] || protocols["all"]) {
             if (protocols["all"]) {
                 select_dns = true;
@@ -890,6 +904,15 @@ public:
 
         if (krb5() and (ports.src == hton<uint16_t>(88) or ports.dst == hton<uint16_t>(88))) {
             return udp_msg_type_krb5;
+        }
+
+        if (snmp() and (ports.src == hton<uint16_t>(161) or ports.src == hton<uint16_t>(162)
+                        or ports.dst == hton<uint16_t>(161) or ports.dst == hton<uint16_t>(162)) ) {
+            return udp_msg_type_snmp;
+        }
+
+        if (syslog() and (ports.dst == hton<uint16_t>(514))) {
+            return udp_msg_type_syslog;
         }
 
         if (vxlan() and ports.dst == hton<uint16_t>(vxlan::dst_port)) {

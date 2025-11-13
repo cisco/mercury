@@ -195,6 +195,7 @@ DETAILS
       icmp              ICMP message
       iec               IEC 60870-5-104
       lldp              LLDP message
+      ldap              LDAP
       mdns              multicast DNS
       mysql             MySQL Client/Server Protocol
       nbns              NetBIOS Name Service
@@ -207,9 +208,12 @@ DETAILS
       ssh               SSH handshake and KEX
       smb               SMB v1 and v2
       smtp              SMTP client and server messages
-      stun              STUN messages
-      ssdp              SSDP (UPnP)
+      snmp              SNMP messages
       socks             SOCKS4,SOCKS5 messages
+      ssdp              SSDP (UPnP)
+      stun              STUN messages
+      syslog            SYSLOG (BSD and IETF)
+      tacacs            TACACS+
       tcp               TCP headers
       tcp.message       TCP initial message
       tcp.syn_ack       TCP syn ack message

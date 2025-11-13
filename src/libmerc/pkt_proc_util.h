@@ -85,6 +85,8 @@ class gre_header;
 class geneve;
 class ip_encapsulation;
 class vxlan;
+namespace snmp { class packet; }
+class syslog;
 
 using protocol = std::variant<std::monostate,
                               http_request,                      // start of tcp protocols
@@ -136,8 +138,11 @@ using protocol = std::variant<std::monostate,
                               esp,
                               ike::packet,
                               rfb::protocol_version_handshake,
-                              tacacs::packet
+                              tacacs::packet,
+                              snmp::packet,
+                              syslog
                               >;
+
 using encapsulation = std::variant<std::monostate,
                               gre_header,
                               geneve,

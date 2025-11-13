@@ -55,17 +55,17 @@ namespace newhttp {
     //  HTTP-Version   = "HTTP" "/" 1*DIGIT "." 1*DIGIT
     //
     class version : public datum {
-        literal<5> proto;
+        literal<'H', 'T', 'T', 'P', '/'> proto;
         decimal_digit maj_digit;
-        literal<1> dot;
+        literal<'.'> dot;
         decimal_digit min_digit;
         bool valid;
     public:
         version(datum &d) :
             datum{d},
-            proto(d, { 'H', 'T', 'T', 'P', '/' }),
+            proto{d},
             maj_digit{d},
-            dot{d, { '.' }},
+            dot{d},
             min_digit{d},
             valid{d.is_not_null()}
         {
@@ -78,9 +78,9 @@ namespace newhttp {
     };
 
     class crlf {
-        literal<2> delim;
+        literal<'\r', '\n'> delim;
     public:
-        crlf(datum &d) : delim{d, { '\r', '\n' } } { }
+        crlf(datum &d) : delim{d} { }
     };
 
     class request_line {

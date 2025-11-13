@@ -1,5 +1,21 @@
 # CHANGELOG for Mercury
 
+## VERSION 2.11.0
+* Added SNMP protocol identification with JSON and CBOR output.
+* Added Syslog protocol identification with JSON and CBOR output.
+* Report a password-recovery string for TACACS+ protocol.
+* Added decimal_integer class to provide text-to-integer functionality suitable
+  for packet processing. The class includes error checking and avoids copying,
+  exception throwing, or memory allocation.
+* Improved configuration file parsing robustness to handle malformed input.
+* Removed adaptive random packet drop feature, which is no longer used
+  and probably not appropriate for current mercury scenarios.
+* Removed usage of deprecated OpenSSL APIs and adopted recommended OpenSSL 3.x
+  interfaces whenever a sufficiently new OpenSSL version is available.
+* Removed obsolete Python scripts.
+* Added examples.cpp to provide example usage of data parsing classes.
+* Replaced class literal<> with a more efficient but otherwise equivalent class.
+
 ## VERSION 2.10.0
 * Added defensive code around memcpy operations in QUIC reassembly.
 * Exempted private IP addresses from Domain Faking check.
@@ -9,7 +25,6 @@
 * Extended DHCP to report on all message types, not just responses.
 * Bugfix: removed user_agent reset code from do_observation struct.
 * STUN fingerprints are generated for client requests but not server responses.
-
 
 ## VERSION 2.9.0
 * Added a new configuration option, network-behavioral-detections,

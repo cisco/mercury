@@ -52,7 +52,6 @@
 #include "af_packet_v3.h"
 #include "signal_handling.h"
 #include "libmerc/utils.h"
-#include "rnd_pkt_drop.h"
 #include "output.h"
 #include "pkt_processing.h"
 
@@ -209,28 +208,6 @@ void process_all_packets_in_block(struct tpacket_block_desc *block_hdr,
     __sync_add_and_fetch(&(statst->received_bytes), byte_count);
 }
 
-void check_socket_drops(int duration, uint64_t sdps, uint64_t sfps, int *socket_drops, int *zero_drops) {
-    int current_percent;
-
-    if (sdps == 0 && sfps == 0) {
-        (*zero_drops)++;
-        (*socket_drops) = 0;
-        if (*zero_drops >= 60) {
-            *zero_drops = 0;
-            current_percent = increment_percent_accept(5);
-            fprintf(stderr, "  Duration: %6d, Current percent acceptance Increased to %d\n", duration, current_percent);
-        }
-    } else {
-        (*zero_drops) = 0;
-        (*socket_drops)++;
-        if (*socket_drops > 1) {
-            *socket_drops = -58;
-            current_percent = increment_percent_accept(-10);
-            fprintf(stderr, "  Duration: %6d,    Current percent acceptance Decreased to %d\n", duration, current_percent);
-        }
-    }
-}
-
 void *stats_thread_func(void *statst_arg) {
 
     struct stats_tracking *statst = (struct stats_tracking *)statst_arg;
@@ -282,7 +259,7 @@ void *stats_thread_func(void *statst_arg) {
      */
     disable_bt_signal();
 
-    int duration = 0, socket_drops = 0, zero_drops = 0;
+    int duration = 0;
 
     while (sig_close_flag == 0) {
         uint64_t packets_before = statst->received_packets;
@@ -416,10 +393,6 @@ void *stats_thread_func(void *statst_arg) {
         }
 
         duration++;
-        if (get_percent_accept() > 0) {
-            /* check socket drops and update accept percentage only when percent accept > 0 */
-            check_socket_drops(duration, sdps, sfps, &socket_drops, &zero_drops);
-        }
     }
 
     free(per_tsock_stats);

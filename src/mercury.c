@@ -23,7 +23,6 @@
 #include "signal_handling.h"
 #include "config.h"
 #include "output.h"
-#include "rnd_pkt_drop.h"
 #include "control.h"
 
 char mercury_help[] =
@@ -110,6 +109,7 @@ char mercury_extended_help[] =
     "      ftp.response      FTP response\n"
     "      icmp              ICMP message\n"
     "      iec               IEC 60870-5-104\n"
+    "      ldap              LDAP\n"
     "      lldp              LLDP message\n"
     "      mdns              multicast DNS\n"
     "      mysql             MySQL Client/Server Protocol\n"
@@ -123,9 +123,12 @@ char mercury_extended_help[] =
     "      ssh               SSH handshake and KEX\n"
     "      smb               SMB v1 and v2\n"
     "      smtp              SMTP client and server messages\n"
-    "      stun              STUN messages\n"
-    "      ssdp              SSDP (UPnP)\n"
+    "      snmp              SNMP messages\n"
     "      socks             SOCKS4,SOCKS5 messages\n"
+    "      ssdp              SSDP (UPnP)\n"
+    "      stun              STUN messages\n"
+    "      syslog            SYSLOG (BSD and IETF)\n"
+    "      tacacs            TACACS+\n"
     "      tcp               TCP headers\n"
     "      tcp.message       TCP initial message\n"
     "      tcp.syn_ack       TCP syn ack message\n"
@@ -608,14 +611,6 @@ int main(int argc, char *argv[]) {
                 usage(argv[0], "option p or loop requires a numeric argument", extended_help_off);
             }
             break;
-        case 0:
-            /* The option --adaptive to adaptively accept or skip packets for PCAP file. */
-            if (optarg) {
-                usage(argv[0], "option --adaptive does not use an argument", extended_help_off);
-            } else {
-                cfg.adaptive = 1;
-            }
-            break;
         case 'u':
             if (option_is_valid(optarg)) {
                 errno = 0;
@@ -710,15 +705,6 @@ int main(int argc, char *argv[]) {
         // fprintf(stderr, "notice: looping over input with loop count %d\n", cfg.loop_count);
     }
 
-    /* The option --adaptive works only with -w PCAP file option and -c capture interface */
-    if (cfg.adaptive > 0) {
-        if (cfg.write_filename == NULL || cfg.capture_interface == NULL) {
-            usage(argv[0], "The option --adaptive requires options -c capture interface and -w pcap file.", extended_help_off);
-        } else {
-            set_percent_accept(30); /* set starting percentage */
-        }
-    }
-
     /*
      * set up signal handlers, so that output is flushed upon close
      */
@@ -741,9 +727,6 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "found %d CPU(s), creating %d thread(s)\n", num_cpus, cfg.num_threads);
         }
     }
-
-    /* init random number generator */
-    srand(time(0));
 
     struct output_file out_file;
     struct cap_stats cstats;

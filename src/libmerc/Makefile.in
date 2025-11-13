@@ -27,8 +27,13 @@ STRIP = strip
 
 CFLAGS += -fPIC
 CFLAGS += -DDONT_USE_STDERR
-ifeq ($(openssl_newer),yes)
-CFLAGS += -DSSLNEW
+# OpenSSL 3.0 is default (no flag needed)
+ifeq ($(openssl_v3_0_or_newer),yes)
+# No flag for OpenSSL 3.0+ (default)
+else ifeq ($(openssl_v1_1_or_newer),yes)
+CFLAGS += -DOPENSSL_V1_1
+else
+CFLAGS += -DOPENSSL_LEGACY
 endif
 
 ifeq ($(is_macos_arm),yes)
@@ -59,17 +64,11 @@ endif
 # LIBMERC and LIBMERC_H hold the core source and header files,
 # respectively, for that library
 #
-LIBMERC     =  analysis.cc
-LIBMERC     += addr.cc
-LIBMERC     += dns.cc
+LIBMERC     =  addr.cc
 LIBMERC     += http.cc
 LIBMERC     += libmerc.cc
-LIBMERC     += match.cc
 LIBMERC     += pkt_proc.cc
-LIBMERC     += ssh.cc
-LIBMERC     += tls.cc
 LIBMERC     += utils.cc
-LIBMERC     += wireguard.cc
 LIBMERC     += asn1/oid.cc
 LIBMERC 	+= config_generator.cc
 LIBMERC     += smb2.cc
@@ -131,6 +130,8 @@ LIBMERC_H   += bittorrent.h
 LIBMERC_H   += tls_extensions.h
 LIBMERC_H   += naive_bayes.hpp
 LIBMERC_H   += softmax.hpp
+LIBMERC_H   += snmp.hpp
+LIBMERC_H   += syslog.hpp
 
 # asn1/oid.cc and asn1/oid.h are auto-built from ASN1 files in the
 # asn1 subdirectory; this is a pattern target that builds both files

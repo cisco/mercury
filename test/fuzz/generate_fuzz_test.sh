@@ -15,7 +15,7 @@ parent_path=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 
 LIBMERC_FOLDER=../../src/libmerc/
 
-USAGE="[-r <iterations> -t <time> -h <help> -n <none(run all test)/test_name>] -s <(true)newer openssl>"
+USAGE="[-r <iterations> -t <time> -h <help> -n <none(run all test)/test_name>] -s <openssl_v1_1> -v <openssl_v3_0>"
 
 default_runs=10000000000
 default_time=200
@@ -28,11 +28,12 @@ total_missing_dir=0
 pass=0
 fail=0
 flags=""
-openssl_new="false"
+openssl_v1_1="false"
+openssl_v3_0="false"
 
 #read command line args
 #
-while getopts hr:t:n:s:c: flag
+while getopts hr:t:n:s:c:v: flag
 do
     case "${flag}" in
         h) echo "$USAGE"
@@ -40,8 +41,9 @@ do
         r) default_runs=${OPTARG};;
         t) default_time=${OPTARG};;
         n) specific_test=${OPTARG};;
-        s) openssl_new=${OPTARG};;
+        s) openssl_v1_1=${OPTARG};;
         c) coverage_enabled=${OPTARG};;
+        v) openssl_v3_0=${OPTARG};;
         \?) echo "ERROR: Invalid option: $USAGE"
             exit 1;;
     esac
@@ -57,8 +59,10 @@ if [[ "$coverage_enabled" -eq "1" ]]; then
     LDFLAGS+=" -lgcov"
 fi;
 
-if [[ "$openssl_new" -eq "true" ]]; then
-    flags+=" -DSSLNEW"
+if [[ "$openssl_v3_0" == "true" ]]; then
+    flags+=" -DOPENSSL_V3_0"
+elif [[ "$openssl_v1_1" == "true" ]]; then
+    flags+=" -DOPENSSL_V1_1"
 fi;
 
 XSIMD_INCLUDE="-I${parent_path}/../../src/libmerc/xsimd/include"
