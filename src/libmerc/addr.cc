@@ -104,10 +104,10 @@ subnet_data::~subnet_data() {
     }
     lct_free(&ipv6_subnet_trie);
     if (ipv6_subnet_array) {
-        free(ipv6_subnet_array);
+        delete[] ipv6_subnet_array;
     }
     if (prefix_v6) {
-        free(prefix_v6);
+        delete[] prefix_v6;
     }
     if (ipv4_subnet_trie.root) {
         //
@@ -156,10 +156,10 @@ subnet_data::~subnet_data() {
             subnet_itr->info.domain.domain_idx_arr_len = 0;
             ++subnet_itr;
         }
-        free(ipv6_domain_array);
+        delete[] ipv6_domain_array;
     }
     if (domains_prefix_v6) {
-        free(domains_prefix_v6);
+        delete[] domains_prefix_v6;
     }
 }
 
@@ -523,7 +523,7 @@ void subnet_data::process_final_v6() {
     //
     if (num_v6 == 0) {
         if (prefix_v6) {
-            free(prefix_v6);
+            delete[] prefix_v6;
             prefix_v6 = nullptr;
         }
         return;
@@ -646,7 +646,7 @@ void subnet_data::process_domain_mappings_final_v6() {
     //
     if (domains_prefix_v6_num == 0) {
         if (domains_prefix_v6) {
-            free(domains_prefix_v6);
+            delete[] domains_prefix_v6;
             domains_prefix_v6 = nullptr;
         }
         return;
