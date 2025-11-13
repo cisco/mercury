@@ -54,6 +54,18 @@
 * Removed obsolete Python scripts.
 * Added examples.cpp to provide example usage of data parsing classes.
 * Replaced class literal<> with a more efficient but otherwise equivalent class.
+* Add ipv6_lctrie.h
+  * Stores IPv6 address in uint64_t[2] format for windows compatability
+  * Add unit tests to test the new IPv6 address format
+* Add functions for building, searching IPv6 prefixes with the new format in lctrie 
+* Add lctrie unit tests
+  * Tests both ipv4 and ipv6 longest prefix matching logic
+* Enable IPv6 longest prefix matching for:
+  * ASNs mapped to IPv6 subnets
+  * Domain names mapped to IPv6 subnets for Domain faking detection
+* Add unit test for Domain faking check
+* Make the code independent of all ARPANET functions for Windows compatability
+* IPv6 subnets will not be built if minimize_ram option is used
 
 ## VERSION 2.10.0
 * Added defensive code around memcpy operations in QUIC reassembly.
