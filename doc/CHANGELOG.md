@@ -2,6 +2,8 @@
 * Code changes to report dtls hello verify request in l7 metadata and
   revamped dtls fingerprint format
 
+## VERSION 2.10.1
+* Fixed compilation of experimental tool intercept.so.
 * Removed adaptive random packet drop feature, which is no longer used
   and probably not appropriate for current mercury scenarios.
 * Added SNMP protocol identification with JSON and CBOR output.
