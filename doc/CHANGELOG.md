@@ -1,13 +1,18 @@
 # CHANGELOG for Mercury
 
-## VERSION 2.10.1
-* Fixed compilation of experimental tool intercept.so.
-* Removed adaptive random packet drop feature, which is no longer used
-  and probably not appropriate for current mercury scenarios.
+## VERSION 2.11.0
 * Added SNMP protocol identification with JSON and CBOR output.
 * Added Syslog protocol identification with JSON and CBOR output.
-* Removed usage of deprecated OpenSSL APIs and adopted recommended
-  OpenSSL 3.x interfaces
+* Report a password-recovery string for TACACS+ protocol.
+* Fixed compilation of experimental tool intercept.so.
+* Added decimal_integer class to provide text-to-integer functionality suitable
+  for packet processing. The class includes error checking and avoids copying,
+  exception throwing, or memory allocation.
+* Removed adaptive random packet drop feature, which is no longer used
+  and probably not appropriate for current mercury scenarios.
+* Removed usage of deprecated OpenSSL APIs and adopted recommended OpenSSL 3.x
+  interfaces whenever a sufficiently new OpenSSL version is available.
+* Removed obsolete Python scripts.
 * Added examples.cpp to provide example usage of data parsing classes.
 * Replaced class literal<> with a more efficient but otherwise equivalent class.
 
