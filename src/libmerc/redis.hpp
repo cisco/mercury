@@ -521,7 +521,7 @@ namespace redis{
         }
 
         // Test invalid request with non-ASCII characters
-        datum get_datum{"0xC30xA0bc\r\n"}; // àbc\r\n in UTF-8
+        datum get_datum{"0xC30xA0bcrn\0"}; // àbc\r\n in UTF-8
         redis::request invalid_req{get_datum};
         if (invalid_req.is_not_empty()){
             return false;
