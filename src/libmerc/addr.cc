@@ -232,7 +232,7 @@ int subnet_data::process_asn_subnets(const std::vector<std::string> &subnets) {
 
 int subnet_data::process_asn_subnets_v6(const std::vector<std::string> &subnets) {
 
-    prefix_v6 = (lct_subnet_v6_t *)calloc(sizeof(lct_subnet_v6_t), subnets.size());
+    prefix_v6 = new (std::nothrow) lct_subnet_v6_t[subnets.size()]();
     if (prefix_v6 == nullptr) {
         throw std::runtime_error("error: could not initialize v6 subnet_data");
     }
@@ -405,7 +405,7 @@ int subnet_data::lct_add_domain_exception_v6(ipv6_addr_lct &addr, uint8_t &mask_
 int subnet_data::process_domain_mapping_subnets_v6(const std::vector<std::pair<std::string, std::string>> &subnets) {
 
     std::unordered_map<ipv6_addr_lct, ssize_t> subnet_map;
-    domains_prefix_v6 = (lct_subnet_v6_t *)calloc(sizeof(lct_subnet_v6_t), subnets.size());
+    domains_prefix_v6 = new (std::nothrow) lct_subnet_v6_t[subnets.size()]();
     if (domains_prefix_v6 == nullptr) {
         throw std::runtime_error("error: could not initialize domains_prefix");
     }
@@ -537,8 +537,12 @@ void subnet_data::process_final_v6() {
     // de-duplicate subnets and shrink the buffer down to its
     // actual size and split into prefixes and bases
     num_v6 -= subnet_dedup(prefix_v6, num_v6);
-    lct_subnet_v6_t *tmp = (lct_subnet_v6_t *)realloc(prefix_v6, num_v6 * sizeof(lct_subnet_v6_t));
+    lct_subnet_v6_t *tmp = new (std::nothrow) lct_subnet_v6_t[num_v6];
     if (tmp != NULL) {
+        for (int i = 0; i < num_v6; i++) {
+            tmp[i] = prefix_v6[i];
+        }
+        delete[] prefix_v6;
         prefix_v6 = tmp;
     } else {
         return;
@@ -656,8 +660,12 @@ void subnet_data::process_domain_mappings_final_v6() {
     // de-duplicate subnets and shrink the buffer down to its
     // actual size and split into prefixes and bases
     domains_prefix_v6_num -= subnet_dedup(domains_prefix_v6, domains_prefix_v6_num);
-    lct_subnet_v6_t *tmp = (lct_subnet_v6_t *)realloc(domains_prefix_v6, domains_prefix_v6_num * sizeof(lct_subnet_v6_t));
+    lct_subnet_v6_t *tmp = new (std::nothrow) lct_subnet_v6_t[domains_prefix_v6_num];
     if (tmp != NULL) {
+        for (int i = 0; i < domains_prefix_v6_num; i++) {
+            tmp[i] = domains_prefix_v6[i];
+        }
+        delete[] domains_prefix_v6;
         domains_prefix_v6 = tmp;
     } else {
         return;
@@ -722,8 +730,8 @@ bool subnet_data::is_domain_faking(const char *domain_name_, const char* dst_ip)
     if (char_string_to_ipv4_addr(dst_ip, ipv4_addr)) {
 
         ipv4_address ip4(ipv4_addr);
-            if (ip4.get_addr_type() == ipv4_address::addr_type::private_use) {
-                return false; // not domain-faking - as the IP is a private address
+        if (ip4.get_addr_type() == ipv4_address::addr_type::private_use) {
+            return false; // not domain-faking - as the IP is a private address
         }
 
         lct_subnet_t *subnet = lct_find(&ipv4_domain_trie, ntoh(ipv4_addr));
