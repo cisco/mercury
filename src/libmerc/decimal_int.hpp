@@ -218,7 +218,7 @@ struct decimal_integer_test_case {
             if (tmp.is_not_null() != is_not_null or (is_not_null and (integer.get_value() != value))) {
                 if (f) {
                     fprintf(f, "input: \""); text.fprint(f); fputs("\"\t", f);
-                    fprintf(f, "error in unit test: expected (%u,%lld), got (%u,%lld)\n",
+                    fprintf(f, "error in unit test: expected (%u,%" PRId64 "), got (%u,%" PRId64 ")\n",
                             is_not_null, (int64_t)value,
                             tmp.is_not_null(), (int64_t)integer.get_value());
                 }
@@ -228,7 +228,7 @@ struct decimal_integer_test_case {
             decimal_integer<T> integer{tmp};
             if (tmp.is_not_null() != is_not_null or (is_not_null and (integer.get_value() != value))) {
                 if (f) {
-                    fprintf(f, "error in unit test: expected (%u,%llu), got (%u,%llu)\n",
+                    fprintf(f, "error in unit test: expected (%u,%" PRIu64 "), got (%u,%" PRIu64 ")\n",
                             is_not_null, (uint64_t)value,
                             tmp.is_not_null(), (uint64_t)integer.get_value());
                 }
