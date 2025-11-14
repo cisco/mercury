@@ -15,16 +15,21 @@
 #include <type_traits>
 #include <utility>
 
-namespace detail {
-    template <typename T>
-    constexpr auto detect_write(int) -> decltype(std::declval<T>().write(std::declval<buffer_stream &>()), std::true_type{});
 
-    template <typename T>
-    constexpr auto detect_foo(...) -> std::false_type;
+// internal namespace to hide some implementation details
+//
+namespace internal {
+
+    // helper functions for \ref has_write_v
+    //
+    template <typename T> constexpr auto detect_write(int) -> decltype(std::declval<T>().write(std::declval<buffer_stream &>()), std::true_type{});
+    template <typename T> constexpr auto detect_write(...) -> std::false_type;
 }
 
+/// detect if type \param T has a member function `write(buffer_stream &)`
+///
 template <typename T>
-struct has_write : decltype(detail::detect_write<T>(0)) {};
+struct has_write : decltype(internal::detect_write<T>(0)) {};
 
 template <typename T>
 constexpr bool has_write_v = has_write<T>::value;
