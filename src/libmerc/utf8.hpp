@@ -70,10 +70,7 @@ public:
     /// This operation may fail if there is not enough room in
     /// the buffer stream
     ///
-    /// \note 'fingerprint' is an awkward name used for historical
-    /// reasons; it should be changed to 'write' or something similar.
-    ///
-    inline void fingerprint(struct buffer_stream &b) const {
+    inline void write(struct buffer_stream &b) const {
         if (datum::is_readable()) {
             write(b, data, length());
         }

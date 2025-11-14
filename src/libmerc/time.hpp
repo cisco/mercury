@@ -18,7 +18,10 @@
 class utc_time : public datum {
 public:
 
-    void fingerprint(struct buffer_stream &b) const {
+    /// write a textual representation of this utc_time into
+    /// \param b
+    ///
+    void write(struct buffer_stream &b) const {
         if (!is_correct_format()) {
             b.puts("malformed");
             return;
@@ -78,7 +81,10 @@ public:
 class generalized_time : public datum {
 public:
 
-    void fingerprint(struct buffer_stream &b) const {
+    /// write a textual representation of this generalized_time into
+    /// \param b
+    ///
+    void write(struct buffer_stream &b) const {
         if (!is_correct_format()) {
             b.puts("malformed");
             return;

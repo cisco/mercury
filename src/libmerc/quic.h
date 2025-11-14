@@ -63,7 +63,9 @@ struct uint8_bitfield {
 
     uint8_bitfield(uint8_t x) : value{x} {}
 
-    void fingerprint(struct buffer_stream &b) {
+    /// write a textual representation of this bitfield into \param b
+    ///
+    void write(buffer_stream &b) {
         for (uint8_t x = 0x80; x > 0; x=x>>1) {
             if (x & value) {
                 b.write_char('1');

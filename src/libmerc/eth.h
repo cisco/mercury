@@ -19,7 +19,10 @@ struct eth_addr : public datum {
         datum::parse(d, bytes_in_addr);
     }
 
-    void fingerprint(struct buffer_stream &b) const {
+    /// write a textual representation of this ethernet address into
+    /// \param b
+    ///
+    void write(buffer_stream &b) const {
         if (datum::is_not_null()) {
             b.write_mac_addr(data);
         }

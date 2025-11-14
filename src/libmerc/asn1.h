@@ -21,7 +21,9 @@ static const char *oid_empty_string = "";
 class raw_oid : public datum {
 public:
 
-    void fingerprint(struct buffer_stream &b) const {
+    /// write a textual representation of this OID into \param b
+    ///
+    void write(struct buffer_stream &b) const {
         if (this->is_null()) {
             return;  // error; attempt to write a null datum object
         }

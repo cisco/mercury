@@ -41,7 +41,10 @@ public:
 
     ipv4_address(uint32_t init) : value{init} { }
 
-    void fingerprint(struct buffer_stream &b) const {
+    /// write a textual representation of this IPv4 address into
+    /// \param b
+    ///
+    void write(buffer_stream &b) const {
         uint32_t tmp = value;
         swap_byte_order(tmp);
         b.write_ipv4_addr((uint8_t *)&tmp);
@@ -223,9 +226,10 @@ public:
         return a[0] == rhs.a[0] && a[1] == rhs.a[1] && a[2] == rhs.a[2] && a[3] == rhs.a[3];
     }
 
-    /// writes the textual representation of this address into `buf`
+    /// write the textual representation of this IPv6 address into
+    /// \param buf
     ///
-    void fingerprint(struct buffer_stream &buf) const {
+    void write(buffer_stream &buf) const {
         buf.write_ipv6_addr((uint8_t *)&a);
     }
 
@@ -235,7 +239,7 @@ public:
     std::string get_dns_label() const {
 
         output_buffer<48> ipv6_addr_buffer;
-        this->fingerprint(ipv6_addr_buffer);
+        this->write(ipv6_addr_buffer);
         std::string out{ipv6_addr_buffer.data(), ipv6_addr_buffer.content_size()};
         std::replace(out.begin(), out.end(), ':', '-');
         out += '.';
@@ -248,7 +252,7 @@ public:
     std::string get_string() const {
 
         output_buffer<48> ipv6_addr_buffer;
-        this->fingerprint(ipv6_addr_buffer);
+        this->write(ipv6_addr_buffer);
         std::string out{ipv6_addr_buffer.data(), ipv6_addr_buffer.content_size()};
         return out;
     }
@@ -995,7 +999,10 @@ struct ipv4_addr : public datum {
         datum::parse(d, bytes_in_addr);
     }
 
-    void fingerprint(struct buffer_stream &b) const {
+    /// write a textual representation of this IPv4 address into
+    /// \param b
+    ///
+    void write(buffer_stream &b) const {
         if (data) {
             b.write_ipv4_addr(data);
         }
@@ -1014,7 +1021,10 @@ struct ipv6_addr : public datum {
         datum::parse(d, bytes_in_addr);
     }
 
-    void fingerprint(struct buffer_stream &b) const {
+    /// write a textual representation of this IPv6 address into
+    /// \param b
+    ///
+    void write(buffer_stream &b) const {
         if (data) {
             b.write_ipv6_addr(data);
         }

@@ -1682,7 +1682,9 @@ public:
         b.puts(")");
     }
 
-    void fingerprint(buffer_stream &b) {
+    /// write a textual representation of this type_code into \param b
+    ///
+    void write(buffer_stream &b) {
         const char* code_str = code.get_code_str();
         if (!code_str) {
             print_unknown_code(b, code.get_code());
