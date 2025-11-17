@@ -22,6 +22,7 @@ Sample JSON or other output.
   - [ ] Config file option(s)
 - Testing
   - [ ] Add pcap and/or unit test function
+  - [ ] Any function that directly accesses a data pointer should be fuzz-tested, unit-tested, and documented
   - [ ] Run on live traffic - new protocol data appears in expected quantity
   - [ ] Run on live traffic - existing protocol data is not suppressed
 - Output and Schema Changes
