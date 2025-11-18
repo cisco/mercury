@@ -63,6 +63,20 @@ public:
     ///
     static inline bool write(buffer_stream &b, const uint8_t *data, unsigned int len);
 
+    /// return a std::string that represents a null-terminated 
+    /// char string as a UTF-8 string with the JSON special characters 
+    /// (quotation mark, reverse solidus, solidus, backspace, form feed, line feed,
+    /// carriage return, tab) escaped as per RFC 8259 Section 7.
+    ///
+    /// Invalid byte sequences are replaced with private-usage
+    /// codepoints that describe why the sequence was invalid (see above).
+    ///
+    /// 'Noncharacters' are accepted.
+    ///
+    /// \return a std::string representing the UTF-8 encoded input 
+    ///
+    static inline std::string get_utf8_string(const char * input);
+
     /// write this utf8 string into a buffer_stream, handling JSON
     /// special characters, invalid byte sequences, and private-usage
     /// codepoints as with utf8_string::write().
@@ -338,6 +352,15 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
         x++;
     }
     return valid;
+}
+
+inline std::string utf8_string::get_utf8_string (const char * input) {
+    datum input_datum{(const uint8_t *)input, (const uint8_t *)input + strlen(input)};
+    utf8_string s_utf8{input_datum};
+    char out_data[4096];
+    buffer_stream buf{out_data, sizeof(out_data)};
+    [[maybe_unused]] bool ret = s_utf8.write(buf, s_utf8.data, s_utf8.length());
+    return buf.get_string();
 }
 
 inline bool utf8_string::is_continuation(uint8_t x) {
