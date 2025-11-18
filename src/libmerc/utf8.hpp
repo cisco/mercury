@@ -70,6 +70,10 @@ public:
     ///
     /// Invalid byte sequences are replaced with private-usage
     /// codepoints that describe why the sequence was invalid (see above).
+    
+    /// This operation may fail if there is not enough room in
+    /// the buffer stream, with the buffer supporting upto a length
+    /// of 4096 bytes post UTF-8 encoding.
     ///
     /// 'Noncharacters' are accepted.
     ///
