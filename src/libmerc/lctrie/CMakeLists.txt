@@ -3,11 +3,38 @@ project(lctrie)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(CMAKE_VERBOSE_MAKEFILE on)
+
+# CMake automatically adds optimization and debug flags based on CMAKE_BUILD_TYPE.
+# Typical values for CMAKE_BUILD_TYPE: Debug, Release, RelWithDebInfo, MinSizeRel.
+# These flags are added to CMAKE_CXX_FLAGS_<CONFIG> variables:
+#   Windows (MSVC):
+#     CMAKE_CXX_FLAGS_DEBUG: /MDd /Zi /Ob0 /Od /RTC1 (no optimization, runtime checks)
+#     CMAKE_CXX_FLAGS_RELEASE: /MD /O2 /Ob2 /DNDEBUG (optimize for speed)
+#     CMAKE_CXX_FLAGS_RELWITHDEBINFO: /MD /Zi /O2 /Ob1 /DNDEBUG (optimize with debug symbols)
+#     CMAKE_CXX_FLAGS_MINSIZEREL: /MD /O1 /Ob1 /DNDEBUG (optimize for size)
+#   Linux/Mac (GCC/Clang):
+#     CMAKE_CXX_FLAGS_DEBUG: -g (debug symbols only)
+#     CMAKE_CXX_FLAGS_RELEASE: -O3 -DNDEBUG (aggressive optimization)
+#     CMAKE_CXX_FLAGS_RELWITHDEBINFO: -O2 -g -DNDEBUG (optimize with debug symbols)
+#     CMAKE_CXX_FLAGS_MINSIZEREL: -Os -DNDEBUG (optimize for size)
+
 if(IS_WIN)
-    # no need of -fPIC
-    set(CMAKE_CXX_FLAGS "${CXXFLAGS} ${CFLAGS} ${CMAKE_CXX_FLAGS} /std:c++17 /W4 /Ot /O2 ${OPTFLAGS}")
+    add_compile_options(/W3 ${OPTFLAGS})
 else()
-    set(CMAKE_CXX_FLAGS "${CXXFLAGS} ${CFLAGS} ${CMAKE_CXX_FLAGS} --std=c++17 -Wall -Wpedantic -Wextra -g -ggdb -Wall -O3 -fPIC ${OPTFLAGS}")
+    add_compile_options(-Wall -Wpedantic -Wextra -fPIC ${OPTFLAGS})
+endif()
+
+# Display the complete flags that will be used on the command line:
+# CMake combines: CMAKE_CXX_FLAGS + CMAKE_CXX_FLAGS_<CONFIG> + target flags
+if(CMAKE_BUILD_TYPE)
+    string(TOUPPER ${CMAKE_BUILD_TYPE} BUILD_TYPE_UPPER)
+    message(STATUS "lctrie CMAKE_BUILD_TYPE = ${CMAKE_BUILD_TYPE}")
+    message(STATUS "lctrie CMAKE_CXX_FLAGS (base) = ${CMAKE_CXX_FLAGS}")
+    message(STATUS "lctrie CMAKE_CXX_FLAGS_${BUILD_TYPE_UPPER} (config) = ${CMAKE_CXX_FLAGS_${BUILD_TYPE_UPPER}}")
+    message(STATUS "lctrie Combined command line flags: ${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${BUILD_TYPE_UPPER}}")
+else()
+    message(STATUS "lctrie CMAKE_BUILD_TYPE not set (using compiler defaults)")
+    message(STATUS "lctrie CMAKE_CXX_FLAGS (base) = ${CMAKE_CXX_FLAGS}")
 endif()
 
 set(lctrie_src
