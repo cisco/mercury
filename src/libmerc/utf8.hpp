@@ -364,6 +364,7 @@ inline std::string utf8_string::get_utf8_string (const char * input) {
     char out_data[4096];
     buffer_stream buf{out_data, sizeof(out_data)};
     [[maybe_unused]] bool ret = s_utf8.write(buf, s_utf8.data, s_utf8.length());
+    buf.write_char('\0');
     return buf.get_string();
 }
 
