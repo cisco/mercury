@@ -2,7 +2,8 @@ cmake_minimum_required(VERSION 3.12)
 project(lctrie)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
-set(CMAKE_VERBOSE_MAKEFILE on)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_VERBOSE_MAKEFILE ON)
 
 # CMake automatically adds optimization and debug flags based on CMAKE_BUILD_TYPE.
 # Typical values for CMAKE_BUILD_TYPE: Debug, Release, RelWithDebInfo, MinSizeRel.

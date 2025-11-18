@@ -2,7 +2,8 @@ cmake_minimum_required(VERSION 3.10)
 project(asn1)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
-set(CMAKE_VERBOSE_MAKEFILE on)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_VERBOSE_MAKEFILE ON)
 
 # Check for windows and set some paths to prevent VScode and other prefix appending
 if (IS_WIN)
