@@ -355,7 +355,7 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
 }
 
 inline std::string utf8_string::get_utf8_string (const char * input) {
-    datum input_datum{(const uint8_t *)input, (const uint8_t *)input + strlen(input)};
+    datum input_datum{input};
     utf8_string s_utf8{input_datum};
     char out_data[4096];
     buffer_stream buf{out_data, sizeof(out_data)};
