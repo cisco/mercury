@@ -1,5 +1,10 @@
 # CHANGELOG for Mercury
 
+## VERSION 2.11.1
+* Fixed crypto assessment handling of GREASE extensions. Optimized the crypto
+  assessment processing to produce clean JSON output in a single pass.
+* Added proper UTF-8 escaping of user-agent strings during stats reporting.
+
 ## VERSION 2.11.0
 * Added SNMP protocol identification with JSON and CBOR output.
 * Added Syslog protocol identification with JSON and CBOR output.

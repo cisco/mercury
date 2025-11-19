@@ -356,6 +356,12 @@ struct json_array {
         b->puts(s);
         b->write_char('\"');
     }
+    void print_string(const char *s, size_t len) {
+        write_comma(comma);
+        b->write_char('\"');
+        b->memcpy(s, len);
+        b->write_char('\"');
+    }
     template <typename uint>
     void print_unknown_code(uint u) {
         write_comma(comma);
