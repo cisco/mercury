@@ -48,7 +48,7 @@ public:
         d(data, 8),
         valid{data.is_not_null()} { }
 
-   void fingerprint(struct buffer_stream &b) const {
+   void write(struct buffer_stream &b) const {
         if(!valid) {
             return;
         }
@@ -143,7 +143,7 @@ class win_epoch_time {
 public:
     win_epoch_time (datum &d, bool byte_swap = true) : value(d, byte_swap), valid(d.is_not_null()) { }
 
-    void fingerprint(struct buffer_stream &b) const {
+    void write(struct buffer_stream &b) const {
         if(!valid) {
             return;
         }

@@ -11,6 +11,30 @@
 #include "datum.h"
 #include "utf8.hpp"
 
+#include <iostream>
+#include <type_traits>
+#include <utility>
+
+
+// internal namespace to hide some implementation details
+//
+namespace internal {
+
+    // helper functions for \ref has_write_v
+    //
+    template <typename T> constexpr auto detect_write(int) -> decltype(std::declval<T>().write(std::declval<buffer_stream &>()), std::true_type{});
+    template <typename T> constexpr auto detect_write(...) -> std::false_type;
+}
+
+/// detect if type \param T has a member function `write(buffer_stream &)`
+///
+template <typename T>
+struct has_write : decltype(internal::detect_write<T>(0)) {};
+
+template <typename T>
+constexpr bool has_write_v = has_write<T>::value;
+
+
 /*
  * json_object and json_array serialize JSON objects and arrays,
  * respectively, into a buffer
@@ -194,12 +218,20 @@ struct json_object {
         b->write_timestamp_as_string(ts);
         b->write_char('\"');
     }
+
+    /// print key \param k and value \w to this \ref json_object,
+    /// where \param w is an object that has a member function
+    /// `write(buffer_stream &)`
+    ///
+    /// \param w is written as a JSON string.
+    ///
     template <typename T> void print_key_value(const char *k, T &&w) {
+        static_assert(has_write_v<T>, "class T must provide a member function ::write(buffer_stream &)");
         write_comma(comma);
         b->write_char('\"');
         b->puts(k);
         b->puts("\":\"");
-        w.fingerprint(*b);
+        w.write(*b);
         b->write_char('\"');
      }
     void print_key_ipv4_addr(const char *k, const uint8_t *a) {
@@ -365,7 +397,7 @@ struct json_array {
     template <typename T> void print_key(T &&w) {   // shouldn't this be named print_value()?
         write_comma(comma);
         b->write_char('\"');
-        w.fingerprint(*b);
+        w.write(*b);
         b->write_char('\"');
     }
 
