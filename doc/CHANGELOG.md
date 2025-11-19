@@ -1,5 +1,10 @@
 # CHANGELOG for Mercury
 
+## VERSION 2.11.1
+* Fixed crypto assessment handling of GREASE extensions. Optimized the crypto
+  assessment processing to produce clean JSON output in a single pass.
+* Added proper UTF-8 escaping of user-agent strings during stats reporting.
+
 ## VERSION 2.11.0
 * Added SNMP protocol identification with JSON and CBOR output.
 * Added Syslog protocol identification with JSON and CBOR output.
@@ -15,8 +20,6 @@
 * Removed obsolete Python scripts.
 * Added examples.cpp to provide example usage of data parsing classes.
 * Replaced class literal<> with a more efficient but otherwise equivalent class.
-* Fixed crypto assessment handling of GREASE extensions.
-  Optimized the crypto assessment processing to produce clean JSON output in a single pass.
 
 ## VERSION 2.10.0
 * Added defensive code around memcpy operations in QUIC reassembly.
