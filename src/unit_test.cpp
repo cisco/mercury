@@ -16,6 +16,7 @@
 #include "libmerc/dns_trie.hpp"
 #include "libmerc/tftp.hpp"
 #include "libmerc/tacacs.hpp"
+#include "libmerc/crypto_assess.h"
 #include "libmerc/decimal_int.hpp"
 
 // Macros to colorize output
@@ -91,6 +92,10 @@ int main(int, char *[]) {
             "tacacs",
             &tacacs::unit_test
         },
+        {
+            "crypto_policy",
+            &crypto_policy::unit_test
+        }
     };
     size_t num_tests = 0;
     size_t num_passed = 0;

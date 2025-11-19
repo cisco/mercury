@@ -1144,6 +1144,10 @@ struct buffer_stream {
         append_mac_addr(dstr, &doff, dlen, &trunc, d);
     }
 
+    /// returns a std::string containing the current contents
+    /// of this buffer_stream.
+    /// Caution: the buffer needs to be null-terminated for this to work.
+    ///
     std::string get_string() {
         if (doff >=0 ) {
             return std::string((const char*)dstr);
