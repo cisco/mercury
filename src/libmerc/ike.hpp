@@ -19,9 +19,9 @@ namespace ike {
     // https://datatracker.ietf.org/doc/html/rfc3948#section-2.2.
     //
     class non_esp_marker {
-        literal<4> value;
+        literal<0x00, 0x00, 0x00, 0x00> value;
     public:
-        non_esp_marker(datum &d) : value{d, {0x00, 0x00, 0x00, 0x00}} { }
+        non_esp_marker(datum &d) : value{d} { }
     };
 
     // by default, IKE runs on UDP port 500, though it can also use

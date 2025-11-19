@@ -156,20 +156,26 @@ check_type_size("uint8_t"    SIZE_UINT8_T)
 check_type_size("ptrdiff_t"  SIZE_PTRDIFF_T)
 
 if(DEFINED OPENSSL_CUSTOM_LIB_DIR)
-    message(STATUS "Assuming newer libcrypto functions (>= 1.1.0) for custom OpenSSL")
-    add_compile_definitions(SSLNEW)
+    message(STATUS "Assuming OpenSSL 3.0+ for custom OpenSSL library directory (default)")
 else()
     # libcrypto version checks
     include(CheckSymbolExists)
     set(CMAKE_REQUIRED_INCLUDES ${OPENSSL_INCLUDE_DIR})
     set(CMAKE_REQUIRED_LIBRARIES OpenSSL::Crypto)
+
+    # Check for OpenSSL 3.0+ (EVP_MAC_fetch function)
+    check_symbol_exists("EVP_MAC_fetch" "openssl/evp.h" HAVE_EVP_MAC_FETCH)
     check_symbol_exists("HMAC_CTX_new" "openssl/hmac.h" HAVE_HMAC_CTX_NEW)
     check_symbol_exists("HMAC_CTX_init" "openssl/hmac.h" HAVE_HMAC_CTX_INIT)
-    if(HAVE_HMAC_CTX_NEW)
-        message(STATUS "Switching to newer libcrypto functions (>= 1.1.0)")
-        add_compile_definitions(SSLNEW)
+
+    if(HAVE_EVP_MAC_FETCH)
+        message(STATUS "OpenSSL 3.0+ detected - using EVP_MAC API (default)")
+    elseif(HAVE_HMAC_CTX_NEW)
+        message(STATUS "OpenSSL 1.1.0+ detected - using HMAC_CTX_new API")
+        add_compile_definitions(OPENSSL_V1_1)
     elseif(HAVE_HMAC_CTX_INIT)
-        message(STATUS "Switching to legacy libcrypto functions (< 1.1.0)")
+        message(STATUS "Legacy OpenSSL < 1.1.0 detected - using deprecated HMAC API")
+        add_compile_definitions(OPENSSL_LEGACY)
     else()
         message(FATAL_ERROR "OpenSSL libcrypto HMAC_CTX_* functions not found")
     endif()
@@ -207,17 +213,11 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 set(libmerc_src
     ${CMAKE_CURRENT_SOURCE_DIR}/asn1/oid.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/asn1/oid.h
-    analysis.cc
     addr.cc
-    dns.cc
     http.cc
     libmerc.cc
-    match.cc
     pkt_proc.cc
-    ssh.cc
-    tls.cc
     utils.cc
-    wireguard.cc
     config_generator.cc
     smb2.cc
     bencode.cc

@@ -4,5 +4,8 @@ requires = [
     "Cython",
 ]
 
-[tool.cibuildwheel]
-environment = "CC='g++' CXX='g++' ENV_CFLAGS='-DSSLNEW'"
+[tool.cibuildwheel.linux]
+environment = "CC='g++' CXX='g++' MERCURY_DIR='./' ENV_CFLAGS='-DOPENSSL_LEGACY'"
+
+[tool.cibuildwheel.macos]
+environment = "CC='g++' CXX='g++' MERCURY_DIR='./' ENV_CFLAGS='-DSSLNEW' LDFLAGS='-L/opt/homebrew/opt/openssl/lib' CPPFLAGS='-I/opt/homebrew/opt/openssl/include' MACOSX_DEPLOYMENT_TARGET=15"

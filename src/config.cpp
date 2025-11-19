@@ -1,17 +1,18 @@
 /*
- * config.c
+ * config.cpp
  *
  * mercury configuration structures and functions
  *
- * Copyright (c) 2021 Cisco Systems, Inc.  All rights reserved.  License at
+ * Copyright (c) 2025 Cisco Systems, Inc.  All rights reserved.  License at
  * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <ctype.h>
-#include <errno.h>
+#include <string>
+#include <cstring>
+#include <cstdlib>
+#include <cstdio>
+#include <cctype>
+#include <cerrno>
 #include <thread>
 #include "config.h"
 #include "libmerc/libmerc.h"
@@ -69,28 +70,8 @@ enum status argument_parse_as_float(const char *arg, float *variable_to_set) {
     return status_err;
 }
 
-char *str_append(char *s1, const char *s2) {
-    if (s2 == nullptr) {
-        return s1;     // nothing to append
-    }
-    size_t newlen = strlen(s2) + 1; // for terminating null character
-    if (s1) {
-        newlen += strlen(s1);
-    }
-    char *newstr = (char *)realloc(s1, newlen);
-    if (newstr == nullptr) {
-        return nullptr;  // error; realloc failed
-    }
-    if (s1 == nullptr) {
-        strcpy(newstr, s2);
-    } else {
-        strcat(newstr, s2);
-    }
-    return newstr;
-}
-
-static char *select_arg = nullptr;
-static char *additional_args = nullptr;
+static std::string select_arg;
+static std::string additional_args;
 
 static enum status mercury_config_parse_line(struct mercury_config *cfg,
                                              struct libmerc_config &global_vars,
@@ -102,7 +83,7 @@ static enum status mercury_config_parse_line(struct mercury_config *cfg,
         // use blocking output, so that no packets are lost in copying
         cfg->output_block = true;
         // use blocking stats to avoid losing stats events
-        additional_args = str_append(additional_args, "stats-blocking;");
+        additional_args += "stats-blocking;";
         return status_ok;
 
     } else if ((arg = command_get_argument("write=", line)) != NULL) {
@@ -156,12 +137,12 @@ static enum status mercury_config_parse_line(struct mercury_config *cfg,
         return argument_parse_as_int(arg, &cfg->verbosity);
 
     } else if ((arg = command_get_argument("select=", line)) != NULL) {
-        if (select_arg != nullptr) {
+        if (!select_arg.empty()) {
             return status_err;  // select command previously detected
         }
-        select_arg = str_append(select_arg, "select=");
-        select_arg = str_append(select_arg, arg);
-        select_arg = str_append(select_arg, ";");
+        select_arg += "select=";
+        select_arg += arg;
+        select_arg += ";";
         return status_ok;
 
     } else if ((arg = command_get_argument("dns-json", line)) != NULL) {
@@ -185,33 +166,33 @@ static enum status mercury_config_parse_line(struct mercury_config *cfg,
         return status_ok;
 
     } else if ((arg = command_get_argument("reassembly", line)) != NULL) {
-        additional_args = str_append(additional_args, "reassembly;");
+        additional_args += "reassembly;";
         return status_ok;
 
     } else if ((arg = command_get_argument("format=", line)) != NULL) {
-        additional_args = str_append(additional_args, "format=");
-        additional_args = str_append(additional_args, arg);
-        additional_args = str_append(additional_args, ";");
+        additional_args += "format=";
+        additional_args += arg;
+        additional_args += ";";
         return status_ok;
 
     }  else if ((arg = command_get_argument("raw-features=", line)) != NULL) {
-        additional_args = str_append(additional_args, "raw-features=");
-        additional_args = str_append(additional_args, arg);
-        additional_args = str_append(additional_args, ";");
+        additional_args += "raw-features=";
+        additional_args += arg;
+        additional_args += ";";
         return status_ok;
 
     } else if ((arg = command_get_argument("network-behavioral-detections", line)) != NULL) {
-        additional_args = str_append(additional_args, "network-behavioral-detections;");
+        additional_args += "network-behavioral-detections;";
         return status_ok;
 
     }  else if ((arg = command_get_argument("crypto-assess=", line)) != NULL) {
-        additional_args = str_append(additional_args, "crypto-assess=");
-        additional_args = str_append(additional_args, arg);
-        additional_args = str_append(additional_args, ";");
+        additional_args += "crypto-assess=";
+        additional_args += arg;
+        additional_args += ";";
         return status_ok;
 
     } else if ((arg = command_get_argument("minimize-ram", line)) != NULL) {
-        additional_args = str_append(additional_args, "minimize-ram;");
+        additional_args += "minimize-ram;";
         return status_ok;
 
     } else {
@@ -264,10 +245,10 @@ enum status mercury_config_read_from_file(struct mercury_config &cfg,
 
     // apply additional args
     //
-    if (select_arg == nullptr) {
-        select_arg = str_append(select_arg, "select=all;");
+    if (select_arg.empty()) {
+        select_arg = "select=all;";
     }
-    global_vars.packet_filter_cfg = str_append(select_arg, additional_args);
+    global_vars.packet_filter_cfg = strdup((select_arg + additional_args).c_str());
 
     // when reading from a config file, an interface file must be specified
     //
