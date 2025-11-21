@@ -769,24 +769,6 @@ namespace snmp {
 
     };
 
-    /// return the password recover string for an snmpv3
-    /// encrypted/authenticated message
-    ///
-    static auto get_password_recovery_string(const datum &pdu,
-                                             const datum &engine_id,
-                                             const datum &auth_params)
-    {
-        data_buffer<512> result;
-
-        result << datum{"$SNMPv3$0$0$"};
-        result << pdu;
-        result << datum{"$"};
-        result.write_hex(engine_id.data, engine_id.length());
-        result << datum{"$"};
-        result.write_hex(auth_params.data, auth_params.length());
-
-        return result;
-    }
 
     // USMSecurityParameters, following RFC 3414
     //
@@ -816,47 +798,66 @@ namespace snmp {
 
     public:
 
-       usm_security_parameters(datum d) :
-           seq{&d, tlv::SEQUENCE, "seq"},
-           authoritative_engine_id{&seq.value, tlv::OCTET_STRING, "engine_id"},
-           authoritative_engine_boots{&seq.value, tlv::INTEGER, "boots"},
-           authoritative_engine_time{&seq.value, tlv::INTEGER, "time"},
-           user_name{&seq.value, tlv::OCTET_STRING, "user_name"},
-           authentication_parameters{&seq.value, tlv::OCTET_STRING, "authentication_parameters"},
-           privacy_parameters{&seq.value, tlv::OCTET_STRING, "privacy_parameters"},
-           valid{d.is_not_null()}
+        usm_security_parameters(datum d) :
+            seq{&d, tlv::SEQUENCE, "seq"},
+            authoritative_engine_id{&seq.value, tlv::OCTET_STRING, "engine_id"},
+            authoritative_engine_boots{&seq.value, tlv::INTEGER, "boots"},
+            authoritative_engine_time{&seq.value, tlv::INTEGER, "time"},
+            user_name{&seq.value, tlv::OCTET_STRING, "user_name"},
+            authentication_parameters{&seq.value, tlv::OCTET_STRING, "authentication_parameters"},
+            privacy_parameters{&seq.value, tlv::OCTET_STRING, "privacy_parameters"},
+            valid{d.is_not_null()}
         { }
 
-        void write_json(json_object &o, const datum & pdu_copy, bool is_priv) const {
-           if (!valid) {
-               return;
-           }
+        /// return the password recovery string for an snmpv3
+        /// authenticated message
+        ///
+        auto get_password_recovery_string(const datum &pdu) const {
+            data_buffer<1500> result;
 
-           o.print_key_hex("engine_id_raw", authoritative_engine_id.value);
+            datum before_auth_param{pdu.data, authentication_parameters.value.data};
+            datum after_auth_param{authentication_parameters.value.data_end, pdu.data_end};
 
-           engine_id{authoritative_engine_id.value}.write_json(o);
+            result << datum{"$SNMPv3$0$0$"};
 
-           o.print_key_json_string("user_name", user_name.value);
+            // write the PDU with the value field of the auth_params
+            // set to the all-zero string (as per RFC2574, Section
+            // 6.3.1) into the password recovery string
+            //
+            result.write_hex(before_auth_param.data, before_auth_param.length());
+            for (ssize_t i=0; i<authentication_parameters.value.length(); i++) {
+                result << datum{"00"};
+            }
+            result.write_hex(after_auth_param.data, after_auth_param.length());
 
-           if (is_priv) {
+            result << datum{"$"};
+            result.write_hex(authoritative_engine_id.value.data, authoritative_engine_id.value.length());
+            result << datum{"$"};
+            result.write_hex(authentication_parameters.value.data, authentication_parameters.value.length());
 
-               data_buffer<1024> nulled_pdu;
-               datum before_auth_param{pdu_copy.data, authentication_parameters.value.data};
-               datum after_auth_param{authentication_parameters.value.data_end, pdu_copy.data_end};
+            return result;
+        }
 
-               nulled_pdu.write_hex(before_auth_param.data, before_auth_param.length());
-               nulled_pdu << datum{"000000000000000000000000"};                          // TODO: match length
-               nulled_pdu.write_hex(after_auth_param.data, after_auth_param.length());
+        void write_json(json_object &o, const datum & pdu_copy, bool is_priv, bool is_auth) const {
+            (void)is_priv;
+            if (!valid) {
+                return;
+            }
 
-               // nulled_pdu.contents().fprint(stderr); fputc('\n', stderr);
+            o.print_key_hex("engine_id_raw", authoritative_engine_id.value);
 
-               auto pwd_recovery_string = get_password_recovery_string(nulled_pdu.contents(), authoritative_engine_id.value, authentication_parameters.value);
-               o.print_key_json_string("password_recovery", pwd_recovery_string.contents());
-           }
+            engine_id{authoritative_engine_id.value}.write_json(o);
 
-       }
+            o.print_key_json_string("user_name", user_name.value);
 
-   };
+            if (is_auth) {
+                auto pwd_recovery_string = get_password_recovery_string(pdu_copy);
+                o.print_key_json_string("password_recovery", pwd_recovery_string.contents());
+            }
+
+        }
+
+    };
 
     // SNMPv3 message format, following RFC 3412, Sec. 6.
     //
@@ -896,12 +897,6 @@ namespace snmp {
         {
         }
 
-        static void write_pdu_with_null_auth_param(datum pdu) {
-            data_buffer<512> nulled_pdu;
-            nulled_pdu.write_hex(pdu.data, pdu.length());
-            nulled_pdu.contents().fprint(stderr); fputc('\n', stderr);
-        }
-
         void write_json(json_object &o, bool metadata=false) const {
             (void)metadata;
             if (!is_not_empty()) {
@@ -910,7 +905,7 @@ namespace snmp {
             json_object snmp{o, "snmp"};
             snmp.print_key_uint("version", get_uint64(version.value));
             hd.write_json(o);
-            usm_security_parameters{msgSecurityParameters.value}.write_json(o, pdu_copy, hd.priv());
+            usm_security_parameters{msgSecurityParameters.value}.write_json(o, pdu_copy, hd.priv(), hd.auth());
 
             datum tmp = body;
             if (hd.priv()) {
