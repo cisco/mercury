@@ -84,7 +84,7 @@ private:
     // writes the corresponding byte sequence to `out`
     //
     template <typename I, typename O>
-    static constexpr auto parse_hex(I begin, I end, O out) {
+    static inline constexpr auto parse_hex(I begin, I end, O out) {
 
         // validate input
         //
@@ -118,7 +118,7 @@ public:
     // `out`
     //
     template <typename I, typename O>
-    static constexpr auto convert_hex_without_prefix(I begin, I end, O out) {
+    static inline constexpr auto convert_hex_without_prefix(I begin, I end, O out) {
 
         // validate input
         //
@@ -137,7 +137,7 @@ public:
 
     // returns the value of a character interpreted as a hex digit
     //
-    static constexpr uint8_t hex_value(char c) {
+    static inline constexpr uint8_t hex_value(char c) {
         if ('0' <= c && c <= '9') {
             return c - '0';
         }
@@ -159,7 +159,7 @@ public:
     //
     // Example: `hex_digit('1','a') = 26
     //
-    static constexpr uint8_t hex_digit(char a, char b) {
+    static inline constexpr uint8_t hex_digit(char a, char b) {
         return (hex_value(a) << 4) | hex_value(b);
     }
 
