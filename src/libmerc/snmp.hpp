@@ -779,7 +779,7 @@ namespace snmp {
         data_buffer<512> result;
 
         result << datum{"$SNMPv3$0$0$"};
-        result.write_hex(pdu.data, pdu.length());
+        result << pdu;
         result << datum{"$"};
         result.write_hex(engine_id.data, engine_id.length());
         result << datum{"$"};
@@ -839,7 +839,18 @@ namespace snmp {
            o.print_key_json_string("user_name", user_name.value);
 
            if (is_priv) {
-               auto pwd_recovery_string = get_password_recovery_string(pdu_copy, authoritative_engine_id.value, authentication_parameters.value);
+
+               data_buffer<1024> nulled_pdu;
+               datum before_auth_param{pdu_copy.data, authentication_parameters.value.data};
+               datum after_auth_param{authentication_parameters.value.data_end, pdu_copy.data_end};
+
+               nulled_pdu.write_hex(before_auth_param.data, before_auth_param.length());
+               nulled_pdu << datum{"000000000000000000000000"};                          // TODO: match length
+               nulled_pdu.write_hex(after_auth_param.data, after_auth_param.length());
+
+               // nulled_pdu.contents().fprint(stderr); fputc('\n', stderr);
+
+               auto pwd_recovery_string = get_password_recovery_string(nulled_pdu.contents(), authoritative_engine_id.value, authentication_parameters.value);
                o.print_key_json_string("password_recovery", pwd_recovery_string.contents());
            }
 
@@ -882,7 +893,14 @@ namespace snmp {
             msgSecurityParameters{&seq.value, tlv::OCTET_STRING, "msgSecurityParameters"},
             valid{seq.value.is_not_null()},
             body{seq.value}
-        { }
+        {
+        }
+
+        static void write_pdu_with_null_auth_param(datum pdu) {
+            data_buffer<512> nulled_pdu;
+            nulled_pdu.write_hex(pdu.data, pdu.length());
+            nulled_pdu.contents().fprint(stderr); fputc('\n', stderr);
+        }
 
         void write_json(json_object &o, bool metadata=false) const {
             (void)metadata;
