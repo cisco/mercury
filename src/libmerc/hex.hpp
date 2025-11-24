@@ -10,16 +10,16 @@
 ///
 /// * `std::array<uint8_t, 8> b = 0x0123456789abcdef_hex;`
 ///
-/// * auto c = 0x0123456789abcdef_hex;
+/// * `auto c = 0x0123456789abcdef_hex;`
 ///
-/// * std::vector<uint8_t> d = 0x0123456789abcdef_hexvector;
+/// * `std::vector<uint8_t> d = 0x0123456789abcdef_hexvector;`
 ///
-/// * constexpr std::array<uint8_t, 144> PLAINTEXT
+/// * `constexpr std::array<uint8_t, 144> PLAINTEXT
 ///        = 0x8177d79c8f239178186b4dc5f1df2ea7fee7d0db535489ef983aefb3b2029aeb_hex
 ///        + 0xa0bb2b46a2b18c94a1417a33cbeb41ca7ea9c73a677fccd2eb5470c3c500f6d3_hex
 ///        + 0xf1a6c755c944ba586f88921f6ae6c9d194e78c7233c406126633e144c3810ad2_hex
 ///        + 0x3ee1b5af4c04a22d49e99e7017f74c2309492569ff49be17d2804920f2ac5f51_hex
-///        + 0x4d13fd3e7318cc7cf80ca5101a465428_hex;
+///        + 0x4d13fd3e7318cc7cf80ca5101a465428_hex;`
 ///
 /// C++17 or a later version is required.
 
@@ -77,7 +77,7 @@ public:
 private:
 
     // parses the characters between `begin` and `end` as a sequence
-    // of hex digits (preceeded by `0x` and followed by `\0`) and
+    // of hex digits (preceded by `0x` and followed by `\0`) and
     // writes the corresponding byte sequence to `out`
     //
     template <typename I, typename O>
@@ -100,7 +100,7 @@ private:
         begin += 2;
 
         while (begin != end) {
-            *out = hex_digit(*begin, *(begin + 1));
+            *out = hex_pair_value(*begin, *(begin + 1));
             begin += 2;
             ++out;
         }
@@ -109,28 +109,6 @@ private:
     }
 
 public:
-
-    // parses the characters between `begin` and `end` as a sequence
-    // of hex digits and writes the corresponding byte sequence to
-    // `out`
-    //
-    template <typename I, typename O>
-    static constexpr auto convert_hex_without_prefix(I begin, I end, O out) {
-
-        // validate input
-        //
-        if ((end - begin) % 2 != 0) {
-            throw std::logic_error{"invalid input: number of hex digits must be even"};
-        }
-
-        while (begin != end) {
-            *out = hex_digit(*begin, *(begin + 1));
-            begin += 2;
-            ++out;
-        }
-
-        return out;
-    }
 
     // returns the value of a character interpreted as a hex digit
     //
@@ -152,12 +130,13 @@ public:
         return 0;
     }
 
-    // returns the `uint8_t` corresponding to a pair of hex digits
+    // returns the `uint8_t` corresponding to the pair of hex digits
+    // \param first_digit and \param second_digit
     //
-    // Example: `hex_digit('1','a') = 26
+    // \example `assert(`hex_pair_value('1','a') == 0x1a);`
     //
-    static constexpr uint8_t hex_digit(char a, char b) {
-        return (hex_value(a) << 4) | hex_value(b);
+    static constexpr uint8_t hex_pair_value(char first_digit, char second_digit) {
+        return (hex_value(first_digit) << 4) | hex_value(second_digit);
     }
 
 };
@@ -197,16 +176,13 @@ constexpr auto operator"" _hex() {
 
 /// construct a `std::vector<uint8_t>` from the user-defined literal
 /// that starts with `0x`, contains an even number of hexadecimal
-/// digit characters, and ends with `_hex`.  Uppercase letters may be
-/// used for the `0X` prefix or the hexadecimal digits.
+/// digit characters, and ends with `_hexvector`.  Uppercase letters
+/// may be used for the `0X` prefix or the hexadecimal digits.
 ///
 /// \note For background on user-defined literals, see
 /// https://en.cppreference.com/w/cpp/language/user_literal.
 ///
 template <char... hex_digits>
-#if (__cplusplus >= 202002L)
-    constexpr // std::vector can't be constexpr in c++17, but it can in c++20
-#endif
 auto operator"" _hexvector() {
     static_assert(sizeof...(hex_digits) % 2 == 0, "error: number of hex digits must be even");
     return hex_bytes<hex_digits...>{}.vector();
@@ -240,7 +216,7 @@ constexpr std::array<T, (Ns + ...)> concat(const std::array<T, Ns>&... arrs) {
     return result;
 }
 
-/// returns the contacenation of \param x and \param y, which has the
+/// returns the concatenation of \param x and \param y, which has the
 /// type `std::array<uint8_t,P>`, where P = M + N and M and N are the
 /// lengths of \param x and \param y, respectively
 ///
@@ -258,17 +234,17 @@ constexpr std::array<uint8_t, M + N> operator+(const std::array<uint8_t, M> &x,
 
 
 
-// unit tests, available when NDEBUG is defined
+// unit tests, available when NDEBUG is not defined
 //
 #ifndef NDEBUG
 
-/// returns true of the `_hex` user-defined literal unit tests pass,
-/// and false otherwise
+/// returns `true` if the `_hex` user-defined literal unit tests pass,
+/// and `false` otherwise
 ///
-bool hex_udl_unit_tests() {
+inline bool hex_udl_unit_tests() {
 
-    std::array<uint8_t, 3> array_ref{ 0xab, 0xcd, 0xef };
-    std::array<uint8_t, 3> array = 0xabcdef_hex;
+    constexpr std::array<uint8_t, 3> array_ref{ 0xab, 0xcd, 0xef };
+    constexpr std::array<uint8_t, 3> array = 0xabcdef_hex;
     if (array != array_ref) {
         return false;
     }
@@ -282,7 +258,7 @@ bool hex_udl_unit_tests() {
         return false;
     }
     auto auto_vector = 0x0102030405060708abcdef_hexvector;
-    if (vector != vector_ref) {
+    if (auto_vector != vector_ref) {
         return false;
     }
     auto uppercase_array = 0x51D179BF61E464841E0E8D3B56CFF2417A5F2BCCA6724F862A5F25C5C7BD9BA1_hex;
@@ -293,6 +269,14 @@ bool hex_udl_unit_tests() {
         0x2A, 0x5F, 0x25, 0xC5, 0xC7, 0xBD, 0x9B, 0xA1
     };
     if (uppercase_array != uppercase_array_ref) {
+        return false;
+    }
+
+    // test array concatenation operator+
+    //
+    constexpr auto concatenated = array_ref + array;
+    std::array<uint8_t, 6> concatenated_ref{ 0xab, 0xcd, 0xef, 0xab, 0xcd, 0xef };
+    if (concatenated != concatenated_ref) {
         return false;
     }
 

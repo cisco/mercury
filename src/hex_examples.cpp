@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
     // With very long literals, it may be desirable to introduce line
     // breaks to improve readability.  That effect can be achieved by
     // concatenating a sequence of `std::array<uint8_t>`s with `+`.
-    // The apprpriate `constexpr` operator overload is provided in
+    // The appropriate `constexpr` operator overload is provided in
     // `hex.hpp`.
     //
     // These examples are taken from the NIST CAVS 11.1 AESVS MMT test
