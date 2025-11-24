@@ -454,27 +454,27 @@ int json_output_fuzzer(const uint8_t *data, size_t size) {
 }
 
 
-/// test a json output by parsing the \param raw_data_len bytes at
-/// \param raw_data as an object of type \param T, writing out the
-/// json representation of that object, then comparing that json to
-/// the expected \param output_len bytes at location \param output.
-/// Returns `true` on success, and `false` otherwise.
+/// test a json output by parsing the \ref datum \param raw_input as
+/// an object of type \param T, writing out the json representation of
+/// that object, then comparing that json to the \param
+/// expected_output; returns `true` on success, and `false` otherwise.
+/// If the optional parameter \param verbose_output is set to a
+/// non-`NULL` `FILE *`, then the generated output will be written to
+/// to that `FILE`.
 ///
 template <typename T>
-static bool test_json_output(uint8_t *raw_data,
-                             size_t raw_data_len,
-                             uint8_t *output,
-                             size_t output_len,
+inline bool test_json_output(datum raw_input,
+                             datum expected_output,
                              FILE *verbose_output=nullptr) {
     bool retval = false;
-    datum reference_data{raw_data, raw_data + raw_data_len};
-    T pkt{reference_data};
-    if (reference_data.is_not_null()) {
+    T pkt{raw_input};
+    if (raw_input.is_not_null()) {
         output_buffer<2024> buf;
         json_object json{&buf};
         pkt.write_json(json, false);
         json.close();
-        if (output_len == buf.length() and buf.memcmp(output, output_len) == 0) {
+        datum result = buf.get_datum();
+        if (result.cmp(expected_output) == 0) {
             retval = true;
         }
         if (verbose_output) {

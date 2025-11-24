@@ -260,6 +260,10 @@ struct datum {
     ///
     template <size_t N> datum(const std::array<uint8_t, N> &a) : data{a.data()}, data_end{data + a.size()} { }
 
+    /// constructs a datum from the C array of `uint8_t`s \param arr
+    ///
+    template <size_t N> datum(const uint8_t (&arr)[N]) : data{arr}, data_end{data + N} { }
+
     /// constructs a datum from a `std::pair` of pointers
     ///
     datum(std::pair<const uint8_t *, const uint8_t *> p) : data{p.first}, data_end{p.second} {}
