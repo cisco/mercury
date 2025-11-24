@@ -929,6 +929,10 @@ struct datum {
 
     ssize_t write_hex(char *out, size_t num_bytes, bool null_terminated=false) {
 
+        if (this->is_null()) {
+            return 0;
+        }
+
         // check for writeable room; output length is twice the input
         // length
         //
@@ -1013,6 +1017,35 @@ static inline datum get_datum(const std::string &s) {
 static inline datum get_datum(const char *c) {
     uint8_t *data = (uint8_t *)c;
     return { data, data + strlen(c) };
+}
+
+/// given inputs \ref datum \param outer and \ref datum \param inner
+/// such that \param inner is contained entirely within \param outer,
+/// returns a `std::pair` of `datum`s, the first of which is the
+/// portion of \param outer that preceeds \param inner, and the second
+/// of which is the portion of \param outer that follows \param inner;
+/// either the first or second `datum` may be empty.  If either \param
+/// outer or \param inner are null, or \param inner is not entirely
+/// contained within \param outer, then each `datum` in the returned
+/// `std::pair` will be null.
+///
+inline std::pair<datum,datum> symmetric_difference(datum outer, datum inner) {
+    //
+    // verify input conditions
+    //
+    if (outer.is_null() or
+        inner.is_null() or
+        outer.data > inner.data or
+        inner.data_end > outer.data_end) {
+        return {
+            { nullptr, nullptr },
+            { nullptr, nullptr }
+        };
+    }
+    return {
+        { outer.data , inner.data },
+        { inner.data_end, outer.data_end }
+    };
 }
 
 

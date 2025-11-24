@@ -815,8 +815,9 @@ namespace snmp {
         auto get_password_recovery_string(const datum &pdu) const {
             data_buffer<1500> result;
 
-            datum before_auth_param{pdu.data, authentication_parameters.value.data};
-            datum after_auth_param{authentication_parameters.value.data_end, pdu.data_end};
+            // datum before_auth_param{pdu.data, authentication_parameters.value.data};
+            // datum after_auth_param{authentication_parameters.value.data_end, pdu.data_end};
+            auto [ before_auth_param, after_auth_param ] = symmetric_difference(pdu, authentication_parameters.value);
 
             result << datum{"$SNMPv3$0$0$"};
 
