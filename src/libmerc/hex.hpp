@@ -62,11 +62,8 @@ public:
 
     /// returns a `std::vector<uint8_t>`
     ///
-#if (__cplusplus >= 202002L)
-    constexpr // std::vector can't be constexpr in c++17, but it can in c++20
-#endif
     std::vector<uint8_t> vector() const {
-        constexpr auto tmp = array();
+        auto tmp = array();
         return std::vector<uint8_t>{tmp.begin(), tmp.end()};
     }
 
@@ -84,7 +81,7 @@ private:
     // writes the corresponding byte sequence to `out`
     //
     template <typename I, typename O>
-    static inline constexpr auto parse_hex(I begin, I end, O out) {
+    static constexpr auto parse_hex(I begin, I end, O out) {
 
         // validate input
         //
@@ -118,7 +115,7 @@ public:
     // `out`
     //
     template <typename I, typename O>
-    static inline constexpr auto convert_hex_without_prefix(I begin, I end, O out) {
+    static constexpr auto convert_hex_without_prefix(I begin, I end, O out) {
 
         // validate input
         //
@@ -137,7 +134,7 @@ public:
 
     // returns the value of a character interpreted as a hex digit
     //
-    static inline constexpr uint8_t hex_value(char c) {
+    static constexpr uint8_t hex_value(char c) {
         if ('0' <= c && c <= '9') {
             return c - '0';
         }
@@ -159,7 +156,7 @@ public:
     //
     // Example: `hex_digit('1','a') = 26
     //
-    static inline constexpr uint8_t hex_digit(char a, char b) {
+    static constexpr uint8_t hex_digit(char a, char b) {
         return (hex_value(a) << 4) | hex_value(b);
     }
 
