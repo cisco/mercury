@@ -815,19 +815,18 @@ namespace snmp {
         auto get_password_recovery_string(const datum &pdu) const {
             data_buffer<1500> result;
 
-            // datum before_auth_param{pdu.data, authentication_parameters.value.data};
-            // datum after_auth_param{authentication_parameters.value.data_end, pdu.data_end};
-            auto [ before_auth_param, after_auth_param ] = symmetric_difference(pdu, authentication_parameters.value);
-
             result << datum{"$SNMPv3$0$0$"};
 
             // write the PDU with the value field of the auth_params
             // set to the all-zero string (as per RFC2574, Section
             // 6.3.1) into the password recovery string
             //
+            auto [ before_auth_param, after_auth_param ] = symmetric_difference(pdu, authentication_parameters.value);
+
             result.write_hex(before_auth_param.data, before_auth_param.length());
-            for (ssize_t i=0; i<authentication_parameters.value.length(); i++) {
-                result << datum{"00"};
+            for (const auto & dummy_var : authentication_parameters.value) {
+                (void)dummy_var;
+                result << datum{"00"};  // write null byte instead of actual byte value
             }
             result.write_hex(after_auth_param.data, after_auth_param.length());
 
