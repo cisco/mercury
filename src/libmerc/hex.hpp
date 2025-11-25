@@ -132,7 +132,13 @@ public:
         if ('a' <= c && c <= 'f') {
             return 10 + c - 'a';
         }
+
+#if defined(__GNUC__) && (__GNUC__ < 9)
+#warning omitting error check to avoid g++ version < 9 bug
+#else
         throw std::logic_error{"invalid hex digit"};
+#endif
+
         //
         // the flow of execution should never get here, but we return
         // 0 in order to keep the compiler happy
