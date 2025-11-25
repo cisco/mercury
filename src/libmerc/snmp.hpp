@@ -809,11 +809,22 @@ namespace snmp {
             valid{d.is_not_null()}
         { }
 
-        /// return the password recovery string for an snmpv3
-        /// authenticated message
+        /// \brief Return the password recovery string for an snmpv3
+        /// authenticated message, if possible, or a null
+        /// `data_buffer` otherwise.
         ///
         auto get_password_recovery_string(const datum &pdu) const {
             data_buffer<1500> result;
+
+            // identify the parts of the PDU preceeding and following
+            // the authentication parameters, and verify that they are
+            // not null
+            //
+            auto [ before_auth_param, after_auth_param ] = symmetric_difference(pdu, authentication_parameters.value);
+            if (before_auth_param.is_null() or after_auth_param.is_null()) {
+                result.set_null();
+                return result;
+            }
 
             result << datum{"$SNMPv3$0$0$"};
 
@@ -821,8 +832,6 @@ namespace snmp {
             // set to the all-zero string (as per RFC2574, Section
             // 6.3.1) into the password recovery string
             //
-            auto [ before_auth_param, after_auth_param ] = symmetric_difference(pdu, authentication_parameters.value);
-
             result.write_hex(before_auth_param.data, before_auth_param.length());
             for (const auto & dummy_var : authentication_parameters.value) {
                 (void)dummy_var;

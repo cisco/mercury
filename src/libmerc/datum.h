@@ -929,10 +929,6 @@ struct datum {
 
     ssize_t write_hex(char *out, size_t num_bytes, bool null_terminated=false) {
 
-        if (this->is_null()) {
-            return 0;
-        }
-
         // check for writeable room; output length is twice the input
         // length
         //
