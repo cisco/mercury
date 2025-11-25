@@ -1,27 +1,34 @@
 /// \file hex.hpp
 ///
-/// `_hex` is a user-defined literal for declaring a `std::array` of
-/// `uint8_t`s, and `_hexvector` is a similar user-defined literal for
-/// declaring a `std::vector<uint8_t>`
+/// The user-defined literals `_hex` and `_hexvector` declare a
+/// `std::array<uint8_t,N>` and a `std::vector<uint8_t>`,
+/// respectively.  Examples:
 ///
-/// Examples:
+/// \code
+///   constexpr std::array a = 0x0123456789abcdef_hex;
 ///
-/// * `constexpr std::array a = 0x0123456789abcdef_hex;`
+///   std::array<uint8_t, 8> b = 0x0123456789abcdef_hex;
 ///
-/// * `std::array<uint8_t, 8> b = 0x0123456789abcdef_hex;`
+///   auto c = 0x0123456789abcdef_hex;
 ///
-/// * `auto c = 0x0123456789abcdef_hex;`
+///   std::vector<uint8_t> d = 0x0123456789abcdef_hexvector;
 ///
-/// * `std::vector<uint8_t> d = 0x0123456789abcdef_hexvector;`
-///
-/// * `constexpr std::array<uint8_t, 144> PLAINTEXT
+///   constexpr std::array<uint8_t, 144> PLAINTEXT
 ///        = 0x8177d79c8f239178186b4dc5f1df2ea7fee7d0db535489ef983aefb3b2029aeb_hex
 ///        + 0xa0bb2b46a2b18c94a1417a33cbeb41ca7ea9c73a677fccd2eb5470c3c500f6d3_hex
 ///        + 0xf1a6c755c944ba586f88921f6ae6c9d194e78c7233c406126633e144c3810ad2_hex
 ///        + 0x3ee1b5af4c04a22d49e99e7017f74c2309492569ff49be17d2804920f2ac5f51_hex
-///        + 0x4d13fd3e7318cc7cf80ca5101a465428_hex;`
+///        + 0x4d13fd3e7318cc7cf80ca5101a465428_hex;
+/// \endcode
+///
+/// To use these functions, `#include "libmerc/hex.hpp"`.  The
+/// implementation is a self-contained header-only library.
 ///
 /// C++17 or a later version is required.
+///
+/// \note For background on user-defined literals, see
+/// https://en.cppreference.com/w/cpp/language/user_literal.
+///
 
 #ifndef HEX_HPP
 #define HEX_HPP
@@ -35,18 +42,22 @@
 #include <vector>
 #include <stdexcept>
 
-/// class hex_bytes represents a contiguous sequence of bytes defined
-/// at compile time that can be converted into a `std::array<uint8_t,
-/// N>` or `std::vector<uint8_t>`.
-///
-///
+//
+// \cond EXCLUDE_FROM_DOXYGEN
+//
+
+// class hex_bytes represents a contiguous sequence of bytes defined
+// at compile time that can be converted into a `std::array<uint8_t,
+// N>` or `std::vector<uint8_t>`.
+//
+//
 template <char... hex_digits>
 class hex_bytes {
 
 public:
 
-    /// returns a `std::array<uint8_t, N>`
-    ///
+    // returns a `std::array<uint8_t, N>`
+    //
     static constexpr auto array() {
         constexpr std::array<char, sizeof...(hex_digits)> data{hex_digits...};
         std::array<uint8_t, (sizeof...(hex_digits) / 2)-1> result{};
@@ -54,22 +65,21 @@ public:
         return result;
     }
 
-    /// conversion to a `std::array<uint8_t, N>`
-    ///
+    // conversion to a `std::array<uint8_t, N>`
+    //
     constexpr operator std::array<uint8_t, (sizeof...(hex_digits) / 2)-1>() const {
         return array();
     }
 
-    /// returns a `std::vector<uint8_t>`
-    ///
+    // returns a `std::vector<uint8_t>`
+    //
     std::vector<uint8_t> vector() const {
         auto tmp = array();
         return std::vector<uint8_t>{tmp.begin(), tmp.end()};
     }
 
-    /// conversion to a `std::vector<uint8_t>`
-    ///
-    // constexpr
+    // conversion to a `std::vector<uint8_t>`
+    //
     operator std::vector<uint8_t>() const {
         return vector();
     }
@@ -141,32 +151,19 @@ public:
 
 };
 
-/// constructs a hex_bytes object that can be converted to a
-/// std::array<uint8_t, N> or a std::vector<uint8_t>
-///
-/// The user-defined hex literal _hex constructs a \ref hex_bytes
-/// object from a literal that starts with `0x`, contains an even
-/// number of hexadecimal digit characters, and ends with `_hex`.
-/// That object can be converted to a `std::array<uint8_t, N>` or a
-/// `std::vector<uint8_t>`.  Conversion can be implicit whenever type
-/// deduction is not needed, or can use the functions \ref
-/// hex_bytes::array() const or hex_bytes::vector() const along with
-/// the `auto` type specifier.
-///
-/// Uppercase letters may be used for the `0X` prefix or the
-/// hexadecimal digits.
-///
-/// For background on user-defined literals, see
-/// https://en.cppreference.com/w/cpp/language/user_literal.
-///
+//
+// \endcond
+//
 
-/// construct a `std::array<uint8_t, N>` from the user-defined literal
+/// Construct a `std::array<uint8_t, N>` from the user-defined literal
 /// that starts with `0x`, contains an even number of hexadecimal
 /// digit characters, and ends with `_hex`.  Uppercase or lowercase
 /// letters may be used for the `0X` prefix or the hexadecimal digits.
 ///
-/// \note For background on user-defined literals, see
-/// https://en.cppreference.com/w/cpp/language/user_literal.
+/// Example:
+/// \code
+///   constexpr std::array a = 0x0123456789abcdef_hex;
+/// \endcode
 ///
 template <char... hex_digits>
 constexpr auto operator"" _hex() {
@@ -174,19 +171,25 @@ constexpr auto operator"" _hex() {
     return hex_bytes<hex_digits...>{}.array();
 }
 
-/// construct a `std::vector<uint8_t>` from the user-defined literal
+/// Construct a `std::vector<uint8_t>` from the user-defined literal
 /// that starts with `0x`, contains an even number of hexadecimal
 /// digit characters, and ends with `_hexvector`.  Uppercase letters
 /// may be used for the `0X` prefix or the hexadecimal digits.
 ///
-/// \note For background on user-defined literals, see
-/// https://en.cppreference.com/w/cpp/language/user_literal.
+/// Example:
+/// \code
+///   std::vector<uint8_t> d = 0x0123456789abcdef_hexvector;
+/// \endcode
 ///
 template <char... hex_digits>
 auto operator"" _hexvector() {
     static_assert(sizeof...(hex_digits) % 2 == 0, "error: number of hex digits must be even");
     return hex_bytes<hex_digits...>{}.vector();
 }
+
+//
+// \cond EXCLUDE_FROM_DOXYGEN
+//
 
 // start of helper functions for `operator+(const
 // std::array<uint8_t,M> &, std::array<uint8_t,N>)`
@@ -216,13 +219,24 @@ constexpr std::array<T, (Ns + ...)> concat(const std::array<T, Ns>&... arrs) {
     return result;
 }
 
-/// returns the concatenation of \param x and \param y, which has the
-/// type `std::array<uint8_t,P>`, where P = M + N and M and N are the
-/// lengths of \param x and \param y, respectively
+//
+// \endcond
+//
+
+
+/// \brief Returns the concatenation of `x` and `y`
 ///
 /// This is a convenience function that can be used with the `_hex`
 /// user-defined literal to minimize redundancy or visually simplify
 /// the definition of arrays across multiple lines.
+///
+/// \param x first input
+/// \param y second input
+///
+/// \return The `std::array<uint8_t,P>` formed by concatenating `x`
+/// and `y`, where `P = M + N` and `M` and `N` are the lengths of `x`
+/// and `y`, respectively.
+///
 ///
 /// This function is `constexpr`
 ///
@@ -238,8 +252,9 @@ constexpr std::array<uint8_t, M + N> operator+(const std::array<uint8_t, M> &x,
 //
 #ifndef NDEBUG
 
-/// returns `true` if the `_hex` user-defined literal unit tests pass,
-/// and `false` otherwise
+/// \brief Runs unit tests on the `_hex` and `_hexvector` user-defined
+/// literals and returns `true` if the unit tests pass, and `false`
+/// otherwise
 ///
 inline bool hex_udl_unit_tests() {
 
