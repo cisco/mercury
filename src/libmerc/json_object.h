@@ -469,7 +469,7 @@ inline bool test_json_output(datum raw_input,
     bool retval = false;
     T pkt{raw_input};
     if (raw_input.is_not_null()) {
-        output_buffer<2024> buf;
+        dynamic_buffer_stream buf{expected_output.length()+1};
         json_object json{&buf};
         pkt.write_json(json, false);
         json.close();

@@ -422,10 +422,12 @@ struct datum {
         return false;            // no matches found
     }
 
-    /// compares this \ref datum to `p` lexicographically, and returns
+    /// Compares this \ref datum to `p` lexicographically, and returns
     /// an integer less than, equal to, or greater than zero if this
     /// is found to be less than, to match, or to be greater than `p`,
-    /// respectively.
+    /// respectively.  If both this `datum` and `p` are null, then
+    /// zero is returned.  If this `datum` is null and `p` is not,
+    /// `-1` is returned.
     ///
     /// For a nonzero return value, the sign is determined by the sign
     /// of the difference between the first pair of bytes (interpreted
@@ -450,6 +452,12 @@ struct datum {
     ///     assert(d.cmp(d) == 0);
     ///
     int cmp(const datum &p) const {
+        if (is_null()) {
+            if (p.is_null()) {
+                return 0;      // two null datums are equal
+            }
+            return -1;         // a null datum is less than any other datum
+        }
         int cmp = ::memcmp(data, p.data, std::min(length(), p.length()));
         if (cmp == 0) {
             return length() - p.length();
