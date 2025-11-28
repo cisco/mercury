@@ -458,6 +458,9 @@ struct datum {
             }
             return -1;         // a null datum is less than any other datum
         }
+        if (p.is_null()) {
+            return 1;          // any non-null datum is greater than a null datum
+        }
         int cmp = ::memcmp(data, p.data, std::min(length(), p.length()));
         if (cmp == 0) {
             return length() - p.length();
