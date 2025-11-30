@@ -1254,7 +1254,7 @@ public:
     ///
     dynamic_buffer_stream(size_t length) :
         heap_buffer{length},
-        buffer_stream{buffer, N}
+        buffer_stream{buffer, (int)N}
     { }
 
     /// Reset the `buffer_stream` so that it is empty and ready for
