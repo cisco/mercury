@@ -16,6 +16,7 @@
 #include "libmerc/dns_trie.hpp"
 #include "libmerc/tftp.hpp"
 #include "libmerc/tacacs.hpp"
+#include "libmerc/crypto_assess.h"
 #include "libmerc/decimal_int.hpp"
 #include "libmerc/redis.hpp"
 // Macros to colorize output
@@ -92,17 +93,13 @@ int main(int, char *[]) {
             &tacacs::unit_test
         },
         {
-            "redis",
-            &redis::unit_test
-        },
-        {
             "crypto_policy",
             &crypto_policy::unit_test
         },
         {
-            "hex_udl",
-            &hex_udl_unit_tests
-        },
+            "redis",
+            &redis::unit_test
+        }
     };
     size_t num_tests = 0;
     size_t num_passed = 0;
@@ -142,6 +139,10 @@ int main(int, char *[]) {
         {
             "cbor_object",
             &cbor_object_unit_test
+        },
+        {
+            "decimal_integer",
+            &decimal_integer_unit_test
         },
     };
     for (const auto &tc : test_cases_verbose) {

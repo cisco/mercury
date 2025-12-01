@@ -6,6 +6,7 @@
 #include "json_object.h"
 #include "match.h"
 #include "decimal_int.hpp"
+#include "lex.h"
 
 // RESP (Redis Serialization Protocol) parser
 // Reference: https://redis.io/docs/latest/develop/reference/protocol-spec/
@@ -14,14 +15,21 @@ namespace redis{
 
     class response : public base_protocol{
     private:
+        // Compile-time flag to control array parsing execution
+        // Set to true to enable array parsing and JSON output
+        // Array parsing is disabled by default for the following reasons:
+        // 1. Array responses can be very large and span multiple packets
+        // 2. Most valuable data is in the command name and auth details, not array contents
+        // 3. Parsing full arrays requires complex state management and recursion handling
+        // 4. Memory usage grows with array depth and size
+        static constexpr bool enable_array_parsing = false;
+
         enum redis_type{
             SIMPLE_STRING, // +OK\r\n
             ERROR,         // -Error message\r\n
             INTEGER,       // :1000\r\n
-            BULK_STRING    // $7\r\nabc\rdef\r\n
-#ifdef REDIS_ENABLE_ARRAY_PARSING
-            ,ARRAY         // *2\r\n$3\r\nSET\r\n$3\r\nfoo\r\n
-#endif
+            BULK_STRING,   // $7\r\nabc\rdef\r\n
+            ARRAY          // *2\r\n$3\r\nSET\r\n$3\r\nfoo\r\n
         } type;
         datum parsed_data;
         bool isValid;
@@ -34,7 +42,7 @@ namespace redis{
             datum content;
             content.parse_up_to_delim(d, '\r');
             if (content.is_not_empty()){
-                literal_byte<'\r', '\n'> terminator{d};
+                crlf terminator{d};
                 if (!d.is_null()){
                     type = SIMPLE_STRING;
                     parsed_data = content;
@@ -52,7 +60,7 @@ namespace redis{
             datum content;
             content.parse_up_to_delim(d, '\r');
             if (content.is_not_empty()){
-                literal_byte<'\r', '\n'> terminator{d};
+                crlf terminator{d};
                 if (!d.is_null()){
                     type = ERROR;
                     parsed_data = content;
@@ -70,7 +78,7 @@ namespace redis{
             datum content;
             content.parse_up_to_delim(d, '\r');
             if (content.is_not_empty()){
-                literal_byte<'\r', '\n'> terminator{d};
+                crlf terminator{d};
                 if (!d.is_null()){
                     type = INTEGER;
                     parsed_data = content;
@@ -90,7 +98,7 @@ namespace redis{
             if (!length_str.is_not_empty()){
                 return false;
             }
-            literal_byte<'\r', '\n'> length_term{d};
+            crlf length_term{d};
             if (d.is_null()){
                 return false;
             }
@@ -107,7 +115,7 @@ namespace redis{
             if (length >= 0 && d.data + length + 2 <= d.data_end){ // +2 for \r\n
                 parsed_data = datum{d.data, d.data + length};
                 d.skip(length);
-                literal_byte<'\r', '\n'> content_term{d};
+                crlf content_term{d};
                 return !d.is_null();
             }
             else if (length > 0){
@@ -118,13 +126,6 @@ namespace redis{
             return false;
         }
 
-#ifdef REDIS_ENABLE_ARRAY_PARSING
-        // Array parsing is disabled by default for the following reasons:
-        // 1. Array responses can be very large and span multiple packets
-        // 2. Most valuable data is in the command name and auth details, not array contents
-        // 3. Parsing full arrays requires complex state management and recursion handling
-        // 4. Memory usage grows with array depth and size
-        // To enable array parsing, compile with -DREDIS_ENABLE_ARRAY_PARSING
         bool parse_first_packet(const uint8_t *data_start, datum &d){
             parsed_data = datum{data_start, d.data};
             return true;
@@ -140,7 +141,7 @@ namespace redis{
             if (!length_str.is_not_empty()){
                 return false;
             }
-            literal_byte<'\r', '\n'> length_term{d};
+            crlf length_term{d};
             if (d.is_null()){
                 return false;
             }
@@ -233,13 +234,10 @@ namespace redis{
             }
             return false;
         }
-#endif // REDIS_ENABLE_ARRAY_PARSING
 
     public:
 
-#ifdef REDIS_ENABLE_ARRAY_PARSING
         size_t additional_bytes_needed = 0;
-#endif
 
         response(datum &d) : type{SIMPLE_STRING}, parsed_data{d.data, d.data}, isValid{false}{
 
@@ -257,11 +255,13 @@ namespace redis{
             case '$':
                 isValid = parse_bulk_string(d);
                 break;
-#ifdef REDIS_ENABLE_ARRAY_PARSING
             case '*':
-                isValid = parse_array(d);
+                if constexpr (enable_array_parsing) {
+                    isValid = parse_array(d);
+                } else {
+                    isValid = false;
+                }
                 break;
-#endif
             default:
                 isValid = false;
                 break;
@@ -308,14 +308,14 @@ namespace redis{
                         }
                     }
                     break;
-#ifdef REDIS_ENABLE_ARRAY_PARSING
                 case ARRAY:
-                    redis_response.print_key_string("type", "array");
-                    if (parsed_data.is_not_empty()){
-                        redis_response.print_key_json_string("data", parsed_data);
+                    if constexpr (enable_array_parsing) {
+                        redis_response.print_key_string("type", "array");
+                        if (parsed_data.is_not_empty()){
+                            redis_response.print_key_json_string("data", parsed_data);
+                        }
                     }
                     break;
-#endif
             }
 
             redis_response.close();
@@ -351,7 +351,7 @@ namespace redis{
             if (!length_str.is_not_empty()){
                 return false;
             }
-            literal_byte<'\r', '\n'> length_term{d};
+            crlf length_term{d};
             if (d.is_null()){
                 return false;
             }
@@ -366,7 +366,7 @@ namespace redis{
             }
             out = datum{d.data, d.data + length};
             d.skip(length);
-            literal_byte<'\r', '\n'> content_term{d};
+            crlf content_term{d};
             return !d.is_null();
         }
 
@@ -380,7 +380,7 @@ namespace redis{
             if (!length_str.is_not_empty()){
                 return false;
             }
-            literal_byte<'\r', '\n'> length_term{d};
+            crlf length_term{d};
             if (d.is_null()){
                 return false;
             }
