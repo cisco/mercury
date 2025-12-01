@@ -1889,8 +1889,10 @@ inline void tls_client_hello::fingerprint(struct buffer_stream &buf, size_t form
     if (format_version == 0) {
         ;
     } else if (format_version >= 1 && format_version <= 2) {
-        buf.write_uint8(format_version);
-        buf.write_char('/');
+        if (!dtls) {
+            buf.write_uint8(format_version);
+            buf.write_char('/');
+        }
     } else {
         return; // unsupported format version
     }

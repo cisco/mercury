@@ -87,13 +87,13 @@ class dtls_client_hello : public base_protocol {
 public:
     dtls_client_hello(struct datum &pkt) : hello{pkt} {}
 
-    void fingerprint(struct buffer_stream &buf) const {
-        hello.fingerprint(buf);
+    void fingerprint(struct buffer_stream &buf, size_t format_version) const {
+        hello.fingerprint(buf, format_version);
     }
 
-    void compute_fingerprint(class fingerprint &fp) const {
+    void compute_fingerprint(class fingerprint &fp, size_t format_version) const {
         fp.set_type(fingerprint_type_dtls);
-        fp.add(*this);
+        fp.add(*this, format_version);
         fp.final();
     }
 
@@ -220,8 +220,8 @@ public:
     return json_output_fuzzer<dtls_server_hello>(data, size);
 }
 
-[[maybe_unused]] inline int dtls_hello_retry_request_fuzz_test(const uint8_t *data, size_t size) {
-    return json_output_fuzzer<dtls_hello_retry_request>(data, size);
+[[maybe_unused]] inline int dtls_hello_verify_request_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<dtls_hello_verify_request>(data, size);
 }
 
 #endif /* DTLS_H */

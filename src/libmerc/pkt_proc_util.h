@@ -345,6 +345,10 @@ struct compute_fingerprint {
         msg.compute_fingerprint(fp_, format_version.tls_fingerprint_format);
     }
 
+    void operator()(dtls_client_hello &msg) {
+        msg.compute_fingerprint(fp_, format_version.tls_fingerprint_format);
+    }
+
     void operator()(quic_init &msg) {
         msg.compute_fingerprint(fp_, format_version.quic_fingerprint_format);
     }
