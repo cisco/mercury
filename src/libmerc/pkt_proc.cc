@@ -551,24 +551,8 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
         }
         break;
     case udp_msg_type_dtls_handshake:
-    {
-        struct dtls_record dtls_rec{pkt};
-        struct dtls_handshake handshake{dtls_rec.fragment};
-        switch (handshake.msg_type) {
-        case handshake_type::client_hello:
-            x.emplace<dtls_client_hello>(handshake.body);
-            break;
-        case handshake_type::server_hello:
-            x.emplace<dtls_server_hello>(handshake.body);
-            break;
-        case handshake_type::hello_verify_request:
-            x.emplace<dtls_hello_verify_request>(handshake.body);
-            break;
-        default:
-            break;
-        }
+        dtls::parse_and_emplace(x, pkt);
         break;
-    }
     case udp_msg_type_wireguard:
         x.emplace<wireguard_handshake_init>(pkt);
         break;

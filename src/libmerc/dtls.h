@@ -97,7 +97,7 @@ public:
         fp.final();
     }
 
-    void write_json(struct json_object &record, bool output_metadata) const {
+    void write_json(json_object &record, bool output_metadata) const {
         hello.write_json(record, output_metadata);
     }
 
@@ -133,6 +133,8 @@ class dtls_hello_verify_request: public base_protocol {
     bool valid;
 
 public:
+    // set the boolean verbose to `true` for
+    // verbose output in `dtls_hello_verify_request::write_json()
     static constexpr bool verbose = false;
 
     dtls_hello_verify_request(struct datum &p) :
@@ -141,15 +143,15 @@ public:
         cookie{p, cookie_len.value()},
         valid{p.is_not_null()} {}
 
-    void write_json(struct json_object &record, bool metadata) const {
+    void write_json(json_object &record, bool metadata) const {
         (void)metadata;  // ignore parameter
 
         if (!verbose || !valid) {
             return;
         }
 
-        struct json_object dtls{record, "dtls"};
-        struct json_object dtls_server{dtls, "hello_verify_request"};
+        json_object dtls{record, "dtls"};
+        json_object dtls_server{dtls, "hello_verify_request"};
         dtls_server.print_key_uint16_hex("version", protocol_version);
         dtls_server.print_key_hex("cookie", cookie);
         dtls_server.close();
@@ -177,7 +179,7 @@ public:
         hello.fingerprint(buf);
     }
 
-    void write_json(struct json_object &o, bool write_metadata=false) const {
+    void write_json(json_object &o, bool write_metadata=false) const {
         hello.write_json(o, write_metadata);
     }
 
@@ -211,6 +213,30 @@ public:
     };
 };
 
+// DTLS parsing helper namespace
+namespace dtls {
+    // Parse DTLS packet and emplace appropriate message type into variant
+    // Returns true if successfully parsed a known message type, false otherwise
+    template<typename Variant>
+    inline bool parse_and_emplace(Variant &x, datum &pkt) {
+        dtls_record dtls_rec{pkt};
+        dtls_handshake handshake{dtls_rec.fragment};
+
+        switch (handshake.msg_type) {
+        case handshake_type::client_hello:
+            x.template emplace<dtls_client_hello>(handshake.body);
+            return true;
+        case handshake_type::server_hello:
+            x.template emplace<dtls_server_hello>(handshake.body);
+            return true;
+        case handshake_type::hello_verify_request:
+            x.template emplace<dtls_hello_verify_request>(handshake.body);
+            return true;
+        default:
+            return false;
+        }
+    }
+}
 
 [[maybe_unused]] inline int dtls_client_hello_fuzz_test(const uint8_t *data, size_t size) {
     return json_output_fuzzer<dtls_client_hello>(data, size);
