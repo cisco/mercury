@@ -260,6 +260,10 @@ struct datum {
     ///
     template <size_t N> datum(const std::array<uint8_t, N> &a) : data{a.data()}, data_end{data + a.size()} { }
 
+    /// constructs a datum from the C array of `uint8_t`s \param arr
+    ///
+    template <size_t N> datum(const uint8_t (&arr)[N]) : data{arr}, data_end{data + N} { }
+
     /// constructs a datum from a `std::pair` of pointers
     ///
     datum(std::pair<const uint8_t *, const uint8_t *> p) : data{p.first}, data_end{p.second} {}
@@ -418,10 +422,12 @@ struct datum {
         return false;            // no matches found
     }
 
-    /// compares this \ref datum to `p` lexicographically, and returns
+    /// Compares this \ref datum to `p` lexicographically, and returns
     /// an integer less than, equal to, or greater than zero if this
     /// is found to be less than, to match, or to be greater than `p`,
-    /// respectively.
+    /// respectively.  If both this `datum` and `p` are null, then
+    /// zero is returned.  If this `datum` is null and `p` is not,
+    /// `-1` is returned.
     ///
     /// For a nonzero return value, the sign is determined by the sign
     /// of the difference between the first pair of bytes (interpreted
@@ -446,6 +452,15 @@ struct datum {
     ///     assert(d.cmp(d) == 0);
     ///
     int cmp(const datum &p) const {
+        if (is_null()) {
+            if (p.is_null()) {
+                return 0;      // two null datums are equal
+            }
+            return -1;         // a null datum is less than any other datum
+        }
+        if (p.is_null()) {
+            return 1;          // any non-null datum is greater than a null datum
+        }
         int cmp = ::memcmp(data, p.data, std::min(length(), p.length()));
         if (cmp == 0) {
             return length() - p.length();
