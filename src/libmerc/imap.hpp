@@ -7,12 +7,10 @@
 #ifndef IMAP_HPP
 #define IMAP_HPP
 
-#include <cstring>
 #include "protocol.h"
 #include "datum.h"
-#include "rapidjson/document.h"
-#include "rapidjson/error/en.h"
-#include <string>  
+#include "base64.h"
+#include "utf8.hpp"  
 
 namespace imap {
 
@@ -124,11 +122,32 @@ namespace imap {
         bool is_valid() const { return status.is_not_null(); }
     };
 
-    // Parser for server continuation responses: + [base64-data] CRLF
+    // Checks if data is valid base64 OR valid UTF-8 text
+    static bool is_valid_continuation_data(const datum &d) {
+        if (d.is_empty()) {
+            return true; 
+        }
+        
+        size_t check_len = d.length() < 30 ? d.length() : 30;
+        const uint8_t *start = d.data_end - check_len;
+        
+        uint8_t base64_buf[256];
+        int result = base64::decode(base64_buf, sizeof(base64_buf), start, check_len);
+        
+        if (result > 0) {
+            return true;  // Valid base64
+        }
+        
+        char utf8_buf[512];
+        buffer_stream buf{utf8_buf, sizeof(utf8_buf)};
+        return utf8_string::write(buf, start, check_len);
+    }
+
+    // Parser for server continuation responses: + SP (resp-text / base64) CRLF
     // Used internally by imap_responses multi-line parser
     struct continuation_response {
         literal_byte<'+'> plus;
-        optional<literal_byte<' '>> sp;
+        literal_byte<' '> sp;  // Space is mandatory per RFC
         up_to_required_byte<'\r'> data;
         crlf delimiter;
         bool isValid;
@@ -137,9 +156,19 @@ namespace imap {
             sp{d},
             data{d},
             delimiter{d},
-            isValid{data.is_not_empty() && d.is_empty()}
+            isValid{false}
         {
             mercury_debug("%s: processing IMAP continuation response\n", __func__);
+            
+            if (d.is_empty()) {
+                // If data is empty, it's valid (e.g., "+ \r\n")
+                if (data.is_empty()) {
+                    isValid = true;
+                } else {
+                    // If data exists, validate it (last 30 bytes as base64 or UTF-8)
+                    isValid = is_valid_continuation_data(data);
+                }
+            }
         }
 
         void write_json(struct json_object &record, bool metadata) {
@@ -148,12 +177,10 @@ namespace imap {
                 return;
             }
 
-            struct json_object imap_response{record, "response"};
-            imap_response.print_key_string("type", "continuation");
+            record.print_key_string("type", "continuation");
             if (data.is_not_empty()) {
-                imap_response.print_key_json_string("data", data);
+                record.print_key_json_string("data", data);
             }
-            imap_response.close();
         }
 
         bool is_not_empty() const { return isValid; }
@@ -168,6 +195,7 @@ namespace imap {
         continuation_request(datum &d) :
             data{d},
             delimiter{d},
+            // continuation_request can have raw bytes so not possible to validate like continuation_response
             isValid{d.is_empty()}
         {
             mercury_debug("%s: processing IMAP continuation request\n", __func__);
@@ -179,18 +207,16 @@ namespace imap {
                 return;
             }
 
-            struct json_object imap_request{record, "request"};
-            imap_request.print_key_bool("is_tagged", false);
-            imap_request.print_key_string("type", "continuation");
+            record.print_key_bool("is_tagged", false);
+            record.print_key_string("type", "continuation");
             if (data.is_not_empty()) {
                 // Check if it's a cancel command
                 if (data.length() == 1 && data.data[0] == '*') {
-                    imap_request.print_key_string("action", "cancel");
+                    record.print_key_string("action", "cancel");
                 } else {
-                    imap_request.print_key_json_string("data", data);
+                    record.print_key_json_string("data", data);
                 }
             }
-            imap_request.close();
         }
 
         bool is_not_empty() const { return isValid; }
@@ -284,29 +310,25 @@ namespace imap {
             bool is_login = command.case_insensitive_match("login");
             bool is_authenticate = command.case_insensitive_match("authenticate");
            
-            struct json_object imap_request{record, "request"};
-            
-            imap_request.print_key_bool("is_tagged", true);
-            imap_request.print_key_json_string("tag", tag);
+            record.print_key_bool("is_tagged", true);
+            record.print_key_json_string("tag", tag);
                        
-            imap_request.print_key_json_string("command", command);
+            record.print_key_json_string("command", command);
             
             if (is_login && arguments.is_not_empty()) {
                 // Parsing LOGIN command packet to extract username and password
                 datum args_copy{arguments};
                 login_arguments login_args{args_copy};
-                login_args.write_json(imap_request);
+                login_args.write_json(record);
             } else if (is_authenticate && arguments.is_not_empty()) {
                 // Parsing AUTHENTICATE command packet to extract auth_type
-                imap_request.print_key_json_string("auth_type", arguments);
+                record.print_key_json_string("auth_type", arguments);
             } else if (arguments.is_not_empty()) {
-                imap_request.print_key_uint("args_length", arguments.length());
+                record.print_key_uint("args_length", arguments.length());
                 if (metadata) {
-                    imap_request.print_key_json_string("arguments", arguments);
+                    record.print_key_json_string("arguments", arguments);
                 }
             }
-            
-            imap_request.close();
         }
 
         bool is_not_empty() const { return isValid; }
@@ -421,33 +443,30 @@ namespace imap {
                 return;  
             }
 
-            struct json_object imap_response{record, "response"};
-            imap_response.print_key_bool("is_tagged", !is_untagged);
+            record.print_key_bool("is_tagged", !is_untagged);
             
             if (is_untagged) {
                 datum data_copy = response_data_field;
                 imap_token first_word{data_copy};
-                print_untagged_response(imap_response, first_word, data_copy, response_data_field);
+                print_untagged_response(record, first_word, data_copy, response_data_field);
                 
             } else {
                 // Tagged response: <tag> SP (OK|NO|BAD) SP <response-text> CRLF
-                imap_response.print_key_json_string("tag", tag_or_star);
+                record.print_key_json_string("tag", tag_or_star);
             
                 datum data_copy = response_data_field;
                 imap_token status_code{data_copy};
                 
-                imap_response.print_key_json_string("status", status_code);
+                record.print_key_json_string("status", status_code);
             
                 if (data_copy.is_not_empty() && data_copy.data[0] == ' ') {
                     data_copy.skip(1);
                 }
 
                 if (data_copy.is_not_empty()) {
-                    imap_response.print_key_json_string("text", data_copy);
+                    record.print_key_json_string("text", data_copy);
                 }
             }
-            
-            imap_response.close();
         }
 
         bool is_not_empty() const { return isValid; }
@@ -508,7 +527,8 @@ namespace imap {
             }
             
             datum temp = requests;
-            json_array requests_array{record, "imap"};
+            json_object imap_obj{record, "imap"};
+            json_array requests_array{imap_obj, "requests"};
             
             if (is_tagged_request) {
                 // Tagged request: can be multi-line
@@ -542,6 +562,7 @@ namespace imap {
             }
             
             requests_array.close();
+            imap_obj.close();
         }
         
         bool is_not_empty() const { return valid; }
@@ -601,7 +622,8 @@ namespace imap {
             }
             
             datum temp = responses;
-            json_array responses_array{record, "imap"};
+            json_object imap_obj{record, "imap"};
+            json_array responses_array{imap_obj, "responses"};
             
             if (is_continuation_response) {
                 // Continuation response: single line only per RFC (already validated in parse)
@@ -634,6 +656,7 @@ namespace imap {
             }
             
             responses_array.close();
+            imap_obj.close();
         }
         
         bool is_not_empty() const { return valid; }
@@ -654,7 +677,7 @@ namespace imap {
         // Multi-line IMAP requests
         if (!test_json_output<imap::imap_requests>(
             "a0000 CAPABILITY\r\na0001 LOGIN \"neulingern\" \"password\"\r\na0002 LIST\r\n",
-            R"({"imap":[{"request":{"is_tagged":true,"tag":"a0000","command":"CAPABILITY"}},{"request":{"is_tagged":true,"tag":"a0001","command":"LOGIN","username":"\"neulingern\"","password":"\"password\""}},{"request":{"is_tagged":true,"tag":"a0002","command":"LIST"}}]})"
+            R"({"imap":{"requests":[{"is_tagged":true,"tag":"a0000","command":"CAPABILITY"},{"is_tagged":true,"tag":"a0001","command":"LOGIN","username":"\"neulingern\"","password":"\"password\""},{"is_tagged":true,"tag":"a0002","command":"LIST"}]}})"
         )) {
             return false;
         }
@@ -662,7 +685,7 @@ namespace imap {
         // Single line request
         if (!test_json_output<imap::imap_requests>(
             "a0001 LOGIN \"neulingern\" \"password\"\r\n",
-            R"({"imap":[{"request":{"is_tagged":true,"tag":"a0001","command":"LOGIN","username":"\"neulingern\"","password":"\"password\""}}]})"
+            R"({"imap":{"requests":[{"is_tagged":true,"tag":"a0001","command":"LOGIN","username":"\"neulingern\"","password":"\"password\""}]}})"
         )) {
             return false;
         }
@@ -670,7 +693,7 @@ namespace imap {
         // UTF-8 in credentials (IMAP4rev2)
         if (!test_json_output<imap::imap_requests>(
             "a001 LOGIN \"用户@example.com\" \"密码123\"\r\n",
-            R"({"imap":[{"request":{"is_tagged":true,"tag":"a001","command":"LOGIN","username":"\"\u7528\u6237@example.com\"","password":"\"\u5bc6\u7801123\""}}]})"
+            R"({"imap":{"requests":[{"is_tagged":true,"tag":"a001","command":"LOGIN","username":"\"\u7528\u6237@example.com\"","password":"\"\u5bc6\u7801123\""}]}})"
         )) {
             return false;
         }
@@ -682,7 +705,7 @@ namespace imap {
         // Multi-line responses (mixed tagged/untagged)
         if (!test_json_output<imap::imap_responses>(
             "* CAPABILITY IMAP4 IMAP4rev1 IDLE\r\na0000 OK CAPABILITY completed.\r\n",
-            R"({"imap":[{"response":{"is_tagged":false,"type":"capability","data":"IMAP4 IMAP4rev1 IDLE"}},{"response":{"is_tagged":true,"tag":"a0000","status":"OK","text":"CAPABILITY completed."}}]})"
+            R"({"imap":{"responses":[{"is_tagged":false,"type":"capability","data":"IMAP4 IMAP4rev1 IDLE"},{"is_tagged":true,"tag":"a0000","status":"OK","text":"CAPABILITY completed."}]}})"
         )) {
             return false;
         }
@@ -690,7 +713,7 @@ namespace imap {
         // Single line response
         if (!test_json_output<imap::imap_responses>(
             "a0001 OK LOGIN completed.\r\n",
-            R"({"imap":[{"response":{"is_tagged":true,"tag":"a0001","status":"OK","text":"LOGIN completed."}}]})"
+            R"({"imap":{"responses":[{"is_tagged":true,"tag":"a0001","status":"OK","text":"LOGIN completed."}]}})"
         )) {
             return false;
         }
@@ -698,7 +721,35 @@ namespace imap {
         // New IMAP4rev2 keywords
         if (!test_json_output<imap::imap_responses>(
             "* FLAGS (\\\\Seen \\\\Answered $Forwarded $MDNSent)\r\n",
-            "{\"imap\":[{\"response\":{\"is_tagged\":false,\"type\":\"data\",\"data\":\"FLAGS (\\\\\\\\Seen \\\\\\\\Answered $Forwarded $MDNSent)\"}}]}"
+            "{\"imap\":{\"responses\":[{\"is_tagged\":false,\"type\":\"data\",\"data\":\"FLAGS (\\\\\\\\Seen \\\\\\\\Answered $Forwarded $MDNSent)\"}]}}"
+        )) {
+            return false;
+        }
+        
+        // ================================================================
+        // CONTINUATION RESPONSE VALIDATION TESTS
+        // ================================================================
+        
+        // Valid continuation response with base64 data (AUTHENTICATE)
+        if (!test_json_output<imap::imap_responses>(
+            "+ YGgGCSqGSIb3EgECAgIAb1kwV6A=\r\n",
+            R"({"imap":{"responses":[{"type":"continuation","data":"YGgGCSqGSIb3EgECAgIAb1kwV6A="}]}})"
+        )) {
+            return false;
+        }
+        
+        // Valid continuation response with UTF-8 text
+        if (!test_json_output<imap::imap_responses>(
+            "+ Ready for additional command text\r\n",
+            R"({"imap":{"responses":[{"type":"continuation","data":"Ready for additional command text"}]}})"
+        )) {
+            return false;
+        }
+             
+        // Invalid continuation response - invalid data (not base64 or UTF-8)
+        if (test_json_output<imap::imap_responses>(
+            "+ \xFF\xFE\xFD\xFC\xFB\xFA\r\n",
+            ""
         )) {
             return false;
         }
