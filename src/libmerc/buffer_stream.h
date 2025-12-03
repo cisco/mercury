@@ -1220,4 +1220,64 @@ public:
 
 };
 
+/// Manages a dynamically allocated buffer; this class is meant to be
+/// used as a parent class for another class that makes use of a
+/// buffer that is dynamically allocated but otherwise unvarying in
+/// size.
+///
+class heap_buffer {
+protected:
+    char *buffer;
+    size_t N;
+
+    /// Construct a `heap_buffer` with `length` bytes
+    ///
+    heap_buffer(size_t length) :
+        buffer{new char[length]},
+        N{length}
+    { }
+
+    /// Destruct a `heap_buffer`
+    ///
+    ~heap_buffer() { delete[] buffer; }
+};
+
+/// A `buffer_stream` that can be dynamically allocated to an
+/// arbitrary size.
+///
+class dynamic_buffer_stream : protected heap_buffer, public buffer_stream {
+
+public:
+
+    /// Construct a `dynamic_buffer_stream` with a buffer of size
+    /// `length`.
+    ///
+    dynamic_buffer_stream(size_t length) :
+        heap_buffer{length},
+        buffer_stream{buffer, (int)N}
+    { }
+
+    /// Reset the `buffer_stream` so that it is empty and ready for
+    /// writing.
+    ///
+    void reset() {
+        dstr = buffer;
+        doff = 0;
+        dlen = N;
+        trunc = 0;
+    }
+
+    /// Return the `datum` that corresponds to the part of the
+    /// `buffer_stream` to which data has been written, if no truncation
+    /// has occured; otherwise, return a `null` `datum`.
+    ///
+    std::pair<const uint8_t *, const uint8_t *> get_datum() const {
+        if (trunc) {
+            return { nullptr, nullptr };
+        }
+        return { (uint8_t *)buffer, (uint8_t *)buffer + doff };
+    }
+
+};
+
 #endif /* BUFFER_STREAM_H */
