@@ -10,7 +10,8 @@
 #include "protocol.h"
 #include "datum.h"
 #include "base64.h"
-#include "utf8.hpp"  
+#include "utf8.hpp"
+#include "lex.h" 
 
 namespace imap {
 
@@ -676,24 +677,24 @@ namespace imap {
         
         // Multi-line IMAP requests
         if (!test_json_output<imap::imap_requests>(
-            "a0000 CAPABILITY\r\na0001 LOGIN \"neulingern\" \"password\"\r\na0002 LIST\r\n",
-            R"({"imap":{"requests":[{"is_tagged":true,"tag":"a0000","command":"CAPABILITY"},{"is_tagged":true,"tag":"a0001","command":"LOGIN","username":"\"neulingern\"","password":"\"password\""},{"is_tagged":true,"tag":"a0002","command":"LIST"}]}})"
+            datum{"a0000 CAPABILITY\r\na0001 LOGIN \"neulingern\" \"password\"\r\na0002 LIST\r\n"},
+            datum{R"({"imap":{"requests":[{"is_tagged":true,"tag":"a0000","command":"CAPABILITY"},{"is_tagged":true,"tag":"a0001","command":"LOGIN","username":"\"neulingern\"","password":"\"password\""},{"is_tagged":true,"tag":"a0002","command":"LIST"}]}})"}
         )) {
             return false;
         }
         
         // Single line request
         if (!test_json_output<imap::imap_requests>(
-            "a0001 LOGIN \"neulingern\" \"password\"\r\n",
-            R"({"imap":{"requests":[{"is_tagged":true,"tag":"a0001","command":"LOGIN","username":"\"neulingern\"","password":"\"password\""}]}})"
+            datum{"a0001 LOGIN \"neulingern\" \"password\"\r\n"},
+            datum{R"({"imap":{"requests":[{"is_tagged":true,"tag":"a0001","command":"LOGIN","username":"\"neulingern\"","password":"\"password\""}]}})"}
         )) {
             return false;
         }
         
         // UTF-8 in credentials (IMAP4rev2)
         if (!test_json_output<imap::imap_requests>(
-            "a001 LOGIN \"用户@example.com\" \"密码123\"\r\n",
-            R"({"imap":{"requests":[{"is_tagged":true,"tag":"a001","command":"LOGIN","username":"\"\u7528\u6237@example.com\"","password":"\"\u5bc6\u7801123\""}]}})"
+            datum{"a001 LOGIN \"用户@example.com\" \"密码123\"\r\n"},
+            datum{R"({"imap":{"requests":[{"is_tagged":true,"tag":"a001","command":"LOGIN","username":"\"\u7528\u6237@example.com\"","password":"\"\u5bc6\u7801123\""}]}})"}
         )) {
             return false;
         }
@@ -704,24 +705,24 @@ namespace imap {
         
         // Multi-line responses (mixed tagged/untagged)
         if (!test_json_output<imap::imap_responses>(
-            "* CAPABILITY IMAP4 IMAP4rev1 IDLE\r\na0000 OK CAPABILITY completed.\r\n",
-            R"({"imap":{"responses":[{"is_tagged":false,"type":"capability","data":"IMAP4 IMAP4rev1 IDLE"},{"is_tagged":true,"tag":"a0000","status":"OK","text":"CAPABILITY completed."}]}})"
+            datum{"* CAPABILITY IMAP4 IMAP4rev1 IDLE\r\na0000 OK CAPABILITY completed.\r\n"},
+            datum{R"({"imap":{"responses":[{"is_tagged":false,"type":"capability","data":"IMAP4 IMAP4rev1 IDLE"},{"is_tagged":true,"tag":"a0000","status":"OK","text":"CAPABILITY completed."}]}})"}
         )) {
             return false;
         }
         
         // Single line response
         if (!test_json_output<imap::imap_responses>(
-            "a0001 OK LOGIN completed.\r\n",
-            R"({"imap":{"responses":[{"is_tagged":true,"tag":"a0001","status":"OK","text":"LOGIN completed."}]}})"
+            datum{"a0001 OK LOGIN completed.\r\n"},
+            datum{R"({"imap":{"responses":[{"is_tagged":true,"tag":"a0001","status":"OK","text":"LOGIN completed."}]}})"}
         )) {
             return false;
         }
         
         // New IMAP4rev2 keywords
         if (!test_json_output<imap::imap_responses>(
-            "* FLAGS (\\\\Seen \\\\Answered $Forwarded $MDNSent)\r\n",
-            "{\"imap\":{\"responses\":[{\"is_tagged\":false,\"type\":\"data\",\"data\":\"FLAGS (\\\\\\\\Seen \\\\\\\\Answered $Forwarded $MDNSent)\"}]}}"
+            datum{"* FLAGS (\\\\Seen \\\\Answered $Forwarded $MDNSent)\r\n"},
+            datum{"{\"imap\":{\"responses\":[{\"is_tagged\":false,\"type\":\"data\",\"data\":\"FLAGS (\\\\\\\\Seen \\\\\\\\Answered $Forwarded $MDNSent)\"}]}}"}
         )) {
             return false;
         }
@@ -732,24 +733,24 @@ namespace imap {
         
         // Valid continuation response with base64 data (AUTHENTICATE)
         if (!test_json_output<imap::imap_responses>(
-            "+ YGgGCSqGSIb3EgECAgIAb1kwV6A=\r\n",
-            R"({"imap":{"responses":[{"type":"continuation","data":"YGgGCSqGSIb3EgECAgIAb1kwV6A="}]}})"
+            datum{"+ YGgGCSqGSIb3EgECAgIAb1kwV6A=\r\n"},
+            datum{R"({"imap":{"responses":[{"type":"continuation","data":"YGgGCSqGSIb3EgECAgIAb1kwV6A="}]}})"}
         )) {
             return false;
         }
         
         // Valid continuation response with UTF-8 text
         if (!test_json_output<imap::imap_responses>(
-            "+ Ready for additional command text\r\n",
-            R"({"imap":{"responses":[{"type":"continuation","data":"Ready for additional command text"}]}})"
+            datum{"+ Ready for additional command text\r\n"},
+            datum{R"({"imap":{"responses":[{"type":"continuation","data":"Ready for additional command text"}]}})"}
         )) {
             return false;
         }
              
         // Invalid continuation response - invalid data (not base64 or UTF-8)
         if (test_json_output<imap::imap_responses>(
-            "+ \xFF\xFE\xFD\xFC\xFB\xFA\r\n",
-            ""
+            datum{"+ \xFF\xFE\xFD\xFC\xFB\xFA\r\n"},
+            datum{""}
         )) {
             return false;
         }
@@ -760,24 +761,24 @@ namespace imap {
         
         // Multi-line with garbage on both lines - should fail
         if (test_json_output<imap::imap_requests>(
-            "\x00\xFF\xFE\x01\x02garbage\r\n\x00\xFF\xFE\x01\x02garbage\r\n",
-            ""
+            datum{"\x00\xFF\xFE\x01\x02garbage\r\n\x00\xFF\xFE\x01\x02garbage\r\n"},
+            datum{""}
         )) {
             return false;
         }
         
         // Missing CRLF terminator - should fail
         if (test_json_output<imap::imap_requests>(
-            "a004 CAPABILITY",
-            ""
+            datum{"a004 CAPABILITY"},
+            datum{""}
         )) {
             return false;
         }
         
         // Multiple junk lines with invalid commands - should not create empty imap array element
         if (!test_json_output<imap::imap_requests>(
-            "junk line one\r\njunk line two\r\n",
-            "{}"
+            datum{"junk line one\r\njunk line two\r\n"},
+            datum{"{}"}
         )) {
             return false;
         }

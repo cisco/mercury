@@ -484,18 +484,6 @@ inline bool test_json_output(datum raw_input,
     return retval;
 }
 
-template <typename T>
-static bool test_json_output(const char *raw_data,
-                             const char *expected_output,
-                             FILE *verbose_output=nullptr) {
-    return test_json_output<T>(
-        reinterpret_cast<uint8_t *>(const_cast<char *>(raw_data)),
-        strlen(raw_data),
-        reinterpret_cast<uint8_t *>(const_cast<char *>(expected_output)),
-        strlen(expected_output),
-        verbose_output
-    );
-}
 
 /// represents a bit flag as a \ref json_array of strings
 ///
