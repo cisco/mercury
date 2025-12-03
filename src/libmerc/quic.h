@@ -1300,10 +1300,11 @@ public:
 
             crypto *c = frame.get_if<crypto>();
             if (c && c->is_valid()) {
-                if (c->offset() <= min_crypto_offset)
-                    min_crypto_offset = (uint32_t)c->offset();
                 if (crypto_buffer.extend(*c)) {
                     crypto_buffer.update_crypto_frames(c);
+                    // update min offset
+                    if (c->offset() <= min_crypto_offset)
+                        min_crypto_offset = (uint32_t)c->offset();
                 }
             }
             if (frame.has_type<connection_close>() || frame.has_type<ack>()) {
@@ -1458,10 +1459,11 @@ public:
 
             crypto *c = frame.get_if<crypto>();
             if (c && c->is_valid()) {
-                if (c->offset() <= min_crypto_offset)
-                    min_crypto_offset = (uint32_t)c->offset();
                 if (crypto_buffer.extend(*c)) {
                     crypto_buffer.update_crypto_frames(c);
+                    // update min offset
+                    if (c->offset() <= min_crypto_offset)
+                        min_crypto_offset = (uint32_t)c->offset();
                 }
             }
             if (frame.has_type<connection_close>() || frame.has_type<ack>() || frame.has_type<ack_ecn>()) {
