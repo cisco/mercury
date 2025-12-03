@@ -119,9 +119,12 @@ namespace redis{
                 return !d.is_null();
             }
             else if (length > 0){
-                // Bulk string is truncated - need more bytes
-                parsed_data = datum{d.data, d.data_end};
-                return true; // Accept partial bulk string
+                // Bulk string is truncated - calculate how many more bytes we need
+                size_t available = d.data_end - d.data;
+                size_t needed = length + 2 - available; // +2 for trailing \r\n
+                additional_bytes_needed = needed;
+                parsed_data = datum{d.data, d.data_end}; // Store partial data
+                return true; // Mark as valid but incomplete
             }
             return false;
         }
@@ -240,6 +243,10 @@ namespace redis{
         size_t additional_bytes_needed = 0;
 
         response(datum &d) : type{SIMPLE_STRING}, parsed_data{d.data, d.data}, isValid{false}{
+            // Guard against empty payloads (e.g., ACK packets on port 6379)
+            if (!d.is_readable()) {
+                return;
+            }
 
             char first_char = *d.data;
             switch (first_char){
