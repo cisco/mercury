@@ -117,8 +117,8 @@ using lct_subnet_v6_t = lct_subnet<ipv6_addr_lct>;
 
 
 typedef struct lct_ip_stats {
-  uint32_t size;  // size of the subnet
-  uint32_t used;  // size of the subprefixed address space
+  uint64_t size;  // size of the subnet
+  uint64_t used;  // size of the subprefixed address space
 } lct_ip_stats_t;
 
 
@@ -538,7 +538,15 @@ size_t subnet_prefix(lct_subnet<T> *p, lct_ip_stats_t *stats, size_t size) {
     else {
       p[i].type = IP_BASE;
     }
-    stats[i].size = 1 << (32 - p[i].len);
+    // Calculate subnet size based on address width
+    constexpr unsigned int bits_in_T = sizeof(T) * 8;
+    unsigned int host_bits = bits_in_T - p[i].len;
+    // For large subnets, cap at UINT64_MAX to avoid overflow
+    if (host_bits >= 64) {
+      stats[i].size = UINT64_MAX;
+    } else {
+      stats[i].size = (uint64_t)1 << host_bits;
+    }
     stats[i].used = 0;
   }
 

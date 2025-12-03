@@ -82,13 +82,13 @@ inline bool operator!=(const ipv6_addr_lct &left, const ipv6_addr_lct &right) {
 //
 inline ipv6_addr_lct operator+(const ipv6_addr_lct &left, const uint64_t &right) {
     ipv6_addr_lct result;
+    result.a[1] = left.a[1] + right;
     result.a[0] = left.a[0];
-    if (left.a[1] == 0xFFFFFFFFFFFFFFFF) {
-        result.a[1] = right;
+
+    if (result.a[1] < left.a[1]) {
         result.a[0]++;
-    } else {
-        result.a[1] = left.a[1] + right;
     }
+
     return result;
 }
 
@@ -126,7 +126,7 @@ inline ipv6_addr_lct operator<<(const ipv6_addr_lct &addr, unsigned int shift) {
         result.a[0] = (addr.a[0] << shift) | (addr.a[1] >> (64 - shift));
         result.a[1] = addr.a[1] << shift;
     } else {
-        result.a[0] = addr.a[0] << (shift - 64);
+        result.a[0] = addr.a[1] << (shift - 64);
         result.a[1] = 0;
     }
 
@@ -142,15 +142,16 @@ inline ipv6_addr_lct EXTRACT(unsigned int pos, unsigned int num, ipv6_addr_lct s
     uint64_t *out = (uint64_t *)&output.a;
 
     if (pos < 64 && pos + num <= 64) {
-        out[0] = (in[0] << pos) >> (64 - num);
+        out[1] = (in[0] << pos) >> (64 - num);
     } else if (pos < 64 && pos + num > 64) {
         unsigned int num1, num2;
         num1 = pos + num - 64;
         num2 = num - num1;
-        out[0] = (in[0] << pos) >> (64 - num1);
-        out[1] = in[1] << (64 - num2);
+        uint64_t bits_from_a0 = (in[0] << pos) >> (64 - num2);
+        uint64_t bits_from_a1 = in[1] >> (64 - num1);
+        out[1] = (bits_from_a0 << num1) | bits_from_a1;
     } else {
-        out[1] = (in[1] << pos) >> (64 - num);
+        out[1] = (in[1] << (pos - 64)) >> (64 - num);
     }
 
     return output;
@@ -174,14 +175,14 @@ inline uint64_t EXTRACT_IDX(unsigned int pos, unsigned int num, ipv6_addr_lct st
         out[0] = (in[0] << pos) >> (64 - num);
         return out[0];
     } else if (pos < 64 && pos + num > 64) {
-        out[0] = (in[0] << pos) >> (64 - num);
         unsigned int num1, num2;
         num1 = pos + num - 64;
         num2 = num - num1;
-        out[1] = (in[1] << 0) >> (64 - num2);
-        return out[0] | out[1];
+        uint64_t bits_from_a0 = (in[0] << pos) >> (64 - num2);
+        uint64_t bits_from_a1 = in[1] >> (64 - num1);
+        return (bits_from_a0 << num1) | bits_from_a1;
     } else {
-        out[1] = (in[1] << pos) >> (64 - num);
+        out[1] = (in[1] << (pos - 64)) >> (64 - num);
         return out[1];
     }
 
@@ -323,10 +324,10 @@ static inline bool ipv6_address_lct_unit_test(FILE *f = nullptr) {
         addr.a[0] = 0xFFFFFFFFFFFFFFFF;
         addr.a[1] = 0xFFFFFFFFFFFFFFFF;
 
-        // extract 8 bits starting at 60
+        // extract 8 bits starting at 48
         ipv6_addr_lct extracted1 = EXTRACT(48, 8, addr);
         if (f) fprintf(f, "Test case 6a: EXTRACT function\n");
-        if (extracted1.a[0] != 0x0000000000000FF || extracted1.a[1] != 0x0000000000000000) {
+        if (extracted1.a[0] != 0x0000000000000000 || extracted1.a[1] != 0x00000000000000FF) {
             if (f) fprintf(f, "Failed: EXTRACT function did not extract correctly\n");
             return false;
         }
@@ -334,7 +335,7 @@ static inline bool ipv6_address_lct_unit_test(FILE *f = nullptr) {
         ipv6_addr_lct extracted = EXTRACT(60, 8, addr);
         uint64_t extracted_idx = EXTRACT_IDX(60, 8, addr);
         if (f) fprintf(f, "Test case 6: EXTRACT and EXTRACT_IDX functions\n");
-        if (extracted.a[0] != 0x000000000000000F || extracted.a[1] != 0xF000000000000000) {
+        if (extracted.a[0] != 0x0000000000000000 || extracted.a[1] != 0x00000000000000FF) {
             printf_err(log_err, "extracted: %016lx %016lx\n", extracted.a[0], extracted.a[1]);
             if (f) fprintf(f, "Failed: EXTRACT function did not extract correctly\n");
             return false;
@@ -361,10 +362,10 @@ static inline bool ipv6_address_lct_unit_test(FILE *f = nullptr) {
     // Test case 8: Left shift operator
     {
         ipv6_addr_lct addr;
-        addr.a[0] = 0x0000000000000001;
-        addr.a[1] = 0x0000000000000000;
+        addr.a[0] = 0x0000000000000000;
+        addr.a[1] = 0x0000000000000001;
 
-        // shift beyond lower 64 bits
+        // shift from lower word to upper word
         ipv6_addr_lct shifted = addr << 65;
         if (f) fprintf(f, "Test case 8: Left shift operator\n");
         if (shifted.a[0] != 0x0000000000000002 || shifted.a[1] != 0x0000000000000000) {

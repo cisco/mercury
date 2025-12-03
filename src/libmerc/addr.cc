@@ -260,14 +260,11 @@ int subnet_data::lct_add_domain_mapping(uint32_t &addr, uint8_t &mask_length, st
     if (subnet_map.find(addr) != subnet_map.end()) {    // subnet present in map, domain_idx needs to be appended
         subnet_itr = &domains_prefix[subnet_map[addr]];
         if (subnet_itr->info.type == IP_DOMAIN_MAPPING && subnet_itr->addr == addr && subnet_itr->len == mask_length) {
-            uint8_t *old_arr = subnet_itr->info.domain.domain_idx_arr;
-
             ++subnet_itr->info.domain.domain_idx_arr_len;
             uint8_t *new_domain_idx_arr = (uint8_t *)realloc(subnet_itr->info.domain.domain_idx_arr, subnet_itr->info.domain.domain_idx_arr_len * sizeof(uint8_t));
 
             if (new_domain_idx_arr == NULL) {
-                free(old_arr);
-                old_arr = nullptr;
+                subnet_itr->info.domain.domain_idx_arr_len--;
                 return -1;    // failed to add this entry because of realloc failure
             }
             else {
@@ -358,14 +355,11 @@ int subnet_data::lct_add_domain_mapping_v6(ipv6_addr_lct &addr, uint8_t &mask_le
     if (subnet_map.find(addr) != subnet_map.end()) {    // subnet present in map, domain_idx needs to be appended
         subnet_itr = &domains_prefix_v6[subnet_map[addr]];
         if (subnet_itr->info.type == IP_DOMAIN_MAPPING && subnet_itr->addr == addr && subnet_itr->len == mask_length) {
-            uint8_t *old_arr = subnet_itr->info.domain.domain_idx_arr;
-
             ++subnet_itr->info.domain.domain_idx_arr_len;
             uint8_t *new_domain_idx_arr = (uint8_t *)realloc(subnet_itr->info.domain.domain_idx_arr, subnet_itr->info.domain.domain_idx_arr_len * sizeof(uint8_t));
 
             if (new_domain_idx_arr == NULL) {
-                free(old_arr);
-                old_arr = nullptr;
+                subnet_itr->info.domain.domain_idx_arr_len--;
                 return -1;    // failed to add this entry because of realloc failure
             }
             else {
@@ -443,7 +437,7 @@ int subnet_data::process_domain_mapping_subnets_v6(const std::vector<std::pair<s
             addr.a[1] = std::get<1>(addr_tuple);
 
 
-            if (subnet_tag == "proxy_v6" || subnet_tag == "sinkhole_v6") {
+            if (subnet_tag == "proxy" || subnet_tag == "sinkhole") {
                 if (lct_add_domain_exception_v6(addr, mask_length) != 0) {
                     continue;  // failure
                 }
