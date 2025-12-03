@@ -5,7 +5,7 @@ requires = [
 ]
 
 [tool.cibuildwheel.linux]
-environment = "CC='g++' CXX='g++' MERCURY_DIR='./' ENV_CFLAGS='-DOPENSSL_V1_1'"
+environment = "CC='g++' CXX='g++' MERCURY_DIR='./'"
 manylinux-x86_64-image = "quay.io/pypa/manylinux_2_34_x86_64:latest"
 manylinux-aarch64-image = "quay.io/pypa/manylinux_2_34_aarch64:latest"
 
