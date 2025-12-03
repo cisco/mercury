@@ -60,6 +60,8 @@ char mercury_help[] =
     "   --raw-features                        # select protocols to write out raw features string(see --help)\n"
     "   --network-behavioral-detections       # perform network behavioral detections\n"
     "   --minimize-ram                        # minimize the ram usage of mercury library\n"
+    "   --crypto-assess[=policy]              # perform cryptographic security assessment\n"
+    "   --exposed-creds                       # detect exposed credentials in enabled protocols\n"
     "   [-v or --verbose]                     # additional information sent to stderr\n"
     "   --license                             # write license information to stdout\n"
     "   --version                             # write version information to stdout\n"
@@ -219,6 +221,20 @@ char mercury_extended_help[] =
    "    are not driven by the resources file. An example detection includes detecting\n"
    "    residential proxies.\n"
     "\n"
+    "   --crypto-assess[=policy] performs cryptographic security assessment\n"
+    "   on protocols like TLS, DTLS, SSH and QUIC. The optional policy argument\n"
+    "   specifies the assessment policy to use; if not provided, the default\n"
+    "   policy is used. Valid policy strings are: \n"
+    "       default        Default assessment policy\n"
+    "       quantum_safe   Quantum safe assessment policy\n"
+    "\n"
+    "   --exposed-creds detects exposed credentials in enabled protocols like\n"
+    "   HTTP, TACACS, SNMP, IMAP, LDAP, RESPv2 etc. \n"
+    "   Three categories of exposed credentials are identified:\n"
+    "       plaintext               Plaintext credentials\n"
+    "       plaintext-derived       Derived credentials like hashed passwords\n"
+    "       plaintext-token         Token based credentials like OAuth tokens\n"
+    "\n"
     "   [-v or --verbose] writes additional information to the standard error,\n"
     "   including the packet count, byte count, elapsed time and processing rate, as\n"
     "   well as information about threads and files.\n"
@@ -280,7 +296,7 @@ int main(int argc, char *argv[]) {
     std::string additional_args;
 
     while(1) {
-        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13, reassembly=14, format=15, raw_features=16, crypto_assess=17, minimize_ram=18, network_behavioral_detections=19, };
+        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13, reassembly=14, format=15, raw_features=16, crypto_assess=17, minimize_ram=18, network_behavioral_detections=19, exposed_creds=20 };
         int opt_idx = 0;
         static struct option long_opts[] = {
             { "config",                        required_argument, NULL,                        config },
@@ -315,6 +331,7 @@ int main(int argc, char *argv[]) {
             { "raw-features",                  required_argument, NULL,                  raw_features },
             { "minimize-ram",                        no_argument, NULL,                  minimize_ram },
             { "network-behavioral-detections",       no_argument, NULL, network_behavioral_detections },
+            { "exposed-creds",                        no_argument, NULL,                  exposed_creds },
             { "verbose",                             no_argument, NULL,                           'v' },
             { NULL,                                            0,    0,                             0 }
         };
@@ -441,6 +458,13 @@ int main(int argc, char *argv[]) {
                 usage(argv[0], "option minimize_ram does not use an argument", extended_help_off);
             } else {
                 additional_args.append("minimize-ram;");
+            }
+            break;
+        case exposed_creds:
+            if (optarg) {
+                usage(argv[0], "option exposed-creds does not use an argument", extended_help_off);
+            } else {
+                additional_args.append("exposed-creds;");
             }
             break;
         case 'r':

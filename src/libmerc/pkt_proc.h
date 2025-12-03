@@ -25,6 +25,7 @@
 #include "quic.h"
 #include "perfect_hash.h"
 #include "crypto_assess.h"
+#include "exposed_creds.h"
 #include "pkt_proc_util.h"
 #include "reassembly.hpp"
 
@@ -112,6 +113,7 @@ struct stateful_pkt_proc {
     quic_crypto_engine quic_crypto;
     struct tcp_reassembler *reassembler_ptr = nullptr;
     const crypto_policy::assessor *crypto_policy = nullptr;
+    const bool exposed_creds = false;
 
     explicit stateful_pkt_proc(mercury_context mc, size_t prealloc_size=0) :
         ip_flow_table{(unsigned int)prealloc_size},
@@ -126,7 +128,8 @@ struct stateful_pkt_proc {
         global_vars{mc->global_vars},
         selector{mc->selector},
         quic_crypto{},
-        reassembler_ptr{(global_vars.reassembly) ? (new tcp_reassembler(global_vars.minimize_ram)) : nullptr}
+        reassembler_ptr{(global_vars.reassembly) ? (new tcp_reassembler(global_vars.minimize_ram)) : nullptr},
+        exposed_creds{global_vars.exposed_creds}
     {
 
         if (global_vars.crypto_assess_policy.length() > 0) {

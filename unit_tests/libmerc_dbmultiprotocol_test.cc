@@ -693,6 +693,63 @@ TEST_CASE_METHOD(LibmercTestFixture, "test domain_faking attribute with resource
     }
 }
 
+TEST_CASE_METHOD(LibmercTestFixture, "test exposed_creds attribute with resources-mp")
+{
+    auto attr_check = [&](std::string &expected_attr, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(check_attr(expected_attr));
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, std::string>> test_set_up{
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"all;exposed-creds"
+            },
+            .m_pc{"http_auth.pcap"}},
+            "exposed_credentials_plaintext"    // check if exposed_credentials_plaintext attribute is present in the attributes array
+        }
+    };
+
+    for (auto &[config, expected_attr] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        attr_check(expected_attr, config.m_lc);
+    }
+}
+
+
+TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment attribute with resources-mp")
+{
+    auto attr_check = [&](std::string &expected_attr, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(check_attr(expected_attr));
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, std::string>> test_set_up{
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"all;crypto-assess=default"
+            },
+            .m_pc{"tlsv1_3.pcap"}},
+            "non_pqc_session"    // check if non_pqc_session attribute is present in the attributes array
+        }
+    };
+
+    for (auto &[config, expected_attr] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        attr_check(expected_attr, config.m_lc);
+    }
+}
+
 TEST_CASE_METHOD(LibmercTestFixture, "test nbss with resources-mp")
 {
 

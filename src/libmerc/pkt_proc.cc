@@ -92,64 +92,148 @@ void write_flow_key(struct json_object &o, const struct key &k) {
 struct do_crypto_assessment {
     const crypto_policy::assessor *ca;
     json_object &record;
+    bool write_record;
 
-    do_crypto_assessment(const crypto_policy::assessor *assessor, json_object &o) : ca{assessor}, record{o} { }
+    do_crypto_assessment(const crypto_policy::assessor *assessor, json_object &o) : ca{assessor}, record{o}, write_record{true} { }
+    do_crypto_assessment(const crypto_policy::assessor *assessor) : ca{assessor}, record{*(json_object *)nullptr}, write_record{false} { }
 
-    bool operator()(const tls_client_hello &msg) {
-        ca->assess(msg, record);
-        return false;
+    crypto_assess_result operator()(const tls_client_hello &msg) {
+        crypto_assess_result assessment_result;
+        if (!write_record) {
+            assessment_result.set(ca->get_result_idx(), !ca->assess(msg));
+        }
+        else {  // write metadata to json record
+            json_object assessor_record{record, "cryptographic_security_assessment"};
+            assessment_result.set(ca->get_result_idx(), !ca->assess(msg, assessor_record));
+            assessor_record.close();
+        }
+        return assessment_result;
     }
 
-    bool operator()(const tls_server_hello &msg) {
-        ca->assess(msg, record);
-        return false;
+    crypto_assess_result operator()(const tls_server_hello &msg) {
+        crypto_assess_result assessment_result;
+        if (!write_record) {
+            assessment_result.set(ca->get_result_idx(), !ca->assess(msg));
+        }
+        else {  // write metadata to json record
+            json_object assessor_record{record, "cryptographic_security_assessment"};
+            assessment_result.set(ca->get_result_idx(), !ca->assess(msg, assessor_record));
+            assessor_record.close();
+        }
+        return assessment_result;
     }
 
-    bool operator()(const tls_server_hello_and_certificate &msg) {
-        ca->assess(msg, record);
-        return false;
+    crypto_assess_result operator()(const tls_server_hello_and_certificate &msg) {
+       crypto_assess_result assessment_result;
+        if (!write_record) {
+            assessment_result.set(ca->get_result_idx(), !ca->assess(msg));
+        }
+        else {  // write metadata to json record
+            json_object assessor_record{record, "cryptographic_security_assessment"};
+            assessment_result.set(ca->get_result_idx(), !ca->assess(msg, assessor_record));
+            assessor_record.close();
+        }
+        return assessment_result;
     }
 
-    bool operator()(const dtls_client_hello &msg) {
-        ca->assess(msg, record);
-        return false;
+    crypto_assess_result operator()(const dtls_client_hello &msg) {
+        crypto_assess_result assessment_result;
+        if (!write_record) {
+            assessment_result.set(ca->get_result_idx(), !ca->assess(msg));
+        }
+        else {  // write metadata to json record
+            json_object assessor_record{record, "cryptographic_security_assessment"};
+            assessment_result.set(ca->get_result_idx(), !ca->assess(msg, assessor_record));
+            assessor_record.close();
+        }
+        return assessment_result;
     }
 
-    bool operator()(const dtls_server_hello &msg) {
-        ca->assess(msg, record);
-        return false;
+    crypto_assess_result operator()(const dtls_server_hello &msg) {
+        crypto_assess_result assessment_result;
+        if (!write_record) {
+            assessment_result.set(ca->get_result_idx(), !ca->assess(msg));
+        }
+        else {  // write metadata to json record
+            json_object assessor_record{record, "cryptographic_security_assessment"};
+            assessment_result.set(ca->get_result_idx(), !ca->assess(msg, assessor_record));
+            assessor_record.close();
+        }
+        return assessment_result;
     }
 
 
-    bool operator()(const quic_init &msg) {
+    crypto_assess_result operator()(const quic_init &msg) {
+        crypto_assess_result assessment_result;
         if (msg.has_tls()) {
-            ca->assess(msg.get_tls_client_hello(), record);
+            if (!write_record) {
+                assessment_result.set(ca->get_result_idx(), !ca->assess(msg.get_tls_client_hello()));
+            }
+            else {  // write metadata to json record
+                json_object assessor_record{record, "cryptographic_security_assessment"};
+                assessment_result.set(ca->get_result_idx(), !ca->assess(msg.get_tls_client_hello(), assessor_record));
+                assessor_record.close();
+            }
         }
-        return false;
+        return assessment_result;
     }
 
-    bool operator()(const ssh_init_packet &msg) {
+    crypto_assess_result operator()(const ssh_init_packet &msg) {
+        crypto_assess_result assessment_result;
         if (msg.kex_pkt.is_not_empty()) {
-            ca->assess(msg.kex_pkt,record);
+            if (!write_record) {
+                assessment_result.set(ca->get_result_idx(), !ca->assess(msg.kex_pkt));
+            }
+            else {  // write metadata to json record
+                json_object assessor_record{record, "cryptographic_security_assessment"};
+                assessment_result.set(ca->get_result_idx(), !ca->assess(msg.kex_pkt, assessor_record));
+                assessor_record.close();
+            }
         }
-        return false;
+        return assessment_result;
     }
 
-    bool operator()(const ssh_kex_init &msg) {
+    crypto_assess_result operator()(const ssh_kex_init &msg) {
+        crypto_assess_result assessment_result;
         if (msg.is_not_empty()) {
-            ca->assess(msg,record);
+            if (!write_record) {
+                assessment_result.set(ca->get_result_idx(), !ca->assess(msg));
+            }
+            else {  // write metadata to json record
+                json_object assessor_record{record, "cryptographic_security_assessment"};
+                assessment_result.set(ca->get_result_idx(), !ca->assess(msg, assessor_record));
+                assessor_record.close();
+            }
         }
-        return false;
+        return assessment_result;
     }
 
     template <typename T>
-    bool operator()(const T &) {
-        return false;   // no assessment performed for all other types
+    crypto_assess_result operator()(const T &) {
+        return crypto_assess_result{};   // no assessment performed for all other types
     }
 
-    bool operator()(std::monostate &) { return false; }
+    crypto_assess_result operator()(std::monostate &) { return crypto_assess_result{}; }
 
 };
+
+
+struct check_exposed_creds {
+
+    check_exposed_creds() { }
+
+    exposed_creds_type operator()(const http_request &msg) {
+        return exposed_creds_assessor::assess(msg);
+    }
+
+    template <typename T>
+    exposed_creds_type operator()(const T &) {
+        return exposed_creds_none;
+    }
+
+    exposed_creds_type operator()(std::monostate &) { return exposed_creds_none; }
+};
+
 
 template <typename T_M>
 class event_string
@@ -1127,6 +1211,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     if (std::visit(is_not_empty{}, x)) {
         std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
         bool output_analysis = false;
+        bool output_attr = false;
         if (global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
 
             output_analysis = std::visit(do_analysis{k, analysis, c}, x);
@@ -1139,7 +1224,28 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             if (!analysis.result.attr.is_initialized() && c) {
                 analysis.result.attr.initialize(&(c->get_common_data().attr_name.value()),c->get_common_data().attr_name.get_names_char());
             }
-            c->check_additional_attributes(analysis);
+            output_attr = c->check_additional_attributes(analysis);
+
+            if (exposed_creds) {
+                exposed_creds_type exposed_creds = std::visit(check_exposed_creds{}, x);
+                switch (exposed_creds) {
+                    case exposed_creds_none:
+                        // should we wait until we see auth packets?
+                        break;
+                    case exposed_creds_plaintext:
+                        analysis.result.attr.set_attr(c->common.exposed_creds_plaintext_idx, 1.0);
+                        break;
+                    case exposed_creds_derived:
+                        analysis.result.attr.set_attr(c->common.exposed_creds_derived_idx, 1.0);
+                        break;
+                    case exposed_creds_token:
+                        analysis.result.attr.set_attr(c->common.exposed_creds_token_idx, 1.0);
+                        break;
+                }
+                if (exposed_creds != exposed_creds_none) {
+                    output_attr = true;
+                }
+            }
 
             // analysis_.destination
             //
@@ -1167,7 +1273,15 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         }
         std::visit(write_metadata{record, global_vars.metadata_output, global_vars.certs_json_output, global_vars.dns_json_output}, x);
 
-        if (output_analysis || output_nbd) {
+        if (crypto_policy) {
+            crypto_assess_result assessment_result = std::visit(do_crypto_assessment{crypto_policy, record}, x);
+            if (assessment_result.test(0)) {
+                analysis.result.attr.set_attr(c->common.non_pqc_idx, 1.0);
+                output_attr = true;
+            }
+        }
+
+        if (output_analysis || output_nbd || output_attr) {
             analysis.result.write_json(record, "analysis");
         }
 
@@ -1175,7 +1289,6 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
 //            nbd_analysis.write_json(record, "network_behavioral_detections");
 //        }
 
-        if (crypto_policy) { std::visit(do_crypto_assessment{crypto_policy, record}, x); }
 
         // write indication of truncation or reassembly
         //
@@ -1661,7 +1774,32 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             if (!analysis.result.attr.is_initialized() && c) {
                 analysis.result.attr.initialize(&(c->get_common_data().attr_name.value()),c->get_common_data().attr_name.get_names_char());
             }
-            c->check_additional_attributes(analysis);
+            bool output_attr = c->check_additional_attributes(analysis);
+
+            if (exposed_creds) {
+                exposed_creds_type exposed_creds = std::visit(check_exposed_creds{}, x);
+                switch (exposed_creds) {
+                    case exposed_creds_none:
+                        // should we wait until we see auth packets?
+                        break;
+                    case exposed_creds_plaintext:
+                        analysis.result.attr.set_attr(c->common.exposed_creds_plaintext_idx, 1.0);
+                        break;
+                    case exposed_creds_derived:
+                        analysis.result.attr.set_attr(c->common.exposed_creds_derived_idx, 1.0);
+                        break;
+                    case exposed_creds_token:
+                        analysis.result.attr.set_attr(c->common.exposed_creds_token_idx, 1.0);
+                        break;
+                }
+            }
+
+            if (crypto_policy) {
+                crypto_assess_result assessment_result = std::visit(do_crypto_assessment{crypto_policy}, x);
+                if (assessment_result.test(0)) {    // Non PQC compliance bit is set
+                    analysis.result.attr.set_attr(c->common.non_pqc_idx, 1.0);
+                }
+            }
 
             bool output_nbd = false;
             if (global_vars.network_behavioral_detections) {
@@ -1692,16 +1830,42 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             //
             analysis.destination.dst_port = ntoh(analysis.destination.dst_port);
 
-            return output_analysis || output_nbd;
+            return output_analysis || output_nbd || output_attr;
 
-        } else if (global_vars.network_behavioral_detections) {
-            analysis.result.reinit();
-            if (!analysis.result.attr.is_initialized()) {
-                nbd_common_data.initialize_behavioral_detections();
-                analysis.result.attr.initialize(&(nbd_common_data.attr_name.value()),nbd_common_data.attr_name.get_names_char());
+        } else {
+            if (global_vars.network_behavioral_detections) {
+                analysis.result.reinit();
+                if (!analysis.result.attr.is_initialized()) {
+                    nbd_common_data.initialize_behavioral_detections();
+                    analysis.result.attr.initialize(&(nbd_common_data.attr_name.value()),nbd_common_data.attr_name.get_names_char());
+                }
+
+                std::visit(do_network_behavioral_detections{k, analysis, c, nbd_common_data}, x);
             }
-
-            return std::visit(do_network_behavioral_detections{k, analysis, c, nbd_common_data}, x);
+            if (crypto_policy) {
+                crypto_assess_result crypto_result = std::visit(do_crypto_assessment{crypto_policy}, x);
+                if (crypto_result.test(0)) {
+                    analysis.result.attr.set_attr(c->common.non_pqc_idx, 1.0);
+                }
+            }
+            if (exposed_creds) {
+                exposed_creds_type exposed_creds = std::visit(check_exposed_creds{}, x);
+                switch (exposed_creds) {
+                    case exposed_creds_none:
+                        // should we wait until we see auth packets?
+                        break;
+                    case exposed_creds_plaintext:
+                        analysis.result.attr.set_attr(c->common.exposed_creds_plaintext_idx, 1.0);
+                        break;
+                    case exposed_creds_derived:
+                        analysis.result.attr.set_attr(c->common.exposed_creds_derived_idx, 1.0);
+                        break;
+                    case exposed_creds_token:
+                        analysis.result.attr.set_attr(c->common.exposed_creds_token_idx, 1.0);
+                        break;
+                }
+            }
+            return false;
         }
     }
 

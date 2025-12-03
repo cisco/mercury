@@ -32,6 +32,10 @@
   one byte past the parsed integer.  Also added handling for leading zeros.
 * Internal: Added defensive coding in lockless queue to prevent future bugs.
 
+## VERSION 2.11.2
+* Added Exposed Credentials assessor
+* Dump Exposed Credentials and Cryptographic Security Assessment in attributes
+
 ## VERSION 2.11.1
 * Fixed crypto assessment handling of GREASE extensions. Optimized the crypto
   assessment processing to produce clean JSON output in a single pass.
