@@ -707,7 +707,7 @@ public:
         }
 
         if (protocols["dtls"] || protocols["all"]) {
-            udp.add_protocol(dtls_handshake::dtls_matcher, udp_msg_type_dtls_handshake);
+            udp16.add_protocol(dtls_handshake::dtls_matcher, udp_msg_type_dtls_handshake);
         }
         if (protocols["wireguard"] || protocols["all"]) {
             udp.add_protocol(wireguard_handshake_init::matcher, udp_msg_type_wireguard);

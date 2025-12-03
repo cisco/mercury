@@ -71,12 +71,14 @@ struct dtls_handshake {
         body.init_from_outer_parser(&d, length);
     }
 
-    static constexpr mask_and_value<8> dtls_matcher = {
+    static constexpr mask_and_value<16> dtls_matcher = {
         {
-         0xff, 0xff, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00
+         0xff, 0xff, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00,
+         0x00, 0x00, 0x00, 0x00, 0x00, 0xf8, 0x00, 0x00
         },
         {
-         0x16, 0xfe, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00
+         0x16, 0xfe, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00,
+         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
         }
     };
 
@@ -151,10 +153,10 @@ public:
         }
 
         json_object dtls{record, "dtls"};
-        json_object dtls_server{dtls, "hello_verify_request"};
-        dtls_server.print_key_uint16_hex("version", protocol_version);
-        dtls_server.print_key_hex("cookie", cookie);
-        dtls_server.close();
+        json_object hello_verify{dtls, "hello_verify_request"};
+        hello_verify.print_key_uint16_hex("version", protocol_version);
+        hello_verify.print_key_hex("cookie", cookie);
+        hello_verify.close();
         dtls.close();
     }
 
