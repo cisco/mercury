@@ -1141,7 +1141,7 @@ public:
 struct cryptographic_buffer
 {
     uint64_t buf_len = 0;
-    static constexpr uint32_t crypto_buf_len = 4096;
+    static constexpr uint32_t crypto_buf_len = 8192;
     static constexpr uint32_t min_crypto_data_len = 10;   // minimum number of bytes needed to discover TLS handshake size
     unsigned char buffer[crypto_buf_len] = {}; // pt_buf_len - decryption buffer trim size for gcm_decrypt
 
@@ -1157,11 +1157,14 @@ struct cryptographic_buffer
 
     cryptographic_buffer() {}
 
-    void extend(crypto& d)
+    // returns true if the crypto frame contributed to extending the buffer
+    // This function completely discards frames with even a single byte over the limit
+    // to keep logic simple
+    bool extend(crypto& d)
     {
         // Check for integer overflow first
         if (d.offset() > sizeof(buffer) || d.length() > sizeof(buffer)) {
-            return;  // Invalid offset or length
+            return false;  // Invalid offset or length
         }
 
         if (d.offset() + d.length() <= sizeof(buffer)) {
@@ -1169,8 +1172,10 @@ struct cryptographic_buffer
             if (d.offset() + d.length() > buf_len) {
                 buf_len = d.offset() + d.length();
             }
+            return true;
         }
         // TODO: track segments to verify that all are present
+        return false;
     }
 
     void update_crypto_frames (crypto *c) {
@@ -1295,10 +1300,12 @@ public:
 
             crypto *c = frame.get_if<crypto>();
             if (c && c->is_valid()) {
-                if (c->offset() <= min_crypto_offset)
-                    min_crypto_offset = (uint32_t)c->offset();
-                crypto_buffer.extend(*c);
-                crypto_buffer.update_crypto_frames(c);
+                if (crypto_buffer.extend(*c)) {
+                    crypto_buffer.update_crypto_frames(c);
+                    // update min offset
+                    if (c->offset() <= min_crypto_offset)
+                        min_crypto_offset = (uint32_t)c->offset();
+                }
             }
             if (frame.has_type<connection_close>() || frame.has_type<ack>()) {
                 cc = frame;
@@ -1452,10 +1459,12 @@ public:
 
             crypto *c = frame.get_if<crypto>();
             if (c && c->is_valid()) {
-                if (c->offset() <= min_crypto_offset)
-                    min_crypto_offset = (uint32_t)c->offset();
-                crypto_buffer.extend(*c);
-                crypto_buffer.update_crypto_frames(c);
+                if (crypto_buffer.extend(*c)) {
+                    crypto_buffer.update_crypto_frames(c);
+                    // update min offset
+                    if (c->offset() <= min_crypto_offset)
+                        min_crypto_offset = (uint32_t)c->offset();
+                }
             }
             if (frame.has_type<connection_close>() || frame.has_type<ack>() || frame.has_type<ack_ecn>()) {
                 cc = frame;
