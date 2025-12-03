@@ -511,73 +511,72 @@ namespace redis{
 #ifndef NDEBUG
     static bool unit_test(){
 
-        // array command parsing with JSON validation
+        // Array command: GET key
         if (!test_json_output<redis::request>(
-            "*2\r\n$3\r\nGET\r\n$3\r\nkey\r\n",
-            "{\"redis\":{\"request\":{\"command\":\"GET\"}}}")
+            datum{"*2\r\n$3\r\nGET\r\n$3\r\nkey\r\n"},
+            datum{"{\"redis\":{\"request\":{\"command\":\"GET\"}}}"})
         ){
             return false;
         }
 
-        // inline command parsing
+        // Inline command: PING
         if (!test_json_output<redis::request>(
-            "PING\r\n",
-            "{\"redis\":{\"request\":{\"command\":\"PING\"}}}")
+            datum{"PING\r\n"},
+            datum{"{\"redis\":{\"request\":{\"command\":\"PING\"}}}"})
         ){
             return false;
         }
 
-        // Test invalid request with non-ASCII characters
-        datum get_datum{"0xC30xA0bcrn\0"}; // àbc\r\n in UTF-8
+        // Invalid request: non-ASCII command
+        datum get_datum{"0xC30xA0bcrn\0"};
         redis::request invalid_req{get_datum};
         if (invalid_req.is_not_empty()){
             return false;
         }
 
-        // simple string response with JSON validation
         if (!test_json_output<redis::response>(
-            "+OK\r\n",
-            "{\"redis\":{\"response\":{\"type\":\"simple_string\",\"data\":\"OK\"}}}")
+            datum{"+OK\r\n"},
+            datum{"{\"redis\":{\"response\":{\"type\":\"simple_string\",\"data\":\"OK\"}}}"})
         ){
             return false;
         }
 
-        // error response
+        // Error response
         if (!test_json_output<redis::response>(
-            "-ERR unknown command\r\n",
-            "{\"redis\":{\"response\":{\"type\":\"error\",\"data\":\"ERR unknown command\"}}}")
+            datum{"-ERR unknown command\r\n"},
+            datum{"{\"redis\":{\"response\":{\"type\":\"error\",\"data\":\"ERR unknown command\"}}}"})
         ){
             return false;
         }
 
-        // integer response
+        // Integer response
         if (!test_json_output<redis::response>(
-            ":1000\r\n",
-            "{\"redis\":{\"response\":{\"type\":\"integer\",\"data\":\"1000\"}}}")
+            datum{":1000\r\n"},
+            datum{"{\"redis\":{\"response\":{\"type\":\"integer\",\"data\":\"1000\"}}}"})
         ){
             return false;
         }
 
-        // bulk string response with JSON validation
+        // Bulk string response
         if (!test_json_output<redis::response>(
-            "$5\r\nhello\r\n",
-            "{\"redis\":{\"response\":{\"type\":\"bulk_string\",\"data\":\"hello\"}}}")
+            datum{"$5\r\nhello\r\n"},
+            datum{"{\"redis\":{\"response\":{\"type\":\"bulk_string\",\"data\":\"hello\"}}}"})
         ){
             return false;
         }
 
-        // null bulk string (should not have "data" field)
+        // Null bulk string (should not have "data" field)
         if(!test_json_output<redis::response>(
-            "$-1\r\n",
-            "{\"redis\":{\"response\":{\"type\":\"bulk_string\"}}}")
+            datum{"$-1\r\n"},
+            datum{"{\"redis\":{\"response\":{\"type\":\"bulk_string\"}}}"})
         ){
             return false;
         }
 
-        // empty bulk string response (zero length)
+        // Empty bulk string response (zero length)
         if (!test_json_output<redis::response>(
-            "$0\r\n\r\n",
-            "{\"redis\":{\"response\":{\"type\":\"bulk_string\",\"data\":\"\"}}}")
+            datum{"$0\r\n\r\n"},
+            datum{"{\"redis\":{\"response\":{\"type\":\"bulk_string\",\"data\":\"\"}}}"})
         ){
             return false;
         }
