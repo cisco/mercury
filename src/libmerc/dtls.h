@@ -71,6 +71,11 @@ struct dtls_handshake {
         body.init_from_outer_parser(&d, length);
     }
 
+    // DTLS handshake records begin with content-type 0x16 (Handshake).
+    // The next two bytes are the protocol version:
+    //   0xfe 0xfd for DTLS 1.3/DTLS 1.2 legacy version
+    //   0xfe 0xff for DTLS 1.0.
+    // This matcher is unused and is kept for reference.
     static constexpr mask_and_value<8> dtls_matcher = {
         {
          0xff, 0xff, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00
@@ -118,6 +123,14 @@ public:
 
     const tls_client_hello &get_tls_client_hello() const { return hello; }
 
+    // DTLS handshake records begin with content-type 0x16 (Handshake).
+    // The next two bytes are the protocol version:
+    //   0xfe 0xfd for DTLS 1.3/DTLS 1.2 legacy version
+    //   0xfe 0xff for DTLS 1.0.
+    // The 14th byte of the record payload is the handshake type.
+    //   0x01 - ClientHello.
+    //   0x02 - ServerHello.
+    //   0x03 - HelloVerifyRequest.
     static constexpr mask_and_value<16> dtls_matcher = {
         {
          0xff, 0xff, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00,
