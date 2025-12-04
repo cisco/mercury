@@ -496,14 +496,8 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         x.emplace<ftp::response>(pkt);
         return;
     case tcp_msg_type_redis_response:
-        {
-            redis::response redis_resp{pkt};
-            if (tcp_pkt && redis_resp.additional_bytes_needed) {
-                tcp_pkt->reassembly_needed(redis_resp.additional_bytes_needed);
-            }
-            x.emplace<redis::response>(redis_resp);
-            return;
-        }
+        x.emplace<redis::response>(pkt);
+        return;
     case tcp_msg_type_redis_request:
         x.emplace<redis::request>(pkt);
         return;

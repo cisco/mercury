@@ -108,23 +108,18 @@ namespace redis{
             }
             int length = length_int.get_value();
             type = BULK_STRING;
-            if (length == -1){
-                parsed_data = datum{nullptr, nullptr};
+            if (length == -1){ //-1\r\n
                 return true;
             }
-            if (length >= 0 && d.data + length + 2 <= d.data_end){ // +2 for \r\n
-                parsed_data = datum{d.data, d.data + length};
-                d.skip(length);
+            if (length >= 0 && d.length() >= length + 2){ // +2 for \r\n
+                parsed_data.parse(d, length);
                 crlf content_term{d};
                 return !d.is_null();
             }
             else if (length > 0){
-                // Bulk string is truncated - calculate how many more bytes we need
-                size_t available = d.data_end - d.data;
-                size_t needed = length + 2 - available; // +2 for trailing \r\n
-                additional_bytes_needed = needed;
-                parsed_data = datum{d.data, d.data_end}; // Store partial data
-                return true; // Mark as valid but incomplete
+                additional_bytes_needed = true;
+                parsed_data = d; // Store partial data
+                return true;
             }
             return false;
         }
@@ -155,33 +150,33 @@ namespace redis{
             int length = length_int.get_value();
             type = ARRAY;
             if (length == -1){
-                parsed_data = datum{nullptr, nullptr};
                 return true;
             }
-            // Store start position to capture full array data
             const uint8_t *array_data_start = d.data;
             int elements_parsed = 0;
             // Parse array elements (supports nested structures)
             // For large arrays that may span multiple packets, we parse the first packet only
             for (int i = 0; i < length; i++){
                 if (d.data >= d.data_end){
-                    // How to calculate the additional bytes needed?
-                    additional_bytes_needed = 1; // non-zero value for truncation marker
-                    break;                       // Accept partial array
+                    additional_bytes_needed = true;
+                    break;// Accept partial array
                 }
-                switch (*d.data){
+                uint8_t first_byte;
+                d.lookahead_uint8(&first_byte);
+                switch (first_byte){
                 case '+':
                 case '-':
                 case ':':{
                     d.skip(1);
                     datum element_content;
                     element_content.parse_up_to_delim(d, '\r');
-                    if (d.data + 1 < d.data_end && d.data[0] == '\r' && d.data[1] == '\n'){
+                    lookahead<crlf> crlf_check{d};
+                    if (crlf_check) {
                         d.skip(2);
                         elements_parsed++;
                     }
                     else{
-                        additional_bytes_needed = 1; // non-zero value for truncation marker
+                        additional_bytes_needed = true;
                         break;
                     }
                 }
@@ -193,13 +188,12 @@ namespace redis{
                         d = temp_d;
                         elements_parsed++;
                         if (temp_resp.additional_bytes_needed){
-                            // Propagate nested truncation
-                            additional_bytes_needed = temp_resp.additional_bytes_needed;
+                            additional_bytes_needed = true;
                             return parse_first_packet(array_data_start, d);
                         }
                     }
                     else{
-                        additional_bytes_needed = 1; // non-zero value for truncation marker
+                        additional_bytes_needed = true;
                         return parse_first_packet(array_data_start, d);
                     }
                 }
@@ -211,27 +205,22 @@ namespace redis{
                         d = temp_d;
                         elements_parsed++;
                         if (temp_resp.additional_bytes_needed){
-                            additional_bytes_needed = temp_resp.additional_bytes_needed;
+                            additional_bytes_needed = true;
                             return parse_first_packet(array_data_start, d);
                         }
                     }
                     else{
-                        additional_bytes_needed = 1;
+                        additional_bytes_needed = true;
                         return parse_first_packet(array_data_start, d);
                     }
                 }
                 break;
                 default:
-                    additional_bytes_needed = 1;
+                    additional_bytes_needed = true;
                     return parse_first_packet(array_data_start, d);
                 }
             }
-            if (elements_parsed == length){
-                parsed_data = datum{array_data_start, d.data};
-                return true;
-            }
-
-            if (additional_bytes_needed > 0){
+            if (elements_parsed == length || additional_bytes_needed){
                 parsed_data = datum{array_data_start, d.data};
                 return true;
             }
@@ -240,15 +229,16 @@ namespace redis{
 
     public:
 
-        size_t additional_bytes_needed = 0;
+        bool additional_bytes_needed = false;
 
-        response(datum &d) : type{SIMPLE_STRING}, parsed_data{d.data, d.data}, isValid{false}{
+        response(datum &d) : type{SIMPLE_STRING}, parsed_data{}, isValid{false}{
             // Guard against empty payloads (e.g., ACK packets on port 6379)
             if (!d.is_readable()) {
                 return;
             }
 
-            char first_char = *d.data;
+            uint8_t first_char;
+            d.lookahead_uint8(&first_char);
             switch (first_char){
             case '+':
                 isValid = parse_simple_string(d);
@@ -265,7 +255,8 @@ namespace redis{
             case '*':
                 if constexpr (enable_array_parsing) {
                     isValid = parse_array(d);
-                } else {
+                }
+                else {
                     isValid = false;
                 }
                 break;
@@ -314,12 +305,18 @@ namespace redis{
                             redis_response.print_key_string("data", "");
                         }
                     }
+                    if (additional_bytes_needed) {
+                        redis_response.print_key_bool("additional_bytes_needed", true);
+                    }
                     break;
                 case ARRAY:
                     if constexpr (enable_array_parsing) {
                         redis_response.print_key_string("type", "array");
                         if (parsed_data.is_not_empty()){
                             redis_response.print_key_json_string("data", parsed_data);
+                        }
+                        if (additional_bytes_needed) {
+                            redis_response.print_key_bool("additional_bytes_needed", true);
                         }
                     }
                     break;
@@ -444,13 +441,16 @@ namespace redis{
             }
             type = INLINE_COMMAND;
             is_auth_command = command_data.case_insensitive_match("auth");
-            if (is_auth_command && d.is_readable() && *d.data == ' '){
+            uint8_t next_char;
+            d.lookahead_uint8(&next_char);
+            if (is_auth_command && d.is_readable() && next_char == ' '){
                 d.skip(1);
                 // Parse username and password for inline AUTH
                 // Format: AUTH [username] password
                 datum first_arg;
                 first_arg.parse_up_to_delimiters(d, ' ', '\r');
-                if (d.is_readable() && *d.data == ' '){
+                d.lookahead_uint8(&next_char);
+                if (d.is_readable() && next_char == ' '){
                     // Two arguments: username and password
                     username_data = first_arg;
                     d.skip(1);
@@ -470,7 +470,8 @@ namespace redis{
             if (d.data >= d.data_end){
                 return;
             }
-            char first_char = *d.data;
+            uint8_t first_char;
+            d.lookahead_uint8(&first_char);
             switch (first_char){
             case '*':
                 isValid = parse_array_command(d);
