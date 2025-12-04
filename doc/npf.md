@@ -405,7 +405,31 @@ where the elements are defined as
    0xdaba                    type
 ```
 
+## DTLS
 
+DTLS fingerprints are formed from DTLS Client Hello messages and use the same data feature selection and normalization rules as the TLS fingerprints above.
+
+The "dtls/2" fingerprint format is
+```
+   "dtls/2" (DTLS_Version) (DTLS_Ciphersuite) [(selected_DTLS_Extension)*]
+```
+
+The "dtls/1" fingerprint format is
+```
+   "dtls/1" (DTLS_Version) (DTLS_Ciphersuite) [ DTLS_Extension* ]
+```
+
+and the older "dtls" fingerprint format is
+```
+   "dtls/" (DTLS_Version) (DTLS_Ciphersuite) ((DTLS_Extension)*)
+```
+
+where `DTLS_Ciphersuite`, `DTLS_Extension`, and `selected_DTLS_Extension` are defined identically to their TLS counterparts (`TLS_Ciphersuite`, `TLS_Extension`, and `selected_TLS_Extension`), including DEGREASE/ENCODE handling.
+
+An example of the sorted-extension format is
+```
+dtls/1/(fefd)(c02c)[(000a000c000a001d0017001e00190018)(000b000403000102)(000d0030002e040305030603080708080809080a080b080408050806040105010601030302030301020103020202040205020602)(0016)]
+```
 
 #### Truncated Fingerprints
 
