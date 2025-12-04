@@ -39,13 +39,11 @@ namespace redis{
             if (d.is_null()){
                 return false;
             }
-            datum content;
-            content.parse_up_to_delim(d, '\r');
-            if (content.is_not_empty()){
+            parsed_data.parse_up_to_delim(d, '\r');
+            if (parsed_data.is_not_empty()){
                 crlf terminator{d};
                 if (!d.is_null()){
                     type = SIMPLE_STRING;
-                    parsed_data = content;
                     return true;
                 }
             }
@@ -57,13 +55,11 @@ namespace redis{
             if (d.is_null()){
                 return false;
             }
-            datum content;
-            content.parse_up_to_delim(d, '\r');
-            if (content.is_not_empty()){
+            parsed_data.parse_up_to_delim(d, '\r');
+            if (parsed_data.is_not_empty()){
                 crlf terminator{d};
                 if (!d.is_null()){
                     type = ERROR;
-                    parsed_data = content;
                     return true;
                 }
             }
@@ -75,13 +71,11 @@ namespace redis{
             if (d.is_null()){
                 return false;
             }
-            datum content;
-            content.parse_up_to_delim(d, '\r');
-            if (content.is_not_empty()){
+            parsed_data.parse_up_to_delim(d, '\r');
+            if (parsed_data.is_not_empty()){
                 crlf terminator{d};
                 if (!d.is_null()){
                     type = INTEGER;
-                    parsed_data = content;
                     return true;
                 }
             }
@@ -447,19 +441,15 @@ namespace redis{
                 d.skip(1);
                 // Parse username and password for inline AUTH
                 // Format: AUTH [username] password
-                datum first_arg;
-                first_arg.parse_up_to_delimiters(d, ' ', '\r');
+                password_data.parse_up_to_delimiters(d, ' ', '\r');
                 d.lookahead_uint8(&next_char);
                 if (d.is_readable() && next_char == ' '){
-                    // Two arguments: username and password
-                    username_data = first_arg;
+                    // Two arguments: move first to username, parse second into password
+                    username_data = password_data;
                     d.skip(1);
                     password_data.parse_up_to_delim(d, '\r');
                 }
-                else{
-                    // One argument: password only
-                    password_data = first_arg;
-                }
+                // else: password_data already contains the single password argument
             }
             literal_byte<'\r', '\n'> terminator{d};
             return !d.is_null();
