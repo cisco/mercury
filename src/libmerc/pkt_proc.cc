@@ -550,8 +550,14 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
             udp_pkt.reassembly_needed(more_bytes);
         }
         break;
-    case udp_msg_type_dtls_handshake:
-        dtls::parse_and_emplace(x, pkt);
+    case udp_msg_type_dtls_client_hello:
+        x.emplace<dtls_client_hello>(pkt);
+        break;
+    case udp_msg_type_dtls_server_hello:
+        x.emplace<dtls_server_hello>(pkt);
+        break;
+    case udp_msg_type_dtls_hello_verify_request:
+        x.emplace<dtls_hello_verify_request>(pkt);
         break;
     case udp_msg_type_wireguard:
         x.emplace<wireguard_handshake_init>(pkt);

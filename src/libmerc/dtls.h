@@ -71,23 +71,26 @@ struct dtls_handshake {
         body.init_from_outer_parser(&d, length);
     }
 
-    static constexpr mask_and_value<16> dtls_matcher = {
+    static constexpr mask_and_value<8> dtls_matcher = {
         {
-         0xff, 0xff, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00,
-         0x00, 0x00, 0x00, 0x00, 0x00, 0xf8, 0x00, 0x00
+         0xff, 0xff, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00
         },
         {
          0x16, 0xfe, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00,
-         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
         }
     };
 
 };
 
 class dtls_client_hello : public base_protocol {
+    dtls_record rec;
+    dtls_handshake handshake;
     tls_client_hello hello;
 public:
-    dtls_client_hello(struct datum &pkt) : hello{pkt} {}
+    dtls_client_hello(struct datum &pkt) :
+        rec{pkt},
+        handshake{rec.fragment},
+        hello{handshake.body} {}
 
     void fingerprint(struct buffer_stream &buf, size_t format_version) const {
         hello.fingerprint(buf, format_version);
@@ -117,11 +120,11 @@ public:
 
     static constexpr mask_and_value<16> dtls_matcher = {
         {
-         0xff, 0xff, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00,
+         0xff, 0xff, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00,
          0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00
         },
         {
-         0x16, 0xfe, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00,
+         0x16, 0xfe, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00,
          0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00
         }
     };
@@ -129,6 +132,8 @@ public:
 };
 
 class dtls_hello_verify_request: public base_protocol {
+    dtls_record rec;
+    dtls_handshake handshake;
     encoded<uint16_t> protocol_version;
     encoded<uint8_t> cookie_len;
     datum cookie;
@@ -140,10 +145,12 @@ public:
     static constexpr bool verbose = false;
 
     dtls_hello_verify_request(struct datum &p) :
-        protocol_version{p},
-        cookie_len{p},
-        cookie{p, cookie_len.value()},
-        valid{p.is_not_null()} {}
+        rec{p},
+        handshake{rec.fragment},
+        protocol_version{handshake.body},
+        cookie_len{handshake.body},
+        cookie{handshake.body, cookie_len.value()},
+        valid{handshake.body.is_not_null()} {}
 
     void write_json(json_object &record, bool metadata) const {
         (void)metadata;  // ignore parameter
@@ -169,13 +176,29 @@ public:
     bool is_not_empty() const {
         return valid;
     }
+
+    static constexpr mask_and_value<16> dtls_matcher = {
+        {
+         0xff, 0xff, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00,
+         0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00
+        },
+        {
+         0x16, 0xfe, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00,
+         0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00
+        }
+    };
 };
 
 class dtls_server_hello : public base_protocol {
+    dtls_record rec;
+    dtls_handshake handshake;
     tls_server_hello hello;
 
 public:
-    dtls_server_hello(datum &p) : hello{p} {}
+    dtls_server_hello(datum &p) :
+        rec{p},
+        handshake{rec.fragment},
+        hello{handshake.body} {}
 
     void fingerprint(struct buffer_stream &buf) const {
         hello.fingerprint(buf);
@@ -205,40 +228,15 @@ public:
 
     static constexpr mask_and_value<16> dtls_matcher = {
         {
-         0xff, 0xff, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00,
+         0xff, 0xff, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00,
          0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00
         },
         {
-         0x16, 0xfe, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00,
+         0x16, 0xfe, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00,
          0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00
         }
     };
 };
-
-// DTLS parsing helper namespace
-namespace dtls {
-    // Parse DTLS packet and emplace appropriate message type into variant
-    // Returns true if successfully parsed a known message type, false otherwise
-    template<typename Variant>
-    inline bool parse_and_emplace(Variant &x, datum &pkt) {
-        dtls_record dtls_rec{pkt};
-        dtls_handshake handshake{dtls_rec.fragment};
-
-        switch (handshake.msg_type) {
-        case handshake_type::client_hello:
-            x.template emplace<dtls_client_hello>(handshake.body);
-            return true;
-        case handshake_type::server_hello:
-            x.template emplace<dtls_server_hello>(handshake.body);
-            return true;
-        case handshake_type::hello_verify_request:
-            x.template emplace<dtls_hello_verify_request>(handshake.body);
-            return true;
-        default:
-            return false;
-        }
-    }
-}
 
 [[maybe_unused]] inline int dtls_client_hello_fuzz_test(const uint8_t *data, size_t size) {
     return json_output_fuzzer<dtls_client_hello>(data, size);
