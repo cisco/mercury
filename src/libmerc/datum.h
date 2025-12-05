@@ -1066,9 +1066,12 @@ inline std::pair<datum,datum> symmetric_difference(datum outer, datum inner) {
 ///   |    full         | `!= nullptr`  |   `== data`  |
 ///
 class writeable {
-public:
+protected:
+
     uint8_t *data;
-    uint8_t *data_end;      // TODO: const?
+    uint8_t *data_end;
+
+public:
 
     /// constructs a writeable object that tracks data being written to the
     /// region between `begin` and `end`
@@ -1096,37 +1099,27 @@ public:
 
     /// returns true if the writeable object is not full, and false otherwise
     ///
+private:
     bool is_not_full() const { return data < data_end; }
-
+public:
     /// returns the number of bytes in the writeable region to which
     /// data can be written
     ///
     ssize_t writeable_length() const { return data_end - data; }
 
-    /// consumes `length` bytes of the writeable region, if `length <=
-    /// this->writeable_length()`; otherwise, this writeable is set to
-    /// the null state
-    ///
-    void update(ssize_t length) {
-        // a length less than zero is considered an error state
-        //
-        if (length < 0) {
-            set_null();
-            return;
-        }
-        data += length;
-    }
-
     /// sets this writeable object to the null state
     ///
-    void set_null() { data = data_end = nullptr; }
+    void set_null() {
+        data = nullptr;
+        data_end = nullptr;
+    }
 
     /// sets this writeable object to the full state
     ///
     void set_full() { data = data_end; }
 
-    /// copies the single `uint8_t` \param x into this `data_buffer`,
-    /// if there is room; otherwise, sets it to the null state
+    /// Copies the single `uint8_t` \param x into this `writeable`, if
+    /// there is room; otherwise, sets it to the null state.
     ///
     void copy(uint8_t x) {
         if (data + 1 > data_end) {
@@ -1136,12 +1129,12 @@ public:
         *data++ = x;
     }
 
-    /// copies \p num_bytes bytes from location \p rdata into this
-    /// `data_buffer`, if there is room; otherwise, sets it to the
-    /// null state
+    /// Copies \p num_bytes bytes from location \p rdata into this
+    /// `writeable`, if there is room; otherwise, sets it to the
+    /// null state.
     ///
     void copy(const uint8_t *rdata, size_t num_bytes) {
-        if (data_end - data < (ssize_t)num_bytes) {
+        if (rdata == nullptr or data_end - data < (ssize_t)num_bytes) {
             set_null();
             return;
         }
@@ -1149,8 +1142,15 @@ public:
         data += num_bytes;
     }
 
+    /// Copies the contents of `datum` \p d into this `writeable`, if
+    /// there is room; otherwise, sets it to the null state.
+    ///
+    void copy(datum d) {
+        copy(d.data, d.length());
+    }
+
     /// writes a hexidecimal representation of the \p num_bytes bytes
-    /// at location \p rdata into this `data_buffer`, if there is room
+    /// at location \p rdata into this `writeable`, if there is room
     /// for all `2*num_bytes` hex characters; otherwise, sets it to
     /// the empty state
     ///
@@ -1293,9 +1293,7 @@ public:
     /// template specialization for datum
     ///
     writeable & operator<<(datum d) {
-        if (d.is_not_null()) {
-            parse(d);
-        }
+        copy(d);
         return *this;
     }
 
