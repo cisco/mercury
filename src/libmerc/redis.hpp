@@ -104,11 +104,12 @@ namespace redis{
             marker{d},
             length{d},
             terminator1{d},
-            parsed_data{},  
+            parsed_data{},
             isValid{false}
         {
-            if (d.is_null()) return;
-
+            if (d.is_null()) {
+                return;
+            }
             int len = length.get_value();
 
             if (len == -1) { // Null bulk string: $-1\r\n
@@ -116,7 +117,9 @@ namespace redis{
                 return;
             }
 
-            if (len < 0) return; // Invalid length
+            if (len < 0) {
+                return; // Invalid length
+            }
 
             if (d.length() >= len + 2) { //$5\r\nhello\r\n
                 parsed_data.parse(d, len);
@@ -135,7 +138,7 @@ namespace redis{
 
         void write_json(struct json_object &redis_response) const {
             redis_response.print_key_string("type", "bulk_string");
-            
+
             if (!parsed_data.is_null()) {
                 if (parsed_data.is_not_empty()) {
                     // Limit to first 100 characters
@@ -155,7 +158,7 @@ namespace redis{
                     redis_response.print_key_string("data", "");
                 }
             }
-            
+
             if (additional_bytes_needed) {
                 redis_response.print_key_bool("additional_bytes_needed", true);
             }
@@ -169,7 +172,7 @@ namespace redis{
         // 2. Most valuable data is in the command name and auth details, not array contents
         // 3. Parsing full arrays requires complex state management and recursion handling
         // 4. Memory usage grows with array depth and size
-        static constexpr bool enable_array_parsing = true;
+        static constexpr bool enable_array_parsing = false;
 
         literal_byte<'*'> marker;
         decimal_integer<int32_t> length_int;
@@ -191,7 +194,9 @@ namespace redis{
                 return;
             }
 
-            if (d.is_null()) return;
+            if (d.is_null()) {
+                return;
+            }
 
             int len = length_int.get_value();
 
@@ -211,10 +216,10 @@ namespace redis{
                     isValid = true;
                     return true;
                 }
-                
+
                 // Element parsed successfully
                 elements_parsed++;
-                
+
                 if (element.additional_bytes_needed) {
                     // Element itself is truncated
                     additional_bytes_needed = true;
@@ -222,7 +227,7 @@ namespace redis{
                     isValid = true;
                     return true;
                 }
-                
+
                 return false;
             };
 
@@ -266,7 +271,9 @@ namespace redis{
                             return;
                     }
 
-                    if (early_return) return;
+                    if (early_return) {
+                        return;
+                    }
                 }
             }
 
@@ -396,16 +403,24 @@ namespace redis{
             is_auth_command{false},
             isValid{false}
         {
-            if (d.is_null()) return;
+            if (d.is_null()) {
+                return;
+            }
 
             int len = array_length.get_value();
-            if (len <= 0) return;
+            if (len <= 0) {
+                return;
+            }
 
             bulk_string cmd{d};
-            if (!cmd.is_not_empty()) return;
+            if (!cmd.is_not_empty()) {
+                return;
+            }
 
             command_data = cmd.get_data();
-            if (!command_data.is_alnum()) return;
+            if (!command_data.is_alnum()) {
+                return;
+            }
 
             is_auth_command = command_data.case_insensitive_match("auth");
 
@@ -415,16 +430,22 @@ namespace redis{
                 //     or: *3\r\n$4\r\nAUTH\r\n$8\r\nusername\r\n$8\r\npassword\r\n
                 if (len == 2) {
                     bulk_string pwd{d};
-                    if (!pwd.is_not_empty()) return;
+                    if (!pwd.is_not_empty()) {
+                        return;
+                    }
                     password_data = pwd.get_data();
                 }
                 else if (len == 3) {
                     bulk_string user{d};
-                    if (!user.is_not_empty()) return;
+                    if (!user.is_not_empty()) {
+                        return;
+                    }
                     username_data = user.get_data();
 
                     bulk_string pwd{d};
-                    if (!pwd.is_not_empty()) return;
+                    if (!pwd.is_not_empty()) {
+                        return;
+                    }
                     password_data = pwd.get_data();
                 }
             }
@@ -465,7 +486,7 @@ namespace redis{
             isValid{false}
         {
             command_data.parse_up_to_delimiters(d, ' ', '\r');
-            if (!command_data.is_not_empty() || !command_data.is_alnum()) 
+            if (!command_data.is_not_empty() || !command_data.is_alnum())
             {
                 return;
             }
@@ -519,7 +540,9 @@ namespace redis{
 
     public:
         request(datum &d) : packet{std::monostate{}} {
-            if (!d.is_readable()) return;
+            if (!d.is_readable()) {
+                return;
+            }
 
             if (lookahead<encoded<uint8_t>> first_char{d}) {
                 switch (first_char.value) {
@@ -540,7 +563,7 @@ namespace redis{
                 [](const inline_command &r) { return r.is_not_empty(); }
             }, packet);
         }
-        
+
         void write_json(struct json_object &record, bool) {
             if (this->is_not_empty()) {
                 struct json_object redis_object{record, "redis"};
