@@ -133,11 +133,12 @@ namespace {
         static_assert(std::is_integral_v<std::remove_reference_t<T>>, "T must be an integral type.");
 
         while (d.data < d.data_end) {
-            unsigned x = *d.data++ - '0';
+            unsigned x = *d.data - '0';
             if (x > 9) {
                 break;
             }
             value = value * 10 + x;
+            d.data++;
         }
     }
 
@@ -153,11 +154,12 @@ namespace {
         static_assert(std::is_integral_v<std::remove_reference_t<T>>, "T must be an integral type.");
 
         while (d.data < d.data_end) {
-            unsigned x = *d.data++ - '0';
+            unsigned x = *d.data - '0';
             if (x > 9) {
                 break;
             }
             value = value * 10 - x;
+            d.data++;
         }
     }
 
@@ -317,6 +319,33 @@ inline bool decimal_integer_unit_test(FILE *f=nullptr) {
 
     for (auto & tc : test_case_array_uint32) {
         result &= tc.run_test(f);
+    }
+
+    // verify that decimal_integer<> only consumes as many input bytes
+    // as appropriate
+    //
+    datum x0{"5\r\n"};
+    decimal_integer<uint32_t> y0{x0};
+    if (x0.cmp(datum{std::array<uint8_t,2>{'\r', '\n'}}) != 0) {
+        result &= false;
+    }
+
+    datum x1{"-5\r\n"};
+    decimal_integer<int32_t> y1{x1};
+    if (x1.cmp(datum{std::array<uint8_t,2>{'\r', '\n'}}) != 0) {
+        result &= false;
+    }
+
+    datum x2{"555\r\n"};
+    decimal_integer<int32_t> y2{x2};
+    if (x2.cmp(datum{std::array<uint8_t,2>{'\r', '\n'}}) != 0) {
+        result &= false;
+    }
+
+    datum x3{"-555\r\n"};
+    decimal_integer<int32_t> y3{x3};
+    if (x3.cmp(datum{std::array<uint8_t,2>{'\r', '\n'}}) != 0) {
+        result &= false;
     }
 
     return result;
