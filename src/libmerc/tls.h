@@ -208,6 +208,7 @@ enum class handshake_type : uint8_t {
     unknown      = 0,
     client_hello = 1,
     server_hello = 2,
+    hello_verify_request = 3,
     new_session_ticket = 4,
     end_of_early_data = 5,
     encrypted_extensions = 8,
