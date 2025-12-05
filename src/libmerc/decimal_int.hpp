@@ -254,12 +254,15 @@ inline bool decimal_integer_unit_test(FILE *f=nullptr) {
         { datum{"127"}, true, 127 },
         { datum{"-128"}, true, -128 },
         { datum{"-0"}, true, 0 },
+        { datum{"128"}, false, 0 },
+        { datum{"-129"}, false, 0 },
         { datum{"-05"}, true, -5 },
         { datum{"-0001"}, true, -1 },
         { datum{"-000"}, true, 0 },
         { datum{"0000"}, true, 0 },
-        { datum{"128"}, false, 0 },
-        { datum{"-129"}, false, 0 },
+        { datum{"bad"}, false, 0 },
+        { datum{"+a"}, false, 0 },
+        { datum{"-a"}, false, 0 },
     };
     for (auto & tc : test_case_array_int8) {
         result &= tc.run_test(f);
@@ -355,6 +358,30 @@ inline bool decimal_integer_unit_test(FILE *f=nullptr) {
     datum x3{"-555\r\n"};
     decimal_integer<int32_t> y3{x3};
     if (x3.cmp(datum{std::array<uint8_t,2>{'\r', '\n'}}) != 0) {
+        result &= false;
+    }
+
+    datum x4{"0\r\n"};
+    decimal_integer<int32_t> y4{x4};
+    if (x4.cmp(datum{std::array<uint8_t,2>{'\r', '\n'}}) != 0) {
+        result &= false;
+    }
+
+    datum x5{"-0\r\n"};
+    decimal_integer<int32_t> y5{x5};
+    if (x5.cmp(datum{std::array<uint8_t,2>{'\r', '\n'}}) != 0) {
+        result &= false;
+    }
+
+    datum x6{"000\r\n"};
+    decimal_integer<uint32_t> y6{x6};
+    if (x6.cmp(datum{std::array<uint8_t,2>{'\r', '\n'}}) != 0) {
+        result &= false;
+    }
+
+    datum x7{"+0\r\n"};
+    decimal_integer<int32_t> y7{x7};
+    if (x7.cmp(datum{std::array<uint8_t,2>{'\r', '\n'}}) != 0) {
         result &= false;
     }
 
