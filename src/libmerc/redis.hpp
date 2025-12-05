@@ -1,6 +1,8 @@
 #ifndef REDIS_HPP
 #define REDIS_HPP
 
+#include <variant>
+
 #include "protocol.h"
 #include "datum.h"
 #include "json_object.h"
@@ -13,311 +15,356 @@
 
 namespace redis{
 
-    class response : public base_protocol{
-    private:
+    class simple_string;
+    class error;
+    class integer;
+    class bulk_string;
+    class array;
+
+    class simple_string {
+        literal_byte<'+'> marker;
+        up_to_required_byte<'\r'> parsed_data;
+        crlf terminator;
+        bool isValid;
+
+    public:
+        bool additional_bytes_needed = false;
+
+        simple_string(datum &d) :
+            marker{d},
+            parsed_data{d},
+            terminator{d},
+            isValid{!d.is_null() && parsed_data.is_not_empty()}{}
+
+        bool is_not_empty() const { return isValid; }
+
+        void write_json(struct json_object &redis_response) const {
+            redis_response.print_key_string("type", "simple_string");
+            redis_response.print_key_json_string("data", parsed_data);
+        }
+    };
+
+    class error {
+        literal_byte<'-'> marker;
+        up_to_required_byte<'\r'> parsed_data;
+        crlf terminator;
+        bool isValid;
+
+    public:
+        bool additional_bytes_needed = false;
+
+        error(datum &d) :
+            marker{d},
+            parsed_data{d},
+            terminator{d},
+            isValid{!d.is_null() && parsed_data.is_not_empty()} {}
+
+        bool is_not_empty() const { return isValid; }
+
+        void write_json(struct json_object &redis_response) const {
+            redis_response.print_key_string("type", "error");
+            redis_response.print_key_json_string("data", parsed_data);
+        }
+    };
+
+    class integer {
+        literal_byte<':'> marker;
+        up_to_required_byte<'\r'> parsed_data;
+        crlf terminator;
+        bool isValid;
+
+    public:
+        bool additional_bytes_needed = false;
+
+        integer(datum &d) :
+            marker{d},
+            parsed_data{d},
+            terminator{d},
+            isValid{!d.is_null() && parsed_data.is_not_empty()} {}
+
+        bool is_not_empty() const { return isValid; }
+
+        void write_json(struct json_object &redis_response) const {
+            redis_response.print_key_string("type", "integer");
+            redis_response.print_key_json_string("data", parsed_data);
+        }
+    };
+
+    class bulk_string {
+        literal_byte<'$'> marker;
+        decimal_integer<int32_t> length;
+        crlf terminator1;
+        datum parsed_data;
+        bool isValid;
+
+    public:
+        bool additional_bytes_needed = false;
+
+        bulk_string(datum &d) :
+            marker{d},
+            length{d},
+            terminator1{d},
+            parsed_data{},  
+            isValid{false}
+        {
+            if (d.is_null()) return;
+
+            int len = length.get_value();
+
+            if (len == -1) { // Null bulk string: $-1\r\n
+                isValid = true;
+                return;
+            }
+
+            if (len < 0) return; // Invalid length
+
+            if (d.length() >= len + 2) { //$5\r\nhello\r\n
+                parsed_data.parse(d, len);
+                crlf terminator2{d};
+                isValid = !d.is_null();
+            }
+            else if (len > 0) { // Truncated: needs reassembly
+                additional_bytes_needed = true;
+                parsed_data = d;
+                isValid = true;
+            }
+        }
+
+        bool is_not_empty() const { return isValid; }
+        const datum& get_data() const { return parsed_data; }
+
+        void write_json(struct json_object &redis_response) const {
+            redis_response.print_key_string("type", "bulk_string");
+            
+            if (!parsed_data.is_null()) {
+                if (parsed_data.is_not_empty()) {
+                    // Limit to first 100 characters
+                    const size_t max_len = 100;
+                    const auto data_len = static_cast<size_t>(parsed_data.length());
+                    if (data_len > max_len) {
+                        datum temp = parsed_data;
+                        datum truncated;
+                        truncated.parse(temp, max_len);
+                        redis_response.print_key_json_string("data", truncated);
+                    }
+                    else {
+                        redis_response.print_key_json_string("data", parsed_data);
+                    }
+                }
+                else {
+                    redis_response.print_key_string("data", "");
+                }
+            }
+            
+            if (additional_bytes_needed) {
+                redis_response.print_key_bool("additional_bytes_needed", true);
+            }
+        }
+    };
+
+    class array {
         // Compile-time flag to control array parsing execution
-        // Set to true to enable array parsing and JSON output
         // Array parsing is disabled by default for the following reasons:
         // 1. Array responses can be very large and span multiple packets
         // 2. Most valuable data is in the command name and auth details, not array contents
         // 3. Parsing full arrays requires complex state management and recursion handling
         // 4. Memory usage grows with array depth and size
-        static constexpr bool enable_array_parsing = false;
+        static constexpr bool enable_array_parsing = true;
 
-        enum redis_type{
-            SIMPLE_STRING, // +OK\r\n
-            ERROR,         // -Error message\r\n
-            INTEGER,       // :1000\r\n
-            BULK_STRING,   // $7\r\nabc\rdef\r\n
-            ARRAY          // *2\r\n$3\r\nSET\r\n$3\r\nfoo\r\n
-        } type;
+        literal_byte<'*'> marker;
+        decimal_integer<int32_t> length_int;
+        crlf terminator;
         datum parsed_data;
         bool isValid;
 
-        bool parse_simple_string(datum &d){
-            literal_byte<'+'> marker{d};
-            if (d.is_null()){
-                return false;
-            }
-            parsed_data.parse_up_to_delim(d, '\r');
-            if (parsed_data.is_not_empty()){
-                crlf terminator{d};
-                if (!d.is_null()){
-                    type = SIMPLE_STRING;
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        bool parse_error(datum &d){
-            literal_byte<'-'> marker{d};
-            if (d.is_null()){
-                return false;
-            }
-            parsed_data.parse_up_to_delim(d, '\r');
-            if (parsed_data.is_not_empty()){
-                crlf terminator{d};
-                if (!d.is_null()){
-                    type = ERROR;
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        bool parse_integer(datum &d){
-            literal_byte<':'> marker{d};
-            if (d.is_null()){
-                return false;
-            }
-            parsed_data.parse_up_to_delim(d, '\r');
-            if (parsed_data.is_not_empty()){
-                crlf terminator{d};
-                if (!d.is_null()){
-                    type = INTEGER;
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        bool parse_bulk_string(datum &d){
-            literal_byte<'$'> marker{d};
-            if (d.is_null()){
-                return false;
-            }
-            datum length_str;
-            length_str.parse_up_to_delim(d, '\r');
-            if (!length_str.is_not_empty()){
-                return false;
-            }
-            crlf length_term{d};
-            if (d.is_null()){
-                return false;
-            }
-            decimal_integer<int32_t> length_int{length_str};
-            if (length_str.is_null()) {
-                return false;
-            }
-            int length = length_int.get_value();
-            type = BULK_STRING;
-            if (length == -1){ //-1\r\n
-                return true;
-            }
-            if (length >= 0 && d.length() >= length + 2){ // +2 for \r\n
-                parsed_data.parse(d, length);
-                crlf content_term{d};
-                return !d.is_null();
-            }
-            else if (length > 0){
-                additional_bytes_needed = true;
-                parsed_data = d; // Store partial data
-                return true;
-            }
-            return false;
-        }
-
-        bool parse_first_packet(const uint8_t *data_start, datum &d){
-            parsed_data = datum{data_start, d.data};
-            return true;
-        }
-
-        bool parse_array(datum &d){
-            literal_byte<'*'> marker{d};
-            if (d.is_null()){
-                return false;
-            }
-            datum length_str;
-            length_str.parse_up_to_delim(d, '\r');
-            if (!length_str.is_not_empty()){
-                return false;
-            }
-            crlf length_term{d};
-            if (d.is_null()){
-                return false;
-            }
-            decimal_integer<int32_t> length_int{length_str};
-            if (length_str.is_null()) {
-                return false;
-            }
-            int length = length_int.get_value();
-            type = ARRAY;
-            if (length == -1){
-                return true;
-            }
-            const uint8_t *array_data_start = d.data;
-            int elements_parsed = 0;
-            // Parse array elements (supports nested structures)
-            // For large arrays that may span multiple packets, we parse the first packet only
-            for (int i = 0; i < length; i++){
-                if (d.data >= d.data_end){
-                    additional_bytes_needed = true;
-                    break;// Accept partial array
-                }
-                uint8_t first_byte;
-                d.lookahead_uint8(&first_byte);
-                switch (first_byte){
-                case '+':
-                case '-':
-                case ':':{
-                    d.skip(1);
-                    datum element_content;
-                    element_content.parse_up_to_delim(d, '\r');
-                    lookahead<crlf> crlf_check{d};
-                    if (crlf_check) {
-                        d.skip(2);
-                        elements_parsed++;
-                    }
-                    else{
-                        additional_bytes_needed = true;
-                        break;
-                    }
-                }
-                break;
-                case '$':{
-                    datum temp_d = d;
-                    response temp_resp{temp_d};
-                    if (temp_resp.isValid && temp_resp.type == BULK_STRING){
-                        d = temp_d;
-                        elements_parsed++;
-                        if (temp_resp.additional_bytes_needed){
-                            additional_bytes_needed = true;
-                            return parse_first_packet(array_data_start, d);
-                        }
-                    }
-                    else{
-                        additional_bytes_needed = true;
-                        return parse_first_packet(array_data_start, d);
-                    }
-                }
-                break;
-                case '*':{
-                    datum temp_d = d;
-                    response temp_resp{temp_d};
-                    if (temp_resp.isValid && temp_resp.type == ARRAY){
-                        d = temp_d;
-                        elements_parsed++;
-                        if (temp_resp.additional_bytes_needed){
-                            additional_bytes_needed = true;
-                            return parse_first_packet(array_data_start, d);
-                        }
-                    }
-                    else{
-                        additional_bytes_needed = true;
-                        return parse_first_packet(array_data_start, d);
-                    }
-                }
-                break;
-                default:
-                    additional_bytes_needed = true;
-                    return parse_first_packet(array_data_start, d);
-                }
-            }
-            if (elements_parsed == length || additional_bytes_needed){
-                parsed_data = datum{array_data_start, d.data};
-                return true;
-            }
-            return false;
-        }
-
     public:
+        bool additional_bytes_needed = true;
 
-        bool additional_bytes_needed = false;
-
-        response(datum &d) : type{SIMPLE_STRING}, parsed_data{}, isValid{false}{
-            // Guard against empty payloads (e.g., ACK packets on port 6379)
-            if (!d.is_readable()) {
+        array(datum &d) :
+            marker{d},
+            length_int{d},
+            terminator{d},
+            parsed_data{},
+            isValid{false}
+        {
+            if constexpr (!enable_array_parsing) {
                 return;
             }
 
-            uint8_t first_char;
-            d.lookahead_uint8(&first_char);
-            switch (first_char){
-            case '+':
-                isValid = parse_simple_string(d);
-                break;
-            case '-':
-                isValid = parse_error(d);
-                break;
-            case ':':
-                isValid = parse_integer(d);
-                break;
-            case '$':
-                isValid = parse_bulk_string(d);
-                break;
-            case '*':
-                if constexpr (enable_array_parsing) {
-                    isValid = parse_array(d);
+            if (d.is_null()) return;
+
+            int len = length_int.get_value();
+
+            if (len == -1) { // Null array: *-1\r\n
+                isValid = true;
+                return;
+            }
+
+            datum array_data_start = d;
+            int elements_parsed = 0;
+
+            auto handle_element_result = [&](auto &element) -> bool {
+                if (!element.is_not_empty()) {
+                    // Element parsing failed (incomplete data)
+                    additional_bytes_needed = true;
+                    parsed_data = array_data_start;
+                    isValid = true;
+                    return true;
                 }
-                else {
-                    isValid = false;
+                
+                // Element parsed successfully
+                elements_parsed++;
+                
+                if (element.additional_bytes_needed) {
+                    // Element itself is truncated
+                    additional_bytes_needed = true;
+                    parsed_data = array_data_start;
+                    isValid = true;
+                    return true;
                 }
-                break;
-            default:
-                isValid = false;
-                break;
+                
+                return false;
+            };
+
+            for (int i = 0; i < len; i++) {
+                if (!d.is_readable()) {
+                    // Not enough data for next element
+                    additional_bytes_needed = true;
+                    break;
+                }
+
+                if (lookahead<encoded<uint8_t>> first_byte{d}) {
+                    bool early_return = false;
+
+                    switch (first_byte.value) {
+                        case '+': {
+                            simple_string element{d};
+                            early_return = handle_element_result(element);
+                            break;
+                        }
+                        case '-': {
+                            error element{d};
+                            early_return = handle_element_result(element);
+                            break;
+                        }
+                        case ':': {
+                            integer element{d};
+                            early_return = handle_element_result(element);
+                            break;
+                        }
+                        case '$': {
+                            bulk_string element{d};
+                            early_return = handle_element_result(element);
+                            break;
+                        }
+                        case '*': {
+                            array element{d};
+                            early_return = handle_element_result(element);
+                            break;
+                        }
+                        default:
+                            return;
+                    }
+
+                    if (early_return) return;
+                }
+            }
+
+            if (elements_parsed == len || additional_bytes_needed) {
+                parsed_data = array_data_start;
+                isValid = true;
             }
         }
 
         bool is_not_empty() const { return isValid; }
 
-        void write_json(struct json_object &record, bool){
-            struct json_object redis_object{record, "redis"};
-            struct json_object redis_response{redis_object, "response"};
+        void write_json(struct json_object &redis_response) const {
+            if constexpr (enable_array_parsing) {
+                redis_response.print_key_string("type", "array");
+                if (parsed_data.is_not_empty()) {
+                    redis_response.print_key_json_string("data", parsed_data);
+                }
+                if (additional_bytes_needed) {
+                    redis_response.print_key_bool("additional_bytes_needed", true);
+                }
+            }
+        }
+    };
 
-            switch (type){
-                case SIMPLE_STRING:
-                    redis_response.print_key_string("type", "simple_string");
-                    redis_response.print_key_json_string("data", parsed_data);
-                    break;
-                case ERROR:
-                    redis_response.print_key_string("type", "error");
-                    redis_response.print_key_json_string("data", parsed_data);
-                    break;
-                case INTEGER:
-                    redis_response.print_key_string("type", "integer");
-                    redis_response.print_key_json_string("data", parsed_data);
-                    break;
-                case BULK_STRING:
-                    redis_response.print_key_string("type", "bulk_string");
-                    // Only include "data" field if not a null bulk string
-                    if (parsed_data.data != nullptr) {
-                        if (parsed_data.is_not_empty()){
-                            // Limit to first 100 characters
-                            const size_t max_len = 100;
-                            const auto data_len = static_cast<size_t>(parsed_data.length());
-                            if (data_len > max_len){
-                                datum truncated{parsed_data.data, parsed_data.data + max_len};
-                                redis_response.print_key_json_string("data", truncated);
-                            }
-                            else{
-                                redis_response.print_key_json_string("data", parsed_data);
-                            }
-                        }
-                        else{
-                            redis_response.print_key_string("data", "");
-                        }
-                    }
-                    if (additional_bytes_needed) {
-                        redis_response.print_key_bool("additional_bytes_needed", true);
-                    }
-                    break;
-                case ARRAY:
-                    if constexpr (enable_array_parsing) {
-                        redis_response.print_key_string("type", "array");
-                        if (parsed_data.is_not_empty()){
-                            redis_response.print_key_json_string("data", parsed_data);
-                        }
-                        if (additional_bytes_needed) {
-                            redis_response.print_key_bool("additional_bytes_needed", true);
-                        }
-                    }
-                    break;
+    template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
+    template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
+
+    struct write_redis_json {
+        json_object &o;
+    public:
+        write_redis_json(json_object &json) : o{json} { }
+
+        void operator()(std::monostate &) { }
+        template <typename T> void operator()(T &x) { x.write_json(o); }
+    };
+
+    struct check_additional_bytes {
+        bool operator()(std::monostate &) { return false; }
+        template <typename T> bool operator()(T &x) { return x.additional_bytes_needed; }
+    };
+
+    class response : public base_protocol{
+        std::variant<std::monostate, simple_string, error, integer, bulk_string, array> packet;
+
+    public:
+        response(datum &d) {
+            // Guard against empty payloads (e.g., ACK packets on port 6379)
+            if (!d.is_readable()) {
+                packet.emplace<std::monostate>();
+                return;
             }
 
-            redis_response.close();
-            redis_object.close();
+            if (lookahead<encoded<uint8_t>> first_char{d}) {
+                switch (first_char.value) {
+                    case '+':
+                        packet.emplace<simple_string>(d);
+                        break;
+                    case '-':
+                        packet.emplace<error>(d);
+                        break;
+                    case ':':
+                        packet.emplace<integer>(d);
+                        break;
+                    case '$':
+                        packet.emplace<bulk_string>(d);
+                        break;
+                    case '*':
+                        packet.emplace<array>(d);
+                        break;
+                    default:
+                        packet.emplace<std::monostate>();
+                        break;
+                }
+            }
+            else {
+                packet.emplace<std::monostate>();
+            }
+        }
+
+        bool is_not_empty() const {
+            return std::visit(overloaded {
+                [](const std::monostate &) -> bool { return false; },
+                [](const auto &r) -> bool { return r.is_not_empty(); }
+            }, packet);
+        }
+
+        bool additional_bytes_needed() const {
+            return std::visit(check_additional_bytes{}, const_cast<std::variant<std::monostate, simple_string, error, integer, bulk_string, array>&>(packet));
+        }
+
+        void write_json(struct json_object &record, bool){
+            if (this->is_not_empty()) {
+                struct json_object redis_object{record, "redis"};
+                struct json_object redis_response{redis_object, "response"};
+                std::visit(write_redis_json{redis_response}, packet);
+                redis_response.close();
+                redis_object.close();
+            }
         }
 
         void write_l7_metadata(cbor_object &o, bool) {
@@ -327,169 +374,181 @@ namespace redis{
         }
     };
 
-    class request : public base_protocol{
-    private:
-        enum request_type{
-            ARRAY_COMMAND,
-            INLINE_COMMAND
-        } type;
+    // RESP array format command: *<count>\r\n$<len>\r\n<data>\r\n...
+    class array_command {
+        literal_byte<'*'> marker;
+        decimal_integer<int> array_length;
+        crlf array_term;
         datum command_data;
         datum username_data;
         datum password_data;
         bool is_auth_command;
         bool isValid;
 
-        bool parse_bulk_string_element(datum &d, datum &out){
-            literal_byte<'$'> marker{d};
-            if (d.is_null()){
-                return false;
-            }
-            datum length_str;
-            length_str.parse_up_to_delim(d, '\r');
-            if (!length_str.is_not_empty()){
-                return false;
-            }
-            crlf length_term{d};
-            if (d.is_null()){
-                return false;
-            }
-            // Parse length as signed integer
-            decimal_integer<int32_t> length_int{length_str};
-            if (length_str.is_null()) {
-                return false;
-            }
-            int length = length_int.get_value();
-            if (length < 0 || d.data + length + 2 > d.data_end){ // +2 for \r\n
-                return false;
-            }
-            out = datum{d.data, d.data + length};
-            d.skip(length);
-            crlf content_term{d};
-            return !d.is_null();
-        }
-
-        bool parse_array_command(datum &d){
-            literal_byte<'*'> marker{d};
-            if (d.is_null()){
-                return false;
-            }
-            datum length_str;
-            length_str.parse_up_to_delim(d, '\r');
-            if (!length_str.is_not_empty()){
-                return false;
-            }
-            crlf length_term{d};
-            if (d.is_null()){
-                return false;
-            }
-            decimal_integer<int> length_int{length_str};
-            if (length_str.is_null()) {
-                return false;
-            }
-            int length = length_int.get_value();
-            if (length <= 0){
-                return false;
-            }
-            type = ARRAY_COMMAND;
-            if (!parse_bulk_string_element(d, command_data)){
-                return false;
-            }
-            // Validate command is alphanumeric
-            if (!command_data.is_alnum()){
-                return false;
-            }
-            is_auth_command = command_data.case_insensitive_match("auth");
-            if (is_auth_command){
-                // AUTH command: parse username (optional) and password
-                // Format: AUTH [username] password
-                // If length == 2: AUTH password
-                // If length == 3: AUTH username password
-                if (length == 2){
-                    // Only password
-                    if (!parse_bulk_string_element(d, password_data)){
-                        return false;
-                    }
-                }
-                else if (length == 3){
-                    // Username and password
-                    if (!parse_bulk_string_element(d, username_data)){
-                        return false;
-                    }
-                    if (!parse_bulk_string_element(d, password_data)){
-                        return false;
-                    }
-                }
-            }
-            return true;
-        }
-
-        bool parse_inline_command(datum &d){
-            // Parse command up to space or CRLF
-            command_data.parse_up_to_delimiters(d, ' ', '\r');
-            if (!command_data.is_not_empty()){
-                return false;
-            }
-            // Validate command is alphanumeric
-            if (!command_data.is_alnum()){
-                return false;
-            }
-            type = INLINE_COMMAND;
-            is_auth_command = command_data.case_insensitive_match("auth");
-            uint8_t next_char;
-            d.lookahead_uint8(&next_char);
-            if (is_auth_command && d.is_readable() && next_char == ' '){
-                d.skip(1);
-                // Parse username and password for inline AUTH
-                // Format: AUTH [username] password
-                password_data.parse_up_to_delimiters(d, ' ', '\r');
-                d.lookahead_uint8(&next_char);
-                if (d.is_readable() && next_char == ' '){
-                    // Two arguments: move first to username, parse second into password
-                    username_data = password_data;
-                    d.skip(1);
-                    password_data.parse_up_to_delim(d, '\r');
-                }
-                // else: password_data already contains the single password argument
-            }
-            literal_byte<'\r', '\n'> terminator{d};
-            return !d.is_null();
-        }
-
     public:
-        request(datum &d) : type{ARRAY_COMMAND}, is_auth_command{false}, isValid{false}{
-            if (d.data >= d.data_end){
-                return;
+        array_command(datum &d) :
+            marker{d},
+            array_length{d},
+            array_term{d},
+            command_data{},
+            username_data{},
+            password_data{},
+            is_auth_command{false},
+            isValid{false}
+        {
+            if (d.is_null()) return;
+
+            int len = array_length.get_value();
+            if (len <= 0) return;
+
+            bulk_string cmd{d};
+            if (!cmd.is_not_empty()) return;
+
+            command_data = cmd.get_data();
+            if (!command_data.is_alnum()) return;
+
+            is_auth_command = command_data.case_insensitive_match("auth");
+
+            if (is_auth_command) {
+                // AUTH command: parse username (optional) and password
+                // Format: *2\r\n$4\r\nAUTH\r\n$8\r\npassword\r\n
+                //     or: *3\r\n$4\r\nAUTH\r\n$8\r\nusername\r\n$8\r\npassword\r\n
+                if (len == 2) {
+                    bulk_string pwd{d};
+                    if (!pwd.is_not_empty()) return;
+                    password_data = pwd.get_data();
+                }
+                else if (len == 3) {
+                    bulk_string user{d};
+                    if (!user.is_not_empty()) return;
+                    username_data = user.get_data();
+
+                    bulk_string pwd{d};
+                    if (!pwd.is_not_empty()) return;
+                    password_data = pwd.get_data();
+                }
             }
-            uint8_t first_char;
-            d.lookahead_uint8(&first_char);
-            switch (first_char){
-            case '*':
-                isValid = parse_array_command(d);
-                break;
-            default:
-                isValid = parse_inline_command(d);
-                break;
-            }
+            isValid = true;
         }
 
         bool is_not_empty() const { return isValid; }
 
-        void write_json(struct json_object &record, bool){
-            struct json_object redis_object{record, "redis"};
-            struct json_object redis_request{redis_object, "request"};
+        void write_json(struct json_object &redis_request) const {
             redis_request.print_key_json_string("command", command_data);
-            if (is_auth_command){
+            if (is_auth_command) {
                 struct json_object auth_object{redis_request, "auth"};
-                if (username_data.is_not_empty()){
+                if (username_data.is_not_empty()) {
                     auth_object.print_key_json_string("username", username_data);
                 }
-                if (password_data.is_not_empty()){
+                if (password_data.is_not_empty()) {
                     auth_object.print_key_json_string("password", password_data);
                 }
                 auth_object.close();
             }
-            redis_request.close();
-            redis_object.close();
+        }
+    };
+
+    // Inline text format command: COMMAND arg1 arg2\r\n
+    class inline_command {
+        datum command_data;
+        datum username_data;
+        datum password_data;
+        bool is_auth_command;
+        bool isValid;
+
+    public:
+        inline_command(datum &d) :
+            command_data{},
+            username_data{},
+            password_data{},
+            is_auth_command{false},
+            isValid{false}
+        {
+            command_data.parse_up_to_delimiters(d, ' ', '\r');
+            if (!command_data.is_not_empty() || !command_data.is_alnum()) 
+            {
+                return;
+            }
+
+            is_auth_command = command_data.case_insensitive_match("auth");
+
+            if (is_auth_command) {
+                // Parse AUTH arguments: AUTH [username] password\r\n
+                if (lookahead<literal_byte<' '>> space_check{d}) {
+                    d.skip(1);
+                    password_data.parse_up_to_delimiters(d, ' ', '\r');
+                    if (lookahead<literal_byte<' '>> space_check2{d}) {
+                        // Two arguments: move first to username, parse second into password
+                        username_data = password_data;
+                        d.skip(1);
+                        password_data.parse_up_to_delim(d, '\r');
+                    }
+                }
+            }
+            crlf terminator{d};
+            isValid = !d.is_null();
+        }
+
+        bool is_not_empty() const { return isValid; }
+
+        void write_json(struct json_object &redis_request) const {
+            redis_request.print_key_json_string("command", command_data);
+            if (is_auth_command) {
+                struct json_object auth_object{redis_request, "auth"};
+                if (username_data.is_not_empty()) {
+                    auth_object.print_key_json_string("username", username_data);
+                }
+                if (password_data.is_not_empty()) {
+                    auth_object.print_key_json_string("password", password_data);
+                }
+                auth_object.close();
+            }
+        }
+    };
+
+    struct write_request_json {
+        struct json_object &redis_request;
+
+        void operator()(const std::monostate &) const { }
+        void operator()(const array_command &r) const { r.write_json(redis_request); }
+        void operator()(const inline_command &r) const { r.write_json(redis_request); }
+    };
+
+    class request : public base_protocol {
+        std::variant<std::monostate, array_command, inline_command> packet;
+
+    public:
+        request(datum &d) : packet{std::monostate{}} {
+            if (!d.is_readable()) return;
+
+            if (lookahead<encoded<uint8_t>> first_char{d}) {
+                switch (first_char.value) {
+                    case '*':
+                        packet.emplace<array_command>(d);
+                        break;
+                    default:
+                        packet.emplace<inline_command>(d);
+                        break;
+                }
+            }
+        }
+
+        bool is_not_empty() const {
+            return std::visit(overloaded{
+                [](const std::monostate &) { return false; },
+                [](const array_command &r) { return r.is_not_empty(); },
+                [](const inline_command &r) { return r.is_not_empty(); }
+            }, packet);
+        }
+        
+        void write_json(struct json_object &record, bool) {
+            if (this->is_not_empty()) {
+                struct json_object redis_object{record, "redis"};
+                struct json_object redis_request{redis_object, "request"};
+                std::visit(write_request_json{redis_request}, packet);
+                redis_request.close();
+                redis_object.close();
+            }
         }
 
         void write_l7_metadata(cbor_object &o, bool){
