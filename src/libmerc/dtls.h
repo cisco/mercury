@@ -71,24 +71,43 @@ struct dtls_handshake {
         body.init_from_outer_parser(&d, length);
     }
 
+    // DTLS handshake records begin with content-type 0x16 (Handshake).
+    // The next two bytes are the protocol version:
+    //   0xfe 0xfd for DTLS 1.3/DTLS 1.2 legacy version
+    //   0xfe 0xff for DTLS 1.0.
+    // This matcher is unused and is kept for reference.
+    static constexpr mask_and_value<8> dtls_matcher = {
+        {
+         0xff, 0xff, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00
+        },
+        {
+         0x16, 0xfe, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00,
+        }
+    };
+
 };
 
 class dtls_client_hello : public base_protocol {
+    dtls_record rec;
+    dtls_handshake handshake;
     tls_client_hello hello;
 public:
-    dtls_client_hello(struct datum &pkt) : hello{pkt} {}
+    dtls_client_hello(struct datum &pkt) :
+        rec{pkt},
+        handshake{rec.fragment},
+        hello{handshake.body} {}
 
-    void fingerprint(struct buffer_stream &buf) const {
-        hello.fingerprint(buf);
+    void fingerprint(struct buffer_stream &buf, size_t format_version) const {
+        hello.fingerprint(buf, format_version);
     }
 
-    void compute_fingerprint(class fingerprint &fp) const {
+    void compute_fingerprint(class fingerprint &fp, size_t format_version) const {
         fp.set_type(fingerprint_type_dtls);
-        fp.add(*this);
+        fp.add(*this, format_version);
         fp.final();
     }
 
-    void write_json(struct json_object &record, bool output_metadata) const {
+    void write_json(json_object &record, bool output_metadata) const {
         hello.write_json(record, output_metadata);
     }
 
@@ -104,30 +123,101 @@ public:
 
     const tls_client_hello &get_tls_client_hello() const { return hello; }
 
+    // DTLS handshake records begin with content-type 0x16 (Handshake).
+    // The next two bytes are the protocol version:
+    //   0xfe 0xfd for DTLS 1.3/DTLS 1.2 legacy version
+    //   0xfe 0xff for DTLS 1.0.
+    // The 14th byte of the record payload is the handshake type.
+    //   0x01 - ClientHello.
+    //   0x02 - ServerHello.
+    //   0x03 - HelloVerifyRequest.
     static constexpr mask_and_value<16> dtls_matcher = {
         {
-         0xff, 0xff, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00,
+         0xff, 0xff, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00,
          0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00
         },
         {
-         0x16, 0xfe, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00,
+         0x16, 0xfe, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00,
          0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00
         }
     };
 
 };
 
+class dtls_hello_verify_request: public base_protocol {
+    dtls_record rec;
+    dtls_handshake handshake;
+    encoded<uint16_t> protocol_version;
+    encoded<uint8_t> cookie_len;
+    datum cookie;
+    bool valid;
+
+public:
+    // set the boolean verbose to `true` for
+    // verbose output in `dtls_hello_verify_request::write_json()
+    static constexpr bool verbose = false;
+
+    dtls_hello_verify_request(struct datum &p) :
+        rec{p},
+        handshake{rec.fragment},
+        protocol_version{handshake.body},
+        cookie_len{handshake.body},
+        cookie{handshake.body, cookie_len.value()},
+        valid{handshake.body.is_not_null()} {}
+
+    void write_json(json_object &record, bool metadata) const {
+        (void)metadata;  // ignore parameter
+
+        if (!verbose || !valid) {
+            return;
+        }
+
+        json_object dtls{record, "dtls"};
+        json_object hello_verify{dtls, "hello_verify_request"};
+        hello_verify.print_key_uint16_hex("version", protocol_version);
+        hello_verify.print_key_hex("cookie", cookie);
+        hello_verify.close();
+        dtls.close();
+    }
+
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("dtls");
+        protocols.close();
+    }
+
+    bool is_not_empty() const {
+        return valid;
+    }
+
+    static constexpr mask_and_value<16> dtls_matcher = {
+        {
+         0xff, 0xff, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00,
+         0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00
+        },
+        {
+         0x16, 0xfe, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00,
+         0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00
+        }
+    };
+};
+
 class dtls_server_hello : public base_protocol {
+    dtls_record rec;
+    dtls_handshake handshake;
     tls_server_hello hello;
 
 public:
-    dtls_server_hello(datum &p) : hello{p} {}
+    dtls_server_hello(datum &p) :
+        rec{p},
+        handshake{rec.fragment},
+        hello{handshake.body} {}
 
     void fingerprint(struct buffer_stream &buf) const {
         hello.fingerprint(buf);
     }
 
-    void write_json(struct json_object &o, bool write_metadata=false) const {
+    void write_json(json_object &o, bool write_metadata=false) const {
         hello.write_json(o, write_metadata);
     }
 
@@ -151,16 +241,15 @@ public:
 
     static constexpr mask_and_value<16> dtls_matcher = {
         {
-         0xff, 0xff, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00,
+         0xff, 0xff, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00,
          0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00
         },
         {
-         0x16, 0xfe, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00,
+         0x16, 0xfe, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00,
          0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00
         }
     };
 };
-
 
 [[maybe_unused]] inline int dtls_client_hello_fuzz_test(const uint8_t *data, size_t size) {
     return json_output_fuzzer<dtls_client_hello>(data, size);
@@ -168,6 +257,10 @@ public:
 
 [[maybe_unused]] inline int dtls_server_hello_fuzz_test(const uint8_t *data, size_t size) {
     return json_output_fuzzer<dtls_server_hello>(data, size);
+}
+
+[[maybe_unused]] inline int dtls_hello_verify_request_fuzz_test(const uint8_t *data, size_t size) {
+    return json_output_fuzzer<dtls_hello_verify_request>(data, size);
 }
 
 #endif /* DTLS_H */
