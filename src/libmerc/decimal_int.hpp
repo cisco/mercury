@@ -166,21 +166,22 @@ inline decimal_integer<T>::decimal_integer(datum &d) {
     // the sign during accumulation
     bool consumed_nonzero = false;
     if (d.is_readable()) {
-        uint8_t first = d.data[0];
-        if (first >= '1' && first <= '9') {
+        uint8_t first_value = d.data[0] - '0';  // digits map to 0-9; others > 9
+        if (first_value <= 9) {
             consumed_nonzero = true;
             d.data++;
-            value = first - '0';
             if constexpr (std::is_signed_v<T>) {
                 if (negative) {
-                    value = -value;
+                    value = -first_value;
                     // accumulate remaining digits in the negative direction
                     accumulate_digits_negative<double_width_t>(value, d);
                 } else {
+                    value = first_value;
                     // accumulate remaining digits in the positive direction
                     accumulate_digits<double_width_t>(value, d);
                 }
             } else {
+                value = first_value;
                 // accumulate remaining digits in the positive direction
                 accumulate_digits<double_width_t>(value, d);
             }
