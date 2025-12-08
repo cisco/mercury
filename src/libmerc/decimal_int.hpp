@@ -168,6 +168,7 @@ inline decimal_integer<T>::decimal_integer(datum &d) {
     if (d.is_readable()) {
         uint8_t first_value = d.data[0] - '0';  // digits map to 0-9; others > 9
         if (first_value <= 9) {
+            // zeros were already skipped, so any digit here is non-zero
             consumed_nonzero = true;
             d.data++;
             if constexpr (std::is_signed_v<T>) {
