@@ -10,6 +10,8 @@
 
 #include <unistd.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #define LLQ_MAX_MSG_SIZE (1 << 20)   /* At least this many bytes must be free */
 
@@ -142,6 +144,12 @@ struct ll_queue {
 
 
     void send(ssize_t length) {
+        if (length > LLQ_MAX_MSG_SIZE) {
+            fprintf(stderr, "llq bug: attempted to enqueue oversized message (%zd > %d)\n",
+                    length, LLQ_MAX_MSG_SIZE);
+            abort();
+        }
+
         struct llq_msg *m = (struct llq_msg *)&rbuf[widx];
 
         m->len = length;
