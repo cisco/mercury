@@ -1294,20 +1294,12 @@ public:
     /// this `writeable` is set to null.
     ///
     void parse(struct datum &r, size_t num_bytes) {
-        // fprintf(stderr, "{%p,%p}\tnum_bytes: %zd\n", r.data, r.data_end, num_bytes);
-        // if (r.is_null()) {
-        //     set_null();
-        //     fprintf(stderr, "%s: r is null\n", __func__);
-        //     return;
-        // }
         if (r.is_null() or writeable_length() < (ssize_t)num_bytes) {
             set_null();
-            // fprintf(stderr, "%s: writeable_length < num_bytes\n", __func__);
             return;
         }
         if (r.length() < (ssize_t)num_bytes) {
             r.set_null();
-            // fprintf(stderr, "%s: r.length < num_bytes\n", __func__);
             return;
         }
         memcpy(data, r.data, num_bytes);
