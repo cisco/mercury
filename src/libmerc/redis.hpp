@@ -209,31 +209,20 @@ namespace redis{
             int elements_parsed = 0;
 
             auto handle_element_result = [&](auto &element) -> bool {
-                if (!element.is_not_empty()) {
-                    // Element parsing failed (incomplete data)
+                if (!element.is_not_empty() || element.additional_bytes_needed) {
+                    // Element parsing failed or element itself is truncated
                     additional_bytes_needed = true;
                     parsed_data = array_data_start;
                     isValid = true;
                     return true;
                 }
 
-                // Element parsed successfully
                 elements_parsed++;
-
-                if (element.additional_bytes_needed) {
-                    // Element itself is truncated
-                    additional_bytes_needed = true;
-                    parsed_data = array_data_start;
-                    isValid = true;
-                    return true;
-                }
-
                 return false;
             };
 
             for (int i = 0; i < len; i++) {
                 if (!d.is_readable()) {
-                    // Not enough data for next element
                     additional_bytes_needed = true;
                     break;
                 }
@@ -311,8 +300,8 @@ namespace redis{
     };
 
     struct check_additional_bytes {
-        bool operator()(std::monostate &) { return false; }
-        template <typename T> bool operator()(T &x) { return x.additional_bytes_needed; }
+        bool operator()(const std::monostate &) const { return false; }
+        template <typename T> bool operator()(const T &x) const { return x.additional_bytes_needed; }
     };
 
     class response : public base_protocol{
@@ -361,7 +350,7 @@ namespace redis{
         }
 
         bool additional_bytes_needed() const {
-            return std::visit(check_additional_bytes{}, const_cast<std::variant<std::monostate, simple_string, error, integer, bulk_string, array>&>(packet));
+            return std::visit(check_additional_bytes{}, packet);
         }
 
         void write_json(struct json_object &record, bool){
