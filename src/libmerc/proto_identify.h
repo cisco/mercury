@@ -139,6 +139,7 @@ enum udp_msg_type {
     udp_msg_type_dtls_client_hello,
     udp_msg_type_dtls_server_hello,
     udp_msg_type_dtls_certificate,
+    udp_msg_type_dtls_hello_verify_request,
     udp_msg_type_wireguard,
     udp_msg_type_quic,
     udp_msg_type_vxlan,
@@ -708,6 +709,7 @@ public:
         if (protocols["dtls"] || protocols["all"]) {
             udp16.add_protocol(dtls_client_hello::dtls_matcher, udp_msg_type_dtls_client_hello);
             udp16.add_protocol(dtls_server_hello::dtls_matcher, udp_msg_type_dtls_server_hello);
+            udp16.add_protocol(dtls_hello_verify_request::dtls_matcher, udp_msg_type_dtls_hello_verify_request);
         }
         if (protocols["wireguard"] || protocols["all"]) {
             udp.add_protocol(wireguard_handshake_init::matcher, udp_msg_type_wireguard);
