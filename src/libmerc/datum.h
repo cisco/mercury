@@ -1471,7 +1471,7 @@ namespace writeable_unit_test {
     // B must be data_buffer or dynamic_buffer
     //
     template <typename B>
-    bool test_copy_uint8(B &buf, FILE *f=nullptr) {
+    inline bool test_copy_uint8(B &buf, FILE *f=nullptr) {
         bool result = true;
 
         // reset buffer
@@ -1525,7 +1525,7 @@ namespace writeable_unit_test {
     // B must be data_buffer or dynamic_buffer
     //
     template <typename B>
-    bool test_copy_datum(B &buf, FILE *f=nullptr) {
+    inline bool test_copy_datum(B &buf, FILE *f=nullptr) {
         bool result = true;
 
         // reset buffer
@@ -1579,7 +1579,7 @@ namespace writeable_unit_test {
     // B must be data_buffer or dynamic_buffer
     //
     template <typename B>
-    bool test_write_hex(B &buf, FILE *f=nullptr) {
+    inline bool test_write_hex(B &buf, FILE *f=nullptr) {
         bool result = true;
 
         // reset buffer
@@ -1636,7 +1636,7 @@ namespace writeable_unit_test {
     // B must be data_buffer or dynamic_buffer
     //
     template <typename B>
-    bool test_copy_from_hex(B &buf, FILE *f=nullptr) {
+    inline bool test_copy_from_hex(B &buf, FILE *f=nullptr) {
         bool result = true;
 
         // reset buffer
@@ -1693,7 +1693,7 @@ namespace writeable_unit_test {
     // B must be data_buffer or dynamic_buffer
     //
     template <typename B>
-    bool test_parse(B &buf, FILE *f=nullptr) {
+    inline bool test_parse(B &buf, FILE *f=nullptr) {
         bool result = true;
 
         // reset buffer
@@ -1919,7 +1919,7 @@ namespace writeable_unit_test {
     /// compiling it with `-fsanitize=address` provides additional
     /// verification.
     ///
-    bool run(FILE *verbose_output=nullptr) {
+    inline bool run(FILE *verbose_output=nullptr) {
         bool result = true;
 
         dynamic_buffer dynamic_buf{1};
