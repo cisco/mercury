@@ -150,6 +150,10 @@ int main(int, char *[]) {
             "decimal_integer",
             &decimal_integer_unit_test
         },
+        {
+            "writeable",
+            &writeable_unit_test::run
+        },
     };
     for (const auto &tc : test_cases_verbose) {
         bool result = tc.func(nullptr);

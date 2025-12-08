@@ -1401,13 +1401,6 @@ template <size_t T> struct data_buffer : public writeable {
         }
     }
 
-    // TODO:
-    //  * add data != nullptr checks
-    //  * add set_null() function
-    //  * use null state to indicate write failure
-    //  * add assert() macros to support debugging
-    //  * add [[nodiscard]] as appropriate
-
 };
 
 /// dynamic_buffer is a writeable that can be dynamically sized
@@ -1467,6 +1460,492 @@ public:
     }
 
 };
+
+#ifndef NDEBUG
+
+// unit tests for class `writeable`, class `data_buffer`, and class
+// `dynamic_buffer`
+//
+namespace writeable_unit_test {
+
+    // B must be data_buffer or dynamic_buffer
+    //
+    template <typename B>
+    bool test_copy_uint8(B &buf, FILE *f=nullptr) {
+        bool result = true;
+
+        // reset buffer
+        //
+        buf.reset();
+
+        // verify buffer size
+        //
+        if (buf.writeable_length() != 1) {
+            if (f) {
+                fprintf(f, "%s error: buffer size wrong size for test (%zu bytes)\n", __func__, buf.writeable_length());
+            }
+            return false;
+        }
+
+        // test writeable::copy(uint8_t) in writeable state
+        //
+        buf.copy('a');
+        if (buf.contents().cmp(datum{"a"}) != 0) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '%s'\n", __func__, "a", buf.contents().get_string().c_str());
+            }
+            result &= false;
+        }
+
+        // test writeable::copy(uint8_t) in full state
+        //
+        buf.set_full();
+        buf.copy('a');
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '%s'\n", __func__, "a", buf.contents().get_string().c_str());
+            }
+            result &= false;
+        }
+
+        // test writeable::copy(uint8_t) in null state
+        //
+        buf.set_null();
+        buf.copy('a');
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '%s'\n", __func__, "a", buf.contents().get_string().c_str());
+            }
+            result &= false;
+        }
+
+        return result;
+    }
+
+    // B must be data_buffer or dynamic_buffer
+    //
+    template <typename B>
+    bool test_copy_datum(B &buf, FILE *f=nullptr) {
+        bool result = true;
+
+        // reset buffer
+        //
+        buf.reset();
+
+        // verify buffer size
+        //
+        if (buf.writeable_length() != 1) {
+            if (f) {
+                fprintf(f, "%s error: buffer size wrong for test (%zu bytes)\n", __func__, buf.writeable_length());
+            }
+            return false;
+        }
+
+        // test writeable::copy(datum) in writeable state
+        //
+        buf.copy(datum{"a"});
+        if (buf.contents().cmp(datum{"a"}) != 0) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '%s'\n", __func__, "a", buf.contents().get_string().c_str());
+            }
+            result &= false;
+        }
+
+        // test writeable::copy(datum) in full state
+        //
+        buf.set_full();
+        buf.copy(datum{"a"});
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '%s'\n", __func__, "(null)", buf.contents().get_string().c_str());
+            }
+            result &= false;
+        }
+
+        // test writeable::copy(datum) in null state
+        //
+        buf.set_null();
+        buf.copy(datum{"a"});
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '%s'\n", __func__, "(null)", buf.contents().get_string().c_str());
+            }
+            result &= false;
+        }
+
+        return result;
+    }
+
+    // B must be data_buffer or dynamic_buffer
+    //
+    template <typename B>
+    bool test_write_hex(B &buf, FILE *f=nullptr) {
+        bool result = true;
+
+        // reset buffer
+        //
+        buf.reset();
+
+        // verify buffer size
+        //
+        if (buf.writeable_length() < 4) {
+            if (f) {
+                fprintf(f, "%s error: buffer size too small for test (%zu bytes)\n", __func__, buf.writeable_length());
+            }
+            return false;
+        }
+
+        std::array<uint8_t,2> raw{ 0xab, 0xcd };
+        std::array<uint8_t,4> hex{ 'a', 'b', 'c', 'd' };
+
+        // test writeable::write_hex() in writeable state
+        //
+        buf.write_hex(raw.data(), raw.size());
+        if (buf.contents().cmp(datum{hex}) != 0) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '%s'\n", __func__, "abcd", buf.contents().get_string().c_str());
+            }
+            result &= false;
+        }
+
+        // test writeable::write_hex() in full state
+        //
+        buf.set_full();
+        buf.write_hex(raw.data(), raw.size());
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '%s'\n", __func__, "(null)", buf.contents().get_string().c_str());
+            }
+            result &= false;
+        }
+
+        // test writeable::write_hex() in null state
+        //
+        buf.set_null();
+        buf.write_hex(raw.data(), raw.size());
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '%s'\n", __func__, "(null)", buf.contents().get_string().c_str());
+            }
+            result &= false;
+        }
+
+        return result;
+    }
+
+    // B must be data_buffer or dynamic_buffer
+    //
+    template <typename B>
+    bool test_copy_from_hex(B &buf, FILE *f=nullptr) {
+        bool result = true;
+
+        // reset buffer
+        //
+        buf.reset();
+
+        // verify buffer size
+        //
+        if (buf.writeable_length() < 4) {
+            if (f) {
+                fprintf(f, "%s error: buffer size too small for test (%zu bytes)\n", __func__, buf.writeable_length());
+            }
+            return false;
+        }
+
+        std::array<uint8_t,4> raw{ 0xab, 0xcd, 0x01, 0x23 };
+        std::array<uint8_t,8> hex{ 'a', 'b', 'c', 'd', '0', '1', '2', '3' };
+
+        // test writeable::copy_from_hex() in writeable state
+        //
+        buf.copy_from_hex(hex.data(), hex.size());
+        if (buf.contents().cmp(datum{raw}) != 0) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '%s'\n", __func__, "abcd", buf.contents().get_string().c_str());
+            }
+            result &= false;
+        }
+
+        // test writeable::copy_from_hex() in full state
+        //
+        buf.set_full();
+        buf.copy_from_hex(hex.data(), hex.size());
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '%s'\n", __func__, "(null)", buf.contents().get_string().c_str());
+            }
+            result &= false;
+        }
+
+        // test writeable::copy_from_hex() in null state
+        //
+        buf.set_null();
+        buf.copy_from_hex(hex.data(), hex.size());
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '%s'\n", __func__, "(null)", buf.contents().get_string().c_str());
+            }
+            result &= false;
+        }
+
+        return result;
+    }
+
+    // B must be data_buffer or dynamic_buffer
+    //
+    template <typename B>
+    bool test_parse(B &buf, FILE *f=nullptr) {
+        bool result = true;
+
+        // reset buffer
+        //
+        buf.reset();
+
+        // verify buffer size
+        //
+        if (buf.writeable_length() < 4) {
+            if (f) {
+                fprintf(f, "%s error: buffer size too small for test (%zu bytes)\n", __func__, buf.writeable_length());
+            }
+            return false;
+        }
+
+        std::array<uint8_t,4> raw_data{ 0xab, 0xcd, 0x01, 0x23 };
+        std::array<uint8_t,4> expected = raw_data;
+
+        // test writeable::parse() in writeable state
+        //
+        datum raw = datum{raw_data};
+        buf.parse(raw, raw.length());
+        if (buf.contents().cmp(datum{expected}) != 0) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '", __func__, "abcd0123");
+                buf.contents().fprint_hex(f);
+                fprintf(f, "'\n");
+            }
+            result &= false;
+        }
+
+        // test writeable::parse() in full state
+        //
+        buf.set_full();
+        raw = datum{raw_data};
+        buf.parse(raw, raw.length());
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '", __func__, "(null)");
+                buf.contents().fprint_hex(f);
+                fprintf(f, "'\n");
+            }
+            result &= false;
+        }
+
+        // test writeable::parse() in null state
+        //
+        buf.set_null();
+        raw = datum{raw_data};
+        buf.parse(raw, raw.length());
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '", __func__, "(null)");
+                buf.contents().fprint_hex(f);
+                fprintf(f, "'\n");
+            }
+            result &= false;
+        }
+
+        //
+        // repeat tests with the input datum in empty state
+        //
+
+        buf.reset();
+        datum empty = datum{raw};
+        empty.set_empty();         // create an empty datum to be used in the following tests
+
+        // test writeable::parse() in writeable state
+        //
+        buf.parse(empty);
+        if (buf.contents().length() != 0) {
+            if (f) {
+                fprintf(f, "%s error: expected '', got '%s", __func__, "");
+                buf.contents().fprint_hex(f);
+                fprintf(f, "'\n");
+            }
+            result &= false;
+        }
+
+        // test writeable::parse() in full state
+        //
+        raw = datum{raw_data};
+        buf.copy(raw);                      // fill buffer before test
+        buf.parse(empty);                   // test: parse empty buffer
+        //
+        // expected output: buf.contents == expected, since parsing an
+        // empty datum should not change the writeable
+        //
+        if (buf.contents().cmp(datum{expected}) != 0) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '", __func__, "abcd0123");
+                buf.contents().fprint_hex(f);
+                fprintf(f, "'\n");
+            }
+            result &= false;
+        }
+
+        // test writeable::parse() in null state
+        //
+        // expected output: buf.contents == null, since parsing an empty
+        // datum should not change the writeable from being in null state
+        //
+        buf.set_null();
+        buf.parse(empty);
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '", __func__, "(null)");
+                buf.contents().fprint_hex(f);
+                fprintf(f, "'\n");
+            }
+            result &= false;
+        }
+
+        //
+        // repeat tests with the input datum in null state
+        //
+
+        buf.reset();
+        datum null = datum{raw};
+        null.set_null();         // create an null datum to be used in the following tests
+
+        // test writeable::parse() in writeable state
+        //
+        buf.parse(null);
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '", __func__, "(null)");
+                buf.contents().fprint_hex(f);
+                fprintf(f, "'\n");
+            }
+            result &= false;
+        }
+
+        // test writeable::parse() in full state
+        //
+        raw = datum{raw_data};
+        buf.copy(raw);                      // fill buffer before test
+        buf.parse(null);                    // test: parse null
+        //
+        // expected output: buf.contents == expected, since parsing an
+        // empty datum should not change the writeable
+        //
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '", __func__, "(null)");
+                buf.contents().fprint_hex(f);
+                fprintf(f, "'\n");
+            }
+            result &= false;
+        }
+
+        // test writeable::parse() in null state
+        //
+        // expected output: buf.contents == null, since parsing an empty
+        // datum should not change the writeable from being in null state
+        //
+        buf.set_null();
+        buf.parse(null);
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '", __func__, "(null)");
+                buf.contents().fprint_hex(f);
+                fprintf(f, "'\n");
+            }
+            result &= false;
+        }
+
+
+        //
+        // repeat tests with input datum in readable state, in which
+        // the parse asks to read more data than is in the input
+        //
+
+        // test writeable::parse() in writeable state
+        //
+        raw = datum{raw_data};
+        buf.parse(raw, raw.length() + 100);
+        if (buf.contents().is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '", __func__, "(null)");
+                buf.contents().fprint_hex(f);
+                fprintf(f, "'\n");
+            }
+            result &= false;
+        }
+
+        // test writeable::parse() in full state
+        //
+        buf.set_full();
+        raw = datum{raw_data};
+        buf.parse(raw, raw.length() + 100);
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '", __func__, "(null)");
+                buf.contents().fprint_hex(f);
+                fprintf(f, "'\n");
+            }
+            result &= false;
+        }
+
+        // test writeable::parse() in null state
+        //
+        buf.set_null();
+        raw = datum{raw_data};
+        buf.parse(raw, raw.length() + 100);
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '", __func__, "(null)");
+                buf.contents().fprint_hex(f);
+                fprintf(f, "'\n");
+            }
+            result &= false;
+        }
+
+        return result;
+    }
+
+
+    /// Run unit tests on `class writeable` and returns `true` if all
+    /// succeeded and `false` otherwise
+    ///
+    /// \note Running this function with `valgrind --leak-check=full` or
+    /// compiling it with `-fsanitize=address` provides additional
+    /// verification.
+    ///
+    bool run(FILE *verbose_output=nullptr) {
+        bool result = true;
+
+        dynamic_buffer dynamic_buf{1};
+        result &= test_copy_uint8(dynamic_buf, verbose_output);
+        result &= test_copy_datum(dynamic_buf, verbose_output);
+
+        dynamic_buffer dynamic_buf_2{4};
+        result &= test_write_hex(dynamic_buf_2, verbose_output);
+        result &= test_copy_from_hex(dynamic_buf_2, verbose_output);
+        result &= test_parse(dynamic_buf_2, verbose_output);
+
+        data_buffer<1> data_buf;
+        result &= test_copy_uint8(data_buf, verbose_output);
+        result &= test_copy_datum(data_buf, verbose_output);
+
+        data_buffer<4> data_buf_2;
+        result &= test_write_hex(data_buf_2, verbose_output);
+        result &= test_copy_from_hex(data_buf_2, verbose_output);
+        result &= test_parse(data_buf_2, verbose_output);
+
+        return result;
+    }
+};
+
+#endif // NDEBUG
+
 
 /// `pad_len(length)` returns the number that, when added to length,
 /// rounds that value up to the smallest number that is at least as
