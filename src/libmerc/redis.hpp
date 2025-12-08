@@ -28,7 +28,7 @@ namespace redis{
         bool isValid;
 
     public:
-        bool additional_bytes_needed = false;
+        bool truncated = false;
 
         simple_string(datum &d) :
             marker{d},
@@ -51,7 +51,7 @@ namespace redis{
         bool isValid;
 
     public:
-        bool additional_bytes_needed = false;
+        bool truncated = false;
 
         error(datum &d) :
             marker{d},
@@ -74,7 +74,7 @@ namespace redis{
         bool isValid;
 
     public:
-        bool additional_bytes_needed = false;
+        bool truncated = false;
 
         integer(datum &d) :
             marker{d},
@@ -98,7 +98,7 @@ namespace redis{
         bool isValid;
 
     public:
-        bool additional_bytes_needed = false;
+        bool truncated = false;
 
         bulk_string(datum &d) :
             marker{d},
@@ -127,7 +127,7 @@ namespace redis{
                 isValid = !d.is_null();
             }
             else if (len > 0) { // Truncated: needs reassembly
-                additional_bytes_needed = true;
+                truncated = true;
                 parsed_data = d;
                 isValid = true;
             }
@@ -146,9 +146,9 @@ namespace redis{
                     const auto data_len = static_cast<size_t>(parsed_data.length());
                     if (data_len > max_len) {
                         datum temp = parsed_data;
-                        datum truncated;
-                        truncated.parse(temp, max_len);
-                        redis_response.print_key_json_string("data", truncated);
+                        datum limited_data;
+                        limited_data.parse(temp, max_len);
+                        redis_response.print_key_json_string("data", limited_data);
                     }
                     else {
                         redis_response.print_key_json_string("data", parsed_data);
@@ -159,8 +159,8 @@ namespace redis{
                 }
             }
 
-            if (additional_bytes_needed) {
-                redis_response.print_key_bool("additional_bytes_needed", true);
+            if (truncated) {
+                redis_response.print_key_bool("truncated", true);
             }
         }
     };
@@ -181,7 +181,7 @@ namespace redis{
         bool isValid;
 
     public:
-        bool additional_bytes_needed = true;
+        bool truncated = true;
 
         array(datum &d) :
             marker{d},
@@ -209,9 +209,9 @@ namespace redis{
             int elements_parsed = 0;
 
             auto handle_element_result = [&](auto &element) -> bool {
-                if (!element.is_not_empty() || element.additional_bytes_needed) {
+                if (!element.is_not_empty() || element.truncated) {
                     // Element parsing failed or element itself is truncated
-                    additional_bytes_needed = true;
+                    truncated = true;
                     parsed_data = array_data_start;
                     isValid = true;
                     return true;
@@ -223,7 +223,7 @@ namespace redis{
 
             for (int i = 0; i < len; i++) {
                 if (!d.is_readable()) {
-                    additional_bytes_needed = true;
+                    truncated = true;
                     break;
                 }
 
@@ -266,7 +266,7 @@ namespace redis{
                 }
             }
 
-            if (elements_parsed == len || additional_bytes_needed) {
+            if (elements_parsed == len || truncated) {
                 parsed_data = array_data_start;
                 isValid = true;
             }
@@ -280,8 +280,8 @@ namespace redis{
                 if (parsed_data.is_not_empty()) {
                     redis_response.print_key_json_string("data", parsed_data);
                 }
-                if (additional_bytes_needed) {
-                    redis_response.print_key_bool("additional_bytes_needed", true);
+                if (truncated) {
+                    redis_response.print_key_bool("truncated", true);
                 }
             }
         }
@@ -297,11 +297,6 @@ namespace redis{
 
         void operator()(std::monostate &) { }
         template <typename T> void operator()(T &x) { x.write_json(o); }
-    };
-
-    struct check_additional_bytes {
-        bool operator()(const std::monostate &) const { return false; }
-        template <typename T> bool operator()(const T &x) const { return x.additional_bytes_needed; }
     };
 
     class response : public base_protocol{
@@ -347,10 +342,6 @@ namespace redis{
                 [](const std::monostate &) -> bool { return false; },
                 [](const auto &r) -> bool { return r.is_not_empty(); }
             }, packet);
-        }
-
-        bool additional_bytes_needed() const {
-            return std::visit(check_additional_bytes{}, packet);
         }
 
         void write_json(struct json_object &record, bool){
