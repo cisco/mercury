@@ -18,16 +18,16 @@
 #include <tuple>
 #include <chrono>
 
-typedef std::tuple<std::string, std::string, std::string, std::string> event_msg;
 #define EVENT_BUF_SIZE 512
 
+template <typename T>
 class message_queue {
     std::mutex m;
     size_t first;
     size_t last;
     long unsigned int err_count;
     bool blocking;
-    event_msg msg_buf[EVENT_BUF_SIZE];
+    T msg_buf[EVENT_BUF_SIZE];
 
 private:
     void increment(size_t &idx) {
@@ -65,7 +65,7 @@ public:
         fprintf(f, "STATE: first: %zu\tlast: %zu\n", first, last);
     }
 
-    bool push(const event_msg& ev_str) {
+    bool push(const T& ev_str) {
         std::unique_lock<std::mutex> m_lock(m);
         if (is_full()) {
             if (blocking) {
@@ -91,7 +91,7 @@ public:
         return true;
     }
 
-    bool pop(event_msg &entry) {
+    bool pop(T &entry) {
         std::unique_lock<std::mutex> m_lock(m);
         //fprintf(stderr, "%s: queue size: %zd\n", __func__, size());
         if (is_empty()) {

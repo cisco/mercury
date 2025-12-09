@@ -30,6 +30,7 @@ typedef uint32_t useconds_t;
 
 #include "dict.h"
 #include "queue.h"
+#include "event.hpp"
 
 // class event_processor_gz coverts a sequence of sorted event
 // strings into an alternative JSON representation
@@ -113,82 +114,13 @@ public:
 };
 
 
-// class event_encoder provides methods to compress/decompress event string.
-// Its member functions are not const because they may update the dict
-// member.
-
-class event_encoder {
-    dict addr_dict;
-    dict fp_dict;
-    dict ua_dict;
-
-public:
-
-    event_encoder() : addr_dict{}, fp_dict{}, ua_dict{} {}
-
-    bool compute_inverse_map() {
-        return addr_dict.compute_inverse_map() &&
-               fp_dict.compute_inverse_map() &&
-               ua_dict.compute_inverse_map();
-    }
-
-    void get_inverse(event_msg &event) {
-        const std::string &saddr = std::get<0>(event);
-        const std::string &fngr = std::get<1>(event);
-        const std::string &ua   = std::get<2>(event);
-
-        size_t compressed_saddr_num = strtol(saddr.c_str(), NULL, 16);
-        size_t compressed_fp_num = strtol(fngr.c_str(), NULL, 16);
-        size_t compressed_ua_num = strtol(ua.c_str(), NULL, 16);
-
-        std::get<0>(event) = addr_dict.get_inverse(compressed_saddr_num);
-        std::get<1>(event) = fp_dict.get_inverse(compressed_fp_num);
-        std::get<2>(event) = ua_dict.get_inverse(compressed_ua_num);
-    }
-
-    void compress_event_string(event_msg& event) {
-
-        const std::string &addr = std::get<0>(event);
-        const std::string &fngr = std::get<1>(event);
-        const std::string &ua   = std::get<2>(event);
-
-        // compress source address string
-        char src_addr_buf[9];
-        addr_dict.compress(addr, src_addr_buf);
-
-        // compress fingerprint string
-        char compressed_fp_buf[9];
-        fp_dict.compress(fngr, compressed_fp_buf);
-
-        char compressed_ua_buf[9];
-        ua_dict.compress(ua, compressed_ua_buf);
-
-        std::get<0>(event) = src_addr_buf;
-        std::get<1>(event) = compressed_fp_buf;
-        std::get<2>(event) = compressed_ua_buf;
-
-    }
-
-};
-
-struct hash_tuple {
-    template <class T1, class T2, class T3, class T4>
-
-    size_t operator()(const std::tuple<T1, T2, T3, T4>& x) const {
-        std::hash<std::string> hasher;
-        return hasher(std::get<0>(x))
-                ^ hasher(std::get<1>(x))
-                ^ hasher(std::get<2>(x))
-                ^ hasher(std::get<3>(x));
-    }
-};
 
 // class stats_aggregator manages all of the data needed to gather and
 // report aggregate statistics about (fingerprint and destination)
 // events
 //
 class stats_aggregator {
-    std::unordered_map<event_msg, uint64_t, hash_tuple> event_table;
+    std::unordered_map<event_msg, uint64_t> event_table;
     event_encoder encoder;
     std::string observation;  // used as preallocated temporary variable
     size_t num_entries;
@@ -275,7 +207,7 @@ public:
 #define MAX_VERSION_STRING 15
 
 class data_aggregator {
-    std::vector<class message_queue *> q;
+    std::vector<class message_queue<event_msg> *> q;
     stats_aggregator ag1, ag2, *ag;
     std::atomic<bool> shutdown_requested;
     bool blocking;  // stats event collection: lossless but blocking
@@ -298,7 +230,7 @@ class data_aggregator {
         }
     }
 
-    void empty_event_queue(message_queue *q) {
+    void empty_event_queue(message_queue<event_msg> *q) {
         //fprintf(stderr, "note: emptying message queue in %p\n", (void *)this);
         event_msg event;
         while (q->pop(event)) {
@@ -307,7 +239,7 @@ class data_aggregator {
         }
     }
 
-    double event_queue_fill_ratio(message_queue *q) {
+    double event_queue_fill_ratio(message_queue<event_msg> *q) {
         return static_cast<double>(q->size()) / static_cast<double>(q->capacity());
     }
 
@@ -371,21 +303,21 @@ public:
         }
     }
 
-    message_queue *add_producer() {
+    message_queue<event_msg> *add_producer() {
         std::lock_guard m_guard{m};
         //fprintf(stderr, "note: adding producer in %p\n", (void *)this);
-        q.push_back(new message_queue(blocking));
+        q.push_back(new message_queue<event_msg>(blocking));
         return q.back();
     }
 
-    void remove_producer(message_queue *p) {
+    void remove_producer(message_queue<event_msg> *p) {
         if (p == nullptr) {
             return;
         }
         std::lock_guard m_guard{m};
         //fprintf(stderr, "note: removing producer in %p\n", (void *)this);
         empty_event_queue(p);
-        for (std::vector<message_queue *>::iterator it = q.begin(); it < q.end(); it++) {
+        for (std::vector<message_queue<event_msg> *>::iterator it = q.begin(); it < q.end(); it++) {
             if (*it == p) {
                 //fprintf(stderr, "%s: deleting and erasing message_queue p=%p in %p\n", __func__, (void *)p, (void *)this);
                 delete *it;

@@ -154,49 +154,49 @@ struct do_crypto_assessment {
 struct do_observation {
     const struct key &k_;
     struct analysis_context &analysis_;
-    class message_queue *mq_;
+    class message_queue<event_msg> *mq_;
 
     do_observation(const struct key &k,
                    struct analysis_context &analysis,
-                   class message_queue *mq) :
+                   class message_queue<event_msg> *mq) :
         k_{k},
         analysis_{analysis},
         mq_{mq}
     {}
 
-    void operator()(tls_client_hello &m) {
+    void operator()(tls_client_hello &) {
         // create event and send it to the data/stats aggregator
-        event_string ev_str{k_, analysis_, m};
+        event_string ev_str{k_, analysis_};
         mq_->push(ev_str.construct_event_string());
     }
 
-    void operator()(quic_init &m) {
+    void operator()(quic_init &) {
         // create event and send it to the data/stats aggregator
-        event_string ev_str{k_, analysis_, m};
+        event_string ev_str{k_, analysis_};
         mq_->push(ev_str.construct_event_string());
     }
 
-    void operator()(tofsee_initial_message &tofsee_pkt) {
+    void operator()(tofsee_initial_message &) {
         // create event and send it to the data/stats aggregator
-        event_string ev_str{k_, analysis_, tofsee_pkt};
+        event_string ev_str{k_, analysis_};
+        mq_->push(ev_str.construct_event_string_tofsee());
+    }
+
+    void operator()(http_request &) {
+        // create event and send it to the data/stats aggregator
+        event_string ev_str{k_, analysis_};
         mq_->push(ev_str.construct_event_string());
     }
 
-    void operator()(http_request &m) {
+    void operator()(stun::message &) {
         // create event and send it to the data/stats aggregator
-        event_string ev_str{k_, analysis_, m};
+        event_string ev_str{k_, analysis_};
         mq_->push(ev_str.construct_event_string());
     }
 
-    void operator()(stun::message &m) {
+    void operator()(ssh_init_packet &) {
         // create event and send it to the data/stats aggregator
-        event_string ev_str{k_, analysis_, m};
-        mq_->push(ev_str.construct_event_string());
-    }
-
-    void operator()(ssh_init_packet &m) {
-        // create event and send it to the data/stats aggregator
-        event_string ev_str{k_, analysis_, m};
+        event_string ev_str{k_, analysis_};
         mq_->push(ev_str.construct_event_string());
     }
 
