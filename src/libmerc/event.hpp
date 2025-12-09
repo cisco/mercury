@@ -5,6 +5,7 @@
 
 #include "queue.h"
 #include "dict.h"
+#include "flow_key.h"  // for MAX_PORT_STR_LEN and MAX_ADDR_STR_LEN
 
 
 /// an event_msg represents a observable event
@@ -30,17 +31,14 @@ namespace std {
 }
 
 class event_string {
-    const struct key &k;
-    const struct analysis_context &analysis;
-    std::string dest_context;
-    event_msg event;
 
 public:
 
-    event_string(const struct key &k, const struct analysis_context &analysis) :
-        k{k}, analysis{analysis} {  }
+    //    event_string(const struct key &k, const struct analysis_context &analysis) {  }
 
-    event_msg construct_event_string_tofsee() {
+    static event_msg construct_event_string_tofsee(const struct key &k,
+                                                   const struct analysis_context &analysis)
+    {
         //
         // For tofsee initial pkt, src ip, src port and bot ip are important
         // replace dst ip and port with src ip and port
@@ -53,28 +51,30 @@ public:
         char dst_port_str[MAX_PORT_STR_LEN];
         k.sprint_src_port(dst_port_str);
 
+        std::string dest_context;
         dest_context.append("(");
         dest_context.append(analysis.destination.sn_str).append(")(");
         dest_context.append(dst_ip_str).append(")(");
         dest_context.append(dst_port_str).append(")");
 
-        event = std::make_tuple(src_ip_str, analysis.fp.string(), analysis.destination.ua_str, dest_context);
-        return event;
+        return std::make_tuple(src_ip_str, analysis.fp.string(), analysis.destination.ua_str, dest_context);
     }
 
-    event_msg construct_event_string() {
+    static event_msg construct_event_string(const struct key &k,
+                                            const struct analysis_context &analysis)
+    {
         char src_ip_str[MAX_ADDR_STR_LEN];
         k.sprint_src_addr(src_ip_str);
         char dst_port_str[MAX_PORT_STR_LEN];
         k.sprint_dst_port(dst_port_str);
 
+        std::string dest_context;
         dest_context.append("(");
         dest_context.append(analysis.destination.sn_str).append(")(");
         dest_context.append(analysis.destination.dst_ip_str).append(")(");
         dest_context.append(dst_port_str).append(")");
 
-        event = std::make_tuple(src_ip_str, analysis.fp.string(), utf8_string::get_utf8_string(analysis.destination.ua_str), dest_context);
-        return event;
+        return std::make_tuple(src_ip_str, analysis.fp.string(), utf8_string::get_utf8_string(analysis.destination.ua_str), dest_context);
     }
 
 };

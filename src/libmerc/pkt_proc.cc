@@ -166,38 +166,32 @@ struct do_observation {
 
     void operator()(tls_client_hello &) {
         // create event and send it to the data/stats aggregator
-        event_string ev_str{k_, analysis_};
-        mq_->push(ev_str.construct_event_string());
+        mq_->push(event_string::construct_event_string(k_, analysis_));
     }
 
     void operator()(quic_init &) {
         // create event and send it to the data/stats aggregator
-        event_string ev_str{k_, analysis_};
-        mq_->push(ev_str.construct_event_string());
+        mq_->push(event_string::construct_event_string(k_, analysis_));
     }
 
     void operator()(tofsee_initial_message &) {
         // create event and send it to the data/stats aggregator
-        event_string ev_str{k_, analysis_};
-        mq_->push(ev_str.construct_event_string_tofsee());
+        mq_->push(event_string::construct_event_string_tofsee(k_, analysis_));
     }
 
     void operator()(http_request &) {
         // create event and send it to the data/stats aggregator
-        event_string ev_str{k_, analysis_};
-        mq_->push(ev_str.construct_event_string());
+        mq_->push(event_string::construct_event_string(k_, analysis_));
     }
 
     void operator()(stun::message &) {
         // create event and send it to the data/stats aggregator
-        event_string ev_str{k_, analysis_};
-        mq_->push(ev_str.construct_event_string());
+        mq_->push(event_string::construct_event_string(k_, analysis_));
     }
 
     void operator()(ssh_init_packet &) {
         // create event and send it to the data/stats aggregator
-        event_string ev_str{k_, analysis_};
-        mq_->push(ev_str.construct_event_string());
+        mq_->push(event_string::construct_event_string(k_, analysis_));
     }
 
     template <typename T>
