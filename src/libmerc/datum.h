@@ -390,6 +390,14 @@ struct datum {
         }
         return true;
     }
+    template <size_t N>
+    bool ends_with(std::array<uint8_t, N> a) const {
+        if (length() < (ssize_t)N) {
+            return false;
+        }
+        const uint8_t *suffix_start = data_end - N;
+        return ::memcmp(suffix_start, a.data(), N) == 0;
+    }
     bool case_insensitive_match(const struct datum r) const {
         if (length() != r.length()) {
             return false;
@@ -1985,6 +1993,8 @@ public:
             d = tmp;
         }
     }
+
+    operator bool() const { return valid; }
 
 };
 

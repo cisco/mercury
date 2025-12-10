@@ -527,7 +527,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test imap with resources-mp")
                 .packet_filter_cfg = (char *)"imap"},
              .m_pc{"imap.pcap"}},
 
-         52}, 
+         53}, 
          {test_config{
              .m_lc{.metadata_output=true, .do_analysis = true, .resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"imap"},

@@ -177,23 +177,4 @@ public:
         return x >= 'A' && x <= 'Z';
     }
 };
-
-// Conditional parser: checks a predicate and applies appropriate parser
-// This enables conditional parsing based on peeking at the input
-// Usage: conditional<predicate, then_parser, else_parser>
-template <typename Predicate, typename ThenParser, typename ElseParser>
-class conditional : public datum {
-public:
-    conditional(datum &d) {
-        if (Predicate::check(d)) {
-            ThenParser parser{d};
-            this->data = parser.data;
-            this->data_end = parser.data_end;
-        } else {
-            ElseParser parser{d};
-            this->data = parser.data;
-            this->data_end = parser.data_end;
-        }
-    }
-};
 #endif // LEX_H
