@@ -24,95 +24,12 @@ typedef uint32_t useconds_t;
 #include <thread>
 #include <chrono>
 #include <atomic>
-#include <zlib.h>
 #include <functional>
 #include <tuple>
 
 #include "dict.h"
 #include "queue.h"
 #include "event.hpp"
-
-// class event_processor_gz coverts a sequence of sorted event
-// strings into an alternative JSON representation
-//
-class event_processor_gz {
-    std::vector<std::string> prev;
-    bool first_loop;
-    gzFile gzf;
-    std::array<std::string, 4> v;
-
-public:
-    event_processor_gz(gzFile gzfile) : prev{"", "", "", ""}, first_loop{true}, gzf{gzfile} {}
-
-    void process_init() {
-        first_loop = true;
-        prev = { "", "", "", "" };
-    }
-
-    void process_update(const event_msg &event, uint32_t count, const char *version,
-                    const char *resource_version, const char *git_commit_id,
-                    uint32_t git_count, const char *init_time) {
-
-        std::tie(v[0], v[1], v[2], v[3]) = event;
-
-        // find number of elements that match previous vector
-        size_t num_matching = 0;
-        for (num_matching=0; num_matching<3; num_matching++) {
-            if (prev[num_matching].compare(v[num_matching]) != 0) {
-                break;
-            }
-        }
-        // set mismatched previous values
-        for (size_t i=num_matching; i<3; i++) {
-            prev[i] = v[i];
-        }
-
-        //Format the optional parameter user-agent only if it is present
-        //Extra 15 bytes is to account for additional data required for json
-        char user_agent[MAX_USER_AGENT_LEN + 15]{"\0"};
-        if(v[2][0] != '\0') {
-            snprintf(user_agent, MAX_USER_AGENT_LEN - 1, "\"user_agent\":\"%s\", ", v[2].c_str());
-        }
-
-        // output unique elements
-        int gz_ret = 1;
-        switch(num_matching) {
-        case 0:
-            if (!first_loop) {
-                gz_ret = gzprintf(gzf, "}]}]}]}\n");
-            }
-            if (gz_ret <= 0)
-                throw std::runtime_error("error in gzprintf");
-            gz_ret = gzprintf(gzf, "{\"src_ip\":\"%s\", \"libmerc_init_time\" : \"%s\",\"libmerc_version\": \"%s\","
-                                   " \"resource_version\" : \"%s\", \"build_number\" : \"%u\", \"git_commit_id\": \"%s\", \"fingerprints\":"
-                                   "[{\"str_repr\":\"%s\", \"sessions\": [{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u",
-                v[0].c_str(), init_time, version, resource_version, git_count, git_commit_id, v[1].c_str(), user_agent, v[3].c_str(), count);
-            break;
-        case 1:
-            gz_ret = gzprintf(gzf, "}]}]},{\"str_repr\":\"%s\", \"sessions\": [{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u", v[1].c_str(), user_agent, v[3].c_str(), count);
-            break;
-        case 2:
-            gzprintf(gzf, "}]},{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u", user_agent, v[3].c_str(), count);
-            break;
-        case 3:
-            gz_ret = gzprintf(gzf, "},{\"dst\":\"%s\",\"count\":%u", v[3].c_str(), count);
-            break;
-        default:
-            ;
-        }
-        first_loop = false;
-        if (gz_ret <= 0)
-            throw std::runtime_error("error in gzprintf");
-    }
-
-    void process_final() {
-        int gz_ret = gzprintf(gzf, "}]}]}]}\n");
-        if (gz_ret <= 0)
-            throw std::runtime_error("error in gzprintf");
-    }
-
-};
-
 
 
 // class stats_aggregator manages all of the data needed to gather and

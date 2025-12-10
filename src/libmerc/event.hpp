@@ -6,11 +6,12 @@
 #include "queue.h"
 #include "dict.h"
 #include "flow_key.h"  // for MAX_PORT_STR_LEN and MAX_ADDR_STR_LEN
+#include <zlib.h>
 
 
 /// an event_msg represents a observable event
 ///
-typedef std::tuple<std::string, std::string, std::string, std::string> event_msg;
+typedef std::array<std::string, 4> event_msg;
 
 namespace std {
 
@@ -30,13 +31,9 @@ namespace std {
 
 }
 
-class event_string {
+namespace event_string {
 
-public:
-
-    //    event_string(const struct key &k, const struct analysis_context &analysis) {  }
-
-    static event_msg construct_event_string_tofsee(const struct key &k,
+    inline event_msg construct_event_string_tofsee(const struct key &k,
                                                    const struct analysis_context &analysis)
     {
         //
@@ -57,10 +54,10 @@ public:
         dest_context.append(dst_ip_str).append(")(");
         dest_context.append(dst_port_str).append(")");
 
-        return std::make_tuple(src_ip_str, analysis.fp.string(), analysis.destination.ua_str, dest_context);
+        return {src_ip_str, analysis.fp.string(), analysis.destination.ua_str, dest_context};
     }
 
-    static event_msg construct_event_string(const struct key &k,
+    inline event_msg construct_event_string(const struct key &k,
                                             const struct analysis_context &analysis)
     {
         char src_ip_str[MAX_ADDR_STR_LEN];
@@ -74,7 +71,7 @@ public:
         dest_context.append(analysis.destination.dst_ip_str).append(")(");
         dest_context.append(dst_port_str).append(")");
 
-        return std::make_tuple(src_ip_str, analysis.fp.string(), utf8_string::get_utf8_string(analysis.destination.ua_str), dest_context);
+        return {src_ip_str, analysis.fp.string(), utf8_string::get_utf8_string(analysis.destination.ua_str), dest_context};
     }
 
 };
@@ -99,24 +96,24 @@ public:
     }
 
     void get_inverse(event_msg &event) {
-        const std::string &saddr = std::get<0>(event);
-        const std::string &fngr = std::get<1>(event);
-        const std::string &ua   = std::get<2>(event);
+        const std::string &saddr = event[0];
+        const std::string &fngr  = event[1];
+        const std::string &ua    = event[2];
 
         size_t compressed_saddr_num = strtol(saddr.c_str(), NULL, 16);
         size_t compressed_fp_num = strtol(fngr.c_str(), NULL, 16);
         size_t compressed_ua_num = strtol(ua.c_str(), NULL, 16);
 
-        std::get<0>(event) = addr_dict.get_inverse(compressed_saddr_num);
-        std::get<1>(event) = fp_dict.get_inverse(compressed_fp_num);
-        std::get<2>(event) = ua_dict.get_inverse(compressed_ua_num);
+        event[0] = addr_dict.get_inverse(compressed_saddr_num);
+        event[1] = fp_dict.get_inverse(compressed_fp_num);
+        event[2] = ua_dict.get_inverse(compressed_ua_num);
     }
 
     void compress_event_string(event_msg& event) {
 
-        const std::string &addr = std::get<0>(event);
-        const std::string &fngr = std::get<1>(event);
-        const std::string &ua   = std::get<2>(event);
+        const std::string &addr = event[0];
+        const std::string &fngr = event[1];
+        const std::string &ua   = event[2];
 
         // compress source address string
         char src_addr_buf[9];
@@ -129,10 +126,90 @@ public:
         char compressed_ua_buf[9];
         ua_dict.compress(ua, compressed_ua_buf);
 
-        std::get<0>(event) = src_addr_buf;
-        std::get<1>(event) = compressed_fp_buf;
-        std::get<2>(event) = compressed_ua_buf;
+        event[0] = src_addr_buf;
+        event[1] = compressed_fp_buf;
+        event[2] = compressed_ua_buf;
 
+    }
+
+};
+
+// class event_processor_gz coverts a sequence of sorted event
+// strings into an alternative JSON representation
+//
+class event_processor_gz {
+    event_msg prev;
+    bool first_loop = true;
+    gzFile gzf;
+    std::array<std::string, 4> v;
+
+public:
+
+    event_processor_gz(gzFile gzfile) : gzf{gzfile} {}
+
+    void process_init() {
+        first_loop = true;
+        prev = event_msg{};  // re-initialize previous event
+    }
+
+    void process_update(const event_msg &event, uint32_t count, const char *version,
+                    const char *resource_version, const char *git_commit_id,
+                    uint32_t git_count, const char *init_time) {
+
+        // find number of elements that match previous vector
+        size_t num_matching = 0;
+        for (num_matching=0; num_matching<3; num_matching++) {
+            if (prev[num_matching].compare(event[num_matching]) != 0) {
+                break;
+            }
+        }
+        // set mismatched previous values
+        for (size_t i=num_matching; i<3; i++) {
+            prev[i] = event[i];
+        }
+
+        //Format the optional parameter user-agent only if it is present
+        //Extra 15 bytes is to account for additional data required for json
+        char user_agent[MAX_USER_AGENT_LEN + 15]{"\0"};
+        if(event[2][0] != '\0') {
+            snprintf(user_agent, MAX_USER_AGENT_LEN - 1, "\"user_agent\":\"%s\", ", event[2].c_str());
+        }
+
+        // output unique elements
+        int gz_ret = 1;
+        switch(num_matching) {
+        case 0:
+            if (!first_loop) {
+                gz_ret = gzprintf(gzf, "}]}]}]}\n");
+            }
+            if (gz_ret <= 0)
+                throw std::runtime_error("error in gzprintf");
+            gz_ret = gzprintf(gzf, "{\"src_ip\":\"%s\", \"libmerc_init_time\" : \"%s\",\"libmerc_version\": \"%s\","
+                                   " \"resource_version\" : \"%s\", \"build_number\" : \"%u\", \"git_commit_id\": \"%s\", \"fingerprints\":"
+                                   "[{\"str_repr\":\"%s\", \"sessions\": [{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u",
+                event[0].c_str(), init_time, version, resource_version, git_count, git_commit_id, event[1].c_str(), user_agent, event[3].c_str(), count);
+            break;
+        case 1:
+            gz_ret = gzprintf(gzf, "}]}]},{\"str_repr\":\"%s\", \"sessions\": [{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u", event[1].c_str(), user_agent, event[3].c_str(), count);
+            break;
+        case 2:
+            gzprintf(gzf, "}]},{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u", user_agent, event[3].c_str(), count);
+            break;
+        case 3:
+            gz_ret = gzprintf(gzf, "},{\"dst\":\"%s\",\"count\":%u", event[3].c_str(), count);
+            break;
+        default:
+            ;
+        }
+        first_loop = false;
+        if (gz_ret <= 0)
+            throw std::runtime_error("error in gzprintf");
+    }
+
+    void process_final() {
+        int gz_ret = gzprintf(gzf, "}]}]}]}\n");
+        if (gz_ret <= 0)
+            throw std::runtime_error("error in gzprintf");
     }
 
 };
