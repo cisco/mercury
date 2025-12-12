@@ -1280,13 +1280,13 @@ struct algorithm_identifier {
         parse(p);
     }
     void parse(struct datum *p) {
-        sequence.parse(p, tlv::SEQUENCE);
-        algorithm.parse(&sequence.value, tlv::OBJECT_IDENTIFIER);
+        sequence.parse(p, tlv::SEQUENCE, "algorithm_identifier");
+        algorithm.parse(&sequence.value, tlv::OBJECT_IDENTIFIER, "algorithm");
         if (sequence.value.is_not_empty()) {
-            null.parse(&sequence.value, tlv::NULL_TAG);
+            null.parse(&sequence.value, tlv::NULL_TAG, "null");
         }
         if (sequence.value.is_not_empty()) {
-            parameters.parse(&sequence.value);
+            parameters.parse(&sequence.value, 0x0, "parameters");
         }
     }
 
@@ -1522,7 +1522,9 @@ struct x509_cert {
         tbs_certificate.parse(&certificate.value, tlv::SEQUENCE, "tbs_certificate");
 
         // parse (implicit or explicit) version
-        explicitly_tagged_version.parse(&tbs_certificate.value, tlv::explicit_tag_constructed(0), "version_tag");
+        if (lookahead<literal< tlv::explicit_tag_constructed(0)>> tag{tbs_certificate.value}) {
+            explicitly_tagged_version.parse(&tbs_certificate.value, tlv::explicit_tag_constructed(0), "version_tag");
+        }
         if (explicitly_tagged_version.is_not_null()) {
             version.parse(&explicitly_tagged_version.value, tlv::INTEGER, "version");
         } else {
