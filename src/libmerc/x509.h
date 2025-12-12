@@ -1604,6 +1604,8 @@ struct x509_cert {
 
         if (!version.is_null()) {
             version.print_as_json_hex(o, "version");
+        } else {
+            o.print_key_string("version", "00");
         }
         if (!serial_number.is_null()) {
             serial_number.print_as_json_hex(o, "serial_number");
