@@ -3,6 +3,25 @@
 
 int sig_close_flag = false;
 
+SCENARIO("test packet_processor_get_analysis_context with http encapsulated in PPPOE") {
+    GIVEN("mercury packet processor") {
+        libmerc_config config = create_config();
+        mercury_context mc = initialize_mercury(config);
+        mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
+
+        struct timespec time;
+        time.tv_sec = time.tv_nsec = 0;  // set to January 1st, 1970 (the Epoch)
+
+        WHEN("get analysis context") {
+            mercury_packet_processor_get_analysis_context(mpp, http_request_pppoe, http_request_pppoe_len, &time);
+            THEN("a valid result  exist") {
+                REQUIRE(mpp->analysis.result.is_valid());
+                mercury_packet_processor_destruct(mpp);
+            }
+        }
+        mercury_finalize(mc);
+    }
+}
 
 TEST_CASE_METHOD(LibmercTestFixture, "test http with resources-mp")
 {
