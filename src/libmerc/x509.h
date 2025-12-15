@@ -1524,7 +1524,8 @@ struct x509_cert {
         // parse (implicit or explicit) version
         //
         if (lookahead<literal< tlv::explicit_tag_constructed(0)>> tag{tbs_certificate.value}) {
-            version.parse(&tbs_certificate.value, tlv::explicit_tag_constructed(0), "version_tag");
+            tlv explicit_tag{tbs_certificate.value, tlv::explicit_tag_constructed(0), "explicit_tag"};
+            version.parse(&explicit_tag.value, tlv::INTEGER, "version_tag");
         } else {
             datum tmp{default_version};
             version.parse(&tmp);
