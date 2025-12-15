@@ -43,7 +43,7 @@ struct decimal_integer {
     static_assert(!std::is_same<T, int64_t>::value, "64-bit integers not currently supported");
 
     using double_width_t = typename double_width<T>::type;
-    double_width_t value;
+    double_width_t value = 0;
 
     /// construct a \ref decimal_integer object by parsing text from
     /// the input \ref datum \param d, and set \param d to `null` if
@@ -221,8 +221,8 @@ struct decimal_integer_test_case {
 
     bool run_test(FILE *f=nullptr) const {
         datum tmp{text};
+        decimal_integer<T> integer{tmp};
         if constexpr (std::is_signed_v<T>) {
-            decimal_integer<T> integer{tmp};
             if (tmp.is_not_null() != is_not_null or (is_not_null and (integer.get_value() != value))) {
                 if (f) {
                     fprintf(f, "input: \""); text.fprint(f); fputs("\"\t", f);
@@ -233,7 +233,6 @@ struct decimal_integer_test_case {
                 return false;
             }
         } else {
-            decimal_integer<T> integer{tmp};
             if (tmp.is_not_null() != is_not_null or (is_not_null and (integer.get_value() != value))) {
                 if (f) {
                     fprintf(f, "error in unit test: expected (%u,%" PRIu64 "), got (%u,%" PRIu64 ")\n",
