@@ -224,6 +224,14 @@ SCENARIO("test packet_processor_get_analysis_context") {
                 mercury_packet_processor_destruct(mpp);
             }
         }
+
+        WHEN("get analysis context") {
+            mercury_packet_processor_get_analysis_context(mpp, http_request_pppoe, http_request_pppoe_len, &time);
+            THEN("a valid result  exist") {
+                REQUIRE(mpp->analysis.result.is_valid());
+                mercury_packet_processor_destruct(mpp);
+            }
+        }
         mercury_finalize(mc);
     }
 }
