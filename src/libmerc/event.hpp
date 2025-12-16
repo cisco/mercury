@@ -6,6 +6,7 @@
 #include "queue.h"
 #include "dict.h"
 #include "flow_key.h"  // for MAX_PORT_STR_LEN and MAX_ADDR_STR_LEN
+#include "result.h"    // for MAX_USER_AGENT_LEN
 #include <zlib.h>
 
 
