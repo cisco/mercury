@@ -61,6 +61,7 @@ struct dns_packet;
 struct mdns_packet;
 class dtls_client_hello;
 class dtls_server_hello;
+class dtls_hello_verify_request;
 class dhcp_message;
 class ssdp;
 //class stun::message;
@@ -115,6 +116,7 @@ using protocol = std::variant<std::monostate,
                               mdns_packet,
                               dtls_client_hello,
                               dtls_server_hello,
+                              dtls_hello_verify_request,
                               dhcp_message,
                               ssdp,
                               stun::message,
@@ -340,6 +342,10 @@ struct compute_fingerprint {
     }
 
     void operator()(tls_client_hello &msg) {
+        msg.compute_fingerprint(fp_, format_version.tls_fingerprint_format);
+    }
+
+    void operator()(dtls_client_hello &msg) {
         msg.compute_fingerprint(fp_, format_version.tls_fingerprint_format);
     }
 

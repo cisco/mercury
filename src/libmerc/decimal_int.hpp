@@ -43,13 +43,14 @@ struct decimal_integer {
     static_assert(!std::is_same<T, int64_t>::value, "64-bit integers not currently supported");
 
     using double_width_t = typename double_width<T>::type;
-    double_width_t value;
+    double_width_t value = 0;
 
     /// construct a \ref decimal_integer object by parsing text from
     /// the input \ref datum \param d, and set \param d to `null` if
     /// it does not contain a valid decimal integer.
     ///
     decimal_integer(datum &d);
+    decimal_integer() = delete;  // delete the default constructor
 
     /// if the input \ref datum is not `null`, return the value of
     /// this object as the appropriate integral type; otherwise, the
@@ -63,64 +64,6 @@ struct decimal_integer {
 //
 namespace {
 
-    // accepts a single decimal digit from \param d and returns its
-    // value as an integer of type \param T, if \param d is readable;
-    // otherwise, sets \param d to null
-    //
-    template <typename T>
-    inline T get_one_digit(datum &d) {
-        if (!d.is_readable()) {
-            d.set_null();
-            return 0;
-        }
-
-        unsigned x = d.data[0] - '0';
-        if (x > 9) {
-            d.set_null();
-            return 0;
-        }
-        d.data++;
-
-        T value = x;
-        return value;
-    }
-
-    // accepts a single decimal digit and an optional sign (-/+) from
-    // \param d and returns its value as an integer of type \param T,
-    // if \param d is readable; otherwise, sets \param d to null
-    //
-    template <typename T>
-    inline T get_one_digit_with_optional_sign(datum &d) {
-        if (!d.is_readable()) {
-            d.set_null();
-            return 0;
-        }
-        bool negative = false;
-
-        switch(d.data[0]) {
-        case '-':
-            negative = true;   [[fallthrough]];
-        case '+':
-            d.data++;
-        default:
-            ;
-        }
-
-        if (d.is_empty()) {
-            d.set_null();
-            return 0;
-        }
-        uint8_t x = d.data[0] - '0';
-        if (x > 9) {
-            d.set_null();
-            return 0;
-        }
-        d.data++;
-
-        T value = negative ? -x : x;
-        return value;
-    }
-
     // accepts zero or more decimal digits from \param d and
     // accumulates their value into \param value in the positive direction
     //
@@ -133,11 +76,12 @@ namespace {
         static_assert(std::is_integral_v<std::remove_reference_t<T>>, "T must be an integral type.");
 
         while (d.data < d.data_end) {
-            unsigned x = *d.data++ - '0';
+            unsigned x = *d.data - '0';
             if (x > 9) {
                 break;
             }
             value = value * 10 + x;
+            d.data++;
         }
     }
 
@@ -153,16 +97,18 @@ namespace {
         static_assert(std::is_integral_v<std::remove_reference_t<T>>, "T must be an integral type.");
 
         while (d.data < d.data_end) {
-            unsigned x = *d.data++ - '0';
+            unsigned x = *d.data - '0';
             if (x > 9) {
                 break;
             }
             value = value * 10 - x;
+            d.data++;
         }
     }
 
-    // at compile time, returns the maximum number of decimal digits
-    // that can appear in an integral type T
+    // at compile time, returns the maximum number of significant decimal digits
+    // that can appear in an integral type T.  this number does not include the
+    // sign or any leading zeros.
     //
     template <typename T>
     constexpr size_t max_digits() {
@@ -177,31 +123,94 @@ namespace {
         return count;
     }
 
+    // advance past any leading ASCII zeros in \param d; return true if at least
+    // one zero was skipped
+    //
+    inline bool skip_leading_zeros(datum &d) {
+        bool consumed_zero = false;
+        while (d.is_readable() && d.data[0] == '0') {
+            consumed_zero = true;
+            d.data++;
+        }
+        return consumed_zero;
+    }
+
 }
 
 template <typename T>
 inline decimal_integer<T>::decimal_integer(datum &d) {
 
+    bool negative = false;
     if constexpr (std::is_signed_v<T>) {
-        value = get_one_digit_with_optional_sign<double_width_t>(d);
-    } else {
-        value = get_one_digit<double_width_t>(d);
+        if (!d.is_readable()) {
+            d.set_null();
+            return;
+        }
+        if (d.data[0] == '-' || d.data[0] == '+') {
+            negative = (d.data[0] == '-');
+            d.data++;
+        }
     }
-    const uint8_t *tmp = d.data;
-    if (value < 0) {
-        accumulate_digits_negative<double_width_t>(value, d);
-    } else {
-        accumulate_digits<double_width_t>(value, d);
-    }
-    ptrdiff_t diff = d.data - tmp;
-    if (diff + 1 > (ptrdiff_t)max_digits<T>()) {
+
+    if (!d.is_readable()) {
         d.set_null();
+        return;
     }
+
+    // skip any leading zeros; remember if we consumed any for the zero-only case
+    bool consumed_leading_zero = skip_leading_zeros(d);
+
+    const uint8_t *sig_start = d.data; // start of significant digits (first non-zero)
+
+    // try to read the magnitude of the integer (starting with the first
+    // non-zero digit) now that d is past the sign and any leading zeros; apply
+    // the sign during accumulation
+    bool consumed_nonzero = false;
+    if (d.is_readable()) {
+        uint8_t first_value = d.data[0] - '0';  // digits map to 0-9; others > 9
+        if (first_value <= 9) {
+            // zeros were already skipped, so any digit here is non-zero
+            consumed_nonzero = true;
+            d.data++;
+            if constexpr (std::is_signed_v<T>) {
+                if (negative) {
+                    value = -first_value;
+                    // accumulate remaining digits in the negative direction
+                    accumulate_digits_negative<double_width_t>(value, d);
+                } else {
+                    value = first_value;
+                    // accumulate remaining digits in the positive direction
+                    accumulate_digits<double_width_t>(value, d);
+                }
+            } else {
+                value = first_value;
+                // accumulate remaining digits in the positive direction
+                accumulate_digits<double_width_t>(value, d);
+            }
+        }
+    }
+
+    // if no non-zero digits seen, it's valid only when we saw leading zero(s)
+    if (!consumed_nonzero) {
+        if (consumed_leading_zero) {
+            value = 0;
+        } else {
+            d.set_null();
+            return;
+        }
+    }
+
+    ptrdiff_t sig_digits = d.data - sig_start;
+    if (sig_digits > (ptrdiff_t)max_digits<T>()) {
+        d.set_null();
+        return;
+    }
+
     if (value > std::numeric_limits<T>::max() or value < std::numeric_limits<T>::min()) {
         d.set_null();
     }
-}
 
+}
 
 #ifndef NDEBUG
 
@@ -213,8 +222,8 @@ struct decimal_integer_test_case {
 
     bool run_test(FILE *f=nullptr) const {
         datum tmp{text};
+        decimal_integer<T> integer{tmp};
         if constexpr (std::is_signed_v<T>) {
-            decimal_integer<T> integer{tmp};
             if (tmp.is_not_null() != is_not_null or (is_not_null and (integer.get_value() != value))) {
                 if (f) {
                     fprintf(f, "input: \""); text.fprint(f); fputs("\"\t", f);
@@ -225,7 +234,6 @@ struct decimal_integer_test_case {
                 return false;
             }
         } else {
-            decimal_integer<T> integer{tmp};
             if (tmp.is_not_null() != is_not_null or (is_not_null and (integer.get_value() != value))) {
                 if (f) {
                     fprintf(f, "error in unit test: expected (%u,%" PRIu64 "), got (%u,%" PRIu64 ")\n",
@@ -250,6 +258,13 @@ inline bool decimal_integer_unit_test(FILE *f=nullptr) {
         { datum{"-0"}, true, 0 },
         { datum{"128"}, false, 0 },
         { datum{"-129"}, false, 0 },
+        { datum{"-05"}, true, -5 },
+        { datum{"-0001"}, true, -1 },
+        { datum{"-000"}, true, 0 },
+        { datum{"0000"}, true, 0 },
+        { datum{"bad"}, false, 0 },
+        { datum{"+a"}, false, 0 },
+        { datum{"-a"}, false, 0 },
     };
     for (auto & tc : test_case_array_int8) {
         result &= tc.run_test(f);
@@ -262,6 +277,8 @@ inline bool decimal_integer_unit_test(FILE *f=nullptr) {
         { datum{"-88"}, false, 0 },
         { datum{"255"}, true, 255 },
         { datum{"0"}, true, 0 },
+        { datum{"0000000255"}, true, 255 },
+        { datum{"0000000"}, true, 0 },
         { datum{"-0"}, false, 0 },
         { datum{"256"}, false, 0 },
         { datum{"-1"}, false, 0 },
@@ -317,6 +334,57 @@ inline bool decimal_integer_unit_test(FILE *f=nullptr) {
 
     for (auto & tc : test_case_array_uint32) {
         result &= tc.run_test(f);
+    }
+
+    // verify that decimal_integer<> only consumes as many input bytes
+    // as appropriate
+    //
+    datum x0{"5\r\n"};
+    decimal_integer<uint32_t> y0{x0};
+    if (x0.cmp(datum{std::array<uint8_t,2>{'\r', '\n'}}) != 0) {
+        result &= false;
+    }
+
+    datum x1{"-5\r\n"};
+    decimal_integer<int32_t> y1{x1};
+    if (x1.cmp(datum{std::array<uint8_t,2>{'\r', '\n'}}) != 0) {
+        result &= false;
+    }
+
+    datum x2{"555\r\n"};
+    decimal_integer<int32_t> y2{x2};
+    if (x2.cmp(datum{std::array<uint8_t,2>{'\r', '\n'}}) != 0) {
+        result &= false;
+    }
+
+    datum x3{"-555\r\n"};
+    decimal_integer<int32_t> y3{x3};
+    if (x3.cmp(datum{std::array<uint8_t,2>{'\r', '\n'}}) != 0) {
+        result &= false;
+    }
+
+    datum x4{"0\r\n"};
+    decimal_integer<int32_t> y4{x4};
+    if (x4.cmp(datum{std::array<uint8_t,2>{'\r', '\n'}}) != 0) {
+        result &= false;
+    }
+
+    datum x5{"-0\r\n"};
+    decimal_integer<int32_t> y5{x5};
+    if (x5.cmp(datum{std::array<uint8_t,2>{'\r', '\n'}}) != 0) {
+        result &= false;
+    }
+
+    datum x6{"000\r\n"};
+    decimal_integer<uint32_t> y6{x6};
+    if (x6.cmp(datum{std::array<uint8_t,2>{'\r', '\n'}}) != 0) {
+        result &= false;
+    }
+
+    datum x7{"+0\r\n"};
+    decimal_integer<int32_t> y7{x7};
+    if (x7.cmp(datum{std::array<uint8_t,2>{'\r', '\n'}}) != 0) {
+        result &= false;
     }
 
     return result;

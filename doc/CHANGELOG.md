@@ -1,4 +1,8 @@
 # CHANGELOG for Mercury
+* Code changes to support parsing pppoe packets from library interface
+  mercury_packet_processor_get_analysis_context
+* Code changes to report dtls hello verify request in l7 metadata and
+  revamped dtls fingerprint format
 
 ## VERSION 2.11.1
 * Fixed crypto assessment handling of GREASE extensions. Optimized the crypto
