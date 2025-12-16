@@ -50,6 +50,7 @@ struct decimal_integer {
     /// it does not contain a valid decimal integer.
     ///
     decimal_integer(datum &d);
+    decimal_integer() = delete;  // delete the default constructor
 
     /// if the input \ref datum is not `null`, return the value of
     /// this object as the appropriate integral type; otherwise, the
