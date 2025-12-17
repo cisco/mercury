@@ -1847,12 +1847,11 @@ namespace writeable_unit_test {
 
         // test writeable::parse() in full state
         //
-        raw = datum{raw_data};
-        buf.copy(raw);                      // fill buffer before test
+        buf.set_full();                     // fill buffer before test
         buf.parse(null);                    // test: parse null
         //
-        // expected output: buf.contents == expected, since parsing an
-        // empty datum should not change the writeable
+        // expected output: buf.contents == null, since parsing an
+        // null datum results in a null writeable
         //
         if (buf.is_null() != true) {
             if (f) {
@@ -1881,13 +1880,15 @@ namespace writeable_unit_test {
 
 
         //
-        // repeat tests with input datum in readable state, in which
-        // the parse asks to read more data than is in the input
+        // repeat writeable::parse() tests with input datum in
+        // readable state, in which the parse asks to read more data
+        // than is in the input
         //
 
         // test writeable::parse() in writeable state
         //
         raw = datum{raw_data};
+        buf.reset();
         buf.parse(raw, raw.length() + 100);
         if (buf.contents().is_null() != true) {
             if (f) {
