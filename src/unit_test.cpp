@@ -22,6 +22,8 @@
 #include "libmerc/decimal_int.hpp"
 #include "libmerc/hex.hpp"
 #include "libmerc/redis.hpp"
+#include "libmerc/fdc.hpp"
+
 // Macros to colorize output
 //
 #define RED_ON     "\033[31m"
@@ -170,7 +172,15 @@ int main(int, char *[]) {
         {
             "lctrie_v6",
             &lctrie_v6_unit_test
-        }
+        },
+        {
+            "cbor_fingerprint",
+            &cbor_fingerprint::unit_test
+        },
+        {
+            "fdc",
+            &fdc::unit_test
+        },
     };
     for (const auto &tc : test_cases_verbose) {
         bool result = tc.func(nullptr);
