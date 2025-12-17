@@ -1864,7 +1864,7 @@ namespace writeable_unit_test {
 
         // test writeable::parse() in null state
         //
-        // expected output: buf.contents == null, since parsing an empty
+        // expected output: buf.contents == null, since parsing a null
         // datum should not change the writeable from being in null state
         //
         buf.set_null();
