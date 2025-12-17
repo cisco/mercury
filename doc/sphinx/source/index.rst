@@ -10,6 +10,7 @@ Mercury Library Documentation
    intro
    datum
    identifiers
+   hex
    python
    :maxdepth: 2
    :caption: Contents:

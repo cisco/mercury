@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <cstdio>
 #include "libmerc/datum.h"
+#include "libmerc/cbor.hpp"
 #include "libmerc/cbor_object.hpp"
 #include "libmerc/base64.h"
 #include "libmerc/tofsee.hpp"
@@ -18,6 +19,7 @@
 #include "libmerc/tacacs.hpp"
 #include "libmerc/crypto_assess.h"
 #include "libmerc/decimal_int.hpp"
+#include "libmerc/hex.hpp"
 
 // Macros to colorize output
 //
@@ -95,7 +97,11 @@ int main(int, char *[]) {
         {
             "crypto_policy",
             &crypto_policy::unit_test
-        }
+        },
+        {
+            "hex_udl",
+            &hex_udl_unit_tests
+        },
     };
     size_t num_tests = 0;
     size_t num_passed = 0;
@@ -133,12 +139,20 @@ int main(int, char *[]) {
             &dns_trie<std::string>::unit_test
         },
         {
+            "cbor",
+            &cbor::unit_test
+        },
+        {
             "cbor_object",
             &cbor_object_unit_test
         },
         {
             "decimal_integer",
             &decimal_integer_unit_test
+        },
+        {
+            "writeable",
+            &writeable_unit_test::run
         },
     };
     for (const auto &tc : test_cases_verbose) {

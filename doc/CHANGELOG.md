@@ -1,5 +1,28 @@
 # CHANGELOG for Mercury
 
+## VERSION 2.12.0
+* Fixed potential crash scenario when total QUIC Hello size exceeds 4096 bytes.
+* Updated mercury-python pip package. For Linux, upgraded base image from
+  manylinux2014 to manylinux_2_34. For macOS, added Python 3.9 and 3.14 support.
+* Fixed X.509 version field handling for the ASN.1 DEFAULT case.
+* Fixed SNMPv3 password recovery bug.
+* Fixed internal writeable buffer implementation, which addresses some rare QUIC
+  and DNS parsing errors.
+* Added support for parsing PPPoE packets from library interface
+  mercury_packet_processor_get_analysis_context.
+* Report DTLS hello verify request in L7 metadata and unify DTLS fingerprint
+  format with TLS fingerprint format.
+* Internal: Improved function naming and documentation, and added type_traits
+  checking for json_object::print_key_value().
+* Internal: Added user-defined literals for initializing constexpr
+  std::array<uint8_t,N> and std::vector<uint8_t> values from (potentially long)
+  sequences of hexadecimal digits.
+* Internal: Improved code safety by refactoring test_json_output<T>().  Added
+  datum::datum(const uint8_t [N]) constructor.
+* Internal: Fixed decimal_integer parsing bug that advanced the input pointer
+  one byte past the parsed integer.  Also added handling for leading zeros.
+* Internal: Added defensive coding in lockless queue to prevent future bugs.
+
 ## VERSION 2.11.1
 * Fixed crypto assessment handling of GREASE extensions. Optimized the crypto
   assessment processing to produce clean JSON output in a single pass.

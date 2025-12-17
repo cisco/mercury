@@ -21,7 +21,9 @@ static const char *oid_empty_string = "";
 class raw_oid : public datum {
 public:
 
-    void fingerprint(struct buffer_stream &b) const {
+    /// write a textual representation of this OID into \param b
+    ///
+    void write(struct buffer_stream &b) const {
         if (this->is_null()) {
             return;  // error; attempt to write a null datum object
         }
@@ -184,6 +186,9 @@ struct tlv {
     void parse(struct datum *p, uint8_t expected_tag=0x00, const char *tlv_name=NULL) {
 
         if (p->data == NULL) {
+#ifdef ASN1_DEBUG
+            fprintf(stderr, "(null input: %s)\n", tlv_name ? tlv_name : "unknown TLV");
+#endif
             handle_parse_error("warning: NULL data", tlv_name ? tlv_name : "unknown TLV");
             return;
         }

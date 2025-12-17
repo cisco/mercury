@@ -11,6 +11,30 @@
 #include "datum.h"
 #include "utf8.hpp"
 
+#include <iostream>
+#include <type_traits>
+#include <utility>
+
+
+// internal namespace to hide some implementation details
+//
+namespace internal {
+
+    // helper functions for \ref has_write_v
+    //
+    template <typename T> constexpr auto detect_write(int) -> decltype(std::declval<T>().write(std::declval<buffer_stream &>()), std::true_type{});
+    template <typename T> constexpr auto detect_write(...) -> std::false_type;
+}
+
+/// detect if type \param T has a member function `write(buffer_stream &)`
+///
+template <typename T>
+struct has_write : decltype(internal::detect_write<T>(0)) {};
+
+template <typename T>
+constexpr bool has_write_v = has_write<T>::value;
+
+
 /*
  * json_object and json_array serialize JSON objects and arrays,
  * respectively, into a buffer
@@ -194,12 +218,20 @@ struct json_object {
         b->write_timestamp_as_string(ts);
         b->write_char('\"');
     }
+
+    /// print key \param k and value \w to this \ref json_object,
+    /// where \param w is an object that has a member function
+    /// `write(buffer_stream &)`
+    ///
+    /// \param w is written as a JSON string.
+    ///
     template <typename T> void print_key_value(const char *k, T &&w) {
+        static_assert(has_write_v<T>, "class T must provide a member function ::write(buffer_stream &)");
         write_comma(comma);
         b->write_char('\"');
         b->puts(k);
         b->puts("\":\"");
-        w.fingerprint(*b);
+        w.write(*b);
         b->write_char('\"');
      }
     void print_key_ipv4_addr(const char *k, const uint8_t *a) {
@@ -365,7 +397,7 @@ struct json_array {
     template <typename T> void print_key(T &&w) {   // shouldn't this be named print_value()?
         write_comma(comma);
         b->write_char('\"');
-        w.fingerprint(*b);
+        w.write(*b);
         b->write_char('\"');
     }
 
@@ -422,27 +454,27 @@ int json_output_fuzzer(const uint8_t *data, size_t size) {
 }
 
 
-/// test a json output by parsing the \param raw_data_len bytes at
-/// \param raw_data as an object of type \param T, writing out the
-/// json representation of that object, then comparing that json to
-/// the expected \param output_len bytes at location \param output.
-/// Returns `true` on success, and `false` otherwise.
+/// test a json output by parsing the \ref datum \param raw_input as
+/// an object of type \param T, writing out the json representation of
+/// that object, then comparing that json to the \param
+/// expected_output; returns `true` on success, and `false` otherwise.
+/// If the optional parameter \param verbose_output is set to a
+/// non-`NULL` `FILE *`, then the generated output will be written to
+/// to that `FILE`.
 ///
 template <typename T>
-static bool test_json_output(uint8_t *raw_data,
-                             size_t raw_data_len,
-                             uint8_t *output,
-                             size_t output_len,
+inline bool test_json_output(datum raw_input,
+                             datum expected_output,
                              FILE *verbose_output=nullptr) {
     bool retval = false;
-    datum reference_data{raw_data, raw_data + raw_data_len};
-    T pkt{reference_data};
-    if (reference_data.is_not_null()) {
-        output_buffer<2024> buf;
+    T pkt{raw_input};
+    if (raw_input.is_not_null()) {
+        dynamic_buffer_stream buf{(size_t)expected_output.length()+1};
         json_object json{&buf};
         pkt.write_json(json, false);
         json.close();
-        if (output_len == buf.length() and buf.memcmp(output, output_len) == 0) {
+        datum result = buf.get_datum();
+        if (result.cmp(expected_output) == 0) {
             retval = true;
         }
         if (verbose_output) {

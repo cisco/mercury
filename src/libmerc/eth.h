@@ -11,6 +11,8 @@
 #include <stdint.h>
 #include "datum.h"
 #include "cdp.h"
+#include "ppp.h"
+#include "ppoe.hpp"
 
 struct eth_addr : public datum {
     static const unsigned int bytes_in_addr = 6;
@@ -19,7 +21,10 @@ struct eth_addr : public datum {
         datum::parse(d, bytes_in_addr);
     }
 
-    void fingerprint(struct buffer_stream &b) const {
+    /// write a textual representation of this ethernet address into
+    /// \param b
+    ///
+    void write(buffer_stream &b) const {
         if (datum::is_not_null()) {
             b.write_mac_addr(data);
         }
@@ -113,7 +118,14 @@ class eth {
         case ETH_TYPE_IP:
         case ETH_TYPE_IPV6:
             return true;
+        case ETH_TYPE_PPOE:
+        {
+            ppoe ppoe_pkt(pkt);
+            if(ppp::is_ip(pkt)) {
+                return true;
+            }
             break;
+        }
         default:
             ;
         }
