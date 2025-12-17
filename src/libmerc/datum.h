@@ -1030,6 +1030,35 @@ static inline datum get_datum(const char *c) {
     return { data, data + strlen(c) };
 }
 
+/// given inputs \ref datum \param outer and \ref datum \param inner
+/// such that \param inner is contained entirely within \param outer,
+/// returns a `std::pair` of `datum`s, the first of which is the
+/// portion of \param outer that preceeds \param inner, and the second
+/// of which is the portion of \param outer that follows \param inner;
+/// either the first or second `datum` may be empty.  If either \param
+/// outer or \param inner are null, or \param inner is not entirely
+/// contained within \param outer, then each `datum` in the returned
+/// `std::pair` will be null.
+///
+inline std::pair<datum,datum> symmetric_difference(datum outer, datum inner) {
+    //
+    // verify input conditions
+    //
+    if (outer.is_null() or
+        inner.is_null() or
+        outer.data > inner.data or
+        inner.data_end > outer.data_end) {
+        return {
+            { nullptr, nullptr },
+            { nullptr, nullptr }
+        };
+    }
+    return {
+        { outer.data , inner.data },
+        { inner.data_end, outer.data_end }
+    };
+}
+
 
 
 /// \class writeable
@@ -1052,9 +1081,21 @@ static inline datum get_datum(const char *c) {
 ///   |    full         | `!= nullptr`  |   `== data`  |
 ///
 class writeable {
-public:
+protected:
+
     uint8_t *data;
-    uint8_t *data_end;      // TODO: const?
+    uint8_t *data_end;
+
+    // return true if this `writeable` is in a valid state (writeable,
+    // full, or null) and false if it is in an invalid state (data >
+    // data_end)
+    //
+    bool is_invalid() const {
+        // fprintf(stderr, "{%p,%p}\n", data, data_end);
+        return data > data_end;
+    }
+
+public:
 
     /// constructs a writeable object that tracks data being written to the
     /// region between `begin` and `end`
@@ -1089,30 +1130,15 @@ public:
     ///
     ssize_t writeable_length() const { return data_end - data; }
 
-    /// consumes `length` bytes of the writeable region, if `length <=
-    /// this->writeable_length()`; otherwise, this writeable is set to
-    /// the null state
-    ///
-    void update(ssize_t length) {
-        // a length less than zero is considered an error state
-        //
-        if (length < 0) {
-            set_null();
-            return;
-        }
-        data += length;
-    }
-
     /// sets this writeable object to the null state
     ///
-    void set_null() { data = data_end = nullptr; }
+    void set_null() {
+        data = nullptr;
+        data_end = nullptr;
+    }
 
-    /// sets this writeable object to the full state
-    ///
-    void set_full() { data = data_end; }
-
-    /// copies the single `uint8_t` \param x into this `data_buffer`,
-    /// if there is room; otherwise, sets it to the null state
+    /// Copies the single `uint8_t` \param x into this `writeable`, if
+    /// there is room; otherwise, sets it to the null state.
     ///
     void copy(uint8_t x) {
         if (data + 1 > data_end) {
@@ -1120,23 +1146,33 @@ public:
             return;  // not enough room
         }
         *data++ = x;
+        assert(!is_invalid());
     }
 
-    /// copies \p num_bytes bytes from location \p rdata into this
-    /// `data_buffer`, if there is room; otherwise, sets it to the
-    /// null state
+    /// Copies \p num_bytes bytes from location \p rdata into this
+    /// `writeable`, if there is room; otherwise, sets it to the
+    /// null state.
     ///
     void copy(const uint8_t *rdata, size_t num_bytes) {
-        if (data_end - data < (ssize_t)num_bytes) {
+        if (rdata == nullptr or writeable_length() < (ssize_t)num_bytes) {
             set_null();
             return;
         }
         memcpy(data, rdata, num_bytes);
         data += num_bytes;
+        assert(!is_invalid());
+    }
+
+    /// Copies the contents of `datum` \p d into this `writeable`, if
+    /// there is room; otherwise, sets it to the null state.
+    ///
+    void copy(datum d) {
+        copy(d.data, d.length());
+        assert(!is_invalid());
     }
 
     /// writes a hexidecimal representation of the \p num_bytes bytes
-    /// at location \p rdata into this `data_buffer`, if there is room
+    /// at location \p rdata into this `writeable`, if there is room
     /// for all `2*num_bytes` hex characters; otherwise, sets it to
     /// the empty state
     ///
@@ -1145,7 +1181,7 @@ public:
         // check for writeable room; output length is twice the input
         // length
         //
-        if (is_null() or data_end - data < 2 * (ssize_t)num_bytes) {
+        if (is_null() or writeable_length() < 2 * (ssize_t)num_bytes) {
             set_null();
             return;
         }
@@ -1159,10 +1195,11 @@ public:
             *data++ = hex_table[(*src & 0xf0) >> 4];
             *data++ = hex_table[*src++ & 0x0f];
         }
+        assert(!is_invalid());
     }
 
     /// writes a quote-enclosed hexidecimal representation of the \p
-    /// num_bytes bytes at location \p rdata into this `data_buffer`,
+    /// num_bytes bytes at location \p rdata into this `writeable`,
     /// if there is room for all `2*num_bytes + 2` characters;
     /// otherwise, sets it to the null state
     ///
@@ -1173,7 +1210,7 @@ public:
     }
 
     /// writes a quote-enclosed hexidecimal representation of the
-    /// bytes in the datum \p d into this `data_buffer`, if there is
+    /// bytes in the datum \p d into this `writeable`, if there is
     /// room for all `2*num_bytes + 2` characters; otherwise, sets it
     /// to the null state
     ///
@@ -1195,7 +1232,7 @@ public:
 
     /// writes a raw representation of the hexadecimal string with \p
     /// num_digits characters at location \p src into this
-    /// `data_buffer`, if `num_digits` is even and there is room for
+    /// `writeable`, if `num_digits` is even and there is room for
     /// all `num_digits/2` bytes; otherwise, sets it to the empty
     /// state
     ///
@@ -1243,28 +1280,28 @@ public:
             *data++ = result;
 
         }
-
+        assert(!is_invalid());
     }
 
     /// copies `num_bytes` out of `r` and into this \ref writeable,
     /// and advances `r`, if this `writeable` has enough room for the
-    /// data and `r` contains at least `num_bytes`.  If `r.length() <
-    /// num_bytes` or `this->length() < num_bytes`, then this
-    /// `writeable` is set to null.
+    /// data and `r` contains at least `num_bytes`.  If `r` is null or
+    /// `r.length() < num_bytes` or `this->length() < num_bytes`, then
+    /// this `writeable` is set to null.
     ///
     void parse(struct datum &r, size_t num_bytes) {
-        if (r.length() < (ssize_t)num_bytes) {
-            r.set_null();
-            // fprintf(stderr, "warning: not enough data in parse\n");
+        if (r.is_null() or writeable_length() < (ssize_t)num_bytes) {
+            set_null();
             return;
         }
-        if (data_end - data < (int)num_bytes) {
-            set_null();
+        if (r.length() < (ssize_t)num_bytes) {
+            r.set_null();
             return;
         }
         memcpy(data, r.data, num_bytes);
         data += num_bytes;
         r.data += num_bytes;
+        assert(!is_invalid());
     }
     void parse(struct datum &r) {
         parse(r, r.length());
@@ -1279,9 +1316,7 @@ public:
     /// template specialization for datum
     ///
     writeable & operator<<(datum d) {
-        if (d.is_not_null()) {
-            parse(d);
-        }
+        copy(d);
         return *this;
     }
 
@@ -1318,7 +1353,7 @@ public:
 /// The readable part can be obtained by \ref contents()
 ///
 template <size_t T> struct data_buffer : public writeable {
-    unsigned char buffer[T];                                     // TODO: make buffer private
+    unsigned char buffer[T];
 
     /// constructs a data_buffer with a fixed length of `T` bytes
     ///
@@ -1327,7 +1362,11 @@ template <size_t T> struct data_buffer : public writeable {
     /// reset this `data_buffer` so that the writeable part contains
     /// `T` bytes and the readable part is empty (zero length)
     ///
-    void reset() { data = buffer; }
+    void reset() {
+        data = buffer;
+        data_end = buffer + T;
+        assert(!is_invalid());
+    }
 
     /// returns true if the readable part is not empty
     ///
@@ -1358,12 +1397,16 @@ template <size_t T> struct data_buffer : public writeable {
         }
     }
 
-    // TODO:
-    //  * add data != nullptr checks
-    //  * add set_null() function
-    //  * use null state to indicate write failure
-    //  * add assert() macros to support debugging
-    //  * add [[nodiscard]] as appropriate
+    /// set this `data_buffer` to full state by writing a sequence of
+    /// zero bytes
+    ///
+    void set_full() {
+        if (is_null()) {
+            reset();
+        }
+        memset(data, 0x00, writeable_length());
+        data = data_end;
+    }
 
 };
 
@@ -1374,21 +1417,25 @@ class dynamic_buffer : public writeable {
 
 public:
 
-    /// constructs a `dynamic_buffer` with an initial capacity of
-    /// \param initial_capacity bytes
+    /// constructs a `dynamic_buffer` with an initial size of
+    /// \param initial_size bytes
     ///
-    dynamic_buffer(size_t initial_capacity) :
-        buffer(initial_capacity)
+    dynamic_buffer(size_t initial_size) :
+        buffer(initial_size)
     {
         data = buffer.data();
-        data_end = data + buffer.capacity();
+        data_end = data + buffer.size();
     }
 
     /// reset this `dynamic_buffer` so that the readable part is empty
     /// (zero length) and the writeable part contains all available
     /// bytes.
     ///
-    void reset() { data = buffer.data(); }
+    void reset() {
+        data = buffer.data();
+        data_end = data + buffer.size();
+        assert(!is_invalid());
+    }
 
     /// returns true if the readable part is not empty
     ///
@@ -1419,12 +1466,505 @@ public:
         }
     }
 
-    const std::vector<uint8_t> &get_value() {
-        buffer.resize(readable_length());
-        return buffer;
+    /// set this `data_buffer` to full state by writing a sequence of
+    /// zero bytes
+    ///
+    void set_full() {
+        if (is_null()) {
+            reset();
+        }
+        memset(data, 0x00, writeable_length());
+        data = data_end;
     }
 
 };
+
+#ifndef NDEBUG
+
+// unit tests for class `writeable`, class `data_buffer`, and class
+// `dynamic_buffer`
+//
+namespace writeable_unit_test {
+
+    // B must be data_buffer or dynamic_buffer
+    //
+    template <typename B>
+    inline bool test_copy_uint8(B &buf, FILE *f=nullptr) {
+        bool result = true;
+
+        // reset buffer
+        //
+        buf.reset();
+
+        // verify buffer size
+        //
+        if (buf.writeable_length() != 1) {
+            if (f) {
+                fprintf(f, "%s error: buffer size wrong size for test (%zu bytes)\n", __func__, buf.writeable_length());
+            }
+            return false;
+        }
+
+        // test writeable::copy(uint8_t) in writeable state
+        //
+        buf.copy('a');
+        if (buf.contents().cmp(datum{"a"}) != 0) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '%s'\n", __func__, "a", buf.contents().get_string().c_str());
+            }
+            result &= false;
+        }
+
+        // test writeable::copy(uint8_t) in full state
+        //
+        buf.set_full();
+        buf.copy('a');
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '%s'\n", __func__, "a", buf.contents().get_string().c_str());
+            }
+            result &= false;
+        }
+
+        // test writeable::copy(uint8_t) in null state
+        //
+        buf.set_null();
+        buf.copy('a');
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '%s'\n", __func__, "a", buf.contents().get_string().c_str());
+            }
+            result &= false;
+        }
+
+        return result;
+    }
+
+    // B must be data_buffer or dynamic_buffer
+    //
+    template <typename B>
+    inline bool test_copy_datum(B &buf, FILE *f=nullptr) {
+        bool result = true;
+
+        // reset buffer
+        //
+        buf.reset();
+
+        // verify buffer size
+        //
+        if (buf.writeable_length() != 1) {
+            if (f) {
+                fprintf(f, "%s error: buffer size wrong for test (%zu bytes)\n", __func__, buf.writeable_length());
+            }
+            return false;
+        }
+
+        // test writeable::copy(datum) in writeable state
+        //
+        buf.copy(datum{"a"});
+        if (buf.contents().cmp(datum{"a"}) != 0) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '%s'\n", __func__, "a", buf.contents().get_string().c_str());
+            }
+            result &= false;
+        }
+
+        // test writeable::copy(datum) in full state
+        //
+        buf.set_full();
+        buf.copy(datum{"a"});
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '%s'\n", __func__, "(null)", buf.contents().get_string().c_str());
+            }
+            result &= false;
+        }
+
+        // test writeable::copy(datum) in null state
+        //
+        buf.set_null();
+        buf.copy(datum{"a"});
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '%s'\n", __func__, "(null)", buf.contents().get_string().c_str());
+            }
+            result &= false;
+        }
+
+        return result;
+    }
+
+    // B must be data_buffer or dynamic_buffer
+    //
+    template <typename B>
+    inline bool test_write_hex(B &buf, FILE *f=nullptr) {
+        bool result = true;
+
+        // reset buffer
+        //
+        buf.reset();
+
+        // verify buffer size
+        //
+        if (buf.writeable_length() < 4) {
+            if (f) {
+                fprintf(f, "%s error: buffer size too small for test (%zu bytes)\n", __func__, buf.writeable_length());
+            }
+            return false;
+        }
+
+        std::array<uint8_t,2> raw{ 0xab, 0xcd };
+        std::array<uint8_t,4> hex{ 'a', 'b', 'c', 'd' };
+
+        // test writeable::write_hex() in writeable state
+        //
+        buf.write_hex(raw.data(), raw.size());
+        if (buf.contents().cmp(datum{hex}) != 0) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '%s'\n", __func__, "abcd", buf.contents().get_string().c_str());
+            }
+            result &= false;
+        }
+
+        // test writeable::write_hex() in full state
+        //
+        buf.set_full();
+        buf.write_hex(raw.data(), raw.size());
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '%s'\n", __func__, "(null)", buf.contents().get_string().c_str());
+            }
+            result &= false;
+        }
+
+        // test writeable::write_hex() in null state
+        //
+        buf.set_null();
+        buf.write_hex(raw.data(), raw.size());
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '%s'\n", __func__, "(null)", buf.contents().get_string().c_str());
+            }
+            result &= false;
+        }
+
+        return result;
+    }
+
+    // B must be data_buffer or dynamic_buffer
+    //
+    template <typename B>
+    inline bool test_copy_from_hex(B &buf, FILE *f=nullptr) {
+        bool result = true;
+
+        // reset buffer
+        //
+        buf.reset();
+
+        // verify buffer size
+        //
+        if (buf.writeable_length() < 4) {
+            if (f) {
+                fprintf(f, "%s error: buffer size too small for test (%zu bytes)\n", __func__, buf.writeable_length());
+            }
+            return false;
+        }
+
+        std::array<uint8_t,4> raw{ 0xab, 0xcd, 0x01, 0x23 };
+        std::array<uint8_t,8> hex{ 'a', 'b', 'c', 'd', '0', '1', '2', '3' };
+
+        // test writeable::copy_from_hex() in writeable state
+        //
+        buf.copy_from_hex(hex.data(), hex.size());
+        if (buf.contents().cmp(datum{raw}) != 0) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '%s'\n", __func__, "abcd", buf.contents().get_string().c_str());
+            }
+            result &= false;
+        }
+
+        // test writeable::copy_from_hex() in full state
+        //
+        buf.set_full();
+        buf.copy_from_hex(hex.data(), hex.size());
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '%s'\n", __func__, "(null)", buf.contents().get_string().c_str());
+            }
+            result &= false;
+        }
+
+        // test writeable::copy_from_hex() in null state
+        //
+        buf.set_null();
+        buf.copy_from_hex(hex.data(), hex.size());
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '%s'\n", __func__, "(null)", buf.contents().get_string().c_str());
+            }
+            result &= false;
+        }
+
+        return result;
+    }
+
+    // B must be data_buffer or dynamic_buffer
+    //
+    template <typename B>
+    inline bool test_parse(B &buf, FILE *f=nullptr) {
+        bool result = true;
+
+        // reset buffer
+        //
+        buf.reset();
+
+        // verify buffer size
+        //
+        if (buf.writeable_length() < 4) {
+            if (f) {
+                fprintf(f, "%s error: buffer size too small for test (%zu bytes)\n", __func__, buf.writeable_length());
+            }
+            return false;
+        }
+
+        std::array<uint8_t,4> raw_data{ 0xab, 0xcd, 0x01, 0x23 };
+        std::array<uint8_t,4> expected = raw_data;
+
+        // test writeable::parse() in writeable state
+        //
+        datum raw = datum{raw_data};
+        buf.parse(raw, raw.length());
+        if (buf.contents().cmp(datum{expected}) != 0) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '", __func__, "abcd0123");
+                buf.contents().fprint_hex(f);
+                fprintf(f, "'\n");
+            }
+            result &= false;
+        }
+
+        // test writeable::parse() in full state
+        //
+        buf.set_full();
+        raw = datum{raw_data};
+        buf.parse(raw, raw.length());
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '", __func__, "(null)");
+                buf.contents().fprint_hex(f);
+                fprintf(f, "'\n");
+            }
+            result &= false;
+        }
+
+        // test writeable::parse() in null state
+        //
+        buf.set_null();
+        raw = datum{raw_data};
+        buf.parse(raw, raw.length());
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '", __func__, "(null)");
+                buf.contents().fprint_hex(f);
+                fprintf(f, "'\n");
+            }
+            result &= false;
+        }
+
+        //
+        // repeat tests with the input datum in empty state
+        //
+
+        buf.reset();
+        datum empty = datum{raw};
+        empty.set_empty();         // create an empty datum to be used in the following tests
+
+        // test writeable::parse() in writeable state
+        //
+        buf.parse(empty);
+        if (buf.contents().length() != 0) {
+            if (f) {
+                fprintf(f, "%s error: expected '', got '%s", __func__, "");
+                buf.contents().fprint_hex(f);
+                fprintf(f, "'\n");
+            }
+            result &= false;
+        }
+
+        // test writeable::parse() in full state
+        //
+        raw = datum{raw_data};
+        buf.copy(raw);                      // fill buffer before test
+        buf.parse(empty);                   // test: parse empty buffer
+        //
+        // expected output: buf.contents == expected, since parsing an
+        // empty datum should not change the writeable
+        //
+        if (buf.contents().cmp(datum{expected}) != 0) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '", __func__, "abcd0123");
+                buf.contents().fprint_hex(f);
+                fprintf(f, "'\n");
+            }
+            result &= false;
+        }
+
+        // test writeable::parse() in null state
+        //
+        // expected output: buf.contents == null, since parsing an empty
+        // datum should not change the writeable from being in null state
+        //
+        buf.set_null();
+        buf.parse(empty);
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '", __func__, "(null)");
+                buf.contents().fprint_hex(f);
+                fprintf(f, "'\n");
+            }
+            result &= false;
+        }
+
+        //
+        // repeat tests with the input datum in null state
+        //
+
+        buf.reset();
+        datum null = datum{raw};
+        null.set_null();         // create an null datum to be used in the following tests
+
+        // test writeable::parse() in writeable state
+        //
+        buf.parse(null);
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '", __func__, "(null)");
+                buf.contents().fprint_hex(f);
+                fprintf(f, "'\n");
+            }
+            result &= false;
+        }
+
+        // test writeable::parse() in full state
+        //
+        buf.set_full();                     // fill buffer before test
+        buf.parse(null);                    // test: parse null
+        //
+        // expected output: buf.contents == null, since parsing an
+        // null datum results in a null writeable
+        //
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '", __func__, "(null)");
+                buf.contents().fprint_hex(f);
+                fprintf(f, "'\n");
+            }
+            result &= false;
+        }
+
+        // test writeable::parse() in null state
+        //
+        // expected output: buf.contents == null, since parsing an empty
+        // datum should not change the writeable from being in null state
+        //
+        buf.set_null();
+        buf.parse(null);
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '", __func__, "(null)");
+                buf.contents().fprint_hex(f);
+                fprintf(f, "'\n");
+            }
+            result &= false;
+        }
+
+
+        //
+        // repeat writeable::parse() tests with input datum in
+        // readable state, in which the parse asks to read more data
+        // than is in the input
+        //
+
+        // test writeable::parse() in writeable state
+        //
+        raw = datum{raw_data};
+        buf.reset();
+        buf.parse(raw, raw.length() + 100);
+        if (buf.contents().is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '", __func__, "(null)");
+                buf.contents().fprint_hex(f);
+                fprintf(f, "'\n");
+            }
+            result &= false;
+        }
+
+        // test writeable::parse() in full state
+        //
+        buf.set_full();
+        raw = datum{raw_data};
+        buf.parse(raw, raw.length() + 100);
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '", __func__, "(null)");
+                buf.contents().fprint_hex(f);
+                fprintf(f, "'\n");
+            }
+            result &= false;
+        }
+
+        // test writeable::parse() in null state
+        //
+        buf.set_null();
+        raw = datum{raw_data};
+        buf.parse(raw, raw.length() + 100);
+        if (buf.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: expected '%s', got '", __func__, "(null)");
+                buf.contents().fprint_hex(f);
+                fprintf(f, "'\n");
+            }
+            result &= false;
+        }
+
+        return result;
+    }
+
+
+    /// Run unit tests on `class writeable` and returns `true` if all
+    /// succeeded and `false` otherwise
+    ///
+    /// \note Running this function with `valgrind --leak-check=full` or
+    /// compiling it with `-fsanitize=address` provides additional
+    /// verification.
+    ///
+    inline bool run(FILE *verbose_output=nullptr) {
+        bool result = true;
+
+        dynamic_buffer dynamic_buf{1};
+        result &= test_copy_uint8(dynamic_buf, verbose_output);
+        result &= test_copy_datum(dynamic_buf, verbose_output);
+
+        dynamic_buffer dynamic_buf_2{4};
+        result &= test_write_hex(dynamic_buf_2, verbose_output);
+        result &= test_copy_from_hex(dynamic_buf_2, verbose_output);
+        result &= test_parse(dynamic_buf_2, verbose_output);
+
+        data_buffer<1> data_buf;
+        result &= test_copy_uint8(data_buf, verbose_output);
+        result &= test_copy_datum(data_buf, verbose_output);
+
+        data_buffer<4> data_buf_2;
+        result &= test_write_hex(data_buf_2, verbose_output);
+        result &= test_copy_from_hex(data_buf_2, verbose_output);
+        result &= test_parse(data_buf_2, verbose_output);
+
+        return result;
+    }
+};
+
+#endif // NDEBUG
+
 
 /// `pad_len(length)` returns the number that, when added to length,
 /// rounds that value up to the smallest number that is at least as
