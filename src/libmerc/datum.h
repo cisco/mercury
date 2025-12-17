@@ -1137,10 +1137,6 @@ public:
         data_end = nullptr;
     }
 
-    /// sets this writeable object to the full state
-    ///
-    void set_full() { data = data_end; }
-
     /// Copies the single `uint8_t` \param x into this `writeable`, if
     /// there is room; otherwise, sets it to the null state.
     ///
@@ -1401,6 +1397,17 @@ template <size_t T> struct data_buffer : public writeable {
         }
     }
 
+    /// set this `data_buffer` to full state by writing a sequence of
+    /// zero bytes
+    ///
+    void set_full() {
+        if (is_null()) {
+            reset();
+        }
+        memset(data, 0x00, writeable_length());
+        data = data_end;
+    }
+
 };
 
 /// dynamic_buffer is a writeable that can be dynamically sized
@@ -1457,6 +1464,17 @@ public:
         } else {
             return {buffer.data(), data};
         }
+    }
+
+    /// set this `data_buffer` to full state by writing a sequence of
+    /// zero bytes
+    ///
+    void set_full() {
+        if (is_null()) {
+            reset();
+        }
+        memset(data, 0x00, writeable_length());
+        data = data_end;
     }
 
 };
