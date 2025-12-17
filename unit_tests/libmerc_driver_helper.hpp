@@ -21,6 +21,8 @@ extern size_t tcp_syn_len;
 extern unsigned char unlabeled_data[];
 extern unsigned char client_hello_no_server_name_eth[];
 extern unsigned char firefox_client_hello_eth[];
+extern unsigned char http_request_pppoe[];
+extern size_t http_request_pppoe_len;
 extern int verbosity;
 extern char default_resources_path[];
 extern char resources_lite_path[];
