@@ -51,14 +51,14 @@ namespace imap {
     };
 
     // Extracts one complete line including \r\n
-    struct imap_line : public datum {
+    class imap_line : public datum {
+    public:
         imap_line(datum &d) {
             const uint8_t *line_start = d.data;
             
             up_to_required_byte<'\r'> line_content{d};
             if (!line_content.is_not_empty()) {
                 this->set_null();
-                d.set_null();
                 return;
             }
         
@@ -74,11 +74,12 @@ namespace imap {
     };
 
     // Parser for IMAP literals (e.g., {size}\r\n or {size+}\r\n)
-    struct literal_parser : public datum {
+    class literal_parser : public datum {
         bool is_synchronizing = true;
         size_t literal_size = 0;
         datum literal_data;
         
+    public:
         literal_parser() = default;
         
         literal_parser(datum &d) {
@@ -134,6 +135,9 @@ namespace imap {
             }
         }
         
+        bool get_is_synchronizing() const { return is_synchronizing; }
+        const datum& get_literal_data() const { return literal_data; }
+        
         void write_json(json_object &o, const char *key) const {
             if (this->is_null()) {
                 return;
@@ -153,7 +157,8 @@ namespace imap {
 
     // Extracts one logical IMAP request (handles non-synchronizing literals)
     // A logical request may span multiple text lines if it contains {size+}\r\n<data>
-    struct imap_logical_request : public datum {
+    class imap_logical_request : public datum {
+    public:
         imap_logical_request(datum &d) {
             if (d.is_empty()) {
                 this->set_null();
@@ -168,7 +173,7 @@ namespace imap {
                 lookahead<literal_parser> lit_check{scanner};
                 if (lit_check) {
                     literal_parser lit{scanner};
-                    if (lit.is_synchronizing) {
+                    if (lit.get_is_synchronizing()) {
                         crlf delimiter{scanner};
                         if (scanner.is_not_null()) {
                             this->data_end = scanner.data;
@@ -203,7 +208,8 @@ namespace imap {
         }
     };
 
-    struct field_or_literal {
+    class field_or_literal {
+    public:
         enum class field_type {
             INVALID,
             LITERAL,
@@ -211,10 +217,12 @@ namespace imap {
             ATOM
         };
         
+    private:
         field_type type;
         literal_parser literal;
         datum content;
         
+    public:
         field_or_literal(datum &d) : type{field_type::INVALID}, literal{}, content{} {
             if (d.is_not_readable()) {
                 d.set_null();
@@ -227,26 +235,19 @@ namespace imap {
                 literal = literal_parser{d};
                 if (literal.is_null()) {
                     content.set_null();
-                    d.set_null();
                 } else {
-                    content = literal.literal_data;
+                    content = literal.get_literal_data();
                 }
             }
             // Check for quoted string
             else if (d.matches(std::array<uint8_t, 1>{'"'})) {
                 type = field_type::QUOTED;
                 content = quoted_string_parser{d};
-                if (content.is_null()) {
-                    d.set_null();
-                }
             }
             // Atom
             else {
                 type = field_type::ATOM;
                 content = imap_token{d};
-                if (content.is_null()) {
-                    d.set_null();
-                }
             }
         }
 
@@ -256,6 +257,9 @@ namespace imap {
             }
             return !content.is_null() || (type == field_type::LITERAL && !literal.is_null());
         }
+        
+        field_type get_type() const { return type; }
+        const literal_parser& get_literal() const { return literal; }
         
         void write_json(json_object &o, const char *key) const {
             if (!is_valid()) {
@@ -285,13 +289,14 @@ namespace imap {
     // LOGIN "<username>" "<password>"
     // LOGIN {<size>}
     // LOGIN {<size>+}{username} {<size>+}{password}
-    struct login_arguments {
+    class login_arguments {
         field_or_literal username;
         optional<literal_byte<' '>> sp;
         optional<field_or_literal> password;
         crlf delimiter;
         bool isValid;
         
+    public:
         login_arguments(datum &d) : 
             username(d),
             sp(d),
@@ -303,8 +308,8 @@ namespace imap {
                 return;
             }
             
-            if (username.type == field_or_literal::field_type::LITERAL && 
-                username.literal.is_synchronizing) {
+            if (username.get_type() == field_or_literal::field_type::LITERAL && 
+                username.get_literal().get_is_synchronizing()) {
                 isValid = !sp && !password && d.is_not_null() && d.is_empty();
             } else {
                 isValid = sp && password && d.is_not_null() && d.is_empty();
@@ -328,10 +333,12 @@ namespace imap {
     
     // Generic parser for response data: <status> [SP <additional-data>]
     // Used by both tagged and untagged responses
-    struct response_data {
+    class response_data {
         imap_token status;
         optional<literal_byte<' '>> sp;
         datum additional_data;
+        
+    public:
         response_data(datum &d) : status{d}, sp{d}, additional_data{d} {}
 
         void write_json(struct json_object &o, const char *data_key) const {
@@ -369,12 +376,14 @@ namespace imap {
 
     // Parser for server continuation responses: + SP (resp-text / base64) CRLF
     // Used internally by imap_responses multi-line parser
-    struct continuation_response {
+    class continuation_response {
         literal_byte<'+'> plus;
         literal_byte<' '> sp;  // Space is mandatory per RFC
         up_to_required_byte<'\r'> data;
         crlf delimiter;
         bool isValid;
+        
+    public:
         continuation_response(datum &d) :
             plus{d},
             sp{d},
@@ -410,10 +419,12 @@ namespace imap {
 
     // Parser for client continuation data: raw data or cancel (*) CRLF
     // Used internally by imap_requests multi-line parser
-    struct continuation_request {
+    class continuation_request {
         up_to_required_byte<'\r'> data;
         crlf delimiter;
         bool isValid;
+        
+    public:
         continuation_request(datum &d) :
             data{d},
             delimiter{d},
@@ -495,7 +506,7 @@ namespace imap {
     }
 
     // IMAP client request parser
-    struct request {
+    class request {
         up_to_required_byte<' '> tag;
         literal_byte<' '> sp1;
         alphabetic command;
@@ -503,6 +514,7 @@ namespace imap {
         datum arguments;
         bool isValid;
         
+    public:
         request(datum &d) :
             tag{d},
             sp1{d},
@@ -587,7 +599,7 @@ namespace imap {
     // 1. Untagged: * SP <response-data> CRLF
     // 2. Tagged: <tag> SP (OK|NO|BAD) SP <response-text> CRLF
     // Used internally by imap_responses multi-line parser
-    struct response {
+    class response {
         up_to_required_byte<' '> tag_or_star;      
         literal_byte<' '> sp1;                      
         up_to_required_byte<'\r'> response_data_field;    
@@ -614,31 +626,6 @@ namespace imap {
             return untagged_type::other_data;
         }
 
-        response(datum &d) :
-            tag_or_star{d},
-            sp1{d},
-            response_data_field{d},
-            delimiter{d},
-            isValid{tag_or_star.is_not_empty() && response_data_field.is_not_empty() && d.is_empty()},
-            is_untagged{false}
-        {
-            if (isValid) {
-                // Check if this is an untagged response (starts with "*")
-                is_untagged = (tag_or_star.length() == 1 && tag_or_star.matches(std::array<uint8_t, 1>{'*'}));
-                
-                // Tagged responses MUST start with status code: ok, no, or bad
-                if (!is_untagged) {
-                    datum check_status = response_data_field;
-                    imap_token status_code{check_status};
-                
-                    if (classify_untagged_response(status_code) != untagged_type::resp_cond_state) {
-                        isValid = false;
-                    }
-                }
-            }
-        }
-
-        // Print untagged response based on type
         static void print_untagged_response(struct json_object &imap_response, 
                                            const imap_token &first_word,
                                            datum &data_copy,
@@ -673,6 +660,31 @@ namespace imap {
                     imap_response.print_key_string("type", "data");
                     imap_response.print_key_json_string("data", original_data);
                     break;
+            }
+        }
+
+    public:
+        response(datum &d) :
+            tag_or_star{d},
+            sp1{d},
+            response_data_field{d},
+            delimiter{d},
+            isValid{tag_or_star.is_not_empty() && response_data_field.is_not_empty() && d.is_empty()},
+            is_untagged{false}
+        {
+            if (isValid) {
+                // Check if this is an untagged response (starts with "*")
+                is_untagged = (tag_or_star.length() == 1 && tag_or_star.matches(std::array<uint8_t, 1>{'*'}));
+                
+                // Tagged responses MUST start with status code: ok, no, or bad
+                if (!is_untagged) {
+                    datum check_status = response_data_field;
+                    imap_token status_code{check_status};
+                
+                    if (classify_untagged_response(status_code) != untagged_type::resp_cond_state) {
+                        isValid = false;
+                    }
+                }
             }
         }
 
