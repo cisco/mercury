@@ -176,7 +176,7 @@ namespace pcap {
         void write(writeable &buf) {
 
             if (!valid) {
-                buf.set_full();  // TODO: indicate failure
+                buf.set_null();
                 return;
             }
 
@@ -264,7 +264,7 @@ namespace pcap {
         void write(writeable &buf) {
 
             if (!is_valid()) {
-                buf.set_full();  // TODO: indicate failure
+                buf.set_null();
                 // fprintf(stderr, "error in %s\n", __func__);
                 return;
             }
