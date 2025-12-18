@@ -683,6 +683,7 @@ namespace imap {
                 
                     if (classify_untagged_response(status_code) != untagged_type::resp_cond_state) {
                         isValid = false;
+                        d.set_null();
                     }
                 }
             }
@@ -946,6 +947,14 @@ namespace imap {
         if (!test_json_output<imap::imap_requests>(
             datum{"a004 LOGIN {8+}\r\nusername {8+}\r\npassword\r\n"},
             datum{R"xxx({"imap":{"requests":[{"is_tagged":true,"tag":"a004","command":"LOGIN","username":{"size":8,"synchronizing":false,"data":"username"},"password":{"size":8,"synchronizing":false,"data":"password"}}]}})xxx"}
+        )) {
+            return false;
+        }
+
+        // Case-insensitive LOGIN command
+        if (!test_json_output<imap::imap_requests>(
+            datum{"a001 LoGiN username password\r\n"},
+            datum{R"xxx({"imap":{"requests":[{"is_tagged":true,"tag":"a001","command":"LoGiN","username":"username","password":"password"}]}})xxx"}
         )) {
             return false;
         }
