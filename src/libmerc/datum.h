@@ -1081,6 +1081,9 @@ inline std::pair<datum,datum> symmetric_difference(datum outer, datum inner) {
 ///   |    full         | `!= nullptr`  |   `== data`  |
 ///
 class writeable {
+    friend class file_reader;
+    friend class pem_file_reader;
+    friend class der_file_reader;
 protected:
 
     uint8_t *data;
@@ -1129,6 +1132,20 @@ public:
     /// data can be written
     ///
     ssize_t writeable_length() const { return data_end - data; }
+
+    /// consumes `length` bytes of the writeable region, if `length <=
+    /// this->writeable_length()`; otherwise, this writeable is set to
+    /// the null state
+    ///
+    void update(ssize_t length) {
+        // a length less than zero is considered an error state
+        //
+        if (length < 0) {
+            set_null();
+            return;
+        }
+        data += length;
+    }
 
     /// sets this writeable object to the null state
     ///
