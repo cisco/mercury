@@ -1,4 +1,5 @@
 # CHANGELOG for Mercury
+* Added support for Redis protocol identification
 
 ## VERSION 2.12.0
 * Fixed potential crash scenario when total QUIC Hello size exceeds 4096 bytes.
