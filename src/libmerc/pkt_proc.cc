@@ -1774,7 +1774,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             if (!analysis.result.attr.is_initialized() && c) {
                 analysis.result.attr.initialize(&(c->get_common_data().attr_name.value()),c->get_common_data().attr_name.get_names_char());
             }
-            bool output_attr = c->check_additional_attributes(analysis);
+            c->check_additional_attributes(analysis);
 
             if (exposed_creds) {
                 exposed_creds_type exposed_creds = std::visit(check_exposed_creds{}, x);
@@ -1830,7 +1830,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             //
             analysis.destination.dst_port = ntoh(analysis.destination.dst_port);
 
-            return output_analysis || output_nbd || output_attr;
+            return output_analysis || output_nbd;
 
         } else {
             if (global_vars.network_behavioral_detections) {
