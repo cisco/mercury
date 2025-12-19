@@ -16,11 +16,6 @@
 
 #define MAX_CRYPTO_ASSESSMENT_TYPES 1
 
-enum crypto_assessment_type {
-    crypto_assessment_none = 0,
-    crypto_assessment_non_pqc,
-};
-
 using crypto_assess_result = std::bitset<MAX_CRYPTO_ASSESSMENT_TYPES>;
 
 namespace crypto_policy {

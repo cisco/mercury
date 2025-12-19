@@ -14,13 +14,7 @@
 #include "ssh.h"
 #include "http.h"
 #include "http_auth.hpp"
-
-enum exposed_creds_type {
-    exposed_creds_none = 0,
-    exposed_creds_plaintext = 1,
-    exposed_creds_token = 2,
-    exposed_creds_derived = 3
-};
+#include "pkt_proc_util.h"
 
 class exposed_creds_assessor {
 public:
