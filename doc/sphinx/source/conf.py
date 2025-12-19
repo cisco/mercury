@@ -7,7 +7,7 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'mercury'
-copyright = '2024, Cisco Systems'
+copyright = '2025, Cisco Systems'
 author = 'Cisco Systems'
 with open('../../../VERSION') as VERSION:
     release = VERSION.read()
@@ -48,5 +48,5 @@ breathe_projects = {
 }
 
 breathe_projects_source = {
-    "mercury" : ( "../../../", ["src/libmerc/datum.h", "src/libmerc/watchlist.hpp", "src/libmerc/ip_address.hpp", "src/libmerc/hex.hpp" ] )
+    "mercury" : ( "../../../", ["src/libmerc/datum.h", "src/libmerc/watchlist.hpp", "src/libmerc/ip_address.hpp", "src/libmerc/hex.hpp", "src/libmerc/diagnostic.hpp" ] )
 }

@@ -6,6 +6,7 @@
 
 #include <datum.h>
 #include <lex.h>
+#include <diagnostic.hpp>
 #include <ctype.h>
 
 int main(int argc, char *argv[]) {
@@ -293,6 +294,35 @@ int main(int argc, char *argv[]) {
         num.value.fprint(stdout); fputc('\n', stdout);
         p = num.advance();
     }
+
+    // Sometimes while writing or debugging a parsing class, it is
+    // convenient to know what the state/contents of the datum are at
+    // some point in the constructor's member initialization list.
+    // The class `diagnostic` does this; it reads a datum during
+    // construction, leaves it unchanged, while writing out the
+    // contents that it observes.
+    //
+    class diagnostic_example {
+        diagnostic       diag1;
+        encoded<uint8_t> length;
+        diagnostic       diag2;
+        datum            value;
+        diagnostic       diag3;
+    public:
+
+        diagnostic_example(datum &d) :
+            diag1{d, diagnostic::hex, "initial"},  // prints "initial: 0568656c6c6f"
+            length{d},
+            diag2{d, diagnostic::ascii, "value"},  // prints "value: hello"
+            value{d, length},
+            diag3{d}                               // prints "(empty)"
+        { }
+
+    };
+
+    std::array<uint8_t,6> length_and_value{ 0x05, 'h','e','l','l','o' };
+    datum l_and_v{length_and_value};
+    diagnostic_example{l_and_v};
 
     // TODO: add examples for the following classes
     //
