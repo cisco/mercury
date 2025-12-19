@@ -185,13 +185,13 @@ DETAILS
       dnp3              DNP3 industrial control message
       dns               DNS messages
       dtls              DTLS clientHello, serverHello, and certificates
+      ftp               FTP request and response
+      ftp.request       FTP request
+      ftp.response      FTP response
       gre               GRE message
       http              HTTP request and response
       http.request      HTTP request
       http.response     HTTP response
-      ftp               FTP request and response
-      ftp.request       FTP request
-      ftp.response      FTP response
       icmp              ICMP message
       iec               IEC 60870-5-104
       lldp              LLDP message
@@ -204,6 +204,9 @@ DETAILS
       openvpn_tcp       OpenVPN over TCP
       ospf              OSPF message
       quic              QUIC handshake
+      redis             Redis request and response
+      redis.request     Redis request
+      redis.response    Redis response
       sctp              SCTP message
       ssh               SSH handshake and KEX
       smb               SMB v1 and v2
