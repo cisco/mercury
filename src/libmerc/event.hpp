@@ -159,13 +159,13 @@ public:
 
         // find number of elements that match previous vector
         size_t num_matching = 0;
-        for (num_matching=0; num_matching<3; num_matching++) {
+        for (num_matching=0; num_matching < v.size()-1; num_matching++) {
             if (prev[num_matching].compare(event[num_matching]) != 0) {
                 break;
             }
         }
         // set mismatched previous values
-        for (size_t i=num_matching; i<3; i++) {
+        for (size_t i=num_matching; i < v.size()-1; i++) {
             prev[i] = event[i];
         }
 
@@ -180,6 +180,11 @@ public:
         int gz_ret = 1;
         switch(num_matching) {
         case 0:
+
+            std::string &src_ip = event[0];
+            std::string &str_repr = event[1];
+            std::string &dst = event[3];
+
             if (!first_loop) {
                 gz_ret = gzprintf(gzf, "}]}]}]}\n");
             }
