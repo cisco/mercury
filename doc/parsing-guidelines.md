@@ -31,7 +31,7 @@ parsed, or a sequence of bytes corresponding to a lexical element.  A
 null datum can represent the result of a failed parsing attempt.
 
 
-## Parsers
+## Composable Safe Parser Classes
 
 Data parsers are implemented as classes (or class templates) that have
 a constructor that takes a `datum &input` as a parameter.  The
@@ -48,13 +48,24 @@ use the following conventions this type of constructor:
      bytes), then the input datum is set to the null state,
    * otherwise, the `data` pointer must be advanced to reflect the
      extent of the bytes consumed by decoding/parsing an object during
-     construction.
+     construction, and
+   * the constructor should initialize all data members using a member
+     initializer list, except for those that use a default
+     constructor.  If necessary, the member initalizer can invoke a
+     static member function that accepts a `datum &` and returns an
+     object of the appropriate class, in which case the function
+     should enable Return Value Optimization (RVO) to avoid an
+     unneeded copy.
 
-These conventions ensure that a data parser constructor can use a
-member initializer list, passing the input datum to each successive
-member.  This facilitates composability: objects made by composing
-together objects that follow these conventions will also follow these
-conventions.
+These conventions facilitate composability by ensuring that conforming
+classes can be used as data members of other conforming classes.
+
+Composable safe parser classes should not have a default constructor.
+They may have a constructor that accepts a `datum &&` rvalue
+reference, to make it easy to construct and pass a temporary `datum`
+to a class.  A constructor that takes a datum rvalue reference should
+merely invoke the `datum &` constructor.
+
 
 
 
