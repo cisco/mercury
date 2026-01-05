@@ -370,7 +370,7 @@ namespace cbor_fingerprint {
             encode_cbor_http_server_fingerprint(d, m);
             m.close();
 
-        }else if (lookahead<literal_byte<'d', 't', 'l', 's', '/'>> dtls{d}) {
+        } else if (lookahead<literal_byte<'d', 't', 'l', 's', '/'>> dtls{d}) {
             fp_type = fingerprint_type_dtls;
             cbor::output::map m{w};
             cbor::uint64{(uint64_t)fp_type}.write(w);
@@ -634,7 +634,7 @@ namespace cbor_fingerprint {
             decode_tls_fp(d, w);    // same format as tls fp
             break;
         case fingerprint_type_dtls_server:
-            decode_tls_server_fp(d, w); //same format as tls_server fp
+            decode_tls_server_fp(d, w); // same format as tls_server fp
             break;
         default:
             ;
