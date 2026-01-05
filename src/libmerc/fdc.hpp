@@ -156,7 +156,7 @@ namespace cbor_fingerprint {
 
         }
         m.close();
-     }
+    }
 
     inline void encode_cbor_tls_server_fingerprint(datum d, writeable &w) {
         cbor::output::map m{w};
@@ -171,7 +171,7 @@ namespace cbor_fingerprint {
 
         }
         m.close();
-     }
+    }
 
     inline void encode_cbor_http_fingerprint(datum d, writeable &w) {
         cbor::output::map m{w};
@@ -245,7 +245,7 @@ namespace cbor_fingerprint {
 
         }
         m.close();
-     }
+    }
 
     inline void encode_cbor_ssh_fingerprint(datum d, writeable &w) {
         cbor::output::map m{w};
@@ -271,7 +271,7 @@ namespace cbor_fingerprint {
         }
 
         m.close();
-     }
+    }
 
     constexpr uint64_t randomized = 0;
     constexpr uint64_t generic = 1;
@@ -314,13 +314,6 @@ namespace cbor_fingerprint {
             encode_cbor_tls_fingerprint(d, m);
             m.close();
 
-        } else if (lookahead<literal_byte<'t', 'l', 's', '_', 's', 'e', 'r', 'v', 'e', 'r', '/'>> tls_server{d}) {
-            fp_type = fingerprint_type_tls_server;
-            cbor::output::map m{w};
-            cbor::uint64{(uint64_t)fp_type}.write(w);
-            d = tls_server.advance();
-            encode_cbor_tls_server_fingerprint(d, m);
-            m.close();
         } else if (lookahead<literal_byte<'h', 't', 't', 'p', '/'>> http{d}) {
             fp_type = fingerprint_type_http;
             cbor::output::map m{w};
@@ -328,13 +321,7 @@ namespace cbor_fingerprint {
             d = http.advance();
             encode_cbor_http_fingerprint(d, w);
             m.close();
-        } else if (lookahead<literal_byte<'h', 't', 't', 'p', '_', 's', 'e', 'r', 'v', 'e', 'r', '/'>> http_server{d}) {
-            fp_type = fingerprint_type_http_server;
-            cbor::output::map m{w};
-            cbor::uint64{(uint64_t)fp_type}.write(w);
-            d = http_server.advance();
-            encode_cbor_http_server_fingerprint(d, m);
-            m.close();
+
         } else if (lookahead<literal_byte<'q', 'u', 'i', 'c', '/'>> quic{d}) {
             fp_type = fingerprint_type_quic;
             cbor::output::map m{w};
@@ -365,6 +352,40 @@ namespace cbor_fingerprint {
             cbor::uint64{(uint64_t)fp_type}.write(w);
             d = ssh.advance();
             encode_cbor_ssh_fingerprint(d, w);
+            m.close();
+
+        } else if (lookahead<literal_byte<'t', 'l', 's', '_', 's', 'e', 'r', 'v', 'e', 'r', '/'>> tls_server{d}) {
+            fp_type = fingerprint_type_tls_server;
+            cbor::output::map m{w};
+            cbor::uint64{(uint64_t)fp_type}.write(w);
+            d = tls_server.advance();
+            encode_cbor_tls_server_fingerprint(d, m);
+            m.close();
+
+        } else if (lookahead<literal_byte<'h', 't', 't', 'p', '_', 's', 'e', 'r', 'v', 'e', 'r', '/'>> http_server{d}) {
+            fp_type = fingerprint_type_http_server;
+            cbor::output::map m{w};
+            cbor::uint64{(uint64_t)fp_type}.write(w);
+            d = http_server.advance();
+            encode_cbor_http_server_fingerprint(d, m);
+            m.close();
+
+        }else if (lookahead<literal_byte<'d', 't', 'l', 's', '/'>> dtls{d}) {
+            fp_type = fingerprint_type_dtls;
+            cbor::output::map m{w};
+            cbor::uint64{(uint64_t)fp_type}.write(w);
+            d = dtls.advance();
+            // dtls fp uses same format as tls fp
+            encode_cbor_tls_fingerprint(d, m);
+            m.close();
+
+        } else if (lookahead<literal_byte<'d', 't', 'l', 's', '_', 's', 'e', 'r', 'v', 'e', 'r', '/'>> dtls_server{d}) {
+            fp_type = fingerprint_type_dtls_server;
+            cbor::output::map m{w};
+            cbor::uint64{(uint64_t)fp_type}.write(w);
+            d = dtls_server.advance();
+            // dtls server fp uses same format as tls server fp
+            encode_cbor_tls_server_fingerprint(d, m);
             m.close();
 
         }
@@ -609,6 +630,12 @@ namespace cbor_fingerprint {
         case fingerprint_type_ssh:
             decode_ssh_fp(d, w);
             break;
+        case fingerprint_type_dtls:
+            decode_tls_fp(d, w);    // same format as tls fp
+            break;
+        case fingerprint_type_dtls_server:
+            decode_tls_server_fp(d, w); //same format as tls_server fp
+            break;
         default:
             ;
         }
@@ -674,7 +701,10 @@ namespace cbor_fingerprint {
             "quic/randomized",
             "stun/1/randomized",
             "stun/1/(00)(0001)(01)((8022)(0006)(0020)(0008)(8028))",
-            "ssh/(656364682d736861322d6e697374703235362c656364682d736861322d6e697374703338342c656364682d736861322d6e697374703532312c6469666669652d68656c6c6d616e2d67726f757031342d736861312c6469666669652d68656c6c6d616e2d67726f75702d65786368616e67652d7368613235362c6469666669652d68656c6c6d616e2d67726f75702d65786368616e67652d736861312c6469666669652d68656c6c6d616e2d67726f7570312d73686131)(7373682d7273612c7373682d6473732c65636473612d736861322d6e697374703235362c65636473612d736861322d6e697374703338342c65636473612d736861322d6e69737470353231)(6165733132382d6374722c6165733132382d6362632c336465732d6374722c336465732d6362632c626c6f77666973682d6362632c6165733139322d6374722c6165733139322d6362632c6165733235362d6374722c6165733235362d636263)(6165733132382d6374722c6165733132382d6362632c336465732d6374722c336465732d6362632c626c6f77666973682d6362632c6165733139322d6374722c6165733139322d6362632c6165733235362d6374722c6165733235362d636263)(686d61632d6d64352c686d61632d736861312c686d61632d736861322d3235362c686d61632d736861312d39362c686d61632d6d64352d3936)(686d61632d6d64352c686d61632d736861312c686d61632d736861322d3235362c686d61632d736861312d39362c686d61632d6d64352d3936)(6e6f6e65)(6e6f6e65)()()"
+            "ssh/(656364682d736861322d6e697374703235362c656364682d736861322d6e697374703338342c656364682d736861322d6e697374703532312c6469666669652d68656c6c6d616e2d67726f757031342d736861312c6469666669652d68656c6c6d616e2d67726f75702d65786368616e67652d7368613235362c6469666669652d68656c6c6d616e2d67726f75702d65786368616e67652d736861312c6469666669652d68656c6c6d616e2d67726f7570312d73686131)(7373682d7273612c7373682d6473732c65636473612d736861322d6e697374703235362c65636473612d736861322d6e697374703338342c65636473612d736861322d6e69737470353231)(6165733132382d6374722c6165733132382d6362632c336465732d6374722c336465732d6362632c626c6f77666973682d6362632c6165733139322d6374722c6165733139322d6362632c6165733235362d6374722c6165733235362d636263)(6165733132382d6374722c6165733132382d6362632c336465732d6374722c336465732d6362632c626c6f77666973682d6362632c6165733139322d6374722c6165733139322d6362632c6165733235362d6374722c6165733235362d636263)(686d61632d6d64352c686d61632d736861312c686d61632d736861322d3235362c686d61632d736861312d39362c686d61632d6d64352d3936)(686d61632d6d64352c686d61632d736861312c686d61632d736861322d3235362c686d61632d736861312d39362c686d61632d6d64352d3936)(6e6f6e65)(6e6f6e65)()()",
+            "dtls/1/(fefd)(c02c)[(000a000c000a001d0017001e00190018)(000b000403000102)(000d0030002e040305030603080708080809080a080b080408050806040105010601030302030301020103020202040205020602)(0016)]",
+            "dtls/(fefd)(c02c)((000b000403000102)(000a000c000a001d0017001e00190018)(0016)(000d0030002e040305030603080708080809080a080b080408050806040105010601030302030301020103020202040205020602))",
+            "dtls_server/(fefd)(0035)((0000)(ff01)(000b))"
         };
         bool all_tests_passed = true;
         for (const auto & fp_str : fps) {
