@@ -24,15 +24,10 @@ namespace crypto_policy {
     // assessment policy
     //
     class assessor {
+        public:
 
-        size_t result_idx = -1; // index for crypto_assess_result bitset - overridden in derived classes
-
-    public:
-
-        virtual size_t get_result_idx() const {
-            return result_idx;
-        }
-
+        // static const size_t result_idx = -1; // index for crypto_assess_result::bitset
+        virtual size_t get_result_idx() const = 0;
         virtual bool assess(const tls_client_hello &) const {
             return true;
         };
@@ -114,9 +109,8 @@ namespace crypto_policy {
 
     class quantum_safe : public assessor {
         bool readable_output;
-        size_t pqc_result_idx = 0; // index for crypto_assess_result::quantum_safe bitset
 
-    public:
+        public:
 
         quantum_safe(bool readable=false) :
             readable_output{readable}
@@ -124,8 +118,10 @@ namespace crypto_policy {
 
         ~quantum_safe() { }
 
-        size_t get_result_idx() const override {
-            return pqc_result_idx;
+        const static size_t result_idx = 0; // index for crypto_assess_result::quantum_safe bitset
+
+        virtual size_t get_result_idx() const {
+            return quantum_safe::result_idx;
         }
 
         static inline std::unordered_set<uint16_t> allowed_ciphersuites {

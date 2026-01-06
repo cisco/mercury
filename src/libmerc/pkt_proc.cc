@@ -1275,7 +1275,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
 
         if (crypto_policy) {
             crypto_assess_result assessment_result = std::visit(do_crypto_assessment{crypto_policy, record}, x);
-            if (assessment_result.test(0)) {
+            if (assessment_result.test(crypto_policy::quantum_safe::result_idx)) {
                 analysis.result.attr.set_attr(c->common.non_pqc_idx, 1.0);
                 output_attr = true;
             }
@@ -1796,7 +1796,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
 
             if (crypto_policy) {
                 crypto_assess_result assessment_result = std::visit(do_crypto_assessment{crypto_policy}, x);
-                if (assessment_result.test(0)) {    // Non PQC compliance bit is set
+                if (assessment_result.test(crypto_policy::quantum_safe::result_idx)) {    // Non PQC compliance bit is set
                     analysis.result.attr.set_attr(c->common.non_pqc_idx, 1.0);
                 }
             }
@@ -1844,7 +1844,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             }
             if (crypto_policy) {
                 crypto_assess_result crypto_result = std::visit(do_crypto_assessment{crypto_policy}, x);
-                if (crypto_result.test(0)) {
+                if (crypto_result.test(crypto_policy::quantum_safe::result_idx)) {
                     analysis.result.attr.set_attr(c->common.non_pqc_idx, 1.0);
                 }
             }

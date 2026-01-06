@@ -764,7 +764,7 @@ public:
         common.exposed_creds_derived_idx = common.attr_name.get_index("exposed_credentials_derived");
 
         // reserve attributes for crypto assessments
-        common.non_pqc_idx = common.attr_name.get_index("non_pqc_session");
+        common.non_pqc_idx = common.attr_name.get_index("cnsa_2_0_non_conformant");
 
         // by default, we expect that tls fingerprints will be present in the resource file
         //
