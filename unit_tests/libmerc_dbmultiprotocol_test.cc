@@ -739,7 +739,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment attribute with reso
                 .packet_filter_cfg = (char *)"all;crypto-assess=default"
             },
             .m_pc{"tlsv1_3.pcap"}},
-            "non_pqc_session"    // check if non_pqc_session attribute is present in the attributes array
+            "cnsa_2_0_non_conformant"    // check if cnsa_2_0_non_conformant attribute is present in the attributes array
         }
     };
 
