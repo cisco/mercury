@@ -250,6 +250,11 @@ inline void ntoh(ipv6_addr_lct &addr) {
     addr = output;
 }
 
+inline bool is_private_address(const ipv6_addr_lct &addr) {
+    uint8_t first_byte = ((const uint8_t *)&addr.a[0])[0];
+    return first_byte == 0xFC || first_byte == 0xFD;
+}
+
 static inline bool ipv6_address_lct_unit_test(FILE *f = nullptr) {
 
     // Test case 1: Copy constructor and default constructor

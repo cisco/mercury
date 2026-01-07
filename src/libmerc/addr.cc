@@ -755,6 +755,10 @@ bool subnet_data::is_domain_faking(const char *domain_name_, const char* dst_ip)
         ipv6_addr.a[0] = std::get<0>(addr_tuple);
         ipv6_addr.a[1] = std::get<1>(addr_tuple);
 
+        if (is_private_address(ipv6_addr)) {
+            return false; // not domain-faking - as the IP is a private address
+        }
+
         lct_subnet_v6_t *subnet = lct_find(&ipv6_domain_trie, ipv6_addr);
         if (subnet == NULL) {
             return true; // IP not found in trie - domain-faking
