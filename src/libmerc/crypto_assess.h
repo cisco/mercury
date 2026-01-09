@@ -527,26 +527,22 @@ namespace crypto_policy {
 
         bool assess(const tls_client_hello &ch, json_object &o) const override {
 
-            json_object a{o, "cryptographic_security_assessment"};
-            a.print_key_string("policy", "quantum_safe");
-            json_object assessment{a, "client"};
+            o.print_key_string("policy", "quantum_safe");
+            json_object assessment{o, "client"};
             bool suites_compliant = assess_tls_ciphersuites(ch.ciphersuite_vector, assessment);
             bool extensions_compliant = assess_tls_extensions(ch.extensions, assessment);
             assessment.close();
-            a.close();
 
             return suites_compliant && extensions_compliant;
         }
 
         bool assess(const tls_server_hello &ch, json_object &o) const override {
 
-            // json_object a{o, "cryptographic_security_assessment"};
             o.print_key_string("policy", "quantum_safe");
             json_object assessment{o, "session"};
             bool suites_compliant = assess_tls_ciphersuites(ch.ciphersuite_vector, assessment);
             bool extensions_compliant = assess_tls_extensions(ch.extensions, assessment);
             assessment.close();
-            // a.close();
 
             return suites_compliant && extensions_compliant;
         }
@@ -577,9 +573,8 @@ namespace crypto_policy {
         }
 
         bool assess(const ssh_kex_init &ssh_kex, json_object &o) const override {
-            json_object a{o, "cryptographic_security_assessment"};
-            a.print_key_string("policy", "quantum_safe");
-            json_object assessment{a, "offered"};
+            o.print_key_string("policy", "quantum_safe");
+            json_object assessment{o, "offered"};
             bool kex_compliant = assess_ssh_kex_methods(ssh_kex.kex_algorithms, assessment);
             json_object client_server{assessment, "client_to_server"};
             bool c2s_compliant = assess_ssh_ciphers(ssh_kex.encryption_algorithms_client_to_server, client_server);
@@ -588,7 +583,6 @@ namespace crypto_policy {
             bool s2c_compliant = assess_ssh_ciphers(ssh_kex.encryption_algorithms_server_to_client, server_client);
             server_client.close();
             assessment.close();
-            a.close();
             return kex_compliant && c2s_compliant && s2c_compliant;
         }
 
@@ -601,12 +595,10 @@ namespace crypto_policy {
         bool assess(const dtls_client_hello &dtls_ch, json_object &o) const override {
 
             const tls_client_hello &ch = dtls_ch.get_tls_client_hello();
-            json_object a{o, "cryptographic_security_assessment"};
-            a.print_key_string("policy", "quantum_safe");
-            a.print_key_string("target", "client");
-            bool suites_compliant = assess_tls_ciphersuites(ch.ciphersuite_vector, a);
-            bool extensions_compliant = assess_tls_extensions(ch.extensions, a);
-            a.close();
+            o.print_key_string("policy", "quantum_safe");
+            o.print_key_string("target", "client");
+            bool suites_compliant = assess_tls_ciphersuites(ch.ciphersuite_vector, o);
+            bool extensions_compliant = assess_tls_extensions(ch.extensions, o);
 
             return suites_compliant && extensions_compliant;
         }
@@ -620,12 +612,10 @@ namespace crypto_policy {
         bool assess(const dtls_server_hello &dtls_sh, json_object &o) const override {
 
             const tls_server_hello &sh = dtls_sh.get_tls_server_hello();
-            json_object a{o, "cryptographic_security_assessment"};
-            a.print_key_string("policy", "quantum_safe");
-            a.print_key_string("target", "session");
-            bool suites_compliant = assess_tls_ciphersuites(sh.ciphersuite_vector, a);
-            bool extensions_compliant = assess_tls_extensions(sh.extensions, a);
-            a.close();
+            o.print_key_string("policy", "quantum_safe");
+            o.print_key_string("target", "session");
+            bool suites_compliant = assess_tls_ciphersuites(sh.ciphersuite_vector, o);
+            bool extensions_compliant = assess_tls_extensions(sh.extensions, o);
 
             return suites_compliant && extensions_compliant;
         }

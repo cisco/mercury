@@ -21,7 +21,7 @@ public:
     static inline exposed_creds_type assess(const http_request &http_req);
     static inline exposed_creds_type assess(const tacacs::packet &tacacs_req);
 
-    virtual ~exposed_creds_assessor() { }
+    ~exposed_creds_assessor() {}
 };
 
 
