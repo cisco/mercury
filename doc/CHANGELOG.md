@@ -1,4 +1,5 @@
 # CHANGELOG for Mercury
+* Added crypto assessment and exposed credentials attributes to analysis result.
 
 ## VERSION 2.13.1
 * Fixed potential underflows and out-of-bounds accesses in TCP and QUIC
@@ -31,7 +32,6 @@
 * Internal: Fixed decimal_integer parsing bug that advanced the input pointer
   one byte past the parsed integer.  Also added handling for leading zeros.
 * Internal: Added defensive coding in lockless queue to prevent future bugs.
-* Added crypto assessment and exposed credentials attributes to analysis result.
 
 ## VERSION 2.11.2
 * Added Exposed Credentials assessor
