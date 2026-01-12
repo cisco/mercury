@@ -76,6 +76,7 @@ class mysql_server_greet;
 namespace ldap { class message; }
 namespace krb5 { class packet; }
 namespace ftp {class request;class response;}
+namespace redis { class request; class response; }
 namespace imap {class imap_requests; class imap_responses;}
 class esp;
 namespace ike { class packet; }
@@ -108,6 +109,8 @@ using protocol = std::variant<std::monostate,
                               ldap::message,
                               ftp::request,
                               ftp::response,
+                              redis::request,
+                              redis::response,
                               imap::imap_requests,
                               imap::imap_responses,
                               rdp::connection_request_pdu,

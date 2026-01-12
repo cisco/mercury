@@ -11,6 +11,8 @@
 #include <stdint.h>
 #include "datum.h"
 #include "cdp.h"
+#include "ppp.h"
+#include "ppoe.hpp"
 
 struct eth_addr : public datum {
     static const unsigned int bytes_in_addr = 6;
@@ -116,7 +118,14 @@ class eth {
         case ETH_TYPE_IP:
         case ETH_TYPE_IPV6:
             return true;
+        case ETH_TYPE_PPOE:
+        {
+            ppoe ppoe_pkt(pkt);
+            if(ppp::is_ip(pkt)) {
+                return true;
+            }
             break;
+        }
         default:
             ;
         }

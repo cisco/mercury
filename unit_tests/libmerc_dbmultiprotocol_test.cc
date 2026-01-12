@@ -3,6 +3,25 @@
 
 int sig_close_flag = false;
 
+SCENARIO("test packet_processor_get_analysis_context with http encapsulated in PPPOE") {
+    GIVEN("mercury packet processor") {
+        libmerc_config config = create_config();
+        mercury_context mc = initialize_mercury(config);
+        mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
+
+        struct timespec time;
+        time.tv_sec = time.tv_nsec = 0;  // set to January 1st, 1970 (the Epoch)
+
+        WHEN("get analysis context") {
+            mercury_packet_processor_get_analysis_context(mpp, http_request_pppoe, http_request_pppoe_len, &time);
+            THEN("a valid result  exist") {
+                REQUIRE(mpp->analysis.result.is_valid());
+                mercury_packet_processor_destruct(mpp);
+            }
+        }
+        mercury_finalize(mc);
+    }
+}
 
 TEST_CASE_METHOD(LibmercTestFixture, "test http with resources-mp")
 {
@@ -506,6 +525,39 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ftp with resources-mp")
     {
         set_pcap(config.m_pc.c_str());
         ftp_check(count, config.m_lc);
+    }
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "test redis with resources-mp")
+{
+
+    auto redis_check = [&](int expected_count, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(expected_count == counter());
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, int>> test_set_up{
+        {test_config{
+             .m_lc{.metadata_output=true, .do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"redis"},
+             .m_pc{"redis.pcap"}},
+
+         9},
+        {test_config{
+             .m_lc{.metadata_output=true, .do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"redis"},
+             .m_pc{"top_100_fingerprints.pcap"}},
+         0}
+    };
+
+    for (auto &[config, count] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        redis_check(count, config.m_lc);
     }
 }
 
