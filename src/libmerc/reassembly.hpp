@@ -401,10 +401,15 @@ inline void reassembly_flow_context::handle_indefinite_reassembly() {
 // handle appropriately
 template <typename T>
 inline void reassembly_flow_context::process_tcp_segment(const T &seg, const datum &tcp_pkt) {
-    if (seg.seq < init_seq) {
-        return;
+    uint32_t rel_seq_st = 0;       // start index
+    if (seg.seq >= init_seq) {
+        rel_seq_st = seg.seq - init_seq;
     }
-    uint32_t rel_seq_st = seg.seq - init_seq;       // start index
+    else {
+        // wraparound, but can allow truly old segments to pass through
+        // which will get filtered out in a followup condition check
+        rel_seq_st = 0xffffffff + seg.seq - init_seq + 1; 
+    }
     uint32_t dlen = seg.data_length;
     uint32_t rel_seq_en = ( (rel_seq_st + dlen - 1) >= (max_data_size-1) ? (max_data_size-1) : (rel_seq_st + dlen - 1) );     // end index
 
@@ -419,6 +424,8 @@ inline void reassembly_flow_context::process_tcp_segment(const T &seg, const dat
 
     // check for bounds
     if (rel_seq_st > (max_data_size -1)) {
+        // filter out truly old segments skipped due to possible wraparound 
+        // and out of bound segments
         return;
     }
 
