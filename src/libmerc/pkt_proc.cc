@@ -91,15 +91,15 @@ void write_flow_key(struct json_object &o, const struct key &k) {
 
 struct do_crypto_assessment {
     const crypto_policy::assessor *ca;
-    json_object &record;
-    bool write_record;
+    json_object *record;
 
-    do_crypto_assessment(const crypto_policy::assessor *assessor, json_object &o) : ca{assessor}, record{o}, write_record{true} { }
-    do_crypto_assessment(const crypto_policy::assessor *assessor) : ca{assessor}, record{*(json_object *)nullptr}, write_record{false} { }
+    // json_object record is to be passed to the assess function only if it is passed to the visitor function
+    do_crypto_assessment(const crypto_policy::assessor *assessor, json_object &o) : ca{assessor}, record{&o} { }
+    do_crypto_assessment(const crypto_policy::assessor *assessor) : ca{assessor}, record{nullptr} { }
 
     crypto_assess_result operator()(const tls_client_hello &msg) {
         crypto_assess_result assessment_result;
-        if (!write_record) {
+        if (!record) {
             assessment_result.set(ca->get_result_idx(), !ca->assess(msg));
         }
         else {  // write metadata to json record
@@ -112,7 +112,7 @@ struct do_crypto_assessment {
 
     crypto_assess_result operator()(const tls_server_hello &msg) {
         crypto_assess_result assessment_result;
-        if (!write_record) {
+        if (!record) {
             assessment_result.set(ca->get_result_idx(), !ca->assess(msg));
         }
         else {  // write metadata to json record
@@ -125,7 +125,7 @@ struct do_crypto_assessment {
 
     crypto_assess_result operator()(const tls_server_hello_and_certificate &msg) {
        crypto_assess_result assessment_result;
-        if (!write_record) {
+        if (!record) {
             assessment_result.set(ca->get_result_idx(), !ca->assess(msg));
         }
         else {  // write metadata to json record
@@ -138,7 +138,7 @@ struct do_crypto_assessment {
 
     crypto_assess_result operator()(const dtls_client_hello &msg) {
         crypto_assess_result assessment_result;
-        if (!write_record) {
+        if (!record) {
             assessment_result.set(ca->get_result_idx(), !ca->assess(msg));
         }
         else {  // write metadata to json record
@@ -151,7 +151,7 @@ struct do_crypto_assessment {
 
     crypto_assess_result operator()(const dtls_server_hello &msg) {
         crypto_assess_result assessment_result;
-        if (!write_record) {
+        if (!record) {
             assessment_result.set(ca->get_result_idx(), !ca->assess(msg));
         }
         else {  // write metadata to json record
@@ -166,7 +166,7 @@ struct do_crypto_assessment {
     crypto_assess_result operator()(const quic_init &msg) {
         crypto_assess_result assessment_result;
         if (msg.has_tls()) {
-            if (!write_record) {
+            if (!record) {
                 assessment_result.set(ca->get_result_idx(), !ca->assess(msg.get_tls_client_hello()));
             }
             else {  // write metadata to json record
@@ -181,7 +181,7 @@ struct do_crypto_assessment {
     crypto_assess_result operator()(const ssh_init_packet &msg) {
         crypto_assess_result assessment_result;
         if (msg.kex_pkt.is_not_empty()) {
-            if (!write_record) {
+            if (!record) {
                 assessment_result.set(ca->get_result_idx(), !ca->assess(msg.kex_pkt));
             }
             else {  // write metadata to json record
@@ -196,7 +196,7 @@ struct do_crypto_assessment {
     crypto_assess_result operator()(const ssh_kex_init &msg) {
         crypto_assess_result assessment_result;
         if (msg.is_not_empty()) {
-            if (!write_record) {
+            if (!record) {
                 assessment_result.set(ca->get_result_idx(), !ca->assess(msg));
             }
             else {  // write metadata to json record
@@ -1227,24 +1227,8 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             output_attr = c->check_additional_attributes(analysis);
 
             if (exposed_creds) {
-                exposed_creds_type exposed_creds = std::visit(check_exposed_creds{}, x);
-                switch (exposed_creds) {
-                    case exposed_creds_none:
-                        // should we wait until we see auth packets?
-                        break;
-                    case exposed_creds_plaintext:
-                        analysis.result.attr.set_attr(c->common.exposed_creds_plaintext_idx, 1.0);
-                        break;
-                    case exposed_creds_derived:
-                        analysis.result.attr.set_attr(c->common.exposed_creds_derived_idx, 1.0);
-                        break;
-                    case exposed_creds_token:
-                        analysis.result.attr.set_attr(c->common.exposed_creds_token_idx, 1.0);
-                        break;
-                }
-                if (exposed_creds != exposed_creds_none) {
-                    output_attr = true;
-                }
+                exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
+                output_attr = set_exposed_creds_attr(exposed_creds_ret);
             }
 
             // analysis_.destination
@@ -1277,6 +1261,14 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             crypto_assess_result assessment_result = std::visit(do_crypto_assessment{crypto_policy, record}, x);
             if (assessment_result.test(crypto_policy::quantum_safe::result_idx)) {
                 analysis.result.attr.set_attr(c->common.non_pqc_idx, 1.0);
+                output_attr = true;
+            }
+        }
+
+        if (exposed_creds) {
+            exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
+            bool exposed_res = set_exposed_creds_attr(exposed_creds_ret);
+            if (exposed_res) {
                 output_attr = true;
             }
         }
@@ -1777,21 +1769,8 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             c->check_additional_attributes(analysis);
 
             if (exposed_creds) {
-                exposed_creds_type exposed_creds = std::visit(check_exposed_creds{}, x);
-                switch (exposed_creds) {
-                    case exposed_creds_none:
-                        // should we wait until we see auth packets?
-                        break;
-                    case exposed_creds_plaintext:
-                        analysis.result.attr.set_attr(c->common.exposed_creds_plaintext_idx, 1.0);
-                        break;
-                    case exposed_creds_derived:
-                        analysis.result.attr.set_attr(c->common.exposed_creds_derived_idx, 1.0);
-                        break;
-                    case exposed_creds_token:
-                        analysis.result.attr.set_attr(c->common.exposed_creds_token_idx, 1.0);
-                        break;
-                }
+                exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
+                set_exposed_creds_attr(exposed_creds_ret);
             }
 
             if (crypto_policy) {
@@ -1849,21 +1828,8 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
                 }
             }
             if (exposed_creds) {
-                exposed_creds_type exposed_creds = std::visit(check_exposed_creds{}, x);
-                switch (exposed_creds) {
-                    case exposed_creds_none:
-                        // should we wait until we see auth packets?
-                        break;
-                    case exposed_creds_plaintext:
-                        analysis.result.attr.set_attr(c->common.exposed_creds_plaintext_idx, 1.0);
-                        break;
-                    case exposed_creds_derived:
-                        analysis.result.attr.set_attr(c->common.exposed_creds_derived_idx, 1.0);
-                        break;
-                    case exposed_creds_token:
-                        analysis.result.attr.set_attr(c->common.exposed_creds_token_idx, 1.0);
-                        break;
-                }
+                exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
+                set_exposed_creds_attr(exposed_creds_ret);
             }
             return false;
         }

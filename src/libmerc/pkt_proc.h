@@ -319,6 +319,26 @@ struct stateful_pkt_proc {
             ssdp::set_raw_features(true);
         }
     }
+
+    bool set_exposed_creds_attr(exposed_creds_type exposed_creds_res) {
+
+        switch (exposed_creds_res) {
+            case exposed_creds_none:
+                // should we wait until we see auth packets?
+                return false;
+            case exposed_creds_plaintext:
+                analysis.result.attr.set_attr(c->common.exposed_creds_plaintext_idx, 1.0);
+                return true;
+            case exposed_creds_derived:
+                analysis.result.attr.set_attr(c->common.exposed_creds_derived_idx, 1.0);
+                return true;
+            case exposed_creds_token:
+                analysis.result.attr.set_attr(c->common.exposed_creds_token_idx, 1.0);
+                return true;
+        }
+
+        return false;
+    }
 };
 
 #endif /* PKT_PROC_H */

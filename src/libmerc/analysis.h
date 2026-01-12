@@ -522,17 +522,18 @@ public:
 
     bool check_additional_attributes_util(analysis_result &result, const char* server_name, const char* dst_ip) {
 
+        bool attr_set = false;
         if (common.doh_enabled && ((common.doh_watchlist.contains(server_name) || common.doh_watchlist.contains_addr(dst_ip)))) {
             result.attr.set_attr(common.doh_idx, 1.0);
-            return true;
+            attr_set = true;
         }
 
         if (common.domain_faking_enabled && subnets.is_domain_faking(server_name, dst_ip)) {
             result.attr.set_attr(common.domain_faking_idx, 1.0);
-            return true;
+            attr_set = true;
         }
 
-        return false;
+        return attr_set;
     }
 
     void set_faketls_attribute(analysis_result &result) {

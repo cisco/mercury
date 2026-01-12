@@ -68,6 +68,16 @@ struct json_object {
         write_comma(object.comma);
         b->write_char('{');
     }
+    json_object(struct json_object *object, const char *name) : b{object->b} {
+        write_comma(object->comma);
+        b->write_char('\"');
+        b->puts(name);
+        b->puts("\":{");
+    }
+    json_object(struct json_object *object) : b{object->b} {
+        write_comma(object->comma);
+        b->write_char('{');
+    }
     explicit json_object(struct json_array &array);
     void reinit(struct json_array &array);
     void close() {
