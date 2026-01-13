@@ -1224,11 +1224,11 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             if (!analysis.result.attr.is_initialized() && c) {
                 analysis.result.attr.initialize(&(c->get_common_data().attr_name.value()),c->get_common_data().attr_name.get_names_char());
             }
-            output_attr = c->check_additional_attributes(analysis);
+            output_attr = c->check_additional_attributes(analysis) ? true : output_attr; // set to true only if any additional attribute is set, else keep the previous value
 
             if (exposed_creds) {
                 exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
-                output_attr = set_exposed_creds_attr(exposed_creds_ret);
+                output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
             }
 
             // analysis_.destination
@@ -1267,10 +1267,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
 
         if (exposed_creds) {
             exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
-            bool exposed_res = set_exposed_creds_attr(exposed_creds_ret);
-            if (exposed_res) {
-                output_attr = true;
-            }
+            output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
         }
 
         if (output_analysis || output_nbd || output_attr) {
