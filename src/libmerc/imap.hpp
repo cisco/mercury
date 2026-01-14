@@ -12,33 +12,37 @@
 #include "base64.h"
 #include "utf8.hpp"
 #include "lex.h"
-#include "decimal_int.hpp" 
+#include "decimal_int.hpp"
+#include "perfect_hash.h" 
 
 namespace imap {
 
     // Parser for quoted strings (includes quotes)
+    // RFC 3501 Section 4.3: "A quoted string is a sequence of zero or
+    // more 7-bit characters, excluding CR and LF, with double quote
+    // (<">) characters at each end."
     class quoted_string_parser : public datum {
     public:
         quoted_string_parser(datum &d) {
-            if (!d.matches(std::array<uint8_t, 1>{'"'})) {
+            const uint8_t *start = d.data;
+            literal_byte<'"'> lquote{d};
+            if (d.is_null()) {
                 this->set_null();
-                d.set_null();
                 return;
             }
-            this->data = d.data;
-            d.skip(1); // skip opening quote
-            d.skip_up_to_delim('"');
-            if (d.matches(std::array<uint8_t, 1>{'"'})) {
-                d.skip(1); // skip closing quote
-                this->data_end = d.data;
-            } else {
+            escaped_string_up_to<'"'> body{d};
+            if (body.is_null()) {
                 this->set_null();
-                d.set_null();
+                return;
             }
+            this->data = start;
+            this->data_end = d.data;
         }
     };
-
+    
     // Parser for IMAP token up to space or CR (for status/command words)
+    // RFC 3501 Section 4.1: "An atom consists of one or more non-special
+    // characters."
     class imap_token : public datum {
     public:
         imap_token(datum &d) {
@@ -74,6 +78,11 @@ namespace imap {
     };
 
     // Parser for IMAP literals (e.g., {size}\r\n or {size+}\r\n)
+    // RFC 3501 Section 4.3: "A literal is a sequence of zero or more
+    // octets (including CR and LF), prefix-quoted with an octet count
+    // in the form of an open brace ("{"), the number of octets, close
+    // brace ("}"), and CRLF."
+    // Note: {size+} is non-synchronizing literal (RFC 2088 LITERAL+)
     class literal_parser : public datum {
         bool is_synchronizing = true;
         size_t literal_size = 0;
@@ -99,7 +108,7 @@ namespace imap {
             literal_size = size_parser.get_value();
             
             // Check for '+' (indicates non-synchronizing literal)
-            if (d.matches(std::array<uint8_t, 1>{'+'})) {
+            if (d[0] == '+') {
                 is_synchronizing = false;
                 d.skip(1); 
             }
@@ -208,6 +217,10 @@ namespace imap {
         }
     };
 
+    // Parser for IMAP string/astring fields
+    // RFC 3501 Section 4.3: "A string is in one of two forms: either
+    // literal or quoted string."
+    // astring = atom or string (used for userid, password, etc.)
     class field_or_literal {
     public:
         enum class field_type {
@@ -230,7 +243,7 @@ namespace imap {
             }
             
             // Check for literal
-            if (d.matches(std::array<uint8_t, 1>{'{'})) {
+            if (d[0] == '{') {
                 type = field_type::LITERAL;
                 literal = literal_parser{d};
                 if (literal.is_null()) {
@@ -240,7 +253,7 @@ namespace imap {
                 }
             }
             // Check for quoted string
-            else if (d.matches(std::array<uint8_t, 1>{'"'})) {
+            else if (d[0] == '"') {
                 type = field_type::QUOTED;
                 content = quoted_string_parser{d};
             }
@@ -285,10 +298,11 @@ namespace imap {
     };
 
     // Parser for LOGIN command arguments
-    // LOGIN <username> <password>
-    // LOGIN "<username>" "<password>"
-    // LOGIN {<size>}
-    // LOGIN {<size>+}{username} {<size>+}{password}
+    // RFC 3501 Section 6.2.3: "The LOGIN command identifies the client
+    // to the server and carries the plaintext password authenticating
+    // this user." Arguments: userid SP password (both astring)
+    // Handles: LOGIN user pass | LOGIN "user" "pass" | LOGIN {n+}\r\nuser {n+}\r\npass
+    // For synchronizing literals {n}, only partial command seen (awaits continuation)
     class login_arguments {
         field_or_literal username;
         optional<literal_byte<' '>> sp;
@@ -374,7 +388,7 @@ namespace imap {
         return utf8_string::write(buf, start, check_len);
     }
 
-    // Parser for server continuation responses: + SP (resp-text / base64) CRLF
+    // Parser for server continuation responses: + SP (resp-text / base64) CRLF (RFC 3501 Section 7.5)
     // Used internally by imap_responses multi-line parser
     class continuation_response {
         literal_byte<'+'> plus;
@@ -417,7 +431,7 @@ namespace imap {
         bool is_not_empty() const { return isValid; }
     };
 
-    // Parser for client continuation data: raw data or cancel (*) CRLF
+    // Parser for client continuation data: raw data or cancel (*) CRLF (RFC 3501 Section 7.5)
     // Used internally by imap_requests multi-line parser
     class continuation_request {
         up_to_required_byte<'\r'> data;
@@ -443,7 +457,7 @@ namespace imap {
             record.print_key_string("type", "continuation");
             if (data.is_not_empty()) {
                 // Check if it's a cancel command
-                if (data.length() == 1 && data.matches(std::array<uint8_t, 1>{'*'})) {
+                if (data.length() == 1 && data[0] == '*') {
                     record.print_key_string("action", "cancel");
                 } else {
                     record.print_key_json_string("data", data);
@@ -455,57 +469,37 @@ namespace imap {
     };
 
     // Validate if command is a known IMAP command per RFC 3501
+    // RFC 3501 Section 6: Commands are organized by state - any (6.1),
+    // not authenticated (6.2), authenticated (6.3), and selected (6.4).
+    // Commands are case-insensitive. Extension commands start with "X".
     static bool is_valid_imap_command(const datum &cmd) {
-        // command-any: Valid in all states
-        if (cmd.case_insensitive_match("capability") ||
-            cmd.case_insensitive_match("logout") ||
-            cmd.case_insensitive_match("noop")) {
+        static perfect_hash_set imap_commands{
+            // command-any: Valid in all states
+            "capability", "logout", "noop",
+            // command-nonauth: Valid in Not Authenticated state
+            "login", "authenticate", "starttls",
+            // command-auth: Valid in Authenticated or Selected state
+            "append", "create", "delete", "examine", "list", "lsub",
+            "rename", "select", "status", "subscribe", "unsubscribe",
+            // command-select: Valid only in Selected state
+            "check", "close", "expunge", "copy", "fetch", "store", "uid", "search"
+        };
+
+        if (imap_commands.contains(cmd)) {
             return true;
         }
-        
-        // command-auth: Valid in Authenticated or Selected state
-        if (cmd.case_insensitive_match("append") ||
-            cmd.case_insensitive_match("create") ||
-            cmd.case_insensitive_match("delete") ||
-            cmd.case_insensitive_match("examine") ||
-            cmd.case_insensitive_match("list") ||
-            cmd.case_insensitive_match("lsub") ||
-            cmd.case_insensitive_match("rename") ||
-            cmd.case_insensitive_match("select") ||
-            cmd.case_insensitive_match("status") ||
-            cmd.case_insensitive_match("subscribe") ||
-            cmd.case_insensitive_match("unsubscribe")) {
-            return true;
-        }
-        
-        // command-nonauth: Valid in Not Authenticated state
-        if (cmd.case_insensitive_match("login") ||
-            cmd.case_insensitive_match("authenticate") ||
-            cmd.case_insensitive_match("starttls")) {
-            return true;
-        }
-        
-        // command-select: Valid in Selected state
-        if (cmd.case_insensitive_match("check") ||
-            cmd.case_insensitive_match("close") ||
-            cmd.case_insensitive_match("expunge") ||
-            cmd.case_insensitive_match("copy") ||
-            cmd.case_insensitive_match("fetch") ||
-            cmd.case_insensitive_match("store") ||
-            cmd.case_insensitive_match("uid") ||
-            cmd.case_insensitive_match("search")) {
-            return true;
-        }
-        
+
         // IMAP extensions start with 'X'
-        if (cmd.matches(std::array<uint8_t, 1>{'X'}) || cmd.matches(std::array<uint8_t, 1>{'x'})) {
+        if (cmd[0] == 'X' || cmd[0] == 'x') {
             return true;
         }
-        
-        return false;  // Unknown command
+
+        return false;
     }
 
     // IMAP client request parser
+    // RFC 3501 Section 2.2.1: Format: tag SP command [SP args] CRLF
+    // Commands are case-insensitive.
     class request {
         up_to_required_byte<' '> tag;
         literal_byte<' '> sp1;
@@ -595,10 +589,8 @@ namespace imap {
     };
 
     // IMAP server response parser
-    // Parses two formats per RFC 3501:
-    // 1. Untagged: * SP <response-data> CRLF
-    // 2. Tagged: <tag> SP (OK|NO|BAD) SP <response-text> CRLF
-    // Used internally by imap_responses multi-line parser
+    // RFC 3501 Section 2.2.2
+    // Untagged: "*" SP data CRLF | Tagged: tag SP (OK|NO|BAD) SP text CRLF
     class response {
         up_to_required_byte<' '> tag_or_star;      
         literal_byte<' '> sp1;                      
@@ -636,7 +628,7 @@ namespace imap {
                     // resp-cond-state: * (OK|NO|BAD) SP resp-text
                     imap_response.print_key_string("type", "resp-cond-state");
                     imap_response.print_key_json_string("status", first_word);
-                    if (data_copy.matches(std::array<uint8_t, 1>{' '})) {
+                    if (data_copy[0] == ' ') {
                         data_copy.skip(1);
                     }
                     if (data_copy.is_not_empty()) {
@@ -647,7 +639,7 @@ namespace imap {
                 case untagged_type::capability:
                     // capability-data: * CAPABILITY ...
                     imap_response.print_key_string("type", "capability");
-                    if (data_copy.matches(std::array<uint8_t, 1>{' '})) {
+                    if (data_copy[0] == ' ') {
                         data_copy.skip(1);
                     }
                     if (data_copy.is_not_empty()) {
@@ -674,7 +666,7 @@ namespace imap {
         {
             if (isValid) {
                 // Check if this is an untagged response (starts with "*")
-                is_untagged = (tag_or_star.length() == 1 && tag_or_star.matches(std::array<uint8_t, 1>{'*'}));
+                is_untagged = (tag_or_star.length() == 1 && tag_or_star[0] == '*');
                 
                 // Tagged responses MUST start with status code: ok, no, or bad
                 if (!is_untagged) {
@@ -711,7 +703,7 @@ namespace imap {
                 
                 record.print_key_json_string("status", status_code);
             
-                if (data_copy.matches(std::array<uint8_t, 1>{' '})) {
+                if (data_copy[0] == ' ') {
                     data_copy.skip(1);
                 }
 
@@ -820,6 +812,8 @@ namespace imap {
     };
 
     // Multi-line IMAP response parser
+    // RFC 3501 Section 7: Server responses are line-based (CRLF terminated).
+    // Can be continuation ("+"), untagged ("*"), or tagged (completion).
     class imap_responses : public base_protocol {
         datum responses;
         bool valid = false;

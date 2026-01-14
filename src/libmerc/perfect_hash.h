@@ -58,7 +58,7 @@ public:
  */
 struct murmur2_hash {
 
-    uint32_t operator() (const char* key, size_t len, const uint32_t& res) {
+    uint32_t operator() (const char* key, size_t len, const uint32_t& res) const {
         /* 'm' and 'r' are mixing constants generated offline.
            They're not really 'magic', they just happen to work well.  */
 
@@ -251,7 +251,7 @@ public:
         }
     }
 
-    inline T* lookup(const uint8_t* k, const size_t key_len, bool& isValid) {
+    inline T* lookup(const uint8_t* k, const size_t key_len, bool& isValid) const {
         const char *key = (const char *)k;
         const uint32_t& first_hash = hash(key, key_len, 0);
         const int64_t& d = _g_table[first_hash % _lookup_len];
@@ -263,7 +263,7 @@ public:
         return &item->_value;
     }
 
-    std::optional<T> lookup(const uint8_t* k, const size_t key_len) {
+    std::optional<T> lookup(const uint8_t* k, const size_t key_len) const {
         const char *key = (const char *)k;
         const uint32_t& first_hash = hash(key, key_len, 0);
         const int64_t& d = _g_table[first_hash % _lookup_len];
@@ -278,5 +278,38 @@ public:
         return std::nullopt;
     }
 };
+
+// Specialization for set (no values) - provides cleaner API for key-only lookups
+template<>
+struct perfect_hash<void> {
+private:
+    perfect_hash<bool> impl;
+
+    static perfect_hash<bool> make_impl(std::initializer_list<const char*> keys) {
+        std::vector<perfect_hash_entry<bool>> entries;
+        entries.reserve(keys.size());
+        for (const char* key : keys) {
+            entries.push_back({key, true});
+        }
+        return perfect_hash<bool>{entries};
+    }
+
+public:
+    perfect_hash(std::initializer_list<const char*> keys)
+        : impl{make_impl(keys)} {}
+
+    bool contains(const uint8_t* k, size_t key_len) const {
+        bool found = false;
+        impl.lookup(k, key_len, found);
+        return found;
+    }
+
+    bool contains(const datum& d) const {
+        if (d.is_not_readable()) return false;
+        return contains(d.data, d.length());
+    }
+};
+
+using perfect_hash_set = perfect_hash<void>;
 
 #endif

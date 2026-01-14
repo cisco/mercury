@@ -8,6 +8,7 @@
 #include "datum.h"
 #include "json_object.h"
 #include "protocol.h"
+#include "lex.h"
 
 class data_dumper {
     datum raw_data;
@@ -18,37 +19,6 @@ public:
 
     void dump(const char *name, FILE *f=stderr) const {
         raw_data.fprint_c_array(f, name);
-    }
-};
-
-/// accepts a string consisting of one or more bytes not equal to
-/// \param delim1, followed by the byte \param delim1 and any other
-/// optional delimiter bytes \param optional_delimiter_bytes.
-///
-template <uint8_t delim1, uint8_t ...optional_delimiter_bytes>
-class one_or_more_up_to_delimiter : public datum {
-public:
-
-    /// accepts a string consisting of one or more bytes not equal to
-    /// \param delim1, followed by the byte \param delim1 and any other
-    /// optional delimiter bytes \param optional_delimiter_bytes.
-    ///
-    one_or_more_up_to_delimiter(datum &d) {
-        if (d.data == nullptr || d.data == d.data_end) {
-            d.set_null();
-            return;
-        }
-        const uint8_t *location = (const uint8_t *)memchr(d.data, delim1, d.length());
-        if (location == nullptr) {
-            this->set_null();
-            d.set_null();
-            return;
-        }
-        data_end = location;
-        data = d.data;
-        d.data = location + 1; // set location to right after the delimiter
-
-        (d.accept(optional_delimiter_bytes),...);
     }
 };
 

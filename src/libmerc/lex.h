@@ -177,4 +177,71 @@ public:
         return x >= 'A' && x <= 'Z';
     }
 };
+
+/// accepts a string consisting of one or more bytes not equal to
+/// \param delim1, followed by the byte \param delim1 and any other
+/// optional delimiter bytes \param optional_delimiter_bytes.
+///
+template <uint8_t delim1, uint8_t ...optional_delimiter_bytes>
+class one_or_more_up_to_delimiter : public datum {
+public:
+
+    /// accepts a string consisting of one or more bytes not equal to
+    /// \param delim1, followed by the byte \param delim1 and any other
+    /// optional delimiter bytes \param optional_delimiter_bytes.
+    ///
+    one_or_more_up_to_delimiter(datum &d) {
+        if (d.data == nullptr || d.data == d.data_end) {
+            d.set_null();
+            return;
+        }
+        const uint8_t *location = (const uint8_t *)memchr(d.data, delim1, d.length());
+        if (location == nullptr) {
+            this->set_null();
+            d.set_null();
+            return;
+        }
+        data_end = location;
+        data = d.data;
+        d.data = location + 1; // set location to right after the delimiter
+
+        (d.accept(optional_delimiter_bytes),...);
+    }
+};
+
+/// accepts a string handling escape sequences, up to the delimiter \param delim.
+/// The escape character \param escape (default '\\') causes the next character
+/// to be skipped, allowing the delimiter to appear escaped within the string.
+///
+template <uint8_t delim, uint8_t escape = '\\'>
+class escaped_string_up_to : public datum {
+public:
+
+    /// accepts a string handling escape sequences, up to the delimiter \param delim.
+    /// Characters preceded by \param escape are treated as literal and do not
+    /// terminate the string.
+    ///
+    escaped_string_up_to(datum &d) {
+        if (d.data == nullptr || d.data == d.data_end) {
+            d.set_null();
+            return;
+        }
+        data = d.data;
+        while (d.data < d.data_end) {
+            if (*d.data == escape && d.data + 1 < d.data_end) {
+                d.data += 2;  // skip escape + escaped char
+            } else if (*d.data == delim) {
+                data_end = d.data;
+                d.data++;  // skip past delimiter
+                return;
+            } else {
+                d.data++;
+            }
+        }
+        // No delimiter found
+        this->set_null();
+        d.set_null();
+    }
+};
+
 #endif // LEX_H
