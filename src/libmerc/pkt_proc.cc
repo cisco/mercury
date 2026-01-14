@@ -75,6 +75,7 @@
 #include "fdc.hpp"
 #include "l7m.hpp"
 #include "syslog.hpp"
+#include "redis.hpp"
 
 // double malware_prob_threshold = -1.0; // TODO: document hidden option
 
@@ -329,6 +330,17 @@ bool stateful_pkt_proc::set_tcp_protocol_from_keyword(protocol &x,
             }
             break;
         }
+        case tcp_msg_type_redis_request:
+        {
+            if (selector.redis_request()) {
+                redis::request proto{pkt_copy};
+                if (proto.is_not_empty()) {
+                    x = proto;
+                    return true;
+                }
+            }
+            break;
+        }
         default:
             break;
     }
@@ -482,6 +494,12 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         return;
     case tcp_msg_type_ftp_response:
         x.emplace<ftp::response>(pkt);
+        return;
+    case tcp_msg_type_redis_response:
+        x.emplace<redis::response>(pkt);
+        return;
+    case tcp_msg_type_redis_request:
+        x.emplace<redis::request>(pkt);
         return;
     default:
         if (is_new && global_vars.output_tcp_initial_data) {

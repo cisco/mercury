@@ -1,5 +1,10 @@
 # CHANGELOG for Mercury
 
+## VERSION 2.13.0
+* Added support for Redis Serialization Protocol v2(RESP), with a focus on
+  detecting exposed credentials.
+* Added checks to handle TCP SEQ number wraparound in TCP reassembly code.
+
 ## VERSION 2.12.0
 * Fixed potential crash scenario when total QUIC Hello size exceeds 4096 bytes.
 * Updated mercury-python pip package. For Linux, upgraded base image from
