@@ -408,7 +408,7 @@ inline void reassembly_flow_context::process_tcp_segment(const T &seg, const dat
     else {
         // wraparound, but can allow truly old segments to pass through
         // which will get filtered out in a followup condition check
-        rel_seq_st = 0xffffffff + seg.seq - init_seq + 1; 
+        rel_seq_st = 0xffffffff + seg.seq - init_seq + 1;
     }
     uint32_t dlen = seg.data_length;
     uint32_t rel_seq_en = ( (rel_seq_st + dlen - 1) >= (max_data_size-1) ? (max_data_size-1) : (rel_seq_st + dlen - 1) );     // end index
@@ -424,7 +424,7 @@ inline void reassembly_flow_context::process_tcp_segment(const T &seg, const dat
 
     // check for bounds
     if (rel_seq_st > (max_data_size -1)) {
-        // filter out truly old segments skipped due to possible wraparound 
+        // filter out truly old segments skipped due to possible wraparound
         // and out of bound segments
         return;
     }
