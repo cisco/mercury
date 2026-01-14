@@ -280,14 +280,11 @@ format:
 .PHONY: increment-patchlevel increment-minor-version increment-major-version
 increment-patchlevel:
 	cd src; make increment-patchlevel
-	echo $(COLOR_GREEN) "created git tag; ready for 'git push origin <tagname>'"
 
 increment-minor-version:
 	cd src; make increment-minor-version
-	echo $(COLOR_GREEN) "created git tag; ready for 'git push origin <tagname>'"
 
 increment-major-version:
 	cd src; make increment-major-version
-	echo $(COLOR_GREEN) "created git tag; ready for 'git push origin <tagname>'"
 
 # EOF

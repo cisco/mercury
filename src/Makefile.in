@@ -1,7 +1,6 @@
 # makefile for mercury fast fingerprint / packet metadata capture program
 #
 
-
 SHELL = /bin/sh
 
 srcdir = .
@@ -387,23 +386,37 @@ minor=$(subst .,,$(shell cat ../VERSION | grep -o "\.[0-9]*\."))
 patch=$(shell cat ../VERSION | grep -o "[0-9]*$$")
 version=$(major).$(minor).$(patch)
 MSV ="-DMERCURY_SEMANTIC_VERSION=$(major),$(minor),$(patch)"
+
+define increment_version
+	echo $(2) > ../VERSION
+	echo "__version__ = '$(2)'" > cython/_version.py
+	sed -i.bak "s/__version__ = '.*'/__version__ = '$(2)'/" cython/mercury.pyx && rm cython/mercury.pyx.bak
+	git add ../VERSION ../doc/CHANGELOG.md cython/_version.py cython/mercury.pyx
+	git commit -m "$(3): $(1) -> $(2)"
+	@echo ""
+	@echo $(COLOR_GREEN) "Version bumped: $(1) -> $(2). Next steps:" $(COLOR_OFF)
+	@echo "  1. Push current branch (not dev): git push"
+	@echo "  2. Create PR to merge current branch into dev, then merge"
+	@echo "  3. Create PR to merge dev to trunk, then merge (creates merge commit)"
+	@echo "  4. Create tag: git checkout trunk && git pull && git tag -a $(2) -m 'Release $(2)'"
+	@echo "  5. Push tag: git push origin $(2)"
+	@echo "  6. Restore dev (keep ahead of trunk): git checkout dev && git pull && git merge --ff-only trunk"
+	@echo "  7. Push dev (may require disabling branch protection): git push origin dev"
+	@echo ""
+	@echo "If branch protection blocks step 7:"
+	@echo "  - Open dev branch protection rules"
+	@echo "  - Uncheck 'Do not allow bypassing the above settings'"
+	@echo "  - Complete step 7, then restore the setting"
+endef
+
 .PHONY: increment-patchlevel increment-minor-version increment-major-version
 increment-patchlevel:
-	echo $(major).$(minor).$(shell expr $(patch) + 1) > ../VERSION
-	git add ../VERSION ../doc/CHANGELOG.md
-	git commit -m "incrementing patchlevel"
-	git tag -a $(major).$(minor).$(shell expr $(patch) + 1) -m "\"patchlevel increment\""
+	$(call increment_version,$(version),$(major).$(minor).$(shell expr $(patch) + 1),incrementing patchlevel)
 
 increment-minor-version:
-	echo $(major).$(shell expr $(minor) + 1).0 > ../VERSION
-	git add ../VERSION ../doc/CHANGELOG.md
-	git commit -m "incrementing minor version"
-	git tag -a $(major).$(shell expr $(minor) + 1).0 -m "\"minor version increment\""
+	$(call increment_version,$(version),$(major).$(shell expr $(minor) + 1).0,incrementing minor version)
 
 increment-major-version:
-	echo $(shell expr $(major) + 1).0.0 > ../VERSION
-	git add ../VERSION ../doc/CHANGELOG.md
-	git commit -m "incrementing major version"
-	git tag -a $(shell expr $(major) + 1).0.0 -m "\"major version increment\""
+	$(call increment_version,$(version),$(shell expr $(major) + 1).0.0,incrementing major version)
 
 # EOF
