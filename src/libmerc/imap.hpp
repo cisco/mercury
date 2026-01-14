@@ -61,7 +61,7 @@ namespace imap {
             const uint8_t *line_start = d.data;
             
             up_to_required_byte<'\r'> line_content{d};
-            if (!line_content.is_not_empty()) {
+            if (line_content.is_null()) {
                 this->set_null();
                 return;
             }
