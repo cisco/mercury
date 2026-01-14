@@ -19,6 +19,7 @@
 #include "ip_address.hpp"
 #include "match.h"
 #include "ech.hpp"
+#include "base64.h"
 #include <string>
 
 /**
@@ -1117,6 +1118,9 @@ struct dns_packet : public base_protocol {
             protocols.print_string("dns");
         }
         protocols.close();
+        cbor_object dns{o, is_netbios ? "nbns" : "dns"};
+        dns.print_key_base64("base_64", get_datum());
+        dns.close();
     }
 
     // mask:   0040fe8eff00ff00fee0

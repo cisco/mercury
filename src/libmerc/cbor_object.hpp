@@ -9,6 +9,7 @@
 #include "static_dict.hpp"
 #include "json_object.h"
 #include "utf8.hpp"
+#include "base64.h"
 #include <stdexcept>
 
 constexpr uint64_t tag_npf_fingerprint = 0x4650; // application tag 18000, "FP"; NPF representation hint
@@ -82,6 +83,14 @@ public:
     void print_key_null(const char *key) {
         cbor::text_string{key}.write(m);
         cbor::initial_byte{cbor::simple_or_float_type, cbor::initial_byte::null}.write(m);
+    }
+
+    void print_key_base64(const char *key, datum d) {
+        if (d.is_readable()) {
+            cbor::text_string{key}.write(m);
+            std::string b64 = base64_encode(d.data, d.length());
+            cbor::text_string{b64.c_str()}.write(m);
+        }
     }
 
     void close() { m.close(); }

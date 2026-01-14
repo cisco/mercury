@@ -303,6 +303,8 @@ struct tls_server_certificate {
     void write_json(struct json_array &a, bool json_output) const;
     bool get_subject_common_name(std::string &common_name) const;
 
+    void write_l7_metadata(cbor_array &a) const;
+
     static constexpr mask_and_value<8> matcher{
         { 0xff, 0xff, 0xfc, 0x00, 0x00, 0xff, 0x00, 0x00 },
         { 0x16, 0x03, 0x00, 0x00, 0x00, 0x0b, 0x00, 0x00 }
@@ -626,6 +628,15 @@ public:
         cbor_array protocols{o, "protocols"};
         protocols.print_string("tls");
         protocols.close();
+        if (certificate.is_not_empty()) {
+            cbor_object tls{o, "tls"};
+            cbor_object server{tls, "server"};
+            cbor_array certs{server, "certs"};
+            certificate.write_l7_metadata(certs);
+            certs.close();
+            server.close();
+            tls.close();
+        }
     }
 
     void compute_fingerprint(fingerprint &fp) const {
@@ -2206,6 +2217,39 @@ inline bool tls_server_certificate::get_subject_common_name(std::string &common_
         }
     }
     return false;
+}
+
+inline void tls_server_certificate::write_l7_metadata(cbor_array &a) const {
+
+    struct datum tmp_cert_list = certificate_list;
+    while (tmp_cert_list.length() > 0) {
+
+        /* get certificate length */
+        uint64_t tmp_len;
+        if (tmp_cert_list.read_uint(&tmp_len, L_CertificateLength) == false) {
+            return;
+        }
+
+        if (tmp_len > (unsigned)tmp_cert_list.length()) {
+            tmp_len = tmp_cert_list.length(); /* truncate */
+        }
+
+        if (tmp_len == 0) {
+            return; /* don't bother printing out a partial cert if it has a length of zero */
+        }
+
+        struct cbor_object certs{a};
+        struct datum cert_parser{tmp_cert_list.data, tmp_cert_list.data + tmp_len};
+        certs.print_key_base64("base64", cert_parser);
+        certs.close();
+
+        /*
+         * advance parser over certificate data
+         */
+        if (tmp_cert_list.skip(tmp_len) == false) {
+            return;
+        }
+    }
 }
 
 
