@@ -13,7 +13,7 @@
 #include "utf8.hpp"
 #include "lex.h"
 #include "decimal_int.hpp"
-#include "perfect_hash.h" 
+#include "perfect_hash.h"
 
 namespace imap {
 
@@ -586,6 +586,10 @@ namespace imap {
         }
 
         bool is_not_empty() const { return isValid; }
+
+        datum get_command() const { return command; }
+
+        datum get_arguments() const { return arguments; }
     };
 
     // IMAP server response parser
@@ -809,6 +813,67 @@ namespace imap {
             protocols.print_string("imap");
             protocols.close();
         }
+
+        // Check for exposed credentials in IMAP request
+        // Per RFC 3501, LOGIN/AUTHENTICATE commands are single commands
+        // that require server response before client can send more
+        // exposed_creds_type check_credential_exposure() const {
+        //     if (!valid || !is_tagged_request) {
+        //         return exposed_creds_none;
+        //     }
+            
+        //     // Parse first tagged request (already validated by parse())
+        //     datum temp = requests;
+        //     imap_logical_request logical_req{temp};
+        //     request req{logical_req};
+            
+        //     // Get command from the request
+        //     datum cmd = req.get_command();
+            
+        //     // LOGIN command always exposes plaintext credentials
+        //     if (cmd.case_insensitive_match("login")) {
+        //         return exposed_creds_plaintext;
+        //     }
+            
+        //     // AUTHENTICATE command - depends on SASL mechanism
+        //     if (cmd.case_insensitive_match("authenticate")) {
+        //         datum args = req.get_arguments();
+        //         if (args.is_not_empty()) {
+        //             // Trim CRLF if present
+        //             if (args.length() >= 2) {
+        //                 args.trim(2);
+        //             }
+                    
+        //             // Extract auth mechanism (first token)
+        //             imap_token auth_mechanism{args};
+                    
+        //             // Plaintext mechanisms
+        //             if (auth_mechanism.case_insensitive_match("plain") ||
+        //                 auth_mechanism.case_insensitive_match("login")) {
+        //                 return exposed_creds_plaintext;
+        //             }
+                    
+        //             // Derived/hashed mechanisms (challenge-response)
+        //             if (auth_mechanism.case_insensitive_match("cram-md5") ||
+        //                 auth_mechanism.case_insensitive_match("digest-md5") ||
+        //                 auth_mechanism.case_insensitive_match("scram-sha-1") ||
+        //                 auth_mechanism.case_insensitive_match("scram-sha-256") ||
+        //                 auth_mechanism.case_insensitive_match("ntlm")) {
+        //                 return exposed_creds_derived;
+        //             }
+                    
+        //             // Token-based mechanisms
+        //             if (auth_mechanism.case_insensitive_match("oauth") ||
+        //                 auth_mechanism.case_insensitive_match("oauthbearer") ||
+        //                 auth_mechanism.case_insensitive_match("xoauth2") ||
+        //                 auth_mechanism.case_insensitive_match("gssapi")) {
+        //                 return exposed_creds_token;
+        //             }
+        //         }
+        //     }
+            
+        //     return exposed_creds_none;
+        // }
     };
 
     // Multi-line IMAP response parser
