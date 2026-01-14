@@ -305,6 +305,8 @@ struct tls_server_certificate {
 
     void write_l7_metadata(cbor_array &a) const;
 
+    void write_l7_metadata(cbor_array &a) const;
+
     static constexpr mask_and_value<8> matcher{
         { 0xff, 0xff, 0xfc, 0x00, 0x00, 0xff, 0x00, 0x00 },
         { 0x16, 0x03, 0x00, 0x00, 0x00, 0x0b, 0x00, 0x00 }
@@ -2194,31 +2196,6 @@ inline void tls_server_certificate::write_json(struct json_array &a, bool json_o
     }
 }
 
-inline bool tls_server_certificate::get_subject_common_name(std::string &common_name) const {
-    struct datum tmp_cert_list = certificate_list;
-    while (tmp_cert_list.length() > 0) {
-        uint64_t tmp_len;
-        if (tmp_cert_list.read_uint(&tmp_len, L_CertificateLength) == false) {
-            return false;
-        }
-        if (tmp_len > (unsigned)tmp_cert_list.length()) {
-            tmp_len = tmp_cert_list.length(); /* truncate */
-        }
-        if (tmp_len == 0) {
-            return false;
-        }
-        struct x509_cert c;
-        c.parse(tmp_cert_list.data, tmp_len);
-        if (c.get_subject_common_name(common_name)) {
-            return true;
-        }
-        if (tmp_cert_list.skip(tmp_len) == false) {
-            return false;
-        }
-    }
-    return false;
-}
-
 inline void tls_server_certificate::write_l7_metadata(cbor_array &a) const {
 
     struct datum tmp_cert_list = certificate_list;
@@ -2240,7 +2217,7 @@ inline void tls_server_certificate::write_l7_metadata(cbor_array &a) const {
 
         struct cbor_object certs{a};
         struct datum cert_parser{tmp_cert_list.data, tmp_cert_list.data + tmp_len};
-        certs.print_key_hex("data", cert_parser);
+        certs.print_key_base64("base64", cert_parser);
         certs.close();
 
         /*
