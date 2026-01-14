@@ -1030,6 +1030,9 @@ public:
         feature_weights weights{new_as_weight, new_domain_weight, new_port_weight,
                                 new_ip_weight, new_sni_weight, new_ua_weight};
         auto perform_analysis_fn = [&](fingerprint_data *fp_data, fingerprint_status status) {
+            if (fp_data == nullptr) {
+                return analysis_result{status};
+            }
             return fp_data->perform_analysis(server_name, dst_ip, dst_port, user_agent, status, weights);
         };
         return perform_analysis_common(fp_str, perform_analysis_fn);
