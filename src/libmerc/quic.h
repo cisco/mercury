@@ -1539,7 +1539,7 @@ public:
         uint32_t offset = pre_decrypted ? decry_pkt.get_min_crypto_offset() : min_crypto_offset;
         if (!crypto_buffer.buf_len || offset == UINT32_MAX || offset > crypto_buffer.buf_len) {
             *buf_len = 0;
-            return nullptr;
+            return (const uint8_t*)crypto_buffer.buffer;
         }
         *buf_len = crypto_buffer.buf_len - offset;
         return (const uint8_t*)crypto_buffer.buffer;
