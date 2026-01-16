@@ -188,7 +188,11 @@ namespace crypto_policy {
         bool assess_tls_ciphersuites_impl(datum ciphersuite_vector, json_object *a) const {
             bool all_allowed = true;
             bool some_allowed = false;
-            std::unique_ptr<json_array> cs_array;
+
+            // Do not use this dummy object without checking for json_object a
+            // buffer pointer is uninitialized in case of the default constructor
+            //
+            json_array cs_array;
 
             while (ciphersuite_vector.is_readable()) {
                 tls::cipher_suites cs{ciphersuite_vector};
@@ -201,18 +205,18 @@ namespace crypto_policy {
                 if (!found) {
                     all_allowed = false;
                     if (a != nullptr) {
-                        cs_array = std::make_unique<json_array>(*a, "ciphersuites_not_allowed");
+                        cs_array = json_array(*a, "ciphersuites_not_allowed");
                     }
 
                     while (true) {
                         if (!is_grease(cs)) {
                             found = (allowed_ciphersuites.find(cs.value()) != allowed_ciphersuites.end());
                             if (!found) {
-                                if (cs_array != nullptr) {
+                                if (a != nullptr) {
                                     if (readable_output) {
-                                        cs_array->print_string(cs.get_name());
+                                        cs_array.print_string(cs.get_name());
                                     } else {
-                                        cs_array->print_uint16_hex(cs);
+                                        cs_array.print_uint16_hex(cs);
                                     }
                                 }
                             } else {
@@ -224,8 +228,8 @@ namespace crypto_policy {
                         cs = tls::cipher_suites{ciphersuite_vector};
                     }
 
-                    if (cs_array != nullptr) {
-                        cs_array->close();
+                    if (a != nullptr) {
+                        cs_array.close();
                     }
                     break;
                 } else {
@@ -267,7 +271,10 @@ namespace crypto_policy {
                 return false; // not a valid named groups length
             }
 
-            std::unique_ptr<json_array> ng_array;
+            // Do not use this dummy object without checking for json_object a
+            // buffer pointer is uninitialized in case of the default constructor
+            //
+            json_array ng_array;
 
             while (named_groups_xtn.value.is_readable()) {
                 tls::supported_groups named_group{named_groups_xtn.value};
@@ -280,18 +287,18 @@ namespace crypto_policy {
                 if (!found) {
                     all_allowed = false;
                     if (a != nullptr) {
-                        ng_array = std::make_unique<json_array>(*a, "groups_not_allowed");
+                        ng_array = json_array(*a, "groups_not_allowed");
                     }
 
                     while (true) {
                         if (!is_grease(named_group)) {
                             found = (allowed_groups.find(named_group.value()) != allowed_groups.end());
                             if (!found) {
-                                if (ng_array != nullptr) {
+                                if (a != nullptr) {
                                     if (readable_output) {
-                                        ng_array->print_string(named_group.get_name());
+                                        ng_array.print_string(named_group.get_name());
                                     } else {
-                                        ng_array->print_uint16_hex(named_group);
+                                        ng_array.print_uint16_hex(named_group);
                                     }
                                 }
                             } else {
@@ -303,8 +310,8 @@ namespace crypto_policy {
                         named_group = tls::supported_groups{named_groups_xtn.value};
                     }
 
-                    if (ng_array != nullptr) {
-                        ng_array->close();
+                    if (a != nullptr) {
+                        ng_array.close();
                     }
                     break;
                 } else {

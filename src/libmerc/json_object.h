@@ -327,6 +327,12 @@ struct json_array {
         b->puts(name);
         b->puts("\":[");
     }
+    explicit json_array() {}
+    constexpr json_array& operator=(const json_array &other) {
+        b = other.b;
+        comma = other.comma;
+        return *this;
+    }
     void close() {
         b->write_char(']');
     }
