@@ -178,12 +178,12 @@ struct reassembly_flow_context {
         cid{},
         cid_len{0} {
 
+        // preventive checks
         if (seg.data_length == 0 || tcp_pkt.is_not_readable()) {
             state = reassembly_state::reassembly_truncated;
             reassembly_flag_val[(size_t)reassembly_flags::truncated] = true;
             return;
         }
-
         uint32_t copy_len = seg.data_length;
         if (tcp_pkt.length() < (ssize_t)copy_len) {
             copy_len = (uint32_t)tcp_pkt.length();
@@ -196,8 +196,9 @@ struct reassembly_flow_context {
             reassembly_flag_val[(size_t)reassembly_flags::truncated] = true;
             return;
         }
+
         init_seg_len = copy_len;
-        total_bytes_needed = copy_len + seg.additional_bytes_needed;
+        total_bytes_needed = seg.data_length + seg.additional_bytes_needed;
         curr_contiguous_data = copy_len;
         total_set_data = copy_len;
 
@@ -228,12 +229,12 @@ struct reassembly_flow_context {
         cid{},
         cid_len{(size_t)(seg.cid.length() > (ssize_t)max_cid_len ? max_cid_len : seg.cid.length())} {
 
+        // preventive checks
         if (seg.data_length == 0 || crypto_buf.is_not_readable()) {
             state = reassembly_state::reassembly_truncated;
             reassembly_flag_val[(size_t)reassembly_flags::truncated] = true;
             return;
         }
-
         uint32_t copy_len = seg.data_length;
         if (crypto_buf.length() < (ssize_t)copy_len) {
             copy_len = (uint32_t)crypto_buf.length();
@@ -246,8 +247,9 @@ struct reassembly_flow_context {
             reassembly_flag_val[(size_t)reassembly_flags::truncated] = true;
             return;
         }
+
         init_seg_len = copy_len;
-        total_bytes_needed = copy_len + seg.additional_bytes_needed;
+        total_bytes_needed = seg.data_length + seg.additional_bytes_needed;
         curr_contiguous_data = copy_len;
         total_set_data = copy_len;
 

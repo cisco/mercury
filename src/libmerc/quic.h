@@ -1515,12 +1515,12 @@ public:
     }
 
     const uint8_t *get_crypto_buf (uint32_t *buf_len) const {
-        if (!crypto_buffer.buf_len) {
+        uint32_t offset = pre_decrypted ? decry_pkt.get_min_crypto_offset() : min_crypto_offset;
+        if (!crypto_buffer.buf_len || offset == UINT32_MAX || offset > crypto_buffer.buf_len) {
             *buf_len = 0;
+            return nullptr;
         }
-        else {
-            *buf_len = crypto_buffer.buf_len - (pre_decrypted ? (decry_pkt.get_min_crypto_offset()) : min_crypto_offset);
-        }
+        *buf_len = crypto_buffer.buf_len - offset;
         return (const uint8_t*)crypto_buffer.buffer;
     }
 
