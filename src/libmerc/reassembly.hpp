@@ -178,12 +178,35 @@ struct reassembly_flow_context {
         cid{},
         cid_len{0} {
 
+        if (seg.data_length == 0 || tcp_pkt.is_not_readable()) {
+            state = reassembly_state::reassembly_truncated;
+            reassembly_flag_val[(size_t)reassembly_flags::truncated] = true;
+            return;
+        }
+
+        uint32_t copy_len = seg.data_length;
+        if (tcp_pkt.length() < (ssize_t)copy_len) {
+            copy_len = (uint32_t)tcp_pkt.length();
+        }
+        if (copy_len > max_data_size) {
+            copy_len = max_data_size;
+        }
+        if (copy_len == 0) {
+            state = reassembly_state::reassembly_truncated;
+            reassembly_flag_val[(size_t)reassembly_flags::truncated] = true;
+            return;
+        }
+        init_seg_len = copy_len;
+        total_bytes_needed = copy_len + seg.additional_bytes_needed;
+        curr_contiguous_data = copy_len;
+        total_set_data = copy_len;
+
         seg_list.reserve(max_segments);
-        seg_list.push_back({seg.seq - init_seq, seg.seq - init_seq + seg.data_length - 1});
+        seg_list.push_back({seg.seq - init_seq, seg.seq - init_seq + init_seg_len - 1});
         curr_seg_count = 1;
 
         // process the pkt
-        memcpy(buffer,tcp_pkt.data, (seg.data_length > max_data_size ? max_data_size : seg.data_length));
+        memcpy(buffer, tcp_pkt.data, init_seg_len);
     }
 
      // ctor to be called only on inital tcp data segment required for reassembly, for the first time
@@ -205,15 +228,38 @@ struct reassembly_flow_context {
         cid{},
         cid_len{(size_t)(seg.cid.length() > (ssize_t)max_cid_len ? max_cid_len : seg.cid.length())} {
 
+        if (seg.data_length == 0 || crypto_buf.is_not_readable()) {
+            state = reassembly_state::reassembly_truncated;
+            reassembly_flag_val[(size_t)reassembly_flags::truncated] = true;
+            return;
+        }
+
+        uint32_t copy_len = seg.data_length;
+        if (crypto_buf.length() < (ssize_t)copy_len) {
+            copy_len = (uint32_t)crypto_buf.length();
+        }
+        if (copy_len > max_data_size) {
+            copy_len = max_data_size;
+        }
+        if (copy_len == 0) {
+            state = reassembly_state::reassembly_truncated;
+            reassembly_flag_val[(size_t)reassembly_flags::truncated] = true;
+            return;
+        }
+        init_seg_len = copy_len;
+        total_bytes_needed = copy_len + seg.additional_bytes_needed;
+        curr_contiguous_data = copy_len;
+        total_set_data = copy_len;
+
         seg_list.reserve(max_segments);
-        seg_list.push_back({seg.seq - init_seq, seg.seq - init_seq + seg.data_length - 1});
+        seg_list.push_back({seg.seq - init_seq, seg.seq - init_seq + init_seg_len - 1});
         curr_seg_count = 1;
 
         // copy cid
         memcpy(cid,seg.cid.data,( seg.cid.length() > (ssize_t)max_cid_len ? max_cid_len : seg.cid.length()));  // copy max 20 byte cid
 
         // process the pkt
-        memcpy(buffer,crypto_buf.data, (seg.data_length > max_data_size ? max_data_size : seg.data_length));
+        memcpy(buffer, crypto_buf.data, init_seg_len);
     }
 
     template <typename T> void process_tcp_segment(const T &seg, const datum &tcp_pkt);
@@ -401,6 +447,10 @@ inline void reassembly_flow_context::handle_indefinite_reassembly() {
 // handle appropriately
 template <typename T>
 inline void reassembly_flow_context::process_tcp_segment(const T &seg, const datum &tcp_pkt) {
+    if (seg.data_length == 0 || tcp_pkt.is_not_readable()) {
+        return;
+    }
+
     uint32_t rel_seq_st = 0;       // start index
     if (seg.seq >= init_seq) {
         rel_seq_st = seg.seq - init_seq;
@@ -411,6 +461,12 @@ inline void reassembly_flow_context::process_tcp_segment(const T &seg, const dat
         rel_seq_st = 0xffffffff + seg.seq - init_seq + 1;
     }
     uint32_t dlen = seg.data_length;
+    if (tcp_pkt.length() < (ssize_t)dlen) {
+        dlen = (uint32_t)tcp_pkt.length();
+    }
+    if (dlen == 0) {
+        return;
+    }
     uint32_t rel_seq_en = ( (rel_seq_st + dlen - 1) >= (max_data_size-1) ? (max_data_size-1) : (rel_seq_st + dlen - 1) );     // end index
 
     curr_seg_count++;

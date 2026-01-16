@@ -800,6 +800,9 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
     else if ((r_state == reassembly_state::reassembly_none) && udp_pkt.additional_bytes_needed()){
         if (!missing_crypto_frames) {
             // init reassembly
+            if (crypto_offset + crypto_len == 0) {
+                return true;
+            }
             quic_segment seg{true,crypto_len,crypto_offset,udp_pkt.additional_bytes_needed(),(uint64_t)ts->tv_sec, cid};
             reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+crypto_offset,crypto_data+crypto_offset+crypto_len});
             reassembler->dump_pkt = true;
@@ -813,21 +816,42 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
 
             // init
             if (min_crypto_data) {
-                quic_segment seg{true,cryptographic_buffer::min_crypto_data_len,(uint32_t)(frames[first_frame_idx].offset()),udp_pkt.additional_bytes_needed(),(uint64_t)ts->tv_sec, cid};
-                reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[first_frame_idx].offset(),
-                                crypto_data+frames[first_frame_idx].offset()+cryptographic_buffer::min_crypto_data_len});
+                uint32_t frame_offset = (uint32_t)(frames[first_frame_idx].offset());
+                uint32_t max_crypto_end = crypto_offset + crypto_len;
+                if (max_crypto_end > frame_offset) {
+                    uint32_t seg_len = cryptographic_buffer::min_crypto_data_len;
+                    uint32_t available_len = max_crypto_end - frame_offset;
+                    if (available_len < seg_len) {
+                        seg_len = available_len;
+                    }
+                    if (seg_len) {
+                        quic_segment seg{true,seg_len,frame_offset,udp_pkt.additional_bytes_needed(),(uint64_t)ts->tv_sec, cid};
+                        reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frame_offset,
+                                        crypto_data+frame_offset+seg_len});
+                    }
+                }
             }
             else {
-                quic_segment seg{true,(uint32_t)(frames[first_frame_idx].length()),(uint32_t)(frames[first_frame_idx].offset()),udp_pkt.additional_bytes_needed(),(uint64_t)ts->tv_sec, cid};
-                reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[first_frame_idx].offset(),
-                                crypto_data+frames[first_frame_idx].offset()+frames[first_frame_idx].length()});
+                uint32_t frame_len = (uint32_t)(frames[first_frame_idx].length());
+                uint32_t frame_offset = (uint32_t)(frames[first_frame_idx].offset());
+                uint32_t max_crypto_end = crypto_offset + crypto_len;
+                if (frame_len && (frame_offset + frame_len <= max_crypto_end)) {
+                    quic_segment seg{true,frame_len,frame_offset,udp_pkt.additional_bytes_needed(),(uint64_t)ts->tv_sec, cid};
+                    reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frame_offset,
+                                    crypto_data+frame_offset+frame_len});
+                }
 
             }
 
             for (uint16_t i = 0; i < frame_count; i++) {
                 if (i != first_frame_idx) { // skip already processed first frame
-                    quic_segment seg{false,(uint32_t)(frames[i].length()),(uint32_t)(frames[i].offset()),0,(uint64_t)ts->tv_sec, cid};
-                    reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[i].offset(),crypto_data+frames[i].offset()+frames[i].length()});
+                    uint32_t frame_len = (uint32_t)(frames[i].length());
+                    uint32_t frame_offset = (uint32_t)(frames[i].offset());
+                    uint32_t max_crypto_end = crypto_offset + crypto_len;
+                    if (frame_len && (frame_offset + frame_len <= max_crypto_end)) {
+                        quic_segment seg{false,frame_len,frame_offset,0,(uint64_t)ts->tv_sec, cid};
+                        reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frame_offset,crypto_data+frame_offset+frame_len});
+                    }
                 }
             }
             reassembler->dump_pkt = true;
@@ -836,6 +860,9 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
     else if (r_state == reassembly_state::reassembly_progress){
         if (!missing_crypto_frames) {
             // continue reassembly
+            if (crypto_offset + crypto_len == 0) {
+                return true;
+            }
             quic_segment seg{false,crypto_len,crypto_offset,0,(uint64_t)ts->tv_sec, cid};
             reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+crypto_offset,crypto_data+crypto_offset+crypto_len});
             reassembler->dump_pkt = true;
@@ -846,8 +873,13 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
             const crypto* frames = std::get<quic_init>(x).get_crypto_frames(frame_count,first_frame_idx);
 
             for (uint16_t i = 0; i < frame_count; i++) {
-                quic_segment seg{false,(uint32_t)(frames[i].length()),(uint32_t)(frames[i].offset()),0,(uint64_t)ts->tv_sec, cid};
-                reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[i].offset(),crypto_data+frames[i].offset()+frames[i].length()});
+                uint32_t frame_len = (uint32_t)(frames[i].length());
+                uint32_t frame_offset = (uint32_t)(frames[i].offset());
+                uint32_t max_crypto_end = crypto_offset + crypto_len;
+                if (frame_len && (frame_offset + frame_len <= max_crypto_end)) {
+                    quic_segment seg{false,frame_len,frame_offset,0,(uint64_t)ts->tv_sec, cid};
+                    reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frame_offset,crypto_data+frame_offset+frame_len});
+                }
 
             }
             reassembler->dump_pkt = true;
