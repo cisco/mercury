@@ -1149,9 +1149,10 @@ struct cryptographic_buffer
     std::pair<uint64_t,uint64_t> max_frame {0,0};                       // <offset,len>
     uint32_t total_data = 0;
     static constexpr uint16_t max_frames = 20;
+    static constexpr uint16_t invalid_first_frame_index = UINT16_MAX;
     crypto crypto_frames[max_frames];
     uint16_t crypto_frames_count = 0;
-    uint16_t first_frame_index = 0;
+    uint16_t first_frame_index = invalid_first_frame_index;
     bool missing_crypto_frames = false;
     bool min_crypto_data = false;
 
@@ -1213,7 +1214,21 @@ struct cryptographic_buffer
         return buf_len > 0;
     }
 
-    void reset() {buf_len = 0;}
+    bool has_first_frame() const {
+        return first_frame_index != invalid_first_frame_index &&
+               first_frame_index < crypto_frames_count;
+    }
+
+    void reset() {
+        buf_len = 0;
+        min_frame = {UINT64_MAX,UINT64_MAX};
+        max_frame = {0,0};
+        total_data = 0;
+        crypto_frames_count = 0;
+        first_frame_index = invalid_first_frame_index;
+        missing_crypto_frames = false;
+        min_crypto_data = false;
+    }
 };
 
 struct quic_hdr_fp {
@@ -1327,6 +1342,9 @@ public:
                 // 1. min crypto offset is 0, parse the first frame as tls handshake. Ideally the first frame should be big
                 // enough to figure out total bytes needed.
                 // 2. min crypto offset > 0. Pass on all the frames for reassembly
+                if (!crypto_buffer.has_first_frame()) {
+                    return;
+                }
                 if (crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().length() < 10) {
                     // directly pick first 10 bytes from buffer
                     crypto_buffer.min_crypto_data = true;
@@ -1485,6 +1503,9 @@ public:
                 // 1. min crypto offset is 0, parse the first frame as tls handshake. Ideally the first frame should be big
                 // enough to figure out total bytes needed.
                 // 2. min crypto offset > 0. Pass on all the frames for reassembly
+                if (!crypto_buffer.has_first_frame()) {
+                    return;
+                }
                 if (crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().length() < 10) {
                     // directly pick first 10 bytes from buffer
                     crypto_buffer.min_crypto_data = true;

@@ -811,7 +811,7 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
             uint16_t first_frame_idx = 0;
             const crypto* frames = std::get<quic_init>(x).get_crypto_frames(frame_count,first_frame_idx);
             uint64_t max_crypto_end = (uint64_t)crypto_offset + (uint64_t)crypto_len;
-            if (frame_count == 0) {
+            if (frame_count == 0 || first_frame_idx == cryptographic_buffer::invalid_first_frame_index) {
                 return true;
             }
 
