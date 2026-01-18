@@ -469,7 +469,8 @@ inline void reassembly_flow_context::process_tcp_segment(const T &seg, const dat
     if (dlen == 0) {
         return;
     }
-    uint32_t rel_seq_en = ( (rel_seq_st + dlen - 1) >= (max_data_size-1) ? (max_data_size-1) : (rel_seq_st + dlen - 1) );     // end index
+    uint64_t rel_seq_end64 = (uint64_t)rel_seq_st + (uint64_t)dlen - 1;
+    uint32_t rel_seq_en = (rel_seq_end64 >= (uint64_t)(max_data_size - 1)) ? (max_data_size - 1) : (uint32_t)rel_seq_end64;     // end index
 
     curr_seg_count++;
     if (curr_seg_count > max_segments) {
