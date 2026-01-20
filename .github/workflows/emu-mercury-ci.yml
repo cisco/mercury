@@ -104,7 +104,7 @@ jobs:
 
   linux-fuzz:
     if: github.event_name != 'workflow_dispatch' || inputs.run-linux
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-8-cores
     timeout-minutes: 180  # 3 hours
     container:
       image: ghcr.io/cisco-netintel/ubuntufuzz:buildenv
