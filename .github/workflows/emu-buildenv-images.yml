@@ -56,5 +56,5 @@ jobs:
         with:
           package-name: ${{matrix.testplatform}}
           package-type: container
-          min-versions-to-keep: 3
+          min-versions-to-keep: 14
           delete-only-untagged-versions: true

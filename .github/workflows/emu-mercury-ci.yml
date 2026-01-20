@@ -7,6 +7,10 @@ on:
         description: 'Run Linux builds'
         type: boolean
         default: true
+      run-linux-fuzz:
+        description: 'Run Linux fuzz test'
+        type: boolean
+        default: true
       run-macos:
         description: 'Run macOS build'
         type: boolean
@@ -103,9 +107,9 @@ jobs:
   # ========== Linux Fuzz Testing ==========
 
   linux-fuzz:
-    if: github.event_name != 'workflow_dispatch' || inputs.run-linux
-    runs-on: ubuntu-latest-8-cores
-    timeout-minutes: 180  # 3 hours
+    if: github.event_name != 'workflow_dispatch' || inputs.run-linux-fuzz
+    runs-on: ubuntu-latest-16-cores
+    timeout-minutes: 60
     container:
       image: ghcr.io/cisco-netintel/ubuntufuzz:buildenv
       credentials:
@@ -125,17 +129,10 @@ jobs:
         uses: actions/checkout@v5
         with:
           submodules: true
-      - name: Build Mercury
+      - name: Configure Mercury
         run: |
           ./configure
-          make --debug=basic OPTFLAGS=-g
-      - name: Build and Test Mercury Cython
-        working-directory: src/cython
-        run: |
-          make --debug=basic
-          make --debug=basic wheel
-          python3 mercury_python_test.py
-      - name: Run Fuzz Tests
+      - name: Run Fuzz Test
         working-directory: test
         run: |
           make --debug=basic fuzz-test
@@ -231,3 +228,44 @@ jobs:
           cmake --build build-debug --parallel 1
           cmake -DCMAKE_BUILD_TYPE=Release -DLIBMERC_ONLY=TRUE -B build-release
           cmake --build build-release --parallel 1
+
+  # ========== Status Check Summary (Single Required Check) ==========
+
+  # This sentinel job provides a single status that can be used for branch
+  # protection ("Require status checks to pass before merging").
+  #
+  # It succeeds only if all platform-specific jobs that ran have succeeded. Jobs
+  # skipped via workflow_dispatch inputs are treated as successful, which is
+  # useful for testing specific platforms (e.g., running macOS builds only).
+  #
+  # Note: workflow_dispatch (manual trigger) never serves as a status check for
+  # a push or PR.  Pull requests require the automatic PR-triggered run to pass.
+
+  ci-success:
+    name: All CI Checks Passed
+    if: always()
+    needs: [linux-ci, linux-fuzz, macos-ci, windows-build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check job results
+        run: |
+          echo "linux-ci: ${{ needs.linux-ci.result }}"
+          echo "linux-fuzz: ${{ needs.linux-fuzz.result }}"
+          echo "macos-ci: ${{ needs.macos-ci.result }}"
+          echo "windows-build: ${{ needs.windows-build.result }}"
+
+          # Treat skipped jobs as success (allows workflow_dispatch with subset)
+          # Fail if any job failed or was cancelled
+          if [[ "${{ needs.linux-ci.result }}" == "failure" ]] || \
+             [[ "${{ needs.linux-ci.result }}" == "cancelled" ]] || \
+             [[ "${{ needs.linux-fuzz.result }}" == "failure" ]] || \
+             [[ "${{ needs.linux-fuzz.result }}" == "cancelled" ]] || \
+             [[ "${{ needs.macos-ci.result }}" == "failure" ]] || \
+             [[ "${{ needs.macos-ci.result }}" == "cancelled" ]] || \
+             [[ "${{ needs.windows-build.result }}" == "failure" ]] || \
+             [[ "${{ needs.windows-build.result }}" == "cancelled" ]]; then
+            echo "One or more jobs failed or were cancelled"
+            exit 1
+          fi
+
+          echo "All checks passed or were skipped"
