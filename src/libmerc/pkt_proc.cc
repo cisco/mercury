@@ -810,24 +810,53 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
             uint16_t frame_count = 0;
             uint16_t first_frame_idx = 0;
             const crypto* frames = std::get<quic_init>(x).get_crypto_frames(frame_count,first_frame_idx);
+            uint64_t max_crypto_end = (uint64_t)crypto_offset + (uint64_t)crypto_len;
+            if (frame_count == 0 || first_frame_idx == cryptographic_buffer::invalid_first_frame_index) {
+                return true;
+            }
 
             // init
             if (min_crypto_data) {
-                quic_segment seg{true,cryptographic_buffer::min_crypto_data_len,(uint32_t)(frames[first_frame_idx].offset()),udp_pkt.additional_bytes_needed(),(uint64_t)ts->tv_sec, cid};
-                reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[first_frame_idx].offset(),
-                                crypto_data+frames[first_frame_idx].offset()+cryptographic_buffer::min_crypto_data_len});
+                uint64_t frame_offset = frames[first_frame_idx].offset();
+                if ((frame_offset < max_crypto_end) &&
+                    (frame_offset <= UINT32_MAX)) {
+                    uint64_t seg_len = cryptographic_buffer::min_crypto_data_len;
+                    uint64_t available_len = max_crypto_end - frame_offset;
+                    if (available_len < seg_len) {
+                        seg_len = available_len;
+                    }
+                    if (seg_len && (seg_len <= UINT32_MAX)) {
+                        quic_segment seg{true,(uint32_t)seg_len,(uint32_t)frame_offset,udp_pkt.additional_bytes_needed(),(uint64_t)ts->tv_sec, cid};
+                        reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frame_offset,
+                                        crypto_data+frame_offset+seg_len});
+                    }
+                }
             }
             else {
-                quic_segment seg{true,(uint32_t)(frames[first_frame_idx].length()),(uint32_t)(frames[first_frame_idx].offset()),udp_pkt.additional_bytes_needed(),(uint64_t)ts->tv_sec, cid};
-                reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[first_frame_idx].offset(),
-                                crypto_data+frames[first_frame_idx].offset()+frames[first_frame_idx].length()});
+                uint64_t frame_len = frames[first_frame_idx].length();
+                uint64_t frame_offset = frames[first_frame_idx].offset();
+                if (frame_len &&
+                    (frame_offset + frame_len <= max_crypto_end) &&
+                    (frame_offset <= UINT32_MAX) &&
+                    (frame_len <= UINT32_MAX)) {
+                    quic_segment seg{true,(uint32_t)frame_len,(uint32_t)frame_offset,udp_pkt.additional_bytes_needed(),(uint64_t)ts->tv_sec, cid};
+                    reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frame_offset,
+                                    crypto_data+frame_offset+frame_len});
+                }
 
             }
 
             for (uint16_t i = 0; i < frame_count; i++) {
                 if (i != first_frame_idx) { // skip already processed first frame
-                    quic_segment seg{false,(uint32_t)(frames[i].length()),(uint32_t)(frames[i].offset()),0,(uint64_t)ts->tv_sec, cid};
-                    reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[i].offset(),crypto_data+frames[i].offset()+frames[i].length()});
+                    uint64_t frame_len = frames[i].length();
+                    uint64_t frame_offset = frames[i].offset();
+                    if (frame_len &&
+                        (frame_offset + frame_len <= max_crypto_end) &&
+                        (frame_offset <= UINT32_MAX) &&
+                        (frame_len <= UINT32_MAX)) {
+                        quic_segment seg{false,(uint32_t)frame_len,(uint32_t)frame_offset,0,(uint64_t)ts->tv_sec, cid};
+                        reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frame_offset,crypto_data+frame_offset+frame_len});
+                    }
                 }
             }
             reassembler->dump_pkt = true;
@@ -844,10 +873,21 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
             uint16_t frame_count = 0;
             uint16_t first_frame_idx = 0;
             const crypto* frames = std::get<quic_init>(x).get_crypto_frames(frame_count,first_frame_idx);
+            uint64_t max_crypto_end = (uint64_t)crypto_offset + (uint64_t)crypto_len;
+            if (frame_count == 0) {
+                return true;
+            }
 
             for (uint16_t i = 0; i < frame_count; i++) {
-                quic_segment seg{false,(uint32_t)(frames[i].length()),(uint32_t)(frames[i].offset()),0,(uint64_t)ts->tv_sec, cid};
-                reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[i].offset(),crypto_data+frames[i].offset()+frames[i].length()});
+                uint64_t frame_len = frames[i].length();
+                uint64_t frame_offset = frames[i].offset();
+                if (frame_len &&
+                    (frame_offset + frame_len <= max_crypto_end) &&
+                    (frame_offset <= UINT32_MAX) &&
+                    (frame_len <= UINT32_MAX)) {
+                    quic_segment seg{false,(uint32_t)frame_len,(uint32_t)frame_offset,0,(uint64_t)ts->tv_sec, cid};
+                    reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frame_offset,crypto_data+frame_offset+frame_len});
+                }
 
             }
             reassembler->dump_pkt = true;
