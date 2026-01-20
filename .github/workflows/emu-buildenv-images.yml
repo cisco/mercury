@@ -47,8 +47,9 @@ jobs:
           file: docker/Dockerfile-${{matrix.testplatform}}
           platforms: linux/amd64
           push: true
-          cache-from: type=registry,ref=ghcr.io/cisco-netintel/${{matrix.testplatform}}:buildenv
-          cache-to: type=inline
+          # Do not use cache
+          # cache-from: type=registry,ref=ghcr.io/cisco-netintel/${{matrix.testplatform}}:buildenv
+          # cache-to: type=inline
           tags: |
             ghcr.io/cisco-netintel/${{matrix.testplatform}}:buildenv
       - name: Clean up old package versions
