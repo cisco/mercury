@@ -1,5 +1,9 @@
 # CHANGELOG for Mercury
 
+## VERSION 2.13.1
+* Fixed potential underflows and out-of-bounds accesses in TCP and QUIC
+  reassembly logic, and added checks for QUIC frame boundaries.
+
 ## VERSION 2.13.0
 * Added support for Redis Serialization Protocol v2(RESP), with a focus on
   detecting exposed credentials.
