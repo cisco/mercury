@@ -242,7 +242,7 @@ jobs:
   # a push or PR.  Pull requests require the automatic PR-triggered run to pass.
 
   ci-success:
-    name: All CI Checks Passed
+    name: Mercury CI Checks
     if: always()
     needs: [linux-ci, linux-fuzz, macos-ci, windows-build]
     runs-on: ubuntu-latest
