@@ -114,6 +114,13 @@ jobs:
     steps:
       - name: Echo OS version
         run: cat /etc/os-release
+      - name: Display system resources
+        run: |
+          echo "CPU count:"
+          nproc
+          echo
+          echo "Memory info:"
+          free -h
       - name: Checkout
         uses: actions/checkout@v5
         with:
