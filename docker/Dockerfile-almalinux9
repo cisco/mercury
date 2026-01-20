@@ -5,7 +5,7 @@ RUN yum install -y epel-release \
     gcc-toolset-13-gcc gcc-toolset-13-gcc-c++ gcc-toolset-13-libasan-devel \
     pkg-config wget python3.11 python3.11-devel python3.11-pip valgrind \
     jq tcpreplay iproute sudo zlib-devel \
-    openssl-devel awscli \
+    openssl-devel \
     && yum update -y \
     && alternatives --install /usr/bin/gcc gcc /opt/rh/gcc-toolset-13/root/usr/bin/gcc 60 \
     && alternatives --install /usr/bin/g++ g++ /opt/rh/gcc-toolset-13/root/usr/bin/g++ 60 \

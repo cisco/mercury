@@ -5,7 +5,7 @@ RUN dnf install -y epel-release \
     && dnf install -y openssl-devel valgrind \
     && dnf install -y libasan libtsan libubsan liblsan \
     && dnf install -y python3 python3-devel python3-pip \
-    && dnf install -y wget jq iproute sudo awscli \
+    && dnf install -y wget jq iproute sudo \
     && dnf clean all \
     && rm -rf /var/cache/dnf \
     && python3 -m venv /opt/venv
