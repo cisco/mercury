@@ -18,7 +18,7 @@ jobs:
       - name: Define Test Platforms
         id: testplatforms
         run: |
-          echo 'testplatforms=["almalinux8","almalinux9","almalinux10","ubuntu2004","ubuntu2204","ubuntu2404","debian11","debian12","debian13"]' >> "$GITHUB_OUTPUT"
+          echo 'testplatforms=["almalinux8","almalinux9","almalinux10","ubuntu2004","ubuntu2204","ubuntu2404","debian11","debian12","debian13","ubuntufuzz"]' >> "$GITHUB_OUTPUT"
 
   build-images:
     runs-on: ubuntu-latest

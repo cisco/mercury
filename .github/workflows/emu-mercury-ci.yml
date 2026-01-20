@@ -100,6 +100,39 @@ jobs:
       - name: Run mercury make test
         run: make --debug=basic OPTFLAGS=-g test
 
+  # ========== Linux Fuzz Testing ==========
+
+  linux-fuzz:
+    if: github.event_name != 'workflow_dispatch' || inputs.run-linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 180  # 3 hours
+    container:
+      image: ghcr.io/cisco-netintel/ubuntufuzz:buildenv
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.github_token }}
+    steps:
+      - name: Echo OS version
+        run: cat /etc/os-release
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+      - name: Build Mercury
+        run: |
+          ./configure
+          make --debug=basic OPTFLAGS=-g
+      - name: Build and Test Mercury Cython
+        working-directory: src/cython
+        run: |
+          make --debug=basic
+          make --debug=basic wheel
+          python3 mercury_python_test.py
+      - name: Run Fuzz Tests
+        working-directory: test
+        run: |
+          make --debug=basic fuzz-test
+
   # ========== macOS Build and Test ==========
 
   macos-ci:
@@ -158,7 +191,7 @@ jobs:
 
   # ========== Windows Build ==========
 
-  windows-build-only:
+  windows-build:
     if: github.event_name != 'workflow_dispatch' || inputs.run-windows
     runs-on: windows-2022
     env:
