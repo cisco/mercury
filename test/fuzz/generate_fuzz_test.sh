@@ -22,14 +22,6 @@ default_time=200
 specific_test="none"
 coverage_enabled=""
 
-# Detect available CPUs for parallelism control
-if max_parallel=$(nproc 2>/dev/null); then
-    echo "Detected $max_parallel CPUs, will run up to $max_parallel fuzz tests in parallel"
-else
-    max_parallel=2
-    echo "CPU detection failed, defaulting to $max_parallel parallel fuzz tests"
-fi
-
 total_headers=0
 total_test_function=0
 total_missing_dir=0
@@ -191,12 +183,17 @@ fi;
     # count corpus pre test
     pre_corpus="$(ls ./corpus/ | wc -l)"
 
-    # Wait if we've reached max parallel jobs
-    while [[ $(jobs -r | wc -l) -ge $max_parallel ]]; do
-        sleep 1
+    # Wait if memory usage exceeds 80%
+    while true; do
+        mem_used_pct=$(free | awk '/^Mem:/ {printf "%.0f", ($3/$2)*100}')
+        if [[ $mem_used_pct -lt 80 ]]; then
+            break
+        fi
+        sleep 2
     done
 
-    free -h | awk -v name="$dir_name" '/^Mem:/ {printf "Starting %s - Mem: %s used / %s total (%s available)\n", name, $3, $2, $7}'
+    free -h | awk -v name="$dir_name" '/^Mem:/ {printf "Starting %s - Mem: %s used / %s total (%s available)", name, $3, $2, $7}'
+    awk '{printf " - Load: %.2f\n", $1}' /proc/loadavg
 
     echo -e $COLOR_YELLOW "${dir_name} testcase in parallel" $COLOR_OFF
     ./"fuzz_${dir_name}_exec" -seed=1 ./corpus/ -runs=$default_runs -max_total_time=$default_time > $dir_name.log 2>&1 &
