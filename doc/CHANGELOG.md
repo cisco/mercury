@@ -1,4 +1,6 @@
 # CHANGELOG for Mercury
+* Added crypto assessment and exposed credentials assessors.
+* Added Cryptographic Security Assessment and Exposed Credentials attributes in Analysis Result.
 
 ## VERSION 2.13.1
 * Fixed potential underflows and out-of-bounds accesses in TCP and QUIC
