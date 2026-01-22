@@ -29,15 +29,26 @@ public:
         static uint64_t ticks_per_second = 0;
         /*
          * Calculating the number of cpu ticks per second
-         * by counting the number of cpu ticks in 1/100th of second
-         * and then upscaling to get the number of cpu ticks per second
+         * by measuring actual elapsed time with std::chrono to handle
+         * cases where sleep_for() sleeps longer than requested on busy systems
          */
 
         if (ticks_per_second == 0) {
+            auto chrono_start = std::chrono::steady_clock::now();
             tsc_clock start;
             std::this_thread::sleep_for(10ms);
             tsc_clock end;
-            ticks_per_second = (end.get_start_tick() - start.get_start_tick()) * 100;
+            auto chrono_end = std::chrono::steady_clock::now();
+
+            // Calculate actual elapsed time in microseconds
+            auto actual_elapsed_us = std::chrono::duration_cast<std::chrono::microseconds>(
+                                     chrono_end - chrono_start).count();
+
+            // Calculate ticks per second based on actual elapsed time
+            uint64_t elapsed_ticks = end.get_start_tick() - start.get_start_tick();
+            if (actual_elapsed_us > 0) {
+                ticks_per_second = (elapsed_ticks * 1000000) / actual_elapsed_us;
+            }
         }
         return ticks_per_second;
     }

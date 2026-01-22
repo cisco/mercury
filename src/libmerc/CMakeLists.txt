@@ -2,7 +2,13 @@ cmake_minimum_required(VERSION 3.12)
 project(libmerc)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
-set(CMAKE_VERBOSE_MAKEFILE on)
+set(CMAKE_CXX_EXTENSIONS OFF)  # c++17 not gnu++17
+set(CMAKE_VERBOSE_MAKEFILE ON)
+if(NOT CMAKE_BUILD_TYPE)
+    message(STATUS "Defaulting CMAKE_BUILD_TYPE to Debug")
+    set(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build." FORCE)
+endif()
+
 # no installing
 set(CMAKE_SKIP_INSTALL_RULES TRUE)
 set(CMAKE_CXX_FLAGS "${CXXFLAGS} ${CFLAGS} ${CMAKE_CXX_FLAGS}")
@@ -248,32 +254,29 @@ elseif(ARM_PLATFORM)
 endif()
 
 ## default libmerc compile options
+
+# CMake automatically adds optimization and debug flags based on CMAKE_BUILD_TYPE.
+# Typical values for CMAKE_BUILD_TYPE: Debug, Release, RelWithDebInfo, MinSizeRel.
+# These flags are added to CMAKE_CXX_FLAGS_<CONFIG> variables:
+#   Windows (MSVC):
+#     CMAKE_CXX_FLAGS_DEBUG: /MDd /Zi /Ob0 /Od /RTC1 (no optimization, runtime checks)
+#     CMAKE_CXX_FLAGS_RELEASE: /MD /O2 /Ob2 /DNDEBUG (optimize for speed)
+#     CMAKE_CXX_FLAGS_RELWITHDEBINFO: /MD /Zi /O2 /Ob1 /DNDEBUG (optimize with debug symbols)
+#     CMAKE_CXX_FLAGS_MINSIZEREL: /MD /O1 /Ob1 /DNDEBUG (optimize for size)
+#   Linux/Mac (GCC/Clang):
+#     CMAKE_CXX_FLAGS_DEBUG: -g (debug symbols only)
+#     CMAKE_CXX_FLAGS_RELEASE: -O3 -DNDEBUG (aggressive optimization)
+#     CMAKE_CXX_FLAGS_RELWITHDEBINFO: -O2 -g -DNDEBUG (optimize with debug symbols)
+#     CMAKE_CXX_FLAGS_MINSIZEREL: -Os -DNDEBUG (optimize for size)
+
 if(IS_WIN)
-    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        message(STATUS "Debug build")
-        set(LIBMERC_COMPILE_OPT
-                /std:c++17
-                /Wall
-                # TODO: fill up the rest of the options
-                /permissive-)
-    else()
-        set(LIBMERC_COMPILE_OPT
-            /std:c++17
-            /Ot
-            /O2
-            /Wall
-            # TODO: fill up the rest of the options
-            /permissive-)
-    endif()
+    add_compile_options(/W3 /permissive- ${OPTFLAGS})
 else()
-    set(LIBMERC_COMPILE_OPT
-        --std=c++17
-        -O3
-        -Wall -Wextra -Wno-deprecated ${CDEFS} ${MSV}
+    add_compile_options(
+        -Wall -Wextra -Wno-deprecated
         -Wno-missing-braces
         -Wno-narrowing
         -fPIC
-        -DDONT_USE_STDERR
         -fno-rtti
         -Wformat
         -Wformat-security
@@ -282,27 +285,42 @@ else()
         -Wmissing-noreturn
         -Wunreachable-code
         -fvisibility=hidden
-        -DNDEBUG
         -fno-builtin-malloc
         -fno-builtin-calloc
         -fno-builtin-realloc
         -fno-builtin-free
-)
+        ${OPTFLAGS}
+    )
+
+    # Check for GNU-specific compiler flags
+    include(CheckCXXCompilerFlag)
+    check_cxx_compiler_flag(-fno-gnu-unique use_no_gnu_unique)
+    if(use_no_gnu_unique)
+        add_compile_options(-fno-gnu-unique)
+    else()
+        message(STATUS "no support for -fno-gnu-unique")
+    endif()
+
+    # Check for address sanitizer support (not currently used, available for debugging)
+    check_cxx_compiler_flag(-fsanitize=address addr_sanitizer_avail)
+    if(addr_sanitizer_avail)
+        message(STATUS "-fsanitize=address - supported")
+    else()
+        message(STATUS "no address sanitizer support")
+    endif()
 endif()
 
-## check compiler flags availablity
-include(CheckCXXCompilerFlag)
-check_cxx_compiler_flag(-fno-gnu-unique use_no_gnu_unique)
-if(use_no_gnu_unique)
-    add_compile_options(-fno-gnu-unique)
+# Display the complete flags that will be used on the command line:
+# CMake combines: CMAKE_CXX_FLAGS + CMAKE_CXX_FLAGS_<CONFIG> + target flags
+if(CMAKE_BUILD_TYPE)
+    string(TOUPPER ${CMAKE_BUILD_TYPE} BUILD_TYPE_UPPER)
+    message(STATUS "CMAKE_BUILD_TYPE = ${CMAKE_BUILD_TYPE}")
+    message(STATUS "CMAKE_CXX_FLAGS (base) = ${CMAKE_CXX_FLAGS}")
+    message(STATUS "CMAKE_CXX_FLAGS_${BUILD_TYPE_UPPER} (config) = ${CMAKE_CXX_FLAGS_${BUILD_TYPE_UPPER}}")
+    message(STATUS "Combined command line flags: ${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${BUILD_TYPE_UPPER}}")
 else()
-    message(STATUS "no support for use_no_gnu_unique")
-endif()
-check_cxx_compiler_flag(-fsanitize=address addr_sanitizer_avail)
-if(addr_sanitizer_avail)
-    message(STATUS "-fsanitize=address - supported")
-else()
-    message(STATUS "no address sanitizer support")
+    message(STATUS "CMAKE_BUILD_TYPE not set (using compiler defaults)")
+    message(STATUS "CMAKE_CXX_FLAGS (base) = ${CMAKE_CXX_FLAGS}")
 endif()
 
 ## TARGET : libmerc (shared) {
@@ -317,8 +335,7 @@ else()
 endif()
 add_dependencies(libmerc lctrie)
 add_dependencies(libmerc asn1)
-target_compile_options(libmerc PUBLIC ${LIBMERC_COMPILE_OPT})
-target_compile_definitions(libmerc PUBLIC -DNDEBUG -DDONT_USE_STDERR)
+target_compile_definitions(libmerc PUBLIC -DDONT_USE_STDERR)
 #target_link_options(libmerc PUBLIC  -lz -lcrypto)
 #target_compile_definitions(libmerc PRIVATE SSLNEW)
 set_target_properties(libmerc PROPERTIES PREFIX "")
@@ -337,8 +354,7 @@ else()
 endif()
 add_dependencies(libmerc_static lctrie)
 add_dependencies(libmerc_static asn1)
-target_compile_options(libmerc_static PUBLIC ${LIBMERC_COMPILE_OPT})
-target_compile_definitions(libmerc_static PUBLIC -DNDEBUG -DDONT_USE_STDERR)
+target_compile_definitions(libmerc_static PUBLIC -DDONT_USE_STDERR)
 #target_link_options(libmerc PUBLIC  -lz -lcrypto)
 #target_compile_definitions(libmerc PRIVATE SSLNEW)
 set_target_properties(libmerc_static PROPERTIES PREFIX "")
@@ -350,8 +366,7 @@ set(cbor_src
     ../cbor.cpp
 )
 add_executable(cbor ${cbor_src})
-target_compile_options(cbor PUBLIC ${LIBMERC_COMPILE_OPT} -UDONT_USE_STDERR)
-target_link_libraries(cbor ZLIB::ZLIB )
+target_link_libraries(cbor ZLIB::ZLIB)
 # }
 
 

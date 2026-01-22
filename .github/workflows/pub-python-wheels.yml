@@ -1,4 +1,4 @@
-name: Mercury wheels Build and Publish to PyPI
+name: "[PUB] Python Wheels"
 
 on:
   workflow_dispatch:
@@ -20,7 +20,7 @@ jobs:
         os: [ubuntu-latest, macos-latest]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 1
 

@@ -1,0 +1,271 @@
+name: "[EMU] Mercury CI"
+
+on:
+  workflow_dispatch:
+    inputs:
+      run-linux:
+        description: 'Run Linux builds'
+        type: boolean
+        default: true
+      run-linux-fuzz:
+        description: 'Run Linux fuzz test'
+        type: boolean
+        default: true
+      run-macos:
+        description: 'Run macOS build'
+        type: boolean
+        default: true
+      run-windows:
+        description: 'Run Windows build'
+        type: boolean
+        default: true
+  push:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  # ========== Linux Multi-Distro Build and Test ==========
+
+  define-matrix:
+    if: github.event_name != 'workflow_dispatch' || inputs.run-linux
+    runs-on: ubuntu-latest
+    outputs:
+      testplatforms: ${{ steps.testplatforms.outputs.testplatforms }}
+    steps:
+      - name: Define Test Platforms
+        id: testplatforms
+        run: |
+          echo 'testplatforms=["almalinux8","almalinux9","almalinux10","ubuntu2004","ubuntu2204","ubuntu2404","debian11","debian12","debian13"]' >> "$GITHUB_OUTPUT"
+
+  linux-ci:
+    if: github.event_name != 'workflow_dispatch' || inputs.run-linux
+    needs: define-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        testplatform: ${{ fromJSON(needs.define-matrix.outputs.testplatforms) }}
+    container:
+      image: ghcr.io/cisco-netintel/${{matrix.testplatform}}:buildenv
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.github_token }}
+    steps:
+      - name: Echo OS version
+        run: cat /etc/os-release
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+      - name: configure
+        run: ./configure
+      - name: make
+        run: make --debug=basic OPTFLAGS=-g
+      # Alternative: Get resources from S3 using Conjur secrets
+      # - name: Get Secrets
+      #   id: get-secrets
+      #   uses: ns-actions/secrets@v2
+      #   with:
+      #     secret_manager: conjur
+      #     secret_map: |
+      #       sbg/netintel/mercury/aws/AWS_ACCESS_KEY_ID,
+      #       sbg/netintel/mercury/aws/AWS_SECRET_ACCESS_KEY
+      #     url: https://conjur-nonprod.cisco.com
+      #     account: cisco
+      #     username: ${{ secrets.SECRET_MANAGER_USERNAME }}
+      #     password: ${{ secrets.SECRET_MANAGER_PASSWORD }}
+      # - name: Get Proprietary Resources File
+      #   env:
+      #     AWS_ACCESS_KEY_ID: ${{ steps.get-secrets.outputs.AWS_ACCESS_KEY_ID }}
+      #     AWS_SECRET_ACCESS_KEY: ${{ steps.get-secrets.outputs.AWS_SECRET_ACCESS_KEY }}
+      #   run: |
+      #     mkdir -p unit_tests/xtra/resources
+      #     aws s3 cp s3://netintel-fingerprints/mercury-resources/current/resources-mp.tgz unit_tests/xtra/resources/resources-mp.tgz --no-progress --region us-east-1
+      - name: Generate token for cross-repo access
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.REPO_READER_APP_ID }}
+          private-key: ${{ secrets.REPO_READER_PRIVATE_KEY }}
+          owner: cisco-netintel
+      - name: Checkout mercury-resources
+        uses: actions/checkout@v5
+        with:
+          repository: cisco-netintel/mercury-resources
+          ref: trunk
+          path: unit_tests/xtra/resources
+          token: ${{ steps.app-token.outputs.token }}
+      - name: Run mercury make test
+        run: make --debug=basic OPTFLAGS=-g test
+
+  # ========== Linux Fuzz Testing ==========
+
+  linux-fuzz:
+    if: github.event_name != 'workflow_dispatch' || inputs.run-linux-fuzz
+    runs-on: ubuntu-latest-16-cores
+    timeout-minutes: 60
+    container:
+      image: ghcr.io/cisco-netintel/ubuntufuzz:buildenv
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.github_token }}
+    steps:
+      - name: Echo OS version
+        run: cat /etc/os-release
+      - name: Display system resources
+        run: |
+          echo "CPU count:"
+          nproc
+          echo
+          echo "Memory info:"
+          free -h
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+      - name: Configure Mercury
+        run: |
+          ./configure
+      - name: Run Fuzz Test
+        working-directory: test
+        run: |
+          make --debug=basic fuzz-test
+
+  # ========== macOS Build and Test ==========
+
+  macos-ci:
+    if: github.event_name != 'workflow_dispatch' || inputs.run-macos
+    runs-on: macos-latest
+    steps:
+      - name: Get system hardware information
+        run: system_profiler SPHardwareDataType
+      - name: Get system software information
+        run: system_profiler SPSoftwareDataType
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+      - name: Install Homebrew dependencies
+        run: |
+          brew install zlib  # already installed: python, openssl, cmake
+      - name: Install pip packages
+        run: |
+          mkdir -p ~/.envs
+          python3 -m venv ~/.envs/merc
+          source ~/.envs/merc/bin/activate
+          python3 -m pip install --upgrade pip
+          python3 -m pip install --upgrade jsonschema cryptography Cython wheel setuptools
+      - name: Build libmerc via CMake
+        working-directory: src/libmerc
+        run: |
+          cmake -DCMAKE_BUILD_TYPE=Debug -DLIBMERC_ONLY=TRUE -B build-debug
+          cmake --build build-debug --parallel 1
+          cmake -DCMAKE_BUILD_TYPE=Release -DLIBMERC_ONLY=TRUE -B build-release
+          cmake --build build-release --parallel 1
+      - name: Clean up CMake build directories
+        working-directory: src/libmerc
+        run: rm -rf build-debug build-release
+      - name: Build Mercury via configure and make
+        run: |
+          ./configure
+          make --debug=basic OPTFLAGS=-g
+      - name: Generate token for cross-repo access
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.REPO_READER_APP_ID }}
+          private-key: ${{ secrets.REPO_READER_PRIVATE_KEY }}
+          owner: cisco-netintel
+      - name: Checkout mercury-resources
+        uses: actions/checkout@v5
+        with:
+          repository: cisco-netintel/mercury-resources
+          ref: trunk
+          path: unit_tests/xtra/resources
+          token: ${{ steps.app-token.outputs.token }}
+      - name: Run mercury make test
+        uses: cisco-actions/nick-fields-retry@v3.0.2
+        with:
+          timeout_minutes: 90
+          max_attempts: 3
+          command: |
+            make --debug=basic OPTFLAGS=-g test
+          on_retry_command: |
+            git clean -xfd
+            ./configure
+            make --debug=basic OPTFLAGS=-g
+
+  # ========== Windows Build ==========
+
+  windows-build:
+    if: github.event_name != 'workflow_dispatch' || inputs.run-windows
+    runs-on: windows-2022
+    env:
+      CMAKE_TOOLCHAIN_FILE: C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+      - name: Get system information
+        run: systeminfo
+      - name: Get vcpkg location
+        run: where.exe vcpkg
+      - name: Install dependencies via vcpkg
+        run: vcpkg install openssl zlib
+      - name: List vcpkg installed packages
+        run: vcpkg list
+      - name: Build libmerc via CMake
+        working-directory: src/libmerc
+        run: |
+          cmake -DCMAKE_BUILD_TYPE=Debug -DLIBMERC_ONLY=TRUE -B build-debug
+          cmake --build build-debug --parallel 1
+          cmake -DCMAKE_BUILD_TYPE=Release -DLIBMERC_ONLY=TRUE -B build-release
+          cmake --build build-release --parallel 1
+
+  # ========== Status Check Summary (Single Required Check) ==========
+
+  # This sentinel job provides a single status that can be used for branch
+  # protection ("Require status checks to pass before merging").
+  #
+  # It succeeds only if all platform-specific jobs that ran have succeeded. Jobs
+  # skipped via workflow_dispatch inputs are treated as successful, which is
+  # useful for testing specific platforms (e.g., running macOS builds only).
+  #
+  # Note: workflow_dispatch (manual trigger) never serves as a status check for
+  # a push or PR.  Pull requests require the automatic PR-triggered run to pass.
+
+  ci-success:
+    name: Mercury CI Checks
+    if: always()
+    needs: [linux-ci, linux-fuzz, macos-ci, windows-build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check job results
+        run: |
+          echo "linux-ci: ${{ needs.linux-ci.result }}"
+          echo "linux-fuzz: ${{ needs.linux-fuzz.result }}"
+          echo "macos-ci: ${{ needs.macos-ci.result }}"
+          echo "windows-build: ${{ needs.windows-build.result }}"
+
+          # Treat skipped jobs as success (allows workflow_dispatch with subset)
+          # Fail if any job failed or was cancelled
+          if [[ "${{ needs.linux-ci.result }}" == "failure" ]] || \
+             [[ "${{ needs.linux-ci.result }}" == "cancelled" ]] || \
+             [[ "${{ needs.linux-fuzz.result }}" == "failure" ]] || \
+             [[ "${{ needs.linux-fuzz.result }}" == "cancelled" ]] || \
+             [[ "${{ needs.macos-ci.result }}" == "failure" ]] || \
+             [[ "${{ needs.macos-ci.result }}" == "cancelled" ]] || \
+             [[ "${{ needs.windows-build.result }}" == "failure" ]] || \
+             [[ "${{ needs.windows-build.result }}" == "cancelled" ]]; then
+            echo "One or more jobs failed or were cancelled"
+            exit 1
+          fi
+
+          echo "All checks passed or were skipped"

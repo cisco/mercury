@@ -1,5 +1,15 @@
 # CHANGELOG for Mercury
-* Added support for Redis protocol identification
+* Added crypto assessment and exposed credentials assessors.
+* Added Cryptographic Security Assessment and Exposed Credentials attributes in Analysis Result.
+
+## VERSION 2.13.1
+* Fixed potential underflows and out-of-bounds accesses in TCP and QUIC
+  reassembly logic, and added checks for QUIC frame boundaries.
+
+## VERSION 2.13.0
+* Added support for Redis Serialization Protocol v2(RESP), with a focus on
+  detecting exposed credentials.
+* Added checks to handle TCP SEQ number wraparound in TCP reassembly code.
 
 ## VERSION 2.12.0
 * Fixed potential crash scenario when total QUIC Hello size exceeds 4096 bytes.
