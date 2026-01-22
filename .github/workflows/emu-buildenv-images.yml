@@ -52,10 +52,10 @@ jobs:
           # cache-to: type=inline
           tags: |
             ghcr.io/cisco-netintel/${{matrix.testplatform}}:buildenv
-      - name: Clean up old package versions
-        uses: actions/delete-package-versions@v5
-        with:
-          package-name: ${{matrix.testplatform}}
-          package-type: container
-          min-versions-to-keep: 14
-          delete-only-untagged-versions: true
+      # - name: Clean up old package versions
+      #   uses: actions/delete-package-versions@v5
+      #   with:
+      #     package-name: ${{matrix.testplatform}}
+      #     package-type: container
+      #     min-versions-to-keep: 150  # 5 hashes/day x 30 days
+      #     delete-only-untagged-versions: true
