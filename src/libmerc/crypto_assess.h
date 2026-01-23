@@ -56,11 +56,11 @@ namespace crypto_policy {
             return true;
         };
 
-        virtual bool assess(const tls_client_hello &, json_object &) const {
+        virtual bool assess(const tls_client_hello &, json_array &) const {
             return true;
         };
 
-        virtual bool assess(const tls_server_hello &, json_object &) const {
+        virtual bool assess(const tls_server_hello &, json_array &) const {
             return true;
         };
 
@@ -68,7 +68,7 @@ namespace crypto_policy {
             return true;
         };
 
-        virtual bool assess(const tls_server_hello_and_certificate &, json_object &) const {
+        virtual bool assess(const tls_server_hello_and_certificate &, json_array &) const {
             return true;
         };
 
@@ -76,7 +76,7 @@ namespace crypto_policy {
             return true;
         }
 
-        virtual bool assess(const dtls_client_hello &, json_object &) const {
+        virtual bool assess(const dtls_client_hello &, json_array &) const {
             return true;
         }
 
@@ -84,7 +84,7 @@ namespace crypto_policy {
             return true;
         }
 
-        virtual bool assess(const dtls_server_hello &, json_object &) const {
+        virtual bool assess(const dtls_server_hello &, json_array &) const {
             return true;
         }
 
@@ -92,7 +92,7 @@ namespace crypto_policy {
             return true;
         }
 
-        virtual bool assess(const ssh_kex_init &, json_object &) const {
+        virtual bool assess(const ssh_kex_init &, json_array &) const {
             return true;
         }
 
@@ -552,24 +552,28 @@ namespace crypto_policy {
                    assess_tls_extensions(ch.extensions);
         }
 
-        bool assess(const tls_client_hello &ch, json_object &o) const override {
+        bool assess(const tls_client_hello &ch, json_array &a) const override {
 
+            json_object o{a};
             o.print_key_string("policy", "quantum_safe");
             json_object assessment{o, "client"};
             bool suites_compliant = assess_tls_ciphersuites(ch.ciphersuite_vector, assessment);
             bool extensions_compliant = assess_tls_extensions(ch.extensions, assessment);
             assessment.close();
+            o.close();
 
             return suites_compliant && extensions_compliant;
         }
 
-        bool assess(const tls_server_hello &ch, json_object &o) const override {
+        bool assess(const tls_server_hello &ch, json_array &a) const override {
 
+            json_object o{a};
             o.print_key_string("policy", "quantum_safe");
             json_object assessment{o, "session"};
             bool suites_compliant = assess_tls_ciphersuites(ch.ciphersuite_vector, assessment);
             bool extensions_compliant = assess_tls_extensions(ch.extensions, assessment);
             assessment.close();
+            o.close();
 
             return suites_compliant && extensions_compliant;
         }
@@ -579,9 +583,9 @@ namespace crypto_policy {
                    assess_tls_extensions(ch.extensions);
         }
 
-        bool assess(const tls_server_hello_and_certificate &hello_and_cert, json_object &o) const override {
+        bool assess(const tls_server_hello_and_certificate &hello_and_cert, json_array &a) const override {
             if (hello_and_cert.is_not_empty()) {
-                return assess(hello_and_cert.get_server_hello(), o);
+                return assess(hello_and_cert.get_server_hello(), a);
             }
             return true;
         };
@@ -599,7 +603,8 @@ namespace crypto_policy {
                    assess_ssh_ciphers(ssh_kex.encryption_algorithms_server_to_client);
         }
 
-        bool assess(const ssh_kex_init &ssh_kex, json_object &o) const override {
+        bool assess(const ssh_kex_init &ssh_kex, json_array &a) const override {
+            json_object o{a};
             o.print_key_string("policy", "quantum_safe");
             json_object assessment{o, "offered"};
             bool kex_compliant = assess_ssh_kex_methods(ssh_kex.kex_algorithms, assessment);
@@ -610,6 +615,7 @@ namespace crypto_policy {
             bool s2c_compliant = assess_ssh_ciphers(ssh_kex.encryption_algorithms_server_to_client, server_client);
             server_client.close();
             assessment.close();
+            o.close();
             return kex_compliant && c2s_compliant && s2c_compliant;
         }
 
@@ -619,13 +625,15 @@ namespace crypto_policy {
                    assess_tls_extensions(ch.extensions);
         }
 
-        bool assess(const dtls_client_hello &dtls_ch, json_object &o) const override {
+        bool assess(const dtls_client_hello &dtls_ch, json_array &a) const override {
 
+            json_object o{a};
             const tls_client_hello &ch = dtls_ch.get_tls_client_hello();
             o.print_key_string("policy", "quantum_safe");
             o.print_key_string("target", "client");
             bool suites_compliant = assess_tls_ciphersuites(ch.ciphersuite_vector, o);
             bool extensions_compliant = assess_tls_extensions(ch.extensions, o);
+            o.close();
 
             return suites_compliant && extensions_compliant;
         }
@@ -636,13 +644,15 @@ namespace crypto_policy {
                    assess_tls_extensions(sh.extensions);
         }
 
-        bool assess(const dtls_server_hello &dtls_sh, json_object &o) const override {
+        bool assess(const dtls_server_hello &dtls_sh, json_array &a) const override {
 
             const tls_server_hello &sh = dtls_sh.get_tls_server_hello();
+            json_object o{a};
             o.print_key_string("policy", "quantum_safe");
             o.print_key_string("target", "session");
             bool suites_compliant = assess_tls_ciphersuites(sh.ciphersuite_vector, o);
             bool extensions_compliant = assess_tls_extensions(sh.extensions, o);
+            o.close();
 
             return suites_compliant && extensions_compliant;
         }
@@ -684,13 +694,14 @@ namespace crypto_policy {
             return cs.value();
         }
 
-        bool assess_impl(const tls_server_hello &sh, json_object *o) const {
+        bool assess_impl(const tls_server_hello &sh, json_array *o) const {
 
             // dummy json object. Not to be used without checking for o != nullptr
             //
             json_object a;
             if (o != nullptr) {
-                a = json_object{o, "nist_sp_800_52_policy"};
+                a = json_object{*o};
+                a.print_key_string("policy", "nist_sp_800_52_rev_2");
             }
 
             bool non_compliant = false;
@@ -701,7 +712,7 @@ namespace crypto_policy {
             // negotiated parameters compliance checks based on NIST SP 800-52 Rev 2
             //
             if (verbose_output && o != nullptr) {
-                    json_object params{a, "negotiated_parameters"};
+                json_object params{a, "negotiated_parameters"};
                 if (exts.supported_version != tls_version::none) {
                     params.print_key_string("protocol_version", tls_version_to_string(exts.supported_version).c_str());
                 } else {
@@ -835,13 +846,13 @@ namespace crypto_policy {
             return true;
         }
 
-        bool assess(const tls_server_hello &sh, json_object &o) const override {
-            return assess_impl(sh, &o);
+        bool assess(const tls_server_hello &sh, json_array &a) const override {
+        return assess_impl(sh, &a);
         }
 
-        bool assess(const tls_server_hello_and_certificate &hello_and_cert, json_object &o) const override {
+        bool assess(const tls_server_hello_and_certificate &hello_and_cert, json_array &a) const override {
             if (hello_and_cert.is_not_empty()) {
-                return assess(hello_and_cert.get_server_hello(), o);
+                return assess(hello_and_cert.get_server_hello(), a);
             }
             return true;
         }
@@ -977,10 +988,8 @@ namespace crypto_policy {
             tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
             tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
 
-
             tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
             tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
-
 
             tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
             tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
@@ -995,48 +1004,39 @@ namespace crypto_policy {
             tls::cipher_suites::code::TLS_DHE_RSA_WITH_AES_128_CBC_SHA256,
             tls::cipher_suites::code::TLS_DHE_RSA_WITH_AES_256_CBC_SHA256,
 
-
             tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
             tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
             tls::cipher_suites::code::TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
             tls::cipher_suites::code::TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
-
 
             tls::cipher_suites::code::TLS_DHE_DSS_WITH_AES_128_GCM_SHA256,
             tls::cipher_suites::code::TLS_DHE_DSS_WITH_AES_256_GCM_SHA384,
             tls::cipher_suites::code::TLS_DHE_DSS_WITH_AES_128_CBC_SHA256,
             tls::cipher_suites::code::TLS_DHE_DSS_WITH_AES_256_CBC_SHA256,
 
-
             tls::cipher_suites::code::TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
             tls::cipher_suites::code::TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
-
 
             tls::cipher_suites::code::TLS_DH_DSS_WITH_AES_128_GCM_SHA256,
             tls::cipher_suites::code::TLS_DH_DSS_WITH_AES_256_GCM_SHA384,
             tls::cipher_suites::code::TLS_DH_DSS_WITH_AES_128_CBC_SHA256,
             tls::cipher_suites::code::TLS_DH_DSS_WITH_AES_256_CBC_SHA256,
 
-
             tls::cipher_suites::code::TLS_DH_DSS_WITH_AES_128_CBC_SHA,
             tls::cipher_suites::code::TLS_DH_DSS_WITH_AES_256_CBC_SHA,
-
 
             tls::cipher_suites::code::TLS_DH_RSA_WITH_AES_128_GCM_SHA256,
             tls::cipher_suites::code::TLS_DH_RSA_WITH_AES_256_GCM_SHA384,
             tls::cipher_suites::code::TLS_DH_RSA_WITH_AES_128_CBC_SHA256,
             tls::cipher_suites::code::TLS_DH_RSA_WITH_AES_256_CBC_SHA256,
 
-
             tls::cipher_suites::code::TLS_DH_RSA_WITH_AES_128_CBC_SHA,
             tls::cipher_suites::code::TLS_DH_RSA_WITH_AES_256_CBC_SHA,
-
 
             tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256,
             tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384,
             tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256,
             tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384,
-
 
             tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA,
             tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA,
@@ -1468,52 +1468,52 @@ namespace crypto_policy {
 
 }; // namespace crypto_policy
 
+
 // Implementation of tls_extensions::get_required_extensions()
-    // Placed here after crypto_policy::required_extensions is fully defined
-    inline crypto_policy::required_extensions tls_extensions::get_required_extensions() const {
+//
+inline crypto_policy::required_extensions tls_extensions::get_required_extensions() const {
 
-        crypto_policy::required_extensions req_exts;
+    crypto_policy::required_extensions req_exts;
 
-        datum ext_parser{this->data, this->data_end};
+    datum ext_parser{this->data, this->data_end};
 
-        while (ext_parser.length() > 0) {
-            uint64_t tmp_len = 0;
-            uint64_t tmp_type;
+    while (ext_parser.length() > 0) {
+        uint64_t tmp_len = 0;
+        uint64_t tmp_type;
 
-            const uint8_t *data = ext_parser.data;
-            if (ext_parser.read_uint(&tmp_type, L_ExtensionType) == false) {
-                break;
-            }
-            if (ext_parser.read_uint(&tmp_len, L_ExtensionLength) == false) {
-                break;
-            }
-            if (ext_parser.skip(tmp_len) == false) {
-                break;
-            }
-            const uint8_t* data_end = ext_parser.data;
-
-            if (tmp_type == type_supported_groups) {
-                req_exts.negotiated_supported_group = 0x0000; // invalid value. TODO: parse supported groups to find the negotiated one
-            }
-            else if (tmp_type == type_supported_versions) {
-                datum ext{data, data_end};
-                ext.skip(L_ExtensionType + L_ExtensionLength);
-                encoded<uint16_t> version{(uint16_t)(ext.data[0] << 8 | ext.data[1])};
-                req_exts.supported_version = (tls_version)version.value();
-            }
-            else if (tmp_type == type_encrypt_then_mac) {
-                req_exts.encrypt_then_mac = true;
-            }
-            else if (tmp_type == type_ec_points_format) {
-                req_exts.ec_points_format = true;
-            }
-
-            req_exts.supported_extensions.insert(tmp_type);
-
+        const uint8_t *data = ext_parser.data;
+        if (ext_parser.read_uint(&tmp_type, L_ExtensionType) == false) {
+            break;
+        }
+        if (ext_parser.read_uint(&tmp_len, L_ExtensionLength) == false) {
+            break;
+        }
+        if (ext_parser.skip(tmp_len) == false) {
+            break;
         }
 
-        return req_exts;
+        const uint8_t* data_end = ext_parser.data;
+        if (tmp_type == type_supported_groups) {
+            req_exts.negotiated_supported_group = 0x0000; // invalid value. TODO: parse supported groups to find the negotiated one
+        }
+        else if (tmp_type == type_supported_versions) {
+            datum ext{data, data_end};
+            ext.skip(L_ExtensionType + L_ExtensionLength);
+            encoded<uint16_t> version{(uint16_t)(ext.data[0] << 8 | ext.data[1])};
+            req_exts.supported_version = (tls_version)version.value();
+        }
+        else if (tmp_type == type_encrypt_then_mac) {
+            req_exts.encrypt_then_mac = true;
+        }
+        else if (tmp_type == type_ec_points_format) {
+            req_exts.ec_points_format = true;
+        }
+
+        req_exts.supported_extensions.insert(tmp_type);
     }
+
+    return req_exts;
+}
 
 
 #endif // CRYPTO_ASSESS_H

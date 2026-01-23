@@ -333,6 +333,12 @@ struct json_array {
         b->puts(name);
         b->puts("\":[");
     }
+    json_array(struct json_object *object, const char *name) : b{object->b} {
+        write_comma(object->comma);
+        b->write_char('\"');
+        b->puts(name);
+        b->puts("\":[");
+    }
     explicit json_array() {}
     constexpr json_array& operator=(const json_array &other) {
         b = other.b;
