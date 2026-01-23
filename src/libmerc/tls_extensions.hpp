@@ -145,7 +145,7 @@ public:
         case key_share:                              return "key_share";
         case transparency_info:                      return "transparency_info";
         case connection_id:                          return "connection_id";
-        case connection_id:                          return "connection_id";
+        case connection_id_deprecated:               return "connection_id_deprecated";
         case external_id_hash:                       return "external_id_hash";
         case external_session_id:                    return "external_session_id";
         case quic_transport_parameters:              return "quic_transport_parameters";

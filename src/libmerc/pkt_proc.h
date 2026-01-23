@@ -112,7 +112,7 @@ struct stateful_pkt_proc {
     class traffic_selector &selector;
     quic_crypto_engine quic_crypto;
     struct tcp_reassembler *reassembler_ptr = nullptr;
-    const crypto_policy::assessor *crypto_policy = nullptr;
+    std::vector<const crypto_policy::assessor *> cas;
     const bool exposed_creds = false;
 
     explicit stateful_pkt_proc(mercury_context mc, size_t prealloc_size=0) :
@@ -134,8 +134,8 @@ struct stateful_pkt_proc {
 
         if (global_vars.crypto_assess_policy.length() > 0) {
             // set crypto assessment policy
-            crypto_policy = crypto_policy::assessor::create(global_vars.crypto_assess_policy);
-            if (crypto_policy == nullptr) {
+            crypto_policy::assessor::create(global_vars.crypto_assess_policy, cas);
+            if (cas.empty()) {
                 throw std::runtime_error("crypto policy assessor could not be initialized");
             }
         }
@@ -170,8 +170,10 @@ struct stateful_pkt_proc {
     }
 
     ~stateful_pkt_proc() {
-        delete crypto_policy;
         delete reassembler_ptr;
+        for (auto &assessor: cas) {
+            delete assessor;
+        }
         // we could call ag->remote_procuder(mq), but for now we do not
     }
 

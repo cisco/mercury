@@ -14,9 +14,29 @@
 #include "dtls.h"
 #include "ssh.h"
 
-#define MAX_CRYPTO_ASSESSMENT_TYPES 1
+#define MAX_CRYPTO_ASSESSMENT_TYPES 2
 
 using crypto_assess_result = std::bitset<MAX_CRYPTO_ASSESSMENT_TYPES>;
+
+inline std::string tls_version_to_string(tls_version v) {
+    switch (v) {
+        case tls_version::sslv2_0:
+            return "SSLv2.0";
+        case tls_version::sslv3_0:
+            return "SSLv3.0";
+        case tls_version::tlsv1_0:
+            return "TLSv1.0";
+        case tls_version::tlsv1_1:
+            return "TLSv1.1";
+        case tls_version::tlsv1_2:
+            return "TLSv1.2";
+        case tls_version::tlsv1_3:
+            return "TLSv1.3";
+        default:
+            ;
+    }
+    return "unknown";
+}
 
 namespace crypto_policy {
 
@@ -78,7 +98,7 @@ namespace crypto_policy {
 
         virtual ~assessor() { }
 
-        static const assessor *create(const std::string &policy);
+        static void create(const std::string &policy, std::vector<const assessor*> &assessors);
     };
 
     static bool is_grease(uint16_t x) {
@@ -629,13 +649,479 @@ namespace crypto_policy {
 
     };
 
-    inline const assessor* assessor::create(const std::string &policy) {
-        if (policy == "quantum_safe" or policy == "default") {
-            return new crypto_policy::quantum_safe{true};
-        } else if (policy == "quantum_safe_compact") {
-            return new crypto_policy::quantum_safe{false};
+
+    // TLS Server Hello required extensions to check for NIST SP 800-52 Rev 2 non compliance
+    //
+    typedef struct required_extensions{
+        std::unordered_set<uint16_t> supported_extensions;
+        uint16_t negotiated_supported_group;
+        tls_version supported_version = tls_version::none;
+        bool ec_points_format = false;
+        bool encrypt_then_mac = false;
+    } required_extensions;
+
+    class nist_sp_800_52 : public assessor {
+
+    const bool verbose_output = false;
+
+    public:
+        const static size_t result_idx = 1; // bitset index for nist assessment
+
+        nist_sp_800_52() { }
+        nist_sp_800_52(bool verbose) : verbose_output(verbose) { }
+        ~nist_sp_800_52() { }
+
+        virtual size_t get_result_idx() const {
+            return nist_sp_800_52::result_idx;
         }
-        return nullptr;   // error: policy not found
+
+        uint16_t get_negotiated_cipher_suite(const datum &ciphersuite_vector) const {
+            datum cs_datum = ciphersuite_vector;
+            if (cs_datum.is_not_readable() || cs_datum.length() != 2) {
+                return 0;
+            }
+            encoded<uint16_t> cs{cs_datum};
+            return cs.value();
+        }
+
+        bool assess_impl(const tls_server_hello &sh, json_object *o) const {
+
+            // dummy json object. Not to be used without checking for o != nullptr
+            //
+            json_object a;
+            if (o != nullptr) {
+                a = json_object{o, "nist_sp_800_52_policy"};
+            }
+
+            bool non_compliant = false;
+            tls_version protocol_version = sh.get_version();
+            required_extensions exts = sh.extensions.get_required_extensions();
+            uint16_t ciphersuite = get_negotiated_cipher_suite(sh.ciphersuite_vector);
+
+            // negotiated parameters compliance checks based on NIST SP 800-52 Rev 2
+            //
+            if (verbose_output && o != nullptr) {
+                    json_object params{a, "negotiated_parameters"};
+                if (exts.supported_version != tls_version::none) {
+                    params.print_key_string("protocol_version", tls_version_to_string(exts.supported_version).c_str());
+                } else {
+                    params.print_key_string("protocol_version", tls_version_to_string(protocol_version).c_str());
+                }
+
+                json_array exts_array{params, "extensions"};
+                for (const auto &ext : exts.supported_extensions) {
+                    if (!is_grease(ext)) {
+                        tls::extensions<uint16_t> extn{ext};
+                        exts_array.print_string(extn.get_name());
+                    }
+                }
+                exts_array.close();
+
+                params.print_key_string("cipher_suite", tls::cipher_suites{ciphersuite}.get_name());
+
+                params.print_key_string("supported_group", tls::supported_groups{exts.negotiated_supported_group}.get_name());
+
+                params.close();
+            }
+
+            json_object compliance;
+            if (o != nullptr) 
+                compliance = json_object{a, "compliance_result"};
+            
+            // NIST SP 800-52 Rev 2 Compliance Rules
+            //
+            if (!non_compliant && protocol_version == tls_version::tlsv1_3 && exts.supported_version != tls_version::tlsv1_3) {
+                if (o != nullptr)
+                    compliance.print_key_string("tls_version_non_compliant", "tlsv1.3 negotiated but supported_versions extension missing or invalid");
+                non_compliant = true;
+            }
+
+            if (!non_compliant && sh.compression_method.data[0] != 0x00) {  // Rule 5
+                if (o != nullptr)
+                    compliance.print_key_string("compression_method_non_compliant", "non-zero compression method");
+                non_compliant = true;
+            }
+
+            if (!non_compliant && exts.supported_extensions.count(type_supported_versions)) {
+                if (exts.supported_version == tls_version::tlsv1_3) {
+                    if (!non_compliant && !exts.supported_extensions.count(type_supported_groups)) {  // Rule 1
+                        if (o != nullptr)
+                            compliance.print_key_string("supported_groups_missing", "TLSv1.3 requires supported_groups extension");
+                        non_compliant = true;
+                    }
+
+                    if (!non_compliant && !v1_3_allowed_ciphersuites.count(ciphersuite)) {          // Rule 7
+                        if (o != nullptr)
+                            compliance.print_key_string("cipher_suite_non_compliant", "disallowed cipher suite for tlsv1.3");
+                        non_compliant = true;
+                    }
+                }
+                else {
+                    if (o != nullptr)
+                        compliance.print_key_string("tls_version_non_compliant", "supported_versions extension invalid"); // unable to parse supported version extn
+                    non_compliant = true;
+                }
+            }
+            else if (!non_compliant) {
+                if (ecdhe_ciphersuites.count(ciphersuite) && !exts.supported_extensions.count(type_supported_groups)) {    // Rule 1
+                    if (o != nullptr)
+                        compliance.print_key_string("supported_groups_missing", "supported_groups extension missing for ECDHE cipher suite");
+                    non_compliant = true;
+                }
+
+                if (!non_compliant && ec_ciphersuites.count(ciphersuite)) {
+                    if (!non_compliant && !exts.ec_points_format) {   // Rule 2
+                        if (o != nullptr)
+                            compliance.print_key_string("ec_points_format_non_compliant", "ec_points_format extension missing but EC cipher suite negotiated");
+                        non_compliant = true;
+                    }
+                    if (!non_compliant && exts.negotiated_supported_group != tls::supported_groups::code::secp256r1 &&
+                        exts.negotiated_supported_group != tls::supported_groups::code::secp384r1) {  // Rule 6
+                        if (o != nullptr)
+                            compliance.print_key_string("supported_group_non_compliant", "disallowed supported group for EC cipher suite");
+                        non_compliant = true;
+                    }
+                }
+
+                if (!non_compliant && cbc_ciphersuites.count(ciphersuite) && !exts.encrypt_then_mac) {   // Rule 3
+                    if (o != nullptr)
+                        compliance.print_key_string("encrypt_then_mac_non_compliant", "encrypt_then_mac extension missing for CBC cipher suite");
+                    non_compliant = true;
+                }
+
+                if (protocol_version == tls_version::tlsv1_2) {
+                    if (!non_compliant && !v1_2_allowed_ciphersuites.count(ciphersuite)) {          // Rule 7
+                        if (o != nullptr)
+                            compliance.print_key_string("cipher_suite_non_compliant", "disallowed cipher suite for tlsv1.2");
+                        non_compliant = true;
+                    }
+                }
+                else if (protocol_version == tls_version::tlsv1_1) {
+                    if (!non_compliant && !v1_1_allowed_ciphersuites.count(ciphersuite)) {          // Rule 7
+                        if (o != nullptr)
+                            compliance.print_key_string("cipher_suite_non_compliant", "disallowed cipher suite for tlsv1.1");
+                        non_compliant = true;
+                    }
+                }
+                else if (!non_compliant) {
+                    if (o != nullptr)
+                        compliance.print_key_string("tls_version_non_compliant", tls_version_to_string(protocol_version).c_str());   // tls version < 1.1 or parse error
+                    non_compliant = true;
+                }
+            }
+
+            if (o != nullptr) {
+                if (!non_compliant) {
+                    compliance.print_key_bool("compliant", true);
+                }
+                else {
+                    compliance.print_key_bool("compliant", false);
+                }
+                compliance.close();
+                a.close();
+            }
+
+            return !non_compliant;
+        }
+
+        bool assess(const tls_server_hello& sh) const override {
+            return assess_impl(sh, nullptr);
+        }
+
+        bool assess(const tls_server_hello_and_certificate &hello_and_cert) const override {
+            if (hello_and_cert.is_not_empty()) {
+                return assess(hello_and_cert.get_server_hello());
+            }
+            return true;
+        }
+
+        bool assess(const tls_server_hello &sh, json_object &o) const override {
+            return assess_impl(sh, &o);
+        }
+
+        bool assess(const tls_server_hello_and_certificate &hello_and_cert, json_object &o) const override {
+            if (hello_and_cert.is_not_empty()) {
+                return assess(hello_and_cert.get_server_hello(), o);
+            }
+            return true;
+        }
+
+
+        static inline std::unordered_set<uint16_t> cbc_ciphersuites = {
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
+            tls::cipher_suites::code::TLS_DHE_RSA_WITH_AES_128_CBC_SHA256,
+            tls::cipher_suites::code::TLS_DHE_RSA_WITH_AES_256_CBC_SHA256,
+            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+            tls::cipher_suites::code::TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
+            tls::cipher_suites::code::TLS_DHE_DSS_WITH_AES_128_CBC_SHA256,
+            tls::cipher_suites::code::TLS_DHE_DSS_WITH_AES_256_CBC_SHA256,
+            tls::cipher_suites::code::TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
+            tls::cipher_suites::code::TLS_DH_DSS_WITH_AES_128_CBC_SHA256,
+            tls::cipher_suites::code::TLS_DH_DSS_WITH_AES_256_CBC_SHA256,
+            tls::cipher_suites::code::TLS_DH_DSS_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_DH_DSS_WITH_AES_256_CBC_SHA,
+            tls::cipher_suites::code::TLS_DH_RSA_WITH_AES_128_CBC_SHA256,
+            tls::cipher_suites::code::TLS_DH_RSA_WITH_AES_256_CBC_SHA256,
+            tls::cipher_suites::code::TLS_DH_RSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_DH_RSA_WITH_AES_256_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256,
+            tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384,
+            tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256,
+            tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384,
+            tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_256_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+            tls::cipher_suites::code::TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
+            tls::cipher_suites::code::TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
+            tls::cipher_suites::code::TLS_DH_DSS_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_DH_DSS_WITH_AES_256_CBC_SHA,
+            tls::cipher_suites::code::TLS_DH_RSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_DH_RSA_WITH_AES_256_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_256_CBC_SHA,
+        };
+
+        static inline std::unordered_set<uint16_t> ecdhe_ciphersuites {
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_128_CCM,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_256_CCM,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_256_CCM_8,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
+            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+        };
+
+        static inline std::unordered_set<uint16_t> ec_ciphersuites {
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_128_CCM,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_256_CCM,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_256_CCM_8,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
+            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256,
+            tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384,
+            tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256,
+            tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384,
+            tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256,
+            tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384,
+            tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256,
+            tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384,
+            tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_256_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_256_CBC_SHA,
+        };
+
+        static inline std::unordered_set<uint16_t> v1_3_allowed_ciphersuites {
+            tls::cipher_suites::code::TLS_AES_128_GCM_SHA256,
+            tls::cipher_suites::code::TLS_AES_256_GCM_SHA384,
+            tls::cipher_suites::code::TLS_AES_128_CCM_SHA256,
+            tls::cipher_suites::code::TLS_AES_128_CCM_8_SHA256
+        };
+
+        static inline std::unordered_set<uint16_t> v1_2_allowed_ciphersuites {
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_128_CCM,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_256_CCM,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_256_CCM_8,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
+
+
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+
+
+            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+            tls::cipher_suites::code::TLS_DHE_RSA_WITH_AES_128_GCM_SHA256,
+            tls::cipher_suites::code::TLS_DHE_RSA_WITH_AES_256_GCM_SHA384,
+            tls::cipher_suites::code::TLS_DHE_RSA_WITH_AES_128_CCM,
+            tls::cipher_suites::code::TLS_DHE_RSA_WITH_AES_256_CCM,
+            tls::cipher_suites::code::TLS_DHE_RSA_WITH_AES_128_CCM_8,
+            tls::cipher_suites::code::TLS_DHE_RSA_WITH_AES_256_CCM_8,
+            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
+            tls::cipher_suites::code::TLS_DHE_RSA_WITH_AES_128_CBC_SHA256,
+            tls::cipher_suites::code::TLS_DHE_RSA_WITH_AES_256_CBC_SHA256,
+
+
+            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+            tls::cipher_suites::code::TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
+
+
+            tls::cipher_suites::code::TLS_DHE_DSS_WITH_AES_128_GCM_SHA256,
+            tls::cipher_suites::code::TLS_DHE_DSS_WITH_AES_256_GCM_SHA384,
+            tls::cipher_suites::code::TLS_DHE_DSS_WITH_AES_128_CBC_SHA256,
+            tls::cipher_suites::code::TLS_DHE_DSS_WITH_AES_256_CBC_SHA256,
+
+
+            tls::cipher_suites::code::TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
+
+
+            tls::cipher_suites::code::TLS_DH_DSS_WITH_AES_128_GCM_SHA256,
+            tls::cipher_suites::code::TLS_DH_DSS_WITH_AES_256_GCM_SHA384,
+            tls::cipher_suites::code::TLS_DH_DSS_WITH_AES_128_CBC_SHA256,
+            tls::cipher_suites::code::TLS_DH_DSS_WITH_AES_256_CBC_SHA256,
+
+
+            tls::cipher_suites::code::TLS_DH_DSS_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_DH_DSS_WITH_AES_256_CBC_SHA,
+
+
+            tls::cipher_suites::code::TLS_DH_RSA_WITH_AES_128_GCM_SHA256,
+            tls::cipher_suites::code::TLS_DH_RSA_WITH_AES_256_GCM_SHA384,
+            tls::cipher_suites::code::TLS_DH_RSA_WITH_AES_128_CBC_SHA256,
+            tls::cipher_suites::code::TLS_DH_RSA_WITH_AES_256_CBC_SHA256,
+
+
+            tls::cipher_suites::code::TLS_DH_RSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_DH_RSA_WITH_AES_256_CBC_SHA,
+
+
+            tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256,
+            tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384,
+            tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256,
+            tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384,
+
+
+            tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA,
+
+            tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256,
+            tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384,
+            tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256,
+            tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384,
+
+            tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_256_CBC_SHA,
+        };
+
+        static inline std::unordered_set<uint16_t> v1_1_allowed_ciphersuites {
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+
+            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+            tls::cipher_suites::code::TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
+
+            tls::cipher_suites::code::TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
+
+            tls::cipher_suites::code::TLS_DH_DSS_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_DH_DSS_WITH_AES_256_CBC_SHA,
+
+            tls::cipher_suites::code::TLS_DH_RSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_DH_RSA_WITH_AES_256_CBC_SHA,
+
+            tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA,
+
+            tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_128_CBC_SHA,
+            tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_256_CBC_SHA,
+        };
+
+        static inline std::unordered_set<uint16_t> allowed_groups {
+            tls::supported_groups::code::secp224r1,
+            tls::supported_groups::code::secp256r1,
+            tls::supported_groups::code::secp384r1,
+            tls::supported_groups::code::secp521r1,
+            tls::supported_groups::code::sect233k1,
+            tls::supported_groups::code::sect283k1,
+            tls::supported_groups::code::sect409k1,
+            tls::supported_groups::code::sect571k1,
+            tls::supported_groups::code::sect233r1,
+            tls::supported_groups::code::sect283r1,
+            tls::supported_groups::code::sect409r1,
+            tls::supported_groups::code::sect571r1
+        };
+
+    };
+
+    inline void assessor::create(const std::string &policy, std::vector<const assessor*> &assessors) {
+
+        if (policy == "default") {
+            assessors.push_back(new crypto_policy::quantum_safe{true});
+            assessors.push_back(new crypto_policy::nist_sp_800_52{true});
+            return;
+        }
+
+        std::string delim = ",";
+        std::string policy_str = policy;
+        auto pos = std::string::npos;
+
+        do {
+            std::string token;
+            pos = policy_str.find(delim);
+
+            if (pos != std::string::npos) {
+                token = policy_str.substr(0, pos);
+                policy_str.erase(0, pos + delim.length());
+            } else {
+                token = policy_str;
+            }
+
+            if (token == "quantum_safe") {
+                assessors.push_back(new crypto_policy::quantum_safe{true});
+            } else if (token == "nist_sp_800_52") {
+                assessors.push_back(new crypto_policy::nist_sp_800_52{true});
+            }
+
+        } while (pos != std::string::npos);
     }
 
     [[maybe_unused]] static bool unit_test() {
@@ -982,6 +1468,52 @@ namespace crypto_policy {
 
 }; // namespace crypto_policy
 
-// #include "nist_sp800_52.hpp"
+// Implementation of tls_extensions::get_required_extensions()
+    // Placed here after crypto_policy::required_extensions is fully defined
+    inline crypto_policy::required_extensions tls_extensions::get_required_extensions() const {
+
+        crypto_policy::required_extensions req_exts;
+
+        datum ext_parser{this->data, this->data_end};
+
+        while (ext_parser.length() > 0) {
+            uint64_t tmp_len = 0;
+            uint64_t tmp_type;
+
+            const uint8_t *data = ext_parser.data;
+            if (ext_parser.read_uint(&tmp_type, L_ExtensionType) == false) {
+                break;
+            }
+            if (ext_parser.read_uint(&tmp_len, L_ExtensionLength) == false) {
+                break;
+            }
+            if (ext_parser.skip(tmp_len) == false) {
+                break;
+            }
+            const uint8_t* data_end = ext_parser.data;
+
+            if (tmp_type == type_supported_groups) {
+                req_exts.negotiated_supported_group = 0x0000; // invalid value. TODO: parse supported groups to find the negotiated one
+            }
+            else if (tmp_type == type_supported_versions) {
+                datum ext{data, data_end};
+                ext.skip(L_ExtensionType + L_ExtensionLength);
+                encoded<uint16_t> version{(uint16_t)(ext.data[0] << 8 | ext.data[1])};
+                req_exts.supported_version = (tls_version)version.value();
+            }
+            else if (tmp_type == type_encrypt_then_mac) {
+                req_exts.encrypt_then_mac = true;
+            }
+            else if (tmp_type == type_ec_points_format) {
+                req_exts.ec_points_format = true;
+            }
+
+            req_exts.supported_extensions.insert(tmp_type);
+
+        }
+
+        return req_exts;
+    }
+
 
 #endif // CRYPTO_ASSESS_H
