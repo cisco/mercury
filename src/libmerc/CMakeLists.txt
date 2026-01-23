@@ -124,7 +124,6 @@ endif()
 # headers
 include(CheckIncludeFiles)
 check_include_files(linux/if_packet.h  HAVE_IF_PACKET_H)
-check_include_files(arpa/inet.h        HAVE_INET_H)
 check_include_files(fcntl.h            HAVE_FCNTL_H)
 check_include_files(stddef.h           HAVE_STDDEF_H)
 check_include_files(sys/ioctl.h        HAVE_IOCTL_H)

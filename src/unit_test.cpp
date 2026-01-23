@@ -11,6 +11,7 @@
 #include "libmerc/tofsee.hpp"
 #include "libmerc/snmp.hpp"
 #include "libmerc/ip_address.hpp"
+#include "libmerc/lctrie/lctrie_test.hpp"
 #include "libmerc/watchlist.hpp"
 #include "libmerc/rdp.hpp"
 #include "libmerc/rfb.hpp"
@@ -158,6 +159,18 @@ int main(int, char *[]) {
             "writeable",
             &writeable_unit_test::run
         },
+        {
+            "ipv6_addr_lct",
+            &ipv6_address_lct_unit_test
+        },
+        {
+            "lctrie_v4",
+            &lctrie_v4_unit_test
+        },
+        {
+            "lctrie_v6",
+            &lctrie_v6_unit_test
+        }
     };
     for (const auto &tc : test_cases_verbose) {
         bool result = tc.func(nullptr);
