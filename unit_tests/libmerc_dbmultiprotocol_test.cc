@@ -639,6 +639,34 @@ TEST_CASE_METHOD(LibmercTestFixture, "test attributes with resources-mp")
     }
 }
 
+TEST_CASE_METHOD(LibmercTestFixture, "test ipv6 pcap for domain_faking")
+{
+
+    auto attr_check = [&](std::string &expected_attr, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(check_attr(expected_attr));
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, std::string>> test_set_up{
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"all"},
+             .m_pc{"ipv6-domain-faking.pcap"}},
+            "domain_faking"      // domain_faking attribute in modified ipv6 curl pcap
+        }
+    };
+
+    for (auto &[config, expected_attr] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        attr_check(expected_attr, config.m_lc);
+    }
+}
+
 TEST_CASE_METHOD(LibmercTestFixture, "test faketls attribute with resources-mp")
 {
     auto attr_check = [&](std::string &expected_attr, const struct libmerc_config &config)
