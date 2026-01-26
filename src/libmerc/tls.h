@@ -294,6 +294,7 @@ struct tls_server_certificate {
     bool is_not_empty() const { return certificate_list.is_not_empty(); }
 
     void write_json(struct json_array &a, bool json_output) const;
+    bool get_subject_common_name(std::string &common_name) const;
 
     static constexpr mask_and_value<8> matcher{
         { 0xff, 0xff, 0xfc, 0x00, 0x00, 0xff, 0x00, 0x00 },
@@ -629,6 +630,10 @@ public:
     }
 
     const tls_server_hello & get_server_hello() const { return hello; }
+
+    bool get_subject_common_name(std::string &common_name) const {
+        return certificate.get_subject_common_name(common_name);
+    }
 };
 
 
@@ -727,6 +732,10 @@ public:
             tls.close();
 
         }
+    }
+
+    bool get_subject_common_name(std::string &common_name) const {
+        return certificate.get_subject_common_name(common_name);
     }
 
 };
@@ -2152,6 +2161,31 @@ inline void tls_server_certificate::write_json(struct json_array &a, bool json_o
             return;
         }
     }
+}
+
+inline bool tls_server_certificate::get_subject_common_name(std::string &common_name) const {
+    struct datum tmp_cert_list = certificate_list;
+    while (tmp_cert_list.length() > 0) {
+        uint64_t tmp_len;
+        if (tmp_cert_list.read_uint(&tmp_len, L_CertificateLength) == false) {
+            return false;
+        }
+        if (tmp_len > (unsigned)tmp_cert_list.length()) {
+            tmp_len = tmp_cert_list.length(); /* truncate */
+        }
+        if (tmp_len == 0) {
+            return false;
+        }
+        struct x509_cert c;
+        c.parse(tmp_cert_list.data, tmp_len);
+        if (c.get_subject_common_name(common_name)) {
+            return true;
+        }
+        if (tmp_cert_list.skip(tmp_len) == false) {
+            return false;
+        }
+    }
+    return false;
 }
 
 

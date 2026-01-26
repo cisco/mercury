@@ -199,6 +199,36 @@ struct do_observation {
 
 };
 
+struct do_cert_label_observation {
+    const struct key &k_;
+    class message_queue<event_msg> *mq_;
+
+    do_cert_label_observation(const struct key &k,
+                              class message_queue<event_msg> *mq) :
+        k_{k},
+        mq_{mq}
+    {}
+
+    void operator()(tls_server_hello_and_certificate &msg) {
+        std::string common_name;
+        if (msg.get_subject_common_name(common_name) && !common_name.empty()) {
+            mq_->push(event_string::construct_cert_label_event(k_, common_name));
+        }
+    }
+
+    void operator()(tls_certificate &msg) {
+        std::string common_name;
+        if (msg.get_subject_common_name(common_name) && !common_name.empty()) {
+            mq_->push(event_string::construct_cert_label_event(k_, common_name));
+        }
+    }
+
+    template <typename T>
+    void operator()(T &) { }
+
+    void operator()(std::monostate &) { }
+};
+
 bool stateful_pkt_proc::set_tcp_protocol_from_keyword(protocol &x,
                                                       datum pkt_copy,
                                                       tcp_msg_type msg_type) {
@@ -1028,6 +1058,9 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             if (mq) {
                 std::visit(do_observation{k, analysis, mq}, x);
             }
+        }
+        if (global_vars.do_analysis && mq && ip_pkt.src_is_private()) {
+            std::visit(do_cert_label_observation{k, mq}, x);
         }
 
         bool output_nbd = false;

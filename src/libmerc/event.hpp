@@ -8,6 +8,7 @@
 #include "flow_key.h"  // for MAX_PORT_STR_LEN and MAX_ADDR_STR_LEN
 #include "result.h"    // for MAX_USER_AGENT_LEN
 #include <zlib.h>
+#include <cstring>
 
 
 /// an event_msg represents a observable event
@@ -75,6 +76,32 @@ namespace event_string {
         return {src_ip_str, analysis.fp.string(), utf8_string::get_utf8_string(analysis.destination.ua_str), dest_context};
     }
 
+    inline constexpr const char *cert_label_prefix = "cert_label:";
+
+    inline event_msg construct_cert_label_event(const struct key &k,
+                                                const std::string &common_name)
+    {
+        char src_ip_str[MAX_ADDR_STR_LEN];
+        k.sprint_src_addr(src_ip_str);
+        std::string label{cert_label_prefix};
+        label.append(common_name);
+        return {src_ip_str, "", "", label};
+    }
+
+    inline bool is_cert_label_event(const event_msg &event)
+    {
+        return event[3].rfind(cert_label_prefix, 0) == 0;
+    }
+
+    inline std::string get_cert_label_common_name(const event_msg &event)
+    {
+        size_t prefix_len = std::strlen(cert_label_prefix);
+        if (event[3].size() <= prefix_len) {
+            return {};
+        }
+        return event[3].substr(prefix_len);
+    }
+
 };
 
 // class event_encoder provides methods to compress/decompress event string.
@@ -139,10 +166,52 @@ public:
 // strings into an alternative JSON representation
 //
 class event_processor_gz {
-    event_msg prev;
+    event_msg prev_fingerprint;
+    bool have_prev_fingerprint = false;
     bool first_loop = true;
     gzFile gzf;
     std::array<std::string, 4> v;
+    std::string current_src_ip;
+    bool cert_labels_open = false;
+    bool fingerprints_open = false;
+
+    void close_record() {
+        int gz_ret = 1;
+        if (fingerprints_open) {
+            gz_ret = gzprintf(gzf, "}]}]}]}");
+        } else if (cert_labels_open) {
+            gz_ret = gzprintf(gzf, "}],\"fingerprints\":[]}");
+        } else {
+            gz_ret = gzprintf(gzf, ", \"fingerprints\":[]}");
+        }
+        if (gz_ret <= 0) {
+            throw std::runtime_error("error in gzprintf");
+        }
+    }
+
+    void write_record_header(const event_msg &event, const char *version,
+                             const char *resource_version, const char *git_commit_id,
+                             uint32_t git_count, const char *init_time) {
+        int gz_ret = gzprintf(gzf, "{\"src_ip\":\"%s\", \"libmerc_init_time\" : \"%s\",\"libmerc_version\": \"%s\","
+                                   " \"resource_version\" : \"%s\", \"build_number\" : \"%u\", \"git_commit_id\": \"%s\"",
+                              event[0].c_str(), init_time, version, resource_version, git_count, git_commit_id);
+        if (gz_ret <= 0) {
+            throw std::runtime_error("error in gzprintf");
+        }
+    }
+
+    void add_cert_label(const std::string &common_name, uint32_t count) {
+        int gz_ret = 1;
+        if (!cert_labels_open) {
+            gz_ret = gzprintf(gzf, ", \"cert_labels\":[{\"common_name\":\"%s\",\"count\":%u", common_name.c_str(), count);
+            cert_labels_open = true;
+        } else {
+            gz_ret = gzprintf(gzf, "},{\"common_name\":\"%s\",\"count\":%u", common_name.c_str(), count);
+        }
+        if (gz_ret <= 0) {
+            throw std::runtime_error("error in gzprintf");
+        }
+    }
 
 public:
 
@@ -150,23 +219,49 @@ public:
 
     void process_init() {
         first_loop = true;
-        prev = event_msg{};  // re-initialize previous event
+        prev_fingerprint = event_msg{};  // re-initialize previous event
+        have_prev_fingerprint = false;
+        current_src_ip.clear();
+        cert_labels_open = false;
+        fingerprints_open = false;
     }
 
     void process_update(const event_msg &event, uint32_t count, const char *version,
                     const char *resource_version, const char *git_commit_id,
                     uint32_t git_count, const char *init_time) {
 
-        // find number of elements that match previous vector
-        size_t num_matching = 0;
-        for (num_matching=0; num_matching < v.size()-1; num_matching++) {
-            if (prev[num_matching].compare(event[num_matching]) != 0) {
-                break;
+        bool is_cert_label = event_string::is_cert_label_event(event);
+        bool new_src_ip = current_src_ip.empty() || current_src_ip != event[0];
+
+        if (new_src_ip) {
+            if (!first_loop) {
+                close_record();
+                int gz_ret = gzprintf(gzf, "\n");
+                if (gz_ret <= 0) {
+                    throw std::runtime_error("error in gzprintf");
+                }
             }
+            current_src_ip = event[0];
+            cert_labels_open = false;
+            fingerprints_open = false;
+            have_prev_fingerprint = false;
+            write_record_header(event, version, resource_version, git_commit_id, git_count, init_time);
+            first_loop = false;
         }
-        // set mismatched previous values
-        for (size_t i=num_matching; i < v.size()-1; i++) {
-            prev[i] = event[i];
+
+        if (is_cert_label) {
+            add_cert_label(event_string::get_cert_label_common_name(event), count);
+            return;
+        }
+
+        bool cert_labels_closed = false;
+        if (cert_labels_open && !fingerprints_open) {
+            int gz_ret = gzprintf(gzf, "}],");
+            if (gz_ret <= 0) {
+                throw std::runtime_error("error in gzprintf");
+            }
+            cert_labels_open = false;
+            cert_labels_closed = true;
         }
 
         //Format the optional parameter user-agent only if it is present
@@ -176,30 +271,45 @@ public:
             snprintf(user_agent, MAX_USER_AGENT_LEN - 1, "\"user_agent\":\"%s\", ", event[2].c_str());
         }
 
+        if (!fingerprints_open) {
+            const char *prefix = cert_labels_closed ? " \"fingerprints\":[{\"str_repr\":\"%s\", \"sessions\": [{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u"
+                                                    : ", \"fingerprints\":[{\"str_repr\":\"%s\", \"sessions\": [{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u";
+            int gz_ret = gzprintf(gzf, prefix,
+                                  event[1].c_str(), user_agent, event[3].c_str(), count);
+            if (gz_ret <= 0) {
+                throw std::runtime_error("error in gzprintf");
+            }
+            fingerprints_open = true;
+            prev_fingerprint = event;
+            have_prev_fingerprint = true;
+            return;
+        }
+
+        if (!have_prev_fingerprint) {
+            prev_fingerprint = event;
+            have_prev_fingerprint = true;
+        }
+
+        // find number of elements that match previous vector
+        size_t num_matching = 0;
+        for (num_matching=0; num_matching < v.size()-1; num_matching++) {
+            if (prev_fingerprint[num_matching].compare(event[num_matching]) != 0) {
+                break;
+            }
+        }
+        // set mismatched previous values
+        for (size_t i=num_matching; i < v.size()-1; i++) {
+            prev_fingerprint[i] = event[i];
+        }
+
         // output unique elements
         int gz_ret = 1;
         switch(num_matching) {
-        case 0:
-
-            std::string &src_ip = event[0];
-            std::string &str_repr = event[1];
-            std::string &dst = event[3];
-
-            if (!first_loop) {
-                gz_ret = gzprintf(gzf, "}]}]}]}\n");
-            }
-            if (gz_ret <= 0)
-                throw std::runtime_error("error in gzprintf");
-            gz_ret = gzprintf(gzf, "{\"src_ip\":\"%s\", \"libmerc_init_time\" : \"%s\",\"libmerc_version\": \"%s\","
-                                   " \"resource_version\" : \"%s\", \"build_number\" : \"%u\", \"git_commit_id\": \"%s\", \"fingerprints\":"
-                                   "[{\"str_repr\":\"%s\", \"sessions\": [{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u",
-                event[0].c_str(), init_time, version, resource_version, git_count, git_commit_id, event[1].c_str(), user_agent, event[3].c_str(), count);
-            break;
         case 1:
             gz_ret = gzprintf(gzf, "}]}]},{\"str_repr\":\"%s\", \"sessions\": [{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u", event[1].c_str(), user_agent, event[3].c_str(), count);
             break;
         case 2:
-            gzprintf(gzf, "}]},{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u", user_agent, event[3].c_str(), count);
+            gz_ret = gzprintf(gzf, "}]},{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u", user_agent, event[3].c_str(), count);
             break;
         case 3:
             gz_ret = gzprintf(gzf, "},{\"dst\":\"%s\",\"count\":%u", event[3].c_str(), count);
@@ -207,15 +317,19 @@ public:
         default:
             ;
         }
-        first_loop = false;
-        if (gz_ret <= 0)
+        if (gz_ret <= 0) {
             throw std::runtime_error("error in gzprintf");
+        }
     }
 
     void process_final() {
-        int gz_ret = gzprintf(gzf, "}]}]}]}\n");
-        if (gz_ret <= 0)
-            throw std::runtime_error("error in gzprintf");
+        if (!first_loop) {
+            close_record();
+            int gz_ret = gzprintf(gzf, "\n");
+            if (gz_ret <= 0) {
+                throw std::runtime_error("error in gzprintf");
+            }
+        }
     }
 
 };

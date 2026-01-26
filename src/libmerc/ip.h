@@ -431,6 +431,20 @@ public:
         return transport_protocol;
     }
 
+    ipv6_address get_src_addr() const {
+        if (header) {
+            return header->src_addr;
+        }
+        return {0, 0, 0, 0};
+    }
+
+    ipv6_address get_dst_addr() const {
+        if (header) {
+            return header->dst_addr;
+        }
+        return {0, 0, 0, 0};
+    }
+
     void parse(struct datum &p, struct key &k) {
         header = p.get_pointer<ipv6_header>();
         if (header == nullptr) {
@@ -642,15 +656,21 @@ public:
     }
 
     bool src_is_private() const {
-        if (std::get<1>(packet).get_src_addr().get_addr_type() == ipv4_address::addr_type::private_use) {
-            return true;
+        if (std::holds_alternative<ipv4_packet>(packet)) {
+            return std::get<ipv4_packet>(packet).get_src_addr().get_addr_type() == ipv4_address::addr_type::private_use;
+        }
+        if (std::holds_alternative<ipv6_packet>(packet)) {
+            return std::get<ipv6_packet>(packet).get_src_addr().is_unique_local_unicast();
         }
         return false;
     }
 
     bool dst_is_private() const {
-        if (std::get<1>(packet).get_dst_addr().get_addr_type() == ipv4_address::addr_type::private_use) {
-            return true;
+        if (std::holds_alternative<ipv4_packet>(packet)) {
+            return std::get<ipv4_packet>(packet).get_dst_addr().get_addr_type() == ipv4_address::addr_type::private_use;
+        }
+        if (std::holds_alternative<ipv6_packet>(packet)) {
+            return std::get<ipv6_packet>(packet).get_dst_addr().is_unique_local_unicast();
         }
         return false;
     }

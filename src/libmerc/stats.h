@@ -91,9 +91,21 @@ public:
         std::sort(v.begin(), v.end(), [&interrupt](auto &l, auto &r){
             if (interrupt.load() == true) {
                 throw std::runtime_error("error: stats dump interrupted");
-            } else {
-                return l.first < r.first;
             }
+            const auto &le = l.first;
+            const auto &re = r.first;
+            if (le[0] != re[0]) {
+                return le[0] < re[0];
+            }
+            bool l_cert = event_string::is_cert_label_event(le);
+            bool r_cert = event_string::is_cert_label_event(re);
+            if (l_cert != r_cert) {
+                return l_cert;
+            }
+            if (l_cert) {
+                return le[3] < re[3];
+            }
+            return le < re;
         } );
 
         event_processor_gz ep(f);

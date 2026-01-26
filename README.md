@@ -167,6 +167,19 @@ DETAILS
    With [-a or --analysis], fingerprints and destinations are analyzed and the
    results are included in the JSON output.
 
+   "--stats=f" writes compressed JSON lines with per-source-IP aggregates.
+   Example (single line shown pretty-printed):
+   {
+     "src_ip":"192.0.2.10",
+     "libmerc_init_time":"2026-01-26T18:34:11Z",
+     "libmerc_version":"1.4.3",
+     "resource_version":"2025-11-18",
+     "build_number":"12345",
+     "git_commit_id":"abc123",
+     "cert_labels":[{"common_name":"example.com","count":3}],
+     "fingerprints":[{"str_repr":"tls/2(0303...)", "sessions":[{"user_agent":"ua", "dest_info":[{"dst":"(sni)(203.0.113.7)(443)","count":3}]}]}]
+   }
+
    "[-w or --write] w" writes packets to the file w, in PCAP format.  With the
    option [-s or --select], packets are filtered so that only ones with
    fingerprint metadata are written.
