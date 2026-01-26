@@ -98,7 +98,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           repository: cisco-netintel/mercury-resources
-          ref: trunk
+          ref: verified
           path: unit_tests/xtra/resources
           token: ${{ steps.app-token.outputs.token }}
       - name: Run mercury make test
@@ -186,7 +186,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           repository: cisco-netintel/mercury-resources
-          ref: trunk
+          ref: verified
           path: unit_tests/xtra/resources
           token: ${{ steps.app-token.outputs.token }}
       - name: Run mercury make test
