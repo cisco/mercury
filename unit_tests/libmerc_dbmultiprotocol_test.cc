@@ -528,6 +528,39 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ftp with resources-mp")
     }
 }
 
+TEST_CASE_METHOD(LibmercTestFixture, "test redis with resources-mp")
+{
+
+    auto redis_check = [&](int expected_count, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(expected_count == counter());
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, int>> test_set_up{
+        {test_config{
+             .m_lc{.metadata_output=true, .do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"redis"},
+             .m_pc{"redis.pcap"}},
+
+         9},
+        {test_config{
+             .m_lc{.metadata_output=true, .do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"redis"},
+             .m_pc{"top_100_fingerprints.pcap"}},
+         0}
+    };
+
+    for (auto &[config, count] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        redis_check(count, config.m_lc);
+    }
+}
+
 TEST_CASE_METHOD(LibmercTestFixture, "test decrypted quic with resources-mp")
 {
 
@@ -606,6 +639,34 @@ TEST_CASE_METHOD(LibmercTestFixture, "test attributes with resources-mp")
     }
 }
 
+TEST_CASE_METHOD(LibmercTestFixture, "test ipv6 pcap for domain_faking")
+{
+
+    auto attr_check = [&](std::string &expected_attr, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(check_attr(expected_attr));
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, std::string>> test_set_up{
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"all"},
+             .m_pc{"ipv6-domain-faking.pcap"}},
+            "domain_faking"      // domain_faking attribute in modified ipv6 curl pcap
+        }
+    };
+
+    for (auto &[config, expected_attr] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        attr_check(expected_attr, config.m_lc);
+    }
+}
+
 TEST_CASE_METHOD(LibmercTestFixture, "test faketls attribute with resources-mp")
 {
     auto attr_check = [&](std::string &expected_attr, const struct libmerc_config &config)
@@ -650,6 +711,63 @@ TEST_CASE_METHOD(LibmercTestFixture, "test domain_faking attribute with resource
                 .packet_filter_cfg = (char *)"all"},
             .m_pc{"faketls_potatovpn.pcap"}},
             "domain_faking"    // check if domain_faking attribute is present in the attributes array
+        }
+    };
+
+    for (auto &[config, expected_attr] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        attr_check(expected_attr, config.m_lc);
+    }
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "test exposed_creds attribute with resources-mp")
+{
+    auto attr_check = [&](std::string &expected_attr, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(check_attr(expected_attr));
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, std::string>> test_set_up{
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"all;exposed-creds"
+            },
+            .m_pc{"http_auth.pcap"}},
+            "exposed_credentials_plaintext"    // check if exposed_credentials_plaintext attribute is present in the attributes array
+        }
+    };
+
+    for (auto &[config, expected_attr] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        attr_check(expected_attr, config.m_lc);
+    }
+}
+
+
+TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment attribute with resources-mp")
+{
+    auto attr_check = [&](std::string &expected_attr, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(check_attr(expected_attr));
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, std::string>> test_set_up{
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"all;crypto-assess=default"
+            },
+            .m_pc{"tlsv1_3.pcap"}},
+            "cnsa_2_0_non_conformant"    // check if cnsa_2_0_non_conformant attribute is present in the attributes array
         }
     };
 

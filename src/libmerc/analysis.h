@@ -68,6 +68,10 @@ struct common_data {
     ssize_t domain_faking_idx = -1;
     ssize_t faketls_idx = -1;
     ssize_t res_proxy_idx = -1;
+    ssize_t exposed_creds_plaintext_idx = -1;
+    ssize_t exposed_creds_token_idx = -1;
+    ssize_t exposed_creds_derived_idx = -1;
+    ssize_t non_pqc_idx = -1;
     bool doh_enabled = false;
     bool domain_faking_enabled = false;
 
@@ -505,26 +509,31 @@ public:
 
     // check for additional classifier agnostic attributes like encrypted dns and domain-faking
     //
-    void check_additional_attributes(analysis_context &analysis) {
+    bool check_additional_attributes(analysis_context &analysis) {
         if (analysis.fp.get_type() != fingerprint_type_tls && analysis.fp.get_type() != fingerprint_type_quic) {
-            return;
+            return false;
         }
 
         const char* server_name = analysis.destination.sn_str;
         const char* dst_ip = analysis.destination.dst_ip_str;
 
-        check_additional_attributes_util(analysis.result, server_name, dst_ip);
+        return check_additional_attributes_util(analysis.result, server_name, dst_ip);
     }
 
-    void check_additional_attributes_util(analysis_result &result, const char* server_name, const char* dst_ip) {
+    bool check_additional_attributes_util(analysis_result &result, const char* server_name, const char* dst_ip) {
 
+        bool attr_set = false;
         if (common.doh_enabled && ((common.doh_watchlist.contains(server_name) || common.doh_watchlist.contains_addr(dst_ip)))) {
             result.attr.set_attr(common.doh_idx, 1.0);
+            attr_set = true;
         }
 
         if (common.domain_faking_enabled && subnets.is_domain_faking(server_name, dst_ip)) {
             result.attr.set_attr(common.domain_faking_idx, 1.0);
+            attr_set = true;
         }
+
+        return attr_set;
     }
 
     void set_faketls_attribute(analysis_result &result) {
@@ -721,6 +730,62 @@ public:
         return std::count(version_str.begin(),version_str.end(),';');
     }
 
+    int process_domain_mapping_line(std::string &line_str, std::vector<std::pair<std::string, std::string>> &subnets,
+        std::vector<std::pair<std::string, std::string>> &subnets_v6, bool &minimize_ram) {
+
+        rapidjson::Document domain_obj;
+        domain_obj.Parse(line_str.c_str());
+        if(!domain_obj.IsObject()) {
+            printf_err(log_warning, "invalid JSON line in resource file\n");
+            return -1;  // failure
+        }
+
+        std::string subnet_type;
+        std::string subnet_str;
+        std::string subnet_tag;
+
+        if (domain_obj.HasMember("subnet") && domain_obj["subnet"].IsString()) {
+            subnet_str = domain_obj["subnet"].GetString();
+        }
+        else {
+            return -1;  // failure
+        }
+        if (domain_obj.HasMember("type") && domain_obj["type"].IsString()) {
+            subnet_type = domain_obj["type"].GetString();
+        }
+        else {
+            return -1;  // failure
+        }
+        if (domain_obj.HasMember("tag") && domain_obj["tag"].IsString()) {
+            subnet_tag = domain_obj["tag"].GetString();
+        }
+        else {
+            return -1;  // failure
+        }
+
+        if (subnet_type == "domain_mapping") {
+            if (subnet_str.find(".") != std::string::npos) {
+                subnets.push_back(std::make_pair(subnet_str, subnet_tag));       // v4 subnet
+            }
+            else if (!minimize_ram) {   // don't load ipv6 subnets if minimize_ram is set
+                subnets_v6.push_back(std::make_pair(subnet_str, subnet_tag));
+            }
+        }
+        else if (subnet_type == "proxy" || subnet_type == "sinkhole") {
+            if (subnet_str.find(".") != std::string::npos) {
+                subnets.push_back(std::make_pair(subnet_str, subnet_type));
+            }
+            else if (!minimize_ram) {   // don't load ipv6 subnets if minimize_ram is set
+                subnets_v6.push_back(std::make_pair(subnet_str, subnet_type));
+            }
+        }
+        else {
+            return -1;  // failure
+        }
+
+        return 0;   // success
+    }
+
     classifier(class encrypted_compressed_archive &archive,
                float fp_proc_threshold,
                float proc_dst_threshold,
@@ -749,6 +814,14 @@ public:
         // reserve attribute for faketls
         //
         common.faketls_idx = common.attr_name.get_index("faketls");
+
+        // reserve attributes for exposed credential detections
+        common.exposed_creds_plaintext_idx = common.attr_name.get_index("exposed_credentials_plaintext");
+        common.exposed_creds_token_idx = common.attr_name.get_index("exposed_credentials_token");
+        common.exposed_creds_derived_idx = common.attr_name.get_index("exposed_credentials_derived");
+
+        // reserve attributes for crypto assessments
+        common.non_pqc_idx = common.attr_name.get_index("cnsa_2_0_non_conformant");
 
         // by default, we expect that tls fingerprints will be present in the resource file
         //
@@ -816,12 +889,21 @@ public:
 
                 } else if (name == "pyasn.db") {
                     std::vector<std::string> asn_subnets_str;
+                    std::vector<std::string> asn_subnets_v6_str;
                     while (archive.getline(line_str)) {
-                        asn_subnets_str.push_back(line_str);
+                        if (line_str.find(".") != std::string::npos) {
+                            asn_subnets_str.push_back(line_str);       // v4 subnet
+                        }
+                        else if (!minimize_ram) {   // don't load ipv6 subnets if minimize_ram is set
+                            asn_subnets_v6_str.push_back(line_str);    // v6 subnet
+                        }
+                        // failure to parse will be handled within respective process_asn_subnets functions
                     }
                     // process the parsed asn subnets and store them in prefix array for final processing
                     //
                     subnets.process_asn_subnets(asn_subnets_str);
+                    if (!minimize_ram)
+                        subnets.process_asn_subnets_v6(asn_subnets_v6_str);
                     got_pyasn_db = true;
                 } else if (name == "doh-watchlist.txt") {
                     while (archive.getline(line_str)) {
@@ -829,13 +911,16 @@ public:
                     }
                     got_doh_watchlist = true;
                 } else if (name == "domain-mappings.db") {
-                    std::vector<std::string> domain_mapping_subnets_str;
+                    std::vector<std::pair<std::string, std::string>> domain_mapping_subnets_str;
+                    std::vector<std::pair<std::string, std::string>> domain_mapping_subnets_v6_str;
                     while (archive.getline(line_str)) {
-                        domain_mapping_subnets_str.push_back(line_str);
+                        process_domain_mapping_line(line_str, domain_mapping_subnets_str, domain_mapping_subnets_v6_str, minimize_ram);
                     }
                     // process the parsed domain_mapping subnets and store them in domains_prefix array for final processing
                     //
                     subnets.process_domain_mapping_subnets(domain_mapping_subnets_str);
+                    if (!minimize_ram)
+                        subnets.process_domain_mapping_subnets_v6(domain_mapping_subnets_v6_str);
                     got_domain_faking_subnets = true;
                 }
             }
@@ -868,7 +953,9 @@ public:
         // process asn and domain-faking subnets, and enable the corresponding detections
         //
         subnets.process_final();
+        subnets.process_final_v6();
         subnets.process_domain_mappings_final();
+        subnets.process_domain_mappings_final_v6();
 
         if (got_domain_faking_subnets) {
             common.domain_faking_enabled = true;

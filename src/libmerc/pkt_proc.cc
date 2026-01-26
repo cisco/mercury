@@ -76,6 +76,7 @@
 #include "fdc.hpp"
 #include "l7m.hpp"
 #include "syslog.hpp"
+#include "redis.hpp"
 
 // double malware_prob_threshold = -1.0; // TODO: document hidden option
 
@@ -91,64 +92,146 @@ void write_flow_key(struct json_object &o, const struct key &k) {
 
 struct do_crypto_assessment {
     const crypto_policy::assessor *ca;
-    json_object &record;
+    json_object *record;
 
-    do_crypto_assessment(const crypto_policy::assessor *assessor, json_object &o) : ca{assessor}, record{o} { }
+    // json_object record is to be passed to the assess function only if it is passed to the visitor function
+    do_crypto_assessment(const crypto_policy::assessor *assessor, json_object &o) : ca{assessor}, record{&o} { }
+    do_crypto_assessment(const crypto_policy::assessor *assessor) : ca{assessor}, record{nullptr} { }
 
-    bool operator()(const tls_client_hello &msg) {
-        ca->assess(msg, record);
-        return false;
+    crypto_assess_result operator()(const tls_client_hello &msg) {
+        crypto_assess_result assessment_result;
+        if (!record) {
+            assessment_result.set(ca->get_result_idx(), !ca->assess(msg));
+        }
+        else {  // write metadata to json record
+            json_object assessor_record{record, "cryptographic_security_assessment"};
+            assessment_result.set(ca->get_result_idx(), !ca->assess(msg, assessor_record));
+            assessor_record.close();
+        }
+        return assessment_result;
     }
 
-    bool operator()(const tls_server_hello &msg) {
-        ca->assess(msg, record);
-        return false;
+    crypto_assess_result operator()(const tls_server_hello &msg) {
+        crypto_assess_result assessment_result;
+        if (!record) {
+            assessment_result.set(ca->get_result_idx(), !ca->assess(msg));
+        }
+        else {  // write metadata to json record
+            json_object assessor_record{record, "cryptographic_security_assessment"};
+            assessment_result.set(ca->get_result_idx(), !ca->assess(msg, assessor_record));
+            assessor_record.close();
+        }
+        return assessment_result;
     }
 
-    bool operator()(const tls_server_hello_and_certificate &msg) {
-        ca->assess(msg, record);
-        return false;
+    crypto_assess_result operator()(const tls_server_hello_and_certificate &msg) {
+       crypto_assess_result assessment_result;
+        if (!record) {
+            assessment_result.set(ca->get_result_idx(), !ca->assess(msg));
+        }
+        else {  // write metadata to json record
+            json_object assessor_record{record, "cryptographic_security_assessment"};
+            assessment_result.set(ca->get_result_idx(), !ca->assess(msg, assessor_record));
+            assessor_record.close();
+        }
+        return assessment_result;
     }
 
-    bool operator()(const dtls_client_hello &msg) {
-        ca->assess(msg, record);
-        return false;
+    crypto_assess_result operator()(const dtls_client_hello &msg) {
+        crypto_assess_result assessment_result;
+        if (!record) {
+            assessment_result.set(ca->get_result_idx(), !ca->assess(msg));
+        }
+        else {  // write metadata to json record
+            json_object assessor_record{record, "cryptographic_security_assessment"};
+            assessment_result.set(ca->get_result_idx(), !ca->assess(msg, assessor_record));
+            assessor_record.close();
+        }
+        return assessment_result;
     }
 
-    bool operator()(const dtls_server_hello &msg) {
-        ca->assess(msg, record);
-        return false;
+    crypto_assess_result operator()(const dtls_server_hello &msg) {
+        crypto_assess_result assessment_result;
+        if (!record) {
+            assessment_result.set(ca->get_result_idx(), !ca->assess(msg));
+        }
+        else {  // write metadata to json record
+            json_object assessor_record{record, "cryptographic_security_assessment"};
+            assessment_result.set(ca->get_result_idx(), !ca->assess(msg, assessor_record));
+            assessor_record.close();
+        }
+        return assessment_result;
     }
 
 
-    bool operator()(const quic_init &msg) {
+    crypto_assess_result operator()(const quic_init &msg) {
+        crypto_assess_result assessment_result;
         if (msg.has_tls()) {
-            ca->assess(msg.get_tls_client_hello(), record);
+            if (!record) {
+                assessment_result.set(ca->get_result_idx(), !ca->assess(msg.get_tls_client_hello()));
+            }
+            else {  // write metadata to json record
+                json_object assessor_record{record, "cryptographic_security_assessment"};
+                assessment_result.set(ca->get_result_idx(), !ca->assess(msg.get_tls_client_hello(), assessor_record));
+                assessor_record.close();
+            }
         }
-        return false;
+        return assessment_result;
     }
 
-    bool operator()(const ssh_init_packet &msg) {
+    crypto_assess_result operator()(const ssh_init_packet &msg) {
+        crypto_assess_result assessment_result;
         if (msg.kex_pkt.is_not_empty()) {
-            ca->assess(msg.kex_pkt,record);
+            if (!record) {
+                assessment_result.set(ca->get_result_idx(), !ca->assess(msg.kex_pkt));
+            }
+            else {  // write metadata to json record
+                json_object assessor_record{record, "cryptographic_security_assessment"};
+                assessment_result.set(ca->get_result_idx(), !ca->assess(msg.kex_pkt, assessor_record));
+                assessor_record.close();
+            }
         }
-        return false;
+        return assessment_result;
     }
 
-    bool operator()(const ssh_kex_init &msg) {
+    crypto_assess_result operator()(const ssh_kex_init &msg) {
+        crypto_assess_result assessment_result;
         if (msg.is_not_empty()) {
-            ca->assess(msg,record);
+            if (!record) {
+                assessment_result.set(ca->get_result_idx(), !ca->assess(msg));
+            }
+            else {  // write metadata to json record
+                json_object assessor_record{record, "cryptographic_security_assessment"};
+                assessment_result.set(ca->get_result_idx(), !ca->assess(msg, assessor_record));
+                assessor_record.close();
+            }
         }
-        return false;
+        return assessment_result;
     }
 
     template <typename T>
-    bool operator()(const T &) {
-        return false;   // no assessment performed for all other types
+    crypto_assess_result operator()(const T &) {
+        return crypto_assess_result{};   // no assessment performed for all other types
     }
 
-    bool operator()(std::monostate &) { return false; }
+    crypto_assess_result operator()(std::monostate &) { return crypto_assess_result{}; }
 
+};
+
+struct check_exposed_creds {
+
+    check_exposed_creds() { }
+
+    exposed_creds_type operator()(const http_request &msg) {
+        return exposed_creds_assessor::assess(msg);
+    }
+
+    template <typename T>
+    exposed_creds_type operator()(const T &) {
+        return exposed_creds_none;
+    }
+
+    exposed_creds_type operator()(std::monostate &) { return exposed_creds_none; }
 };
 
 struct do_observation {
@@ -292,6 +375,17 @@ bool stateful_pkt_proc::set_tcp_protocol_from_keyword(protocol &x,
         {
             if (selector.rfb()) {
                 rfb::protocol_version_handshake proto{pkt_copy};
+                if (proto.is_not_empty()) {
+                    x = proto;
+                    return true;
+                }
+            }
+            break;
+        }
+        case tcp_msg_type_redis_request:
+        {
+            if (selector.redis_request()) {
+                redis::request proto{pkt_copy};
                 if (proto.is_not_empty()) {
                     x = proto;
                     return true;
@@ -452,6 +546,12 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         return;
     case tcp_msg_type_ftp_response:
         x.emplace<ftp::response>(pkt);
+        return;
+    case tcp_msg_type_redis_response:
+        x.emplace<redis::response>(pkt);
+        return;
+    case tcp_msg_type_redis_request:
+        x.emplace<redis::request>(pkt);
         return;
     default:
         if (is_new && global_vars.output_tcp_initial_data) {
@@ -762,24 +862,53 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
             uint16_t frame_count = 0;
             uint16_t first_frame_idx = 0;
             const crypto* frames = std::get<quic_init>(x).get_crypto_frames(frame_count,first_frame_idx);
+            uint64_t max_crypto_end = (uint64_t)crypto_offset + (uint64_t)crypto_len;
+            if (frame_count == 0 || first_frame_idx == cryptographic_buffer::invalid_first_frame_index) {
+                return true;
+            }
 
             // init
             if (min_crypto_data) {
-                quic_segment seg{true,cryptographic_buffer::min_crypto_data_len,(uint32_t)(frames[first_frame_idx].offset()),udp_pkt.additional_bytes_needed(),(uint64_t)ts->tv_sec, cid};
-                reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[first_frame_idx].offset(),
-                                crypto_data+frames[first_frame_idx].offset()+cryptographic_buffer::min_crypto_data_len});
+                uint64_t frame_offset = frames[first_frame_idx].offset();
+                if ((frame_offset < max_crypto_end) &&
+                    (frame_offset <= UINT32_MAX)) {
+                    uint64_t seg_len = cryptographic_buffer::min_crypto_data_len;
+                    uint64_t available_len = max_crypto_end - frame_offset;
+                    if (available_len < seg_len) {
+                        seg_len = available_len;
+                    }
+                    if (seg_len && (seg_len <= UINT32_MAX)) {
+                        quic_segment seg{true,(uint32_t)seg_len,(uint32_t)frame_offset,udp_pkt.additional_bytes_needed(),(uint64_t)ts->tv_sec, cid};
+                        reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frame_offset,
+                                        crypto_data+frame_offset+seg_len});
+                    }
+                }
             }
             else {
-                quic_segment seg{true,(uint32_t)(frames[first_frame_idx].length()),(uint32_t)(frames[first_frame_idx].offset()),udp_pkt.additional_bytes_needed(),(uint64_t)ts->tv_sec, cid};
-                reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[first_frame_idx].offset(),
-                                crypto_data+frames[first_frame_idx].offset()+frames[first_frame_idx].length()});
+                uint64_t frame_len = frames[first_frame_idx].length();
+                uint64_t frame_offset = frames[first_frame_idx].offset();
+                if (frame_len &&
+                    (frame_offset + frame_len <= max_crypto_end) &&
+                    (frame_offset <= UINT32_MAX) &&
+                    (frame_len <= UINT32_MAX)) {
+                    quic_segment seg{true,(uint32_t)frame_len,(uint32_t)frame_offset,udp_pkt.additional_bytes_needed(),(uint64_t)ts->tv_sec, cid};
+                    reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frame_offset,
+                                    crypto_data+frame_offset+frame_len});
+                }
 
             }
 
             for (uint16_t i = 0; i < frame_count; i++) {
                 if (i != first_frame_idx) { // skip already processed first frame
-                    quic_segment seg{false,(uint32_t)(frames[i].length()),(uint32_t)(frames[i].offset()),0,(uint64_t)ts->tv_sec, cid};
-                    reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[i].offset(),crypto_data+frames[i].offset()+frames[i].length()});
+                    uint64_t frame_len = frames[i].length();
+                    uint64_t frame_offset = frames[i].offset();
+                    if (frame_len &&
+                        (frame_offset + frame_len <= max_crypto_end) &&
+                        (frame_offset <= UINT32_MAX) &&
+                        (frame_len <= UINT32_MAX)) {
+                        quic_segment seg{false,(uint32_t)frame_len,(uint32_t)frame_offset,0,(uint64_t)ts->tv_sec, cid};
+                        reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frame_offset,crypto_data+frame_offset+frame_len});
+                    }
                 }
             }
             reassembler->dump_pkt = true;
@@ -796,10 +925,21 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
             uint16_t frame_count = 0;
             uint16_t first_frame_idx = 0;
             const crypto* frames = std::get<quic_init>(x).get_crypto_frames(frame_count,first_frame_idx);
+            uint64_t max_crypto_end = (uint64_t)crypto_offset + (uint64_t)crypto_len;
+            if (frame_count == 0) {
+                return true;
+            }
 
             for (uint16_t i = 0; i < frame_count; i++) {
-                quic_segment seg{false,(uint32_t)(frames[i].length()),(uint32_t)(frames[i].offset()),0,(uint64_t)ts->tv_sec, cid};
-                reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frames[i].offset(),crypto_data+frames[i].offset()+frames[i].length()});
+                uint64_t frame_len = frames[i].length();
+                uint64_t frame_offset = frames[i].offset();
+                if (frame_len &&
+                    (frame_offset + frame_len <= max_crypto_end) &&
+                    (frame_offset <= UINT32_MAX) &&
+                    (frame_len <= UINT32_MAX)) {
+                    quic_segment seg{false,(uint32_t)frame_len,(uint32_t)frame_offset,0,(uint64_t)ts->tv_sec, cid};
+                    reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frame_offset,crypto_data+frame_offset+frame_len});
+                }
 
             }
             reassembler->dump_pkt = true;
@@ -1039,6 +1179,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     if (std::visit(is_not_empty{}, x)) {
         std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
         bool output_analysis = false;
+        bool output_attr = false;
         if (global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
 
             output_analysis = std::visit(do_analysis{k, analysis, c}, x);
@@ -1051,7 +1192,12 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             if (!analysis.result.attr.is_initialized() && c) {
                 analysis.result.attr.initialize(&(c->get_common_data().attr_name.value()),c->get_common_data().attr_name.get_names_char());
             }
-            c->check_additional_attributes(analysis);
+            output_attr = c->check_additional_attributes(analysis) ? true : output_attr; // set to true only if any additional attribute is set, else keep the previous value
+
+            if (exposed_creds) {
+                exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
+                output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
+            }
 
             // analysis_.destination
             //
@@ -1082,7 +1228,20 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         }
         std::visit(write_metadata{record, global_vars.metadata_output, global_vars.certs_json_output, global_vars.dns_json_output}, x);
 
-        if (output_analysis || output_nbd) {
+        if (crypto_policy) {
+            crypto_assess_result assessment_result = std::visit(do_crypto_assessment{crypto_policy, record}, x);
+            if (assessment_result.test(crypto_policy::quantum_safe::result_idx)) {
+                analysis.result.attr.set_attr(c->common.non_pqc_idx, 1.0);
+                output_attr = true;
+            }
+        }
+
+        if (exposed_creds) {
+            exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
+            output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
+        }
+
+        if (output_analysis || output_nbd || output_attr) {
             analysis.result.write_json(record, "analysis");
         }
 
@@ -1090,7 +1249,6 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
 //            nbd_analysis.write_json(record, "network_behavioral_detections");
 //        }
 
-        if (crypto_policy) { std::visit(do_crypto_assessment{crypto_policy, record}, x); }
 
         // write indication of truncation or reassembly
         //
@@ -1578,6 +1736,18 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             }
             c->check_additional_attributes(analysis);
 
+            if (exposed_creds) {
+                exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
+                set_exposed_creds_attr(exposed_creds_ret);
+            }
+
+            if (crypto_policy) {
+                crypto_assess_result assessment_result = std::visit(do_crypto_assessment{crypto_policy}, x);
+                if (assessment_result.test(crypto_policy::quantum_safe::result_idx)) {    // Non PQC compliance bit is set
+                    analysis.result.attr.set_attr(c->common.non_pqc_idx, 1.0);
+                }
+            }
+
             bool output_nbd = false;
             if (global_vars.network_behavioral_detections) {
                 output_nbd = std::visit(do_network_behavioral_detections{k, analysis, c, nbd_common_data}, x);
@@ -1609,14 +1779,27 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
 
             return output_analysis || output_nbd;
 
-        } else if (global_vars.network_behavioral_detections) {
-            analysis.result.reinit();
-            if (!analysis.result.attr.is_initialized()) {
-                nbd_common_data.initialize_behavioral_detections();
-                analysis.result.attr.initialize(&(nbd_common_data.attr_name.value()),nbd_common_data.attr_name.get_names_char());
-            }
+        } else {
+            if (global_vars.network_behavioral_detections) {
+                analysis.result.reinit();
+                if (!analysis.result.attr.is_initialized()) {
+                    nbd_common_data.initialize_behavioral_detections();
+                    analysis.result.attr.initialize(&(nbd_common_data.attr_name.value()),nbd_common_data.attr_name.get_names_char());
+                }
 
-            return std::visit(do_network_behavioral_detections{k, analysis, c, nbd_common_data}, x);
+                std::visit(do_network_behavioral_detections{k, analysis, c, nbd_common_data}, x);
+            }
+            if (crypto_policy) {
+                crypto_assess_result crypto_result = std::visit(do_crypto_assessment{crypto_policy}, x);
+                if (crypto_result.test(crypto_policy::quantum_safe::result_idx)) {
+                    analysis.result.attr.set_attr(c->common.non_pqc_idx, 1.0);
+                }
+            }
+            if (exposed_creds) {
+                exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
+                set_exposed_creds_attr(exposed_creds_ret);
+            }
+            return false;
         }
     }
 
