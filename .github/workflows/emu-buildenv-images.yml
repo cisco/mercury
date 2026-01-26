@@ -1,0 +1,61 @@
+name: "[EMU] Buildenv Linux Images"
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '05 14 * * *'  # Run daily at 09:05 AM EST (14:05 UTC)
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  define-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      testplatforms: ${{ steps.testplatforms.outputs.testplatforms }}
+    steps:
+      - name: Define Test Platforms
+        id: testplatforms
+        run: |
+          echo 'testplatforms=["almalinux8","almalinux9","almalinux10","ubuntu2004","ubuntu2204","ubuntu2404","debian11","debian12","debian13","ubuntufuzz"]' >> "$GITHUB_OUTPUT"
+
+  build-images:
+    runs-on: ubuntu-latest
+    needs: define-matrix
+    strategy:
+      matrix:
+        testplatform: ${{ fromJSON(needs.define-matrix.outputs.testplatforms) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Set up QEMU
+        uses: cisco-actions/docker-setup-qemu-action@v3.6.0
+      - name: Set up Docker Buildx
+        uses: cisco-actions/docker-setup-buildx-action@v3.11.1
+      - name: Login to GitHub Container Registry
+        uses: cisco-actions/docker-login-action@v3.5.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and Push Docker image
+        uses: cisco-actions/docker-build-push-action@v6.18.0
+        with:
+          context: .
+          file: docker/Dockerfile-${{matrix.testplatform}}
+          platforms: linux/amd64
+          push: true
+          # Do not use cache
+          # cache-from: type=registry,ref=ghcr.io/cisco-netintel/${{matrix.testplatform}}:buildenv
+          # cache-to: type=inline
+          tags: |
+            ghcr.io/cisco-netintel/${{matrix.testplatform}}:buildenv
+      # - name: Clean up old package versions
+      #   uses: actions/delete-package-versions@v5
+      #   with:
+      #     package-name: ${{matrix.testplatform}}
+      #     package-type: container
+      #     min-versions-to-keep: 150  # 5 hashes/day x 30 days
+      #     delete-only-untagged-versions: true

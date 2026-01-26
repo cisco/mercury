@@ -122,6 +122,8 @@ public:
         auth_param{d}
     { }
 
+    scheme get_scheme() const { return auth_scheme; }
+
     bool is_valid() const { return auth_param.is_not_null(); }
 
     void write_json(json_object &o, bool metadata=false) const {

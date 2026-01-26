@@ -328,6 +328,14 @@ namespace tacacs {
             }
         }
 
+        bool check_credential_exposure() const {
+            // pkt type = request                    unencrypted.     type = authentication
+            if (direction() == msg_type::request && flags.bit<7>() && type.value() == 0x01) {
+                return true;
+            }
+            return false;
+        }
+
     };
 
     /// return the password_recovery input string for a tacacs+ encrypted message
