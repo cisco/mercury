@@ -1,5 +1,5 @@
-#ifndef __LC_TRIE_IP_H__
-#define __LC_TRIE_IP_H__
+#ifndef __LC_TRIE_IP_HPP__
+#define __LC_TRIE_IP_HPP__
 // begin #ifndef guard
 
 #include <stdlib.h>
@@ -10,12 +10,10 @@
 #include <limits>
 #include <stdexcept>
 
-#include "common.h"
+#include "common.hpp"
+#include "../ipv6_lctrie.h"
 
 using ipv4_addr_t = uint32_t;
-#ifndef _WIN32
-using ipv6_addr_t = __uint128_t;
-#endif
 
 #define IP_SUBNET_UNUSED      0
 #define IP_SUBNET_BGP         1
@@ -28,8 +26,8 @@ using ipv6_addr_t = __uint128_t;
 #define IP_SUBNET_BOGON       8
 #define IP_SUBNET_USER        9
 
-#define IP_SUBNET_DOMAIN            11
-#define IP_SUBNET_DOMAIN_EXCEPTION  12  // domain faking exceptions - proxy and sinkhole subnets
+#define IP_DOMAIN_MAPPING            11  // domain faking detection - domain mapped subnets
+#define IP_DOMAIN_MAPPING_EXCEPTION  12  // domain faking exceptions - proxy and sinkhole subnets
 
 #define LCT_IP_DEBUG_PREFIXES 0
 
@@ -88,7 +86,6 @@ typedef union lct_subnet_info {
 
 // the actual IP subnet structure
 template <typename T>
-//typedef
 struct lct_subnet {
   T addr;        // subnet address
   uint8_t type;         // prefix type
@@ -114,15 +111,14 @@ struct lct_subnet {
 //
 using lct_subnet_t = lct_subnet<uint32_t>;
 
-#ifndef _WIN32
 // ipv6 subnet
 //
-using lct_subnet_v6_t = lct_subnet<__uint128_t>;
-#endif
+using lct_subnet_v6_t = lct_subnet<ipv6_addr_lct>;
+
 
 typedef struct lct_ip_stats {
-  uint32_t size;  // size of the subnet
-  uint32_t used;  // size of the subprefixed address space
+  uint64_t size;  // size of the subnet
+  uint64_t used;  // size of the subprefixed address space
 } lct_ip_stats_t;
 
 
@@ -132,19 +128,17 @@ template <> struct address_family<uint32_t> {
     constexpr static const int typecode = LCTRIE_AF_INET;
 };
 
-#ifndef _WIN32
-template <> struct address_family<__uint128_t> {
+template <> struct address_family<ipv6_addr_lct> {
     constexpr static const int typecode = LCTRIE_AF_INET6;
 };
-#endif
 
 #if 0
 template <typename T>
 int get_address_family() {
     int address_family = 0;
-    if (typeid(T) == typeid(uint32_t)) {
+    if (typeid(T) == typeid(ipv4_addr_t)) {
         address_family = AF_INET;
-    } else if (typeid(T) == typeid(__uint128_t)) {
+    } else if (typeid(T) == typeid(ipv6_addr_lct)) {
         address_family = AF_INET6;
     } else {
         throw std::runtime_error("unsupported address family");
@@ -356,13 +350,10 @@ inline void fprint_addr(FILE *f, const char *key, const uint32_t *addr) {
     fprintf(f, "%s: %u.%u.%u.%u\n", key, n[0], n[1], n[2], n[3]);
 }
 
-#ifndef _WIN32
-inline void fprint_addr(FILE *f, const char *key, const __uint128_t *addr) {
+inline void fprint_addr_rev(FILE *f, const char *key, const uint32_t *addr) {
     const uint8_t *n = (const uint8_t *)addr;
-    fprintf(f, "%s: %02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x\n", key,
-            n[0], n[1], n[2], n[3], n[4], n[5], n[6], n[7], n[8], n[9], n[10], n[11], n[12], n[13], n[14], n[15]);
+    fprintf(f, "%s: %u.%u.%u.%u\n", key, n[3], n[2], n[1], n[0]);
 }
-#endif
 
 // three-way subnet comparison for qsort
 //extern int subnet_cmp(const void *di, const void *dj);
@@ -384,62 +375,6 @@ int subnet_cmp(const void *di, const void *dj) {
     return 0;
 }
 
-
-
-// apply netmasks to entries, should be done prior to sorting
-// the array
-//
-template <typename T>
-void subnet_mask(lct_subnet<T> *subnets, size_t size) {
-    char pstr[LCTRIE_INET6_ADDRSTRLEN], pstr2[LCTRIE_INET6_ADDRSTRLEN];
-    T prefix, prefix2;
-
-    constexpr unsigned int bits_in_T = sizeof(T) * 8;
-    for (size_t i = 0; i < size; ++i) {
-        lct_subnet<T> *p = &subnets[i];
-
-        //uint32_t netmask = 0xffffffff;
-        T netmask = std::numeric_limits<T>::max();
-        netmask = -1;
-        if (p->len < bits_in_T) {
-            for (unsigned int j = 0; j < (bits_in_T - p->len); ++j) {
-                netmask &= ~((T)1 << j);
-            }
-        }
-
-      T newaddr = p->addr & netmask;
-      // const uint8_t *n = (const uint8_t *)&netmask;
-      // fprintf(stderr, "netmask: %02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x\n",
-      //         n[0], n[1], n[2], n[3], n[4], n[5], n[6], n[7], n[8], n[9], n[10], n[11], n[12], n[13], n[14], n[15]);
-      // const uint8_t *b = (const uint8_t *)&p->addr;
-      // fprintf(stderr, "addr:    %02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x\n",
-      //         b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10], b[11], b[12], b[13], b[14], b[15]);
-      // const uint8_t *a = (const uint8_t *)&newaddr;
-      // fprintf(stderr, "newaddr: %02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x\n",
-      //         a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12], a[13], a[14], a[15]);
-
-      if (newaddr != p->addr) {
-          fprint_addr(stderr, "address", &p->addr);
-          fprint_addr(stderr, "netmask", &netmask);
-          fprint_addr(stderr, "newaddr", &newaddr);
-
-          prefix = hton(p->addr);
-          prefix2 = hton(newaddr);
-          if (!ntop(address_family<T>::typecode, &(prefix), pstr, sizeof(pstr))) {
-              fprintf(stderr, "ERROR: %s\n", strerror(errno));
-          }
-          if (!ntop(address_family<T>::typecode, &(prefix2), pstr2, sizeof(pstr2))) {
-              fprintf(stderr, "ERROR: %s\n", strerror(errno));
-          }
-
-          fprintf(stderr, "Subnet %s/%d has not been properly masked, should be %s/%d\n",
-                  pstr, p->len, pstr2, p->len);
-
-          p->addr = newaddr;
-    }
-  }
-}
-
 // de-duplicates subnets, should be run after applying netmasks
 // and sorting the array.
 // returns the number of duplicates removed
@@ -454,7 +389,8 @@ size_t subnet_dedup(lct_subnet<T> *subnets, size_t size) {
   for (size_t i = 0, j = 1; j < size; ++i, ++j) {
     // we have a duplicate!
       if (!subnet_cmp<T>(&subnets[i], &subnets[j])) {
-          prefix = hton(subnets[i].addr);
+          // prefix = ntoh(subnets[i].addr);
+          prefix = subnets[i].addr;
           if (!ntop(address_family<T>::typecode, &(prefix), pstr, sizeof(pstr))) {
               fprintf(stderr, "ERROR: %s\n", strerror(errno));
           }
@@ -468,8 +404,11 @@ size_t subnet_dedup(lct_subnet<T> *subnets, size_t size) {
           //
           // slide the rest of the array over the second value.  if we're at the
           // end of the array, just let it drop off.
-          if ((j + 1) < size)
-              memmove(&subnets[j], &subnets[j + 1], (size - (j + 1)) * sizeof(lct_subnet_t));
+          if ((j + 1) < size) {
+              for (size_t k = j; k < size - 1; ++k) {
+                  subnets[k] = subnets[k + 1];
+              }
+          }
           --size;
           ++ndup;
       }
@@ -504,7 +443,7 @@ size_t subnet_prefix(lct_subnet<T> *p, lct_ip_stats_t *stats, size_t size) {
 
   //int address_family = get_address_family<T>();
 
-  T prefix;
+  uint32_t prefix;
 #if LCT_IP_DEBUG_PREFIXES
   T prefix2;
   char pstr[LCTRIE_INET6_ADDRSTRLEN];
@@ -541,13 +480,25 @@ size_t subnet_prefix(lct_subnet<T> *p, lct_ip_stats_t *stats, size_t size) {
     size_t j = i + 1;  // fake out a psuedo second iterator
     if ((j < size) && subnet_isprefix(&p[i], &p[j])) {
 #if LCT_IP_DEBUG_PREFIXES
-      prefix = hton(p[i].addr);
-      prefix2 = hton(p[j].addr);
-      if (!ntop(address_family, &(prefix), pstr, sizeof(pstr))) {
+      if (std::is_same<T, ipv4_addr_t>::value) {
+        prefix = hton(p[i].addr);
+        prefix2 = hton(p[j].addr);
+        if (!ntop(address_family, &(prefix), pstr, sizeof(pstr))) {
           fprintf(stderr, "ERROR: %s\n", strerror(errno));
+        }
+        if (!ntop(address_family, &(prefix2), pstr2, sizeof(pstr2))) {
+            fprintf(stderr, "ERROR: %s\n", strerror(errno));
+        }
       }
-      if (!ntop(address_family, &(prefix2), pstr2, sizeof(pstr2))) {
+      else {
+        prefix = p[i].addr;
+        prefix2 = p[j].addr;
+        if (!ntop(address_family, &(prefix.a), pstr, sizeof(pstr))) {
           fprintf(stderr, "ERROR: %s\n", strerror(errno));
+        }
+        if (!ntop(address_family, &(prefix2.a), pstr2, sizeof(pstr2))) {
+            fprintf(stderr, "ERROR: %s\n", strerror(errno));
+        }
       }
 
       printf("Subnet %s/%d is a prefix of subnet %s/%d\n",
@@ -560,9 +511,16 @@ size_t subnet_prefix(lct_subnet<T> *p, lct_ip_stats_t *stats, size_t size) {
 
       for (size_t k = j + 1; k < size && subnet_isprefix(&p[i], &p[k]); ++k) {
 #if LCT_IP_DEBUG_PREFIXES
-        prefix2 = hton(p[k].addr);
-        if (!ntop(address_family, &(prefix2), pstr2, sizeof(pstr2)))
-          fprintf(stderr, "ERROR: %s\n", strerror(errno));
+        if (std::is_same<T, ipv4_addr_t>::value) {
+          prefix2 = hton(p[k].addr);
+          if (!ntop(address_family, &(prefix2), pstr2, sizeof(pstr2)))
+            fprintf(stderr, "ERROR: %s\n", strerror(errno));
+        }
+        else {
+          prefix2 = p[k].addr;
+          if (!ntop(address_family, &(prefix2.a), pstr2, sizeof(pstr2)))
+            fprintf(stderr, "ERROR: %s\n", strerror(errno));
+        }
 
         printf("Subnet %s/%d is also a prefix of subnet %s/%d\n",
                pstr, p[i].len, pstr2, p[k].len);
@@ -580,7 +538,15 @@ size_t subnet_prefix(lct_subnet<T> *p, lct_ip_stats_t *stats, size_t size) {
     else {
       p[i].type = IP_BASE;
     }
-    stats[i].size = 1 << (32 - p[i].len);
+    // Calculate subnet size based on address width
+    constexpr unsigned int bits_in_T = sizeof(T) * 8;
+    unsigned int host_bits = bits_in_T - p[i].len;
+    // For large subnets, cap at UINT64_MAX to avoid overflow
+    if (host_bits >= 64) {
+      stats[i].size = UINT64_MAX;
+    } else {
+      stats[i].size = (uint64_t)1 << host_bits;
+    }
     stats[i].used = 0;
   }
 

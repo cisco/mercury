@@ -1,0 +1,30 @@
+FROM almalinux:8
+RUN yum install -y epel-release \
+    && yum update -y \
+    && yum install -y git make \
+    gcc-toolset-9-gcc gcc-toolset-9-gcc-c++ gcc-toolset-9-libasan-devel \
+    pkg-config wget python3.11 python3.11-devel python3.11-pip valgrind \
+    jq tcpreplay iproute sudo zlib-devel \
+    openssl-devel \
+    && yum update -y \
+    && alternatives --install /usr/bin/gcc gcc /opt/rh/gcc-toolset-9/root/usr/bin/gcc 60 \
+    && alternatives --install /usr/bin/g++ g++ /opt/rh/gcc-toolset-9/root/usr/bin/g++ 60 \
+    && alternatives --install /usr/bin/cc cc /opt/rh/gcc-toolset-9/root/usr/bin/gcc 60 \
+    && yum clean all \
+    && rm -rf /var/cache/yum \
+    && python3.11 -m venv /opt/venv
+
+ENV PATH="/opt/venv/bin:$PATH"
+RUN pip3.11 install --upgrade pip \
+    && pip3.11 install setuptools wheel \
+    && pip3.11 install jsonschema cryptography Cython
+
+# Default ruby on AlmaLinux 8 is too outdated to execute "gem install fpm"
+RUN yum install -y rbenv rpm-build squashfs-tools \
+    && eval "$(rbenv init -)" \
+    && echo 'eval "$(rbenv init -)"' >> .bashrc \
+    && rbenv install "$(rbenv install -l | grep -v - | tail -1)" \
+    && rbenv global "$(rbenv install -l | grep -v - | tail -1)" \
+    && gem install fpm \
+    && chmod o+x /root
+ENV PATH="/root/.rbenv/shims:$PATH"
