@@ -13,7 +13,42 @@
 
 /// an event_msg represents a observable event
 ///
-typedef std::array<std::string, 4> event_msg;
+enum class event_type : uint8_t {
+    fingerprint = 0,
+    cert_label  = 1,
+};
+
+struct event_msg {
+    std::array<std::string, 4> fields;
+    event_type type;
+
+    event_msg() : fields{}, type{event_type::fingerprint} {}
+
+    event_msg(const std::string &a,
+              const std::string &b,
+              const std::string &c,
+              const std::string &d,
+              event_type t = event_type::fingerprint) :
+        fields{a, b, c, d},
+        type{t} {}
+
+    std::string &operator[](size_t idx) { return fields[idx]; }
+    const std::string &operator[](size_t idx) const { return fields[idx]; }
+
+    bool operator==(const event_msg &r) const {
+        return fields == r.fields && type == r.type;
+    }
+
+    bool operator<(const event_msg &r) const {
+        if (fields < r.fields) {
+            return true;
+        }
+        if (r.fields < fields) {
+            return false;
+        }
+        return static_cast<uint8_t>(type) < static_cast<uint8_t>(r.type);
+    }
+};
 
 namespace std {
 
@@ -24,10 +59,11 @@ namespace std {
     struct hash<event_msg> {
         size_t operator()(const event_msg & x) const {
             std::hash<std::string> hasher;
-            return hasher(std::get<0>(x))
-                ^ hasher(std::get<1>(x))
-                ^ hasher(std::get<2>(x))
-                ^ hasher(std::get<3>(x));
+            return hasher(x[0])
+                ^ hasher(x[1])
+                ^ hasher(x[2])
+                ^ hasher(x[3])
+                ^ std::hash<uint8_t>{}(static_cast<uint8_t>(x.type));
         }
     };
 
@@ -56,7 +92,7 @@ namespace event_string {
         dest_context.append(dst_ip_str).append(")(");
         dest_context.append(dst_port_str).append(")");
 
-        return {src_ip_str, analysis.fp.string(), analysis.destination.ua_str, dest_context};
+        return event_msg{src_ip_str, analysis.fp.string(), analysis.destination.ua_str, dest_context, event_type::fingerprint};
     }
 
     inline event_msg construct_event_string(const struct key &k,
@@ -73,33 +109,25 @@ namespace event_string {
         dest_context.append(analysis.destination.dst_ip_str).append(")(");
         dest_context.append(dst_port_str).append(")");
 
-        return {src_ip_str, analysis.fp.string(), utf8_string::get_utf8_string(analysis.destination.ua_str), dest_context};
+        return event_msg{src_ip_str, analysis.fp.string(), utf8_string::get_utf8_string(analysis.destination.ua_str), dest_context, event_type::fingerprint};
     }
-
-    inline constexpr const char *cert_label_prefix = "cert_label:";
 
     inline event_msg construct_cert_label_event(const struct key &k,
                                                 const std::string &common_name)
     {
         char src_ip_str[MAX_ADDR_STR_LEN];
         k.sprint_src_addr(src_ip_str);
-        std::string label{cert_label_prefix};
-        label.append(common_name);
-        return {src_ip_str, "", "", label};
+        return event_msg{src_ip_str, "", "", common_name, event_type::cert_label};
     }
 
     inline bool is_cert_label_event(const event_msg &event)
     {
-        return event[3].rfind(cert_label_prefix, 0) == 0;
+        return event.type == event_type::cert_label;
     }
 
     inline std::string get_cert_label_common_name(const event_msg &event)
     {
-        size_t prefix_len = std::strlen(cert_label_prefix);
-        if (event[3].size() <= prefix_len) {
-            return {};
-        }
-        return event[3].substr(prefix_len);
+        return event[3];
     }
 
 };
