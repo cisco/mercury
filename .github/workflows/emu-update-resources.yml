@@ -1,0 +1,31 @@
+name: "[EMU] Update Resources"
+
+on:
+  schedule:
+    # Run once a day at 13:19 EST / 18:19 UTC
+    - cron: '19 18 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  trigger-resources-update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Generate token for triggering workflow
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.RESOURCES_TRIGGER_APP_ID }}
+          private-key: ${{ secrets.RESOURCES_TRIGGER_PRIVATE_KEY }}
+          owner: cisco-netintel
+          repositories: mercury-resources
+
+      - name: Trigger cisco-netintel/mercury-resources update workflow
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          gh workflow run emu-update-resources.yml \
+            --repo cisco-netintel/mercury-resources \
+            --ref trunk
+
+          echo "Successfully triggered mercury-resources update workflow"
