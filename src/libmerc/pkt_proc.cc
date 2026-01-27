@@ -227,6 +227,10 @@ struct check_exposed_creds {
         return exposed_creds_assessor::assess(msg);
     }
 
+    exposed_creds_type operator()(const imap::imap_requests &msg) {
+        return exposed_creds_assessor::assess(msg);
+    }
+
     template <typename T>
     exposed_creds_type operator()(const T &) {
         return exposed_creds_none;

@@ -14,12 +14,14 @@
 #include "ssh.h"
 #include "http.h"
 #include "http_auth.hpp"
-#include "pkt_proc_util.h"
+#include "exposed_creds_types.h"
+#include "imap.hpp"
 
 class exposed_creds_assessor {
 public:
     static inline exposed_creds_type assess(const http_request &http_req);
     static inline exposed_creds_type assess(const tacacs::packet &tacacs_req);
+    static inline exposed_creds_type assess(const imap::imap_requests &imap_reqs);
 
     ~exposed_creds_assessor() {}
 };
@@ -53,6 +55,10 @@ exposed_creds_type exposed_creds_assessor::assess(const tacacs::packet &pkt) {
     }
 
     return exposed_creds_none;
+}
+
+exposed_creds_type exposed_creds_assessor::assess(const imap::imap_requests &reqs) {
+    return reqs.check_credential_exposure();
 }
 
 #endif // EXPOSED_CREDS_H
