@@ -1748,6 +1748,12 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
     // process protocol data element
     //
     if (std::visit(is_not_empty{}, x)) {
+        if (global_vars.do_analysis && mq) {
+            if (ip_pkt.src_is_private()) {
+                std::visit(do_cert_label_observation{k, mq}, x);
+            }
+            std::visit(do_snmp_oid_observation{k, mq}, x);
+        }
         std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
         if (global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
 
