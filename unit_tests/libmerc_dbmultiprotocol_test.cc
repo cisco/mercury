@@ -721,7 +721,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test domain_faking attribute with resource
     }
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test exposed_creds attribute with resources-mp")
+TEST_CASE_METHOD(LibmercTestFixture, "test exposed_creds attribute")
 {
     auto attr_check = [&](std::string &expected_attr, const struct libmerc_config &config)
     {
@@ -750,7 +750,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test exposed_creds attribute with resource
 }
 
 
-TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment attribute with resources-mp")
+TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment attributes")
 {
     auto attr_check = [&](std::string &expected_attr, const struct libmerc_config &config)
     {

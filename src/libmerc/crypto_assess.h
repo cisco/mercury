@@ -735,88 +735,101 @@ namespace crypto_policy {
             }
 
             json_object compliance;
-            if (o != nullptr) 
+            if (o != nullptr) {
                 compliance = json_object{a, "compliance_result"};
+            }
             
             // NIST SP 800-52 Rev 2 Compliance Rules
             //
             if (!non_compliant && protocol_version == tls_version::tlsv1_3 && exts.supported_version != tls_version::tlsv1_3) {
-                if (o != nullptr)
+                if (o != nullptr) {
                     compliance.print_key_string("tls_version_non_compliant", "tlsv1.3 negotiated but supported_versions extension missing or invalid");
+                }
                 non_compliant = true;
             }
 
             if (!non_compliant && sh.compression_method.is_readable() &&
-                sh.compression_method.is_not_empty() && sh.compression_method.data[0] != 0x00) {  // Rule 5
-                if (o != nullptr)
+                sh.compression_method.is_not_empty() && sh.compression_method.data[0] != 0x00) {  // NIST SP-800-52-2 Section 3.7
+                if (o != nullptr) {
                     compliance.print_key_string("compression_method_non_compliant", "non-zero compression method");
+                }
                 non_compliant = true;
             }
 
             if (!non_compliant && exts.supported_extensions.count(type_supported_versions)) {
                 if (exts.supported_version == tls_version::tlsv1_3) {
-                    if (!non_compliant && !exts.supported_extensions.count(type_supported_groups)) {  // Rule 1
-                        if (o != nullptr)
+                    if (!non_compliant && !exts.supported_extensions.count(type_supported_groups)) {  // NIST SP-800-52-2 Section 3.4.2.1
+                        if (o != nullptr) {
                             compliance.print_key_string("supported_groups_missing", "TLSv1.3 requires supported_groups extension");
+                        }
                         non_compliant = true;
                     }
 
-                    if (!non_compliant && !v1_3_allowed_ciphersuites.count(ciphersuite)) {          // Rule 7
-                        if (o != nullptr)
+                    if (!non_compliant && !v1_3_allowed_ciphersuites.count(ciphersuite)) {          // NIST SP-800-52-2 Section 3.3.1
+                        if (o != nullptr) {
                             compliance.print_key_string("cipher_suite_non_compliant", "disallowed cipher suite for tlsv1.3");
+                        }
                         non_compliant = true;
                     }
                 }
                 else {
-                    if (o != nullptr)
-                        compliance.print_key_string("tls_version_non_compliant", "supported_versions extension invalid"); // unable to parse supported version extn
+                    if (o != nullptr) {
+                        compliance.print_key_string("tls_version_non_compliant", "supported_versions extension invalid"); // invalid supported_versions extension for negotiated tls version
+                    }
                     non_compliant = true;
                 }
             }
             else if (!non_compliant) {
-                if (ecdhe_ciphersuites.count(ciphersuite) && !exts.supported_extensions.count(type_supported_groups)) {    // Rule 1
-                    if (o != nullptr)
+                if (ecdhe_ciphersuites.count(ciphersuite) && !exts.supported_extensions.count(type_supported_groups)) {    // NIST SP-800-52-2 Section 3.4.2.1
+                    if (o != nullptr) {
                         compliance.print_key_string("supported_groups_missing", "supported_groups extension missing for ECDHE cipher suite");
+                    }
                     non_compliant = true;
                 }
 
                 if (!non_compliant && ec_ciphersuites.count(ciphersuite)) {
-                    if (!non_compliant && !exts.ec_points_format) {   // Rule 2
-                        if (o != nullptr)
+                    if (!non_compliant && !exts.ec_points_format) {   // NIST SP-800-52-2 Section 3.4.2.4
+                        if (o != nullptr) {
                             compliance.print_key_string("ec_points_format_non_compliant", "ec_points_format extension missing but EC cipher suite negotiated");
+                        }
                         non_compliant = true;
                     }
                     if (!non_compliant && exts.negotiated_supported_group != tls::supported_groups::code::secp256r1 &&
-                        exts.negotiated_supported_group != tls::supported_groups::code::secp384r1) {  // Rule 6
-                        if (o != nullptr)
+                        exts.negotiated_supported_group != tls::supported_groups::code::secp384r1) {  // NIST SP-800-52-2 Section 3.4.2.2
+                        if (o != nullptr) {
                             compliance.print_key_string("supported_group_non_compliant", "disallowed supported group for EC cipher suite");
+                        }
                         non_compliant = true;
                     }
                 }
 
-                if (!non_compliant && cbc_ciphersuites.count(ciphersuite) && !exts.encrypt_then_mac) {   // Rule 3
-                    if (o != nullptr)
+                if (!non_compliant && cbc_ciphersuites.count(ciphersuite) && !exts.encrypt_then_mac) {   // NIST SP-800-52-2 Section 3.4.2.7
+                    if (o != nullptr) {
                         compliance.print_key_string("encrypt_then_mac_non_compliant", "encrypt_then_mac extension missing for CBC cipher suite");
+                    }
                     non_compliant = true;
                 }
 
                 if (protocol_version == tls_version::tlsv1_2) {
-                    if (!non_compliant && !v1_2_allowed_ciphersuites.count(ciphersuite)) {          // Rule 7
-                        if (o != nullptr)
+                    if (!non_compliant && !v1_2_allowed_ciphersuites.count(ciphersuite)) {          // NIST SP-800-52-2 Section 3.3.1
+                        if (o != nullptr) {
                             compliance.print_key_string("cipher_suite_non_compliant", "disallowed cipher suite for tlsv1.2");
+                        }
                         non_compliant = true;
                     }
                 }
                 else if (protocol_version == tls_version::tlsv1_1) {
-                    if (!non_compliant && !v1_1_allowed_ciphersuites.count(ciphersuite)) {          // Rule 7
-                        if (o != nullptr)
+                    if (!non_compliant && !v1_1_allowed_ciphersuites.count(ciphersuite)) {          // NIST SP-800-52-2 Section 3.3.1
+                        if (o != nullptr) {
                             compliance.print_key_string("cipher_suite_non_compliant", "disallowed cipher suite for tlsv1.1");
+                        }
                         non_compliant = true;
                     }
                 }
                 else if (!non_compliant) {
-                    if (o != nullptr)
-                        compliance.print_key_string("tls_version_non_compliant", tls_version_to_string(protocol_version).c_str());   // tls version < 1.1 or parse error
+                    if (o != nullptr) {
+                        compliance.print_key_string("tls_version_non_compliant", tls_version_to_string(protocol_version).c_str());   // invalid/disallowed tls protocol version
+                    }
                     non_compliant = true;
                 }
             }
