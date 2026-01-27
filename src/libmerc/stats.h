@@ -97,12 +97,23 @@ public:
             if (le[0] != re[0]) {
                 return le[0] < re[0];
             }
-            bool l_cert = event_string::is_cert_label_event(le);
-            bool r_cert = event_string::is_cert_label_event(re);
-            if (l_cert != r_cert) {
-                return l_cert;
+            auto type_rank = [](event_type t) {
+                switch (t) {
+                case event_type::cert_label:
+                    return 0;
+                case event_type::snmp_oid:
+                    return 1;
+                case event_type::fingerprint:
+                default:
+                    return 2;
+                }
+            };
+            int l_rank = type_rank(le.type);
+            int r_rank = type_rank(re.type);
+            if (l_rank != r_rank) {
+                return l_rank < r_rank;
             }
-            if (l_cert) {
+            if (le.type == event_type::cert_label || le.type == event_type::snmp_oid) {
                 return le[3] < re[3];
             }
             return le < re;

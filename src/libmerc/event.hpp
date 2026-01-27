@@ -16,6 +16,7 @@
 enum class event_type : uint8_t {
     fingerprint = 0,
     cert_label  = 1,
+    snmp_oid    = 2,
 };
 
 struct event_msg {
@@ -130,6 +131,24 @@ namespace event_string {
         return event[3];
     }
 
+    inline event_msg construct_snmp_oid_event(const struct key &k,
+                                              const std::string &oid_string)
+    {
+        char src_ip_str[MAX_ADDR_STR_LEN];
+        k.sprint_src_addr(src_ip_str);
+        return event_msg{src_ip_str, "", "", oid_string, event_type::snmp_oid};
+    }
+
+    inline bool is_snmp_oid_event(const event_msg &event)
+    {
+        return event.type == event_type::snmp_oid;
+    }
+
+    inline std::string get_snmp_oid_string(const event_msg &event)
+    {
+        return event[3];
+    }
+
 };
 
 // class event_encoder provides methods to compress/decompress event string.
@@ -200,15 +219,21 @@ class event_processor_gz {
     gzFile gzf;
     std::array<std::string, 4> v;
     std::string current_src_ip;
+    bool device_info_open = false;
     bool cert_labels_open = false;
+    bool snmp_labels_open = false;
     bool fingerprints_open = false;
 
     void close_record() {
         int gz_ret = 1;
         if (fingerprints_open) {
             gz_ret = gzprintf(gzf, "}]}]}]}");
+        } else if (snmp_labels_open) {
+            gz_ret = gzprintf(gzf, "}]}, \"fingerprints\":[]}");
         } else if (cert_labels_open) {
-            gz_ret = gzprintf(gzf, "}],\"fingerprints\":[]}");
+            gz_ret = gzprintf(gzf, "}]}, \"fingerprints\":[]}");
+        } else if (device_info_open) {
+            gz_ret = gzprintf(gzf, "}, \"fingerprints\":[]}");
         } else {
             gz_ret = gzprintf(gzf, ", \"fingerprints\":[]}");
         }
@@ -230,11 +255,45 @@ class event_processor_gz {
 
     void add_cert_label(const std::string &common_name, uint32_t count) {
         int gz_ret = 1;
+        if (!device_info_open) {
+            gz_ret = gzprintf(gzf, ", \"device_info\":{");
+            if (gz_ret <= 0) {
+                throw std::runtime_error("error in gzprintf");
+            }
+            device_info_open = true;
+        }
         if (!cert_labels_open) {
-            gz_ret = gzprintf(gzf, ", \"cert_labels\":[{\"common_name\":\"%s\",\"count\":%u", common_name.c_str(), count);
+            gz_ret = gzprintf(gzf, "\"cert_labels\":[{\"common_name\":\"%s\",\"count\":%u", common_name.c_str(), count);
             cert_labels_open = true;
         } else {
             gz_ret = gzprintf(gzf, "},{\"common_name\":\"%s\",\"count\":%u", common_name.c_str(), count);
+        }
+        if (gz_ret <= 0) {
+            throw std::runtime_error("error in gzprintf");
+        }
+    }
+
+    void add_snmp_oid(const std::string &oid, uint32_t count) {
+        int gz_ret = 1;
+        if (cert_labels_open) {
+            gz_ret = gzprintf(gzf, "}],");
+            if (gz_ret <= 0) {
+                throw std::runtime_error("error in gzprintf");
+            }
+            cert_labels_open = false;
+        }
+        if (!device_info_open) {
+            gz_ret = gzprintf(gzf, ", \"device_info\":{");
+            if (gz_ret <= 0) {
+                throw std::runtime_error("error in gzprintf");
+            }
+            device_info_open = true;
+        }
+        if (!snmp_labels_open) {
+            gz_ret = gzprintf(gzf, "\"snmp_labels\":[{\"oid\":\"%s\",\"count\":%u", oid.c_str(), count);
+            snmp_labels_open = true;
+        } else {
+            gz_ret = gzprintf(gzf, "},{\"oid\":\"%s\",\"count\":%u", oid.c_str(), count);
         }
         if (gz_ret <= 0) {
             throw std::runtime_error("error in gzprintf");
@@ -251,6 +310,8 @@ public:
         have_prev_fingerprint = false;
         current_src_ip.clear();
         cert_labels_open = false;
+        snmp_labels_open = false;
+        device_info_open = false;
         fingerprints_open = false;
     }
 
@@ -259,6 +320,7 @@ public:
                     uint32_t git_count, const char *init_time) {
 
         bool is_cert_label = event_string::is_cert_label_event(event);
+        bool is_snmp_oid = event_string::is_snmp_oid_event(event);
         bool new_src_ip = current_src_ip.empty() || current_src_ip != event[0];
 
         if (new_src_ip) {
@@ -271,6 +333,8 @@ public:
             }
             current_src_ip = event[0];
             cert_labels_open = false;
+            snmp_labels_open = false;
+            device_info_open = false;
             fingerprints_open = false;
             have_prev_fingerprint = false;
             write_record_header(event, version, resource_version, git_commit_id, git_count, init_time);
@@ -281,15 +345,35 @@ public:
             add_cert_label(event_string::get_cert_label_common_name(event), count);
             return;
         }
+        if (is_snmp_oid) {
+            add_snmp_oid(event_string::get_snmp_oid_string(event), count);
+            return;
+        }
 
         bool cert_labels_closed = false;
         if (cert_labels_open && !fingerprints_open) {
-            int gz_ret = gzprintf(gzf, "}],");
+            int gz_ret = gzprintf(gzf, "}]");
             if (gz_ret <= 0) {
                 throw std::runtime_error("error in gzprintf");
             }
             cert_labels_open = false;
             cert_labels_closed = true;
+        }
+        bool snmp_oids_closed = false;
+        if (snmp_labels_open && !fingerprints_open) {
+            int gz_ret = gzprintf(gzf, "}]");
+            if (gz_ret <= 0) {
+                throw std::runtime_error("error in gzprintf");
+            }
+            snmp_labels_open = false;
+            snmp_oids_closed = true;
+        }
+        if (device_info_open && !fingerprints_open && (cert_labels_closed || snmp_oids_closed)) {
+            int gz_ret = gzprintf(gzf, "},");
+            if (gz_ret <= 0) {
+                throw std::runtime_error("error in gzprintf");
+            }
+            device_info_open = false;
         }
 
         //Format the optional parameter user-agent only if it is present
@@ -300,8 +384,9 @@ public:
         }
 
         if (!fingerprints_open) {
-            const char *prefix = cert_labels_closed ? " \"fingerprints\":[{\"str_repr\":\"%s\", \"sessions\": [{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u"
-                                                    : ", \"fingerprints\":[{\"str_repr\":\"%s\", \"sessions\": [{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u";
+            const char *prefix = (cert_labels_closed || snmp_oids_closed)
+                ? " \"fingerprints\":[{\"str_repr\":\"%s\", \"sessions\": [{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u"
+                : ", \"fingerprints\":[{\"str_repr\":\"%s\", \"sessions\": [{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u";
             int gz_ret = gzprintf(gzf, prefix,
                                   event[1].c_str(), user_agent, event[3].c_str(), count);
             if (gz_ret <= 0) {

@@ -312,6 +312,30 @@ struct do_cert_label_observation {
     void operator()(std::monostate &) { }
 };
 
+struct do_snmp_oid_observation {
+    const struct key &k_;
+    class message_queue<event_msg> *mq_;
+
+    do_snmp_oid_observation(const struct key &k,
+                            class message_queue<event_msg> *mq) :
+        k_{k},
+        mq_{mq}
+    {}
+
+    void operator()(snmp::packet &msg) {
+        msg.for_each_var_bind_oid([&](const std::string &oid) {
+            if (!oid.empty()) {
+                mq_->push(event_string::construct_snmp_oid_event(k_, oid));
+            }
+        });
+    }
+
+    template <typename T>
+    void operator()(T &) { }
+
+    void operator()(std::monostate &) { }
+};
+
 bool stateful_pkt_proc::set_tcp_protocol_from_keyword(protocol &x,
                                                       datum pkt_copy,
                                                       tcp_msg_type msg_type) {
@@ -1205,8 +1229,11 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
                 std::visit(do_observation{k, analysis, mq}, x);
             }
         }
-        if (global_vars.do_analysis && mq && ip_pkt.src_is_private()) {
-            std::visit(do_cert_label_observation{k, mq}, x);
+        if (global_vars.do_analysis && mq) {
+            if (ip_pkt.src_is_private()) {
+                std::visit(do_cert_label_observation{k, mq}, x);
+            }
+            std::visit(do_snmp_oid_observation{k, mq}, x);
         }
 
         bool output_nbd = false;

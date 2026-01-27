@@ -176,9 +176,12 @@ DETAILS
      "libmerc_init_time":"2026-01-26T18:34:11Z",
      "libmerc_version":"1.4.3",
      "resource_version":"2025-11-18",
-     "build_number":"12345",
+     "build_number":12345,
      "git_commit_id":"abc123",
-     "cert_labels":[{"common_name":"example.com","count":3}],
+     "device_info":{
+       "cert_labels":[{"common_name":"example.com","count":3}],
+       "snmp_labels":[{"oid":"1.3.6.1.2.1.1.5.0","count":2}]
+     },
      "fingerprints":[{"str_repr":"tls/2(0303...)", "sessions":[{"user_agent":"ua", "dest_info":[{"dst":"(sni)(203.0.113.7)(443)","count":3}]}]}]
    }
 
