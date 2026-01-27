@@ -46,7 +46,6 @@ namespace crypto_policy {
     class assessor {
         public:
 
-        // static const size_t result_idx = -1; // index for crypto_assess_result::bitset
         virtual size_t get_result_idx() const = 0;
         virtual bool assess(const tls_client_hello &) const {
             return true;
@@ -140,7 +139,7 @@ namespace crypto_policy {
 
         const static size_t result_idx = 0; // index for crypto_assess_result::quantum_safe bitset
 
-        virtual size_t get_result_idx() const {
+        virtual size_t get_result_idx() const override {
             return quantum_safe::result_idx;
         }
 
@@ -681,7 +680,7 @@ namespace crypto_policy {
         nist_sp_800_52(bool verbose) : verbose_output(verbose) { }
         ~nist_sp_800_52() { }
 
-        virtual size_t get_result_idx() const {
+        virtual size_t get_result_idx() const override {
             return nist_sp_800_52::result_idx;
         }
 
@@ -747,7 +746,8 @@ namespace crypto_policy {
                 non_compliant = true;
             }
 
-            if (!non_compliant && sh.compression_method.data[0] != 0x00) {  // Rule 5
+            if (!non_compliant && sh.compression_method.is_readable() &&
+                sh.compression_method.is_not_empty() && sh.compression_method.data[0] != 0x00) {  // Rule 5
                 if (o != nullptr)
                     compliance.print_key_string("compression_method_non_compliant", "non-zero compression method");
                 non_compliant = true;
@@ -899,14 +899,6 @@ namespace crypto_policy {
             tls::cipher_suites::code::TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
             tls::cipher_suites::code::TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
             tls::cipher_suites::code::TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
-            tls::cipher_suites::code::TLS_DH_DSS_WITH_AES_128_CBC_SHA,
-            tls::cipher_suites::code::TLS_DH_DSS_WITH_AES_256_CBC_SHA,
-            tls::cipher_suites::code::TLS_DH_RSA_WITH_AES_128_CBC_SHA,
-            tls::cipher_suites::code::TLS_DH_RSA_WITH_AES_256_CBC_SHA,
-            tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA,
-            tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA,
-            tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_128_CBC_SHA,
-            tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_256_CBC_SHA,
         };
 
         static inline std::unordered_set<uint16_t> ecdhe_ciphersuites {
@@ -924,10 +916,6 @@ namespace crypto_policy {
             tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
             tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
             tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
-            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
-            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
-            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
-            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
             tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
             tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
         };
@@ -959,14 +947,6 @@ namespace crypto_policy {
             tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384,
             tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256,
             tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384,
-            tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_128_CBC_SHA,
-            tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_256_CBC_SHA,
-            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
-            tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
-            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
-            tls::cipher_suites::code::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
-            tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA,
-            tls::cipher_suites::code::TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA,
             tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_128_CBC_SHA,
             tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_256_CBC_SHA,
         };
@@ -1494,11 +1474,27 @@ inline crypto_policy::required_extensions tls_extensions::get_required_extension
 
         const uint8_t* data_end = ext_parser.data;
         if (tmp_type == type_supported_groups) {
-            req_exts.negotiated_supported_group = 0x0000; // invalid value. TODO: parse supported groups to find the negotiated one
+            req_exts.negotiated_supported_group = 0x0000;   // initialize to unknown in case of invalid extension
+            datum named_groups = get_supported_groups();
+            xtn named_groups_xtn{named_groups};
+            encoded<uint16_t> named_groups_len{named_groups_xtn.value};
+            if (named_groups_len != 2) {
+                continue; // invalid length
+            }
+            if (named_groups_xtn.value.is_readable()) {
+                tls::supported_groups named_group{named_groups_xtn.value};
+                if (crypto_policy::is_grease(named_group)) {
+                    continue;
+                }
+                req_exts.negotiated_supported_group = named_group.value();
+            }
         }
         else if (tmp_type == type_supported_versions) {
             datum ext{data, data_end};
             ext.skip(L_ExtensionType + L_ExtensionLength);
+            if (ext.is_readable() == false || ext.length() < 2) {
+                continue; // invalid length
+            }
             encoded<uint16_t> version{(uint16_t)(ext.data[0] << 8 | ext.data[1])};
             req_exts.supported_version = (tls_version)version.value();
         }

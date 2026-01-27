@@ -130,8 +130,8 @@ struct do_crypto_assessment {
         return assessment_result;
     }
 
-     crypto_assess_result operator()(const tls_server_hello_and_certificate &msg) {
-       crypto_assess_result assessment_result;
+    crypto_assess_result operator()(const tls_server_hello_and_certificate &msg) {
+        crypto_assess_result assessment_result;
         if (!record) {
             for (const auto& crypto_assessor : ca) {
                 assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg));

@@ -341,7 +341,7 @@ static inline bool ipv6_address_lct_unit_test(FILE *f = nullptr) {
         uint64_t extracted_idx = EXTRACT_IDX(60, 8, addr);
         if (f) fprintf(f, "Test case 6: EXTRACT and EXTRACT_IDX functions\n");
         if (extracted.a[0] != 0x0000000000000000 || extracted.a[1] != 0x00000000000000FF) {
-            printf_err(log_err, "extracted: %016lx %016lx\n", extracted.a[0], extracted.a[1]);
+            printf_err(log_err, "extracted: %016llx %016llx\n", extracted.a[0], extracted.a[1]);
             if (f) fprintf(f, "Failed: EXTRACT function did not extract correctly\n");
             return false;
         }
