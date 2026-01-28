@@ -50,12 +50,6 @@ struct json_object {
             c = true;
         }
     }
-    json_object() {}
-    constexpr json_object& operator=(const json_object &other) {
-        b = other.b;
-        comma = other.comma;
-        return *this;
-    }
     explicit json_object(struct buffer_stream *buf) : b{buf} {
         b->write_char('{');
     }
@@ -338,12 +332,6 @@ struct json_array {
         b->write_char('\"');
         b->puts(name);
         b->puts("\":[");
-    }
-    explicit json_array() {}
-    constexpr json_array& operator=(const json_array &other) {
-        b = other.b;
-        comma = other.comma;
-        return *this;
     }
     void close() {
         b->write_char(']');

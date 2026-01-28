@@ -773,7 +773,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment attributes")
             .m_lc{.do_analysis = true, .resources = resources_mp_path,
                 .packet_filter_cfg = (char *)"all;crypto-assess=default"
             },
-            .m_pc{"tlsv1_3.pcap"}},
+            .m_pc{"nist_nc.pcap"}},
             "nist_sp_800_52_2_non_conformant"    // check if nist_sp_800_52_2_non_conformant attribute is present in the attributes array
         }
     };
