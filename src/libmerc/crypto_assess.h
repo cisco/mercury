@@ -209,7 +209,6 @@ namespace crypto_policy {
             bool some_allowed = false;
 
             // Do not use this dummy object without checking for json_object a
-            // buffer pointer is uninitialized in case of the default constructor
             //
             std::optional<json_array> cs_array = std::nullopt;
 

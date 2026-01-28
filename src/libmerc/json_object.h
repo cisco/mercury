@@ -78,6 +78,15 @@ struct json_object {
         write_comma(object->comma);
         b->write_char('{');
     }
+
+    // copy constructor for std::optional compatibility
+    //
+    json_object(const json_object &other) : b{other.b}, comma{false} { }
+
+    // delete assignment operator to prevent unintended copies
+    //
+    json_object& operator=(const json_object&) = delete;
+
     explicit json_object(struct json_array &array);
     void reinit(struct json_array &array);
     void close() {
@@ -333,6 +342,15 @@ struct json_array {
         b->puts(name);
         b->puts("\":[");
     }
+
+    // copy constructor for std::optional compatibility
+    //
+    json_array(const json_array &other) : b{other.b}, comma{false} { }
+
+    // delete assignment operator to prevent unintended copies
+    //
+    json_array& operator=(const json_array&) = delete;
+
     void close() {
         b->write_char(']');
     }
