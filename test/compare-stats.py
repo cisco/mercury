@@ -12,6 +12,8 @@ def update_stats_db(stats, src_ip, str_repr, user_agent, dst_info, count):
         stats[src_ip] = {}
         stats[src_ip]['count'] = 0
         stats[src_ip]['fingerprints'] = {}
+        stats[src_ip]['cert_labels'] = defaultdict(int)
+        stats[src_ip]['snmp_labels'] = defaultdict(int)
     if str_repr not in stats[src_ip]['fingerprints']:
         stats[src_ip]['fingerprints'][str_repr] = defaultdict(int)
 
@@ -20,6 +22,15 @@ def update_stats_db(stats, src_ip, str_repr, user_agent, dst_info, count):
     stats[src_ip]['fingerprints'][str_repr]['count']  += count
     stats[src_ip]['fingerprints'][str_repr][user_agent] += count
     stats[src_ip]['fingerprints'][str_repr][dst_info] += count
+
+def update_label_db(stats, src_ip, label_type, label_value, count):
+    if src_ip not in stats:
+        stats[src_ip] = {}
+        stats[src_ip]['count'] = 0
+        stats[src_ip]['fingerprints'] = {}
+        stats[src_ip]['cert_labels'] = defaultdict(int)
+        stats[src_ip]['snmp_labels'] = defaultdict(int)
+    stats[src_ip][label_type][label_value] += count
 
 
 # if addr is in one of the private use address ranges (10.0.0.0/8
@@ -56,6 +67,46 @@ def read_merc_data(in_file):
     addr_dict   = {}
     for line in open(in_file):
         r = json.loads(line)
+        cert_common_name = None
+        if 'tls' in r:
+            for role in ['server', 'client', 'undetermined']:
+                certs = r.get('tls', {}).get(role, {}).get('certs', [])
+                if not isinstance(certs, list):
+                    continue
+                for cert_entry in certs:
+                    if not isinstance(cert_entry, dict):
+                        continue
+                    cert_obj = cert_entry.get('cert')
+                    if not isinstance(cert_obj, dict):
+                        continue
+                    subject = cert_obj.get('subject', [])
+                    if not isinstance(subject, list):
+                        continue
+                    for attr in subject:
+                        if isinstance(attr, dict) and 'common_name' in attr:
+                            cert_common_name = attr['common_name']
+                            break
+                    if cert_common_name:
+                        break
+                if cert_common_name:
+                    break
+        if cert_common_name:
+            update_label_db(stats_db, r['src_ip'], 'cert_labels', cert_common_name, 1)
+            total_count += 1
+
+        snmp_oids = []
+        snmp = r.get('snmp', {})
+        if isinstance(snmp, dict):
+            for container_key in ['trap', 'pdu']:
+                container = snmp.get(container_key, {})
+                if isinstance(container, dict):
+                    for vb in container.get('var_bind_list', []):
+                        if isinstance(vb, dict) and 'oid' in vb:
+                            snmp_oids.append(vb['oid'])
+        for oid in snmp_oids:
+            update_label_db(stats_db, r['src_ip'], 'snmp_labels', oid, 1)
+            total_count += 1
+
         if 'fingerprints' not in r:
             continue
 
@@ -118,6 +169,17 @@ def read_merc_stats(in_file):
         r = json.loads(line)
         src_ip = r['src_ip']
 
+        device_info = r.get('device_info', {})
+        if isinstance(device_info, dict):
+            for label in device_info.get('cert_labels', []):
+                if isinstance(label, dict) and 'common_name' in label and 'count' in label:
+                    update_label_db(stats_db, src_ip, 'cert_labels', label['common_name'], label['count'])
+                    total_count += label['count']
+            for label in device_info.get('snmp_labels', []):
+                if isinstance(label, dict) and 'oid' in label and 'count' in label:
+                    update_label_db(stats_db, src_ip, 'snmp_labels', label['oid'], label['count'])
+                    total_count += label['count']
+
         for x in r['fingerprints']:
             str_repr = x['str_repr']
             sessions = x['sessions']
@@ -143,6 +205,11 @@ def is_match(x, y):
                     return False
             except KeyError:
                 return False
+    for label_type in ['cert_labels', 'snmp_labels']:
+        if x.get(label_type):
+            for label_value, label_count in x[label_type].items():
+                if y.get(label_type, {}).get(label_value) != label_count:
+                    return False
     return True
 
 
@@ -200,6 +267,12 @@ def is_entry_match(x, y, unmatched_fps):
             except KeyError:
                 unmatched_fps.append(str_repr)
                 return False
+    for label_type in ['cert_labels', 'snmp_labels']:
+        if x.get(label_type):
+            for label_value, label_count in x[label_type].items():
+                if y.get(label_type, {}).get(label_value, 0) < label_count:
+                    unmatched_fps.append(label_type + ":" + label_value)
+                    return False
     return True
 
 def approx_stats_compare_db(merc_db, merc_stats):
