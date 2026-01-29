@@ -159,29 +159,34 @@ class event_encoder {
     dict addr_dict;
     dict fp_dict;
     dict ua_dict;
+    dict ctx_dict;
 
 public:
 
-    event_encoder() : addr_dict{}, fp_dict{}, ua_dict{} {}
+    event_encoder() : addr_dict{}, fp_dict{}, ua_dict{}, ctx_dict{} {}
 
     bool compute_inverse_map() {
         return addr_dict.compute_inverse_map() &&
                fp_dict.compute_inverse_map() &&
-               ua_dict.compute_inverse_map();
+               ua_dict.compute_inverse_map() &&
+               ctx_dict.compute_inverse_map();
     }
 
     void get_inverse(event_msg &event) {
         const std::string &saddr = event[0];
         const std::string &fngr  = event[1];
         const std::string &ua    = event[2];
+        const std::string &ctx   = event[3];
 
         size_t compressed_saddr_num = strtol(saddr.c_str(), NULL, 16);
-        size_t compressed_fp_num = strtol(fngr.c_str(), NULL, 16);
-        size_t compressed_ua_num = strtol(ua.c_str(), NULL, 16);
+        size_t compressed_fp_num    = strtol(fngr.c_str(), NULL, 16);
+        size_t compressed_ua_num    = strtol(ua.c_str(), NULL, 16);
+        size_t compressed_ctx_num   = strtol(ctx.c_str(), NULL, 16);
 
         event[0] = addr_dict.get_inverse(compressed_saddr_num);
         event[1] = fp_dict.get_inverse(compressed_fp_num);
         event[2] = ua_dict.get_inverse(compressed_ua_num);
+        event[3] = ctx_dict.get_inverse(compressed_ctx_num);
     }
 
     void compress_event_string(event_msg& event) {
@@ -189,6 +194,7 @@ public:
         const std::string &addr = event[0];
         const std::string &fngr = event[1];
         const std::string &ua   = event[2];
+        const std::string &ctx  = event[3];
 
         // compress source address string
         char src_addr_buf[9];
@@ -198,12 +204,18 @@ public:
         char compressed_fp_buf[9];
         fp_dict.compress(fngr, compressed_fp_buf);
 
+        // compress User-Agent
         char compressed_ua_buf[9];
         ua_dict.compress(ua, compressed_ua_buf);
+
+        // compress context
+        char compressed_ctx_buf[9];
+        ctx_dict.compress(ctx, compressed_ctx_buf);
 
         event[0] = src_addr_buf;
         event[1] = compressed_fp_buf;
         event[2] = compressed_ua_buf;
+        event[3] = compressed_ctx_buf;
 
     }
 

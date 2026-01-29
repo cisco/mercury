@@ -93,6 +93,7 @@ namespace snmp {
             char buffer[256];
             buffer_stream buf{buffer, sizeof(buffer)};
             raw_oid{object.value}.write(buf);
+            buf.add_null();
             return buf.get_string();
         }
 
