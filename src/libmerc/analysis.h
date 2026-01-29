@@ -72,6 +72,7 @@ struct common_data {
     ssize_t exposed_creds_token_idx = -1;
     ssize_t exposed_creds_derived_idx = -1;
     ssize_t non_pqc_idx = -1;
+    ssize_t non_nist_idx = -1;
     bool doh_enabled = false;
     bool domain_faking_enabled = false;
 
@@ -822,6 +823,7 @@ public:
 
         // reserve attributes for crypto assessments
         common.non_pqc_idx = common.attr_name.get_index("cnsa_2_0_non_conformant");
+        common.non_nist_idx = common.attr_name.get_index("nist_sp_800_52_2_non_conformant");
 
         // by default, we expect that tls fingerprints will be present in the resource file
         //
