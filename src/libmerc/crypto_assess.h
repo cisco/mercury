@@ -742,7 +742,7 @@ namespace crypto_policy {
             //
             if (!non_compliant && protocol_version == tls_version::tlsv1_3 && exts.supported_version != tls_version::tlsv1_3) {
                 if (cryptoAssessmentArray != nullptr) {
-                    compliance->print_key_string("tls_version_non_compliant", "tlsv1.3 negotiated but supported_versions extension missing or invalid");
+                    compliance->print_key_string("tls_version_non_compliant", "TLSv1.3 negotiated but supported_versions extension missing or invalid");
                 }
                 non_compliant = true;
             }
@@ -768,7 +768,7 @@ namespace crypto_policy {
 
                     if (!non_compliant && !v1_3_allowed_ciphersuites.count(ciphersuite)) {          // NIST SP-800-52-2 Section 3.3.1
                         if (cryptoAssessmentArray != nullptr) {
-                            compliance->print_key_string("cipher_suite_non_compliant", "disallowed cipher suite for tlsv1.3");
+                            compliance->print_key_string("cipher_suite_non_compliant", "disallowed cipher suite for TLSv1.3");
                         }
                         non_compliant = true;
                     }
@@ -814,7 +814,7 @@ namespace crypto_policy {
                 if (protocol_version == tls_version::tlsv1_2) {
                     if (!non_compliant && !v1_2_allowed_ciphersuites.count(ciphersuite)) {          // NIST SP-800-52-2 Section 3.3.1
                         if (cryptoAssessmentArray != nullptr) {
-                            compliance->print_key_string("cipher_suite_non_compliant", "disallowed cipher suite for tlsv1.2");
+                            compliance->print_key_string("cipher_suite_non_compliant", "disallowed cipher suite for TLSv1.2");
                         }
                         non_compliant = true;
                     }
@@ -822,7 +822,7 @@ namespace crypto_policy {
                 else if (protocol_version == tls_version::tlsv1_1) {
                     if (!non_compliant && !v1_1_allowed_ciphersuites.count(ciphersuite)) {          // NIST SP-800-52-2 Section 3.3.1
                         if (cryptoAssessmentArray != nullptr) {
-                            compliance->print_key_string("cipher_suite_non_compliant", "disallowed cipher suite for tlsv1.1");
+                            compliance->print_key_string("cipher_suite_non_compliant", "disallowed cipher suite for TLSv1.1");
                         }
                         non_compliant = true;
                     }
@@ -1069,6 +1069,9 @@ namespace crypto_policy {
             tls::cipher_suites::code::TLS_ECDH_RSA_WITH_AES_256_CBC_SHA,
         };
 
+        // Allowed supported groups for NIST SP 800-52 Rev 2
+        // Currently we are not checking if disallowed supported group is used
+        //
         static inline std::unordered_set<uint16_t> allowed_groups {
             tls::supported_groups::code::secp224r1,
             tls::supported_groups::code::secp256r1,
@@ -1094,6 +1097,7 @@ namespace crypto_policy {
             return;
         }
 
+        std::unordered_set<std::string> parsed_policies;
         std::string delim = ",";
         std::string policy_str = policy;
         auto pos = std::string::npos;
@@ -1109,11 +1113,19 @@ namespace crypto_policy {
                 token = policy_str;
             }
 
+            if (parsed_policies.count(token) != 0) {
+                printf_err(log_err, "Cryptographic security assessment policy '%s' specified multiple times\n", token.c_str());
+                continue;
+            }
+
             if (token == "quantum_safe") {
                 assessors.push_back(new crypto_policy::quantum_safe{true});
             } else if (token == "nist_sp_800_52") {
                 assessors.push_back(new crypto_policy::nist_sp_800_52{true});
+            } else {
+                printf_err(log_err, "Unknown cryptographic security assessment policy '%s' specified\n", token.c_str());
             }
+            parsed_policies.insert(token);
 
         } while (pos != std::string::npos);
     }
