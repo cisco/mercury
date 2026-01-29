@@ -227,6 +227,7 @@ char mercury_extended_help[] =
     "   policy is used. Valid policy strings are: \n"
     "       default        Default assessment policy\n"
     "       quantum_safe   Quantum safe assessment policy\n"
+    "       nist_sp_800_52 NIST SP 800-52 revision 2 assessment policy\n"
     "\n"
     "   --exposed-creds detects exposed credentials in enabled protocols like\n"
     "   HTTP, TACACS, SNMP, IMAP, LDAP, RESPv2 etc. \n"
