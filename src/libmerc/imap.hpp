@@ -18,6 +18,45 @@
 
 namespace imap {
 
+    // RFC 3501 Section 9 Formal Syntax:
+    //   atom            = 1*ATOM-CHAR
+    //   ATOM-CHAR       = <any CHAR except atom-specials>
+    //   atom-specials   = "(" / ")" / "{" / SP / CTL / list-wildcards /
+    //                     quoted-specials / resp-specials
+    //   list-wildcards  = "%" / "*"
+    //   quoted-specials = DQUOTE / "\"
+    //   resp-specials   = "]"
+    //   CTL             = %x00-1F / %x7F
+    //
+    class imap_atom : public one_or_more<imap_atom> {
+    public:
+        inline static bool in_class(uint8_t x) {
+            // CHAR is %x01-7F, so reject NUL and non-ASCII
+            if (x == 0x00 || x > 0x7F) {
+                return false;
+            }
+            // Reject CTL: %x00-1F and %x7F
+            if (x <= 0x1F || x == 0x7F) {
+                return false;
+            }
+            // Reject atom-specials: ( ) { SP % * " \ ]
+            switch (x) {
+                case '(':   // 0x28
+                case ')':   // 0x29
+                case '{':   // 0x7B
+                case ' ':   // 0x20 SP
+                case '%':   // 0x25 list-wildcard
+                case '*':   // 0x2A list-wildcard
+                case '"':   // 0x22 quoted-special (DQUOTE)
+                case '\\':  // 0x5C quoted-special
+                case ']':   // 0x5D resp-special
+                    return false;
+                default:
+                    return true;
+            }
+        }
+    };
+
     // Parser for quoted strings (includes quotes)
     // RFC 3501 Section 4.3: "A quoted string is a sequence of zero or
     // more 7-bit characters, excluding CR and LF, with double quote
@@ -504,7 +543,7 @@ namespace imap {
     class request {
         up_to_required_byte<' '> tag;
         literal_byte<' '> sp1;
-        alphabetic command;
+        imap_atom command;
         optional<literal_byte<' '>> sp2;
         datum arguments;
         bool isValid;
@@ -840,11 +879,6 @@ namespace imap {
             if (cmd.case_insensitive_match("authenticate")) {
                 datum args = req.get_arguments();
                 if (args.is_not_empty()) {
-                    // Trim CRLF if present
-                    if (args.length() >= 2) {
-                        args.trim(2);
-                    }
-                    
                     // Extract auth mechanism (first token)
                     imap_token auth_mechanism{args};
                     
@@ -1083,6 +1117,15 @@ namespace imap {
             return false;
         }
         
+        // Extension command with digits and hyphens (X-GM-EXT-1)
+        // RFC 3501 Section 6.5.1: x-command = "X" atom
+        if (!test_json_output<imap::imap_requests>(
+            datum{"a001 X-GM-EXT-1 arg1 arg2\r\n"},
+            datum{R"xxx({"imap":{"requests":[{"is_tagged":true,"tag":"a001","command":"X-GM-EXT-1","args_length":11}]}})xxx"}
+        )) {
+            return false;
+        }
+            
         // ================================================================
         // POSITIVE TEST CASES - Responses
         // ================================================================
