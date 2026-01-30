@@ -19,12 +19,14 @@ RUN pip3.11 install --upgrade pip \
     && pip3.11 install setuptools wheel \
     && pip3.11 install jsonschema cryptography Cython
 
+# Disabled: no RHEL8 rpm use case (saves 1hr build time)
+#
 # Default ruby on AlmaLinux 8 is too outdated to execute "gem install fpm"
-RUN yum install -y rbenv rpm-build squashfs-tools \
-    && eval "$(rbenv init -)" \
-    && echo 'eval "$(rbenv init -)"' >> .bashrc \
-    && rbenv install "$(rbenv install -l | grep -v - | tail -1)" \
-    && rbenv global "$(rbenv install -l | grep -v - | tail -1)" \
-    && gem install fpm \
-    && chmod o+x /root
-ENV PATH="/root/.rbenv/shims:$PATH"
+# RUN yum install -y rbenv rpm-build squashfs-tools \
+#     && eval "$(rbenv init -)" \
+#     && echo 'eval "$(rbenv init -)"' >> .bashrc \
+#     && rbenv install "$(rbenv install -l | grep -v - | tail -1)" \
+#     && rbenv global "$(rbenv install -l | grep -v - | tail -1)" \
+#     && gem install fpm \
+#     && chmod o+x /root
+# ENV PATH="/root/.rbenv/shims:$PATH"
