@@ -1,6 +1,10 @@
 # CHANGELOG for Mercury
 * Added crypto assessment and exposed credentials assessors.
 * Added Cryptographic Security Assessment and Exposed Credentials attributes in Analysis Result.
+* Added longest prefix matching for IPv6 addresses.
+* Enabled IPv6 longest prefix matching for:
+  * ASNs mapped to IPv6 subnets.
+  * Domain names mapped to IPv6 subnets for Domain faking detection.
 
 ## VERSION 2.13.1
 * Fixed potential underflows and out-of-bounds accesses in TCP and QUIC
