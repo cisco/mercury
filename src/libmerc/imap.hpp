@@ -385,28 +385,6 @@ namespace imap {
         }
     };
     
-    // Generic parser for response data: <status> [SP <additional-data>]
-    // Used by both tagged and untagged responses
-    class response_data {
-        imap_token status;
-        optional<literal_byte<' '>> sp;
-        datum additional_data;
-        
-    public:
-        response_data(datum &d) : status{d}, sp{d}, additional_data{d} {}
-
-        void write_json(struct json_object &o, const char *data_key) const {
-            if (status.is_not_empty()) {
-                o.print_key_json_string("status", status);
-            }
-            if (additional_data.is_not_empty()) {
-                o.print_key_json_string(data_key, additional_data);
-            }
-        }
-
-        bool is_valid() const { return status.is_not_null(); }
-    };
-
     // Checks if data is valid base64 OR valid UTF-8 text
     static bool is_valid_continuation_data(const datum &d) {
         if (d.is_empty()) {
