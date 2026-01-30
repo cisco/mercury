@@ -14,7 +14,6 @@
 #include "lex.h"
 #include "decimal_int.hpp"
 #include "perfect_hash.h"
-#include "exposed_creds_types.h"
 
 namespace imap {
 
@@ -1003,6 +1002,14 @@ namespace imap {
         if (!test_json_output<imap::imap_requests>(
             datum{"a002 LOGIN \"user@email.com\" \"password\"\r\n"},
             datum{R"xxx({"imap":{"requests":[{"is_tagged":true,"tag":"a002","command":"LOGIN","username":"\"user@email.com\"","password":"\"password\""}]}})xxx"}
+        )) {
+            return false;
+        }
+        
+        // LOGIN with quotes within quotes (escaped quotes in username)
+        if (!test_json_output<imap::imap_requests>(
+            datum{R"(a002 LOGIN "\"user\"name\"\"" "password")" "\r\n"},
+            datum{R"xxx({"imap":{"requests":[{"is_tagged":true,"tag":"a002","command":"LOGIN","username":"\"\\\"user\\\"name\\\"\\\"\"","password":"\"password\""}]}})xxx"}
         )) {
             return false;
         }

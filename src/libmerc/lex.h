@@ -138,13 +138,6 @@ public:
     }
 };
 
-class alphabetic : public one_or_more<alphabetic> {
-public:
-    inline static bool in_class(uint8_t x) {
-        return std::isalpha(static_cast<unsigned char>(x));
-    }
-};
-
 template <uint8_t byte>
 class up_to_required_byte : public datum {
 public:

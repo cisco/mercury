@@ -513,10 +513,10 @@ struct datum {
      }
 
     std::optional<uint8_t> operator[](size_t i) const {
-        if (data + i < data_end) {
-            return data[i];
+        if (is_null() || data + i >= data_end) {
+            return std::nullopt;
         }
-        return std::nullopt;
+        return data[i];
     }
 
     unsigned int bits_in_data() const {                  // for use with (ASN1) integers
