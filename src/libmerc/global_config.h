@@ -134,6 +134,7 @@ public:
     bool network_behavioral_detections = false; /* perform network behavioral detections */
     fingerprint_format fp_format;    // default fingerprint format
     bool minimize_ram = false;
+    bool exposed_creds = false;      /* detect and report exposed credentials in enabled plaintext protocols */
 
     global_config() : libmerc_config(), reassembly{false}, network_behavioral_detections{false} {};
     global_config(const libmerc_config& c) : libmerc_config(c), reassembly{false}, network_behavioral_detections{false} {
@@ -277,7 +278,12 @@ public:
     }
 
     bool set_crypto_assess (const std::string& policy) {
-        crypto_assess_policy = policy; // policy.empty() ? "default" : policy ;
+        if (policy.empty()) {
+            crypto_assess_policy = "default";
+        }
+        else { 
+            crypto_assess_policy = policy;
+        }
         return true;
     }
 
@@ -295,7 +301,8 @@ static void setup_extended_fields(global_config* lc, const std::string& config) 
         {"raw-features", "", "", SETTER_FUNCTION(&lc){ lc->set_raw_features(s); }},
         {"crypto-assess", "", "", SETTER_FUNCTION(&lc){ lc->set_crypto_assess(s); }},
         {"minimize-ram", "", "", SETTER_FUNCTION(&lc){ lc->minimize_ram = true; }},
-        {"network-behavioral-detections", "", "", SETTER_FUNCTION(&lc){ lc->network_behavioral_detections = true; }}
+        {"network-behavioral-detections", "", "", SETTER_FUNCTION(&lc){ lc->network_behavioral_detections = true; }},
+        {"exposed-creds", "", "", SETTER_FUNCTION(&lc){ lc->exposed_creds = true; }}
     };
 
     parse_additional_options(options, config, *lc);

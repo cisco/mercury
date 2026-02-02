@@ -1,4 +1,4 @@
-name: Docker Image Build and Publish
+name: "[PUB] Mercury Demo Image"
 
 on:
   workflow_dispatch:

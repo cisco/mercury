@@ -147,6 +147,8 @@ GENERAL OPTIONS
    --raw-features                        # select protocols to write out raw features string(see --help)
    --network-behavioral-detections       # perform network behavioral detections
    --minimize-ram                        # minimize the ram usage of mercury library
+   --crypto-assess[=policy]              # perform cryptographic security assessment
+   --exposed-creds                       # detect exposed credentials in enabled protocols
    [-v or --verbose]                     # additional information sent to stderr
    --license                             # write license information to stdout
    --version                             # write version information to stdout

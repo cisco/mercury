@@ -1,7 +1,9 @@
 
 all: lctrie_test
 
+# lctrie_test: lctrie_test.o lctrie.o lctrie_bgp.o lctrie_ip.o
 lctrie_test: lctrie_test.o lctrie.o lctrie_bgp.o lctrie_ip.o
+	$(CXX) $(LDFLAGS) -o $@ $^
 
 liblctrie.a: lctrie.o lctrie_bgp.o lctrie_ip.o
 	ar rcs liblctrie.a $^
@@ -14,15 +16,16 @@ clean:
 
 CFLAGS = -g -ggdb -std=c++17 -Wall -O3 -fPIC -I/opt/homebrew/include# -Wno-sign-compare
 LDFLAGS = -g -ggdb -O3 -L/opt/homebrew/lib
-LDLIBS =
 
 ifeq ($(COVERAGE_ENABLED),1)
 ifeq ($(filter -O3, $(CFLAGS)), -O3)
     CFLAGS := $(filter-out -O3,$(CFLAGS))
 	CFLAGS += -O0
+	CXXFLAGS = $(CFLAGS)
 endif
 CFLAGS += -fprofile-arcs --coverage -ggdb -fprofile-update=atomic
 LDFLAGS += --coverage
+CXXFLAGS = $(CFLAGS)
 endif
 
 # autodep stuff
@@ -32,13 +35,8 @@ $(shell mkdir -p $(DEPDIR) >/dev/null)
 DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPDIR)/$*.Td
 
 COMPILE.c = $(CXX) $(DEPFLAGS) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c
-COMPILE.cc = $(CXX) $(DEPFLAGS) $(CXXFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c
+COMPILE.cc = $(CXX) $(DEPFLAGS) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c
 POSTCOMPILE = mv -f $(DEPDIR)/$*.Td $(DEPDIR)/$*.d
-
-%.o : %.c
-%.o : %.c $(DEPDIR)/%.d
-	$(COMPILE.c) $(OUTPUT_OPTION) $<
-	$(POSTCOMPILE)
 
 %.o : %.cc
 %.o : %.cc $(DEPDIR)/%.d

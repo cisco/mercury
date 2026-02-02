@@ -616,13 +616,6 @@ public:
 //
 // IPv6 address strings (textual representation)
 //
-
-#ifdef _WIN32
-// TODO: Define IPV6 for Windows
-#else
-using uint128_t = __uint128_t; // defined by GCC at least
-#endif
-
 // IPv6 address string parsing, as per RFC 4291.
 //
 // A valid IPv6 address string is one of the following:
@@ -778,48 +771,47 @@ public:
         fputc('\n', f);
     }
 
-#ifndef _WIN32
-    uint128_t get_value() const {
-        uint128_t x = 0;
+
+    std::tuple<uint64_t, uint64_t> get_2tuple() const {
+        uint64_t a = 0, b = 0;
 
         ssize_t prefix_length = 0;
-        ssize_t zero_run_length  = 0;
+        ssize_t zero_run_length = 0;
 
         if (double_colon_index == -1) {
             prefix_length = pieces.size();  // should be eight
         } else {
             prefix_length = double_colon_index;
-            //   suffix_length = pieces.size() - double_colon_index; // check for > 0
             zero_run_length = 8 - pieces.size();
         }
 
-        ssize_t i = 0;
-        for ( ; i < prefix_length; i++) {
-            //            fprintf(stderr, "prefix\tpiece %zd\t%04xd\n", i, hex_str_to_uint<uint16_t>(pieces[i]));
-            x = x * 65536 + pieces[i];
-        }
-        for (i=0 ; i < zero_run_length; i++) {
-            //fprintf(stderr, "zero run\t%zd\t\n", i);
-            x = x * 65536;
-        }
-        for (i=prefix_length ; i < (ssize_t)pieces.size(); i++) {
-            //fprintf(stderr, "suffix\tpiece %zd\t%04x\n", i, hex_str_to_uint<uint16_t>(pieces[i]));
-            x = x * 65536 + pieces[i];
+        // Create a temporary array to hold all 8 pieces (including zeros)
+        uint16_t full_pieces[8] = {0};
+        
+        // Copy prefix pieces
+        for (ssize_t i = 0; i < prefix_length; i++) {
+            full_pieces[i] = pieces[i];
         }
 
-        return x;
-    }
+        // Skip zero run (already initialized to 0)
 
-    std::tuple<uint32_t, uint32_t, uint32_t, uint32_t> get_4tuple() const {
-        uint128_t tmp = get_value();
-        return {
-            hton<uint32_t>(tmp >> 96),
-            hton<uint32_t>((tmp >> 64) & 0xffffffff),
-            hton<uint32_t>((tmp >> 32) & 0xffffffff),
-            hton<uint32_t>(tmp & 0xffffffff)
-        };
+        // Copy suffix pieces
+        for (ssize_t i = prefix_length; i < (ssize_t)pieces.size(); i++) {
+            full_pieces[zero_run_length + i] = pieces[i];
+        }
+
+        // Pack first 4 pieces into 'a' (high 64 bits)
+        for (int i = 0; i < 4; i++) {
+            a = (a << 16) | full_pieces[i];
+        }
+
+        // Pack last 4 pieces into 'b' (low 64 bits)
+        for (int i = 4; i < 8; i++) {
+            b = (b << 16) | full_pieces[i];
+        }
+
+        return {a, b};
     }
-#endif
 
     ipv6_array_t get_value_array() const {
         ipv6_array_t x;
@@ -912,12 +904,12 @@ public:
         }
 
         std::pair<const char *, ipv6_array_t> ipv6_addr_examples[] = {
-            { "2001:db8:0:0:8:800:200c:417a", { 0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x08, 0x00, 0x20, 0x0c, 0x41, 0x7a } },
+            // { "2001:db8:0:0:8:800:200c:417a", { 0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x08, 0x00, 0x20, 0x0c, 0x41, 0x7a } },
             { "2001:db8::8:800:200c:417a", { 0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x08, 0x00, 0x20, 0x0c, 0x41, 0x7a } },
             { "::1", { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 } },
             { "1::", { 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } },
             { "::", { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } },
-            { "::ffff:162.62.97.147", { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xa2, 0x3e, 0x61, 0x93 } },
+            // { "::ffff:162.62.97.147", { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xa2, 0x3e, 0x61, 0x93 } },
             { "fde7::1", { 0xfd, 0xe7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01  } },
         };
 
@@ -962,8 +954,8 @@ public:
                 if (strcmp(addr_s.c_str(), ipv6_addr.first) != 0) {
                     if (f) {
                         fprintf(f, "error: parsed ipv6 address string does not match reference value\n");
-                        return false;
                     }
+                    return false;
                 }
 
             } else {

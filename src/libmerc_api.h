@@ -80,7 +80,7 @@ struct libmerc_api {
     decltype(analysis_context_get_malware_info)                      *get_malware_info = nullptr;
     decltype(mercury_write_stats_data)                               *write_stats_data = nullptr;
     decltype(register_printf_err_callback)                           *register_printf_err = nullptr;
-    decltype(mercury_packet_processor_get_attributes)                        *get_attributes = nullptr;
+    decltype(mercury_packet_processor_get_attributes)                *get_attributes = nullptr;
     decltype(mercury_packet_processor_get_analysis_context_fdc)      *get_analysis_context_fdc = nullptr;
 
     dll_type dl_handle = nullptr;

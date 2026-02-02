@@ -23,6 +23,10 @@
 #include "mem_utils.hpp"
 
 
+// Forward declaration for crypto_policy::required_extensions
+namespace crypto_policy {
+    struct required_extensions;
+}
 
 // class xtn represents a TLS extension
 //
@@ -120,10 +124,13 @@ enum class tls_content_type : uint16_t {
 };
 
 enum class tls_version : uint16_t {
+    none = 0x0000,
+    sslv2_0 = 0x0002,
     sslv3_0 = 0x0300,
     tlsv1_0 = 0x0301,
     tlsv1_1 = 0x0302,
     tlsv1_2 = 0x0303,
+    tlsv1_3 = 0x0304,
 };
 
 /*
@@ -353,6 +360,10 @@ struct tls_extensions : public datum {
 
     datum get_supported_groups() const;
 
+    tls_version get_supported_versions() const;
+
+    crypto_policy::required_extensions get_required_extensions() const;
+
     void write_l7_metadata(cbor_object &o) const {
         o.print_key_string("server_name", get_server_name());
     }
@@ -535,6 +546,13 @@ struct tls_server_hello : public base_protocol {
         { 0xff, 0xff, 0xfc, 0x00, 0x00, 0xff, 0x00, 0x00 },
         { 0x16, 0x03, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00 }
     };
+
+    tls_version get_version() const {
+        struct datum tmp = protocol_version;
+        uint16_t version;
+        tmp.read_uint16(&version);
+        return (tls_version)version;
+    }
 
 };
 
@@ -951,6 +969,8 @@ inline bool is_faketls_util(const datum ciphersuite_vector) {
 #define type_session_ticket                  0x0023
 #define type_quic_transport_parameters       0x0039
 #define type_quic_transport_parameters_draft 0xffa5
+#define type_ec_points_format                0x000b
+#define type_encrypt_then_mac                0x0016
 
 #define type_ech_client_hello                0xfe0d
 

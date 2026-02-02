@@ -231,7 +231,7 @@ struct libmerc_printer : public libmerc_api {
         fprintf(f, "----------  end of %s  ----------\n", __func__);
     }
 
-    void fprint_json_analysis_context(FILE *f, const struct analysis_context *ctx) {
+    void fprint_json_analysis_context(FILE *f, const struct analysis_context *ctx, const struct attribute_context *attr_ctx) {
 
         constexpr size_t buffer_len = 4096;
         char buffer[buffer_len];
@@ -302,10 +302,20 @@ struct libmerc_printer : public libmerc_api {
                 json.print_key_bool("probable_process_is_malware", probable_process_is_malware);
                 json.print_key_float("probability_malware", probability_malware);
             }
-
+        }
+        if (attr_ctx) {
+            json_object attr_json{json, "attributes"};
+            for (size_t j = 0; j < attr_ctx->attributes_len; j++) {
+                if (attr_ctx->prob_scores[j] > 0.0) {
+                    attr_json.print_key_float(attr_ctx->tag_names[j], attr_ctx->prob_scores[j]);
+                }
+            }
+            attr_json.close();
         }
         json.close();
-        buf.write_line(f);
+        if (attr_ctx || ctx) {
+            buf.write_line(f);
+        }
     }
 
     const char *fingerprint_type_string(fingerprint_type fp_type) {
@@ -347,7 +357,9 @@ int main(int argc, char *argv[]) {
         { argument::none,       "--fdc",       "output FDC" },
         { argument::optional,   "--l7-output", "redirect L7 metadata JSON output to file <arg>" },
         { argument::none,       "--verbose",   "turn on verbose output" },
-        { argument::none,       "--help",      "print out help message" }
+        { argument::none,       "--help",      "print out help message" },
+        {argument::optional,    "--crypto-assess", "enable crypto-assess analysis"},
+        {argument::optional,    "--exposed-creds", "enable exposed-creds analysis"},
     });
     if (!opt.process_argv(argc, argv)) {
         opt.usage(stderr, argv[0], summary);
@@ -362,6 +374,8 @@ int main(int argc, char *argv[]) {
     bool do_stats = opt.is_set("--stats");
     bool do_fdc = opt.is_set("--fdc");
     bool print_help = opt.is_set("--help");
+    bool crypto_assess = opt.is_set("--crypto-assess");
+    bool exposed_creds = opt.is_set("--exposed-creds");
 
     if (print_help) {
         opt.usage(stdout, argv[0], summary);
@@ -396,6 +410,15 @@ int main(int argc, char *argv[]) {
         config.resources = resources_path;
         config.do_analysis = true;
         config.do_stats = do_stats;
+
+        std::string packet_filter_cfg = "all";
+        if (crypto_assess) {
+            packet_filter_cfg += ";crypto-assess=default";
+        }
+        if (exposed_creds) {
+            packet_filter_cfg += ";exposed-creds";
+        }
+        config.packet_filter_cfg = (char *)packet_filter_cfg.c_str();
 
         // initalize mercury library
         //
@@ -473,6 +496,16 @@ int main(int argc, char *argv[]) {
                         if (verbose) { fprintf(stderr, "get_analysis_context_fdc retval: %d\tdata_buf_len: %zu\n", retval, data_buf_len); }
                     }
 
+                    const struct attribute_context *attr_ctx = mercury.get_attributes(mpp);
+                    if (attr_ctx && attr_ctx->tag_names && attr_ctx->prob_scores) {
+                        fprintf(stdout, "Attributes:\n");
+                        for (size_t j = 0; j < attr_ctx->attributes_len; j++) {
+                            if (attr_ctx->prob_scores[j] > 0.0) {
+                                fprintf(stdout, "  %s: %Lf\n", attr_ctx->tag_names[j], attr_ctx->prob_scores[j]);
+                            }
+                        }
+                    }
+
                 }
 
             } else {
@@ -481,9 +514,8 @@ int main(int argc, char *argv[]) {
                 //
                 struct timespec ts; // TODO: set from pkt
                 const struct analysis_context *ctx = mercury.get_analysis_context(mpp, (uint8_t *)pkt_data.data, pkt_data.length(), &ts);
-                if (ctx) {
-                    mercury.fprint_json_analysis_context(stdout, ctx);
-                }
+                const struct attribute_context *attr_ctx = mercury.get_attributes(mpp);
+                mercury.fprint_json_analysis_context(stdout, ctx, attr_ctx);
                 bool need_more_pkts = mercury.more_pkts_needed(mpp);
                 fprintf(stdout, "{more_pkts_needed:%s}\n", need_more_pkts ? "true" : "false");
             }
