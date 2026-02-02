@@ -72,7 +72,7 @@ if [ "$BUILDTYPE" == "deb" ]; then
     # Package name examples:
     #   ubuntu 24.04 -> mercury-u24
     #   debian 13    -> mercury-d13
-    #   other        -> mercury-<id><version> (e.g., mercury-foo3_14)
+    #   other        -> mercury-<id><version> (e.g., mercury-foo3-14)
 
     # Source os-release to get OS information (fallback if unavailable)
     if [ -r /etc/os-release ]; then
