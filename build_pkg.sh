@@ -69,17 +69,44 @@ FPM_LINUX_OPTIONS="-v $VERSION --iteration $ITERATION\
 
 if [ "$BUILDTYPE" == "deb" ]; then
 
-    # determine libssl version, set SSL_LIB appropriately
-    #
-    if dpkg -s libssl1.1 > /dev/null; then
+    # Package name examples:
+    #   ubuntu 24.04 -> mercury-u24
+    #   debian 13    -> mercury-d13
+    #   other        -> mercury-<id><version> (e.g., mercury-foo3_14)
+
+    # Source os-release to get OS information (fallback if unavailable)
+    if [ -r /etc/os-release ]; then
+        source /etc/os-release
+    else
+        ID="unknown"
+        VERSION_ID=""
+    fi
+
+    # Determine package name suffix based on OS
+    if [ "$ID" == "ubuntu" ]; then
+        # Extract major version (e.g., "24.04" -> "24")
+        MAJOR_VERSION=$(echo "$VERSION_ID" | cut -d. -f1)
+        PKG_SUFFIX="-u${MAJOR_VERSION}"
+    elif [ "$ID" == "debian" ]; then
+        # Debian VERSION_ID is already just the major version (e.g., "13")
+        PKG_SUFFIX="-d${VERSION_ID}"
+    else
+        # For other distributions, use ID and VERSION_ID with space converted to underscore
+        CLEAN_VERSION_ID=$(echo "$VERSION_ID" | tr ' ' '_')
+        PKG_SUFFIX="-${ID}${CLEAN_VERSION_ID}"
+    fi
+
+    # Determine libssl version for dependency and print diagnostic info
+    if dpkg -s libssl1.1 > /dev/null 2>&1; then
         SSL_LIB=libssl1.1
-        PKG_NAME="mercury"
         echo "found libssl1.1"
     else
         SSL_LIB=libssl3
-        PKG_NAME="mercury-u22"
         echo "assuming libssl3"
     fi
+
+    PKG_NAME="mercury${PKG_SUFFIX}"
+    echo "building package: $PKG_NAME for $ID $VERSION_ID"
     fpm -s dir -t deb -n $PKG_NAME $FPM_LINUX_OPTIONS \
         --depends $SSL_LIB \
         --depends zlib1g    \
