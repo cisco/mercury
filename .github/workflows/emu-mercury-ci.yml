@@ -3,20 +3,24 @@ name: "[EMU] Mercury CI"
 on:
   workflow_dispatch:
     inputs:
-      run-linux:
+      run_linux:
         description: 'Run Linux builds'
         type: boolean
         default: true
-      run-linux-fuzz:
+      run_linux_fuzz:
         description: 'Run Linux fuzz test'
         type: boolean
         default: true
-      run-macos:
+      run_macos:
         description: 'Run macOS build'
         type: boolean
         default: true
-      run-windows:
+      run_windows:
         description: 'Run Windows build'
+        type: boolean
+        default: true
+      build_packages:
+        description: 'Build packages'
         type: boolean
         default: true
   push:
@@ -34,7 +38,7 @@ jobs:
   # ========== Linux Multi-Distro Build and Test ==========
 
   define-matrix:
-    if: github.event_name != 'workflow_dispatch' || inputs.run-linux
+    if: github.event_name != 'workflow_dispatch' || inputs.run_linux
     runs-on: ubuntu-latest
     outputs:
       testplatforms: ${{ steps.testplatforms.outputs.testplatforms }}
@@ -45,7 +49,7 @@ jobs:
           echo 'testplatforms=["alma8","alma9","alma10","ubuntu20","ubuntu22","ubuntu24","debian11","debian12","debian13"]' >> "$GITHUB_OUTPUT"
 
   linux-ci:
-    if: github.event_name != 'workflow_dispatch' || inputs.run-linux
+    if: github.event_name != 'workflow_dispatch' || inputs.run_linux
     needs: define-matrix
     runs-on: ubuntu-latest
     strategy:
@@ -55,7 +59,7 @@ jobs:
       image: ghcr.io/cisco-netintel/${{matrix.testplatform}}:buildenv
       credentials:
         username: ${{ github.actor }}
-        password: ${{ secrets.github_token }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Echo OS version
         run: cat /etc/os-release
@@ -107,14 +111,14 @@ jobs:
   # ========== Linux Fuzz Testing ==========
 
   linux-fuzz:
-    if: github.event_name != 'workflow_dispatch' || inputs.run-linux-fuzz
+    if: github.event_name != 'workflow_dispatch' || inputs.run_linux_fuzz
     runs-on: ubuntu-latest-16-cores
     timeout-minutes: 60
     container:
       image: ghcr.io/cisco-netintel/ubuntufuzz:buildenv
       credentials:
         username: ${{ github.actor }}
-        password: ${{ secrets.github_token }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Echo OS version
         run: cat /etc/os-release
@@ -140,7 +144,7 @@ jobs:
   # ========== macOS Build and Test ==========
 
   macos-ci:
-    if: github.event_name != 'workflow_dispatch' || inputs.run-macos
+    if: github.event_name != 'workflow_dispatch' || inputs.run_macos
     runs-on: macos-latest
     steps:
       - name: Get system hardware information
@@ -204,7 +208,7 @@ jobs:
   # ========== Windows Build ==========
 
   windows-build:
-    if: github.event_name != 'workflow_dispatch' || inputs.run-windows
+    if: github.event_name != 'workflow_dispatch' || inputs.run_windows
     runs-on: windows-2022
     env:
       CMAKE_TOOLCHAIN_FILE: C:/vcpkg/scripts/buildsystems/vcpkg.cmake
@@ -229,6 +233,51 @@ jobs:
           cmake -DCMAKE_BUILD_TYPE=Release -DLIBMERC_ONLY=TRUE -B build-release
           cmake --build build-release --parallel 1
 
+  # ========== Linux Distro (.deb) and Python Packages (.so) ==========
+
+  packages:
+    if: github.event_name != 'workflow_dispatch' || inputs.build_packages
+    name: "Build packages"
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        testplatform: ["ubuntu22", "ubuntu24"]
+    container:
+      image: ghcr.io/cisco-netintel/${{ matrix.testplatform }}:buildenv
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Echo OS version
+        run: cat /etc/os-release
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+      - name: configure
+        run: ./configure
+      - name: make
+        run: make --debug=basic OPTFLAGS=-g
+      - name: Build Mercury Cython
+        working-directory: src/cython
+        run: |
+          make --debug=basic
+          make --debug=basic wheel
+          python3 mercury_python_test.py
+      - name: Build distro package
+        run: |
+          export SHORT_HASH=$(echo ${{ github.sha }} | cut -c1-8)
+          ./build_pkg.sh -t deb -i ${{ github.run_number }}-$SHORT_HASH
+      - name: Upload distro package as artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ matrix.testplatform }}
+          overwrite: true
+          if-no-files-found: error
+          path: |
+            mercury*.deb
+            src/cython/*.so
+
   # ========== Status Check Summary (Single Required Check) ==========
 
   # This sentinel job provides a single status that can be used for branch
@@ -243,8 +292,8 @@ jobs:
 
   ci-success:
     name: Mercury CI Checks
-    if: always()
-    needs: [linux-ci, linux-fuzz, macos-ci, windows-build]
+    if: ${{ always() && !cancelled() }}
+    needs: [linux-ci, linux-fuzz, macos-ci, windows-build, packages]
     runs-on: ubuntu-latest
     steps:
       - name: Check job results
@@ -253,6 +302,7 @@ jobs:
           echo "linux-fuzz: ${{ needs.linux-fuzz.result }}"
           echo "macos-ci: ${{ needs.macos-ci.result }}"
           echo "windows-build: ${{ needs.windows-build.result }}"
+          echo "packages: ${{ needs.packages.result }}"
 
           # Treat skipped jobs as success (allows workflow_dispatch with subset)
           # Fail if any job failed or was cancelled
@@ -263,7 +313,9 @@ jobs:
              [[ "${{ needs.macos-ci.result }}" == "failure" ]] || \
              [[ "${{ needs.macos-ci.result }}" == "cancelled" ]] || \
              [[ "${{ needs.windows-build.result }}" == "failure" ]] || \
-             [[ "${{ needs.windows-build.result }}" == "cancelled" ]]; then
+             [[ "${{ needs.windows-build.result }}" == "cancelled" ]] || \
+             [[ "${{ needs.packages.result }}" == "failure" ]] || \
+             [[ "${{ needs.packages.result }}" == "cancelled" ]]; then
             echo "One or more jobs failed or were cancelled"
             exit 1
           fi
