@@ -993,7 +993,7 @@ public:
                                             uint16_t dst_port, const char *user_agent) {
         auto perform_analysis_fn = [&](fingerprint_data *fp_data, fingerprint_status status) {
             if (fp_data == nullptr) {
-                return analysis_result(status);
+                return analysis_result{status};
             }
             return fp_data->perform_analysis(server_name, dst_ip, dst_port, user_agent, status);
         };
@@ -1004,7 +1004,7 @@ public:
                                                               uint16_t dst_port, const char *user_agent) {
         auto perform_detailed_fn = [&](fingerprint_data *fp_data, fingerprint_status status) {
             if (fp_data == nullptr) {
-                return detailed_analysis_result(status);
+                return detailed_analysis_result{status};
             }
             return fp_data->perform_detailed_analysis(server_name, dst_ip, dst_port, user_agent, status);
         };
