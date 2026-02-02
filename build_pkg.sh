@@ -91,9 +91,12 @@ if [ "$BUILDTYPE" == "deb" ]; then
         # Debian VERSION_ID is already just the major version (e.g., "13")
         PKG_SUFFIX="-d${VERSION_ID}"
     else
-        # For other distributions, use ID and VERSION_ID with space converted to underscore
-        CLEAN_VERSION_ID=$(echo "$VERSION_ID" | tr ' ' '_')
-        PKG_SUFFIX="-${ID}${CLEAN_VERSION_ID}"
+        # For other distributions, sanitize ID and VERSION_ID for Debian package name compatibility:
+        #   - convert to lowercase
+        #   - replace any character not in [a-z0-9+.-] with '-'
+        SANITIZED_ID=$(echo "$ID" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9+.-]/-/g')
+        SANITIZED_VERSION_ID=$(echo "$VERSION_ID" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9+.-]/-/g')
+        PKG_SUFFIX="-${SANITIZED_ID}${SANITIZED_VERSION_ID}"
     fi
 
     # Determine libssl version for dependency and print diagnostic info
