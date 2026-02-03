@@ -65,7 +65,7 @@ CFLAGS += -Wunreachable-code
 CFLAGS += -Wno-psabi
 CFLAGS += -fvisibility=hidden
 CFLAGS += -DNDEBUG
-# CFLAGS += -g
+CFLAGS += -g                  # always include debug symbols even in optimized builds
 # CFLAGS += -ggdb
 CFLAGS += -fno-builtin-malloc
 CFLAGS += -fno-builtin-calloc
