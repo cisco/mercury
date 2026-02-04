@@ -189,7 +189,16 @@ public:
         event[3] = ctx_dict.get_inverse(compressed_ctx_num);
     }
 
-    void compress_event_string(event_msg& event) {
+    /// compresses the `event_msg` \p event by applying dictionary
+    /// compression to each of its elements, and returns `true` on
+    /// success; otherwise, `false` is returned and the contents of
+    /// `event` are in an undefined state and must be ignored.  If \p
+    /// no_new_entries is `true`, the dictionary compressor will not
+    /// be allowed to create new entries, and thus the function will
+    /// only succeed if the dictionary already contains the relevant
+    /// entry.
+    ///
+    bool compress_event_string(event_msg& event, bool no_new_entries=false) {
 
         const std::string &addr = event[0];
         const std::string &fngr = event[1];
@@ -198,25 +207,34 @@ public:
 
         // compress source address string
         char src_addr_buf[9];
-        addr_dict.compress(addr, src_addr_buf);
+        if (addr_dict.compress(addr, src_addr_buf, no_new_entries) == false) {
+            return false;  // error: can't compress this event string
+        }
 
         // compress fingerprint string
         char compressed_fp_buf[9];
-        fp_dict.compress(fngr, compressed_fp_buf);
+        if (fp_dict.compress(fngr, compressed_fp_buf) == false) {
+            return false;  // error: can't compress this event string
+        }
 
         // compress User-Agent
         char compressed_ua_buf[9];
-        ua_dict.compress(ua, compressed_ua_buf);
+        if (ua_dict.compress(ua, compressed_ua_buf) == false) {
+            return false;  // error: can't compress this event string
+        }
 
         // compress context
         char compressed_ctx_buf[9];
-        ctx_dict.compress(ctx, compressed_ctx_buf);
+        if (ctx_dict.compress(ctx, compressed_ctx_buf) == false) {
+            return false;  // error: can't compress this event string
+        }
 
         event[0] = src_addr_buf;
         event[1] = compressed_fp_buf;
         event[2] = compressed_ua_buf;
         event[3] = compressed_ctx_buf;
 
+        return true;
     }
 
 };

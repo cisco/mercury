@@ -47,16 +47,30 @@ public:
         return x->second;
     }
 
-    void compress(const std::string &value,
-                  char fp_index_string[9]) {
+    /// compresses the string \p value and write the result into \p
+    /// fp_index_string and return `true` if successful; otherwise,
+    /// return `false`, in which case the contents of
+    /// `fp_index_string` are undefined and must be ignored.  If \p
+    /// no_new_entries is `true`, then no new dictionary entries will
+    /// be created, and the function will only succeed if `value` is
+    /// already present in the dictionary.
+    ///
+    bool compress(const std::string &value,
+                  char fp_index_string[9],
+                  bool no_new_entries=false)
+    {
         auto x = d.find(value);
         if (x == d.end()) {
+            if (no_new_entries) {
+                return false;
+            }
             d.emplace(value, count);
             sprintf(fp_index_string, "%x", count);
             count++;
-            return;
+            return true;
         }
         sprintf(fp_index_string, "%x", x->second);
+        return true;
     }
 
     bool compute_inverse_map() {
