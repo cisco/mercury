@@ -237,6 +237,16 @@ public:
         return true;
     }
 
+    /// remove all dictionary entries, to-reset this `event_encoder` to
+    /// the initial state
+    ///
+    void clear() {
+        addr_dict.clear();
+        fp_dict.clear();
+        ua_dict.clear();
+        ctx_dict.clear();
+    }
+
 };
 
 // class event_processor_gz coverts a sequence of sorted event

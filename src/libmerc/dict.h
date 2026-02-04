@@ -98,6 +98,12 @@ public:
 
     inline static const char *unknown_fp_string{"unknown"};
 
+    void clear() {
+        d.clear();
+        inverse.clear();
+        count = 0;
+    }
+
     // unit_test(f) verifies that the dictionary is the same in both
     // the forard and inverse directions; perform this test only after
     // the dictionary has been populated.  Returns true if the test passed,

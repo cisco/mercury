@@ -91,6 +91,7 @@ public:
 
         std::vector<std::pair<event_msg, uint64_t>> v(event_table.begin(), event_table.end());
         event_table.clear();
+        encoder.clear();
         num_entries = 0;
         std::sort(v.begin(), v.end(), [&interrupt](auto &l, auto &r){
             if (interrupt.load() == true) {
