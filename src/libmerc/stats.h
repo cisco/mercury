@@ -91,7 +91,6 @@ public:
 
         std::vector<std::pair<event_msg, uint64_t>> v(event_table.begin(), event_table.end());
         event_table.clear();
-        encoder.clear();
         num_entries = 0;
         std::sort(v.begin(), v.end(), [&interrupt](auto &l, auto &r){
             if (interrupt.load() == true) {
@@ -135,6 +134,8 @@ public:
             ep.process_update(entry.first, entry.second, version, resource_version, git_commit_id, git_count, init_time);
         }
         ep.process_final();
+
+        encoder.clear();
 
         // if (fp_dict.unit_test(stderr)) {
         //     fprintf(stderr, "passed fp_dict.unit_test()\n");
