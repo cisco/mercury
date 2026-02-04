@@ -213,19 +213,19 @@ public:
 
         // compress fingerprint string
         char compressed_fp_buf[9];
-        if (fp_dict.compress(fngr, compressed_fp_buf) == false) {
+        if (fp_dict.compress(fngr, compressed_fp_buf, no_new_entries) == false) {
             return false;  // error: can't compress this event string
         }
 
         // compress User-Agent
         char compressed_ua_buf[9];
-        if (ua_dict.compress(ua, compressed_ua_buf) == false) {
+        if (ua_dict.compress(ua, compressed_ua_buf, no_new_entries) == false) {
             return false;  // error: can't compress this event string
         }
 
         // compress context
         char compressed_ctx_buf[9];
-        if (ctx_dict.compress(ctx, compressed_ctx_buf) == false) {
+        if (ctx_dict.compress(ctx, compressed_ctx_buf, no_new_entries) == false) {
             return false;  // error: can't compress this event string
         }
 
