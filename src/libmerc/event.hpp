@@ -192,8 +192,8 @@ public:
     /// compresses the `event_msg` \p event by applying dictionary
     /// compression to each of its elements, and returns `true` on
     /// success; otherwise, `false` is returned and the contents of
-    /// `event` are in an undefined state and must be ignored.  If \p
-    /// no_new_entries is `true`, the dictionary compressor will not
+    /// `event` are in an undefined state and must be ignored.  If
+    /// \p no_new_entries is `true`, the dictionary compressor will not
     /// be allowed to create new entries, and thus the function will
     /// only succeed if the dictionary already contains the relevant
     /// entry.
@@ -206,25 +206,25 @@ public:
         const std::string &ctx  = event[3];
 
         // compress source address string
-        char src_addr_buf[9];
+        char src_addr_buf[dict::index_length];
         if (addr_dict.compress(addr, src_addr_buf, no_new_entries) == false) {
             return false;  // error: can't compress this event string
         }
 
         // compress fingerprint string
-        char compressed_fp_buf[9];
+        char compressed_fp_buf[dict::index_length];
         if (fp_dict.compress(fngr, compressed_fp_buf, no_new_entries) == false) {
             return false;  // error: can't compress this event string
         }
 
         // compress User-Agent
-        char compressed_ua_buf[9];
+        char compressed_ua_buf[dict::index_length];
         if (ua_dict.compress(ua, compressed_ua_buf, no_new_entries) == false) {
             return false;  // error: can't compress this event string
         }
 
         // compress context
-        char compressed_ctx_buf[9];
+        char compressed_ctx_buf[dict::index_length];
         if (ctx_dict.compress(ctx, compressed_ctx_buf, no_new_entries) == false) {
             return false;  // error: can't compress this event string
         }
@@ -237,7 +237,7 @@ public:
         return true;
     }
 
-    /// remove all dictionary entries, to-reset this `event_encoder` to
+    /// remove all dictionary entries, to reset this `event_encoder` to
     /// the initial state
     ///
     void clear() {

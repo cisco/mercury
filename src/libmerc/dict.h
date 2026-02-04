@@ -15,6 +15,7 @@
 #include <unordered_map>
 #include <vector>
 #include <algorithm>
+#include <limits>
 
 #include "bytestring.h"
 
@@ -31,12 +32,15 @@
 // get_inverse(); doing so may get you garbage results.
 //
 class dict {
+
 public:
-    std::unordered_map<std::string, uint32_t> d;
-    unsigned int count;
+    std::unordered_map<std::string,uint64_t> d;
+    uint64_t count;
     std::vector<const char *> inverse;
 
     dict() : d{}, count{0}, inverse{} { }
+
+    static constexpr const size_t index_length = 17;
 
     unsigned int get(const std::string &value) {
         auto x = d.find(value);
@@ -47,29 +51,29 @@ public:
         return x->second;
     }
 
-    /// compresses the string \p value and write the result into \p
-    /// fp_index_string and return `true` if successful; otherwise,
+    /// compresses the string \p value and write the result into
+    /// \p index_string and return `true` if successful; otherwise,
     /// return `false`, in which case the contents of
-    /// `fp_index_string` are undefined and must be ignored.  If \p
-    /// no_new_entries is `true`, then no new dictionary entries will
+    /// `index_string` are undefined and must be ignored.  If
+    /// \p no_new_entries is `true`, then no new dictionary entries will
     /// be created, and the function will only succeed if `value` is
     /// already present in the dictionary.
     ///
     bool compress(const std::string &value,
-                  char fp_index_string[9],
+                  char index_string[index_length],
                   bool no_new_entries=false)
     {
         auto x = d.find(value);
         if (x == d.end()) {
-            if (no_new_entries) {
+            if (no_new_entries or count == std::numeric_limits<uint64_t>::max()) {
                 return false;
             }
             d.emplace(value, count);
-            sprintf(fp_index_string, "%x", count);
+            sprintf(index_string, "%" PRIx64, count);
             count++;
             return true;
         }
-        sprintf(fp_index_string, "%x", x->second);
+        sprintf(index_string, "%" PRIx64, x->second);
         return true;
     }
 
@@ -115,7 +119,7 @@ public:
         for (const auto &a : d) {
             if (a.first.compare(get_inverse(a.second)) != 0) {
                 if (f) {
-                    fprintf(f, "dict unit test error: mismatch at dict table entry (%s: %u)\n", a.first.c_str(), a.second);
+                    fprintf(f, "dict unit test error: mismatch at dict table entry (%s: %" PRIx64 ")\n", a.first.c_str(), a.second);
                 }
                 passed = false;
             }
