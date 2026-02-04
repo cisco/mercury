@@ -1551,6 +1551,10 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         tcp_hdr.seq = 0;
         tcp_packet tcp_pkt{pkt, &tcp_hdr};
 
+        // For FDC mode, seed a synthetic SYN if this is a new/expired flow
+        if (global_vars.output_tcp_initial_data) {
+            tcp_flow_table.seed_fdc_syn_if_new(k_, ts.tv_sec);
+        }
         if (reassembler_ptr && global_vars.reassembly && perform_reassembly) {
             analysis.flow_state_pkts_needed = false;
             bool ret = process_tcp_data(x, pkt, tcp_pkt, k_, &ts, reassembler_ptr);

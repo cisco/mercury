@@ -441,6 +441,10 @@ struct flow_table_tcp {
     std::unordered_map<struct key, struct tcp_context>::iterator reap_it;
     static constexpr uint32_t max_entries = 20000;
 
+    // FDC mode tracking
+    std::unordered_map<struct key, time_t> fdc_flows_seen;
+    static constexpr time_t fdc_flow_timeout = 30;
+
     flow_table_tcp(unsigned int size) : table{}, reap_it{table.end()} {
         table.reserve(size);
         reap_it = table.end();
@@ -541,6 +545,22 @@ struct flow_table_tcp {
 
     void count_all() {
         table.clear();
+    }
+
+    // For FDC mode, insert a synthetic SYN packet if this flow hasn't been seen before (or expired)
+    // This ensures is_first_data_packet() returns true for the first data packet
+    // Use sequence 0xFFFFFFFF so that seq+1 wraps to 0, matching the data packet's seq
+    void seed_fdc_syn_if_new(const struct key &k, time_t now) {
+        auto it = fdc_flows_seen.find(k);
+        bool is_expired = (it != fdc_flows_seen.end()) && ((now - it->second) >= fdc_flow_timeout);
+        bool is_new_flow = (it == fdc_flows_seen.end()) || is_expired;
+        if (is_new_flow) {
+            if (is_expired) {
+                fdc_flows_seen.erase(it);  // remove expired entry to prevent unbounded growth
+            }
+            fdc_flows_seen[k] = now;
+            syn_packet(k, static_cast<unsigned int>(now), 0xFFFFFFFF);
+        }
     }
 
     static const unsigned int timeout = 1; // seconds before flow timeout
