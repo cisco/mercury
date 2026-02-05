@@ -2240,7 +2240,7 @@ inline void tls_server_certificate::write_l7_metadata(cbor_array &a) const {
 
         struct cbor_object certs{a};
         struct datum cert_parser{tmp_cert_list.data, tmp_cert_list.data + tmp_len};
-        certs.print_key_base64("base64", cert_parser);
+        certs.print_key_hex("data", cert_parser);
         certs.close();
 
         /*

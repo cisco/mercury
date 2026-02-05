@@ -1522,7 +1522,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for combination
 
             THEN("FDC should be written to output buffer") {
                 REQUIRE(bytes_written_1 == fdc_return::MORE_PACKETS_NEEDED);  // For quic fragment 1
-                REQUIRE(bytes_written_2 == 119); // For dns payload
+                REQUIRE(bytes_written_2 == 98); // For dns payload
                 REQUIRE(bytes_written_3 == 300); // For quic fragment 2
             }
         }
@@ -1594,7 +1594,7 @@ SCENARIO("test tcp reassembly for tls server hello/certificate with 3 fragments"
             THEN("reassembly should work and FDC should be written after final fragment") {
                 REQUIRE(bytes_written_1 == fdc_return::MORE_PACKETS_NEEDED);
                 REQUIRE(bytes_written_2 == fdc_return::MORE_PACKETS_NEEDED);
-                REQUIRE(bytes_written_3 == 5166);
+                REQUIRE(bytes_written_3 == 3889);
 
                 /* Decode and print the L7 metadata
                 std::string json_output = get_json_decoded_fdc(
