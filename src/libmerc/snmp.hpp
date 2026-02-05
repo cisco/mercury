@@ -451,6 +451,9 @@ namespace snmp {
 
         bool is_not_empty() const { return valid; }
 
+        /// apply the function `f` to each OID string in the `var_bind` list.  That function should have the
+        /// signature `void f(const std::string &oid)`
+        ///
         template <typename F>
         void for_each_var_bind_oid(F &&f) const {
             if (!valid) {
@@ -557,6 +560,11 @@ namespace snmp {
             return valid;
         }
 
+        /// apply the function `f` to each OID string in the `var_bind` list.  That function should have the
+        /// signature `void f(const std::string &oid)`
+        ///
+        /// for v2 packets, this delegates to `trap` for v1_trap PDUs and `v2_pdu` for all others
+        ///
         template <typename F>
         void for_each_var_bind_oid(F &&f) const {
             if (!valid) {
@@ -751,6 +759,11 @@ namespace snmp {
 
         }
 
+        /// apply the function `f` to each OID string in the `var_bind` list.  That function should have the
+        /// signature `void f(const std::string &oid)`
+        ///
+        /// this scoped PDU forwards into the contained `v2_pdu`
+        ///
         template <typename F>
         void for_each_var_bind_oid(F &&f) const {
             tlv tmp{any};
@@ -1027,6 +1040,11 @@ namespace snmp {
             return valid;
         }
 
+        /// apply the function `f` to each OID string in the `var_bind` list.  That function should have the
+        /// signature `void f(const std::string &oid)`
+        ///
+        /// v3 packets forward into `scoped_pdu_data` when the PDU is not encrypted
+        ///
         template <typename F>
         void for_each_var_bind_oid(F &&f) const {
             if (!valid || hd.priv()) {
@@ -1121,6 +1139,11 @@ namespace snmp {
             return std::visit(do_is_not_empty{}, body);
         }
 
+        /// apply the function `f` to each OID string in the `var_bind` list.  That function should have the
+        /// signature `void f(const std::string &oid)`
+        ///
+        /// top-level packet dispatches to the active `v2_packet` or `v3_packet` variant
+        ///
         template <typename F>
         void for_each_var_bind_oid(F &&f) const {
             std::visit([&](auto &pdu) {
