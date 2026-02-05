@@ -11,14 +11,45 @@
 #include <cstring>
 
 
-/// an event_msg represents a observable event
-///
+// an event_msg represents a observable event
+//
 enum class event_type : uint8_t {
     fingerprint = 0,
     cert_label  = 1,
     snmp_oid    = 2,
 };
 
+// event_msg holds an observable network event with a 4-tuple of string
+// fields and an event type discriminator.
+//
+// The interpretation of the 4 fields depends on the event_type:
+//
+// **fingerprint events** (protocol fingerprints and destinations):
+// - `fields[0]`: Source IP address (e.g., "192.168.1.10")
+// - `fields[1]`: Fingerprint string (e.g., "tls/1/(0303)[...]")
+// - `fields[2]`: User-Agent or similar application identifier (may be empty)
+// - `fields[3]`: Destination context: "(server_name)(dst_ip)(dst_port)"
+//
+// **cert_label events** (TLS certificate device labels):
+// - `fields[0]`: Source IP address (e.g., "192.168.1.10")
+// - `fields[1]`: Empty string (unused)
+// - `fields[2]`: Empty string (unused)
+// - `fields[3]`: Certificate subject common name (e.g., "device.local")
+//
+// **snmp_oid events** (SNMP device identifiers):
+// - `fields[0]`: Source IP address (e.g., "192.168.1.10")
+// - `fields[1]`: Empty string (unused)
+// - `fields[2]`: Empty string (unused)
+// - `fields[3]`: SNMP OID string (e.g., "1.3.6.1.2.1.1.5.0")
+//
+// The struct provides array-style access via operator[], comparison
+// operators for use in hash tables and sorting, and specialized
+// constructors for each event type.
+//
+// \note Field [0] always contains the source IP address regardless of
+//       event type. Fields [1] and [2] are unused (empty strings) for
+//       cert_label and snmp_oid events.
+//
 struct event_msg {
     std::array<std::string, 4> fields;
     event_type type;
@@ -53,9 +84,9 @@ struct event_msg {
 
 namespace std {
 
-    /// specialize `std::hash` for `event_msg`, for use in
-    /// `std::unordered_map` and friends
-    ///
+    // specialize `std::hash` for `event_msg`, for use in
+    // `std::unordered_map` and friends
+    //
     template <>
     struct hash<event_msg> {
         size_t operator()(const event_msg & x) const {
@@ -189,15 +220,15 @@ public:
         event[3] = ctx_dict.get_inverse(compressed_ctx_num);
     }
 
-    /// compresses the `event_msg` \p event by applying dictionary
-    /// compression to each of its elements, and returns `true` on
-    /// success; otherwise, `false` is returned and the contents of
-    /// `event` are in an undefined state and must be ignored.  If
-    /// \p no_new_entries is `true`, the dictionary compressor will not
-    /// be allowed to create new entries, and thus the function will
-    /// only succeed if the dictionary already contains the relevant
-    /// entry.
-    ///
+    // compresses the `event_msg` \p event by applying dictionary
+    // compression to each of its elements, and returns `true` on
+    // success; otherwise, `false` is returned and the contents of
+    // `event` are in an undefined state and must be ignored.  If
+    // \p no_new_entries is `true`, the dictionary compressor will not
+    // be allowed to create new entries, and thus the function will
+    // only succeed if the dictionary already contains the relevant
+    // entry.
+    //
     bool compress_event_string(event_msg& event, bool no_new_entries=false) {
 
         const std::string &addr = event[0];
@@ -237,9 +268,9 @@ public:
         return true;
     }
 
-    /// remove all dictionary entries, to reset this `event_encoder` to
-    /// the initial state
-    ///
+    // remove all dictionary entries, to reset this `event_encoder` to
+    // the initial state
+    //
     void clear() {
         addr_dict.clear();
         fp_dict.clear();
@@ -416,8 +447,8 @@ public:
             device_info_open = false;
         }
 
-        //Format the optional parameter user-agent only if it is present
-        //Extra 15 bytes is to account for additional data required for json
+        // Format the optional parameter user-agent only if it is present. The
+        // extra 15 bytes is to account for additional data required for json
         char user_agent[MAX_USER_AGENT_LEN + 15]{"\0"};
         if(event[2][0] != '\0') {
             snprintf(user_agent, MAX_USER_AGENT_LEN - 1, "\"user_agent\":\"%s\", ", event[2].c_str());

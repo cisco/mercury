@@ -354,6 +354,9 @@ namespace snmp {
 
         bool is_not_empty() const { return !remainder.is_null(); }
 
+        // apply the function `f` to each OID string in the `var_bind` list.  That function should have the
+        // signature `void f(const std::string &oid)`
+        //
         template <typename F>
         void for_each_var_bind_oid(F &&f) const {
             if (remainder.is_null()) {

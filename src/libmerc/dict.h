@@ -42,7 +42,7 @@ public:
 
     static constexpr const size_t index_length = 17;
 
-    unsigned int get(const std::string &value) {
+    uint64_t get(const std::string &value) {
         auto x = d.find(value);
         if (x == d.end()) {
             d.emplace(value, count);
@@ -51,14 +51,14 @@ public:
         return x->second;
     }
 
-    /// compresses the string \p value and write the result into
-    /// \p index_string and return `true` if successful; otherwise,
-    /// return `false`, in which case the contents of
-    /// `index_string` are undefined and must be ignored.  If
-    /// \p no_new_entries is `true`, then no new dictionary entries will
-    /// be created, and the function will only succeed if `value` is
-    /// already present in the dictionary.
-    ///
+    // compresses the string \p value and write the result into
+    // \p index_string and return `true` if successful; otherwise,
+    // return `false`, in which case the contents of
+    // `index_string` are undefined and must be ignored.  If
+    // \p no_new_entries is `true`, then no new dictionary entries will
+    // be created, and the function will only succeed if `value` is
+    // already present in the dictionary.
+    //
     bool compress(const std::string &value,
                   char index_string[index_length],
                   bool no_new_entries=false)
@@ -93,7 +93,7 @@ public:
         }
     }
 
-    const char *get_inverse(unsigned int index) const {
+    const char *get_inverse(uint64_t index) const {
         if (index < inverse.size()) {
             return inverse[index];
         }

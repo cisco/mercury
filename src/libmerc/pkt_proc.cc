@@ -347,6 +347,8 @@ struct do_snmp_oid_observation {
         mq_{mq}
     {}
 
+    // Construct an SNMP OID event for each OID in msg by passing in a lambda
+    // function that constructs the event and then pushes it onto mq_.
     void operator()(snmp::packet &msg) {
         msg.for_each_var_bind_oid([&](const std::string &oid) {
             if (!oid.empty()) {
