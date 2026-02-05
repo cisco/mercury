@@ -51,13 +51,17 @@ public:
 
     void observe_event_string(event_msg &obs) {
 
-        encoder.compress_event_string(obs);
+        bool no_new_entries = max_entries && num_entries >= max_entries;
+
+        if (encoder.compress_event_string(obs, no_new_entries) == false) {
+            return;  // error: can't observe this event
+        }
 
         const auto entry = event_table.find(obs);
         if (entry != event_table.end()) {
             entry->second = entry->second + 1;
         } else {
-            if (max_entries && num_entries >= max_entries) {
+            if (no_new_entries) {
                 return;  // don't go over the max_entries limit
             }
             event_table.emplace(obs, 1);  // TODO: check return value for allocation failure
@@ -130,6 +134,8 @@ public:
             ep.process_update(entry.first, entry.second, version, resource_version, git_commit_id, git_count, init_time);
         }
         ep.process_final();
+
+        encoder.clear();
 
         // if (fp_dict.unit_test(stderr)) {
         //     fprintf(stderr, "passed fp_dict.unit_test()\n");
