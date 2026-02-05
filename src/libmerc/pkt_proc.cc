@@ -756,7 +756,11 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
     if (!reassembler || !global_vars.reassembly) {
         bool is_new = false;
         if (global_vars.output_tcp_initial_data) {
-            is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
+            if (tcp_pkt.is_synthetic_pkt()) {
+                is_new = tcp_flow_table.is_first_data_packet_fdc(k, ts->tv_sec);
+            } else {
+                is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
+            }
         }
         set_tcp_protocol(x, pkt, is_new, &tcp_pkt);
         return true;
@@ -764,7 +768,12 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
 
     bool is_new = false;
     if (global_vars.output_tcp_initial_data) {
-        is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
+        if (tcp_pkt.is_synthetic_pkt()) {
+            is_new = tcp_flow_table.is_first_data_packet_fdc(k, ts->tv_sec);
+        } else {
+            is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
+        }
+
     }
     datum pkt_copy{pkt};
 
@@ -1550,11 +1559,9 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         // setup a seq no of 0 to denote in-order reassembly
         tcp_hdr.seq = 0;
         tcp_packet tcp_pkt{pkt, &tcp_hdr};
+        //setting synthetic pkt to true to seed a synthetic SYN entry
+        tcp_pkt.set_synthetic_pkt();
 
-        // For FDC mode, seed a synthetic SYN if this is a new/expired flow
-        if (global_vars.output_tcp_initial_data) {
-            tcp_flow_table.seed_fdc_syn_if_new(k_, ts.tv_sec);
-        }
         if (reassembler_ptr && global_vars.reassembly && perform_reassembly) {
             analysis.flow_state_pkts_needed = false;
             bool ret = process_tcp_data(x, pkt, tcp_pkt, k_, &ts, reassembler_ptr);

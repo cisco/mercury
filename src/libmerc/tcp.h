@@ -441,9 +441,6 @@ struct flow_table_tcp {
     std::unordered_map<struct key, struct tcp_context>::iterator reap_it;
     static constexpr uint32_t max_entries = 20000;
 
-    // FDC mode tracking
-    std::unordered_map<struct key, time_t> fdc_flows_seen;
-    static constexpr time_t fdc_flow_timeout = 30;
 
     flow_table_tcp(unsigned int size) : table{}, reap_it{table.end()} {
         table.reserve(size);
@@ -494,6 +491,26 @@ struct flow_table_tcp {
         reap(sec);
         return false;
     }
+
+    // FDC/NVM mode: returns true for first data packet of a new/expired flow
+    // Seeds a synthetic SYN entry to track that we've seen this flow
+    bool is_first_data_packet_fdc(const struct key &k, unsigned int sec) {
+        auto it = table.find(k);
+        if (it != table.end()) { //entry found
+            if (it->second.is_expired(sec)) {
+                // Expired - erase and fall through to seed new entry
+                reap_it = table.erase(it);
+            } else {
+                // Flow exists and not expired - not first data packet
+                return false;
+            }
+        }
+        // New flow or expired - seed synthetic SYN and return true
+        reap(sec); //only expired entries cleared
+        syn_packet(k, sec, 0); // setting SYN to 0 as default value as it wont be considered for FDC flows
+        return true;
+    }
+
 
     // Returns the syn seq no, whether the received data pkt is first segment and whether the flow expired
     //
@@ -547,21 +564,6 @@ struct flow_table_tcp {
         table.clear();
     }
 
-    // For FDC mode, insert a synthetic SYN packet if this flow hasn't been seen before (or expired)
-    // This ensures is_first_data_packet() returns true for the first data packet
-    // Use sequence 0xFFFFFFFF so that seq+1 wraps to 0, matching the data packet's seq
-    void seed_fdc_syn_if_new(const struct key &k, time_t now) {
-        auto it = fdc_flows_seen.find(k);
-        bool is_expired = (it != fdc_flows_seen.end()) && ((now - it->second) >= fdc_flow_timeout);
-        bool is_new_flow = (it == fdc_flows_seen.end()) || is_expired;
-        if (is_new_flow) {
-            if (is_expired) {
-                fdc_flows_seen.erase(it);  // remove expired entry to prevent unbounded growth
-            }
-            fdc_flows_seen[k] = now;
-            syn_packet(k, static_cast<unsigned int>(now), 0xFFFFFFFF);
-        }
-    }
 
     static const unsigned int timeout = 1; // seconds before flow timeout
 
