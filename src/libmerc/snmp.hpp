@@ -359,6 +359,9 @@ namespace snmp {
         ///
         template <typename F>
         void for_each_var_bind_oid(F &&f) const {
+            static_assert(std::is_invocable_v<F, const std::string&>,
+                          "Callback must be callable with (const std::string&)");
+
             if (remainder.is_null()) {
                 return;
             }
@@ -456,6 +459,9 @@ namespace snmp {
         ///
         template <typename F>
         void for_each_var_bind_oid(F &&f) const {
+            static_assert(std::is_invocable_v<F, const std::string&>,
+                          "Callback must be callable with (const std::string&)");
+
             if (!valid) {
                 return;
             }
@@ -567,6 +573,9 @@ namespace snmp {
         ///
         template <typename F>
         void for_each_var_bind_oid(F &&f) const {
+            static_assert(std::is_invocable_v<F, const std::string&>,
+                          "Callback must be callable with (const std::string&)");
+
             if (!valid) {
                 return;
             }
@@ -766,6 +775,9 @@ namespace snmp {
         ///
         template <typename F>
         void for_each_var_bind_oid(F &&f) const {
+            static_assert(std::is_invocable_v<F, const std::string&>,
+                          "Callback must be callable with (const std::string&)");
+
             tlv tmp{any};
             v2_pdu p{tmp.value};
             p.for_each_var_bind_oid(f);
@@ -1047,6 +1059,9 @@ namespace snmp {
         ///
         template <typename F>
         void for_each_var_bind_oid(F &&f) const {
+            static_assert(std::is_invocable_v<F, const std::string&>,
+                          "Callback must be callable with (const std::string&)");
+
             if (!valid || hd.priv()) {
                 return;
             }
@@ -1146,6 +1161,9 @@ namespace snmp {
         ///
         template <typename F>
         void for_each_var_bind_oid(F &&f) const {
+            static_assert(std::is_invocable_v<F, const std::string&>,
+                          "Callback must be callable with (const std::string&)");
+
             std::visit([&](auto &pdu) {
                 using T = std::decay_t<decltype(pdu)>;
                 if constexpr (std::is_same_v<T, std::monostate>) {

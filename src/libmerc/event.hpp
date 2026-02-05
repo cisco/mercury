@@ -209,10 +209,10 @@ public:
         const std::string &ua    = event[2];
         const std::string &ctx   = event[3];
 
-        size_t compressed_saddr_num = strtol(saddr.c_str(), NULL, 16);
-        size_t compressed_fp_num    = strtol(fngr.c_str(), NULL, 16);
-        size_t compressed_ua_num    = strtol(ua.c_str(), NULL, 16);
-        size_t compressed_ctx_num   = strtol(ctx.c_str(), NULL, 16);
+        size_t compressed_saddr_num = strtoull(saddr.c_str(), NULL, 16);
+        size_t compressed_fp_num    = strtoull(fngr.c_str(), NULL, 16);
+        size_t compressed_ua_num    = strtoull(ua.c_str(), NULL, 16);
+        size_t compressed_ctx_num   = strtoull(ctx.c_str(), NULL, 16);
 
         event[0] = addr_dict.get_inverse(compressed_saddr_num);
         event[1] = fp_dict.get_inverse(compressed_fp_num);
@@ -448,10 +448,10 @@ public:
         }
 
         // Format the optional parameter user-agent only if it is present. The
-        // extra 15 bytes is to account for additional data required for json
-        char user_agent[MAX_USER_AGENT_LEN + 15]{"\0"};
+        // extra 17 bytes is to account for additional data required for json
+        char user_agent[MAX_USER_AGENT_LEN + 17]{"\0"};
         if(event[2][0] != '\0') {
-            snprintf(user_agent, MAX_USER_AGENT_LEN - 1, "\"user_agent\":\"%s\", ", event[2].c_str());
+            snprintf(user_agent, sizeof(user_agent), "\"user_agent\":\"%s\", ", event[2].c_str());
         }
 
         if (!fingerprints_open) {

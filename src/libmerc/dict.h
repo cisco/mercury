@@ -16,6 +16,7 @@
 #include <vector>
 #include <algorithm>
 #include <limits>
+#include <cinttypes>
 
 #include "bytestring.h"
 
@@ -40,7 +41,7 @@ public:
 
     dict() : d{}, count{0}, inverse{} { }
 
-    static constexpr const size_t index_length = 17;
+    static constexpr size_t index_length = 17;
 
     uint64_t get(const std::string &value) {
         auto x = d.find(value);
