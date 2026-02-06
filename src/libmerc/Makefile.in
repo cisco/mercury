@@ -229,7 +229,6 @@ DBGFLAGS += -UNDEBUG
 ifeq ($(use_fsanitize),yes)
 DBGFLAGS += -fsanitize=address
 endif
-DBGFLAGS += -fno-omit-frame-pointer
 DBGFLAGS += -fvisibility=default
 # DBGFLAGS += -DDEBUG # this option triggers voluminous detailed output
 
@@ -242,7 +241,7 @@ debug-libmerc.so: libmerc.so
 debug-libmerc.so:
 	cp libmerc.so ../../lib/debug-libmerc.so
 
-debug-libmerc_gcov.so: CFLAGS+= -fprofile-arcs -ftest-coverage
+debug-libmerc_gcov.so: CFLAGS += -fprofile-arcs -ftest-coverage
 debug-libmerc_gcov.so: CFLAGS += $(DBGFLAGS)
 debug-libmerc_gcov.so: STRIP = @echo "not running strip on"
 debug-libmerc_gcov.so: libmerc_coverage.so
