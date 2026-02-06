@@ -20,6 +20,11 @@ use_no_gnu_unique = @USE_NO_GNU_UNIQUE@
 #
 use_fsanitize = @USE_FSANITIZE@
 
+# The variable use_no_omit_leaf_frame_pointer controls the compiler option with
+# the corresponding name, which preserves frame pointers in leaf functions
+#
+use_no_omit_leaf_frame_pointer = @USE_NO_OMIT_LEAF_FRAME_POINTER@
+
 # The variable openssl_v1_1_or_newer indicates if OpenSSL 1.1.0+ is available,
 # which controls which openssl functions are used depending on availability
 #
@@ -67,6 +72,10 @@ CFLAGS += -fvisibility=hidden
 CFLAGS += -DNDEBUG
 CFLAGS += -g                  # always include debug symbols even in optimized builds
 # CFLAGS += -ggdb
+CFLAGS += -fno-omit-frame-pointer      # preserve frame pointer for better stack traces
+ifeq ($(use_no_omit_leaf_frame_pointer),yes)
+CFLAGS += -mno-omit-leaf-frame-pointer # also preserve in leaf functions
+endif
 CFLAGS += -fno-builtin-malloc
 CFLAGS += -fno-builtin-calloc
 CFLAGS += -fno-builtin-realloc
