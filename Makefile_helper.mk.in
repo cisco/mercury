@@ -62,7 +62,7 @@ CFLAGS += -Wno-narrowing      # needed for oid.h to suppress spurious (un)signed
 # extra flags
 CFLAGS += -fno-rtti
 CFLAGS += -Wformat
-CLFAGS += -Wformat-security
+CFLAGS += -Wformat-security
 CFLAGS += -Wno-deprecated-declarations
 CFLAGS += -Wno-long-long
 CFLAGS += -Wmissing-noreturn
