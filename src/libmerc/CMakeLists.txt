@@ -288,11 +288,18 @@ else()
         -fno-builtin-calloc
         -fno-builtin-realloc
         -fno-builtin-free
+        -fno-omit-frame-pointer      # preserve frame pointer for better stack traces
         ${OPTFLAGS}
     )
 
-    # Check for GNU-specific compiler flags
+    # Check for -mno-omit-leaf-frame-pointer support (also preserves in leaf functions)
     include(CheckCXXCompilerFlag)
+    check_cxx_compiler_flag(-mno-omit-leaf-frame-pointer use_no_omit_leaf_frame_pointer)
+    if(use_no_omit_leaf_frame_pointer)
+        add_compile_options(-mno-omit-leaf-frame-pointer)
+    endif()
+
+    # Check for GNU-specific compiler flags
     check_cxx_compiler_flag(-fno-gnu-unique use_no_gnu_unique)
     if(use_no_gnu_unique)
         add_compile_options(-fno-gnu-unique)
