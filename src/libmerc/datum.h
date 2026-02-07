@@ -1140,7 +1140,7 @@ public:
     void update(ssize_t length) {
         // a length less than zero is considered an error state
         //
-        if (length < 0 or length > length()) {
+        if (length < 0 or length > writeable_length()) {
             set_null();
             return;
         }
