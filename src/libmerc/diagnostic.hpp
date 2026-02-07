@@ -20,7 +20,7 @@
 class diagnostic {
 public:
 
-    /// \brief Speficies an output type.
+    /// \brief Specifies an output type.
     ///
     enum output {
         hex,      ///< Hexadecimal output.
@@ -31,7 +31,7 @@ public:
     /// changing it.
     ///
     /// By default, the contents of \p input are printed out as a
-    /// hexadeicmal byte sequence, with no preamble, to `stderr`,
+    /// hexadecimal byte sequence, with no preamble, to `stderr`,
     /// unless `input` is in the null state, in which case `(null)` is
     /// printed, or the input is in the empty state, in which case
     /// `(empty)` is printed.  The optional argument \p output_type
@@ -54,9 +54,11 @@ public:
         }
         if (input.is_null()) {
             fprintf(output_file, "(null)\n");
+            return;
         }
         if (input.is_empty()) {
             fprintf(output_file, "(empty)\n");
+            return;
         }
         switch(output_type) {
         case ascii:   input.fprint(output_file);     break;
