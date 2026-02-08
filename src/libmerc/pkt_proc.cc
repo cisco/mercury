@@ -19,6 +19,7 @@
 #include "utils.h"
 #include "loopback.hpp"
 #include "linux_sll.hpp"
+#include "event.hpp"
 
 // include files needed by stateful_pkt_proc; they provide the
 // interface to mercury's packet parsing and handling routines
@@ -90,21 +91,25 @@ void write_flow_key(struct json_object &o, const struct key &k) {
 }
 
 struct do_crypto_assessment {
-    const crypto_policy::assessor *ca;
+    const std::vector<const crypto_policy::assessor *>& ca;
     json_object *record;
 
     // json_object record is to be passed to the assess function only if it is passed to the visitor function
-    do_crypto_assessment(const crypto_policy::assessor *assessor, json_object &o) : ca{assessor}, record{&o} { }
-    do_crypto_assessment(const crypto_policy::assessor *assessor) : ca{assessor}, record{nullptr} { }
+    do_crypto_assessment(const std::vector<const crypto_policy::assessor *>& assessors, json_object &o) : ca{assessors}, record{&o} { }
+    do_crypto_assessment(const std::vector<const crypto_policy::assessor *>& assessors) : ca{assessors}, record{nullptr} { }
+
 
     crypto_assess_result operator()(const tls_client_hello &msg) {
         crypto_assess_result assessment_result;
         if (!record) {
-            assessment_result.set(ca->get_result_idx(), !ca->assess(msg));
+            for (const auto& crypto_assessor : ca) {
+                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg));
+            }
         }
         else {  // write metadata to json record
-            json_object assessor_record{record, "cryptographic_security_assessment"};
-            assessment_result.set(ca->get_result_idx(), !ca->assess(msg, assessor_record));
+            json_array assessor_record{record, "cryptographic_security_assessment"};
+            for (const auto& crypto_assessor : ca)
+                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg, assessor_record));
             assessor_record.close();
         }
         return assessment_result;
@@ -113,24 +118,30 @@ struct do_crypto_assessment {
     crypto_assess_result operator()(const tls_server_hello &msg) {
         crypto_assess_result assessment_result;
         if (!record) {
-            assessment_result.set(ca->get_result_idx(), !ca->assess(msg));
+            for (const auto& crypto_assessor : ca) {
+                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg));
+            }
         }
         else {  // write metadata to json record
-            json_object assessor_record{record, "cryptographic_security_assessment"};
-            assessment_result.set(ca->get_result_idx(), !ca->assess(msg, assessor_record));
+            json_array assessor_record{record, "cryptographic_security_assessment"};
+            for (const auto& crypto_assessor : ca)
+                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg, assessor_record));
             assessor_record.close();
         }
         return assessment_result;
     }
 
     crypto_assess_result operator()(const tls_server_hello_and_certificate &msg) {
-       crypto_assess_result assessment_result;
+        crypto_assess_result assessment_result;
         if (!record) {
-            assessment_result.set(ca->get_result_idx(), !ca->assess(msg));
+            for (const auto& crypto_assessor : ca) {
+                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg));
+            }
         }
         else {  // write metadata to json record
-            json_object assessor_record{record, "cryptographic_security_assessment"};
-            assessment_result.set(ca->get_result_idx(), !ca->assess(msg, assessor_record));
+            json_array assessor_record{record, "cryptographic_security_assessment"};
+            for (const auto& crypto_assessor : ca)
+                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg, assessor_record));
             assessor_record.close();
         }
         return assessment_result;
@@ -139,11 +150,14 @@ struct do_crypto_assessment {
     crypto_assess_result operator()(const dtls_client_hello &msg) {
         crypto_assess_result assessment_result;
         if (!record) {
-            assessment_result.set(ca->get_result_idx(), !ca->assess(msg));
+            for (const auto& crypto_assessor : ca) {
+                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg));
+            }
         }
         else {  // write metadata to json record
-            json_object assessor_record{record, "cryptographic_security_assessment"};
-            assessment_result.set(ca->get_result_idx(), !ca->assess(msg, assessor_record));
+            json_array assessor_record{record, "cryptographic_security_assessment"};
+            for (const auto& crypto_assessor : ca)
+                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg, assessor_record));
             assessor_record.close();
         }
         return assessment_result;
@@ -152,26 +166,31 @@ struct do_crypto_assessment {
     crypto_assess_result operator()(const dtls_server_hello &msg) {
         crypto_assess_result assessment_result;
         if (!record) {
-            assessment_result.set(ca->get_result_idx(), !ca->assess(msg));
+            for (const auto& crypto_assessor : ca) {
+                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg));
+            }
         }
         else {  // write metadata to json record
-            json_object assessor_record{record, "cryptographic_security_assessment"};
-            assessment_result.set(ca->get_result_idx(), !ca->assess(msg, assessor_record));
+            json_array assessor_record{record, "cryptographic_security_assessment"};
+            for (const auto& crypto_assessor : ca)
+                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg, assessor_record));
             assessor_record.close();
         }
         return assessment_result;
     }
 
-
     crypto_assess_result operator()(const quic_init &msg) {
         crypto_assess_result assessment_result;
         if (msg.has_tls()) {
             if (!record) {
-                assessment_result.set(ca->get_result_idx(), !ca->assess(msg.get_tls_client_hello()));
+                for (const auto& crypto_assessor : ca) {
+                    assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg.get_tls_client_hello()));
+                }
             }
             else {  // write metadata to json record
-                json_object assessor_record{record, "cryptographic_security_assessment"};
-                assessment_result.set(ca->get_result_idx(), !ca->assess(msg.get_tls_client_hello(), assessor_record));
+                json_array assessor_record{record, "cryptographic_security_assessment"};
+                for (const auto& crypto_assessor : ca)
+                    assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg.get_tls_client_hello(), assessor_record));
                 assessor_record.close();
             }
         }
@@ -182,12 +201,16 @@ struct do_crypto_assessment {
         crypto_assess_result assessment_result;
         if (msg.kex_pkt.is_not_empty()) {
             if (!record) {
-                assessment_result.set(ca->get_result_idx(), !ca->assess(msg.kex_pkt));
+                for (const auto& crypto_assessor : ca) {
+                    assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg.kex_pkt));
+                }
             }
             else {  // write metadata to json record
-                json_object assessor_record{record, "cryptographic_security_assessment"};
-                assessment_result.set(ca->get_result_idx(), !ca->assess(msg.kex_pkt, assessor_record));
+                json_array assessor_record{record, "cryptographic_security_assessment"};
+                for (const auto& crypto_assessor : ca)
+                    assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg.kex_pkt, assessor_record));
                 assessor_record.close();
+
             }
         }
         return assessment_result;
@@ -197,11 +220,14 @@ struct do_crypto_assessment {
         crypto_assess_result assessment_result;
         if (msg.is_not_empty()) {
             if (!record) {
-                assessment_result.set(ca->get_result_idx(), !ca->assess(msg));
+                for (const auto& crypto_assessor : ca) {
+                    assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg));
+                }
             }
             else {  // write metadata to json record
-                json_object assessor_record{record, "cryptographic_security_assessment"};
-                assessment_result.set(ca->get_result_idx(), !ca->assess(msg, assessor_record));
+                json_array assessor_record{record, "cryptographic_security_assessment"};
+                for (const auto& crypto_assessor : ca)
+                    assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg, assessor_record));
                 assessor_record.close();
             }
         }
@@ -216,7 +242,6 @@ struct do_crypto_assessment {
     crypto_assess_result operator()(std::monostate &) { return crypto_assess_result{}; }
 
 };
-
 
 struct check_exposed_creds {
 
@@ -234,114 +259,109 @@ struct check_exposed_creds {
     exposed_creds_type operator()(std::monostate &) { return exposed_creds_none; }
 };
 
-
-template <typename T_M>
-class event_string
-{
-    const struct key &k;
-    const struct analysis_context &analysis;
-    std::string dest_context;
-    event_msg event;
-    T_M &message_pkt;
-
-public:
-    event_string(const struct key &k, const struct analysis_context &analysis, T_M &proto) :
-        k{k}, analysis{analysis}, message_pkt{proto} {  }
-
-    event_msg construct_event_string_proto( [[maybe_unused]] tofsee_initial_message &msg) {
-        // For tofsee initial pkt, src ip, src port and bot ip are important
-        // replace dst ip and port with src ip and port
-        // add bot ip as user agent string
-        //
-        char src_ip_str[MAX_ADDR_STR_LEN];
-        k.sprintf_dst_addr(src_ip_str);
-        char dst_ip_str[MAX_ADDR_STR_LEN];
-        k.sprint_src_addr(dst_ip_str);
-        char dst_port_str[MAX_PORT_STR_LEN];
-        k.sprint_src_port(dst_port_str);
-
-        dest_context.append("(");
-        dest_context.append(analysis.destination.sn_str).append(")(");
-        dest_context.append(dst_ip_str).append(")(");
-        dest_context.append(dst_port_str).append(")");
-
-        event = std::make_tuple(src_ip_str, analysis.fp.string(), analysis.destination.ua_str, dest_context);
-        return event;
-    }
-
-    template <typename T>
-    event_msg construct_event_string_proto([[maybe_unused]] T &msg) {
-        char src_ip_str[MAX_ADDR_STR_LEN];
-        k.sprint_src_addr(src_ip_str);
-        char dst_port_str[MAX_PORT_STR_LEN];
-        k.sprint_dst_port(dst_port_str);
-
-        dest_context.append("(");
-        dest_context.append(analysis.destination.sn_str).append(")(");
-        dest_context.append(analysis.destination.dst_ip_str).append(")(");
-        dest_context.append(dst_port_str).append(")");
-
-        event = std::make_tuple(src_ip_str, analysis.fp.string(), utf8_string::get_utf8_string(analysis.destination.ua_str), dest_context);
-        return event;
-    }
-
-    event_msg construct_event_string() {
-        return construct_event_string_proto(message_pkt);
-    }
-};
-
 struct do_observation {
     const struct key &k_;
     struct analysis_context &analysis_;
-    class message_queue *mq_;
+    class message_queue<event_msg> *mq_;
 
     do_observation(const struct key &k,
                    struct analysis_context &analysis,
-                   class message_queue *mq) :
+                   class message_queue<event_msg> *mq) :
         k_{k},
         analysis_{analysis},
         mq_{mq}
     {}
 
-    void operator()(tls_client_hello &m) {
+    void operator()(tls_client_hello &) {
         // create event and send it to the data/stats aggregator
-        event_string ev_str{k_, analysis_, m};
-        mq_->push(ev_str.construct_event_string());
+        mq_->push(event_string::construct_event_string(k_, analysis_));
     }
 
-    void operator()(quic_init &m) {
+    void operator()(quic_init &) {
         // create event and send it to the data/stats aggregator
-        event_string ev_str{k_, analysis_, m};
-        mq_->push(ev_str.construct_event_string());
+        mq_->push(event_string::construct_event_string(k_, analysis_));
     }
 
-    void operator()(tofsee_initial_message &tofsee_pkt) {
+    void operator()(tofsee_initial_message &) {
         // create event and send it to the data/stats aggregator
-        event_string ev_str{k_, analysis_, tofsee_pkt};
-        mq_->push(ev_str.construct_event_string());
+        mq_->push(event_string::construct_event_string_tofsee(k_, analysis_));
     }
 
-    void operator()(http_request &m) {
+    void operator()(http_request &) {
         // create event and send it to the data/stats aggregator
-        event_string ev_str{k_, analysis_, m};
-        mq_->push(ev_str.construct_event_string());
+        mq_->push(event_string::construct_event_string(k_, analysis_));
     }
 
-    void operator()(stun::message &m) {
+    void operator()(stun::message &) {
         // create event and send it to the data/stats aggregator
-        event_string ev_str{k_, analysis_, m};
-        mq_->push(ev_str.construct_event_string());
+        mq_->push(event_string::construct_event_string(k_, analysis_));
     }
 
-    void operator()(ssh_init_packet &m) {
+    void operator()(ssh_init_packet &) {
         // create event and send it to the data/stats aggregator
-        event_string ev_str{k_, analysis_, m};
-        mq_->push(ev_str.construct_event_string());
+        mq_->push(event_string::construct_event_string(k_, analysis_));
     }
 
     template <typename T>
     void operator()(T &) { }
 
+};
+
+struct do_cert_label_observation {
+    const struct key &k_;
+    class message_queue<event_msg> *mq_;
+
+    do_cert_label_observation(const struct key &k,
+                              class message_queue<event_msg> *mq) :
+        k_{k},
+        mq_{mq}
+    {}
+
+    void operator()(tls_server_hello_and_certificate &msg) {
+        std::string common_name;
+        if (msg.get_subject_common_name(common_name) && !common_name.empty()) {
+            mq_->push(event_string::construct_cert_label_event(k_, common_name));
+        }
+    }
+
+    void operator()(tls_certificate &msg) {
+        std::string common_name;
+        if (msg.get_subject_common_name(common_name) && !common_name.empty()) {
+            mq_->push(event_string::construct_cert_label_event(k_, common_name));
+        }
+    }
+
+    template <typename T>
+    void operator()(T &) { }
+
+    void operator()(std::monostate &) { }
+};
+
+struct do_snmp_oid_observation {
+    const struct key &k_;
+    class message_queue<event_msg> *mq_;
+
+    do_snmp_oid_observation(const struct key &k,
+                            class message_queue<event_msg> *mq) :
+        k_{k},
+        mq_{mq}
+    {}
+
+    /// Construct an SNMP OID event for each OID in msg by passing in a lambda
+    /// function that constructs the event and then pushes it onto mq_.
+    ///
+    void operator()(snmp::packet &msg) {
+        msg.for_each_var_bind_oid([&](const std::string &oid) {
+            if (!oid.empty()) {
+                mq_->push(event_string::construct_snmp_oid_event(k_, oid));
+            }
+        });
+    }
+
+    template <typename T>
+    void operator()(T &) { }
+
+    void operator()(std::monostate &) { }
 };
 
 bool stateful_pkt_proc::set_tcp_protocol_from_keyword(protocol &x,
@@ -1226,16 +1246,17 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             }
             output_attr = c->check_additional_attributes(analysis) ? true : output_attr; // set to true only if any additional attribute is set, else keep the previous value
 
-            if (exposed_creds) {
-                exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
-                output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
-            }
-
             // analysis_.destination
             //
             if (mq) {
                 std::visit(do_observation{k, analysis, mq}, x);
             }
+        }
+        if (global_vars.do_analysis && mq) {
+            if (ip_pkt.src_is_private()) {
+                std::visit(do_cert_label_observation{k, mq}, x);
+            }
+            std::visit(do_snmp_oid_observation{k, mq}, x);
         }
 
         bool output_nbd = false;
@@ -1257,12 +1278,9 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         }
         std::visit(write_metadata{record, global_vars.metadata_output, global_vars.certs_json_output, global_vars.dns_json_output}, x);
 
-        if (crypto_policy) {
-            crypto_assess_result assessment_result = std::visit(do_crypto_assessment{crypto_policy, record}, x);
-            if (assessment_result.test(crypto_policy::quantum_safe::result_idx)) {
-                analysis.result.attr.set_attr(c->common.non_pqc_idx, 1.0);
-                output_attr = true;
-            }
+        if (!crypto_policies.empty()) {
+            crypto_assess_result assessment_result = std::visit(do_crypto_assessment{crypto_policies, record}, x);
+            output_attr = set_crypto_assessment_attr(assessment_result) ? true : output_attr;
         }
 
         if (exposed_creds) {
@@ -1750,6 +1768,12 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
     // process protocol data element
     //
     if (std::visit(is_not_empty{}, x)) {
+        if (global_vars.do_analysis && mq) {
+            if (ip_pkt.src_is_private()) {
+                std::visit(do_cert_label_observation{k, mq}, x);
+            }
+            std::visit(do_snmp_oid_observation{k, mq}, x);
+        }
         std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
         if (global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
 
@@ -1770,11 +1794,9 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
                 set_exposed_creds_attr(exposed_creds_ret);
             }
 
-            if (crypto_policy) {
-                crypto_assess_result assessment_result = std::visit(do_crypto_assessment{crypto_policy}, x);
-                if (assessment_result.test(crypto_policy::quantum_safe::result_idx)) {    // Non PQC compliance bit is set
-                    analysis.result.attr.set_attr(c->common.non_pqc_idx, 1.0);
-                }
+            if (!crypto_policies.empty()) {
+                crypto_assess_result assessment_result = std::visit(do_crypto_assessment{crypto_policies}, x);
+                set_crypto_assessment_attr(assessment_result);
             }
 
             bool output_nbd = false;
@@ -1818,11 +1840,9 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
 
                 std::visit(do_network_behavioral_detections{k, analysis, c, nbd_common_data}, x);
             }
-            if (crypto_policy) {
-                crypto_assess_result crypto_result = std::visit(do_crypto_assessment{crypto_policy}, x);
-                if (crypto_result.test(crypto_policy::quantum_safe::result_idx)) {
-                    analysis.result.attr.set_attr(c->common.non_pqc_idx, 1.0);
-                }
+            if (!crypto_policies.empty()) {
+                crypto_assess_result crypto_result = std::visit(do_crypto_assessment{crypto_policies}, x);
+                set_crypto_assessment_attr(crypto_result);
             }
             if (exposed_creds) {
                 exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);

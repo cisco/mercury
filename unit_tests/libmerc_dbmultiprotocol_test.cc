@@ -721,7 +721,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test domain_faking attribute with resource
     }
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test exposed_creds attribute with resources-mp")
+TEST_CASE_METHOD(LibmercTestFixture, "test exposed_creds attribute")
 {
     auto attr_check = [&](std::string &expected_attr, const struct libmerc_config &config)
     {
@@ -750,7 +750,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test exposed_creds attribute with resource
 }
 
 
-TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment attribute with resources-mp")
+TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment attributes")
 {
     auto attr_check = [&](std::string &expected_attr, const struct libmerc_config &config)
     {
@@ -768,6 +768,13 @@ TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment attribute with reso
             },
             .m_pc{"tlsv1_3.pcap"}},
             "cnsa_2_0_non_conformant"    // check if cnsa_2_0_non_conformant attribute is present in the attributes array
+        },
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"all;crypto-assess=default"
+            },
+            .m_pc{"nist_nc.pcap"}},
+            "nist_sp_800_52_2_non_conformant"    // check if nist_sp_800_52_2_non_conformant attribute is present in the attributes array
         }
     };
 

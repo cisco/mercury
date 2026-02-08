@@ -72,6 +72,7 @@ struct common_data {
     ssize_t exposed_creds_token_idx = -1;
     ssize_t exposed_creds_derived_idx = -1;
     ssize_t non_pqc_idx = -1;
+    ssize_t non_nist_idx = -1;
     bool doh_enabled = false;
     bool domain_faking_enabled = false;
 
@@ -822,6 +823,7 @@ public:
 
         // reserve attributes for crypto assessments
         common.non_pqc_idx = common.attr_name.get_index("cnsa_2_0_non_conformant");
+        common.non_nist_idx = common.attr_name.get_index("nist_sp_800_52_2_non_conformant");
 
         // by default, we expect that tls fingerprints will be present in the resource file
         //
@@ -1080,7 +1082,7 @@ public:
                                             uint16_t dst_port, const char *user_agent) {
         auto perform_analysis_fn = [&](fingerprint_data *fp_data, fingerprint_status status) {
             if (fp_data == nullptr) {
-                return analysis_result(status);
+                return analysis_result{status};
             }
             return fp_data->perform_analysis(server_name, dst_ip, dst_port, user_agent, status);
         };
@@ -1091,7 +1093,7 @@ public:
                                                               uint16_t dst_port, const char *user_agent) {
         auto perform_detailed_fn = [&](fingerprint_data *fp_data, fingerprint_status status) {
             if (fp_data == nullptr) {
-                return detailed_analysis_result(status);
+                return detailed_analysis_result{status};
             }
             return fp_data->perform_detailed_analysis(server_name, dst_ip, dst_port, user_agent, status);
         };
@@ -1117,6 +1119,9 @@ public:
         feature_weights weights{new_as_weight, new_domain_weight, new_port_weight,
                                 new_ip_weight, new_sni_weight, new_ua_weight};
         auto perform_analysis_fn = [&](fingerprint_data *fp_data, fingerprint_status status) {
+            if (fp_data == nullptr) {
+                return analysis_result{status};
+            }
             return fp_data->perform_analysis(server_name, dst_ip, dst_port, user_agent, status, weights);
         };
         return perform_analysis_common(fp_str, perform_analysis_fn);

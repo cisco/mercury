@@ -24,171 +24,20 @@ typedef uint32_t useconds_t;
 #include <thread>
 #include <chrono>
 #include <atomic>
-#include <zlib.h>
 #include <functional>
 #include <tuple>
 
 #include "dict.h"
 #include "queue.h"
+#include "event.hpp"
 
-// class event_processor_gz coverts a sequence of sorted event
-// strings into an alternative JSON representation
-//
-class event_processor_gz {
-    std::vector<std::string> prev;
-    bool first_loop;
-    gzFile gzf;
-    std::array<std::string, 4> v;
-
-public:
-    event_processor_gz(gzFile gzfile) : prev{"", "", "", ""}, first_loop{true}, gzf{gzfile} {}
-
-    void process_init() {
-        first_loop = true;
-        prev = { "", "", "", "" };
-    }
-
-    void process_update(const event_msg &event, uint32_t count, const char *version,
-                    const char *resource_version, const char *git_commit_id,
-                    uint32_t git_count, const char *init_time) {
-
-        std::tie(v[0], v[1], v[2], v[3]) = event;
-
-        // find number of elements that match previous vector
-        size_t num_matching = 0;
-        for (num_matching=0; num_matching<3; num_matching++) {
-            if (prev[num_matching].compare(v[num_matching]) != 0) {
-                break;
-            }
-        }
-        // set mismatched previous values
-        for (size_t i=num_matching; i<3; i++) {
-            prev[i] = v[i];
-        }
-
-        //Format the optional parameter user-agent only if it is present
-        //Extra 15 bytes is to account for additional data required for json
-        char user_agent[MAX_USER_AGENT_LEN + 15]{"\0"};
-        if(v[2][0] != '\0') {
-            snprintf(user_agent, MAX_USER_AGENT_LEN - 1, "\"user_agent\":\"%s\", ", v[2].c_str());
-        }
-
-        // output unique elements
-        int gz_ret = 1;
-        switch(num_matching) {
-        case 0:
-            if (!first_loop) {
-                gz_ret = gzprintf(gzf, "}]}]}]}\n");
-            }
-            if (gz_ret <= 0)
-                throw std::runtime_error("error in gzprintf");
-            gz_ret = gzprintf(gzf, "{\"src_ip\":\"%s\", \"libmerc_init_time\" : \"%s\",\"libmerc_version\": \"%s\","
-                                   " \"resource_version\" : \"%s\", \"build_number\" : \"%u\", \"git_commit_id\": \"%s\", \"fingerprints\":"
-                                   "[{\"str_repr\":\"%s\", \"sessions\": [{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u",
-                v[0].c_str(), init_time, version, resource_version, git_count, git_commit_id, v[1].c_str(), user_agent, v[3].c_str(), count);
-            break;
-        case 1:
-            gz_ret = gzprintf(gzf, "}]}]},{\"str_repr\":\"%s\", \"sessions\": [{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u", v[1].c_str(), user_agent, v[3].c_str(), count);
-            break;
-        case 2:
-            gzprintf(gzf, "}]},{%s\"dest_info\":[{\"dst\":\"%s\",\"count\":%u", user_agent, v[3].c_str(), count);
-            break;
-        case 3:
-            gz_ret = gzprintf(gzf, "},{\"dst\":\"%s\",\"count\":%u", v[3].c_str(), count);
-            break;
-        default:
-            ;
-        }
-        first_loop = false;
-        if (gz_ret <= 0)
-            throw std::runtime_error("error in gzprintf");
-    }
-
-    void process_final() {
-        int gz_ret = gzprintf(gzf, "}]}]}]}\n");
-        if (gz_ret <= 0)
-            throw std::runtime_error("error in gzprintf");
-    }
-
-};
-
-
-// class event_encoder provides methods to compress/decompress event string.
-// Its member functions are not const because they may update the dict
-// member.
-
-class event_encoder {
-    dict addr_dict;
-    dict fp_dict;
-    dict ua_dict;
-
-public:
-
-    event_encoder() : addr_dict{}, fp_dict{}, ua_dict{} {}
-
-    bool compute_inverse_map() {
-        return addr_dict.compute_inverse_map() &&
-               fp_dict.compute_inverse_map() &&
-               ua_dict.compute_inverse_map();
-    }
-
-    void get_inverse(event_msg &event) {
-        const std::string &saddr = std::get<0>(event);
-        const std::string &fngr = std::get<1>(event);
-        const std::string &ua   = std::get<2>(event);
-
-        size_t compressed_saddr_num = strtol(saddr.c_str(), NULL, 16);
-        size_t compressed_fp_num = strtol(fngr.c_str(), NULL, 16);
-        size_t compressed_ua_num = strtol(ua.c_str(), NULL, 16);
-
-        std::get<0>(event) = addr_dict.get_inverse(compressed_saddr_num);
-        std::get<1>(event) = fp_dict.get_inverse(compressed_fp_num);
-        std::get<2>(event) = ua_dict.get_inverse(compressed_ua_num);
-    }
-
-    void compress_event_string(event_msg& event) {
-
-        const std::string &addr = std::get<0>(event);
-        const std::string &fngr = std::get<1>(event);
-        const std::string &ua   = std::get<2>(event);
-
-        // compress source address string
-        char src_addr_buf[9];
-        addr_dict.compress(addr, src_addr_buf);
-
-        // compress fingerprint string
-        char compressed_fp_buf[9];
-        fp_dict.compress(fngr, compressed_fp_buf);
-
-        char compressed_ua_buf[9];
-        ua_dict.compress(ua, compressed_ua_buf);
-
-        std::get<0>(event) = src_addr_buf;
-        std::get<1>(event) = compressed_fp_buf;
-        std::get<2>(event) = compressed_ua_buf;
-
-    }
-
-};
-
-struct hash_tuple {
-    template <class T1, class T2, class T3, class T4>
-
-    size_t operator()(const std::tuple<T1, T2, T3, T4>& x) const {
-        std::hash<std::string> hasher;
-        return hasher(std::get<0>(x))
-                ^ hasher(std::get<1>(x))
-                ^ hasher(std::get<2>(x))
-                ^ hasher(std::get<3>(x));
-    }
-};
 
 // class stats_aggregator manages all of the data needed to gather and
 // report aggregate statistics about (fingerprint and destination)
 // events
 //
 class stats_aggregator {
-    std::unordered_map<event_msg, uint64_t, hash_tuple> event_table;
+    std::unordered_map<event_msg, uint64_t> event_table;
     event_encoder encoder;
     std::string observation;  // used as preallocated temporary variable
     size_t num_entries;
@@ -202,13 +51,17 @@ public:
 
     void observe_event_string(event_msg &obs) {
 
-        encoder.compress_event_string(obs);
+        bool no_new_entries = max_entries && num_entries >= max_entries;
+
+        if (encoder.compress_event_string(obs, no_new_entries) == false) {
+            return;  // error: can't observe this event
+        }
 
         const auto entry = event_table.find(obs);
         if (entry != event_table.end()) {
             entry->second = entry->second + 1;
         } else {
-            if (max_entries && num_entries >= max_entries) {
+            if (no_new_entries) {
                 return;  // don't go over the max_entries limit
             }
             event_table.emplace(obs, 1);  // TODO: check return value for allocation failure
@@ -242,9 +95,32 @@ public:
         std::sort(v.begin(), v.end(), [&interrupt](auto &l, auto &r){
             if (interrupt.load() == true) {
                 throw std::runtime_error("error: stats dump interrupted");
-            } else {
-                return l.first < r.first;
             }
+            const auto &le = l.first;
+            const auto &re = r.first;
+            if (le[0] != re[0]) {
+                return le[0] < re[0];
+            }
+            auto type_rank = [](event_type t) {
+                switch (t) {
+                case event_type::cert_label:
+                    return 0;
+                case event_type::snmp_oid:
+                    return 1;
+                case event_type::fingerprint:
+                default:
+                    return 2;
+                }
+            };
+            int l_rank = type_rank(le.type);
+            int r_rank = type_rank(re.type);
+            if (l_rank != r_rank) {
+                return l_rank < r_rank;
+            }
+            if (le.type == event_type::cert_label || le.type == event_type::snmp_oid) {
+                return le[3] < re[3];
+            }
+            return le < re;
         } );
 
         event_processor_gz ep(f);
@@ -258,6 +134,8 @@ public:
             ep.process_update(entry.first, entry.second, version, resource_version, git_commit_id, git_count, init_time);
         }
         ep.process_final();
+
+        encoder.clear();
 
         // if (fp_dict.unit_test(stderr)) {
         //     fprintf(stderr, "passed fp_dict.unit_test()\n");
@@ -275,7 +153,7 @@ public:
 #define MAX_VERSION_STRING 15
 
 class data_aggregator {
-    std::vector<class message_queue *> q;
+    std::vector<class message_queue<event_msg> *> q;
     stats_aggregator ag1, ag2, *ag;
     std::atomic<bool> shutdown_requested;
     bool blocking;  // stats event collection: lossless but blocking
@@ -298,7 +176,7 @@ class data_aggregator {
         }
     }
 
-    void empty_event_queue(message_queue *q) {
+    void empty_event_queue(message_queue<event_msg> *q) {
         //fprintf(stderr, "note: emptying message queue in %p\n", (void *)this);
         event_msg event;
         while (q->pop(event)) {
@@ -307,7 +185,7 @@ class data_aggregator {
         }
     }
 
-    double event_queue_fill_ratio(message_queue *q) {
+    double event_queue_fill_ratio(message_queue<event_msg> *q) {
         return static_cast<double>(q->size()) / static_cast<double>(q->capacity());
     }
 
@@ -371,21 +249,21 @@ public:
         }
     }
 
-    message_queue *add_producer() {
+    message_queue<event_msg> *add_producer() {
         std::lock_guard m_guard{m};
         //fprintf(stderr, "note: adding producer in %p\n", (void *)this);
-        q.push_back(new message_queue(blocking));
+        q.push_back(new message_queue<event_msg>(blocking));
         return q.back();
     }
 
-    void remove_producer(message_queue *p) {
+    void remove_producer(message_queue<event_msg> *p) {
         if (p == nullptr) {
             return;
         }
         std::lock_guard m_guard{m};
         //fprintf(stderr, "note: removing producer in %p\n", (void *)this);
         empty_event_queue(p);
-        for (std::vector<message_queue *>::iterator it = q.begin(); it < q.end(); it++) {
+        for (std::vector<message_queue<event_msg> *>::iterator it = q.begin(); it < q.end(); it++) {
             if (*it == p) {
                 //fprintf(stderr, "%s: deleting and erasing message_queue p=%p in %p\n", __func__, (void *)p, (void *)this);
                 delete *it;
