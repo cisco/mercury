@@ -191,6 +191,16 @@ int double_bind_test(const struct libmerc_config *config, const struct libmerc_c
     return 0;
 }
 
+// Skip double_bind_test on macOS due to ASAN detecting errors (e.g., global
+// buffer overflow) with repeated dlopen/dlclose cycles. The test appears to
+// pass without issues on Linux.
+//
+// Related references:
+// https://github.com/google/sanitizers/issues/963
+// https://github.com/google/sanitizers/issues/318
+// https://github.com/google/sanitizers/issues/741
+//
+#ifndef __APPLE__
 TEST_CASE("double_bind_test") {
     libmerc_config config = create_config();
     libmerc_config config_lite = create_config(); // note: just different, not really lite
@@ -199,3 +209,4 @@ TEST_CASE("double_bind_test") {
     int retval = double_bind_test(&config_lite, &config);
     REQUIRE_FALSE(retval);
 }
+#endif

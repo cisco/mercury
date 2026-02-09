@@ -28,6 +28,7 @@ typedef SSIZE_T ssize_t;
 #include <cassert>
 #include <memory>
 #include "buffer_stream.h"
+#include <optional>
 
 /// `mercury_debug` is a compile-time option that turns on debugging output
 ///
@@ -390,6 +391,14 @@ struct datum {
         }
         return true;
     }
+    template <size_t N>
+    bool ends_with(std::array<uint8_t, N> a) const {
+        if (length() < (ssize_t)N) {
+            return false;
+        }
+        const uint8_t *suffix_start = data_end - N;
+        return ::memcmp(suffix_start, a.data(), N) == 0;
+    }
     bool case_insensitive_match(const struct datum r) const {
         if (length() != r.length()) {
             return false;
@@ -502,6 +511,13 @@ struct datum {
     bool operator!=(const datum &p) const {
         return cmp(p) != 0;
      }
+
+    std::optional<uint8_t> operator[](size_t i) const {
+        if (is_null() || data + i >= data_end) {
+            return std::nullopt;
+        }
+        return data[i];
+    }
 
     unsigned int bits_in_data() const {                  // for use with (ASN1) integers
         unsigned int bits = (data_end - data) * 8;
@@ -1081,6 +1097,9 @@ inline std::pair<datum,datum> symmetric_difference(datum outer, datum inner) {
 ///   |    full         | `!= nullptr`  |   `== data`  |
 ///
 class writeable {
+    friend class file_reader;
+    friend class pem_file_reader;
+    friend class der_file_reader;
 protected:
 
     uint8_t *data;
@@ -1129,6 +1148,20 @@ public:
     /// data can be written
     ///
     ssize_t writeable_length() const { return data_end - data; }
+
+    /// consumes `length` bytes of the writeable region, if `length <=
+    /// this->writeable_length()`; otherwise, this writeable is set to
+    /// the null state
+    ///
+    void update(ssize_t length) {
+        // a length less than zero is considered an error state
+        //
+        if (length < 0 or length > writeable_length()) {
+            set_null();
+            return;
+        }
+        data += length;
+    }
 
     /// sets this writeable object to the null state
     ///
@@ -2525,6 +2558,8 @@ public:
             d = tmp;
         }
     }
+
+    operator bool() const { return valid; }
 
 };
 
