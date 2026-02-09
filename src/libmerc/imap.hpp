@@ -15,6 +15,7 @@
 #include "lex.h"
 #include "decimal_int.hpp"
 #include "perfect_hash.h"
+#include "json_object.h"
 
 namespace imap {
 
@@ -125,7 +126,7 @@ namespace imap {
     // Note: {size+} is non-synchronizing literal (RFC 2088 LITERAL+)
     class literal_parser : public datum {
         bool is_synchronizing = true;
-        size_t literal_size = 0;
+        int32_t literal_size = 0;
         datum literal_data;
 
     public:
@@ -166,7 +167,7 @@ namespace imap {
                     return;
                 }
 
-                if (d.length() >= (ssize_t)literal_size) {
+                if (d.length() >= literal_size) {
                     literal_data.data = d.data;
                     literal_data.data_end = d.data + literal_size;
                     d.skip(literal_size);
