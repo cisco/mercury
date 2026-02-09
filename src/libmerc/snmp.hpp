@@ -79,6 +79,24 @@ namespace snmp {
 
         bool is_not_empty() const { return body.is_not_empty(); }
 
+        std::string get_oid_string() const {
+            datum tmp{body};
+            tlv object{tmp};
+            if (!object.is_valid()) {
+                return {};
+            }
+            if (object.get_tag_class() != tlv::tag_class::universal ||
+                object.get_little_tag() != tlv::OBJECT_IDENTIFIER ||
+                object.value.is_empty()) {
+                return {};
+            }
+            char buffer[256];
+            buffer_stream buf{buffer, sizeof(buffer)};
+            raw_oid{object.value}.write(buf);
+            buf.add_null();
+            return buf.get_string();
+        }
+
         void write_json(json_object &o) const {
             json_object &value = o;
 
@@ -232,6 +250,13 @@ namespace snmp {
 
         bool is_not_empty() const { return valid; }
 
+        std::string get_oid_string() const {
+            if (!valid) {
+                return {};
+            }
+            return value.get_oid_string();
+        }
+
     };
 
     // The trap_pdu type was defined in SNMPv1, and was obsoleted by
@@ -328,6 +353,30 @@ namespace snmp {
         }
 
         bool is_not_empty() const { return !remainder.is_null(); }
+
+        /// apply the function `f` to each OID string in the `var_bind` list.  That function should have the
+        /// signature `void f(const std::string &oid)`
+        ///
+        template <typename F>
+        void for_each_var_bind_oid(F &&f) const {
+            static_assert(std::is_invocable_v<F, const std::string&>,
+                          "Callback must be callable with (const std::string&)");
+
+            if (remainder.is_null()) {
+                return;
+            }
+            datum list{variable_bindings_list.value};
+            while (list.is_readable()) {
+                var_bind vb{list};
+                if (!vb.is_not_empty()) {
+                    break;
+                }
+                std::string oid = vb.get_oid_string();
+                if (!oid.empty()) {
+                    f(oid);
+                }
+            }
+        }
     };
 
     // From RFC 1905 Section 3:
@@ -404,6 +453,30 @@ namespace snmp {
         }
 
         bool is_not_empty() const { return valid; }
+
+        /// apply the function `f` to each OID string in the `var_bind` list.  That function should have the
+        /// signature `void f(const std::string &oid)`
+        ///
+        template <typename F>
+        void for_each_var_bind_oid(F &&f) const {
+            static_assert(std::is_invocable_v<F, const std::string&>,
+                          "Callback must be callable with (const std::string&)");
+
+            if (!valid) {
+                return;
+            }
+            datum list{variable_bindings.value};
+            while (list.is_readable()) {
+                var_bind vb{list};
+                if (!vb.is_not_empty()) {
+                    break;
+                }
+                std::string oid = vb.get_oid_string();
+                if (!oid.empty()) {
+                    f(oid);
+                }
+            }
+        }
 
     };
 
@@ -491,6 +564,30 @@ namespace snmp {
 
         bool is_not_empty() const {
             return valid;
+        }
+
+        /// apply the function `f` to each OID string in the `var_bind` list.  That function should have the
+        /// signature `void f(const std::string &oid)`
+        ///
+        /// for v2 packets, this delegates to `trap` for v1_trap PDUs and `v2_pdu` for all others
+        ///
+        template <typename F>
+        void for_each_var_bind_oid(F &&f) const {
+            static_assert(std::is_invocable_v<F, const std::string&>,
+                          "Callback must be callable with (const std::string&)");
+
+            if (!valid) {
+                return;
+            }
+            uint8_t pdu_code = data.tag_number();
+            datum tmp{data.value};
+            if (pdu_code == pdu_type_code::v1_trap) {
+                trap t{tmp};
+                t.for_each_var_bind_oid(f);
+            } else {
+                v2_pdu p{tmp};
+                p.for_each_var_bind_oid(f);
+            }
         }
 
     };
@@ -669,6 +766,21 @@ namespace snmp {
             tlv tmp{any};
             v2_pdu{tmp.value}.write_json(o);
 
+        }
+
+        /// apply the function `f` to each OID string in the `var_bind` list.  That function should have the
+        /// signature `void f(const std::string &oid)`
+        ///
+        /// this scoped PDU forwards into the contained `v2_pdu`
+        ///
+        template <typename F>
+        void for_each_var_bind_oid(F &&f) const {
+            static_assert(std::is_invocable_v<F, const std::string&>,
+                          "Callback must be callable with (const std::string&)");
+
+            tlv tmp{any};
+            v2_pdu p{tmp.value};
+            p.for_each_var_bind_oid(f);
         }
     };
 
@@ -940,6 +1052,24 @@ namespace snmp {
             return valid;
         }
 
+        /// apply the function `f` to each OID string in the `var_bind` list.  That function should have the
+        /// signature `void f(const std::string &oid)`
+        ///
+        /// v3 packets forward into `scoped_pdu_data` when the PDU is not encrypted
+        ///
+        template <typename F>
+        void for_each_var_bind_oid(F &&f) const {
+            static_assert(std::is_invocable_v<F, const std::string&>,
+                          "Callback must be callable with (const std::string&)");
+
+            if (!valid || hd.priv()) {
+                return;
+            }
+            datum tmp = body;
+            scoped_pdu_data msgData{tmp};
+            msgData.for_each_var_bind_oid(f);
+        }
+
         static constexpr mask_and_value<8> matcher{
             { 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
             { 0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
@@ -1022,6 +1152,26 @@ namespace snmp {
 
         bool is_not_empty() const {
             return std::visit(do_is_not_empty{}, body);
+        }
+
+        /// apply the function `f` to each OID string in the `var_bind` list.  That function should have the
+        /// signature `void f(const std::string &oid)`
+        ///
+        /// top-level packet dispatches to the active `v2_packet` or `v3_packet` variant
+        ///
+        template <typename F>
+        void for_each_var_bind_oid(F &&f) const {
+            static_assert(std::is_invocable_v<F, const std::string&>,
+                          "Callback must be callable with (const std::string&)");
+
+            std::visit([&](auto &pdu) {
+                using T = std::decay_t<decltype(pdu)>;
+                if constexpr (std::is_same_v<T, std::monostate>) {
+                    return;
+                } else {
+                    pdu.for_each_var_bind_oid(f);
+                }
+            }, body);
         }
 
     };

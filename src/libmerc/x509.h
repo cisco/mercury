@@ -18,6 +18,7 @@
 #include "datum.h"
 #include "asn1.h"
 #include "dict.h"
+#include "utf8.hpp"
 
 /*
    Name ::= CHOICE { -- only one possibility for now --
@@ -100,6 +101,21 @@ struct name {
             attr_obj.close();
         }
         array.close();
+    }
+
+    bool get_common_name(std::string &common_name) const {
+        struct datum tlv_sequence = RDNsequence.value;
+        while (tlv_sequence.is_not_empty()) {
+            struct attribute attr(&tlv_sequence);
+            if (attr.attribute_type.is_not_null() &&
+                oid::get_enum(&attr.attribute_type.value) == oid::common_name &&
+                attr.attribute_value.is_not_null()) {
+                std::string raw = attr.attribute_value.value.get_string();
+                common_name = utf8_string::get_utf8_string(raw.c_str());
+                return true;
+            }
+        }
+        return false;
     }
 
     bool matches(const struct name &r) const {
@@ -1831,6 +1847,13 @@ struct x509_cert {
             unsigned int g = d->get(s);
             o.print_key_uint("key_group", g);
         }
+    }
+
+    bool get_subject_common_name(std::string &common_name) const {
+        if (subject.RDNsequence.is_null()) {
+            return false;
+        }
+        return subject.get_common_name(common_name);
     }
 
     void get_subject_public_key(std::basic_string<uint8_t> &s) const {
