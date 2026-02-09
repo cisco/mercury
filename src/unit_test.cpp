@@ -24,6 +24,8 @@
 #include "libmerc/redis.hpp"
 #include "libmerc/fdc.hpp"
 
+#include "libmerc/imap.hpp"
+
 // Macros to colorize output
 //
 #define RED_ON     "\033[31m"
@@ -108,6 +110,10 @@ int main(int, char *[]) {
         {
             "redis",
             &redis::unit_test
+        },
+        {
+            "imap",
+            &imap::unit_test
         }
     };
     size_t num_tests = 0;
