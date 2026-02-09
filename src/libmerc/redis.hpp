@@ -303,8 +303,12 @@ namespace redis{
         std::variant<std::monostate, simple_string, error, integer, bulk_string, array> packet{std::monostate{}};
 
     public:
+        // Suppress GCC false positive: -Wmaybe-uninitialized triggers through
+        // std::variant::emplace() for types with inherited datum members.
+#if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
         response(datum &d) {
             // Guard against empty payloads (e.g., ACK packets on port 6379)
             if (!d.is_readable()) {
@@ -338,7 +342,9 @@ namespace redis{
                 packet.emplace<std::monostate>();
             }
         }
+#if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic pop
+#endif
 
         bool is_not_empty() const {
             return std::visit(overloaded {
