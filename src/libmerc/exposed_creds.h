@@ -4,7 +4,7 @@
 #ifndef EXPOSED_CREDS_H
 #define EXPOSED_CREDS_H
 
-#include "protocol.h"
+#include "exposed_creds.hpp"
 
 class exposed_creds_assessor {
 public:

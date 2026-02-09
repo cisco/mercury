@@ -325,16 +325,16 @@ struct stateful_pkt_proc {
     bool set_exposed_creds_attr(exposed_creds_type exposed_creds_res) {
 
         switch (exposed_creds_res) {
-            case exposed_creds_none:
+            case exposed_creds_type::none:
                 // should we wait until we see auth packets?
                 return false;
-            case exposed_creds_plaintext:
+            case exposed_creds_type::plaintext_password:
                 analysis.result.attr.set_attr(c->common.exposed_creds_plaintext_idx, 1.0);
                 return true;
-            case exposed_creds_derived:
+            case exposed_creds_type::password_derived:
                 analysis.result.attr.set_attr(c->common.exposed_creds_derived_idx, 1.0);
                 return true;
-            case exposed_creds_token:
+            case exposed_creds_type::plaintext_token:
                 analysis.result.attr.set_attr(c->common.exposed_creds_token_idx, 1.0);
                 return true;
         }

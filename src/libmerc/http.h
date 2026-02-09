@@ -13,6 +13,7 @@
 #include <unordered_map>
 
 #include "protocol.h"
+#include "exposed_creds.hpp"
 #include "match.h"
 #include "analysis.h"
 #include "fingerprint.h"
@@ -381,16 +382,16 @@ struct http_request : public base_protocol {
             scheme auth_scheme{authorization{auth_hdr}.get_scheme()};
             switch(auth_scheme.get_type()) {
                 case scheme::type::basic:
-                    return exposed_creds_plaintext;
+                    return exposed_creds_type::plaintext_password;
                 case scheme::type::bearer:
-                    return exposed_creds_token;
+                    return exposed_creds_type::plaintext_token;
                 case scheme::type::digest:
-                    return exposed_creds_derived;
+                    return exposed_creds_type::password_derived;
                 default:
-                    return exposed_creds_none;
+                    return exposed_creds_type::none;
             }
         }
-        return exposed_creds_none;
+        return exposed_creds_type::none;
     }
 
     // weight 14 bitmask that matches all HTTP methods

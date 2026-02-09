@@ -256,12 +256,16 @@ struct check_exposed_creds {
         return exposed_creds_assessor::assess(msg);
     }
 
-    template <typename T>
-    exposed_creds_type operator()(const T &) {
-        return exposed_creds_none;
+    exposed_creds_type operator()(const tacacs::packet &msg) {
+        return exposed_creds_assessor::assess(msg);
     }
 
-    exposed_creds_type operator()(std::monostate &) { return exposed_creds_none; }
+    template <typename T>
+    exposed_creds_type operator()(const T &) {
+        return exposed_creds_type::none;
+    }
+
+    exposed_creds_type operator()(std::monostate &) { return exposed_creds_type::none; }
 };
 
 
@@ -610,11 +614,11 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         x.emplace<ftp::response>(pkt);
         return;
     case tcp_msg_type_imap_request:
-            x.emplace<imap::imap_requests>(pkt);
-            return;
+        x.emplace<imap::imap_requests>(pkt);
+        return;
     case tcp_msg_type_imap_response:
-            x.emplace<imap::imap_responses>(pkt);
-            return;
+        x.emplace<imap::imap_responses>(pkt);
+        return;
     case tcp_msg_type_redis_response:
         x.emplace<redis::response>(pkt);
         return;
