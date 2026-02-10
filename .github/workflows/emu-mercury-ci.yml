@@ -241,7 +241,6 @@ jobs:
 
   packages:
     if: github.event_name != 'workflow_dispatch' || inputs.build_packages
-    name: "Build packages"
     runs-on: ubuntu-latest
     strategy:
       matrix:
