@@ -849,16 +849,36 @@ cdef class Mercury:
         return retval
 
 
-def parse_dns(str b64_dns):
+def _decode_str_data(str data_str, bool is_hex):
     """
-    Return a JSON representation of the Base64 DNS packet.
+    Decode string data as hex when is_hex is true, otherwise decode as base64.
+    """
+    cleaned = data_str.strip()
 
-    :param b64_dns: Base64-encoded DNS packet.
-    :type b64_dns: str
+    if is_hex:
+        try:
+            return bytes.fromhex(cleaned)
+        except ValueError as e:
+            raise ValueError("Invalid hex input") from e
+    else:
+        try:
+            return b64decode(cleaned)
+        except Exception as e:
+            raise ValueError("Invalid base64 input") from e
+
+
+def parse_dns(str dns_data, bool is_hex=False):
+    """
+    Return a JSON representation of a DNS packet supplied as hex or base64.
+
+    :param dns_data: DNS packet encoded as hex (if is_hex=True) or base64.
+    :type dns_data: str
+    :param is_hex: If true, decode dns_data as hex; otherwise decode as base64.
+    :type is_hex: bool
     :return: JSON-encoded DNS packet.
     :rtype: dict
     """
-    cdef bytes dns_req = b64decode(b64_dns)
+    cdef bytes dns_req = _decode_str_data(dns_data, is_hex)
     cdef unsigned int len_ = len(dns_req)
 
     # create reference to dns so that it doesn't get garbage collected
@@ -908,16 +928,18 @@ cdef extern from "../libmerc/x509.h":
         string get_hex_string()
 
 
-def parse_cert(str b64_cert):
+def parse_cert(str cert_data, bool is_hex=False):
     """
-    Return a JSON representation of the Base64 certificate.
+    Return a JSON representation of a certificate supplied as hex or base64.
 
-    :param b64_cert: Base64-encoded certificate.
-    :type b64_cert: str
+    :param cert_data: Certificate encoded as hex (if is_hex=True) or base64.
+    :type cert_data: str
+    :param is_hex: If true, decode cert_data as hex; otherwise decode as base64.
+    :type is_hex: bool
     :return: JSON-encoded certificate.
     :rtype: dict
     """
-    cdef bytes cert = b64decode(b64_cert)
+    cdef bytes cert = _decode_str_data(cert_data, is_hex)
     cdef unsigned int len_ = len(cert)
     cdef x509_cert x
 

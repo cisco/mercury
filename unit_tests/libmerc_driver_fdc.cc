@@ -1596,13 +1596,16 @@ SCENARIO("test tcp reassembly for tls server hello/certificate with 3 fragments"
                 REQUIRE(bytes_written_2 == fdc_return::MORE_PACKETS_NEEDED);
                 REQUIRE(bytes_written_3 == 3889);
 
-                /* Decode and print the L7 metadata
                 std::string json_output = get_json_decoded_fdc(
                     reinterpret_cast<const char*>(wbuffer_tls),
                     bytes_written_3);
 
-                printf("TLS Server L7 Metadata JSON:\n%s\n", json_output.c_str());
-                */
+                REQUIRE_FALSE(json_output.empty());
+                REQUIRE(json_output.find("\"tls\"") != std::string::npos);
+                REQUIRE(json_output.find("\"server\"") != std::string::npos);
+                REQUIRE(json_output.find("\"certs\"") != std::string::npos);
+                REQUIRE(json_output.find("\"certs\":[{") != std::string::npos);
+                REQUIRE(json_output.find("\"data\"") != std::string::npos);
             }
             mercury_packet_processor_destruct(mpp);
         }
