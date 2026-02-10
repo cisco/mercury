@@ -68,7 +68,7 @@ jobs:
         with:
           submodules: true
       - name: Mark workspace as safe for git
-        run: git config --global --add safe.directory $GITHUB_WORKSPACE
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: configure
         run: ./configure
       - name: make
@@ -136,7 +136,7 @@ jobs:
         with:
           submodules: true
       - name: Mark workspace as safe for git
-        run: git config --global --add safe.directory $GITHUB_WORKSPACE
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Configure Mercury
         run: |
           ./configure
@@ -258,7 +258,7 @@ jobs:
         with:
           submodules: true
       - name: Mark workspace as safe for git
-        run: git config --global --add safe.directory $GITHUB_WORKSPACE
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: configure
         run: ./configure
       - name: make
