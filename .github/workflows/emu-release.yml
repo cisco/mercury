@@ -6,7 +6,7 @@ name: "[EMU] Promote & Tag Release"
 # two-person review.  Without this workflow, cutting a release meant:
 #   1. Open a PR on dev with version/changelog bumps
 #   2. Open a second PR to merge dev into trunk
-#   3. Manually bypass branch protections to fast-forward trunk
+#   3. Manually bypass branch protections to fast-forward dev to trunk again
 #   4. Manually create and push the version tag
 #
 # This workflow collapses steps 2-4 into a single manual dispatch.
