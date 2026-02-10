@@ -757,7 +757,7 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
         bool is_new = false;
         if (global_vars.output_tcp_initial_data) {
             if (tcp_pkt.is_synthetic_pkt()) {
-                is_new = tcp_flow_table.is_first_data_packet_fdc(k, ts->tv_sec);
+                is_new = tcp_flow_table.is_first_synthetic_data_packet(k, ts->tv_sec);
             } else {
                 is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
             }
@@ -769,7 +769,7 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
     bool is_new = false;
     if (global_vars.output_tcp_initial_data) {
         if (tcp_pkt.is_synthetic_pkt()) {
-            is_new = tcp_flow_table.is_first_data_packet_fdc(k, ts->tv_sec);
+            is_new = tcp_flow_table.is_first_synthetic_data_packet(k, ts->tv_sec);
         } else {
             is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
         }

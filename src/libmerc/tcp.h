@@ -492,9 +492,9 @@ struct flow_table_tcp {
         return false;
     }
 
-    // FDC/NVM mode: returns true for first data packet of a new/expired flow
-    // Seeds a synthetic SYN entry to track that we've seen this flow
-    bool is_first_data_packet_fdc(const struct key &k, unsigned int sec) {
+    // Returns true if this is the first data packet for a new or expired flow.
+    // Seeds a synthetic SYN entry to track that we've seen this flow.
+    bool is_first_synthetic_data_packet(const struct key &k, unsigned int sec) {
         auto it = table.find(k);
         if (it != table.end()) { //entry found
             if (it->second.is_expired(sec)) {
@@ -507,7 +507,7 @@ struct flow_table_tcp {
         }
         // New flow or expired - seed synthetic SYN and return true
         reap(sec); //only expired entries cleared
-        syn_packet(k, sec, 0); // setting SYN to 0 as default value as it wont be considered for FDC flows
+        syn_packet(k, sec, 0); // use 0 as default SYN value for synthetic entry
         return true;
     }
 
