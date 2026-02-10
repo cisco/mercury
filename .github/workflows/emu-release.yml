@@ -13,7 +13,7 @@ name: "[EMU] Promote & Tag Release"
 # All code review still happens on dev; trunk is always a strict
 # fast-forward of dev, so no additional review is needed here.
 #
-# Prerequisites before first use:
+# Prerequisites before use:
 #   - VERSION file and doc/CHANGELOG.md must already be updated on dev
 #     (the workflow validates both before proceeding)
 #
