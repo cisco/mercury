@@ -234,7 +234,7 @@ class pgsql_msg : public base_protocol {
                 //o.print_key_string("msg_type",get_server_message_code('R'));
                 encoded<uint32_t> auth_type{msg_data};
                 r.print_key_string("content_type", get_auth_type((auth_codes)auth_type.value()));
-                r.print_key_hex(get_auth_data_type((auth_codes)auth_type.value()),msg_data);
+                r.print_key_json_string(get_auth_data_type((auth_codes)auth_type.value()), msg_data);
                 r.close();
                 o.close();
             }
@@ -326,8 +326,7 @@ class pgsql_msg : public base_protocol {
 
         void write_json(json_array &record, [[maybe_unused]]bool metadata ) {
             json_object o(record);
-            json_object r(o,"special_pkt");
-            r.print_key_string("msg_type", get_special_msg_type(tag.value()));
+            json_object r(o, get_special_msg_type(tag.value()));
             if (startup) {
                 datum tmp = msg_data;
                 // while (tmp.is_not_empty()) {
@@ -346,12 +345,11 @@ class pgsql_msg : public base_protocol {
                 //     }
                 // }
                 if (tmp.is_not_empty()) {
-                    r.print_key_hex("msg_data",tmp);
+                    r.print_key_json_string("msg_data", tmp);
                 }
-                r.close();
-                o.close();
-                return;
             }
+            r.close();
+            o.close();
         }
     };
 

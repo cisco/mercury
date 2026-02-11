@@ -132,7 +132,12 @@ struct json_object {
         }
         utf8_string k_s{k};
         utf8_string s{d};
-        print_key_value(k_s, s);
+        write_comma(comma);
+        b->write_char('\"');
+        k_s.write(*b);
+        b->puts("\":\"");
+        s.write(*b);
+        b->write_char('\"');
     }
     void print_key_string(const char *k, const char *v) {
         write_comma(comma);
