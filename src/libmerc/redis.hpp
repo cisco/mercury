@@ -305,7 +305,7 @@ namespace redis{
     public:
         // Suppress GCC false positive: -Wmaybe-uninitialized triggers through
         // std::variant::emplace() for types with inherited datum members.
-#if defined(__GNUC__) && !defined(__clang__)
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 13 && __GNUC__ <= 14
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #endif
@@ -342,7 +342,7 @@ namespace redis{
                 packet.emplace<std::monostate>();
             }
         }
-#if defined(__GNUC__) && !defined(__clang__)
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 13 && __GNUC__ <= 14
 #pragma GCC diagnostic pop
 #endif
 
