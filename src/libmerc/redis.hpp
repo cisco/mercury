@@ -305,7 +305,7 @@ namespace redis{
     public:
         // Suppress GCC false positive: -Wmaybe-uninitialized triggers through
         // std::variant::emplace() for types with inherited datum members.
-#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 13 && __GNUC__ <= 14
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 12 && __GNUC__ <= 14
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #endif
@@ -342,7 +342,7 @@ namespace redis{
                 packet.emplace<std::monostate>();
             }
         }
-#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 13 && __GNUC__ <= 14
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 12 && __GNUC__ <= 14
 #pragma GCC diagnostic pop
 #endif
 
@@ -528,6 +528,12 @@ namespace redis{
         std::variant<std::monostate, array_command, inline_command> packet;
 
     public:
+        // Suppress GCC false positive: -Wmaybe-uninitialized triggers through
+        // std::variant::emplace() for types with inherited datum members.
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 12 && __GNUC__ <= 14
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
         request(datum &d) : packet{std::monostate{}} {
             if (!d.is_readable()) {
                 return;
@@ -544,6 +550,9 @@ namespace redis{
                 }
             }
         }
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 12 && __GNUC__ <= 14
+#pragma GCC diagnostic pop
+#endif
 
         bool is_not_empty() const {
             return std::visit(overloaded{
