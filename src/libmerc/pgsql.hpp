@@ -414,4 +414,34 @@ public:
     }
 };
 
+namespace {
+
+    [[maybe_unused]] int pgsql_client_fuzz_test(const uint8_t *data, size_t size) {
+        struct datum pkt_data{data, data + size};
+        char buffer[8192];
+        struct buffer_stream buf_json(buffer, sizeof(buffer));
+        struct json_object record(&buf_json);
+        pgsql_msg pkt_pgsql{pkt_data, hton<uint16_t>(1)};
+        if (pkt_pgsql.is_not_empty()) {
+            pkt_pgsql.write_json(record, true);
+        }
+
+        return 0;
+    }
+
+    [[maybe_unused]] int pgsql_server_fuzz_test(const uint8_t *data, size_t size) {
+        struct datum pkt_data{data, data + size};
+        char buffer[8192];
+        struct buffer_stream buf_json(buffer, sizeof(buffer));
+        struct json_object record(&buf_json);
+        pgsql_msg pkt_pgsql{pkt_data, hton<uint16_t>(5432)};
+        if (pkt_pgsql.is_not_empty()) {
+            pkt_pgsql.write_json(record, true);
+        }
+
+        return 0;
+    }
+
+}  // namespace
+
 #endif  // PGSQL_HPP 
