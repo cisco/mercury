@@ -36,36 +36,30 @@ class pgsql_msg : public base_protocol {
     };
 
     static const char *get_auth_type(auth_codes code) {
-        switch (code) {
-        case auth_codes::success:
-            return "success";
-        case auth_codes::kerb4:
-            return "kerberos_v4";
-        case auth_codes::kerb5:
-            return "kerberos_v5";
-        case auth_codes::plain_pass:
-            return "plaintext_password";
-        case auth_codes::crypt_pass:
-            return "crypted_password";
-        case auth_codes::md5_pass:
-            return "md5_password";
-        case auth_codes::scm_cred:
-            return "scm_credentials";
-        case auth_codes::gssapi:
-            return "gssapi";
-        case auth_codes::gss_sspi_cont:
-            return "gssapi_sspi_continue";
-        case auth_codes::sspi:
-            return "sspi_authentication";
-        case auth_codes::sasl:
-            return "sasl_authentication";
-        case auth_codes::sasl_cont:
-            return "sasl_continue";
-        case auth_codes::sasl_comp:
-            return "sasl_complete";
-        default:
-            return "unknown";
+        static constexpr const char *kAuthTypeNames[] = {
+            "success",              // 0
+            "kerberos_v4",          // 1
+            "kerberos_v5",          // 2
+            "plaintext_password",   // 3
+            "crypted_password",     // 4
+            "md5_password",         // 5
+            "scm_credentials",      // 6
+            "gssapi",               // 7
+            "gssapi_sspi_continue", // 8
+            "sspi_authentication",  // 9
+            "sasl_authentication",  // 10
+            "sasl_continue",        // 11
+            "sasl_complete",        // 12
+            "unknown"               // 13
         };
+        static constexpr size_t kAuthTypeCount =
+            sizeof(kAuthTypeNames) / sizeof(kAuthTypeNames[0]);
+
+        uint32_t idx = static_cast<uint32_t>(code);
+        if (idx >= kAuthTypeCount) {
+            idx = static_cast<uint32_t>(auth_codes::unknown);
+        }
+        return kAuthTypeNames[idx];
     }
 
     static const char *get_auth_data_type(auth_codes code) {
