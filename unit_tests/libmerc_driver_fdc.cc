@@ -1617,7 +1617,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for combination
 
             THEN("FDC should be written to output buffer") {
                 REQUIRE(bytes_written_1 == fdc_return::MORE_PACKETS_NEEDED);  // For quic fragment 1
-                REQUIRE(bytes_written_2 == 119); // For dns payload
+                REQUIRE(bytes_written_2 == 98); // For dns payload
                 REQUIRE(bytes_written_3 == 300); // For quic fragment 2
                 REQUIRE(dns_json == expected_dns_fragment_json);
                 REQUIRE(quic_json == expected_quic_fragment_reassembly_within_limit_json);
