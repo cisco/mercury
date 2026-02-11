@@ -300,10 +300,11 @@ struct tls_server_certificate {
 
     bool is_not_empty() const { return certificate_list.is_not_empty(); }
 
+    template <typename EmitFn>
+    void for_each_certificate(EmitFn emit) const;
+
     void write_json(struct json_array &a, bool json_output) const;
     bool get_subject_common_name(std::string &common_name) const;
-
-    void write_l7_metadata(cbor_array &a) const;
 
     void write_l7_metadata(cbor_array &a) const;
 
@@ -2155,8 +2156,8 @@ inline void tls_server_hello::fingerprint(struct buffer_stream &buf) const {
     }
 }
 
-inline void tls_server_certificate::write_json(struct json_array &a, bool json_output) const {
-
+template <typename EmitFn>
+inline void tls_server_certificate::for_each_certificate(EmitFn emit) const {
     struct datum tmp_cert_list = certificate_list;
     while (tmp_cert_list.length() > 0) {
 
@@ -2174,18 +2175,7 @@ inline void tls_server_certificate::write_json(struct json_array &a, bool json_o
             return; /* don't bother printing out a partial cert if it has a length of zero */
         }
 
-        struct json_object o{a};
-        if (json_output) {
-            struct json_object cert{o, "cert"};
-            struct x509_cert c;
-            c.parse(tmp_cert_list.data, tmp_len);
-            c.print_as_json(cert, {}, NULL);
-            cert.close();
-        } else {
-            struct datum cert_parser{tmp_cert_list.data, tmp_cert_list.data + tmp_len};
-            o.print_key_base64("base64", cert_parser);
-        }
-        o.close();
+        emit(tmp_cert_list.data, tmp_len);
 
         /*
          * advance parser over certificate data
@@ -2196,37 +2186,43 @@ inline void tls_server_certificate::write_json(struct json_array &a, bool json_o
     }
 }
 
+inline void tls_server_certificate::write_json(struct json_array &a, bool json_output) const {
+    for_each_certificate([&a, json_output](const uint8_t *cert_data, uint64_t cert_len) {
+        struct json_object o{a};
+        if (json_output) {
+            struct json_object cert{o, "cert"};
+            struct x509_cert c;
+            c.parse(cert_data, cert_len);
+            c.print_as_json(cert, {}, NULL);
+            cert.close();
+        } else {
+            struct datum cert_parser{cert_data, cert_data + cert_len};
+            o.print_key_base64("base64", cert_parser);
+        }
+        o.close();
+    });
+}
+
+inline bool tls_server_certificate::get_subject_common_name(std::string &common_name) const {
+    bool found = false;
+    for_each_certificate([&found, &common_name](const uint8_t *cert_data, uint64_t cert_len) {
+        if (found) {
+            return;
+        }
+        struct x509_cert c;
+        c.parse(cert_data, cert_len);
+        found = c.get_subject_common_name(common_name);
+    });
+    return found;
+}
+
 inline void tls_server_certificate::write_l7_metadata(cbor_array &a) const {
-
-    struct datum tmp_cert_list = certificate_list;
-    while (tmp_cert_list.length() > 0) {
-
-        /* get certificate length */
-        uint64_t tmp_len;
-        if (tmp_cert_list.read_uint(&tmp_len, L_CertificateLength) == false) {
-            return;
-        }
-
-        if (tmp_len > (unsigned)tmp_cert_list.length()) {
-            tmp_len = tmp_cert_list.length(); /* truncate */
-        }
-
-        if (tmp_len == 0) {
-            return; /* don't bother printing out a partial cert if it has a length of zero */
-        }
-
+    for_each_certificate([&a](const uint8_t *cert_data, uint64_t cert_len) {
         struct cbor_object certs{a};
-        struct datum cert_parser{tmp_cert_list.data, tmp_cert_list.data + tmp_len};
-        certs.print_key_base64("base64", cert_parser);
+        struct datum cert_parser{cert_data, cert_data + cert_len};
+        certs.print_key_hex("data", cert_parser);
         certs.close();
-
-        /*
-         * advance parser over certificate data
-         */
-        if (tmp_cert_list.skip(tmp_len) == false) {
-            return;
-        }
-    }
+    });
 }
 
 

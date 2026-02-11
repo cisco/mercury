@@ -862,7 +862,7 @@ def _decode_str_data(str data_str, bool is_hex):
             raise ValueError("Invalid hex input") from e
     else:
         try:
-            return b64decode(cleaned)
+            return b64decode(cleaned, validate=True)
         except Exception as e:
             raise ValueError("Invalid base64 input") from e
 

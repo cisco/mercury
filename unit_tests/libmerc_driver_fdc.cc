@@ -8,8 +8,7 @@
 namespace {
 
 std::string decode_fdc_json(const uint8_t *buf, size_t len) {
-    datum outbuf{const_cast<uint8_t *>(buf),
-                 const_cast<uint8_t *>(buf) + len};
+    datum outbuf{buf, buf + len};
     return translate_l7_metadata_to_json_string(outbuf);
 }
 
