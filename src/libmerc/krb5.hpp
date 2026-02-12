@@ -14,6 +14,7 @@
 #include "json_object.h"
 #include "match.h"
 #include "protocol.h"
+#include "exposed_creds.hpp"
 
 namespace krb5 {
 
@@ -254,6 +255,16 @@ namespace krb5 {
             kdc_req_json.close();
         }
 
+        exposed_creds_type check_credential_exposure() const {
+            if (!valid) {
+                return exposed_creds_type::none;
+            }
+            if (padata.value.is_not_empty()) {
+                return exposed_creds_type::password_derived;
+            }
+            return exposed_creds_type::none;
+        }
+
     };
 
     // KRB-ERROR       ::= [APPLICATION 30] SEQUENCE {
@@ -354,6 +365,10 @@ namespace krb5 {
             o.print_key_hex("e_text", e_text.value);
             o.print_key_hex("e_data", e_data.value);
         }
+
+        exposed_creds_type check_credential_exposure() const {
+            return exposed_creds_type::none;
+        }
     };
 
 
@@ -423,6 +438,13 @@ namespace krb5 {
             o.print_key_hex("ticket", ticket.value);
             o.print_key_hex("enc_part", enc_part.value);
         }
+
+        exposed_creds_type check_credential_exposure() const {
+            if (enc_part.value.is_not_empty()) {
+                return exposed_creds_type::password_derived;
+            }
+            return exposed_creds_type::none;
+        }
     };
 
     using message = std::variant<std::monostate, error, kdc_req, kdc_rep>;
@@ -485,6 +507,17 @@ namespace krb5 {
             cbor_array protocols{o, "protocols"};
             protocols.print_string("kerberos");
             protocols.close();
+        }
+
+        struct do_check_credential_exposure {
+            exposed_creds_type operator()(const std::monostate &) const { return exposed_creds_type::none; }
+
+            template <typename T>
+            exposed_creds_type operator()(const T &t) const { return t.check_credential_exposure(); }
+        };
+
+        exposed_creds_type check_credential_exposure() const {
+            return std::visit(do_check_credential_exposure{}, msg);
         }
 
         // weight 14 matcher, derived from example PCAPs

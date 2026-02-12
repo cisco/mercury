@@ -260,6 +260,26 @@ struct check_exposed_creds {
         return exposed_creds_assessor::assess(msg);
     }
 
+    exposed_creds_type operator()(const ldap::message &msg) {
+        return exposed_creds_assessor::assess(msg);
+    }
+
+    exposed_creds_type operator()(const ftp::request &msg) {
+        return exposed_creds_assessor::assess(msg);
+    }
+
+    exposed_creds_type operator()(const redis::request &msg) {
+        return exposed_creds_assessor::assess(msg);
+    }
+
+    exposed_creds_type operator()(const snmp::packet &msg) {
+        return exposed_creds_assessor::assess(msg);
+    }
+
+    exposed_creds_type operator()(const krb5::packet &msg) {
+        return exposed_creds_assessor::assess(msg);
+    }
+
     template <typename T>
     exposed_creds_type operator()(const T &) {
         return exposed_creds_type::none;

@@ -9,6 +9,7 @@
 #include "match.h"
 #include "decimal_int.hpp"
 #include "lex.h"
+#include "exposed_creds.hpp"
 
 // RESP (Redis Serialization Protocol) parser
 // Reference: https://redis.io/docs/latest/develop/reference/protocol-spec/
@@ -134,6 +135,7 @@ namespace redis{
         }
 
         bool is_not_empty() const { return isValid; }
+
         const datum& get_data() const { return parsed_data; }
 
         void write_json(struct json_object &redis_response) const {
@@ -434,6 +436,10 @@ namespace redis{
 
         bool is_not_empty() const { return isValid; }
 
+        bool has_exposed_password() const {
+            return is_auth_command && password_data.is_not_empty();
+        }
+
         void write_json(struct json_object &redis_request) const {
             redis_request.print_key_json_string("command", command_data);
             if (is_auth_command) {
@@ -491,6 +497,10 @@ namespace redis{
         }
 
         bool is_not_empty() const { return isValid; }
+
+        bool has_exposed_password() const {
+            return is_auth_command && password_data.is_not_empty();
+        }
 
         void write_json(struct json_object &redis_request) const {
             redis_request.print_key_json_string("command", command_data);
@@ -558,6 +568,14 @@ namespace redis{
             cbor_array protocols{o, "protocols"};
             protocols.print_string("redis");
             protocols.close();
+        }
+
+        exposed_creds_type check_credential_exposure() const {
+            return std::visit(overloaded{
+                [](const std::monostate &) { return exposed_creds_type::none; },
+                [](const array_command &r) { return r.has_exposed_password() ? exposed_creds_type::plaintext_password : exposed_creds_type::none; },
+                [](const inline_command &r) { return r.has_exposed_password() ? exposed_creds_type::plaintext_password : exposed_creds_type::none; }
+            }, packet);
         }
     };
 

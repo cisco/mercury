@@ -9,6 +9,7 @@
 #include "cbor_object.hpp"
 #include "protocol.h"
 #include "match.h"
+#include "exposed_creds.hpp"
 
 #include <variant>
 
@@ -566,6 +567,13 @@ namespace snmp {
             return valid;
         }
 
+        exposed_creds_type check_credential_exposure() const {
+            if (valid && community.value.is_not_empty()) {
+                return exposed_creds_type::plaintext_password;
+            }
+            return exposed_creds_type::none;
+        }
+
         /// apply the function `f` to each OID string in the `var_bind` list.  That function should have the
         /// signature `void f(const std::string &oid)`
         ///
@@ -1052,6 +1060,16 @@ namespace snmp {
             return valid;
         }
 
+        exposed_creds_type check_credential_exposure() const {
+            if (!valid) {
+                return exposed_creds_type::none;
+            }
+            if (hd.auth()) {
+                return exposed_creds_type::password_derived;
+            }
+            return exposed_creds_type::none;
+        }
+
         /// apply the function `f` to each OID string in the `var_bind` list.  That function should have the
         /// signature `void f(const std::string &oid)`
         ///
@@ -1152,6 +1170,17 @@ namespace snmp {
 
         bool is_not_empty() const {
             return std::visit(do_is_not_empty{}, body);
+        }
+
+        exposed_creds_type check_credential_exposure() const {
+            return std::visit([](auto &pdu) -> exposed_creds_type {
+                using T = std::decay_t<decltype(pdu)>;
+                if constexpr (std::is_same_v<T, std::monostate>) {
+                    return exposed_creds_type::none;
+                } else {
+                    return pdu.check_credential_exposure();
+                }
+            }, body);
         }
 
         /// apply the function `f` to each OID string in the `var_bind` list.  That function should have the
