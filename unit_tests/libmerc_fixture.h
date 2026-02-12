@@ -25,6 +25,7 @@ protected:
     int read_next_data_packet();
 
     int counter();
+    int counter(uint16_t linktype);
     int counter(fingerprint_type fp_type, fingerprint_type fp_type2 = fingerprint_type_unknown);
     int counter(fingerprint_type fp_type, std::function<void(const analysis_context*)> callback);
     int counter(fingerprint_type fp_type, std::function<void(const analysis_context*)> callback, uint16_t linktype);

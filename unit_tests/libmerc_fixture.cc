@@ -189,6 +189,25 @@ bool LibmercTestFixture::counter(size_t expected_attrs_count, std::function<void
     return false;
 }
 
+int LibmercTestFixture::counter(uint16_t linktype)
+{
+    int count_of_packets = 0;
+    while (1)
+    {
+        if (read_next_data_packet())
+        {
+            break;
+        }
+
+        auto json = mercury_packet_processor_write_json_linktype(m_mpp, m_output, 4096, (unsigned char *)m_data_packet.first, m_data_packet.second - m_data_packet.first, &m_time, linktype);
+        
+        if(json > 0){
+            count_of_packets++;
+        }
+    }
+    return count_of_packets;
+}
+
 int LibmercTestFixture::counter(fingerprint_type fp_type, std::function<void(const analysis_context*)> callback, uint16_t linktype)
 {
     int count_of_packets = 0;

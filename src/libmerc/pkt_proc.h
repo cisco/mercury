@@ -42,6 +42,7 @@ enum linktype : uint16_t {
     LINKTYPE_PPP      =   9,  // PPP
     LINKTYPE_RAW      = 101,  // Raw IP; begins with IPv4 or IPv6 header
     LINKTYPE_LINUX_SLL = 113, // Linux "cooked" capture encapsualtion
+    LINKTYPE_LINUX_SLL2 = 276,// Linux "cooked" capture encapsualtion v2
 };
 
 /**

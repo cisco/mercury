@@ -20,6 +20,7 @@
 #include "loopback.hpp"
 #include "linux_sll.hpp"
 #include "event.hpp"
+#include "linux_sll2.hpp"
 
 // include files needed by stateful_pkt_proc; they provide the
 // interface to mercury's packet parsing and handling routines
@@ -1465,6 +1466,9 @@ size_t stateful_pkt_proc::write_json(void *buffer,
         break;
     case LINKTYPE_LINUX_SLL:
         linux_sll::skip_to_ip(pkt);
+        break;
+    case LINKTYPE_LINUX_SLL2:
+        linux_sll2::skip_to_ip(pkt);
         break;
     case LINKTYPE_NULL:  // BSD loopback encapsulation
         {
