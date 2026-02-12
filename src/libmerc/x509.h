@@ -1594,6 +1594,20 @@ struct x509_cert {
         print_as_json(o, trusted_certs, key_group);
         o.close();
     }
+
+    /// write this certificate as a json object into \p buf, using the
+    /// trusted root list \p trusted_certs and a key group \p
+    /// key_group, and invoking \p json_writer on the object (to allow
+    /// the addition of arbitrary json elements)
+    ///
+    template <typename F>
+    void print_as_json(struct buffer_stream &buf, const std::list<struct x509_cert> &trusted_certs, struct dictionary *key_group, const F &json_writer) const {
+        struct json_object o{&buf};
+        print_as_json(o, trusted_certs, key_group);
+        json_writer(o);
+        o.close();
+    }
+
     void print_as_json(struct json_object &o, const std::list<struct x509_cert> &trusted_certs, struct dictionary *key_group) const {
 
         if (!version.is_null()) {

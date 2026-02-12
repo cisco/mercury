@@ -745,7 +745,13 @@ int main(int argc, char *argv[]) {
                                 throw std::runtime_error{"could not write PEM output"};
                             }
                         } else {
-                            c.print_as_json(buf, trusted_certs, kg);
+                            const auto sha1_writer = [&](json_object &o) {
+                                hasher sha1{"sha1"};
+                                uint8_t digest[20];
+                                sha1.hash_buffer(cert_buf, cert_len, digest, sizeof(digest));
+                                o.print_key_hex("sha1", digest, sizeof(digest));
+                            };
+                            c.print_as_json(buf, trusted_certs, kg, sha1_writer);
                             buf.write_line(stdout);
                         }
                     }
