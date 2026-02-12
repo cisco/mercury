@@ -227,8 +227,13 @@ class pgsql_msg : public base_protocol {
                 json_object r(o, get_server_message_code('R'));
                 //o.print_key_string("msg_type",get_server_message_code('R'));
                 encoded<uint32_t> auth_type{msg_data};
-                r.print_key_string("content_type", get_auth_type((auth_codes)auth_type.value()));
-                r.print_key_json_string(get_auth_data_type((auth_codes)auth_type.value()), msg_data);
+                auth_codes auth_code = static_cast<auth_codes>(auth_type.value());
+                r.print_key_string("content_type", get_auth_type(auth_code));
+                if (auth_code == auth_codes::md5_pass) {
+                    r.print_key_hex(get_auth_data_type(auth_code), msg_data);
+                } else {
+                    r.print_key_json_string(get_auth_data_type(auth_code), msg_data);
+                }
                 r.close();
                 o.close();
             }
