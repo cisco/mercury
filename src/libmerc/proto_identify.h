@@ -101,6 +101,7 @@ enum tcp_msg_type {
     tcp_msg_type_ftp_request,
     tcp_msg_type_ftp_response,
     tcp_msg_type_rdp,
+    tcp_msg_type_krb5,
 };
 
 // Template-based stack-allocated structure to replace std::vector<T>
@@ -967,6 +968,10 @@ public:
 
         if (mysql_login_request() and ( (tcp_pkt->header->src_port == hton<uint16_t>(3306)) || (tcp_pkt->header->dst_port == hton<uint16_t>(3306)) ) ) {
             return tcp_msg_type_mysql_login_request;
+        }
+
+        if (krb5() and (tcp_pkt->header->src_port == hton<uint16_t>(88) or tcp_pkt->header->dst_port == hton<uint16_t>(88))) {
+            return udp_msg_type_krb5;
         }
 
         return tcp_msg_type_unknown;
