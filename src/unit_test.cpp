@@ -171,6 +171,8 @@ int main(int, char *[]) {
         {
             "gz_file_getline",
             &gz_file_getline_unit_tests
+        },
+        {
             "ipv6_addr_lct",
             &ipv6_address_lct_unit_test
         },
