@@ -848,7 +848,7 @@ public:
         }
         else if (trial_decryption) {
             // try every salt to decrypt, most likely a version negotiation pkt
-            for (auto params_kv : quic_params.get_params_map()) {
+            for (const auto &params_kv : quic_params.get_params_map()) {
                 const std::tuple<quic_parameters::salt_enum, quic_parameters::init_pkt_mask_enum, quic_parameters::hkdf_label_enum> param = params_kv.second;
                 const quic_parameters::salt *initial_salt = quic_params.get_initial_salt(std::get<0>(param));
                 const uint8_t *client_in_label = (quic_params.get_kdf(std::get<2>(param))->get_client_label());
