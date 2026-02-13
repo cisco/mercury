@@ -340,6 +340,42 @@ public:
 };
 
 
+// gz_file: reads and inflates a gzip stream from an encrypted_file.
+//
+// Overview
+// - The constructor opens an encrypted_file and primes the zlib stream by
+//   reading an initial chunk of ciphertext and initializing inflate().
+// - read() mimics gzread(): it pulls encrypted bytes from encrypted_file,
+//   feeds them to zlib, and writes decompressed bytes into a caller buffer.
+// - getline() is a line-oriented helper over the decompressed byte stream. It
+//   reads up to a newline or a caller-provided maximum length and returns the
+//   number of characters placed into the output string (newline not included).
+//
+// Internal buffering
+// - file_buffer (512 bytes) holds compressed/encrypted data from enc_file.
+// - remaining_file_buffer caches any decompressed bytes that were read past a
+//   newline, so the next getline() call can consume them first.
+//
+// getline() behavior
+// - First, it consumes any cached bytes in remaining_file_buffer until it
+//   finds '\n' or exhausts the cache.
+// - If a newline is found in the cache, it returns immediately (possibly with
+//   an empty line) and keeps the remaining bytes after '\n' in the cache.
+// - Otherwise, it reads more decompressed bytes (in chunks up to 512 bytes or
+//   the remaining read_len), appending to the output until '\n' or read_len is
+//   reached. Any bytes after '\n' are cached for the next call.
+//
+// ASCII data flow (compressed -> decrypted -> inflated -> line parsing)
+//
+//   encrypted_file --(read)--> file_buffer --(inflate)--> [decompressed bytes]
+//                                         |
+//                                         v
+//                       remaining_file_buffer + getline() output
+//
+// Notes
+// - read_len limits how many decompressed bytes getline() will examine.
+// - Embedded '\0' bytes are preserved in remaining_file_buffer and output.
+// - When inflate reaches Z_STREAM_END, read() returns the bytes produced so far.
 class gz_file {
     unsigned char file_buffer[512];
     std::string remaining_file_buffer; // this buffer is used to cache the extra characters read.
