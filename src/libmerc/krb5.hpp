@@ -730,14 +730,17 @@ namespace krb5 {
     };
 
     class unknown_application {
-        tlv application;
+        datum body;
 
     public:
 
-        unknown_application(datum &d) : application{d, 0x00} { }
+        unknown_application(datum &d) : body{d} { }
 
         void write_json(json_object &o) const {
+            datum tmp{body};
+            tlv application{tmp, 0x00};
             json_object u{o, "unknown_application"};
+            u.print_key_hex("body",body);
             u.print_key_uint("tag", application.tag);
             u.print_key_uint("length", application.length);
             u.print_key_hex("value", application.value);
