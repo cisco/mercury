@@ -729,7 +729,23 @@ namespace krb5 {
         }
     };
 
-    using message = std::variant<std::monostate, error, kdc_req, kdc_rep>;
+    class unknown_application {
+        tlv application;
+
+    public:
+
+        unknown_application(datum &d) : application{d, 0x00} { }
+
+        void write_json(json_object &o) const {
+            json_object u{o, "unknown_application"};
+            u.print_key_uint("tag", application.tag);
+            u.print_key_uint("length", application.length);
+            u.print_key_hex("value", application.value);
+            u.close();
+        }
+    };
+
+    using message = std::variant<std::monostate, error, kdc_req, kdc_rep, unknown_application>;
 
     struct do_write_json {
         json_object &record;
@@ -743,12 +759,16 @@ namespace krb5 {
     };
 
     class packet : public base_protocol {
+        datum body;
         tlv application;
         tlv app2;
         message msg;
 
     public:
-        packet(datum &d) : application{&d, 0x00, "application"} {
+        packet(datum &d) :
+            body{d},
+            application{&d, 0x00, "application"}
+        {
             app2 = application;  // copy
             switch(application.tag) {
             case 0x6a:
@@ -767,8 +787,7 @@ namespace krb5 {
                 msg.emplace<error>(application.value);
                 break;
             default:
-                fprintf(stderr, "UNKNOWN APPLICATION (%x)\n", application.tag);
-                ;
+                msg.emplace<unknown_application>(body);
             }
         }
 
