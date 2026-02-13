@@ -27,6 +27,7 @@
 
 #include "libmerc/imap.hpp"
 
+#include "libmerc/archive.h"
 // Macros to colorize output
 //
 #define RED_ON     "\033[31m"
