@@ -971,7 +971,7 @@ public:
         }
 
         if (krb5() and (tcp_pkt->header->src_port == hton<uint16_t>(88) or tcp_pkt->header->dst_port == hton<uint16_t>(88))) {
-            return udp_msg_type_krb5;
+            return tcp_msg_type_krb5;
         }
 
         return tcp_msg_type_unknown;
