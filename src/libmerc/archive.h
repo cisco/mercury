@@ -13,7 +13,6 @@
 #include <sys/types.h>
 #ifdef _WIN32
 #include <io.h>
-#include <windows.h>
 #else
 #include <unistd.h>
 #endif
@@ -21,8 +20,6 @@
 #include <fstream>
 #include <vector>
 #include <string>
-#include <filesystem>
-#include <system_error>
 
 #include <zlib.h>
 
@@ -690,26 +687,37 @@ public:
 namespace {
 
 struct gz_file_unit_test_tmpfile {
-    std::filesystem::path path;
-    explicit gz_file_unit_test_tmpfile(std::filesystem::path p) : path{std::move(p)} {}
+    std::string path;
+    explicit gz_file_unit_test_tmpfile(std::string p) : path{std::move(p)} {}
     ~gz_file_unit_test_tmpfile() {
-        std::error_code ec;
-        std::filesystem::remove(path, ec);
+        if (!path.empty()) {
+            std::remove(path.c_str());
+        }
     }
 };
 
-inline std::filesystem::path gz_file_unit_test_write_gzip(const std::string &content) {
-    static int counter = 0;
+inline bool gz_file_unit_test_make_temp_path(std::string &out_path) {
+    char buf[L_tmpnam];
 #ifdef _WIN32
-    unsigned long pid = static_cast<unsigned long>(GetCurrentProcessId());
+    if (tmpnam_s(buf, sizeof(buf)) != 0) {
+        return false;
+    }
 #else
-    unsigned long pid = static_cast<unsigned long>(getpid());
+    if (std::tmpnam(buf) == nullptr) {
+        return false;
+    }
 #endif
+    out_path.assign(buf);
+    return true;
+}
 
-    std::filesystem::path path = std::filesystem::temp_directory_path() /
-        ("gz_file_getline_" + std::to_string(pid) + "_" + std::to_string(counter++) + ".gz");
+inline std::string gz_file_unit_test_write_gzip(const std::string &content) {
+    std::string path;
+    if (!gz_file_unit_test_make_temp_path(path)) {
+        return {};
+    }
 
-    gzFile file = gzopen(path.string().c_str(), "wb");
+    gzFile file = gzopen(path.c_str(), "wb");
     if (file == nullptr) {
         return {};
     }
@@ -717,8 +725,7 @@ inline std::filesystem::path gz_file_unit_test_write_gzip(const std::string &con
     int written = gzwrite(file, content.data(), static_cast<unsigned int>(content.size()));
     int close_rc = gzclose(file);
     if (written != static_cast<int>(content.size()) || close_rc != Z_OK) {
-        std::error_code ec;
-        std::filesystem::remove(path, ec);
+        std::remove(path.c_str());
         return {};
     }
 
@@ -728,7 +735,7 @@ inline std::filesystem::path gz_file_unit_test_write_gzip(const std::string &con
 inline bool gz_file_getline_unit_test_empty_line(FILE *f) {
     bool ok = true;
     const std::string content = "A\n\nB";
-    std::filesystem::path path = gz_file_unit_test_write_gzip(content);
+    std::string path = gz_file_unit_test_write_gzip(content);
     if (path.empty()) {
         if (f) {
             fprintf(f, "\tgz_file_getline empty line: failed to create temp gzip file\n");
@@ -738,7 +745,7 @@ inline bool gz_file_getline_unit_test_empty_line(FILE *f) {
     gz_file_unit_test_tmpfile cleanup(path);
 
     try {
-        gz_file gz(path.string().c_str(), nullptr);
+        gz_file gz(path.c_str(), nullptr);
         std::string line;
         ssize_t len = gz.getline(line, static_cast<ssize_t>(content.size()));
         ok = ok && (len == static_cast<ssize_t>(line.size())) && (line == "A");
@@ -764,7 +771,7 @@ inline bool gz_file_getline_unit_test_empty_line(FILE *f) {
 inline bool gz_file_getline_unit_test_remainder_suffix(FILE *f) {
     bool ok = true;
     const std::string content = "A\nHELLO\nWORLD";
-    std::filesystem::path path = gz_file_unit_test_write_gzip(content);
+    std::string path = gz_file_unit_test_write_gzip(content);
     if (path.empty()) {
         if (f) {
             fprintf(f, "\tgz_file_getline remainder suffix: failed to create temp gzip file\n");
@@ -774,7 +781,7 @@ inline bool gz_file_getline_unit_test_remainder_suffix(FILE *f) {
     gz_file_unit_test_tmpfile cleanup(path);
 
     try {
-        gz_file gz(path.string().c_str(), nullptr);
+        gz_file gz(path.c_str(), nullptr);
         std::string line;
         ssize_t len = gz.getline(line, static_cast<ssize_t>(content.size()));
         ok = ok && (len == static_cast<ssize_t>(line.size())) && (line == "A");
@@ -802,7 +809,7 @@ inline bool gz_file_getline_unit_test_read_len_overrun(FILE *f) {
     std::string content(512, 'A');
     content += "B\nC";
 
-    std::filesystem::path path = gz_file_unit_test_write_gzip(content);
+    std::string path = gz_file_unit_test_write_gzip(content);
     if (path.empty()) {
         if (f) {
             fprintf(f, "\tgz_file_getline read_len overrun: failed to create temp gzip file\n");
@@ -815,7 +822,7 @@ inline bool gz_file_getline_unit_test_read_len_overrun(FILE *f) {
     const ssize_t read_len = static_cast<ssize_t>(content.size() + 100);
 
     try {
-        gz_file gz(path.string().c_str(), nullptr);
+        gz_file gz(path.c_str(), nullptr);
         std::string line;
         ssize_t len = gz.getline(line, read_len);
         ok = ok && (len == static_cast<ssize_t>(line.size())) && (line == expected_first);
@@ -838,7 +845,7 @@ inline bool gz_file_getline_unit_test_read_len_overrun(FILE *f) {
 inline bool gz_file_getline_unit_test_null_byte_remainder(FILE *f) {
     bool ok = true;
     const std::string content = std::string("A\nB\0C\nD", 7);
-    std::filesystem::path path = gz_file_unit_test_write_gzip(content);
+    std::string path = gz_file_unit_test_write_gzip(content);
     if (path.empty()) {
         if (f) {
             fprintf(f, "\tgz_file_getline null byte remainder: failed to create temp gzip file\n");
@@ -848,7 +855,7 @@ inline bool gz_file_getline_unit_test_null_byte_remainder(FILE *f) {
     gz_file_unit_test_tmpfile cleanup(path);
 
     try {
-        gz_file gz(path.string().c_str(), nullptr);
+        gz_file gz(path.c_str(), nullptr);
         std::string line;
         ssize_t len = gz.getline(line, static_cast<ssize_t>(content.size()));
         ok = ok && (len == static_cast<ssize_t>(line.size())) && (line == "A");
