@@ -182,6 +182,19 @@ fi;
     chmod +x "fuzz_${dir_name}_exec"
     # count corpus pre test
     pre_corpus="$(ls ./corpus/ | wc -l)"
+
+    # Wait if memory usage exceeds 80%
+    while true; do
+        mem_used_pct=$(free | awk '/^Mem:/ {printf "%.0f", ($3/$2)*100}')
+        if [[ $mem_used_pct -lt 80 ]]; then
+            break
+        fi
+        sleep 2
+    done
+
+    free -h | awk -v name="$dir_name" '/^Mem:/ {printf "Starting %s - Mem: %s used / %s total (%s available)", name, $3, $2, $7}'
+    awk '{printf " - Load: %.2f\n", $1}' /proc/loadavg
+
     echo -e $COLOR_YELLOW "${dir_name} testcase in parallel" $COLOR_OFF
     ./"fuzz_${dir_name}_exec" -seed=1 ./corpus/ -runs=$default_runs -max_total_time=$default_time > $dir_name.log 2>&1 &
 

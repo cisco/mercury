@@ -247,13 +247,13 @@ struct tlv {
 
     // tlv constructor for parsing data from a datum
     //
-    tlv(datum &d, uint8_t tag=0x00, const char *name=NULL) {
+    tlv(datum &d, uint8_t tag=0x00, const char *name=NULL) : tag{0}, length{0}, value{NULL, NULL} {
         parse(&d, tag, name);
     }
 
     // tlv constructor for parsing data from another tlv value
     //
-    tlv(tlv &o, uint8_t tag=0x00, const char *name=NULL) {
+    tlv(tlv &o, uint8_t tag=0x00, const char *name=NULL) : tag{0}, length{0}, value{NULL, NULL} {
         parse(&o.value, tag, name);
     }
 

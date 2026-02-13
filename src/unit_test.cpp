@@ -11,6 +11,7 @@
 #include "libmerc/tofsee.hpp"
 #include "libmerc/snmp.hpp"
 #include "libmerc/ip_address.hpp"
+#include "libmerc/lctrie/lctrie_test.hpp"
 #include "libmerc/watchlist.hpp"
 #include "libmerc/rdp.hpp"
 #include "libmerc/rfb.hpp"
@@ -22,6 +23,10 @@
 #include "libmerc/hex.hpp"
 #include "libmerc/redis.hpp"
 #include "libmerc/archive.h"
+#include "libmerc/fdc.hpp"
+
+#include "libmerc/imap.hpp"
+
 // Macros to colorize output
 //
 #define RED_ON     "\033[31m"
@@ -106,6 +111,10 @@ int main(int, char *[]) {
         {
             "redis",
             &redis::unit_test
+        },
+        {
+            "imap",
+            &imap::unit_test
         }
     };
     size_t num_tests = 0;
@@ -162,6 +171,24 @@ int main(int, char *[]) {
         {
             "gz_file_getline",
             &gz_file_getline_unit_tests
+            "ipv6_addr_lct",
+            &ipv6_address_lct_unit_test
+        },
+        {
+            "lctrie_v4",
+            &lctrie_v4_unit_test
+        },
+        {
+            "lctrie_v6",
+            &lctrie_v6_unit_test
+        },
+        {
+            "cbor_fingerprint",
+            &cbor_fingerprint::unit_test
+        },
+        {
+            "fdc",
+            &fdc::unit_test
         },
     };
     for (const auto &tc : test_cases_verbose) {

@@ -147,6 +147,8 @@ GENERAL OPTIONS
    --raw-features                        # select protocols to write out raw features string(see --help)
    --network-behavioral-detections       # perform network behavioral detections
    --minimize-ram                        # minimize the ram usage of mercury library
+   --crypto-assess[=policy]              # perform cryptographic security assessment
+   --exposed-creds                       # detect exposed credentials in enabled protocols
    [-v or --verbose]                     # additional information sent to stderr
    --license                             # write license information to stdout
    --version                             # write version information to stdout
@@ -166,6 +168,22 @@ DETAILS
    which incorporates the flow key and the time of observation, into the file f.
    With [-a or --analysis], fingerprints and destinations are analyzed and the
    results are included in the JSON output.
+
+   "--stats=f" writes compressed JSON lines with per-source-IP aggregates.
+   Example (single line shown pretty-printed):
+   {
+     "src_ip":"192.0.2.10",
+     "libmerc_init_time":"2026-01-26T18:34:11Z",
+     "libmerc_version":"1.4.3",
+     "resource_version":"2025-11-18",
+     "build_number":12345,
+     "git_commit_id":"abc123",
+     "device_info":{
+       "cert_labels":[{"common_name":"example.com","count":3}],
+       "snmp_labels":[{"oid":"1.3.6.1.2.1.1.5.0","count":2}]
+     },
+     "fingerprints":[{"str_repr":"tls/2(0303...)", "sessions":[{"user_agent":"ua", "dest_info":[{"dst":"(sni)(203.0.113.7)(443)","count":3}]}]}]
+   }
 
    "[-w or --write] w" writes packets to the file w, in PCAP format.  With the
    option [-s or --select], packets are filtered so that only ones with
@@ -196,6 +214,9 @@ DETAILS
       iec               IEC 60870-5-104
       lldp              LLDP message
       ldap              LDAP
+      imap              IMAP request and response
+      imap.request      IMAP request
+      imap.response     IMAP response
       mdns              multicast DNS
       mysql             MySQL Client/Server Protocol
       nbns              NetBIOS Name Service
