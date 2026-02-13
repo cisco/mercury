@@ -717,7 +717,6 @@ public:
             {0x00000001, {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // version-1 (RFC 9000)
             {0x709a50c4, {salt_enum::D1_D7_V2, init_pkt_mask_enum::V2, hkdf_label_enum::V2}},        // v2-draft1_draft7
             {0x6b3343cf, {salt_enum::V2, init_pkt_mask_enum::V2, hkdf_label_enum::V2}},              // version-2 (RFC 9369)
-            {0x00000002, {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // empirical
             {0xd4000400, {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // empirical - tencent?
         };
     }
