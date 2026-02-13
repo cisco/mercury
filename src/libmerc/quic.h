@@ -681,30 +681,32 @@ public:
 
         quic_initial_params.reserve(MAX_QUIC_VERSIONS);
         quic_initial_params = std::unordered_map<uint32_t, const std::tuple<salt_enum, init_pkt_mask_enum, hkdf_label_enum>>{
-            {4207849473, {salt_enum::D22, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},     // faceb001
-            {4207849474, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // faceb002
-            {4207849486, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // faceb00e
-            {4207849488, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // faceb010
-            {4207849489, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // faceb011
-            {4207849490, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // faceb012
-            {4207849491, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // faceb013
-            {4278190102, {salt_enum::D22, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},     // draft-22
-            {4278190103, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-23
-            {4278190104, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-24
-            {4278190105, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-25
-            {4278190106, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-26
-            {4278190107, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-27
-            {4278190108, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-28
-            {4278190109, {salt_enum::D29_D32, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-29
-            {4278190110, {salt_enum::D29_D32, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-30
-            {4278190111, {salt_enum::D29_D32, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-31
-            {4278190112, {salt_enum::D29_D32, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-32
-            {4278190113, {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // draft-33
-            {4278190114, {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // draft-34
-            {1,          {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // version-1
-            {1889161412, {salt_enum::D1_D7_V2, init_pkt_mask_enum::V2, hkdf_label_enum::V2}},        // draft1_draft7-v2
-            {1798521807, {salt_enum::V2, init_pkt_mask_enum::V2, hkdf_label_enum::V2}},              // version-2
-            {2,          {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},
+            {0xfaceb001, {salt_enum::D22, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},     // facebook
+            {0xfaceb002, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // facebook
+            {0xfaceb00e, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // facebook
+            {0xfaceb010, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // facebook
+            {0xfaceb011, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // facebook
+            {0xfaceb012, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // facebook
+            {0xfaceb013, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // facebook
+            {0xfacefeed, {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // facebook
+            {0xff000016, {salt_enum::D22, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},     // draft-22
+            {0xff000017, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-23
+            {0xff000018, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-24
+            {0xff000019, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-25
+            {0xff00001a, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-26
+            {0xff00001b, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-27
+            {0xff00001c, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-28
+            {0xff00001d, {salt_enum::D29_D32, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-29
+            {0xff00001e, {salt_enum::D29_D32, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-30
+            {0xff00001f, {salt_enum::D29_D32, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-31
+            {0xff000020, {salt_enum::D29_D32, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-32
+            {0xff000021, {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // draft-33
+            {0xff000022, {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // draft-34
+            {0x00000001, {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // version-1 (RFC 9000)
+            {0x709a50c4, {salt_enum::D1_D7_V2, init_pkt_mask_enum::V2, hkdf_label_enum::V2}},        // v2-draft1_draft7
+            {0x6b3343cf, {salt_enum::V2, init_pkt_mask_enum::V2, hkdf_label_enum::V2}},              // version-2 (RFC 9369)
+            {0x00000002, {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // empirical
+            {0xd4000400, {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // empirical - tencent?
         };
     }
 
