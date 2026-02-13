@@ -790,8 +790,8 @@ public:
     /// Attempt to decrypt a QUIC Initial packet.
     ///
     /// When trial_decryption is false (the default), only the known
-    /// version->salt mapping is tried.  This path is thread-safe
-    /// because quic_initial_params is read-only after construction.
+    /// version->salt mapping is tried.  This path is thread-safe because
+    /// quic_initial_params is treated as read-only after construction.
     ///
     /// When trial_decryption is true, every known salt is tried in a
     /// brute-force loop.  On success the discovered mapping is cached
@@ -807,8 +807,9 @@ public:
 
         data_buffer<1024> aad;
         uint32_t version = ntoh(*((uint32_t*)quic_pkt.version.data));
-        // NOTE: quic_params is a process-wide singleton; safe for
-        // concurrent reads, but NOT for concurrent reads + writes.
+        // NOTE: quic_params is a process-wide singleton (initialized on
+        // first use); safe for concurrent reads, but NOT for concurrent
+        // reads + writes.
         //
         static quic_parameters &quic_params = quic_parameters::create();
         const std::tuple<quic_parameters::salt_enum, quic_parameters::init_pkt_mask_enum, quic_parameters::hkdf_label_enum> *params = quic_params.get_initial_params(version);
