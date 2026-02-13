@@ -333,7 +333,7 @@ public:
 };
 
 struct http_request : public base_protocol {
-    static constexpr uint8_t num_headers_to_report = 7;
+    static constexpr uint8_t num_headers_to_report = 65;
     struct datum method;
     struct datum uri;
     struct datum protocol;
@@ -347,7 +347,65 @@ struct http_request : public base_protocol {
             "via",
             "upgrade",
             "referer",
-            "authorization"
+            "authorization",
+            "content-type",
+            "content-length",
+            "accept",
+            "accept-encoding",
+            "accept-language",
+            "content-disposition",
+            "cookie",
+            "cache-control",
+            "connection",
+            "date",
+            "pragma",
+            "trailer",
+            "set-cookie",
+            "transfer-encoding",
+            "warning",
+            "accept-charset",
+            "expect",
+            "from",
+            "if-match",
+            "if-modified-since",
+            "if-none-match",
+            "if-range",
+            "if-unmodified-since",
+            "max-forwards",
+            "proxy-authorization",
+            "range",
+            "te",
+            "accept-ranges",
+            "age",
+            "etag",
+            "location",
+            "proxy-authenticate",
+            "retry-after",
+            "server",
+            "vary",
+            "www-authenticate",
+            "allow",
+            "content-encoding",
+            "content-language",
+            "content-location",
+            "content-md5",
+            "content-range",
+            "expires",
+            "last-modified",
+            "true-client-ip",
+            "x-working-with",
+            "content-transfer-encoding",
+            "mime-version",
+            "proxy-agent",
+            "http2-settings",
+            "restrict-access-to-tenants",
+            "restrict-access-context",
+            "origin",
+            "forwarded",
+            "x-forwarded-from",
+            "client-ip",
+            "xroxy-connection",
+            "proxy-connection"
         }
     };
 
