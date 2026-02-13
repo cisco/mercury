@@ -691,7 +691,6 @@ public:
 
     quic_parameters() {
 
-        quic_initial_params.reserve(MAX_QUIC_VERSIONS);
         quic_initial_params = std::unordered_map<uint32_t, const std::tuple<salt_enum, init_pkt_mask_enum, hkdf_label_enum>>{
             {0xfaceb001, {salt_enum::D22, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},     // facebook
             {0xfaceb002, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // facebook
@@ -719,6 +718,7 @@ public:
             {0x6b3343cf, {salt_enum::V2, init_pkt_mask_enum::V2, hkdf_label_enum::V2}},              // version-2 (RFC 9369)
             {0xd4000400, {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // empirical - tencent?
         };
+        quic_initial_params.reserve(MAX_QUIC_VERSIONS);
     }
 
     // WARNING: NOT THREAD-SAFE.  Calling this while other threads read
@@ -727,7 +727,7 @@ public:
     // analysis).
     //
     void add_param_mapping(uint32_t version, const std::tuple<quic_parameters::salt_enum, quic_parameters::init_pkt_mask_enum, quic_parameters::hkdf_label_enum> param) {
-        if (quic_initial_params.size() > MAX_QUIC_VERSIONS) {
+        if (quic_initial_params.size() >= MAX_QUIC_VERSIONS) {
             return;
         }
         quic_initial_params.emplace(version, param);
@@ -848,8 +848,8 @@ public:
         }
         else if (trial_decryption) {
             // try every salt to decrypt, most likely a version negotiation pkt
-            for (auto params : quic_params.get_params_map()) {
-                const std::tuple<quic_parameters::salt_enum, quic_parameters::init_pkt_mask_enum, quic_parameters::hkdf_label_enum> param = params.second;
+            for (auto params_kv : quic_params.get_params_map()) {
+                const std::tuple<quic_parameters::salt_enum, quic_parameters::init_pkt_mask_enum, quic_parameters::hkdf_label_enum> param = params_kv.second;
                 const quic_parameters::salt *initial_salt = quic_params.get_initial_salt(std::get<0>(param));
                 const uint8_t *client_in_label = (quic_params.get_kdf(std::get<2>(param))->get_client_label());
                 const uint8_t *quic_key_label  = (quic_params.get_kdf(std::get<2>(param))->get_key_label());
