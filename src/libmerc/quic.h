@@ -767,7 +767,7 @@ class quic_crypto_engine {
 
 public:
 
-    datum decrypt(quic_initial_packet &quic_pkt) {
+    datum decrypt(quic_initial_packet &quic_pkt, bool trial_decryption = false) {
         if (!quic_pkt.is_not_empty()) {
             return {nullptr, nullptr};
         }
@@ -810,7 +810,7 @@ public:
             }
             return {nullptr, nullptr};
         }
-        else {
+        else if (trial_decryption) {
             // try every salt to decrypt, most likely a version negotiation pkt
             for (auto params : quic_params.get_params_map()) {
                 const std::tuple<quic_parameters::salt_enum, quic_parameters::init_pkt_mask_enum, quic_parameters::hkdf_label_enum> param = params.second;
