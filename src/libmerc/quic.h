@@ -671,6 +671,18 @@ public:
 
 private:
 
+    // WARNING: this map is shared via a process-wide singleton
+    // (quic_parameters::create()) and is NOT thread-safe for concurrent
+    // read+write.  It is safest to treat it as immutable after construction.
+    // Do not call add_param_mapping() from multi-threaded contexts.
+    //
+    // To re-enable runtime mutation, either:
+    //   (a) guard with a std::shared_mutex (read-lock on find/iterate,
+    //       write-lock on emplace), or
+    //   (b) make the map thread-local (one copy per worker), or
+    //   (c) use a ping-pong swap: build a new map in a background
+    //       thread, then atomically swap pointers.
+    //
     std::unordered_map<uint32_t, const std::tuple<salt_enum, init_pkt_mask_enum, hkdf_label_enum> > quic_initial_params;
 
 public:
@@ -710,6 +722,11 @@ public:
         };
     }
 
+    // WARNING: NOT THREAD-SAFE.  Calling this while other threads read
+    // quic_initial_params is undefined behavior and has caused production
+    // crashes.  Only safe in single-threaded contexts (e.g. cython offline
+    // analysis).
+    //
     void add_param_mapping(uint32_t version, const std::tuple<quic_parameters::salt_enum, quic_parameters::init_pkt_mask_enum, quic_parameters::hkdf_label_enum> param) {
         if (quic_initial_params.size() > MAX_QUIC_VERSIONS) {
             return;
@@ -770,6 +787,19 @@ class quic_crypto_engine {
 
 public:
 
+    /// Attempt to decrypt a QUIC Initial packet.
+    ///
+    /// When trial_decryption is false (the default), only the known
+    /// version->salt mapping is tried.  This path is thread-safe
+    /// because quic_initial_params is read-only after construction.
+    ///
+    /// When trial_decryption is true, every known salt is tried in a
+    /// brute-force loop.  On success the discovered mapping is cached
+    /// via add_param_mapping(), which writes to the shared
+    /// quic_initial_params map.  This is NOT thread-safe and must
+    /// only be used in single-threaded contexts (e.g., cython offline
+    /// analysis).
+    ///
     datum decrypt(quic_initial_packet &quic_pkt, bool trial_decryption = false) {
         if (!quic_pkt.is_not_empty()) {
             return {nullptr, nullptr};
@@ -777,7 +807,10 @@ public:
 
         data_buffer<1024> aad;
         uint32_t version = ntoh(*((uint32_t*)quic_pkt.version.data));
-        static quic_parameters &quic_params = quic_parameters::create();  // initialize on first use
+        // NOTE: quic_params is a process-wide singleton; safe for
+        // concurrent reads, but NOT for concurrent reads + writes.
+        //
+        static quic_parameters &quic_params = quic_parameters::create();
         const std::tuple<quic_parameters::salt_enum, quic_parameters::init_pkt_mask_enum, quic_parameters::hkdf_label_enum> *params = quic_params.get_initial_params(version);
 
         if (params) {
@@ -835,8 +868,10 @@ public:
                   quic_pkt.payload.data, quic_pkt.payload.length());
 
                 if (plaintext_len) {
-                    //salt_str = quic_params.salts[i].get_name();
                     salt_str = initial_salt->get_name();
+                    // WARNING: not thread-safe.  This write is only
+                    // reachable when trial_decryption is true, so
+                    // callers must ensure single-threaded execution.
                     quic_params.add_param_mapping(version, param);
                     return {plaintext, plaintext+plaintext_len};
                 }
