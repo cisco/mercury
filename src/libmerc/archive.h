@@ -578,11 +578,11 @@ public:
 
             c[0] = '\0';
             ssize_t characters_read = read((uint8_t *)&c, characters_to_read);
-            characters_read_in_this_iteration += characters_read;
-            c[characters_read] = '\0';
             if (characters_read <= 0) {
                 break;
             }
+            characters_read_in_this_iteration += characters_read;
+            c[characters_read] = '\0';
 
             newline_found = false;
             for (i = 0; i < characters_read; i++) {
