@@ -19,6 +19,10 @@ namespace krb5 {
 
 #include "krb5_params.hpp"
 
+    // hashcat 
+    //
+    // 7500	Kerberos 5, etype 23, AS-REQ Pre-Auth	$krb5pa$23$user$realm$salt$4e751db65422b2117f7eac7b721932dc8aa0d9966785ecd958f971f622bf5c42dc0c70b532363138363631363132333238383835
+
     static uint64_t to_uint64(const datum &d) {
         uint64_t result = 0;
         for (const uint8_t & x : d) {
@@ -30,25 +34,6 @@ namespace krb5 {
     static uint64_t to_uint64(const tlv &x) {
         return to_uint64(x.value);
     }
-
-
-    // Ticket          ::= [APPLICATION 1] SEQUENCE {
-    //         tkt-vno         [0] INTEGER (5),
-    //         realm           [1] Realm,
-    //         sname           [2] PrincipalName,
-    //         enc-part        [3] EncryptedData -- EncTicketPart
-    // }
-    //
-    class ticket {
-        tlv tkt_vno;
-        tlv realm;
-        tlv sname;
-        tlv enc_part;
-
-    public:
-        ticket(datum &d) {
-        }
-    };
 
 
     // KerberosFlags   ::= BIT STRING (SIZE (32..MAX))
@@ -191,6 +176,121 @@ namespace krb5 {
         }
 
     };
+
+
+    //     EncryptedData   ::= SEQUENCE {
+    //         etype   [0] Int32 -- EncryptionType --,
+    //         kvno    [1] UInt32 OPTIONAL,
+    //         cipher  [2] OCTET STRING -- ciphertext
+    //     }
+    //
+    class encrypted_data {
+        tlv seq;
+        tlv etype;
+        tlv kvno;
+        tlv cipher;
+        bool valid;
+
+    public:
+
+        encrypted_data(datum d) :
+            seq{d, tlv::SEQUENCE, "encrypted_data.seq"}
+        {
+            while (seq.value.is_not_empty()) {
+                tlv tmp{&seq.value};
+                switch(tmp.tag) {
+                case tlv::explicit_tag_constructed(0):
+                    etype.parse(&tmp.value, tlv::INTEGER);
+                    break;
+                case tlv::explicit_tag_constructed(1):
+                    kvno.parse(&tmp.value, tlv::INTEGER);
+                    break;
+                case tlv::explicit_tag_constructed(2):
+                    cipher.parse(&tmp.value, tlv::OCTET_STRING);
+                    break;
+                default:
+                    ;
+                }
+            }
+            valid = (bool)etype and (bool)cipher;
+        }
+
+        void write_json(json_object &o, bool metadata=false) const {
+            (void)metadata;
+            if (!valid) {
+                return;
+            }
+            json_object enc_data{o, "enc_data"};
+            enc_data.print_key_string("etype", encryption_type<uint32_t>{to_uint64(etype.value)}.get_name());
+            if (kvno) {
+                enc_data.print_key_uint("kvno", to_uint64(kvno.value));
+            }
+            enc_data.print_key_hex("ciphertext", cipher.value);
+            enc_data.close();
+        }
+
+    };
+
+    // Ticket          ::= [APPLICATION 1] SEQUENCE {
+    //         tkt-vno         [0] INTEGER (5),
+    //         realm           [1] Realm,
+    //         sname           [2] PrincipalName,
+    //         enc-part        [3] EncryptedData -- EncTicketPart
+    // }
+    //
+    class ticket {
+        tlv seq;
+        tlv tkt_vno;
+        tlv realm;
+        tlv sname;
+        tlv enc_part;
+
+    public:
+        ticket(datum d) :
+            seq{d, tlv::SEQUENCE, "seq"}
+        {
+            while (seq.value.is_not_empty()) {
+                tlv tmp{&seq.value};
+                switch(tmp.tag) {
+                case tlv::explicit_tag_constructed(0):
+                    tkt_vno.parse(&tmp.value, tlv::INTEGER, "tkt_vno");
+                    break;
+                case tlv::explicit_tag_constructed(1):
+                    realm.parse(&tmp.value);
+                    break;
+                case tlv::explicit_tag_constructed(2):
+                    sname = tmp;
+                    //sname.parse(&tmp.value);
+                    break;
+                case tlv::explicit_tag_constructed(3):
+                    enc_part = tmp;
+                    //enc_part.parse(&tmp.value);
+                    break;
+                default:
+                    ;
+                }
+            }
+        }
+
+        void write_json(json_object &o, bool metadata=false) const {
+            (void)metadata;
+            json_object tkt{o, "ticket"};
+            tkt.print_key_hex("vno", tkt_vno.value);
+            if (realm) {
+                tkt.print_key_json_string("realm", realm.value);
+            }
+            if (sname) {
+                principal_name{sname.value}.write_json(tkt, "sname");
+            }
+            if (enc_part) {
+                // tkt.print_key_hex("enc_part", enc_part.value);
+                encrypted_data{enc_part.value}.write_json(tkt, metadata);
+            }
+            tkt.close();
+        }
+
+    };
+
 
     // KDC-REQ-BODY    ::= SEQUENCE {
     //         kdc-options             [0] KDCOptions,
@@ -570,7 +670,7 @@ namespace krb5 {
         tlv padata;
         tlv crealm;
         tlv cname;
-        tlv ticket;
+        tlv tkt;
         tlv enc_part;
     public:
         kdc_rep(datum &d) : seq{&d, tlv::SEQUENCE, "seq"} {
@@ -595,10 +695,11 @@ namespace krb5 {
                     //cname.parse(&tmp.value);
                     break;
                 case tlv::explicit_tag_constructed(5):
-                    ticket.parse(&tmp.value);
+                    tkt.parse(&tmp.value);
                     break;
                 case tlv::explicit_tag_constructed(6):
-                    enc_part.parse(&tmp.value);
+                    enc_part = tmp;
+                    // enc_part.parse(&tmp.value);
                     break;
                 }
             }
@@ -617,8 +718,13 @@ namespace krb5 {
             kdc_rep_json.print_key_json_string("crealm", crealm.value);
             principal_name{cname.value}.write_json(o, "cname");
             // kdc_rep_json.print_key_hex("cname", cname.value);
-            kdc_rep_json.print_key_hex("ticket", ticket.value);
-            kdc_rep_json.print_key_hex("enc_part", enc_part.value);
+            // kdc_rep_json.print_key_hex("ticket", tkt.value);
+            ticket{tkt.value}.write_json(kdc_rep_json);
+            // kdc_rep_json.print_key_hex("enc_part", enc_part.value);
+            if (enc_part) {
+                encrypted_data{enc_part.value}.write_json(kdc_rep_json);
+            }
+
             kdc_rep_json.close();
         }
     };
