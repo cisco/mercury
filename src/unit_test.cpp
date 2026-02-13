@@ -26,6 +26,7 @@
 
 #include "libmerc/imap.hpp"
 
+#include "libmerc/archive.h"
 // Macros to colorize output
 //
 #define RED_ON     "\033[31m"
@@ -166,6 +167,10 @@ int main(int, char *[]) {
         {
             "writeable",
             &writeable_unit_test::run
+        },
+        {
+            "gz_file_getline",
+            &gz_file_getline_unit_tests
         },
         {
             "ipv6_addr_lct",
