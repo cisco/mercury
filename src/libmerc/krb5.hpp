@@ -406,7 +406,12 @@ namespace krb5 {
             datum tmp = etype.value;
             while (tmp.is_not_empty()) {
                 tlv e{tmp};
-                etype_array.print_string(encryption_type<uint32_t>{to_uint64(e.value)}.get_name());
+                const char *ename = encryption_type<uint32_t>{to_uint64(e.value)}.get_name();
+                if (ename) {
+                    etype_array.print_string(ename);
+                } else {
+                    etype_array.print_unknown_code(to_uint64(e.value));
+                }
             }
             etype_array.close();
 
