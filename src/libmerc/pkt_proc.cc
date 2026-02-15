@@ -483,6 +483,13 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
     case tcp_msg_type_ftp_response:
         x.emplace<ftp::response>(pkt);
         return;
+    case tcp_msg_type_krb5:
+        {
+            encoded<uint32_t> record_mark{pkt};
+            datum krb5_tcp_msg{pkt,record_mark.value()};
+            x.emplace<krb5::packet>(krb5_tcp_msg);
+            return;
+        }
     default:
         if (is_new && global_vars.output_tcp_initial_data) {
             x.emplace<unknown_initial_packet>(pkt);
