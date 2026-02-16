@@ -1,12 +1,12 @@
 /*
- * pqsql.hpp
+ * pgsql.hpp
  *
  * Copyright (c) 2021 Cisco Systems, Inc. All rights reserved.  License at
  * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
 /*
- * \file pqsql.hpp
+ * \file pgsql.hpp
  *
  * \brief interface file for postgresql messages
  */
