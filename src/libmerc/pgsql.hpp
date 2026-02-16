@@ -421,6 +421,102 @@ public:
         protocols.print_string("pgsql");
         protocols.close();
     }
+
+#ifndef NDEBUG
+    static bool test_json_output_with_port(const uint8_t *raw_data,
+                                           size_t raw_size,
+                                           uint16_t src_port,
+                                           datum expected_output,
+                                           FILE *verbose_output=nullptr) {
+        datum raw_input{raw_data, raw_data + raw_size};
+        pgsql_msg pkt{raw_input, hton<uint16_t>(src_port)};
+        if (!raw_input.is_not_null()) {
+            return false;
+        }
+
+        dynamic_buffer_stream buf{(size_t)expected_output.length() + 512};
+        json_object json{&buf};
+        if (pkt.is_not_empty()) {
+            pkt.write_json(json, false);
+        }
+        json.close();
+
+        datum result = buf.get_datum();
+        if (verbose_output) {
+            buf.write_line(verbose_output);
+        }
+        return result.cmp(expected_output) == 0;
+    }
+
+    static bool unit_test() {
+        // client authentication message: 'p'
+        static constexpr uint8_t client_auth_msg[] = {
+            0x70, 0x00, 0x00, 0x00, 0x0a, 0x73, 0x65, 0x63, 0x72, 0x65, 0x74
+        };
+        if (!test_json_output_with_port(
+                client_auth_msg, sizeof(client_auth_msg), 1,
+                datum{R"({"pgsql":{"client":true,"pgsql_pkts":[{"authentication_msg":{"content_type":"password_message","content":"secret"}}]}})"})) {
+            return false;
+        }
+
+        // server auth request: md5 with 4-byte salt
+        static constexpr uint8_t server_auth_md5[] = {
+            0x52, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00, 0x05, 0x01, 0x02, 0x03, 0x04
+        };
+        if (!test_json_output_with_port(
+                server_auth_md5, sizeof(server_auth_md5), 5432,
+                datum{R"({"pgsql":{"client":false,"pgsql_pkts":[{"authentication_request":{"content_type":"md5_password","salt":"01020304"}}]}})"})) {
+            return false;
+        }
+
+        // server auth request: success, no extra payload field
+        static constexpr uint8_t server_auth_success[] = {
+            0x52, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00
+        };
+        if (!test_json_output_with_port(
+                server_auth_success, sizeof(server_auth_success), 5432,
+                datum{R"({"pgsql":{"client":false,"pgsql_pkts":[{"authentication_request":{"content_type":"success"}}]}})"})) {
+            return false;
+        }
+
+        // server parameter status: S
+        static constexpr uint8_t server_param_status[] = {
+            0x53, 0x00, 0x00, 0x00, 0x19,
+            0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x5f, 0x65, 0x6e, 0x63, 0x6f, 0x64, 0x69, 0x6e, 0x67, 0x00,
+            0x55, 0x54, 0x46, 0x38, 0x00
+        };
+        if (!test_json_output_with_port(
+                server_param_status, sizeof(server_param_status), 5432,
+                datum{R"({"pgsql":{"client":false,"pgsql_pkts":[{"parameter_status":{"param_type":"client_encoding","param_value":"UTF8"}}]}})"})) {
+            return false;
+        }
+
+        // special startup packet (first byte is zero, non-special tag => startup_message)
+        static constexpr uint8_t startup_msg[] = {
+            0x00, 0x00, 0x00, 0x0e, 0x00, 0x03, 0x00, 0x00,
+            0x75, 0x73, 0x65, 0x72, 0x00, 0x00
+        };
+        if (!test_json_output_with_port(
+                startup_msg, sizeof(startup_msg), 1,
+                datum{R"({"pgsql":{"client":true,"pgsql_pkts":[{"startup_message":{"msg_data":"user\u0000\u0000"}}]}})"})) {
+            return false;
+        }
+
+        // unknown client message type should use safe fallback key
+        static constexpr uint8_t unknown_client_msg[] = {
+            0x59, 0x00, 0x00, 0x00, 0x04
+        };
+        if (!test_json_output_with_port(
+                unknown_client_msg, sizeof(unknown_client_msg), 1,
+                datum{R"({"pgsql":{"client":true,"pgsql_pkts":[{"unknown_client_message":{"msg_len":0}}]}})"})) {
+            return false;
+        }
+
+        return true;
+    }
+
+    static inline bool unit_test_passed = unit_test();
+#endif
 };
 
 namespace {
