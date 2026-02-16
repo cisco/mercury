@@ -1081,7 +1081,7 @@ public:
             return tcp_msg_type_telnet;
         }
 
-        if (pgsql() and (tcp_pkt->header->src_port == hton<uint16_t>(5432) or tcp_pkt->header->dst_port == hton<uint16_t>(5432) )) {
+        if (pgsql() and (tcp_pkt->header->src_port == hton<uint16_t>(5432) or tcp_pkt->header->dst_port == hton<uint16_t>(5432))) {
             return tcp_msg_type_pgsql;
         }
 
