@@ -242,8 +242,14 @@ class pgsql_msg : public base_protocol {
                 datum param_name{};
                 datum param_value{};
                 param_name.parse_up_to_delim(msg_data, '\0');
+                if (msg_data.is_not_readable() || lookahead<encoded<uint8_t>>{msg_data}.value.value() != '\0') {
+                    return;
+                }
                 msg_data.skip(1);
                 param_value.parse_up_to_delim(msg_data, '\0');
+                if (msg_data.is_not_readable() || lookahead<encoded<uint8_t>>{msg_data}.value.value() != '\0') {
+                    return;
+                }
                 msg_data.skip(1);
                 if (param_name.is_not_null() && param_value.is_not_null() && msg_data.is_not_null()) {
                     json_object o(a);
@@ -406,14 +412,12 @@ public:
     }
 
     // write L7 metadata so that "pgsql" appears in the protocols list
-    void write_l7_metadata(json_object &record, bool metadata) {
+    void write_l7_metadata(cbor_object &o, bool metadata) {
         if (!metadata || !valid) {
             return;
         }
 
-        // Add "pgsql" to the L7 metadata protocols list.
-        // This mirrors other protocol implementations (e.g., syslog/mysql).
-        json_array protocols(record, "protocols");
+        cbor_array protocols{o, "protocols"};
         protocols.print_string("pgsql");
         protocols.close();
     }
