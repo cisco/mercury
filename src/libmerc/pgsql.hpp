@@ -404,6 +404,19 @@ public:
             return;
         }
     }
+
+    // write L7 metadata so that "pgsql" appears in the protocols list
+    void write_l7_metadata(json_object &record, bool metadata) {
+        if (!metadata || !valid) {
+            return;
+        }
+
+        // Add "pgsql" to the L7 metadata protocols list.
+        // This mirrors other protocol implementations (e.g., syslog/mysql).
+        json_array protocols(record, "protocols");
+        protocols.print_string("pgsql");
+        protocols.close();
+    }
 };
 
 namespace {
