@@ -200,7 +200,7 @@ class pgsql_msg : public base_protocol {
 
         pgsql_pkt(const pgsql_pkt &pkt) : msg_type{pkt.msg_type}, len{pkt.len}, msg_data{pkt.msg_data} {}
 
-        pgsql_pkt operator = (const pgsql_pkt &pkt) {
+        pgsql_pkt& operator = (const pgsql_pkt &pkt) {
             msg_type = pkt.msg_type;
             len = pkt.len;
             msg_data = pkt.msg_data;
@@ -313,7 +313,7 @@ class pgsql_msg : public base_protocol {
 
         pgsql_special_pkt(const pgsql_special_pkt &pkt) : len{pkt.len}, tag{pkt.tag}, msg_data{pkt.msg_data}, startup{pkt.startup} {};
 
-        pgsql_special_pkt operator = (const pgsql_special_pkt &pkt) {
+        pgsql_special_pkt& operator = (const pgsql_special_pkt &pkt) {
             len = pkt.len;
             tag = pkt.tag;
             msg_data = pkt.msg_data;
