@@ -125,7 +125,7 @@ class pgsql_msg : public base_protocol {
             return "termination";
         
         default:
-            return &c;
+            return "unknown_client_message";
         };
     }
 
@@ -179,7 +179,7 @@ class pgsql_msg : public base_protocol {
             return "negotiate_protocol_version";
 
         default:
-            return &c;
+            return "unknown_server_message";
         };
     }
 
