@@ -186,9 +186,7 @@ size_t http_request_pppoe_len = sizeof(http_request_pppoe);
 
 int verbosity = 0;
 
-char default_resources_path[] = "../test/data/resources-test.tgz";
-char resources_lite_path[] = "../test/data/resources-test.tgz";
-char resources_mp_path[] = "./xtra/resources/resources-mp.tgz";
+char resources_minimal_path[] = "../test/data/resources-test.tgz";
 
 const char * path_to_libmerc_library = LIBMERC_SO_PATH;
 const char * path_to_libmerc_alt_library = "../src/libmerc/libmerc.so.alt";

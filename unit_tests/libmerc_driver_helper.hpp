@@ -24,9 +24,7 @@ extern unsigned char firefox_client_hello_eth[];
 extern unsigned char http_request_pppoe[];
 extern size_t http_request_pppoe_len;
 extern int verbosity;
-extern char default_resources_path[];
-extern char resources_lite_path[];
-extern char resources_mp_path[];
+extern char resources_minimal_path[];
 extern const char * path_to_libmerc_library;
 extern const char * path_to_libmerc_alt_library;
 /*variables end*/
@@ -46,7 +44,7 @@ libmerc_config create_config(bool dns_json_output = false,
                              bool report_os = false,
                              bool output_tcp_initial_data = false,
                              bool output_udp_initial_data = false,
-                             char *resources = default_resources_path,
+                             char *resources = resources_minimal_path,
                              const uint8_t * enc_key = NULL,
                              enc_key_type key_type = enc_key_type_none,
                              char *packet_filter_cfg = NULL,
