@@ -328,21 +328,8 @@ class pgsql_msg : public base_protocol {
             json_object r(o, get_special_msg_type(tag.value()));
             if (startup) {
                 datum tmp = msg_data;
-                // while (tmp.is_not_empty()) {
-                //     if (! lookahead<encoded<uint8_t> >{tmp}.value.value() ) {
-                //         // null character reached, break
-                //         break;
-                //     }
-                //     datum field_name{};
-                //     datum field_value{};
-                //     field_name.parse_up_to_delim(tmp, '\0');
-                //     tmp.skip(1);
-                //     field_value.parse_up_to_delim(tmp, '\0');
-                //     tmp.skip(1);
-                //     if (field_name.is_not_null() && field_value.is_not_null() && tmp.is_not_null()) {
-                //         record.print_key_json_string(field_name,field_value);
-                //     }
-                // }
+                // TODO: Optionally parse PostgreSQL startup message key/value pairs into
+                // individual JSON fields instead of emitting raw msg_data.
                 if (tmp.is_not_empty()) {
                     r.print_key_json_string("msg_data", tmp);
                 }
