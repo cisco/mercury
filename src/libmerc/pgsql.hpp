@@ -75,7 +75,6 @@ class pgsql_msg : public base_protocol {
         };
     };
 
-    static constexpr uint32_t startup_code = 196608;
     static constexpr uint32_t ssl_request_code = 80877103;  // {1234}{5679}
     static constexpr uint32_t cancel_request_code = 80877102;   // {1234}{5678}
     static constexpr uint32_t gss_encrypt_code = 80877104;  // {1234}{5680}
@@ -88,7 +87,7 @@ class pgsql_msg : public base_protocol {
             return "cancel_request";
         case gss_encrypt_code:
             return "gss_encrypt_request";
-        
+
         default:
             return "startup_message";
         };
@@ -124,7 +123,7 @@ class pgsql_msg : public base_protocol {
             return "copy_failure";
         case 'X':
             return "termination";
-        
+
         default:
             return "unknown_client_message";
         };
@@ -216,7 +215,6 @@ class pgsql_msg : public base_protocol {
                 // auth message
                 json_object o(a);
                 json_object r(o,get_client_message_code('p'));
-                //o.print_key_string("msg_type",get_client_message_code('p'));
                 r.print_key_string("content_type", "password_message");
                 r.print_key_json_string("content",msg_data);
                 r.close();
@@ -226,7 +224,6 @@ class pgsql_msg : public base_protocol {
                 // auth request
                 json_object o(a);
                 json_object r(o, get_server_message_code('R'));
-                //o.print_key_string("msg_type",get_server_message_code('R'));
                 encoded<uint32_t> auth_type{msg_data};
                 auth_codes auth_code = static_cast<auth_codes>(auth_type.value());
                 r.print_key_string("content_type", get_auth_type(auth_code));
@@ -255,7 +252,6 @@ class pgsql_msg : public base_protocol {
                 if (param_name.is_not_null() && param_value.is_not_null() && msg_data.is_not_null()) {
                     json_object o(a);
                     json_object r(o,get_server_message_code('S'));
-                    //o.print_key_string("msg_type",get_server_message_code('S'));
                     r.print_key_json_string("param_type",param_name);
                     r.print_key_json_string("param_value",param_value);
                     r.close();
@@ -272,7 +268,6 @@ class pgsql_msg : public base_protocol {
                 encoded<uint32_t> key{msg_data};
                 json_object o(a);
                 json_object r(o,get_server_message_code('K'));
-                //o.print_key_string("msg_type",get_server_message_code('K'));
                 r.print_key_int("pid",pid);
                 r.print_key_int("key",key);
                 r.close();
@@ -282,7 +277,6 @@ class pgsql_msg : public base_protocol {
             else if (client) {
                 json_object o(a);
                 json_object r(o,get_client_message_code(msg_type.value()));
-                //o.print_key_char("msg_type",get_client_message_code(msg_type.value()));
                 r.print_key_int("msg_len", msg_data.length());
                 r.close();
                 o.close();
@@ -290,7 +284,6 @@ class pgsql_msg : public base_protocol {
             else {
                 json_object o(a);
                 json_object r(o, get_server_message_code(msg_type.value()));
-                //o.print_key_char("msg_type",get_server_message_code(msg_type.value()));
                 r.print_key_int("msg_len", msg_data.length());
                 r.close();
                 o.close();
@@ -347,7 +340,6 @@ class pgsql_msg : public base_protocol {
     };
 
     bool is_client = false;
-    bool startup_msg = false;
     bool has_special_pkt = false;   // special pkt, no message list - either startup, SSL request, GSSAPI request or cancel request pkt
 
 
@@ -369,7 +361,6 @@ public:
         if (has_special_pkt) {
             // read the special pkt
             special_pkt = pgsql_special_pkt{pkt};
-            startup_msg = special_pkt.startup;
             valid = special_pkt.is_valid();
             return;
         }
