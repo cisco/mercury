@@ -304,14 +304,7 @@ struct json_object {
         w.write(*b);
         b->write_char('\"');
      }
-    template <typename T> void print_key_value(T &k, T &w) {
-        write_comma(comma);
-        b->write_char('\"');
-        k.fingerprint(*b);
-        b->puts("\":\"");
-        w.fingerprint(*b);
-        b->write_char('\"');
-     }
+
     void print_key_ipv4_addr(const char *k, const uint8_t *a) {
         write_comma(comma);
         b->write_char('\"');

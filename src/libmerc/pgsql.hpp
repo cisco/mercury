@@ -1,20 +1,21 @@
 /*
  * pgsql.hpp
  *
- * Copyright (c) 2021 Cisco Systems, Inc. All rights reserved.  License at
+ * Copyright (c) 2025 Cisco Systems, Inc. All rights reserved.  License at
  * https://github.com/cisco/mercury/blob/master/LICENSE
  */
 
 /*
  * \file pgsql.hpp
  *
- * \brief interface file for postgresql messages
+ * \brief PostgreSQL protocol parser implementation and interface
  */
 #ifndef PGSQL_HPP
 #define PGSQL_HPP
 
 #include "json_object.h"
 #include "protocol.h"
+#include "cbor_object.hpp"
 
 class pgsql_msg : public base_protocol {
 
@@ -348,7 +349,7 @@ class pgsql_msg : public base_protocol {
     bool is_client = false;
     bool startup_msg = false;
     bool has_special_pkt = false;   // special pkt, no message list - either startup, SSL request, GSSAPI request or cancel request pkt
-    datum body;
+
 
     static constexpr uint8_t max_msg_count = 10;    // report messages less than or equal to max_msg_count
     pgsql_pkt msg_list[max_msg_count];
@@ -549,4 +550,4 @@ namespace {
 
 }  // namespace
 
-#endif  // PGSQL_HPP 
+#endif  // PGSQL_HPP
