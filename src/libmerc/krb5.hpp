@@ -354,7 +354,6 @@ namespace krb5 {
             o.print_key_hex("e_text", e_text.value);
             o.print_key_hex("e_data", e_data.value);
         }
-
     };
 
 
@@ -424,7 +423,6 @@ namespace krb5 {
             o.print_key_hex("ticket", ticket.value);
             o.print_key_hex("enc_part", enc_part.value);
         }
-
     };
 
     using message = std::variant<std::monostate, error, kdc_req, kdc_rep>;
