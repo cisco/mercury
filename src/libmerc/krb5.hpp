@@ -455,9 +455,9 @@ namespace krb5 {
             }
         }
 
-        void write_json(json_object &o) const {
+        void write_json(json_array &a) const {
             if (!valid) { return; }
-            json_object pad{o, "pa_data"};
+            json_object pad{a};
             //pa_data_type.print_as_json(pad, "type");
             datum tmp = type.value;
             pa_data_type<uint32_t>{to_uint64(tlv{tmp})}.write_json(pad);
@@ -524,11 +524,14 @@ namespace krb5 {
             kdc_req_json.print_key_hex("msg_type", msg_type.value);
             // kdc_req_json.print_key_hex("padata", padata.value);
             // if (lookahead<pa_data> pad{padata.value}) {
+
+            json_array pa_array{kdc_req_json, "pa_data"};
             datum tmp = padata.value;
             while (tmp.is_not_empty()) {
                 pa_data data{tmp};
-                data.write_json(kdc_req_json);
+                data.write_json(pa_array);
             }
+            pa_array.close();
             //kdc_req.print_key_hex("req_body", req_body.value);
             if (req_body.is_valid()) {
                 if (lookahead<kdc_req_body> body{req_body.value}) {
@@ -809,12 +812,14 @@ namespace krb5 {
             json_object kdc_rep_json{o, "kdc_rep"};
             kdc_rep_json.print_key_hex("pnvo", pvno.value);
             kdc_rep_json.print_key_hex("msg_type", msg_type.value);
-            //kdc_rep_json.print_key_hex("padata", padata.value);
+
+            json_array pa_array{kdc_rep_json, "pa_data"};
             datum tmp = padata.value;
             while (tmp.is_not_empty()) {
                 pa_data data{tmp};
-                data.write_json(kdc_rep_json);
+                data.write_json(pa_array);
             }
+            pa_array.close();
             kdc_rep_json.print_key_json_string("crealm", crealm.value);
             principal_name{cname.value}.write_json(o, "cname");
             // kdc_rep_json.print_key_hex("cname", cname.value);
