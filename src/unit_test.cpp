@@ -22,6 +22,7 @@
 #include "libmerc/decimal_int.hpp"
 #include "libmerc/hex.hpp"
 #include "libmerc/redis.hpp"
+#include "libmerc/archive.h"
 #include "libmerc/fdc.hpp"
 
 #include "libmerc/imap.hpp"
@@ -166,6 +167,10 @@ int main(int, char *[]) {
         {
             "writeable",
             &writeable_unit_test::run
+        },
+        {
+            "gz_file_getline",
+            &gz_file_getline_unit_tests
         },
         {
             "ipv6_addr_lct",
