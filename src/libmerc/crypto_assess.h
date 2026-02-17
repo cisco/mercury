@@ -374,7 +374,7 @@ namespace crypto_policy {
                         }
 
                         encoded<uint16_t> binders_len{psk_data};
-                        if (psk_data.is_not_readable() || binders_len > psk_data.length()) {
+                        if (psk_data.is_not_readable() || binders_len != psk_data.length()) {
                             pre_shared_key_valid = false;
                             pre_shared_key_binders_min_256_bits = false;
                             break;
@@ -431,7 +431,7 @@ namespace crypto_policy {
                     {
                         datum key_share_data = extension.value;
                         encoded<uint16_t> client_shares_len{key_share_data};
-                        if (key_share_data.is_not_readable() || client_shares_len > key_share_data.length()) {
+                        if (key_share_data.is_not_readable() || client_shares_len != key_share_data.length()) {
                             key_share_valid = false;
                             break;
                         }

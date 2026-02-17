@@ -972,6 +972,24 @@ TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment attributes")
     }
 }
 
+TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment skipped on truncated tls")
+{
+    set_pcap("tls_cnsa2_psk_mode_psk_ke_truncated.pcap");
+
+    libmerc_config config{
+        .do_analysis = true,
+        .resources = resources_mp_path,
+        .packet_filter_cfg = (char *)"all;crypto-assess=default"
+    };
+
+    initialize(config);
+
+    std::string non_pqc_attr = "cnsa_2_0_non_conformant";
+    CHECK_FALSE(check_attr(non_pqc_attr));
+
+    deinitialize();
+}
+
 TEST_CASE_METHOD(LibmercTestFixture, "test nbss with resources-mp")
 {
 

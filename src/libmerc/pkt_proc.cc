@@ -1263,6 +1263,10 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
         bool output_analysis = false;
         bool output_attr = false;
+        bool truncated_tls = (truncated_tcp &&
+                              (std::holds_alternative<tls_client_hello>(x) ||
+                               std::holds_alternative<tls_server_hello_and_certificate>(x)))
+                             || (truncated_quic && std::holds_alternative<quic_init>(x));
         if (global_vars.do_analysis && !analysis.result.attr.is_initialized() && c) {
             analysis.result.attr.initialize(&(c->get_common_data().attr_name.value()), c->get_common_data().attr_name.get_names_char());
         }
@@ -1309,7 +1313,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         }
         std::visit(write_metadata{record, global_vars.metadata_output, global_vars.certs_json_output, global_vars.dns_json_output}, x);
 
-        if (!crypto_policies.empty()) {
+        if (!crypto_policies.empty() && !truncated_tls) {
             crypto_assess_result assessment_result = std::visit(do_crypto_assessment{crypto_policies, record}, x);
             output_attr = set_crypto_assessment_attr(assessment_result) ? true : output_attr;
         }
@@ -1800,6 +1804,10 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
     //
     if (std::visit(is_not_empty{}, x)) {
         bool output_attr = false;
+        bool truncated_tls = (truncated_tcp &&
+                              (std::holds_alternative<tls_client_hello>(x) ||
+                               std::holds_alternative<tls_server_hello_and_certificate>(x)))
+                             || (truncated_udp && std::holds_alternative<quic_init>(x));
 
         if (global_vars.do_analysis && mq) {
             if (ip_pkt.src_is_private()) {
@@ -1827,7 +1835,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
                 output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
             }
 
-            if (!crypto_policies.empty()) {
+            if (!crypto_policies.empty() && !truncated_tls) {
                 crypto_assess_result assessment_result = std::visit(do_crypto_assessment{crypto_policies}, x);
                 output_attr = set_crypto_assessment_attr(assessment_result) ? true : output_attr;
             }
@@ -1875,7 +1883,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
 
                 output_nbd = std::visit(do_network_behavioral_detections{k, analysis, c, nbd_common_data}, x);
             }
-            if (!crypto_policies.empty()) {
+            if (!crypto_policies.empty() && !truncated_tls) {
                 crypto_assess_result crypto_result = std::visit(do_crypto_assessment{crypto_policies}, x);
                 output_attr = set_crypto_assessment_attr(crypto_result) ? true : output_attr;
             }
