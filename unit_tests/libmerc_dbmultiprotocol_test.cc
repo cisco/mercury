@@ -779,6 +779,62 @@ TEST_CASE_METHOD(LibmercTestFixture, "test exposed_creds attribute")
             },
             .m_pc{"http_auth.pcap"}},
             "exposed_credentials_plaintext"    // check if exposed_credentials_plaintext attribute is present in the attributes array
+        },
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"all;exposed-creds"
+            },
+            .m_pc{"http_auth_bearer.pcap"}},
+            "exposed_credentials_token"
+        },
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"all;exposed-creds"
+            },
+            .m_pc{"http_auth_digest.pcap"}},
+            "exposed_credentials_derived"
+        },
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"all;exposed-creds"
+            },
+            .m_pc{"ftp_exposed_creds.pcap"}},
+            "exposed_credentials_plaintext"
+        },
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"all;exposed-creds"
+            },
+            .m_pc{"redis_exposed_creds.pcap"}},
+            "exposed_credentials_plaintext"
+        },
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"all;exposed-creds"
+            },
+            .m_pc{"ldap_exposed_creds.pcap"}},
+            "exposed_credentials_plaintext"
+        },
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"all;exposed-creds"
+            },
+            .m_pc{"ldap_exposed_creds_derived.pcap"}},
+            "exposed_credentials_derived"
+        },
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"all;exposed-creds"
+            },
+            .m_pc{"snmp_exposed_creds.pcap"}},
+            "exposed_credentials_plaintext"
+        },
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"all;exposed-creds"
+            },
+            .m_pc{"snmp_exposed_creds_derived.pcap"}},
+            "exposed_credentials_derived"
         }
     };
 
@@ -787,6 +843,76 @@ TEST_CASE_METHOD(LibmercTestFixture, "test exposed_creds attribute")
         set_pcap(config.m_pc.c_str());
         attr_check(expected_attr, config.m_lc);
     }
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "test exposed_creds with write_json and analysis off")
+{
+    set_pcap("http_auth.pcap");
+
+    libmerc_config config{
+        .do_analysis = false,
+        .resources = resources_mp_path,
+        .packet_filter_cfg = (char *)"all;exposed-creds"
+    };
+
+    initialize(config);
+
+    bool saw_json_output = false;
+    while (1) {
+        if (read_next_data_packet()) {
+            break;
+        }
+
+        size_t json_size = mercury_packet_processor_write_json(
+            m_mpp,
+            m_output,
+            4096,
+            (unsigned char *)m_data_packet.first,
+            m_data_packet.second - m_data_packet.first,
+            &m_time
+        );
+
+        if (json_size > 0) {
+            saw_json_output = true;
+        }
+        if (saw_json_output) {
+            break;
+        }
+    }
+
+    CHECK(saw_json_output);
+    deinitialize();
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "test exposed_creds with analyze_ip_packet and analysis off")
+{
+    set_pcap("http_auth.pcap");
+
+    libmerc_config config{
+        .do_analysis = false,
+        .resources = resources_mp_path,
+        .packet_filter_cfg = (char *)"all;exposed-creds"
+    };
+
+    initialize(config);
+
+    int packet_count = 0;
+    while (1) {
+        if (read_next_data_packet()) {
+            break;
+        }
+
+        mercury_packet_processor_get_analysis_context(
+            m_mpp,
+            (unsigned char *)m_data_packet.first,
+            m_data_packet.second - m_data_packet.first,
+            &m_time
+        );
+        packet_count++;
+    }
+
+    CHECK(packet_count > 0);
+    deinitialize();
 }
 
 
@@ -808,6 +934,27 @@ TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment attributes")
             },
             .m_pc{"tlsv1_3.pcap"}},
             "cnsa_2_0_non_conformant"    // check if cnsa_2_0_non_conformant attribute is present in the attributes array
+        },
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"all;crypto-assess=default"
+            },
+            .m_pc{"tls_cnsa2_psk_mode_psk_ke.pcap"}},
+            "cnsa_2_0_non_conformant"    // psk_key_exchange_modes includes psk_ke
+        },
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"all;crypto-assess=default"
+            },
+            .m_pc{"tls_cnsa2_psk_short_binder.pcap"}},
+            "cnsa_2_0_non_conformant"    // pre_shared_key binder length < 256 bits
+        },
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"all;crypto-assess=default"
+            },
+            .m_pc{"tls_cnsa2_psk_mlkem1024_missing.pcap"}},
+            "cnsa_2_0_non_conformant"    // psk_dhe_ke without MLKEM1024 key_share
         },
         {test_config{
             .m_lc{.do_analysis = true, .resources = resources_mp_path,

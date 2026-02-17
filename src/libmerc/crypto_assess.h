@@ -339,6 +339,17 @@ namespace crypto_policy {
             }
 
             bool have_tls_cert_with_extern_psk = false;
+            bool have_pre_shared_key = false;
+            bool have_psk_key_exchange_modes = false;
+            bool have_key_share = false;
+            bool psk_modes_valid = true;
+            bool psk_mode_has_psk_ke = false;
+            bool psk_mode_has_psk_dhe_ke = false;
+            bool pre_shared_key_valid = true;
+            bool pre_shared_key_binders_min_256_bits = true;
+            bool pre_shared_key_has_binder = false;
+            bool key_share_valid = true;
+            bool key_share_has_mlkem1024 = false;
             datum tmp = extensions;
             while (tmp.is_readable()) {
                 xtn extension{tmp};
@@ -346,10 +357,128 @@ namespace crypto_policy {
                 case tls::extensions<uint16_t>::code::tls_cert_with_extern_psk:
                     have_tls_cert_with_extern_psk = true;
                     break;
+                case tls::extensions<uint16_t>::code::pre_shared_key:
+                    have_pre_shared_key = true;
+                    {
+                        datum psk_data = extension.value;
+                        encoded<uint16_t> identities_len{psk_data};
+                        if (psk_data.is_not_readable() || identities_len > psk_data.length()) {
+                            pre_shared_key_valid = false;
+                            pre_shared_key_binders_min_256_bits = false;
+                            break;
+                        }
+                        if (!psk_data.skip(identities_len)) {
+                            pre_shared_key_valid = false;
+                            pre_shared_key_binders_min_256_bits = false;
+                            break;
+                        }
+
+                        encoded<uint16_t> binders_len{psk_data};
+                        if (psk_data.is_not_readable() || binders_len > psk_data.length()) {
+                            pre_shared_key_valid = false;
+                            pre_shared_key_binders_min_256_bits = false;
+                            break;
+                        }
+
+                        datum binders = psk_data;
+                        binders.parse(psk_data, binders_len);
+                        if (binders.is_not_readable()) {
+                            pre_shared_key_valid = false;
+                            pre_shared_key_binders_min_256_bits = false;
+                            break;
+                        }
+
+                        while (binders.is_readable()) {
+                            encoded<uint8_t> binder_len{binders};
+                            if (binders.is_not_readable() || binder_len > binders.length()) {
+                                pre_shared_key_valid = false;
+                                pre_shared_key_binders_min_256_bits = false;
+                                break;
+                            }
+                            if (binder_len < 32) {
+                                pre_shared_key_binders_min_256_bits = false;
+                            }
+                            pre_shared_key_has_binder = true;
+                            if (!binders.skip(binder_len)) {
+                                pre_shared_key_valid = false;
+                                pre_shared_key_binders_min_256_bits = false;
+                                break;
+                            }
+                        }
+                    }
+                    break;
+                case tls::extensions<uint16_t>::code::psk_key_exchange_modes:
+                    have_psk_key_exchange_modes = true;
+                    {
+                        datum mode_data = extension.value;
+                        encoded<uint8_t> mode_vector_len{mode_data};
+                        if (mode_data.is_not_readable() || mode_vector_len != mode_data.length()) {
+                            psk_modes_valid = false;
+                            break;
+                        }
+                        while (mode_data.is_readable()) {
+                            encoded<uint8_t> mode{mode_data};
+                            if (mode == 0) {
+                                psk_mode_has_psk_ke = true;
+                            } else if (mode == 1) {
+                                psk_mode_has_psk_dhe_ke = true;
+                            }
+                        }
+                    }
+                    break;
+                case tls::extensions<uint16_t>::code::key_share:
+                    have_key_share = true;
+                    {
+                        datum key_share_data = extension.value;
+                        encoded<uint16_t> client_shares_len{key_share_data};
+                        if (key_share_data.is_not_readable() || client_shares_len > key_share_data.length()) {
+                            key_share_valid = false;
+                            break;
+                        }
+
+                        datum client_shares = key_share_data;
+                        client_shares.parse(key_share_data, client_shares_len);
+                        if (client_shares.is_not_readable()) {
+                            key_share_valid = false;
+                            break;
+                        }
+
+                        while (client_shares.is_readable()) {
+                            encoded<uint16_t> named_group{client_shares};
+                            encoded<uint16_t> key_exchange_len{client_shares};
+                            if (client_shares.is_not_readable() || key_exchange_len > client_shares.length()) {
+                                key_share_valid = false;
+                                break;
+                            }
+                            if (named_group == tls::supported_groups::code::MLKEM1024) {
+                                key_share_has_mlkem1024 = true;
+                            }
+                            if (!client_shares.skip(key_exchange_len)) {
+                                key_share_valid = false;
+                                break;
+                            }
+                        }
+                    }
+                    break;
                 default:
                     ;
                 }
             }
+
+            // optioanl extern PSK extension is only compliant with the presence of pre_shared_key, 
+            // psk_key_exchange_modes and key_share extensions
+            bool external_psk_with_cert_compliant =
+                !have_tls_cert_with_extern_psk ||
+                (have_pre_shared_key && have_psk_key_exchange_modes && have_key_share);
+            bool have_psk = have_pre_shared_key || have_tls_cert_with_extern_psk;
+            bool psk_modes_compliant = !have_psk ||
+                                       (have_psk_key_exchange_modes && psk_modes_valid &&
+                                        !psk_mode_has_psk_ke && psk_mode_has_psk_dhe_ke);
+            bool psk_binders_compliant = !have_psk ||
+                                         (have_pre_shared_key && pre_shared_key_valid &&
+                                          pre_shared_key_has_binder && pre_shared_key_binders_min_256_bits);
+            bool psk_mlkem1024_compliant = !have_psk ||
+                                           (have_key_share && key_share_valid && key_share_has_mlkem1024);
 
             if (a != nullptr) {
                 const char *quantifier = "none";
@@ -360,9 +489,29 @@ namespace crypto_policy {
                 }
                 a->print_key_string("groups_allowed", quantifier);
                 a->print_key_bool("tls_cert_with_extern_psk", have_tls_cert_with_extern_psk);
+                if (!external_psk_with_cert_compliant) {
+                    a->print_key_string("tls_cert_with_extern_psk_non_compliant",
+                                        "tls_cert_with_extern_psk requires pre_shared_key, psk_key_exchange_modes, and key_share");
+                }
+                if (!psk_modes_compliant) {
+                    a->print_key_string("psk_key_exchange_modes_non_compliant",
+                                        "psk_key_exchange_modes must include psk_dhe_ke and must not include psk_ke");
+                }
+                if (!psk_mlkem1024_compliant) {
+                    a->print_key_string("psk_key_exchange_mlkem1024_non_compliant",
+                                        "psk_dhe_ke requires key_share with MLKEM1024");
+                }
+                if (!psk_binders_compliant) {
+                    a->print_key_string("pre_shared_key_non_compliant",
+                                        "pre_shared_key binders must be present and each binder must be at least 256 bits");
+                }
             }
 
-            return all_allowed && have_tls_cert_with_extern_psk;
+            return all_allowed &&
+                   external_psk_with_cert_compliant &&
+                   psk_modes_compliant &&
+                   psk_mlkem1024_compliant &&
+                   psk_binders_compliant;
         }
 
         /*

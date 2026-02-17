@@ -323,6 +323,13 @@ struct stateful_pkt_proc {
     }
 
     bool set_exposed_creds_attr(exposed_creds_type exposed_creds_res) {
+        if (!c) {
+            return false;
+        }
+
+        if (!analysis.result.attr.is_initialized()) {
+            analysis.result.attr.initialize(&(c->get_common_data().attr_name.value()), c->get_common_data().attr_name.get_names_char());
+        }
 
         switch (exposed_creds_res) {
             case exposed_creds_type::none:
@@ -343,6 +350,13 @@ struct stateful_pkt_proc {
     }
 
     bool set_crypto_assessment_attr(const crypto_assess_result &assessment_result) {
+        if (!c) {
+            return false;
+        }
+
+        if (!analysis.result.attr.is_initialized()) {
+            analysis.result.attr.initialize(&(c->get_common_data().attr_name.value()), c->get_common_data().attr_name.get_names_char());
+        }
 
         bool output_attr = false;
 
