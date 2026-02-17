@@ -465,7 +465,7 @@ namespace crypto_policy {
                 }
             }
 
-            // optioanl extern PSK extension is only compliant with the presence of pre_shared_key, 
+            // optional extern PSK extension is only compliant with the presence of pre_shared_key,
             // psk_key_exchange_modes and key_share extensions
             bool external_psk_with_cert_compliant =
                 !have_tls_cert_with_extern_psk ||

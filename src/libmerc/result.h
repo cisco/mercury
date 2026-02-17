@@ -96,6 +96,7 @@ public:
     void initialize (const std::vector<std::string> *_tag_names, const char *const *names_char) {
         tag_names = _tag_names;
         tag_names_char = names_char;
+        initialized = true;
     }
 
     const struct attribute_context *get_attributes() {
