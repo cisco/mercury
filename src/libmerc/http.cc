@@ -273,11 +273,20 @@ void http_request::write_l7_metadata(cbor_object &o, bool) {
 
     cbor_object http{o, "http"};
     cbor_object http_request{http, "request"};
+
     http_request.print_key_string("method", method);
     http_request.print_key_string("uri", uri);
     http_request.print_key_string("protocol", protocol);
 
     headers.write_l7_metadata(http_request);
+
+    datum body = headers.get_header_body();
+    const size_t orig_len = body.length();
+    const bool truncated = orig_len > max_body_length;
+    http_request.print_key_bool("body_truncated", truncated);
+    body.trim_to_length(max_body_length);
+    http_request.print_key_hex("body", body);
+
     http_request.print_key_string("user_agent", get_header("user-agent"));
     http_request.print_key_string("host", get_header("host"));
     http_request.print_key_string("x_forwarded_for", get_header("x-forwarded-for"));

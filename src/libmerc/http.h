@@ -241,6 +241,10 @@ public:
         delim = _delim;
     }
 
+    datum get_header_body() const {
+        return header_body;
+    }
+
     void write_json(struct json_object &record) {
         httpheader h = get_next_header(header_body);
         if (h.is_valid()) {
@@ -334,6 +338,7 @@ public:
 
 struct http_request : public base_protocol {
     static constexpr uint8_t num_headers_to_report = 65;
+    static constexpr size_t max_body_length = 1024;
     struct datum method;
     struct datum uri;
     struct datum protocol;
