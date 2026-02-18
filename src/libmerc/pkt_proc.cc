@@ -1313,12 +1313,12 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         }
         std::visit(write_metadata{record, global_vars.metadata_output, global_vars.certs_json_output, global_vars.dns_json_output}, x);
 
-        if (!crypto_policies.empty() && !truncated_tls) {
+        if (c && !crypto_policies.empty() && !truncated_tls) {
             crypto_assess_result assessment_result = std::visit(do_crypto_assessment{crypto_policies, record}, x);
             output_attr = set_crypto_assessment_attr(assessment_result) ? true : output_attr;
         }
 
-        if (exposed_creds) {
+        if (c && exposed_creds) {
             exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
             output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
         }
@@ -1830,12 +1830,12 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             //
             output_attr = c->check_additional_attributes(analysis) ? true : output_attr;
 
-            if (exposed_creds) {
+            if (c && exposed_creds) {
                 exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
                 output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
             }
 
-            if (!crypto_policies.empty() && !truncated_tls) {
+            if (c && !crypto_policies.empty() && !truncated_tls) {
                 crypto_assess_result assessment_result = std::visit(do_crypto_assessment{crypto_policies}, x);
                 output_attr = set_crypto_assessment_attr(assessment_result) ? true : output_attr;
             }
@@ -1883,11 +1883,11 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
 
                 output_nbd = std::visit(do_network_behavioral_detections{k, analysis, c, nbd_common_data}, x);
             }
-            if (!crypto_policies.empty() && !truncated_tls) {
+            if (c && !crypto_policies.empty() && !truncated_tls) {
                 crypto_assess_result crypto_result = std::visit(do_crypto_assessment{crypto_policies}, x);
                 output_attr = set_crypto_assessment_attr(crypto_result) ? true : output_attr;
             }
-            if (exposed_creds) {
+            if (c && exposed_creds) {
                 exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
                 output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
             }

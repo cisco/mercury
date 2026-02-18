@@ -91,7 +91,7 @@ public:
         return tags.any();
     }
 
-    bool is_initialized() { return initialized; }
+    bool is_initialized() const { return initialized; }
 
     void initialize (const std::vector<std::string> *_tag_names, const char *const *names_char) {
         tag_names = _tag_names;
