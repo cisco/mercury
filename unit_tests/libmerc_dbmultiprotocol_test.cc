@@ -1195,7 +1195,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "double VLAN tagged PPPoE with resources-mp
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"http"},
              .m_pc{"pppoe_double_vlan_tagging.pcap"}},
          6},
