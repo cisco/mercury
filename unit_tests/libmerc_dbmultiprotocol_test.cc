@@ -1180,3 +1180,30 @@ TEST_CASE_METHOD(LibmercTestFixture, "VXLAN  with resources-mp")
         check(count, config.m_lc);
     }
 }
+
+TEST_CASE_METHOD(LibmercTestFixture, "double VLAN tagged PPPoE with resources-mp")
+{
+
+    auto check = [&](int expected_count, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(expected_count == counter());
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, int>> test_set_up{
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+                .packet_filter_cfg = (char *)"http"},
+             .m_pc{"pppoe_double_vlan_tagging.pcap"}},
+         6},
+    };
+
+    for (auto &[config, count] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        check(count, config.m_lc);
+    }
+}

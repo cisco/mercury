@@ -22,6 +22,7 @@
 #include "libmerc/decimal_int.hpp"
 #include "libmerc/hex.hpp"
 #include "libmerc/redis.hpp"
+#include "libmerc/archive.h"
 #include "libmerc/fdc.hpp"
 
 #include "libmerc/imap.hpp"
