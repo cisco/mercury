@@ -1279,7 +1279,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
 
             // check for additional classifier agnostic attributes like encrypted dns and domain-faking
             //
-            output_attr = c->check_additional_attributes(analysis) ? true : output_attr; // set to true only if any additional attribute is set, else keep the previous value
+            output_attr = (c && c->check_additional_attributes(analysis)) ? true : output_attr; // set to true only if any additional attribute is set, else keep the previous value
 
             // analysis_.destination
             //
@@ -1828,7 +1828,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
 
             // check for additional classifier agnostic attributes like encrypted dns and domain-faking
             //
-            output_attr = c->check_additional_attributes(analysis) ? true : output_attr;
+            output_attr = (c && c->check_additional_attributes(analysis)) ? true : output_attr;
 
             if (c && exposed_creds) {
                 exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
