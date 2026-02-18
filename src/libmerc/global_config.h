@@ -135,6 +135,7 @@ public:
     fingerprint_format fp_format;    // default fingerprint format
     bool minimize_ram = false;
     bool exposed_creds = false;      /* detect and report exposed credentials in enabled plaintext protocols */
+    bool report_sensitive_headers = false;
 
     global_config() : libmerc_config(), reassembly{false}, network_behavioral_detections{false} {};
     global_config(const libmerc_config& c) : libmerc_config(c), reassembly{false}, network_behavioral_detections{false} {
@@ -305,7 +306,8 @@ static void setup_extended_fields(global_config* lc, const std::string& config) 
         {"crypto-assess", "", "", SETTER_FUNCTION(&lc){ lc->set_crypto_assess(s); }},
         {"minimize-ram", "", "", SETTER_FUNCTION(&lc){ lc->minimize_ram = true; }},
         {"network-behavioral-detections", "", "", SETTER_FUNCTION(&lc){ lc->network_behavioral_detections = true; }},
-        {"exposed-creds", "", "", SETTER_FUNCTION(&lc){ lc->exposed_creds = true; }}
+        {"exposed-creds", "", "", SETTER_FUNCTION(&lc){ lc->exposed_creds = true; }},
+        {"report-sensitive-headers", "", "", SETTER_FUNCTION(&lc){ lc->report_sensitive_headers = true; }}
     };
 
     parse_additional_options(options, config, *lc);

@@ -299,14 +299,11 @@ void http_request::write_l7_metadata(cbor_object &o, bool) {
     http_request.print_key_string("accept_encoding", get_header("accept-encoding"));
     http_request.print_key_string("accept_language", get_header("accept-language"));
     http_request.print_key_string("content_disposition", get_header("content-disposition"));
-    http_request.print_key_string("cookie", get_header("cookie"));
-    http_request.print_key_string("authorization", get_header("authorization"));
     http_request.print_key_string("cache_control", get_header("cache-control"));
     http_request.print_key_string("connection", get_header("connection"));
     http_request.print_key_string("date", get_header("date"));
     http_request.print_key_string("pragma", get_header("pragma"));
     http_request.print_key_string("trailer", get_header("trailer"));
-    http_request.print_key_string("set_cookie", get_header("set-cookie"));
     http_request.print_key_string("transfer_encoding", get_header("transfer-encoding"));
     http_request.print_key_string("warning", get_header("warning"));
     http_request.print_key_string("accept_charset", get_header("accept-charset"));
@@ -352,6 +349,11 @@ void http_request::write_l7_metadata(cbor_object &o, bool) {
     http_request.print_key_string("client_ip", get_header("client-ip"));
     http_request.print_key_string("xroxy_connection", get_header("xroxy-connection"));
     http_request.print_key_string("proxy_connection", get_header("proxy-connection"));
+    if(report_sensitive_headers) {
+        http_request.print_key_string("cookie", get_header("cookie"));
+        http_request.print_key_string("authorization", get_header("authorization"));
+        http_request.print_key_string("set_cookie", get_header("set-cookie"));
+    }
 
     http_request.close();
     http.close();

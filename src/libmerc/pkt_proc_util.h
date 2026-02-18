@@ -332,18 +332,26 @@ struct write_metadata {
 struct write_l7_metadata {
     cbor_object &o;
     bool metadata_output_;
-    bool certs_json_output_;
-    bool dns_json_output_;
+    bool report_sensitive_headers_;
 
     write_l7_metadata(cbor_object &output,
-                      bool metadata_output=true) :
+                      bool metadata_output=true,
+                      bool report_sensitive_headers=false) :
         o{output},
-        metadata_output_{metadata_output}
+        metadata_output_{metadata_output},
+        report_sensitive_headers_{report_sensitive_headers}
     {}
 
     template <typename T>
     void operator()(T &r) {
         if (r.is_not_empty()) {
+            r.write_l7_metadata(o, metadata_output_);
+        }
+    }
+
+    void operator()(http_request &r) {
+        if (r.is_not_empty()) {
+            r.report_sensitive_headers = report_sensitive_headers_;
             r.write_l7_metadata(o, metadata_output_);
         }
     }

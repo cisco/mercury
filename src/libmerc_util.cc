@@ -360,6 +360,7 @@ int main(int argc, char *argv[]) {
         { argument::none,       "--help",      "print out help message" },
         {argument::optional,    "--crypto-assess", "enable crypto-assess analysis"},
         {argument::optional,    "--exposed-creds", "enable exposed-creds analysis"},
+        {argument::optional,    "--report-sensitive-headers", "report sensitive headers"}
     });
     if (!opt.process_argv(argc, argv)) {
         opt.usage(stderr, argv[0], summary);
@@ -376,6 +377,7 @@ int main(int argc, char *argv[]) {
     bool print_help = opt.is_set("--help");
     bool crypto_assess = opt.is_set("--crypto-assess");
     bool exposed_creds = opt.is_set("--exposed-creds");
+    bool report_sensitive_headers = opt.is_set("--report-sensitive-headers");
 
     if (print_help) {
         opt.usage(stdout, argv[0], summary);
@@ -419,6 +421,9 @@ int main(int argc, char *argv[]) {
         }
         if (exposed_creds) {
             packet_filter_cfg += ";exposed-creds";
+        }
+        if (report_sensitive_headers) {
+            packet_filter_cfg += ";report-sensitive-headers";
         }
         config.packet_filter_cfg = (char *)packet_filter_cfg.c_str();
 

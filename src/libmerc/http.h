@@ -343,6 +343,7 @@ struct http_request : public base_protocol {
     struct datum uri;
     struct datum protocol;
     new_http_headers<num_headers_to_report> headers;
+    bool report_sensitive_headers = false;   
 
     static constexpr static_dictionary<num_headers_to_report> req_hdrs {
         {
