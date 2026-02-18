@@ -63,21 +63,21 @@ public:
     ///
     static inline bool write(buffer_stream &b, const uint8_t *data, unsigned int len);
 
-    /// return a std::string that represents a null-terminated 
-    /// char string as a UTF-8 string with the JSON special characters 
+    /// return a std::string that represents a null-terminated
+    /// char string as a UTF-8 string with the JSON special characters
     /// (quotation mark, reverse solidus, solidus, backspace, form feed, line feed,
     /// carriage return, tab) escaped as per RFC 8259 Section 7.
     ///
     /// Invalid byte sequences are replaced with private-usage
     /// codepoints that describe why the sequence was invalid (see above).
-    
+
     /// This operation may fail if there is not enough room in
     /// the buffer stream, with the buffer supporting upto a length
     /// of 4096 bytes post UTF-8 encoding.
     ///
     /// 'Noncharacters' are accepted.
     ///
-    /// \return a std::string representing the UTF-8 encoded input 
+    /// \return a std::string representing the UTF-8 encoded input
     ///
     static inline std::string get_utf8_string(const char * input);
 

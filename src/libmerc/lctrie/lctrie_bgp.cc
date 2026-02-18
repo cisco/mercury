@@ -1,4 +1,4 @@
-#include "lctrie_bgp.h"
+#include "lctrie_bgp.hpp"
 
 #include <stdlib.h>
 #include <stdio.h>

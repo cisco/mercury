@@ -671,6 +671,18 @@ public:
 
 private:
 
+    // WARNING: this map is shared via a process-wide singleton
+    // (quic_parameters::create()) and is NOT thread-safe for concurrent
+    // read+write.  It is safest to treat it as immutable after construction.
+    // Do not call add_param_mapping() from multi-threaded contexts.
+    //
+    // To re-enable runtime mutation, either:
+    //   (a) guard with a std::shared_mutex (read-lock on find/iterate,
+    //       write-lock on emplace), or
+    //   (b) make the map thread-local (one copy per worker), or
+    //   (c) use a ping-pong swap: build a new map in a background
+    //       thread, then atomically swap pointers.
+    //
     std::unordered_map<uint32_t, const std::tuple<salt_enum, init_pkt_mask_enum, hkdf_label_enum> > quic_initial_params;
 
 public:
@@ -679,36 +691,43 @@ public:
 
     quic_parameters() {
 
-        quic_initial_params.reserve(MAX_QUIC_VERSIONS);
         quic_initial_params = std::unordered_map<uint32_t, const std::tuple<salt_enum, init_pkt_mask_enum, hkdf_label_enum>>{
-            {4207849473, {salt_enum::D22, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},     // faceb001
-            {4207849474, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // faceb002
-            {4207849486, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // faceb00e
-            {4207849488, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // faceb010
-            {4207849489, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // faceb011
-            {4207849490, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // faceb012
-            {4207849491, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // faceb013
-            {4278190102, {salt_enum::D22, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},     // draft-22
-            {4278190103, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-23
-            {4278190104, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-24
-            {4278190105, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-25
-            {4278190106, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-26
-            {4278190107, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-27
-            {4278190108, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-28
-            {4278190109, {salt_enum::D29_D32, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-29
-            {4278190110, {salt_enum::D29_D32, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-30
-            {4278190111, {salt_enum::D29_D32, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-31
-            {4278190112, {salt_enum::D29_D32, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-32
-            {4278190113, {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // draft-33
-            {4278190114, {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // draft-34
-            {1,          {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // version-1
-            {1889161412, {salt_enum::D1_D7_V2, init_pkt_mask_enum::V2, hkdf_label_enum::V2}},        // draft1_draft7-v2
-            {1798521807, {salt_enum::V2, init_pkt_mask_enum::V2, hkdf_label_enum::V2}},              // version-2
+            {0xfaceb001, {salt_enum::D22, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},     // facebook
+            {0xfaceb002, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // facebook
+            {0xfaceb00e, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // facebook
+            {0xfaceb010, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // facebook
+            {0xfaceb011, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // facebook
+            {0xfaceb012, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // facebook
+            {0xfaceb013, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // facebook
+            {0xfacefeed, {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // facebook
+            {0xff000016, {salt_enum::D22, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},     // draft-22
+            {0xff000017, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-23
+            {0xff000018, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-24
+            {0xff000019, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-25
+            {0xff00001a, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-26
+            {0xff00001b, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-27
+            {0xff00001c, {salt_enum::D23_D28, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-28
+            {0xff00001d, {salt_enum::D29_D32, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-29
+            {0xff00001e, {salt_enum::D29_D32, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-30
+            {0xff00001f, {salt_enum::D29_D32, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-31
+            {0xff000020, {salt_enum::D29_D32, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}}, // draft-32
+            {0xff000021, {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // draft-33
+            {0xff000022, {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // draft-34
+            {0x00000001, {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // version-1 (RFC 9000)
+            {0x709a50c4, {salt_enum::D1_D7_V2, init_pkt_mask_enum::V2, hkdf_label_enum::V2}},        // v2-draft1_draft7
+            {0x6b3343cf, {salt_enum::V2, init_pkt_mask_enum::V2, hkdf_label_enum::V2}},              // version-2 (RFC 9369)
+            {0xd4000400, {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // empirical - tencent?
         };
+        quic_initial_params.reserve(MAX_QUIC_VERSIONS);
     }
 
+    // WARNING: NOT THREAD-SAFE.  Calling this while other threads read
+    // quic_initial_params is undefined behavior and has caused production
+    // crashes.  Only safe in single-threaded contexts (e.g. cython offline
+    // analysis).
+    //
     void add_param_mapping(uint32_t version, const std::tuple<quic_parameters::salt_enum, quic_parameters::init_pkt_mask_enum, quic_parameters::hkdf_label_enum> param) {
-        if (quic_initial_params.size() > MAX_QUIC_VERSIONS) {
+        if (quic_initial_params.size() >= MAX_QUIC_VERSIONS) {
             return;
         }
         quic_initial_params.emplace(version, param);
@@ -767,14 +786,31 @@ class quic_crypto_engine {
 
 public:
 
-    datum decrypt(quic_initial_packet &quic_pkt) {
+    /// Attempt to decrypt a QUIC Initial packet.
+    ///
+    /// When trial_decryption is false (the default), only the known
+    /// version->salt mapping is tried.  This path is thread-safe because
+    /// quic_initial_params is treated as read-only after construction.
+    ///
+    /// When trial_decryption is true, every known salt is tried in a
+    /// brute-force loop.  On success the discovered mapping is cached
+    /// via add_param_mapping(), which writes to the shared
+    /// quic_initial_params map.  This is NOT thread-safe and must
+    /// only be used in single-threaded contexts (e.g., cython offline
+    /// analysis).
+    ///
+    datum decrypt(quic_initial_packet &quic_pkt, bool trial_decryption = false) {
         if (!quic_pkt.is_not_empty()) {
             return {nullptr, nullptr};
         }
 
         data_buffer<1024> aad;
         uint32_t version = ntoh(*((uint32_t*)quic_pkt.version.data));
-        static quic_parameters &quic_params = quic_parameters::create();  // initialize on first use
+        // NOTE: quic_params is a process-wide singleton (initialized on
+        // first use); safe for concurrent reads, but NOT for concurrent
+        // reads + writes.
+        //
+        static quic_parameters &quic_params = quic_parameters::create();
         const std::tuple<quic_parameters::salt_enum, quic_parameters::init_pkt_mask_enum, quic_parameters::hkdf_label_enum> *params = quic_params.get_initial_params(version);
 
         if (params) {
@@ -810,10 +846,10 @@ public:
             }
             return {nullptr, nullptr};
         }
-        else {
+        else if (trial_decryption) {
             // try every salt to decrypt, most likely a version negotiation pkt
-            for (auto params : quic_params.get_params_map()) {
-                const std::tuple<quic_parameters::salt_enum, quic_parameters::init_pkt_mask_enum, quic_parameters::hkdf_label_enum> param = params.second;
+            for (const auto &params_kv : quic_params.get_params_map()) {
+                const std::tuple<quic_parameters::salt_enum, quic_parameters::init_pkt_mask_enum, quic_parameters::hkdf_label_enum> param = params_kv.second;
                 const quic_parameters::salt *initial_salt = quic_params.get_initial_salt(std::get<0>(param));
                 const uint8_t *client_in_label = (quic_params.get_kdf(std::get<2>(param))->get_client_label());
                 const uint8_t *quic_key_label  = (quic_params.get_kdf(std::get<2>(param))->get_key_label());
@@ -832,8 +868,10 @@ public:
                   quic_pkt.payload.data, quic_pkt.payload.length());
 
                 if (plaintext_len) {
-                    //salt_str = quic_params.salts[i].get_name();
                     salt_str = initial_salt->get_name();
+                    // WARNING: not thread-safe.  This write is only
+                    // reachable when trial_decryption is true, so
+                    // callers must ensure single-threaded execution.
                     quic_params.add_param_mapping(version, param);
                     return {plaintext, plaintext+plaintext_len};
                 }
@@ -1149,9 +1187,10 @@ struct cryptographic_buffer
     std::pair<uint64_t,uint64_t> max_frame {0,0};                       // <offset,len>
     uint32_t total_data = 0;
     static constexpr uint16_t max_frames = 20;
+    static constexpr uint16_t invalid_first_frame_index = UINT16_MAX;
     crypto crypto_frames[max_frames];
     uint16_t crypto_frames_count = 0;
-    uint16_t first_frame_index = 0;
+    uint16_t first_frame_index = invalid_first_frame_index;
     bool missing_crypto_frames = false;
     bool min_crypto_data = false;
 
@@ -1213,7 +1252,21 @@ struct cryptographic_buffer
         return buf_len > 0;
     }
 
-    void reset() {buf_len = 0;}
+    bool has_first_frame() const {
+        return first_frame_index != invalid_first_frame_index &&
+               first_frame_index < crypto_frames_count;
+    }
+
+    void reset() {
+        buf_len = 0;
+        min_frame = {UINT64_MAX,UINT64_MAX};
+        max_frame = {0,0};
+        total_data = 0;
+        crypto_frames_count = 0;
+        first_frame_index = invalid_first_frame_index;
+        missing_crypto_frames = false;
+        min_crypto_data = false;
+    }
 };
 
 struct quic_hdr_fp {
@@ -1327,6 +1380,9 @@ public:
                 // 1. min crypto offset is 0, parse the first frame as tls handshake. Ideally the first frame should be big
                 // enough to figure out total bytes needed.
                 // 2. min crypto offset > 0. Pass on all the frames for reassembly
+                if (!crypto_buffer.has_first_frame()) {
+                    return;
+                }
                 if (crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().length() < 10) {
                     // directly pick first 10 bytes from buffer
                     crypto_buffer.min_crypto_data = true;
@@ -1485,6 +1541,9 @@ public:
                 // 1. min crypto offset is 0, parse the first frame as tls handshake. Ideally the first frame should be big
                 // enough to figure out total bytes needed.
                 // 2. min crypto offset > 0. Pass on all the frames for reassembly
+                if (!crypto_buffer.has_first_frame()) {
+                    return;
+                }
                 if (crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().length() < 10) {
                     // directly pick first 10 bytes from buffer
                     crypto_buffer.min_crypto_data = true;
@@ -1515,11 +1574,12 @@ public:
     }
 
     const uint8_t *get_crypto_buf (uint32_t *buf_len) const {
-        if (!crypto_buffer.buf_len) {
+        uint32_t offset = pre_decrypted ? decry_pkt.get_min_crypto_offset() : min_crypto_offset;
+        if (!crypto_buffer.buf_len || offset == UINT32_MAX || offset > crypto_buffer.buf_len) {
             *buf_len = 0;
         }
         else {
-            *buf_len = crypto_buffer.buf_len - (pre_decrypted ? (decry_pkt.get_min_crypto_offset()) : min_crypto_offset);
+            *buf_len = crypto_buffer.buf_len - offset;
         }
         return (const uint8_t*)crypto_buffer.buffer;
     }

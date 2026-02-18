@@ -13,6 +13,7 @@
 #include <unordered_map>
 
 #include "protocol.h"
+#include "exposed_creds.hpp"
 #include "match.h"
 #include "analysis.h"
 #include "fingerprint.h"
@@ -20,6 +21,7 @@
 #include "flow_key.h"
 #include "cbor.hpp"
 #include "cbor_object.hpp"
+#include "http_auth.hpp"
 
 struct http_headers : public datum {
     bool complete;
@@ -373,6 +375,24 @@ struct http_request : public base_protocol {
     void compute_fingerprint(class fingerprint &fp);
 
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c);
+
+    exposed_creds_type check_credential_exposure() const {
+        datum auth_hdr = get_header("authorization");
+        if (auth_hdr.is_readable()) {
+            scheme auth_scheme{authorization{auth_hdr}.get_scheme()};
+            switch(auth_scheme.get_type()) {
+                case scheme::type::basic:
+                    return exposed_creds_type::plaintext_password;
+                case scheme::type::bearer:
+                    return exposed_creds_type::plaintext_token;
+                case scheme::type::digest:
+                    return exposed_creds_type::password_derived;
+                default:
+                    return exposed_creds_type::none;
+            }
+        }
+        return exposed_creds_type::none;
+    }
 
     // weight 14 bitmask that matches all HTTP methods
     //
