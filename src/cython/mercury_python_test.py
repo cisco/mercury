@@ -165,7 +165,7 @@ class TestMercuryPython(unittest.TestCase):
         cls_result = self.libmerc.perform_analysis(str_repr, server_name, dst_ip, dst_port)
         self.assertEqual(cls_result['analysis']['process'], f"good",
                          f"The classifier is using 1.1:443 as the domain feature")
-
+    #TODO: improve this test
     def test_perform_analysis_with_weights(self):
         """Test from cython_test.py - verifies perform_analysis and perform_analysis_with_weights"""
         str_repr = 'quic/(00000001)(0303)(0a0a1301130213035600)[(0000)(000500050100000000)(000a000c000a0a0a001d001700180019)(000d0018001604030804040105030203080508050501080606010201)(001000050003026833)(0012)(001b0003020001)(002b0005040a0a0304)(002d00020101)(0033)((0039)[(04)(05)(06)(07)(09)(0e)(0f)])(0a0a)(0a0a)]'
@@ -174,17 +174,15 @@ class TestMercuryPython(unittest.TestCase):
         dst_port = 443
 
         cls_result1 = self.libmerc.perform_analysis(str_repr, server_name, dst_ip, int(dst_port))
-        cls_result2 = self.libmerc.perform_analysis_with_weights(str_repr, server_name, dst_ip, int(dst_port), '', 1, 0.1234, 0.00123, 0.456, 0.789, 0.5)
-        cls_result3 = self.libmerc.perform_analysis_with_weights(str_repr, server_name, dst_ip, int(dst_port), '', 0.13924, 0.15590, 0.00528, 0.56735, 0.96941, 1.0)
+        cls_result2 = self.libmerc.perform_analysis_with_weights(str_repr, server_name, dst_ip, int(dst_port), '', 1, 0.1234, 0.00123, 0.456, 0.789, 0.5) #changes the state
+        cls_result3 = self.libmerc.perform_analysis_with_weights(str_repr, server_name, dst_ip, int(dst_port), '', 0.13924, 0.15590, 0.00528, 0.56735, 0.96941, 1.0) # reinitializes with the default weights
 
         score1 = round(cls_result1['analysis']['score'], 6)
         score2 = round(cls_result2['analysis']['score'], 6)
         score3 = round(cls_result3['analysis']['score'], 6)
 
-        self.assertEqual(score1, score3,
-                         f"Weight updates are not correct with perform_analysis_with_weights()")
-        self.assertEqual(score1, 0.53339,
-                         f"Feature weights from resource file is not read correctly, got {score1}")
+        self.assertEqual(score1, score3, f"Weight updates are not correct with perform_analysis_with_weights()")
+        self.assertEqual(score1, 0.53339, f"Feature weights from resource file is not read correctly, got {score1}")
 
 if __name__ == '__main__':
     unittest.main()
