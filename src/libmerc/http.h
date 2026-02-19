@@ -334,6 +334,44 @@ public:
             }
         }
     }
+
+    /*
+     * The `store_headers` function iterates over the HTTP headers
+     * and stores values of headers of interest in the headers array.
+     * The headers of interest are defined in the perfect hash table `ph`,
+     * which stores the header name and the corresponding index.
+     * If the parsed header is present in the hash table `ph`, the index
+     * is retrieved and used to store the header value in the
+     * headers array.
+     *
+     * Input Arguments:
+     * ph      - perfect hash table used to determine if the header value
+     *           needs to be stored and, if so, provides the index at
+     *           which the value is stored.
+     */
+    void store_headers(perfect_hash<uint8_t> &ph) {
+        datum tmp = header_body;
+        while(1) {
+            delimiter d(tmp, delim);
+            if (d.is_valid()) {
+                break;
+            }
+            httpheader h = get_next_header(tmp);
+            if (!h.is_valid()) {
+                break;
+            }
+            bool is_header_found = false;
+            uint8_t header_idx = *ph.lookup(h.name.data, h.name.length(), is_header_found);
+            if (is_header_found) {
+                /* Incase of duplicate http headers, index of the first http header
+                 * is stored.
+                 */
+                if (headers[header_idx].is_null()) {
+                    headers[header_idx] = h.value;
+                }
+            }
+        }
+    }
 };
 
 struct http_request : public base_protocol {
