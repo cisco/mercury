@@ -24,7 +24,7 @@ coverage_enabled=""
 
 total_headers=0
 total_test_function=0
-total_missing_dir=0
+total_dir_create_failures=0
 pass=0
 fail=0
 flags=""
@@ -123,9 +123,12 @@ exec_testcase () {
 
     echo "checking dir $dir_name"
     if [[ ! -d "$parent_path/$dir_name" ]] ; then
-        echo -e $COLOR_RED "$dir_name test dir not found" $COLOR_OFF
-        total_missing_dir=$((total_missing_dir+1))
-        return 1
+        echo -e $COLOR_YELLOW "$dir_name test dir not found, creating it" $COLOR_OFF
+        if ! mkdir -p "$parent_path/$dir_name/corpus" ; then
+            echo -e $COLOR_RED "failed to create $dir_name test dir" $COLOR_OFF
+            total_dir_create_failures=$((total_dir_create_failures+1))
+            return 1
+        fi
     fi;
 
     cd $parent_path/$dir_name
@@ -173,10 +176,13 @@ fi;
     fi;
 
     if [[ ! -d "./corpus" ]] ; then
-        echo -e $COLOR_RED "$dir_name test dir corpus not found" $COLOR_OFF
-        total_missing_dir=$((total_missing_dir+1))
-        cd ../$LIBMERC_FOLDER
-        return 1;
+        echo -e $COLOR_YELLOW "$dir_name corpus dir not found, creating it" $COLOR_OFF
+        if ! mkdir -p "./corpus" ; then
+            echo -e $COLOR_RED "failed to create $dir_name corpus dir" $COLOR_OFF
+            total_dir_create_failures=$((total_dir_create_failures+1))
+            cd ../$LIBMERC_FOLDER
+            return 1;
+        fi
     fi;
 
     chmod +x "fuzz_${dir_name}_exec"
@@ -251,8 +257,8 @@ echo "###############################################"
 echo "Test run statistics"
 echo "headers $total_headers"
 echo "fuzz_test functions $total_test_function"
-if [[ ! "$total_missing_dir" -eq "0" ]]; then
-    echo -e $COLOR_RED "missing test dir $total_missing_dir" $COLOR_OFF
+if [[ ! "$total_dir_create_failures" -eq "0" ]]; then
+    echo -e $COLOR_RED "dir creation failures $total_dir_create_failures" $COLOR_OFF
 fi
 echo -e $COLOR_GREEN "pass $pass" $COLOR_OFF
 echo -e $COLOR_RED "fail $fail" $COLOR_OFF
