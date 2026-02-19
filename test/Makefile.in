@@ -107,7 +107,7 @@ BGCD_TOUT_FILES = $(BGCD_TEST_FILES:%.bgcd-in=%.bgcd-tout) # test run output
 BGCD_COMP_TARG = $(BGCD_TEST_FILES:%.bgcd-in=%.bgcd-comp)  # comp file never exists
 
 .PHONY: all clean
-all: clean comp analysis cert-check memcheck json-validity-test stats libmerc_driver # dummy-capture
+all: clean comp analysis cython-test cert-check memcheck json-validity-test stats libmerc_driver # dummy-capture
 ifeq ($(omitted_test),no)
 	@echo $(COLOR_GREEN) "passed all tests" $(COLOR_OFF)
 else
@@ -127,6 +127,16 @@ pdu_test:
 libmerc_driver:
 	@echo "running unit tests"
 	cd ../unit_tests && $(MAKE) run
+
+.PHONY: cython-test
+cython-test:
+ifeq ($(do_cython_interface_test), yes)
+	@echo "running cython interface validation test"
+	cd ../src/cython && $(python) mercury_python_test.py
+	@echo $(COLOR_GREEN) "passed cython interface test" $(COLOR_OFF)
+else
+	@echo $(COLOR_YELLOW) "omitting cython interface test due to missing dependencies" $(COLOR_OFF)
+endif
 
 .PHONY: json-validity-test
 json-validity-test:
