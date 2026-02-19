@@ -67,6 +67,14 @@ else
 omitted_test = yes
 endif
 
+# Even if the cython package can be built, the test may be explicitly skipped
+# via a command-line override (e.g. do_cython_interface_test=no) in scenarios
+# where skipping is intentional, such as when using a production resources file.
+# In that case we still want omitted_test=yes so the summary is accurate.
+ifneq ($(do_cython_interface_test),yes)
+omitted_test = yes
+endif
+
 ifeq ($(have_tcpreplay),yes)
 do_dummy_capture = yes
 else
