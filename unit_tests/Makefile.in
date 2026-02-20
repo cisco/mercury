@@ -164,7 +164,7 @@ perfect-hash-test:
 # https://github.com/google/sanitizers/wiki/AddressSanitizerContainerOverflow
 
 .PHONY: run_libmerc_tls_only_tests
-run_libmerc_tls_only_tests: xtra/resources/resources-mp.tgz
+run_libmerc_tls_only_tests: ../test/data/resources-test.tgz
 ifeq ($(is_macos_arm),yes)
 	cd ../unit_tests/debug-libs/ && (rm -f libmerc.so.0) && (ln -s libmerc_tls.so libmerc.so.0)
 	export DYLD_LIBRARY_PATH=$$DYLD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER):. && ./libmerc_driver_tls_only -s
@@ -174,7 +174,7 @@ else
 endif
 
 .PHONY: run_libmerc_multiprotocol_tests
-run_libmerc_multiprotocol_tests: xtra/resources/resources-mp.tgz
+run_libmerc_multiprotocol_tests: ../test/data/resources-test.tgz
 ifeq ($(is_macos_arm),yes)
 	cd ../unit_tests/debug-libs/ && rm -f libmerc.so.0 && ln -s libmerc_multiprotocol.so libmerc.so.0
 	export DYLD_LIBRARY_PATH=$$DYLD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER):. && ./libmerc_driver_multiprotocol -s
@@ -184,7 +184,7 @@ else
 endif
 
 .PHONY: run_libmerc_fdc_tests
-run_libmerc_fdc_tests: xtra/resources/resources-mp.tgz
+run_libmerc_fdc_tests: ../test/data/resources-test.tgz
 ifeq ($(is_macos_arm),yes)
 	cd ../unit_tests/debug-libs/ && (rm -f libmerc.so.0) && (ln -s libmerc_fdc.so libmerc.so.0)
 	export DYLD_LIBRARY_PATH=$$DYLD_LIBRARY_PATH:$(LIBMERC_DEBUG_FOLDER) && ./libmerc_driver_fdc -s
@@ -198,7 +198,7 @@ run: run_libmerc_tls_only_tests run_libmerc_multiprotocol_tests run_libmerc_fdc_
 
 # Target to build and run libmerc_util_behavior_test
 .PHONY: libmerc_l7_metadata_test
-libmerc_l7_metadata_test: libmerc-util debug-libmerc xtra/resources/resources-mp.tgz
+libmerc_l7_metadata_test: libmerc-util debug-libmerc ../test/data/resources-test.tgz
 	@echo "Building libmerc_util_behavior_test..."
 	cp $(LIBMERC_SO) $(LIBMERC_SO).alt
 	cp $(LIBMERC_SO) $(LIBMERC_SO_multiprotocol)

@@ -101,7 +101,7 @@ SCENARIO("test_mercury_get_resource_version")
             THEN("valid resource version")
             {
                 auto version = mercury_get_resource_version(mc);
-                auto version_checker = get_version_from_archive(default_resources_path);
+                auto version_checker = get_version_from_archive(resources_minimal_path);
 
                 REQUIRE(strcmp(version, version_checker.c_str()) == 0);
             }
