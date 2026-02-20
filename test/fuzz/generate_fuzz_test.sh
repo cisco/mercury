@@ -24,7 +24,7 @@ coverage_enabled=""
 
 total_headers=0
 total_test_function=0
-total_dir_create_failures=0
+mkdir_fail=0
 pass=0
 fail=0
 flags=""
@@ -49,7 +49,6 @@ do
     esac
 done
 
-#specific_test="none"
 
 if [[ "$coverage_enabled" -eq "1" ]]; then
     if [[ "$CFLAGS" == *"-O3"* ]]; then
@@ -82,10 +81,25 @@ check_result () {
 
     echo "checking dir $dir_name"
     if [[ ! -d "$parent_path/$dir_name" ]] ; then
+        # dir creation failure was already counted in mkdir_fail by exec_testcase
+        echo -e $COLOR_RED "FAILED TEST : $dir_name (test dir not found)" $COLOR_OFF
         return 1
     fi;
 
     cd $parent_path/$dir_name
+
+    if [[ ! -d "./corpus" ]] ; then
+        # dir creation failure was already counted in mkdir_fail by exec_testcase
+        echo -e $COLOR_RED "FAILED TEST : $dir_name (corpus dir not found)" $COLOR_OFF
+        cd ../$LIBMERC_FOLDER
+        return 1;
+    fi;
+
+    if [[ ! -f "$dir_name.log" ]] ; then
+        # no log means the fuzzer never launched (e.g. build failed); already counted in fail by exec_testcase
+        cd ../$LIBMERC_FOLDER
+        return 1;
+    fi;
 
     if [[ $(grep -Ec "((ERROR)|(ABORTING))" $dir_name.log) -gt 0 ]]; then
         echo -e $COLOR_RED "FAILED TEST : $dir_name" $COLOR_OFF
@@ -123,10 +137,10 @@ exec_testcase () {
 
     echo "checking dir $dir_name"
     if [[ ! -d "$parent_path/$dir_name" ]] ; then
-        echo -e $COLOR_YELLOW "$dir_name test dir not found, creating it" $COLOR_OFF
+        echo -e $COLOR_YELLOW "$dir_name test dir not found, creating it: $parent_path/$dir_name/corpus" $COLOR_OFF
         if ! mkdir -p "$parent_path/$dir_name/corpus" ; then
             echo -e $COLOR_RED "failed to create $dir_name test dir" $COLOR_OFF
-            total_dir_create_failures=$((total_dir_create_failures+1))
+            mkdir_fail=$((mkdir_fail+1))
             return 1
         fi
     fi;
@@ -179,7 +193,7 @@ fi;
         echo -e $COLOR_YELLOW "$dir_name corpus dir not found, creating it" $COLOR_OFF
         if ! mkdir -p "./corpus" ; then
             echo -e $COLOR_RED "failed to create $dir_name corpus dir" $COLOR_OFF
-            total_dir_create_failures=$((total_dir_create_failures+1))
+            mkdir_fail=$((mkdir_fail+1))
             cd ../$LIBMERC_FOLDER
             return 1;
         fi
@@ -257,14 +271,14 @@ echo "###############################################"
 echo "Test run statistics"
 echo "headers $total_headers"
 echo "fuzz_test functions $total_test_function"
-if [[ ! "$total_dir_create_failures" -eq "0" ]]; then
-    echo -e $COLOR_RED "dir creation failures $total_dir_create_failures" $COLOR_OFF
-fi
 echo -e $COLOR_GREEN "pass $pass" $COLOR_OFF
 echo -e $COLOR_RED "fail $fail" $COLOR_OFF
+if [[ ! "$mkdir_fail" -eq "0" ]]; then
+    echo -e $COLOR_RED "mkdir_fail $mkdir_fail" $COLOR_OFF
+fi
 echo "###############################################"
 
 # Nonzero exit code if any failures
-if [[ $fail -ne 0 ]]; then
+if [[ $fail -ne 0 || $mkdir_fail -ne 0 ]]; then
     exit 1
 fi
