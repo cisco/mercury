@@ -2158,6 +2158,8 @@ inline void tls_server_hello::fingerprint(struct buffer_stream &buf) const {
 
 template <typename EmitFn>
 inline void tls_server_certificate::for_each_certificate(EmitFn emit) const {
+    static_assert(std::is_invocable_v<EmitFn, const uint8_t*, uint64_t>,
+                  "Callback must be callable with (const uint8_t*, uint64_t)");
     struct datum tmp_cert_list = certificate_list;
     while (tmp_cert_list.length() > 0) {
 
