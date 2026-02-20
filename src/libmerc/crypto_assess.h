@@ -169,6 +169,7 @@ namespace crypto_policy {
             tls::supported_groups::code::X25519MLKEM768,
             tls::supported_groups::code::X25519Kyber768Draft00,
             tls::supported_groups::code::SecP256r1Kyber768Draft00,
+            tls::supported_groups::code::SecP384r1MLKEM1024,
             // tls::supported_groups::code::arbitrary_explicit_prime_curves,
             // tls::supported_groups::code::arbitrary_explicit_char2_curves,
         };

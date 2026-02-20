@@ -825,6 +825,40 @@ TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment attributes")
     }
 }
 
+TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment SecP384r1MLKEM1024 supported_groups output")
+{
+    libmerc_config config{
+        .do_analysis = true,
+        .resources = resources_minimal_path,
+        .packet_filter_cfg = (char *)"all;crypto-assess=default"
+    };
+
+    set_pcap("secp384r1mlkem1024_clienthello.pcap");
+    initialize(config);
+
+    REQUIRE(read_next_data_packet() == 0);
+
+    auto json_len = mercury_packet_processor_write_json(
+        m_mpp,
+        m_output,
+        sizeof(m_output),
+        (unsigned char *)m_data_packet.first,
+        m_data_packet.second - m_data_packet.first,
+        &m_time
+    );
+
+    REQUIRE(json_len > 0);
+    if ((size_t)json_len < sizeof(m_output)) {
+        m_output[json_len] = '\0';
+    } else {
+        m_output[sizeof(m_output) - 1] = '\0';
+    }
+
+    REQUIRE(strstr(m_output, "\"groups_allowed\":\"all\"") != nullptr);
+    REQUIRE(strstr(m_output, "groups_not_allowed") == nullptr);
+    deinitialize();
+}
+
 TEST_CASE_METHOD(LibmercTestFixture, "test nbss with resources-mp")
 {
 
