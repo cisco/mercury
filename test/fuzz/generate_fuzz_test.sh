@@ -27,6 +27,9 @@ total_test_function=0
 mkdir_fail=0
 pass=0
 fail=0
+total_new_corpus=0
+corpus_updated_dir_count=0
+corpus_updated_dirs=""
 flags=""
 openssl_v1_1="false"
 openssl_v3_0="false"
@@ -110,13 +113,15 @@ check_result () {
     fi;
 
     post_corpus="$(ls ./corpus | wc -l)"
+    pre_corpus=$(cat ./.corpus_pre_count 2>/dev/null || echo 0)
+    rm -f ./.corpus_pre_count
     if [[ "$post_corpus" -gt "$pre_corpus" ]]; then
-        echo -e $COLOR_GREEN "corpus updated" $COLOR_OFF
+        new_count=$((post_corpus - pre_corpus))
+        total_new_corpus=$((total_new_corpus + new_count))
+        corpus_updated_dir_count=$((corpus_updated_dir_count + 1))
+        corpus_updated_dirs+="  $dir_name: $new_count new\n"
+        echo -e $COLOR_GREEN "corpus updated: $new_count new entries" $COLOR_OFF
     fi;
-
-    cd corpus
-    ls -1 | grep -v 'seed' | xargs rm -f
-    cd ..
 
     cd ../$LIBMERC_FOLDER;
 }
@@ -200,8 +205,8 @@ fi;
     fi;
 
     chmod +x "fuzz_${dir_name}_exec"
-    # count corpus pre test
-    pre_corpus="$(ls ./corpus/ | wc -l)"
+    # save corpus entry count before run so check_result can compare per-test
+    echo "$(ls ./corpus/ | wc -l)" > ./.corpus_pre_count
 
     # Wait if memory usage exceeds 80%
     while true; do
@@ -277,6 +282,32 @@ if [[ ! "$mkdir_fail" -eq "0" ]]; then
     echo -e $COLOR_RED "mkdir_fail $mkdir_fail" $COLOR_OFF
 fi
 echo "###############################################"
+
+if [[ $total_new_corpus -gt 0 ]]; then
+    echo ""
+    echo "###############################################"
+    echo "Corpus update summary"
+    echo "$total_new_corpus new entries found across $corpus_updated_dir_count test(s):"
+    echo -e "$corpus_updated_dirs"
+    echo "New entries represent code paths not previously covered."
+    echo "Committing them improves future fuzz runs by using these inputs"
+    echo "as starting points, increasing coverage and the chance of finding bugs."
+    echo ""
+    echo "To commit:"
+    echo "  git add test/fuzz/*/corpus/ && git commit -m \"fuzz: update corpus\""
+    echo "###############################################"
+fi
+
+# TODO: Corpus minimization (not enabled by default)
+# As fuzzing progresses, older corpus entries can become subsumed by newer ones
+# — a later entry may cover a strict superset of an earlier entry's code paths,
+# making the earlier one redundant. Run a libFuzzer merge pass periodically to
+# remove subsumed entries, keeping only coverage-essential inputs. Example (from
+# test/fuzz/<target>/):
+#   mkdir -p corpus.min
+#   ./fuzz_<target>_exec -merge=1 corpus.min corpus/
+#   rm -rf corpus && mv corpus.min corpus
+# Repeat for each fuzz target directory (one target binary + one corpus dir).
 
 # Nonzero exit code if any failures
 if [[ $fail -ne 0 || $mkdir_fail -ne 0 ]]; then
