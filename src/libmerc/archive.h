@@ -337,6 +337,42 @@ public:
 };
 
 
+// gz_file: reads and inflates a gzip stream from an encrypted_file.
+//
+// Overview
+// - The constructor opens an encrypted_file and primes the zlib stream by
+//   reading an initial chunk of ciphertext and initializing inflate().
+// - read() mimics gzread(): it pulls encrypted bytes from encrypted_file,
+//   feeds them to zlib, and writes decompressed bytes into a caller buffer.
+// - getline() is a line-oriented helper over the decompressed byte stream. It
+//   reads up to a newline or a caller-provided maximum length and returns the
+//   number of characters placed into the output string (newline not included).
+//
+// Internal buffering
+// - file_buffer (512 bytes) holds compressed/encrypted data from enc_file.
+// - remaining_file_buffer caches any decompressed bytes that were read past a
+//   newline, so the next getline() call can consume them first.
+//
+// getline() behavior
+// - First, it consumes any cached bytes in remaining_file_buffer until it
+//   finds '\n' or exhausts the cache.
+// - If a newline is found in the cache, it returns immediately (possibly with
+//   an empty line) and keeps the remaining bytes after '\n' in the cache.
+// - Otherwise, it reads more decompressed bytes (in chunks up to 512 bytes or
+//   the remaining read_len), appending to the output until '\n' or read_len is
+//   reached. Any bytes after '\n' are cached for the next call.
+//
+// ASCII data flow (compressed -> decrypted -> inflated -> line parsing)
+//
+//   encrypted_file --(read)--> file_buffer --(inflate)--> [decompressed bytes]
+//                                         |
+//                                         v
+//                       remaining_file_buffer + getline() output
+//
+// Notes
+// - read_len limits how many decompressed bytes getline() will examine.
+// - Embedded '\0' bytes are preserved in remaining_file_buffer and output.
+// - When inflate reaches Z_STREAM_END, read() returns the bytes produced so far.
 class gz_file {
     unsigned char file_buffer[512];
     std::string remaining_file_buffer; // this buffer is used to cache the extra characters read.
@@ -521,7 +557,7 @@ public:
             characters_in_s += 1;
         }
 
-        if (newline_found && characters_in_s != 0) {
+        if (newline_found) {
             i += 1; // skip \n
             remaining_file_buffer.assign(backup, i); // update remaining_file_buffer
             remaining_file_buffer_len = backup_len - i;
@@ -539,11 +575,11 @@ public:
 
             c[0] = '\0';
             ssize_t characters_read = read((uint8_t *)&c, characters_to_read);
-            characters_read_in_this_iteration += characters_read;
-            c[characters_to_read] = '\0';
             if (characters_read <= 0) {
                 break;
             }
+            characters_read_in_this_iteration += characters_read;
+            c[characters_read] = '\0';
 
             newline_found = false;
             for (i = 0; i < characters_read; i++) {
@@ -558,8 +594,8 @@ public:
             if (newline_found) {
                 i += 1; // skip \n
 
-                remaining_file_buffer.assign(c+i); // update remaining_file_buffer
-                remaining_file_buffer_len = characters_read-i;
+                remaining_file_buffer.assign(c + i, characters_read - i); // update remaining_file_buffer
+                remaining_file_buffer_len = characters_read - i;
                 break;
             }
         }
@@ -647,6 +683,229 @@ public:
 
     }
 };
+
+namespace {
+
+struct gz_file_unit_test_tmpfile {
+    std::string path;
+    explicit gz_file_unit_test_tmpfile(std::string p) : path{std::move(p)} {}
+    ~gz_file_unit_test_tmpfile() {
+        if (!path.empty()) {
+            std::remove(path.c_str());
+        }
+    }
+};
+
+inline bool gz_file_unit_test_make_temp_path(std::string &out_path) {
+    char buf[L_tmpnam];
+#ifdef _WIN32
+    if (tmpnam_s(buf, sizeof(buf)) != 0) {
+        return false;
+    }
+#else
+    if (std::tmpnam(buf) == nullptr) {
+        return false;
+    }
+#endif
+    out_path.assign(buf);
+    return true;
+}
+
+inline std::string gz_file_unit_test_write_gzip(const std::string &content) {
+    std::string path;
+    if (!gz_file_unit_test_make_temp_path(path)) {
+        return {};
+    }
+
+    gzFile file = gzopen(path.c_str(), "wb");
+    if (file == nullptr) {
+        return {};
+    }
+
+    int written = gzwrite(file, content.data(), static_cast<unsigned int>(content.size()));
+    int close_rc = gzclose(file);
+    if (written != static_cast<int>(content.size()) || close_rc != Z_OK) {
+        std::remove(path.c_str());
+        return {};
+    }
+
+    return path;
+}
+
+inline bool gz_file_getline_unit_test_empty_line(FILE *f) {
+    bool ok = true;
+    const std::string content = "A\n\nB";
+    std::string path = gz_file_unit_test_write_gzip(content);
+    if (path.empty()) {
+        if (f) {
+            fprintf(f, "\tgz_file_getline empty line: failed to create temp gzip file\n");
+        }
+        return false;
+    }
+    gz_file_unit_test_tmpfile cleanup(path);
+
+    try {
+        gz_file gz(path.c_str(), nullptr);
+        std::string line;
+        ssize_t len = gz.getline(line, static_cast<ssize_t>(content.size()));
+        ok = ok && (len == static_cast<ssize_t>(line.size())) && (line == "A");
+
+        len = gz.getline(line, static_cast<ssize_t>(content.size()));
+        ok = ok && (len == static_cast<ssize_t>(line.size())) && (line == "");
+
+        len = gz.getline(line, static_cast<ssize_t>(content.size()));
+        ok = ok && (len == static_cast<ssize_t>(line.size())) && (line == "B");
+    } catch (...) {
+        if (f) {
+            fprintf(f, "\tgz_file_getline empty line: threw exception\n");
+        }
+        return false;
+    }
+
+    if (!ok && f) {
+        fprintf(f, "\tgz_file_getline empty line: expected [\"A\", \"\", \"B\"]\n");
+    }
+    return ok;
+}
+
+inline bool gz_file_getline_unit_test_remainder_suffix(FILE *f) {
+    bool ok = true;
+    const std::string content = "A\nHELLO\nWORLD";
+    std::string path = gz_file_unit_test_write_gzip(content);
+    if (path.empty()) {
+        if (f) {
+            fprintf(f, "\tgz_file_getline remainder suffix: failed to create temp gzip file\n");
+        }
+        return false;
+    }
+    gz_file_unit_test_tmpfile cleanup(path);
+
+    try {
+        gz_file gz(path.c_str(), nullptr);
+        std::string line;
+        ssize_t len = gz.getline(line, static_cast<ssize_t>(content.size()));
+        ok = ok && (len == static_cast<ssize_t>(line.size())) && (line == "A");
+
+        len = gz.getline(line, static_cast<ssize_t>(content.size()));
+        ok = ok && (len == static_cast<ssize_t>(line.size())) && (line == "HELLO");
+
+        len = gz.getline(line, static_cast<ssize_t>(content.size()));
+        ok = ok && (len == static_cast<ssize_t>(line.size())) && (line == "WORLD");
+    } catch (...) {
+        if (f) {
+            fprintf(f, "\tgz_file_getline remainder suffix: threw exception\n");
+        }
+        return false;
+    }
+
+    if (!ok && f) {
+        fprintf(f, "\tgz_file_getline remainder suffix: expected [\"A\", \"HELLO\", \"WORLD\"]\n");
+    }
+    return ok;
+}
+
+inline bool gz_file_getline_unit_test_read_len_overrun(FILE *f) {
+    bool ok = true;
+    std::string content(512, 'A');
+    content += "B\nC";
+
+    std::string path = gz_file_unit_test_write_gzip(content);
+    if (path.empty()) {
+        if (f) {
+            fprintf(f, "\tgz_file_getline read_len overrun: failed to create temp gzip file\n");
+        }
+        return false;
+    }
+    gz_file_unit_test_tmpfile cleanup(path);
+
+    const std::string expected_first = std::string(512, 'A') + "B";
+    const ssize_t read_len = static_cast<ssize_t>(content.size() + 100);
+
+    try {
+        gz_file gz(path.c_str(), nullptr);
+        std::string line;
+        ssize_t len = gz.getline(line, read_len);
+        ok = ok && (len == static_cast<ssize_t>(line.size())) && (line == expected_first);
+
+        len = gz.getline(line, read_len);
+        ok = ok && (len == static_cast<ssize_t>(line.size())) && (line == "C");
+    } catch (...) {
+        if (f) {
+            fprintf(f, "\tgz_file_getline read_len overrun: threw exception\n");
+        }
+        return false;
+    }
+
+    if (!ok && f) {
+        fprintf(f, "\tgz_file_getline read_len overrun: expected [\"%s\", \"C\"]\n", expected_first.c_str());
+    }
+    return ok;
+}
+
+inline bool gz_file_getline_unit_test_null_byte_remainder(FILE *f) {
+    bool ok = true;
+    const std::string content = std::string("A\nB\0C\nD", 7);
+    std::string path = gz_file_unit_test_write_gzip(content);
+    if (path.empty()) {
+        if (f) {
+            fprintf(f, "\tgz_file_getline null byte remainder: failed to create temp gzip file\n");
+        }
+        return false;
+    }
+    gz_file_unit_test_tmpfile cleanup(path);
+
+    try {
+        gz_file gz(path.c_str(), nullptr);
+        std::string line;
+        ssize_t len = gz.getline(line, static_cast<ssize_t>(content.size()));
+        ok = ok && (len == static_cast<ssize_t>(line.size())) && (line == "A");
+
+        len = gz.getline(line, static_cast<ssize_t>(content.size()));
+        ok = ok && (len == static_cast<ssize_t>(line.size()));
+        ok = ok && (line.size() == 3);
+        ok = ok && (line[0] == 'B') && (line[1] == '\0') && (line[2] == 'C');
+
+        len = gz.getline(line, static_cast<ssize_t>(content.size()));
+        ok = ok && (len == static_cast<ssize_t>(line.size())) && (line == "D");
+    } catch (...) {
+        if (f) {
+            fprintf(f, "\tgz_file_getline null byte remainder: threw exception\n");
+        }
+        return false;
+    }
+
+    if (!ok && f) {
+        fprintf(f, "\tgz_file_getline null byte remainder: expected [\"A\", \"B\\\\0C\", \"D\"]\n");
+    }
+    return ok;
+}
+
+} // namespace
+
+inline bool gz_file_getline_unit_tests(FILE *f = nullptr) {
+    bool ok = true;
+    bool result = gz_file_getline_unit_test_empty_line(f);
+    ok = ok && result;
+    if (f) {
+        fprintf(f, "\tgz_file_getline empty line: %s\n", result ? "passed" : "failed");
+    }
+    result = gz_file_getline_unit_test_remainder_suffix(f);
+    ok = ok && result;
+    if (f) {
+        fprintf(f, "\tgz_file_getline remainder suffix: %s\n", result ? "passed" : "failed");
+    }
+    result = gz_file_getline_unit_test_read_len_overrun(f);
+    ok = ok && result;
+    if (f) {
+        fprintf(f, "\tgz_file_getline read_len overrun: %s\n", result ? "passed" : "failed");
+    }
+    result = gz_file_getline_unit_test_null_byte_remainder(f);
+    ok = ok && result;
+    if (f) {
+        fprintf(f, "\tgz_file_getline null byte remainder: %s\n", result ? "passed" : "failed");
+    }
+    return ok;
+}
 
 
 #endif // ARCHIVE_H

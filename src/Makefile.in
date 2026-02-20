@@ -225,7 +225,7 @@ dns-trie: dns-trie.cpp dns_trie.hpp fpdb_reader.hpp
 	$(CXX) $(CFLAGS) dns-trie.cpp -o dns-trie
 
 unit_test: unit_test.cpp
-	$(CXX) $(CFLAGS) -UNDEBUG unit_test.cpp -o unit_test
+	$(CXX) $(CFLAGS) -UNDEBUG unit_test.cpp -o unit_test $(LDFLAGS) -lcrypto -lz
 
 os_identifier: os_identifier.cc os-identification/os_identifier.h
 	$(CXX) $(CFLAGS) -I libmerc/ os_identifier.cc -lz -o os_identifier
@@ -397,16 +397,8 @@ define increment_version
 	@echo $(COLOR_GREEN) "Version bumped: $(1) -> $(2). Next steps:" $(COLOR_OFF)
 	@echo "  1. Push current branch (not dev): git push"
 	@echo "  2. Create PR to merge current branch into dev, then merge"
-	@echo "  3. Create PR to merge dev to trunk, then merge (creates merge commit)"
-	@echo "  4. Create tag: git checkout trunk && git pull && git tag -a $(2) -m 'Release $(2)'"
-	@echo "  5. Push tag: git push origin $(2)"
-	@echo "  6. Restore dev (keep ahead of trunk): git checkout dev && git pull && git merge --ff-only trunk"
-	@echo "  7. Push dev (may require disabling branch protection): git push origin dev"
-	@echo ""
-	@echo "If branch protection blocks step 7:"
-	@echo "  - Open dev branch protection rules"
-	@echo "  - Uncheck 'Do not allow bypassing the above settings'"
-	@echo "  - Complete step 7, then restore the setting"
+	@echo "  3. Trigger one-click release: Actions -> [EMU] Promote & Tag Release -> Run workflow"
+	@echo "     This fast-forwards trunk to dev and creates and pushes the $(2) tag automatically."
 endef
 
 .PHONY: increment-patchlevel increment-minor-version increment-major-version

@@ -1,0 +1,110 @@
+name: "[EMU] Promote & Tag Release"
+
+# One-click release: fast-forward trunk to match dev and create a version tag.
+#
+# Both dev and trunk are protected branches that require PRs with
+# two-person review.  Without this workflow, cutting a release meant:
+#   1. Open a PR on dev with version/changelog bumps
+#   2. Open a second PR to merge dev into trunk
+#   3. Manually bypass branch protections to fast-forward dev to trunk again
+#   4. Manually create and push the version tag
+#
+# This workflow collapses steps 2-4 into a single manual dispatch.
+# All code review still happens on dev; trunk is always a strict
+# fast-forward of dev, so no additional review is needed here.
+#
+# Prerequisites before use:
+#   - VERSION file and doc/CHANGELOG.md must already be updated on dev
+#     (the workflow validates both before proceeding)
+#
+# Required repository secrets (from the cisco-netintel-release-promoter GitHub App):
+#   - RELEASE_PROMOTER_APP_ID
+#   - RELEASE_PROMOTER_PRIVATE_KEY
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  promote-and-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate token for branch protection bypass
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.RELEASE_PROMOTER_APP_ID }}
+          private-key: ${{ secrets.RELEASE_PROMOTER_PRIVATE_KEY }}
+          owner: cisco-netintel
+
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          ref: dev
+          # all history for all branches and tags
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Read version from VERSION file
+        id: version
+        run: |
+          VERSION=$(cat VERSION | tr -d '[:space:]')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION"
+
+      - name: Verify CHANGELOG was updated
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          if ! grep -qF "## VERSION $VERSION" doc/CHANGELOG.md; then
+            echo "::error::CHANGELOG.md does not contain '## VERSION $VERSION' header."
+            echo "::error::Did you forget to update the CHANGELOG on dev?"
+            exit 1
+          fi
+          echo "CHANGELOG.md contains version $VERSION"
+
+      - name: Check if tag already exists
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          if git rev-parse "$VERSION" >/dev/null 2>&1; then
+            echo "::error::Tag $VERSION already exists. Did you forget to bump the version/changelog on dev?"
+            exit 1
+          fi
+          echo "Tag $VERSION does not yet exist. Proceeding with promotion."
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Verify trunk can be fast-forwarded to match dev
+        run: |
+          git checkout trunk
+          # Check if trunk is an ancestor of dev
+          if ! git merge-base --is-ancestor trunk dev; then
+            echo "::error::Cannot fast-forward trunk to match dev. Trunk has commits not in dev."
+            echo "::error::This usually means changes were merged directly to trunk instead of through dev."
+            echo "::error::You may need to merge trunk back into dev first."
+            exit 1
+          fi
+          echo "Trunk can be fast-forwarded to match dev"
+
+      - name: Fast-forward trunk to dev
+        run: |
+          git merge --ff-only dev
+
+      - name: Push trunk and tag
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          git tag -a "$VERSION" -m "Release $VERSION"
+          git push --atomic origin trunk "$VERSION"
+
+      - name: Summary
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "Successfully promoted dev to trunk and tagged $VERSION"
