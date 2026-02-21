@@ -41,7 +41,9 @@ CFLAGS += -I/opt/homebrew/include
 CXXFLAGS += -I/opt/homebrew/include
 LDFLAGS += -L/opt/homebrew/lib
 endif
-CFLAGS += -I./xsimd/include
+ifeq ($(have_xsimd),yes)
+CFLAGS += -DHAVE_XSIMD
+endif
 
 # Uncomment to apply ASAN to libmerc (do not use in production)
 # TODO: make a global change: either compile everything with ASAN (both make and

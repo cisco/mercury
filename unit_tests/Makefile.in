@@ -35,7 +35,10 @@ LDFLAGS += --coverage
 endif
 
 CFLAGS += -UNDEBUG
-CFLAGS += -march=native -I../src/libmerc/xsimd/include
+CFLAGS += -march=native
+ifeq ($(have_xsimd),yes)
+CFLAGS += -DHAVE_XSIMD
+endif
 export LD_LIBRARY_PATH =../src/libmerc
 
 LIBMERC_FOLDER = ../src/libmerc/

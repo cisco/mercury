@@ -58,6 +58,12 @@ AC_CHECK_HEADERS([sys/ioctl.h])
 AC_CHECK_HEADERS([sys/socket.h])
 AC_CHECK_HEADERS([sys/time.h])
 AC_CHECK_HEADERS([x86intrin.h])
+AC_LANG_PUSH([C++])
+AC_CHECK_HEADERS([xsimd/xsimd.hpp],
+    [AC_SUBST([HAVE_XSIMD],[yes])
+     AC_DEFINE([HAVE_XSIMD], [1], [Define if xsimd is available.])],
+    [AC_SUBST([HAVE_XSIMD],[no])])
+AC_LANG_POP([C++])
 AC_CHECK_TYPES([ptrdiff_t])
 AC_FUNC_MALLOC
 AC_FUNC_MMAP

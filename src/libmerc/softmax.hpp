@@ -1,7 +1,14 @@
 #ifndef SOFTMAX_HPP
 #define SOFTMAX_HPP
 #include "result.h"
+#include <cmath>
+
+#if defined(HAVE_XSIMD)
 #include "xsimd/xsimd.hpp"
+
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86) || defined(__aarch64__) || defined(_M_ARM64)
+#define HAVE_XSIMD_DISPATCH 1
+#endif
 
 struct exp_functor {
     template <class Arch>
@@ -78,8 +85,7 @@ void exp_functor::operator()(Arch, std::vector<double>& process_score,
     }
 }
 
-#if defined(__i386__) || defined(__x86_64__)
-// Inform the compiler that NEON and AVX2 implementations are to be found in another compilation unit.
+#if defined(HAVE_XSIMD_DISPATCH) && (defined(__i386__) || defined(__x86_64__))
 extern template void exp_functor::operator()<xsimd::avx2>(xsimd::avx2, std::vector<double>& process_score,
     const std::vector<bool>& malware,
     const std::vector<attribute_result::bitset>& attr,
@@ -109,7 +115,7 @@ extern template void exp_functor::operator()<xsimd::sse2>(xsimd::sse2, std::vect
     double& score_sum_without_max,
     double& malware_prob,
     std::array<double, attribute_result::MAX_TAGS>& attr_prob);
-#elif defined(__aarch64__)
+#elif defined(HAVE_XSIMD_DISPATCH) && defined(__aarch64__)
 extern template void exp_functor::operator()<xsimd::neon64>(xsimd::neon64, std::vector<double>& process_score,
     const std::vector<bool>& malware,
     const std::vector<attribute_result::bitset>& attr,
@@ -121,18 +127,18 @@ extern template void exp_functor::operator()<xsimd::neon64>(xsimd::neon64, std::
     std::array<double, attribute_result::MAX_TAGS>& attr_prob);
 #endif
 
-
 // Create the dispatching function, specifying the architectures we want to target.
-#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
+#if defined(HAVE_XSIMD_DISPATCH) && (defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86))
 #ifdef _WIN32
 using simd_arch_list = xsimd::arch_list<xsimd::sse2>;
 #else
 using simd_arch_list = xsimd::arch_list<xsimd::avx2, xsimd::avx, xsimd::sse2>;
 #endif
-#elif defined(__aarch64__) || defined(_M_ARM64)
+#elif defined(HAVE_XSIMD_DISPATCH) && (defined(__aarch64__) || defined(_M_ARM64))
 using simd_arch_list = xsimd::arch_list<xsimd::neon64>;
 #endif
 
+#if defined(HAVE_XSIMD_DISPATCH)
 static inline xsimd::detail::dispatcher<exp_functor, simd_arch_list>& get_dispatched() {
     static xsimd::detail::dispatcher<exp_functor, simd_arch_list> dispatched =
         xsimd::dispatch<simd_arch_list>(exp_functor{});
@@ -153,7 +159,15 @@ static inline bool check_simd() {
 
     return is_simd_available;
 }
+#endif // HAVE_XSIMD_DISPATCH
 
+#endif // HAVE_XSIMD
+
+// When xsimd is absent or the platform has no dispatch backend,
+// provide a fallback check_simd() that always returns false.
+#if !defined(HAVE_XSIMD) || !defined(HAVE_XSIMD_DISPATCH)
+static inline bool check_simd() { return false; }
+#endif
 
 template <typename floating_point_type, size_t MAX_TAGS>
 inline void softmax(std::vector<floating_point_type> &process_score,
@@ -167,26 +181,28 @@ inline void softmax(std::vector<floating_point_type> &process_score,
                     std::array<floating_point_type, MAX_TAGS> &attr_prob
                     )
 {
+#if defined(HAVE_XSIMD) && defined(HAVE_XSIMD_DISPATCH)
         if (check_simd()) {
             auto dispatched = get_dispatched();
             dispatched(process_score, malware, attr, max_score, score_sum, index_max, score_sum_without_max, malware_prob, attr_prob);
-        } else {
-            //
-            // No SIMD instruction set is available, so compute softmax with standard C++
-            //
-            for (uint64_t i = 0; i < process_score.size(); ++i) {
-                process_score[i] = expf((float)(process_score[i] - max_score));
-                score_sum += process_score[i];
-                if (i != index_max) {
-                    score_sum_without_max += process_score[i];
-                }
-                if (malware[i]) {
-                    malware_prob += process_score[i];
-                }
-                for (int j = 0; j < attribute_result::MAX_TAGS; j++) {
-                    if (attr[i][j]) {
-                        attr_prob[j] += process_score[i];
-                    }
+            return;
+        }
+#endif
+        //
+        // No SIMD instruction set is available, so compute softmax with standard C++
+        //
+        for (uint64_t i = 0; i < process_score.size(); ++i) {
+            process_score[i] = expf((float)(process_score[i] - max_score));
+            score_sum += process_score[i];
+            if (i != index_max) {
+                score_sum_without_max += process_score[i];
+            }
+            if (malware[i]) {
+                malware_prob += process_score[i];
+            }
+            for (int j = 0; j < attribute_result::MAX_TAGS; j++) {
+                if (attr[i][j]) {
+                    attr_prob[j] += process_score[i];
                 }
             }
         }

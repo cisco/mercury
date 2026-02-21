@@ -15,7 +15,10 @@ else
 	FLAGS = -DOPENSSL_LEGACY
 endif
 
-FLAGS += -I../../src/libmerc/xsimd/include -O3
+FLAGS += -O3
+ifeq ($(have_xsimd),yes)
+FLAGS += -DHAVE_XSIMD
+endif
 
 ifeq ($(is_macos_arm),yes)
 CFLAGS += -I/opt/homebrew/include

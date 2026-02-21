@@ -79,7 +79,9 @@ endif
 CAP        = cap_net_raw,cap_net_admin,cap_dac_override+eip
 EUID       = $(id -u)
 
-CFLAGS += -I./libmerc/xsimd/include
+ifeq ($(have_xsimd),yes)
+CFLAGS += -DHAVE_XSIMD
+endif
 # OpenSSL 3.0 is default (no flag needed)
 ifeq ($(openssl_v3_0_or_newer),yes)
 # No flag for OpenSSL 3.0+ (default)
