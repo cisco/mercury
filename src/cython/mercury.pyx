@@ -76,6 +76,7 @@ cdef extern from "../libmerc/libmerc.h":
     stateful_pkt_proc* mercury_packet_processor_construct(mercury_context mc)
     void mercury_packet_processor_destruct(mercury_packet_processor mpp)
     int mercury_finalize(mercury_context mc)
+    void *mercury_get_classifier(mercury_context mc)
 
     # get analysis context
     analysis_context *mercury_packet_processor_get_analysis_context(mercury_packet_processor processor,
@@ -121,9 +122,7 @@ cdef extern from "../libmerc/result.h":
 
 
 cdef extern from "../libmerc/analysis.h":
-    classifier *analysis_init_from_archive(int verbosity, const char *archive_name, const uint8_t *enc_key, enc_key_type key_type,
-                                           float fp_proc_threshold, float proc_dst_threshold, bool report_os);
-    cdef struct common_data:
+    cdef cppclass common_data:
         attribute_names attr_name;
 
     cdef cppclass classifier:
@@ -313,13 +312,7 @@ cdef class Mercury:
         self.default_ts.tv_sec = 0
         self.default_ts.tv_nsec = 0
 
-        cdef char* resources_c
-        cdef enc_key_type ekt
-        if do_analysis and resources != b'':
-            resources_c = resources
-            ekt = enc_key_type_none
-            self.clf = analysis_init_from_archive(0, resources_c, NULL, ekt, 0.0, 0.0, False)
-
+        self.clf = NULL
         self.mercury_init()
 
 
@@ -329,6 +322,8 @@ cdef class Mercury:
         if self.mercury_context == NULL:
             print('error: mercury_init() failed')
             return 1
+        self.clf = <classifier *>mercury_get_classifier(<mercury_context>self.mercury_context)
+        self.do_analysis = (self.clf != NULL)
 
         self.mpp = mercury_packet_processor_construct(<mercury_context>self.mercury_context)
         if self.mpp == NULL:
@@ -436,12 +431,12 @@ cdef class Mercury:
 
         cdef analysis_result ar = ac.result
 
-        if fp_string.startswith('tls'):
+        if self.clf != NULL and fp_string.startswith('tls'):
             is_faketls = self.check_faketls(fp_string)
             if is_faketls:
                 self.clf.set_faketls_attribute(ar)
 
-        if ar.max_mal and fp_string.startswith('tls'):
+        if self.clf != NULL and ar.max_mal and fp_string.startswith('tls'):
             self.clf.set_enc_channel_attribute(ar)
 
         if result['fingerprint_info']['status'] != 'unlabled':
@@ -459,7 +454,7 @@ cdef class Mercury:
 
     cpdef dict perform_analysis_common(self, str fp_str, str server_name, str dst_ip, int dst_port, str user_agent=None,
                                        dict weights=None):
-        if not self.do_analysis:
+        if self.clf == NULL:
             print(f'error: classifier not loaded (is do_analysis set to True?)')
             return None
 
@@ -519,7 +514,7 @@ cdef class Mercury:
 
 
     cpdef dict perform_detailed_analysis_common(self, str fp_str, str server_name, str dst_ip, int dst_port, str user_agent=None):
-        if not self.do_analysis:
+        if self.clf == NULL:
             print(f'error: classifier not loaded (is do_analysis set to True?)')
             return None
 
@@ -844,8 +839,13 @@ cdef class Mercury:
 
 
     cpdef int mercury_finalize(self):
-        mercury_packet_processor_destruct(<mercury_packet_processor>self.mpp)
+        if self.mpp != NULL:
+            mercury_packet_processor_destruct(<mercury_packet_processor>self.mpp)
+            self.mpp = NULL
         cdef int retval = mercury_finalize(<mercury_context>self.mercury_context)
+        self.mercury_context = NULL
+        self.clf = NULL
+        self.do_analysis = False
         return retval
 
 

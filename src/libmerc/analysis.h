@@ -76,10 +76,39 @@ struct common_data {
     bool doh_enabled = false;
     bool domain_faking_enabled = false;
 
-    void initialize_behavioral_detections() {
-        if (attr_name.is_accepting_new_names()) {
+    void reserve_non_classifier_attribute_indices() {
+        if (res_proxy_idx == -1) {
             res_proxy_idx = attr_name.get_index("residential_proxy");
-            attr_name.stop_accepting_new_names();
+        }
+        if (exposed_creds_plaintext_idx == -1) {
+            exposed_creds_plaintext_idx = attr_name.get_index("exposed_credentials_plaintext");
+        }
+        if (exposed_creds_token_idx == -1) {
+            exposed_creds_token_idx = attr_name.get_index("exposed_credentials_token");
+        }
+        if (exposed_creds_derived_idx == -1) {
+            exposed_creds_derived_idx = attr_name.get_index("exposed_credentials_derived");
+        }
+        if (non_pqc_idx == -1) {
+            non_pqc_idx = attr_name.get_index("cnsa_2_0_non_conformant");
+        }
+        if (non_nist_idx == -1) {
+            non_nist_idx = attr_name.get_index("nist_sp_800_52_2_non_conformant");
+        }
+    }
+
+    void reserve_classifier_attribute_indices() {
+        if (doh_idx == -1) {
+            doh_idx = attr_name.get_index("encrypted_dns");
+        }
+        if (enc_channel_idx == -1) {
+            enc_channel_idx = attr_name.get_index("encrypted_channel");
+        }
+        if (domain_faking_idx == -1) {
+            domain_faking_idx = attr_name.get_index("domain_faking");
+        }
+        if (faketls_idx == -1) {
+            faketls_idx = attr_name.get_index("faketls");
         }
     }
 };
@@ -407,12 +436,8 @@ class classifier {
     std::unordered_map<std::string, std::pair<uint32_t, size_t>> fp_count_and_format;
 
     bool disabled = false;   // if the classfier has not been initialised or disabled
+    common_data *common = nullptr;
 public:
-    // the common object holds data that is common across all
-    // fingerprint-specific classifiers, and is used by those
-    // classifiers
-    //
-    common_data common;
 
 
     static fingerprint_type get_fingerprint_type(const std::string &s) {
@@ -524,13 +549,13 @@ public:
     bool check_additional_attributes_util(analysis_result &result, const char* server_name, const char* dst_ip) {
 
         bool attr_set = false;
-        if (common.doh_enabled && ((common.doh_watchlist.contains(server_name) || common.doh_watchlist.contains_addr(dst_ip)))) {
-            result.attr.set_attr(common.doh_idx, 1.0);
+        if (common->doh_enabled && ((common->doh_watchlist.contains(server_name) || common->doh_watchlist.contains_addr(dst_ip)))) {
+            result.attr.set_attr(common->doh_idx, 1.0);
             attr_set = true;
         }
 
-        if (common.domain_faking_enabled && subnets.is_domain_faking(server_name, dst_ip)) {
-            result.attr.set_attr(common.domain_faking_idx, 1.0);
+        if (common->domain_faking_enabled && subnets.is_domain_faking(server_name, dst_ip)) {
+            result.attr.set_attr(common->domain_faking_idx, 1.0);
             attr_set = true;
         }
 
@@ -538,11 +563,11 @@ public:
     }
 
     void set_faketls_attribute(analysis_result &result) {
-        result.attr.set_attr(common.faketls_idx, 1.0);
+        result.attr.set_attr(common->faketls_idx, 1.0);
     }
 
     void set_enc_channel_attribute(analysis_result &result) {
-        result.attr.set_attr(common.enc_channel_idx, result.malware_prob);
+        result.attr.set_attr(common->enc_channel_idx, result.malware_prob);
     }
 
     void process_watchlist_line(std::string &line_str) {
@@ -667,7 +692,7 @@ public:
             fingerprint_data *fp_data = new fingerprint_data(fp["process_info"],
                                                              os_dictionary,
                                                              &subnets,
-                                                             &common,
+                                                             common,
                                                              MALWARE_DB,
                                                              total_count,
                                                              report_os,
@@ -724,7 +749,7 @@ public:
     }
 
     const common_data &get_common_data() const {
-        return common;
+        return *common;
     }
 
     size_t fetch_qualifier_count (std::string version_str) const {
@@ -791,39 +816,12 @@ public:
                float fp_proc_threshold,
                float proc_dst_threshold,
                bool report_os,
-               bool minimize_ram) : os_dictionary{}, subnets{}, fpdb{}, resource_version{} {
+               bool minimize_ram,
+               common_data &shared_common_data) : os_dictionary{}, subnets{}, fpdb{}, resource_version{}, common{&shared_common_data} {
         if (!check_simd()) {
             printf_err(log_debug, "No SIMD instruction set available\n");
         }
-
-        // reserve attribute for encrypted_dns watchlist
-        //
-        common.doh_idx = common.attr_name.get_index("encrypted_dns");
-
-        // reserve attribute for residential_proxy detection
-        //
-        common.res_proxy_idx = common.attr_name.get_index("residential_proxy");
-
-        // reserve attribute for encrypted_channel
-        //
-        common.enc_channel_idx = common.attr_name.get_index("encrypted_channel");
-
-        // reserve attribute for domain_faking
-        //
-        common.domain_faking_idx = common.attr_name.get_index("domain_faking");
-
-        // reserve attribute for faketls
-        //
-        common.faketls_idx = common.attr_name.get_index("faketls");
-
-        // reserve attributes for exposed credential detections
-        common.exposed_creds_plaintext_idx = common.attr_name.get_index("exposed_credentials_plaintext");
-        common.exposed_creds_token_idx = common.attr_name.get_index("exposed_credentials_token");
-        common.exposed_creds_derived_idx = common.attr_name.get_index("exposed_credentials_derived");
-
-        // reserve attributes for crypto assessments
-        common.non_pqc_idx = common.attr_name.get_index("cnsa_2_0_non_conformant");
-        common.non_nist_idx = common.attr_name.get_index("nist_sp_800_52_2_non_conformant");
+        common->reserve_classifier_attribute_indices();
 
         // by default, we expect that tls fingerprints will be present in the resource file
         //
@@ -909,7 +907,7 @@ public:
                     got_pyasn_db = true;
                 } else if (name == "doh-watchlist.txt") {
                     while (archive.getline(line_str)) {
-                        common.doh_watchlist.process_line(line_str);
+                        common->doh_watchlist.process_line(line_str);
                     }
                     got_doh_watchlist = true;
                 } else if (name == "domain-mappings.db") {
@@ -960,14 +958,14 @@ public:
         subnets.process_domain_mappings_final_v6();
 
         if (got_domain_faking_subnets) {
-            common.domain_faking_enabled = true;
+            common->domain_faking_enabled = true;
         }
         else {
             printf_err(log_debug, "Domain mappings not found in resource archive, disabling Domain-Faking detection\n");
         }
 
         if (got_doh_watchlist) {
-            common.doh_enabled = true;
+            common->doh_enabled = true;
         }
         else {
             printf_err(log_debug, "Encrypted-DNS watchlist not found in resource archive, disabling Encrypted-DNS detection\n");
@@ -1144,7 +1142,7 @@ public:
         // check for encrypted_channel
         //
         if (result.max_mal && fp.get_type() == fingerprint_type_tls) {
-            result.attr.set_attr(common.enc_channel_idx, result.malware_prob);
+            result.attr.set_attr(common->enc_channel_idx, result.malware_prob);
         }
 
         return true;
@@ -1173,6 +1171,7 @@ inline classifier *analysis_init_from_archive([[maybe_unused]] int verbosity,
                                        const float fp_proc_threshold,
                                        const float proc_dst_threshold,
                                        const bool report_os,
+                                       common_data *common_data_ptr,
                                        const bool minimize_ram=false) {
 
     if (enc_key != NULL || key_type != enc_key_type_none) {
@@ -1182,9 +1181,12 @@ inline classifier *analysis_init_from_archive([[maybe_unused]] int verbosity,
     if (archive_name == nullptr) {
         return nullptr;
     }
+    if (common_data_ptr == nullptr) {
+        return nullptr;
+    }
 
     encrypted_compressed_archive archive{archive_name, enc_key}; // TODO: key type
-    return new classifier(archive, fp_proc_threshold, proc_dst_threshold, report_os, minimize_ram);
+    return new classifier(archive, fp_proc_threshold, proc_dst_threshold, report_os, minimize_ram, *common_data_ptr);
 }
 
 

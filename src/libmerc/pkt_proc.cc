@@ -1267,9 +1267,6 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
                               (std::holds_alternative<tls_client_hello>(x) ||
                                std::holds_alternative<tls_server_hello_and_certificate>(x)))
                              || (truncated_quic && std::holds_alternative<quic_init>(x));
-        if (global_vars.do_analysis && !analysis.result.attr.is_initialized() && c) {
-            analysis.result.attr.initialize(&(c->get_common_data().attr_name.value()), c->get_common_data().attr_name.get_names_char());
-        }
         if (global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
 
             output_analysis = std::visit(do_analysis{k, analysis, c}, x);
@@ -1296,12 +1293,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
 
         bool output_nbd = false;
         if (global_vars.network_behavioral_detections) {
-            if (!analysis.result.attr.is_initialized()) {
-                nbd_common_data.initialize_behavioral_detections();
-                analysis.result.attr.initialize(&(nbd_common_data.attr_name.value()),nbd_common_data.attr_name.get_names_char());
-            }
-
-            output_nbd = std::visit(do_network_behavioral_detections{k, analysis, c, nbd_common_data}, x);
+            output_nbd = std::visit(do_network_behavioral_detections{k, analysis, c, attribute_common_data}, x);
         }
 
 
@@ -1313,12 +1305,12 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         }
         std::visit(write_metadata{record, global_vars.metadata_output, global_vars.certs_json_output, global_vars.dns_json_output}, x);
 
-        if (c && !crypto_policies.empty() && !truncated_tls) {
+        if (!crypto_policies.empty() && !truncated_tls) {
             crypto_assess_result assessment_result = std::visit(do_crypto_assessment{crypto_policies, record}, x);
             output_attr = set_crypto_assessment_attr(assessment_result) ? true : output_attr;
         }
 
-        if (c && exposed_creds) {
+        if (exposed_creds) {
             exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
             output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
         }
@@ -1816,33 +1808,27 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             std::visit(do_snmp_oid_observation{k, mq}, x);
         }
         std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
-        if (global_vars.do_analysis && !analysis.result.attr.is_initialized() && c) {
-            analysis.result.attr.initialize(&(c->get_common_data().attr_name.value()), c->get_common_data().attr_name.get_names_char());
-        }
         if (global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
 
-            // re-initialize the structure that holds analysis results
-            //
-            analysis.result.reinit();
             bool output_analysis = std::visit(do_analysis{k, analysis, c}, x);
 
             // check for additional classifier agnostic attributes like encrypted dns and domain-faking
             //
             output_attr = (c && c->check_additional_attributes(analysis)) ? true : output_attr;
 
-            if (c && exposed_creds) {
+            if (exposed_creds) {
                 exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
                 output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
             }
 
-            if (c && !crypto_policies.empty() && !truncated_tls) {
+            if (!crypto_policies.empty() && !truncated_tls) {
                 crypto_assess_result assessment_result = std::visit(do_crypto_assessment{crypto_policies}, x);
                 output_attr = set_crypto_assessment_attr(assessment_result) ? true : output_attr;
             }
 
             bool output_nbd = false;
             if (global_vars.network_behavioral_detections) {
-                output_nbd = std::visit(do_network_behavioral_detections{k, analysis, c, nbd_common_data}, x);
+                output_nbd = std::visit(do_network_behavioral_detections{k, analysis, c, attribute_common_data}, x);
             }
 
             // note: we only perform observations when analysis is
@@ -1875,19 +1861,13 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             bool output_nbd = false;
 
             if (global_vars.network_behavioral_detections) {
-                analysis.result.reinit();
-                if (!analysis.result.attr.is_initialized()) {
-                    nbd_common_data.initialize_behavioral_detections();
-                    analysis.result.attr.initialize(&(nbd_common_data.attr_name.value()),nbd_common_data.attr_name.get_names_char());
-                }
-
-                output_nbd = std::visit(do_network_behavioral_detections{k, analysis, c, nbd_common_data}, x);
+                output_nbd = std::visit(do_network_behavioral_detections{k, analysis, c, attribute_common_data}, x);
             }
-            if (c && !crypto_policies.empty() && !truncated_tls) {
+            if (!crypto_policies.empty() && !truncated_tls) {
                 crypto_assess_result crypto_result = std::visit(do_crypto_assessment{crypto_policies}, x);
                 output_attr = set_crypto_assessment_attr(crypto_result) ? true : output_attr;
             }
-            if (c && exposed_creds) {
+            if (exposed_creds) {
                 exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
                 output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
             }

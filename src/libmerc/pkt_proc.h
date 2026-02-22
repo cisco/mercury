@@ -52,6 +52,7 @@ enum linktype : uint16_t {
 struct mercury {
     struct global_config global_vars;
     std::unique_ptr<data_aggregator> aggregator{nullptr};
+    struct common_data attribute_common_data;
     classifier *c;
     class traffic_selector selector;
 
@@ -60,17 +61,24 @@ struct mercury {
                 aggregator{ global_vars.do_stats
                             ? (std::make_unique<data_aggregator>(global_vars.max_stats_entries, global_vars.stats_blocking))
                             : nullptr },
+                attribute_common_data{},
                 c{nullptr},
                 selector{global_vars.protocols} {
+        attribute_common_data.reserve_non_classifier_attribute_indices();
+        const char *resource_file = global_vars.get_resource_file();
+        if (global_vars.do_analysis && resource_file == nullptr) {
+            throw std::runtime_error("error: do_analysis requires a resource archive");
+        }
         if (global_vars.minimize_ram) {
              printf_err(log_info, "Initializing mercury in ram minimized mode\n");
         }
-        if (global_vars.do_analysis and (global_vars.get_resource_file() != nullptr)) {
-            c = analysis_init_from_archive(verbosity, global_vars.get_resource_file(),
+        if (global_vars.do_analysis) {
+            c = analysis_init_from_archive(verbosity, resource_file,
                                            vars->enc_key, vars->key_type,
                                            global_vars.fp_proc_threshold,
                                            global_vars.proc_dst_threshold,
                                            global_vars.report_os,
+                                           &attribute_common_data,
                                            global_vars.minimize_ram);
             if (c == nullptr) {
                 throw std::runtime_error("error: analysis_init_from_archive() failed"); // failure
@@ -87,14 +95,24 @@ struct mercury {
             printf_err(log_info, "setting quic fingerprint format to match resource file (format: %zu)\n", format);
 
             if (c->is_disabled()) {
-                printf_err(log_debug, "classifier could not be initialized, disabling all protocols\n");
-                selector.disable_all();
+                printf_err(log_debug, "classifier could not be initialized, disabling analysis and keeping protocol parsing active\n");
+                analysis_finalize(c);
+                c = nullptr;
+                global_vars.do_analysis = false;
             }
         }
+        finalize_attribute_common_data();
     }
 
     ~mercury() {
         analysis_finalize(c);
+    }
+
+private:
+    void finalize_attribute_common_data() {
+        if (attribute_common_data.attr_name.is_accepting_new_names()) {
+            attribute_common_data.attr_name.stop_accepting_new_names();
+        }
     }
 };
 
@@ -103,7 +121,7 @@ struct stateful_pkt_proc {
     struct flow_table_tcp tcp_flow_table;
     struct tcp_initial_message_filter tcp_init_msg_filter;
     struct analysis_context analysis;
-    struct common_data nbd_common_data;
+    const struct common_data &attribute_common_data;
     class message_queue<event_msg> *mq;
     mercury_context m;
     classifier *c;        // TODO: change to reference
@@ -120,7 +138,7 @@ struct stateful_pkt_proc {
         tcp_flow_table{(unsigned int)prealloc_size},
         tcp_init_msg_filter{},
         analysis{},
-        nbd_common_data{},
+        attribute_common_data{mc->attribute_common_data},
         mq{nullptr},
         m{mc},
         c{mc->c},
@@ -142,7 +160,7 @@ struct stateful_pkt_proc {
 
         // set config and classifier to (refer to) context m
         // analysis requires `do_analysis` & `resources` to be set
-        if (c == nullptr && global_vars.do_analysis && global_vars.resources != nullptr) {
+        if (c == nullptr && global_vars.do_analysis) {
             throw std::runtime_error("error: classifier pointer is null");
         }
 
@@ -151,6 +169,8 @@ struct stateful_pkt_proc {
 
         //fprintf(stderr, "note: setting classifier to %p, setting global_vars to %p\n", (void *)m->c, (void *)&m->global_vars));
         // }
+
+        analysis.result.attr.initialize(&(attribute_common_data.attr_name.value()), attribute_common_data.attr_name.get_names_char());
 
         if (global_vars.do_stats) {
             ag = m->aggregator.get();
@@ -323,12 +343,8 @@ struct stateful_pkt_proc {
     }
 
     bool set_exposed_creds_attr(exposed_creds_type exposed_creds_res) {
-        if (!c) {
-            return false;
-        }
-
         if (!analysis.result.attr.is_initialized()) {
-            analysis.result.attr.initialize(&(c->get_common_data().attr_name.value()), c->get_common_data().attr_name.get_names_char());
+            return false;
         }
 
         switch (exposed_creds_res) {
@@ -336,13 +352,13 @@ struct stateful_pkt_proc {
                 // should we wait until we see auth packets?
                 return false;
             case exposed_creds_type::plaintext_password:
-                analysis.result.attr.set_attr(c->common.exposed_creds_plaintext_idx, 1.0);
+                analysis.result.attr.set_attr(attribute_common_data.exposed_creds_plaintext_idx, 1.0);
                 return true;
             case exposed_creds_type::password_derived:
-                analysis.result.attr.set_attr(c->common.exposed_creds_derived_idx, 1.0);
+                analysis.result.attr.set_attr(attribute_common_data.exposed_creds_derived_idx, 1.0);
                 return true;
             case exposed_creds_type::plaintext_token:
-                analysis.result.attr.set_attr(c->common.exposed_creds_token_idx, 1.0);
+                analysis.result.attr.set_attr(attribute_common_data.exposed_creds_token_idx, 1.0);
                 return true;
         }
 
@@ -350,22 +366,18 @@ struct stateful_pkt_proc {
     }
 
     bool set_crypto_assessment_attr(const crypto_assess_result &assessment_result) {
-        if (!c) {
-            return false;
-        }
-
         if (!analysis.result.attr.is_initialized()) {
-            analysis.result.attr.initialize(&(c->get_common_data().attr_name.value()), c->get_common_data().attr_name.get_names_char());
+            return false;
         }
 
         bool output_attr = false;
 
         if (assessment_result.test(crypto_policy::quantum_safe::result_idx)) {
-            analysis.result.attr.set_attr(c->common.non_pqc_idx, 1.0);
+            analysis.result.attr.set_attr(attribute_common_data.non_pqc_idx, 1.0);
             output_attr = true;
         }
         if (assessment_result.test(crypto_policy::nist_sp_800_52::result_idx)) {
-            analysis.result.attr.set_attr(c->common.non_nist_idx, 1.0);
+            analysis.result.attr.set_attr(attribute_common_data.non_nist_idx, 1.0);
             output_attr = true;
         }
 

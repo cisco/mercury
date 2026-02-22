@@ -81,6 +81,13 @@ const char *mercury_get_resource_version(struct mercury *mc) {
     return nullptr;
 }
 
+void *mercury_get_classifier(mercury_context mc) {
+    if (mc && mc->c) {
+        return mc->c;
+    }
+    return nullptr;
+}
+
 mercury_context mercury_init(const struct libmerc_config *vars, int verbosity) {
 
     mercury *m = nullptr;
