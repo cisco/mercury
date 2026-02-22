@@ -137,6 +137,9 @@ int mercury_finalize(mercury_context mc) {
 size_t mercury_packet_processor_write_json(mercury_packet_processor processor, void *buffer, size_t buffer_size, uint8_t *packet, size_t length, struct timespec* ts)
 {
     try {
+        if (processor == nullptr) {
+            return 0;
+        }
         return processor->write_json(buffer, buffer_size, packet, length, ts, processor->reassembler_ptr);
     }
     catch (std::exception &e) {
@@ -148,6 +151,9 @@ size_t mercury_packet_processor_write_json(mercury_packet_processor processor, v
 size_t mercury_packet_processor_write_json_linktype(mercury_packet_processor processor, void *buffer, size_t buffer_size, uint8_t *packet, size_t length, struct timespec* ts, uint16_t linktype)
 {
     try {
+        if (processor == nullptr) {
+            return 0;
+        }
         return processor->write_json(buffer, buffer_size, packet, length, ts, processor->reassembler_ptr, linktype);
     }
     catch (std::exception &e) {
@@ -159,6 +165,9 @@ size_t mercury_packet_processor_write_json_linktype(mercury_packet_processor pro
 const struct analysis_context *mercury_packet_processor_ip_get_analysis_context(mercury_packet_processor processor, uint8_t *packet, size_t length, struct timespec* ts)
 {
     try {
+        if (processor == nullptr) {
+            return NULL;
+        }
         if (processor->analyze_ip_packet(packet, length, ts, processor->reassembler_ptr)) {
             if (processor->analysis.result.is_valid()) {
                 return &processor->analysis;
@@ -174,6 +183,9 @@ const struct analysis_context *mercury_packet_processor_ip_get_analysis_context(
 const struct analysis_context *mercury_packet_processor_get_analysis_context(mercury_packet_processor processor, uint8_t *packet, size_t length, struct timespec* ts)
 {
     try {
+        if (processor == nullptr) {
+            return NULL;
+        }
         if (processor->analyze_eth_packet(packet, length, ts, processor->reassembler_ptr)) {
             if (processor->analysis.result.is_valid()) {
                 return &processor->analysis;
@@ -195,6 +207,9 @@ int mercury_packet_processor_get_analysis_context_fdc(
     size_t *buffer_size,
     const struct analysis_context **context) {
     try {
+        if (processor == nullptr) {
+            return fdc_return::INVALID_INPUT;
+        }
         return processor->analyze_payload_fdc(k, payload, len, buffer, buffer_size, context);
     }
     catch (std::exception &e) {
@@ -207,6 +222,9 @@ const struct analysis_context *mercury_packet_processor_get_analysis_context_lin
 {
     try
     {
+        if (processor == nullptr) {
+            return NULL;
+        }
         if (processor->analyze_packet(packet, length, ts, processor->reassembler_ptr, linktype)) {
             if (processor->analysis.result.is_valid()) {
                 return &processor->analysis;
@@ -222,6 +240,9 @@ const struct analysis_context *mercury_packet_processor_get_analysis_context_lin
 
 bool mercury_packet_processor_more_pkts_needed(mercury_packet_processor processor) {
 try {
+        if (processor == nullptr) {
+            return false;
+        }
         return processor->analysis.flow_state_pkts_needed;
     }
     catch (std::exception &e) {

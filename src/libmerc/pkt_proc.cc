@@ -1519,7 +1519,7 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
                                            size_t *buffer_size,
                                            [[maybe_unused]]const struct analysis_context** context) {
 
-    if (k == nullptr or payload == nullptr or buffer == nullptr) {
+    if (k == nullptr or payload == nullptr or buffer == nullptr or buffer_size == nullptr) {
         return fdc_return::INVALID_INPUT;
     }
 

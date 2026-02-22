@@ -66,39 +66,39 @@ struct mercury {
                 selector{global_vars.protocols} {
         attribute_common_data.reserve_non_classifier_attribute_indices();
         const char *resource_file = global_vars.get_resource_file();
-        if (global_vars.do_analysis && resource_file == nullptr) {
-            throw std::runtime_error("error: do_analysis requires a resource archive");
-        }
         if (global_vars.minimize_ram) {
              printf_err(log_info, "Initializing mercury in ram minimized mode\n");
         }
         if (global_vars.do_analysis) {
-            c = analysis_init_from_archive(verbosity, resource_file,
-                                           vars->enc_key, vars->key_type,
-                                           global_vars.fp_proc_threshold,
-                                           global_vars.proc_dst_threshold,
-                                           global_vars.report_os,
-                                           &attribute_common_data,
-                                           global_vars.minimize_ram);
-            if (c == nullptr) {
-                throw std::runtime_error("error: analysis_init_from_archive() failed"); // failure
-            }
+            if (resource_file == nullptr) {
+                printf_err(log_warning, "do_analysis enabled but no resource archive was provided; classifier-dependent analysis disabled\n");
+            } else {
+                c = analysis_init_from_archive(verbosity, resource_file,
+                                               vars->enc_key, vars->key_type,
+                                               global_vars.fp_proc_threshold,
+                                               global_vars.proc_dst_threshold,
+                                               global_vars.report_os,
+                                               &attribute_common_data,
+                                               global_vars.minimize_ram);
+                if (c == nullptr) {
+                    printf_err(log_warning, "analysis_init_from_archive() failed; classifier-dependent analysis disabled\n");
+                } else {
+                    // set fingerprint formats to match those in the resource file
+                    //
+                    size_t format = c->get_tls_fingerprint_format();
+                    global_vars.fp_format.set_tls_fingerprint_format(format);
+                    printf_err(log_info, "setting tls fingerprint format to match resource file (format: %zu)\n", format);
 
-            // set fingerprint formats to match those in the resource file
-            //
-            size_t format = c->get_tls_fingerprint_format();
-            global_vars.fp_format.set_tls_fingerprint_format(format);
-            printf_err(log_info, "setting tls fingerprint format to match resource file (format: %zu)\n", format);
+                    format = c->get_quic_fingerprint_format();
+                    global_vars.fp_format.set_quic_fingerprint_format(format);
+                    printf_err(log_info, "setting quic fingerprint format to match resource file (format: %zu)\n", format);
 
-            format = c->get_quic_fingerprint_format();
-            global_vars.fp_format.set_quic_fingerprint_format(format);
-            printf_err(log_info, "setting quic fingerprint format to match resource file (format: %zu)\n", format);
-
-            if (c->is_disabled()) {
-                printf_err(log_debug, "classifier could not be initialized, disabling analysis and keeping protocol parsing active\n");
-                analysis_finalize(c);
-                c = nullptr;
-                global_vars.do_analysis = false;
+                    if (c->is_disabled()) {
+                        printf_err(log_debug, "classifier could not be initialized, disabling classifier-dependent analysis and keeping protocol parsing active\n");
+                        analysis_finalize(c);
+                        c = nullptr;
+                    }
+                }
             }
         }
         finalize_attribute_common_data();
@@ -158,11 +158,8 @@ struct stateful_pkt_proc {
             }
         }
 
-        // set config and classifier to (refer to) context m
-        // analysis requires `do_analysis` & `resources` to be set
-        if (c == nullptr && global_vars.do_analysis) {
-            throw std::runtime_error("error: classifier pointer is null");
-        }
+        // classifier may be unavailable if analysis resources are missing;
+        // protocol parsing and non-classifier analysis still proceed safely.
 
         // setting protocol based configuration option to output the raw features
         set_raw_features(global_vars.raw_features);
