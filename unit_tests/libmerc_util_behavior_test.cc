@@ -59,7 +59,7 @@ void test_pcap_file(const std::string& pcap_filename, int expected_total_lines,
     const std::string libmerc_util_path = "../src/libmerc_util";
     const std::string libmerc_so_path = "./debug-libs/libmerc_multiprotocol.so";
     const std::string pcap_file = "pcaps/" + pcap_filename;
-    const std::string resources_file = "xtra/resources/resources-mp.tgz";
+    const std::string resources_file = "../test/data/resources-test.tgz";
     const std::string l7_output_file = "test_l7_output_" + pcap_filename + ".json";
 
     // Check prerequisites
