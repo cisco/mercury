@@ -781,56 +781,56 @@ TEST_CASE_METHOD(LibmercTestFixture, "test exposed_creds attribute")
             "exposed_credentials_plaintext"    // check if exposed_credentials_plaintext attribute is present in the attributes array
         },
         {test_config{
-            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+            .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"all;exposed-creds"
             },
             .m_pc{"http_auth_bearer.pcap"}},
             "exposed_credentials_token"
         },
         {test_config{
-            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+            .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"all;exposed-creds"
             },
             .m_pc{"http_auth_digest.pcap"}},
             "exposed_credentials_derived"
         },
         {test_config{
-            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+            .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"all;exposed-creds"
             },
             .m_pc{"ftp_exposed_creds.pcap"}},
             "exposed_credentials_plaintext"
         },
         {test_config{
-            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+            .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"all;exposed-creds"
             },
             .m_pc{"redis_exposed_creds.pcap"}},
             "exposed_credentials_plaintext"
         },
         {test_config{
-            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+            .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"all;exposed-creds"
             },
             .m_pc{"ldap_exposed_creds.pcap"}},
             "exposed_credentials_plaintext"
         },
         {test_config{
-            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+            .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"all;exposed-creds"
             },
             .m_pc{"ldap_exposed_creds_derived.pcap"}},
             "exposed_credentials_derived"
         },
         {test_config{
-            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+            .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"all;exposed-creds"
             },
             .m_pc{"snmp_exposed_creds.pcap"}},
             "exposed_credentials_plaintext"
         },
         {test_config{
-            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+            .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"all;exposed-creds"
             },
             .m_pc{"snmp_exposed_creds_derived.pcap"}},
@@ -851,7 +851,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test exposed_creds with write_json and ana
 
     libmerc_config config{
         .do_analysis = false,
-        .resources = resources_mp_path,
+        .resources = resources_minimal_path,
         .packet_filter_cfg = (char *)"all;exposed-creds"
     };
 
@@ -890,7 +890,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test exposed_creds with analyze_ip_packet 
 
     libmerc_config config{
         .do_analysis = false,
-        .resources = resources_mp_path,
+        .resources = resources_minimal_path,
         .packet_filter_cfg = (char *)"all;exposed-creds"
     };
 
@@ -943,21 +943,21 @@ TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment attributes")
             "cnsa_2_0_non_conformant"    // psk_key_exchange_modes includes psk_ke
         },
         {test_config{
-            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+            .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"all;crypto-assess=default"
             },
             .m_pc{"tls_cnsa2_psk_short_binder.pcap"}},
             "cnsa_2_0_non_conformant"    // pre_shared_key binder length < 256 bits
         },
         {test_config{
-            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+            .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"all;crypto-assess=default"
             },
             .m_pc{"tls_cnsa2_psk_mlkem1024_missing.pcap"}},
             "cnsa_2_0_non_conformant"    // psk_dhe_ke without MLKEM1024 key_share
         },
         {test_config{
-            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+            .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"all;crypto-assess=default"
             },
             .m_pc{"nist_nc.pcap"}},
@@ -978,7 +978,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment skipped on truncate
 
     libmerc_config config{
         .do_analysis = true,
-        .resources = resources_mp_path,
+        .resources = resources_minimal_path,
         .packet_filter_cfg = (char *)"all;crypto-assess=default"
     };
 

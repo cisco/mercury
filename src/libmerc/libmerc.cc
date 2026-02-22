@@ -310,6 +310,10 @@ bool analysis_context_get_os_info(const struct analysis_context *ac, // input
 
 mercury_packet_processor mercury_packet_processor_construct(mercury_context mc) {
     try {
+        if (mc == nullptr) {
+            printf_err(log_err, "error: mercury context is null\n");
+            return NULL;
+        }
         stateful_pkt_proc *tmp = new stateful_pkt_proc{mc, 0};
         return tmp;
     }

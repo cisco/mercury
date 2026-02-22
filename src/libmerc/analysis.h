@@ -1080,7 +1080,9 @@ public:
                                             uint16_t dst_port, const char *user_agent) {
         auto perform_analysis_fn = [&](fingerprint_data *fp_data, fingerprint_status status) {
             if (fp_data == nullptr) {
-                return analysis_result{status};
+                analysis_result result{status};
+                result.attr.initialize(&(common->attr_name.value()), common->attr_name.get_names_char());
+                return result;
             }
             return fp_data->perform_analysis(server_name, dst_ip, dst_port, user_agent, status);
         };
@@ -1091,7 +1093,9 @@ public:
                                                               uint16_t dst_port, const char *user_agent) {
         auto perform_detailed_fn = [&](fingerprint_data *fp_data, fingerprint_status status) {
             if (fp_data == nullptr) {
-                return detailed_analysis_result{status};
+                detailed_analysis_result result{status};
+                result.attr.initialize(&(common->attr_name.value()), common->attr_name.get_names_char());
+                return result;
             }
             return fp_data->perform_detailed_analysis(server_name, dst_ip, dst_port, user_agent, status);
         };
@@ -1118,7 +1122,9 @@ public:
                                 new_ip_weight, new_sni_weight, new_ua_weight};
         auto perform_analysis_fn = [&](fingerprint_data *fp_data, fingerprint_status status) {
             if (fp_data == nullptr) {
-                return analysis_result{status};
+                analysis_result result{status};
+                result.attr.initialize(&(common->attr_name.value()), common->attr_name.get_names_char());
+                return result;
             }
             return fp_data->perform_analysis(server_name, dst_ip, dst_port, user_agent, status, weights);
         };
@@ -1135,9 +1141,13 @@ public:
         }
         if (std::find(fp_types.begin(), fp_types.end(), fp.get_type()) == fp_types.end()) {
             result = analysis_result(fingerprint_status_unanalyzed);
+            result.attr.initialize(&(common->attr_name.value()), common->attr_name.get_names_char());
             return true;  // not configured to analyze fingerprints of this type
         }
         result = this->perform_analysis(fp.string(), dc.sn_str, dc.dst_ip_str, dc.dst_port, dc.ua_str);
+        if (!result.attr.is_initialized()) {
+            result.attr.initialize(&(common->attr_name.value()), common->attr_name.get_names_char());
+        }
 
         // check for encrypted_channel
         //

@@ -33,7 +33,6 @@ public:
     typedef std::bitset<MAX_TAGS> bitset;
 
 private:
-
     attribute_result::bitset tags;
     std::array<long double, MAX_TAGS> prob_score;
     const std::vector<std::string> *tag_names;
@@ -100,6 +99,9 @@ public:
     }
 
     const struct attribute_context *get_attributes() {
+        if (!tag_names || !tag_names_char) {
+            return nullptr;
+        }
         for (ssize_t i = 0; (i < MAX_TAGS) && ((size_t)i < tag_names->size()); i++) {
             // if the attribute bit is not set, the probability score is 0
             if(!tags[i]) {
