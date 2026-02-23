@@ -60,8 +60,19 @@ AC_CHECK_HEADERS([sys/time.h])
 AC_CHECK_HEADERS([x86intrin.h])
 AC_LANG_PUSH([C++])
 AC_CHECK_HEADERS([xsimd/xsimd.hpp],
-    [AC_SUBST([HAVE_XSIMD],[yes])
-     AC_DEFINE([HAVE_XSIMD], [1], [Define if xsimd is available.])],
+    [# Header found; now verify version >= 9
+     AC_MSG_CHECKING([for xsimd version >= 9])
+     AC_COMPILE_IFELSE(
+        [AC_LANG_SOURCE([[
+#include <xsimd/xsimd.hpp>
+static_assert(XSIMD_VERSION_MAJOR >= 9, "xsimd version 9+ is required");
+]])],
+        [AC_MSG_RESULT([yes (>= 9)])
+         AC_SUBST([HAVE_XSIMD],[yes])
+         AC_DEFINE([HAVE_XSIMD], [1], [Define if xsimd >= 9 is available.])],
+        [AC_MSG_RESULT([no])
+         AC_MSG_WARN([xsimd found but version is too old (need 9+); xsimd support disabled])
+         AC_SUBST([HAVE_XSIMD],[no])])],
     [AC_SUBST([HAVE_XSIMD],[no])])
 AC_LANG_POP([C++])
 AC_CHECK_TYPES([ptrdiff_t])
