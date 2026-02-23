@@ -139,7 +139,7 @@ GENERAL OPTIONS
    --nonselected-tcp-data                # tcp data for nonselected traffic
    --nonselected-udp-data                # udp data for nonselected traffic
    --reassembly                          # reassemble protocol messages over multiple transport segments
-   --trial-decryption                    # try all known QUIC initial salts for unknown versions
+   --trial-decryption                    # try all combinations of QUIC initial salts for unknown versions
    [-l or --limit] l                     # rotate output file after l records
    --output-time=T                       # rotate output file after T seconds
    --dns-json                            # output DNS as JSON, not base64
