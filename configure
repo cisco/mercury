@@ -1378,8 +1378,8 @@ Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
   --with-xsimd-include=DIR
-                          Directory containing xsimd/xsimd.hpp (adds -I<DIR>
-                          to search path)
+                          Directory containing xsimd/xsimd.hpp (use instead of
+                          system xsimd)
 
 Some influential environment variables:
   CC          C compiler command
@@ -5038,8 +5038,8 @@ fi
 #   (default)                     auto-detect system xsimd, scalar fallback
 #   --disable-xsimd               force-disable xsimd support
 #   --enable-xsimd                require xsimd; error if not found
-#   --with-xsimd-include=DIR      add DIR to the header search path
-#                                 (DIR should contain xsimd/xsimd.hpp)
+#   --with-xsimd-include=DIR      use this path instead of system xsimd
+#                                 (should contain xsimd/xsimd.hpp)
 #
 # Examples:
 #   ./configure                                                  # auto-detect
@@ -5083,14 +5083,14 @@ fi
 # Detect the xsimd header-only SIMD library (version 9+).
 # Sets HAVE_XSIMD for Makefiles and config.h; used to enable
 # SIMD-accelerated classifier path in libmerc.
+HAVE_XSIMD=no
+
+
 
 if test "x$enable_xsimd" = xno
 then :
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: xsimd support disabled by --disable-xsimd" >&5
 printf "%s\n" "$as_me: xsimd support disabled by --disable-xsimd" >&6;}
-   HAVE_XSIMD=no
-
-
 else case e in #(
   e) # If user gave --with-xsimd-include=DIR, prepend it to CPPFLAGS
    _xsimd_saved_CPPFLAGS="$CPPFLAGS"
@@ -5129,14 +5129,8 @@ printf "%s\n" "yes (>= 9)" >&6; }
 
 printf "%s\n" "#define HAVE_XSIMD 1" >>confdefs.h
 
-         if test -n "$xsimd_include_dir"
-then :
-  XSIMD_INCLUDE=$xsimd_include_dir
+         XSIMD_INCLUDE=$xsimd_include_dir
 
-else case e in #(
-  e)  ;;
-esac
-fi
 else case e in #(
   e) { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
@@ -5147,10 +5141,7 @@ else case e in #(
   e) { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: xsimd found but version is too old (need 9+); xsimd support disabled" >&5
 printf "%s\n" "$as_me: WARNING: xsimd found but version is too old (need 9+); xsimd support disabled" >&2;} ;;
 esac
-fi
-         HAVE_XSIMD=no
-
-          ;;
+fi ;;
 esac
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
@@ -5162,10 +5153,7 @@ else case e in #(
   e) { printf "%s\n" "$as_me:${as_lineno-$LINENO}: xsimd not found; classifier will use scalar fallback" >&5
 printf "%s\n" "$as_me: xsimd not found; classifier will use scalar fallback" >&6;} ;;
 esac
-fi
-      HAVE_XSIMD=no
-
-       ;;
+fi ;;
 esac
 fi
 
