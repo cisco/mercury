@@ -1,3 +1,6 @@
+// Explicit instantiation of exp_functor for NEON64 (AArch64).
+// This file compiles as an empty translation unit when HAVE_XSIMD is
+// not defined (i.e., xsimd is not installed); that is intentional.
 #include "softmax.hpp"
 #if defined(HAVE_XSIMD)
 template void exp_functor::operator()<xsimd::neon64>(xsimd::neon64, std::vector<double>& process_score,

@@ -257,7 +257,12 @@ set(libmerc_src
     bencode.cc
 )
 
-# Platform-specific SIMD files
+# Platform-specific SIMD softmax files.  Each file is compiled with
+# the corresponding arch flag (-msse2, -mavx, etc.) so that xsimd
+# emits the right instructions.  When MERCURY_HAVE_XSIMD is OFF the
+# HAVE_XSIMD preprocessor guard inside each file causes it to compile
+# as an empty translation unit, so it is safe to include them
+# unconditionally here.
 if(INTEL_PLATFORM)
     if(IS_WIN)
         list(APPEND libmerc_src
