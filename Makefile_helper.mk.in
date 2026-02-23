@@ -51,7 +51,7 @@ is_macos_arm = @IS_MACOS_ARM@
 platform = @PLATFORM@
 
 # The variable have_xsimd indicates if the xsimd header-only library is
-# available on the system, which enables SIMD-accelerated softmax
+# available on the system, which enables SIMD-accelerated classifier path
 #
 have_xsimd = @HAVE_XSIMD@
 

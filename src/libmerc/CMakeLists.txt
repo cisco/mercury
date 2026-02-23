@@ -229,7 +229,7 @@ else()
         endif()
         unset(CMAKE_REQUIRED_INCLUDES)
     else()
-        message(STATUS "xsimd not found; softmax will use scalar fallback")
+        message(STATUS "xsimd not found; classifier will use scalar fallback")
     endif()
 endif()
 

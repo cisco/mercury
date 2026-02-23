@@ -79,7 +79,7 @@ endif
 CAP        = cap_net_raw,cap_net_admin,cap_dac_override+eip
 EUID       = $(id -u)
 
-# Enable SIMD-accelerated softmax when xsimd is available on the system.
+# Enable SIMD-accelerated classifier path when xsimd is available on the system.
 ifeq ($(have_xsimd),yes)
 CFLAGS += -DHAVE_XSIMD
 endif

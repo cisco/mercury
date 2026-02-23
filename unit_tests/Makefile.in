@@ -36,7 +36,7 @@ endif
 
 CFLAGS += -UNDEBUG
 CFLAGS += -march=native
-# Enable SIMD-accelerated softmax when xsimd is available on the system.
+# Enable SIMD-accelerated classifier path when xsimd is available on the system.
 ifeq ($(have_xsimd),yes)
 CFLAGS += -DHAVE_XSIMD
 endif

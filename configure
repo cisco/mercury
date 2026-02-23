@@ -5012,7 +5012,7 @@ fi
 
 # Detect the xsimd header-only SIMD library (version 9+).
 # Sets HAVE_XSIMD for Makefiles and config.h; used to enable
-# SIMD-accelerated softmax in libmerc.
+# SIMD-accelerated classifier path in libmerc.
 ac_ext=cpp
 ac_cpp='$CXXCPP $CPPFLAGS'
 ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'

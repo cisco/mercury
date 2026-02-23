@@ -60,7 +60,7 @@ AC_CHECK_HEADERS([sys/time.h])
 AC_CHECK_HEADERS([x86intrin.h])
 # Detect the xsimd header-only SIMD library (version 9+).
 # Sets HAVE_XSIMD for Makefiles and config.h; used to enable
-# SIMD-accelerated softmax in libmerc.
+# SIMD-accelerated classifier path in libmerc.
 AC_LANG_PUSH([C++])
 AC_CHECK_HEADERS([xsimd/xsimd.hpp],
     [# Header found; now verify version >= 9

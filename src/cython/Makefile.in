@@ -17,7 +17,7 @@ else
 endif
 
 FLAGS += -O3
-# Enable SIMD-accelerated softmax when xsimd is available on the system.
+# Enable SIMD-accelerated classifier path when xsimd is available on the system.
 ifeq ($(have_xsimd),yes)
 FLAGS += -DHAVE_XSIMD
 endif
