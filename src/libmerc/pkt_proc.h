@@ -294,7 +294,8 @@ struct stateful_pkt_proc {
                           udp::ports ports,
                           bool is_new,
                           const struct key& k,
-                          udp &udp_pkt);
+                          udp &udp_pkt,
+                          bool trial_decryption);
 
     bool dump_pkt ();
 

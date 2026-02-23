@@ -1486,7 +1486,7 @@ class quic_init : public base_protocol {
 
 public:
 
-    quic_init(struct datum &d, quic_crypto_engine &quic_crypto_) : initial_packet{d}, quic_crypto{quic_crypto_}, crypto_buffer{}, hello{}, plaintext{}, decry_pkt{initial_packet,crypto_buffer}, pre_decrypted{false}, more_bytes_needed{0}, min_crypto_offset{UINT32_MAX} {
+    quic_init(struct datum &d, quic_crypto_engine &quic_crypto_, bool trial_decryption=false) : initial_packet{d}, quic_crypto{quic_crypto_}, crypto_buffer{}, hello{}, plaintext{}, decry_pkt{initial_packet,crypto_buffer}, pre_decrypted{false}, more_bytes_needed{0}, min_crypto_offset{UINT32_MAX} {
 
         // check reserved bits, if 0, try for decrypted quic packet
         //
@@ -1501,7 +1501,7 @@ public:
         // reset crypto buffer
         //
         crypto_buffer.reset();
-        plaintext = quic_crypto.decrypt(initial_packet);
+        plaintext = quic_crypto.decrypt(initial_packet, trial_decryption);
 
         // parse plaintext as a sequence of frames
         //

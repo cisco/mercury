@@ -52,6 +52,7 @@ char mercury_help[] =
     "   --nonselected-tcp-data                # tcp data for nonselected traffic\n"
     "   --nonselected-udp-data                # udp data for nonselected traffic\n"
     "   --reassembly                          # reassemble protocol messages over multiple transport segments\n"
+    "   --trial-decryption                    # try all known QUIC initial salts for unknown versions\n"
     "   [-l or --limit] l                     # rotate output file after l records\n"
     "   --output-time=T                       # rotate output file after T seconds\n"
     "   --dns-json                            # output DNS as JSON, not base64\n"
@@ -300,7 +301,7 @@ int main(int argc, char *argv[]) {
     std::string additional_args;
 
     while(1) {
-        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13, reassembly=14, format=15, raw_features=16, crypto_assess=17, minimize_ram=18, network_behavioral_detections=19, exposed_creds=20 };
+        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13, reassembly=14, trial_decryption=15, format=16, raw_features=17, crypto_assess=18, minimize_ram=19, network_behavioral_detections=20, exposed_creds=21 };
         int opt_idx = 0;
         static struct option long_opts[] = {
             { "config",                        required_argument, NULL,                        config },
@@ -317,6 +318,7 @@ int main(int argc, char *argv[]) {
             { "stats-time",                    required_argument, NULL,                    stats_time },
             { "output-time",                   required_argument, NULL,                   output_time },
             { "reassembly",                          no_argument, NULL,                    reassembly },
+            { "trial-decryption",                    no_argument, NULL,              trial_decryption },
             { "crypto-assess",                 optional_argument, NULL,                 crypto_assess },
             { "format",                        required_argument, NULL,                        format },
             { "read",                          required_argument, NULL,                           'r' },
@@ -419,6 +421,13 @@ int main(int argc, char *argv[]) {
                 usage(argv[0], "option reassembly does not use an argument", extended_help_off);
             } else {
                 additional_args.append("reassembly;");
+            }
+            break;
+        case trial_decryption:
+            if (optarg) {
+                usage(argv[0], "option trial-decryption does not use an argument", extended_help_off);
+            } else {
+                additional_args.append("trial-decryption;");
             }
             break;
         case format:
