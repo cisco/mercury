@@ -4,6 +4,22 @@
 #include <cmath>
 #include <type_traits>
 
+// HAVE_XSIMD (set by configure) indicates the xsimd library
+// is installed and its headers are available.  This is a pure
+// build-time library-presence check.
+//
+// HAVE_XSIMD_DISPATCH (set below) additionally requires that we are
+// compiling for a CPU architecture family for which xsimd provides
+// SIMD dispatch targets (currently x86, x86-64, and AArch64).  The
+// library could be present on an unsupported architecture (e.g.
+// RISC-V, s390x, MIPS) where no dispatch targets exist; in that
+// case HAVE_XSIMD is defined but HAVE_XSIMD_DISPATCH is not, and
+// the scalar fallback is used.
+//
+// Neither macro checks whether the *running* CPU actually supports a
+// particular SIMD instruction set (e.g. AVX2 vs. SSE2).  That is a
+// runtime decision made by check_simd() / xsimd::available_architectures().
+//
 #if defined(HAVE_XSIMD)
 #include "xsimd/xsimd.hpp"
 
