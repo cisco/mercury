@@ -754,6 +754,14 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
 
     // No reassembler : call set_tcp_protocol on every data pkt
     if (!reassembler || !global_vars.reassembly) {
+        // For FDC flows, the flows are not long-lived. Mercury typically
+        // observes around 20 packets per flow, so any traffic seen again
+        // after 30 seconds should be treated as a new flow.
+        //
+        // Packets are forwarded to Mercury only when it explicitly
+        // signals that additional packets are required (`more_packets_needed`).
+        // In such cases, the number of packets sent is capped at 20.
+        //
         bool is_new = false;
         if (global_vars.output_tcp_initial_data) {
             if (tcp_pkt.is_synthetic_pkt()) {
