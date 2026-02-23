@@ -168,7 +168,7 @@ static inline bool check_simd() {
     static bool is_simd_available = []() -> bool {
         auto archs = xsimd::available_architectures();
         if (archs.sse2 || archs.neon64) {
-            auto dispatched = get_dispatched();
+            auto& dispatched = get_dispatched();
             dispatched();
             return true;
         }

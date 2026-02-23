@@ -5010,6 +5010,9 @@ then :
 
 fi
 
+# Detect the xsimd header-only SIMD library (version 9+).
+# Sets HAVE_XSIMD for Makefiles and config.h; used to enable
+# SIMD-accelerated softmax in libmerc.
 ac_ext=cpp
 ac_cpp='$CXXCPP $CPPFLAGS'
 ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
@@ -5023,11 +5026,35 @@ do :
 if test "x$ac_cv_header_xsimd_xsimd_hpp" = xyes
 then :
   printf "%s\n" "#define HAVE_XSIMD_XSIMD_HPP 1" >>confdefs.h
- HAVE_XSIMD=yes
+ # Header found; now verify version >= 9
+     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for xsimd version >= 9" >&5
+printf %s "checking for xsimd version >= 9... " >&6; }
+     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+#include <xsimd/xsimd.hpp>
+static_assert(XSIMD_VERSION_MAJOR >= 9, "xsimd version 9+ is required");
+
+_ACEOF
+if ac_fn_cxx_try_compile "$LINENO"
+then :
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes (>= 9)" >&5
+printf "%s\n" "yes (>= 9)" >&6; }
+         HAVE_XSIMD=yes
 
 
 printf "%s\n" "#define HAVE_XSIMD 1" >>confdefs.h
 
+else case e in #(
+  e) { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: xsimd found but version is too old (need 9+); xsimd support disabled" >&5
+printf "%s\n" "$as_me: WARNING: xsimd found but version is too old (need 9+); xsimd support disabled" >&2;}
+         HAVE_XSIMD=no
+ ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
 else case e in #(
   e) HAVE_XSIMD=no
  ;;
