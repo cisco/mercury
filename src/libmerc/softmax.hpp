@@ -102,6 +102,7 @@ void exp_functor::operator()(Arch, std::vector<double>& process_score,
     }
 }
 
+// Inform the compiler that NEON and AVX2 implementations are to be found in another compilation unit.
 #if defined(HAVE_XSIMD_DISPATCH) && (defined(__i386__) || defined(__x86_64__))
 extern template void exp_functor::operator()<xsimd::avx2>(xsimd::avx2, std::vector<double>& process_score,
     const std::vector<bool>& malware,
