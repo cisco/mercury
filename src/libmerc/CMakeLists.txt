@@ -202,17 +202,32 @@ endif()
 add_subdirectory(asn1)
 add_subdirectory(lctrie)
 
-## xsimd detection (system install)
+## xsimd detection (system install, version >= 9 required)
 set(MERCURY_HAVE_XSIMD OFF)
-find_package(xsimd CONFIG QUIET)
+find_package(xsimd 9 CONFIG QUIET)
 if(xsimd_FOUND)
     set(MERCURY_HAVE_XSIMD ON)
-    message(STATUS "xsimd found via CMake config")
+    message(STATUS "xsimd >= 9 found via CMake config (version ${xsimd_VERSION})")
 else()
     find_path(XSIMD_INCLUDE_DIR xsimd/xsimd.hpp)
     if(XSIMD_INCLUDE_DIR)
-        set(MERCURY_HAVE_XSIMD ON)
-        message(STATUS "xsimd found via headers at ${XSIMD_INCLUDE_DIR}")
+        # Header found; verify version >= 9 with a compile check, mirroring
+        # the configure.ac logic.
+        include(CheckCXXSourceCompiles)
+        set(CMAKE_REQUIRED_INCLUDES "${XSIMD_INCLUDE_DIR}")
+        unset(XSIMD_VERSION_OK CACHE)
+        check_cxx_source_compiles("
+            #include <xsimd/xsimd.hpp>
+            static_assert(XSIMD_VERSION_MAJOR >= 9, \"xsimd version 9+ is required\");
+            int main() { return 0; }
+        " XSIMD_VERSION_OK)
+        if(XSIMD_VERSION_OK)
+            set(MERCURY_HAVE_XSIMD ON)
+            message(STATUS "xsimd >= 9 found via headers at ${XSIMD_INCLUDE_DIR}")
+        else()
+            message(WARNING "xsimd found at ${XSIMD_INCLUDE_DIR} but version is too old (need 9+); xsimd support disabled")
+        endif()
+        unset(CMAKE_REQUIRED_INCLUDES)
     else()
         message(STATUS "xsimd not found; softmax will use scalar fallback")
     endif()
