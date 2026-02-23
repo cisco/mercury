@@ -257,32 +257,31 @@ set(libmerc_src
     bencode.cc
 )
 
-# Platform-specific SIMD softmax files.  Each file is compiled with
-# the corresponding arch flag (-msse2, -mavx, etc.) so that xsimd
-# emits the right instructions.  When MERCURY_HAVE_XSIMD is OFF the
-# HAVE_XSIMD preprocessor guard inside each file causes it to compile
-# as an empty translation unit, so it is safe to include them
-# unconditionally here.
-if(INTEL_PLATFORM)
-    if(IS_WIN)
-        list(APPEND libmerc_src
-            softmax_sse2.cc
-        )
-        set_source_files_properties(softmax_sse2.cc PROPERTIES COMPILE_FLAGS "-msse2")
-    else()
-        list(APPEND libmerc_src
-            softmax_sse2.cc
-            softmax_avx.cc
-            softmax_avx2.cc
-        )
-        set_source_files_properties(softmax_sse2.cc PROPERTIES COMPILE_FLAGS "-msse2")
-        set_source_files_properties(softmax_avx.cc  PROPERTIES COMPILE_FLAGS "-mavx")
-        set_source_files_properties(softmax_avx2.cc PROPERTIES COMPILE_FLAGS "-mavx2")
-    endif()
-elseif(ARM_PLATFORM)
-    list(APPEND libmerc_src softmax_neon.cc)
-    if(ARMV7_PLATFORM)
-        set_source_files_properties(softmax_neon.cc PROPERTIES COMPILE_FLAGS "-mfpu=neon")
+# Platform-specific SIMD softmax files, only included when xsimd is
+# available.  Each file is compiled with the corresponding arch flag
+# (-msse2, -mavx, etc.) so that xsimd emits the right instructions.
+if(MERCURY_HAVE_XSIMD)
+    if(INTEL_PLATFORM)
+        if(IS_WIN)
+            list(APPEND libmerc_src
+                softmax_sse2.cc
+            )
+            set_source_files_properties(softmax_sse2.cc PROPERTIES COMPILE_FLAGS "-msse2")
+        else()
+            list(APPEND libmerc_src
+                softmax_sse2.cc
+                softmax_avx.cc
+                softmax_avx2.cc
+            )
+            set_source_files_properties(softmax_sse2.cc PROPERTIES COMPILE_FLAGS "-msse2")
+            set_source_files_properties(softmax_avx.cc  PROPERTIES COMPILE_FLAGS "-mavx")
+            set_source_files_properties(softmax_avx2.cc PROPERTIES COMPILE_FLAGS "-mavx2")
+        endif()
+    elseif(ARM_PLATFORM)
+        list(APPEND libmerc_src softmax_neon.cc)
+        if(ARMV7_PLATFORM)
+            set_source_files_properties(softmax_neon.cc PROPERTIES COMPILE_FLAGS "-mfpu=neon")
+        endif()
     endif()
 endif()
 
