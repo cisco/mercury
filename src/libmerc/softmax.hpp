@@ -2,6 +2,7 @@
 #define SOFTMAX_HPP
 #include "result.h"
 #include <cmath>
+#include <type_traits>
 
 #if defined(HAVE_XSIMD)
 #include "xsimd/xsimd.hpp"
@@ -159,14 +160,50 @@ static inline bool check_simd() {
 
     return is_simd_available;
 }
+
+/// Dispatch SIMD-accelerated softmax.  Only valid when check_simd() is true.
+/// Currently only supports double.  To add float support: add float
+/// overloads to exp_functor, extern template declarations per arch,
+/// and explicit instantiations in the corresponding .cc files.
+template <typename floating_point_type, size_t MAX_TAGS>
+static inline void dispatch_simd_softmax(
+    std::vector<floating_point_type>& process_score,
+    std::vector<bool>& malware,
+    std::vector<attribute_result::bitset>& attr,
+    floating_point_type& max_score,
+    floating_point_type& score_sum,
+    uint64_t& index_max,
+    floating_point_type& score_sum_without_max,
+    floating_point_type& malware_prob,
+    std::array<floating_point_type, MAX_TAGS>& attr_prob)
+{
+    static_assert(std::is_same_v<floating_point_type, double>,
+                  "SIMD softmax currently only supports double");
+    get_dispatched()(process_score, malware, attr, max_score, score_sum,
+                    index_max, score_sum_without_max, malware_prob, attr_prob);
+}
+
 #endif // HAVE_XSIMD_DISPATCH
 
 #endif // HAVE_XSIMD
 
 // When xsimd is absent or the platform has no dispatch backend,
-// provide a fallback check_simd() that always returns false.
+// provide fallbacks so callers compile unconditionally.
 #if !defined(HAVE_XSIMD) || !defined(HAVE_XSIMD_DISPATCH)
 static inline bool check_simd() { return false; }
+
+template <typename floating_point_type, size_t MAX_TAGS>
+static inline void dispatch_simd_softmax(
+    std::vector<floating_point_type>&,
+    std::vector<bool>&,
+    std::vector<attribute_result::bitset>&,
+    floating_point_type&,
+    floating_point_type&,
+    uint64_t&,
+    floating_point_type&,
+    floating_point_type&,
+    std::array<floating_point_type, MAX_TAGS>&)
+{ }
 #endif
 
 template <typename floating_point_type, size_t MAX_TAGS>
@@ -181,13 +218,13 @@ inline void softmax(std::vector<floating_point_type> &process_score,
                     std::array<floating_point_type, MAX_TAGS> &attr_prob
                     )
 {
-#if defined(HAVE_XSIMD) && defined(HAVE_XSIMD_DISPATCH)
         if (check_simd()) {
-            auto dispatched = get_dispatched();
-            dispatched(process_score, malware, attr, max_score, score_sum, index_max, score_sum_without_max, malware_prob, attr_prob);
+            dispatch_simd_softmax<floating_point_type, MAX_TAGS>(
+                process_score, malware, attr, max_score, score_sum,
+                index_max, score_sum_without_max, malware_prob, attr_prob);
             return;
         }
-#endif
+
         //
         // No SIMD instruction set is available, so compute softmax with standard C++
         //
