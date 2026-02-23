@@ -226,7 +226,7 @@ jobs:
       - name: Get vcpkg location
         run: where.exe vcpkg
       - name: Install dependencies via vcpkg
-        run: vcpkg install openssl zlib
+        run: vcpkg install openssl zlib xsimd
       - name: List vcpkg installed packages
         run: vcpkg list
       - name: Build libmerc via CMake
