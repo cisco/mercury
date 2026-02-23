@@ -55,6 +55,11 @@ platform = @PLATFORM@
 #
 have_xsimd = @HAVE_XSIMD@
 
+# If xsimd was found via --with-xsimd-include=DIR, this holds the path.
+# Used to add -I<path> in the consuming Makefiles.
+#
+xsimd_include = @XSIMD_INCLUDE@
+
 CXX     = @CXX@
 CC      = @CC@
 CFLAGS  += --std=c++17

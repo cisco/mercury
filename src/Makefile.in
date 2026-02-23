@@ -82,6 +82,9 @@ EUID       = $(id -u)
 # Enable SIMD-accelerated classifier path when xsimd is available on the system.
 ifeq ($(have_xsimd),yes)
 CFLAGS += -DHAVE_XSIMD
+ifneq ($(xsimd_include),)
+CFLAGS += -I$(xsimd_include)
+endif
 endif
 # OpenSSL 3.0 is default (no flag needed)
 ifeq ($(openssl_v3_0_or_newer),yes)

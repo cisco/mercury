@@ -666,6 +666,7 @@ PY
 OPENSSL_V3_0_OR_NEWER
 OPENSSL_V1_1_OR_NEWER
 LIBOBJS
+XSIMD_INCLUDE
 HAVE_XSIMD
 HAVE_TPACKET_V3
 USE_NO_OMIT_LEAF_FRAME_POINTER
@@ -734,6 +735,8 @@ SHELL'
 ac_subst_files=''
 ac_user_opts='
 enable_option_checking
+enable_xsimd
+with_xsimd_include
 '
       ac_precious_vars='build_alias
 host_alias
@@ -1363,6 +1366,20 @@ if test -n "$ac_init_help"; then
      short | recursive ) echo "Configuration of mercury 1.0:";;
    esac
   cat <<\_ACEOF
+
+Optional Features:
+  --disable-option-checking  ignore unrecognized --enable/--with options
+  --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
+  --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
+  --enable-xsimd          Enable xsimd SIMD support (auto=detect, yes=require,
+                          no=disable) [default=auto]
+
+Optional Packages:
+  --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
+  --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
+  --with-xsimd-include=DIR
+                          Directory containing xsimd/xsimd.hpp (adds -I<DIR>
+                          to search path)
 
 Some influential environment variables:
   CC          C compiler command
@@ -5010,26 +5027,93 @@ then :
 
 fi
 
+
+###############################################################################
+# xsimd SIMD library detection (header-only, version 9+ required)
+#
+# Enables the SIMD-accelerated classifier path in libmerc.  When xsimd
+# is not available (or disabled), a scalar fallback is used instead.
+#
+# Configure options:
+#   (default)                     auto-detect system xsimd, scalar fallback
+#   --disable-xsimd               force-disable xsimd support
+#   --enable-xsimd                require xsimd; error if not found
+#   --with-xsimd-include=DIR      add DIR to the header search path
+#                                 (DIR should contain xsimd/xsimd.hpp)
+#
+# Examples:
+#   ./configure                                                  # auto-detect
+#   ./configure --disable-xsimd                                  # force off
+#   ./configure --enable-xsimd                                   # require it
+#   ./configure --with-xsimd-include=/opt/xsimd/include          # custom path
+#   ./configure --enable-xsimd --with-xsimd-include=/opt/xsimd/include
+###############################################################################
+
+# --enable-xsimd / --disable-xsimd  (default: auto-detect)
+# Check whether --enable-xsimd was given.
+if test ${enable_xsimd+y}
+then :
+  enableval=$enable_xsimd; enable_xsimd="$enableval"
+else case e in #(
+  e) enable_xsimd=auto ;;
+esac
+fi
+
+
+# Validate --enable-xsimd mode early to fail fast on typos.
+case $enable_xsimd in #(
+  auto|yes|no) :
+     ;; #(
+  *) :
+    as_fn_error $? "invalid value '$enable_xsimd' for --enable-xsimd (expected: auto, yes, or no)" "$LINENO" 5 ;;
+esac
+
+# --with-xsimd-include=DIR  (custom header search path)
+
+# Check whether --with-xsimd-include was given.
+if test ${with_xsimd_include+y}
+then :
+  withval=$with_xsimd_include; xsimd_include_dir="$withval"
+else case e in #(
+  e) xsimd_include_dir="" ;;
+esac
+fi
+
+
 # Detect the xsimd header-only SIMD library (version 9+).
 # Sets HAVE_XSIMD for Makefiles and config.h; used to enable
 # SIMD-accelerated classifier path in libmerc.
-ac_ext=cpp
+
+if test "x$enable_xsimd" = xno
+then :
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: xsimd support disabled by --disable-xsimd" >&5
+printf "%s\n" "$as_me: xsimd support disabled by --disable-xsimd" >&6;}
+   HAVE_XSIMD=no
+
+
+else case e in #(
+  e) # If user gave --with-xsimd-include=DIR, prepend it to CPPFLAGS
+   _xsimd_saved_CPPFLAGS="$CPPFLAGS"
+   if test -n "$xsimd_include_dir"
+then :
+  CPPFLAGS="-I${xsimd_include_dir} $CPPFLAGS"
+fi
+   ac_ext=cpp
 ac_cpp='$CXXCPP $CPPFLAGS'
 ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
 
-
-       for ac_header in xsimd/xsimd.hpp
+          for ac_header in xsimd/xsimd.hpp
 do :
   ac_fn_cxx_check_header_compile "$LINENO" "xsimd/xsimd.hpp" "ac_cv_header_xsimd_xsimd_hpp" "$ac_includes_default"
 if test "x$ac_cv_header_xsimd_xsimd_hpp" = xyes
 then :
   printf "%s\n" "#define HAVE_XSIMD_XSIMD_HPP 1" >>confdefs.h
- # Header found; now verify version >= 9
-     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for xsimd version >= 9" >&5
+ # Header found; verify version >= 9
+      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for xsimd version >= 9" >&5
 printf %s "checking for xsimd version >= 9... " >&6; }
-     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+      cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
 #include <xsimd/xsimd.hpp>
@@ -5045,28 +5129,59 @@ printf "%s\n" "yes (>= 9)" >&6; }
 
 printf "%s\n" "#define HAVE_XSIMD 1" >>confdefs.h
 
+         if test -n "$xsimd_include_dir"
+then :
+  XSIMD_INCLUDE=$xsimd_include_dir
+
+else case e in #(
+  e)  ;;
+esac
+fi
 else case e in #(
   e) { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
-         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: xsimd found but version is too old (need 9+); xsimd support disabled" >&5
-printf "%s\n" "$as_me: WARNING: xsimd found but version is too old (need 9+); xsimd support disabled" >&2;}
+         if test "x$enable_xsimd" = xyes
+then :
+  as_fn_error $? "--enable-xsimd was given but xsimd version is too old (need 9+)" "$LINENO" 5
+else case e in #(
+  e) { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: xsimd found but version is too old (need 9+); xsimd support disabled" >&5
+printf "%s\n" "$as_me: WARNING: xsimd found but version is too old (need 9+); xsimd support disabled" >&2;} ;;
+esac
+fi
          HAVE_XSIMD=no
- ;;
+
+          ;;
 esac
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
 else case e in #(
-  e) HAVE_XSIMD=no
- ;;
+  e) if test "x$enable_xsimd" = xyes
+then :
+  as_fn_error $? "--enable-xsimd was given but xsimd/xsimd.hpp was not found" "$LINENO" 5
+else case e in #(
+  e) { printf "%s\n" "$as_me:${as_lineno-$LINENO}: xsimd not found; classifier will use scalar fallback" >&5
+printf "%s\n" "$as_me: xsimd not found; classifier will use scalar fallback" >&6;} ;;
+esac
+fi
+      HAVE_XSIMD=no
+
+       ;;
 esac
 fi
 
 done
-ac_ext=c
+   ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+   CPPFLAGS="$_xsimd_saved_CPPFLAGS" ;;
+esac
+fi
+
+# end xsimd detection
+###############################################################################
 
 ac_fn_c_check_type "$LINENO" "ptrdiff_t" "ac_cv_type_ptrdiff_t" "$ac_includes_default"
 if test "x$ac_cv_type_ptrdiff_t" = xyes

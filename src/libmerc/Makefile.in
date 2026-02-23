@@ -43,6 +43,9 @@ LDFLAGS += -L/opt/homebrew/lib
 endif
 ifeq ($(have_xsimd),yes)
 CFLAGS += -DHAVE_XSIMD
+ifneq ($(xsimd_include),)
+CFLAGS += -I$(xsimd_include)
+endif
 endif
 
 # Uncomment to apply ASAN to libmerc (do not use in production)

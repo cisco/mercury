@@ -39,6 +39,9 @@ CFLAGS += -march=native
 # Enable SIMD-accelerated classifier path when xsimd is available on the system.
 ifeq ($(have_xsimd),yes)
 CFLAGS += -DHAVE_XSIMD
+ifneq ($(xsimd_include),)
+CFLAGS += -I$(xsimd_include)
+endif
 endif
 export LD_LIBRARY_PATH =../src/libmerc
 

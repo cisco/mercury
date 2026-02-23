@@ -21,6 +21,7 @@ set(CMAKE_CXX_FLAGS "${CXXFLAGS} ${CFLAGS} ${CMAKE_CXX_FLAGS}")
 #  ZLIB_ROOT=path : Custom zlib dir (containing include/zlib.h and lib/libz.* or lib/zlib.lib)
 #  OPENSSL_ROOT_DIR=path : Custom OpenSSL dir (containing include/openssl/*.h and lib/libcrypto.*)
 #  OPENSSL_CUSTOM_LIB_DIR=path : Custom OpenSSL library-only dir (containing libcrypto.*)
+#  XSIMD_INCLUDE_DIR=path : xsimd header dir (containing xsimd/xsimd.hpp); overrides system xsimd
 #
 # Note: OpenSSL has two options.  If your OpenSSL installation follows the
 # standard directory layout where a single top-level directory contains both
@@ -202,36 +203,93 @@ endif()
 add_subdirectory(asn1)
 add_subdirectory(lctrie)
 
-## xsimd detection (system install, version >= 9 required)
+###############################################################################
+## xsimd SIMD library detection (header-only, version 9+ required)
+##
+## Enables the SIMD-accelerated classifier path in libmerc.  When xsimd
+## is not available (or disabled), a scalar fallback is used instead.
+##
+## CMake options:
+##   (default)                         auto-detect system xsimd, scalar fallback
+##   -DMERCURY_XSIMD=off               disable xsimd unconditionally
+##   -DMERCURY_XSIMD=on                require xsimd; FATAL_ERROR if not found
+##   -DXSIMD_INCLUDE_DIR=/path         use this path instead of system xsimd
+##                                     (should contain xsimd/xsimd.hpp)
+##
+## Examples:
+##   cmake -B build                                                # auto-detect
+##   cmake -B build -DMERCURY_XSIMD=off                            # force off
+##   cmake -B build -DMERCURY_XSIMD=on                             # require it
+##   cmake -B build -DXSIMD_INCLUDE_DIR=/opt/xsimd/include         # custom path
+##   cmake -B build -DMERCURY_XSIMD=on -DXSIMD_INCLUDE_DIR=/opt/xsimd/include
+###############################################################################
+set(MERCURY_XSIMD "auto" CACHE STRING "xsimd support: auto, on, or off")
+string(TOLOWER "${MERCURY_XSIMD}" _mercury_xsimd_lower)
 set(MERCURY_HAVE_XSIMD OFF)
-find_package(xsimd 9 CONFIG QUIET)
-if(xsimd_FOUND)
-    set(MERCURY_HAVE_XSIMD ON)
-    message(STATUS "xsimd >= 9 found via CMake config (version ${xsimd_VERSION})")
+
+if(NOT _mercury_xsimd_lower STREQUAL "auto"
+   AND NOT _mercury_xsimd_lower STREQUAL "on"
+   AND NOT _mercury_xsimd_lower STREQUAL "off")
+    message(FATAL_ERROR "Invalid MERCURY_XSIMD='${MERCURY_XSIMD}' (expected: auto, on, or off)")
+endif()
+
+if(_mercury_xsimd_lower STREQUAL "off")
+    message(STATUS "xsimd support disabled by -DMERCURY_XSIMD=off")
 else()
-    find_path(XSIMD_INCLUDE_DIR xsimd/xsimd.hpp)
-    if(XSIMD_INCLUDE_DIR)
-        # Header found; verify version >= 9 with a compile check, mirroring
-        # the configure.ac logic.
-        include(CheckCXXSourceCompiles)
-        set(CMAKE_REQUIRED_INCLUDES "${XSIMD_INCLUDE_DIR}")
-        unset(XSIMD_VERSION_OK CACHE)
-        check_cxx_source_compiles("
-            #include <xsimd/xsimd.hpp>
-            static_assert(XSIMD_VERSION_MAJOR >= 9, \"xsimd version 9+ is required\");
-            int main() { return 0; }
-        " XSIMD_VERSION_OK)
-        if(XSIMD_VERSION_OK)
-            set(MERCURY_HAVE_XSIMD ON)
-            message(STATUS "xsimd >= 9 found via headers at ${XSIMD_INCLUDE_DIR}")
-        else()
-            message(WARNING "xsimd found at ${XSIMD_INCLUDE_DIR} but version is too old (need 9+); xsimd support disabled")
-        endif()
-        unset(CMAKE_REQUIRED_INCLUDES)
+    # If the user provided -DXSIMD_INCLUDE_DIR=..., try that first.
+    if(DEFINED XSIMD_INCLUDE_DIR AND NOT XSIMD_INCLUDE_DIR STREQUAL "")
+        set(_xsimd_user_hint TRUE)
     else()
-        message(STATUS "xsimd not found; classifier will use scalar fallback")
+        set(_xsimd_user_hint FALSE)
+    endif()
+
+    # When the user explicitly provides XSIMD_INCLUDE_DIR, honour it
+    # unconditionally (skip find_package) so that a vendored or custom
+    # xsimd always wins over a system-installed copy.
+    if(NOT _xsimd_user_hint)
+        find_package(xsimd 9 CONFIG QUIET)
+    endif()
+
+    if(xsimd_FOUND)
+        set(MERCURY_HAVE_XSIMD ON)
+        message(STATUS "xsimd >= 9 found via CMake config (version ${xsimd_VERSION})")
+    else()
+        # If user did not supply a path, let find_path search system paths.
+        if(NOT _xsimd_user_hint)
+            find_path(XSIMD_INCLUDE_DIR xsimd/xsimd.hpp)
+        endif()
+        if(XSIMD_INCLUDE_DIR)
+            # Header found; verify version >= 9 with a compile check.
+            include(CheckCXXSourceCompiles)
+            set(CMAKE_REQUIRED_INCLUDES "${XSIMD_INCLUDE_DIR}")
+            unset(XSIMD_VERSION_OK CACHE)
+            check_cxx_source_compiles("
+                #include <xsimd/xsimd.hpp>
+                static_assert(XSIMD_VERSION_MAJOR >= 9, \"xsimd version 9+ is required\");
+                int main() { return 0; }
+            " XSIMD_VERSION_OK)
+            if(XSIMD_VERSION_OK)
+                set(MERCURY_HAVE_XSIMD ON)
+                message(STATUS "xsimd >= 9 found via headers at ${XSIMD_INCLUDE_DIR}")
+            else()
+                if(_mercury_xsimd_lower STREQUAL "on")
+                    message(FATAL_ERROR "MERCURY_XSIMD=on but xsimd at ${XSIMD_INCLUDE_DIR} is too old (need 9+)")
+                else()
+                    message(WARNING "xsimd found at ${XSIMD_INCLUDE_DIR} but version is too old (need 9+); xsimd support disabled")
+                endif()
+            endif()
+            unset(CMAKE_REQUIRED_INCLUDES)
+        else()
+            if(_mercury_xsimd_lower STREQUAL "on")
+                message(FATAL_ERROR "MERCURY_XSIMD=on but xsimd/xsimd.hpp was not found")
+            else()
+                message(STATUS "xsimd not found; classifier will use scalar fallback")
+            endif()
+        endif()
     endif()
 endif()
+## end xsimd detection
+###############################################################################
 
 ## link paths
 #
