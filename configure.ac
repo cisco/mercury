@@ -69,8 +69,8 @@ AC_CHECK_HEADERS([x86intrin.h])
 #   (default)                     auto-detect system xsimd, scalar fallback
 #   --disable-xsimd               force-disable xsimd support
 #   --enable-xsimd                require xsimd; error if not found
-#   --with-xsimd-include=DIR      add DIR to the header search path
-#                                 (DIR should contain xsimd/xsimd.hpp)
+#   --with-xsimd-include=DIR      use this path instead of system xsimd
+#                                 (should contain xsimd/xsimd.hpp)
 #
 # Examples:
 #   ./configure                                                  # auto-detect
@@ -95,7 +95,7 @@ AS_CASE([$enable_xsimd],
 # --with-xsimd-include=DIR  (custom header search path)
 AC_ARG_WITH([xsimd-include],
   [AS_HELP_STRING([--with-xsimd-include=DIR],
-    [Directory containing xsimd/xsimd.hpp (adds -I<DIR> to search path)])],
+    [Directory containing xsimd/xsimd.hpp (use instead of system xsimd)])],
   [xsimd_include_dir="$withval"],
   [xsimd_include_dir=""])
 
