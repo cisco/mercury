@@ -102,10 +102,10 @@ AC_ARG_WITH([xsimd-include],
 # Detect the xsimd header-only SIMD library (version 9+).
 # Sets HAVE_XSIMD for Makefiles and config.h; used to enable
 # SIMD-accelerated classifier path in libmerc.
+AC_SUBST([HAVE_XSIMD],[no])
+AC_SUBST([XSIMD_INCLUDE],[])
 AS_IF([test "x$enable_xsimd" = xno],
-  [AC_MSG_NOTICE([xsimd support disabled by --disable-xsimd])
-   AC_SUBST([HAVE_XSIMD],[no])
-   AC_SUBST([XSIMD_INCLUDE],[])],
+  [AC_MSG_NOTICE([xsimd support disabled by --disable-xsimd])],
   [# If user gave --with-xsimd-include=DIR, prepend it to CPPFLAGS
    _xsimd_saved_CPPFLAGS="$CPPFLAGS"
    AS_IF([test -n "$xsimd_include_dir"],
@@ -122,20 +122,14 @@ static_assert(XSIMD_VERSION_MAJOR >= 9, "xsimd version 9+ is required");
         [AC_MSG_RESULT([yes (>= 9)])
          AC_SUBST([HAVE_XSIMD],[yes])
          AC_DEFINE([HAVE_XSIMD], [1], [Define if xsimd >= 9 is available.])
-         AS_IF([test -n "$xsimd_include_dir"],
-           [AC_SUBST([XSIMD_INCLUDE],[$xsimd_include_dir])],
-           [AC_SUBST([XSIMD_INCLUDE],[])])],
+         AC_SUBST([XSIMD_INCLUDE],[$xsimd_include_dir])],
         [AC_MSG_RESULT([no])
          AS_IF([test "x$enable_xsimd" = xyes],
            [AC_MSG_ERROR([--enable-xsimd was given but xsimd version is too old (need 9+)])],
-           [AC_MSG_WARN([xsimd found but version is too old (need 9+); xsimd support disabled])])
-         AC_SUBST([HAVE_XSIMD],[no])
-         AC_SUBST([XSIMD_INCLUDE],[])])],
+           [AC_MSG_WARN([xsimd found but version is too old (need 9+); xsimd support disabled])])])],
      [AS_IF([test "x$enable_xsimd" = xyes],
         [AC_MSG_ERROR([--enable-xsimd was given but xsimd/xsimd.hpp was not found])],
-        [AC_MSG_NOTICE([xsimd not found; classifier will use scalar fallback])])
-      AC_SUBST([HAVE_XSIMD],[no])
-      AC_SUBST([XSIMD_INCLUDE],[])])
+        [AC_MSG_NOTICE([xsimd not found; classifier will use scalar fallback])])])
    AC_LANG_POP([C++])
    CPPFLAGS="$_xsimd_saved_CPPFLAGS"])
 
