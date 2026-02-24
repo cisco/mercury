@@ -21,10 +21,10 @@ void maybe_print_json(const char *label, const std::string &json) {
 
 const std::string expected_http_json = R"json({"version":2,"fingerprints":["http/(474554)(485454502f312e31)((557365722d4167656e74)(4163636570743a202a2f2a)(486f7374)(436f6e6e656374696f6e3a204b6565702d416c697665))"],"protocols":["http"],"http":{"request":{"method":"GET","uri":"/","protocol":"HTTP/1.1","headers":["User-Agent","Accept","Host","Connection"],"user_agent":"Wget/1.15 (linux-gnu)","host":"yahoo.com"}},"truncation":0})json";
 const std::string expected_quic_init_json = R"json({"version":2,"fingerprints":["quic/(00000001)(0303)(130113021303)[(0000)(000a00080006001d00170018)(000d00140012040308040401050308050501080606010201)(0010001700150268330568332d32390568332d32380568332d3237)(002b0003020304)(002d00020101)(0033)((0039)[(01)(03)(04)(05)(06)(07)(08)(09)(0a)(0b)(0f)])]"],"protocols":["quic"],"tls":{"client":{"random":"15d447b52acc83e777abaa0c4b23af9730f81a9c43405892de18651f161e472e","server_name":"10.72.1.52"}},"truncation":0})json";
-const std::string expected_tls_client_hello_json = R"json({"version":2,"fingerprints":["tls/(0303)(c028c027c014c013009f009e009d009cc02cc02bc024c023c00ac009003d003c0035002f006a004000380032000a001300050004)((0000)(000a00080006001700180019)(000b00020100)(000d00140012060106030401050102010403050302030202)(ff01))"],"protocols":["tls"],"tls":{"client":{"random":"64bb666d4419e66235579bed0bfcc519bad9d3e45b46ed89869060b6362fc1c5","server_name":"ciistudies.com"}},"truncation":0})json";
-const std::string expected_tls_fragment_no_reassembly_json = R"json({"version":2,"fingerprints":["tls/(0303)(0a0a130113021303c02bc02fc02cc030cca9cca8c013c014009c009d002f0035)((0a0a)(000a000c000a0a0a6399001d00170018)(0000)(002b0007060a0a03040303)(fe0d)(000d0012001004030804040105030805050108060601)(000b00020100)(001b0003020002)(000500050100000000)(0010000e000c02683208687474702f312e31)(0017)(ff01)(002d00020101)(4469))"],"protocols":["tls"],"tls":{"client":{"random":"b47749a5584e7dcda899df03b3f04aaf50f426837dd0ad01c945f5435f5502c8","server_name":"www.cnn.com"}},"truncation":2})json";
-const std::string expected_tls_fragment_reassembly_within_limit_json = R"json({"version":2,"fingerprints":["tls/(0303)(0a0a130113021303c02bc02fc02cc030cca9cca8c013c014009c009d002f0035)((0a0a)(000a000c000a0a0a6399001d00170018)(0000)(002b0007060a0a03040303)(fe0d)(000d0012001004030804040105030805050108060601)(000b00020100)(001b0003020002)(000500050100000000)(0010000e000c02683208687474702f312e31)(0017)(ff01)(002d00020101)(4469)(0033)(0023)(0012)(0a0a))"],"protocols":["tls"],"tls":{"client":{"random":"b47749a5584e7dcda899df03b3f04aaf50f426837dd0ad01c945f5435f5502c8","server_name":"www.cnn.com"}},"truncation":1})json";
-const std::string expected_tls_fragment_reassembly_exceed_limit_json = R"json({"version":2,"fingerprints":["tls/(0303)(0a0a130113021303c02bc02fc02cc030cca9cca8c013c014009c009d002f0035)((0a0a)(000a000c000a0a0a6399001d00170018)(0000)(002b0007060a0a03040303)(fe0d)(000d0012001004030804040105030805050108060601)(000b00020100)(001b0003020002)(000500050100000000)(0010000e000c02683208687474702f312e31)(0017)(ff01)(002d00020101)(4469))"],"protocols":["tls"],"tls":{"client":{"random":"b47749a5584e7dcda899df03b3f04aaf50f426837dd0ad01c945f5435f5502c8","server_name":"www.cnn.com"}},"truncation":3})json";
+const std::string expected_tls_client_hello_json = R"json({"version":2,"fingerprints":["tls/1/(0303)(c028c027c014c013009f009e009d009cc02cc02bc024c023c00ac009003d003c0035002f006a004000380032000a001300050004)[(0000)(000a00080006001700180019)(000b00020100)(000d00140012060106030401050102010403050302030202)(ff01)]"],"protocols":["tls"],"tls":{"client":{"random":"64bb666d4419e66235579bed0bfcc519bad9d3e45b46ed89869060b6362fc1c5","server_name":"ciistudies.com"}},"truncation":0})json";
+const std::string expected_tls_fragment_no_reassembly_json = R"json({"version":2,"fingerprints":["tls/1/(0303)(0a0a130113021303c02bc02fc02cc030cca9cca8c013c014009c009d002f0035)[(0000)(000500050100000000)(000a000c000a0a0a6399001d00170018)(000b00020100)(000d0012001004030804040105030805050108060601)(0010000e000c02683208687474702f312e31)(0017)(001b0003020002)(002b0007060a0a03040303)(002d00020101)(0a0a)(4469)(fe0d)(ff01)]"],"protocols":["tls"],"tls":{"client":{"random":"b47749a5584e7dcda899df03b3f04aaf50f426837dd0ad01c945f5435f5502c8","server_name":"www.cnn.com"}},"truncation":2})json";
+const std::string expected_tls_fragment_reassembly_within_limit_json = R"json({"version":2,"fingerprints":["tls/1/(0303)(0a0a130113021303c02bc02fc02cc030cca9cca8c013c014009c009d002f0035)[(0000)(000500050100000000)(000a000c000a0a0a6399001d00170018)(000b00020100)(000d0012001004030804040105030805050108060601)(0010000e000c02683208687474702f312e31)(0012)(0017)(001b0003020002)(0023)(002b0007060a0a03040303)(002d00020101)(0033)(0a0a)(0a0a)(4469)(fe0d)(ff01)]"],"protocols":["tls"],"tls":{"client":{"random":"b47749a5584e7dcda899df03b3f04aaf50f426837dd0ad01c945f5435f5502c8","server_name":"www.cnn.com"}},"truncation":1})json";
+const std::string expected_tls_fragment_reassembly_exceed_limit_json = R"json({"version":2,"fingerprints":["tls/1/(0303)(0a0a130113021303c02bc02fc02cc030cca9cca8c013c014009c009d002f0035)[(0000)(000500050100000000)(000a000c000a0a0a6399001d00170018)(000b00020100)(000d0012001004030804040105030805050108060601)(0010000e000c02683208687474702f312e31)(0017)(001b0003020002)(002b0007060a0a03040303)(002d00020101)(0a0a)(4469)(fe0d)(ff01)]"],"protocols":["tls"],"tls":{"client":{"random":"b47749a5584e7dcda899df03b3f04aaf50f426837dd0ad01c945f5435f5502c8","server_name":"www.cnn.com"}},"truncation":3})json";
 const std::string expected_quic_fragment_no_reassembly_json = R"json({"version":2,"fingerprints":["quic/(00000001)(0303)(130113021303)[]"],"protocols":["quic"],"tls":{"client":{"random":"6252a4cb5ca46673bbabc7a9312bbecc7c875704965db2739cf87fddac15bf76"}},"truncation":2})json";
 const std::string expected_quic_fragment_reassembly_within_limit_json = R"json({"version":2,"fingerprints":["quic/(00000001)(0303)(130113021303)[(0000)(000a000a000811ec001d00170018)(000d00140012040308040401050308050501080606010201)(001000050003026833)(001b0003020002)(002b0003020304)(002d00020101)(0033)((0039)[(01)(03)(04)(05)(06)(07)(08)(09)(0f)(1b)(20)(80004752)(80ff73db)])(4469)(fe0d)]"],"protocols":["quic"],"tls":{"client":{"random":"6252a4cb5ca46673bbabc7a9312bbecc7c875704965db2739cf87fddac15bf76","server_name":"accounts.google.com"}},"truncation":1})json";
 const std::string expected_dns_fragment_json = R"json({"version":2,"protocols":["dns"],"dns":{"data":"484e010000010000000000000331333103323236033137300331303807696e2d61646472046172706100000c0001"},"truncation":0})json";
@@ -909,7 +909,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for http reques
                 REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
                 REQUIRE(bytes_written == 276);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
-                REQUIRE(json == expected_http_json);
+                CHECK(json == expected_http_json);
             }
             mercury_packet_processor_destruct(mpp);
         }
@@ -967,7 +967,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc with resources 
                     printf("ac->result.is_valid() = %d\n", ac->result.is_valid());
                     REQUIRE(ac->result.is_valid() == false);
                 }
-                REQUIRE(json == expected_quic_init_json);
+                CHECK(json == expected_quic_init_json);
             }
             mercury_packet_processor_destruct(mpp);
         }
@@ -1037,7 +1037,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for http reques
                 REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
                 REQUIRE(bytes_written == 276);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
-                REQUIRE(json == expected_http_json);
+                CHECK(json == expected_http_json);
             }
             mercury_packet_processor_destruct(mpp);
         }
@@ -1089,7 +1089,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for tls client 
                 REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
                 REQUIRE(bytes_written == 261);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
-                REQUIRE(json == expected_tls_client_hello_json);
+                CHECK(json == expected_tls_client_hello_json);
             }
             mercury_packet_processor_destruct(mpp);
         }
@@ -1141,7 +1141,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
                 REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
                 REQUIRE(bytes_written == 307);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
-                REQUIRE(json == expected_tls_fragment_no_reassembly_json);
+                CHECK(json == expected_tls_fragment_no_reassembly_json);
             }
             mercury_packet_processor_destruct(mpp);
         }
@@ -1202,7 +1202,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
                 REQUIRE(bytes_written_1 == fdc_return::MORE_PACKETS_NEEDED);
                 REQUIRE(bytes_written_2 == 319);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
-                REQUIRE(json == expected_tls_fragment_reassembly_within_limit_json);
+                CHECK(json == expected_tls_fragment_reassembly_within_limit_json);
             }
         }
 
@@ -1263,7 +1263,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
             THEN("FDC should be written to output buffer") {
                 REQUIRE(bytes_written_1 == fdc_return::MORE_PACKETS_NEEDED);
                 REQUIRE(bytes_written_2 == 307);
-                REQUIRE(json == expected_tls_fragment_reassembly_exceed_limit_json);
+                CHECK(json == expected_tls_fragment_reassembly_exceed_limit_json);
             }
         }
 
@@ -1316,7 +1316,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for quic init p
                 REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
                 REQUIRE(bytes_written == 284);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
-                REQUIRE(json == expected_quic_init_json);
+                CHECK(json == expected_quic_init_json);
             }
             mercury_packet_processor_destruct(mpp);
         }
@@ -1368,7 +1368,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
                 REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
                 REQUIRE(bytes_written == 141);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
-                REQUIRE(json == expected_quic_fragment_no_reassembly_json);
+                CHECK(json == expected_quic_fragment_no_reassembly_json);
             }
             mercury_packet_processor_destruct(mpp);
         }
@@ -1431,7 +1431,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
                 REQUIRE(bytes_written_2 != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
                 REQUIRE(bytes_written_2 == 300);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
-                REQUIRE(json == expected_quic_fragment_reassembly_within_limit_json);
+                CHECK(json == expected_quic_fragment_reassembly_within_limit_json);
             }
         }
 
@@ -1619,8 +1619,8 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for combination
                 REQUIRE(bytes_written_1 == fdc_return::MORE_PACKETS_NEEDED);  // For quic fragment 1
                 REQUIRE(bytes_written_2 == 98); // For dns payload
                 REQUIRE(bytes_written_3 == 300); // For quic fragment 2
-                REQUIRE(dns_json == expected_dns_fragment_json);
-                REQUIRE(quic_json == expected_quic_fragment_reassembly_within_limit_json);
+                CHECK(dns_json == expected_dns_fragment_json);
+                CHECK(quic_json == expected_quic_fragment_reassembly_within_limit_json);
             }
         }
 
@@ -1697,15 +1697,7 @@ SCENARIO("test tcp reassembly for tls server hello/certificate with 3 fragments"
                 REQUIRE(bytes_written_1 == fdc_return::MORE_PACKETS_NEEDED);
                 REQUIRE(bytes_written_2 == fdc_return::MORE_PACKETS_NEEDED);
                 REQUIRE(bytes_written_3 == 3889);
-                REQUIRE(json == expected_tls_server_fragments_reassembly_json);
-
-                /* Decode and print the L7 metadata
-                std::string json_output = get_json_decoded_fdc(
-                    reinterpret_cast<const char*>(wbuffer_tls),
-                    bytes_written_3);
-
-                printf("TLS Server L7 Metadata JSON:\n%s\n", json_output.c_str());
-                */
+                CHECK(json == expected_tls_server_fragments_reassembly_json);
             }
             mercury_packet_processor_destruct(mpp);
         }
