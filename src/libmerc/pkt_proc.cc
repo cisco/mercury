@@ -1511,6 +1511,10 @@ inline bool is_fdc_writable(fingerprint_type fp_type) {
     case fingerprint_type_tofsee:
     case fingerprint_type_stun:
     case fingerprint_type_ssh:
+    case fingerprint_type_http_server:
+    case fingerprint_type_tls_server:
+    case fingerprint_type_dtls:
+    case fingerprint_type_dtls_server:
             return true;
         default:
             return false;
