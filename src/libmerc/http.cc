@@ -34,7 +34,6 @@ namespace {
         { "date", http_request::req_hdrs.index("date") },
         { "pragma", http_request::req_hdrs.index("pragma") },
         { "trailer", http_request::req_hdrs.index("trailer") },
-        { "set-cookie", http_request::req_hdrs.index("set-cookie") },
         { "transfer-encoding", http_request::req_hdrs.index("transfer-encoding") },
         { "warning", http_request::req_hdrs.index("warning") },
         { "accept-charset", http_request::req_hdrs.index("accept-charset") },
@@ -49,15 +48,6 @@ namespace {
         { "proxy-authorization", http_request::req_hdrs.index("proxy-authorization") },
         { "range", http_request::req_hdrs.index("range") },
         { "te", http_request::req_hdrs.index("te") },
-        { "accept-ranges", http_request::req_hdrs.index("accept-ranges") },
-        { "age", http_request::req_hdrs.index("age") },
-        { "etag", http_request::req_hdrs.index("etag") },
-        { "location", http_request::req_hdrs.index("location") },
-        { "proxy-authenticate", http_request::req_hdrs.index("proxy-authenticate") },
-        { "retry-after", http_request::req_hdrs.index("retry-after") },
-        { "server", http_request::req_hdrs.index("server") },
-        { "vary", http_request::req_hdrs.index("vary") },
-        { "www-authenticate", http_request::req_hdrs.index("www-authenticate") },
         { "allow", http_request::req_hdrs.index("allow") },
         { "content-encoding", http_request::req_hdrs.index("content-encoding") },
         { "content-language", http_request::req_hdrs.index("content-language") },
@@ -391,15 +381,6 @@ void http_request::write_l7_metadata(cbor_object &o, bool) {
     http_request.print_key_string("proxy_authorization", get_header("proxy-authorization"));
     http_request.print_key_string("range", get_header("range"));
     http_request.print_key_string("te", get_header("te"));
-    http_request.print_key_string("accept_ranges", get_header("accept-ranges"));
-    http_request.print_key_string("age", get_header("age"));
-    http_request.print_key_string("etag", get_header("etag"));
-    http_request.print_key_string("location", get_header("location"));
-    http_request.print_key_string("proxy_authenticate", get_header("proxy-authenticate"));
-    http_request.print_key_string("retry_after", get_header("retry-after"));
-    http_request.print_key_string("server", get_header("server"));
-    http_request.print_key_string("vary", get_header("vary"));
-    http_request.print_key_string("www_authenticate", get_header("www-authenticate"));
     http_request.print_key_string("allow", get_header("allow"));
     http_request.print_key_string("content_encoding", get_header("content-encoding"));
     http_request.print_key_string("content_language", get_header("content-language"));
@@ -425,7 +406,6 @@ void http_request::write_l7_metadata(cbor_object &o, bool) {
     if(report_sensitive_headers) {
         http_request.print_key_string("cookie", get_header("cookie"));
         http_request.print_key_string("authorization", get_header("authorization"));
-        http_request.print_key_string("set_cookie", get_header("set-cookie"));
     }
 
     http_request.close();

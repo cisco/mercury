@@ -375,7 +375,7 @@ public:
 };
 
 struct http_request : public base_protocol {
-    static constexpr uint8_t num_headers_to_report = 65;
+    static constexpr uint8_t num_headers_to_report = 55;
     static constexpr size_t max_body_length = 1024;
     struct datum method;
     struct datum uri;
@@ -404,7 +404,6 @@ struct http_request : public base_protocol {
             "date",
             "pragma",
             "trailer",
-            "set-cookie",
             "transfer-encoding",
             "warning",
             "accept-charset",
@@ -419,15 +418,6 @@ struct http_request : public base_protocol {
             "proxy-authorization",
             "range",
             "te",
-            "accept-ranges",
-            "age",
-            "etag",
-            "location",
-            "proxy-authenticate",
-            "retry-after",
-            "server",
-            "vary",
-            "www-authenticate",
             "allow",
             "content-encoding",
             "content-language",
