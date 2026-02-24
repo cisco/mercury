@@ -31,6 +31,7 @@ const std::string expected_dns_fragment_json = R"json({"version":2,"protocols":[
 const std::string expected_tls_server_fragments_reassembly_json = R"fdcjson({"version":2,"protocols":["tls"],"tls":{"server":{"certs":[{"data":"3082084f30820637a00302010202142ad110cfa77c48d76aec4f32f097e49d6deda9be300d06092a864886f70d01010b05003045310e300c060355040a1305436973636f310e300c060355040b1305506c756d61312330210603550403131a496e7465726e616c205072697661746520544c53205375624341301e170d3235303331373139323831385a170d3236303331373139323831385a3077310b30090603550406130255533113301106035504080c0a43616c69666f726e69613111300f06035504070c0853616e204a6f7365311d301b060355040a0c14496e7465726e616c205072697661746520544c533121301f06035504030c1863666b2d70726f64312d7263646e2e636973636f2e636f6d30820122300d06092a864886f70d01010105000382010f003082010a0282010100c84a079d483fb3b248ce46a7ea55db8ff86e794e60d45b0170893b334986e437450b6382b74e14a122dc7c7b53844af78ad66338323872eec76e13b56e1ce39daa8c575fe0a33e9060bafa9f493f726c8a477327f10e815cd413e195bcd0e4bcb110d727d033979a2e3af75c6e0956d6193abbd6524f6325b5af7a51a6c895ec7a3bafd7d7a7bc285b5a91a9fcb5db786f475bd16ee1a47739aeeef3c02eac16daf7ea40fae7c53238955ae3c937d36c35e1c599b1cffb7255f341ce21d1ce451a80a39dfec082f0b3e1057a9c77c8d29ae4a33f701b8fe652ebc9a29b9a41a342ff5becdd4e288773e7c36e8c41c7defd087f9707fb5d145b5ba7910787b7710203010001a3820403308203ff300c0603551d130101ff04023000301f0603551d230418301680143f60c5427a94f5cc380741e3ea77a3ac2500234730818706082b06010505070101047b3079304806082b06010505073002863c687474703a2f2f63726c2e696e7465726e616c686f73746e616d65732e636f6d2f496e7465726e616c50726976617465544c5353756243412e637274302d06082b060105050730018621687474703a2f2f6f6373702e696e7465726e616c686f73746e616d65732e636f6d308202870603551d110482027e3082027a821863666b2d70726f64312d7263646e2e636973636f2e636f6d821f63666b2d61646d2d70726f64312d7263646e312d312e636973636f2e636f6d821f63666b2d62726b2d70726f64312d7263646e312d312e636973636f2e636f6d821f63666b2d62726b2d70726f64312d7263646e312d322e636973636f2e636f6d821f63666b2d62726b2d70726f64312d7263646e312d332e636973636f2e636f6d821f63666b2d62726b2d70726f64312d7263646e312d342e636973636f2e636f6d821f63666b2d62726b2d70726f64312d7263646e312d352e636973636f2e636f6d821b63666b2d72702d70726f64312d7263646e2e636973636f2e636f6d821e63666b2d72702d70726f64312d7263646e312d312e636973636f2e636f6d821e63666b2d72702d70726f64312d7263646e312d322e636973636f2e636f6d821e63666b2d72702d70726f64312d7263646e312d332e636973636f2e636f6d821b63666b2d73722d70726f64312d7263646e2e636973636f2e636f6d821e63666b2d73722d70726f64312d7263646e312d312e636973636f2e636f6d821e63666b2d73722d70726f64312d7263646e312d322e636973636f2e636f6d821e63666b2d73722d70726f64312d7263646e312d332e636973636f2e636f6d821e63666b2d7a6b2d70726f64312d7263646e312d312e636973636f2e636f6d821e63666b2d7a6b2d70726f64312d7263646e312d322e636973636f2e636f6d821e63666b2d7a6b2d70726f64312d7263646e312d332e636973636f2e636f6d821e63666b2d7a6b2d70726f64312d7263646e312d342e636973636f2e636f6d821e63666b2d7a6b2d70726f64312d7263646e312d352e636973636f2e636f6d303b0603551d250434303206082b0601050507030506082b0601050507030606082b0601050507030706082b0601050507030206082b06010505070301304d0603551d1f044630443042a040a03e863c687474703a2f2f63726c2e696e7465726e616c686f73746e616d65732e636f6d2f496e7465726e616c50726976617465544c5353756243412e63726c301d0603551d0e04160414db7000b89d7f13829ef1c590a048fa6647b381e3300e0603551d0f0101ff0404030205a0300d06092a864886f70d01010b050003820201005bcdc84371ef683722164dae5ac439c5243cf7f9ce78ed46787d09261f92dd257f466829189ca8d2a72719e6ff1bda0c2d04b73e11da8674ee77fe6fd611d0e597e064d1271d19e0a38d37dc13dcc0356e365bae9e25a19c2c20e9d75a55fae08657b611bee80d8028b323e564dceaedabadfc119ee930650feb5071ddc23114bf05a4800e609bd142f0ebbba2709c0083c1eb7f4e2ebe443037e344c0dfd0903de392da536a34dde0ec57faf475dca4e428fc08f181bf39b578d0aaec6b46a2de37b3eec1c6b98d84275705095d73a8e93302938e96ef3a129bb66c0ac4ac3c474cfc0de7c39d610fef46fd4e67122a5c9e1e4b860978812ab56eab5478234a32c17f7c92240a7b6f098e4b72a243eb5fe9d41a0a38b6886b6aca059055b7ba5d970fa25783a087919b0853e0509c04c37d7761d3c5a94529f14e3f2c6e4309c732bacae1950d510da2eef76c5cb249d85d76ac34d3535c82aeb2292d2f6d3eebee8df7649f0e794e069cb34888f9fc56b4d70416faffdbea2ef8ab0c5106b8c9201d61ad74f0a83c04ce4acce57fe7cfd12a7c9f3fd9219b98a4217311e4d37cf4ec223532103fb82bc77a904f417d69f72855710a7a011b23815ab5ac6338e81f6c3d912479e7888ff00aab80bef00909210c6ac5f8c5eb6048542c9f415a2035def856426e03d3273b202ab50218310236c024f602a526c98ee987cacbce"},{"data":"3082068830820470a00302010202090e31b8b9792b167172300d06092a864886f70d01010b05003041310f300d060355040b1306436f72767573310e300c060355040a1305436973636f311e301c06035504031315496e7465726e616c205072697661746520526f6f743020170d3139303431323138313934355a180f32303530303431323137353534365a3045310e300c060355040a1305436973636f310e300c060355040b1305506c756d61312330210603550403131a496e7465726e616c205072697661746520544c5320537562434130820222300d06092a864886f70d01010105000382020f003082020a0282020100a8c029ee4518babc45bc5d56702c6b5ec3fa9c43b771533fcb00d1f51d42e8b698ec43c1cfc64321c7365dc0be552dcf0f9b4bc17c209b52e240bb7a67528d5eb3e165b6e67d25b80600c9156b30255514b7db419c766f8c806b6f906e75ae8d58c34df393172c351bc471176ee01ecc8d382027188f4b7a5889777a59fd4b41fb4eb78074aee4b2532a8711a9fa0582652cd9dcbf95cfa835b4edf7137dfd9b6d3c1a0150d6f77e1b84a47d46601ea58f28101a7fb047cc4154978f73b1a36f3a918c6fa3712e867e622e9164b841739d81a11a8f2f1d7d34ae484452e6741c07f7ae4c2d7d14af45ea0522074c34222c1262ea5339049585f1e9fb95f4abc07afb95b6c0c2958d7843efc8bdff76f5f50d726621b4d8c6f807ca993ee4eedb3eb43b32082f34c6e8ce6b2ba408bfa060ac9b323857fc6e27e851e253e71f44374c86ef7422846183a8c18b257ec8af91c6237875bb04b337c04840d3ce4c58a4b580b279e7e1bc856615350644bf70bb99e7c5726c3d3c4ff865f22a540647eb7c0f7f6c10bce436b40ed51c1b86becd33045b175cc3d0879719e9d681f83395826b2e15484824fc3097bbf6b49f7bfd72bce2077ab4e6d796e1a43d7fd57755892db624c70b277e251bf5c5f083576a1640df9815492df76499794e0847cdb68e9e1c5fc1c2713ecbde8022531029a4d679b72b725d412c4894482d03388d0203010001a382017b30820177300e0603551d0f0101ff04040302010630120603551d130101ff040830060101ff020100307c06082b060105050701010470306e303e06082b06010505073002863268747470733a2f2f7777772e636973636f2e636f6d2f73656375726974792f706b692f63657274732f72636970722e636572302c06082b060105050730018620687474703a2f2f706b696376732e636973636f2e636f6d2f706b692f6f637370301f0603551d23041830168014a0b82011d630f34261451865a53ecd31db7ad45a30510603551d20044a3048304606092b06010401091501303039303706082b06010505070201162b687474703a2f2f7777772e636973636f2e636f6d2f73656375726974792f706b692f706f6c69636965732f30400603551d1f043930373035a033a031862f687474703a2f2f7777772e636973636f2e636f6d2f73656375726974792f706b692f63726c2f72636970722e63726c301d0603551d0e041604143f60c5427a94f5cc380741e3ea77a3ac25002347300d06092a864886f70d01010b050003820201000d78bf005d5bd93344ba5f40aa7f64e41e4ec66933b7c011405b7675e802656f54146f531d2f25e4bad84e53abc7c334f5f2165e1ece65197f1eb28a050cd0255c8949b5d8864f72292b6614e624b14973bed3947f72569c2c6d96e6c10c8aa8477035b4a6d5c0fec010e1b5dfc114d9dfccc8a92a27e73fbf2f1c63a04f5b01518c081e1be83d9140a8a4b3f4a4cf2b0db384bb296b790fcc8cbae8e4bcba79e2e94398e61c99491f35da50b9a734e688b4124422ca2363f37a0536ef066745251ce9d5aa523cac6c65550b84bcec9d4e4774fd301f94640d17dd9bdf772cc985414757ae39f6f777818c5da72da9e3d3553893d7f4610639d3d84e0a4a0e790271d3a136c0411f7149e0bc4f201fdbb1abdc45e1d684898467880984e0f05312083093b25488740df02a36f1ba226e5a57c8ce990cd2bb4f71e013c6bc0a85565261c5e9903a4931d80218fdf6c3486008619da3cbac19206b49aee6beb08aa75f7091fd702eb4c18f17a2f6ca864fa358fab4959e614c7aafb4b2592ccae896556876ea9e94efab322fd941cf22f393a21531c944761babf95cbb6c764f337994317fce97affbe2c5bee9863d4d00eded20e4d3e9bb0aaff22dd2b3e2bbd31662411ca09732374153a1eae750453c6863e5ac4b708021ef753bc572569f0a71cb08145bfb5a0d90cc654a4a81ada0f4071a3ef717fcac1e1c5b7274fec8d4"}]}},"truncation":1})fdcjson";
 
 } // namespace
+#include "tcp.h"
 
 unsigned char http_tcp_payload[] = {
     0x47, 0x45, 0x54, 0x20, 0x2f, 0x20, 0x48, 0x54, 0x54, 0x50, 0x2f, 0x31,
@@ -858,6 +859,66 @@ unsigned char tls_server_fragment_3[] = {
     0x79, 0x73, 0x74, 0x65, 0x6d, 0x73, 0x31, 0x17, 0x30, 0x15, 0x06, 0x03, 0x55,
     0x04, 0x03, 0x13, 0x0e, 0x74, 0x72, 0x63, 0x61, 0x2d, 0x32, 0x30, 0x34, 0x38,
     0x2d, 0x73, 0x68, 0x61, 0x32, 0x0e, 0x00, 0x00, 0x00
+};
+
+// Unknown/unparsable TCP payload - random bytes that don't match any protocol
+unsigned char unknown_tcp_payload[] = {
+    0xde, 0xad, 0xbe, 0xef, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+    0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14,
+    0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20,
+    0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c,
+    0x2d, 0x2e, 0x2f, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38,
+    0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f, 0x40, 0x41, 0x42, 0x43, 0x44,
+    0x45, 0x46, 0x47, 0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f, 0x50,
+    0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5a, 0x5b, 0x5c,
+    0x5d, 0x5e, 0x5f, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68,
+    0x69, 0x6a, 0x6b, 0x6c, 0x6d, 0x6e, 0x6f, 0x70, 0x71, 0x72, 0x73, 0x74,
+    0x75, 0x76, 0x77, 0x78, 0x79, 0x7a, 0x7b, 0x7c, 0x7d, 0x7e, 0x7f, 0x80,
+    0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87, 0x88, 0x89, 0x8a, 0x8b, 0x8c,
+    0x8d, 0x8e, 0x8f, 0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97, 0x98,
+    0x99, 0x9a, 0x9b, 0x9c, 0x9d, 0x9e, 0x9f, 0xa0, 0xa1, 0xa2, 0xa3, 0xa4,
+    0xa5, 0xa6, 0xa7, 0xa8, 0xa9, 0xaa, 0xab, 0xac, 0xad, 0xae, 0xaf, 0xb0,
+    0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7, 0xb8, 0xb9, 0xba, 0xbb, 0xbc,
+    0xbd, 0xbe, 0xbf, 0xc0, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7, 0xc8,
+    0xc9, 0xca, 0xcb, 0xcc, 0xcd, 0xce, 0xcf, 0xd0, 0xd1, 0xd2, 0xd3, 0xd4,
+    0xd5, 0xd6, 0xd7, 0xd8, 0xd9, 0xda, 0xdb, 0xdc, 0xdd, 0xde, 0xdf, 0xe0,
+    0xe1, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7, 0xe8, 0xe9, 0xea, 0xeb, 0xec,
+    0xed, 0xee, 0xef, 0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 0xf8,
+    0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff, 0x00, 0x01, 0x02, 0x03, 0x04,
+    0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10,
+    0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c,
+    0x1d, 0x1e, 0x1f, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
+    0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x30, 0x31, 0x32, 0x33, 0x34
+};
+
+// Unknown/unparsable UDP payload - random bytes that don't match any protocol
+unsigned char unknown_udp_payload[] = {
+    0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x05, 0x06, 0x07, 0x08,
+    0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14,
+    0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20,
+    0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c,
+    0x2d, 0x2e, 0x2f, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38,
+    0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f, 0x40, 0x41, 0x42, 0x43, 0x44,
+    0x45, 0x46, 0x47, 0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f, 0x50,
+    0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5a, 0x5b, 0x5c,
+    0x5d, 0x5e, 0x5f, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68,
+    0x69, 0x6a, 0x6b, 0x6c, 0x6d, 0x6e, 0x6f, 0x70, 0x71, 0x72, 0x73, 0x74,
+    0x75, 0x76, 0x77, 0x78, 0x79, 0x7a, 0x7b, 0x7c, 0x7d, 0x7e, 0x7f, 0x80,
+    0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87, 0x88, 0x89, 0x8a, 0x8b, 0x8c,
+    0x8d, 0x8e, 0x8f, 0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97, 0x98,
+    0x99, 0x9a, 0x9b, 0x9c, 0x9d, 0x9e, 0x9f, 0xa0, 0xa1, 0xa2, 0xa3, 0xa4,
+    0xa5, 0xa6, 0xa7, 0xa8, 0xa9, 0xaa, 0xab, 0xac, 0xad, 0xae, 0xaf, 0xb0,
+    0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7, 0xb8, 0xb9, 0xba, 0xbb, 0xbc,
+    0xbd, 0xbe, 0xbf, 0xc0, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7, 0xc8,
+    0xc9, 0xca, 0xcb, 0xcc, 0xcd, 0xce, 0xcf, 0xd0, 0xd1, 0xd2, 0xd3, 0xd4,
+    0xd5, 0xd6, 0xd7, 0xd8, 0xd9, 0xda, 0xdb, 0xdc, 0xdd, 0xde, 0xdf, 0xe0,
+    0xe1, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7, 0xe8, 0xe9, 0xea, 0xeb, 0xec,
+    0xed, 0xee, 0xef, 0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 0xf8,
+    0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff, 0x00, 0x01, 0x02, 0x03, 0x04,
+    0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10,
+    0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c,
+    0x1d, 0x1e, 0x1f, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
+    0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x30, 0x31, 0x32, 0x33, 0x34
 };
 
 unsigned char quic_empty_payload[] = {};
@@ -1701,6 +1762,138 @@ SCENARIO("test tcp reassembly for tls server hello/certificate with 3 fragments"
             }
             mercury_packet_processor_destruct(mpp);
         }
+        mercury_finalize(mc);
+    }
+}
+
+SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for unknown/unparsable TCP payload reports first 256 bytes") {
+    GIVEN("mercury packet processor with output_tcp_initial_data enabled") {
+        libmerc_config config = create_config();
+        config.packet_filter_cfg = "all;nonselected-tcp-data";
+        mercury_context mc = initialize_mercury(config);
+        mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
+        const analysis_context* ac = nullptr;
+
+        const int max_buffer_allocation = 4096;
+        uint8_t wbuffer[max_buffer_allocation];
+
+        uint32_t src_ip = 16843009; // 1.1.1.1
+        uint32_t dst_ip = 33686018; // 2.2.2.2
+        uint16_t src_port = 54321;
+        uint16_t dst_port = 9999;  // non-standard port to avoid protocol detection
+        uint8_t proto = ip::protocol::tcp;
+
+        struct flow_key_ext k_unknown;
+        k_unknown.src_port = src_port;
+        k_unknown.dst_port = dst_port;
+        k_unknown.addr.ipv4.src = src_ip;
+        k_unknown.addr.ipv4.dst = dst_ip;
+        k_unknown.protocol = proto;
+        k_unknown.ip_vers = 4;
+
+        WHEN("write to FDC buffer for unknown TCP payload") {
+            size_t fdc_buffer_len = max_buffer_allocation;
+            int bytes_written = mercury_packet_processor_get_analysis_context_fdc(
+                mpp,
+                &k_unknown,
+                unknown_tcp_payload,
+                sizeof(unknown_tcp_payload),
+                wbuffer,
+                &fdc_buffer_len,
+                &ac);
+
+            THEN("FDC should contain tcp.data with first 256 bytes of payload") {
+                REQUIRE(bytes_written > 0);
+                REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
+
+                // Parse the FDC output and verify it contains tcp.data
+                datum outbuf{wbuffer, wbuffer + bytes_written};
+                std::string json = translate_l7_metadata_to_json_string(outbuf);
+
+                // Verify the JSON contains "tcp" object with "data" field
+                REQUIRE(json.find("\"tcp\"") != std::string::npos);
+                REQUIRE(json.find("\"data\"") != std::string::npos);
+
+                // Verify the hex data starts with our payload bytes (deadbeef)
+                REQUIRE(json.find("deadbeef") != std::string::npos);
+
+                // Verify truncation to 256 bytes (512 hex chars)
+                auto data_pos = json.find("\"data\":\"");
+                REQUIRE(data_pos != std::string::npos);
+                auto hex_start = data_pos + 8; // skip '"data":"'
+                auto hex_end = json.find('"', hex_start);
+                REQUIRE(hex_end != std::string::npos);
+                REQUIRE((hex_end - hex_start) == 512); // 256 bytes = 512 hex chars
+            }
+        }
+
+        mercury_packet_processor_destruct(mpp);
+        mercury_finalize(mc);
+    }
+}
+
+SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for unknown/unparsable UDP payload reports first 256 bytes") {
+    GIVEN("mercury packet processor with output_udp_initial_data enabled") {
+        libmerc_config config = create_config();
+        config.packet_filter_cfg = "all;nonselected-udp-data";
+        mercury_context mc = initialize_mercury(config);
+        mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
+        const analysis_context* ac = nullptr;
+
+        const int max_buffer_allocation = 4096;
+        uint8_t wbuffer[max_buffer_allocation];
+
+        uint32_t src_ip = 16843009; // 1.1.1.1
+        uint32_t dst_ip = 33686018; // 2.2.2.2
+        uint16_t src_port = 54321;
+        uint16_t dst_port = 9999;  // non-standard port to avoid protocol detection
+        uint8_t proto = ip::protocol::udp;
+
+        struct flow_key_ext k_unknown;
+        k_unknown.src_port = src_port;
+        k_unknown.dst_port = dst_port;
+        k_unknown.addr.ipv4.src = src_ip;
+        k_unknown.addr.ipv4.dst = dst_ip;
+        k_unknown.protocol = proto;
+        k_unknown.ip_vers = 4;
+
+        WHEN("write to FDC buffer for unknown UDP payload") {
+            size_t fdc_buffer_len = max_buffer_allocation;            
+            int bytes_written = mercury_packet_processor_get_analysis_context_fdc(
+                mpp,
+                &k_unknown,
+                unknown_udp_payload,
+                sizeof(unknown_udp_payload),
+                wbuffer,
+                &fdc_buffer_len,
+                &ac);
+
+            THEN("FDC should contain udp.data with first 256 bytes of payload") {
+                REQUIRE(bytes_written > 0);
+                REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
+
+                // Parse the FDC output and verify it contains udp.data
+                datum outbuf{wbuffer, wbuffer + bytes_written};
+                std::string json = translate_l7_metadata_to_json_string(outbuf);
+
+                // Verify the JSON contains "udp" object with "data" field
+                REQUIRE(json.find("\"udp\"") != std::string::npos);
+                REQUIRE(json.find("\"data\"") != std::string::npos);
+
+                // Verify the hex data starts with our payload bytes (11223344)
+                REQUIRE(json.find("11223344") != std::string::npos);
+
+                // Verify truncation to 256 bytes (512 hex chars)
+                auto data_pos = json.find("\"data\":\"");
+                REQUIRE(data_pos != std::string::npos);
+                auto hex_start = data_pos + 8; // skip '"data":"'
+                auto hex_end = json.find('"', hex_start);
+                REQUIRE(hex_end != std::string::npos);
+                REQUIRE((hex_end - hex_start) == 512); // 256 bytes = 512 hex chars
+            }
+        }
+
+        mercury_packet_processor_destruct(mpp);
         mercury_finalize(mc);
     }
 }
