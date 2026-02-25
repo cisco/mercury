@@ -360,7 +360,8 @@ int main(int argc, char *argv[]) {
         { argument::none,       "--help",      "print out help message" },
         {argument::optional,    "--crypto-assess", "enable crypto-assess analysis"},
         {argument::optional,    "--exposed-creds", "enable exposed-creds analysis"},
-        {argument::optional,    "--report-sensitive-headers", "report sensitive headers"}
+        {argument::optional,    "--http-headers", "set http headers mode (all or non-sensitive)"},
+        {argument::optional,    "--http-body", "set max http body bytes to report (capped at 1024)"}
     });
     if (!opt.process_argv(argc, argv)) {
         opt.usage(stderr, argv[0], summary);
@@ -377,7 +378,8 @@ int main(int argc, char *argv[]) {
     bool print_help = opt.is_set("--help");
     bool crypto_assess = opt.is_set("--crypto-assess");
     bool exposed_creds = opt.is_set("--exposed-creds");
-    bool report_sensitive_headers = opt.is_set("--report-sensitive-headers");
+    auto [ http_headers_is_set, http_headers_value ] = opt.get_value("--http-headers");
+    auto [ http_body_is_set, http_body_value ] = opt.get_value("--http-body");
 
     if (print_help) {
         opt.usage(stdout, argv[0], summary);
@@ -422,8 +424,11 @@ int main(int argc, char *argv[]) {
         if (exposed_creds) {
             packet_filter_cfg += ";exposed-creds";
         }
-        if (report_sensitive_headers) {
-            packet_filter_cfg += ";report-sensitive-headers";
+        if (http_headers_is_set) {
+            packet_filter_cfg += ";http-headers=" + (http_headers_value.empty() ? "all" : http_headers_value);
+        }
+        if (http_body_is_set) {
+            packet_filter_cfg += ";http-body=" + (http_body_value.empty() ? "1024" : http_body_value);
         }
         config.packet_filter_cfg = (char *)packet_filter_cfg.c_str();
 

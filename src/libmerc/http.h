@@ -381,8 +381,11 @@ struct http_request : public base_protocol {
     struct datum uri;
     struct datum protocol;
     new_http_headers<num_headers_to_report> headers;
-    bool report_sensitive_headers = false;   
-
+    static inline bool output_all_headers = false;
+    static void set_http_headers(bool value) { output_all_headers = value; }
+    static inline size_t output_body_max = 0;
+    static void set_http_body(size_t value) { output_body_max = value; }
+    
     static constexpr static_dictionary<num_headers_to_report> req_hdrs {
         {
             "user-agent",

@@ -135,7 +135,6 @@ public:
     fingerprint_format fp_format;    // default fingerprint format
     bool minimize_ram = false;
     bool exposed_creds = false;      /* detect and report exposed credentials in enabled plaintext protocols */
-    bool report_sensitive_headers = false;
 
     global_config() : libmerc_config(), reassembly{false}, network_behavioral_detections{false} {};
     global_config(const libmerc_config& c) : libmerc_config(c), reassembly{false}, network_behavioral_detections{false} {
@@ -231,6 +230,12 @@ public:
             { "tls",                    false },
     };
 
+    std::unordered_map<std::string, bool> http_headers {
+            { "all",            false },
+            { "non-sensitive",  false }
+    };
+    size_t http_body_max = 0;
+
     bool set_protocols(const std::string& data) {
 
         std::string s = data.empty() ? (static_selector_string ? static_selector_string : "all") : data ;
@@ -291,6 +296,29 @@ public:
         return true;
     }
 
+    bool set_http_headers (const std::string& s){
+        std::string mode = s.empty() ? "all" : s;
+        auto it = http_headers.find(mode);
+        if (it == http_headers.end()) {
+            printf_err(log_err, "unrecognized http headers mode \"%s\"\n", mode.c_str());
+            return false;
+        }
+        it->second = true;
+        return true;
+    }
+
+    static constexpr size_t max_http_body = 1024;
+
+    bool set_http_body(const std::string& s) {
+        try {
+            size_t value = s.empty() ? max_http_body : std::stoull(s);
+            http_body_max = std::min(value, max_http_body);
+        } catch (const std::exception&) {
+            printf_err(log_err, "invalid http body size \"%s\"\n", s.c_str());
+            return false;
+        }
+        return true;
+    }
 };
 
 static void setup_extended_fields(global_config* lc, const std::string& config) {
@@ -307,7 +335,8 @@ static void setup_extended_fields(global_config* lc, const std::string& config) 
         {"minimize-ram", "", "", SETTER_FUNCTION(&lc){ lc->minimize_ram = true; }},
         {"network-behavioral-detections", "", "", SETTER_FUNCTION(&lc){ lc->network_behavioral_detections = true; }},
         {"exposed-creds", "", "", SETTER_FUNCTION(&lc){ lc->exposed_creds = true; }},
-        {"report-sensitive-headers", "", "", SETTER_FUNCTION(&lc){ lc->report_sensitive_headers = true; }}
+        {"http-headers", "", "", SETTER_FUNCTION(&lc){ lc->set_http_headers(s); }},
+        {"http-body", "", "", SETTER_FUNCTION(&lc){ lc->set_http_body(s); }}
     };
 
     parse_additional_options(options, config, *lc);

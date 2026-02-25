@@ -149,6 +149,12 @@ struct stateful_pkt_proc {
         // setting protocol based configuration option to output the raw features
         set_raw_features(global_vars.raw_features);
 
+        // setting protocol based configuration option to output the http headers
+        set_http_headers(global_vars.http_headers);
+
+        // setting protocol based configuration option to output the http body
+        set_http_body(global_vars.http_body_max);
+
         //fprintf(stderr, "note: setting classifier to %p, setting global_vars to %p\n", (void *)m->c, (void *)&m->global_vars));
         // }
 
@@ -356,6 +362,16 @@ struct stateful_pkt_proc {
         }
 
         return output_attr;
+    }
+
+    void set_http_headers(const std::unordered_map<std::string, bool> &http_headers) {
+        if (http_headers.at("all")) {
+            http_request::set_http_headers(true);
+        }
+    }
+
+    void set_http_body(size_t max_body) {
+        http_request::set_http_body(max_body);
     }
 };
 

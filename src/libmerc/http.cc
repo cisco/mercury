@@ -343,12 +343,14 @@ void http_request::write_l7_metadata(cbor_object &o, bool) {
 
     headers.write_l7_metadata(http_request);
 
-    datum body = headers.get_header_body();
-    const size_t orig_len = body.length();
-    const bool truncated = orig_len > max_body_length;
-    http_request.print_key_bool("body_truncated", truncated);
-    body.trim_to_length(max_body_length);
-    http_request.print_key_hex("body", body);
+    if (output_body_max > 0) {
+        datum body = headers.get_header_body();
+        const size_t orig_len = body.length();
+        const bool truncated = orig_len > output_body_max;
+        http_request.print_key_bool("body_truncated", truncated);
+        body.trim_to_length(output_body_max);
+        http_request.print_key_hex("body", body);
+    }
 
     http_request.print_key_string("user_agent", get_header("user-agent"));
     http_request.print_key_string("host", get_header("host"));
@@ -403,7 +405,7 @@ void http_request::write_l7_metadata(cbor_object &o, bool) {
     http_request.print_key_string("client_ip", get_header("client-ip"));
     http_request.print_key_string("xroxy_connection", get_header("xroxy-connection"));
     http_request.print_key_string("proxy_connection", get_header("proxy-connection"));
-    if(report_sensitive_headers) {
+    if(output_all_headers) {
         http_request.print_key_string("cookie", get_header("cookie"));
         http_request.print_key_string("authorization", get_header("authorization"));
     }
