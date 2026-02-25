@@ -854,38 +854,32 @@ TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment attributes")
     }
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment SecP384r1MLKEM1024 supported_groups output")
+TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment quantum_safe compliance")
 {
-    libmerc_config config{
-        .do_analysis = true,
-        .resources = resources_minimal_path,
-        .packet_filter_cfg = (char *)"all;crypto-assess=default"
+    auto attr_not_present_check = [&](std::string &attr_to_be_absent, const struct libmerc_config &config)
+    {
+        initialize(config);
+ 
+        CHECK_FALSE(check_attr(attr_to_be_absent));  // attribute should NOT be present
+ 
+        deinitialize();
     };
-
-    set_pcap("secp384r1mlkem1024_clienthello.pcap");
-    initialize(config);
-
-    REQUIRE(read_next_data_packet() == 0);
-
-    auto json_len = mercury_packet_processor_write_json(
-        m_mpp,
-        m_output,
-        sizeof(m_output),
-        (unsigned char *)m_data_packet.first,
-        m_data_packet.second - m_data_packet.first,
-        &m_time
-    );
-
-    REQUIRE(json_len > 0);
-    if ((size_t)json_len < sizeof(m_output)) {
-        m_output[json_len] = '\0';
-    } else {
-        m_output[sizeof(m_output) - 1] = '\0';
+ 
+    std::vector<std::pair<test_config, std::string>> test_set_up{
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_minimal_path,
+                .packet_filter_cfg = (char *)"all;crypto-assess=quantum_safe"
+            },
+            .m_pc{"secp384r1mlkem1024_clienthello.pcap"}},
+            "cnsa_2_0_non_conformant"    // should NOT be present since secp384r1mlkem1024 is quantum-safe
+        }
+    };
+ 
+    for (auto &[config, attr_to_be_absent] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        attr_not_present_check(attr_to_be_absent, config.m_lc);
     }
-
-    REQUIRE(strstr(m_output, "\"groups_allowed\":\"all\"") != nullptr);
-    REQUIRE(strstr(m_output, "groups_not_allowed") == nullptr);
-    deinitialize();
 }
 
 TEST_CASE_METHOD(LibmercTestFixture, "test nbss with resources-mp")
