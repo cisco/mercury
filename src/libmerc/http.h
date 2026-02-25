@@ -241,9 +241,6 @@ public:
         delim = _delim;
     }
 
-    datum get_header_body() const {
-        return header_body;
-    }
 
     void write_json(struct json_object &record) {
         httpheader h = get_next_header(header_body);
@@ -270,7 +267,7 @@ public:
         }
     }
 
-    void write_l7_metadata(cbor_object &o) {
+    void write_l7_metadata(cbor_object &o, size_t body_max = 0) {
         httpheader h = get_next_header(header_body);
         if (h.is_valid()) {
             cbor_array hdrs{o, "headers"};
@@ -287,6 +284,14 @@ public:
                 hdrs.print_string(h.name);
             }
             hdrs.close();
+            if (body_max > 0) {
+                datum body = header_body;
+                if (body.is_readable()) {
+                    body.trim_to_length(body_max);
+                    o.print_key_hex("body", body);
+                }
+            }
+
         }
     }
 

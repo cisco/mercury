@@ -328,7 +328,9 @@ void http_request::write_json(struct json_object &record, bool output_metadata) 
 }
 
 void http_request::write_l7_metadata(cbor_object &o, bool) {
-    headers.store_headers(header_ph_request_full);
+    if (output_non_sensitive_headers || output_all_headers) {
+        headers.store_headers(header_ph_request_full);
+    }
 
     cbor_array protocols{o, "protocols"};
     protocols.print_string("http");
@@ -341,13 +343,7 @@ void http_request::write_l7_metadata(cbor_object &o, bool) {
     http_request.print_key_string("uri", uri);
     http_request.print_key_string("protocol", protocol);
 
-    headers.write_l7_metadata(http_request);
-
-    if (output_body_max > 0) {
-        datum body = headers.get_header_body();
-        body.trim_to_length(output_body_max);
-        http_request.print_key_hex("body", body);
-    }
+    headers.write_l7_metadata(http_request, output_body_max);
 
     http_request.print_key_string("user_agent", get_header("user-agent"));
     http_request.print_key_string("host", get_header("host"));

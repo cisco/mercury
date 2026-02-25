@@ -48,6 +48,24 @@ unsigned char http_tcp_payload[] = {
     0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x3a, 0x20, 0x4b, 0x65, 0x65,
     0x70, 0x2d, 0x41, 0x6c, 0x69, 0x76, 0x65, 0x0d, 0x0a, 0x0d, 0x0a};
 
+// POST /submit HTTP/1.1\r\nUser-Agent: TestAgent/1.0\r\nHost: example.com\r\n
+// Content-Type: application/json\r\nCookie: session=abc123\r\nContent-Length: 13\r\n\r\n{"key":"val"}
+unsigned char http_post_tcp_payload[] = {
+    0x50, 0x4f, 0x53, 0x54, 0x20, 0x2f, 0x73, 0x75, 0x62, 0x6d, 0x69, 0x74,
+    0x20, 0x48, 0x54, 0x54, 0x50, 0x2f, 0x31, 0x2e, 0x31, 0x0d, 0x0a, 0x55,
+    0x73, 0x65, 0x72, 0x2d, 0x41, 0x67, 0x65, 0x6e, 0x74, 0x3a, 0x20, 0x54,
+    0x65, 0x73, 0x74, 0x41, 0x67, 0x65, 0x6e, 0x74, 0x2f, 0x31, 0x2e, 0x30,
+    0x0d, 0x0a, 0x48, 0x6f, 0x73, 0x74, 0x3a, 0x20, 0x65, 0x78, 0x61, 0x6d,
+    0x70, 0x6c, 0x65, 0x2e, 0x63, 0x6f, 0x6d, 0x0d, 0x0a, 0x43, 0x6f, 0x6e,
+    0x74, 0x65, 0x6e, 0x74, 0x2d, 0x54, 0x79, 0x70, 0x65, 0x3a, 0x20, 0x61,
+    0x70, 0x70, 0x6c, 0x69, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x2f, 0x6a,
+    0x73, 0x6f, 0x6e, 0x0d, 0x0a, 0x43, 0x6f, 0x6f, 0x6b, 0x69, 0x65, 0x3a,
+    0x20, 0x73, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x3d, 0x61, 0x62, 0x63,
+    0x31, 0x32, 0x33, 0x0d, 0x0a, 0x43, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74,
+    0x2d, 0x4c, 0x65, 0x6e, 0x67, 0x74, 0x68, 0x3a, 0x20, 0x31, 0x33, 0x0d,
+    0x0a, 0x0d, 0x0a, 0x7b, 0x22, 0x6b, 0x65, 0x79, 0x22, 0x3a, 0x22, 0x76,
+    0x61, 0x6c, 0x22, 0x7d};
+
 unsigned char tls_client_hello_tcp_payload[] = {
     0x16, 0x03, 0x03, 0x00, 0xa7, 0x01, 0x00, 0x00, 0xa3, 0x03, 0x03, 0x64,
     0xbb, 0x66, 0x6d, 0x44, 0x19, 0xe6, 0x62, 0x35, 0x57, 0x9b, 0xed, 0x0b,
@@ -2098,6 +2116,191 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for http respon
             THEN("FDC should be written to output buffer") {
                 REQUIRE(bytes_written == 371);
                 CHECK(json == expected_http_response_json);
+            }
+            mercury_packet_processor_destruct(mpp);
+        }
+        mercury_finalize(mc);
+    }
+}
+
+SCENARIO("test FDC http request with http-headers=non-sensitive config") {
+    GIVEN("mercury packet processor with http-headers=non-sensitive") {
+        libmerc_config config = create_config();
+        config.packet_filter_cfg = (char *)"all;http-headers=non-sensitive";
+        mercury_context mc = initialize_mercury(config);
+        mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
+        const analysis_context* ac = nullptr;
+
+        const int max_buffer_allocation = 1500;
+        uint8_t wbuffer[max_buffer_allocation];
+
+        uint32_t src_ip = 318832897;
+        uint32_t dst_ip = 2511637346;
+        uint16_t src_port = 56533;
+        uint16_t dst_port = 80;
+        uint8_t proto = ip::protocol::tcp;
+
+        struct flow_key_ext k;
+        k.ip_vers = 4;
+        k.src_port = src_port;
+        k.dst_port = dst_port;
+        k.addr.ipv4.src = src_ip;
+        k.addr.ipv4.dst = dst_ip;
+        k.protocol = proto;
+
+        WHEN("write to FDC buffer for http request with non-sensitive headers enabled") {
+            size_t fdc_buffer_len = max_buffer_allocation;
+            std::string json;
+            int bytes_written = mercury_packet_processor_get_analysis_context_fdc(
+                mpp,
+                &k,
+                http_post_tcp_payload,
+                sizeof(http_post_tcp_payload),
+                wbuffer,
+                &fdc_buffer_len,
+                &ac);
+            if (bytes_written > 0) {
+                json = decode_fdc_json(wbuffer, bytes_written);
+                maybe_print_json("http_non_sensitive_headers", json);
+            }
+
+            THEN("FDC output should contain non-sensitive headers but not sensitive ones") {
+                REQUIRE(bytes_written > 0);
+                CHECK(json.find("\"content_type\"") != std::string::npos);
+                CHECK(json.find("\"content_length\"") != std::string::npos);
+                CHECK(json.find("\"user_agent\"") != std::string::npos);
+                CHECK(json.find("\"host\"") != std::string::npos);
+                CHECK(json.find("\"cookie\"") == std::string::npos);  // sensitive, must be absent
+            }
+            mercury_packet_processor_destruct(mpp);
+        }
+        mercury_finalize(mc);
+    }
+}
+
+SCENARIO("test FDC http request with http-headers=all config") {
+    GIVEN("mercury packet processor with http-headers=all") {
+        libmerc_config config = create_config();
+        config.packet_filter_cfg = (char *)"all;http-headers=all";
+        mercury_context mc = initialize_mercury(config);
+        mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
+        const analysis_context* ac = nullptr;
+
+        const int max_buffer_allocation = 1500;
+        uint8_t wbuffer[max_buffer_allocation];
+
+        uint32_t src_ip = 318832897;
+        uint32_t dst_ip = 2511637346;
+        uint16_t src_port = 56533;
+        uint16_t dst_port = 80;
+        uint8_t proto = ip::protocol::tcp;
+
+        struct flow_key_ext k;
+        k.ip_vers = 4;
+        k.src_port = src_port;
+        k.dst_port = dst_port;
+        k.addr.ipv4.src = src_ip;
+        k.addr.ipv4.dst = dst_ip;
+        k.protocol = proto;
+
+        WHEN("write to FDC buffer for http request with all headers enabled") {
+            size_t fdc_buffer_len = max_buffer_allocation;
+            std::string json;
+            int bytes_written = mercury_packet_processor_get_analysis_context_fdc(
+                mpp,
+                &k,
+                http_post_tcp_payload,
+                sizeof(http_post_tcp_payload),
+                wbuffer,
+                &fdc_buffer_len,
+                &ac);
+            if (bytes_written > 0) {
+                json = decode_fdc_json(wbuffer, bytes_written);
+                maybe_print_json("http_all_headers", json);
+            }
+
+            THEN("FDC output should contain all headers including sensitive") {
+                REQUIRE(bytes_written > 0);
+                CHECK(json.find("\"content_type\"") != std::string::npos);
+                CHECK(json.find("\"content_length\"") != std::string::npos);
+                CHECK(json.find("\"user_agent\"") != std::string::npos);
+                CHECK(json.find("\"host\"") != std::string::npos);
+                CHECK(json.find("\"cookie\"") != std::string::npos);
+            }
+            mercury_packet_processor_destruct(mpp);
+        }
+        mercury_finalize(mc);
+    }
+}
+
+SCENARIO("test FDC http request with http-body config") {
+    GIVEN("mercury packet processor with http-body=64") {
+        libmerc_config config = create_config();
+        config.packet_filter_cfg = (char *)"all;http-body=64";
+        mercury_context mc = initialize_mercury(config);
+        mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
+        const analysis_context* ac = nullptr;
+
+        const int max_buffer_allocation = 1500;
+        uint8_t wbuffer[max_buffer_allocation];
+
+        uint32_t src_ip = 318832897;
+        uint32_t dst_ip = 2511637346;
+        uint16_t src_port = 56533;
+        uint16_t dst_port = 80;
+        uint8_t proto = ip::protocol::tcp;
+
+        struct flow_key_ext k;
+        k.ip_vers = 4;
+        k.src_port = src_port;
+        k.dst_port = dst_port;
+        k.addr.ipv4.src = src_ip;
+        k.addr.ipv4.dst = dst_ip;
+        k.protocol = proto;
+
+        WHEN("write to FDC buffer for http POST with body") {
+            size_t fdc_buffer_len = max_buffer_allocation;
+            std::string json;
+            int bytes_written = mercury_packet_processor_get_analysis_context_fdc(
+                mpp,
+                &k,
+                http_post_tcp_payload,
+                sizeof(http_post_tcp_payload),
+                wbuffer,
+                &fdc_buffer_len,
+                &ac);
+            if (bytes_written > 0) {
+                json = decode_fdc_json(wbuffer, bytes_written);
+                maybe_print_json("http_body", json);
+            }
+
+            THEN("FDC output should contain body hex") {
+                REQUIRE(bytes_written > 0);
+                CHECK(json.find("\"body\"") != std::string::npos);
+                CHECK(json.find("7b226b6579223a2276616c227d") != std::string::npos);
+            }
+            mercury_packet_processor_destruct(mpp);
+        }
+
+        WHEN("write to FDC buffer for http GET without body") {
+            size_t fdc_buffer_len = max_buffer_allocation;
+            std::string json;
+            int bytes_written = mercury_packet_processor_get_analysis_context_fdc(
+                mpp,
+                &k,
+                http_tcp_payload,
+                sizeof(http_tcp_payload),
+                wbuffer,
+                &fdc_buffer_len,
+                &ac);
+            if (bytes_written > 0) {
+                json = decode_fdc_json(wbuffer, bytes_written);
+                maybe_print_json("http_no_body", json);
+            }
+
+            THEN("FDC output should not contain body field") {
+                REQUIRE(bytes_written > 0);
+                CHECK(json.find("\"body\"") == std::string::npos);
             }
             mercury_packet_processor_destruct(mpp);
         }
