@@ -410,6 +410,8 @@ int main(int argc, char *argv[]) {
         config.resources = resources_path;
         config.do_analysis = true;
         config.do_stats = do_stats;
+        config.output_tcp_initial_data = true;
+        config.output_udp_initial_data = true;
 
         std::string packet_filter_cfg = "all";
         if (crypto_assess) {
