@@ -56,6 +56,7 @@ CFLAGS  += --std=c++17
 CFLAGS += -O3
 # CFLAGS += -march=x86-64 -mtune=generic
 CFLAGS += -Wall -Wextra -Wno-deprecated $(CDEFS) $(MSV)
+CFLAGS += -Werror=mismatched-tags # treat struct/class tag mismatches as errors
 CFLAGS += -Wno-missing-braces # this flag squelches a gcc bug that causes a spurious warning
 CFLAGS += -Wno-narrowing      # needed for oid.h to suppress spurious (un)signed char error
 
