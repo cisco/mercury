@@ -45,6 +45,7 @@
 #include "rdp.hpp"
 #include "redis.hpp"
 #include "imap.hpp"
+#include "telnet.hpp"
 
 #include "dhcp.h"  // udp protocols
 #include "quic.h"
@@ -83,6 +84,7 @@ enum tcp_msg_type {
     tcp_msg_type_ssh_kex,
     tcp_msg_type_smtp_client,
     tcp_msg_type_smtp_server,
+    tcp_msg_type_telnet,
     tcp_msg_type_dns,
     tcp_msg_type_smb1,
     tcp_msg_type_smb2,
@@ -481,6 +483,7 @@ class traffic_selector {
     bool select_redis_response{false};
     bool select_imap_request{false};
     bool select_imap_response{false};
+    bool select_telnet{false};
 
 public:
 
@@ -560,6 +563,8 @@ public:
 
     bool imap_response() const { return select_imap_response; }
 
+    bool telnet() const { return select_telnet; }
+
     void disable_all() {
         tcp.disable_all();
         tcp4.disable_all();
@@ -602,6 +607,7 @@ public:
         select_redis_response = false;
         select_imap_request = false;
         select_imap_response = false;
+        select_telnet = false;
 
     }
 
@@ -638,6 +644,9 @@ public:
         if (protocols["smtp"] || protocols["all"]) {
             tcp.add_protocol(smtp_server::matcher, tcp_msg_type_smtp_server);
             select_smtp = true;
+        }
+        if (protocols["telnet"] || protocols["all"]) {
+            select_telnet = true;
         }
         if (protocols["rfb"] || protocols["all"]) {
             select_rfb = true;
@@ -1036,6 +1045,10 @@ public:
 
         if (imap_response() and (tcp_pkt->header->src_port == hton<uint16_t>(143))) {
             return tcp_msg_type_imap_response;
+        }
+
+        if (telnet() and (tcp_pkt->header->src_port == hton<uint16_t>(23) or tcp_pkt->header->dst_port == hton<uint16_t>(23))) {
+            return tcp_msg_type_telnet;
         }
 
         return tcp_msg_type_unknown;

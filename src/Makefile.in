@@ -196,6 +196,10 @@ endif
 libmerc_util: libmerc_util.cc libmerc_api.h
 	$(CXX) $(CFLAGS) libmerc_util.cc pcap_file_io.c -pthread -ldl -std=c++17 -o libmerc_util
 
+.PHONY: bench_escaped_string_up_to
+bench_escaped_string_up_to: bench_escaped_string_up_to.cc
+	$(CXX) $(CFLAGS) bench_escaped_string_up_to.cc -std=c++17 -o bench_escaped_string_up_to
+
 .PHONY: mercury_cython
 mercury_cython:
 ifeq ($(can_build_cython_package),yes)

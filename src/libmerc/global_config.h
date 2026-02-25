@@ -196,6 +196,7 @@ public:
             { "ssh",                    false },
             { "stun",                   false },
             { "syslog",                 false },
+            { "telnet",                 false },
             { "tacacs",                 false },
             { "tcp",                    false },
             { "tcp.message",            false },

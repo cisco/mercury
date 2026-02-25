@@ -220,15 +220,42 @@ public:
             return;
         }
         data = d.data;
-        while (d.data < d.data_end) {
-            if (*d.data == escape && d.data + 1 < d.data_end) {
-                d.data += 2;  // skip escape + escaped char
-            } else if (*d.data == delim) {
-                data_end = d.data;
-                d.data++;  // skip past delimiter
+        const uint8_t *cursor = d.data;
+        const uint8_t *end = d.data_end;
+        if constexpr (escape == delim) {
+            while (cursor < end) {
+                const uint8_t *hit = static_cast<const uint8_t *>(memchr(cursor, delim, static_cast<size_t>(end - cursor)));
+                if (!hit) {
+                    break;
+                }
+                if (hit + 1 < end && *(hit + 1) == delim) {
+                    cursor = hit + 2;  // skip escaped delimiter (double escape)
+                    continue;
+                }
+                data_end = hit;
+                d.data = hit + 1;  // skip past delimiter
                 return;
-            } else {
-                d.data++;
+            }
+        } else {
+            while (cursor < end) {
+                const uint8_t *delim_hit = static_cast<const uint8_t *>(memchr(cursor, delim, static_cast<size_t>(end - cursor)));
+                const uint8_t *escape_hit = static_cast<const uint8_t *>(memchr(cursor, escape, static_cast<size_t>(end - cursor)));
+                if (!delim_hit && !escape_hit) {
+                    break;
+                }
+                if (escape_hit && (!delim_hit || escape_hit < delim_hit)) {
+                    if (escape_hit + 1 < end) {
+                        cursor = escape_hit + 2;  // skip escape + escaped char
+                    } else {
+                        cursor = escape_hit + 1;  // trailing escape treated as literal
+                    }
+                    continue;
+                }
+                if (delim_hit) {
+                    data_end = delim_hit;
+                    d.data = delim_hit + 1;  // skip past delimiter
+                    return;
+                }
             }
         }
         // No delimiter found
