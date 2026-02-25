@@ -92,7 +92,7 @@ check_result () {
     echo "checking dir $dir_name"
     if [[ ! -d "$parent_path/$dir_name" ]] ; then
         # dir creation failure was already counted in mkdir_fail by exec_testcase
-        echo -e $COLOR_RED "FAILED TEST : $dir_name (test dir not found)" $COLOR_OFF
+        echo -e "${COLOR_RED} FAILED TEST : $dir_name (test dir not found)${COLOR_OFF}"
         return 1
     fi;
 
@@ -100,7 +100,7 @@ check_result () {
 
     if [[ ! -d "./corpus" ]] ; then
         # dir creation failure was already counted in mkdir_fail by exec_testcase
-        echo -e $COLOR_RED "FAILED TEST : $dir_name (corpus dir not found)" $COLOR_OFF
+        echo -e "${COLOR_RED} FAILED TEST : $dir_name (corpus dir not found)${COLOR_OFF}"
         cd ../$LIBMERC_FOLDER
         return 1;
     fi;
@@ -112,10 +112,10 @@ check_result () {
     fi;
 
     if [[ $(grep -Ec "((ERROR)|(ABORTING))" $dir_name.log) -gt 0 ]]; then
-        echo -e $COLOR_RED "FAILED TEST : $dir_name" $COLOR_OFF
+        echo -e "${COLOR_RED} FAILED TEST : $dir_name${COLOR_OFF}"
         fail=$((fail+1))
     else
-        echo -e $COLOR_YELLOW "PASS : $dir_name" $COLOR_OFF
+        echo -e "${COLOR_YELLOW} PASS : $dir_name${COLOR_OFF}"
         pass=$((pass+1))
     fi;
 
@@ -123,7 +123,7 @@ check_result () {
     pre_corpus=$(cat ./.corpus_pre_count 2>/dev/null || echo 0)
     if [[ "$post_corpus" -gt "$pre_corpus" ]]; then
         new_count=$((post_corpus - pre_corpus))
-        echo -e $COLOR_GREEN "corpus updated: $new_count new entries" $COLOR_OFF
+        echo -e "${COLOR_GREEN} corpus updated: $new_count new entries${COLOR_OFF}"
     fi;
 
     cd ../$LIBMERC_FOLDER;
@@ -145,9 +145,9 @@ exec_testcase () {
 
     echo "checking dir $dir_name"
     if [[ ! -d "$parent_path/$dir_name" ]] ; then
-        echo -e $COLOR_YELLOW "$dir_name test dir not found, creating it: $parent_path/$dir_name/corpus" $COLOR_OFF
+        echo -e "${COLOR_YELLOW} $dir_name test dir not found, creating it: $parent_path/$dir_name/corpus${COLOR_OFF}"
         if ! mkdir -p "$parent_path/$dir_name/corpus" ; then
-            echo -e $COLOR_RED "failed to create $dir_name test dir" $COLOR_OFF
+            echo -e "${COLOR_RED} failed to create $dir_name test dir${COLOR_OFF}"
             mkdir_fail=$((mkdir_fail+1))
             return 1
         fi
@@ -191,16 +191,16 @@ fi;
     # make fuzz_test
     $CXX -g -O0 -fno-omit-frame-pointer -x c++ -std=c++17 -fsanitize=fuzzer,address,leak ${flags} -I../../src/libmerc -Wno-narrowing -Wno-deprecated-declarations -L./.. "fuzz_test_$dir_name.c" -l:libmerc.a $LDFLAGS -lssl -lcrypto -lz -o "fuzz_${dir_name}_exec"
     if [[ ! -f "./fuzz_${dir_name}_exec" ]] ; then
-        echo -e $COLOR_RED "executable not built, failed test" $COLOR_OFF
+        echo -e "${COLOR_RED} executable not built, failed test${COLOR_OFF}"
         fail=$((fail+1))
         cd ../$LIBMERC_FOLDER;
         return 1;
     fi;
 
     if [[ ! -d "./corpus" ]] ; then
-        echo -e $COLOR_YELLOW "$dir_name corpus dir not found, creating it" $COLOR_OFF
+        echo -e "${COLOR_YELLOW} $dir_name corpus dir not found, creating it${COLOR_OFF}"
         if ! mkdir -p "./corpus" ; then
-            echo -e $COLOR_RED "failed to create $dir_name corpus dir" $COLOR_OFF
+            echo -e "${COLOR_RED} failed to create $dir_name corpus dir${COLOR_OFF}"
             mkdir_fail=$((mkdir_fail+1))
             cd ../$LIBMERC_FOLDER
             return 1;
@@ -223,7 +223,7 @@ fi;
     free -h | awk -v name="$dir_name" '/^Mem:/ {printf "Starting %s - Mem: %s used / %s total (%s available)", name, $3, $2, $7}'
     awk '{printf " - Load: %.2f\n", $1}' /proc/loadavg
 
-    echo -e $COLOR_YELLOW "${dir_name} testcase in parallel" $COLOR_OFF
+    echo -e "${COLOR_YELLOW} ${dir_name} testcase in parallel${COLOR_OFF}"
     ./"fuzz_${dir_name}_exec" -seed=1 ./corpus/ -runs=$default_runs -max_total_time=$default_time > $dir_name.log 2>&1 &
 
     cd ../$LIBMERC_FOLDER;
@@ -284,8 +284,14 @@ minimize_corpus () {
         if "$target_dir/fuzz_${dir_name}_exec" -merge=1 "$merge_dir" "$target_dir/corpus/" > "$parent_path/.minimize_${dir_name}.log" 2>&1; then
             local post_min
             post_min=$(ls "$merge_dir" | wc -l)
-            rm -rf "$target_dir/corpus"
-            mv "$merge_dir" "$target_dir/corpus"
+            mv "$target_dir/corpus" "$target_dir/corpus.old"
+            if mv "$merge_dir" "$target_dir/corpus"; then
+                rm -rf "$target_dir/corpus.old"
+            else
+                # restore original corpus if swap failed
+                mv "$target_dir/corpus.old" "$target_dir/corpus"
+                rm -rf "$merge_dir"
+            fi
             local removed=$((post_fuzz - post_min))
             total_post_min=$((total_post_min + post_min))
             total_removed=$((total_removed + removed))
@@ -370,10 +376,10 @@ echo "###############################################"
 echo "Test run statistics"
 echo "headers $total_headers"
 echo "fuzz_test functions $total_test_function"
-echo -e $COLOR_GREEN "pass $pass" $COLOR_OFF
-echo -e $COLOR_RED "fail $fail" $COLOR_OFF
+echo -e "${COLOR_GREEN} pass $pass${COLOR_OFF}"
+echo -e "${COLOR_RED} fail $fail${COLOR_OFF}"
 if [[ ! "$mkdir_fail" -eq "0" ]]; then
-    echo -e $COLOR_RED "mkdir_fail $mkdir_fail" $COLOR_OFF
+    echo -e "${COLOR_RED} mkdir_fail $mkdir_fail${COLOR_OFF}"
 fi
 echo "###############################################"
 
