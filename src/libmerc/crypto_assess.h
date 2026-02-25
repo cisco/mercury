@@ -470,14 +470,13 @@ namespace crypto_policy {
             bool external_psk_with_cert_compliant =
                 !have_tls_cert_with_extern_psk ||
                 (have_pre_shared_key && have_psk_key_exchange_modes && have_key_share);
-            bool have_psk = have_pre_shared_key || have_tls_cert_with_extern_psk;
-            bool psk_modes_compliant = !have_psk ||
+            bool psk_modes_compliant = !have_pre_shared_key ||
                                        (have_psk_key_exchange_modes && psk_modes_valid &&
                                         !psk_mode_has_psk_ke && psk_mode_has_psk_dhe_ke);
-            bool psk_binders_compliant = !have_psk ||
-                                         (have_pre_shared_key && pre_shared_key_valid &&
-                                          pre_shared_key_has_binder && pre_shared_key_binders_min_256_bits);
-            bool psk_mlkem1024_required = have_psk &&
+            bool psk_binders_compliant = !have_pre_shared_key ||
+                                         (pre_shared_key_valid && pre_shared_key_has_binder &&
+                                          pre_shared_key_binders_min_256_bits);
+            bool psk_mlkem1024_required = have_pre_shared_key &&
                                           have_psk_key_exchange_modes &&
                                           psk_modes_valid &&
                                           psk_mode_has_psk_dhe_ke;

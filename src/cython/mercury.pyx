@@ -431,12 +431,12 @@ cdef class Mercury:
 
         cdef analysis_result ar = ac.result
 
-        if self.clf != NULL and fp_string.startswith('tls'):
+        if self.do_analysis and fp_string.startswith('tls'):
             is_faketls = self.check_faketls(fp_string)
             if is_faketls:
                 self.clf.set_faketls_attribute(ar)
 
-        if self.clf != NULL and ar.max_mal and fp_string.startswith('tls'):
+        if self.do_analysis and ar.max_mal and fp_string.startswith('tls'):
             self.clf.set_enc_channel_attribute(ar)
 
         if result['fingerprint_info']['status'] != 'unlabled':
@@ -454,7 +454,7 @@ cdef class Mercury:
 
     cpdef dict perform_analysis_common(self, str fp_str, str server_name, str dst_ip, int dst_port, str user_agent=None,
                                        dict weights=None):
-        if self.clf == NULL:
+        if not self.do_analysis:
             print(f'error: classifier not loaded (is do_analysis set to True?)')
             return None
 
@@ -514,7 +514,7 @@ cdef class Mercury:
 
 
     cpdef dict perform_detailed_analysis_common(self, str fp_str, str server_name, str dst_ip, int dst_port, str user_agent=None):
-        if self.clf == NULL:
+        if not self.do_analysis:
             print(f'error: classifier not loaded (is do_analysis set to True?)')
             return None
 
