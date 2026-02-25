@@ -291,7 +291,7 @@ minimize_corpus () {
             total_removed=$((total_removed + removed))
             rm -f "$parent_path/.minimize_${dir_name}.log"
             if [[ $removed -gt 0 ]]; then
-                echo -e "  $dir_name: $pre_fuzz -> $post_fuzz -> $post_min ($removed removed)"
+                echo "  $dir_name: $pre_fuzz -> $post_fuzz -> $post_min ($removed removed)"
             else
                 echo "  $dir_name: $pre_fuzz -> $post_fuzz -> $post_min (already minimal)"
             fi
