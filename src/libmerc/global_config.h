@@ -296,28 +296,29 @@ public:
         return true;
     }
 
-    bool set_http_headers (const std::string& s){
+    void set_http_headers (const std::string& s){
         std::string mode = s.empty() ? "all" : s;
         auto it = http_headers.find(mode);
         if (it == http_headers.end()) {
-            printf_err(log_err, "unrecognized http headers mode \"%s\"\n", mode.c_str());
-            return false;
+            throw std::runtime_error{"unrecognized http headers mode \"" + mode + "\""};
         }
         it->second = true;
-        return true;
     }
 
     static constexpr size_t max_http_body = 1024;
 
-    bool set_http_body(const std::string& s) {
+    void set_http_body(const std::string& s) {
         try {
             size_t value = s.empty() ? max_http_body : std::stoull(s);
-            http_body_max = std::min(value, max_http_body);
-        } catch (const std::exception&) {
-            printf_err(log_err, "invalid http body size \"%s\"\n", s.c_str());
-            return false;
+            if (value > max_http_body) {
+                throw std::runtime_error{"http body size \"" + s + "\" out of range (0-" + std::to_string(max_http_body) + ")"};
+            }
+            http_body_max = value;
+        } catch (const std::invalid_argument&) {
+            throw std::runtime_error{"invalid http body size \"" + s + "\""};
+        } catch (const std::out_of_range&) {
+            throw std::runtime_error{"http body size \"" + s + "\" out of range (0-" + std::to_string(max_http_body) + ")"};
         }
-        return true;
     }
 };
 

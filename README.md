@@ -145,6 +145,8 @@ GENERAL OPTIONS
    --certs-json                          # output certs as JSON, not base64
    --metadata                            # output more protocol metadata in JSON
    --raw-features                        # select protocols to write out raw features string(see --help)
+   --http-headers=mode                   # set http headers mode (all or non-sensitive)
+   --http-body=N                         # report up to N bytes of the HTTP request body (max 1024 bytes)
    --network-behavioral-detections       # perform network behavioral detections
    --minimize-ram                        # minimize the ram usage of mercury library
    --crypto-assess[=policy]              # perform cryptographic security assessment
@@ -316,6 +318,14 @@ DETAILS
        all             All of the above
        none            None of the above
       <no option>     None of the above
+
+   --http-headers=mode controls which HTTP request headers are reported in L7 metadata.
+       non-sensitive   report all headers except sensitive ones (cookie, authorization)
+       all             report all headers including sensitive ones
+
+   --http-body=N reports up to N bytes of the HTTP request body in L7 metadata as hex.
+    N must be between 0 and 1024. If no value is given, defaults to 1024.
+    The output includes a "body_truncated" flag when the body exceeds N bytes.
 
    --network-behavioral-detections performs analysis on packets, sessions, and
     sets of sessions independent of the core mercury analysis functionality. These

@@ -58,6 +58,8 @@ char mercury_help[] =
     "   --certs-json                          # output certs as JSON, not base64\n"
     "   --metadata                            # output more protocol metadata in JSON\n"
     "   --raw-features                        # select protocols to write out raw features string(see --help)\n"
+    "   --http-headers=mode                   # set http headers mode (all or non-sensitive)\n"
+    "   --http-body=N                         # report up to N bytes of the HTTP request body (max 1024 bytes)\n"
     "   --network-behavioral-detections       # perform network behavioral detections\n"
     "   --minimize-ram                        # minimize the ram usage of mercury library\n"
     "   --crypto-assess[=policy]              # perform cryptographic security assessment\n"
@@ -219,6 +221,15 @@ char mercury_extended_help[] =
     "       none            None of the above\n"
     "       <no option>     None of the above\n"
     "\n"
+    "   --http-headers=mode controls which HTTP request headers are reported in L7 metadata.\n"
+    "       non-sensitive   report all headers except sensitive ones (cookie, authorization)\n"
+    "       all             report all headers including sensitive ones\n"
+    "       <no option>     report only host and user_agent (default)\n"
+    "\n"
+    "   --http-body=N reports up to N bytes of the HTTP request body in L7 metadata as hex.\n"
+    "    N must be between 0 and 1024. If no value is given, defaults to 1024.\n"
+    "    The output includes a \"body_truncated\" flag when the body exceeds N bytes.\n"
+    "\n"
     "   --network-behavioral-detections performs analysis on packets, sessions, and\n"
    "    sets of sessions independent of the core mercury analysis functionality. These\n"
    "    are not driven by the resources file. An example detection includes detecting\n"
@@ -300,7 +311,7 @@ int main(int argc, char *argv[]) {
     std::string additional_args;
 
     while(1) {
-        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13, reassembly=14, format=15, raw_features=16, crypto_assess=17, minimize_ram=18, network_behavioral_detections=19, exposed_creds=20 };
+        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13, reassembly=14, format=15, raw_features=16, crypto_assess=17, minimize_ram=18, network_behavioral_detections=19, exposed_creds=20, http_headers=21, http_body=22 };
         int opt_idx = 0;
         static struct option long_opts[] = {
             { "config",                        required_argument, NULL,                        config },
@@ -333,6 +344,8 @@ int main(int argc, char *argv[]) {
             { "help",                                no_argument, NULL,                           'h' },
             { "select",                        optional_argument, NULL,                           's' },
             { "raw-features",                  required_argument, NULL,                  raw_features },
+            { "http-headers",                  required_argument, NULL,                  http_headers },
+            { "http-body",                     required_argument, NULL,                     http_body },
             { "minimize-ram",                        no_argument, NULL,                  minimize_ram },
             { "network-behavioral-detections",       no_argument, NULL, network_behavioral_detections },
             { "exposed-creds",                        no_argument, NULL,                  exposed_creds },
@@ -437,6 +450,20 @@ int main(int argc, char *argv[]) {
                 raw_features_set = true;
             } else {
                 usage(argv[0], "option raw_features requires comma separated protocols as argument", extended_help_off);
+            }
+            break;
+        case http_headers:
+            if (option_is_valid(optarg)) {
+                additional_args.append("http-headers=").append(optarg).append(";");
+            } else {
+                additional_args.append("http-headers=all;");
+            }
+            break;
+        case http_body:
+            if (option_is_valid(optarg)) {
+                additional_args.append("http-body=").append(optarg).append(";");
+            } else {
+                additional_args.append("http-body=1024;");
             }
             break;
         case network_behavioral_detections:

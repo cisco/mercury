@@ -365,9 +365,7 @@ struct stateful_pkt_proc {
     }
 
     void set_http_headers(const std::unordered_map<std::string, bool> &http_headers) {
-        if (http_headers.at("all")) {
-            http_request::set_http_headers(true);
-        }
+        http_request::set_http_headers(http_headers.at("non-sensitive"), http_headers.at("all"));
     }
 
     void set_http_body(size_t max_body) {
