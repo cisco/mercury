@@ -230,10 +230,11 @@ public:
             { "tls",                    false },
     };
 
-    std::unordered_map<std::string, bool> http_headers {
-            { "all",            false },
-            { "non-sensitive",  false }
-    };
+    struct http_headers_config {
+        bool non_sensitive = false;
+        bool all = false;
+    } http_headers;
+
     size_t http_body_max = 0;
 
     bool set_protocols(const std::string& data) {
@@ -296,34 +297,44 @@ public:
         return true;
     }
 
-    void set_http_headers (const std::string& s){
+    bool set_http_headers (const std::string& s){
         if (s.empty()) {
-            throw std::runtime_error{"--http-headers requires a mode (all or non-sensitive)"};
+            printf_err(log_err, "--http-headers requires a mode (all or non-sensitive)\n");
+            return false;
         }
-        auto it = http_headers.find(s);
-        if (it == http_headers.end()) {
-            throw std::runtime_error{"unrecognized http headers mode \"" + s + "\""};
+        if (s == "non-sensitive") {
+            http_headers.non_sensitive = true;
+        } else if (s == "all") {
+            http_headers.all = true;
+        } else {
+            printf_err(log_err, "unrecognized http headers mode \"%s\"\n", s.c_str());
+            return false;
         }
-        it->second = true;
+        return true;
     }
 
     static constexpr size_t max_http_body = 1024;
 
-    void set_http_body(const std::string& s) {
+    bool set_http_body(const std::string& s) {
         if (s.empty()) {
-            throw std::runtime_error{"--http-body requires a size argument (0-" + std::to_string(max_http_body) + ")"};
+            printf_err(log_err, "--http-body requires a size argument (0-%zu)\n", max_http_body);
+            return false;
         }
         try {
-            size_t value = std::stoull(s);
-            if (value > max_http_body) {
-                throw std::runtime_error{"http body size \"" + s + "\" out of range (0-" + std::to_string(max_http_body) + ")"};
+            int value = std::stoi(s);
+            if (value < 0 || static_cast<size_t>(value) > max_http_body) {
+                printf_err(log_err, "http body size \"%s\" out of range (0-%zu)\n", s.c_str(), max_http_body);
+                return false;
             }
             http_body_max = value;
         } catch (const std::invalid_argument&) {
-            throw std::runtime_error{"invalid http body size \"" + s + "\""};
+            printf_err(log_err, "invalid http body size \"%s\"\n", s.c_str());
+            return false;
         } catch (const std::out_of_range&) {
-            throw std::runtime_error{"http body size \"" + s + "\" out of range (0-" + std::to_string(max_http_body) + ")"};
+            printf_err(log_err, "http body size \"%s\" out of range (0-%zu)\n", s.c_str(), max_http_body);
+            return false;
         }
+        return true;
     }
 };
 

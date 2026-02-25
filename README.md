@@ -145,8 +145,8 @@ GENERAL OPTIONS
    --certs-json                          # output certs as JSON, not base64
    --metadata                            # output more protocol metadata in JSON
    --raw-features                        # select protocols to write out raw features string(see --help)
-   --http-headers=mode                   # set http headers mode (all or non-sensitive)
-   --http-body=N                         # report up to N bytes of the HTTP request body (max 1024 bytes)
+   --http-headers=mode                   # controls reporting of HTTP request headers in L7 metadata (all or non-sensitive)
+   --http-body=N                         # report up to N bytes of the HTTP request body in L7 metadata (max 1024 bytes)
    --network-behavioral-detections       # perform network behavioral detections
    --minimize-ram                        # minimize the ram usage of mercury library
    --crypto-assess[=policy]              # perform cryptographic security assessment

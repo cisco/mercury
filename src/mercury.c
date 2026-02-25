@@ -58,7 +58,7 @@ char mercury_help[] =
     "   --certs-json                          # output certs as JSON, not base64\n"
     "   --metadata                            # output more protocol metadata in JSON\n"
     "   --raw-features                        # select protocols to write out raw features string(see --help)\n"
-    "   --http-headers=mode                   # set http headers mode in L7 metadata (all or non-sensitive)\n"
+    "   --http-headers=mode                   # controls reporting of HTTP request headers in L7 metadata (all or non-sensitive)\n"
     "   --http-body=N                         # report up to N bytes of the HTTP request body in L7 metadata (max 1024 bytes)\n"
     "   --network-behavioral-detections       # perform network behavioral detections\n"
     "   --minimize-ram                        # minimize the ram usage of mercury library\n"
