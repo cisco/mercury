@@ -222,12 +222,11 @@ char mercury_extended_help[] =
     "       <no option>     None of the above\n"
     "\n"
     "   --http-headers=mode controls which HTTP request headers are reported in L7 metadata.\n"
-    "       non-sensitive   report all headers except sensitive ones (cookie, authorization)\n"
+    "       non-sensitive   report all headers except sensitive ones (cookie, authorization, proxy-authorization)\n"
     "       all             report all headers including sensitive ones\n"
-    "       <no option>     report only host and user_agent (default)\n"
     "\n"
     "   --http-body=N reports up to N bytes of the HTTP request body in L7 metadata as hex.\n"
-    "    N must be between 0 and 1024. If no value is given, defaults to 1024.\n"
+    "    N is required and must be between 0 and 1024.\n"
     "    The output includes a \"body_truncated\" flag when the body exceeds N bytes.\n"
     "\n"
     "   --network-behavioral-detections performs analysis on packets, sessions, and\n"
@@ -456,14 +455,14 @@ int main(int argc, char *argv[]) {
             if (option_is_valid(optarg)) {
                 additional_args.append("http-headers=").append(optarg).append(";");
             } else {
-                additional_args.append("http-headers=all;");
+                usage(argv[0], "option http-headers requires a mode (all or non-sensitive)", extended_help_off);
             }
             break;
         case http_body:
             if (option_is_valid(optarg)) {
                 additional_args.append("http-body=").append(optarg).append(";");
             } else {
-                additional_args.append("http-body=1024;");
+                usage(argv[0], "option http-body requires a size argument (0-1024)", extended_help_off);
             }
             break;
         case network_behavioral_detections:

@@ -297,10 +297,12 @@ public:
     }
 
     void set_http_headers (const std::string& s){
-        std::string mode = s.empty() ? "all" : s;
-        auto it = http_headers.find(mode);
+        if (s.empty()) {
+            throw std::runtime_error{"--http-headers requires a mode (all or non-sensitive)"};
+        }
+        auto it = http_headers.find(s);
         if (it == http_headers.end()) {
-            throw std::runtime_error{"unrecognized http headers mode \"" + mode + "\""};
+            throw std::runtime_error{"unrecognized http headers mode \"" + s + "\""};
         }
         it->second = true;
     }
@@ -308,8 +310,11 @@ public:
     static constexpr size_t max_http_body = 1024;
 
     void set_http_body(const std::string& s) {
+        if (s.empty()) {
+            throw std::runtime_error{"--http-body requires a size argument (0-" + std::to_string(max_http_body) + ")"};
+        }
         try {
-            size_t value = s.empty() ? max_http_body : std::stoull(s);
+            size_t value = std::stoull(s);
             if (value > max_http_body) {
                 throw std::runtime_error{"http body size \"" + s + "\" out of range (0-" + std::to_string(max_http_body) + ")"};
             }

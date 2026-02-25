@@ -360,8 +360,8 @@ int main(int argc, char *argv[]) {
         { argument::none,       "--help",      "print out help message" },
         {argument::optional,    "--crypto-assess", "enable crypto-assess analysis"},
         {argument::optional,    "--exposed-creds", "enable exposed-creds analysis"},
-        {argument::optional,    "--http-headers", "set http headers mode (all or non-sensitive)"},
-        {argument::optional,    "--http-body", "set max http body bytes to report (capped at 1024)"}
+        {argument::required,    "--http-headers", "set http headers mode (all or non-sensitive)"},
+        {argument::required,    "--http-body", "set max http body bytes to report (0-1024)"}
     });
     if (!opt.process_argv(argc, argv)) {
         opt.usage(stderr, argv[0], summary);
@@ -425,10 +425,10 @@ int main(int argc, char *argv[]) {
             packet_filter_cfg += ";exposed-creds";
         }
         if (http_headers_is_set) {
-            packet_filter_cfg += ";http-headers=" + (http_headers_value.empty() ? "all" : http_headers_value);
+            packet_filter_cfg += ";http-headers=" + http_headers_value;
         }
         if (http_body_is_set) {
-            packet_filter_cfg += ";http-body=" + (http_body_value.empty() ? "1024" : http_body_value);
+            packet_filter_cfg += ";http-body=" + http_body_value;
         }
         config.packet_filter_cfg = (char *)packet_filter_cfg.c_str();
 

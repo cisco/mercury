@@ -382,7 +382,6 @@ void http_request::write_l7_metadata(cbor_object &o, bool) {
         http_request.print_key_string("if_range", get_header("if-range"));
         http_request.print_key_string("if_unmodified_since", get_header("if-unmodified-since"));
         http_request.print_key_string("max_forwards", get_header("max-forwards"));
-        http_request.print_key_string("proxy_authorization", get_header("proxy-authorization"));
         http_request.print_key_string("range", get_header("range"));
         http_request.print_key_string("te", get_header("te"));
         http_request.print_key_string("allow", get_header("allow"));
@@ -411,6 +410,7 @@ void http_request::write_l7_metadata(cbor_object &o, bool) {
     if (output_all_headers) {
         http_request.print_key_string("cookie", get_header("cookie"));
         http_request.print_key_string("authorization", get_header("authorization"));
+        http_request.print_key_string("proxy_authorization", get_header("proxy-authorization"));
     }
 
     http_request.close();
