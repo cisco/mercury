@@ -48,7 +48,7 @@ public:
         d(data, 8),
         valid{data.is_not_null()} { }
 
-   void fingerprint(struct buffer_stream &b) const {
+   void write(struct buffer_stream &b) const {
         if(!valid) {
             return;
         }
@@ -143,7 +143,7 @@ class win_epoch_time {
 public:
     win_epoch_time (datum &d, bool byte_swap = true) : value(d, byte_swap), valid(d.is_not_null()) { }
 
-    void fingerprint(struct buffer_stream &b) const {
+    void write(struct buffer_stream &b) const {
         if(!valid) {
             return;
         }
@@ -700,7 +700,7 @@ public:
 };
 
 class smb2_header {
-    literal<4> proto;
+    literal<0xFE, 'S', 'M', 'B'> proto;
     encoded<uint16_t> structure_size;
     encoded<uint16_t> credit_charge;
     encoded<uint32_t> status; /* In a request, this field is interpreted in different ways depending on the SMB2 dialect.
@@ -729,7 +729,7 @@ public:
     };
 
     smb2_header(datum &d) :
-        proto{d, {0xFE, 'S', 'M', 'B'}},
+        proto{d},
         structure_size{d, byte_swap},
         credit_charge{d, byte_swap},
         status{d, byte_swap},

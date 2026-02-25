@@ -3,6 +3,25 @@
 
 int sig_close_flag = false;
 
+SCENARIO("test packet_processor_get_analysis_context with http encapsulated in PPPOE") {
+    GIVEN("mercury packet processor") {
+        libmerc_config config = create_config();
+        mercury_context mc = initialize_mercury(config);
+        mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
+
+        struct timespec time;
+        time.tv_sec = time.tv_nsec = 0;  // set to January 1st, 1970 (the Epoch)
+
+        WHEN("get analysis context") {
+            mercury_packet_processor_get_analysis_context(mpp, http_request_pppoe, http_request_pppoe_len, &time);
+            THEN("a valid result  exist") {
+                REQUIRE(mpp->analysis.result.is_valid());
+                mercury_packet_processor_destruct(mpp);
+            }
+        }
+        mercury_finalize(mc);
+    }
+}
 
 TEST_CASE_METHOD(LibmercTestFixture, "test http with resources-mp")
 {
@@ -22,27 +41,27 @@ TEST_CASE_METHOD(LibmercTestFixture, "test http with resources-mp")
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"http"},
              .m_pc{"capture2.pcap"}},
          127},
         {test_config{
-             .m_lc{.resources = resources_mp_path,
+             .m_lc{.resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"http"},
              .m_pc{"capture2.pcap"}},
          0},
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"http"},
              .m_pc{"http_request.capture2.pcap"}},
          109},
         {test_config{
-             .m_lc{.resources = resources_mp_path,
+             .m_lc{.resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"http"},
              .m_pc{"multi_packet_http_request.pcap"}},
          0},
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"http"},
              .m_pc{"multi_packet_http_request.pcap"}},
          1}
@@ -73,7 +92,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test http with resources-mp and linktype r
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"http"},
              .m_pc{"http_rawip.pcap"}},
          9}
@@ -105,42 +124,42 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic with resources-mp")
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"quic"},
              .m_pc{"capture2.pcap"}},
          0},
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"quic"},
              .m_pc{"quic-crypto-packets.pcap"}},
          670},
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"quic"},
              .m_pc{"http_request.capture2.pcap"}},
          0},
         {test_config{
-             .m_lc{.resources = resources_mp_path,
+             .m_lc{.resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"quic"},
              .m_pc{"quic_init.capture2.pcap"}},
         0},
         {test_config{
-             .m_lc{.resources = resources_mp_path,
+             .m_lc{.resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"quic"},
              .m_pc{"mdns_capture.pcap"}},
         0},
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"quic"},
              .m_pc{"quic_v2.pcap"}},
-         11},
+         5},
          {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"quic;reassembly"},
              .m_pc{"quic_fragmented.pcap"}},
          2},
          {test_config{
-            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+            .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                .packet_filter_cfg = (char *)"quic;reassembly"},
             .m_pc{"quic_reordered_frames.pcap"}},
          4}
@@ -172,7 +191,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test SGT encapsulated TLS - analysis with 
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"tls.client_hello"},
              .m_pc{"tls_sgt.pcap"}},
          58}
@@ -199,7 +218,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test SGT encapsulated TLS - write_json wit
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"tls.client_hello"},
              .m_pc{"tls_sgt.pcap"}},
          58}
@@ -231,7 +250,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic with resources-mp and eth linkty
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"quic"},
              .m_pc{"quic-crypto-packets.pcap"}},
          670}
@@ -263,12 +282,12 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic with resources-mp and ppp linkty
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"quic"},
              .m_pc{"quic-crypto-packets.pcap"}},
          0},
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"quic"},
              .m_pc{"quic_ppp.pcap"}},
          1}
@@ -295,18 +314,18 @@ TEST_CASE_METHOD(LibmercTestFixture, "test smtp with resources-mp")
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"smtp"},
              .m_pc{"capture2.pcap"}},
          1},
         {test_config{
              .m_lc{.dns_json_output = true, .do_analysis = true,
-                .resources = resources_mp_path,
+                .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"smtp"},
              .m_pc{"smtp.pcap"}},
          4},
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"smtp"},
              .m_pc{"top_100_fingerprints.pcap"}},
          0}
@@ -339,28 +358,28 @@ TEST_CASE_METHOD(LibmercTestFixture, "test dns and mdns with resources-mp")
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"dns"},
              .m_pc{"capture2.pcap"}},
          785},
         {test_config{
              .m_lc{.dns_json_output = true, .do_analysis = true,
-                .resources = resources_mp_path,
+                .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"dns"},
              .m_pc{"capture2.pcap"}},
          785},
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"mdns"},
              .m_pc{"mdns_capture.pcap"}},
          3141},
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"dns"},
              .m_pc{"dns_packet.capture2.pcap"}},
          785},
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"dns"},
              .m_pc{"top_100_fingerprints.pcap"}},
          0}
@@ -387,12 +406,12 @@ TEST_CASE_METHOD(LibmercTestFixture, "test smb with resources-mp")
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"smb"},
              .m_pc{"smb.pcap"}},
          391},
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"smb"},
              .m_pc{"top_100_fingerprints.pcap"}},
          0}
@@ -419,12 +438,12 @@ TEST_CASE_METHOD(LibmercTestFixture, "test iec with resources-mp")
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"iec"},
              .m_pc{"iec.pcap"}},
          42},
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"iec"},
              .m_pc{"top_100_fingerprints.pcap"}},
          0}
@@ -451,12 +470,12 @@ TEST_CASE_METHOD(LibmercTestFixture, "test dnp3 with resources-mp")
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"dnp3"},
              .m_pc{"dnp3.pcap"}},
          15},
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"dnp3"},
              .m_pc{"top_100_fingerprints.pcap"}},
          0}
@@ -483,20 +502,20 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ftp with resources-mp")
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.metadata_output=true, .do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.metadata_output=true, .do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"ftp"},
              .m_pc{"ftp.pcap"}},
 
          58},
          {test_config{
-             .m_lc{.resources = resources_mp_path,
+             .m_lc{.resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"ftp"},
              .m_pc{"ftp2.pcap"}},
 
          23},
 
         {test_config{
-             .m_lc{.metadata_output=true, .do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.metadata_output=true, .do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"ftp"},
              .m_pc{"top_100_fingerprints.pcap"}},
          0}
@@ -506,6 +525,79 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ftp with resources-mp")
     {
         set_pcap(config.m_pc.c_str());
         ftp_check(count, config.m_lc);
+    }
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "test redis with resources-mp")
+{
+
+    auto redis_check = [&](int expected_count, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(expected_count == counter());
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, int>> test_set_up{
+        {test_config{
+             .m_lc{.metadata_output=true, .do_analysis = true, .resources = resources_minimal_path,
+                .packet_filter_cfg = (char *)"redis"},
+             .m_pc{"redis.pcap"}},
+
+         9},
+        {test_config{
+             .m_lc{.metadata_output=true, .do_analysis = true, .resources = resources_minimal_path,
+                .packet_filter_cfg = (char *)"redis"},
+             .m_pc{"top_100_fingerprints.pcap"}},
+         0}
+    };
+
+    for (auto &[config, count] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        redis_check(count, config.m_lc);
+    }
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "test imap with resources-mp")
+{
+
+    auto imap_check = [&](int expected_count, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(expected_count == counter());
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, int>> test_set_up{
+        {test_config{
+             .m_lc{.metadata_output=true, .do_analysis = true, .resources = resources_minimal_path,
+                .packet_filter_cfg = (char *)"imap"},
+             .m_pc{"imap.pcap"}},
+
+         53},
+         {test_config{
+             .m_lc{.metadata_output=true, .do_analysis = true, .resources = resources_minimal_path,
+                .packet_filter_cfg = (char *)"imap"},
+             .m_pc{"imap2.pcap"}},
+
+         5},
+
+        {test_config{
+             .m_lc{.metadata_output=true, .do_analysis = true, .resources = resources_minimal_path,
+                .packet_filter_cfg = (char *)"imap"},
+             .m_pc{"top_100_fingerprints.pcap"}},
+         0}
+    };
+
+    for (auto &[config, count] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        imap_check(count, config.m_lc);
     }
 }
 
@@ -528,7 +620,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test decrypted quic with resources-mp")
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"quic"},
              .m_pc{"quic_decry.pcap"}},
          1}
@@ -561,19 +653,19 @@ TEST_CASE_METHOD(LibmercTestFixture, "test attributes with resources-mp")
 
     std::vector<std::pair<test_config, size_t>> test_set_up{
         // {test_config{
-        //      .m_lc{.do_analysis = true, .resources = resources_mp_path,
+        //      .m_lc{.do_analysis = true, .resources = resources_minimal_path,
         //         .packet_filter_cfg = (char *)"all"},
         //      .m_pc{"surfshark.pcap"}},
         //  3      // encrypted_dns, evasive_vpn, external_proxy as attributes
         // },
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"all"},
              .m_pc{"malware_tls.pcap"}},
          2      // encrypted_channel, malware as attributes
         },
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"all;network-behavioral-detections"},
              .m_pc{"residential_proxy.pcap"}},
          1      // residential_proxy as attributes
@@ -584,6 +676,34 @@ TEST_CASE_METHOD(LibmercTestFixture, "test attributes with resources-mp")
     {
         set_pcap(config.m_pc.c_str());
         attr_check(attrs, config.m_lc);
+    }
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "test ipv6 pcap for domain_faking")
+{
+
+    auto attr_check = [&](std::string &expected_attr, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(check_attr(expected_attr));
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, std::string>> test_set_up{
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
+                .packet_filter_cfg = (char *)"all"},
+             .m_pc{"ipv6-domain-faking.pcap"}},
+            "domain_faking"      // domain_faking attribute in modified ipv6 curl pcap
+        }
+    };
+
+    for (auto &[config, expected_attr] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        attr_check(expected_attr, config.m_lc);
     }
 }
 
@@ -600,7 +720,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test faketls attribute with resources-mp")
 
     std::vector<std::pair<test_config, std::string>> test_set_up{
         {test_config{
-            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+            .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"all"},
             .m_pc{"faketls_potatovpn.pcap"}},
             "faketls"    // check if faketls attribute is present in the attributes array
@@ -627,10 +747,74 @@ TEST_CASE_METHOD(LibmercTestFixture, "test domain_faking attribute with resource
 
     std::vector<std::pair<test_config, std::string>> test_set_up{
         {test_config{
-            .m_lc{.do_analysis = true, .resources = resources_mp_path,
+            .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"all"},
             .m_pc{"faketls_potatovpn.pcap"}},
             "domain_faking"    // check if domain_faking attribute is present in the attributes array
+        }
+    };
+
+    for (auto &[config, expected_attr] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        attr_check(expected_attr, config.m_lc);
+    }
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "test exposed_creds attribute")
+{
+    auto attr_check = [&](std::string &expected_attr, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(check_attr(expected_attr));
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, std::string>> test_set_up{
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_minimal_path,
+                .packet_filter_cfg = (char *)"all;exposed-creds"
+            },
+            .m_pc{"http_auth.pcap"}},
+            "exposed_credentials_plaintext"    // check if exposed_credentials_plaintext attribute is present in the attributes array
+        }
+    };
+
+    for (auto &[config, expected_attr] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        attr_check(expected_attr, config.m_lc);
+    }
+}
+
+
+TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment attributes")
+{
+    auto attr_check = [&](std::string &expected_attr, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(check_attr(expected_attr));
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, std::string>> test_set_up{
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_minimal_path,
+                .packet_filter_cfg = (char *)"all;crypto-assess=default"
+            },
+            .m_pc{"tlsv1_3.pcap"}},
+            "cnsa_2_0_non_conformant"    // check if cnsa_2_0_non_conformant attribute is present in the attributes array
+        },
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_minimal_path,
+                .packet_filter_cfg = (char *)"all;crypto-assess=default"
+            },
+            .m_pc{"nist_nc.pcap"}},
+            "nist_sp_800_52_2_non_conformant"    // check if nist_sp_800_52_2_non_conformant attribute is present in the attributes array
         }
     };
 
@@ -655,7 +839,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test nbss with resources-mp")
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"nbss"},
              .m_pc{"top_100_fingerprints.pcap"}},
          0}
@@ -682,13 +866,13 @@ TEST_CASE_METHOD(LibmercTestFixture, "test openvpn tcp with resources-mp")
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"openvpn_tcp"},
              .m_pc{"openvpn_tcp_multi.pcap"},
              .fp_t = fingerprint_type_openvpn},
          2},
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"openvpn_tcp"},
              .m_pc{"openvpn_tcp_single.pcap"},
              .fp_t = fingerprint_type_openvpn},
@@ -716,12 +900,12 @@ TEST_CASE_METHOD(LibmercTestFixture, "test bittorrent with resources-mp")
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"bittorrent"},
              .m_pc{"top_100_fingerprints.pcap"}},
          0},
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"bittorrent"},
              .m_pc{"bittorrent.pcap"}},
          16},
@@ -748,12 +932,12 @@ TEST_CASE_METHOD(LibmercTestFixture, "mysql with resources-mp")
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"mysql"},
              .m_pc{"top_100_fingerprints.pcap"}},
          0},
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"mysql"},
              .m_pc{"mysql.pcap"}},
          4},
@@ -780,12 +964,12 @@ TEST_CASE_METHOD(LibmercTestFixture, "socks with resources-mp")
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"socks"},
              .m_pc{"top_100_fingerprints.pcap"}},
          0},
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"socks"},
              .m_pc{"socks4_5.pcap"}},
          10},
@@ -812,12 +996,12 @@ TEST_CASE_METHOD(LibmercTestFixture, "geneve encapsulated IPv4 and Ethernet with
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"tls"},
              .m_pc{"geneve.pcap"}},
          43},
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"tls,geneve"},
              .m_pc{"geneve.pcap"}},
          85},
@@ -844,17 +1028,17 @@ TEST_CASE_METHOD(LibmercTestFixture, "test stun with resources-mp")
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"stun"},
              .m_pc{"stun.pcap"}},
          4},
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"stun"},
              .m_pc{"stun_classic.pcap"}},
          2},
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"stun"},
              .m_pc{"top_100_fingerprints.pcap"}},
          0}
@@ -881,19 +1065,19 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ssh fingerprinting and reassembly")
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"ssh;reassembly"},
              .m_pc{"ssh_frag.pcap"},
              .fp_t = fingerprint_type_ssh},
          2},
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"ssh"},
              .m_pc{"ssh_frag.pcap"},
              .fp_t = fingerprint_type_ssh_init},
          2},
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"ssh"},
              .m_pc{"ssh_frag.pcap"},
              .fp_t = fingerprint_type_ssh_kex},
@@ -921,12 +1105,12 @@ TEST_CASE_METHOD(LibmercTestFixture, "GRE encapsulation with resources-mp")
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"icmp"},
              .m_pc{"gre.pcap"}},
          0},
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"gre,icmp"},
              .m_pc{"gre.pcap"}},
          1},
@@ -953,7 +1137,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "IP encapsulation  with resources-mp")
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path},
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path},
              .m_pc{"ip_encapsulation.pcap"}},
          2},
     };
@@ -979,15 +1163,42 @@ TEST_CASE_METHOD(LibmercTestFixture, "VXLAN  with resources-mp")
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"icmp"},
              .m_pc{"vxlan.pcap"}},
          0},
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"vxlan,icmp"},
              .m_pc{"vxlan.pcap"}},
          8},
+    };
+
+    for (auto &[config, count] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        check(count, config.m_lc);
+    }
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "double VLAN tagged PPPoE with resources-mp")
+{
+
+    auto check = [&](int expected_count, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK(expected_count == counter());
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, int>> test_set_up{
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
+                .packet_filter_cfg = (char *)"http"},
+             .m_pc{"pppoe_double_vlan_tagging.pcap"}},
+         6},
     };
 
     for (auto &[config, count] : test_set_up)

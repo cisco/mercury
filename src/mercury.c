@@ -23,7 +23,6 @@
 #include "signal_handling.h"
 #include "config.h"
 #include "output.h"
-#include "rnd_pkt_drop.h"
 #include "control.h"
 
 char mercury_help[] =
@@ -61,6 +60,8 @@ char mercury_help[] =
     "   --raw-features                        # select protocols to write out raw features string(see --help)\n"
     "   --network-behavioral-detections       # perform network behavioral detections\n"
     "   --minimize-ram                        # minimize the ram usage of mercury library\n"
+    "   --crypto-assess[=policy]              # perform cryptographic security assessment\n"
+    "   --exposed-creds                       # detect exposed credentials in enabled protocols\n"
     "   [-v or --verbose]                     # additional information sent to stderr\n"
     "   --license                             # write license information to stdout\n"
     "   --version                             # write version information to stdout\n"
@@ -101,17 +102,20 @@ char mercury_extended_help[] =
     "      dnp3              DNP3 industrial control message\n"
     "      dns               DNS messages\n"
     "      dtls              DTLS clientHello, serverHello, and certificates\n"
+    "      ftp               FTP request and response\n"
+    "      ftp.request       FTP request\n"
+    "      ftp.response      FTP response\n"
     "      gre               GRE message\n"
     "      http              HTTP request and response\n"
     "      http.request      HTTP request\n"
     "      http.response     HTTP response\n"
-    "      ftp               FTP request and response\n"
-    "      ftp.request       FTP request\n"
-    "      ftp.response      FTP response\n"
     "      icmp              ICMP message\n"
     "      iec               IEC 60870-5-104\n"
     "      ldap              LDAP\n"
     "      lldp              LLDP message\n"
+    "      imap              IMAP request and response\n"
+    "      imap.request      IMAP request\n"
+    "      imap.response     IMAP response\n"
     "      mdns              multicast DNS\n"
     "      mysql             MySQL Client/Server Protocol\n"
     "      nbns              NetBIOS Name Service\n"
@@ -120,6 +124,9 @@ char mercury_extended_help[] =
     "      openvpn_tcp       OpenVPN over TCP\n"
     "      ospf              OSPF message\n"
     "      quic              QUIC handshake\n"
+    "      redis             Redis request and response\n"
+    "      redis.request     Redis request\n"
+    "      redis.response    Redis response\n"
     "      sctp              SCTP message\n"
     "      ssh               SSH handshake and KEX\n"
     "      smb               SMB v1 and v2\n"
@@ -217,6 +224,21 @@ char mercury_extended_help[] =
    "    are not driven by the resources file. An example detection includes detecting\n"
    "    residential proxies.\n"
     "\n"
+    "   --crypto-assess[=policy] performs cryptographic security assessment\n"
+    "   on protocols like TLS, DTLS, SSH and QUIC. The optional policy argument\n"
+    "   specifies the assessment policy to use; if not provided, the default\n"
+    "   policy is used. Valid policy strings are: \n"
+    "       default        Default assessment policy\n"
+    "       quantum_safe   Quantum safe assessment policy\n"
+    "       nist_sp_800_52 NIST SP 800-52 revision 2 assessment policy\n"
+    "\n"
+    "   --exposed-creds detects exposed credentials in enabled protocols like\n"
+    "   HTTP, TACACS, SNMP, IMAP, LDAP, RESPv2 etc. \n"
+    "   Three categories of exposed credentials are identified:\n"
+    "       plaintext               Plaintext credentials\n"
+    "       plaintext-derived       Derived credentials like hashed passwords\n"
+    "       plaintext-token         Token based credentials like OAuth tokens\n"
+    "\n"
     "   [-v or --verbose] writes additional information to the standard error,\n"
     "   including the packet count, byte count, elapsed time and processing rate, as\n"
     "   well as information about threads and files.\n"
@@ -278,7 +300,7 @@ int main(int argc, char *argv[]) {
     std::string additional_args;
 
     while(1) {
-        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13, reassembly=14, format=15, raw_features=16, crypto_assess=17, minimize_ram=18, network_behavioral_detections=19, };
+        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13, reassembly=14, format=15, raw_features=16, crypto_assess=17, minimize_ram=18, network_behavioral_detections=19, exposed_creds=20 };
         int opt_idx = 0;
         static struct option long_opts[] = {
             { "config",                        required_argument, NULL,                        config },
@@ -313,6 +335,7 @@ int main(int argc, char *argv[]) {
             { "raw-features",                  required_argument, NULL,                  raw_features },
             { "minimize-ram",                        no_argument, NULL,                  minimize_ram },
             { "network-behavioral-detections",       no_argument, NULL, network_behavioral_detections },
+            { "exposed-creds",                        no_argument, NULL,                  exposed_creds },
             { "verbose",                             no_argument, NULL,                           'v' },
             { NULL,                                            0,    0,                             0 }
         };
@@ -439,6 +462,13 @@ int main(int argc, char *argv[]) {
                 usage(argv[0], "option minimize_ram does not use an argument", extended_help_off);
             } else {
                 additional_args.append("minimize-ram;");
+            }
+            break;
+        case exposed_creds:
+            if (optarg) {
+                usage(argv[0], "option exposed-creds does not use an argument", extended_help_off);
+            } else {
+                additional_args.append("exposed-creds;");
             }
             break;
         case 'r':
@@ -612,14 +642,6 @@ int main(int argc, char *argv[]) {
                 usage(argv[0], "option p or loop requires a numeric argument", extended_help_off);
             }
             break;
-        case 0:
-            /* The option --adaptive to adaptively accept or skip packets for PCAP file. */
-            if (optarg) {
-                usage(argv[0], "option --adaptive does not use an argument", extended_help_off);
-            } else {
-                cfg.adaptive = 1;
-            }
-            break;
         case 'u':
             if (option_is_valid(optarg)) {
                 errno = 0;
@@ -714,15 +736,6 @@ int main(int argc, char *argv[]) {
         // fprintf(stderr, "notice: looping over input with loop count %d\n", cfg.loop_count);
     }
 
-    /* The option --adaptive works only with -w PCAP file option and -c capture interface */
-    if (cfg.adaptive > 0) {
-        if (cfg.write_filename == NULL || cfg.capture_interface == NULL) {
-            usage(argv[0], "The option --adaptive requires options -c capture interface and -w pcap file.", extended_help_off);
-        } else {
-            set_percent_accept(30); /* set starting percentage */
-        }
-    }
-
     /*
      * set up signal handlers, so that output is flushed upon close
      */
@@ -745,9 +758,6 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "found %d CPU(s), creating %d thread(s)\n", num_cpus, cfg.num_threads);
         }
     }
-
-    /* init random number generator */
-    srand(time(0));
 
     struct output_file out_file;
     struct cap_stats cstats;

@@ -1,0 +1,74 @@
+name: "[PUB] Python Wheels"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-mercury-wheels:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    environment:
+      name: pypi
+      url: https://pypi.org/p/mercury-python
+    permissions:
+      id-token: write
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Install packages (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev libssl-dev make
+
+      - name: Install packages (macOS)
+        if: runner.os == 'macOS'
+        run: brew install openssl zlib
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.x'
+
+      - name: Set up QEMU
+        if: runner.os == 'Linux'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: all
+
+      - name: Install pip packages
+        run: python -m pip install cython cibuildwheel==3.3.1
+
+      - name: Initialize Submodules
+        run: git submodule update --init --recursive
+
+      - name: Move submodules lib into the directory root
+        run: cp -r src/libmerc/xsimd/include/xsimd/* src/libmerc/xsimd/
+
+      - name: Build Mercury
+        run: ./configure && make && cp -r src/cython/* ./
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v3.3.1
+        env:
+          CIBW_ARCHS_LINUX: aarch64 x86_64
+          CIBW_ARCHS_MACOS: arm64
+          CIBW_SKIP: "*-musllinux_* pp* cp38* cp37* cp36*"
+          CIBW_BEFORE_ALL_LINUX: yum install -y openssl-devel make zlib-devel || apt-get install -y zlib1g-dev libssl-dev make || apk add zlib1g-dev libssl-dev make
+          CIBW_BEFORE_ALL_MACOS: brew install openssl zlib
+          CIBW_TEST_COMMAND: cd {project} && python mercury_python_test.py
+
+      - name: Upload to S3
+        env:
+          AWS_ACCESS_KEY_ID: ${{secrets.ACCESS_KEY_ID}}
+          AWS_SECRET_ACCESS_KEY: ${{secrets.ACCESS_KEY_SECRET}}
+          AWS_DEFAULT_REGION: us-east-1
+          S3_BUCKET: ${{secrets.S3_BUCKET}}
+        run: VERSION=$(cat src/cython/_version.py | tr -d '\n' | cut -d \' -f2) && aws s3 cp wheelhouse/ "s3://$S3_BUCKET/version=$VERSION" --recursive

@@ -5,18 +5,26 @@
 #include <unistd.h>
 #include <cstdio>
 #include "libmerc/datum.h"
+#include "libmerc/cbor.hpp"
 #include "libmerc/cbor_object.hpp"
 #include "libmerc/base64.h"
 #include "libmerc/tofsee.hpp"
 #include "libmerc/snmp.hpp"
 #include "libmerc/ip_address.hpp"
+#include "libmerc/lctrie/lctrie_test.hpp"
 #include "libmerc/watchlist.hpp"
 #include "libmerc/rdp.hpp"
 #include "libmerc/rfb.hpp"
 #include "libmerc/dns_trie.hpp"
 #include "libmerc/tftp.hpp"
 #include "libmerc/tacacs.hpp"
-
+#include "libmerc/crypto_assess.h"
+#include "libmerc/decimal_int.hpp"
+#include "libmerc/hex.hpp"
+#include "libmerc/redis.hpp"
+#include "libmerc/archive.h"
+#include "libmerc/fdc.hpp"
+#include "libmerc/imap.hpp"
 // Macros to colorize output
 //
 #define RED_ON     "\033[31m"
@@ -90,6 +98,22 @@ int main(int, char *[]) {
             "tacacs",
             &tacacs::unit_test
         },
+        {
+            "crypto_policy",
+            &crypto_policy::unit_test
+        },
+        {
+            "hex_udl",
+            &hex_udl_unit_tests
+        },
+        {
+            "redis",
+            &redis::unit_test
+        },
+        {
+            "imap",
+            &imap::unit_test
+        }
     };
     size_t num_tests = 0;
     size_t num_passed = 0;
@@ -127,8 +151,44 @@ int main(int, char *[]) {
             &dns_trie<std::string>::unit_test
         },
         {
+            "cbor",
+            &cbor::unit_test
+        },
+        {
             "cbor_object",
             &cbor_object_unit_test
+        },
+        {
+            "decimal_integer",
+            &decimal_integer_unit_test
+        },
+        {
+            "writeable",
+            &writeable_unit_test::run
+        },
+        {
+            "gz_file_getline",
+            &gz_file_getline_unit_tests
+        },
+        {
+            "ipv6_addr_lct",
+            &ipv6_address_lct_unit_test
+        },
+        {
+            "lctrie_v4",
+            &lctrie_v4_unit_test
+        },
+        {
+            "lctrie_v6",
+            &lctrie_v6_unit_test
+        },
+        {
+            "cbor_fingerprint",
+            &cbor_fingerprint::unit_test
+        },
+        {
+            "fdc",
+            &fdc::unit_test
         },
     };
     for (const auto &tc : test_cases_verbose) {

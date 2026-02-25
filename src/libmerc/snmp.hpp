@@ -79,6 +79,24 @@ namespace snmp {
 
         bool is_not_empty() const { return body.is_not_empty(); }
 
+        std::string get_oid_string() const {
+            datum tmp{body};
+            tlv object{tmp};
+            if (!object.is_valid()) {
+                return {};
+            }
+            if (object.get_tag_class() != tlv::tag_class::universal ||
+                object.get_little_tag() != tlv::OBJECT_IDENTIFIER ||
+                object.value.is_empty()) {
+                return {};
+            }
+            char buffer[256];
+            buffer_stream buf{buffer, sizeof(buffer)};
+            raw_oid{object.value}.write(buf);
+            buf.add_null();
+            return buf.get_string();
+        }
+
         void write_json(json_object &o) const {
             json_object &value = o;
 
@@ -232,6 +250,13 @@ namespace snmp {
 
         bool is_not_empty() const { return valid; }
 
+        std::string get_oid_string() const {
+            if (!valid) {
+                return {};
+            }
+            return value.get_oid_string();
+        }
+
     };
 
     // The trap_pdu type was defined in SNMPv1, and was obsoleted by
@@ -328,6 +353,30 @@ namespace snmp {
         }
 
         bool is_not_empty() const { return !remainder.is_null(); }
+
+        /// apply the function `f` to each OID string in the `var_bind` list.  That function should have the
+        /// signature `void f(const std::string &oid)`
+        ///
+        template <typename F>
+        void for_each_var_bind_oid(F &&f) const {
+            static_assert(std::is_invocable_v<F, const std::string&>,
+                          "Callback must be callable with (const std::string&)");
+
+            if (remainder.is_null()) {
+                return;
+            }
+            datum list{variable_bindings_list.value};
+            while (list.is_readable()) {
+                var_bind vb{list};
+                if (!vb.is_not_empty()) {
+                    break;
+                }
+                std::string oid = vb.get_oid_string();
+                if (!oid.empty()) {
+                    f(oid);
+                }
+            }
+        }
     };
 
     // From RFC 1905 Section 3:
@@ -404,6 +453,30 @@ namespace snmp {
         }
 
         bool is_not_empty() const { return valid; }
+
+        /// apply the function `f` to each OID string in the `var_bind` list.  That function should have the
+        /// signature `void f(const std::string &oid)`
+        ///
+        template <typename F>
+        void for_each_var_bind_oid(F &&f) const {
+            static_assert(std::is_invocable_v<F, const std::string&>,
+                          "Callback must be callable with (const std::string&)");
+
+            if (!valid) {
+                return;
+            }
+            datum list{variable_bindings.value};
+            while (list.is_readable()) {
+                var_bind vb{list};
+                if (!vb.is_not_empty()) {
+                    break;
+                }
+                std::string oid = vb.get_oid_string();
+                if (!oid.empty()) {
+                    f(oid);
+                }
+            }
+        }
 
     };
 
@@ -491,6 +564,30 @@ namespace snmp {
 
         bool is_not_empty() const {
             return valid;
+        }
+
+        /// apply the function `f` to each OID string in the `var_bind` list.  That function should have the
+        /// signature `void f(const std::string &oid)`
+        ///
+        /// for v2 packets, this delegates to `trap` for v1_trap PDUs and `v2_pdu` for all others
+        ///
+        template <typename F>
+        void for_each_var_bind_oid(F &&f) const {
+            static_assert(std::is_invocable_v<F, const std::string&>,
+                          "Callback must be callable with (const std::string&)");
+
+            if (!valid) {
+                return;
+            }
+            uint8_t pdu_code = data.tag_number();
+            datum tmp{data.value};
+            if (pdu_code == pdu_type_code::v1_trap) {
+                trap t{tmp};
+                t.for_each_var_bind_oid(f);
+            } else {
+                v2_pdu p{tmp};
+                p.for_each_var_bind_oid(f);
+            }
         }
 
     };
@@ -670,6 +767,21 @@ namespace snmp {
             v2_pdu{tmp.value}.write_json(o);
 
         }
+
+        /// apply the function `f` to each OID string in the `var_bind` list.  That function should have the
+        /// signature `void f(const std::string &oid)`
+        ///
+        /// this scoped PDU forwards into the contained `v2_pdu`
+        ///
+        template <typename F>
+        void for_each_var_bind_oid(F &&f) const {
+            static_assert(std::is_invocable_v<F, const std::string&>,
+                          "Callback must be callable with (const std::string&)");
+
+            tlv tmp{any};
+            v2_pdu p{tmp.value};
+            p.for_each_var_bind_oid(f);
+        }
     };
 
     // class engine_id represents an SNMP Engine ID as defined by the
@@ -769,24 +881,6 @@ namespace snmp {
 
     };
 
-    /// return the password recover string for an snmpv3
-    /// encrypted/authenticated message
-    ///
-    static auto get_password_recovery_string(const datum &pdu,
-                                             const datum &engine_id,
-                                             const datum &auth_params)
-    {
-        data_buffer<512> result;
-
-        result << datum{"$SNMPv3$0$0$"};
-        result.write_hex(pdu.data, pdu.length());
-        result << datum{"$"};
-        result.write_hex(engine_id.data, engine_id.length());
-        result << datum{"$"};
-        result.write_hex(auth_params.data, auth_params.length());
-
-        return result;
-    }
 
     // USMSecurityParameters, following RFC 3414
     //
@@ -816,36 +910,75 @@ namespace snmp {
 
     public:
 
-       usm_security_parameters(datum d) :
-           seq{&d, tlv::SEQUENCE, "seq"},
-           authoritative_engine_id{&seq.value, tlv::OCTET_STRING, "engine_id"},
-           authoritative_engine_boots{&seq.value, tlv::INTEGER, "boots"},
-           authoritative_engine_time{&seq.value, tlv::INTEGER, "time"},
-           user_name{&seq.value, tlv::OCTET_STRING, "user_name"},
-           authentication_parameters{&seq.value, tlv::OCTET_STRING, "authentication_parameters"},
-           privacy_parameters{&seq.value, tlv::OCTET_STRING, "privacy_parameters"},
-           valid{d.is_not_null()}
+        usm_security_parameters(datum d) :
+            seq{&d, tlv::SEQUENCE, "seq"},
+            authoritative_engine_id{&seq.value, tlv::OCTET_STRING, "engine_id"},
+            authoritative_engine_boots{&seq.value, tlv::INTEGER, "boots"},
+            authoritative_engine_time{&seq.value, tlv::INTEGER, "time"},
+            user_name{&seq.value, tlv::OCTET_STRING, "user_name"},
+            authentication_parameters{&seq.value, tlv::OCTET_STRING, "authentication_parameters"},
+            privacy_parameters{&seq.value, tlv::OCTET_STRING, "privacy_parameters"},
+            valid{d.is_not_null()}
         { }
 
-        void write_json(json_object &o, const datum & pdu_copy, bool is_priv) const {
-           if (!valid) {
-               return;
-           }
+        /// \brief Return the password recovery string for an snmpv3
+        /// authenticated message, if possible, or a null
+        /// `data_buffer` otherwise.
+        ///
+        auto get_password_recovery_string(const datum &pdu) const {
+            data_buffer<1500> result;
 
-           o.print_key_hex("engine_id_raw", authoritative_engine_id.value);
+            // identify the parts of the PDU preceeding and following
+            // the authentication parameters, and verify that they are
+            // not null
+            //
+            auto [ before_auth_param, after_auth_param ] = symmetric_difference(pdu, authentication_parameters.value);
+            if (before_auth_param.is_null() or after_auth_param.is_null()) {
+                result.set_null();
+                return result;
+            }
 
-           engine_id{authoritative_engine_id.value}.write_json(o);
+            result << datum{"$SNMPv3$0$0$"};
 
-           o.print_key_json_string("user_name", user_name.value);
+            // write the PDU with the value field of the auth_params
+            // set to the all-zero string (as per RFC2574, Section
+            // 6.3.1) into the password recovery string
+            //
+            result.write_hex(before_auth_param.data, before_auth_param.length());
+            for (const auto & dummy_var : authentication_parameters.value) {
+                (void)dummy_var;
+                result << datum{"00"};  // write null byte instead of actual byte value
+            }
+            result.write_hex(after_auth_param.data, after_auth_param.length());
 
-           if (is_priv) {
-               auto pwd_recovery_string = get_password_recovery_string(pdu_copy, authoritative_engine_id.value, authentication_parameters.value);
-               o.print_key_json_string("password_recovery", pwd_recovery_string.contents());
-           }
+            result << datum{"$"};
+            result.write_hex(authoritative_engine_id.value.data, authoritative_engine_id.value.length());
+            result << datum{"$"};
+            result.write_hex(authentication_parameters.value.data, authentication_parameters.value.length());
 
-       }
+            return result;
+        }
 
-   };
+        void write_json(json_object &o, const datum & pdu_copy, bool is_priv, bool is_auth) const {
+            (void)is_priv;
+            if (!valid) {
+                return;
+            }
+
+            o.print_key_hex("engine_id_raw", authoritative_engine_id.value);
+
+            engine_id{authoritative_engine_id.value}.write_json(o);
+
+            o.print_key_json_string("user_name", user_name.value);
+
+            if (is_auth) {
+                auto pwd_recovery_string = get_password_recovery_string(pdu_copy);
+                o.print_key_json_string("password_recovery", pwd_recovery_string.contents());
+            }
+
+        }
+
+    };
 
     // SNMPv3 message format, following RFC 3412, Sec. 6.
     //
@@ -882,7 +1015,8 @@ namespace snmp {
             msgSecurityParameters{&seq.value, tlv::OCTET_STRING, "msgSecurityParameters"},
             valid{seq.value.is_not_null()},
             body{seq.value}
-        { }
+        {
+        }
 
         void write_json(json_object &o, bool metadata=false) const {
             (void)metadata;
@@ -892,7 +1026,7 @@ namespace snmp {
             json_object snmp{o, "snmp"};
             snmp.print_key_uint("version", get_uint64(version.value));
             hd.write_json(o);
-            usm_security_parameters{msgSecurityParameters.value}.write_json(o, pdu_copy, hd.priv());
+            usm_security_parameters{msgSecurityParameters.value}.write_json(o, pdu_copy, hd.priv(), hd.auth());
 
             datum tmp = body;
             if (hd.priv()) {
@@ -916,6 +1050,24 @@ namespace snmp {
 
         bool is_not_empty() const {
             return valid;
+        }
+
+        /// apply the function `f` to each OID string in the `var_bind` list.  That function should have the
+        /// signature `void f(const std::string &oid)`
+        ///
+        /// v3 packets forward into `scoped_pdu_data` when the PDU is not encrypted
+        ///
+        template <typename F>
+        void for_each_var_bind_oid(F &&f) const {
+            static_assert(std::is_invocable_v<F, const std::string&>,
+                          "Callback must be callable with (const std::string&)");
+
+            if (!valid || hd.priv()) {
+                return;
+            }
+            datum tmp = body;
+            scoped_pdu_data msgData{tmp};
+            msgData.for_each_var_bind_oid(f);
         }
 
         static constexpr mask_and_value<8> matcher{
@@ -1000,6 +1152,26 @@ namespace snmp {
 
         bool is_not_empty() const {
             return std::visit(do_is_not_empty{}, body);
+        }
+
+        /// apply the function `f` to each OID string in the `var_bind` list.  That function should have the
+        /// signature `void f(const std::string &oid)`
+        ///
+        /// top-level packet dispatches to the active `v2_packet` or `v3_packet` variant
+        ///
+        template <typename F>
+        void for_each_var_bind_oid(F &&f) const {
+            static_assert(std::is_invocable_v<F, const std::string&>,
+                          "Callback must be callable with (const std::string&)");
+
+            std::visit([&](auto &pdu) {
+                using T = std::decay_t<decltype(pdu)>;
+                if constexpr (std::is_same_v<T, std::monostate>) {
+                    return;
+                } else {
+                    pdu.for_each_var_bind_oid(f);
+                }
+            }, body);
         }
 
     };

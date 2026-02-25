@@ -64,17 +64,11 @@ endif
 # LIBMERC and LIBMERC_H hold the core source and header files,
 # respectively, for that library
 #
-LIBMERC     =  analysis.cc
-LIBMERC     += addr.cc
-LIBMERC     += dns.cc
+LIBMERC     =  addr.cc
 LIBMERC     += http.cc
 LIBMERC     += libmerc.cc
-LIBMERC     += match.cc
 LIBMERC     += pkt_proc.cc
-LIBMERC     += ssh.cc
-LIBMERC     += tls.cc
 LIBMERC     += utils.cc
-LIBMERC     += wireguard.cc
 LIBMERC     += asn1/oid.cc
 LIBMERC 	+= config_generator.cc
 LIBMERC     += smb2.cc
@@ -188,14 +182,21 @@ endif
 # rule to build library
 #
 LIBMERC_OBJ = $(LIBMERC:%.cc=%.o)
-libmerc.so: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
+libmerc.unstripped.so: $(CYTARGETS) $(LIBMERC_OBJ) lctrie/liblctrie.a Makefile
 	ar -x lctrie/liblctrie.a
-#	ar rcs libmerc.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o
+#	ar rcs libmerc.unstripped.so $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o
 ifeq ($(is_macos),yes)
-	$(CXX) $(CFLAGS) -shared -fPIC -Wl,-install_name,$(LIBMERC_SONAME) $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto -o libmerc.so
+	$(CXX) $(CFLAGS) -shared -fPIC -Wl,-install_name,$(LIBMERC_SONAME) $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto -o libmerc.unstripped.so
+else
+	$(CXX) $(CFLAGS) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto -o libmerc.unstripped.so
+	PATH=$(PATH):/sbin ldconfig -n .
+endif
+
+libmerc.so: libmerc.unstripped.so
+	cp libmerc.unstripped.so libmerc.so
+ifeq ($(is_macos),yes)
 	$(STRIP) -x libmerc.so
 else
-	$(CXX) $(CFLAGS) -shared -fPIC -Wl,-soname,$(LIBMERC_SONAME) $(LIBMERC_OBJ) lctrie.o lctrie_ip.o lctrie_bgp.o $(LDFLAGS) -lz -lcrypto -o libmerc.so
 	$(STRIP) libmerc.so
 	PATH=$(PATH):/sbin ldconfig -n .
 endif
@@ -228,7 +229,6 @@ DBGFLAGS += -UNDEBUG
 ifeq ($(use_fsanitize),yes)
 DBGFLAGS += -fsanitize=address
 endif
-DBGFLAGS += -fno-omit-frame-pointer
 DBGFLAGS += -fvisibility=default
 # DBGFLAGS += -DDEBUG # this option triggers voluminous detailed output
 
@@ -241,7 +241,7 @@ debug-libmerc.so: libmerc.so
 debug-libmerc.so:
 	cp libmerc.so ../../lib/debug-libmerc.so
 
-debug-libmerc_gcov.so: CFLAGS+= -fprofile-arcs -ftest-coverage
+debug-libmerc_gcov.so: CFLAGS += -fprofile-arcs -ftest-coverage
 debug-libmerc_gcov.so: CFLAGS += $(DBGFLAGS)
 debug-libmerc_gcov.so: STRIP = @echo "not running strip on"
 debug-libmerc_gcov.so: libmerc_coverage.so
@@ -253,10 +253,9 @@ debug-libmerc.a: libmerc.a
 
 # unstripped (but optimized) targets
 #
-unstripped-libmerc.so: STRIP = @echo "not running strip on"
-unstripped-libmerc.so: libmerc.so
+unstripped-libmerc.so: libmerc.unstripped.so
 unstripped-libmerc.so:
-	cp libmerc.so ../../lib/unstripped-libmerc.so
+	cp libmerc.unstripped.so ../../lib/unstripped-libmerc.so
 
 # unstripped-libmerc.a: CFLAGS += -fvisibility=default
 unstripped-libmerc.a: libmerc.a

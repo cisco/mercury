@@ -25,6 +25,7 @@
 #include "quic.h"
 #include "perfect_hash.h"
 #include "crypto_assess.h"
+#include "exposed_creds.h"
 #include "pkt_proc_util.h"
 #include "reassembly.hpp"
 
@@ -103,7 +104,7 @@ struct stateful_pkt_proc {
     struct tcp_initial_message_filter tcp_init_msg_filter;
     struct analysis_context analysis;
     struct common_data nbd_common_data;
-    class message_queue *mq;
+    class message_queue<event_msg> *mq;
     mercury_context m;
     classifier *c;        // TODO: change to reference
     data_aggregator *ag;
@@ -111,7 +112,8 @@ struct stateful_pkt_proc {
     class traffic_selector &selector;
     quic_crypto_engine quic_crypto;
     struct tcp_reassembler *reassembler_ptr = nullptr;
-    const crypto_policy::assessor *crypto_policy = nullptr;
+    std::vector<const crypto_policy::assessor *> crypto_policies;
+    const bool exposed_creds = false;
 
     explicit stateful_pkt_proc(mercury_context mc, size_t prealloc_size=0) :
         ip_flow_table{(unsigned int)prealloc_size},
@@ -126,13 +128,14 @@ struct stateful_pkt_proc {
         global_vars{mc->global_vars},
         selector{mc->selector},
         quic_crypto{},
-        reassembler_ptr{(global_vars.reassembly) ? (new tcp_reassembler(global_vars.minimize_ram)) : nullptr}
+        reassembler_ptr{(global_vars.reassembly) ? (new tcp_reassembler(global_vars.minimize_ram)) : nullptr},
+        exposed_creds{global_vars.exposed_creds}
     {
 
         if (global_vars.crypto_assess_policy.length() > 0) {
             // set crypto assessment policy
-            crypto_policy = crypto_policy::assessor::create(global_vars.crypto_assess_policy);
-            if (crypto_policy == nullptr) {
+            crypto_policy::assessor::create(global_vars.crypto_assess_policy, crypto_policies);
+            if (crypto_policies.empty()) {
                 throw std::runtime_error("crypto policy assessor could not be initialized");
             }
         }
@@ -167,8 +170,10 @@ struct stateful_pkt_proc {
     }
 
     ~stateful_pkt_proc() {
-        delete crypto_policy;
         delete reassembler_ptr;
+        for (auto &assessor: crypto_policies) {
+            delete assessor;
+        }
         // we could call ag->remote_procuder(mq), but for now we do not
     }
 
@@ -315,6 +320,42 @@ struct stateful_pkt_proc {
         if (raw_features.at("all") or raw_features.at("ssdp")) {
             ssdp::set_raw_features(true);
         }
+    }
+
+    bool set_exposed_creds_attr(exposed_creds_type exposed_creds_res) {
+
+        switch (exposed_creds_res) {
+            case exposed_creds_type::none:
+                // should we wait until we see auth packets?
+                return false;
+            case exposed_creds_type::plaintext_password:
+                analysis.result.attr.set_attr(c->common.exposed_creds_plaintext_idx, 1.0);
+                return true;
+            case exposed_creds_type::password_derived:
+                analysis.result.attr.set_attr(c->common.exposed_creds_derived_idx, 1.0);
+                return true;
+            case exposed_creds_type::plaintext_token:
+                analysis.result.attr.set_attr(c->common.exposed_creds_token_idx, 1.0);
+                return true;
+        }
+
+        return false;
+    }
+
+    bool set_crypto_assessment_attr(const crypto_assess_result &assessment_result) {
+
+        bool output_attr = false;
+
+        if (assessment_result.test(crypto_policy::quantum_safe::result_idx)) {
+            analysis.result.attr.set_attr(c->common.non_pqc_idx, 1.0);
+            output_attr = true;
+        }
+        if (assessment_result.test(crypto_policy::nist_sp_800_52::result_idx)) {
+            analysis.result.attr.set_attr(c->common.non_nist_idx, 1.0);
+            output_attr = true;
+        }
+
+        return output_attr;
     }
 };
 

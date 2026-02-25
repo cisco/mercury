@@ -1,10 +1,10 @@
+## Changelog Entry
+
+One-line summary.
+
 ## Description
 
-Replace this description. What change is being made? (one-line TLDR summary)
-
-Why are these changes being made?  Provide context and any design decisions that
-are not reflected in the source code.  One good framing: problem, root cause,
-solution.
+Problem, root cause, solution.
 
 ## Sample Output
 
@@ -15,13 +15,14 @@ Sample JSON or other output.
 
 ## Checklist
 
-<!-- If not applicable, append with "- N/A" and check the box. -->
+<!-- Delete items that don't apply. -->
 
 - Configuration
   - [ ] Command line option(s)
   - [ ] Config file option(s)
 - Testing
-  - [ ] Add pcap and/or unit test function
+  - [ ] Add pcap and/or unit test function; update test resources file if needed
+  - [ ] Fuzz-test, unit-test, and document any new function that accesses a data pointer
   - [ ] Run on live traffic - new protocol data appears in expected quantity
   - [ ] Run on live traffic - existing protocol data is not suppressed
 - Output and Schema Changes
@@ -31,10 +32,3 @@ Sample JSON or other output.
 - Documentation
   - [ ] Update `--help`
   - [ ] Update `README.md` (includes output of `--help`)
-
-## Changelog Entry
-
-Replace this with the text to be included in `doc/CHANGELOG.md`, so that
-reviewers can check the changelog entry for completeness and spelling.  Once
-this PR is approved, add this entry to `doc/CHANGELOG.md` and commit it just
-before merging the PR.

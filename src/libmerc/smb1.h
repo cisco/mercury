@@ -130,7 +130,7 @@ public:
     void write_json(struct json_object &o) {
         struct json_array a{o, "dialects"};
         while(dialect_body.is_not_empty()) {
-            literal<1> buffer_format{dialect_body, {0x02}};
+            literal<0x02> buffer_format{dialect_body};
             if (dialect_body.is_not_empty()) {
                 datum dialect;
                 dialect.parse_up_to_delim(dialect_body, '\0');
@@ -181,7 +181,7 @@ public:
 };
 
 class smb1_header {
-    literal<4> proto;
+    literal<0xff, 'S', 'M', 'B'> proto;
     smb1_command command;
     encoded<uint32_t> status;
     encoded<uint8_t> flag;
@@ -206,7 +206,7 @@ public:
     };
 
     smb1_header(datum &d) :
-        proto{d, {0xff, 'S', 'M', 'B'}},
+    proto{d},
     command(d, byte_swap),
     status(d, byte_swap),
     flag(d, byte_swap),

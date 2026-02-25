@@ -499,14 +499,14 @@ template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; }; //
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
 class iec60870_5_104 : public base_protocol {
-    literal<1> start_byte;
+    literal<0x68> start_byte;
     encoded<uint8_t> apdu_length;
     std::variant<std::monostate, i_frame, s_frame, u_frame> packet;
 
     static constexpr uint8_t frame_type_mask = 0x03;
 
 public:
-    iec60870_5_104 (struct datum &d) : start_byte(d, {0x68}), apdu_length{d} {
+    iec60870_5_104 (struct datum &d) : start_byte{d}, apdu_length{d} {
         uint8_t tmp;
         d.lookahead_uint8(&tmp);
         tmp = tmp & frame_type_mask;

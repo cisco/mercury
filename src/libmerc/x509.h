@@ -18,6 +18,7 @@
 #include "datum.h"
 #include "asn1.h"
 #include "dict.h"
+#include "utf8.hpp"
 
 /*
    Name ::= CHOICE { -- only one possibility for now --
@@ -100,6 +101,21 @@ struct name {
             attr_obj.close();
         }
         array.close();
+    }
+
+    bool get_common_name(std::string &common_name) const {
+        struct datum tlv_sequence = RDNsequence.value;
+        while (tlv_sequence.is_not_empty()) {
+            struct attribute attr(&tlv_sequence);
+            if (attr.attribute_type.is_not_null() &&
+                oid::get_enum(&attr.attribute_type.value) == oid::common_name &&
+                attr.attribute_value.is_not_null()) {
+                std::string raw = attr.attribute_value.value.get_string();
+                common_name = utf8_string::get_utf8_string(raw.c_str());
+                return true;
+            }
+        }
+        return false;
     }
 
     bool matches(const struct name &r) const {
@@ -1280,13 +1296,13 @@ struct algorithm_identifier {
         parse(p);
     }
     void parse(struct datum *p) {
-        sequence.parse(p, tlv::SEQUENCE);
-        algorithm.parse(&sequence.value, tlv::OBJECT_IDENTIFIER);
+        sequence.parse(p, tlv::SEQUENCE, "algorithm_identifier");
+        algorithm.parse(&sequence.value, tlv::OBJECT_IDENTIFIER, "algorithm");
         if (sequence.value.is_not_empty()) {
-            null.parse(&sequence.value, tlv::NULL_TAG);
+            null.parse(&sequence.value, tlv::NULL_TAG, "null");
         }
         if (sequence.value.is_not_empty()) {
-            parameters.parse(&sequence.value);
+            parameters.parse(&sequence.value, 0x0, "parameters");
         }
     }
 
@@ -1484,7 +1500,6 @@ static std::unordered_set <unsigned int> ecdsa_algorithms {
 struct x509_cert {
     struct tlv certificate;
     struct tlv tbs_certificate;
-    struct tlv explicitly_tagged_version;
     struct tlv version;
     struct tlv serial_number;
     struct algorithm_identifier signature_identifier; // note: confusingly called 'signature' in RFC5280
@@ -1500,7 +1515,6 @@ struct x509_cert {
     x509_cert()
         : certificate{},
           tbs_certificate{},
-          explicitly_tagged_version{},
           version{},
           serial_number{},
           signature_identifier{},
@@ -1513,6 +1527,8 @@ struct x509_cert {
           signature_algorithm{},
           signature{} {   }
 
+    static constexpr std::array<uint8_t, 3> default_version = { 0x02, 0x01, 0x00 };
+
     void parse(const void *buffer, unsigned int len) {
 
         struct datum p{(const unsigned char *)buffer, (const unsigned char *)buffer + len};
@@ -1522,23 +1538,19 @@ struct x509_cert {
         tbs_certificate.parse(&certificate.value, tlv::SEQUENCE, "tbs_certificate");
 
         // parse (implicit or explicit) version
-        explicitly_tagged_version.parse(&tbs_certificate.value, tlv::explicit_tag_constructed(0), "version_tag");
-        if (explicitly_tagged_version.is_not_null()) {
-            version.parse(&explicitly_tagged_version.value, tlv::INTEGER, "version");
+        //
+        if (lookahead<literal< tlv::explicit_tag_constructed(0)>> tag{tbs_certificate.value}) {
+            tlv explicit_tag{tbs_certificate.value, tlv::explicit_tag_constructed(0), "explicit_tag"};
+            version.parse(&explicit_tag.value, tlv::INTEGER, "version_tag");
         } else {
-
-            struct tlv version_or_serial_number(&tbs_certificate.value, tlv::INTEGER, "version_or_serial_number");
-            if (version_or_serial_number.is_not_null() && version_or_serial_number.length == 1 && version_or_serial_number.value.data[0] < 3) {
-                version = version_or_serial_number;
-            } else {
-                serial_number = version_or_serial_number;
-            }
+            datum tmp{default_version};
+            version.parse(&tmp);
         }
 
-        if (serial_number.is_null()) {
-            serial_number.parse(&tbs_certificate.value, tlv::INTEGER, "serial number");
-        }
+        // parse serial number
+        serial_number.parse(&tbs_certificate.value, tlv::INTEGER, "serial number");
 
+        // parse signature identifier
         signature_identifier.parse(&tbs_certificate.value);
 
         // parse issuer
@@ -1837,6 +1849,13 @@ struct x509_cert {
         }
     }
 
+    bool get_subject_common_name(std::string &common_name) const {
+        if (subject.RDNsequence.is_null()) {
+            return false;
+        }
+        return subject.get_common_name(common_name);
+    }
+
     void get_subject_public_key(std::basic_string<uint8_t> &s) const {
         s = subjectPublicKeyInfo.subject_public_key.value.get_bytestring();
     }
@@ -1960,22 +1979,16 @@ struct x509_cert_prefix {
         struct tlv tbs_certificate(&certificate.value, tlv::SEQUENCE, "tbs_certificate");
 
         // parse (implicit or explicit) version
-        struct tlv explicitly_tagged_version(&tbs_certificate.value, tlv::explicit_tag_constructed(0), "version_tag");
-        if (explicitly_tagged_version.is_not_null()) {
-            version.parse(&explicitly_tagged_version.value, tlv::INTEGER, "version");
-
+        //
+        if (lookahead<literal< tlv::explicit_tag_constructed(0)>> tag{tbs_certificate.value}) {
+            version.parse(&tbs_certificate.value, tlv::explicit_tag_constructed(0), "version_tag");
         } else {
-            struct tlv version_or_serial_number(&tbs_certificate.value, tlv::INTEGER, "version_or_serial_number");
-            if (version_or_serial_number.length ==1 && version_or_serial_number.value.data[0] < 3) {
-                version = version_or_serial_number;
-            } else {
-                serial_number = version_or_serial_number;
-                // no version in certificate; assume it is the default
-            }
+            datum tmp{x509_cert::default_version};
+            version.parse(&tmp);
         }
-        if (serial_number.is_null()) {
-            serial_number.parse(&tbs_certificate.value, tlv::INTEGER, "serial number");
-        }
+
+        // parse serial number
+        serial_number.parse(&tbs_certificate.value, tlv::INTEGER, "serial number");
 
         struct tlv algorithm_identifier(&tbs_certificate.value, 0, "algorithm_identifier");
 

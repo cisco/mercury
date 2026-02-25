@@ -1,11 +1,80 @@
 # CHANGELOG for Mercury
 
-* Added SNMP protocol identification with JSON and CBOR output.
-* Added SYSLOG protocol identification with JSON and CBOR output.
-* Removed usage of deprecated OpenSSL APIs and adopted recommended
-  OpenSSL 3.x interfaces
+## VERSION 2.14.0
+* Added support for nested VLAN tagging (multiple stacked 802.1Q tags).
+* Added IMAPv4 support in JSON output.
+* Added NIST SP 800-52 Rev 2 cryptographic security assessment.
+* Added exposed credentials assessment.
+* Added longest prefix matching for IPv6 addresses. Enabled IPv6 longest
+  prefix matching for ASNs mapped to IPv6 subnets, and for domain names mapped
+  to IPv6 subnets for domain faking detection.
+* Added CBOR encoding and decoding for TLS server, HTTP server, and DTLS
+  fingerprints.
+* Updated mercury's stats feature to report device identifiers taken from TLS
+  certificates and SNMP messages.
+* Fixed a crash in QUIC initial packet decryption that could occur under
+  multi-threaded packet processing.
+* Fixed potential crashes and line-parsing errors while loading mercury
+  resource archives.
+* Fixed null-pointer dereference in weighted analysis function when given an
+  invalid input fingerprint.
+* Fixed unbounded memory growth in the stats aggregator dictionary encoder.
+* Restored the writeable::update() function, which is needed for batch_gcd.
+* Enabled debug symbols and preserved frame pointers in all builds.
 
-=======
+## VERSION 2.13.1
+* Fixed potential underflows and out-of-bounds accesses in TCP and QUIC
+  reassembly logic, and added checks for QUIC frame boundaries.
+
+## VERSION 2.13.0
+* Added support for Redis Serialization Protocol v2(RESP), with a focus on
+  detecting exposed credentials.
+* Added checks to handle TCP SEQ number wraparound in TCP reassembly code.
+
+## VERSION 2.12.0
+* Fixed potential crash scenario when total QUIC Hello size exceeds 4096 bytes.
+* Updated mercury-python pip package. For Linux, upgraded base image from
+  manylinux2014 to manylinux_2_34. For macOS, added Python 3.9 and 3.14 support.
+* Fixed X.509 version field handling for the ASN.1 DEFAULT case.
+* Fixed SNMPv3 password recovery bug.
+* Fixed internal writeable buffer implementation, which addresses some rare QUIC
+  and DNS parsing errors.
+* Added support for parsing PPPoE packets from library interface
+  mercury_packet_processor_get_analysis_context.
+* Report DTLS hello verify request in L7 metadata and unify DTLS fingerprint
+  format with TLS fingerprint format.
+* Internal: Improved function naming and documentation, and added type_traits
+  checking for json_object::print_key_value().
+* Internal: Added user-defined literals for initializing constexpr
+  std::array<uint8_t,N> and std::vector<uint8_t> values from (potentially long)
+  sequences of hexadecimal digits.
+* Internal: Improved code safety by refactoring test_json_output<T>().  Added
+  datum::datum(const uint8_t [N]) constructor.
+* Internal: Fixed decimal_integer parsing bug that advanced the input pointer
+  one byte past the parsed integer.  Also added handling for leading zeros.
+* Internal: Added defensive coding in lockless queue to prevent future bugs.
+
+## VERSION 2.11.1
+* Fixed crypto assessment handling of GREASE extensions. Optimized the crypto
+  assessment processing to produce clean JSON output in a single pass.
+* Added proper UTF-8 escaping of user-agent strings during stats reporting.
+
+## VERSION 2.11.0
+* Added SNMP protocol identification with JSON and CBOR output.
+* Added Syslog protocol identification with JSON and CBOR output.
+* Report a password-recovery string for TACACS+ protocol.
+* Added decimal_integer class to provide text-to-integer functionality suitable
+  for packet processing. The class includes error checking and avoids copying,
+  exception throwing, or memory allocation.
+* Improved configuration file parsing robustness to handle malformed input.
+* Removed adaptive random packet drop feature, which is no longer used
+  and probably not appropriate for current mercury scenarios.
+* Removed usage of deprecated OpenSSL APIs and adopted recommended OpenSSL 3.x
+  interfaces whenever a sufficiently new OpenSSL version is available.
+* Removed obsolete Python scripts.
+* Added examples.cpp to provide example usage of data parsing classes.
+* Replaced class literal<> with a more efficient but otherwise equivalent class.
+
 ## VERSION 2.10.0
 * Added defensive code around memcpy operations in QUIC reassembly.
 * Exempted private IP addresses from Domain Faking check.

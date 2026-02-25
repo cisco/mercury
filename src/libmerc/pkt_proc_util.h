@@ -61,6 +61,7 @@ struct dns_packet;
 struct mdns_packet;
 class dtls_client_hello;
 class dtls_server_hello;
+class dtls_hello_verify_request;
 class dhcp_message;
 class ssdp;
 //class stun::message;
@@ -75,6 +76,8 @@ class mysql_server_greet;
 namespace ldap { class message; }
 namespace krb5 { class packet; }
 namespace ftp {class request;class response;}
+namespace redis { class request; class response; }
+namespace imap {class imap_requests; class imap_responses;}
 class esp;
 namespace ike { class packet; }
 namespace rfb { class protocol_version_handshake; }
@@ -106,6 +109,10 @@ using protocol = std::variant<std::monostate,
                               ldap::message,
                               ftp::request,
                               ftp::response,
+                              redis::request,
+                              redis::response,
+                              imap::imap_requests,
+                              imap::imap_responses,
                               rdp::connection_request_pdu,
                               tftp::packet,
                               unknown_initial_packet,
@@ -115,6 +122,7 @@ using protocol = std::variant<std::monostate,
                               mdns_packet,
                               dtls_client_hello,
                               dtls_server_hello,
+                              dtls_hello_verify_request,
                               dhcp_message,
                               ssdp,
                               stun::message,
@@ -340,6 +348,10 @@ struct compute_fingerprint {
     }
 
     void operator()(tls_client_hello &msg) {
+        msg.compute_fingerprint(fp_, format_version.tls_fingerprint_format);
+    }
+
+    void operator()(dtls_client_hello &msg) {
         msg.compute_fingerprint(fp_, format_version.tls_fingerprint_format);
     }
 

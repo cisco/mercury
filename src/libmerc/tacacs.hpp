@@ -5,6 +5,7 @@
 
 #include "datum.h"
 #include "protocol.h"
+#include "exposed_creds.hpp"
 #include "json_object.h"
 #include "match.h"
 
@@ -68,6 +69,8 @@ namespace tacacs {
         { }
 
         bool is_valid() const { return data.is_not_null(); }
+
+        uint8_t get_auth_type() const { return type.value(); }
 
         void write_json(json_object &o, bool metadata=false) const {
             (void)metadata;
@@ -328,6 +331,30 @@ namespace tacacs {
             }
         }
 
+        exposed_creds_type check_credential_exposure() const {
+            // Only check authentication requests (type = 0x01)
+            if (direction() != msg_type::request || type.value() != 0x01) {
+                return exposed_creds_type::none;
+            }
+            
+            // Encrypted message body
+            if (!flags.bit<7>()) {
+                return exposed_creds_type::password_derived;
+            }
+
+            // Unencrypted authen_start (seq_no == 1) - check auth_type
+            if (seq_no.value() == 1) {
+                if (lookahead<authentication_start> as{body}) {
+                    if (as.value.get_auth_type() == authen_type<uint8_t>::code::ASCII) {
+                        return exposed_creds_type::plaintext_password;
+                    }
+                    return exposed_creds_type::password_derived;
+                }
+            }
+
+            return exposed_creds_type::none;
+        }
+
     };
 
     /// return the password_recovery input string for a tacacs+ encrypted message
@@ -389,7 +416,7 @@ namespace tacacs {
             0x2c, 0x22, 0x64, 0x61, 0x74, 0x61, 0x22, 0x3a, 0x22, 0x22, 0x7d, 0x7d,
             0x7d
         };
-        passed &= test_json_output<tacacs::packet>(ref_dat_1, sizeof(ref_dat_1), ref_out_1, sizeof(ref_out_1), output);
+        passed &= test_json_output<tacacs::packet>(datum{ref_dat_1}, datum{ref_out_1}, output);
 
         uint8_t ref_dat_2[] = {
             0xc0, 0x01, 0x02, 0x01, 0x6d, 0x0e, 0x16, 0x31, 0x00, 0x00, 0x00, 0x2b,
@@ -424,7 +451,7 @@ namespace tacacs {
             0x2c, 0x22, 0x64, 0x61, 0x74, 0x61, 0x22, 0x3a, 0x22, 0x22, 0x7d, 0x7d,
             0x7d
         };
-        passed &= test_json_output<tacacs::packet>(ref_dat_2, sizeof(ref_dat_2), ref_out_2, sizeof(ref_out_2), output);
+        passed &= test_json_output<tacacs::packet>(datum{ref_dat_2}, datum{ref_out_2}, output);
 
         uint8_t ref_dat_3[] = {
             0xc0, 0x01, 0x03, 0x01, 0x6d, 0x0e, 0x16, 0x31, 0x00, 0x00, 0x00, 0x0a,
@@ -449,7 +476,7 @@ namespace tacacs {
             0x3a, 0x22, 0x61, 0x64, 0x6d, 0x69, 0x6e, 0x22, 0x2c, 0x22, 0x64, 0x61,
             0x74, 0x61, 0x22, 0x3a, 0x22, 0x22, 0x7d, 0x7d, 0x7d
         };
-        passed &= test_json_output<tacacs::packet>(ref_dat_3, sizeof(ref_dat_3), ref_out_3, sizeof(ref_out_3), output);
+        passed &= test_json_output<tacacs::packet>(datum{ref_dat_3}, datum{ref_out_3}, output);
 
         uint8_t ref_dat_4[] = {
             0xc0, 0x01, 0x04, 0x01, 0x6d, 0x0e, 0x16, 0x31, 0x00, 0x00, 0x00, 0x10,
@@ -479,7 +506,7 @@ namespace tacacs {
             0x20, 0x22, 0x2c, 0x22, 0x64, 0x61, 0x74, 0x61, 0x22, 0x3a, 0x22, 0x22,
             0x7d, 0x7d, 0x7d
         };
-        passed &= test_json_output<tacacs::packet>(ref_dat_4, sizeof(ref_dat_4), ref_out_4, sizeof(ref_out_4), output);
+        passed &= test_json_output<tacacs::packet>(datum{ref_dat_4}, datum{ref_out_4}, output);
 
         uint8_t ref_dat_5[] = {
             0xc0, 0x01, 0x05, 0x01, 0x6d, 0x0e, 0x16, 0x31, 0x00, 0x00, 0x00, 0x0a,
@@ -505,7 +532,7 @@ namespace tacacs {
             0x3a, 0x22, 0x61, 0x64, 0x6d, 0x69, 0x6e, 0x22, 0x2c, 0x22, 0x64, 0x61,
             0x74, 0x61, 0x22, 0x3a, 0x22, 0x22, 0x7d, 0x7d, 0x7d
         };
-        passed &= test_json_output<tacacs::packet>(ref_dat_5, sizeof(ref_dat_5), ref_out_5, sizeof(ref_out_5), output);
+        passed &= test_json_output<tacacs::packet>(datum{ref_dat_5}, datum{ref_out_5}, output);
 
         uint8_t ref_dat_6[] = {
             0xc0, 0x01, 0x06, 0x01, 0x6d, 0x0e, 0x16, 0x31, 0x00, 0x00, 0x00, 0x06,
@@ -531,7 +558,7 @@ namespace tacacs {
             0x5d, 0x2c, 0x22, 0x64, 0x61, 0x74, 0x61, 0x22, 0x3a, 0x22, 0x22, 0x7d,
             0x7d, 0x7d
         };
-        passed &= test_json_output<tacacs::packet>(ref_dat_6, sizeof(ref_dat_6), ref_out_6, sizeof(ref_out_6), output);
+        passed &= test_json_output<tacacs::packet>(datum{ref_dat_6}, datum{ref_out_6}, output);
 
         return passed;
 
