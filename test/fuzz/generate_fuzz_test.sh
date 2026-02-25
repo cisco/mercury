@@ -252,7 +252,9 @@ minimize_corpus () {
     local total_post_fuzz=0
     local total_post_min=0
     local total_removed=0
-    local details=""
+
+    echo ""
+    echo "Minimizing corpus (before fuzzing -> after fuzzing -> after minimization):"
 
     for target_dir in "$parent_path"/*/; do
         local dir_name
@@ -272,11 +274,9 @@ minimize_corpus () {
 
         # skip empty corpora
         if [[ $post_fuzz -eq 0 ]]; then
-            details+="  $dir_name: $pre_fuzz -> $post_fuzz -> 0 (empty)\n"
+            echo "  $dir_name: $pre_fuzz -> $post_fuzz -> 0 (empty)"
             continue
         fi
-
-        echo -e "${COLOR_YELLOW}minimizing corpus: $dir_name ($post_fuzz entries)${COLOR_OFF}"
 
         local merge_dir="$target_dir/corpus.min"
         rm -rf "$merge_dir"
@@ -290,19 +290,15 @@ minimize_corpus () {
             total_post_min=$((total_post_min + post_min))
             total_removed=$((total_removed + removed))
             rm -f "$parent_path/.minimize_${dir_name}.log"
-            details+="  $dir_name: $pre_fuzz -> $post_fuzz -> $post_min"
             if [[ $removed -gt 0 ]]; then
-                details+=" ($removed removed)\n"
                 echo -e "${COLOR_GREEN}  $dir_name: $pre_fuzz -> $post_fuzz -> $post_min ($removed removed)${COLOR_OFF}"
             else
-                details+=" (already minimal)\n"
-                echo -e "  $dir_name: $pre_fuzz -> $post_fuzz -> $post_min (already minimal)"
+                echo "  $dir_name: $pre_fuzz -> $post_fuzz -> $post_min (already minimal)"
             fi
         else
             echo -e "${COLOR_RED}  $dir_name: merge failed (see .minimize_${dir_name}.log)${COLOR_OFF}"
             rm -rf "$merge_dir"
             total_post_min=$((total_post_min + post_fuzz))
-            details+="  $dir_name: $pre_fuzz -> $post_fuzz -> $post_fuzz (merge failed)\n"
         fi
     done
 
@@ -314,11 +310,6 @@ minimize_corpus () {
     echo "after fuzzing:        $total_post_fuzz"
     echo "after minimization:   $total_post_min"
     echo "removed by minimization: $total_removed"
-    if [[ -n "$details" ]]; then
-        echo ""
-        echo "Per-target detail:"
-        echo -e "$details"
-    fi
     echo "###############################################"
 
     if [[ $total_post_fuzz -gt 0 ]]; then
