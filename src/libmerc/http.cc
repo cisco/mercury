@@ -345,9 +345,6 @@ void http_request::write_l7_metadata(cbor_object &o, bool) {
 
     if (output_body_max > 0) {
         datum body = headers.get_header_body();
-        const size_t orig_len = body.length();
-        const bool truncated = orig_len > output_body_max;
-        http_request.print_key_bool("body_truncated", truncated);
         body.trim_to_length(output_body_max);
         http_request.print_key_hex("body", body);
     }

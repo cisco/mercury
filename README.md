@@ -320,12 +320,12 @@ DETAILS
       <no option>     None of the above
 
    --http-headers=mode controls which HTTP request headers are reported in L7 metadata.
-       non-sensitive   report all headers except sensitive ones (cookie, authorization)
+       non-sensitive   report all headers except sensitive ones (cookie, authorization, proxy-authorization)
        all             report all headers including sensitive ones
 
    --http-body=N reports up to N bytes of the HTTP request body in L7 metadata as hex.
-    N must be between 0 and 1024. If no value is given, defaults to 1024.
-    The output includes a "body_truncated" flag when the body exceeds N bytes.
+    N is required and must be between 0 and 1024. If this option is not specified,
+    HTTP request bodies are not captured in L7 metadata.
 
    --network-behavioral-detections performs analysis on packets, sessions, and
     sets of sessions independent of the core mercury analysis functionality. These

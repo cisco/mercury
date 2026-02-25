@@ -363,7 +363,7 @@ public:
             bool is_header_found = false;
             uint8_t header_idx = *ph.lookup(h.name.data, h.name.length(), is_header_found);
             if (is_header_found) {
-                /* Incase of duplicate http headers, index of the first http header
+                /* In case of duplicate http headers, index of the first http header
                  * is stored.
                  */
                 if (headers[header_idx].is_null()) {
@@ -388,7 +388,7 @@ struct http_request : public base_protocol {
     }
     static inline size_t output_body_max = 0;
     static void set_http_body(size_t value) { output_body_max = value; }
-    
+
     static constexpr static_dictionary<num_headers_to_report> req_hdrs {
         {
             "user-agent",
