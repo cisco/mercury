@@ -55,6 +55,8 @@ int main(int argc, char *argv[]) {
     }
 
     classifier *c = nullptr;
+    common_data attribute_common_data{};
+    attribute_common_data.reserve_non_classifier_attribute_indices();
     try {
 
         uint16_t dst_port_uint16 = std::stoul(dst_port);
@@ -63,9 +65,6 @@ int main(int argc, char *argv[]) {
             opt.usage(stderr, argv[0], summary);
             exit(EXIT_FAILURE);
         }
-
-        common_data attribute_common_data{};
-        attribute_common_data.reserve_non_classifier_attribute_indices();
 
         c = analysis_init_from_archive(0, // verbosity
                                        resource_file.c_str(),
