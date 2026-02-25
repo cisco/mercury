@@ -6,7 +6,7 @@ COLOR_GREEN="\033[0;32m"
 COLOR_YELLOW="\033[0;33m"
 COLOR_OFF="\033[0m"
 
-## makefile for fuzz testing pkt processing and protocol classes
+## script for fuzz testing pkt processing and protocol classes
 
 export CC="clang"
 export CXX="clang++"
@@ -27,9 +27,6 @@ total_test_function=0
 mkdir_fail=0
 pass=0
 fail=0
-total_new_corpus=0
-corpus_updated_dir_count=0
-corpus_updated_dirs=""
 flags=""
 openssl_v1_1="false"
 openssl_v3_0="false"
@@ -71,6 +68,16 @@ XSIMD_INCLUDE="-I${parent_path}/../../src/libmerc/xsimd/include"
 flags="$flags $XSIMD_INCLUDE"
 
 cd $LIBMERC_FOLDER
+
+# pre-cleanup: remove transient files from prior runs
+rm -f "$parent_path"/*/.corpus_pre_count
+rm -rf "$parent_path"/*/corpus.min
+rm -f "$parent_path"/.minimize_*.log
+
+# remove per-target transient files left by the current run
+cleanup_transient_files () {
+    rm -f "$parent_path"/*/.corpus_pre_count
+}
 
 # check results after running all the tests
 check_result () {
@@ -114,12 +121,8 @@ check_result () {
 
     post_corpus="$(ls ./corpus | wc -l)"
     pre_corpus=$(cat ./.corpus_pre_count 2>/dev/null || echo 0)
-    rm -f ./.corpus_pre_count
     if [[ "$post_corpus" -gt "$pre_corpus" ]]; then
         new_count=$((post_corpus - pre_corpus))
-        total_new_corpus=$((total_new_corpus + new_count))
-        corpus_updated_dir_count=$((corpus_updated_dir_count + 1))
-        corpus_updated_dirs+="  $dir_name: $new_count new\n"
         echo -e $COLOR_GREEN "corpus updated: $new_count new entries" $COLOR_OFF
     fi;
 
@@ -226,6 +229,106 @@ fi;
     cd ../$LIBMERC_FOLDER;
 }
 
+# Corpus minimization via libFuzzer's merge mode (-merge=1).
+#
+# As fuzzing progresses, the corpus accumulates inputs that may become
+# redundant — a newer input can cover a strict superset of the code
+# paths exercised by an older one.  Merge mode re-evaluates every
+# corpus entry's coverage contribution and copies only the minimal set
+# of inputs needed to preserve total coverage into a fresh directory.
+# This shrinks the corpus without losing any covered code paths, which
+# speeds up future fuzz runs (fewer inputs to replay on startup) and
+# keeps the committed corpus lean.
+#
+# Command-line usage (for a single target):
+#   mkdir -p corpus.min
+#   ./fuzz_dns_exec -merge=1 corpus.min corpus/
+#   rm -rf corpus && mv corpus.min corpus
+#
+# The function below automates this for every target that was built.
+minimize_corpus () {
+    local total_targets=0
+    local total_pre_fuzz=0
+    local total_post_fuzz=0
+    local total_post_min=0
+    local total_removed=0
+    local details=""
+
+    for target_dir in "$parent_path"/*/; do
+        local dir_name
+        dir_name=$(basename "$target_dir")
+
+        # skip if this target was not executed in this run (pre-cleanup
+        # removes stale files, so only current-run targets have this marker)
+        [[ -f "$target_dir/.corpus_pre_count" ]] || continue
+
+        total_targets=$((total_targets + 1))
+        local pre_fuzz
+        pre_fuzz=$(cat "$target_dir/.corpus_pre_count" 2>/dev/null || echo 0)
+        local post_fuzz
+        post_fuzz=$(ls "$target_dir/corpus/" | wc -l)
+        total_pre_fuzz=$((total_pre_fuzz + pre_fuzz))
+        total_post_fuzz=$((total_post_fuzz + post_fuzz))
+
+        # skip empty corpora
+        if [[ $post_fuzz -eq 0 ]]; then
+            details+="  $dir_name: $pre_fuzz -> $post_fuzz -> 0 (empty)\n"
+            continue
+        fi
+
+        echo -e "${COLOR_YELLOW}minimizing corpus: $dir_name ($post_fuzz entries)${COLOR_OFF}"
+
+        local merge_dir="$target_dir/corpus.min"
+        rm -rf "$merge_dir"
+        mkdir -p "$merge_dir"
+        if "$target_dir/fuzz_${dir_name}_exec" -merge=1 "$merge_dir" "$target_dir/corpus/" > "$parent_path/.minimize_${dir_name}.log" 2>&1; then
+            local post_min
+            post_min=$(ls "$merge_dir" | wc -l)
+            rm -rf "$target_dir/corpus"
+            mv "$merge_dir" "$target_dir/corpus"
+            local removed=$((post_fuzz - post_min))
+            total_post_min=$((total_post_min + post_min))
+            total_removed=$((total_removed + removed))
+            rm -f "$parent_path/.minimize_${dir_name}.log"
+            details+="  $dir_name: $pre_fuzz -> $post_fuzz -> $post_min"
+            if [[ $removed -gt 0 ]]; then
+                details+=" ($removed removed)\n"
+                echo -e "${COLOR_GREEN}  $dir_name: $pre_fuzz -> $post_fuzz -> $post_min ($removed removed)${COLOR_OFF}"
+            else
+                details+=" (already minimal)\n"
+                echo -e "  $dir_name: $pre_fuzz -> $post_fuzz -> $post_min (already minimal)"
+            fi
+        else
+            echo -e "${COLOR_RED}  $dir_name: merge failed (see .minimize_${dir_name}.log)${COLOR_OFF}"
+            rm -rf "$merge_dir"
+            total_post_min=$((total_post_min + post_fuzz))
+            details+="  $dir_name: $pre_fuzz -> $post_fuzz -> $post_fuzz (merge failed)\n"
+        fi
+    done
+
+    echo ""
+    echo "###############################################"
+    echo "Corpus summary (before fuzzing -> after fuzzing -> after minimization)"
+    echo "targets processed:    $total_targets"
+    echo "before fuzzing:       $total_pre_fuzz"
+    echo "after fuzzing:        $total_post_fuzz"
+    echo "after minimization:   $total_post_min"
+    echo "removed by minimization: $total_removed"
+    if [[ -n "$details" ]]; then
+        echo ""
+        echo "Per-target detail:"
+        echo -e "$details"
+    fi
+    echo "###############################################"
+
+    if [[ $total_post_fuzz -gt 0 ]]; then
+        echo ""
+        echo "Corpus entries are minimized, coverage-essential inputs."
+        echo "Consider committing them to improve future fuzz run coverage:"
+        echo "  git add test/fuzz/*/corpus/ && git commit -m \"fuzz: update corpus\""
+    fi
+}
+
 # check for libmerc.a
 if [[ ! -f "./libmerc.a" ]]; then
     make libmerc.a
@@ -283,33 +386,11 @@ if [[ ! "$mkdir_fail" -eq "0" ]]; then
 fi
 echo "###############################################"
 
-if [[ $total_new_corpus -gt 0 ]]; then
-    echo ""
-    echo "###############################################"
-    echo "Corpus update summary"
-    echo "$total_new_corpus new entries found across $corpus_updated_dir_count test(s):"
-    echo -e "$corpus_updated_dirs"
-    echo "New entries represent code paths not previously covered."
-    echo "Committing them improves future fuzz runs by using these inputs"
-    echo "as starting points, increasing coverage and the chance of finding bugs."
-    echo ""
-    echo "To commit:"
-    echo "  git add test/fuzz/*/corpus/ && git commit -m \"fuzz: update corpus\""
-    echo "###############################################"
-fi
-
-# TODO: Corpus minimization (not enabled by default)
-# As fuzzing progresses, older corpus entries can become subsumed by newer ones
-# — a later entry may cover a strict superset of an earlier entry's code paths,
-# making the earlier one redundant. Run a libFuzzer merge pass periodically to
-# remove subsumed entries, keeping only coverage-essential inputs. Example (from
-# test/fuzz/<target>/):
-#   mkdir -p corpus.min
-#   ./fuzz_<target>_exec -merge=1 corpus.min corpus/
-#   rm -rf corpus && mv corpus.min corpus
-# Repeat for each fuzz target directory (one target binary + one corpus dir).
-
-# Nonzero exit code if any failures
+# Nonzero exit code if any failures; skip corpus management
 if [[ $fail -ne 0 || $mkdir_fail -ne 0 ]]; then
+    cleanup_transient_files
     exit 1
 fi
+
+minimize_corpus
+cleanup_transient_files
