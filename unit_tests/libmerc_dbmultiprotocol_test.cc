@@ -231,6 +231,35 @@ TEST_CASE_METHOD(LibmercTestFixture, "test SGT encapsulated TLS - write_json wit
     }
 }
 
+TEST_CASE_METHOD(LibmercTestFixture, "test tls select strings producing different output line counts")
+{
+    auto tls_check = [&](int expected_count, const struct libmerc_config &config)
+    {
+        initialize(config);
+        CHECK(expected_count == counter());
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, int>> test_set_up{
+        {test_config{
+             .m_lc{.resources = resources_minimal_path,
+                   .packet_filter_cfg = (char *)"tls.client_hello"},
+             .m_pc{"capture2.pcap"}},
+         17},
+        {test_config{
+             .m_lc{.resources = resources_minimal_path,
+                   .packet_filter_cfg = (char *)"tls.client_hello,tls.server_hello"},
+             .m_pc{"capture2.pcap"}},
+         60} // this number is different because tls.server_hello is selected in addition to tls.client_hello
+    };
+
+    for (auto &[config, count] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        tls_check(count, config.m_lc);
+    }
+}
+
 TEST_CASE_METHOD(LibmercTestFixture, "test quic with resources-mp and eth linktype")
 {
 
