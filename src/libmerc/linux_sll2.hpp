@@ -54,14 +54,14 @@ public:
         packet_type{d},
         address_length{d},
         link_layer_address{d, 6}, // the length of the link layer address is always 6 bytes as it contains the MAC address
-        unused{d, 2} 
+        unused{d, 2}
     { }
 
     /// reads and skips over a linux_sll2 encapsulation header in
     /// \param d, if `d` contains an IPv4 or IPv6 packet; otherwise,
     /// `d` is set to `null`.
     ///
-    static void skip_to_ip(datum &d){
+    static void skip_to_ip(datum &d) {
         linux_sll2 sll2{d};
         if (d.is_not_null()){
             if(sll2.is_ip()){
@@ -75,7 +75,7 @@ public:
     /// followed by an IPv4 or IPv6 packet, and false otherwise
     ///
     bool is_ip() const{
-        if ((arphrd_type == arphrd::ETHER or arphrd_type == arphrd::LOOPBACK) 
+        if ((arphrd_type == arphrd::ETHER or arphrd_type == arphrd::LOOPBACK)
             and (protocol_type == ETH_TYPE_IP or protocol_type == ETH_TYPE_IPV6)){
             return true;
         }
