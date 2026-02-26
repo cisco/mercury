@@ -318,7 +318,7 @@ int main(int argc, char *argv[]) {
             { "stats-time",                    required_argument, NULL,                    stats_time },
             { "output-time",                   required_argument, NULL,                   output_time },
             { "reassembly",                          no_argument, NULL,                    reassembly },
-            { "quic-trial-decryption",                    no_argument, NULL,              quic_trial_decryption },
+            { "quic-trial-decryption",               no_argument, NULL,           quic_trial_decryption },
             { "crypto-assess",                 optional_argument, NULL,                 crypto_assess },
             { "format",                        required_argument, NULL,                        format },
             { "read",                          required_argument, NULL,                           'r' },
