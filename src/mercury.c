@@ -58,8 +58,8 @@ char mercury_help[] =
     "   --certs-json                          # output certs as JSON, not base64\n"
     "   --metadata                            # output more protocol metadata in JSON\n"
     "   --raw-features                        # select protocols to write out raw features string(see --help)\n"
-    "   --http-headers=mode                   # controls reporting of HTTP request headers in L7 metadata (all or non-sensitive)\n"
-    "   --http-body=N                         # report up to N bytes of the HTTP request body in L7 metadata (max 1024 bytes)\n"
+    "   --http-headers=mode                   # controls reporting of HTTP headers in L7 metadata (all or non-sensitive)\n"
+    "   --http-body-max=N                     # report up to N bytes of the HTTP body in L7 metadata (max 2048 bytes)\n"
     "   --network-behavioral-detections       # perform network behavioral detections\n"
     "   --minimize-ram                        # minimize the ram usage of mercury library\n"
     "   --crypto-assess[=policy]              # perform cryptographic security assessment\n"
@@ -222,12 +222,12 @@ char mercury_extended_help[] =
     "       <no option>     None of the above\n"
     "\n"
     "   --http-headers=mode controls which HTTP request headers are reported in L7 metadata.\n"
-    "       non-sensitive   report all headers except sensitive ones (cookie, authorization, proxy-authorization)\n"
+    "       non-sensitive   report all headers except sensitive ones (cookie, authorization, proxy-authorization, etc.)\n"
     "       all             report all headers including sensitive ones\n"
     "\n"
-    "   --http-body=N reports up to N bytes of the HTTP request body in L7 metadata as hex.\n"
-    "    N is required and must be between 0 and 1024.\n"
-    "    If this option is not specified, HTTP request bodies are not captured in L7 metadata.\n"
+    "   --http-body-max=N reports up to N bytes of the HTTP body in L7 metadata as hex.\n"
+    "    N is required and must be between 0 and 2048.\n"
+    "    If this option is not specified, HTTP bodies are not captured in L7 metadata.\n"
     "\n"
     "   --network-behavioral-detections performs analysis on packets, sessions, and\n"
    "    sets of sessions independent of the core mercury analysis functionality. These\n"
@@ -462,7 +462,7 @@ int main(int argc, char *argv[]) {
             if (option_is_valid(optarg)) {
                 additional_args.append("http-body=").append(optarg).append(";");
             } else {
-                usage(argv[0], "option http-body requires a size argument (0-1024)", extended_help_off);
+                usage(argv[0], "option http-body requires a size argument (0-2048)", extended_help_off);
             }
             break;
         case network_behavioral_detections:

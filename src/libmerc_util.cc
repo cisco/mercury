@@ -361,7 +361,7 @@ int main(int argc, char *argv[]) {
         {argument::optional,    "--crypto-assess", "enable crypto-assess analysis"},
         {argument::optional,    "--exposed-creds", "enable exposed-creds analysis"},
         {argument::required,    "--http-headers", "set http headers mode (all or non-sensitive)"},
-        {argument::required,    "--http-body", "set max http body bytes to report (0-1024)"}
+        {argument::required,    "--http-body-max", "set max http body bytes to report (0-2048)"}
     });
     if (!opt.process_argv(argc, argv)) {
         opt.usage(stderr, argv[0], summary);
@@ -379,7 +379,7 @@ int main(int argc, char *argv[]) {
     bool crypto_assess = opt.is_set("--crypto-assess");
     bool exposed_creds = opt.is_set("--exposed-creds");
     auto [ http_headers_is_set, http_headers_value ] = opt.get_value("--http-headers");
-    auto [ http_body_is_set, http_body_value ] = opt.get_value("--http-body");
+    auto [ http_body_is_set, http_body_value ] = opt.get_value("--http-body-max");
 
     if (print_help) {
         opt.usage(stdout, argv[0], summary);

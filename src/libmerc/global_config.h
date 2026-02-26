@@ -314,11 +314,11 @@ public:
         return true;
     }
 
-    static constexpr size_t max_http_body = 1024;
+    static constexpr size_t max_http_body = 2048;
 
     bool set_http_body(const std::string& s) {
         if (s.empty()) {
-            printf_err(log_err, "--http-body requires a size argument (0-%zu)\n", max_http_body);
+            printf_err(log_err, "--http-body-max requires a size argument (0-%zu)\n", max_http_body);
             return false;
         }
         datum d{s};

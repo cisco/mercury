@@ -358,7 +358,7 @@ void http_request::write_l7_metadata(cbor_object &o, bool) {
     http_request.print_key_string("host", get_header("host"));
     http_request.print_key_string("user_agent", get_header("user-agent"));
 
-    headers.write_l7_metadata(http_request, header_ph_request_full, http_config::output_non_sensitive_headers, http_config::output_all_headers, http_config::output_body_max);
+    headers.write_l7_metadata(http_request, header_ph_request_full);
 
     http_request.close();
     http.close();
@@ -416,9 +416,7 @@ void http_response::write_l7_metadata(cbor_object &o, bool) {
     http_response.print_key_string("content_length", get_header("content-length"));
     http_response.print_key_string("server", get_header("server"));
     http_response.print_key_string("via", get_header("via"));
-    headers.write_l7_metadata(http_response, header_ph_response_full,
-        http_config::output_non_sensitive_headers, http_config::output_all_headers,
-        0);
+    headers.write_l7_metadata(http_response, header_ph_response_full);
     http_response.close();
     http.close();
 }

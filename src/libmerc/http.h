@@ -211,6 +211,17 @@ struct httpheader {
     }
 };
 
+struct http_config {
+    static inline bool output_non_sensitive_headers = false;
+    static inline bool output_all_headers = false;
+    static inline size_t output_body_max = 0;
+    static void set_http_headers(bool non_sensitive, bool all) {
+        output_non_sensitive_headers = non_sensitive;
+        output_all_headers = all;
+    }
+    static void set_http_body(size_t value) { output_body_max = value; }
+};
+
 template <size_t N>
 class new_http_headers {
     datum header_body;
@@ -268,20 +279,10 @@ public:
     }
 
     void write_header(cbor_array &hdrs, const httpheader &h,
-                    perfect_hash<bool> &ph,
-                    bool report_non_sensitive, bool report_all) {
-        if (!report_non_sensitive && !report_all) {
-            return;
-        }
-
+                    perfect_hash<bool> &ph) {
         bool found = false;
         bool is_sensitive = *ph.lookup(h.name.data, h.name.length(), found);
-
-        bool emit_value = false;
-        if (found) {
-            emit_value = !is_sensitive || report_all;
-        }
-
+        bool emit_value = found && (!is_sensitive || http_config::output_all_headers);
         cbor_object hdr{hdrs};
         hdr.print_key_string("name", h.name);
         if (emit_value) {
@@ -290,14 +291,12 @@ public:
         hdr.close();
     }
 
-    void write_l7_metadata(cbor_object &o, perfect_hash<bool> &ph,
-                       bool report_non_sensitive, bool report_all,
-                       size_t body_max) {
-        if (report_non_sensitive || report_all) {
+    void write_l7_metadata(cbor_object &o, perfect_hash<bool> &ph) {
+        if (http_config::output_non_sensitive_headers || http_config::output_all_headers) {
             httpheader h = get_next_header(header_body);
             if (h.is_valid()) {
                 cbor_array hdrs{o, "headers"};
-                write_header(hdrs, h, ph, report_non_sensitive, report_all);
+                write_header(hdrs, h, ph);
                 while(1) {
                     delimiter d(header_body, delim);
                     if (d.is_valid()) {
@@ -307,25 +306,19 @@ public:
                     if (!h.is_valid()) {
                         break;
                     }
-                    write_header(hdrs, h, ph, report_non_sensitive, report_all);
+                    write_header(hdrs, h, ph);
                 }
                 hdrs.close();
             }
-        } else if (body_max > 0) {
-            httpheader h = get_next_header(header_body);
-            while (h.is_valid()) {
-                delimiter d(header_body, delim);
-                if (d.is_valid()) {
-                    break;
-                }
-                h = get_next_header(header_body);
-            }
+        } else if (http_config::output_body_max > 0) {
+            unsigned char crlfcrlf[4] = { '\r', '\n', '\r', '\n' };
+            header_body.skip_up_to_delim(crlfcrlf, sizeof(crlfcrlf));
         }
 
-        if (body_max > 0) {
+        if (http_config::output_body_max > 0) {
             datum body = header_body;
             if (body.is_readable()) {
-                body.trim_to_length(body_max);
+                body.trim_to_length(http_config::output_body_max);
                 o.print_key_hex("body", body);
             }
         }
@@ -376,17 +369,6 @@ public:
         }
     }
 
-};
-
-struct http_config {
-    static inline bool output_non_sensitive_headers = false;
-    static inline bool output_all_headers = false;
-    static inline size_t output_body_max = 0;
-    static void set_http_headers(bool non_sensitive, bool all) {
-        output_non_sensitive_headers = non_sensitive;
-        output_all_headers = all;
-    }
-    static void set_http_body(size_t value) { output_body_max = value; }
 };
 
 struct http_request : public base_protocol {

@@ -145,8 +145,8 @@ GENERAL OPTIONS
    --certs-json                          # output certs as JSON, not base64
    --metadata                            # output more protocol metadata in JSON
    --raw-features                        # select protocols to write out raw features string(see --help)
-   --http-headers=mode                   # controls reporting of HTTP request headers in L7 metadata (all or non-sensitive)
-   --http-body=N                         # report up to N bytes of the HTTP request body in L7 metadata (max 1024 bytes)
+   --http-headers=mode                   # controls reporting of HTTP headers in L7 metadata (all or non-sensitive)
+   --http-body-max=N                     # report up to N bytes of the HTTP body in L7 metadata (max 2048 bytes)
    --network-behavioral-detections       # perform network behavioral detections
    --minimize-ram                        # minimize the ram usage of mercury library
    --crypto-assess[=policy]              # perform cryptographic security assessment
@@ -319,13 +319,13 @@ DETAILS
        none            None of the above
       <no option>     None of the above
 
-   --http-headers=mode controls which HTTP request headers are reported in L7 metadata.
-       non-sensitive   report all headers except sensitive ones (cookie, authorization, proxy-authorization)
+   --http-headers=mode controls which HTTP headers are reported in L7 metadata.
+       non-sensitive   report all headers except sensitive ones (cookie, authorization, proxy-authorization, etc.)
        all             report all headers including sensitive ones
 
-   --http-body=N reports up to N bytes of the HTTP request body in L7 metadata as hex.
-    N is required and must be between 0 and 1024. If this option is not specified,
-    HTTP request bodies are not captured in L7 metadata.
+   --http-body-max=N reports up to N bytes of the HTTP body in L7 metadata as hex.
+    N is required and must be between 0 and 2048. If this option is not specified,
+    HTTP bodies are not captured in L7 metadata.
 
    --network-behavioral-detections performs analysis on packets, sessions, and
     sets of sessions independent of the core mercury analysis functionality. These
