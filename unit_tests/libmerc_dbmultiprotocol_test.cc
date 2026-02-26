@@ -34,7 +34,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test linux sll2")
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"all"},
              .m_pc{"agent-traffic.pcap"}},
          2128}

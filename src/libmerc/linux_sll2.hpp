@@ -3,53 +3,49 @@
 
 #include "datum.h"
 #include "eth.h"
-/* LINKTYPE_LINUX_SLL2 encapsulation structure (following
+// LINKTYPE_LINUX_SLL2 encapsulation structure (following
 // https://www.tcpdump.org/linktypes/LINKTYPE_LINUX_SLL2.html)
-
-
-    +---------------------------+
-    |        Protocol type      |
-    |         (2 Octets)        |
-    +---------------------------+
-    |       Reserved (MBZ)      |
-    |         (2 Octets)        |
-    +---------------------------+
-    |       Interface index     |
-    |         (4 Octets)        |
-    +---------------------------+
-    |        ARPHRD_ type       |
-    |         (2 Octets)        |
-    +---------------------------+
-    |         Packet type       |
-    |         (1 Octet)         |
-    +---------------------------+
-    | Link-layer address length |
-    |         (1 Octets)        |
-    +---------------------------+
-    |    Link-layer address     |
-    |         (8 Octets)        |
-    +---------------------------+
-    |           Payload         |
-    .                           .
-    .                           .
-    .                           .
-
-*/
-
-
-class linux_sll2{
-    encoded<uint16_t>protocol_type;
-    encoded<uint16_t>reserved;
-    encoded<uint32_t>interface_index;
-    encoded<uint16_t>arphrd_type;
-    encoded<uint8_t>packet_type;
-    encoded<uint8_t>address_length;
+//
+//
+//    +---------------------------+
+//    |        Protocol type      |
+//    |         (2 Octets)        |
+//    +---------------------------+
+//    |       Reserved (MBZ)      |
+//    |         (2 Octets)        |
+//    +---------------------------+
+//    |       Interface index     |
+//    |         (4 Octets)        |
+//    +---------------------------+
+//    |        ARPHRD_ type       |
+//    |         (2 Octets)        |
+//    +---------------------------+
+//    |         Packet type       |
+//    |         (1 Octet)         |
+//    +---------------------------+
+//    | Link-layer address length |
+//    |         (1 Octets)        |
+//    +---------------------------+
+//    |    Link-layer address     |
+//    |         (8 Octets)        |
+//    +---------------------------+
+//    |           Payload         |
+//    |                           |
+//    +---------------------------+
+//
+class linux_sll2 {
+    encoded<uint16_t> protocol_type;
+    encoded<uint16_t> reserved;
+    encoded<uint32_t> interface_index;
+    encoded<uint16_t> arphrd_type;
+    encoded<uint8_t> packet_type;
+    encoded<uint8_t> address_length;
     datum link_layer_address;
     datum unused;
 
 public:
-    // parses a linux_sll2 header from datum \param d
-    //
+    /// parses a linux_sll2 header from datum \param d
+    ///
     linux_sll2(datum &d):
         protocol_type{d},
         reserved{d},
@@ -57,16 +53,17 @@ public:
         arphrd_type{d},
         packet_type{d},
         address_length{d},
-        link_layer_address{d, address_length.value()}, // the length of the link layer address is given by the address_length field
-        unused{d, 8-address_length.value()} // if the address length is less than 8, the remaining bytes are unused
+        link_layer_address{d, 6}, // the length of the link layer address is always 6 bytes as it contains the MAC address
+        unused{d, 2} 
     { }
 
-    // reads and skips over a linux_sll2 encapsulation header in
-    // \param d, if `d` contains an IPv4 or IPv6 packet; otherwise,
-    // `d` is set to `null`.
+    /// reads and skips over a linux_sll2 encapsulation header in
+    /// \param d, if `d` contains an IPv4 or IPv6 packet; otherwise,
+    /// `d` is set to `null`.
+    ///
     static void skip_to_ip(datum &d){
         linux_sll2 sll2{d};
-        if(d.is_not_null()){
+        if (d.is_not_null()){
             if(sll2.is_ip()){
                 return;
             }
@@ -74,11 +71,11 @@ public:
         d.set_null(); // not an IP packet
     }
 
-    // returns `true` if this \ref linux_sll2 encapsulation header is
-    // followed by an IPv4 or IPv6 packet, and false otherwise
-    
+    /// returns `true` if this \ref linux_sll2 encapsulation header is
+    /// followed by an IPv4 or IPv6 packet, and false otherwise
+    ///
     bool is_ip() const{
-        if((arphrd_type == arphrd::ETHER or arphrd_type == arphrd::LOOPBACK) 
+        if ((arphrd_type == arphrd::ETHER or arphrd_type == arphrd::LOOPBACK) 
             and (protocol_type == ETH_TYPE_IP or protocol_type == ETH_TYPE_IPV6)){
             return true;
         }
