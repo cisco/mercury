@@ -1117,6 +1117,9 @@ struct dns_packet : public base_protocol {
             protocols.print_string("dns");
         }
         protocols.close();
+        cbor_object dns{o, is_netbios ? "nbns" : "dns"};
+        dns.print_key_hex("data", get_datum());
+        dns.close();
     }
 
     // mask:   0040fe8eff00ff00fee0

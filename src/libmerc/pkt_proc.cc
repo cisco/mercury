@@ -754,9 +754,21 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
 
     // No reassembler : call set_tcp_protocol on every data pkt
     if (!reassembler || !global_vars.reassembly) {
+        // For FDC flows, the flows are not long-lived. Mercury typically
+        // observes around 20 packets per flow, so any traffic seen again
+        // after 30 seconds should be treated as a new flow.
+        //
+        // Packets are forwarded to Mercury only when it explicitly
+        // signals that additional packets are required (`more_packets_needed`).
+        // In such cases, the number of packets sent is capped at 20.
+        //
         bool is_new = false;
         if (global_vars.output_tcp_initial_data) {
-            is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
+            if (tcp_pkt.is_synthetic_pkt()) {
+                is_new = tcp_flow_table.is_first_synthetic_data_packet(k, ts->tv_sec);
+            } else {
+                is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
+            }
         }
         set_tcp_protocol(x, pkt, is_new, &tcp_pkt);
         return true;
@@ -764,7 +776,12 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
 
     bool is_new = false;
     if (global_vars.output_tcp_initial_data) {
-        is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
+        if (tcp_pkt.is_synthetic_pkt()) {
+            is_new = tcp_flow_table.is_first_synthetic_data_packet(k, ts->tv_sec);
+        } else {
+            is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
+        }
+
     }
     datum pkt_copy{pkt};
 
@@ -1494,6 +1511,10 @@ inline bool is_fdc_writable(fingerprint_type fp_type) {
     case fingerprint_type_tofsee:
     case fingerprint_type_stun:
     case fingerprint_type_ssh:
+    case fingerprint_type_http_server:
+    case fingerprint_type_tls_server:
+    case fingerprint_type_dtls:
+    case fingerprint_type_dtls_server:
             return true;
         default:
             return false;
@@ -1550,6 +1571,8 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         // setup a seq no of 0 to denote in-order reassembly
         tcp_hdr.seq = 0;
         tcp_packet tcp_pkt{pkt, &tcp_hdr};
+        //setting synthetic pkt to true to seed a synthetic SYN entry
+        tcp_pkt.set_synthetic_pkt();
 
         if (reassembler_ptr && global_vars.reassembly && perform_reassembly) {
             analysis.flow_state_pkts_needed = false;

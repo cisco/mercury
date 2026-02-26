@@ -619,17 +619,16 @@ public:
             tcp.add_protocol(tls_server_hello::matcher, tcp_msg_type_tls_server_hello);
             tcp.add_protocol(tls_server_certificate::matcher, tcp_msg_type_tls_certificate);
         }
-        else if(protocols["tls.client_hello"])
-        {
-            tcp.add_protocol(tls_client_hello::matcher, tcp_msg_type_tls_client_hello);
-        }
-        else if(protocols["tls.server_hello"])
-        {
-            tcp.add_protocol(tls_server_hello::matcher, tcp_msg_type_tls_server_hello);
-        }
-        else if(protocols["tls.server_certificate"])
-        {
-            tcp.add_protocol(tls_server_certificate::matcher, tcp_msg_type_tls_certificate);
+        else {
+            if (protocols["tls.client_hello"]) {
+                tcp.add_protocol(tls_client_hello::matcher, tcp_msg_type_tls_client_hello);
+            }
+            if (protocols["tls.server_hello"]) {
+                tcp.add_protocol(tls_server_hello::matcher, tcp_msg_type_tls_server_hello);
+            }
+            if (protocols["tls.server_certificate"]) {
+                tcp.add_protocol(tls_server_certificate::matcher, tcp_msg_type_tls_certificate);
+            }   
         }
         if (protocols["ssh"] || protocols["all"]) {
             tcp.add_protocol(ssh_init_packet::matcher, tcp_msg_type_ssh);
@@ -649,46 +648,41 @@ public:
         {
             select_ftp_response = true;
             select_ftp_request = true;
-            // tcp.add_protocol(ftp::request::user_matcher, tcp_msg_type_ftp_request);
-            // tcp.add_protocol(ftp::request::pass_matcher, tcp_msg_type_ftp_request);
-            // tcp.add_protocol(ftp::request::stor_matcher, tcp_msg_type_ftp_request);
-            // tcp.add_protocol(ftp::request::retr_matcher, tcp_msg_type_ftp_request);
-            // tcp4.add_protocol(ftp::response::status_code_matcher, tcp_msg_type_ftp_response);
         }
-        else if(protocols["ftp.response"])
-        {
-            select_ftp_response = true;
-            // tcp4.add_protocol(ftp::response::status_code_matcher, tcp_msg_type_ftp_response);
-        }
-        else if(protocols["ftp.request"])
-        {
-            select_ftp_request = true;
+        else {
+            if (protocols["ftp.response"]) {
+                select_ftp_response = true;
+                // tcp4.add_protocol(ftp::response::status_code_matcher, tcp_msg_type_ftp_response);
+            }
+            if (protocols["ftp.request"]) {
+                select_ftp_request = true;
+            }
         }
         if(protocols["imap"] || protocols["all"])
         {
             select_imap_request = true;
             select_imap_response = true;
         }
-        else if (protocols["imap.request"])
-        {
-            select_imap_request = true;
-        }
-        else if (protocols["imap.response"])
-        {
-            select_imap_response = true;
+        else {
+            if (protocols["imap.request"]) {
+                select_imap_request = true;
+            }
+            if (protocols["imap.response"]) {
+                select_imap_response = true;
+            }
         }
         if (protocols["http"] || protocols["all"])
         {
             select_http_request = true;
             select_http_response = true;
         }
-        else if(protocols["http.request"])
-        {
-            select_http_request = true;
-        }
-        else if(protocols["http.response"])
-        {
-            select_http_response = true;
+        else {
+            if (protocols["http.request"]) {
+                select_http_request = true;
+            }
+            if (protocols["http.response"]) {
+                select_http_response = true;
+            }
         }
 
         // booleans not yet implemented
@@ -725,11 +719,13 @@ public:
             select_redis_request = true;
             select_redis_response = true;
         }
-        else if (protocols["redis.request"]) {
-            select_redis_request = true;
-        }
-        else if (protocols["redis.response"]) {
-            select_redis_response = true;
+        else {
+            if (protocols["redis.request"]) {
+                select_redis_request = true;
+            }
+            if (protocols["redis.response"]) {
+                select_redis_response = true;
+            }
         }
         if (protocols["dns"] || protocols["nbns"] || protocols["mdns"] || protocols["all"]) {
             if (protocols["all"]) {

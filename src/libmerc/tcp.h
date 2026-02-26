@@ -441,6 +441,7 @@ struct flow_table_tcp {
     std::unordered_map<struct key, struct tcp_context>::iterator reap_it;
     static constexpr uint32_t max_entries = 20000;
 
+
     flow_table_tcp(unsigned int size) : table{}, reap_it{table.end()} {
         table.reserve(size);
         reap_it = table.end();
@@ -490,6 +491,26 @@ struct flow_table_tcp {
         reap(sec);
         return false;
     }
+
+    // Returns true if this is the first data packet for a new or expired flow.
+    // Seeds a synthetic SYN entry to track that we've seen this flow.
+    bool is_first_synthetic_data_packet(const struct key &k, unsigned int sec) {
+        auto it = table.find(k);
+        if (it != table.end()) { //entry found
+            if (it->second.is_expired(sec)) {
+                // Expired - erase and fall through to seed new entry
+                reap_it = table.erase(it);
+            } else {
+                // Flow exists and not expired - not first data packet
+                return false;
+            }
+        }
+        // New flow or expired - seed synthetic SYN and return true
+        reap(sec); //only expired entries cleared
+        syn_packet(k, sec, 0); // use 0 as default SYN value for synthetic entry
+        return true;
+    }
+
 
     // Returns the syn seq no, whether the received data pkt is first segment and whether the flow expired
     //
@@ -542,6 +563,7 @@ struct flow_table_tcp {
     void count_all() {
         table.clear();
     }
+
 
     static const unsigned int timeout = 1; // seconds before flow timeout
 

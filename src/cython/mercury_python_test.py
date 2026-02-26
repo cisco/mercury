@@ -49,6 +49,38 @@ class TestMercuryPython(unittest.TestCase):
                          f"DNS authority name should be {dns_data['response']['authority'][0]['name']}")
 
 
+    def test_certificate_parsing_hex_input(self):
+        cert_data = {
+            'version': '02',
+            'serial_number': '00eede6560cd35c0af02000000005971b7',
+            'bits_in_signature': 2047
+        }
+        cert_hex = b64decode(b64_cert).hex()
+        merc_cert_data = mercury.parse_cert(cert_hex, True)
+        self.assertEqual(merc_cert_data['version'], cert_data['version'], f"Certificate version should be {cert_data['version']}")
+        self.assertEqual(merc_cert_data['serial_number'], cert_data['serial_number'],
+                         f"Certificate serial_number should be {cert_data['serial_number']}")
+        self.assertEqual(merc_cert_data['bits_in_signature'], cert_data['bits_in_signature'],
+                         f"Certificate bits_in_signature should be {cert_data['bits_in_signature']}")
+
+
+    def test_dns_parsing_hex_input(self):
+        dns_data = {
+            'response': {
+                'id': 'edd5',
+                'question': [{'name': 'live.github.com.'}],
+                'authority': [{'name': 'github.com.'}]
+            }
+        }
+        dns_hex = b64decode(b64_dns).hex()
+        merc_dns_data = mercury.parse_dns(dns_hex, True)
+        self.assertEqual(merc_dns_data['response']['id'], dns_data['response']['id'], f"DNS transaction id should be {dns_data['response']['id']}")
+        self.assertEqual(merc_dns_data['response']['question'][0]['name'], dns_data['response']['question'][0]['name'],
+                         f"DNS question name should be {dns_data['response']['question'][0]['name']}")
+        self.assertEqual(merc_dns_data['response']['authority'][0]['name'], dns_data['response']['authority'][0]['name'],
+                         f"DNS authority name should be {dns_data['response']['authority'][0]['name']}")
+
+
     def test_analysis(self):
         analysis_data = {
             'analysis': {

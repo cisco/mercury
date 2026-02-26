@@ -140,6 +140,7 @@ struct tcp_packet : public base_protocol {
     // supplementary_reassembly refers to case where the specific tcp pkt may have a
     // complete protocol msg, but may also be used by another protocol in reassembly
     bool supplementary_reassembly = false;
+    bool is_synthetic = false;
 
     tcp_packet(datum &p, ip *outer=nullptr) : ip_pkt{outer} {
         parse(p);
@@ -186,6 +187,9 @@ struct tcp_packet : public base_protocol {
     bool is_RST() {
         return header && TCP_IS_RST(header->flags);
     }
+
+    bool is_synthetic_pkt() const { return is_synthetic; }
+    void set_synthetic_pkt() { is_synthetic = true; }
 
     uint32_t seq() const { return hton(header->seq); }
 
