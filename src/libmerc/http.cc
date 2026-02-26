@@ -14,81 +14,81 @@
 #include "http_auth.hpp"
 
 namespace {
-    std::vector<perfect_hash_entry<uint8_t>> header_data_request_full = {
-        { "user-agent", http_request::req_hdrs.index("user-agent") },
-        { "host", http_request::req_hdrs.index("host") },
-        { "x-forwarded-for", http_request::req_hdrs.index("x-forwarded-for") },
-        { "via", http_request::req_hdrs.index("via") },
-        { "upgrade", http_request::req_hdrs.index("upgrade") },
-        { "referer", http_request::req_hdrs.index("referer") },
-        { "authorization", http_request::req_hdrs.index("authorization") },
-        { "content-type", http_request::req_hdrs.index("content-type") },
-        { "content-length", http_request::req_hdrs.index("content-length") },
-        { "accept", http_request::req_hdrs.index("accept") },
-        { "accept-encoding", http_request::req_hdrs.index("accept-encoding") },
-        { "accept-language", http_request::req_hdrs.index("accept-language") },
-        { "content-disposition", http_request::req_hdrs.index("content-disposition") },
-        { "cookie", http_request::req_hdrs.index("cookie") },
-        { "cache-control", http_request::req_hdrs.index("cache-control") },
-        { "connection", http_request::req_hdrs.index("connection") },
-        { "date", http_request::req_hdrs.index("date") },
-        { "pragma", http_request::req_hdrs.index("pragma") },
-        { "trailer", http_request::req_hdrs.index("trailer") },
-        { "transfer-encoding", http_request::req_hdrs.index("transfer-encoding") },
-        { "warning", http_request::req_hdrs.index("warning") },
-        { "accept-charset", http_request::req_hdrs.index("accept-charset") },
-        { "expect", http_request::req_hdrs.index("expect") },
-        { "from", http_request::req_hdrs.index("from") },
-        { "if-match", http_request::req_hdrs.index("if-match") },
-        { "if-modified-since", http_request::req_hdrs.index("if-modified-since") },
-        { "if-none-match", http_request::req_hdrs.index("if-none-match") },
-        { "if-range", http_request::req_hdrs.index("if-range") },
-        { "if-unmodified-since", http_request::req_hdrs.index("if-unmodified-since") },
-        { "max-forwards", http_request::req_hdrs.index("max-forwards") },
-        { "proxy-authorization", http_request::req_hdrs.index("proxy-authorization") },
-        { "range", http_request::req_hdrs.index("range") },
-        { "te", http_request::req_hdrs.index("te") },
-        { "allow", http_request::req_hdrs.index("allow") },
-        { "content-encoding", http_request::req_hdrs.index("content-encoding") },
-        { "content-language", http_request::req_hdrs.index("content-language") },
-        { "content-location", http_request::req_hdrs.index("content-location") },
-        { "content-md5", http_request::req_hdrs.index("content-md5") },
-        { "content-range", http_request::req_hdrs.index("content-range") },
-        { "expires", http_request::req_hdrs.index("expires") },
-        { "last-modified", http_request::req_hdrs.index("last-modified") },
-        { "true-client-ip", http_request::req_hdrs.index("true-client-ip") },
-        { "x-working-with", http_request::req_hdrs.index("x-working-with") },
-        { "content-transfer-encoding", http_request::req_hdrs.index("content-transfer-encoding") },
-        { "mime-version", http_request::req_hdrs.index("mime-version") },
-        { "proxy-agent", http_request::req_hdrs.index("proxy-agent") },
-        { "http2-settings", http_request::req_hdrs.index("http2-settings") },
-        { "restrict-access-to-tenants", http_request::req_hdrs.index("restrict-access-to-tenants") },
-        { "restrict-access-context", http_request::req_hdrs.index("restrict-access-context") },
-        { "origin", http_request::req_hdrs.index("origin") },
-        { "forwarded", http_request::req_hdrs.index("forwarded") },
-        { "x-forwarded-from", http_request::req_hdrs.index("x-forwarded-from") },
-        { "client-ip", http_request::req_hdrs.index("client-ip") },
-        { "xroxy-connection", http_request::req_hdrs.index("xroxy-connection") },
-        { "proxy-connection", http_request::req_hdrs.index("proxy-connection") }
+    std::vector<perfect_hash_entry<bool>> header_data_request_full = {
+        { "user-agent",                false },
+        { "host",                      false },
+        { "x-forwarded-for",           false },
+        { "via",                       false },
+        { "upgrade",                   false },
+        { "referer",                   false },
+        { "authorization",             true  },
+        { "content-type",              false },
+        { "content-length",            false },
+        { "accept",                    false },
+        { "accept-encoding",           false },
+        { "accept-language",           false },
+        { "content-disposition",       false },
+        { "cookie",                    true  },
+        { "cache-control",             false },
+        { "connection",                false },
+        { "date",                      false },
+        { "pragma",                    false },
+        { "trailer",                   false },
+        { "transfer-encoding",         false },
+        { "warning",                   false },
+        { "accept-charset",            false },
+        { "expect",                    false },
+        { "from",                      false },
+        { "if-match",                  false },
+        { "if-modified-since",         false },
+        { "if-none-match",             false },
+        { "if-range",                  false },
+        { "if-unmodified-since",       false },
+        { "max-forwards",              false },
+        { "proxy-authorization",       true  },
+        { "range",                     false },
+        { "te",                        false },
+        { "allow",                     false },
+        { "content-encoding",          false },
+        { "content-language",          false },
+        { "content-location",          false },
+        { "content-md5",               false },
+        { "content-range",             false },
+        { "expires",                   false },
+        { "last-modified",             false },
+        { "true-client-ip",            false },
+        { "x-working-with",            false },
+        { "content-transfer-encoding", false },
+        { "mime-version",              false },
+        { "proxy-agent",               false },
+        { "http2-settings",            false },
+        { "restrict-access-to-tenants",false },
+        { "restrict-access-context",   false },
+        { "origin",                    false },
+        { "forwarded",                 false },
+        { "x-forwarded-from",          false },
+        { "client-ip",                 false },
+        { "xroxy-connection",          false },
+        { "proxy-connection",          false }
     };
-    perfect_hash<uint8_t> header_ph_request_full{header_data_request_full};
+    perfect_hash<bool> header_ph_request_full{header_data_request_full};
 
-    std::vector<perfect_hash_entry<uint8_t>> header_data_response_full = {
-        { "content-type",       http_response::resp_hdrs_l7.index("content-type") },
-        { "content-length",     http_response::resp_hdrs_l7.index("content-length") },
-        { "server",             http_response::resp_hdrs_l7.index("server") },
-        { "via",                http_response::resp_hdrs_l7.index("via") },
-        { "set-cookie",         http_response::resp_hdrs_l7.index("set-cookie") },
-        { "www-authenticate",   http_response::resp_hdrs_l7.index("www-authenticate") },
-        { "proxy-authenticate", http_response::resp_hdrs_l7.index("proxy-authenticate") },
-        { "accept-ranges",      http_response::resp_hdrs_l7.index("accept-ranges") },
-        { "age",                http_response::resp_hdrs_l7.index("age") },
-        { "etag",               http_response::resp_hdrs_l7.index("etag") },
-        { "location",           http_response::resp_hdrs_l7.index("location") },
-        { "retry-after",        http_response::resp_hdrs_l7.index("retry-after") },
-        { "vary",               http_response::resp_hdrs_l7.index("vary") }
+    std::vector<perfect_hash_entry<bool>> header_data_response_full = {
+        { "content-type",       false },
+        { "content-length",     false },
+        { "server",             false },
+        { "via",                false },
+        { "set-cookie",         true  },
+        { "www-authenticate",   false },
+        { "proxy-authenticate", false },
+        { "accept-ranges",      false },
+        { "age",                false },
+        { "etag",               false },
+        { "location",           false },
+        { "retry-after",        false },
+        { "vary",               false }
     };
-    perfect_hash<uint8_t> header_ph_response_full{header_data_response_full};
+    perfect_hash<bool> header_ph_response_full{header_data_response_full};
 }
 
 inline void to_lower(std::basic_string<uint8_t> &str, struct datum d) {
@@ -358,7 +358,7 @@ void http_request::write_l7_metadata(cbor_object &o, bool) {
     http_request.print_key_string("host", get_header("host"));
     http_request.print_key_string("user_agent", get_header("user-agent"));
 
-    headers.write_l7_metadata(http_request, header_ph_request_full, output_non_sensitive_headers, output_all_headers, output_body_max, baseline_end, sensitive_end);
+    headers.write_l7_metadata(http_request, header_ph_request_full, output_non_sensitive_headers, output_all_headers, output_body_max);
 
     http_request.close();
     http.close();
@@ -418,7 +418,7 @@ void http_response::write_l7_metadata(cbor_object &o, bool) {
     http_response.print_key_string("via", get_header("via"));
     headers.write_l7_metadata(http_response, header_ph_response_full,
         http_request::output_non_sensitive_headers, http_request::output_all_headers,
-        0, baseline_end, sensitive_end);
+        0);
     http_response.close();
     http.close();
 }
