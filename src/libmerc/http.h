@@ -378,20 +378,23 @@ public:
 
 };
 
+struct http_config {
+    static inline bool output_non_sensitive_headers = false;
+    static inline bool output_all_headers = false;
+    static inline size_t output_body_max = 0;
+    static void set_http_headers(bool non_sensitive, bool all) {
+        output_non_sensitive_headers = non_sensitive;
+        output_all_headers = all;
+    }
+    static void set_http_body(size_t value) { output_body_max = value; }
+};
+
 struct http_request : public base_protocol {
     static constexpr uint8_t num_headers_to_report = 7;
     struct datum method;
     struct datum uri;
     struct datum protocol;
     new_http_headers<num_headers_to_report> headers;
-    static inline bool output_non_sensitive_headers = false;
-    static inline bool output_all_headers = false;
-    static void set_http_headers(bool non_sensitive, bool all) {
-        output_non_sensitive_headers = non_sensitive;
-        output_all_headers = all;
-    }
-    static inline size_t output_body_max = 0;
-    static void set_http_body(size_t value) { output_body_max = value; }
 
     static constexpr static_dictionary<num_headers_to_report> req_hdrs {
         {

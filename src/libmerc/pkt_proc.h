@@ -365,11 +365,11 @@ struct stateful_pkt_proc {
     }
 
     void set_http_headers(const global_config::http_headers_config &http_headers) {
-        http_request::set_http_headers(http_headers.non_sensitive, http_headers.all);
+        http_config::set_http_headers(http_headers.non_sensitive, http_headers.all);
     }
 
     void set_http_body(size_t max_body) {
-        http_request::set_http_body(max_body);
+        http_config::set_http_body(max_body);
     }
 };
 
