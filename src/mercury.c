@@ -52,7 +52,6 @@ char mercury_help[] =
     "   --nonselected-tcp-data                # tcp data for nonselected traffic\n"
     "   --nonselected-udp-data                # udp data for nonselected traffic\n"
     "   --reassembly                          # reassemble protocol messages over multiple transport segments\n"
-    "   --quic-trial-decryption               # try all known QUIC initial salts for unknown versions\n"
     "   [-l or --limit] l                     # rotate output file after l records\n"
     "   --output-time=T                       # rotate output file after T seconds\n"
     "   --dns-json                            # output DNS as JSON, not base64\n"
@@ -63,6 +62,7 @@ char mercury_help[] =
     "   --minimize-ram                        # minimize the ram usage of mercury library\n"
     "   --crypto-assess[=policy]              # perform cryptographic security assessment\n"
     "   --exposed-creds                       # detect exposed credentials in enabled protocols\n"
+    "   --quic-trial-decryption               # try all known QUIC initial salts for unknown versions\n"
     "   [-v or --verbose]                     # additional information sent to stderr\n"
     "   --license                             # write license information to stdout\n"
     "   --version                             # write version information to stdout\n"
@@ -318,7 +318,6 @@ int main(int argc, char *argv[]) {
             { "stats-time",                    required_argument, NULL,                    stats_time },
             { "output-time",                   required_argument, NULL,                   output_time },
             { "reassembly",                          no_argument, NULL,                    reassembly },
-            { "quic-trial-decryption",               no_argument, NULL,           quic_trial_decryption },
             { "crypto-assess",                 optional_argument, NULL,                 crypto_assess },
             { "format",                        required_argument, NULL,                        format },
             { "read",                          required_argument, NULL,                           'r' },
@@ -337,9 +336,10 @@ int main(int argc, char *argv[]) {
             { "raw-features",                  required_argument, NULL,                  raw_features },
             { "minimize-ram",                        no_argument, NULL,                  minimize_ram },
             { "network-behavioral-detections",       no_argument, NULL, network_behavioral_detections },
-            { "exposed-creds",                        no_argument, NULL,                  exposed_creds },
-            { "verbose",                             no_argument, NULL,                           'v' },
-            { NULL,                                            0,    0,                             0 }
+            { "exposed-creds",                       no_argument, NULL,                 exposed_creds },
+            { "quic-trial-decryption",               no_argument, NULL,        quic_trial_decryption },
+            { "verbose",                             no_argument, NULL,                          'v' },
+            { NULL,                                            0,    0,                            0 }
         };
         int c = getopt_long(argc, argv, "r:w:c:f:t:b:l:u:s::oham:vp:d:", long_opts, &opt_idx);
         if (c < 0) {

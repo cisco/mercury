@@ -139,7 +139,6 @@ GENERAL OPTIONS
    --nonselected-tcp-data                # tcp data for nonselected traffic
    --nonselected-udp-data                # udp data for nonselected traffic
    --reassembly                          # reassemble protocol messages over multiple transport segments
-   --quic-trial-decryption               # try all known QUIC initial salts/parameter sets for unknown versions
    [-l or --limit] l                     # rotate output file after l records
    --output-time=T                       # rotate output file after T seconds
    --dns-json                            # output DNS as JSON, not base64
@@ -150,6 +149,7 @@ GENERAL OPTIONS
    --minimize-ram                        # minimize the ram usage of mercury library
    --crypto-assess[=policy]              # perform cryptographic security assessment
    --exposed-creds                       # detect exposed credentials in enabled protocols
+   --quic-trial-decryption               # try all known QUIC initial salts for unknown versions
    [-v or --verbose]                     # additional information sent to stderr
    --license                             # write license information to stdout
    --version                             # write version information to stdout
