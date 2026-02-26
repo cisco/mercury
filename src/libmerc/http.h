@@ -267,11 +267,47 @@ public:
         }
     }
 
-    void write_l7_metadata(cbor_object &o, size_t body_max = 0) {
+
+    void write_header(cbor_array &hdrs, const httpheader &h,
+                    perfect_hash<uint8_t> &ph,
+                    bool report_non_sensitive, bool report_all,
+                    uint8_t baseline_end, uint8_t sensitive_end) {
+        bool found = false;
+        uint8_t idx = *ph.lookup(h.name.data, h.name.length(), found);
+
+        bool emit_value = false;
+        if (!found) {
+            emit_value = false;            // unknown — always name-only
+        } else if (idx < baseline_end) {
+            emit_value = true;             // baseline — always emit value
+        } else if (idx < sensitive_end) {
+            emit_value = report_all;       // sensitive — only if all
+        } else {
+            emit_value = report_non_sensitive || report_all;  // regular
+        }
+
+        cbor_object hdr{hdrs};
+        hdr.print_key_string("name", h.name);
+        if (emit_value) {
+            hdr.print_key_string("value", h.value);
+        }
+        hdr.close();
+    }
+
+    void write_l7_metadata(cbor_object &o, perfect_hash<uint8_t> *ph = nullptr,
+                       bool report_non_sensitive = false, bool report_all = false,
+                       size_t body_max = 0,
+                       uint8_t baseline_end = 0, uint8_t sensitive_end = 0) {
         httpheader h = get_next_header(header_body);
         if (h.is_valid()) {
             cbor_array hdrs{o, "headers"};
-            hdrs.print_string(h.name);
+            if (ph) {
+                write_header(hdrs, h, *ph, report_non_sensitive, report_all, baseline_end, sensitive_end);
+            } else {
+                cbor_object hdr{hdrs};
+                hdr.print_key_string("name", h.name);
+                hdr.close();
+            }
             while(1) {
                 delimiter d(header_body, delim);
                 if (d.is_valid()) {
@@ -281,17 +317,22 @@ public:
                 if (!h.is_valid()) {
                     break;
                 }
-                hdrs.print_string(h.name);
-            }
-            hdrs.close();
-            if (body_max > 0) {
-                datum body = header_body;
-                if (body.is_readable()) {
-                    body.trim_to_length(body_max);
-                    o.print_key_hex("body", body);
+                if (ph) {
+                    write_header(hdrs, h, *ph, report_non_sensitive, report_all, baseline_end, sensitive_end);
+                } else {
+                    cbor_object hdr{hdrs};
+                    hdr.print_key_string("name", h.name);
+                    hdr.close();
                 }
             }
-
+            hdrs.close();
+        }
+        if (body_max > 0) {
+            datum body = header_body;
+            if (body.is_readable()) {
+                body.trim_to_length(body_max);
+                o.print_key_hex("body", body);
+            }
         }
     }
 
@@ -380,7 +421,10 @@ public:
 };
 
 struct http_request : public base_protocol {
-    static constexpr uint8_t num_headers_to_report = 55;
+    static constexpr uint8_t num_headers_to_report = 9;
+    static constexpr uint8_t num_headers_in_dict = 55;
+    static constexpr uint8_t baseline_end = 2;   // indices 0-1: user-agent, host
+    static constexpr uint8_t sensitive_end = 5;   // indices 2-4: authorization, cookie, proxy-authorization
     struct datum method;
     struct datum uri;
     struct datum protocol;
@@ -394,22 +438,23 @@ struct http_request : public base_protocol {
     static inline size_t output_body_max = 0;
     static void set_http_body(size_t value) { output_body_max = value; }
 
-    static constexpr static_dictionary<num_headers_to_report> req_hdrs {
+    static constexpr static_dictionary<num_headers_in_dict> req_hdrs {
         {
             "user-agent",
             "host",
+            "authorization",
+            "cookie",
+            "proxy-authorization",
             "x-forwarded-for",
             "via",
             "upgrade",
             "referer",
-            "authorization",
             "content-type",
             "content-length",
             "accept",
             "accept-encoding",
             "accept-language",
             "content-disposition",
-            "cookie",
             "cache-control",
             "connection",
             "date",
@@ -426,7 +471,6 @@ struct http_request : public base_protocol {
             "if-range",
             "if-unmodified-since",
             "max-forwards",
-            "proxy-authorization",
             "range",
             "te",
             "allow",
@@ -533,6 +577,9 @@ struct http_request : public base_protocol {
 
 struct http_response : public base_protocol {
     static constexpr uint8_t num_headers_to_report = 4;
+    static constexpr uint8_t num_headers_l7 = 13;
+    static constexpr uint8_t baseline_end = 4;   // indices 0-3: content-type, content-length, server, via
+    static constexpr uint8_t sensitive_end = 7;   // indices 4-6: set-cookie, www-authenticate, proxy-authenticate
     struct datum version;
     struct datum status_code;
     struct datum status_reason;
@@ -543,6 +590,23 @@ struct http_response : public base_protocol {
             "content-length",
             "server",
             "via"
+        }
+    };
+    static constexpr static_dictionary<num_headers_l7> resp_hdrs_l7 {
+        {
+            "content-type",
+            "content-length",
+            "server",
+            "via",
+            "set-cookie",
+            "www-authenticate",
+            "proxy-authenticate",
+            "accept-ranges",
+            "age",
+            "etag",
+            "location",
+            "retry-after",
+            "vary"
         }
     };
 

@@ -3,6 +3,7 @@
 
 #include "libmerc.h"
 #include "config_generator.h"
+#include "decimal_int.hpp"
 #include <map>
 #include <string>
 #include <algorithm>
@@ -320,20 +321,18 @@ public:
             printf_err(log_err, "--http-body requires a size argument (0-%zu)\n", max_http_body);
             return false;
         }
-        try {
-            int value = std::stoi(s);
-            if (value < 0 || static_cast<size_t>(value) > max_http_body) {
-                printf_err(log_err, "http body size \"%s\" out of range (0-%zu)\n", s.c_str(), max_http_body);
-                return false;
-            }
-            http_body_max = value;
-        } catch (const std::invalid_argument&) {
+        datum d{s};
+        decimal_integer<uint32_t> parsed{d};
+        if (d.is_null()) {
             printf_err(log_err, "invalid http body size \"%s\"\n", s.c_str());
             return false;
-        } catch (const std::out_of_range&) {
+        }
+        uint32_t value = parsed.get_value();
+        if (value > max_http_body) {
             printf_err(log_err, "http body size \"%s\" out of range (0-%zu)\n", s.c_str(), max_http_body);
             return false;
         }
+        http_body_max = value;
         return true;
     }
 };

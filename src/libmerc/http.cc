@@ -72,6 +72,23 @@ namespace {
         { "proxy-connection", http_request::req_hdrs.index("proxy-connection") }
     };
     perfect_hash<uint8_t> header_ph_request_full{header_data_request_full};
+
+    std::vector<perfect_hash_entry<uint8_t>> header_data_response_full = {
+        { "content-type",       http_response::resp_hdrs_l7.index("content-type") },
+        { "content-length",     http_response::resp_hdrs_l7.index("content-length") },
+        { "server",             http_response::resp_hdrs_l7.index("server") },
+        { "via",                http_response::resp_hdrs_l7.index("via") },
+        { "set-cookie",         http_response::resp_hdrs_l7.index("set-cookie") },
+        { "www-authenticate",   http_response::resp_hdrs_l7.index("www-authenticate") },
+        { "proxy-authenticate", http_response::resp_hdrs_l7.index("proxy-authenticate") },
+        { "accept-ranges",      http_response::resp_hdrs_l7.index("accept-ranges") },
+        { "age",                http_response::resp_hdrs_l7.index("age") },
+        { "etag",               http_response::resp_hdrs_l7.index("etag") },
+        { "location",           http_response::resp_hdrs_l7.index("location") },
+        { "retry-after",        http_response::resp_hdrs_l7.index("retry-after") },
+        { "vary",               http_response::resp_hdrs_l7.index("vary") }
+    };
+    perfect_hash<uint8_t> header_ph_response_full{header_data_response_full};
 }
 
 inline void to_lower(std::basic_string<uint8_t> &str, struct datum d) {
@@ -328,10 +345,6 @@ void http_request::write_json(struct json_object &record, bool output_metadata) 
 }
 
 void http_request::write_l7_metadata(cbor_object &o, bool) {
-    if (output_non_sensitive_headers || output_all_headers) {
-        headers.store_headers(header_ph_request_full);
-    }
-
     cbor_array protocols{o, "protocols"};
     protocols.print_string("http");
     protocols.close();
@@ -342,69 +355,10 @@ void http_request::write_l7_metadata(cbor_object &o, bool) {
     http_request.print_key_string("method", method);
     http_request.print_key_string("uri", uri);
     http_request.print_key_string("protocol", protocol);
-
-    headers.write_l7_metadata(http_request, output_body_max);
-
-    http_request.print_key_string("user_agent", get_header("user-agent"));
     http_request.print_key_string("host", get_header("host"));
+    http_request.print_key_string("user_agent", get_header("user-agent"));
 
-    if (output_non_sensitive_headers || output_all_headers) {
-        http_request.print_key_string("x_forwarded_for", get_header("x-forwarded-for"));
-        http_request.print_key_string("via", get_header("via"));
-        http_request.print_key_string("upgrade", get_header("upgrade"));
-        http_request.print_key_string("referer", get_header("referer"));
-        http_request.print_key_string("content_type", get_header("content-type"));
-        http_request.print_key_string("content_length", get_header("content-length"));
-        http_request.print_key_string("accept", get_header("accept"));
-        http_request.print_key_string("accept_encoding", get_header("accept-encoding"));
-        http_request.print_key_string("accept_language", get_header("accept-language"));
-        http_request.print_key_string("content_disposition", get_header("content-disposition"));
-        http_request.print_key_string("cache_control", get_header("cache-control"));
-        http_request.print_key_string("connection", get_header("connection"));
-        http_request.print_key_string("date", get_header("date"));
-        http_request.print_key_string("pragma", get_header("pragma"));
-        http_request.print_key_string("trailer", get_header("trailer"));
-        http_request.print_key_string("transfer_encoding", get_header("transfer-encoding"));
-        http_request.print_key_string("warning", get_header("warning"));
-        http_request.print_key_string("accept_charset", get_header("accept-charset"));
-        http_request.print_key_string("expect", get_header("expect"));
-        http_request.print_key_string("from", get_header("from"));
-        http_request.print_key_string("if_match", get_header("if-match"));
-        http_request.print_key_string("if_modified_since", get_header("if-modified-since"));
-        http_request.print_key_string("if_none_match", get_header("if-none-match"));
-        http_request.print_key_string("if_range", get_header("if-range"));
-        http_request.print_key_string("if_unmodified_since", get_header("if-unmodified-since"));
-        http_request.print_key_string("max_forwards", get_header("max-forwards"));
-        http_request.print_key_string("range", get_header("range"));
-        http_request.print_key_string("te", get_header("te"));
-        http_request.print_key_string("allow", get_header("allow"));
-        http_request.print_key_string("content_encoding", get_header("content-encoding"));
-        http_request.print_key_string("content_language", get_header("content-language"));
-        http_request.print_key_string("content_location", get_header("content-location"));
-        http_request.print_key_string("content_md5", get_header("content-md5"));
-        http_request.print_key_string("content_range", get_header("content-range"));
-        http_request.print_key_string("expires", get_header("expires"));
-        http_request.print_key_string("last_modified", get_header("last-modified"));
-        http_request.print_key_string("true_client_ip", get_header("true-client-ip"));
-        http_request.print_key_string("x_working_with", get_header("x-working-with"));
-        http_request.print_key_string("content_transfer_encoding", get_header("content-transfer-encoding"));
-        http_request.print_key_string("mime_version", get_header("mime-version"));
-        http_request.print_key_string("proxy_agent", get_header("proxy-agent"));
-        http_request.print_key_string("http2_settings", get_header("http2-settings"));
-        http_request.print_key_string("restrict_access_to_tenants", get_header("restrict-access-to-tenants"));
-        http_request.print_key_string("restrict_access_context", get_header("restrict-access-context"));
-        http_request.print_key_string("origin", get_header("origin"));
-        http_request.print_key_string("forwarded", get_header("forwarded"));
-        http_request.print_key_string("x_forwarded_from", get_header("x-forwarded-from"));
-        http_request.print_key_string("client_ip", get_header("client-ip"));
-        http_request.print_key_string("xroxy_connection", get_header("xroxy-connection"));
-        http_request.print_key_string("proxy_connection", get_header("proxy-connection"));
-    }
-    if (output_all_headers) {
-        http_request.print_key_string("cookie", get_header("cookie"));
-        http_request.print_key_string("authorization", get_header("authorization"));
-        http_request.print_key_string("proxy_authorization", get_header("proxy-authorization"));
-    }
+    headers.write_l7_metadata(http_request, &header_ph_request_full, output_non_sensitive_headers, output_all_headers, output_body_max, baseline_end, sensitive_end);
 
     http_request.close();
     http.close();
@@ -462,7 +416,9 @@ void http_response::write_l7_metadata(cbor_object &o, bool) {
     http_response.print_key_string("content_length", get_header("content-length"));
     http_response.print_key_string("server", get_header("server"));
     http_response.print_key_string("via", get_header("via"));
-    headers.write_l7_metadata(http_response);
+    headers.write_l7_metadata(http_response, &header_ph_response_full,
+        http_request::output_non_sensitive_headers, http_request::output_all_headers,
+        0, baseline_end, sensitive_end);
     http_response.close();
     http.close();
 }
