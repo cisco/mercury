@@ -2233,10 +2233,10 @@ SCENARIO("test FDC http request with http-headers=all config") {
     }
 }
 
-SCENARIO("test FDC http request with http-body config") {
-    GIVEN("mercury packet processor with http-body=64") {
+SCENARIO("test FDC http request with http-body-max config") {
+    GIVEN("mercury packet processor with http-body-max=64") {
         libmerc_config config = create_config();
-        config.packet_filter_cfg = (char *)"all;http-body=64";
+        config.packet_filter_cfg = (char *)"all;http-body-max=64";
         mercury_context mc = initialize_mercury(config);
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
         const analysis_context* ac = nullptr;

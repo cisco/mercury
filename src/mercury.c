@@ -344,7 +344,7 @@ int main(int argc, char *argv[]) {
             { "select",                        optional_argument, NULL,                           's' },
             { "raw-features",                  required_argument, NULL,                  raw_features },
             { "http-headers",                  required_argument, NULL,                  http_headers },
-            { "http-body",                     required_argument, NULL,                     http_body },
+            { "http-body-max",                 required_argument, NULL,                     http_body },
             { "minimize-ram",                        no_argument, NULL,                  minimize_ram },
             { "network-behavioral-detections",       no_argument, NULL, network_behavioral_detections },
             { "exposed-creds",                        no_argument, NULL,                  exposed_creds },
@@ -460,9 +460,9 @@ int main(int argc, char *argv[]) {
             break;
         case http_body:
             if (option_is_valid(optarg)) {
-                additional_args.append("http-body=").append(optarg).append(";");
+                additional_args.append("http-body-max=").append(optarg).append(";");
             } else {
-                usage(argv[0], "option http-body requires a size argument (0-2048)", extended_help_off);
+                usage(argv[0], "option http-body-max requires a size argument (0-2048)", extended_help_off);
             }
             break;
         case network_behavioral_detections:

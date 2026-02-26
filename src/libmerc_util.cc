@@ -428,7 +428,7 @@ int main(int argc, char *argv[]) {
             packet_filter_cfg += ";http-headers=" + http_headers_value;
         }
         if (http_body_is_set) {
-            packet_filter_cfg += ";http-body=" + http_body_value;
+            packet_filter_cfg += ";http-body-max=" + http_body_value;
         }
         config.packet_filter_cfg = (char *)packet_filter_cfg.c_str();
 

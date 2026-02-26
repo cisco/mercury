@@ -13,8 +13,10 @@
 #include "match.h"
 #include "http_auth.hpp"
 
+// HTTP headers for L7 metadata reporting.
+// The bool value indicates whether the header is sensitive (true = sensitive, value redacted unless --http-headers=all).
 namespace {
-    std::vector<perfect_hash_entry<bool>> header_data_request_full = {
+    std::vector<perfect_hash_entry<bool>> l7_request_headers = {
         { "user-agent",                false },
         { "host",                      false },
         { "x-forwarded-for",           false },
@@ -71,9 +73,9 @@ namespace {
         { "xroxy-connection",          false },
         { "proxy-connection",          false }
     };
-    perfect_hash<bool> header_ph_request_full{header_data_request_full};
+    perfect_hash<bool> l7_request_ph{l7_request_headers};
 
-    std::vector<perfect_hash_entry<bool>> header_data_response_full = {
+    std::vector<perfect_hash_entry<bool>> l7_response_headers = {
         { "content-type",       false },
         { "content-length",     false },
         { "server",             false },
@@ -88,7 +90,7 @@ namespace {
         { "retry-after",        false },
         { "vary",               false }
     };
-    perfect_hash<bool> header_ph_response_full{header_data_response_full};
+    perfect_hash<bool> l7_response_ph{l7_response_headers};
 }
 
 inline void to_lower(std::basic_string<uint8_t> &str, struct datum d) {
@@ -358,7 +360,7 @@ void http_request::write_l7_metadata(cbor_object &o, bool) {
     http_request.print_key_string("host", get_header("host"));
     http_request.print_key_string("user_agent", get_header("user-agent"));
 
-    headers.write_l7_metadata(http_request, header_ph_request_full);
+    headers.write_l7_metadata(http_request, l7_request_ph);
 
     http_request.close();
     http.close();
@@ -416,7 +418,7 @@ void http_response::write_l7_metadata(cbor_object &o, bool) {
     http_response.print_key_string("content_length", get_header("content-length"));
     http_response.print_key_string("server", get_header("server"));
     http_response.print_key_string("via", get_header("via"));
-    headers.write_l7_metadata(http_response, header_ph_response_full);
+    headers.write_l7_metadata(http_response, l7_response_ph);
     http_response.close();
     http.close();
 }

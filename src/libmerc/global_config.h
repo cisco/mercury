@@ -298,9 +298,13 @@ public:
         return true;
     }
 
-    bool set_http_headers (const std::string& s){
+    bool set_http_headers(const std::string& s) {
         if (s.empty()) {
             printf_err(log_err, "--http-headers requires a mode (all or non-sensitive)\n");
+            return false;
+        }
+        if (http_headers.all || http_headers.non_sensitive) {
+            printf_err(log_err, "--http-headers can only be specified once\n");
             return false;
         }
         if (s == "non-sensitive") {
@@ -313,10 +317,9 @@ public:
         }
         return true;
     }
-
     static constexpr size_t max_http_body = 2048;
 
-    bool set_http_body(const std::string& s) {
+    bool set_http_body_max(const std::string& s) {
         if (s.empty()) {
             printf_err(log_err, "--http-body-max requires a size argument (0-%zu)\n", max_http_body);
             return false;
@@ -352,7 +355,7 @@ static void setup_extended_fields(global_config* lc, const std::string& config) 
         {"network-behavioral-detections", "", "", SETTER_FUNCTION(&lc){ lc->network_behavioral_detections = true; }},
         {"exposed-creds", "", "", SETTER_FUNCTION(&lc){ lc->exposed_creds = true; }},
         {"http-headers", "", "", SETTER_FUNCTION(&lc){ lc->set_http_headers(s); }},
-        {"http-body", "", "", SETTER_FUNCTION(&lc){ lc->set_http_body(s); }}
+        {"http-body-max", "", "", SETTER_FUNCTION(&lc){ lc->set_http_body_max(s); }}
     };
 
     parse_additional_options(options, config, *lc);
