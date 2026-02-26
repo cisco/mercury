@@ -310,11 +310,11 @@ minimize_corpus () {
 
     echo ""
     echo "###############################################"
-    echo "Corpus summary (before fuzzing -> after fuzzing -> after minimization)"
-    echo "targets processed:    $total_targets"
-    echo "before fuzzing:       $total_pre_fuzz"
-    echo "after fuzzing:        $total_post_fuzz"
-    echo "after minimization:   $total_post_min"
+    echo "Corpus Summary"
+    echo "targets processed:       $total_targets"
+    echo "before fuzzing:          $total_pre_fuzz"
+    echo "after fuzzing:           $total_post_fuzz"
+    echo "after minimization:      $total_post_min"
     echo "removed by minimization: $total_removed"
     echo "###############################################"
 
