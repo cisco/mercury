@@ -321,8 +321,11 @@ minimize_corpus () {
     if [[ $total_post_fuzz -gt 0 ]]; then
         echo ""
         echo "Corpus entries are minimized, coverage-essential inputs."
-        echo "Consider committing them to improve future fuzz run coverage:"
-        echo "  git add test/fuzz/*/corpus/ && git commit -m \"fuzz: update corpus\""
+        echo "Preserving them reduces redundant iterations and speeds up"
+        echo "discovery of new code paths in future fuzz runs.  Because"
+        echo "the corpus can be large, consider storing it in a dedicated"
+        echo "corpus repo or artifact store, such as an S3 bucket or CI"
+        echo "artifact cache."
     fi
 }
 
