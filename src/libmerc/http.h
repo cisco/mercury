@@ -280,9 +280,8 @@ public:
 
     void write_header(cbor_array &hdrs, const httpheader &h,
                     perfect_hash<bool> &ph) {
-        bool found = false;
-        bool is_sensitive = *ph.lookup(h.name.data, h.name.length(), found);
-        bool emit_value = found && (!is_sensitive || http_config::output_all_headers);
+        auto is_sensitive = ph.lookup(h.name.data, h.name.length());
+        bool emit_value = is_sensitive.has_value() && (!*is_sensitive || http_config::output_all_headers);
         cbor_object hdr{hdrs};
         hdr.print_key_string("name", h.name);
         if (emit_value) {
