@@ -19,7 +19,7 @@ void maybe_print_json(const char *label, const std::string &json) {
     }
 }
 
-const std::string expected_http_json = R"json({"version":2,"fingerprints":["http/(474554)(485454502f312e31)((557365722d4167656e74)(4163636570743a202a2f2a)(486f7374)(436f6e6e656374696f6e3a204b6565702d416c697665))"],"protocols":["http"],"http":{"request":{"method":"GET","uri":"/","protocol":"HTTP/1.1","headers":["User-Agent","Accept","Host","Connection"],"user_agent":"Wget/1.15 (linux-gnu)","host":"yahoo.com"}},"truncation":0})json";
+const std::string expected_http_json = R"json({"version":2,"fingerprints":["http/(474554)(485454502f312e31)((557365722d4167656e74)(4163636570743a202a2f2a)(486f7374)(436f6e6e656374696f6e3a204b6565702d416c697665))"],"protocols":["http"],"http":{"request":{"method":"GET","uri":"/","protocol":"HTTP/1.1","host":"yahoo.com","user_agent":"Wget/1.15 (linux-gnu)","headers":[{"name":"User-Agent","value":"Wget/1.15 (linux-gnu)"},{"name":"Accept"},{"name":"Host","value":"yahoo.com"},{"name":"Connection"}]}},"truncation":0})json";
 const std::string expected_quic_init_json = R"json({"version":2,"fingerprints":["quic/(00000001)(0303)(130113021303)[(0000)(000a00080006001d00170018)(000d00140012040308040401050308050501080606010201)(0010001700150268330568332d32390568332d32380568332d3237)(002b0003020304)(002d00020101)(0033)((0039)[(01)(03)(04)(05)(06)(07)(08)(09)(0a)(0b)(0f)])]"],"protocols":["quic"],"tls":{"client":{"random":"15d447b52acc83e777abaa0c4b23af9730f81a9c43405892de18651f161e472e","server_name":"10.72.1.52"}},"truncation":0})json";
 const std::string expected_tls_client_hello_json = R"json({"version":2,"fingerprints":["tls/1/(0303)(c028c027c014c013009f009e009d009cc02cc02bc024c023c00ac009003d003c0035002f006a004000380032000a001300050004)[(0000)(000a00080006001700180019)(000b00020100)(000d00140012060106030401050102010403050302030202)(ff01)]"],"protocols":["tls"],"tls":{"client":{"random":"64bb666d4419e66235579bed0bfcc519bad9d3e45b46ed89869060b6362fc1c5","server_name":"ciistudies.com"}},"truncation":0})json";
 const std::string expected_tls_fragment_no_reassembly_json = R"json({"version":2,"fingerprints":["tls/1/(0303)(0a0a130113021303c02bc02fc02cc030cca9cca8c013c014009c009d002f0035)[(0000)(000500050100000000)(000a000c000a0a0a6399001d00170018)(000b00020100)(000d0012001004030804040105030805050108060601)(0010000e000c02683208687474702f312e31)(0017)(001b0003020002)(002b0007060a0a03040303)(002d00020101)(0a0a)(4469)(fe0d)(ff01)]"],"protocols":["tls"],"tls":{"client":{"random":"b47749a5584e7dcda899df03b3f04aaf50f426837dd0ad01c945f5435f5502c8","server_name":"www.cnn.com"}},"truncation":2})json";
@@ -32,7 +32,7 @@ const std::string expected_tls_server_fragments_reassembly_json = R"fdcjson({"ve
 
 const std::string expected_dtls_client_hello_json = R"json({"version":2,"fingerprints":["dtls/1/(fefd)(c02c)[(000a000c000a001d0017001e00190018)(000b000403000102)(000d0030002e040305030603080708080809080a080b080408050806040105010601030302030301020103020202040205020602)(0016)]"],"protocols":["dtls"],"truncation":0})json";
 const std::string expected_dtls_server_hello_json = R"json({"version":2,"fingerprints":["dtls_server/(fefd)(c02c)()"],"protocols":["dtls"],"truncation":0})json";
-const std::string expected_http_response_json = R"json({"version":2,"fingerprints":["http_server/(485454502f312e31)(323030)(4f4b)((5365727665723a204a657474792f342e322e39726332202853756e4f532f352e38207370617263206a6176612f312e342e315f303429)(436f6e74656e742d54797065)(436f6e6e656374696f6e3a20636c6f7365))"],"protocols":["http"],"http":{"response":{"version":"HTTP/1.1","status_code":"200","status_reason":"OK","content_length":"60037","server":"Jetty/4.2.9rc2 (SunOS/5.8 sparc java/1.4.1_04)","headers":["Server","Content-Type","Connection","Content-Length"]}},"truncation":0})json";
+const std::string expected_http_response_json = R"json({"version":2,"fingerprints":["http_server/(485454502f312e31)(323030)(4f4b)((5365727665723a204a657474792f342e322e39726332202853756e4f532f352e38207370617263206a6176612f312e342e315f303429)(436f6e74656e742d54797065)(436f6e6e656374696f6e3a20636c6f7365))"],"protocols":["http"],"http":{"response":{"version":"HTTP/1.1","status_code":"200","status_reason":"OK","content_length":"60037","server":"Jetty/4.2.9rc2 (SunOS/5.8 sparc java/1.4.1_04)","headers":[{"name":"Server","value":"Jetty/4.2.9rc2 (SunOS/5.8 sparc java/1.4.1_04)"},{"name":"Content-Type"},{"name":"Connection"},{"name":"Content-Length","value":"60037"}]}},"truncation":0})json";
 
 } // namespace
 #include "tcp.h"
@@ -1040,7 +1040,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for http reques
 
             THEN("FDC should be written to output buffer") {
                 REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
-                REQUIRE(bytes_written == 276);
+                REQUIRE(bytes_written == 348);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
                 CHECK(json == expected_http_json);
             }
@@ -1168,7 +1168,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for http reques
 
             THEN("FDC should be written to output buffer") {
                 REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
-                REQUIRE(bytes_written == 276);
+                REQUIRE(bytes_written == 348);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
                 CHECK(json == expected_http_json);
             }
@@ -2114,7 +2114,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for http respon
             }
 
             THEN("FDC should be written to output buffer") {
-                REQUIRE(bytes_written == 371);
+                REQUIRE(bytes_written == 465);
                 CHECK(json == expected_http_response_json);
             }
             mercury_packet_processor_destruct(mpp);
@@ -2166,11 +2166,11 @@ SCENARIO("test FDC http request with http-headers=non-sensitive config") {
 
             THEN("FDC output should contain non-sensitive headers but not sensitive ones") {
                 REQUIRE(bytes_written > 0);
-                CHECK(json.find("\"content_type\"") != std::string::npos);
-                CHECK(json.find("\"content_length\"") != std::string::npos);
-                CHECK(json.find("\"user_agent\"") != std::string::npos);
-                CHECK(json.find("\"host\"") != std::string::npos);
-                CHECK(json.find("\"cookie\"") == std::string::npos);  // sensitive, must be absent
+                CHECK(json.find("Content-Type") != std::string::npos);
+                CHECK(json.find("Content-Length") != std::string::npos);
+                CHECK(json.find("user_agent") != std::string::npos);
+                CHECK(json.find("host") != std::string::npos);
+                CHECK(json.find("\"value\":\"session=abc123\"") == std::string::npos);  // sensitive value must be absent
             }
             mercury_packet_processor_destruct(mpp);
         }
@@ -2221,11 +2221,11 @@ SCENARIO("test FDC http request with http-headers=all config") {
 
             THEN("FDC output should contain all headers including sensitive") {
                 REQUIRE(bytes_written > 0);
-                CHECK(json.find("\"content_type\"") != std::string::npos);
-                CHECK(json.find("\"content_length\"") != std::string::npos);
-                CHECK(json.find("\"user_agent\"") != std::string::npos);
-                CHECK(json.find("\"host\"") != std::string::npos);
-                CHECK(json.find("\"cookie\"") != std::string::npos);
+                CHECK(json.find("Content-Type") != std::string::npos);
+                CHECK(json.find("Content-Length") != std::string::npos);
+                CHECK(json.find("user_agent") != std::string::npos);
+                CHECK(json.find("host") != std::string::npos);
+                CHECK(json.find("\"value\":\"session=abc123\"") != std::string::npos);  // sensitive value present with all
             }
             mercury_packet_processor_destruct(mpp);
         }
