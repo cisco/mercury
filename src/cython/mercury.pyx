@@ -285,6 +285,8 @@ cdef class Mercury:
     :type dns_json_output: bool
     :param certs_json_output: When processing certificates, return a JSON representation as opposed to Base64 Representation (default=`True`).
     :type certs_json_output: bool
+    :param quic_trial_decryption: Try all combinations of QUIC initial salts for unknown versions (default=`False`).
+    :type quic_trial_decryption: bool
     """
     cdef mercury* mercury_context
     cdef stateful_pkt_proc* mpp
@@ -296,7 +298,7 @@ cdef class Mercury:
 
     def __init__(self, bool do_analysis=False, bytes resources=b'', bool output_tcp_initial_data=False, bool output_udp_initial_data=False,
                  bytes packet_filter_cfg=b'all', bool metadata_output=True, bool dns_json_output=True, bool certs_json_output=True,
-                 bool network_behavioral_detections=False):
+                 bool network_behavioral_detections=False, bool quic_trial_decryption=False):
         self.do_analysis = do_analysis
         self.py_config = {
             'output_tcp_initial_data': output_tcp_initial_data,
@@ -310,6 +312,8 @@ cdef class Mercury:
         }
         if network_behavioral_detections:
             self.py_config['packet_filter_cfg'] += b';network-behavioral-detections'
+        if quic_trial_decryption:
+            self.py_config['packet_filter_cfg'] += b';quic-trial-decryption'
         self.default_ts.tv_sec = 0
         self.default_ts.tv_nsec = 0
 

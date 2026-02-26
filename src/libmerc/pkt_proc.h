@@ -127,7 +127,7 @@ struct stateful_pkt_proc {
         ag{nullptr},
         global_vars{mc->global_vars},
         selector{mc->selector},
-        quic_crypto{},
+        quic_crypto{global_vars.quic_trial_decryption},
         reassembler_ptr{(global_vars.reassembly) ? (new tcp_reassembler(global_vars.minimize_ram)) : nullptr},
         exposed_creds{global_vars.exposed_creds}
     {
@@ -294,8 +294,7 @@ struct stateful_pkt_proc {
                           udp::ports ports,
                           bool is_new,
                           const struct key& k,
-                          udp &udp_pkt,
-                          bool trial_decryption);
+                          udp &udp_pkt);
 
     bool dump_pkt ();
 

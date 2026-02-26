@@ -645,8 +645,7 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
                       udp::ports ports,
                       bool is_new,
                       const struct key& k,
-                      udp &udp_pkt,
-                      bool trial_decryption) {
+                      udp &udp_pkt) {
 
     // note: std::get<T>() throws exceptions; it might be better to
     // use get_if<T>(), which does not
@@ -682,7 +681,7 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
         x.emplace<dhcp_message>(pkt);
         break;
     case udp_msg_type_quic:
-        x.emplace<quic_init>(pkt, quic_crypto, trial_decryption);
+        x.emplace<quic_init>(pkt, quic_crypto);
         more_bytes = std::get<quic_init>(x).additional_bytes_needed();
         if (more_bytes) {
             udp_pkt.reassembly_needed(more_bytes);
@@ -860,7 +859,7 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
         if (global_vars.output_udp_initial_data && pkt.is_not_empty()) {
             is_new = ip_flow_table.flow_is_new(k, ts->tv_sec);
         }
-        set_udp_protocol(x, pkt, udp_pkt.get_ports(), is_new, k, udp_pkt, global_vars.trial_decryption);
+        set_udp_protocol(x, pkt, udp_pkt.get_ports(), is_new, k, udp_pkt);
         return true;
     }
 
@@ -875,7 +874,7 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
     // A QUIC pkt/ UDP pkt can be checked if it is involved in reassembly if either the CH initial part is seen with additional bytes needed,
     // or a QUIC pkt with crypto frames and the flow exists in reassembly table
 
-    set_udp_protocol(x, pkt, udp_pkt.get_ports(), is_new, k, udp_pkt, global_vars.trial_decryption);
+    set_udp_protocol(x, pkt, udp_pkt.get_ports(), is_new, k, udp_pkt);
     //if ( (!udp_pkt.additional_bytes_needed() && (std::holds_alternative<quic_init>(x)))  || (!(std::holds_alternative<quic_init>(x))) ) {
     if (!(std::holds_alternative<quic_init>(x))) {
         // no need for reassembly

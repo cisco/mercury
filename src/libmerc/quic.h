@@ -783,23 +783,25 @@ class quic_crypto_engine {
     int16_t plaintext_len = 0;
 
     const char *salt_str = nullptr;
+    bool quic_trial_decryption = false;
 
 public:
 
+    explicit quic_crypto_engine(bool quic_trial_decryption=false) : quic_trial_decryption{quic_trial_decryption} {}
     /// Attempt to decrypt a QUIC Initial packet.
     ///
-    /// When trial_decryption is false (the default), only the known
+    /// When quic_trial_decryption is false (the default), only the known
     /// version->salt mapping is tried.  This path is thread-safe because
     /// quic_initial_params is treated as read-only after construction.
     ///
-    /// When trial_decryption is true, every known salt is tried in a
+    /// When quic_trial_decryption is true, every known salt is tried in a
     /// brute-force loop.  On success the discovered mapping is cached
     /// via add_param_mapping(), which writes to the shared
     /// quic_initial_params map.  This is NOT thread-safe and must
     /// only be used in single-threaded contexts (e.g., cython offline
     /// analysis).
     ///
-    datum decrypt(quic_initial_packet &quic_pkt, bool trial_decryption = false) {
+    datum decrypt(quic_initial_packet &quic_pkt) {
         if (!quic_pkt.is_not_empty()) {
             return {nullptr, nullptr};
         }
@@ -846,7 +848,7 @@ public:
             }
             return {nullptr, nullptr};
         }
-        else if (trial_decryption) {
+        else if (quic_trial_decryption) {
             // try every salt to decrypt, most likely a version negotiation pkt
             for (const auto &params_kv : quic_params.get_params_map()) {
                 const std::tuple<quic_parameters::salt_enum, quic_parameters::init_pkt_mask_enum, quic_parameters::hkdf_label_enum> param = params_kv.second;
@@ -870,7 +872,7 @@ public:
                 if (plaintext_len) {
                     salt_str = initial_salt->get_name();
                     // WARNING: not thread-safe.  This write is only
-                    // reachable when trial_decryption is true, so
+                    // reachable when quic_trial_decryption is true, so
                     // callers must ensure single-threaded execution.
                     quic_params.add_param_mapping(version, param);
                     return {plaintext, plaintext+plaintext_len};
@@ -1486,7 +1488,7 @@ class quic_init : public base_protocol {
 
 public:
 
-    quic_init(struct datum &d, quic_crypto_engine &quic_crypto_, bool trial_decryption=false) : initial_packet{d}, quic_crypto{quic_crypto_}, crypto_buffer{}, hello{}, plaintext{}, decry_pkt{initial_packet,crypto_buffer}, pre_decrypted{false}, more_bytes_needed{0}, min_crypto_offset{UINT32_MAX} {
+    quic_init(struct datum &d, quic_crypto_engine &quic_crypto_) : initial_packet{d}, quic_crypto{quic_crypto_}, crypto_buffer{}, hello{}, plaintext{}, decry_pkt{initial_packet,crypto_buffer}, pre_decrypted{false}, more_bytes_needed{0}, min_crypto_offset{UINT32_MAX} {
 
         // check reserved bits, if 0, try for decrypted quic packet
         //
@@ -1501,7 +1503,7 @@ public:
         // reset crypto buffer
         //
         crypto_buffer.reset();
-        plaintext = quic_crypto.decrypt(initial_packet, trial_decryption);
+        plaintext = quic_crypto.decrypt(initial_packet);
 
         // parse plaintext as a sequence of frames
         //
