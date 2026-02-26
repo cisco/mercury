@@ -5,6 +5,7 @@
 #include "datum.h"
 #include "lex.h"
 #include "match.h"
+#include "exposed_creds.hpp"
 
 class up_to_crlf : public datum
 {
@@ -74,6 +75,16 @@ namespace ftp
         }
 
         bool is_not_empty() const { return isValid; }
+
+        exposed_creds_type check_credential_exposure() const {
+            if (!isValid) {
+                return exposed_creds_type::none;
+            }
+            if (command.case_insensitive_match("pass") && argument.is_not_empty()) {
+                return exposed_creds_type::plaintext_password;
+            }
+            return exposed_creds_type::none;
+        }
 
         // static constexpr mask_and_value<8> user_matcher{
         //     { 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00 },
