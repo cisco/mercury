@@ -294,20 +294,14 @@ public:
         hdr.close();
     }
 
-    void write_l7_metadata(cbor_object &o, perfect_hash<uint8_t> *ph = nullptr,
-                       bool report_non_sensitive = false, bool report_all = false,
-                       size_t body_max = 0,
-                       uint8_t baseline_end = 0, uint8_t sensitive_end = 0) {
+    void write_l7_metadata(cbor_object &o, perfect_hash<uint8_t> &ph,
+                       bool report_non_sensitive, bool report_all,
+                       size_t body_max,
+                       uint8_t baseline_end, uint8_t sensitive_end) {
         httpheader h = get_next_header(header_body);
         if (h.is_valid()) {
             cbor_array hdrs{o, "headers"};
-            if (ph) {
-                write_header(hdrs, h, *ph, report_non_sensitive, report_all, baseline_end, sensitive_end);
-            } else {
-                cbor_object hdr{hdrs};
-                hdr.print_key_string("name", h.name);
-                hdr.close();
-            }
+            write_header(hdrs, h, ph, report_non_sensitive, report_all, baseline_end, sensitive_end);
             while(1) {
                 delimiter d(header_body, delim);
                 if (d.is_valid()) {
@@ -317,13 +311,7 @@ public:
                 if (!h.is_valid()) {
                     break;
                 }
-                if (ph) {
-                    write_header(hdrs, h, *ph, report_non_sensitive, report_all, baseline_end, sensitive_end);
-                } else {
-                    cbor_object hdr{hdrs};
-                    hdr.print_key_string("name", h.name);
-                    hdr.close();
-                }
+                write_header(hdrs, h, ph, report_non_sensitive, report_all, baseline_end, sensitive_end);
             }
             hdrs.close();
         }
@@ -381,43 +369,6 @@ public:
         }
     }
 
-    /*
-     * The `store_headers` function iterates over the HTTP headers
-     * and stores values of headers of interest in the headers array.
-     * The headers of interest are defined in the perfect hash table `ph`,
-     * which stores the header name and the corresponding index.
-     * If the parsed header is present in the hash table `ph`, the index
-     * is retrieved and used to store the header value in the
-     * headers array.
-     *
-     * Input Arguments:
-     * ph      - perfect hash table used to determine if the header value
-     *           needs to be stored and, if so, provides the index at
-     *           which the value is stored.
-     */
-    void store_headers(perfect_hash<uint8_t> &ph) {
-        datum tmp = header_body;
-        while(1) {
-            delimiter d(tmp, delim);
-            if (d.is_valid()) {
-                break;
-            }
-            httpheader h = get_next_header(tmp);
-            if (!h.is_valid()) {
-                break;
-            }
-            bool is_header_found = false;
-            uint8_t header_idx = *ph.lookup(h.name.data, h.name.length(), is_header_found);
-            if (is_header_found) {
-                /* In case of duplicate http headers, index of the first http header
-                 * is stored.
-                 */
-                if (headers[header_idx].is_null()) {
-                    headers[header_idx] = h.value;
-                }
-            }
-        }
-    }
 };
 
 struct http_request : public base_protocol {
