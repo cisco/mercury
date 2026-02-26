@@ -24,7 +24,7 @@
 //    |         (1 Octet)         |
 //    +---------------------------+
 //    | Link-layer address length |
-//    |         (1 Octets)        |
+//    |         (1 Octet)         |
 //    +---------------------------+
 //    |    Link-layer address     |
 //    |         (8 Octets)        |
