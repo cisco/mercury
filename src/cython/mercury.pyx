@@ -285,7 +285,7 @@ cdef class Mercury:
     :type dns_json_output: bool
     :param certs_json_output: When processing certificates, return a JSON representation as opposed to Base64 Representation (default=`True`).
     :type certs_json_output: bool
-    :param quic_trial_decryption: Try all combinations of QUIC initial salts for unknown versions (default=`False`).
+    :param quic_trial_decryption: Try all known QUIC initial salts/parameter sets for unknown versions (default=`False`).
     :type quic_trial_decryption: bool
     """
     cdef mercury* mercury_context
