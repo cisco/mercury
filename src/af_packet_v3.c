@@ -111,6 +111,8 @@ struct thread_storage {
     struct tpacket_block_desc **block_header; /* The pointer to each block in the mmap()'d region */
     struct tpacket_req3 ring_params; /* The ring allocation params to setsockopt() */
     struct stats_tracking *statst;   /* A pointer to the struct with the stats counters */
+    uint64_t received_packets_local; /* Per-thread packet counter drained by stats thread */
+    uint64_t received_bytes_local;   /* Per-thread byte counter drained by stats thread */
     int longest_bstreak;        /* Track the longers number of full blocks in a row */
     int *t_start_p;             /* The clean start predicate */
     pthread_cond_t *t_start_c;  /* The clean start condition */
@@ -170,7 +172,7 @@ void af_packet_stats(int sockfd, struct stats_tracking *statst) {
 }
 
 void process_all_packets_in_block(struct tpacket_block_desc *block_hdr,
-                                  struct stats_tracking *statst,
+                                  struct thread_storage *thread_stor,
                                   struct pkt_proc *pkt_processor) {
     int num_pkts = block_hdr->hdr.bh1.num_pkts, i;
     unsigned long byte_count = 0;
@@ -204,8 +206,8 @@ void process_all_packets_in_block(struct tpacket_block_desc *block_hdr,
     /* Atomic operations
      * https://gcc.gnu.org/onlinedocs/gcc-4.1.0/gcc/Atomic-Builtins.html
      */
-    __sync_add_and_fetch(&(statst->received_packets), num_pkts);
-    __sync_add_and_fetch(&(statst->received_bytes), byte_count);
+    __atomic_add_fetch(&(thread_stor->received_packets_local), num_pkts, __ATOMIC_RELAXED);
+    __atomic_add_fetch(&(thread_stor->received_bytes_local), byte_count, __ATOMIC_RELAXED);
 }
 
 void *stats_thread_func(void *statst_arg) {
@@ -262,8 +264,8 @@ void *stats_thread_func(void *statst_arg) {
     int duration = 0;
 
     while (sig_close_flag == 0) {
-        uint64_t packets_before = statst->received_packets;
-        uint64_t bytes_before = statst->received_bytes;
+        uint64_t packets_before = __atomic_load_n(&(statst->received_packets), __ATOMIC_RELAXED);
+        uint64_t bytes_before = __atomic_load_n(&(statst->received_bytes), __ATOMIC_RELAXED);
         uint64_t socket_packets_before = statst->socket_packets;
         uint64_t socket_drops_before = statst->socket_drops;
         uint64_t socket_freezes_before = statst->socket_freezes;
@@ -275,6 +277,15 @@ void *stats_thread_func(void *statst_arg) {
         /* == WAIT DONE == */
 
         time_d = time_elapsed(&ts); /* compares to the previous time */
+
+        /* Move each worker's local packet counters into global totals. */
+        for (int thread = 0; thread < statst->num_threads; thread++) {
+            uint64_t packets = __atomic_exchange_n(&(statst->tstor[thread].received_packets_local), 0, __ATOMIC_ACQ_REL);
+            uint64_t bytes = __atomic_exchange_n(&(statst->tstor[thread].received_bytes_local), 0, __ATOMIC_ACQ_REL);
+
+            __atomic_add_fetch(&(statst->received_packets), packets, __ATOMIC_RELAXED);
+            __atomic_add_fetch(&(statst->received_bytes), bytes, __ATOMIC_RELAXED);
+        }
 
         /* Just give up if the time doesn't sound right */
         if ((time_d < 0.9) || (time_d > 1.1)) {
@@ -332,8 +343,8 @@ void *stats_thread_func(void *statst_arg) {
         }
 
         /* The per-second stats scaled by the time delta */
-        double pps  = (statst->received_packets - packets_before) / time_d;      /* packets */
-        double byps  = (statst->received_bytes - bytes_before) / time_d;         /* bytes */
+        double pps  = (__atomic_load_n(&(statst->received_packets), __ATOMIC_RELAXED) - packets_before) / time_d;      /* packets */
+        double byps  = (__atomic_load_n(&(statst->received_bytes), __ATOMIC_RELAXED) - bytes_before) / time_d;         /* bytes */
         double spps = (statst->socket_packets - socket_packets_before) / time_d; /* socket packets */
 
         /* The socket stats that don't need to be scaled */
@@ -393,6 +404,15 @@ void *stats_thread_func(void *statst_arg) {
         }
 
         duration++;
+    }
+
+    /* Capture any final packets/bytes that arrived just before shutdown. */
+    for (int thread = 0; thread < statst->num_threads; thread++) {
+        uint64_t packets = __atomic_exchange_n(&(statst->tstor[thread].received_packets_local), 0, __ATOMIC_ACQ_REL);
+        uint64_t bytes = __atomic_exchange_n(&(statst->tstor[thread].received_bytes_local), 0, __ATOMIC_ACQ_REL);
+
+        __atomic_add_fetch(&(statst->received_packets), packets, __ATOMIC_RELAXED);
+        __atomic_add_fetch(&(statst->received_bytes), bytes, __ATOMIC_RELAXED);
     }
 
     free(per_tsock_stats);
@@ -578,7 +598,6 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
      */
     int sockfd = thread_stor->sockfd;
     struct tpacket_block_desc **block_header = thread_stor->block_header;
-    struct stats_tracking *statst = thread_stor->statst;
     struct pkt_proc *pkt_processor = thread_stor->pkt_processor;
 
     /* We got the clean start all clear so we can get started but
@@ -785,7 +804,7 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
             bstreak++; /* We've gotten another block */
 
             /* We found data, process it! */
-            process_all_packets_in_block(block_header[cb], statst, pkt_processor);
+            process_all_packets_in_block(block_header[cb], thread_stor, pkt_processor);
 
             /* Reset our accounting */
             pstreak = 0; /* Reset the poll streak tracking */
@@ -934,6 +953,8 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
         tstor[thread].sockfd = -1;
         tstor[thread].if_name = cfg->capture_interface;
         tstor[thread].statst = &statst;
+        tstor[thread].received_packets_local = 0;
+        tstor[thread].received_bytes_local = 0;
         tstor[thread].t_start_p = &t_start_p;
         tstor[thread].t_start_c = &t_start_c;
         tstor[thread].t_start_m = &t_start_m;
