@@ -163,6 +163,7 @@ using encapsulation = std::variant<std::monostate,
 //
 class unknown_initial_packet : public base_protocol {
     datum tcp_data_field;
+    static constexpr size_t max_unknown_sample_len = 256;
 
 public:
 
@@ -185,6 +186,14 @@ public:
         tcp.close();
     }
 
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_object tcp{o, "tcp"};
+        datum sample = tcp_data_field;
+        sample.trim_to_length(max_unknown_sample_len);
+        tcp.print_key_hex("data", sample);
+        tcp.close();
+    }
+
     bool is_not_empty() { return tcp_data_field.is_not_empty(); }
 
 };
@@ -194,6 +203,7 @@ public:
 //
 class unknown_udp_initial_packet : public base_protocol {
     datum udp_data_field;
+    static constexpr size_t max_unknown_sample_len = 256;
 
 public:
 
@@ -204,6 +214,14 @@ public:
     void write_json(json_object &record, bool) {
         struct json_object udp{record, "udp"};
         udp.print_key_hex("data", udp_data_field);
+        udp.close();
+    }
+
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_object udp{o, "udp"};
+        datum sample = udp_data_field;
+        sample.trim_to_length(max_unknown_sample_len);
+        udp.print_key_hex("data", sample);
         udp.close();
     }
 
@@ -389,12 +407,12 @@ struct do_network_behavioral_detections {
     const struct key &k_;
     struct analysis_context &analysis_;
     classifier *c_;
-    struct common_data &nbd_common_;
+    const struct common_data &nbd_common_;
 
     do_network_behavioral_detections(const struct key &k,
                                      struct analysis_context &analysis,
                                      classifier *c,
-                                     struct common_data &nbd_common) :
+                                     const struct common_data &nbd_common) :
         k_{k},
         analysis_{analysis},
         c_{c},

@@ -25,19 +25,19 @@ TEST_CASE_METHOD(LibmercTestFixture, "test tcp filtering")
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.do_analysis = true, .resources = default_resources_path, .packet_filter_cfg = (char *)"tcp"},
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path, .packet_filter_cfg = (char *)"tcp"},
              .m_pc{"capture2.pcap"}},
          155},
         {test_config{
-             .m_lc{.resources = default_resources_path, .packet_filter_cfg = (char *)"tcp"},
+             .m_lc{.resources = resources_minimal_path, .packet_filter_cfg = (char *)"tcp"},
              .m_pc{"capture2.pcap"}},
          155},
         {test_config{
-             .m_lc{.do_analysis = true, .resources = default_resources_path, .packet_filter_cfg = (char *)"tcp"},
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path, .packet_filter_cfg = (char *)"tcp"},
              .m_pc{"bad_tcp.pcap"}},
          0},
         {test_config{
-             .m_lc{.resources = default_resources_path, .packet_filter_cfg = (char *)"tcp"},
+             .m_lc{.resources = resources_minimal_path, .packet_filter_cfg = (char *)"tcp"},
              .m_pc{"bad_tcp.pcap"}},
          0}};
 
@@ -74,20 +74,20 @@ TEST_CASE_METHOD(LibmercTestFixture, "test tls filtering")
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.do_analysis = true, .resources = default_resources_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"tls.client_hello"},
              .m_pc{"tls_client_hello_test_packet.pcap"},
              .fp_t = fingerprint_type_tls,
              .callback{destination_check_callback}},
          1},
         {test_config{
-             .m_lc{.do_analysis = true, .resources = default_resources_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"tls.client_hello"},
              .m_pc{"capture2.pcap"},
              .fp_t = fingerprint_type_tls},
          17},
         {test_config{
-             .m_lc{.do_analysis = true, .resources = default_resources_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"tls"},
              .m_pc{"capture2.pcap"},
              .fp_t = fingerprint_type_tls},
@@ -121,27 +121,27 @@ TEST_CASE_METHOD(LibmercTestFixture, "test http filtering")
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.do_analysis = true, .resources = default_resources_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"http"},
              .m_pc{"capture2.pcap"}},
          127},
         {test_config{
-             .m_lc{.resources = default_resources_path,
+             .m_lc{.resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"http"},
              .m_pc{"capture2.pcap"}},
          127},
         {test_config{
-             .m_lc{.do_analysis = true, .resources = default_resources_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"http"},
              .m_pc{"http_request.capture2.pcap"}},
          109},
         {test_config{
-             .m_lc{.resources = default_resources_path,
+             .m_lc{.resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"http"},
              .m_pc{"multi_packet_http_request.pcap"}},
          1},
         {test_config{
-             .m_lc{.do_analysis = true, .resources = default_resources_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"http"},
              .m_pc{"multi_packet_http_request.pcap"}},
          1}
@@ -168,27 +168,27 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic filtering")
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.do_analysis = true, .resources = default_resources_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"quic"},
              .m_pc{"capture2.pcap"}},
          0},
         {test_config{
-             .m_lc{.do_analysis = true, .resources = default_resources_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"quic"},
              .m_pc{"quic-crypto-packets.pcap"}},
          0},
         {test_config{
-             .m_lc{.do_analysis = true, .resources = default_resources_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"quic"},
              .m_pc{"http_request.capture2.pcap"}},
          0},
         {test_config{
-             .m_lc{.resources = default_resources_path,
+             .m_lc{.resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"quic"},
              .m_pc{"quic_init.capture2.pcap"}},
          0},
         {test_config{
-             .m_lc{.resources = default_resources_path,
+             .m_lc{.resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"quic"},
              .m_pc{"mdns_capture.pcap"}},
          0}
@@ -214,18 +214,18 @@ TEST_CASE_METHOD(LibmercTestFixture, "test dhcp filtering")
 
     std::vector<std::pair<test_config, int>> test_set_up{
         {test_config{
-             .m_lc{.do_analysis = true, .resources = default_resources_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"dhcp"},
              .m_pc{"capture2.pcap"}},//43000+
          279
         },
          {test_config{
-             .m_lc{.resources = default_resources_path, .packet_filter_cfg = (char *)"dhcp"},
+             .m_lc{.resources = resources_minimal_path, .packet_filter_cfg = (char *)"dhcp"},
              .m_pc{"capture2.pcap"}},
          279
          },
         {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"dhcp"},
              .m_pc{"mdns_capture.pcap"}},
          0
