@@ -695,7 +695,7 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
     unsigned int cb = 0;  /* The current block pointer (index) */
     struct timespec ts;
     (void)time_elapsed(&ts); /* init the struct for us */
-    while (sig_close_workers == 0) {
+    while (__atomic_load_n(&sig_close_workers, __ATOMIC_ACQUIRE) == 0) {
 
         /* Debugging thread stalling:
          * If force_stall is set (say by the stats thread)
@@ -1043,7 +1043,7 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
     pthread_join(statst.tid, NULL);
 
     /* stats tracking closed, let the packet processing workers know */
-    sig_close_workers = 1;
+    __atomic_store_n(&sig_close_workers, 1, __ATOMIC_RELEASE);
 
     /* wait for each thread to exit */
     for (int thread = 0; thread < num_threads; thread++) {
