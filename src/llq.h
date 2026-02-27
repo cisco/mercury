@@ -14,6 +14,7 @@
 #include <stdlib.h>
 
 #define LLQ_MAX_MSG_SIZE (1 << 20)   /* At least this many bytes must be free */
+#define LLQ_CACHELINE_SIZE 64
 
 
 /* The message object suitable for the std::priority_queue */
@@ -25,15 +26,15 @@ struct llq_msg {
 
 
 /* a lockless ringbuffer */
-struct ll_queue {
+struct __attribute__((aligned(LLQ_CACHELINE_SIZE))) ll_queue {
     int qnum;             /* This is the queue number and is only needed for debugging */
     uint8_t *rbuf;        /* The ringbuffer */
     uint64_t llq_len;     /* The length of the ringbuffer */
-    uint64_t ridx;        /* The read index */
-    uint64_t widx;        /* The write index */
-    int need_read;        /* Special case: writer wraped around and ran into reader */
-    uint64_t drops;       /* Output drop counter */
-    uint64_t drops_trunc; /* Drops due to truncation counter */
+    uint64_t ridx __attribute__((aligned(LLQ_CACHELINE_SIZE)));        /* The read index */
+    uint64_t widx __attribute__((aligned(LLQ_CACHELINE_SIZE)));        /* The write index */
+    int need_read __attribute__((aligned(LLQ_CACHELINE_SIZE)));        /* Special case: writer wraped around and ran into reader */
+    uint64_t drops __attribute__((aligned(LLQ_CACHELINE_SIZE)));       /* Output drop counter */
+    uint64_t drops_trunc __attribute__((aligned(LLQ_CACHELINE_SIZE))); /* Drops due to truncation counter */
 
 
     /* This lockless ringbuffer supports a thread writing separately
