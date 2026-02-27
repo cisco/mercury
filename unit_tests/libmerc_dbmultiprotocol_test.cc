@@ -1001,6 +1001,34 @@ TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment attributes")
     }
 }
 
+TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment quantum_safe compliance")
+{
+    auto attr_not_present_check = [&](std::string &attr_to_be_absent, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK_FALSE(check_attr(attr_to_be_absent));  // attribute should NOT be present
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, std::string>> test_set_up{
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_minimal_path,
+                .packet_filter_cfg = (char *)"all;crypto-assess=quantum_safe"
+            },
+            .m_pc{"secp384r1mlkem1024_clienthello.pcap"}},
+            "cnsa_2_0_non_conformant"    // should NOT be present since secp384r1mlkem1024 is quantum-safe
+        }
+    };
+
+    for (auto &[config, attr_to_be_absent] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        attr_not_present_check(attr_to_be_absent, config.m_lc);
+    }
+}
+
 TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment skipped on truncated tls")
 {
     set_pcap("tls_cnsa2_psk_mode_psk_ke_truncated.pcap");
