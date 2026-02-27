@@ -2215,8 +2215,8 @@ inline bool tls_server_certificate::get_subject_common_name(std::string &common_
 
 inline void tls_server_certificate::write_l7_metadata(cbor_array &a) const {
     for_each_certificate([&a](const uint8_t *cert_data, uint64_t cert_len) {
-        struct cbor_object certs{a};
-        struct datum cert_parser{cert_data, cert_data + cert_len};
+        cbor_object certs{a};
+        datum cert_parser{cert_data, cert_data + cert_len};
         certs.print_key_hex("data", cert_parser);
         certs.close();
     });
