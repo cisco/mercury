@@ -1022,20 +1022,40 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
     }
 
     /* Wake up output thread so it's polling the queues waiting for data */
+    err = pthread_mutex_lock(&(out_ctx->t_output_m));
+    if (err != 0) {
+        fprintf(stderr, "%s: error locking output start mutex\n", strerror(err));
+        exit(255);
+    }
     out_ctx->t_output_p = 1;
     err = pthread_cond_broadcast(&(out_ctx->t_output_c)); /* Wake up output */
     if (err != 0) {
         printf("%s: error broadcasting all clear on output start condition\n", strerror(err));
         exit(255);
     }
+    err = pthread_mutex_unlock(&(out_ctx->t_output_m));
+    if (err != 0) {
+        fprintf(stderr, "%s: error unlocking output start mutex\n", strerror(err));
+        exit(255);
+    }
 
     /* At this point all threads are started but they're waiting on
        the clean start condition
     */
+    err = pthread_mutex_lock(&t_start_m);
+    if (err != 0) {
+        fprintf(stderr, "%s: error locking clean start mutex\n", strerror(err));
+        exit(255);
+    }
     t_start_p = 1;
     err = pthread_cond_broadcast(&t_start_c); // Wake up all the waiting threads
     if (err != 0) {
         printf("%s: error broadcasting all clear on clean start condition\n", strerror(err));
+        exit(255);
+    }
+    err = pthread_mutex_unlock(&t_start_m);
+    if (err != 0) {
+        fprintf(stderr, "%s: error unlocking clean start mutex\n", strerror(err));
         exit(255);
     }
 
