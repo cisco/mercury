@@ -211,6 +211,17 @@ struct httpheader {
     }
 };
 
+struct http_config {
+    static inline bool output_non_sensitive_headers = false;
+    static inline bool output_all_headers = false;
+    static inline size_t output_body_max = 0;
+    static void set_http_headers(bool non_sensitive, bool all) {
+        output_non_sensitive_headers = non_sensitive;
+        output_all_headers = all;
+    }
+    static void set_http_body(size_t value) { output_body_max = value; }
+};
+
 template <size_t N>
 class new_http_headers {
     datum header_body;
@@ -241,6 +252,7 @@ public:
         delim = _delim;
     }
 
+
     void write_json(struct json_object &record) {
         httpheader h = get_next_header(header_body);
         if (h.is_valid()) {
@@ -266,23 +278,48 @@ public:
         }
     }
 
-    void write_l7_metadata(cbor_object &o) {
-        httpheader h = get_next_header(header_body);
-        if (h.is_valid()) {
-            cbor_array hdrs{o, "headers"};
-            hdrs.print_string(h.name);
-            while(1) {
-                delimiter d(header_body, delim);
-                if (d.is_valid()) {
-                    break;
+    void write_header(cbor_array &hdrs, const httpheader &h,
+                    perfect_hash<bool> &ph) {
+        auto is_sensitive = ph.lookup(h.name.data, h.name.length());  // returns std::optional<bool>
+        bool emit_value = is_sensitive.has_value() && (!*is_sensitive || http_config::output_all_headers);
+        cbor_object hdr{hdrs};
+        hdr.print_key_string("name", h.name);
+        if (emit_value) {
+            hdr.print_key_string("value", h.value);
+        }
+        hdr.close();
+    }
+
+    void write_l7_metadata(cbor_object &o, perfect_hash<bool> &ph) {
+        if (http_config::output_non_sensitive_headers || http_config::output_all_headers) {
+            httpheader h = get_next_header(header_body);
+            if (h.is_valid()) {
+                cbor_array hdrs{o, "headers"};
+                write_header(hdrs, h, ph);
+                while(1) {
+                    delimiter d(header_body, delim);
+                    if (d.is_valid()) {
+                        break;
+                    }
+                    httpheader h = get_next_header(header_body);
+                    if (!h.is_valid()) {
+                        break;
+                    }
+                    write_header(hdrs, h, ph);
                 }
-                httpheader h = get_next_header(header_body);
-                if (!h.is_valid()) {
-                    break;
-                }
-                hdrs.print_string(h.name);
+                hdrs.close();
             }
-            hdrs.close();
+        } else if (http_config::output_body_max > 0) {
+            unsigned char crlfcrlf[4] = { '\r', '\n', '\r', '\n' };
+            header_body.skip_up_to_delim(crlfcrlf, sizeof(crlfcrlf));
+        }
+
+        if (http_config::output_body_max > 0) {
+            datum body = header_body;
+            if (body.is_readable()) {
+                body.trim_to_length(http_config::output_body_max);
+                o.print_key_hex("body", body);
+            }
         }
     }
 
@@ -330,6 +367,7 @@ public:
             }
         }
     }
+
 };
 
 struct http_request : public base_protocol {
