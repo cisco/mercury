@@ -27,9 +27,6 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <string.h>
-#ifdef _WIN32
-#include <malloc.h>
-#endif
 #include "output.h"
 #include "pcap_file_io.h"  // for write_pcap_file_header()
 #include "libmerc/utils.h"
@@ -58,19 +55,11 @@ void thread_queues_init(struct thread_queues *tqs, int n, float frac) {
 
     tqs->qnum = n;
     void *queue_mem = NULL;
-#ifdef _WIN32
-    queue_mem = _aligned_malloc(n * sizeof(struct ll_queue), LLQ_CACHELINE_SIZE);
-    if (queue_mem == NULL) {
-        fprintf(stderr, "Failed to allocate aligned memory for thread queues\n");
-        exit(255);
-    }
-#else
     int aerr = posix_memalign(&queue_mem, LLQ_CACHELINE_SIZE, n * sizeof(struct ll_queue));
     if (aerr != 0) {
         fprintf(stderr, "%s: failed to allocate aligned memory for thread queues\n", strerror(aerr));
         exit(255);
     }
-#endif
     memset(queue_mem, 0, n * sizeof(struct ll_queue));
     tqs->queue = (struct ll_queue *)queue_mem;
 
@@ -99,11 +88,7 @@ void thread_queues_free(struct thread_queues *tqs) {
         free(tqs->queue[i].rbuf);
     }
 
-#ifdef _WIN32
-    _aligned_free(tqs->queue);
-#else
     free(tqs->queue);
-#endif
     tqs->queue = NULL;
     tqs->qnum = 0;
 }
