@@ -54,13 +54,14 @@ void thread_queues_init(struct thread_queues *tqs, int n, float frac) {
     }
 
     tqs->qnum = n;
-    void *queue_mem = NULL;
-    int aerr = posix_memalign(&queue_mem, LLQ_CACHELINE_SIZE, n * sizeof(struct ll_queue));
-    if (aerr != 0) {
-        fprintf(stderr, "%s: failed to allocate aligned memory for thread queues\n", strerror(aerr));
+    size_t queue_bytes = n * sizeof(struct ll_queue);
+    size_t queue_bytes_aligned = ((queue_bytes + LLQ_CACHELINE_SIZE - 1) / LLQ_CACHELINE_SIZE) * LLQ_CACHELINE_SIZE;
+    void *queue_mem = aligned_alloc(LLQ_CACHELINE_SIZE, queue_bytes_aligned);
+    if (queue_mem == NULL) {
+        perror("failed to allocate aligned memory for thread queues");
         exit(255);
     }
-    memset(queue_mem, 0, n * sizeof(struct ll_queue));
+    memset(queue_mem, 0, queue_bytes_aligned);
     tqs->queue = (struct ll_queue *)queue_mem;
 
     for (int i = 0; i < n; i++) {
