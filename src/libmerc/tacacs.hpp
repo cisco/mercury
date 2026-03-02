@@ -5,6 +5,7 @@
 
 #include "datum.h"
 #include "protocol.h"
+#include "exposed_creds.hpp"
 #include "json_object.h"
 #include "match.h"
 
@@ -68,6 +69,8 @@ namespace tacacs {
         { }
 
         bool is_valid() const { return data.is_not_null(); }
+
+        uint8_t get_auth_type() const { return type.value(); }
 
         void write_json(json_object &o, bool metadata=false) const {
             (void)metadata;
@@ -326,6 +329,30 @@ namespace tacacs {
             } else {
                 o.print_key_unknown_code("type", type);
             }
+        }
+
+        exposed_creds_type check_credential_exposure() const {
+            // Only check authentication requests (type = 0x01)
+            if (direction() != msg_type::request || type.value() != 0x01) {
+                return exposed_creds_type::none;
+            }
+            
+            // Encrypted message body
+            if (!flags.bit<7>()) {
+                return exposed_creds_type::password_derived;
+            }
+
+            // Unencrypted authen_start (seq_no == 1) - check auth_type
+            if (seq_no.value() == 1) {
+                if (lookahead<authentication_start> as{body}) {
+                    if (as.value.get_auth_type() == authen_type<uint8_t>::code::ASCII) {
+                        return exposed_creds_type::plaintext_password;
+                    }
+                    return exposed_creds_type::password_derived;
+                }
+            }
+
+            return exposed_creds_type::none;
         }
 
     };

@@ -156,7 +156,7 @@ class eth {
                 return;
             }
         }
-        if (ethertype == ETH_TYPE_VLAN) {
+        while (ethertype == ETH_TYPE_VLAN) {
             p.skip(sizeof(uint16_t));  // TCI
             if (!p.read_uint16(&ethertype)) {
                 ethertype = ETH_TYPE_NONE;

@@ -68,13 +68,47 @@ struct common_data {
     ssize_t domain_faking_idx = -1;
     ssize_t faketls_idx = -1;
     ssize_t res_proxy_idx = -1;
+    ssize_t exposed_creds_plaintext_idx = -1;
+    ssize_t exposed_creds_token_idx = -1;
+    ssize_t exposed_creds_derived_idx = -1;
+    ssize_t non_pqc_idx = -1;
+    ssize_t non_nist_idx = -1;
     bool doh_enabled = false;
     bool domain_faking_enabled = false;
 
-    void initialize_behavioral_detections() {
-        if (attr_name.is_accepting_new_names()) {
+    void reserve_non_classifier_attribute_indices() {
+        if (res_proxy_idx == -1) {
             res_proxy_idx = attr_name.get_index("residential_proxy");
-            attr_name.stop_accepting_new_names();
+        }
+        if (exposed_creds_plaintext_idx == -1) {
+            exposed_creds_plaintext_idx = attr_name.get_index("exposed_credentials_plaintext");
+        }
+        if (exposed_creds_token_idx == -1) {
+            exposed_creds_token_idx = attr_name.get_index("exposed_credentials_token");
+        }
+        if (exposed_creds_derived_idx == -1) {
+            exposed_creds_derived_idx = attr_name.get_index("exposed_credentials_derived");
+        }
+        if (non_pqc_idx == -1) {
+            non_pqc_idx = attr_name.get_index("cnsa_2_0_non_conformant");
+        }
+        if (non_nist_idx == -1) {
+            non_nist_idx = attr_name.get_index("nist_sp_800_52_2_non_conformant");
+        }
+    }
+
+    void reserve_classifier_attribute_indices() {
+        if (doh_idx == -1) {
+            doh_idx = attr_name.get_index("encrypted_dns");
+        }
+        if (enc_channel_idx == -1) {
+            enc_channel_idx = attr_name.get_index("encrypted_channel");
+        }
+        if (domain_faking_idx == -1) {
+            domain_faking_idx = attr_name.get_index("domain_faking");
+        }
+        if (faketls_idx == -1) {
+            faketls_idx = attr_name.get_index("faketls");
         }
     }
 };
@@ -402,12 +436,8 @@ class classifier {
     std::unordered_map<std::string, std::pair<uint32_t, size_t>> fp_count_and_format;
 
     bool disabled = false;   // if the classfier has not been initialised or disabled
+    common_data *common = nullptr;
 public:
-    // the common object holds data that is common across all
-    // fingerprint-specific classifiers, and is used by those
-    // classifiers
-    //
-    common_data common;
 
 
     static fingerprint_type get_fingerprint_type(const std::string &s) {
@@ -505,34 +535,39 @@ public:
 
     // check for additional classifier agnostic attributes like encrypted dns and domain-faking
     //
-    void check_additional_attributes(analysis_context &analysis) {
+    bool check_additional_attributes(analysis_context &analysis) {
         if (analysis.fp.get_type() != fingerprint_type_tls && analysis.fp.get_type() != fingerprint_type_quic) {
-            return;
+            return false;
         }
 
         const char* server_name = analysis.destination.sn_str;
         const char* dst_ip = analysis.destination.dst_ip_str;
 
-        check_additional_attributes_util(analysis.result, server_name, dst_ip);
+        return check_additional_attributes_util(analysis.result, server_name, dst_ip);
     }
 
-    void check_additional_attributes_util(analysis_result &result, const char* server_name, const char* dst_ip) {
+    bool check_additional_attributes_util(analysis_result &result, const char* server_name, const char* dst_ip) {
 
-        if (common.doh_enabled && ((common.doh_watchlist.contains(server_name) || common.doh_watchlist.contains_addr(dst_ip)))) {
-            result.attr.set_attr(common.doh_idx, 1.0);
+        bool attr_set = false;
+        if (common->doh_enabled && ((common->doh_watchlist.contains(server_name) || common->doh_watchlist.contains_addr(dst_ip)))) {
+            result.attr.set_attr(common->doh_idx, 1.0);
+            attr_set = true;
         }
 
-        if (common.domain_faking_enabled && subnets.is_domain_faking(server_name, dst_ip)) {
-            result.attr.set_attr(common.domain_faking_idx, 1.0);
+        if (common->domain_faking_enabled && subnets.is_domain_faking(server_name, dst_ip)) {
+            result.attr.set_attr(common->domain_faking_idx, 1.0);
+            attr_set = true;
         }
+
+        return attr_set;
     }
 
     void set_faketls_attribute(analysis_result &result) {
-        result.attr.set_attr(common.faketls_idx, 1.0);
+        result.attr.set_attr(common->faketls_idx, 1.0);
     }
 
     void set_enc_channel_attribute(analysis_result &result) {
-        result.attr.set_attr(common.enc_channel_idx, result.malware_prob);
+        result.attr.set_attr(common->enc_channel_idx, result.malware_prob);
     }
 
     void process_watchlist_line(std::string &line_str) {
@@ -657,7 +692,7 @@ public:
             fingerprint_data *fp_data = new fingerprint_data(fp["process_info"],
                                                              os_dictionary,
                                                              &subnets,
-                                                             &common,
+                                                             common,
                                                              MALWARE_DB,
                                                              total_count,
                                                              report_os,
@@ -714,41 +749,79 @@ public:
     }
 
     const common_data &get_common_data() const {
-        return common;
+        return *common;
     }
 
     size_t fetch_qualifier_count (std::string version_str) const {
         return std::count(version_str.begin(),version_str.end(),';');
     }
 
+    int process_domain_mapping_line(std::string &line_str, std::vector<std::pair<std::string, std::string>> &subnets,
+        std::vector<std::pair<std::string, std::string>> &subnets_v6, bool &minimize_ram) {
+
+        rapidjson::Document domain_obj;
+        domain_obj.Parse(line_str.c_str());
+        if(!domain_obj.IsObject()) {
+            printf_err(log_warning, "invalid JSON line in resource file\n");
+            return -1;  // failure
+        }
+
+        std::string subnet_type;
+        std::string subnet_str;
+        std::string subnet_tag;
+
+        if (domain_obj.HasMember("subnet") && domain_obj["subnet"].IsString()) {
+            subnet_str = domain_obj["subnet"].GetString();
+        }
+        else {
+            return -1;  // failure
+        }
+        if (domain_obj.HasMember("type") && domain_obj["type"].IsString()) {
+            subnet_type = domain_obj["type"].GetString();
+        }
+        else {
+            return -1;  // failure
+        }
+        if (domain_obj.HasMember("tag") && domain_obj["tag"].IsString()) {
+            subnet_tag = domain_obj["tag"].GetString();
+        }
+        else {
+            return -1;  // failure
+        }
+
+        if (subnet_type == "domain_mapping") {
+            if (subnet_str.find(".") != std::string::npos) {
+                subnets.push_back(std::make_pair(subnet_str, subnet_tag));       // v4 subnet
+            }
+            else if (!minimize_ram) {   // don't load ipv6 subnets if minimize_ram is set
+                subnets_v6.push_back(std::make_pair(subnet_str, subnet_tag));
+            }
+        }
+        else if (subnet_type == "proxy" || subnet_type == "sinkhole") {
+            if (subnet_str.find(".") != std::string::npos) {
+                subnets.push_back(std::make_pair(subnet_str, subnet_type));
+            }
+            else if (!minimize_ram) {   // don't load ipv6 subnets if minimize_ram is set
+                subnets_v6.push_back(std::make_pair(subnet_str, subnet_type));
+            }
+        }
+        else {
+            return -1;  // failure
+        }
+
+        return 0;   // success
+    }
+
     classifier(class encrypted_compressed_archive &archive,
                float fp_proc_threshold,
                float proc_dst_threshold,
                bool report_os,
-               bool minimize_ram) : os_dictionary{}, subnets{}, fpdb{}, resource_version{} {
+               bool minimize_ram,
+               common_data &shared_common_data) : os_dictionary{}, subnets{}, fpdb{}, resource_version{}, common{&shared_common_data} {
         if (!check_simd()) {
             printf_err(log_debug, "No SIMD instruction set available\n");
         }
-
-        // reserve attribute for encrypted_dns watchlist
-        //
-        common.doh_idx = common.attr_name.get_index("encrypted_dns");
-
-        // reserve attribute for residential_proxy detection
-        //
-        common.res_proxy_idx = common.attr_name.get_index("residential_proxy");
-
-        // reserve attribute for encrypted_channel
-        //
-        common.enc_channel_idx = common.attr_name.get_index("encrypted_channel");
-
-        // reserve attribute for domain_faking
-        //
-        common.domain_faking_idx = common.attr_name.get_index("domain_faking");
-
-        // reserve attribute for faketls
-        //
-        common.faketls_idx = common.attr_name.get_index("faketls");
+        common->reserve_classifier_attribute_indices();
 
         // by default, we expect that tls fingerprints will be present in the resource file
         //
@@ -816,26 +889,38 @@ public:
 
                 } else if (name == "pyasn.db") {
                     std::vector<std::string> asn_subnets_str;
+                    std::vector<std::string> asn_subnets_v6_str;
                     while (archive.getline(line_str)) {
-                        asn_subnets_str.push_back(line_str);
+                        if (line_str.find(".") != std::string::npos) {
+                            asn_subnets_str.push_back(line_str);       // v4 subnet
+                        }
+                        else if (!minimize_ram) {   // don't load ipv6 subnets if minimize_ram is set
+                            asn_subnets_v6_str.push_back(line_str);    // v6 subnet
+                        }
+                        // failure to parse will be handled within respective process_asn_subnets functions
                     }
                     // process the parsed asn subnets and store them in prefix array for final processing
                     //
                     subnets.process_asn_subnets(asn_subnets_str);
+                    if (!minimize_ram)
+                        subnets.process_asn_subnets_v6(asn_subnets_v6_str);
                     got_pyasn_db = true;
                 } else if (name == "doh-watchlist.txt") {
                     while (archive.getline(line_str)) {
-                        common.doh_watchlist.process_line(line_str);
+                        common->doh_watchlist.process_line(line_str);
                     }
                     got_doh_watchlist = true;
                 } else if (name == "domain-mappings.db") {
-                    std::vector<std::string> domain_mapping_subnets_str;
+                    std::vector<std::pair<std::string, std::string>> domain_mapping_subnets_str;
+                    std::vector<std::pair<std::string, std::string>> domain_mapping_subnets_v6_str;
                     while (archive.getline(line_str)) {
-                        domain_mapping_subnets_str.push_back(line_str);
+                        process_domain_mapping_line(line_str, domain_mapping_subnets_str, domain_mapping_subnets_v6_str, minimize_ram);
                     }
                     // process the parsed domain_mapping subnets and store them in domains_prefix array for final processing
                     //
                     subnets.process_domain_mapping_subnets(domain_mapping_subnets_str);
+                    if (!minimize_ram)
+                        subnets.process_domain_mapping_subnets_v6(domain_mapping_subnets_v6_str);
                     got_domain_faking_subnets = true;
                 }
             }
@@ -868,17 +953,19 @@ public:
         // process asn and domain-faking subnets, and enable the corresponding detections
         //
         subnets.process_final();
+        subnets.process_final_v6();
         subnets.process_domain_mappings_final();
+        subnets.process_domain_mappings_final_v6();
 
         if (got_domain_faking_subnets) {
-            common.domain_faking_enabled = true;
+            common->domain_faking_enabled = true;
         }
         else {
             printf_err(log_debug, "Domain mappings not found in resource archive, disabling Domain-Faking detection\n");
         }
 
         if (got_doh_watchlist) {
-            common.doh_enabled = true;
+            common->doh_enabled = true;
         }
         else {
             printf_err(log_debug, "Encrypted-DNS watchlist not found in resource archive, disabling Encrypted-DNS detection\n");
@@ -993,7 +1080,9 @@ public:
                                             uint16_t dst_port, const char *user_agent) {
         auto perform_analysis_fn = [&](fingerprint_data *fp_data, fingerprint_status status) {
             if (fp_data == nullptr) {
-                return analysis_result(status);
+                analysis_result result{status};
+                result.attr.initialize(&(common->attr_name.value()), common->attr_name.get_names_char());
+                return result;
             }
             return fp_data->perform_analysis(server_name, dst_ip, dst_port, user_agent, status);
         };
@@ -1004,7 +1093,9 @@ public:
                                                               uint16_t dst_port, const char *user_agent) {
         auto perform_detailed_fn = [&](fingerprint_data *fp_data, fingerprint_status status) {
             if (fp_data == nullptr) {
-                return detailed_analysis_result(status);
+                detailed_analysis_result result{status};
+                result.attr.initialize(&(common->attr_name.value()), common->attr_name.get_names_char());
+                return result;
             }
             return fp_data->perform_detailed_analysis(server_name, dst_ip, dst_port, user_agent, status);
         };
@@ -1030,6 +1121,11 @@ public:
         feature_weights weights{new_as_weight, new_domain_weight, new_port_weight,
                                 new_ip_weight, new_sni_weight, new_ua_weight};
         auto perform_analysis_fn = [&](fingerprint_data *fp_data, fingerprint_status status) {
+            if (fp_data == nullptr) {
+                analysis_result result{status};
+                result.attr.initialize(&(common->attr_name.value()), common->attr_name.get_names_char());
+                return result;
+            }
             return fp_data->perform_analysis(server_name, dst_ip, dst_port, user_agent, status, weights);
         };
         return perform_analysis_common(fp_str, perform_analysis_fn);
@@ -1045,14 +1141,18 @@ public:
         }
         if (std::find(fp_types.begin(), fp_types.end(), fp.get_type()) == fp_types.end()) {
             result = analysis_result(fingerprint_status_unanalyzed);
+            result.attr.initialize(&(common->attr_name.value()), common->attr_name.get_names_char());
             return true;  // not configured to analyze fingerprints of this type
         }
         result = this->perform_analysis(fp.string(), dc.sn_str, dc.dst_ip_str, dc.dst_port, dc.ua_str);
+        if (!result.attr.is_initialized()) {
+            result.attr.initialize(&(common->attr_name.value()), common->attr_name.get_names_char());
+        }
 
         // check for encrypted_channel
         //
         if (result.max_mal && fp.get_type() == fingerprint_type_tls) {
-            result.attr.set_attr(common.enc_channel_idx, result.malware_prob);
+            result.attr.set_attr(common->enc_channel_idx, result.malware_prob);
         }
 
         return true;
@@ -1081,6 +1181,7 @@ inline classifier *analysis_init_from_archive([[maybe_unused]] int verbosity,
                                        const float fp_proc_threshold,
                                        const float proc_dst_threshold,
                                        const bool report_os,
+                                       common_data *common_data_ptr,
                                        const bool minimize_ram=false) {
 
     if (enc_key != NULL || key_type != enc_key_type_none) {
@@ -1090,9 +1191,12 @@ inline classifier *analysis_init_from_archive([[maybe_unused]] int verbosity,
     if (archive_name == nullptr) {
         return nullptr;
     }
+    if (common_data_ptr == nullptr) {
+        return nullptr;
+    }
 
     encrypted_compressed_archive archive{archive_name, enc_key}; // TODO: key type
-    return new classifier(archive, fp_proc_threshold, proc_dst_threshold, report_os, minimize_ram);
+    return new classifier(archive, fp_proc_threshold, proc_dst_threshold, report_os, minimize_ram, *common_data_ptr);
 }
 
 

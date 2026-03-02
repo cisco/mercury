@@ -145,8 +145,12 @@ GENERAL OPTIONS
    --certs-json                          # output certs as JSON, not base64
    --metadata                            # output more protocol metadata in JSON
    --raw-features                        # select protocols to write out raw features string(see --help)
+   --http-headers=mode                   # controls reporting of HTTP headers in L7 metadata (all or non-sensitive)
+   --http-body-max=N                     # report up to N bytes of the HTTP body in L7 metadata (max 2048 bytes)
    --network-behavioral-detections       # perform network behavioral detections
    --minimize-ram                        # minimize the ram usage of mercury library
+   --crypto-assess[=policy]              # perform cryptographic security assessment
+   --exposed-creds                       # detect exposed credentials in enabled protocols
    [-v or --verbose]                     # additional information sent to stderr
    --license                             # write license information to stdout
    --version                             # write version information to stdout
@@ -166,6 +170,22 @@ DETAILS
    which incorporates the flow key and the time of observation, into the file f.
    With [-a or --analysis], fingerprints and destinations are analyzed and the
    results are included in the JSON output.
+
+   "--stats=f" writes compressed JSON lines with per-source-IP aggregates.
+   Example (single line shown pretty-printed):
+   {
+     "src_ip":"192.0.2.10",
+     "libmerc_init_time":"2026-01-26T18:34:11Z",
+     "libmerc_version":"1.4.3",
+     "resource_version":"2025-11-18",
+     "build_number":12345,
+     "git_commit_id":"abc123",
+     "device_info":{
+       "cert_labels":[{"common_name":"example.com","count":3}],
+       "snmp_labels":[{"oid":"1.3.6.1.2.1.1.5.0","count":2}]
+     },
+     "fingerprints":[{"str_repr":"tls/2(0303...)", "sessions":[{"user_agent":"ua", "dest_info":[{"dst":"(sni)(203.0.113.7)(443)","count":3}]}]}]
+   }
 
    "[-w or --write] w" writes packets to the file w, in PCAP format.  With the
    option [-s or --select], packets are filtered so that only ones with
@@ -196,6 +216,9 @@ DETAILS
       iec               IEC 60870-5-104
       lldp              LLDP message
       ldap              LDAP
+      imap              IMAP request and response
+      imap.request      IMAP request
+      imap.response     IMAP response
       mdns              multicast DNS
       mysql             MySQL Client/Server Protocol
       nbns              NetBIOS Name Service
@@ -295,6 +318,14 @@ DETAILS
        all             All of the above
        none            None of the above
       <no option>     None of the above
+
+   --http-headers=mode controls which HTTP headers are reported in L7 metadata.
+       non-sensitive   report all headers except sensitive ones (cookie, authorization, proxy-authorization, etc.)
+       all             report all headers including sensitive ones
+
+   --http-body-max=N reports up to N bytes of the HTTP body in L7 metadata as hex.
+    N is required and must be between 0 and 2048. If this option is not specified,
+    HTTP bodies are not captured in L7 metadata.
 
    --network-behavioral-detections performs analysis on packets, sessions, and
     sets of sessions independent of the core mercury analysis functionality. These

@@ -58,8 +58,12 @@ char mercury_help[] =
     "   --certs-json                          # output certs as JSON, not base64\n"
     "   --metadata                            # output more protocol metadata in JSON\n"
     "   --raw-features                        # select protocols to write out raw features string(see --help)\n"
+    "   --http-headers=mode                   # controls reporting of HTTP headers in L7 metadata (all or non-sensitive)\n"
+    "   --http-body-max=N                     # report up to N bytes of the HTTP body in L7 metadata (max 2048 bytes)\n"
     "   --network-behavioral-detections       # perform network behavioral detections\n"
     "   --minimize-ram                        # minimize the ram usage of mercury library\n"
+    "   --crypto-assess[=policy]              # perform cryptographic security assessment\n"
+    "   --exposed-creds                       # detect exposed credentials in enabled protocols\n"
     "   [-v or --verbose]                     # additional information sent to stderr\n"
     "   --license                             # write license information to stdout\n"
     "   --version                             # write version information to stdout\n"
@@ -111,6 +115,9 @@ char mercury_extended_help[] =
     "      iec               IEC 60870-5-104\n"
     "      ldap              LDAP\n"
     "      lldp              LLDP message\n"
+    "      imap              IMAP request and response\n"
+    "      imap.request      IMAP request\n"
+    "      imap.response     IMAP response\n"
     "      mdns              multicast DNS\n"
     "      mysql             MySQL Client/Server Protocol\n"
     "      nbns              NetBIOS Name Service\n"
@@ -214,10 +221,33 @@ char mercury_extended_help[] =
     "       none            None of the above\n"
     "       <no option>     None of the above\n"
     "\n"
+    "   --http-headers=mode controls which HTTP request headers are reported in L7 metadata.\n"
+    "       non-sensitive   report all headers except sensitive ones (cookie, authorization, proxy-authorization, etc.)\n"
+    "       all             report all headers including sensitive ones\n"
+    "\n"
+    "   --http-body-max=N reports up to N bytes of the HTTP body in L7 metadata as hex.\n"
+    "    N is required and must be between 0 and 2048.\n"
+    "    If this option is not specified, HTTP bodies are not captured in L7 metadata.\n"
+    "\n"
     "   --network-behavioral-detections performs analysis on packets, sessions, and\n"
    "    sets of sessions independent of the core mercury analysis functionality. These\n"
    "    are not driven by the resources file. An example detection includes detecting\n"
    "    residential proxies.\n"
+    "\n"
+    "   --crypto-assess[=policy] performs cryptographic security assessment\n"
+    "   on protocols like TLS, DTLS, SSH and QUIC. The optional policy argument\n"
+    "   specifies the assessment policy to use; if not provided, the default\n"
+    "   policy is used. Valid policy strings are: \n"
+    "       default        Default assessment policy\n"
+    "       quantum_safe   Quantum safe assessment policy\n"
+    "       nist_sp_800_52 NIST SP 800-52 revision 2 assessment policy\n"
+    "\n"
+    "   --exposed-creds detects exposed credentials in enabled protocols like\n"
+    "   HTTP, TACACS, SNMP, IMAP, LDAP, RESPv2 etc. \n"
+    "   Three categories of exposed credentials are identified:\n"
+    "       plaintext               Plaintext credentials\n"
+    "       plaintext-derived       Derived credentials like hashed passwords\n"
+    "       plaintext-token         Token based credentials like OAuth tokens\n"
     "\n"
     "   [-v or --verbose] writes additional information to the standard error,\n"
     "   including the packet count, byte count, elapsed time and processing rate, as\n"
@@ -280,7 +310,7 @@ int main(int argc, char *argv[]) {
     std::string additional_args;
 
     while(1) {
-        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13, reassembly=14, format=15, raw_features=16, crypto_assess=17, minimize_ram=18, network_behavioral_detections=19, };
+        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13, reassembly=14, format=15, raw_features=16, crypto_assess=17, minimize_ram=18, network_behavioral_detections=19, exposed_creds=20, http_headers=21, http_body=22 };
         int opt_idx = 0;
         static struct option long_opts[] = {
             { "config",                        required_argument, NULL,                        config },
@@ -313,8 +343,11 @@ int main(int argc, char *argv[]) {
             { "help",                                no_argument, NULL,                           'h' },
             { "select",                        optional_argument, NULL,                           's' },
             { "raw-features",                  required_argument, NULL,                  raw_features },
+            { "http-headers",                  required_argument, NULL,                  http_headers },
+            { "http-body-max",                 required_argument, NULL,                     http_body },
             { "minimize-ram",                        no_argument, NULL,                  minimize_ram },
             { "network-behavioral-detections",       no_argument, NULL, network_behavioral_detections },
+            { "exposed-creds",                        no_argument, NULL,                  exposed_creds },
             { "verbose",                             no_argument, NULL,                           'v' },
             { NULL,                                            0,    0,                             0 }
         };
@@ -418,6 +451,20 @@ int main(int argc, char *argv[]) {
                 usage(argv[0], "option raw_features requires comma separated protocols as argument", extended_help_off);
             }
             break;
+        case http_headers:
+            if (option_is_valid(optarg)) {
+                additional_args.append("http-headers=").append(optarg).append(";");
+            } else {
+                usage(argv[0], "option http-headers requires a mode (all or non-sensitive)", extended_help_off);
+            }
+            break;
+        case http_body:
+            if (option_is_valid(optarg)) {
+                additional_args.append("http-body-max=").append(optarg).append(";");
+            } else {
+                usage(argv[0], "option http-body-max requires a size argument (0-2048)", extended_help_off);
+            }
+            break;
         case network_behavioral_detections:
             if (optarg) {
                 usage(argv[0], "option network-behavioral-detections does not use an argument", extended_help_off);
@@ -441,6 +488,13 @@ int main(int argc, char *argv[]) {
                 usage(argv[0], "option minimize_ram does not use an argument", extended_help_off);
             } else {
                 additional_args.append("minimize-ram;");
+            }
+            break;
+        case exposed_creds:
+            if (optarg) {
+                usage(argv[0], "option exposed-creds does not use an argument", extended_help_off);
+            } else {
+                additional_args.append("exposed-creds;");
             }
             break;
         case 'r':

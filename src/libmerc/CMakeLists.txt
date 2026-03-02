@@ -124,7 +124,6 @@ endif()
 # headers
 include(CheckIncludeFiles)
 check_include_files(linux/if_packet.h  HAVE_IF_PACKET_H)
-check_include_files(arpa/inet.h        HAVE_INET_H)
 check_include_files(fcntl.h            HAVE_FCNTL_H)
 check_include_files(stddef.h           HAVE_STDDEF_H)
 check_include_files(sys/ioctl.h        HAVE_IOCTL_H)
@@ -289,11 +288,18 @@ else()
         -fno-builtin-calloc
         -fno-builtin-realloc
         -fno-builtin-free
+        -fno-omit-frame-pointer      # preserve frame pointer for better stack traces
         ${OPTFLAGS}
     )
 
-    # Check for GNU-specific compiler flags
+    # Check for -mno-omit-leaf-frame-pointer support (also preserves in leaf functions)
     include(CheckCXXCompilerFlag)
+    check_cxx_compiler_flag(-mno-omit-leaf-frame-pointer use_no_omit_leaf_frame_pointer)
+    if(use_no_omit_leaf_frame_pointer)
+        add_compile_options(-mno-omit-leaf-frame-pointer)
+    endif()
+
+    # Check for GNU-specific compiler flags
     check_cxx_compiler_flag(-fno-gnu-unique use_no_gnu_unique)
     if(use_no_gnu_unique)
         add_compile_options(-fno-gnu-unique)

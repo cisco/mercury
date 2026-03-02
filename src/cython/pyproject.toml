@@ -7,7 +7,7 @@ requires = [
 [tool.cibuildwheel.linux]
 environment = "CC='g++' CXX='g++' MERCURY_DIR='./'"
 manylinux-x86_64-image = "quay.io/pypa/manylinux_2_34_x86_64:latest"
-manylinux-aarch64-image = "quay.io/pypa/manylinux_2_34_aarch64:latest"
+manylinux-aarch64-image = "quay.io/pypa/manylinux_2_34_aarch64:2026.01.04-1"
 
 [tool.cibuildwheel.macos]
 environment = "CC='g++' CXX='g++' MERCURY_DIR='./' ENV_CFLAGS='-DSSLNEW' LDFLAGS='-L/opt/homebrew/opt/openssl/lib' CPPFLAGS='-I/opt/homebrew/opt/openssl/include' MACOSX_DEPLOYMENT_TARGET=15"

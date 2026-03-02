@@ -9,6 +9,7 @@
 #include "match.h"
 #include "decimal_int.hpp"
 #include "lex.h"
+#include "exposed_creds.hpp"
 
 // RESP (Redis Serialization Protocol) parser
 // Reference: https://redis.io/docs/latest/develop/reference/protocol-spec/
@@ -134,6 +135,7 @@ namespace redis{
         }
 
         bool is_not_empty() const { return isValid; }
+
         const datum& get_data() const { return parsed_data; }
 
         void write_json(struct json_object &redis_response) const {
@@ -300,9 +302,15 @@ namespace redis{
     };
 
     class response : public base_protocol{
-        std::variant<std::monostate, simple_string, error, integer, bulk_string, array> packet;
+        std::variant<std::monostate, simple_string, error, integer, bulk_string, array> packet{std::monostate{}};
 
     public:
+        // Suppress GCC false positive: -Wmaybe-uninitialized triggers through
+        // std::variant::emplace() for types with inherited datum members.
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 12 && __GNUC__ <= 14
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
         response(datum &d) {
             // Guard against empty payloads (e.g., ACK packets on port 6379)
             if (!d.is_readable()) {
@@ -336,6 +344,9 @@ namespace redis{
                 packet.emplace<std::monostate>();
             }
         }
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 12 && __GNUC__ <= 14
+#pragma GCC diagnostic pop
+#endif
 
         bool is_not_empty() const {
             return std::visit(overloaded {
@@ -434,6 +445,10 @@ namespace redis{
 
         bool is_not_empty() const { return isValid; }
 
+        bool has_exposed_password() const {
+            return is_auth_command && password_data.is_not_empty();
+        }
+
         void write_json(struct json_object &redis_request) const {
             redis_request.print_key_json_string("command", command_data);
             if (is_auth_command) {
@@ -492,6 +507,10 @@ namespace redis{
 
         bool is_not_empty() const { return isValid; }
 
+        bool has_exposed_password() const {
+            return is_auth_command && password_data.is_not_empty();
+        }
+
         void write_json(struct json_object &redis_request) const {
             redis_request.print_key_json_string("command", command_data);
             if (is_auth_command) {
@@ -519,6 +538,12 @@ namespace redis{
         std::variant<std::monostate, array_command, inline_command> packet;
 
     public:
+        // Suppress GCC false positive: -Wmaybe-uninitialized triggers through
+        // std::variant::emplace() for types with inherited datum members.
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 12 && __GNUC__ <= 14
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
         request(datum &d) : packet{std::monostate{}} {
             if (!d.is_readable()) {
                 return;
@@ -535,6 +560,9 @@ namespace redis{
                 }
             }
         }
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 12 && __GNUC__ <= 14
+#pragma GCC diagnostic pop
+#endif
 
         bool is_not_empty() const {
             return std::visit(overloaded{
@@ -558,6 +586,14 @@ namespace redis{
             cbor_array protocols{o, "protocols"};
             protocols.print_string("redis");
             protocols.close();
+        }
+
+        exposed_creds_type check_credential_exposure() const {
+            return std::visit(overloaded{
+                [](const std::monostate &) { return exposed_creds_type::none; },
+                [](const array_command &r) { return r.has_exposed_password() ? exposed_creds_type::plaintext_password : exposed_creds_type::none; },
+                [](const inline_command &r) { return r.has_exposed_password() ? exposed_creds_type::plaintext_password : exposed_creds_type::none; }
+            }, packet);
         }
     };
 

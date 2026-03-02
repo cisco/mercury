@@ -1,5 +1,27 @@
 # CHANGELOG for Mercury
 
+## VERSION 2.14.0
+* Added support for nested VLAN tagging (multiple stacked 802.1Q tags).
+* Added IMAPv4 support in JSON output.
+* Added NIST SP 800-52 Rev 2 cryptographic security assessment.
+* Added exposed credentials assessment.
+* Added longest prefix matching for IPv6 addresses. Enabled IPv6 longest
+  prefix matching for ASNs mapped to IPv6 subnets, and for domain names mapped
+  to IPv6 subnets for domain faking detection.
+* Added CBOR encoding and decoding for TLS server, HTTP server, and DTLS
+  fingerprints.
+* Updated mercury's stats feature to report device identifiers taken from TLS
+  certificates and SNMP messages.
+* Fixed a crash in QUIC initial packet decryption that could occur under
+  multi-threaded packet processing.
+* Fixed potential crashes and line-parsing errors while loading mercury
+  resource archives.
+* Fixed null-pointer dereference in weighted analysis function when given an
+  invalid input fingerprint.
+* Fixed unbounded memory growth in the stats aggregator dictionary encoder.
+* Restored the writeable::update() function, which is needed for batch_gcd.
+* Enabled debug symbols and preserved frame pointers in all builds.
+
 ## VERSION 2.13.1
 * Fixed potential underflows and out-of-bounds accesses in TCP and QUIC
   reassembly logic, and added checks for QUIC frame boundaries.

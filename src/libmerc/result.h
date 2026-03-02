@@ -29,11 +29,10 @@ public:
 
     // MAX_TAGS denotes the maximum number of attribute tags supported
     //
-    static constexpr ssize_t MAX_TAGS = 13;
+    static constexpr ssize_t MAX_TAGS = 16;
     typedef std::bitset<MAX_TAGS> bitset;
 
 private:
-
     attribute_result::bitset tags;
     std::array<long double, MAX_TAGS> prob_score;
     const std::vector<std::string> *tag_names;
@@ -91,14 +90,18 @@ public:
         return tags.any();
     }
 
-    bool is_initialized() { return initialized; }
+    bool is_initialized() const { return initialized; }
 
     void initialize (const std::vector<std::string> *_tag_names, const char *const *names_char) {
         tag_names = _tag_names;
         tag_names_char = names_char;
+        initialized = true;
     }
 
     const struct attribute_context *get_attributes() {
+        if (!tag_names || !tag_names_char) {
+            return nullptr;
+        }
         for (ssize_t i = 0; (i < MAX_TAGS) && ((size_t)i < tag_names->size()); i++) {
             // if the attribute bit is not set, the probability score is 0
             if(!tags[i]) {

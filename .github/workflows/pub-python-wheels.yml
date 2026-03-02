@@ -44,7 +44,7 @@ jobs:
           platforms: all
 
       - name: Install pip packages
-        run: python -m pip install cython cibuildwheel==3.3.0
+        run: python -m pip install cython cibuildwheel==3.3.1
 
       - name: Initialize Submodules
         run: git submodule update --init --recursive
@@ -56,7 +56,7 @@ jobs:
         run: ./configure && make && cp -r src/cython/* ./
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.3.0
+        uses: pypa/cibuildwheel@v3.3.1
         env:
           CIBW_ARCHS_LINUX: aarch64 x86_64
           CIBW_ARCHS_MACOS: arm64

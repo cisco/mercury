@@ -39,6 +39,7 @@ case $host_os in
 esac
 AX_CHECK_COMPILE_FLAG([-fno-gnu-unique], [AC_SUBST([USE_NO_GNU_UNIQUE],yes)], [AC_SUBST([USE_NO_GNU_UNIQUE],no)] , [-Werror])
 AX_CHECK_COMPILE_FLAG([-fsanitize=address], [AC_SUBST([USE_FSANITIZE],yes)], [AC_SUBST([USE_FSANITIZE],no)] , [-Werror])
+AX_CHECK_COMPILE_FLAG([-mno-omit-leaf-frame-pointer], [AC_SUBST([USE_NO_OMIT_LEAF_FRAME_POINTER],yes)], [AC_SUBST([USE_NO_OMIT_LEAF_FRAME_POINTER],no)] , [-Werror])
 AC_CHECK_HEADERS([linux/if_packet.h])
 AC_CHECK_MEMBER([struct tpacket_req3.tp_block_size],[AC_SUBST(HAVE_TPACKET_V3,yes)],[AC_MSG_WARN([Linux AF_PACKET's TPACKET V3 is not available])],[[#include <linux/if_packet.h>]])
 #AC_CHECK_MEMBER([struct tpacket_req3.tp_block_size],[],[AC_MSG_FAILURE([Linux AF_PACKET's TPACKET V3 is required, but not available])],[[#include <linux/if_packet.h>]])

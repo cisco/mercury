@@ -23,6 +23,10 @@
 #include "mem_utils.hpp"
 
 
+// Forward declaration for crypto_policy::required_extensions
+namespace crypto_policy {
+    struct required_extensions;
+}
 
 // class xtn represents a TLS extension
 //
@@ -120,10 +124,13 @@ enum class tls_content_type : uint16_t {
 };
 
 enum class tls_version : uint16_t {
+    none = 0x0000,
+    sslv2_0 = 0x0002,
     sslv3_0 = 0x0300,
     tlsv1_0 = 0x0301,
     tlsv1_1 = 0x0302,
     tlsv1_2 = 0x0303,
+    tlsv1_3 = 0x0304,
 };
 
 /*
@@ -293,7 +300,13 @@ struct tls_server_certificate {
 
     bool is_not_empty() const { return certificate_list.is_not_empty(); }
 
+    template <typename EmitFn>
+    void for_each_certificate(EmitFn emit) const;
+
     void write_json(struct json_array &a, bool json_output) const;
+    bool get_subject_common_name(std::string &common_name) const;
+
+    void write_l7_metadata(cbor_array &a) const;
 
     static constexpr mask_and_value<8> matcher{
         { 0xff, 0xff, 0xfc, 0x00, 0x00, 0xff, 0x00, 0x00 },
@@ -352,6 +365,10 @@ struct tls_extensions : public datum {
     void write_raw_features(writeable &buf) const;
 
     datum get_supported_groups() const;
+
+    tls_version get_supported_versions() const;
+
+    crypto_policy::required_extensions get_required_extensions() const;
 
     void write_l7_metadata(cbor_object &o) const {
         o.print_key_string("server_name", get_server_name());
@@ -439,7 +456,7 @@ struct tls_client_hello : public base_protocol {
 
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c);
 
-    bool do_network_behavioral_detections(const struct key &k_, struct analysis_context &analysis_, classifier *c, struct common_data &nbd_common);
+    bool do_network_behavioral_detections(const struct key &k_, struct analysis_context &analysis_, classifier *c, const struct common_data &nbd_common);
 
     static bool check_residential_proxy(const struct key &k_, datum random_nonce);
 
@@ -536,6 +553,13 @@ struct tls_server_hello : public base_protocol {
         { 0x16, 0x03, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00 }
     };
 
+    tls_version get_version() const {
+        struct datum tmp = protocol_version;
+        uint16_t version;
+        tmp.read_uint16(&version);
+        return (tls_version)version;
+    }
+
 };
 
 class tls_server_hello_and_certificate : public base_protocol {
@@ -607,6 +631,15 @@ public:
         cbor_array protocols{o, "protocols"};
         protocols.print_string("tls");
         protocols.close();
+        if (certificate.is_not_empty()) {
+            cbor_object tls{o, "tls"};
+            cbor_object server{tls, "server"};
+            cbor_array certs{server, "certs"};
+            certificate.write_l7_metadata(certs);
+            certs.close();
+            server.close();
+            tls.close();
+        }
     }
 
     void compute_fingerprint(fingerprint &fp) const {
@@ -629,6 +662,10 @@ public:
     }
 
     const tls_server_hello & get_server_hello() const { return hello; }
+
+    bool get_subject_common_name(std::string &common_name) const {
+        return certificate.get_subject_common_name(common_name);
+    }
 };
 
 
@@ -727,6 +764,10 @@ public:
             tls.close();
 
         }
+    }
+
+    bool get_subject_common_name(std::string &common_name) const {
+        return certificate.get_subject_common_name(common_name);
     }
 
 };
@@ -951,6 +992,8 @@ inline bool is_faketls_util(const datum ciphersuite_vector) {
 #define type_session_ticket                  0x0023
 #define type_quic_transport_parameters       0x0039
 #define type_quic_transport_parameters_draft 0xffa5
+#define type_ec_points_format                0x000b
+#define type_encrypt_then_mac                0x0016
 
 #define type_ech_client_hello                0xfe0d
 
@@ -1946,9 +1989,6 @@ inline bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_
     bool ret = c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
 
     if (analysis_.result.status == fingerprint_status_randomized) {    // check for faketls on randomized connections only
-        if (!analysis_.result.attr.is_initialized() && c_) {
-            analysis_.result.attr.initialize(&(c_->get_common_data().attr_name.value()),c_->get_common_data().attr_name.get_names_char());
-        }
         if (is_faketls()) {
             analysis_.result.attr.set_attr(c_->get_common_data().faketls_idx, 1.0);
         }
@@ -1959,12 +1999,10 @@ inline bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_
 
 
 inline bool tls_client_hello::do_network_behavioral_detections(const struct key &k_, struct analysis_context &analysis_,
-                                                               classifier *c_, struct common_data &nbd_common) {
+                                                               classifier *c_, const struct common_data &nbd_common) {
+    (void)c_;
     if (check_residential_proxy(k_, random)) {
-        if (c_) {
-            analysis_.result.attr.set_attr(c_->common.res_proxy_idx, 1.0);
-            return true;
-        } else if (nbd_common.res_proxy_idx != -1) {
+        if (nbd_common.res_proxy_idx != -1) {
             analysis_.result.attr.set_attr(nbd_common.res_proxy_idx, 1.0);
             return true;
         }
@@ -2113,8 +2151,10 @@ inline void tls_server_hello::fingerprint(struct buffer_stream &buf) const {
     }
 }
 
-inline void tls_server_certificate::write_json(struct json_array &a, bool json_output) const {
-
+template <typename EmitFn>
+inline void tls_server_certificate::for_each_certificate(EmitFn emit) const {
+    static_assert(std::is_invocable_v<EmitFn, const uint8_t*, uint64_t>,
+                  "Callback must be callable with (const uint8_t*, uint64_t)");
     struct datum tmp_cert_list = certificate_list;
     while (tmp_cert_list.length() > 0) {
 
@@ -2132,18 +2172,7 @@ inline void tls_server_certificate::write_json(struct json_array &a, bool json_o
             return; /* don't bother printing out a partial cert if it has a length of zero */
         }
 
-        struct json_object o{a};
-        if (json_output) {
-            struct json_object cert{o, "cert"};
-            struct x509_cert c;
-            c.parse(tmp_cert_list.data, tmp_len);
-            c.print_as_json(cert, {}, NULL);
-            cert.close();
-        } else {
-            struct datum cert_parser{tmp_cert_list.data, tmp_cert_list.data + tmp_len};
-            o.print_key_base64("base64", cert_parser);
-        }
-        o.close();
+        emit(tmp_cert_list.data, tmp_len);
 
         /*
          * advance parser over certificate data
@@ -2152,6 +2181,45 @@ inline void tls_server_certificate::write_json(struct json_array &a, bool json_o
             return;
         }
     }
+}
+
+inline void tls_server_certificate::write_json(struct json_array &a, bool json_output) const {
+    for_each_certificate([&a, json_output](const uint8_t *cert_data, uint64_t cert_len) {
+        struct json_object o{a};
+        if (json_output) {
+            struct json_object cert{o, "cert"};
+            struct x509_cert c;
+            c.parse(cert_data, cert_len);
+            c.print_as_json(cert, {}, NULL);
+            cert.close();
+        } else {
+            struct datum cert_parser{cert_data, cert_data + cert_len};
+            o.print_key_base64("base64", cert_parser);
+        }
+        o.close();
+    });
+}
+
+inline bool tls_server_certificate::get_subject_common_name(std::string &common_name) const {
+    bool found = false;
+    for_each_certificate([&found, &common_name](const uint8_t *cert_data, uint64_t cert_len) {
+        if (found) {
+            return;
+        }
+        struct x509_cert c;
+        c.parse(cert_data, cert_len);
+        found = c.get_subject_common_name(common_name);
+    });
+    return found;
+}
+
+inline void tls_server_certificate::write_l7_metadata(cbor_array &a) const {
+    for_each_certificate([&a](const uint8_t *cert_data, uint64_t cert_len) {
+        cbor_object certs{a};
+        datum cert_parser{cert_data, cert_data + cert_len};
+        certs.print_key_hex("data", cert_parser);
+        certs.close();
+    });
 }
 
 

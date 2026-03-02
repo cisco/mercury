@@ -19,6 +19,7 @@
 #include "utils.h"
 #include "loopback.hpp"
 #include "linux_sll.hpp"
+#include "event.hpp"
 
 // include files needed by stateful_pkt_proc; they provide the
 // interface to mercury's packet parsing and handling routines
@@ -76,6 +77,7 @@
 #include "l7m.hpp"
 #include "syslog.hpp"
 #include "redis.hpp"
+#include "imap.hpp"
 
 // double malware_prob_threshold = -1.0; // TODO: document hidden option
 
@@ -90,174 +92,301 @@ void write_flow_key(struct json_object &o, const struct key &k) {
 }
 
 struct do_crypto_assessment {
-    const crypto_policy::assessor *ca;
-    json_object &record;
+    const std::vector<const crypto_policy::assessor *>& ca;
+    json_object *record;
 
-    do_crypto_assessment(const crypto_policy::assessor *assessor, json_object &o) : ca{assessor}, record{o} { }
+    // json_object record is to be passed to the assess function only if it is passed to the visitor function
+    do_crypto_assessment(const std::vector<const crypto_policy::assessor *>& assessors, json_object &o) : ca{assessors}, record{&o} { }
+    do_crypto_assessment(const std::vector<const crypto_policy::assessor *>& assessors) : ca{assessors}, record{nullptr} { }
 
-    bool operator()(const tls_client_hello &msg) {
-        ca->assess(msg, record);
-        return false;
+
+    crypto_assess_result operator()(const tls_client_hello &msg) {
+        crypto_assess_result assessment_result;
+        if (!record) {
+            for (const auto& crypto_assessor : ca) {
+                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg));
+            }
+        }
+        else {  // write metadata to json record
+            json_array assessor_record{record, "cryptographic_security_assessment"};
+            for (const auto& crypto_assessor : ca)
+                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg, assessor_record));
+            assessor_record.close();
+        }
+        return assessment_result;
     }
 
-    bool operator()(const tls_server_hello &msg) {
-        ca->assess(msg, record);
-        return false;
+    crypto_assess_result operator()(const tls_server_hello &msg) {
+        crypto_assess_result assessment_result;
+        if (!record) {
+            for (const auto& crypto_assessor : ca) {
+                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg));
+            }
+        }
+        else {  // write metadata to json record
+            json_array assessor_record{record, "cryptographic_security_assessment"};
+            for (const auto& crypto_assessor : ca)
+                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg, assessor_record));
+            assessor_record.close();
+        }
+        return assessment_result;
     }
 
-    bool operator()(const tls_server_hello_and_certificate &msg) {
-        ca->assess(msg, record);
-        return false;
+    crypto_assess_result operator()(const tls_server_hello_and_certificate &msg) {
+        crypto_assess_result assessment_result;
+        if (!record) {
+            for (const auto& crypto_assessor : ca) {
+                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg));
+            }
+        }
+        else {  // write metadata to json record
+            json_array assessor_record{record, "cryptographic_security_assessment"};
+            for (const auto& crypto_assessor : ca)
+                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg, assessor_record));
+            assessor_record.close();
+        }
+        return assessment_result;
     }
 
-    bool operator()(const dtls_client_hello &msg) {
-        ca->assess(msg, record);
-        return false;
+    crypto_assess_result operator()(const dtls_client_hello &msg) {
+        crypto_assess_result assessment_result;
+        if (!record) {
+            for (const auto& crypto_assessor : ca) {
+                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg));
+            }
+        }
+        else {  // write metadata to json record
+            json_array assessor_record{record, "cryptographic_security_assessment"};
+            for (const auto& crypto_assessor : ca)
+                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg, assessor_record));
+            assessor_record.close();
+        }
+        return assessment_result;
     }
 
-    bool operator()(const dtls_server_hello &msg) {
-        ca->assess(msg, record);
-        return false;
+    crypto_assess_result operator()(const dtls_server_hello &msg) {
+        crypto_assess_result assessment_result;
+        if (!record) {
+            for (const auto& crypto_assessor : ca) {
+                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg));
+            }
+        }
+        else {  // write metadata to json record
+            json_array assessor_record{record, "cryptographic_security_assessment"};
+            for (const auto& crypto_assessor : ca)
+                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg, assessor_record));
+            assessor_record.close();
+        }
+        return assessment_result;
     }
 
-
-    bool operator()(const quic_init &msg) {
+    crypto_assess_result operator()(const quic_init &msg) {
+        crypto_assess_result assessment_result;
         if (msg.has_tls()) {
-            ca->assess(msg.get_tls_client_hello(), record);
+            if (!record) {
+                for (const auto& crypto_assessor : ca) {
+                    assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg.get_tls_client_hello()));
+                }
+            }
+            else {  // write metadata to json record
+                json_array assessor_record{record, "cryptographic_security_assessment"};
+                for (const auto& crypto_assessor : ca)
+                    assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg.get_tls_client_hello(), assessor_record));
+                assessor_record.close();
+            }
         }
-        return false;
+        return assessment_result;
     }
 
-    bool operator()(const ssh_init_packet &msg) {
+    crypto_assess_result operator()(const ssh_init_packet &msg) {
+        crypto_assess_result assessment_result;
         if (msg.kex_pkt.is_not_empty()) {
-            ca->assess(msg.kex_pkt,record);
+            if (!record) {
+                for (const auto& crypto_assessor : ca) {
+                    assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg.kex_pkt));
+                }
+            }
+            else {  // write metadata to json record
+                json_array assessor_record{record, "cryptographic_security_assessment"};
+                for (const auto& crypto_assessor : ca)
+                    assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg.kex_pkt, assessor_record));
+                assessor_record.close();
+
+            }
         }
-        return false;
+        return assessment_result;
     }
 
-    bool operator()(const ssh_kex_init &msg) {
+    crypto_assess_result operator()(const ssh_kex_init &msg) {
+        crypto_assess_result assessment_result;
         if (msg.is_not_empty()) {
-            ca->assess(msg,record);
+            if (!record) {
+                for (const auto& crypto_assessor : ca) {
+                    assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg));
+                }
+            }
+            else {  // write metadata to json record
+                json_array assessor_record{record, "cryptographic_security_assessment"};
+                for (const auto& crypto_assessor : ca)
+                    assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg, assessor_record));
+                assessor_record.close();
+            }
         }
-        return false;
+        return assessment_result;
     }
 
     template <typename T>
-    bool operator()(const T &) {
-        return false;   // no assessment performed for all other types
+    crypto_assess_result operator()(const T &) {
+        return crypto_assess_result{};   // no assessment performed for all other types
     }
 
-    bool operator()(std::monostate &) { return false; }
+    crypto_assess_result operator()(std::monostate &) { return crypto_assess_result{}; }
 
 };
 
-template <typename T_M>
-class event_string
-{
-    const struct key &k;
-    const struct analysis_context &analysis;
-    std::string dest_context;
-    event_msg event;
-    T_M &message_pkt;
+struct check_exposed_creds {
 
-public:
-    event_string(const struct key &k, const struct analysis_context &analysis, T_M &proto) :
-        k{k}, analysis{analysis}, message_pkt{proto} {  }
+    check_exposed_creds() { }
 
-    event_msg construct_event_string_proto( [[maybe_unused]] tofsee_initial_message &msg) {
-        // For tofsee initial pkt, src ip, src port and bot ip are important
-        // replace dst ip and port with src ip and port
-        // add bot ip as user agent string
-        //
-        char src_ip_str[MAX_ADDR_STR_LEN];
-        k.sprintf_dst_addr(src_ip_str);
-        char dst_ip_str[MAX_ADDR_STR_LEN];
-        k.sprint_src_addr(dst_ip_str);
-        char dst_port_str[MAX_PORT_STR_LEN];
-        k.sprint_src_port(dst_port_str);
+    exposed_creds_type operator()(const http_request &msg) {
+        return exposed_creds_assessor::assess(msg);
+    }
 
-        dest_context.append("(");
-        dest_context.append(analysis.destination.sn_str).append(")(");
-        dest_context.append(dst_ip_str).append(")(");
-        dest_context.append(dst_port_str).append(")");
+    exposed_creds_type operator()(const imap::imap_requests &msg) {
+        return exposed_creds_assessor::assess(msg);
+    }
 
-        event = std::make_tuple(src_ip_str, analysis.fp.string(), analysis.destination.ua_str, dest_context);
-        return event;
+    exposed_creds_type operator()(const tacacs::packet &msg) {
+        return exposed_creds_assessor::assess(msg);
+    }
+
+    exposed_creds_type operator()(const ldap::message &msg) {
+        return exposed_creds_assessor::assess(msg);
+    }
+
+    exposed_creds_type operator()(const ftp::request &msg) {
+        return exposed_creds_assessor::assess(msg);
+    }
+
+    exposed_creds_type operator()(const redis::request &msg) {
+        return exposed_creds_assessor::assess(msg);
+    }
+
+    exposed_creds_type operator()(const snmp::packet &msg) {
+        return exposed_creds_assessor::assess(msg);
     }
 
     template <typename T>
-    event_msg construct_event_string_proto([[maybe_unused]] T &msg) {
-        char src_ip_str[MAX_ADDR_STR_LEN];
-        k.sprint_src_addr(src_ip_str);
-        char dst_port_str[MAX_PORT_STR_LEN];
-        k.sprint_dst_port(dst_port_str);
-
-        dest_context.append("(");
-        dest_context.append(analysis.destination.sn_str).append(")(");
-        dest_context.append(analysis.destination.dst_ip_str).append(")(");
-        dest_context.append(dst_port_str).append(")");
-
-        event = std::make_tuple(src_ip_str, analysis.fp.string(), utf8_string::get_utf8_string(analysis.destination.ua_str), dest_context);
-        return event;
+    exposed_creds_type operator()(const T &) {
+        return exposed_creds_type::none;
     }
 
-    event_msg construct_event_string() {
-        return construct_event_string_proto(message_pkt);
-    }
+    exposed_creds_type operator()(std::monostate &) { return exposed_creds_type::none; }
 };
 
 struct do_observation {
     const struct key &k_;
     struct analysis_context &analysis_;
-    class message_queue *mq_;
+    class message_queue<event_msg> *mq_;
 
     do_observation(const struct key &k,
                    struct analysis_context &analysis,
-                   class message_queue *mq) :
+                   class message_queue<event_msg> *mq) :
         k_{k},
         analysis_{analysis},
         mq_{mq}
     {}
 
-    void operator()(tls_client_hello &m) {
+    void operator()(tls_client_hello &) {
         // create event and send it to the data/stats aggregator
-        event_string ev_str{k_, analysis_, m};
-        mq_->push(ev_str.construct_event_string());
+        mq_->push(event_string::construct_event_string(k_, analysis_));
     }
 
-    void operator()(quic_init &m) {
+    void operator()(quic_init &) {
         // create event and send it to the data/stats aggregator
-        event_string ev_str{k_, analysis_, m};
-        mq_->push(ev_str.construct_event_string());
+        mq_->push(event_string::construct_event_string(k_, analysis_));
     }
 
-    void operator()(tofsee_initial_message &tofsee_pkt) {
+    void operator()(tofsee_initial_message &) {
         // create event and send it to the data/stats aggregator
-        event_string ev_str{k_, analysis_, tofsee_pkt};
-        mq_->push(ev_str.construct_event_string());
+        mq_->push(event_string::construct_event_string_tofsee(k_, analysis_));
     }
 
-    void operator()(http_request &m) {
+    void operator()(http_request &) {
         // create event and send it to the data/stats aggregator
-        event_string ev_str{k_, analysis_, m};
-        mq_->push(ev_str.construct_event_string());
+        mq_->push(event_string::construct_event_string(k_, analysis_));
     }
 
-    void operator()(stun::message &m) {
+    void operator()(stun::message &) {
         // create event and send it to the data/stats aggregator
-        event_string ev_str{k_, analysis_, m};
-        mq_->push(ev_str.construct_event_string());
+        mq_->push(event_string::construct_event_string(k_, analysis_));
     }
 
-    void operator()(ssh_init_packet &m) {
+    void operator()(ssh_init_packet &) {
         // create event and send it to the data/stats aggregator
-        event_string ev_str{k_, analysis_, m};
-        mq_->push(ev_str.construct_event_string());
+        mq_->push(event_string::construct_event_string(k_, analysis_));
     }
 
     template <typename T>
     void operator()(T &) { }
 
+};
+
+struct do_cert_label_observation {
+    const struct key &k_;
+    class message_queue<event_msg> *mq_;
+
+    do_cert_label_observation(const struct key &k,
+                              class message_queue<event_msg> *mq) :
+        k_{k},
+        mq_{mq}
+    {}
+
+    void operator()(tls_server_hello_and_certificate &msg) {
+        std::string common_name;
+        if (msg.get_subject_common_name(common_name) && !common_name.empty()) {
+            mq_->push(event_string::construct_cert_label_event(k_, common_name));
+        }
+    }
+
+    void operator()(tls_certificate &msg) {
+        std::string common_name;
+        if (msg.get_subject_common_name(common_name) && !common_name.empty()) {
+            mq_->push(event_string::construct_cert_label_event(k_, common_name));
+        }
+    }
+
+    template <typename T>
+    void operator()(T &) { }
+
+    void operator()(std::monostate &) { }
+};
+
+struct do_snmp_oid_observation {
+    const struct key &k_;
+    class message_queue<event_msg> *mq_;
+
+    do_snmp_oid_observation(const struct key &k,
+                            class message_queue<event_msg> *mq) :
+        k_{k},
+        mq_{mq}
+    {}
+
+    /// Construct an SNMP OID event for each OID in msg by passing in a lambda
+    /// function that constructs the event and then pushes it onto mq_.
+    ///
+    void operator()(snmp::packet &msg) {
+        msg.for_each_var_bind_oid([&](const std::string &oid) {
+            if (!oid.empty()) {
+                mq_->push(event_string::construct_snmp_oid_event(k_, oid));
+            }
+        });
+    }
+
+    template <typename T>
+    void operator()(T &) { }
+
+    void operator()(std::monostate &) { }
 };
 
 bool stateful_pkt_proc::set_tcp_protocol_from_keyword(protocol &x,
@@ -495,6 +624,12 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
     case tcp_msg_type_ftp_response:
         x.emplace<ftp::response>(pkt);
         return;
+    case tcp_msg_type_imap_request:
+        x.emplace<imap::imap_requests>(pkt);
+        return;
+    case tcp_msg_type_imap_response:
+        x.emplace<imap::imap_responses>(pkt);
+        return;
     case tcp_msg_type_redis_response:
         x.emplace<redis::response>(pkt);
         return;
@@ -635,9 +770,21 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
 
     // No reassembler : call set_tcp_protocol on every data pkt
     if (!reassembler || !global_vars.reassembly) {
+        // For FDC flows, the flows are not long-lived. Mercury typically
+        // observes around 20 packets per flow, so any traffic seen again
+        // after 30 seconds should be treated as a new flow.
+        //
+        // Packets are forwarded to Mercury only when it explicitly
+        // signals that additional packets are required (`more_packets_needed`).
+        // In such cases, the number of packets sent is capped at 20.
+        //
         bool is_new = false;
         if (global_vars.output_tcp_initial_data) {
-            is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
+            if (tcp_pkt.is_synthetic_pkt()) {
+                is_new = tcp_flow_table.is_first_synthetic_data_packet(k, ts->tv_sec);
+            } else {
+                is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
+            }
         }
         set_tcp_protocol(x, pkt, is_new, &tcp_pkt);
         return true;
@@ -645,7 +792,12 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
 
     bool is_new = false;
     if (global_vars.output_tcp_initial_data) {
-        is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
+        if (tcp_pkt.is_synthetic_pkt()) {
+            is_new = tcp_flow_table.is_first_synthetic_data_packet(k, ts->tv_sec);
+        } else {
+            is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
+        }
+
     }
     datum pkt_copy{pkt};
 
@@ -1127,6 +1279,11 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     if (std::visit(is_not_empty{}, x)) {
         std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
         bool output_analysis = false;
+        bool output_attr = false;
+        bool truncated_tls = (truncated_tcp &&
+                              (std::holds_alternative<tls_client_hello>(x) ||
+                               std::holds_alternative<tls_server_hello_and_certificate>(x)))
+                             || (truncated_quic && std::holds_alternative<quic_init>(x));
         if (global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
 
             output_analysis = std::visit(do_analysis{k, analysis, c}, x);
@@ -1136,10 +1293,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
 
             // check for additional classifier agnostic attributes like encrypted dns and domain-faking
             //
-            if (!analysis.result.attr.is_initialized() && c) {
-                analysis.result.attr.initialize(&(c->get_common_data().attr_name.value()),c->get_common_data().attr_name.get_names_char());
-            }
-            c->check_additional_attributes(analysis);
+            output_attr = (c && c->check_additional_attributes(analysis)) ? true : output_attr; // set to true only if any additional attribute is set, else keep the previous value
 
             // analysis_.destination
             //
@@ -1147,15 +1301,16 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
                 std::visit(do_observation{k, analysis, mq}, x);
             }
         }
+        if (global_vars.do_analysis && mq) {
+            if (ip_pkt.src_is_private()) {
+                std::visit(do_cert_label_observation{k, mq}, x);
+            }
+            std::visit(do_snmp_oid_observation{k, mq}, x);
+        }
 
         bool output_nbd = false;
         if (global_vars.network_behavioral_detections) {
-            if (!analysis.result.attr.is_initialized()) {
-                nbd_common_data.initialize_behavioral_detections();
-                analysis.result.attr.initialize(&(nbd_common_data.attr_name.value()),nbd_common_data.attr_name.get_names_char());
-            }
-
-            output_nbd = std::visit(do_network_behavioral_detections{k, analysis, c, nbd_common_data}, x);
+            output_nbd = std::visit(do_network_behavioral_detections{k, analysis, c, attribute_common_data}, x);
         }
 
 
@@ -1167,7 +1322,17 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         }
         std::visit(write_metadata{record, global_vars.metadata_output, global_vars.certs_json_output, global_vars.dns_json_output}, x);
 
-        if (output_analysis || output_nbd) {
+        if (!crypto_policies.empty() && !truncated_tls) {
+            crypto_assess_result assessment_result = std::visit(do_crypto_assessment{crypto_policies, record}, x);
+            output_attr = set_crypto_assessment_attr(assessment_result) ? true : output_attr;
+        }
+
+        if (exposed_creds) {
+            exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
+            output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
+        }
+
+        if (output_analysis || output_nbd || output_attr) {
             analysis.result.write_json(record, "analysis");
         }
 
@@ -1175,7 +1340,6 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
 //            nbd_analysis.write_json(record, "network_behavioral_detections");
 //        }
 
-        if (crypto_policy) { std::visit(do_crypto_assessment{crypto_policy, record}, x); }
 
         // write indication of truncation or reassembly
         //
@@ -1359,6 +1523,10 @@ inline bool is_fdc_writable(fingerprint_type fp_type) {
     case fingerprint_type_tofsee:
     case fingerprint_type_stun:
     case fingerprint_type_ssh:
+    case fingerprint_type_http_server:
+    case fingerprint_type_tls_server:
+    case fingerprint_type_dtls:
+    case fingerprint_type_dtls_server:
             return true;
         default:
             return false;
@@ -1372,7 +1540,7 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
                                            size_t *buffer_size,
                                            [[maybe_unused]]const struct analysis_context** context) {
 
-    if (k == nullptr or payload == nullptr or buffer == nullptr) {
+    if (k == nullptr or payload == nullptr or buffer == nullptr or buffer_size == nullptr) {
         return fdc_return::INVALID_INPUT;
     }
 
@@ -1415,6 +1583,8 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         // setup a seq no of 0 to denote in-order reassembly
         tcp_hdr.seq = 0;
         tcp_packet tcp_pkt{pkt, &tcp_hdr};
+        //setting synthetic pkt to true to seed a synthetic SYN entry
+        tcp_pkt.set_synthetic_pkt();
 
         if (reassembler_ptr && global_vars.reassembly && perform_reassembly) {
             analysis.flow_state_pkts_needed = false;
@@ -1648,24 +1818,40 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
     // process protocol data element
     //
     if (std::visit(is_not_empty{}, x)) {
+        bool output_attr = false;
+        bool truncated_tls = (truncated_tcp &&
+                              (std::holds_alternative<tls_client_hello>(x) ||
+                               std::holds_alternative<tls_server_hello_and_certificate>(x)))
+                             || (truncated_udp && std::holds_alternative<quic_init>(x));
+
+        if (global_vars.do_analysis && mq) {
+            if (ip_pkt.src_is_private()) {
+                std::visit(do_cert_label_observation{k, mq}, x);
+            }
+            std::visit(do_snmp_oid_observation{k, mq}, x);
+        }
         std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
         if (global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
 
-            // re-initialize the structure that holds analysis results
-            //
-            analysis.result.reinit();
             bool output_analysis = std::visit(do_analysis{k, analysis, c}, x);
 
             // check for additional classifier agnostic attributes like encrypted dns and domain-faking
             //
-            if (!analysis.result.attr.is_initialized() && c) {
-                analysis.result.attr.initialize(&(c->get_common_data().attr_name.value()),c->get_common_data().attr_name.get_names_char());
+            output_attr = (c && c->check_additional_attributes(analysis)) ? true : output_attr;
+
+            if (exposed_creds) {
+                exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
+                output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
             }
-            c->check_additional_attributes(analysis);
+
+            if (!crypto_policies.empty() && !truncated_tls) {
+                crypto_assess_result assessment_result = std::visit(do_crypto_assessment{crypto_policies}, x);
+                output_attr = set_crypto_assessment_attr(assessment_result) ? true : output_attr;
+            }
 
             bool output_nbd = false;
             if (global_vars.network_behavioral_detections) {
-                output_nbd = std::visit(do_network_behavioral_detections{k, analysis, c, nbd_common_data}, x);
+                output_nbd = std::visit(do_network_behavioral_detections{k, analysis, c, attribute_common_data}, x);
             }
 
             // note: we only perform observations when analysis is
@@ -1692,16 +1878,23 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             //
             analysis.destination.dst_port = ntoh(analysis.destination.dst_port);
 
-            return output_analysis || output_nbd;
+            return output_analysis || output_nbd || output_attr;
 
-        } else if (global_vars.network_behavioral_detections) {
-            analysis.result.reinit();
-            if (!analysis.result.attr.is_initialized()) {
-                nbd_common_data.initialize_behavioral_detections();
-                analysis.result.attr.initialize(&(nbd_common_data.attr_name.value()),nbd_common_data.attr_name.get_names_char());
+        } else {
+            bool output_nbd = false;
+
+            if (global_vars.network_behavioral_detections) {
+                output_nbd = std::visit(do_network_behavioral_detections{k, analysis, c, attribute_common_data}, x);
             }
-
-            return std::visit(do_network_behavioral_detections{k, analysis, c, nbd_common_data}, x);
+            if (!crypto_policies.empty() && !truncated_tls) {
+                crypto_assess_result crypto_result = std::visit(do_crypto_assessment{crypto_policies}, x);
+                output_attr = set_crypto_assessment_attr(crypto_result) ? true : output_attr;
+            }
+            if (exposed_creds) {
+                exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
+                output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
+            }
+            return output_nbd || output_attr;
         }
     }
 
