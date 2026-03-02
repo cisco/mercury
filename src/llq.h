@@ -33,7 +33,7 @@ struct alignas(LLQ_CACHELINE_SIZE) ll_queue {
     uint64_t llq_len;     /* The length of the ringbuffer */
     alignas(LLQ_CACHELINE_SIZE) uint64_t ridx;        /* The read index */
     alignas(LLQ_CACHELINE_SIZE) uint64_t widx;        /* The write index */
-    alignas(LLQ_CACHELINE_SIZE) int need_read;        /* Special case: writer wraped around and ran into reader */
+    alignas(LLQ_CACHELINE_SIZE) int need_read;        /* Special case: writer wrapped around and ran into reader */
     alignas(LLQ_CACHELINE_SIZE) uint64_t drops;       /* Output drop counter */
     alignas(LLQ_CACHELINE_SIZE) uint64_t drops_trunc; /* Drops due to truncation counter */
 
