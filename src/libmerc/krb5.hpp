@@ -633,7 +633,7 @@ namespace krb5 {
         if (descr) {
             o.print_key_string(key, descr);
         } else {
-            o.print_key_unknown_code(key, code);
+            o.print_key_unknown_code<uint64_t>(key, code);
         }
     }
 
