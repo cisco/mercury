@@ -25,8 +25,8 @@ and its end.  Thus our fundamental data type is
 
 ```c++
    struct datum {
-      uint8_t *data;
-      uint8_t *data_end;
+      const unsigned char *data;
+      const unsigned char *data_end;
    };
 ```
 
