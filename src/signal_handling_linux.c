@@ -37,7 +37,7 @@ void sig_close (int signal_arg) {
 
     sig_close_flag = 1; /* tell all threads to shutdown gracefully */
 
-    fclose(stdin);      /* if are reading from stdin, stop reading */
+    close(STDIN_FILENO); /* if reading from stdin, stop reading (async-signal-safe) */
 
     errno = saved_errno; /* restore */
 }
