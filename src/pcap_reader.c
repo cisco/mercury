@@ -70,6 +70,7 @@ enum status open_and_dispatch(struct mercury_config *cfg, mercury_context mc, st
 	u_int64_t nano_seconds = 0;
 	u_int64_t bytes_written = 0;
 	u_int64_t packets_written = 0;
+    int err;
 
     timer_start(&t); // get timestamp before we start processing
 
