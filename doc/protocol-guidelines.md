@@ -42,7 +42,7 @@ Mercury protocol implementations must follow these guidelines.
 - Data parsers must not directly access pointers; instead, they should
   use a safe alternative:
 
-   - a member functions of class datum,
+   - a member function of class datum,
 
    - the template class encoded<T>, to decode an integer type T,
 
@@ -61,8 +61,8 @@ Mercury protocol implementations must follow these guidelines.
      up_to_required_byte, alpha_numeric, digits, or hex_digits, for
      parsing sequences from a character class,
 
-   - the classes one_or_more_up_to_delimeter or escaped_string_up_to,
-     to parse arbitrary data up to a (possibly escaped) delimeter
+   - the classes one_or_more_up_to_delimiter or escaped_string_up_to,
+     to parse arbitrary data up to a (possibly escaped) delimiter
      character,
 
    - class tlv, for ASN.1 data.
@@ -79,7 +79,7 @@ Mercury uses a selective, lazy, non-owning data parsing strategy:
 
 - a parser should avoid parsing data until it is necessary, and
   instead determine the high level structure of a message, storing
-  just enough data to understand that structure, allowing the the user
+  just enough data to understand that structure, allowing the user
   of the library to determine exactly what data elements will be fully
   parsed, and providing functions to do so.
 
@@ -111,7 +111,7 @@ Mercury uses a selective, lazy, non-owning data parsing strategy:
      initializer list, except for those that use a default
      constructor.
 
-   * If necessary, the member initalizer can invoke a static member
+   * If necessary, the member initializer can invoke a static member
      function that accepts a `datum &` and returns an object of the
      appropriate class, in which case the function should enable
      Return Value Optimization (RVO) to avoid an unneeded copy.
@@ -156,8 +156,7 @@ merely invoke the `datum &` constructor.
 ## Enumerations
 
 When a protocol uses a set of assigned numbers that have meaning
-within the protocol, such as the [TLS Ciphersuites]
-(https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4),
+within the protocol, such as the [TLS Ciphersuites](https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4),
 the implementation should define an enum class to represent those
 values.
 
@@ -168,7 +167,5 @@ values.
   strings should prefer lowercase with underscores instead of spaces.
 
 - The enum and the corresponding descriptive strings should be derived
-  from the Internet Assigned Numers Authority, the IEEE, or other
+  from the Internet Assigned Numbers Authority, the IEEE, or other
   sources as needed.
-
-
