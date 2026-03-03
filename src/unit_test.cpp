@@ -24,9 +24,7 @@
 #include "libmerc/redis.hpp"
 #include "libmerc/archive.h"
 #include "libmerc/fdc.hpp"
-
 #include "libmerc/imap.hpp"
-
 // Macros to colorize output
 //
 #define RED_ON     "\033[31m"
