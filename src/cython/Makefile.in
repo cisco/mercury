@@ -37,6 +37,7 @@ wheel:
 	CC=g++ CXX=g++ CFLAGS="$(CFLAGS)" CXXFLAGS="$(CXXFLAGS)" LDFLAGS="$(LDFLAGS)" python3 setup.py bdist_wheel
 
 clean:
-	rm -f mercury.*.so mercury.cpp
+	rm -rf mercury.*.so mercury.cpp build dist mercury_python.egg-info *.dSYM
+	find . -type d -name "*.dSYM" -prune -exec rm -rf {} +
 
 # EOF
