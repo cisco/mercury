@@ -406,15 +406,6 @@ void *stats_thread_func(void *statst_arg) {
         duration++;
     }
 
-    /* Capture any final packets/bytes that arrived just before shutdown. */
-    for (int thread = 0; thread < statst->num_threads; thread++) {
-        uint64_t packets = __atomic_exchange_n(&(statst->tstor[thread].received_packets_local), 0, __ATOMIC_ACQ_REL);
-        uint64_t bytes = __atomic_exchange_n(&(statst->tstor[thread].received_bytes_local), 0, __ATOMIC_ACQ_REL);
-
-        __atomic_add_fetch(&(statst->received_packets), packets, __ATOMIC_RELAXED);
-        __atomic_add_fetch(&(statst->received_bytes), bytes, __ATOMIC_RELAXED);
-    }
-
     free(per_tsock_stats);
 
     fprintf(stderr, "[STATISTICS OUTPUT] Stats thread with pthread id %lu (PID %u) exiting...\n", statst->tid, statst->kpid);
@@ -818,6 +809,17 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
         }
 
     } /* end while (sig_close_workers == 0) */
+
+    /*
+     * Graceful shutdown order is stats thread first, then packet workers,
+     * then output thread. Since workers can still process packets after the
+     * stats thread exits, each worker must flush its own local counters here
+     * before exit so the final global packet/byte totals include that work.
+     */
+    uint64_t packets = __atomic_exchange_n(&(thread_stor->received_packets_local), 0, __ATOMIC_ACQ_REL);
+    uint64_t bytes = __atomic_exchange_n(&(thread_stor->received_bytes_local), 0, __ATOMIC_ACQ_REL);
+    __atomic_add_fetch(&(thread_stor->statst->received_packets), packets, __ATOMIC_RELAXED);
+    __atomic_add_fetch(&(thread_stor->statst->received_bytes), bytes, __ATOMIC_RELAXED);
 
     fprintf(stderr, "[PACKET PROCESSOR] Thread %d with pthread id %lu (PID %u) exiting...\n", thread_stor->tnum, thread_stor->tid, thread_stor->kpid);
     return 0;
