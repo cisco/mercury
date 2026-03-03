@@ -32,7 +32,7 @@ void sig_close (int signal_arg) {
 
     static const char *msg = "\nshutting down\n";
 
-    int l = write(STDERR_FILENO, msg, strlen(msg));
+    int l = write(STDERR_FILENO, msg, sizeof(msg) - 1);
     (void)l;
 
     sig_close_flag = 1; /* tell all threads to shutdown gracefully */
