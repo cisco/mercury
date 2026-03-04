@@ -6,6 +6,7 @@ LibmercTestFixture::LibmercTestFixture()
     m_pcap_file_name = nullptr;
     m_pcap = nullptr;
     m_libmerc_library_path = LIBMERC_SO_PATH;
+    m_time = {0, 0};
 }
 
 LibmercTestFixture::~LibmercTestFixture()
