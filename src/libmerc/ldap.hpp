@@ -15,6 +15,7 @@
 #include "json_object.h"
 #include "match.h"
 #include "protocol.h"
+#include "exposed_creds.hpp"
 
 namespace ldap {
 
@@ -218,7 +219,7 @@ namespace ldap {
     class sasl_credentials {
         tlv mechanism;
         tlv credentials;
-        bool valid;
+        bool valid{false};
 
     public:
 
@@ -229,6 +230,28 @@ namespace ldap {
         }
 
         bool is_not_empty() const { return valid; }
+
+        exposed_creds_type check_credential_exposure() const {
+            if (!valid || credentials.value.is_not_empty() == false) {
+                return exposed_creds_type::none;
+            }
+
+            if (mechanism.value.case_insensitive_match("plain")) {
+                return exposed_creds_type::plaintext_password;
+            }
+            if (mechanism.value.case_insensitive_match("oauthbearer") ||
+                mechanism.value.case_insensitive_match("xoauth2")) {
+                return exposed_creds_type::plaintext_token;
+            }
+            if (mechanism.value.case_insensitive_match("cram-md5") ||
+                mechanism.value.case_insensitive_match("digest-md5") ||
+                mechanism.value.case_insensitive_match("scram-sha-1") ||
+                mechanism.value.case_insensitive_match("scram-sha-256") ||
+                mechanism.value.case_insensitive_match("scram-sha-512")) {
+                return exposed_creds_type::password_derived;
+            }
+            return exposed_creds_type::none;
+        }
 
         void write_json(json_object &o) const {
             if (!valid) { return; }
@@ -277,13 +300,36 @@ namespace ldap {
         tlv version;
         tlv ldapdn;
         tlv auth;
+        sasl_credentials sasl_cred;
+        bool has_sasl_credentials{false};
+        bool valid{false};
+        exposed_creds_type exposed_creds{exposed_creds_type::none};
 
     public:
+
+        bind_request() = default;
 
         bind_request(datum &d) {
             version.parse(&d, tlv::INTEGER, "version");
             ldapdn.parse(&d, 0x00, "ldapdn");
             auth.parse(&d, 0x00, "auth");
+            valid = d.is_not_null();
+
+            if (!valid) {
+                return;
+            }
+
+            if (auth.tag == 0x80 && auth.value.is_not_empty()) {
+                exposed_creds = exposed_creds_type::plaintext_password;
+                return;
+            }
+
+            if (auth.tag == 0xa3) {
+                datum tmp = auth.value;
+                sasl_cred.parse(tmp);
+                has_sasl_credentials = sasl_cred.is_not_empty();
+                exposed_creds = sasl_cred.check_credential_exposure();
+            }
 
         }
 
@@ -295,15 +341,18 @@ namespace ldap {
             if (auth.tag == 0x80) {
                 auth.print_as_json_escaped_string(auth_json, "simple");
             } else if (auth.tag == 0xa3) {
-                datum tmp = auth.value;
-                sasl_credentials sasl_cred;
-                sasl_cred.parse(tmp);
-                sasl_cred.write_json(auth_json);
+                if (has_sasl_credentials) {
+                    sasl_cred.write_json(auth_json);
+                }
             } else {
                 auth_json.print_key_hex("unknown", auth.value);
             }
             auth_json.close();
             bind_req_json.close();
+        }
+
+        exposed_creds_type check_credential_exposure() const {
+            return exposed_creds;
         }
 
     };
@@ -344,6 +393,11 @@ namespace ldap {
         tlv message_id;     // INTEGER
         tlv protocol_op;    // ???
         bool valid{false};
+        bind_request bind_req{};
+        bind_response bind_resp{};
+        bool has_bind_req{false};
+        bool has_bind_resp{false};
+        exposed_creds_type exposed_creds{exposed_creds_type::none};
 
     public:
 
@@ -355,6 +409,28 @@ namespace ldap {
             message_id.parse(&outer_sequence.value, tlv::INTEGER, "message_id");
             valid = message_id.value.is_not_empty();
             protocol_op.parse(&outer_sequence.value, 0x00, "protocol_op");
+            if (!valid || protocol_op.is_not_null() == false) {
+                return;
+            }
+
+            constexpr uint8_t bind_req_tag = 0x60;
+            constexpr uint8_t bind_resp_tag = 0x61;
+            switch(protocol_op.tag) {
+            case bind_req_tag:
+                {
+                    datum bind_req_data{protocol_op.value};
+                    bind_req = bind_request{bind_req_data};
+                    has_bind_req = true;
+                    exposed_creds = bind_req.check_credential_exposure();
+                }
+                break;
+            case bind_resp_tag:
+                bind_resp.parse(protocol_op.value);
+                has_bind_resp = true;
+                break;
+            default:
+                ;
+            }
 
         }
 
@@ -371,27 +447,10 @@ namespace ldap {
             ldap_json.print_key_hex("message_id", message_id.value);
             // ldap_json.print_key_hex("protocol_op", protocol_op.value);
 
-            constexpr uint8_t bind_req_tag = 0x60;  // TODO: make this programmatic
-            constexpr uint8_t bind_resp_tag = 0x61; // TODO: make this programmatic
-            switch(protocol_op.tag) {
-            case bind_req_tag:
-                {
-                    // fprintf(stderr, "got bind_req_tag\n");
-                    bind_request bind_req{protocol_op.value};
-                    bind_req.write_json(ldap_json);
-                }
-                break;
-            case bind_resp_tag:
-                {
-                    // fprintf(stderr, "got bind_req_tag\n");
-                    bind_response bind_resp;
-                    bind_resp.parse(protocol_op.value);
-                    bind_resp.write_json(ldap_json);
-                }
-                break;
-            default:
-                // fprintf(stderr, "got tag %02x (not %02x or %02x)\n", protocol_op.tag, bind_req_tag, tlv::explicit_tag_constructed(0));
-                ;
+            if (has_bind_req) {
+                bind_req.write_json(ldap_json);
+            } else if (has_bind_resp) {
+                bind_resp.write_json(ldap_json);
             }
 
             ldap_json.close();
@@ -407,6 +466,10 @@ namespace ldap {
         //
         void compute_fingerprint(fingerprint &) const { }
         bool do_analysis(const struct key &, struct analysis_context &, classifier*) { return false; }
+
+        exposed_creds_type check_credential_exposure() const {
+            return exposed_creds;
+        }
 
     };
 

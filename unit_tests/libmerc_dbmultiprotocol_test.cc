@@ -231,6 +231,35 @@ TEST_CASE_METHOD(LibmercTestFixture, "test SGT encapsulated TLS - write_json wit
     }
 }
 
+TEST_CASE_METHOD(LibmercTestFixture, "test tls select strings producing different output line counts")
+{
+    auto tls_check = [&](int expected_count, const struct libmerc_config &config)
+    {
+        initialize(config);
+        CHECK(expected_count == counter());
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, int>> test_set_up{
+        {test_config{
+             .m_lc{.resources = resources_minimal_path,
+                   .packet_filter_cfg = (char *)"tls.client_hello"},
+             .m_pc{"capture2.pcap"}},
+         17},
+        {test_config{
+             .m_lc{.resources = resources_minimal_path,
+                   .packet_filter_cfg = (char *)"tls.client_hello,tls.server_hello"},
+             .m_pc{"capture2.pcap"}},
+         60} // this number is different because tls.server_hello is selected in addition to tls.client_hello
+    };
+
+    for (auto &[config, count] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        tls_check(count, config.m_lc);
+    }
+}
+
 TEST_CASE_METHOD(LibmercTestFixture, "test quic with resources-mp and eth linktype")
 {
 
@@ -779,6 +808,62 @@ TEST_CASE_METHOD(LibmercTestFixture, "test exposed_creds attribute")
             },
             .m_pc{"http_auth.pcap"}},
             "exposed_credentials_plaintext"    // check if exposed_credentials_plaintext attribute is present in the attributes array
+        },
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_minimal_path,
+                .packet_filter_cfg = (char *)"all;exposed-creds"
+            },
+            .m_pc{"http_auth_bearer.pcap"}},
+            "exposed_credentials_token"
+        },
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_minimal_path,
+                .packet_filter_cfg = (char *)"all;exposed-creds"
+            },
+            .m_pc{"http_auth_digest.pcap"}},
+            "exposed_credentials_derived"
+        },
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_minimal_path,
+                .packet_filter_cfg = (char *)"all;exposed-creds"
+            },
+            .m_pc{"ftp_exposed_creds.pcap"}},
+            "exposed_credentials_plaintext"
+        },
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_minimal_path,
+                .packet_filter_cfg = (char *)"all;exposed-creds"
+            },
+            .m_pc{"redis_exposed_creds.pcap"}},
+            "exposed_credentials_plaintext"
+        },
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_minimal_path,
+                .packet_filter_cfg = (char *)"all;exposed-creds"
+            },
+            .m_pc{"ldap_exposed_creds.pcap"}},
+            "exposed_credentials_plaintext"
+        },
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_minimal_path,
+                .packet_filter_cfg = (char *)"all;exposed-creds"
+            },
+            .m_pc{"ldap_exposed_creds_derived.pcap"}},
+            "exposed_credentials_derived"
+        },
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_minimal_path,
+                .packet_filter_cfg = (char *)"all;exposed-creds"
+            },
+            .m_pc{"snmp_exposed_creds.pcap"}},
+            "exposed_credentials_plaintext"
+        },
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_minimal_path,
+                .packet_filter_cfg = (char *)"all;exposed-creds"
+            },
+            .m_pc{"snmp_exposed_creds_derived.pcap"}},
+            "exposed_credentials_derived"
         }
     };
 
@@ -787,6 +872,76 @@ TEST_CASE_METHOD(LibmercTestFixture, "test exposed_creds attribute")
         set_pcap(config.m_pc.c_str());
         attr_check(expected_attr, config.m_lc);
     }
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "test exposed_creds with write_json and analysis off")
+{
+    set_pcap("http_auth.pcap");
+
+    libmerc_config config{
+        .do_analysis = false,
+        .resources = resources_minimal_path,
+        .packet_filter_cfg = (char *)"all;exposed-creds"
+    };
+
+    initialize(config);
+
+    bool saw_json_output = false;
+    while (1) {
+        if (read_next_data_packet()) {
+            break;
+        }
+
+        size_t json_size = mercury_packet_processor_write_json(
+            m_mpp,
+            m_output,
+            4096,
+            (unsigned char *)m_data_packet.first,
+            m_data_packet.second - m_data_packet.first,
+            &m_time
+        );
+
+        if (json_size > 0) {
+            saw_json_output = true;
+        }
+        if (saw_json_output) {
+            break;
+        }
+    }
+
+    CHECK(saw_json_output);
+    deinitialize();
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "test exposed_creds with analyze_ip_packet and analysis off")
+{
+    set_pcap("http_auth.pcap");
+
+    libmerc_config config{
+        .do_analysis = false,
+        .resources = resources_minimal_path,
+        .packet_filter_cfg = (char *)"all;exposed-creds"
+    };
+
+    initialize(config);
+
+    int packet_count = 0;
+    while (1) {
+        if (read_next_data_packet()) {
+            break;
+        }
+
+        mercury_packet_processor_get_analysis_context(
+            m_mpp,
+            (unsigned char *)m_data_packet.first,
+            m_data_packet.second - m_data_packet.first,
+            &m_time
+        );
+        packet_count++;
+    }
+
+    CHECK(packet_count > 0);
+    deinitialize();
 }
 
 
@@ -813,6 +968,27 @@ TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment attributes")
             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
                 .packet_filter_cfg = (char *)"all;crypto-assess=default"
             },
+            .m_pc{"tls_cnsa2_psk_mode_psk_ke.pcap"}},
+            "cnsa_2_0_non_conformant"    // psk_key_exchange_modes includes psk_ke
+        },
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_minimal_path,
+                .packet_filter_cfg = (char *)"all;crypto-assess=default"
+            },
+            .m_pc{"tls_cnsa2_psk_short_binder.pcap"}},
+            "cnsa_2_0_non_conformant"    // pre_shared_key binder length < 256 bits
+        },
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_minimal_path,
+                .packet_filter_cfg = (char *)"all;crypto-assess=default"
+            },
+            .m_pc{"tls_cnsa2_psk_mlkem1024_missing.pcap"}},
+            "cnsa_2_0_non_conformant"    // psk_dhe_ke without MLKEM1024 key_share
+        },
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_minimal_path,
+                .packet_filter_cfg = (char *)"all;crypto-assess=default"
+            },
             .m_pc{"nist_nc.pcap"}},
             "nist_sp_800_52_2_non_conformant"    // check if nist_sp_800_52_2_non_conformant attribute is present in the attributes array
         }
@@ -823,6 +999,52 @@ TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment attributes")
         set_pcap(config.m_pc.c_str());
         attr_check(expected_attr, config.m_lc);
     }
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment quantum_safe compliance")
+{
+    auto attr_not_present_check = [&](std::string &attr_to_be_absent, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        CHECK_FALSE(check_attr(attr_to_be_absent));  // attribute should NOT be present
+
+        deinitialize();
+    };
+
+    std::vector<std::pair<test_config, std::string>> test_set_up{
+        {test_config{
+            .m_lc{.do_analysis = true, .resources = resources_minimal_path,
+                .packet_filter_cfg = (char *)"all;crypto-assess=quantum_safe"
+            },
+            .m_pc{"secp384r1mlkem1024_clienthello.pcap"}},
+            "cnsa_2_0_non_conformant"    // should NOT be present since secp384r1mlkem1024 is quantum-safe
+        }
+    };
+
+    for (auto &[config, attr_to_be_absent] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        attr_not_present_check(attr_to_be_absent, config.m_lc);
+    }
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment skipped on truncated tls")
+{
+    set_pcap("tls_cnsa2_psk_mode_psk_ke_truncated.pcap");
+
+    libmerc_config config{
+        .do_analysis = true,
+        .resources = resources_minimal_path,
+        .packet_filter_cfg = (char *)"all;crypto-assess=default"
+    };
+
+    initialize(config);
+
+    std::string non_pqc_attr = "cnsa_2_0_non_conformant";
+    CHECK_FALSE(check_attr(non_pqc_attr));
+
+    deinitialize();
 }
 
 TEST_CASE_METHOD(LibmercTestFixture, "test nbss with resources-mp")
