@@ -16,7 +16,8 @@
 ///
 inline void configure_protocol_classes(const global_config &gc) {
 
-    // raw features — unconditionally set every static member
+    // unconditionally set every static member so that
+    // sequential re-init in the same process gets clean state
     bool all_raw = gc.raw_features.at("all");
 
     tls_client_hello::set_raw_features(all_raw or gc.raw_features.at("tls"));

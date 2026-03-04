@@ -240,6 +240,23 @@ int LibmercTestFixture::counter(fingerprint_type fp_type, std::function<void()> 
     return count_of_packets;
 }
 
+std::string LibmercTestFixture::get_first_json()
+{
+    while (1)
+    {
+        if (read_next_data_packet())
+            break;
+
+        auto json_len = mercury_packet_processor_write_json(m_mpp, m_output, sizeof(m_output),
+                                                            (unsigned char *)m_data_packet.first,
+                                                            m_data_packet.second - m_data_packet.first,
+                                                            &m_time);
+        if (json_len > 0)
+            return std::string(m_output, json_len);
+    }
+    return {};
+}
+
 bool LibmercTestFixture::check_attr(std::string &expected_attr)
 {
     const attribute_context* attr_ctx;

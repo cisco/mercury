@@ -1429,3 +1429,81 @@ TEST_CASE_METHOD(LibmercTestFixture, "double VLAN tagged PPPoE with resources-mp
         check(count, config.m_lc);
     }
 }
+
+TEST_CASE_METHOD(LibmercTestFixture, "test raw-features write_json output for tls")
+{
+    // Expected "features":"<value>" substring in the JSON output for
+    // tls_client_hello_test_packet.pcap when raw-features=tls is enabled.
+    const std::string expected_features_kv =
+        R"("features":"[\"0303\",)"
+        R"(\"130113021303c02cc02bc024c023c00ac009cca9c030c02fc028c027c014c013cca8)"
+        R"(009d009c003d003c0035002fc008c012000a\",)"
+        R"([[\"ff01\",\"00\"],)"
+        R"([\"0000\",\"002100001e73656c662e6576656e74732e646174612e6d6963726f736f66742e636f6d\"],)"
+        R"([\"0017\",\"\"],)"
+        R"([\"000d\",\"001604030804040105030203080508050501080606010201\"],)"
+        R"([\"0005\",\"0100000000\"],)"
+        R"([\"0012\",\"\"],)"
+        R"([\"0010\",\"000c02683208687474702f312e31\"],)"
+        R"([\"000b\",\"0100\"],)"
+        R"([\"0033\",\"0024001d0020b56ffcdd5474896e64a03e82f3390a61f08a0512cf4ea76857a6fc54a4c4c704\"],)"
+        R"([\"002d\",\"0101\"],)"
+        R"([\"002b\",\"080304030303020301\"],)"
+        R"([\"000a\",\"0008001d001700180019\"],)"
+        R"([\"0015\",\")"
+        R"(00000000000000000000000000000000)"
+        R"(00000000000000000000000000000000)"
+        R"(00000000000000000000000000000000)"
+        R"(00000000000000000000000000000000)"
+        R"(00000000000000000000000000000000)"
+        R"(00000000000000000000000000000000)"
+        R"(00000000000000000000000000000000)"
+        R"(00000000000000000000000000000000)"
+        R"(00000000000000000000000000000000)"
+        R"(00000000000000000000000000000000)"
+        R"(00000000000000000000000000000000)"
+        R"(000000000000000000000000000000)"
+        R"(\"]]]")";
+
+    auto check = [&](int expect_features, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        std::string json = get_first_json();
+        REQUIRE(json.size() > 0);
+
+        if (expect_features) {
+            CHECK(json.find(expected_features_kv) != std::string::npos);
+        } else {
+            CHECK(json.find("\"features\"") == std::string::npos);
+        }
+
+        deinitialize();
+    };
+
+    // expect_features: 1 = features key-value must be present, 0 = features key must be absent
+    // sequence: enable → disable → re-enable (verifies reinit correctness)
+    std::vector<std::pair<test_config, int>> test_set_up{
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
+                .packet_filter_cfg = (char *)"tls.client_hello;raw-features=tls"},
+             .m_pc{"tls_client_hello_test_packet.pcap"}},
+         1},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
+                .packet_filter_cfg = (char *)"tls.client_hello"},
+             .m_pc{"tls_client_hello_test_packet.pcap"}},
+         0},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
+                .packet_filter_cfg = (char *)"tls.client_hello;raw-features=tls"},
+             .m_pc{"tls_client_hello_test_packet.pcap"}},
+         1},
+    };
+
+    for (auto &[config, expect_features] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        check(expect_features, config.m_lc);
+    }
+}
