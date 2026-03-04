@@ -11,15 +11,16 @@
 
 /// Configure static protocol settings from global config.
 ///
-/// Must be called once during initialization, before any
-/// packet processors are created.
+/// Safe to call multiple times (e.g., for re-initialization of mercury); each
+/// call unconditionally overwrites every static member to ensure clean state.
+/// Must be called before any packet processors are created.
 ///
 inline void configure_protocol_classes(const global_config &gc) {
 
-    // unconditionally set every static member so that
-    // sequential re-init in the same process gets clean state
-    bool all_raw = gc.raw_features.at("all");
+    // IMPORTANT: set all static members unconditionally (supports re-init)
 
+    // raw features
+    bool all_raw = gc.raw_features.at("all");
     tls_client_hello::set_raw_features(all_raw or gc.raw_features.at("tls"));
     stun::message::set_raw_features(all_raw or gc.raw_features.at("stun"));
     bittorrent_dht::set_raw_features(all_raw or gc.raw_features.at("bittorrent"));
