@@ -128,7 +128,7 @@ public:
         case sha1:                   return "sha1";
         case hmac_sha1_des3_kd:      return "hmac_sha1_des3_kd";
         case hmac_sha1_des3:         return "hmac_sha1_des3";
-        case sha1:                   return "sha1";
+        case sha1_v2:                return "sha1";
         case hmac_sha1_96_aes128:    return "hmac_sha1_96_aes128";
         case hmac_sha1_96_aes256:    return "hmac_sha1_96_aes256";
         case cmac_camellia128:       return "cmac_camellia128";

@@ -5,7 +5,7 @@
 #ifndef KRB5_HPP
 #define KRB5_HPP
 
-#define ASN1_DEBUG 1
+// #define ASN1_DEBUG 1
 // #define TLV_ERR_INFO 1
 
 #include <variant>
@@ -738,10 +738,10 @@ namespace krb5 {
                 error_json.print_key_json_string("crealm", crealm.value);
             }
             if (cname) {
-                principal_name{cname.value}.write_json(o, "cname");
+                principal_name{cname.value}.write_json(error_json, "cname");
             }
             error_json.print_key_json_string("realm", realm.value);
-            principal_name{sname.value}.write_json(o, "sname");
+            principal_name{sname.value}.write_json(error_json, "sname");
             error_json.print_key_json_string("e_text", e_text.value);
             error_json.print_key_hex("e_data", e_data.value);
             error_json.close();
@@ -821,11 +821,8 @@ namespace krb5 {
             }
             pa_array.close();
             kdc_rep_json.print_key_json_string("crealm", crealm.value);
-            principal_name{cname.value}.write_json(o, "cname");
-            // kdc_rep_json.print_key_hex("cname", cname.value);
-            // kdc_rep_json.print_key_hex("ticket", tkt.value);
+            principal_name{cname.value}.write_json(kdc_rep_json, "cname");
             ticket{tkt.value}.write_json(kdc_rep_json);
-            // kdc_rep_json.print_key_hex("enc_part", enc_part.value);
             if (enc_part) {
                 encrypted_data{enc_part.value}.write_json(kdc_rep_json);
             }
