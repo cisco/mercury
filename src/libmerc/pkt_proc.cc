@@ -260,6 +260,22 @@ struct check_exposed_creds {
         return exposed_creds_assessor::assess(msg);
     }
 
+    exposed_creds_type operator()(const ldap::message &msg) {
+        return exposed_creds_assessor::assess(msg);
+    }
+
+    exposed_creds_type operator()(const ftp::request &msg) {
+        return exposed_creds_assessor::assess(msg);
+    }
+
+    exposed_creds_type operator()(const redis::request &msg) {
+        return exposed_creds_assessor::assess(msg);
+    }
+
+    exposed_creds_type operator()(const snmp::packet &msg) {
+        return exposed_creds_assessor::assess(msg);
+    }
+
     template <typename T>
     exposed_creds_type operator()(const T &) {
         return exposed_creds_type::none;
@@ -761,9 +777,21 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
 
     // No reassembler : call set_tcp_protocol on every data pkt
     if (!reassembler || !global_vars.reassembly) {
+        // For FDC flows, the flows are not long-lived. Mercury typically
+        // observes around 20 packets per flow, so any traffic seen again
+        // after 30 seconds should be treated as a new flow.
+        //
+        // Packets are forwarded to Mercury only when it explicitly
+        // signals that additional packets are required (`more_packets_needed`).
+        // In such cases, the number of packets sent is capped at 20.
+        //
         bool is_new = false;
         if (global_vars.output_tcp_initial_data) {
-            is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
+            if (tcp_pkt.is_synthetic_pkt()) {
+                is_new = tcp_flow_table.is_first_synthetic_data_packet(k, ts->tv_sec);
+            } else {
+                is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
+            }
         }
         set_tcp_protocol(x, pkt, is_new, &tcp_pkt);
         return true;
@@ -771,7 +799,12 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
 
     bool is_new = false;
     if (global_vars.output_tcp_initial_data) {
-        is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
+        if (tcp_pkt.is_synthetic_pkt()) {
+            is_new = tcp_flow_table.is_first_synthetic_data_packet(k, ts->tv_sec);
+        } else {
+            is_new = tcp_flow_table.is_first_data_packet(k, ts->tv_sec, ntoh(tcp_pkt.header->seq));
+        }
+
     }
     datum pkt_copy{pkt};
 
@@ -1254,6 +1287,10 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
         bool output_analysis = false;
         bool output_attr = false;
+        bool truncated_tls = (truncated_tcp &&
+                              (std::holds_alternative<tls_client_hello>(x) ||
+                               std::holds_alternative<tls_server_hello_and_certificate>(x)))
+                             || (truncated_quic && std::holds_alternative<quic_init>(x));
         if (global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
 
             output_analysis = std::visit(do_analysis{k, analysis, c}, x);
@@ -1263,10 +1300,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
 
             // check for additional classifier agnostic attributes like encrypted dns and domain-faking
             //
-            if (!analysis.result.attr.is_initialized() && c) {
-                analysis.result.attr.initialize(&(c->get_common_data().attr_name.value()),c->get_common_data().attr_name.get_names_char());
-            }
-            output_attr = c->check_additional_attributes(analysis) ? true : output_attr; // set to true only if any additional attribute is set, else keep the previous value
+            output_attr = (c && c->check_additional_attributes(analysis)) ? true : output_attr; // set to true only if any additional attribute is set, else keep the previous value
 
             // analysis_.destination
             //
@@ -1283,12 +1317,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
 
         bool output_nbd = false;
         if (global_vars.network_behavioral_detections) {
-            if (!analysis.result.attr.is_initialized()) {
-                nbd_common_data.initialize_behavioral_detections();
-                analysis.result.attr.initialize(&(nbd_common_data.attr_name.value()),nbd_common_data.attr_name.get_names_char());
-            }
-
-            output_nbd = std::visit(do_network_behavioral_detections{k, analysis, c, nbd_common_data}, x);
+            output_nbd = std::visit(do_network_behavioral_detections{k, analysis, c, attribute_common_data}, x);
         }
 
 
@@ -1300,7 +1329,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         }
         std::visit(write_metadata{record, global_vars.metadata_output, global_vars.certs_json_output, global_vars.dns_json_output}, x);
 
-        if (!crypto_policies.empty()) {
+        if (!crypto_policies.empty() && !truncated_tls) {
             crypto_assess_result assessment_result = std::visit(do_crypto_assessment{crypto_policies, record}, x);
             output_attr = set_crypto_assessment_attr(assessment_result) ? true : output_attr;
         }
@@ -1501,6 +1530,10 @@ inline bool is_fdc_writable(fingerprint_type fp_type) {
     case fingerprint_type_tofsee:
     case fingerprint_type_stun:
     case fingerprint_type_ssh:
+    case fingerprint_type_http_server:
+    case fingerprint_type_tls_server:
+    case fingerprint_type_dtls:
+    case fingerprint_type_dtls_server:
             return true;
         default:
             return false;
@@ -1514,7 +1547,7 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
                                            size_t *buffer_size,
                                            [[maybe_unused]]const struct analysis_context** context) {
 
-    if (k == nullptr or payload == nullptr or buffer == nullptr) {
+    if (k == nullptr or payload == nullptr or buffer == nullptr or buffer_size == nullptr) {
         return fdc_return::INVALID_INPUT;
     }
 
@@ -1557,6 +1590,8 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         // setup a seq no of 0 to denote in-order reassembly
         tcp_hdr.seq = 0;
         tcp_packet tcp_pkt{pkt, &tcp_hdr};
+        //setting synthetic pkt to true to seed a synthetic SYN entry
+        tcp_pkt.set_synthetic_pkt();
 
         if (reassembler_ptr && global_vars.reassembly && perform_reassembly) {
             analysis.flow_state_pkts_needed = false;
@@ -1790,6 +1825,12 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
     // process protocol data element
     //
     if (std::visit(is_not_empty{}, x)) {
+        bool output_attr = false;
+        bool truncated_tls = (truncated_tcp &&
+                              (std::holds_alternative<tls_client_hello>(x) ||
+                               std::holds_alternative<tls_server_hello_and_certificate>(x)))
+                             || (truncated_udp && std::holds_alternative<quic_init>(x));
+
         if (global_vars.do_analysis && mq) {
             if (ip_pkt.src_is_private()) {
                 std::visit(do_cert_label_observation{k, mq}, x);
@@ -1799,31 +1840,25 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
         std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
         if (global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
 
-            // re-initialize the structure that holds analysis results
-            //
-            analysis.result.reinit();
             bool output_analysis = std::visit(do_analysis{k, analysis, c}, x);
 
             // check for additional classifier agnostic attributes like encrypted dns and domain-faking
             //
-            if (!analysis.result.attr.is_initialized() && c) {
-                analysis.result.attr.initialize(&(c->get_common_data().attr_name.value()),c->get_common_data().attr_name.get_names_char());
-            }
-            c->check_additional_attributes(analysis);
+            output_attr = (c && c->check_additional_attributes(analysis)) ? true : output_attr;
 
             if (exposed_creds) {
                 exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
-                set_exposed_creds_attr(exposed_creds_ret);
+                output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
             }
 
-            if (!crypto_policies.empty()) {
+            if (!crypto_policies.empty() && !truncated_tls) {
                 crypto_assess_result assessment_result = std::visit(do_crypto_assessment{crypto_policies}, x);
-                set_crypto_assessment_attr(assessment_result);
+                output_attr = set_crypto_assessment_attr(assessment_result) ? true : output_attr;
             }
 
             bool output_nbd = false;
             if (global_vars.network_behavioral_detections) {
-                output_nbd = std::visit(do_network_behavioral_detections{k, analysis, c, nbd_common_data}, x);
+                output_nbd = std::visit(do_network_behavioral_detections{k, analysis, c, attribute_common_data}, x);
             }
 
             // note: we only perform observations when analysis is
@@ -1850,27 +1885,23 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             //
             analysis.destination.dst_port = ntoh(analysis.destination.dst_port);
 
-            return output_analysis || output_nbd;
+            return output_analysis || output_nbd || output_attr;
 
         } else {
-            if (global_vars.network_behavioral_detections) {
-                analysis.result.reinit();
-                if (!analysis.result.attr.is_initialized()) {
-                    nbd_common_data.initialize_behavioral_detections();
-                    analysis.result.attr.initialize(&(nbd_common_data.attr_name.value()),nbd_common_data.attr_name.get_names_char());
-                }
+            bool output_nbd = false;
 
-                std::visit(do_network_behavioral_detections{k, analysis, c, nbd_common_data}, x);
+            if (global_vars.network_behavioral_detections) {
+                output_nbd = std::visit(do_network_behavioral_detections{k, analysis, c, attribute_common_data}, x);
             }
-            if (!crypto_policies.empty()) {
+            if (!crypto_policies.empty() && !truncated_tls) {
                 crypto_assess_result crypto_result = std::visit(do_crypto_assessment{crypto_policies}, x);
-                set_crypto_assessment_attr(crypto_result);
+                output_attr = set_crypto_assessment_attr(crypto_result) ? true : output_attr;
             }
             if (exposed_creds) {
                 exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
-                set_exposed_creds_attr(exposed_creds_ret);
+                output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
             }
-            return false;
+            return output_nbd || output_attr;
         }
     }
 
