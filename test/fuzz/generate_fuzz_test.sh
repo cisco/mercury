@@ -285,13 +285,8 @@ minimize_corpus () {
             local post_min
             post_min=$(ls "$merge_dir" | wc -l)
             mv "$target_dir/corpus" "$target_dir/corpus.old"
-            if mv "$merge_dir" "$target_dir/corpus"; then
-                rm -rf "$target_dir/corpus.old"
-            else
-                # restore original corpus if swap failed
-                mv "$target_dir/corpus.old" "$target_dir/corpus"
-                rm -rf "$merge_dir"
-            fi
+            mv "$merge_dir" "$target_dir/corpus"
+            rm -rf "$target_dir/corpus.old"
             local removed=$((post_fuzz - post_min))
             total_post_min=$((total_post_min + post_min))
             total_removed=$((total_removed + removed))
