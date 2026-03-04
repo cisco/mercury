@@ -116,8 +116,8 @@ namespace asn1 {
     template <unsigned N0, unsigned N1, unsigned... Ns>
     constexpr auto oid() {
         static_assert(N0 < 3, "top level OID component must be less than 3");
-        static_assert(N0*40+N1 < 128, "top level OID components too large");
-        return (std::array<uint8_t, 1>{N0*40+N1} + ... + node_array<Ns>());
+        static_assert(N0 == 2 || N1 < 40, "second top level OID component must be less than 40 when first component is 0 or 1");
+        return node_array<N0 * 40 + N1>() + ( ... + node_array<Ns>());
     }
 
     template <unsigned... Ns>
@@ -213,12 +213,14 @@ namespace asn1 {
     static bool oid_unit_test(FILE *f=nullptr) {
         constexpr auto oid_id_pkix_ocsp_basic = oid<1,3,6,1,5,5,7,48,1,1>();
         constexpr auto oid_rsadsi = oid<1,2,840,113549>();
+        constexpr auto oid_two_999_3 = oid<2,999,3>();
         constexpr static auto id_pkix = oid<1,3,6,1,5,5,7>();
         constexpr static auto id_ad = id_pkix + suboid<48>();
 
         bool all_passed = true;
         all_passed &= compare(oid_id_pkix_ocsp_basic, std::array<uint8_t, 9>{ 0x2b, 0x06, 0x01, 0x05, 0x05, 0x07, 0x30, 0x01, 0x01 });
         all_passed &= compare(oid_rsadsi, std::array<uint8_t, 6>{ 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d });
+        all_passed &= compare(oid_two_999_3, std::array<uint8_t, 3>{ 0x88, 0x37, 0x03 });
         all_passed &= compare(oid_id_pkix_ocsp_basic, id_ad + suboid<1,1>());
 
         return all_passed;

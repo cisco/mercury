@@ -493,28 +493,31 @@ namespace krb5 {
         kdc_req(datum &d) :
             //application{&d, 0x00, "application"},
             //prefix{application.value, { 0x6a, 0x82, 0x01, 0x1f }},
-            seq{&d, tlv::SEQUENCE, "seq"}
+            seq{&d, tlv::SEQUENCE, "seq"},
+            valid{false}
             // pvno{&seq.value, tlv::explicit_tag(1), "pvno"},
             // valid{seq.value.is_not_null()}
         {
-            //fprintf(stderr, "FUNCTION: %s\n", __func__);
-            tlv tmp{&seq.value};
-            if (tmp.tag == tlv::explicit_tag_constructed(1)) {
-                pvno.parse(&tmp.value);
+            while (seq.value.is_not_empty()) {
+                tlv tmp{&seq.value};
+                switch(tmp.tag) {
+                case tlv::explicit_tag_constructed(1):
+                    pvno.parse(&tmp.value);
+                    break;
+                case tlv::explicit_tag_constructed(2):
+                    msg_type.parse(&tmp.value);
+                    break;
+                case tlv::explicit_tag_constructed(3):  // optional
+                    padata.parse(&tmp.value);
+                    break;
+                case tlv::explicit_tag_constructed(4):
+                    req_body.parse(&tmp.value, tlv::SEQUENCE, "body");
+                    break;
+                default:
+                    break;
+                }
             }
-            tmp.parse(&seq.value);
-            if (tmp.tag == tlv::explicit_tag_constructed(2)) {
-                msg_type.parse(&tmp.value);
-            }
-            tmp.parse(&seq.value);
-            if (tmp.tag == tlv::explicit_tag_constructed(3)) {  // optional
-                padata.parse(&tmp.value);
-            }
-            tmp.parse(&seq.value);
-            if (tmp.tag == tlv::explicit_tag_constructed(4)) {
-                req_body.parse(&tmp.value, tlv::SEQUENCE, "body");
-            }
-            valid = seq.value.is_not_null();
+            valid = seq.is_not_null() && pvno.is_not_null() && msg_type.is_not_null() && req_body.is_not_null();
         }
 
         void write_json(json_object &o) const {
@@ -810,7 +813,7 @@ namespace krb5 {
 
         void write_json(json_object &o) const {
             json_object kdc_rep_json{o, "kdc_rep"};
-            kdc_rep_json.print_key_hex("pnvo", pvno.value);
+            kdc_rep_json.print_key_hex("pvno", pvno.value);
             kdc_rep_json.print_key_hex("msg_type", msg_type.value);
 
             json_array pa_array{kdc_rep_json, "pa_data"};
