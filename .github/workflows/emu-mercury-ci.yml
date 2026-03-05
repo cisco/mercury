@@ -39,15 +39,18 @@ jobs:
 
   linux-ci:
     if: github.event_name != 'workflow_dispatch' || inputs.run_linux
-    name: "linux-ci (${{ matrix.testplatform }}${{ matrix.xsimd && format(', {0}', matrix.xsimd) || '' }})"
-    runs-on: ubuntu-latest
+    name: "linux-ci (${{ matrix.testplatform }}${{ matrix.xsimd && format(',{0}', matrix.xsimd) || '' }}${{ matrix.arch && format(',{0}', matrix.arch) || '' }})"
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     strategy:
       matrix:
         testplatform: [alma8, alma9, alma10, ubuntu20, ubuntu22, ubuntu24, debian11, debian12, debian13]
         xsimd: [""]  # default: autodetect system xsimd, fallback to scalar
+        arch: [""]   # default: amd64
         include:
           - testplatform: ubuntu22
             xsimd: xsimd-bundled
+          - testplatform: ubuntu24
+            arch: arm64
     container:
       image: ghcr.io/cisco-netintel/${{matrix.testplatform}}:buildenv
       credentials:
