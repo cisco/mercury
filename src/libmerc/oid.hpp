@@ -5,6 +5,10 @@
 #define OID_HPP
 
 #include <array>
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <cstdio>
 
 namespace asn1 {
 
