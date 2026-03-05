@@ -474,6 +474,11 @@ struct ssh_init_packet : public base_protocol {
         { 'S',  'S',  'H',  '-',  0x00, 0x00, 0x00, 0x00}
     };
 
+    static bool packet_is_client_to_server(uint16_t src_port, uint16_t dst_port) {
+        // The lower port is assumed to be the server port; if ports are equal, treat as client.
+        return ntoh<uint16_t>(dst_port) <= ntoh<uint16_t>(src_port);
+    }
+
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
         if (!kex_pkt.is_not_empty()) {
             return false;

@@ -475,6 +475,8 @@ class traffic_selector {
     bool select_http_response{false};
     bool select_smtp{false};
     bool select_tofsee{false};
+    bool select_ssh_client{false};
+    bool select_ssh_server{false};
     bool select_dhcp{false};
     bool select_syslog{false};
     bool select_redis_request{false};
@@ -548,6 +550,10 @@ public:
 
     bool tofsee() const { return select_tofsee; }
 
+    bool ssh_client() const { return select_ssh_client; }
+
+    bool ssh_server() const { return select_ssh_server; }
+
     bool dhcp() const { return select_dhcp; }
 
     bool syslog() const { return select_syslog; }
@@ -597,6 +603,8 @@ public:
         select_http_response = false;
         select_smtp = false;
         select_tofsee = false;
+        select_ssh_client = false;
+        select_ssh_server = false;
         select_dhcp = false;
         select_redis_request = false;
         select_redis_response = false;
@@ -631,8 +639,21 @@ public:
             }   
         }
         if (protocols["ssh"] || protocols["all"]) {
+            select_ssh_client = true;
+            select_ssh_server = true;
             tcp.add_protocol(ssh_init_packet::matcher, tcp_msg_type_ssh);
             tcp.add_protocol(ssh_kex_init::matcher, tcp_msg_type_ssh_kex);
+        } else {
+            if (protocols["ssh.client"]) {
+                select_ssh_client = true;
+            }
+            if (protocols["ssh.server"]) {
+                select_ssh_server = true;
+            }
+            if (select_ssh_client || select_ssh_server) {
+                tcp.add_protocol(ssh_init_packet::matcher, tcp_msg_type_ssh);
+                tcp.add_protocol(ssh_kex_init::matcher, tcp_msg_type_ssh_kex);
+            }
         }
         if (protocols["smtp"] || protocols["all"]) {
             tcp.add_protocol(smtp_server::matcher, tcp_msg_type_smtp_server);

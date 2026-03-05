@@ -538,6 +538,14 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         x.emplace<tls_certificate>(pkt, tcp_pkt);
         break;
     case tcp_msg_type_ssh:
+        if (tcp_pkt && tcp_pkt->header) {
+            bool is_client_to_server = ssh_init_packet::packet_is_client_to_server(tcp_pkt->header->src_port,
+                                                                                    tcp_pkt->header->dst_port);
+            if ((is_client_to_server && !selector.ssh_client()) ||
+                (!is_client_to_server && !selector.ssh_server())) {
+                return;
+            }
+        }
         x.emplace<ssh_init_packet>(pkt);
         {
             uint32_t more_bytes = std::get<ssh_init_packet>(x).more_bytes_needed();
@@ -548,6 +556,14 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         }
         return;
     case tcp_msg_type_ssh_kex:
+        if (tcp_pkt && tcp_pkt->header) {
+            bool is_client_to_server = ssh_init_packet::packet_is_client_to_server(tcp_pkt->header->src_port,
+                                                                                    tcp_pkt->header->dst_port);
+            if ((is_client_to_server && !selector.ssh_client()) ||
+                (!is_client_to_server && !selector.ssh_server())) {
+                return;
+            }
+        }
         {
             struct ssh_binary_packet ssh_pkt{pkt};
             if (tcp_pkt && ssh_pkt.additional_bytes_needed) {
