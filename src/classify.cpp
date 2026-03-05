@@ -54,6 +54,9 @@ int main(int argc, char *argv[]) {
          exit(EXIT_FAILURE);
     }
 
+    classifier *c = nullptr;
+    common_data attribute_common_data{};
+    attribute_common_data.reserve_non_classifier_attribute_indices();
     try {
 
         uint16_t dst_port_uint16 = std::stoul(dst_port);
@@ -63,13 +66,15 @@ int main(int argc, char *argv[]) {
             exit(EXIT_FAILURE);
         }
 
-        classifier *c = analysis_init_from_archive(0, // verbosity
-                                                   resource_file.c_str(),
-                                                   nullptr,
-                                                   enc_key_type_none,
-                                                   0,
-                                                   0,
-                                                   true);
+        c = analysis_init_from_archive(0, // verbosity
+                                       resource_file.c_str(),
+                                       nullptr,
+                                       enc_key_type_none,
+                                       0,
+                                       0,
+                                       true,
+                                       &attribute_common_data,
+                                       false);
         if (c == nullptr) {
             fprintf(stderr, "error: could not initialize classifier\n");
             exit(EXIT_FAILURE);
@@ -89,17 +94,21 @@ int main(int argc, char *argv[]) {
 
     }
     catch (std::invalid_argument &e) {
+        analysis_finalize(c);
         fprintf(stderr, "error: invalid argument for dst-port (must be between 0 and 65535)\n");
         exit(EXIT_FAILURE);
     }
     catch (std::exception &e) {
+        analysis_finalize(c);
         fprintf(stderr, "error: %s\n", e.what());
         exit(EXIT_FAILURE);
     }
     catch (...) {
+        analysis_finalize(c);
         fprintf(stderr, "%s: unknown error\n", argv[0]);
         exit(EXIT_FAILURE);
     }
+    analysis_finalize(c);
 
     return EXIT_SUCCESS;
 }

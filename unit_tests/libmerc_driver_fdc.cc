@@ -19,7 +19,7 @@ void maybe_print_json(const char *label, const std::string &json) {
     }
 }
 
-const std::string expected_http_json = R"json({"version":2,"fingerprints":["http/(474554)(485454502f312e31)((557365722d4167656e74)(4163636570743a202a2f2a)(486f7374)(436f6e6e656374696f6e3a204b6565702d416c697665))"],"protocols":["http"],"http":{"request":{"method":"GET","uri":"/","protocol":"HTTP/1.1","headers":["User-Agent","Accept","Host","Connection"],"user_agent":"Wget/1.15 (linux-gnu)","host":"yahoo.com"}},"truncation":0})json";
+const std::string expected_http_json = R"json({"version":2,"fingerprints":["http/(474554)(485454502f312e31)((557365722d4167656e74)(4163636570743a202a2f2a)(486f7374)(436f6e6e656374696f6e3a204b6565702d416c697665))"],"protocols":["http"],"http":{"request":{"method":"GET","uri":"/","protocol":"HTTP/1.1","host":"yahoo.com","user_agent":"Wget/1.15 (linux-gnu)"}},"truncation":0})json";
 const std::string expected_quic_init_json = R"json({"version":2,"fingerprints":["quic/(00000001)(0303)(130113021303)[(0000)(000a00080006001d00170018)(000d00140012040308040401050308050501080606010201)(0010001700150268330568332d32390568332d32380568332d3237)(002b0003020304)(002d00020101)(0033)((0039)[(01)(03)(04)(05)(06)(07)(08)(09)(0a)(0b)(0f)])]"],"protocols":["quic"],"tls":{"client":{"random":"15d447b52acc83e777abaa0c4b23af9730f81a9c43405892de18651f161e472e","server_name":"10.72.1.52"}},"truncation":0})json";
 const std::string expected_tls_client_hello_json = R"json({"version":2,"fingerprints":["tls/1/(0303)(c028c027c014c013009f009e009d009cc02cc02bc024c023c00ac009003d003c0035002f006a004000380032000a001300050004)[(0000)(000a00080006001700180019)(000b00020100)(000d00140012060106030401050102010403050302030202)(ff01)]"],"protocols":["tls"],"tls":{"client":{"random":"64bb666d4419e66235579bed0bfcc519bad9d3e45b46ed89869060b6362fc1c5","server_name":"ciistudies.com"}},"truncation":0})json";
 const std::string expected_tls_fragment_no_reassembly_json = R"json({"version":2,"fingerprints":["tls/1/(0303)(0a0a130113021303c02bc02fc02cc030cca9cca8c013c014009c009d002f0035)[(0000)(000500050100000000)(000a000c000a0a0a6399001d00170018)(000b00020100)(000d0012001004030804040105030805050108060601)(0010000e000c02683208687474702f312e31)(0017)(001b0003020002)(002b0007060a0a03040303)(002d00020101)(0a0a)(4469)(fe0d)(ff01)]"],"protocols":["tls"],"tls":{"client":{"random":"b47749a5584e7dcda899df03b3f04aaf50f426837dd0ad01c945f5435f5502c8","server_name":"www.cnn.com"}},"truncation":2})json";
@@ -32,7 +32,7 @@ const std::string expected_tls_server_fragments_reassembly_json = R"fdcjson({"ve
 
 const std::string expected_dtls_client_hello_json = R"json({"version":2,"fingerprints":["dtls/1/(fefd)(c02c)[(000a000c000a001d0017001e00190018)(000b000403000102)(000d0030002e040305030603080708080809080a080b080408050806040105010601030302030301020103020202040205020602)(0016)]"],"protocols":["dtls"],"truncation":0})json";
 const std::string expected_dtls_server_hello_json = R"json({"version":2,"fingerprints":["dtls_server/(fefd)(c02c)()"],"protocols":["dtls"],"truncation":0})json";
-const std::string expected_http_response_json = R"json({"version":2,"fingerprints":["http_server/(485454502f312e31)(323030)(4f4b)((5365727665723a204a657474792f342e322e39726332202853756e4f532f352e38207370617263206a6176612f312e342e315f303429)(436f6e74656e742d54797065)(436f6e6e656374696f6e3a20636c6f7365))"],"protocols":["http"],"http":{"response":{"version":"HTTP/1.1","status_code":"200","status_reason":"OK","content_length":"60037","server":"Jetty/4.2.9rc2 (SunOS/5.8 sparc java/1.4.1_04)","headers":["Server","Content-Type","Connection","Content-Length"]}},"truncation":0})json";
+const std::string expected_http_response_json = R"json({"version":2,"fingerprints":["http_server/(485454502f312e31)(323030)(4f4b)((5365727665723a204a657474792f342e322e39726332202853756e4f532f352e38207370617263206a6176612f312e342e315f303429)(436f6e74656e742d54797065)(436f6e6e656374696f6e3a20636c6f7365))"],"protocols":["http"],"http":{"response":{"version":"HTTP/1.1","status_code":"200","status_reason":"OK","content_length":"60037","server":"Jetty/4.2.9rc2 (SunOS/5.8 sparc java/1.4.1_04)"}},"truncation":0})json";
 
 } // namespace
 #include "tcp.h"
@@ -47,6 +47,24 @@ unsigned char http_tcp_payload[] = {
     0x68, 0x6f, 0x6f, 0x2e, 0x63, 0x6f, 0x6d, 0x0d, 0x0a, 0x43, 0x6f, 0x6e,
     0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x3a, 0x20, 0x4b, 0x65, 0x65,
     0x70, 0x2d, 0x41, 0x6c, 0x69, 0x76, 0x65, 0x0d, 0x0a, 0x0d, 0x0a};
+
+// POST /submit HTTP/1.1\r\nUser-Agent: TestAgent/1.0\r\nHost: example.com\r\n
+// Content-Type: application/json\r\nCookie: session=abc123\r\nContent-Length: 13\r\n\r\n{"key":"val"}
+unsigned char http_post_tcp_payload[] = {
+    0x50, 0x4f, 0x53, 0x54, 0x20, 0x2f, 0x73, 0x75, 0x62, 0x6d, 0x69, 0x74,
+    0x20, 0x48, 0x54, 0x54, 0x50, 0x2f, 0x31, 0x2e, 0x31, 0x0d, 0x0a, 0x55,
+    0x73, 0x65, 0x72, 0x2d, 0x41, 0x67, 0x65, 0x6e, 0x74, 0x3a, 0x20, 0x54,
+    0x65, 0x73, 0x74, 0x41, 0x67, 0x65, 0x6e, 0x74, 0x2f, 0x31, 0x2e, 0x30,
+    0x0d, 0x0a, 0x48, 0x6f, 0x73, 0x74, 0x3a, 0x20, 0x65, 0x78, 0x61, 0x6d,
+    0x70, 0x6c, 0x65, 0x2e, 0x63, 0x6f, 0x6d, 0x0d, 0x0a, 0x43, 0x6f, 0x6e,
+    0x74, 0x65, 0x6e, 0x74, 0x2d, 0x54, 0x79, 0x70, 0x65, 0x3a, 0x20, 0x61,
+    0x70, 0x70, 0x6c, 0x69, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x2f, 0x6a,
+    0x73, 0x6f, 0x6e, 0x0d, 0x0a, 0x43, 0x6f, 0x6f, 0x6b, 0x69, 0x65, 0x3a,
+    0x20, 0x73, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x3d, 0x61, 0x62, 0x63,
+    0x31, 0x32, 0x33, 0x0d, 0x0a, 0x43, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74,
+    0x2d, 0x4c, 0x65, 0x6e, 0x67, 0x74, 0x68, 0x3a, 0x20, 0x31, 0x33, 0x0d,
+    0x0a, 0x0d, 0x0a, 0x7b, 0x22, 0x6b, 0x65, 0x79, 0x22, 0x3a, 0x22, 0x76,
+    0x61, 0x6c, 0x22, 0x7d};
 
 unsigned char tls_client_hello_tcp_payload[] = {
     0x16, 0x03, 0x03, 0x00, 0xa7, 0x01, 0x00, 0x00, 0xa3, 0x03, 0x03, 0x64,
@@ -1022,7 +1040,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for http reques
 
             THEN("FDC should be written to output buffer") {
                 REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
-                REQUIRE(bytes_written == 276);
+                REQUIRE(bytes_written == 232);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
                 CHECK(json == expected_http_json);
             }
@@ -1150,7 +1168,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for http reques
 
             THEN("FDC should be written to output buffer") {
                 REQUIRE(bytes_written != fdc_return::FDC_WRITE_INSUFFICIENT_SPACE);
-                REQUIRE(bytes_written == 276);
+                REQUIRE(bytes_written == 232);
                 REQUIRE(fdc_buffer_len == max_buffer_allocation);
                 CHECK(json == expected_http_json);
             }
@@ -2096,8 +2114,193 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for http respon
             }
 
             THEN("FDC should be written to output buffer") {
-                REQUIRE(bytes_written == 371);
+                REQUIRE(bytes_written == 315);
                 CHECK(json == expected_http_response_json);
+            }
+            mercury_packet_processor_destruct(mpp);
+        }
+        mercury_finalize(mc);
+    }
+}
+
+SCENARIO("test FDC http request with http-headers=non-sensitive config") {
+    GIVEN("mercury packet processor with http-headers=non-sensitive") {
+        libmerc_config config = create_config();
+        config.packet_filter_cfg = (char *)"all;http-headers=non-sensitive";
+        mercury_context mc = initialize_mercury(config);
+        mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
+        const analysis_context* ac = nullptr;
+
+        const int max_buffer_allocation = 1500;
+        uint8_t wbuffer[max_buffer_allocation];
+
+        uint32_t src_ip = 318832897;
+        uint32_t dst_ip = 2511637346;
+        uint16_t src_port = 56533;
+        uint16_t dst_port = 80;
+        uint8_t proto = ip::protocol::tcp;
+
+        struct flow_key_ext k;
+        k.ip_vers = 4;
+        k.src_port = src_port;
+        k.dst_port = dst_port;
+        k.addr.ipv4.src = src_ip;
+        k.addr.ipv4.dst = dst_ip;
+        k.protocol = proto;
+
+        WHEN("write to FDC buffer for http request with non-sensitive headers enabled") {
+            size_t fdc_buffer_len = max_buffer_allocation;
+            std::string json;
+            int bytes_written = mercury_packet_processor_get_analysis_context_fdc(
+                mpp,
+                &k,
+                http_post_tcp_payload,
+                sizeof(http_post_tcp_payload),
+                wbuffer,
+                &fdc_buffer_len,
+                &ac);
+            if (bytes_written > 0) {
+                json = decode_fdc_json(wbuffer, bytes_written);
+                maybe_print_json("http_non_sensitive_headers", json);
+            }
+
+            THEN("FDC output should contain non-sensitive headers but not sensitive ones") {
+                REQUIRE(bytes_written > 0);
+                CHECK(json.find("Content-Type") != std::string::npos);
+                CHECK(json.find("Content-Length") != std::string::npos);
+                CHECK(json.find("user_agent") != std::string::npos);
+                CHECK(json.find("host") != std::string::npos);
+                CHECK(json.find("\"value\":\"session=abc123\"") == std::string::npos);  // sensitive value must be absent
+            }
+            mercury_packet_processor_destruct(mpp);
+        }
+        mercury_finalize(mc);
+    }
+}
+
+SCENARIO("test FDC http request with http-headers=all config") {
+    GIVEN("mercury packet processor with http-headers=all") {
+        libmerc_config config = create_config();
+        config.packet_filter_cfg = (char *)"all;http-headers=all";
+        mercury_context mc = initialize_mercury(config);
+        mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
+        const analysis_context* ac = nullptr;
+
+        const int max_buffer_allocation = 1500;
+        uint8_t wbuffer[max_buffer_allocation];
+
+        uint32_t src_ip = 318832897;
+        uint32_t dst_ip = 2511637346;
+        uint16_t src_port = 56533;
+        uint16_t dst_port = 80;
+        uint8_t proto = ip::protocol::tcp;
+
+        struct flow_key_ext k;
+        k.ip_vers = 4;
+        k.src_port = src_port;
+        k.dst_port = dst_port;
+        k.addr.ipv4.src = src_ip;
+        k.addr.ipv4.dst = dst_ip;
+        k.protocol = proto;
+
+        WHEN("write to FDC buffer for http request with all headers enabled") {
+            size_t fdc_buffer_len = max_buffer_allocation;
+            std::string json;
+            int bytes_written = mercury_packet_processor_get_analysis_context_fdc(
+                mpp,
+                &k,
+                http_post_tcp_payload,
+                sizeof(http_post_tcp_payload),
+                wbuffer,
+                &fdc_buffer_len,
+                &ac);
+            if (bytes_written > 0) {
+                json = decode_fdc_json(wbuffer, bytes_written);
+                maybe_print_json("http_all_headers", json);
+            }
+
+            THEN("FDC output should contain all headers including sensitive") {
+                REQUIRE(bytes_written > 0);
+                CHECK(json.find("Content-Type") != std::string::npos);
+                CHECK(json.find("Content-Length") != std::string::npos);
+                CHECK(json.find("user_agent") != std::string::npos);
+                CHECK(json.find("host") != std::string::npos);
+                CHECK(json.find("\"value\":\"session=abc123\"") != std::string::npos);  // sensitive value present with all
+            }
+            mercury_packet_processor_destruct(mpp);
+        }
+        mercury_finalize(mc);
+    }
+}
+
+SCENARIO("test FDC http request with http-body-max config") {
+    GIVEN("mercury packet processor with http-body-max=64") {
+        libmerc_config config = create_config();
+        config.packet_filter_cfg = (char *)"all;http-body-max=64";
+        mercury_context mc = initialize_mercury(config);
+        mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
+        const analysis_context* ac = nullptr;
+
+        const int max_buffer_allocation = 1500;
+        uint8_t wbuffer[max_buffer_allocation];
+
+        uint32_t src_ip = 318832897;
+        uint32_t dst_ip = 2511637346;
+        uint16_t src_port = 56533;
+        uint16_t dst_port = 80;
+        uint8_t proto = ip::protocol::tcp;
+
+        struct flow_key_ext k;
+        k.ip_vers = 4;
+        k.src_port = src_port;
+        k.dst_port = dst_port;
+        k.addr.ipv4.src = src_ip;
+        k.addr.ipv4.dst = dst_ip;
+        k.protocol = proto;
+
+        WHEN("write to FDC buffer for http POST with body") {
+            size_t fdc_buffer_len = max_buffer_allocation;
+            std::string json;
+            int bytes_written = mercury_packet_processor_get_analysis_context_fdc(
+                mpp,
+                &k,
+                http_post_tcp_payload,
+                sizeof(http_post_tcp_payload),
+                wbuffer,
+                &fdc_buffer_len,
+                &ac);
+            if (bytes_written > 0) {
+                json = decode_fdc_json(wbuffer, bytes_written);
+                maybe_print_json("http_body", json);
+            }
+
+            THEN("FDC output should contain body hex") {
+                REQUIRE(bytes_written > 0);
+                CHECK(json.find("\"body\"") != std::string::npos);
+                CHECK(json.find("7b226b6579223a2276616c227d") != std::string::npos);
+            }
+            mercury_packet_processor_destruct(mpp);
+        }
+
+        WHEN("write to FDC buffer for http GET without body") {
+            size_t fdc_buffer_len = max_buffer_allocation;
+            std::string json;
+            int bytes_written = mercury_packet_processor_get_analysis_context_fdc(
+                mpp,
+                &k,
+                http_tcp_payload,
+                sizeof(http_tcp_payload),
+                wbuffer,
+                &fdc_buffer_len,
+                &ac);
+            if (bytes_written > 0) {
+                json = decode_fdc_json(wbuffer, bytes_written);
+                maybe_print_json("http_no_body", json);
+            }
+
+            THEN("FDC output should not contain body field") {
+                REQUIRE(bytes_written > 0);
+                CHECK(json.find("\"body\"") == std::string::npos);
             }
             mercury_packet_processor_destruct(mpp);
         }

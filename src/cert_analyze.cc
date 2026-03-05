@@ -41,7 +41,8 @@ void fprint_hash(FILE *f, const void *buffer, unsigned int len, const char *algo
 
 // file reading
 
-struct file_reader {
+class file_reader {
+public:
     virtual ssize_t get_cert(uint8_t *outbuf, size_t outbuf_len) = 0;
     virtual ~file_reader() = default;
     void get_cert_list(std::list<struct x509_cert> &list_of_certs, uint8_t *cb, size_t cb_len) {
@@ -56,7 +57,8 @@ struct file_reader {
     }
 };
 
-struct der_file_reader : public file_reader {
+class der_file_reader : public file_reader {
+public:
     FILE *stream;
     bool done = false;
 
@@ -101,7 +103,8 @@ struct der_file_reader : public file_reader {
 
 using namespace rapidjson;
 
-struct json_file_reader : public file_reader {
+class json_file_reader : public file_reader {
+public:
     FILE *stream;
     unsigned int line_number = 0;
 
@@ -171,7 +174,8 @@ struct json_file_reader : public file_reader {
     }
 };
 
-struct base64_file_reader : public file_reader {
+class base64_file_reader : public file_reader {
+public:
     FILE *stream;
     char *line = NULL;
     unsigned int line_number = 0;
@@ -224,7 +228,8 @@ struct base64_file_reader : public file_reader {
     }
 };
 
-struct pem_file_reader : public file_reader {
+class pem_file_reader : public file_reader {
+public:
     FILE *stream;
     char *line;
     size_t cert_number;
@@ -601,7 +606,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "warning: filter cannot be applied to certificate prefix\n");
     }
 
-    struct file_reader *reader = NULL;
+    file_reader *reader = NULL;
     if (input_is_pem) {
         reader = new pem_file_reader(infile);
     } else if (input_is_json) {
@@ -626,7 +631,7 @@ int main(int argc, char *argv[]) {
     uint8_t *cb = trusted_cert_buf;
     size_t cb_len = sizeof(trusted_cert_buf);
     if (trust) {
-        struct file_reader *reader = new pem_file_reader(trust);
+        file_reader *reader = new pem_file_reader(trust);
         reader->get_cert_list(trusted_certs, cb, cb_len);
         // for (auto &c : trusted_certs) {
         //    c.print_as_json(stdout);

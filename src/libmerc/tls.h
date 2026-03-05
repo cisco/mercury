@@ -456,7 +456,7 @@ struct tls_client_hello : public base_protocol {
 
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c);
 
-    bool do_network_behavioral_detections(const struct key &k_, struct analysis_context &analysis_, classifier *c, struct common_data &nbd_common);
+    bool do_network_behavioral_detections(const struct key &k_, struct analysis_context &analysis_, classifier *c, const struct common_data &nbd_common);
 
     static bool check_residential_proxy(const struct key &k_, datum random_nonce);
 
@@ -1989,9 +1989,6 @@ inline bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_
     bool ret = c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
 
     if (analysis_.result.status == fingerprint_status_randomized) {    // check for faketls on randomized connections only
-        if (!analysis_.result.attr.is_initialized() && c_) {
-            analysis_.result.attr.initialize(&(c_->get_common_data().attr_name.value()),c_->get_common_data().attr_name.get_names_char());
-        }
         if (is_faketls()) {
             analysis_.result.attr.set_attr(c_->get_common_data().faketls_idx, 1.0);
         }
@@ -2002,12 +1999,10 @@ inline bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_
 
 
 inline bool tls_client_hello::do_network_behavioral_detections(const struct key &k_, struct analysis_context &analysis_,
-                                                               classifier *c_, struct common_data &nbd_common) {
+                                                               classifier *c_, const struct common_data &nbd_common) {
+    (void)c_;
     if (check_residential_proxy(k_, random)) {
-        if (c_) {
-            analysis_.result.attr.set_attr(c_->common.res_proxy_idx, 1.0);
-            return true;
-        } else if (nbd_common.res_proxy_idx != -1) {
+        if (nbd_common.res_proxy_idx != -1) {
             analysis_.result.attr.set_attr(nbd_common.res_proxy_idx, 1.0);
             return true;
         }
@@ -2220,8 +2215,8 @@ inline bool tls_server_certificate::get_subject_common_name(std::string &common_
 
 inline void tls_server_certificate::write_l7_metadata(cbor_array &a) const {
     for_each_certificate([&a](const uint8_t *cert_data, uint64_t cert_len) {
-        struct cbor_object certs{a};
-        struct datum cert_parser{cert_data, cert_data + cert_len};
+        cbor_object certs{a};
+        datum cert_parser{cert_data, cert_data + cert_len};
         certs.print_key_hex("data", cert_parser);
         certs.close();
     });

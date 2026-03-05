@@ -13,6 +13,86 @@
 #include "match.h"
 #include "http_auth.hpp"
 
+// HTTP headers for L7 metadata reporting.
+// The bool value indicates whether the header is sensitive (true = sensitive, value redacted unless --http-headers=all).
+namespace {
+    std::vector<perfect_hash_entry<bool>> l7_request_headers = {
+        { "user-agent",                false },
+        { "host",                      false },
+        { "x-forwarded-for",           false },
+        { "via",                       false },
+        { "upgrade",                   false },
+        { "referer",                   false },
+        { "authorization",             true  },
+        { "content-type",              false },
+        { "content-length",            false },
+        { "accept",                    false },
+        { "accept-encoding",           false },
+        { "accept-language",           false },
+        { "content-disposition",       false },
+        { "cookie",                    true  },
+        { "cache-control",             false },
+        { "connection",                false },
+        { "date",                      false },
+        { "pragma",                    false },
+        { "trailer",                   false },
+        { "transfer-encoding",         false },
+        { "warning",                   false },
+        { "accept-charset",            false },
+        { "expect",                    false },
+        { "from",                      false },
+        { "if-match",                  false },
+        { "if-modified-since",         false },
+        { "if-none-match",             false },
+        { "if-range",                  false },
+        { "if-unmodified-since",       false },
+        { "max-forwards",              false },
+        { "proxy-authorization",       true  },
+        { "range",                     false },
+        { "te",                        false },
+        { "allow",                     false },
+        { "content-encoding",          false },
+        { "content-language",          false },
+        { "content-location",          false },
+        { "content-md5",               false },
+        { "content-range",             false },
+        { "expires",                   false },
+        { "last-modified",             false },
+        { "true-client-ip",            false },
+        { "x-working-with",            false },
+        { "content-transfer-encoding", false },
+        { "mime-version",              false },
+        { "proxy-agent",               false },
+        { "http2-settings",            false },
+        { "restrict-access-to-tenants",false },
+        { "restrict-access-context",   false },
+        { "origin",                    false },
+        { "forwarded",                 false },
+        { "x-forwarded-from",          false },
+        { "client-ip",                 false },
+        { "xroxy-connection",          false },
+        { "proxy-connection",          false }
+    };
+    perfect_hash<bool> l7_request_ph{l7_request_headers};
+
+    std::vector<perfect_hash_entry<bool>> l7_response_headers = {
+        { "content-type",       false },
+        { "content-length",     false },
+        { "server",             false },
+        { "via",                false },
+        { "set-cookie",         true  },
+        { "www-authenticate",   false },
+        { "proxy-authenticate", false },
+        { "accept-ranges",      false },
+        { "age",                false },
+        { "etag",               false },
+        { "location",           false },
+        { "retry-after",        false },
+        { "vary",               false }
+    };
+    perfect_hash<bool> l7_response_ph{l7_response_headers};
+}
+
 inline void to_lower(std::basic_string<uint8_t> &str, struct datum d) {
     if (d.is_not_readable()) {
         return;
@@ -273,17 +353,14 @@ void http_request::write_l7_metadata(cbor_object &o, bool) {
 
     cbor_object http{o, "http"};
     cbor_object http_request{http, "request"};
+
     http_request.print_key_string("method", method);
     http_request.print_key_string("uri", uri);
     http_request.print_key_string("protocol", protocol);
-
-    headers.write_l7_metadata(http_request);
-    http_request.print_key_string("user_agent", get_header("user-agent"));
     http_request.print_key_string("host", get_header("host"));
-    http_request.print_key_string("x_forwarded_for", get_header("x-forwarded-for"));
-    http_request.print_key_string("via", get_header("via"));
-    http_request.print_key_string("upgrade", get_header("upgrade"));
-    http_request.print_key_string("referer", get_header("referer"));
+    http_request.print_key_string("user_agent", get_header("user-agent"));
+
+    headers.write_l7_metadata(http_request, l7_request_ph);
 
     http_request.close();
     http.close();
@@ -341,7 +418,7 @@ void http_response::write_l7_metadata(cbor_object &o, bool) {
     http_response.print_key_string("content_length", get_header("content-length"));
     http_response.print_key_string("server", get_header("server"));
     http_response.print_key_string("via", get_header("via"));
-    headers.write_l7_metadata(http_response);
+    headers.write_l7_metadata(http_response, l7_response_ph);
     http_response.close();
     http.close();
 }
@@ -369,13 +446,13 @@ void http_request::fingerprint(struct buffer_stream &b) {
     static perfect_hash<bool> fp_ph{fp_data_request};
 
     static std::vector<perfect_hash_entry<uint8_t>> header_data_request = {
-        { "user-agent", req_hdrs.index("user-agent") },
-        { "host", req_hdrs.index("host")},
-        { "x-forwarded-for", req_hdrs.index("x-forwarded-for")},
-        { "via", req_hdrs.index("via")},
-        { "upgrade", req_hdrs.index("upgrade")},
-        { "referer", req_hdrs.index("referer")},
-        { "authorization", req_hdrs.index("authorization")}
+        { "user-agent",      req_hdrs.index("user-agent") },
+        { "host",            req_hdrs.index("host") },
+        { "x-forwarded-for", req_hdrs.index("x-forwarded-for") },
+        { "via",             req_hdrs.index("via") },
+        { "upgrade",         req_hdrs.index("upgrade") },
+        { "referer",         req_hdrs.index("referer") },
+        { "authorization",   req_hdrs.index("authorization") }
     };
 
     static perfect_hash<uint8_t> ph{header_data_request};
