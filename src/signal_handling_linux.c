@@ -30,7 +30,7 @@ void sig_close (int signal_arg) {
 
     (void)signal_arg; /* "use" argument */
 
-    static const char *msg = "\nshutting down\n";
+    static const char msg[] = "\nshutting down\n";
 
     int l = write(STDERR_FILENO, msg, sizeof(msg) - 1);
     (void)l;
