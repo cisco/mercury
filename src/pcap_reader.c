@@ -75,7 +75,6 @@ enum status open_and_dispatch(struct mercury_config *cfg, mercury_context mc, st
     timer_start(&t); // get timestamp before we start processing
 
     struct pcap_reader_thread_context tc;
-    int err;
 
     status = pcap_reader_thread_context_init_from_config(&tc, cfg, mc, 0, &of->qs.queue[0]);
     if (status != status_ok) {
