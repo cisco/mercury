@@ -77,7 +77,7 @@ public:
         default:
             ;
         }
-        return nullptr;
+        return "unknown";
     }
 };
 
@@ -225,73 +225,73 @@ public:
     };
     const char *get_name() const {
         switch(encoded<T>::value()) {
-        case PA_TGS_REQ:                 return "PA_TGS_REQ";
-        case PA_ENC_TIMESTAMP:           return "PA_ENC_TIMESTAMP";
-        case PA_PW_SALT:                 return "PA_PW_SALT";
+        case PA_TGS_REQ:                 return "pa_tgs_req";
+        case PA_ENC_TIMESTAMP:           return "pa_enc_timestamp";
+        case PA_PW_SALT:                 return "pa_pw_salt";
         case reserved:                   return "reserved";
-        case PA_ENC_UNIX_TIME:           return "PA_ENC_UNIX_TIME";
-        case PA_SANDIA_SECUREID:         return "PA_SANDIA_SECUREID";
-        case PA_SESAME:                  return "PA_SESAME";
-        case PA_OSF_DCE:                 return "PA_OSF_DCE";
-        case PA_CYBERSAFE_SECUREID:      return "PA_CYBERSAFE_SECUREID";
-        case PA_AFS3_SALT:               return "PA_AFS3_SALT";
-        case PA_ETYPE_INFO:              return "PA_ETYPE_INFO";
-        case PA_SAM_CHALLENGE:           return "PA_SAM_CHALLENGE";
-        case PA_SAM_RESPONSE:            return "PA_SAM_RESPONSE";
-        case PA_PK_AS_REQ_OLD:           return "PA_PK_AS_REQ_OLD";
-        case PA_PK_AS_REP_OLD:           return "PA_PK_AS_REP_OLD";
-        case PA_PK_AS_REQ:               return "PA_PK_AS_REQ";
-        case PA_PK_AS_REP:               return "PA_PK_AS_REP";
-        case PA_PK_OCSP_RESPONSE:        return "PA_PK_OCSP_RESPONSE";
-        case PA_ETYPE_INFO2:             return "PA_ETYPE_INFO2";
-        case PA_USE_SPECIFIED_KVNO:      return "PA_USE_SPECIFIED_KVNO";
-            // case PA_SVR_REFERRAL_INFO:       return "PA_SVR_REFERRAL_INFO";
-        case PA_SAM_REDIRECT:            return "PA_SAM_REDIRECT";
-        case PA_GET_FROM_TYPED_DATA:     return "PA_GET_FROM_TYPED_DATA";
-            // case TD_PADATA:                  return "TD_PADATA";
-        case PA_SAM_ETYPE_INFO:          return "PA_SAM_ETYPE_INFO";
-        case PA_ALT_PRINC:               return "PA_ALT_PRINC";
-        case PA_SERVER_REFERRAL:         return "PA_SERVER_REFERRAL";
-        case PA_SAM_CHALLENGE2:          return "PA_SAM_CHALLENGE2";
-        case PA_SAM_RESPONSE2:           return "PA_SAM_RESPONSE2";
-        case PA_EXTRA_TGT:               return "PA_EXTRA_TGT";
-        case TD_PKINIT_CMS_CERTIFICATES: return "TD_PKINIT_CMS_CERTIFICATES";
-        case TD_KRB_PRINCIPAL:           return "TD_KRB_PRINCIPAL";
-        case TD_KRB_REALM:               return "TD_KRB_REALM";
-        case TD_TRUSTED_CERTIFIERS:      return "TD_TRUSTED_CERTIFIERS";
-        case TD_CERTIFICATE_INDEX:       return "TD_CERTIFICATE_INDEX";
-        case TD_APP_DEFINED_ERROR:       return "TD_APP_DEFINED_ERROR";
-        case TD_REQ_NONCE:               return "TD_REQ_NONCE";
-        case TD_REQ_SEQ:                 return "TD_REQ_SEQ";
-        case TD_DH_PARAMETERS:           return "TD_DH_PARAMETERS";
-        case TD_CMS_DIGEST_ALGORITHMS:   return "TD_CMS_DIGEST_ALGORITHMS";
-        case TD_CERT_DIGEST_ALGORITHMS:  return "TD_CERT_DIGEST_ALGORITHMS";
-        case PA_PAC_REQUEST:             return "PA_PAC_REQUEST";
-        case PA_FOR_USER:                return "PA_FOR_USER";
-        case PA_FOR_X509_USER:           return "PA_FOR_X509_USER";
-        case PA_FOR_CHECK_DUPS:          return "PA_FOR_CHECK_DUPS";
-        case PA_AS_CHECKSUM:             return "PA_AS_CHECKSUM";
-        case PA_FX_COOKIE:               return "PA_FX_COOKIE";
-        case PA_AUTHENTICATION_SET:      return "PA_AUTHENTICATION_SET";
-        case PA_AUTH_SET_SELECTED:       return "PA_AUTH_SET_SELECTED";
-        case PA_FX_FAST:                 return "PA_FX_FAST";
-        case PA_FX_ERROR:                return "PA_FX_ERROR";
-        case PA_ENCRYPTED_CHALLENGE:     return "PA_ENCRYPTED_CHALLENGE";
-        case PA_OTP_CHALLENGE:           return "PA_OTP_CHALLENGE";
-        case PA_OTP_REQUEST:             return "PA_OTP_REQUEST";
-        case PA_OTP_CONFIRM:             return "PA_OTP_CONFIRM";
-        case PA_OTP_PIN_CHANGE:          return "PA_OTP_PIN_CHANGE";
-        case PA_EPAK_AS_REQ:             return "PA_EPAK_AS_REQ";
-        case PA_EPAK_AS_REP:             return "PA_EPAK_AS_REP";
-        case PA_PKINIT_KX:               return "PA_PKINIT_KX";
-        case PA_PKU2U_NAME:              return "PA_PKU2U_NAME";
-        case PA_REQ_ENC_PA_REP:          return "PA_REQ_ENC_PA_REP";
-        case PA_AS_FRESHNESS:            return "PA_AS_FRESHNESS";
-        case PA_SPAKE:                   return "PA_SPAKE";
-        case PA_REDHAT_IDP_OAUTH2:       return "PA_REDHAT_IDP_OAUTH2";
-        case PA_REDHAT_PASSKEY:          return "PA_REDHAT_PASSKEY";
-        case PA_SUPPORTED_ETYPES:        return "PA_SUPPORTED_ETYPES";
-        case PA_EXTENDED_ERROR:          return "PA_EXTENDED_ERROR";
+        case PA_ENC_UNIX_TIME:           return "pa_enc_unix_time";
+        case PA_SANDIA_SECUREID:         return "pa_sandia_secureid";
+        case PA_SESAME:                  return "pa_sesame";
+        case PA_OSF_DCE:                 return "pa_osf_dce";
+        case PA_CYBERSAFE_SECUREID:      return "pa_cybersafe_secureid";
+        case PA_AFS3_SALT:               return "pa_afs3_salt";
+        case PA_ETYPE_INFO:              return "pa_etype_info";
+        case PA_SAM_CHALLENGE:           return "pa_sam_challenge";
+        case PA_SAM_RESPONSE:            return "pa_sam_response";
+        case PA_PK_AS_REQ_OLD:           return "pa_pk_as_req_old";
+        case PA_PK_AS_REP_OLD:           return "pa_pk_as_rep_old";
+        case PA_PK_AS_REQ:               return "pa_pk_as_req";
+        case PA_PK_AS_REP:               return "pa_pk_as_rep";
+        case PA_PK_OCSP_RESPONSE:        return "pa_pk_ocsp_response";
+        case PA_ETYPE_INFO2:             return "pa_etype_info2";
+        case PA_USE_SPECIFIED_KVNO:      return "pa_use_specified_kvno";
+            // case PA_SVR_REFERRAL_INFO:       return "pa_svr_referral_info";
+        case PA_SAM_REDIRECT:            return "pa_sam_redirect";
+        case PA_GET_FROM_TYPED_DATA:     return "pa_get_from_typed_data";
+            // case TD_PADATA:                  return "td_padata";
+        case PA_SAM_ETYPE_INFO:          return "pa_sam_etype_info";
+        case PA_ALT_PRINC:               return "pa_alt_princ";
+        case PA_SERVER_REFERRAL:         return "pa_server_referral";
+        case PA_SAM_CHALLENGE2:          return "pa_sam_challenge2";
+        case PA_SAM_RESPONSE2:           return "pa_sam_response2";
+        case PA_EXTRA_TGT:               return "pa_extra_tgt";
+        case TD_PKINIT_CMS_CERTIFICATES: return "td_pkinit_cms_certificates";
+        case TD_KRB_PRINCIPAL:           return "td_krb_principal";
+        case TD_KRB_REALM:               return "td_krb_realm";
+        case TD_TRUSTED_CERTIFIERS:      return "td_trusted_certifiers";
+        case TD_CERTIFICATE_INDEX:       return "td_certificate_index";
+        case TD_APP_DEFINED_ERROR:       return "td_app_defined_error";
+        case TD_REQ_NONCE:               return "td_req_nonce";
+        case TD_REQ_SEQ:                 return "td_req_seq";
+        case TD_DH_PARAMETERS:           return "td_dh_parameters";
+        case TD_CMS_DIGEST_ALGORITHMS:   return "td_cms_digest_algorithms";
+        case TD_CERT_DIGEST_ALGORITHMS:  return "td_cert_digest_algorithms";
+        case PA_PAC_REQUEST:             return "pa_pac_request";
+        case PA_FOR_USER:                return "pa_for_user";
+        case PA_FOR_X509_USER:           return "pa_for_x509_user";
+        case PA_FOR_CHECK_DUPS:          return "pa_for_check_dups";
+        case PA_AS_CHECKSUM:             return "pa_as_checksum";
+        case PA_FX_COOKIE:               return "pa_fx_cookie";
+        case PA_AUTHENTICATION_SET:      return "pa_authentication_set";
+        case PA_AUTH_SET_SELECTED:       return "pa_auth_set_selected";
+        case PA_FX_FAST:                 return "pa_fx_fast";
+        case PA_FX_ERROR:                return "pa_fx_error";
+        case PA_ENCRYPTED_CHALLENGE:     return "pa_encrypted_challenge";
+        case PA_OTP_CHALLENGE:           return "pa_otp_challenge";
+        case PA_OTP_REQUEST:             return "pa_otp_request";
+        case PA_OTP_CONFIRM:             return "pa_otp_confirm";
+        case PA_OTP_PIN_CHANGE:          return "pa_otp_pin_change";
+        case PA_EPAK_AS_REQ:             return "pa_epak_as_req";
+        case PA_EPAK_AS_REP:             return "pa_epak_as_rep";
+        case PA_PKINIT_KX:               return "pa_pkinit_kx";
+        case PA_PKU2U_NAME:              return "pa_pku2u_name";
+        case PA_REQ_ENC_PA_REP:          return "pa_req_enc_pa_rep";
+        case PA_AS_FRESHNESS:            return "pa_as_freshness";
+        case PA_SPAKE:                   return "pa_spake";
+        case PA_REDHAT_IDP_OAUTH2:       return "pa_redhat_idp_oauth2";
+        case PA_REDHAT_PASSKEY:          return "pa_redhat_passkey";
+        case PA_SUPPORTED_ETYPES:        return "pa_supported_etypes";
+        case PA_EXTENDED_ERROR:          return "pa_extended_error";
         default:
             ;
         }
@@ -301,4 +301,3 @@ public:
 
 
 #endif // KRB5_PARAMS_HPP
-

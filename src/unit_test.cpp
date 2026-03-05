@@ -27,6 +27,7 @@
 #include "libmerc/imap.hpp"
 #include "libmerc/asn1.h"
 #include "libmerc/oid.hpp"
+#include "libmerc/krb5.hpp"
 // Macros to colorize output
 //
 #define RED_ON     "\033[31m"
@@ -123,6 +124,10 @@ int main(int, char *[]) {
         {
             "tlv",
             &tlv::unit_test
+        },
+        {
+            "krb5_int_conversion",
+            &krb5::int_conversion_unit_test
         }
     };
     size_t num_tests = 0;
