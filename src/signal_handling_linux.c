@@ -13,6 +13,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <execinfo.h>
+#include <unistd.h>
 
 #include <setjmp.h>    /* For thread stall recovery */
 
