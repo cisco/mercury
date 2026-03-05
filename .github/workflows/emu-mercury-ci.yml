@@ -37,24 +37,17 @@ permissions:
 jobs:
   # ========== Linux Multi-Distro Build and Test ==========
 
-  define-matrix:
-    if: github.event_name != 'workflow_dispatch' || inputs.run_linux
-    runs-on: ubuntu-latest
-    outputs:
-      testplatforms: ${{ steps.testplatforms.outputs.testplatforms }}
-    steps:
-      - name: Define Test Platforms
-        id: testplatforms
-        run: |
-          echo 'testplatforms=["alma8","alma9","alma10","ubuntu20","ubuntu22","ubuntu24","debian11","debian12","debian13"]' >> "$GITHUB_OUTPUT"
-
   linux-ci:
     if: github.event_name != 'workflow_dispatch' || inputs.run_linux
-    needs: define-matrix
+    name: "linux-ci (${{ matrix.testplatform }}${{ matrix.xsimd && format(', {0}', matrix.xsimd) || '' }})"
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        testplatform: ${{ fromJSON(needs.define-matrix.outputs.testplatforms) }}
+        testplatform: [alma8, alma9, alma10, ubuntu20, ubuntu22, ubuntu24, debian11, debian12, debian13]
+        xsimd: [""]
+        include:
+          - testplatform: ubuntu22
+            xsimd: xsimd-bundled
     container:
       image: ghcr.io/cisco-netintel/${{matrix.testplatform}}:buildenv
       credentials:
@@ -70,7 +63,9 @@ jobs:
       - name: Mark workspace as safe for git
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: configure
-        run: ./configure
+        env:
+          XSIMD_FLAGS: ${{ matrix.xsimd == 'xsimd-bundled' && '--enable-xsimd --with-xsimd-include=src/libmerc/xsimd/include' || '' }}
+        run: ./configure $XSIMD_FLAGS
       - name: make
         run: make --debug=basic OPTFLAGS=-g
       # Alternative: Get resources from S3 using Conjur secrets
