@@ -636,6 +636,15 @@ extern "C" LIBMERC_DLL_EXPORTED
 #endif
 const char *mercury_get_resource_version(mercury_context mc);
 
+/**
+ * mercury_get_classifier() returns an opaque pointer to the classifier
+ * owned by the mercury context, or NULL if none is configured.
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+void *mercury_get_classifier(mercury_context mc);
+
 //
 // start of libmerc version 3 API
 //

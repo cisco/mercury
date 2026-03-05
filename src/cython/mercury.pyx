@@ -76,6 +76,7 @@ cdef extern from "../libmerc/libmerc.h":
     stateful_pkt_proc* mercury_packet_processor_construct(mercury_context mc)
     void mercury_packet_processor_destruct(mercury_packet_processor mpp)
     int mercury_finalize(mercury_context mc)
+    void *mercury_get_classifier(mercury_context mc)
 
     # get analysis context
     analysis_context *mercury_packet_processor_get_analysis_context(mercury_packet_processor processor,
@@ -121,9 +122,7 @@ cdef extern from "../libmerc/result.h":
 
 
 cdef extern from "../libmerc/analysis.h":
-    classifier *analysis_init_from_archive(int verbosity, const char *archive_name, const uint8_t *enc_key, enc_key_type key_type,
-                                           float fp_proc_threshold, float proc_dst_threshold, bool report_os);
-    cdef struct common_data:
+    cdef cppclass common_data:
         attribute_names attr_name;
 
     cdef cppclass classifier:
@@ -313,13 +312,7 @@ cdef class Mercury:
         self.default_ts.tv_sec = 0
         self.default_ts.tv_nsec = 0
 
-        cdef char* resources_c
-        cdef enc_key_type ekt
-        if do_analysis and resources != b'':
-            resources_c = resources
-            ekt = enc_key_type_none
-            self.clf = analysis_init_from_archive(0, resources_c, NULL, ekt, 0.0, 0.0, False)
-
+        self.clf = NULL
         self.mercury_init()
 
 
@@ -329,6 +322,8 @@ cdef class Mercury:
         if self.mercury_context == NULL:
             print('error: mercury_init() failed')
             return 1
+        self.clf = <classifier *>mercury_get_classifier(<mercury_context>self.mercury_context)
+        self.do_analysis = (self.clf != NULL)
 
         self.mpp = mercury_packet_processor_construct(<mercury_context>self.mercury_context)
         if self.mpp == NULL:
@@ -436,12 +431,12 @@ cdef class Mercury:
 
         cdef analysis_result ar = ac.result
 
-        if fp_string.startswith('tls'):
+        if self.do_analysis and fp_string.startswith('tls'):
             is_faketls = self.check_faketls(fp_string)
             if is_faketls:
                 self.clf.set_faketls_attribute(ar)
 
-        if ar.max_mal and fp_string.startswith('tls'):
+        if self.do_analysis and ar.max_mal and fp_string.startswith('tls'):
             self.clf.set_enc_channel_attribute(ar)
 
         if result['fingerprint_info']['status'] != 'unlabled':
@@ -844,21 +839,46 @@ cdef class Mercury:
 
 
     cpdef int mercury_finalize(self):
-        mercury_packet_processor_destruct(<mercury_packet_processor>self.mpp)
+        if self.mpp != NULL:
+            mercury_packet_processor_destruct(<mercury_packet_processor>self.mpp)
+            self.mpp = NULL
         cdef int retval = mercury_finalize(<mercury_context>self.mercury_context)
+        self.mercury_context = NULL
+        self.clf = NULL
+        self.do_analysis = False
         return retval
 
 
-def parse_dns(str b64_dns):
+def _decode_str_data(str data_str, bool is_hex):
     """
-    Return a JSON representation of the Base64 DNS packet.
+    Decode string data as hex when is_hex is true, otherwise decode as base64.
+    """
+    cleaned = data_str.strip()
 
-    :param b64_dns: Base64-encoded DNS packet.
-    :type b64_dns: str
+    if is_hex:
+        try:
+            return bytes.fromhex(cleaned)
+        except ValueError as e:
+            raise ValueError("Invalid hex input") from e
+    else:
+        try:
+            return b64decode(cleaned, validate=True)
+        except Exception as e:
+            raise ValueError("Invalid base64 input") from e
+
+
+def parse_dns(str dns_data, bool is_hex=False):
+    """
+    Return a JSON representation of a DNS packet supplied as hex or base64.
+
+    :param dns_data: DNS packet encoded as hex (if is_hex=True) or base64.
+    :type dns_data: str
+    :param is_hex: If true, decode dns_data as hex; otherwise decode as base64.
+    :type is_hex: bool
     :return: JSON-encoded DNS packet.
     :rtype: dict
     """
-    cdef bytes dns_req = b64decode(b64_dns)
+    cdef bytes dns_req = _decode_str_data(dns_data, is_hex)
     cdef unsigned int len_ = len(dns_req)
 
     # create reference to dns so that it doesn't get garbage collected
@@ -908,16 +928,18 @@ cdef extern from "../libmerc/x509.h":
         string get_hex_string()
 
 
-def parse_cert(str b64_cert):
+def parse_cert(str cert_data, bool is_hex=False):
     """
-    Return a JSON representation of the Base64 certificate.
+    Return a JSON representation of a certificate supplied as hex or base64.
 
-    :param b64_cert: Base64-encoded certificate.
-    :type b64_cert: str
+    :param cert_data: Certificate encoded as hex (if is_hex=True) or base64.
+    :type cert_data: str
+    :param is_hex: If true, decode cert_data as hex; otherwise decode as base64.
+    :type is_hex: bool
     :return: JSON-encoded certificate.
     :rtype: dict
     """
-    cdef bytes cert = b64decode(b64_cert)
+    cdef bytes cert = _decode_str_data(cert_data, is_hex)
     cdef unsigned int len_ = len(cert)
     cdef x509_cert x
 
