@@ -53,6 +53,9 @@ void thread_queues_init(struct thread_queues *tqs, int n, float frac) {
         exit(255);
     }
 
+    /* The struct ll_queue has cacheline-aligned members but that
+       alignment will only work if the struct itself is also
+       cacheline-aligned. */
     tqs->qnum = n;
     size_t queue_bytes = n * sizeof(struct ll_queue);
     size_t queue_bytes_aligned = ((queue_bytes + LLQ_CACHELINE_SIZE - 1) / LLQ_CACHELINE_SIZE) * LLQ_CACHELINE_SIZE;

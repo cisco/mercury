@@ -15,7 +15,7 @@
 #include <stdalign.h>
 
 #define LLQ_MAX_MSG_SIZE (1 << 20)   /* At least this many bytes must be free */
-#define LLQ_CACHELINE_SIZE 64
+#define LLQ_CACHELINE_SIZE 64 /* Both ARM and x86 use 64 byte cachelines */
 
 
 /* The message object suitable for the std::priority_queue */
@@ -24,7 +24,6 @@ struct llq_msg {
     ssize_t len;
     struct timespec ts;
 };
-
 
 /* a lockless ringbuffer */
 struct alignas(LLQ_CACHELINE_SIZE) ll_queue {
@@ -36,7 +35,6 @@ struct alignas(LLQ_CACHELINE_SIZE) ll_queue {
     alignas(LLQ_CACHELINE_SIZE) int need_read;        /* Special case: writer wrapped around and ran into reader */
     alignas(LLQ_CACHELINE_SIZE) uint64_t drops;       /* Output drop counter */
     alignas(LLQ_CACHELINE_SIZE) uint64_t drops_trunc; /* Drops due to truncation counter */
-
 
     /* This lockless ringbuffer supports a thread writing separately
      * from a thread reading without the need for locks. This is achieved with
@@ -77,6 +75,56 @@ struct alignas(LLQ_CACHELINE_SIZE) ll_queue {
      * the writer is no longer in the special case of needing to wait
      * for the reader.
      *
+     */
+
+    /* A word about cachline bouncing, false sharing, and why all this
+     * extra padding helps:
+     *
+     * On modern CPUs all memory access happens through the per-core
+     * private L1 cache.  Each core has its own cache and can't read
+     * directly from the last-level-cache or RAM. Any memory not in the L1
+     * cache must be brought into the L1 cache before it can be read.
+     *
+     * Where problems arise is when memory is written. Multiple cores may
+     * have a copy of a cacheline in their L1 cache so to do a write,
+     * there is a cache coherency protocol in the CPU using a memory cache
+     * fabric between the cores or between sockets in multi-CPU system. A
+     * message is broadcast to all other cores to force them to invalidate
+     * their copies of a cacheline so that the core about to do a write
+     * becomes the exclusive owner of the cacheline. Then, a write to
+     * memory occurs that updates the L1 cacheline in that core's own
+     * private L1 cache.
+     *
+     * Now if any other cores need to read or write the same memory, they
+     * must first bring the cacheline back into their own L1 cache.
+     *
+     * If multiple threads are running reading and writing to the same
+     * memory this causes what's called "cachline bouncing" as the
+     * cacheline is constantly being moved between cores and invalidated
+     * in the other cores. And since a cacheline is 64 bytes, even
+     * updating a single bit requires mulitple cache coherency messages,
+     * and any read of an invalidate cache requires a full 64 byte
+     * transfer.
+     *
+     * As such, rapid reading and writing of shared memory can saturate
+     * the cache coherency fabric which slows down memory access for all
+     * other cores, even in unrelated memory.
+     *
+     * Worse still is when to threads aren't sharing memory, but the
+     * memory they are accessing lives in the same cacheline. At the
+     * hardware level the 64 byte cacheline is essentially one thing so
+     * reading and writing adjacent memory can lead to the cacheline
+     * bouncing. This is called "false sharing".
+     *
+     * Here in the LLQ code, the output thread uses the ridx and the
+     * worker thread uses the widx.
+     *
+     * By making sure these don't share a cacheline, we prevent the output
+     * thread reading the ridx from causing a cacheline invalidation for
+     * the worker thread's widx cacheline.
+     *
+     * The wasted memory here is well worth the reduction in memory
+     * bandwidth.
      */
 
     struct llq_msg * init_msg(bool blocking, unsigned int sec,
