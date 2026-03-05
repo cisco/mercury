@@ -99,6 +99,14 @@ AC_ARG_WITH([xsimd-include],
   [xsimd_include_dir="$withval"],
   [xsimd_include_dir=""])
 
+# Canonicalize to an absolute path so that -I works from any sub-directory
+# Makefile (e.g., compilation inside src/libmerc/, not the project root).
+AS_IF([test -n "$xsimd_include_dir"],
+  [case "$xsimd_include_dir" in
+     /*) ;;
+     *)  xsimd_include_dir="$PWD/$xsimd_include_dir" ;;
+   esac])
+
 # Detect the xsimd header-only SIMD library (version 9+).
 # Sets HAVE_XSIMD for Makefiles and config.h; used to enable
 # SIMD-accelerated classifier path in libmerc.
