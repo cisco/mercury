@@ -244,6 +244,7 @@ namespace krb5 {
         tlv realm;
         tlv sname;
         tlv enc_part;
+        bool valid;
 
     public:
         ticket(datum d) :
@@ -270,10 +271,17 @@ namespace krb5 {
                     ;
                 }
             }
+            valid = tkt_vno.is_not_null()
+                 && realm.is_not_null()
+                 && sname.is_not_null()
+                 && enc_part.is_not_null();
         }
 
         void write_json(json_object &o, bool metadata=false) const {
             (void)metadata;
+            if (!valid) {
+                return;
+            }
             json_object tkt{o, "ticket"};
             tkt.print_key_hex("vno", tkt_vno.value);
             if (realm) {
@@ -326,6 +334,7 @@ namespace krb5 {
         tlv address;                  // optional
         tlv enc_authorization_data;   // optional
         tlv additional_tickets;       // optional
+        bool valid;
 
     public:
 
@@ -379,9 +388,17 @@ namespace krb5 {
                 }
                 // TODO: verify that required fields are present
             }
+            valid = kdc_opt.is_not_null()
+                 && realm.is_not_null()
+                 && till.is_not_null()
+                 && nonce.is_not_null()
+                 && etype.is_not_null();
         }
 
         void write_json(json_object &record) const {
+            if (!valid) {
+                return;
+            }
             json_object o{record, "body"};
             kdc_options{kdc_opt.value}.print_as_json(o, "kdc_options");
             if (cname) {
@@ -521,7 +538,9 @@ namespace krb5 {
         }
 
         void write_json(json_object &o) const {
-            //            if (!valid) { return; }
+            if (!valid) {
+                return;
+            }
             json_object kdc_req_json{o, "kdc_req"};
             kdc_req_json.print_key_hex("pvno", pvno.value);
             kdc_req_json.print_key_hex("msg_type", msg_type.value);
@@ -672,6 +691,7 @@ namespace krb5 {
         tlv sname;
         tlv e_text;          // optional
         tlv e_data;          // optional
+        bool valid;
     public:
 
         error(datum &d) : seq{&d, tlv::SEQUENCE, "seq"} {
@@ -724,9 +744,19 @@ namespace krb5 {
                     ;
                 }
             }
+            valid = pvno.is_not_null()
+                 && msg_type.is_not_null()
+                 && stime.is_not_null()
+                 && susec.is_not_null()
+                 && error_code.is_not_null()
+                 && realm.is_not_null()
+                 && sname.is_not_null();
         }
 
         void write_json(json_object &o) const {
+            if (!valid) {
+                return;
+            }
             json_object error_json{o, "error"};
             error_json.print_key_hex("pvno", pvno.value);
             error_json.print_key_hex("msg_type", msg_type.value);
@@ -778,6 +808,7 @@ namespace krb5 {
         tlv cname;
         tlv tkt;
         tlv enc_part;
+        bool valid;
     public:
         kdc_rep(datum &d) : seq{&d, tlv::SEQUENCE, "seq"} {
             //fprintf(stderr, "FUNCTION: %s\n", __func__);
@@ -809,9 +840,18 @@ namespace krb5 {
                     break;
                 }
             }
+            valid = pvno.is_not_null()
+                 && msg_type.is_not_null()
+                 && crealm.is_not_null()
+                 && cname.is_not_null()
+                 && tkt.is_not_null()
+                 && enc_part.is_not_null();
         }
 
         void write_json(json_object &o) const {
+            if (!valid) {
+                return;
+            }
             json_object kdc_rep_json{o, "kdc_rep"};
             kdc_rep_json.print_key_hex("pvno", pvno.value);
             kdc_rep_json.print_key_hex("msg_type", msg_type.value);
@@ -826,9 +866,7 @@ namespace krb5 {
             kdc_rep_json.print_key_json_string("crealm", crealm.value);
             principal_name{cname.value}.write_json(kdc_rep_json, "cname");
             ticket{tkt.value}.write_json(kdc_rep_json);
-            if (enc_part) {
-                encrypted_data{enc_part.value}.write_json(kdc_rep_json);
-            }
+            encrypted_data{enc_part.value}.write_json(kdc_rep_json);
 
             kdc_rep_json.close();
         }
