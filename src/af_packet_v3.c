@@ -981,7 +981,7 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
 
         tstor[thread].pkt_processor = pkt_proc_new_from_config(cfg, mc, thread, &out_ctx->qs.queue[thread]);
         if (tstor[thread].pkt_processor == NULL) {
-            printf("error: could not initialize frame handler\n");
+            fprintf(stderr, "error: could not initialize frame handler\n");
             return status_err;
         }
     }
@@ -991,12 +991,12 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
 
     err = pthread_attr_init(&pt_stack_size);
     if (err != 0) {
-        printf("Unable to init stack size attribute for worker pthread: %s\n", strerror(err));
+        fprintf(stderr, "Unable to init stack size attribute for worker pthread: %s\n", strerror(err));
     }
 
     err = pthread_attr_setstacksize(&pt_stack_size, 16 * 1024 * 1024); // 16 MB is plenty big enough
     if (err != 0) {
-        printf("Unable to set stack size attribute for worker pthread: %s\n", strerror(err));
+        fprintf(stderr, "Unable to set stack size attribute for worker pthread: %s\n", strerror(err));
     }
 
     /* Start up the threads */
@@ -1030,7 +1030,7 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
     out_ctx->t_output_p = 1;
     err = pthread_cond_broadcast(&(out_ctx->t_output_c)); /* Wake up output */
     if (err != 0) {
-        printf("%s: error broadcasting all clear on output start condition\n", strerror(err));
+        fprintf(stderr, "%s: error broadcasting all clear on output start condition\n", strerror(err));
         exit(255);
     }
     err = pthread_mutex_unlock(&(out_ctx->t_output_m));
@@ -1050,7 +1050,7 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
     t_start_p = 1;
     err = pthread_cond_broadcast(&t_start_c); // Wake up all the waiting threads
     if (err != 0) {
-        printf("%s: error broadcasting all clear on clean start condition\n", strerror(err));
+        fprintf(stderr, "%s: error broadcasting all clear on clean start condition\n", strerror(err));
         exit(255);
     }
     err = pthread_mutex_unlock(&t_start_m);
