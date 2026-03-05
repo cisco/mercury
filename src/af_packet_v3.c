@@ -1093,7 +1093,7 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
     }
 
     /* At this point output is spinning waiting for output and all the
-       packet processing threads and starts are started but they're
+       packet processing threads and stats are started but they're
        waiting on the clean start condition before they actually do
        any work
     */
