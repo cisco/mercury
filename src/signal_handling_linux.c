@@ -38,7 +38,13 @@ void sig_close (int signal_arg) {
 
     sig_close_flag = 1; /* tell all threads to shutdown gracefully */
 
-    close(STDIN_FILENO); /* if reading from stdin, stop reading (async-signal-safe) */
+    /* close STDIN. The reason to do this here is to ensure that any
+     * blocked reads waiting for stdin will get immediately unstuck
+     * and allow the rest of the program to resume shutting down.
+     * We must use close() here and not fclose() because fclose() isn't
+     * async-signal-safe because it uses internal state and a mutex.
+     */
+    close(STDIN_FILENO);
 
     errno = saved_errno; /* restore */
 }
