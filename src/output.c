@@ -53,13 +53,19 @@ void thread_queues_init(struct thread_queues *tqs, int n, float frac) {
         exit(255);
     }
 
+    /* The struct ll_queue has cacheline-aligned members but that
+       alignment will only work if the struct itself is also
+       cacheline-aligned. */
     tqs->qnum = n;
-    tqs->queue = (struct ll_queue *)calloc(n, sizeof(struct ll_queue));
-
-    if (tqs->queue == NULL) {
-        fprintf(stderr, "Failed to allocate memory for thread queues\n");
+    size_t queue_bytes = n * sizeof(struct ll_queue);
+    size_t queue_bytes_aligned = ((queue_bytes + LLQ_CACHELINE_SIZE - 1) / LLQ_CACHELINE_SIZE) * LLQ_CACHELINE_SIZE;
+    void *queue_mem = aligned_alloc(LLQ_CACHELINE_SIZE, queue_bytes_aligned);
+    if (queue_mem == NULL) {
+        perror("failed to allocate aligned memory for thread queues");
         exit(255);
     }
+    memset(queue_mem, 0, queue_bytes_aligned);
+    tqs->queue = (struct ll_queue *)queue_mem;
 
     for (int i = 0; i < n; i++) {
         tqs->queue[i].qnum = i; /* only needed for debug output */
@@ -459,7 +465,7 @@ void *output_thread_func(void *arg) {
         }
 
         /* This is how we detect no more output is coming */
-        if (out_ctx->sig_stop_output != 0) {
+        if (__atomic_load_n(&out_ctx->sig_stop_output, __ATOMIC_ACQUIRE) != 0) {
             all_output_done = 1;
         }
 
@@ -531,7 +537,7 @@ int output_thread_init(struct output_file &out_ctx, const struct mercury_config 
 }
 
 void output_thread_finalize(struct output_file *out_file) {
-    out_file->sig_stop_output = 1;
+    __atomic_store_n(&out_file->sig_stop_output, 1, __ATOMIC_RELEASE);
     pthread_join(out_file->tid, NULL);
     thread_queues_free(&out_file->qs);
 }
