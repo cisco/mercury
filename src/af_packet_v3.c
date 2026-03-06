@@ -111,6 +111,8 @@ struct thread_storage {
     struct tpacket_block_desc **block_header; /* The pointer to each block in the mmap()'d region */
     struct tpacket_req3 ring_params; /* The ring allocation params to setsockopt() */
     struct stats_tracking *statst;   /* A pointer to the struct with the stats counters */
+    uint64_t received_packets_local; /* Per-thread packet counter drained by stats thread */
+    uint64_t received_bytes_local;   /* Per-thread byte counter drained by stats thread */
     int longest_bstreak;        /* Track the longers number of full blocks in a row */
     int *t_start_p;             /* The clean start predicate */
     pthread_cond_t *t_start_c;  /* The clean start condition */
@@ -170,7 +172,7 @@ void af_packet_stats(int sockfd, struct stats_tracking *statst) {
 }
 
 void process_all_packets_in_block(struct tpacket_block_desc *block_hdr,
-                                  struct stats_tracking *statst,
+                                  struct thread_storage *thread_stor,
                                   struct pkt_proc *pkt_processor) {
     int num_pkts = block_hdr->hdr.bh1.num_pkts, i;
     unsigned long byte_count = 0;
@@ -201,11 +203,11 @@ void process_all_packets_in_block(struct tpacket_block_desc *block_hdr,
         pkt_hdr = (struct tpacket3_hdr *) ((uint8_t *)pkt_hdr + pkt_hdr->tp_next_offset);
     }
 
-    /* Atomic operations
-     * https://gcc.gnu.org/onlinedocs/gcc-4.1.0/gcc/Atomic-Builtins.html
+    /* GCC C11-style atomic operations
+     * https://gcc.gnu.org/onlinedocs/gcc/_005f_005fatomic-Builtins.html
      */
-    __sync_add_and_fetch(&(statst->received_packets), num_pkts);
-    __sync_add_and_fetch(&(statst->received_bytes), byte_count);
+    __atomic_add_fetch(&(thread_stor->received_packets_local), num_pkts, __ATOMIC_RELAXED);
+    __atomic_add_fetch(&(thread_stor->received_bytes_local), byte_count, __ATOMIC_RELAXED);
 }
 
 void *stats_thread_func(void *statst_arg) {
@@ -262,8 +264,8 @@ void *stats_thread_func(void *statst_arg) {
     int duration = 0;
 
     while (sig_close_flag == 0) {
-        uint64_t packets_before = statst->received_packets;
-        uint64_t bytes_before = statst->received_bytes;
+        uint64_t packets_before = __atomic_load_n(&(statst->received_packets), __ATOMIC_RELAXED);
+        uint64_t bytes_before = __atomic_load_n(&(statst->received_bytes), __ATOMIC_RELAXED);
         uint64_t socket_packets_before = statst->socket_packets;
         uint64_t socket_drops_before = statst->socket_drops;
         uint64_t socket_freezes_before = statst->socket_freezes;
@@ -275,6 +277,15 @@ void *stats_thread_func(void *statst_arg) {
         /* == WAIT DONE == */
 
         time_d = time_elapsed(&ts); /* compares to the previous time */
+
+        /* Move each worker's local packet counters into global totals. */
+        for (int thread = 0; thread < statst->num_threads; thread++) {
+            uint64_t packets = __atomic_exchange_n(&(statst->tstor[thread].received_packets_local), 0, __ATOMIC_ACQ_REL);
+            uint64_t bytes = __atomic_exchange_n(&(statst->tstor[thread].received_bytes_local), 0, __ATOMIC_ACQ_REL);
+
+            __atomic_add_fetch(&(statst->received_packets), packets, __ATOMIC_RELAXED);
+            __atomic_add_fetch(&(statst->received_bytes), bytes, __ATOMIC_RELAXED);
+        }
 
         /* Just give up if the time doesn't sound right */
         if ((time_d < 0.9) || (time_d > 1.1)) {
@@ -332,8 +343,8 @@ void *stats_thread_func(void *statst_arg) {
         }
 
         /* The per-second stats scaled by the time delta */
-        double pps  = (statst->received_packets - packets_before) / time_d;      /* packets */
-        double byps  = (statst->received_bytes - bytes_before) / time_d;         /* bytes */
+        double pps  = (__atomic_load_n(&(statst->received_packets), __ATOMIC_RELAXED) - packets_before) / time_d;      /* packets */
+        double byps  = (__atomic_load_n(&(statst->received_bytes), __ATOMIC_RELAXED) - bytes_before) / time_d;         /* bytes */
         double spps = (statst->socket_packets - socket_packets_before) / time_d; /* socket packets */
 
         /* The socket stats that don't need to be scaled */
@@ -578,7 +589,6 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
      */
     int sockfd = thread_stor->sockfd;
     struct tpacket_block_desc **block_header = thread_stor->block_header;
-    struct stats_tracking *statst = thread_stor->statst;
     struct pkt_proc *pkt_processor = thread_stor->pkt_processor;
 
     /* We got the clean start all clear so we can get started but
@@ -785,7 +795,7 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
             bstreak++; /* We've gotten another block */
 
             /* We found data, process it! */
-            process_all_packets_in_block(block_header[cb], statst, pkt_processor);
+            process_all_packets_in_block(block_header[cb], thread_stor, pkt_processor);
 
             /* Reset our accounting */
             pstreak = 0; /* Reset the poll streak tracking */
@@ -799,6 +809,17 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
         }
 
     } /* end while (sig_close_workers == 0) */
+
+    /*
+     * Graceful shutdown order is stats thread first, then packet workers,
+     * then output thread. Since workers can still process packets after the
+     * stats thread exits, each worker must flush its own local counters here
+     * before exit so the final global packet/byte totals include that work.
+     */
+    uint64_t packets = __atomic_exchange_n(&(thread_stor->received_packets_local), 0, __ATOMIC_ACQ_REL);
+    uint64_t bytes = __atomic_exchange_n(&(thread_stor->received_bytes_local), 0, __ATOMIC_ACQ_REL);
+    __atomic_add_fetch(&(thread_stor->statst->received_packets), packets, __ATOMIC_RELAXED);
+    __atomic_add_fetch(&(thread_stor->statst->received_bytes), bytes, __ATOMIC_RELAXED);
 
     fprintf(stderr, "[PACKET PROCESSOR] Thread %d with pthread id %lu (PID %u) exiting...\n", thread_stor->tnum, thread_stor->tid, thread_stor->kpid);
     return 0;
@@ -934,6 +955,8 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
         tstor[thread].sockfd = -1;
         tstor[thread].if_name = cfg->capture_interface;
         tstor[thread].statst = &statst;
+        tstor[thread].received_packets_local = 0;
+        tstor[thread].received_bytes_local = 0;
         tstor[thread].t_start_p = &t_start_p;
         tstor[thread].t_start_c = &t_start_c;
         tstor[thread].t_start_m = &t_start_m;
@@ -999,6 +1022,59 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
         fprintf(stderr, "Unable to set stack size attribute for worker pthread: %s\n", strerror(err));
     }
 
+    /* A few words on the thread design and how we start them up and
+     * tear them down. We have the following:
+     *
+     * A "stats" thread
+     * Some number of worker threads that process packets
+     * A "output" thread which writes output to files
+     *
+     * It takes us a while to get all these threads
+     * started. Especially the packet worker threads which can require
+     * very large memory allocations. So to start threads up, the
+     * sequences roughly:
+     *
+     * 1) Mercury starts, this is main()
+     *
+     * 2) The output thread gets created which allocates the shared llqs
+     * for the eventual workers
+     *
+     * 3) The output thread pauses waiting for a message saying
+     * everything else has been started
+     *
+     * 4) The stats thread gets started
+     *
+     * 5) The stats thread pauses waiting for a message saying
+     * everything else has been started
+     *
+     * 6) Each worker thread is started one at a time
+     *
+     * 7) Each worker thread pauses waiting for a message saying
+     * everything has been started
+     *
+     * 8) A message is broadcast to all the threads telling them to begin
+     *
+     *
+     * To make this work, the waiting loop requires three things:
+     * A mutex, a predicate variable, and a condition variable.
+     *
+     * The naming here is t_thread_m for mutex, t_thread_p for
+     * predicate, and t_thread_c for condition.
+     *
+     * The predicate is just a integer in memory that gets set from 0
+     * to 1 saying everything is ready.  Instead of busy-looping or
+     * calling sleep() checking the predicate over and over, a
+     * condition variable (which is a pthread message passing channel) is used
+     * to sleep and wake cleanly. To avoid race conditions the mutex guards the
+     * setting of the predicate and the condition variable broadcast.
+     *
+     * See https://www.ibm.com/docs/en/aix/7.1.0?topic=programming-using-condition-variables
+     *
+     * Also, there is a decent article describing how all this works
+     * and covers some of the gotcha edge cases:
+     * https://www.modernescpp.com/index.php/c-core-guidelines-be-aware-of-the-traps-of-condition-variables/
+     */
+
     /* Start up the threads */
     err = pthread_create(&(statst.tid), &pt_stack_size, stats_thread_func, &statst);
     if (err != 0) {
@@ -1038,9 +1114,16 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
         fprintf(stderr, "%s: error unlocking output start mutex\n", strerror(err));
         exit(255);
     }
+    err = pthread_mutex_unlock(&(out_ctx->t_output_m));
+    if (err != 0) {
+        fprintf(stderr, "%s: error unlocking output start mutex\n", strerror(err));
+        exit(255);
+    }
 
-    /* At this point all threads are started but they're waiting on
-       the clean start condition
+    /* At this point output is spinning waiting for output and all the
+       packet processing threads and stats are started but they're
+       waiting on the clean start condition before they actually do
+       any work
     */
     err = pthread_mutex_lock(&t_start_m);
     if (err != 0) {
@@ -1048,9 +1131,14 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
         exit(255);
     }
     t_start_p = 1;
-    err = pthread_cond_broadcast(&t_start_c); // Wake up all the waiting threads
+    err = pthread_cond_broadcast(&t_start_c); /* Wake up all the waiting threads */
     if (err != 0) {
         fprintf(stderr, "%s: error broadcasting all clear on clean start condition\n", strerror(err));
+        exit(255);
+    }
+    err = pthread_mutex_unlock(&t_start_m);
+    if (err != 0) {
+        fprintf(stderr, "%s: error unlocking clean start mutex\n", strerror(err));
         exit(255);
     }
     err = pthread_mutex_unlock(&t_start_m);
