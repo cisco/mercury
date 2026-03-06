@@ -203,8 +203,8 @@ void process_all_packets_in_block(struct tpacket_block_desc *block_hdr,
         pkt_hdr = (struct tpacket3_hdr *) ((uint8_t *)pkt_hdr + pkt_hdr->tp_next_offset);
     }
 
-    /* Atomic operations
-     * https://gcc.gnu.org/onlinedocs/gcc-4.1.0/gcc/Atomic-Builtins.html
+    /* GCC C11-style atomic operations
+     * https://gcc.gnu.org/onlinedocs/gcc/_005f_005fatomic-Builtins.html
      */
     __atomic_add_fetch(&(thread_stor->received_packets_local), num_pkts, __ATOMIC_RELAXED);
     __atomic_add_fetch(&(thread_stor->received_bytes_local), byte_count, __ATOMIC_RELAXED);
