@@ -1114,11 +1114,6 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
         fprintf(stderr, "%s: error unlocking output start mutex\n", strerror(err));
         exit(255);
     }
-    err = pthread_mutex_unlock(&(out_ctx->t_output_m));
-    if (err != 0) {
-        fprintf(stderr, "%s: error unlocking output start mutex\n", strerror(err));
-        exit(255);
-    }
 
     /* At this point output is spinning waiting for output and all the
        packet processing threads and stats are started but they're
@@ -1134,11 +1129,6 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
     err = pthread_cond_broadcast(&t_start_c); /* Wake up all the waiting threads */
     if (err != 0) {
         fprintf(stderr, "%s: error broadcasting all clear on clean start condition\n", strerror(err));
-        exit(255);
-    }
-    err = pthread_mutex_unlock(&t_start_m);
-    if (err != 0) {
-        fprintf(stderr, "%s: error unlocking clean start mutex\n", strerror(err));
         exit(255);
     }
     err = pthread_mutex_unlock(&t_start_m);
