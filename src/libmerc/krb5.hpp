@@ -1273,14 +1273,14 @@ namespace krb5 {
             tlv application{tmp, 0x00};
             json_object u{o, "unknown_application"};
             u.print_key_hex("body",body);
-            u.print_key_uint("tag", application.tag);
+            u.print_key_uint_hex("tag", application.tag);
             u.print_key_uint("length", application.length);
             u.print_key_hex("value", application.value);
             u.close();
         }
     };
 
-    using message = std::variant<std::monostate, error, kdc_req, kdc_rep, unknown_application>;
+    using message = std::variant<std::monostate, error, kdc_req, kdc_rep>;
 
     struct do_write_json {
         json_object &record;
@@ -1293,18 +1293,35 @@ namespace krb5 {
         void operator()(T &t) { t.write_json(record); }
     };
 
+
+    /// \brief parses a four byte element as a kerberos TCP
+    /// record_marker if it represents a uint32_t in network byte
+    /// order that is less than 0xffffff, and trims \p d to that
+    /// length; otherwise, it leaves \p d unchanged.
+    ///
+    class optional_record_marker {
+    public:
+
+        optional_record_marker(datum &d) {
+            if (lookahead<encoded<uint32_t>> marker{d}) {
+                if (marker.value.value() < 0xffffff) {
+                    d = marker.advance();
+                    d.trim_to_length(marker.value.value());
+                }
+            }
+        }
+    };
+
     class packet : public base_protocol {
-        datum body;
+        optional_record_marker marker;
         tlv application;
-        tlv app2;
         message msg;
 
     public:
         packet(datum &d) :
-            body{d},
+            marker{d},
             application{&d, 0x00, "application"}
         {
-            app2 = application;  // copy
             switch(application.tag) {
             case 0x6a:
                 msg.emplace<kdc_req>(application.value);
@@ -1322,19 +1339,17 @@ namespace krb5 {
                 msg.emplace<error>(application.value);
                 break;
             default:
-                msg.emplace<unknown_application>(body);
+                ;
             }
         }
 
-        bool is_not_empty() const { return application.is_not_null(); }
+        bool is_not_empty() const {
+            fprintf(stderr, "application.is_not_null: %u\n", application.value.is_not_null());
+            return application.is_not_null(); }
 
         void write_json(json_object &o, bool metadata=false) const {
             (void)metadata;
             json_object krb_json{o, "kerberos"};
-            // json_array raw_krb{krb_json, "raw"};
-            // tlv tmp{app2};
-            // tlv::recursive_parse(tmp.value, raw_krb);
-            // raw_krb.close();
             std::visit(do_write_json{krb_json}, msg);
             krb_json.close();
         }

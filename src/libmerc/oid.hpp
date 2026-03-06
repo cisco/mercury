@@ -222,10 +222,10 @@ namespace asn1 {
         constexpr static auto id_ad = id_pkix + suboid<48>();
 
         bool all_passed = true;
-        all_passed &= compare(oid_id_pkix_ocsp_basic, std::array<uint8_t, 9>{ 0x2b, 0x06, 0x01, 0x05, 0x05, 0x07, 0x30, 0x01, 0x01 });
-        all_passed &= compare(oid_rsadsi, std::array<uint8_t, 6>{ 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d });
-        all_passed &= compare(oid_two_999_3, std::array<uint8_t, 3>{ 0x88, 0x37, 0x03 });
-        all_passed &= compare(oid_id_pkix_ocsp_basic, id_ad + suboid<1,1>());
+        all_passed &= compare(oid_id_pkix_ocsp_basic, std::array<uint8_t, 9>{ 0x2b, 0x06, 0x01, 0x05, 0x05, 0x07, 0x30, 0x01, 0x01 }, f);
+        all_passed &= compare(oid_rsadsi, std::array<uint8_t, 6>{ 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d }, f);
+        all_passed &= compare(oid_two_999_3, std::array<uint8_t, 3>{ 0x88, 0x37, 0x03 }, f);
+        all_passed &= compare(oid_id_pkix_ocsp_basic, id_ad + suboid<1,1>(), f);
 
         return all_passed;
     }

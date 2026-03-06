@@ -625,12 +625,8 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         x.emplace<ftp::response>(pkt);
         return;
     case tcp_msg_type_krb5:
-        {
-            encoded<uint32_t> record_mark{pkt};
-            datum krb5_tcp_msg{pkt,record_mark.value()};
-            x.emplace<krb5::packet>(krb5_tcp_msg);
-            return;
-        }
+        x.emplace<krb5::packet>(pkt);  // tcp record marker detected in constructor
+        return;
     case tcp_msg_type_imap_request:
         x.emplace<imap::imap_requests>(pkt);
         return;
