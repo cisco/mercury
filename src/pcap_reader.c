@@ -74,6 +74,7 @@ enum status open_and_dispatch(struct mercury_config *cfg, mercury_context mc, st
     timer_start(&t); // get timestamp before we start processing
 
     struct pcap_reader_thread_context tc;
+    int err;
 
     status = pcap_reader_thread_context_init_from_config(&tc, cfg, mc, 0, &of->qs.queue[0]);
     if (status != status_ok) {
@@ -84,10 +85,20 @@ enum status open_and_dispatch(struct mercury_config *cfg, mercury_context mc, st
     }
 
     /* Wake up output thread so it's polling the queues waiting for data */
+    err = pthread_mutex_lock(&(of->t_output_m));
+    if (err != 0) {
+        fprintf(stderr, "%s: error locking output start mutex\n", strerror(err));
+        exit(255);
+    }
     of->t_output_p = 1;
-    int err = pthread_cond_broadcast(&(of->t_output_c)); /* Wake up output */
+    err = pthread_cond_broadcast(&(of->t_output_c)); /* Wake up output */
     if (err != 0) {
         printf("%s: error broadcasting all clear on output start condition\n", strerror(err));
+        exit(255);
+    }
+    err = pthread_mutex_unlock(&(of->t_output_m));
+    if (err != 0) {
+        fprintf(stderr, "%s: error unlocking output start mutex\n", strerror(err));
         exit(255);
     }
 
