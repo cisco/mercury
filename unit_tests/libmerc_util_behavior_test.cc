@@ -121,6 +121,7 @@ TEST_CASE("emix.pcap") {
         {"http", 10},
         {"iec60870_5_104", 42},
         {"ike", 30},
+        {"kerberos",28},
         {"ldap", 25},
         {"mdns", 6},
         {"mysql", 4},
