@@ -520,11 +520,13 @@ int output_thread_init(struct output_file &out_ctx, const struct mercury_config 
     int err = pthread_attr_init(&pt_stack_size);
     if (err != 0) {
         fprintf(stderr, "Unable to init stack size attribute for output pthread: %s\n", strerror(err));
+        return -1;
     }
 
     err = pthread_attr_setstacksize(&pt_stack_size, 16 * 1024 * 1024); // 16 MB is plenty big enough
     if (err != 0) {
         fprintf(stderr, "Unable to set stack size attribute for output pthread: %s\n", strerror(err));
+        return -1;
     }
 
     /* Start the output thread */

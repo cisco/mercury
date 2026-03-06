@@ -27,7 +27,7 @@ enum status pcap_reader_thread_context_init_from_config(struct pcap_reader_threa
 
     tc->pkt_processor = pkt_proc_new_from_config(cfg, mc, tnum, llq);
     if (tc->pkt_processor == NULL) {
-        printf("error: could not initialize frame handler\n");
+        fprintf(stderr, "error: could not initialize frame handler\n");
         return status_err;
     }
 
@@ -39,7 +39,7 @@ enum status pcap_reader_thread_context_init_from_config(struct pcap_reader_threa
         }
         status = pcap_file_open(&tc->rf, input_filename, io_direction_reader, cfg->flags);
         if (status) {
-            printf("error: could not open pcap input file %s\n", cfg->read_filename);
+            fprintf(stderr, "error: could not open pcap input file %s\n", cfg->read_filename);
             return status;
         }
     }
@@ -111,11 +111,13 @@ enum status open_and_dispatch(struct mercury_config *cfg, mercury_context mc, st
     err = pthread_attr_init(&pt_stack_size);
     if (err != 0) {
         fprintf(stderr, "Unable to init stack size attribute for pcap reader pthread: %s\n", strerror(err));
+        exit(255);
     }
 
     err = pthread_attr_setstacksize(&pt_stack_size, 16 * 1024 * 1024); // 16 MB is plenty big enough
     if (err != 0) {
         fprintf(stderr, "Unable to set stack size attribute for pcap reader pthread: %s\n", strerror(err));
+        exit(255);
     }
 
     err = pthread_create(&(tc.tid), &pt_stack_size, pcap_file_processing_thread_func, &tc);
