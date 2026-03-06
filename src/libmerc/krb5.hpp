@@ -1343,9 +1343,7 @@ namespace krb5 {
             }
         }
 
-        bool is_not_empty() const {
-            fprintf(stderr, "application.is_not_null: %u\n", application.value.is_not_null());
-            return application.is_not_null(); }
+        bool is_not_empty() const { return application.is_not_null(); }
 
         void write_json(json_object &o, bool metadata=false) const {
             (void)metadata;
