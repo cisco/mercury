@@ -77,7 +77,7 @@ struct alignas(LLQ_CACHELINE_SIZE) ll_queue {
      *
      */
 
-    /* A word about cachline bouncing, false sharing, and why all this
+    /* A word about cacheline bouncing, false sharing, and why all this
      * extra padding helps:
      *
      * On modern CPUs all memory access happens through the per-core
@@ -99,10 +99,10 @@ struct alignas(LLQ_CACHELINE_SIZE) ll_queue {
      * must first bring the cacheline back into their own L1 cache.
      *
      * If multiple threads are running reading and writing to the same
-     * memory this causes what's called "cachline bouncing" as the
+     * memory this causes what's called "cacheline bouncing" as the
      * cacheline is constantly being moved between cores and invalidated
      * in the other cores. And since a cacheline is 64 bytes, even
-     * updating a single bit requires mulitple cache coherency messages,
+     * updating a single bit requires multiple cache coherency messages,
      * and any read of an invalidate cache requires a full 64 byte
      * transfer.
      *
@@ -110,7 +110,7 @@ struct alignas(LLQ_CACHELINE_SIZE) ll_queue {
      * the cache coherency fabric which slows down memory access for all
      * other cores, even in unrelated memory.
      *
-     * Worse still is when to threads aren't sharing memory, but the
+     * Worse still is when two threads aren't sharing memory, but the
      * memory they are accessing lives in the same cacheline. At the
      * hardware level the 64 byte cacheline is essentially one thing so
      * reading and writing adjacent memory can lead to the cacheline
