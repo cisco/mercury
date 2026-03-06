@@ -465,7 +465,7 @@ void *output_thread_func(void *arg) {
         }
 
         /* This is how we detect no more output is coming */
-        if (out_ctx->sig_stop_output != 0) {
+        if (__atomic_load_n(&out_ctx->sig_stop_output, __ATOMIC_ACQUIRE) != 0) {
             all_output_done = 1;
         }
 
@@ -537,7 +537,7 @@ int output_thread_init(struct output_file &out_ctx, const struct mercury_config 
 }
 
 void output_thread_finalize(struct output_file *out_file) {
-    out_file->sig_stop_output = 1;
+    __atomic_store_n(&out_file->sig_stop_output, 1, __ATOMIC_RELEASE);
     pthread_join(out_file->tid, NULL);
     thread_queues_free(&out_file->qs);
 }

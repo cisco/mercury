@@ -28,6 +28,7 @@
 #include "exposed_creds.h"
 #include "pkt_proc_util.h"
 #include "reassembly.hpp"
+#include "protocol_config.h"
 
 /**
  * enum linktype is a 16-bit enumeration that identifies a protocol
@@ -102,6 +103,10 @@ struct mercury {
             }
         }
         finalize_attribute_common_data();
+
+        // configure static protocol settings from global config;
+        // must happen once before packet processors are created
+        configure_protocol_classes(global_vars);
     }
 
     ~mercury() {
@@ -160,15 +165,6 @@ struct stateful_pkt_proc {
 
         // classifier may be unavailable if analysis resources are missing;
         // protocol parsing and non-classifier analysis still proceed safely.
-
-        // setting protocol based configuration option to output the raw features
-        set_raw_features(global_vars.raw_features);
-
-        // setting protocol based configuration option to output the http headers
-        set_http_headers(global_vars.http_headers);
-
-        // setting protocol based configuration option to output the http body
-        set_http_body(global_vars.http_body_max);
 
         //fprintf(stderr, "note: setting classifier to %p, setting global_vars to %p\n", (void *)m->c, (void *)&m->global_vars));
         // }
@@ -321,30 +317,6 @@ struct stateful_pkt_proc {
 
     bool dump_pkt ();
 
-    void set_raw_features(const std::unordered_map<std::string, bool> &raw_features) {
-        if (raw_features.at("all") or raw_features.at("tls")) {
-            tls_client_hello::set_raw_features(true);
-        }
-
-        if (raw_features.at("all") or raw_features.at("stun")) {
-            stun::message::set_raw_features(true);
-        }
-
-        if (raw_features.at("all") or raw_features.at("bittorrent")) {
-            bittorrent_dht::set_raw_features(true);
-            bittorrent_lsd::set_raw_features(true);
-            bittorrent_handshake::set_raw_features(true);
-        }
-
-        if (raw_features.at("all") or raw_features.at("smb")) {
-            smb2_packet::set_raw_features(true);
-        }
-
-        if (raw_features.at("all") or raw_features.at("ssdp")) {
-            ssdp::set_raw_features(true);
-        }
-    }
-
     bool set_exposed_creds_attr(exposed_creds_type exposed_creds_res) {
         if (!analysis.result.attr.is_initialized()) {
             return false;
@@ -387,13 +359,6 @@ struct stateful_pkt_proc {
         return output_attr;
     }
 
-    void set_http_headers(const global_config::http_headers_config &http_headers) {
-        http_config::set_http_headers(http_headers.non_sensitive, http_headers.all);
-    }
-
-    void set_http_body(size_t max_body) {
-        http_config::set_http_body(max_body);
-    }
 };
 
 #endif /* PKT_PROC_H */

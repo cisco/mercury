@@ -164,7 +164,7 @@ test-coverage:
 		     --add-tracefile ./coverage/mercury_unit_tests_2.info \
 			 --add-tracefile ./coverage/mercury_libmerc_driver_fdc.info \
 		     --output-file ./coverage/mercury_total.info 2>&1 | grep -v "function data mismatch" && \
-		lcov -q --remove ./coverage/mercury_total.info "/usr/*" "*/src/libmerc/rapidjson/*" "*/src/libmerc/xsimd/*" "*/unit_tests/*" -o ./coverage/mercury_filtered_coverage.info && \
+		lcov -q --remove ./coverage/mercury_total.info "/usr/*" "*/src/libmerc/rapidjson/*" "*/unit_tests/*" -o ./coverage/mercury_filtered_coverage.info && \
 		genhtml --no-function-coverage --output-directory coverage_html_report ./coverage/mercury_filtered_coverage.info && \
 		echo -e $(COLOR_GREEN) "created coverage report" $(COLOR_OFF) \
 	' || { echo $(COLOR_RED) "failed to build coverage report" $(COLOR_OFF); exit 1; }

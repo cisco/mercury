@@ -695,7 +695,7 @@ int af_packet_rx_ring_fanout_capture(struct thread_storage *thread_stor) {
     unsigned int cb = 0;  /* The current block pointer (index) */
     struct timespec ts;
     (void)time_elapsed(&ts); /* init the struct for us */
-    while (sig_close_workers == 0) {
+    while (__atomic_load_n(&sig_close_workers, __ATOMIC_ACQUIRE) == 0) {
 
         /* Debugging thread stalling:
          * If force_stall is set (say by the stats thread)
@@ -999,6 +999,59 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
         printf("Unable to set stack size attribute for worker pthread: %s\n", strerror(err));
     }
 
+    /* A few words on the thread design and how we start them up and
+     * tear them down. We have the following:
+     *
+     * A "stats" thread
+     * Some number of worker threads that process packets
+     * A "output" thread which writes output to files
+     *
+     * It takes us a while to get all these threads
+     * started. Especially the packet worker threads which can require
+     * very large memory allocations. So to start threads up, the
+     * sequences roughly:
+     *
+     * 1) Mercury starts, this is main()
+     *
+     * 2) The output thread gets created which allocates the shared llqs
+     * for the eventual workers
+     *
+     * 3) The output thread pauses waiting for a message saying
+     * everything else has been started
+     *
+     * 4) The stats thread gets started
+     *
+     * 5) The stats thread pauses waiting for a message saying
+     * everything else has been started
+     *
+     * 6) Each worker thread is started one at a time
+     *
+     * 7) Each worker thread pauses waiting for a message saying
+     * everything has been started
+     *
+     * 8) A message is broadcast to all the threads telling them to begin
+     *
+     *
+     * To make this work, the waiting loop requires three things:
+     * A mutex, a predicate variable, and a condition variable.
+     *
+     * The naming here is t_thread_m for mutex, t_thread_p for
+     * predicate, and t_thread_c for condition.
+     *
+     * The predicate is just a integer in memory that gets set from 0
+     * to 1 saying everything is ready.  Instead of busy-looping or
+     * calling sleep() checking the predicate over and over, a
+     * condition variable (which is a pthread message passing channel) is used
+     * to sleep and wake cleanly. To avoid race conditions the mutex guards the
+     * setting of the predicate and the condition variable broadcast.
+     *
+     * See https://www.ibm.com/docs/en/aix/7.1.0?topic=programming-using-condition-variables
+     *
+     * Also, there is a decent article describing how all this works
+     * and covers some of the gotcha edge cases:
+     * https://www.modernescpp.com/index.php/c-core-guidelines-be-aware-of-the-traps-of-condition-variables/
+     */
+
     /* Start up the threads */
     err = pthread_create(&(statst.tid), &pt_stack_size, stats_thread_func, &statst);
     if (err != 0) {
@@ -1022,20 +1075,42 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
     }
 
     /* Wake up output thread so it's polling the queues waiting for data */
+    err = pthread_mutex_lock(&(out_ctx->t_output_m));
+    if (err != 0) {
+        fprintf(stderr, "%s: error locking output start mutex\n", strerror(err));
+        exit(255);
+    }
     out_ctx->t_output_p = 1;
     err = pthread_cond_broadcast(&(out_ctx->t_output_c)); /* Wake up output */
     if (err != 0) {
         printf("%s: error broadcasting all clear on output start condition\n", strerror(err));
         exit(255);
     }
+    err = pthread_mutex_unlock(&(out_ctx->t_output_m));
+    if (err != 0) {
+        fprintf(stderr, "%s: error unlocking output start mutex\n", strerror(err));
+        exit(255);
+    }
 
-    /* At this point all threads are started but they're waiting on
-       the clean start condition
+    /* At this point output is spinning waiting for output and all the
+       packet processing threads and stats are started but they're
+       waiting on the clean start condition before they actually do
+       any work
     */
+    err = pthread_mutex_lock(&t_start_m);
+    if (err != 0) {
+        fprintf(stderr, "%s: error locking clean start mutex\n", strerror(err));
+        exit(255);
+    }
     t_start_p = 1;
-    err = pthread_cond_broadcast(&t_start_c); // Wake up all the waiting threads
+    err = pthread_cond_broadcast(&t_start_c); /* Wake up all the waiting threads */
     if (err != 0) {
         printf("%s: error broadcasting all clear on clean start condition\n", strerror(err));
+        exit(255);
+    }
+    err = pthread_mutex_unlock(&t_start_m);
+    if (err != 0) {
+        fprintf(stderr, "%s: error unlocking clean start mutex\n", strerror(err));
         exit(255);
     }
 
@@ -1043,7 +1118,7 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
     pthread_join(statst.tid, NULL);
 
     /* stats tracking closed, let the packet processing workers know */
-    sig_close_workers = 1;
+    __atomic_store_n(&sig_close_workers, 1, __ATOMIC_RELEASE);
 
     /* wait for each thread to exit */
     for (int thread = 0; thread < num_threads; thread++) {
