@@ -32,6 +32,8 @@ protected:
     bool counter(size_t expected_attrs_count, std::function<void(size_t, size_t)> callback);
     bool check_attr(std::string &expected_attr);
 
+    std::string get_first_json();
+
     void check_global_configuraton(libmerc_config config);
 
 protected:

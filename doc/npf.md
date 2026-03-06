@@ -108,7 +108,7 @@ Where the elements are defined as follows:
 - `IP_Version` (string, one byte) represents the IP Version field (RFC 791) in its most significant four bits, and zero in its least significant four bits.  Its value is 0x40 or 0x60 for IPv4 and IPv6, respectively.   It can be computed as the logical AND of the first byte of the IP header and the value 0xf0.
 
 - `IP_ID` (string, variable length) represents the IP ID field for IPv4, and the Flow Label field for IPv6; note that the former is two bytes long, and the latter is 20 bits long.  If that field is zero, then the IP_ID field is 00; otherwise, it is empty.
-- `IP_TTL` (string, one byte) represents the value of the TTL field bitwise ORed with 0xe0.  The resulting value will be a multiple of 32 (decimal).  For instance, it will be 0x00 if the TTL is less than 32 (decimal), 0x20 if the TTL is between 33 and 64 (decimal), and so on.
+- `IP_TTL` (string, one byte) represents the value of the TTL field bitwise ANDed with 0xe0.  The resulting value will be a multiple of 32 (decimal).  For instance, it will be 0x00 if the TTL is less than 32 (decimal), 0x20 if the TTL is between 33 and 64 (decimal), and so on.
 - `TCP_Window` (string, two bytes) is the TCP Window field (RFC 793).
 - `TCP_Option` (sequence, variable length) elements represent the TCP Option fields (RFC 793), a variable-length sequence of variable-length options that appears at the end of a TCP header.  Let `option` denote the byte string consisting of a TCP Option on the wire.  Then the corresponding `TCP_Option` element in the fingerprint is defined as
 
@@ -138,7 +138,7 @@ The "tls/2" fingerprint format is
 The "tls/1" fingerprint format is
 
 ```
-   "tls/1/" (TLS_Version) (TLS_Ciphersuite) [ TLS_Extension* ]
+   "tls/1/" (TLS_Version) (TLS_Ciphersuite) [(TLS_Extension)*]
 ```
 
 and the older "tls" fingerprint format is
@@ -416,7 +416,7 @@ The "dtls/2" fingerprint format is
 
 The "dtls/1" fingerprint format is
 ```
-   "dtls/1/" (DTLS_Version) (DTLS_Ciphersuite) [ DTLS_Extension* ]
+   "dtls/1/" (DTLS_Version) (DTLS_Ciphersuite) [(DTLS_Extension)*]
 ```
 
 and the older "dtls" fingerprint format is
