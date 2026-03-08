@@ -5,8 +5,6 @@
 #ifndef KRB5_HPP
 #define KRB5_HPP
 
-// #define ASN1_DEBUG 1
-// #define TLV_ERR_INFO 1
 
 #include <variant>
 #include "datum.h"
@@ -30,10 +28,6 @@ namespace krb5 {
     [[maybe_unused]] inline const char *etype_get_string(int64_t etype);
     static inline void print_key_etype(json_object &o, const char *key, int64_t etype);
     static inline void print_key_ciphertext(json_object &o, const datum &ciphertext);
-
-    // hashcat 
-    //
-    // 7500	Kerberos 5, etype 23, AS-REQ Pre-Auth	$krb5pa$23$user$realm$salt$4e751db65422b2117f7eac7b721932dc8aa0d9966785ecd958f971f622bf5c42dc0c70b532363138363631363132333238383835
 
     [[maybe_unused]] inline uint64_t to_uint64(const datum &d) {
         uint64_t result = 0;
@@ -158,6 +152,7 @@ namespace krb5 {
         kdc_options(datum p) : bit_string{} {
             parse(p);
         }
+        kdc_options(const tlv &t) : bit_string{t} {}
         void parse(datum &p) {
             bit_string.parse(&p, tlv::BIT_STRING);
         }
@@ -230,8 +225,8 @@ namespace krb5 {
             return nullptr;
         }
 
-        principal_name(datum d) :
-            sequence{d, 0, "pn.sequence"},
+        principal_name(const tlv &pn) :
+            sequence{pn},
             name_type{sequence.value, 0, "name_type"},
             name_sequence{sequence.value, 0, "name_sequence"}
         { }
@@ -251,7 +246,6 @@ namespace krb5 {
             json_array array{pn, "names"};
             tlv tmp_seq{name_sequence.value, tlv::SEQUENCE, "tmp_seq"};
             while (tmp_seq.value.is_not_empty()) {
-                // tmp_seq.value.fprint_hex(stderr); fputc('\n', stderr);
                 tlv name{tmp_seq};
                 array.print_json_string(name.value);
             }
@@ -270,33 +264,18 @@ namespace krb5 {
     //
     class encrypted_data {
         tlv seq;
-        tlv etype;
-        tlv kvno;
-        tlv cipher;
+        asn1::tlv_expected etype{tlv::INTEGER};       // [0]
+        asn1::tlv_expected kvno{tlv::INTEGER};        // [1] OPTIONAL
+        asn1::tlv_expected cipher{tlv::OCTET_STRING}; // [2]
         bool valid;
 
     public:
 
-        encrypted_data(datum d) :
-            seq{d, tlv::SEQUENCE, "encrypted_data.seq"}
+        encrypted_data(const tlv &ed) :
+            seq{ed}
         {
-            while (seq.value.is_not_empty()) {
-                tlv tmp{&seq.value};
-                switch(tmp.tag) {
-                case tlv::explicit_tag_constructed(0):
-                    etype.parse(&tmp.value, tlv::INTEGER);
-                    break;
-                case tlv::explicit_tag_constructed(1):
-                    kvno.parse(&tmp.value, tlv::INTEGER);
-                    break;
-                case tlv::explicit_tag_constructed(2):
-                    cipher.parse(&tmp.value, tlv::OCTET_STRING);
-                    break;
-                default:
-                    ;
-                }
-            }
-            valid = (bool)etype and (bool)cipher;
+            asn1::parse_explicitly_tagged_positional(seq.value, etype, kvno, cipher);
+            valid = (bool)etype and (bool)cipher; // kvno is optional
         }
 
         void write_json(json_object &o, const char *name, bool metadata=false) const {
@@ -305,20 +284,6 @@ namespace krb5 {
                 return;
             }
             json_object enc_data{o, name};
-            print_key_etype(enc_data, "etype", to_int64(etype.value));
-            if (kvno) {
-                enc_data.print_key_uint("kvno", to_uint64(kvno.value));
-            }
-            print_key_ciphertext(enc_data, cipher.value);
-            enc_data.close();
-        }
-
-        void write_json(json_object &o, bool metadata=false) const {
-            (void)metadata;
-            if (!valid) {
-                return;
-            }
-            json_object enc_data{o, "enc_data"};
             print_key_etype(enc_data, "etype", to_int64(etype.value));
             if (kvno) {
                 enc_data.print_key_uint("kvno", to_uint64(kvno.value));
@@ -358,12 +323,10 @@ namespace krb5 {
                     realm.parse(&tmp.value);
                     break;
                 case tlv::explicit_tag_constructed(2):
-                    sname = tmp;
-                    //sname.parse(&tmp.value);
+                    sname.parse(&tmp.value);
                     break;
                 case tlv::explicit_tag_constructed(3):
-                    enc_part = tmp;
-                    //enc_part.parse(&tmp.value);
+                    enc_part.parse(&tmp.value);
                     break;
                 default:
                     ;
@@ -386,11 +349,10 @@ namespace krb5 {
                 tkt.print_key_json_string("realm", realm.value);
             }
             if (sname) {
-                principal_name{sname.value}.write_json(tkt, "sname");
+                principal_name{sname}.write_json(tkt, "sname");
             }
             if (enc_part) {
-                // tkt.print_key_hex("enc_part", enc_part.value);
-                encrypted_data{enc_part.value}.write_json(tkt, metadata);
+                encrypted_data{enc_part}.write_json(tkt, "enc_data", metadata);
             }
             tkt.close();
         }
@@ -414,6 +376,13 @@ namespace krb5 {
         static const char *addr_type_name(uint64_t t) {
             switch (t) {
             case 2:  return "ipv4";
+            case 3:  return "directional";
+            case 5:  return "chaosnet";
+            case 6:  return "xns";
+            case 7:  return "iso";
+            case 12: return "decnet_phase_iv";
+            case 16: return "appletalk_ddp";
+            case 20: return "netbios";
             case 24: return "ipv6";
             default: return nullptr;
             }
@@ -458,6 +427,8 @@ namespace krb5 {
                 h.print_key_ipv4_addr("address", addr_value.value.data);
             } else if (t == 24 && addr_value.value.length() == 16) {
                 h.print_key_ipv6_addr("address", addr_value.value.data);
+            } else if (t == 20) {
+                h.print_key_json_string("address", addr_value.value);
             } else {
                 h.print_key_hex("address", addr_value.value);
             }
@@ -470,6 +441,11 @@ namespace krb5 {
         bool valid;
 
     public:
+        host_addresses(const tlv &t) :
+            seq{t},
+            valid{seq.is_not_null()}
+        { }
+
         host_addresses(datum d) :
             seq{d, tlv::SEQUENCE, "host_addresses.seq"},
             valid{seq.is_not_null()}
@@ -487,6 +463,156 @@ namespace krb5 {
                 h.write_json(arr);
             }
             arr.close();
+        }
+    };
+
+    // APOptions       ::= KerberosFlags
+    // -- reserved(0),
+    // -- use-session-key(1),
+    // -- mutual-required(2)
+    //
+    class ap_options {
+        struct tlv bit_string;
+
+    public:
+
+        ap_options() : bit_string{} {}
+        ap_options(datum p) : bit_string{} {
+            parse(p);
+        }
+        void parse(datum &p) {
+            bit_string.parse(&p, tlv::BIT_STRING);
+        }
+
+        void print_as_json(struct json_object &o, const char *name) const {
+            varint<uint32_t> flags{bit_string.value, varint<uint32_t>::asn1_bitstring};
+            json_array_bitflags f{o, name, flags};
+            f.flag<1>("reserved");
+            f.flag<1>("use_session_key");
+            f.flag<2>("mutual_required");
+            f.check_for_unknown_flags<0,1,2>();
+            f.close();
+        }
+    };
+
+    //     AP-REQ          ::= [APPLICATION 14] SEQUENCE {
+    //         pvno            [0] INTEGER (5),
+    //         msg-type        [1] INTEGER (14),
+    //         ap-options      [2] APOptions,
+    //         ticket          [3] Ticket,
+    //         authenticator   [4] EncryptedData -- Authenticator
+    // }
+    //
+    class ap_req {
+        tlv seq;
+        tlv pvno;
+        tlv msg_type;
+        tlv ap_opt;
+        tlv tkt;
+        tlv auth;
+        bool valid;
+    public:
+
+        ap_req(datum &d) :
+            seq{d, tlv::SEQUENCE, "ap_req.sequence"},
+            valid{false}
+        {
+            datum body{seq.value};
+            while (body.is_readable()) {
+                tlv tmp{body};
+                switch(tmp.tag) {
+                case tlv::explicit_tag_constructed(0):
+                    pvno.parse(&tmp.value);
+                    break;
+                case tlv::explicit_tag_constructed(1):
+                    msg_type.parse(&tmp.value);
+                    break;
+                case tlv::explicit_tag_constructed(2):
+                    ap_opt.parse(&tmp.value);
+                    break;
+                case tlv::explicit_tag_constructed(3):
+                    tkt.parse(&tmp.value);
+                    break;
+                case tlv::explicit_tag_constructed(4):
+                    auth.parse(&tmp.value);
+                    break;
+                default:
+                    ;
+                }
+            }
+            valid = pvno.is_not_null()
+                 && msg_type.is_not_null()
+                 && ap_opt.is_not_null()
+                 && tkt.is_not_null()
+                 && auth.is_not_null();
+        }
+
+        bool is_valid() const { return valid; }
+
+        void write_json(json_object &o, const char *name="ap_req") const {
+            if (!valid) {
+                return;
+            }
+            json_object ap_req_json{o, name};
+            ap_req_json.print_key_uint("pvno", static_cast<unsigned long int>(to_uint64(pvno.value)));
+            print_key_msg_type(ap_req_json, "msg_type", to_uint64(msg_type.value));
+            ap_options{ap_opt.value}.print_as_json(ap_req_json, "ap_options");
+            ticket{tkt.value}.write_json(ap_req_json);
+            encrypted_data{auth}.write_json(ap_req_json, "authenticator");
+            ap_req_json.close();
+        }
+
+    };
+
+    //     AP-REP          ::= [APPLICATION 15] SEQUENCE {
+    //         pvno            [0] INTEGER (5),
+    //         msg-type        [1] INTEGER (15),
+    //         enc-part        [2] EncryptedData -- EncAPRepPart
+    // }
+    //
+    class ap_rep {
+        tlv seq;
+        tlv pvno;
+        tlv msg_type;
+        tlv enc_part;
+        bool valid;
+
+    public:
+        ap_rep(datum &d) :
+            seq{d, tlv::SEQUENCE, "ap_rep.sequence"},
+            valid{false}
+        {
+            datum body{seq.value};
+            while (body.is_not_empty()) {
+                tlv tmp{&body};
+                switch (tmp.tag) {
+                case tlv::explicit_tag_constructed(0):
+                    pvno.parse(&tmp.value);
+                    break;
+                case tlv::explicit_tag_constructed(1):
+                    msg_type.parse(&tmp.value);
+                    break;
+                case tlv::explicit_tag_constructed(2):
+                    enc_part.parse(&tmp.value);
+                    break;
+                default:
+                    break;
+                }
+            }
+            valid = pvno.is_not_null() && msg_type.is_not_null() && enc_part.is_not_null();
+        }
+
+        bool is_valid() const { return valid; }
+
+        void write_json(json_object &o, const char *name="ap_rep") const {
+            if (!valid) {
+                return;
+            }
+            json_object ap_rep_json{o, name};
+            ap_rep_json.print_key_uint("pvno", static_cast<unsigned long int>(to_uint64(pvno.value)));
+            print_key_msg_type(ap_rep_json, "msg_type", to_uint64(msg_type.value));
+            encrypted_data{enc_part}.write_json(ap_rep_json, "enc_data");
+            ap_rep_json.close();
         }
     };
 
@@ -530,25 +656,20 @@ namespace krb5 {
     public:
 
         kdc_req_body(datum &d) {
-            //tlv seq{&d, tlv::SEQUENCE, "kdc_req_body.sequence"};
             while (d.is_not_empty()) {
                 tlv tmp{&d};
-                //fprintf(stderr, "kdc_req_body.tag: %x\n", tmp.tag);
                 switch(tmp.tag) {
                 case tlv::explicit_tag_constructed(0):
-                    kdc_opt = tmp;
-                    // kdc_options.parse(&tmp.value);
+                    kdc_opt.parse(&tmp.value);
                     break;
                 case tlv::explicit_tag_constructed(1):
-                    cname = tmp;
-                    // cname.parse(&tmp.value);
+                    cname.parse(&tmp.value);
                     break;
                 case tlv::explicit_tag_constructed(2):
                     realm.parse(&tmp.value);
                     break;
                 case tlv::explicit_tag_constructed(3):
-                    sname = tmp;
-                    // sname.parse(&tmp.value);
+                    sname.parse(&tmp.value);
                     break;
                 case tlv::explicit_tag_constructed(4):
                     from.parse(&tmp.value);
@@ -569,8 +690,7 @@ namespace krb5 {
                     address.parse(&tmp.value);
                     break;
                 case tlv::explicit_tag_constructed(10):
-                    // [10] EncryptedData (EXPLICIT) - preserve wrapper and parse on output.
-                    enc_authorization_data = tmp;
+                    enc_authorization_data.parse(&tmp.value);
                     break;
                 case tlv::explicit_tag_constructed(11):
                     additional_tickets.parse(&tmp.value);
@@ -592,25 +712,22 @@ namespace krb5 {
                 return;
             }
             json_object o{record, "body"};
-            kdc_options{kdc_opt.value}.print_as_json(o, "kdc_options");
+            kdc_options{kdc_opt}.print_as_json(o, "kdc_options");
             if (cname) {
-                principal_name{cname.value}.write_json(o, "cname");
+                principal_name{cname}.write_json(o, "cname");
             }
             o.print_key_json_string("realm", realm.value);
             if (sname) {
-                principal_name{sname.value}.write_json(o, "sname");
+                principal_name{sname}.write_json(o, "sname");
             }
             if (from) {
                 from.print_as_json_generalized_time(o, "from");
             }
-            // o.print_key_hex("from", from.value);
             till.print_as_json_generalized_time(o, "till");
             if (rtime) {
                 rtime.print_as_json_generalized_time(o, "rtime");
             }
             o.print_key_uint("nonce", static_cast<unsigned long int>(to_uint64(nonce.value)));
-            // o.print_key_hex("etype", etype.value);
-
             json_array etype_array{o, "etype"};
             datum tmp = etype.value;
             while (tmp.is_not_empty()) {
@@ -621,10 +738,10 @@ namespace krb5 {
             etype_array.close();
 
             if (address) {
-                host_addresses{address.value}.write_json(o, "addresses");
+                host_addresses{address}.write_json(o, "addresses");
             }
             if (enc_authorization_data) {
-                encrypted_data enc_auth_data{enc_authorization_data.value};
+                encrypted_data enc_auth_data{enc_authorization_data};
                 enc_auth_data.write_json(o, "enc_authorization_data");
             }
             if (additional_tickets) {
@@ -705,8 +822,6 @@ namespace krb5 {
     public:
         pa_data(datum &d) :
             seq{&d, tlv::SEQUENCE, "seq"},
-            // pa_data_type{&seq.value, 0x00, "pa_data_type"},
-            // pa_data_value{&seq.value, 0x00, "pa_data_value"}
             type{&seq.value, tlv::explicit_tag_constructed(1), "pa_data_type"},
             pa_data_value{&seq.value, tlv::explicit_tag_constructed(2), "pa_data_value"},
             valid{d.is_not_null()}
@@ -724,21 +839,29 @@ namespace krb5 {
             const uint64_t pa_type_code = to_uint64(tlv{tmp});
             pa_data_type<uint32_t> pa_type{pa_type_code};
             const char *pa_type_name = pa_type.get_name();
-
-            json_object pa_value_obj{pad, pa_type_name};
-            if (strcmp(pa_type_name, "unknown") == 0) {
-                pa_value_obj.print_key_unknown_code("pa_data_type", pa_type_code);
-            }
+            pad.print_key_string_or_unknown_code("pa_data_type", pa_type_name, pa_type_code);
 
             datum octets_data = pa_data_value.value;
             tlv octets{octets_data, tlv::OCTET_STRING, "pa_data_value.octets"};
             if (octets.is_valid()) {
-                pa_value_obj.print_key_string("value_type", "octet_string");
-                if (pa_type_code == pa_data_type<uint32_t>::PA_ETYPE_INFO2) {
+                bool handled = false;
+                if (pa_type_code == pa_data_type<uint32_t>::PA_TGS_REQ) {
+                    datum app_data = octets.value;
+                    tlv app_req_tlv{app_data, 0x6e, "pa_tgs_req.ap_req"};
+                    if (app_req_tlv.is_valid()) {
+                        ap_req req{app_req_tlv.value};
+                        if (req.is_valid()) {
+                            json_object value{pad, pa_type_name};
+                            req.write_json(value, "ap_req");
+                            value.close();
+                            handled = true;
+                        }
+                    }
+                } else if (pa_type_code == pa_data_type<uint32_t>::PA_ETYPE_INFO2) {
                     datum seq_data = octets.value;
                     tlv seq{seq_data, tlv::SEQUENCE, "pa_etype_info2.sequence"};
                     if (seq.is_valid()) {
-                        json_array value{pa_value_obj, "value"};
+                        json_array value{pad, pa_type_name};
                         datum entries = seq.value;
                         while (entries.is_not_empty()) {
                             etype_info2_entry entry{entries};
@@ -747,19 +870,24 @@ namespace krb5 {
                             entry_json.close();
                         }
                         value.close();
-                        pa_value_obj.close();
-                        pad.close();
-                        return;
+                        handled = true;
+                    }
+                } else if (pa_type_code == pa_data_type<uint32_t>::PA_ENC_TIMESTAMP) {
+                    datum enc_data = octets.value;
+                    tlv enc_tlv{enc_data, tlv::SEQUENCE, "pa_enc_timestamp.encrypted_data"};
+                    if (enc_tlv.is_valid()) {
+                        encrypted_data enc{enc_tlv};
+                        json_object value{pad, pa_type_name};
+                        enc.write_json(value, "enc_timestamp");
+                        value.close();
+                        handled = true;
                     }
                 }
-                pa_value_obj.print_key_hex("value", octets.value);
-                pa_value_obj.close();
-                pad.close();
-                return;
-            }
 
-            pa_value_obj.print_key_hex("value_hex", pa_data_value.value);
-            pa_value_obj.close();
+                if (!handled) {
+                    pad.print_key_hex("value_hex", octets.value);
+                }
+            }
             pad.close();
         }
 
@@ -805,8 +933,6 @@ namespace krb5 {
     // }
     //
     class kdc_req {
-        //literal<4> prefix;
-        //tlv application;
         tlv seq;
         tlv pvno;
         tlv msg_type;
@@ -817,12 +943,8 @@ namespace krb5 {
     public:
 
         kdc_req(datum &d) :
-            //application{&d, 0x00, "application"},
-            //prefix{application.value, { 0x6a, 0x82, 0x01, 0x1f }},
             seq{&d, tlv::SEQUENCE, "seq"},
             valid{false}
-            // pvno{&seq.value, tlv::explicit_tag(1), "pvno"},
-            // valid{seq.value.is_not_null()}
         {
             while (seq.value.is_not_empty()) {
                 tlv tmp{&seq.value};
@@ -846,21 +968,32 @@ namespace krb5 {
             valid = seq.is_not_null() && pvno.is_not_null() && msg_type.is_not_null() && req_body.is_not_null();
         }
 
-        void write_json(json_object &o) const {
+        bool is_valid() const {
+            return valid;
+        }
+
+        uint64_t get_msg_type() const {
+            return to_uint64(msg_type.value);
+        }
+
+        void write_json(json_object &o, const char *name) const {
             if (!valid) {
                 return;
             }
-            json_object kdc_req_json{o, "kdc_req"};
-            kdc_req_json.print_key_uint("pvno", static_cast<unsigned long int>(to_uint64(pvno.value)));
-            print_key_msg_type(kdc_req_json, "msg_type", to_uint64(msg_type.value));
-            pa_data_sequence{padata.value}.write_json(kdc_req_json, "pa_data");
-            //kdc_req.print_key_hex("req_body", req_body.value);
+            json_object req_json{o, name};
+            req_json.print_key_uint("pvno", static_cast<unsigned long int>(to_uint64(pvno.value)));
+            print_key_msg_type(req_json, "msg_type", to_uint64(msg_type.value));
+            pa_data_sequence{padata.value}.write_json(req_json, "pa_data");
             if (req_body.is_valid()) {
                 if (lookahead<kdc_req_body> body{req_body.value}) {
-                    body.value.write_json(kdc_req_json);
+                    body.value.write_json(req_json);
                 }
             }
-            kdc_req_json.close();
+            req_json.close();
+        }
+
+        void write_json(json_object &o) const {
+            write_json(o, "kdc_req");
         }
 
     };
@@ -1084,7 +1217,6 @@ namespace krb5 {
     public:
 
         error(datum &d) : seq{&d, tlv::SEQUENCE, "seq"} {
-            //fprintf(stderr, "FUNCTION: %s\n", __func__);
             while (seq.value.is_not_empty()) {
                 tlv tmp{&seq.value};
                 switch(tmp.tag) {
@@ -1113,23 +1245,19 @@ namespace krb5 {
                     crealm.parse(&tmp.value);
                     break;
                 case tlv::explicit_tag_constructed(8):
-                    cname = tmp;
-                    //cname.parse(&tmp.value);
+                    cname.parse(&tmp.value);
                     break;
                 case tlv::explicit_tag_constructed(9):
                     realm.parse(&tmp.value);
                     break;
                 case tlv::explicit_tag_constructed(10):
-                    sname = tmp;
-                    // sname.parse(&tmp.value);
+                    sname.parse(&tmp.value);
                     break;
                 case tlv::explicit_tag_constructed(11):
                     e_text.parse(&tmp.value);
                     break;
                 case tlv::explicit_tag_constructed(12):
-                    // Preserve wrapper so write_e_data_json can handle either
-                    // explicit [12] wrapping or already-unwrapped OCTET STRING.
-                    e_data = tmp;
+                    e_data.parse(&tmp.value);
                     break;
                 default:
                     ;
@@ -1167,10 +1295,10 @@ namespace krb5 {
                 error_json.print_key_json_string("crealm", crealm.value);
             }
             if (cname) {
-                principal_name{cname.value}.write_json(error_json, "cname");
+                principal_name{cname}.write_json(error_json, "cname");
             }
             error_json.print_key_json_string("realm", realm.value);
-            principal_name{sname.value}.write_json(error_json, "sname");
+            principal_name{sname}.write_json(error_json, "sname");
             error_json.print_key_json_string("e_text", e_text.value);
             write_e_data_json(error_json);
             error_json.close();
@@ -1207,7 +1335,6 @@ namespace krb5 {
         bool valid;
     public:
         kdc_rep(datum &d) : seq{&d, tlv::SEQUENCE, "seq"} {
-            //fprintf(stderr, "FUNCTION: %s\n", __func__);
             while (seq.value.is_not_empty()) {
                 tlv tmp{&seq.value};
                 switch(tmp.tag) {
@@ -1224,15 +1351,13 @@ namespace krb5 {
                     crealm.parse(&tmp.value);
                     break;
                 case tlv::explicit_tag_constructed(4):
-                    cname = tmp;
-                    //cname.parse(&tmp.value);
+                    cname.parse(&tmp.value);
                     break;
                 case tlv::explicit_tag_constructed(5):
                     tkt.parse(&tmp.value);
                     break;
                 case tlv::explicit_tag_constructed(6):
-                    enc_part = tmp;
-                    // enc_part.parse(&tmp.value);
+                    enc_part.parse(&tmp.value);
                     break;
                 }
             }
@@ -1244,20 +1369,72 @@ namespace krb5 {
                  && enc_part.is_not_null();
         }
 
+        bool is_valid() const {
+            return valid;
+        }
+
+        uint64_t get_msg_type() const {
+            return to_uint64(msg_type.value);
+        }
+
+        void write_json(json_object &o, const char *name) const {
+            if (!valid) {
+                return;
+            }
+            json_object rep_json{o, name};
+            rep_json.print_key_uint("pvno", static_cast<unsigned long int>(to_uint64(pvno.value)));
+            print_key_msg_type(rep_json, "msg_type", to_uint64(msg_type.value));
+            pa_data_sequence{padata.value}.write_json(rep_json, "pa_data");
+            rep_json.print_key_json_string("crealm", crealm.value);
+            principal_name{cname}.write_json(rep_json, "cname");
+            ticket{tkt.value}.write_json(rep_json);
+            encrypted_data{enc_part}.write_json(rep_json, "enc_data");
+
+            rep_json.close();
+        }
+
+        void write_json(json_object &o) const {
+            write_json(o, "kdc_rep");
+        }
+    };
+
+    class tgs_req {
+        kdc_req req;
+        bool valid;
+
+    public:
+        tgs_req(datum &d) :
+            req{d},
+            valid{req.is_valid() && req.get_msg_type() == 12}
+        { }
+
+        bool is_valid() const { return valid; }
+
         void write_json(json_object &o) const {
             if (!valid) {
                 return;
             }
-            json_object kdc_rep_json{o, "kdc_rep"};
-            kdc_rep_json.print_key_uint("pvno", static_cast<unsigned long int>(to_uint64(pvno.value)));
-            print_key_msg_type(kdc_rep_json, "msg_type", to_uint64(msg_type.value));
-            pa_data_sequence{padata.value}.write_json(kdc_rep_json, "pa_data");
-            kdc_rep_json.print_key_json_string("crealm", crealm.value);
-            principal_name{cname.value}.write_json(kdc_rep_json, "cname");
-            ticket{tkt.value}.write_json(kdc_rep_json);
-            encrypted_data{enc_part.value}.write_json(kdc_rep_json);
+            req.write_json(o, "tgs_req");
+        }
+    };
 
-            kdc_rep_json.close();
+    class tgs_rep {
+        kdc_rep rep;
+        bool valid;
+
+    public:
+        tgs_rep(datum &d) :
+            rep{d},
+            valid{rep.is_valid() && rep.get_msg_type() == 13}
+        { }
+
+        bool is_valid() const { return valid; }
+
+        void write_json(json_object &o) const {
+            if (!valid) {
+                return;
+            }
+            rep.write_json(o, "tgs_rep");
         }
     };
 
@@ -1280,7 +1457,7 @@ namespace krb5 {
         }
     };
 
-    using message = std::variant<std::monostate, error, kdc_req, kdc_rep>;
+    using message = std::variant<std::monostate, error, kdc_req, kdc_rep, tgs_req, tgs_rep>;
 
     struct do_write_json {
         json_object &record;
@@ -1330,10 +1507,10 @@ namespace krb5 {
                 msg.emplace<kdc_rep>(application.value);
                 break;
             case 0x6c:
-                msg.emplace<kdc_req>(application.value);
+                msg.emplace<tgs_req>(application.value);
                 break;
             case 0x6d:
-                msg.emplace<kdc_rep>(application.value);
+                msg.emplace<tgs_rep>(application.value);
                 break;
             case 0x7e:
                 msg.emplace<error>(application.value);

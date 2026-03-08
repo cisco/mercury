@@ -126,6 +126,10 @@ int main(int, char *[]) {
             &tlv::unit_test
         },
         {
+            "asn1",
+            &asn1::unit_test
+        },
+        {
             "krb5_int_conversion",
             &krb5::int_conversion_unit_test
         }

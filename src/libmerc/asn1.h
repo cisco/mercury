@@ -9,7 +9,9 @@
 #define ASN1_H
 
 #include <stdexcept>
+#include <array>
 #include <limits>
+#include <type_traits>
 
 #include "datum.h"
 #include "json_object.h"
@@ -908,5 +910,141 @@ struct tlv {
     };
 
 };
+
+namespace asn1 {
+
+/// tlv parser carrying an expected inner ASN.1 tag.
+///
+/// `expected_inner_tag == 0x00` means "accept any inner TLV tag".
+struct tlv_expected : public tlv {
+    uint8_t expected_inner_tag{0x00};
+    explicit tlv_expected(uint8_t expected_tag=0x00) :
+        tlv{},
+        expected_inner_tag{expected_tag}
+    {}
+
+    void parse_inner(datum &d, const char *name=nullptr) {
+        tlv::parse(&d, expected_inner_tag, name);
+    }
+};
+
+/// Parse a sequence body containing context-specific EXPLICIT tags [0..N-1].
+///
+/// Explicit tag numbers are inferred by argument order:
+/// - first field  -> explicit tag [0]
+/// - second field -> explicit tag [1]
+/// - ...
+///
+/// This parser:
+/// - makes a single pass over \p d,
+/// - fails on unknown explicit tags,
+/// - fails on duplicate explicit tags,
+/// - parses only the inner TLV (does not preserve explicit wrapper TLV).
+template <typename... Fields>
+[[maybe_unused]]
+bool parse_explicitly_tagged_positional(datum &d, Fields &...fields) {
+    static_assert((std::is_base_of_v<tlv_expected, std::decay_t<Fields>> && ...),
+                  "parse_explicitly_tagged_positional requires asn1::tlv_expected fields");
+    constexpr size_t N = sizeof...(Fields);
+    static_assert(N > 0, "parse_explicitly_tagged_positional needs at least one field");
+
+    std::array<tlv_expected *, N> objs{{ &fields... }};
+    for (tlv_expected *obj : objs) {
+        if (obj == nullptr) { return false; }
+    }
+
+    while (d.is_not_empty()) {
+        tlv outer{&d};
+        if (outer.is_null()) {
+            return false;
+        }
+        // Require context-specific constructed, low-tag-number form.
+        if ((outer.tag & 0xe0) != 0xa0 || outer.get_little_tag() == 0x1f) {
+            return false;
+        }
+
+        const size_t explicit_tag = outer.get_little_tag();
+        if (explicit_tag >= N) {
+            return false;
+        }
+
+        tlv_expected *obj = objs[explicit_tag];
+        if (obj->is_not_null()) {
+            return false;  // duplicate explicit tag
+        }
+
+        datum inner = outer.value;
+        obj->parse_inner(inner, "asn1.parse_explicitly_tagged_positional");
+        if (inner.is_null()) {
+            return false;
+        }
+    }
+    return d.is_not_null();
+}
+
+inline bool unit_test() {
+    auto parse_uint = [](const tlv &x) -> uint64_t {
+        uint64_t v = 0;
+        for (const uint8_t b : x.value) {
+            v = (v << 8) | b;
+        }
+        return v;
+    };
+
+    bool passed = true;
+
+    // Success case: [0] INTEGER, [1] INTEGER, [2] OCTET STRING.
+    {
+        const uint8_t bytes[] = {
+            0xa0, 0x03, 0x02, 0x01, 0x05,
+            0xa1, 0x03, 0x02, 0x01, 0x0e,
+            0xa2, 0x04, 0x04, 0x02, 0xaa, 0xbb
+        };
+        datum d{bytes, bytes + sizeof(bytes)};
+        tlv_expected f0{tlv::INTEGER};
+        tlv_expected f1{tlv::INTEGER};
+        tlv_expected f2{tlv::OCTET_STRING};
+
+        const bool ok = parse_explicitly_tagged_positional(d, f0, f1, f2);
+        passed &= ok;
+        passed &= f0.is_not_null() && parse_uint(f0) == 5;
+        passed &= f1.is_not_null() && parse_uint(f1) == 14;
+        passed &= f2.is_not_null() && f2.value.length() == 2;
+    }
+
+    // Duplicate explicit tag should fail.
+    {
+        const uint8_t bytes[] = {
+            0xa0, 0x03, 0x02, 0x01, 0x01,
+            0xa0, 0x03, 0x02, 0x01, 0x02
+        };
+        datum d{bytes, bytes + sizeof(bytes)};
+        tlv_expected f0{tlv::INTEGER};
+        tlv_expected f1{tlv::INTEGER};
+        passed &= !parse_explicitly_tagged_positional(d, f0, f1);
+    }
+
+    // Unknown explicit tag should fail (N=3, tag [3] out of range).
+    {
+        const uint8_t bytes[] = { 0xa3, 0x03, 0x02, 0x01, 0x01 };
+        datum d{bytes, bytes + sizeof(bytes)};
+        tlv_expected f0{tlv::INTEGER};
+        tlv_expected f1{tlv::INTEGER};
+        tlv_expected f2{tlv::INTEGER};
+        passed &= !parse_explicitly_tagged_positional(d, f0, f1, f2);
+    }
+
+    // Wrong inner type should fail ([0] expected INTEGER, got OCTET STRING).
+    {
+        const uint8_t bytes[] = { 0xa0, 0x03, 0x04, 0x01, 0xff };
+        datum d{bytes, bytes + sizeof(bytes)};
+        tlv_expected f0{tlv::INTEGER};
+        passed &= !parse_explicitly_tagged_positional(d, f0);
+    }
+
+    return passed;
+}
+
+} // namespace asn1
 
 #endif /* ASN1_H */
