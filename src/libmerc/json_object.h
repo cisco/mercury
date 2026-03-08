@@ -192,7 +192,7 @@ struct json_object {
         if constexpr (std::is_unsigned_v<T>) {
             b->write_hex_uint(c);
         } else if constexpr (std::is_same<T, int64_t>::value) {
-            b->snprintf("%ld", c);
+            b->snprintf("%" PRId64, c);
         }
         b->write_char(')');
         b->write_char('\"');
@@ -415,11 +415,11 @@ struct json_array {
     template <typename T>
     void print_unknown_code(T code) {
         write_comma(comma);
-        b->snprintf("\"UNKNOWN (0x");
+        b->snprintf("\"UNKNOWN (");
         if constexpr (std::is_unsigned_v<T>) {
             b->write_hex_uint(code);
         } else if constexpr (std::is_same<T, int64_t>::value) {
-            b->snprintf("%ld", code);
+            b->snprintf("%" PRId64, code);
         }
         b->write_char(')');
         b->write_char('\"');

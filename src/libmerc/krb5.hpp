@@ -1282,7 +1282,9 @@ namespace krb5 {
             if (ctime) {
                 ctime.print_as_json_generalized_time(error_json, "ctime");
             }
-            error_json.print_key_uint("cusec", static_cast<unsigned long int>(to_uint64(cusec.value)));
+            if (cusec) {
+                error_json.print_key_uint("cusec", static_cast<unsigned long int>(to_uint64(cusec.value)));
+            }
             stime.print_as_json_generalized_time(error_json, "stime");
             error_json.print_key_uint("susec", static_cast<unsigned long int>(to_uint64(susec.value)));
             const int64_t error_code_value = to_int64(error_code.value);
