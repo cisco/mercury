@@ -219,6 +219,7 @@ DETAILS
       imap              IMAP request and response
       imap.request      IMAP request
       imap.response     IMAP response
+      kerberos          Kerberos v5
       mdns              multicast DNS
       mysql             MySQL Client/Server Protocol
       nbns              NetBIOS Name Service
