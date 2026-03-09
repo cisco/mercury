@@ -64,9 +64,6 @@ elif [[ "$openssl_v1_1" == "true" ]]; then
     flags+=" -DOPENSSL_V1_1"
 fi;
 
-XSIMD_INCLUDE="-I${parent_path}/../../src/libmerc/xsimd/include"
-flags="$flags $XSIMD_INCLUDE"
-
 cd $LIBMERC_FOLDER
 
 # pre-cleanup: remove transient files from prior runs

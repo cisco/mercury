@@ -58,6 +58,92 @@ AC_CHECK_HEADERS([sys/ioctl.h])
 AC_CHECK_HEADERS([sys/socket.h])
 AC_CHECK_HEADERS([sys/time.h])
 AC_CHECK_HEADERS([x86intrin.h])
+
+###############################################################################
+# xsimd SIMD library detection (header-only, version 9+ required)
+#
+# Enables the SIMD-accelerated classifier path in libmerc.  When xsimd
+# is not available (or disabled), a scalar fallback is used instead.
+#
+# Configure options:
+#   (default)                     auto-detect system xsimd, scalar fallback
+#   --disable-xsimd               force-disable xsimd support
+#   --enable-xsimd                require xsimd; error if not found
+#   --with-xsimd-include=DIR      use this path instead of system xsimd
+#                                 (should contain xsimd/xsimd.hpp)
+#
+# Examples:
+#   ./configure                                                  # auto-detect
+#   ./configure --disable-xsimd                                  # force off
+#   ./configure --enable-xsimd                                   # require it
+#   ./configure --with-xsimd-include=/opt/xsimd/include          # custom path
+#   ./configure --enable-xsimd --with-xsimd-include=/opt/xsimd/include
+###############################################################################
+
+# --enable-xsimd / --disable-xsimd  (default: auto-detect)
+AC_ARG_ENABLE([xsimd],
+  [AS_HELP_STRING([--enable-xsimd],
+    [Enable xsimd SIMD support (auto=detect, yes=require, no=disable) @<:@default=auto@:>@])],
+  [enable_xsimd="$enableval"],
+  [enable_xsimd=auto])
+
+# Validate --enable-xsimd mode early to fail fast on typos.
+AS_CASE([$enable_xsimd],
+  [auto|yes|no], [],
+  [AC_MSG_ERROR([invalid value '$enable_xsimd' for --enable-xsimd (expected: auto, yes, or no)])])
+
+# --with-xsimd-include=DIR  (custom header search path)
+AC_ARG_WITH([xsimd-include],
+  [AS_HELP_STRING([--with-xsimd-include=DIR],
+    [Directory containing xsimd/xsimd.hpp (use instead of system xsimd)])],
+  [xsimd_include_dir="$withval"],
+  [xsimd_include_dir=""])
+
+# Canonicalize to an absolute path so that -I works from any sub-directory
+# Makefile (e.g., compilation inside src/libmerc/, not the project root).
+AS_IF([test -n "$xsimd_include_dir"],
+  [case "$xsimd_include_dir" in
+     /*) ;;
+     *)  xsimd_include_dir="$PWD/$xsimd_include_dir" ;;
+   esac])
+
+# Detect the xsimd header-only SIMD library (version 9+).
+# Sets HAVE_XSIMD for Makefiles and config.h; used to enable
+# SIMD-accelerated classifier path in libmerc.
+AC_SUBST([HAVE_XSIMD],[no])
+AC_SUBST([XSIMD_INCLUDE],[])
+AS_IF([test "x$enable_xsimd" = xno],
+  [AC_MSG_NOTICE([xsimd support disabled by --disable-xsimd])],
+  [# If user gave --with-xsimd-include=DIR, prepend it to CPPFLAGS
+   _xsimd_saved_CPPFLAGS="$CPPFLAGS"
+   AS_IF([test -n "$xsimd_include_dir"],
+     [CPPFLAGS="-I${xsimd_include_dir} $CPPFLAGS"])
+   AC_LANG_PUSH([C++])
+   AC_CHECK_HEADERS([xsimd/xsimd.hpp],
+     [# Header found; verify version >= 9
+      AC_MSG_CHECKING([for xsimd version >= 9])
+      AC_COMPILE_IFELSE(
+        [AC_LANG_SOURCE([[
+#include <xsimd/xsimd.hpp>
+static_assert(XSIMD_VERSION_MAJOR >= 9, "xsimd version 9+ is required");
+]])],
+        [AC_MSG_RESULT([yes (>= 9)])
+         AC_SUBST([HAVE_XSIMD],[yes])
+         AC_DEFINE([HAVE_XSIMD], [1], [Define if xsimd >= 9 is available.])
+         AC_SUBST([XSIMD_INCLUDE],[$xsimd_include_dir])],
+        [AC_MSG_RESULT([no])
+         AS_IF([test "x$enable_xsimd" = xyes],
+           [AC_MSG_ERROR([--enable-xsimd was given but xsimd version is too old (need 9+)])],
+           [AC_MSG_WARN([xsimd found but version is too old (need 9+); xsimd support disabled])])])],
+     [AS_IF([test "x$enable_xsimd" = xyes],
+        [AC_MSG_ERROR([--enable-xsimd was given but xsimd/xsimd.hpp was not found])],
+        [AC_MSG_NOTICE([xsimd not found; classifier will use scalar fallback])])])
+   AC_LANG_POP([C++])
+   CPPFLAGS="$_xsimd_saved_CPPFLAGS"])
+
+# end xsimd detection
+###############################################################################
+
 AC_CHECK_TYPES([ptrdiff_t])
 AC_FUNC_MALLOC
 AC_FUNC_MMAP

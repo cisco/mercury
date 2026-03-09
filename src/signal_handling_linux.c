@@ -13,6 +13,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <execinfo.h>
+#include <unistd.h>
 
 #include <setjmp.h>    /* For thread stall recovery */
 
@@ -30,14 +31,20 @@ void sig_close (int signal_arg) {
 
     (void)signal_arg; /* "use" argument */
 
-    static const char *msg = "\nshutting down\n";
+    static const char msg[] = "\nshutting down\n";
 
-    int l = write(STDERR_FILENO, msg, strlen(msg));
+    int l = write(STDERR_FILENO, msg, sizeof(msg) - 1);
     (void)l;
 
     sig_close_flag = 1; /* tell all threads to shutdown gracefully */
 
-    fclose(stdin);      /* if are reading from stdin, stop reading */
+    /* close STDIN. The reason to do this here is to ensure that any
+     * blocked reads waiting for stdin will get immediately unstuck
+     * and allow the rest of the program to resume shutting down.
+     * We must use close() here and not fclose() because fclose() isn't
+     * async-signal-safe because it uses internal state and a mutex.
+     */
+    close(STDIN_FILENO);
 
     errno = saved_errno; /* restore */
 }
