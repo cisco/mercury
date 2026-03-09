@@ -1025,7 +1025,7 @@ namespace krb5 {
 
     };
 
-    static void print_key_error_code(json_object &o, const char *key, size_t code) {
+    static void print_key_error_code(json_object &o, const char *key, int64_t code) {
         const char * description[] = {
             "KDC_ERR_NONE",                          //  0
             "KDC_ERR_NAME_EXP",                      //  1
@@ -1109,7 +1109,7 @@ namespace krb5 {
         constexpr size_t num_entries = sizeof(description)/sizeof(description[0]);
 
         const char *descr = nullptr;
-        if (code < num_entries) {
+        if (code >= 0 and code < num_entries) {
             descr = description[code];
         }
         o.print_key_string_or_unknown_code(key, descr, static_cast<uint64_t>(code));
@@ -1325,11 +1325,7 @@ namespace krb5 {
             stime.print_as_json_generalized_time(error_json, "stime");
             error_json.print_key_uint("susec", static_cast<unsigned long int>(to_uint64(susec.value)));
             const int64_t error_code_value = to_int64(error_code.value);
-            if (error_code_value >= 0) {
-                print_key_error_code(error_json, "error_code", static_cast<size_t>(error_code_value));
-            } else {
-                error_json.print_key_int("error_code", static_cast<long int>(error_code_value));
-            }
+            print_key_error_code(error_json, "error_code", static_cast<size_t>(error_code_value));
             if (crealm) {
                 error_json.print_key_json_string("crealm", crealm.value);
             }
