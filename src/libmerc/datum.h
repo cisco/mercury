@@ -2232,15 +2232,15 @@ public:
 /// `sizeof(T)` bytes are present, the missing least significant bytes
 /// are treated as having values of `0x00`.
 ///
-/// `class varint<T>` is derived from \ref class encoded<T>.
+/// `class var_int<T>` is derived from \ref class encoded<T>.
 ///
 template <typename T>
-class varint : public encoded<T> {
+class var_int : public encoded<T> {
 public:
 
     static constexpr bool asn1_bitstring = true;
 
-    varint(datum d, bool parse_asn1_bitstring=false) {
+    var_int(datum d, bool parse_asn1_bitstring=false) {
 
         if (parse_asn1_bitstring) {
             encoded<uint8_t> num_pad_bits{d}; // skip first octet for ASN.1 BIT STRING
@@ -2258,7 +2258,7 @@ public:
         }
     }
 
-    varint(const T& rhs) {
+    var_int(const T& rhs) {
         encoded<T>::val = rhs;
     }
 

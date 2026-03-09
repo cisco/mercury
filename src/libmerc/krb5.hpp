@@ -158,8 +158,8 @@ namespace krb5 {
         }
 
         void print_as_json(struct json_object &o, const char *name) const {
-            varint<uint32_t> flags{bit_string.value, varint<uint32_t>::asn1_bitstring};
-            json_array_bitflags f{o, name, flags};
+            var_int<uint32_t> flags{bit_string.value, var_int<uint32_t>::asn1_bitstring};
+            json_array_bitflags<uint32_t> f{o, name, flags.value()};
             f.flag<1>("forwardable");
             f.flag<2>("forwarded");
             f.flag<3>("proxiable");
@@ -168,13 +168,15 @@ namespace krb5 {
             f.flag<6>("postdated");
             f.flag<8>("renewable");
             f.flag<11>("opt-hardware-auth");
+            f.flag<14>("constrained-delegation");
             f.flag<15>("canonicalize");
+            f.flag<16>("request-anonymous");
             f.flag<26>("disable-transited-check");
             f.flag<27>("renewable-ok");
             f.flag<28>("enc-tkt-in-skey");
             f.flag<30>("renew");
             f.flag<31>("validate");
-            f.check_for_unknown_flags<1,2,3,4,5,6,8,11,15,26,27,28,30,31>();
+            f.check_for_unknown_flags<1,2,3,4,5,6,8,11,14,15,16,26,27,28,30,31>();
             f.close();
         }
     };
@@ -485,9 +487,9 @@ namespace krb5 {
         }
 
         void print_as_json(struct json_object &o, const char *name) const {
-            varint<uint32_t> flags{bit_string.value, varint<uint32_t>::asn1_bitstring};
+            var_int<uint32_t> flags{bit_string.value, var_int<uint32_t>::asn1_bitstring};
             json_array_bitflags f{o, name, flags};
-            f.flag<1>("reserved");
+            f.flag<0>("reserved");
             f.flag<1>("use_session_key");
             f.flag<2>("mutual_required");
             f.check_for_unknown_flags<0,1,2>();
@@ -549,11 +551,11 @@ namespace krb5 {
 
         bool is_valid() const { return valid; }
 
-        void write_json(json_object &o, const char *name="ap_req") const {
+        void write_json(json_object &o) const {
             if (!valid) {
                 return;
             }
-            json_object ap_req_json{o, name};
+            json_object ap_req_json{o, "ap_req"};
             ap_req_json.print_key_uint("pvno", static_cast<unsigned long int>(to_uint64(pvno.value)));
             print_key_msg_type(ap_req_json, "msg_type", to_uint64(msg_type.value));
             ap_options{ap_opt.value}.print_as_json(ap_req_json, "ap_options");
@@ -852,7 +854,7 @@ namespace krb5 {
                         ap_req req{app_req_tlv.value};
                         if (req.is_valid()) {
                             json_object value{pad, pa_type_name};
-                            req.write_json(value, "ap_req");
+                            req.write_json(value);
                             value.close();
                             handled = true;
                         }
