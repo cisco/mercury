@@ -24,7 +24,6 @@ namespace krb5 {
     static constexpr bool json_full_ciphertext = (KRB5_JSON_FULL_CIPHERTEXT != 0);
 
     [[maybe_unused]] inline const char *msg_type_get_string(uint64_t msg_type);
-    static inline void print_key_msg_type(json_object &o, const char *key, uint64_t msg_type);
     [[maybe_unused]] inline const char *etype_get_string(int64_t etype);
     static inline void print_key_etype(json_object &o, const char *key, int64_t etype);
     static inline void print_key_ciphertext(json_object &o, const datum &ciphertext);
@@ -362,6 +361,18 @@ namespace krb5 {
     };
 
 
+    enum krb5_host_address_type : uint64_t {
+        KRB5_ADDR_IPV4             = 2,
+        KRB5_ADDR_DIRECTIONAL      = 3,
+        KRB5_ADDR_CHAOSNET         = 5,
+        KRB5_ADDR_XNS              = 6,
+        KRB5_ADDR_ISO              = 7,
+        KRB5_ADDR_DECNET_PHASE_IV  = 12,
+        KRB5_ADDR_APPLETALK_DDP    = 16,
+        KRB5_ADDR_NETBIOS          = 20,
+        KRB5_ADDR_IPV6             = 24,
+    };
+
     // HostAddress      ::= SEQUENCE  {
     //         addr-type       [0] Int32,
     //         address         [1] OCTET STRING
@@ -377,15 +388,15 @@ namespace krb5 {
 
         static const char *addr_type_name(uint64_t t) {
             switch (t) {
-            case 2:  return "ipv4";
-            case 3:  return "directional";
-            case 5:  return "chaosnet";
-            case 6:  return "xns";
-            case 7:  return "iso";
-            case 12: return "decnet_phase_iv";
-            case 16: return "appletalk_ddp";
-            case 20: return "netbios";
-            case 24: return "ipv6";
+            case KRB5_ADDR_IPV4:            return "ipv4";
+            case KRB5_ADDR_DIRECTIONAL:     return "directional";
+            case KRB5_ADDR_CHAOSNET:        return "chaosnet";
+            case KRB5_ADDR_XNS:             return "xns";
+            case KRB5_ADDR_ISO:             return "iso";
+            case KRB5_ADDR_DECNET_PHASE_IV: return "decnet_phase_iv";
+            case KRB5_ADDR_APPLETALK_DDP:   return "appletalk_ddp";
+            case KRB5_ADDR_NETBIOS:         return "netbios";
+            case KRB5_ADDR_IPV6:            return "ipv6";
             default: return nullptr;
             }
         }
@@ -425,11 +436,11 @@ namespace krb5 {
                 h.print_key_string("type_name", name);
             }
 
-            if (t == 2 && addr_value.value.length() == 4) {
+            if (t == KRB5_ADDR_IPV4 && addr_value.value.length() == 4) {
                 h.print_key_ipv4_addr("address", addr_value.value.data);
-            } else if (t == 24 && addr_value.value.length() == 16) {
+            } else if (t == KRB5_ADDR_IPV6 && addr_value.value.length() == 16) {
                 h.print_key_ipv6_addr("address", addr_value.value.data);
-            } else if (t == 20) {
+            } else if (t == KRB5_ADDR_NETBIOS) {
                 h.print_key_json_string("address", addr_value.value);
             } else {
                 h.print_key_hex("address", addr_value.value);
@@ -557,7 +568,9 @@ namespace krb5 {
             }
             json_object ap_req_json{o, "ap_req"};
             ap_req_json.print_key_uint("pvno", static_cast<unsigned long int>(to_uint64(pvno.value)));
-            print_key_msg_type(ap_req_json, "msg_type", to_uint64(msg_type.value));
+            ap_req_json.print_key_string_or_unknown_code("msg_type",
+                                                         msg_type_get_string(to_uint64(msg_type.value)),
+                                                         to_uint64(msg_type.value));
             ap_options{ap_opt.value}.print_as_json(ap_req_json, "ap_options");
             ticket{tkt.value}.write_json(ap_req_json);
             encrypted_data{auth}.write_json(ap_req_json, "authenticator");
@@ -612,7 +625,9 @@ namespace krb5 {
             }
             json_object ap_rep_json{o, name};
             ap_rep_json.print_key_uint("pvno", static_cast<unsigned long int>(to_uint64(pvno.value)));
-            print_key_msg_type(ap_rep_json, "msg_type", to_uint64(msg_type.value));
+            ap_rep_json.print_key_string_or_unknown_code("msg_type",
+                                                         msg_type_get_string(to_uint64(msg_type.value)),
+                                                         to_uint64(msg_type.value));
             encrypted_data{enc_part}.write_json(ap_rep_json, "enc_data");
             ap_rep_json.close();
         }
@@ -754,6 +769,16 @@ namespace krb5 {
 
     };
 
+    enum krb5_application_tag : uint8_t {
+        KRB5_APP_AS_REQ    = 0x6a,
+        KRB5_APP_AS_REP    = 0x6b,
+        KRB5_APP_TGS_REQ   = 0x6c,
+        KRB5_APP_TGS_REP   = 0x6d,
+        KRB5_APP_AP_REQ    = 0x6e,
+        KRB5_APP_AP_REP    = 0x6f,
+        KRB5_APP_KRB_ERROR = 0x7e,
+    };
+
     // PA-DATA         ::= SEQUENCE {
     //     -- NOTE: first tag is [1], not [0]
     //     padata-type     [1] Int32,
@@ -849,7 +874,7 @@ namespace krb5 {
                 bool handled = false;
                 if (pa_type_code == pa_data_type<uint32_t>::PA_TGS_REQ) {
                     datum app_data = octets.value;
-                    tlv app_req_tlv{app_data, 0x6e, "pa_tgs_req.ap_req"};
+                    tlv app_req_tlv{app_data, KRB5_APP_AP_REQ, "pa_tgs_req.ap_req"};
                     if (app_req_tlv.is_valid()) {
                         ap_req req{app_req_tlv.value};
                         if (req.is_valid()) {
@@ -984,7 +1009,9 @@ namespace krb5 {
             }
             json_object req_json{o, name};
             req_json.print_key_uint("pvno", static_cast<unsigned long int>(to_uint64(pvno.value)));
-            print_key_msg_type(req_json, "msg_type", to_uint64(msg_type.value));
+            req_json.print_key_string_or_unknown_code("msg_type",
+                                                      msg_type_get_string(to_uint64(msg_type.value)),
+                                                      to_uint64(msg_type.value));
             pa_data_sequence{padata.value}.write_json(req_json, "pa_data");
             if (req_body.is_valid()) {
                 if (lookahead<kdc_req_body> body{req_body.value}) {
@@ -1090,20 +1117,35 @@ namespace krb5 {
         o.print_key_string_or_unknown_code(key, descr, static_cast<uint64_t>(code));
     }
 
+    enum krb5_message_type : uint64_t {
+        KRB5_MSG_AS_REQ         = 10,
+        KRB5_MSG_AS_REP         = 11,
+        KRB5_MSG_TGS_REQ        = 12,
+        KRB5_MSG_TGS_REP        = 13,
+        KRB5_MSG_AP_REQ         = 14,
+        KRB5_MSG_AP_REP         = 15,
+        KRB5_MSG_KRB_RESERVED16 = 16,
+        KRB5_MSG_KRB_RESERVED17 = 17,
+        KRB5_MSG_KRB_SAFE       = 20,
+        KRB5_MSG_KRB_PRIV       = 21,
+        KRB5_MSG_KRB_CRED       = 22,
+        KRB5_MSG_KRB_ERROR      = 30,
+    };
+
     [[maybe_unused]] inline const char *msg_type_get_string(uint64_t msg_type) {
         switch (msg_type) {
-        case 10: return "AS_REQ";
-        case 11: return "AS_REP";
-        case 12: return "TGS_REQ";
-        case 13: return "TGS_REP";
-        case 14: return "AP_REQ";
-        case 15: return "AP_REP";
-        case 16: return "KRB_RESERVED16";
-        case 17: return "KRB_RESERVED17";
-        case 20: return "KRB_SAFE";
-        case 21: return "KRB_PRIV";
-        case 22: return "KRB_CRED";
-        case 30: return "KRB_ERROR";
+        case KRB5_MSG_AS_REQ:         return "AS_REQ";
+        case KRB5_MSG_AS_REP:         return "AS_REP";
+        case KRB5_MSG_TGS_REQ:        return "TGS_REQ";
+        case KRB5_MSG_TGS_REP:        return "TGS_REP";
+        case KRB5_MSG_AP_REQ:         return "AP_REQ";
+        case KRB5_MSG_AP_REP:         return "AP_REP";
+        case KRB5_MSG_KRB_RESERVED16: return "KRB_RESERVED16";
+        case KRB5_MSG_KRB_RESERVED17: return "KRB_RESERVED17";
+        case KRB5_MSG_KRB_SAFE:       return "KRB_SAFE";
+        case KRB5_MSG_KRB_PRIV:       return "KRB_PRIV";
+        case KRB5_MSG_KRB_CRED:       return "KRB_CRED";
+        case KRB5_MSG_KRB_ERROR:      return "KRB_ERROR";
         default:
             break;
         }
@@ -1148,11 +1190,6 @@ namespace krb5 {
             o.print_key_uint("ciphertext_length", static_cast<unsigned long int>(ciphertext.length()));
         }
     }
-
-    static inline void print_key_msg_type(json_object &o, const char *key, uint64_t msg_type) {
-        o.print_key_string_or_unknown_code(key, msg_type_get_string(msg_type), msg_type);
-    }
-
 
     // KRB-ERROR       ::= [APPLICATION 30] SEQUENCE {
     //         pvno            [0] INTEGER (5),
@@ -1280,7 +1317,9 @@ namespace krb5 {
             }
             json_object error_json{o, "error"};
             error_json.print_key_uint("pvno", static_cast<unsigned long int>(to_uint64(pvno.value)));
-            print_key_msg_type(error_json, "msg_type", to_uint64(msg_type.value));
+            error_json.print_key_string_or_unknown_code("msg_type",
+                                                        msg_type_get_string(to_uint64(msg_type.value)),
+                                                        to_uint64(msg_type.value));
             if (ctime) {
                 ctime.print_as_json_generalized_time(error_json, "ctime");
             }
@@ -1387,7 +1426,9 @@ namespace krb5 {
             }
             json_object rep_json{o, name};
             rep_json.print_key_uint("pvno", static_cast<unsigned long int>(to_uint64(pvno.value)));
-            print_key_msg_type(rep_json, "msg_type", to_uint64(msg_type.value));
+            rep_json.print_key_string_or_unknown_code("msg_type",
+                                                      msg_type_get_string(to_uint64(msg_type.value)),
+                                                      to_uint64(msg_type.value));
             pa_data_sequence{padata.value}.write_json(rep_json, "pa_data");
             rep_json.print_key_json_string("crealm", crealm.value);
             principal_name{cname}.write_json(rep_json, "cname");
@@ -1409,7 +1450,7 @@ namespace krb5 {
     public:
         tgs_req(datum &d) :
             req{d},
-            valid{req.is_valid() && req.get_msg_type() == 12}
+            valid{req.is_valid() && req.get_msg_type() == KRB5_MSG_TGS_REQ}
         { }
 
         bool is_valid() const { return valid; }
@@ -1429,7 +1470,7 @@ namespace krb5 {
     public:
         tgs_rep(datum &d) :
             rep{d},
-            valid{rep.is_valid() && rep.get_msg_type() == 13}
+            valid{rep.is_valid() && rep.get_msg_type() == KRB5_MSG_TGS_REP}
         { }
 
         bool is_valid() const { return valid; }
@@ -1504,19 +1545,19 @@ namespace krb5 {
             application{&d, 0x00, "application"}
         {
             switch(application.tag) {
-            case 0x6a:
+            case KRB5_APP_AS_REQ:
                 msg.emplace<kdc_req>(application.value);
                 break;
-            case 0x6b:
+            case KRB5_APP_AS_REP:
                 msg.emplace<kdc_rep>(application.value);
                 break;
-            case 0x6c:
+            case KRB5_APP_TGS_REQ:
                 msg.emplace<tgs_req>(application.value);
                 break;
-            case 0x6d:
+            case KRB5_APP_TGS_REP:
                 msg.emplace<tgs_rep>(application.value);
                 break;
-            case 0x7e:
+            case KRB5_APP_KRB_ERROR:
                 msg.emplace<error>(application.value);
                 break;
             default:
