@@ -25,7 +25,6 @@ namespace krb5 {
 
     [[maybe_unused]] inline const char *msg_type_get_string(uint64_t msg_type);
     [[maybe_unused]] inline const char *etype_get_string(int64_t etype);
-    static inline void print_key_etype(json_object &o, const char *key, int64_t etype);
     static inline void print_key_ciphertext(json_object &o, const datum &ciphertext);
 
     [[maybe_unused]] inline uint64_t to_uint64(const datum &d) {
@@ -236,14 +235,7 @@ namespace krb5 {
             json_object pn{o, object_name};
             tlv type_int{name_type.value, tlv::INTEGER, "type"};
             const int64_t name_type_value = to_int64(type_int.value);
-            if (name_type_value >= 0) {
-                const uint32_t type_code = static_cast<uint32_t>(name_type_value);
-                pn.print_key_string_or_unknown_code("type",
-                                                    name_type_get_string(static_cast<uint8_t>(type_code)),
-                                                    type_code);
-            } else {
-                pn.print_key_int("type", static_cast<long int>(name_type_value));
-            }
+            pn.print_key_string_or_unknown_code("type", name_type_get_string(name_type_value), name_type_value);
             json_array array{pn, "names"};
             tlv tmp_seq{name_sequence.value, tlv::SEQUENCE, "tmp_seq"};
             while (tmp_seq.value.is_not_empty()) {
@@ -285,7 +277,9 @@ namespace krb5 {
                 return;
             }
             json_object enc_data{o, name};
-            print_key_etype(enc_data, "etype", to_int64(etype.value));
+            enc_data.print_key_string_or_unknown_code("etype",
+                                                      etype_get_string(to_int64(etype.value)),
+                                                      to_int64(etype.value));
             if (kvno) {
                 enc_data.print_key_uint("kvno", to_uint64(kvno.value));
             }
@@ -830,7 +824,9 @@ namespace krb5 {
                 return;
             }
 
-            print_key_etype(o, "etype", to_int64(etype.value));
+            o.print_key_string_or_unknown_code("etype",
+                                               etype_get_string(to_int64(etype.value)),
+                                               to_int64(etype.value));
             if (salt) {
                 o.print_key_json_string("salt", salt.value);
             }
@@ -1177,10 +1173,6 @@ namespace krb5 {
             return nullptr;
         }
         return encryption_type<uint32_t>{static_cast<uint32_t>(etype)}.get_name();
-    }
-
-    static inline void print_key_etype(json_object &o, const char *key, int64_t etype) {
-        o.print_key_string_or_unknown_code(key, etype_get_string(etype), etype);
     }
 
     static inline void print_key_ciphertext(json_object &o, const datum &ciphertext) {
