@@ -554,7 +554,7 @@ inline bool test_json_output(datum raw_input,
 template <typename T>
 class json_array_bitflags {
     json_array a;
-    const T &flags;
+    const T flags;
 
 public:
 

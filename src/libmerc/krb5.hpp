@@ -1106,7 +1106,7 @@ namespace krb5 {
             "KDC_ERR_KDC_NAME_MISMATCH",             // 76
         };
 
-        constexpr size_t num_entries = sizeof(description)/sizeof(description[0]);
+        constexpr int64_t num_entries = sizeof(description)/sizeof(description[0]);
 
         const char *descr = nullptr;
         if (code >= 0 and code < num_entries) {

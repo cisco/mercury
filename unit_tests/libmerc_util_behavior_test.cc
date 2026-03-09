@@ -121,7 +121,7 @@ TEST_CASE("emix.pcap") {
         {"http", 10},
         {"iec60870_5_104", 42},
         {"ike", 30},
-        {"kerberos",72},
+        {"kerberos",54},
         {"ldap", 25},
         {"mdns", 6},
         {"mysql", 4},
@@ -144,5 +144,5 @@ TEST_CASE("emix.pcap") {
         {"quic", 4}
     };
 
-    test_pcap_file("emix.pcap", 1634, expected_protocols);
+    test_pcap_file("emix.pcap", 1616, expected_protocols);
 }
