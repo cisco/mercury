@@ -50,6 +50,16 @@ is_macos_arm = @IS_MACOS_ARM@
 #         =unknown otherwise
 platform = @PLATFORM@
 
+# The variable have_xsimd indicates if the xsimd header-only library is
+# available on the system, which enables SIMD-accelerated classifier path
+#
+have_xsimd = @HAVE_XSIMD@
+
+# If xsimd was found via --with-xsimd-include=DIR, this holds the path.
+# Used to add -I<path> in the consuming Makefiles.
+#
+xsimd_include = @XSIMD_INCLUDE@
+
 CXX     = @CXX@
 CC      = @CC@
 CFLAGS  += --std=c++17
