@@ -41,7 +41,12 @@ CFLAGS += -I/opt/homebrew/include
 CXXFLAGS += -I/opt/homebrew/include
 LDFLAGS += -L/opt/homebrew/lib
 endif
-CFLAGS += -I./xsimd/include
+ifeq ($(have_xsimd),yes)
+CFLAGS += -DHAVE_XSIMD
+ifneq ($(xsimd_include),)
+CFLAGS += -I$(xsimd_include)
+endif
+endif
 
 # Uncomment to apply ASAN to libmerc (do not use in production)
 # TODO: make a global change: either compile everything with ASAN (both make and
@@ -73,6 +78,8 @@ LIBMERC     += asn1/oid.cc
 LIBMERC 	+= config_generator.cc
 LIBMERC     += smb2.cc
 LIBMERC     += bencode.cc
+# Per-arch SIMD softmax files; only included when xsimd is available.
+ifeq ($(have_xsimd),yes)
 ifeq ($(platform), intel)
 LIBMERC     += softmax_avx.cc
 LIBMERC     += softmax_avx2.cc
@@ -80,6 +87,7 @@ LIBMERC     += softmax_sse2.cc
 endif
 ifeq ($(platform), arm)
 LIBMERC     += softmax_neon.cc
+endif
 endif
 LIBMERC     += $(PYANALYSIS)
 
@@ -170,6 +178,8 @@ minor=$(subst .,,$(shell cat ../../VERSION | grep -o "\.[0-9]*\."))
 patch=$(shell cat ../../VERSION | grep -o "[0-9]*$$")
 version=$(major).$(minor).$(patch)
 MSV ="-DMERCURY_SEMANTIC_VERSION=$(major),$(minor),$(patch)"
+# Compile each SIMD translation unit with its required arch flag.
+ifeq ($(have_xsimd),yes)
 ifeq ($(platform), intel)
 softmax_sse2.o: softmax_sse2.cc
 	$(CXX) $(CFLAGS) -msse2 -c $< -o $@
@@ -179,6 +189,7 @@ softmax_avx.o: softmax_avx.cc
 
 softmax_avx2.o: softmax_avx2.cc
 	$(CXX) $(CFLAGS) -mavx2 -c $< -o $@
+endif
 endif
 # rule to build library
 #

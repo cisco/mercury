@@ -410,12 +410,12 @@ struct do_network_behavioral_detections {
     const struct key &k_;
     struct analysis_context &analysis_;
     classifier *c_;
-    struct common_data &nbd_common_;
+    const struct common_data &nbd_common_;
 
     do_network_behavioral_detections(const struct key &k,
                                      struct analysis_context &analysis,
                                      classifier *c,
-                                     struct common_data &nbd_common) :
+                                     const struct common_data &nbd_common) :
         k_{k},
         analysis_{analysis},
         c_{c},

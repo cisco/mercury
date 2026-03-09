@@ -3,6 +3,7 @@
 
 #include "libmerc.h"
 #include "config_generator.h"
+#include "decimal_int.hpp"
 #include <map>
 #include <string>
 #include <algorithm>
@@ -231,6 +232,13 @@ public:
             { "tls",                    false },
     };
 
+    struct http_headers_config {
+        bool non_sensitive = false;
+        bool all = false;
+    } http_headers;
+
+    size_t http_body_max = 0;
+
     bool set_protocols(const std::string& data) {
 
         std::string s = data.empty() ? (static_selector_string ? static_selector_string : "all") : data ;
@@ -291,6 +299,46 @@ public:
         return true;
     }
 
+    bool set_http_headers(const std::string& s) {
+        if (s.empty()) {
+            printf_err(log_err, "--http-headers requires a mode (all or non-sensitive)\n");
+            return false;
+        }
+        if (http_headers.all || http_headers.non_sensitive) {
+            printf_err(log_err, "--http-headers can only be specified once\n");
+            return false;
+        }
+        if (s == "non-sensitive") {
+            http_headers.non_sensitive = true;
+        } else if (s == "all") {
+            http_headers.all = true;
+        } else {
+            printf_err(log_err, "unrecognized http headers mode \"%s\"\n", s.c_str());
+            return false;
+        }
+        return true;
+    }
+    static constexpr size_t max_http_body = 2048;
+
+    bool set_http_body_max(const std::string& s) {
+        if (s.empty()) {
+            printf_err(log_err, "--http-body-max requires a size argument (0-%zu)\n", max_http_body);
+            return false;
+        }
+        datum d{s};
+        decimal_integer<uint32_t> parsed{d};
+        if (d.is_null()) {
+            printf_err(log_err, "invalid http body size \"%s\"\n", s.c_str());
+            return false;
+        }
+        uint32_t value = parsed.get_value();
+        if (value > max_http_body) {
+            printf_err(log_err, "http body size \"%s\" out of range (0-%zu)\n", s.c_str(), max_http_body);
+            return false;
+        }
+        http_body_max = value;
+        return true;
+    }
 };
 
 static void setup_extended_fields(global_config* lc, const std::string& config) {
@@ -306,7 +354,9 @@ static void setup_extended_fields(global_config* lc, const std::string& config) 
         {"crypto-assess", "", "", SETTER_FUNCTION(&lc){ lc->set_crypto_assess(s); }},
         {"minimize-ram", "", "", SETTER_FUNCTION(&lc){ lc->minimize_ram = true; }},
         {"network-behavioral-detections", "", "", SETTER_FUNCTION(&lc){ lc->network_behavioral_detections = true; }},
-        {"exposed-creds", "", "", SETTER_FUNCTION(&lc){ lc->exposed_creds = true; }}
+        {"exposed-creds", "", "", SETTER_FUNCTION(&lc){ lc->exposed_creds = true; }},
+        {"http-headers", "", "", SETTER_FUNCTION(&lc){ lc->set_http_headers(s); }},
+        {"http-body-max", "", "", SETTER_FUNCTION(&lc){ lc->set_http_body_max(s); }}
     };
 
     parse_additional_options(options, config, *lc);

@@ -28,6 +28,7 @@
 #include "exposed_creds.h"
 #include "pkt_proc_util.h"
 #include "reassembly.hpp"
+#include "protocol_config.h"
 
 /**
  * enum linktype is a 16-bit enumeration that identifies a protocol
@@ -52,6 +53,7 @@ enum linktype : uint16_t {
 struct mercury {
     struct global_config global_vars;
     std::unique_ptr<data_aggregator> aggregator{nullptr};
+    struct common_data attribute_common_data;
     classifier *c;
     class traffic_selector selector;
 
@@ -60,41 +62,62 @@ struct mercury {
                 aggregator{ global_vars.do_stats
                             ? (std::make_unique<data_aggregator>(global_vars.max_stats_entries, global_vars.stats_blocking))
                             : nullptr },
+                attribute_common_data{},
                 c{nullptr},
                 selector{global_vars.protocols} {
+        attribute_common_data.reserve_non_classifier_attribute_indices();
+        const char *resource_file = global_vars.get_resource_file();
         if (global_vars.minimize_ram) {
              printf_err(log_info, "Initializing mercury in ram minimized mode\n");
         }
-        if (global_vars.do_analysis and (global_vars.get_resource_file() != nullptr)) {
-            c = analysis_init_from_archive(verbosity, global_vars.get_resource_file(),
-                                           vars->enc_key, vars->key_type,
-                                           global_vars.fp_proc_threshold,
-                                           global_vars.proc_dst_threshold,
-                                           global_vars.report_os,
-                                           global_vars.minimize_ram);
-            if (c == nullptr) {
-                throw std::runtime_error("error: analysis_init_from_archive() failed"); // failure
-            }
+        if (global_vars.do_analysis) {
+            if (resource_file == nullptr) {
+                printf_err(log_warning, "do_analysis enabled but no resource archive was provided; classifier-dependent analysis disabled\n");
+            } else {
+                c = analysis_init_from_archive(verbosity, resource_file,
+                                               vars->enc_key, vars->key_type,
+                                               global_vars.fp_proc_threshold,
+                                               global_vars.proc_dst_threshold,
+                                               global_vars.report_os,
+                                               &attribute_common_data,
+                                               global_vars.minimize_ram);
+                if (c == nullptr) {
+                    printf_err(log_warning, "analysis_init_from_archive() failed; classifier-dependent analysis disabled\n");
+                } else {
+                    // set fingerprint formats to match those in the resource file
+                    //
+                    size_t format = c->get_tls_fingerprint_format();
+                    global_vars.fp_format.set_tls_fingerprint_format(format);
+                    printf_err(log_info, "setting tls fingerprint format to match resource file (format: %zu)\n", format);
 
-            // set fingerprint formats to match those in the resource file
-            //
-            size_t format = c->get_tls_fingerprint_format();
-            global_vars.fp_format.set_tls_fingerprint_format(format);
-            printf_err(log_info, "setting tls fingerprint format to match resource file (format: %zu)\n", format);
+                    format = c->get_quic_fingerprint_format();
+                    global_vars.fp_format.set_quic_fingerprint_format(format);
+                    printf_err(log_info, "setting quic fingerprint format to match resource file (format: %zu)\n", format);
 
-            format = c->get_quic_fingerprint_format();
-            global_vars.fp_format.set_quic_fingerprint_format(format);
-            printf_err(log_info, "setting quic fingerprint format to match resource file (format: %zu)\n", format);
-
-            if (c->is_disabled()) {
-                printf_err(log_debug, "classifier could not be initialized, disabling all protocols\n");
-                selector.disable_all();
+                    if (c->is_disabled()) {
+                        printf_err(log_debug, "classifier could not be initialized, disabling classifier-dependent analysis and keeping protocol parsing active\n");
+                        analysis_finalize(c);
+                        c = nullptr;
+                    }
+                }
             }
         }
+        finalize_attribute_common_data();
+
+        // configure static protocol settings from global config;
+        // must happen once before packet processors are created
+        configure_protocol_classes(global_vars);
     }
 
     ~mercury() {
         analysis_finalize(c);
+    }
+
+private:
+    void finalize_attribute_common_data() {
+        if (attribute_common_data.attr_name.is_accepting_new_names()) {
+            attribute_common_data.attr_name.stop_accepting_new_names();
+        }
     }
 };
 
@@ -103,7 +126,7 @@ struct stateful_pkt_proc {
     struct flow_table_tcp tcp_flow_table;
     struct tcp_initial_message_filter tcp_init_msg_filter;
     struct analysis_context analysis;
-    struct common_data nbd_common_data;
+    const struct common_data &attribute_common_data;
     class message_queue<event_msg> *mq;
     mercury_context m;
     classifier *c;        // TODO: change to reference
@@ -120,7 +143,7 @@ struct stateful_pkt_proc {
         tcp_flow_table{(unsigned int)prealloc_size},
         tcp_init_msg_filter{},
         analysis{},
-        nbd_common_data{},
+        attribute_common_data{mc->attribute_common_data},
         mq{nullptr},
         m{mc},
         c{mc->c},
@@ -140,17 +163,13 @@ struct stateful_pkt_proc {
             }
         }
 
-        // set config and classifier to (refer to) context m
-        // analysis requires `do_analysis` & `resources` to be set
-        if (c == nullptr && global_vars.do_analysis && global_vars.resources != nullptr) {
-            throw std::runtime_error("error: classifier pointer is null");
-        }
-
-        // setting protocol based configuration option to output the raw features
-        set_raw_features(global_vars.raw_features);
+        // classifier may be unavailable if analysis resources are missing;
+        // protocol parsing and non-classifier analysis still proceed safely.
 
         //fprintf(stderr, "note: setting classifier to %p, setting global_vars to %p\n", (void *)m->c, (void *)&m->global_vars));
         // }
+
+        analysis.result.attr.initialize(&(attribute_common_data.attr_name.value()), attribute_common_data.attr_name.get_names_char());
 
         if (global_vars.do_stats) {
             ag = m->aggregator.get();
@@ -298,44 +317,23 @@ struct stateful_pkt_proc {
 
     bool dump_pkt ();
 
-    void set_raw_features(const std::unordered_map<std::string, bool> &raw_features) {
-        if (raw_features.at("all") or raw_features.at("tls")) {
-            tls_client_hello::set_raw_features(true);
-        }
-
-        if (raw_features.at("all") or raw_features.at("stun")) {
-            stun::message::set_raw_features(true);
-        }
-
-        if (raw_features.at("all") or raw_features.at("bittorrent")) {
-            bittorrent_dht::set_raw_features(true);
-            bittorrent_lsd::set_raw_features(true);
-            bittorrent_handshake::set_raw_features(true);
-        }
-
-        if (raw_features.at("all") or raw_features.at("smb")) {
-            smb2_packet::set_raw_features(true);
-        }
-
-        if (raw_features.at("all") or raw_features.at("ssdp")) {
-            ssdp::set_raw_features(true);
-        }
-    }
-
     bool set_exposed_creds_attr(exposed_creds_type exposed_creds_res) {
+        if (!analysis.result.attr.is_initialized()) {
+            return false;
+        }
 
         switch (exposed_creds_res) {
             case exposed_creds_type::none:
                 // should we wait until we see auth packets?
                 return false;
             case exposed_creds_type::plaintext_password:
-                analysis.result.attr.set_attr(c->common.exposed_creds_plaintext_idx, 1.0);
+                analysis.result.attr.set_attr(attribute_common_data.exposed_creds_plaintext_idx, 1.0);
                 return true;
             case exposed_creds_type::password_derived:
-                analysis.result.attr.set_attr(c->common.exposed_creds_derived_idx, 1.0);
+                analysis.result.attr.set_attr(attribute_common_data.exposed_creds_derived_idx, 1.0);
                 return true;
             case exposed_creds_type::plaintext_token:
-                analysis.result.attr.set_attr(c->common.exposed_creds_token_idx, 1.0);
+                analysis.result.attr.set_attr(attribute_common_data.exposed_creds_token_idx, 1.0);
                 return true;
         }
 
@@ -343,20 +341,24 @@ struct stateful_pkt_proc {
     }
 
     bool set_crypto_assessment_attr(const crypto_assess_result &assessment_result) {
+        if (!analysis.result.attr.is_initialized()) {
+            return false;
+        }
 
         bool output_attr = false;
 
         if (assessment_result.test(crypto_policy::quantum_safe::result_idx)) {
-            analysis.result.attr.set_attr(c->common.non_pqc_idx, 1.0);
+            analysis.result.attr.set_attr(attribute_common_data.non_pqc_idx, 1.0);
             output_attr = true;
         }
         if (assessment_result.test(crypto_policy::nist_sp_800_52::result_idx)) {
-            analysis.result.attr.set_attr(c->common.non_nist_idx, 1.0);
+            analysis.result.attr.set_attr(attribute_common_data.non_nist_idx, 1.0);
             output_attr = true;
         }
 
         return output_attr;
     }
+
 };
 
 #endif /* PKT_PROC_H */
