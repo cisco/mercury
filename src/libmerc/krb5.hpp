@@ -1303,6 +1303,8 @@ namespace krb5 {
                  && sname.is_not_null();
         }
 
+        bool is_valid() const { return valid; }
+
         void write_json(json_object &o) const {
             if (!valid) {
                 return;
@@ -1507,6 +1509,13 @@ namespace krb5 {
         void operator()(T &t) { t.write_json(record); }
     };
 
+    struct do_is_valid {
+
+        bool operator()(const std::monostate &) { return false; }
+
+        template <typename T>
+        bool operator()(T &t) { return t.is_valid(); }
+    };
 
     /// \brief parses a four byte element as a kerberos TCP
     /// record_marker if it represents a uint32_t in network byte
@@ -1557,7 +1566,9 @@ namespace krb5 {
             }
         }
 
-        bool is_not_empty() const { return application.is_not_null(); }
+        bool is_not_empty() const {
+            return std::visit(do_is_valid{}, msg);
+        }
 
         void write_json(json_object &o, bool metadata=false) const {
             (void)metadata;
