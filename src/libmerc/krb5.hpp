@@ -271,6 +271,8 @@ namespace krb5 {
             valid = (bool)etype and (bool)cipher; // kvno is optional
         }
 
+        bool is_valid() const { return valid; }
+
         void write_json(json_object &o, const char *name, bool metadata=false) const {
             (void)metadata;
             if (!valid) {
@@ -871,8 +873,8 @@ namespace krb5 {
                 if (pa_type_code == pa_data_type<uint32_t>::PA_TGS_REQ) {
                     datum app_data = octets.value;
                     tlv app_req_tlv{app_data, KRB5_APP_AP_REQ, "pa_tgs_req.ap_req"};
-                    if (app_req_tlv.is_valid()) {
-                        ap_req req{app_req_tlv.value};
+                    ap_req req{app_req_tlv.value};
+                    if (req.is_valid()) {
                         if (req.is_valid()) {
                             json_object value{pad, pa_type_name};
                             req.write_json(value);
@@ -898,8 +900,8 @@ namespace krb5 {
                 } else if (pa_type_code == pa_data_type<uint32_t>::PA_ENC_TIMESTAMP) {
                     datum enc_data = octets.value;
                     tlv enc_tlv{enc_data, tlv::SEQUENCE, "pa_enc_timestamp.encrypted_data"};
-                    if (enc_tlv.is_valid()) {
-                        encrypted_data enc{enc_tlv};
+                    encrypted_data enc{enc_tlv};
+                    if (enc.is_valid()) {
                         json_object value{pad, pa_type_name};
                         enc.write_json(value, "enc_timestamp");
                         value.close();
