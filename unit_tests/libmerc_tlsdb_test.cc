@@ -11,36 +11,37 @@ TEST_CASE_METHOD(LibmercTestFixture, "proccesing null packet")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test tcp filtering")
+TEST_CASE_METHOD(LibmercTestFixture, "test tcp with analysis")
 {
-    std::vector<std::pair<test_config, int>> test_set_up{
-        {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_minimal_path, .packet_filter_cfg = (char *)"tcp"},
-             .m_pc{"capture2.pcap"}},
-         155},
-        {test_config{
-             .m_lc{.resources = resources_minimal_path, .packet_filter_cfg = (char *)"tcp"},
-             .m_pc{"capture2.pcap"}},
-         155},
-        {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_minimal_path, .packet_filter_cfg = (char *)"tcp"},
-             .m_pc{"bad_tcp.pcap"}},
-         0},
-        {test_config{
-             .m_lc{.resources = resources_minimal_path, .packet_filter_cfg = (char *)"tcp"},
-             .m_pc{"bad_tcp.pcap"}},
-         0}};
-
     // TODO: add for tcp_only.pcap
+    libmerc_config config{.do_analysis = true, .resources = resources_minimal_path,
+        .packet_filter_cfg = (char *)"tcp"};
+    initialize(config);
 
-    for (auto &[config, count] : test_set_up)
-    {
-        set_pcap(config.m_pc.c_str());
-        run_count_test(count, config.m_lc);
-    }
+    set_pcap("capture2.pcap");
+    CHECK(155 == counter());
+
+    set_pcap("bad_tcp.pcap");
+    CHECK(0 == counter());
+
+    deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test tls filtering")
+TEST_CASE_METHOD(LibmercTestFixture, "test tcp")
+{
+    libmerc_config config{.packet_filter_cfg = (char *)"tcp"};
+    initialize(config);
+
+    set_pcap("capture2.pcap");
+    CHECK(155 == counter());
+
+    set_pcap("bad_tcp.pcap");
+    CHECK(0 == counter());
+
+    deinitialize();
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "test tls client_hello filtering with analysis")
 {
     auto destination_check_callback = [](const analysis_context *ac)
     {
@@ -50,141 +51,119 @@ TEST_CASE_METHOD(LibmercTestFixture, "test tls filtering")
         CHECK(ac->result.is_valid());
     };
 
-    std::vector<std::pair<test_config, int>> test_set_up{
-        {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
-                .packet_filter_cfg = (char *)"tls.client_hello"},
-             .m_pc{"tls_client_hello_test_packet.pcap"},
-             .fp_t = fingerprint_type_tls,
-             .callback{destination_check_callback}},
-         1},
-        {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
-                .packet_filter_cfg = (char *)"tls.client_hello"},
-             .m_pc{"capture2.pcap"},
-             .fp_t = fingerprint_type_tls},
-         17},
-        {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
-                .packet_filter_cfg = (char *)"tls"},
-             .m_pc{"capture2.pcap"},
-             .fp_t = fingerprint_type_tls},
-         60}
-    };
+    libmerc_config config{.do_analysis = true, .resources = resources_minimal_path,
+        .packet_filter_cfg = (char *)"tls.client_hello"};
+    initialize(config);
 
-    for (auto &[config, count] : test_set_up)
-    {
-        set_pcap(config.m_pc.c_str());
-        if (strcmp(config.m_lc.packet_filter_cfg, "tls") == 0)
-        {
-            run_count_test(count, config.m_lc, config.fp_t, fingerprint_type_tls_server /*additional fp to check*/);
-        }
-        else
-        {
-            run_count_test(count, config.m_lc, config.fp_t, config.callback);
-        }
-    }
+    set_pcap("tls_client_hello_test_packet.pcap");
+    CHECK(1 == counter(fingerprint_type_tls, destination_check_callback));
+
+    set_pcap("capture2.pcap");
+    CHECK(17 == counter(fingerprint_type_tls));
+
+    deinitialize();
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "test tls filtering with analysis")
+{
+    libmerc_config config{.do_analysis = true, .resources = resources_minimal_path,
+        .packet_filter_cfg = (char *)"tls"};
+    initialize(config);
+
+    set_pcap("capture2.pcap");
+    CHECK(60 == counter(fingerprint_type_tls, fingerprint_type_tls_server));
+
+    deinitialize();
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "test http filtering with analysis")
+{
+    libmerc_config config{.do_analysis = true, .resources = resources_minimal_path,
+        .packet_filter_cfg = (char *)"http"};
+    initialize(config);
+
+    set_pcap("capture2.pcap");
+    CHECK(127 == counter(fingerprint_type_http));
+
+    set_pcap("http_request.capture2.pcap");
+    CHECK(109 == counter(fingerprint_type_http));
+
+    set_pcap("multi_packet_http_request.pcap");
+    CHECK(1 == counter(fingerprint_type_http));
+
+    deinitialize();
 }
 
 TEST_CASE_METHOD(LibmercTestFixture, "test http filtering")
 {
-    std::vector<std::pair<test_config, int>> test_set_up{
-        {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
-                .packet_filter_cfg = (char *)"http"},
-             .m_pc{"capture2.pcap"}},
-         127},
-        {test_config{
-             .m_lc{.resources = resources_minimal_path,
-                .packet_filter_cfg = (char *)"http"},
-             .m_pc{"capture2.pcap"}},
-         127},
-        {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
-                .packet_filter_cfg = (char *)"http"},
-             .m_pc{"http_request.capture2.pcap"}},
-         109},
-        {test_config{
-             .m_lc{.resources = resources_minimal_path,
-                .packet_filter_cfg = (char *)"http"},
-             .m_pc{"multi_packet_http_request.pcap"}},
-         1},
-        {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
-                .packet_filter_cfg = (char *)"http"},
-             .m_pc{"multi_packet_http_request.pcap"}},
-         1}
-    };
+    libmerc_config config{.packet_filter_cfg = (char *)"http"};
+    initialize(config);
 
-    for (auto &[config, count] : test_set_up)
-    {
-        set_pcap(config.m_pc.c_str());
-        run_count_test(count, config.m_lc, fingerprint_type_http);
-    }
+    set_pcap("capture2.pcap");
+    CHECK(127 == counter(fingerprint_type_http));
+
+    set_pcap("multi_packet_http_request.pcap");
+    CHECK(1 == counter(fingerprint_type_http));
+
+    deinitialize();
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "test quic filtering with analysis")
+{
+    libmerc_config config{.do_analysis = true,
+         .resources = resources_minimal_path,
+        .packet_filter_cfg = (char *)"quic"};
+    initialize(config);
+
+    set_pcap("capture2.pcap");
+    CHECK(0 == counter(fingerprint_type_quic));
+
+    set_pcap("quic-crypto-packets.pcap");
+    CHECK(0 == counter(fingerprint_type_quic));
+
+    set_pcap("http_request.capture2.pcap");
+    CHECK(0 == counter(fingerprint_type_quic));
+
+    deinitialize();
 }
 
 TEST_CASE_METHOD(LibmercTestFixture, "test quic filtering")
 {
-    std::vector<std::pair<test_config, int>> test_set_up{
-        {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
-                .packet_filter_cfg = (char *)"quic"},
-             .m_pc{"capture2.pcap"}},
-         0},
-        {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
-                .packet_filter_cfg = (char *)"quic"},
-             .m_pc{"quic-crypto-packets.pcap"}},
-         0},
-        {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
-                .packet_filter_cfg = (char *)"quic"},
-             .m_pc{"http_request.capture2.pcap"}},
-         0},
-        {test_config{
-             .m_lc{.resources = resources_minimal_path,
-                .packet_filter_cfg = (char *)"quic"},
-             .m_pc{"quic_init.capture2.pcap"}},
-         0},
-        {test_config{
-             .m_lc{.resources = resources_minimal_path,
-                .packet_filter_cfg = (char *)"quic"},
-             .m_pc{"mdns_capture.pcap"}},
-         0}
-    };
+    libmerc_config config{.packet_filter_cfg = (char *)"quic"};
+    initialize(config);
 
-    for (auto &[config, count] : test_set_up)
-    {
-        set_pcap(config.m_pc.c_str());
-        run_count_test(count, config.m_lc, fingerprint_type_quic);
-    }
+    set_pcap("quic_init.capture2.pcap");
+    CHECK(0 == counter(fingerprint_type_quic));
+
+    set_pcap("mdns_capture.pcap");
+    CHECK(0 == counter(fingerprint_type_quic));
+
+    deinitialize();
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "test dhcp filtering with analysis")
+{
+    libmerc_config config{.do_analysis = true,      
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"dhcp"};
+    initialize(config);
+
+    set_pcap("capture2.pcap");
+    CHECK(279 == counter());
+
+    set_pcap("mdns_capture.pcap");
+    CHECK(0 == counter());
+
+    deinitialize();
 }
 
 TEST_CASE_METHOD(LibmercTestFixture, "test dhcp filtering")
 {
-    std::vector<std::pair<test_config, int>> test_set_up{
-        {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
-                .packet_filter_cfg = (char *)"dhcp"},
-             .m_pc{"capture2.pcap"}},//43000+
-         279
-        },
-         {test_config{
-             .m_lc{.resources = resources_minimal_path, .packet_filter_cfg = (char *)"dhcp"},
-             .m_pc{"capture2.pcap"}},
-         279
-         },
-        {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
-                .packet_filter_cfg = (char *)"dhcp"},
-             .m_pc{"mdns_capture.pcap"}},
-         0
-        }
-    };
+    libmerc_config config{.packet_filter_cfg = (char *)"dhcp"};
+    initialize(config);
 
-    for (auto &[config, count] : test_set_up)
-    {
-        set_pcap(config.m_pc.c_str());
-        run_count_test(count, config.m_lc);
-    }
+    set_pcap("capture2.pcap");
+    CHECK(279 == counter());
+
+    deinitialize();
 }

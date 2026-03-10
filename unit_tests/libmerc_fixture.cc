@@ -258,67 +258,6 @@ std::string LibmercTestFixture::get_first_json()
     return {};
 }
 
-void LibmercTestFixture::run_count_test(int expected_count, const struct libmerc_config &config)
-{
-    initialize(config);
-    CHECK(expected_count == counter());
-    deinitialize();
-}
-
-void LibmercTestFixture::run_count_test(int expected_count, const struct libmerc_config &config,
-                                        fingerprint_type fp_t, fingerprint_type fp_t2)
-{
-    initialize(config);
-    CHECK(expected_count == counter(fp_t, fp_t2));
-    deinitialize();
-}
-
-void LibmercTestFixture::run_count_test(int expected_count, const struct libmerc_config &config,
-                                        fingerprint_type fp_t, std::function<void(const analysis_context*)> callback)
-{
-    initialize(config);
-    CHECK(expected_count == counter(fp_t, callback));
-    deinitialize();
-}
-
-void LibmercTestFixture::run_count_test(int expected_count, const struct libmerc_config &config,
-                                        fingerprint_type fp_t, std::function<void(const analysis_context*)> callback,
-                                        uint16_t linktype)
-{
-    initialize(config);
-    CHECK(expected_count == counter(fp_t, callback, linktype));
-    deinitialize();
-}
-
-void LibmercTestFixture::run_attr_test(const std::string &expected_attr, const struct libmerc_config &config)
-{
-    initialize(config);
-    std::string attr = expected_attr;
-    CHECK(check_attr(attr));
-    deinitialize();
-}
-
-void LibmercTestFixture::run_attr_absent_test(const std::string &attr_to_be_absent, const struct libmerc_config &config)
-{
-    initialize(config);
-    std::string attr = attr_to_be_absent;
-    CHECK_FALSE(check_attr(attr));
-    deinitialize();
-}
-
-void LibmercTestFixture::run_attr_count_test(size_t expected_attrs_count, const struct libmerc_config &config)
-{
-    auto check_callback = [](size_t attr_count, size_t expected_attr_count)
-    {
-        fprintf(stderr, "attr_count: %zu, expected_attr_count: %zu\n", attr_count, expected_attr_count);
-        CHECK((attr_count == expected_attr_count));
-    };
-
-    initialize(config);
-    CHECK(counter(expected_attrs_count, check_callback));
-    deinitialize();
-}
-
 bool LibmercTestFixture::check_attr(std::string &expected_attr)
 {
     const attribute_context* attr_ctx;

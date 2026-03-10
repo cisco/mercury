@@ -34,18 +34,6 @@ protected:
 
     std::string get_first_json();
 
-    void run_count_test(int expected_count, const struct libmerc_config &config);
-    void run_count_test(int expected_count, const struct libmerc_config &config,
-                        fingerprint_type fp_t, fingerprint_type fp_t2 = fingerprint_type_unknown);
-    void run_count_test(int expected_count, const struct libmerc_config &config,
-                        fingerprint_type fp_t, std::function<void(const analysis_context*)> callback);
-    void run_count_test(int expected_count, const struct libmerc_config &config,
-                        fingerprint_type fp_t, std::function<void(const analysis_context*)> callback,
-                        uint16_t linktype);
-    void run_attr_test(const std::string &expected_attr, const struct libmerc_config &config);
-    void run_attr_absent_test(const std::string &attr_to_be_absent, const struct libmerc_config &config);
-    void run_attr_count_test(size_t expected_attrs_count, const struct libmerc_config &config);
-
     void check_global_configuraton(libmerc_config config);
 
 protected:
