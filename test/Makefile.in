@@ -340,8 +340,10 @@ endif
 .PHONY: clean
 clean:
 	rm -rf *.fp *.json *.mcap Makefile~ README.md~ deleteme/* memcheck.tmp tmp.json mercury.PID afl-mercury
+	rm -rf *.dSYM
 	rm -f fuzz/libmerc.a
 	rm -f tmp.json stats.json.gz tempstats.json statsfile*
+	find . -type d -name "*.dSYM" -prune -exec rm -rf {} +
 	find ./fuzz/ -name "*_exec" -exec rm -v {} +
 	find ./fuzz/ -name "*.log" -exec rm -v {} +
 	find ./fuzz/ -name "*.c" -exec rm -v {} +

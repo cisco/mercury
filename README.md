@@ -29,6 +29,7 @@ Mercury produces fingerprint strings for TLS, DTLS, SSH, HTTP, TCP, and other pr
 Mercury itself has minimal dependencies other than a g++ or llvm build environment, but to run the automated tests and ancillary programs in this package, you will need to install additional packages, as in the following Debian/Ubuntu example:
 ```
 sudo apt install g++ jq git zlib1g-dev tcpreplay valgrind python3-pip libssl-dev clang
+sudo apt install libxsimd-dev   # optional: enables SIMD-accelerated classification
 python3 -m pip install --upgrade pip
 python3 -m pip install --upgrade jsonschema cryptography Cython wheel setuptools
 ```
@@ -45,6 +46,7 @@ interface, since AF_PACKET is Linux-specific.  The following has been tested
 on an M2 mac with Python 3.13.2 installed via the Homebrew command below.
 ```
 brew install python openssl zlib
+brew install xsimd     # optional: enables SIMD-accelerated classification
 brew install cmake     # optional: libmerc can be also built with CMake
 mkdir -p ~/.envs
 python3 -m venv ~/.envs/merc
@@ -219,6 +221,7 @@ DETAILS
       imap              IMAP request and response
       imap.request      IMAP request
       imap.response     IMAP response
+      kerberos          Kerberos v5
       mdns              multicast DNS
       mysql             MySQL Client/Server Protocol
       nbns              NetBIOS Name Service

@@ -79,7 +79,13 @@ endif
 CAP        = cap_net_raw,cap_net_admin,cap_dac_override+eip
 EUID       = $(id -u)
 
-CFLAGS += -I./libmerc/xsimd/include
+# Enable SIMD-accelerated classifier path when xsimd is available on the system.
+ifeq ($(have_xsimd),yes)
+CFLAGS += -DHAVE_XSIMD
+ifneq ($(xsimd_include),)
+CFLAGS += -I$(xsimd_include)
+endif
+endif
 # OpenSSL 3.0 is default (no flag needed)
 ifeq ($(openssl_v3_0_or_newer),yes)
 # No flag for OpenSSL 3.0+ (default)
@@ -293,7 +299,9 @@ intercept.so: intercept.cc libmerc.a
 
 .PHONY: clean
 clean: libmerc-clean
-	rm -rf mercury libmerc_test libmerc_util intercept_server tls_scanner cert_analyze os_identifier archive_reader batch_gcd string cbor unit_test decode pcap pcap_filter format intercept.so dns-trie gmon.out *.o *.json.gz
+	rm -rf mercury libmerc_test libmerc_util intercept_server tls_scanner cert_analyze os_identifier archive_reader batch_gcd string cbor unit_test decode pcap pcap_filter format intercept.so dns-trie gmon.out *.o *.json.gz *.dSYM
+	cd cython && $(MAKE) clean
+	find . -type d -name "*.dSYM" -prune -exec rm -rf {} +
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	for file in mercury.c libmerc_test.c tls_scanner.cc cert_analyze.cc $(MERC) $(MERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 

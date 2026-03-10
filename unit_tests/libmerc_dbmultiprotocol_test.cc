@@ -1429,3 +1429,56 @@ TEST_CASE_METHOD(LibmercTestFixture, "double VLAN tagged PPPoE with resources-mp
         check(count, config.m_lc);
     }
 }
+
+TEST_CASE_METHOD(LibmercTestFixture, "test raw-features write_json output for tls")
+{
+    // Stable prefix of the "features" value in JSON output for
+    // tls_client_hello_test_packet.pcap when raw-features=tls is enabled.
+    // Only a short prefix is matched to avoid brittleness if the full
+    // serialization changes; the key goal is verifying presence/absence
+    // across reinit cycles.
+    const std::string expected_features_prefix =
+        R"("features":"[\"0303\",)";
+
+    auto check = [&](int expect_features, const struct libmerc_config &config)
+    {
+        initialize(config);
+
+        std::string json = get_first_json();
+        REQUIRE(json.size() > 0);
+
+        if (expect_features) {
+            CHECK(json.find(expected_features_prefix) != std::string::npos);
+        } else {
+            CHECK(json.find("\"features\"") == std::string::npos);
+        }
+
+        deinitialize();
+    };
+
+    // expect_features: 1 = features key-value must be present, 0 = features key must be absent
+    // sequence: enable → disable → re-enable (verifies reinit correctness)
+    std::vector<std::pair<test_config, int>> test_set_up{
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
+                .packet_filter_cfg = (char *)"tls.client_hello;raw-features=tls"},
+             .m_pc{"tls_client_hello_test_packet.pcap"}},
+         1},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
+                .packet_filter_cfg = (char *)"tls.client_hello"},
+             .m_pc{"tls_client_hello_test_packet.pcap"}},
+         0},
+        {test_config{
+             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
+                .packet_filter_cfg = (char *)"tls.client_hello;raw-features=tls"},
+             .m_pc{"tls_client_hello_test_packet.pcap"}},
+         1},
+    };
+
+    for (auto &[config, expect_features] : test_set_up)
+    {
+        set_pcap(config.m_pc.c_str());
+        check(expect_features, config.m_lc);
+    }
+}

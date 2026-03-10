@@ -9,6 +9,9 @@
 #define ASN1_H
 
 #include <stdexcept>
+#include <array>
+#include <limits>
+#include <type_traits>
 
 #include "datum.h"
 #include "json_object.h"
@@ -16,7 +19,7 @@
 #include "asn1/oid.h"
 #include "time.hpp"
 
-static const char *oid_empty_string = "";
+static constexpr const char *oid_empty_string = oid::oid_empty_string;
 
 class raw_oid : public datum {
 public:
@@ -28,8 +31,7 @@ public:
             return;  // error; attempt to write a null datum object
         }
         const char *output = oid::get_string(this);
-        //  fprintf(stderr, "output: %p\toid_empty_string: %p\n", output, oid_empty_string);
-        if (output != oid_empty_string and strlen(output) != 0) {
+        if (output && output[0] != '\0') {
             b.puts(output);
         } else {
             print_as_oid(b);
@@ -40,27 +42,115 @@ public:
         if (is_not_readable()) {
             return;  // error: invalid input
         }
-        size_t length = this->length();
-        const uint8_t *raw = this->data;
-        uint32_t component = *raw;
-        uint32_t div = component / 40;
-        uint32_t rem = component - (div * 40);
-        if (div > 2 || rem > 39) {
-            return; // error: invalid input
-        }
-        buf.snprintf("%u.%u", div, rem);
 
-        raw++;
-        component = 0;
-        for (unsigned int i=1; i<length; i++) {
-            uint8_t tmp = *raw++;
-            if (tmp & 0x80) {
-                component = component * 128 + (tmp & 0x7f);
-            } else {
-                component = component * 128 + tmp;
-                buf.snprintf(".%u", component);
-                component = 0;
+        const uint8_t *raw = data;
+        const uint8_t *end = data_end;
+
+        uint64_t first = 0;
+        if (!decode_base128(raw, end, first)) {
+            return;
+        }
+
+        uint64_t arc0 = 0;
+        uint64_t arc1 = 0;
+        split_first_subidentifier(first, arc0, arc1);
+        buf.snprintf("%" PRIu64 ".%" PRIu64, arc0, arc1);
+
+        while (raw < end) {
+            uint64_t component = 0;
+            if (!decode_base128(raw, end, component)) {
+                return;
             }
+            buf.snprintf(".%" PRIu64, component);
+        }
+    }
+
+    static bool unit_test() {
+        bool passed = true;
+
+        {
+            const uint8_t oid_bytes[] = { 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d };
+            constexpr const char expected[] = "1.2.840.113549";
+
+            raw_oid oid_value;
+            oid_value.data = oid_bytes;
+            oid_value.data_end = oid_bytes + sizeof(oid_bytes);
+
+            char outbuf[64] = {0};
+            buffer_stream out{outbuf, sizeof(outbuf)};
+            oid_value.print_as_oid(out);
+            out.add_null();
+
+            passed &= out.get_string() == expected;
+        }
+
+        {
+            const uint8_t invalid_first_component[] = { 0xff };
+
+            raw_oid oid_value;
+            oid_value.data = invalid_first_component;
+            oid_value.data_end = invalid_first_component + sizeof(invalid_first_component);
+
+            char outbuf[16] = {0};
+            buffer_stream out{outbuf, sizeof(outbuf)};
+            oid_value.print_as_oid(out);
+            out.add_null();
+
+            passed &= out.get_string().empty();
+        }
+
+        {
+            // Valid BER/DER OID whose first subidentifier is multi-octet:
+            // 2.999.3 encodes as first subidentifier (2*40 + 999) = 1079,
+            // then subidentifier 3.
+            const uint8_t oid_bytes[] = { 0x88, 0x37, 0x03 };
+            constexpr const char expected[] = "2.999.3";
+
+            raw_oid oid_value;
+            oid_value.data = oid_bytes;
+            oid_value.data_end = oid_bytes + sizeof(oid_bytes);
+
+            char outbuf[32] = {0};
+            buffer_stream out{outbuf, sizeof(outbuf)};
+            oid_value.print_as_oid(out);
+            out.add_null();
+
+            passed &= out.get_string() == expected;
+        }
+
+        return passed;
+    }
+
+private:
+    static bool decode_base128(const uint8_t *&p, const uint8_t *end, uint64_t &value) {
+        if (p == nullptr || p >= end) {
+            return false;
+        }
+
+        value = 0;
+        while (p < end) {
+            const uint8_t octet = *p++;
+            if (value > (std::numeric_limits<uint64_t>::max() >> 7)) {
+                return false; // overflow
+            }
+            value = (value << 7) | (octet & 0x7f);
+            if ((octet & 0x80) == 0) {
+                return true; // end of this subidentifier
+            }
+        }
+        return false; // unterminated subidentifier
+    }
+
+    static void split_first_subidentifier(uint64_t z, uint64_t &arc0, uint64_t &arc1) {
+        if (z < 40) {
+            arc0 = 0;
+            arc1 = z;
+        } else if (z < 80) {
+            arc0 = 1;
+            arc1 = z - 40;
+        } else {
+            arc0 = 2;
+            arc1 = z - 80;
         }
     }
 
@@ -89,8 +179,14 @@ struct tlv {
     uint64_t length{0};
     struct datum value;
 
-    bool operator == (const struct tlv &r) {
-        return !is_valid() && tag == r.tag && length == r.length && value.cmp(r.value) == 0;
+    bool operator==(const tlv &r) const {
+        return tag == r.tag
+            && length == r.length
+            && value.cmp(r.value) == 0;
+    }
+
+    bool operator!=(const tlv &r) const {
+        return !(*this == r);
     }
 
     constexpr static unsigned char explicit_tag(unsigned char tag) {
@@ -133,6 +229,8 @@ struct tlv {
         CHARACTER_STRING  = 0x1d,
         BMP_STRING		  = 0x1e
     };
+
+    operator bool() const { return is_not_null(); }
 
     bool is_not_null() const {
         return (value.data);
@@ -217,9 +315,9 @@ struct tlv {
         // set length
         if (length >= 128) {
             ssize_t num_octets_in_length = length - 128;  // note: signed to avoid underflow
-            if (num_octets_in_length < 0) {
-                p->set_empty();  // parser is no longer good for reading
-                handle_parse_error("error: invalid length field", tlv_name);
+            if (num_octets_in_length == 0) {
+                p->set_null();  // parser is no longer good for reading
+                handle_parse_error("error: unsupported BER indefinite length", tlv_name);
                 return;
             }
             if (p->read_uint(&length, num_octets_in_length) == false) {
@@ -265,9 +363,24 @@ struct tlv {
         value{value_}
     { }
 
+    static bool unit_test() {
+        // Regression test for issue #6:
+        // tlv::set(uint8_t, datum) should preserve value length, not
+        // length-of-length.
+        uint8_t bytes[130] = {0};
+        datum d{bytes, bytes + sizeof(bytes)};
+        tlv x;
+        x.set(tlv::OCTET_STRING, d);
+
+        return x.length == sizeof(bytes);
+    }
+
     void set(uint8_t tag_, datum value_) {
+        // Store the actual value length.  The encoded size of the Length
+        // field is derived later by write_tag_and_length().
+        const uint64_t value_length = value_.length() > 0 ? (uint64_t)value_.length() : 0;
         tag    = tag_;
-        length = length_of_length_field(value_.length());
+        length = value_length;
         value  = value_;
     }
 
@@ -289,6 +402,16 @@ struct tlv {
             //
             return 1;
         }
+        // long form: first length octet encodes how many base-256 octets
+        // follow.  The return value includes that first long-form octet.
+        // Branches below are:
+        //   [0x80..0xff]                       -> 2 bytes total
+        //   [0x100..0xffff]                    -> 3 bytes total
+        //   [0x10000..0xffffff]                -> 4 bytes total
+        //   [0x1000000..0xffffffff]            -> 5 bytes total
+        //   [0x100000000..0xffffffffff]        -> 6 bytes total
+        //   [0x10000000000..0xffffffffffff]    -> 7 bytes total
+        //   [0x1000000000000..0xfffffffffffffff] and above -> 8 bytes total
         // long form: the first octet encodes the number of octets
         // used to encode the length field
         //
@@ -337,22 +460,37 @@ struct tlv {
             buf << encoded<uint8_t>{(uint8_t)length};
             total += 1;
         } else {
-            buf << encoded<uint8_t>{(uint8_t)(0x80 | (length_of_length_field(length) - 1))};
+            // Long-form length:
+            //   first octet: 0x80 | N, where N is the number of length octets
+            //   next N octets: length value in big-endian base-256.
+            const uint8_t length_octet_count = (uint8_t)(length_of_length_field((size_t)length) - 1);
+            buf << encoded<uint8_t>{(uint8_t)(0x80 | length_octet_count)};
             total += 1;
-            size_t tmp = length;
-            if (tmp >= 0x1000000) {
-                buf << encoded<uint8_t>{(length >> 24) & 0xff};
-                        total += 1;
-            }
-            if (tmp >= 0x10000) {
-                buf << encoded<uint8_t>{(length >> 16) & 0xff};
-                        total += 1;
-            }
-            if (tmp >= 0x100) {
-                buf << encoded<uint8_t>{(length >> 8) & 0xff};
+            if (length >= 0x1000000000000ULL) {
+                buf << encoded<uint8_t>{(uint8_t)((length >> 48) & 0xff)};
                 total += 1;
             }
-            buf << encoded<uint8_t>{tmp & 0xff};
+            if (length >= 0x10000000000ULL) {
+                buf << encoded<uint8_t>{(uint8_t)((length >> 40) & 0xff)};
+                total += 1;
+            }
+            if (length >= 0x100000000ULL) {
+                buf << encoded<uint8_t>{(uint8_t)((length >> 32) & 0xff)};
+                total += 1;
+            }
+            if (length >= 0x1000000) {
+                buf << encoded<uint8_t>{(uint8_t)((length >> 24) & 0xff)};
+                total += 1;
+            }
+            if (length >= 0x10000) {
+                buf << encoded<uint8_t>{(uint8_t)((length >> 16) & 0xff)};
+                total += 1;
+            }
+            if (length >= 0x100) {
+                buf << encoded<uint8_t>{(uint8_t)((length >> 8) & 0xff)};
+                total += 1;
+            }
+            buf << encoded<uint8_t>{(uint8_t)(length & 0xff)};
             total += 1;
         }
         //        fprintf(stderr, "length encoding used %zu bytes (lol: %u)\n", total, length_of_length(length));
@@ -493,7 +631,7 @@ struct tlv {
         universal        = 0,
         application      = 1,
         context_specific = 2,
-        private_class    = 4
+        private_class    = 3
     };
 
     enum tag_class get_tag_class() const { return (tag_class)(tag >> 6); }
@@ -772,5 +910,141 @@ struct tlv {
     };
 
 };
+
+namespace asn1 {
+
+/// tlv parser carrying an expected inner ASN.1 tag.
+///
+/// `expected_inner_tag == 0x00` means "accept any inner TLV tag".
+struct tlv_expected : public tlv {
+    uint8_t expected_inner_tag{0x00};
+    explicit tlv_expected(uint8_t expected_tag=0x00) :
+        tlv{},
+        expected_inner_tag{expected_tag}
+    {}
+
+    void parse_inner(datum &d, const char *name=nullptr) {
+        tlv::parse(&d, expected_inner_tag, name);
+    }
+};
+
+/// Parse a sequence body containing context-specific EXPLICIT tags [0..N-1].
+///
+/// Explicit tag numbers are inferred by argument order:
+/// - first field  -> explicit tag [0]
+/// - second field -> explicit tag [1]
+/// - ...
+///
+/// This parser:
+/// - makes a single pass over \p d,
+/// - fails on unknown explicit tags,
+/// - fails on duplicate explicit tags,
+/// - parses only the inner TLV (does not preserve explicit wrapper TLV).
+template <typename... Fields>
+[[maybe_unused]]
+bool parse_explicitly_tagged_positional(datum &d, Fields &...fields) {
+    static_assert((std::is_base_of_v<tlv_expected, std::decay_t<Fields>> && ...),
+                  "parse_explicitly_tagged_positional requires asn1::tlv_expected fields");
+    constexpr size_t N = sizeof...(Fields);
+    static_assert(N > 0, "parse_explicitly_tagged_positional needs at least one field");
+
+    std::array<tlv_expected *, N> objs{{ &fields... }};
+    for (tlv_expected *obj : objs) {
+        if (obj == nullptr) { return false; }
+    }
+
+    while (d.is_not_empty()) {
+        tlv outer{&d};
+        if (outer.is_null()) {
+            return false;
+        }
+        // Require context-specific constructed, low-tag-number form.
+        if ((outer.tag & 0xe0) != 0xa0 || outer.get_little_tag() == 0x1f) {
+            return false;
+        }
+
+        const size_t explicit_tag = outer.get_little_tag();
+        if (explicit_tag >= N) {
+            return false;
+        }
+
+        tlv_expected *obj = objs[explicit_tag];
+        if (obj->is_not_null()) {
+            return false;  // duplicate explicit tag
+        }
+
+        datum inner = outer.value;
+        obj->parse_inner(inner, "asn1.parse_explicitly_tagged_positional");
+        if (inner.is_null()) {
+            return false;
+        }
+    }
+    return d.is_not_null();
+}
+
+inline bool unit_test() {
+    auto parse_uint = [](const tlv &x) -> uint64_t {
+        uint64_t v = 0;
+        for (const uint8_t b : x.value) {
+            v = (v << 8) | b;
+        }
+        return v;
+    };
+
+    bool passed = true;
+
+    // Success case: [0] INTEGER, [1] INTEGER, [2] OCTET STRING.
+    {
+        const uint8_t bytes[] = {
+            0xa0, 0x03, 0x02, 0x01, 0x05,
+            0xa1, 0x03, 0x02, 0x01, 0x0e,
+            0xa2, 0x04, 0x04, 0x02, 0xaa, 0xbb
+        };
+        datum d{bytes, bytes + sizeof(bytes)};
+        tlv_expected f0{tlv::INTEGER};
+        tlv_expected f1{tlv::INTEGER};
+        tlv_expected f2{tlv::OCTET_STRING};
+
+        const bool ok = parse_explicitly_tagged_positional(d, f0, f1, f2);
+        passed &= ok;
+        passed &= f0.is_not_null() && parse_uint(f0) == 5;
+        passed &= f1.is_not_null() && parse_uint(f1) == 14;
+        passed &= f2.is_not_null() && f2.value.length() == 2;
+    }
+
+    // Duplicate explicit tag should fail.
+    {
+        const uint8_t bytes[] = {
+            0xa0, 0x03, 0x02, 0x01, 0x01,
+            0xa0, 0x03, 0x02, 0x01, 0x02
+        };
+        datum d{bytes, bytes + sizeof(bytes)};
+        tlv_expected f0{tlv::INTEGER};
+        tlv_expected f1{tlv::INTEGER};
+        passed &= !parse_explicitly_tagged_positional(d, f0, f1);
+    }
+
+    // Unknown explicit tag should fail (N=3, tag [3] out of range).
+    {
+        const uint8_t bytes[] = { 0xa3, 0x03, 0x02, 0x01, 0x01 };
+        datum d{bytes, bytes + sizeof(bytes)};
+        tlv_expected f0{tlv::INTEGER};
+        tlv_expected f1{tlv::INTEGER};
+        tlv_expected f2{tlv::INTEGER};
+        passed &= !parse_explicitly_tagged_positional(d, f0, f1, f2);
+    }
+
+    // Wrong inner type should fail ([0] expected INTEGER, got OCTET STRING).
+    {
+        const uint8_t bytes[] = { 0xa0, 0x03, 0x04, 0x01, 0xff };
+        datum d{bytes, bytes + sizeof(bytes)};
+        tlv_expected f0{tlv::INTEGER};
+        passed &= !parse_explicitly_tagged_positional(d, f0);
+    }
+
+    return passed;
+}
+
+} // namespace asn1
 
 #endif /* ASN1_H */

@@ -118,6 +118,7 @@ char mercury_extended_help[] =
     "      imap              IMAP request and response\n"
     "      imap.request      IMAP request\n"
     "      imap.response     IMAP response\n"
+    "      kerberos          Kerberos v5\n"
     "      mdns              multicast DNS\n"
     "      mysql             MySQL Client/Server Protocol\n"
     "      nbns              NetBIOS Name Service\n"
