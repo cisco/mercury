@@ -15,6 +15,21 @@
 #define MAX_ADDR_STR_LEN 48
 #define MAX_PORT_STR_LEN 6
 
+/// \brief direction describes the directionality of a traffic flow
+///
+enum class direction : uint8_t {
+    none   = 0,  ///< neither client traffic nor server traffic
+    client = 1,  ///< client traffic only
+    server = 2,  ///< server traffic only
+    any    = 3,  ///< both client traffic and server traffic
+};
+
+/// \brief returns true when \p lhs and \p rhs are compatible
+///
+inline bool operator&(direction lhs, direction rhs) {
+    return static_cast<uint8_t>(lhs) & static_cast<uint8_t>(rhs);
+}
+
 struct key {
     uint16_t src_port;   // source port in network byte order
     uint16_t dst_port;   // destination port in network byte order

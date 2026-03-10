@@ -477,6 +477,7 @@ class traffic_selector {
     bool select_tofsee{false};
     bool select_ssh_client{false};
     bool select_ssh_server{false};
+    direction select_ssh_direction{direction::none};
     bool select_dhcp{false};
     bool select_syslog{false};
     bool select_redis_request{false};
@@ -554,6 +555,8 @@ public:
 
     bool ssh_server() const { return select_ssh_server; }
 
+    direction ssh_direction() const { return select_ssh_direction; }
+
     bool dhcp() const { return select_dhcp; }
 
     bool syslog() const { return select_syslog; }
@@ -605,6 +608,7 @@ public:
         select_tofsee = false;
         select_ssh_client = false;
         select_ssh_server = false;
+        select_ssh_direction = direction::none;
         select_dhcp = false;
         select_redis_request = false;
         select_redis_response = false;
@@ -654,6 +658,15 @@ public:
                 tcp.add_protocol(ssh_init_packet::matcher, tcp_msg_type_ssh);
                 tcp.add_protocol(ssh_kex_init::matcher, tcp_msg_type_ssh_kex);
             }
+        }
+        if (select_ssh_client && select_ssh_server) {
+            select_ssh_direction = direction::any;
+        } else if (select_ssh_client) {
+            select_ssh_direction = direction::client;
+        } else if (select_ssh_server) {
+            select_ssh_direction = direction::server;
+        } else {
+            select_ssh_direction = direction::none;
         }
         if (protocols["smtp"] || protocols["all"]) {
             tcp.add_protocol(smtp_server::matcher, tcp_msg_type_smtp_server);

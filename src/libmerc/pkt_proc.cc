@@ -539,10 +539,7 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         break;
     case tcp_msg_type_ssh:
         if (tcp_pkt && tcp_pkt->header) {
-            bool is_client_to_server = ssh_init_packet::packet_is_client_to_server(tcp_pkt->header->src_port,
-                                                                                    tcp_pkt->header->dst_port);
-            if ((is_client_to_server && !selector.ssh_client()) ||
-                (!is_client_to_server && !selector.ssh_server())) {
+            if (!(selector.ssh_direction() & tcp_pkt->get_direction_from_ports())) {
                 return;
             }
         }
@@ -557,10 +554,7 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         return;
     case tcp_msg_type_ssh_kex:
         if (tcp_pkt && tcp_pkt->header) {
-            bool is_client_to_server = ssh_init_packet::packet_is_client_to_server(tcp_pkt->header->src_port,
-                                                                                    tcp_pkt->header->dst_port);
-            if ((is_client_to_server && !selector.ssh_client()) ||
-                (!is_client_to_server && !selector.ssh_server())) {
+            if (!(selector.ssh_direction() & tcp_pkt->get_direction_from_ports())) {
                 return;
             }
         }

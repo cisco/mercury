@@ -1328,23 +1328,24 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ssh direction selectors with resource
         return count;
     };
 
-    set_pcap("ssh_frag.pcap");
+    set_pcap("ssh_direction_asym.pcap");
     int all_count = ssh_count("ssh");
 
-    set_pcap("ssh_frag.pcap");
+    set_pcap("ssh_direction_asym.pcap");
     int client_count = ssh_count("ssh.client");
 
-    set_pcap("ssh_frag.pcap");
+    set_pcap("ssh_direction_asym.pcap");
     int server_count = ssh_count("ssh.server");
 
-    set_pcap("ssh_frag.pcap");
+    set_pcap("ssh_direction_asym.pcap");
     int both_count = ssh_count("ssh.client,ssh.server");
 
-    CHECK(all_count == 4);
+    CHECK(all_count == 3);
     CHECK(client_count == 2);
-    CHECK(server_count == 2);
+    CHECK(server_count == 1);
+    CHECK(client_count != server_count);
     CHECK(all_count == client_count + server_count);
-    CHECK(both_count == 4);
+    CHECK(both_count == 3);
 }
 
 TEST_CASE_METHOD(LibmercTestFixture, "GRE encapsulation with resources-mp")
