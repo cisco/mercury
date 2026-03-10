@@ -111,8 +111,8 @@ TEST_CASE_METHOD(LibmercTestFixture, "test http filtering")
 TEST_CASE_METHOD(LibmercTestFixture, "test quic filtering with analysis")
 {
     libmerc_config config{.do_analysis = true,
-         .resources = resources_minimal_path,
-        .packet_filter_cfg = (char *)"quic"};
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"quic"};
     initialize(config);
 
     set_pcap("capture2.pcap");
