@@ -1616,15 +1616,14 @@ struct x509_cert {
     /// key_group, and invoking \p json_writer on the object (to allow
     /// the addition of arbitrary json elements).  The template
     /// parameter \p F is a callable object that is invocable with a
-    /// \ref json_object &.
-    ///
+    /// \ref json_object &, and is perfectly forwarded.
     ///
     template <typename F>
-    void print_as_json(struct buffer_stream &buf, const std::list<struct x509_cert> &trusted_certs, struct dictionary *key_group, const F &json_writer) const {
+    void print_as_json(struct buffer_stream &buf, const std::list<struct x509_cert> &trusted_certs, struct dictionary *key_group, F&& json_writer) const {
         static_assert(std::is_invocable_v<F, json_object&>, "F must be callable with (json_object&)");
         struct json_object o{&buf};
         print_as_json(o, trusted_certs, key_group);
-        json_writer(o);
+        std::forward<F>(json_writer)(o);
         o.close();
     }
 
