@@ -1930,7 +1930,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for unknown/unp
         k_unknown.ip_vers = 4;
 
         WHEN("write to FDC buffer for unknown UDP payload") {
-            size_t fdc_buffer_len = max_buffer_allocation;            
+            size_t fdc_buffer_len = max_buffer_allocation;
             int bytes_written = mercury_packet_processor_get_analysis_context_fdc(
                 mpp,
                 &k_unknown,
@@ -2307,4 +2307,3 @@ SCENARIO("test FDC http request with http-body-max config") {
         mercury_finalize(mc);
     }
 }
-

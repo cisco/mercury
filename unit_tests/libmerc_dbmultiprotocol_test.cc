@@ -104,7 +104,6 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic")
     set_pcap("http_request.capture2.pcap");
     CHECK(0 == counter(fingerprint_type_quic, destination_check_callback));
 
-
     deinitialize();
 }
 
@@ -120,14 +119,8 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic with analysis")
                           .packet_filter_cfg = (char *)"quic"};
     initialize(config);
 
-    // set_pcap("capture2.pcap");
-    // CHECK(0 == counter(fingerprint_type_quic, destination_check_callback));
-
     set_pcap("quic-crypto-packets.pcap");
     CHECK(670 == counter(fingerprint_type_quic, destination_check_callback));
-
-    // set_pcap("http_request.capture2.pcap");
-    // CHECK(0 == counter(fingerprint_type_quic, destination_check_callback));
 
     set_pcap("quic_v2.pcap");
     CHECK(5 == counter(fingerprint_type_quic, destination_check_callback));
@@ -634,7 +627,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test nbss")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test openvpn tcp ")
+TEST_CASE_METHOD(LibmercTestFixture, "test openvpn tcp")
 {
     libmerc_config config{.packet_filter_cfg = (char *)"openvpn_tcp"};
     initialize(config);

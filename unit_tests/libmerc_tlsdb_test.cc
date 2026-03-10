@@ -143,7 +143,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic filtering")
 
 TEST_CASE_METHOD(LibmercTestFixture, "test dhcp filtering with analysis")
 {
-    libmerc_config config{.do_analysis = true,      
+    libmerc_config config{.do_analysis = true,
                           .resources = resources_minimal_path,
                           .packet_filter_cfg = (char *)"dhcp"};
     initialize(config);
