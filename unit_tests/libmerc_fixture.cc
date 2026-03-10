@@ -268,7 +268,7 @@ bool LibmercTestFixture::check_attr(std::string &expected_attr)
             break;
         }
 
-        const analysis_context *ac = mercury_packet_processor_get_analysis_context(m_mpp, (unsigned char *)m_data_packet.first, m_data_packet.second - m_data_packet.first, &m_time);
+        (void)mercury_packet_processor_get_analysis_context(m_mpp, (unsigned char *)m_data_packet.first, m_data_packet.second - m_data_packet.first, &m_time);
         attr_ctx = mercury_packet_processor_get_attributes(m_mpp);
         if (attr_ctx)
         {
