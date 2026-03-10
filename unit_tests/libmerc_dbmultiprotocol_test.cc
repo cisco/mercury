@@ -731,7 +731,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ssh fingerprinting with reassembly")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test ssh fingerprinting")
+TEST_CASE_METHOD(LibmercTestFixture, "test ssh_init fingerprinting")
 {
     libmerc_config config{.do_analysis = true, .resources = resources_minimal_path,
         .packet_filter_cfg = (char *)"ssh"};
@@ -739,6 +739,15 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ssh fingerprinting")
 
     set_pcap("ssh_frag.pcap");
     CHECK(2 == counter(fingerprint_type_ssh_init));
+
+    deinitialize();
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "test ssh_kex fingerprinting")
+{
+    libmerc_config config{.do_analysis = true, .resources = resources_minimal_path,
+        .packet_filter_cfg = (char *)"ssh"};
+    initialize(config);
 
     set_pcap("ssh_frag.pcap");
     CHECK(2 == counter(fingerprint_type_ssh_kex));
