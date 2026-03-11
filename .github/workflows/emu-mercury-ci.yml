@@ -196,16 +196,7 @@ jobs:
           path: unit_tests/xtra/resources
           token: ${{ steps.app-token.outputs.token }}
       - name: Run mercury make test
-        uses: cisco-actions/nick-fields-retry@v3.0.2
-        with:
-          timeout_minutes: 90
-          max_attempts: 3
-          command: |
-            make --debug=basic OPTFLAGS=-g test
-          on_retry_command: |
-            git clean -xfd
-            ./configure
-            make --debug=basic OPTFLAGS=-g
+        run: make --debug=basic OPTFLAGS=-g test
 
   # ========== Windows Build ==========
 
