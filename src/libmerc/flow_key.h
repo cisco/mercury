@@ -18,8 +18,8 @@
 /// \brief flow_direction describes observed packet direction within a flow
 ///
 enum class flow_direction : uint8_t {
-    client  = 1,  ///< client traffic only
-    server  = 2,  ///< server traffic only
+    client  = 1,  ///< client-to-server traffic
+    server  = 2,  ///< server-to-client traffic
     unknown = 3,  ///< unknown
 };
 
