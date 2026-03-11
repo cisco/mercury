@@ -193,17 +193,17 @@ struct tcp_packet : public base_protocol {
 
     uint32_t seq() const { return hton(header->seq); }
 
-    direction get_direction_from_ports() const {
+    flow_direction get_direction_from_ports() const {
         if (header == nullptr) {
-            return direction::none;
+            return flow_direction::unknown;
         }
 
         // Compare in host byte order (tcp_header stores ports in network order).
         // Lower port is treated as server-side; equal ports default to client.
         if (ntoh<uint16_t>(header->dst_port) <= ntoh<uint16_t>(header->src_port)) {
-            return direction::client;
+            return flow_direction::client;
         }
-        return direction::server;
+        return flow_direction::server;
     }
 
     void set_key(struct key &k) {

@@ -1318,7 +1318,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ssh direction selectors with resource
     auto ssh_count = [&](const char *selector_cfg)
     {
         libmerc_config config = create_config();
-        config.do_analysis = true;
+        config.do_analysis = false;
         config.resources = resources_minimal_path;
         config.packet_filter_cfg = (char *)selector_cfg;
 

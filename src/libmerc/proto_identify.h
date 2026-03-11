@@ -475,9 +475,7 @@ class traffic_selector {
     bool select_http_response{false};
     bool select_smtp{false};
     bool select_tofsee{false};
-    bool select_ssh_client{false};
-    bool select_ssh_server{false};
-    direction select_ssh_direction{direction::none};
+    flow_direction_selector select_ssh_direction{flow_direction_selector::none};
     bool select_dhcp{false};
     bool select_syslog{false};
     bool select_redis_request{false};
@@ -551,11 +549,7 @@ public:
 
     bool tofsee() const { return select_tofsee; }
 
-    bool ssh_client() const { return select_ssh_client; }
-
-    bool ssh_server() const { return select_ssh_server; }
-
-    direction ssh_direction() const { return select_ssh_direction; }
+    flow_direction_selector ssh_direction() const { return select_ssh_direction; }
 
     bool dhcp() const { return select_dhcp; }
 
@@ -606,10 +600,9 @@ public:
         select_http_response = false;
         select_smtp = false;
         select_tofsee = false;
-        select_ssh_client = false;
-        select_ssh_server = false;
-        select_ssh_direction = direction::none;
+        select_ssh_direction = flow_direction_selector::none;
         select_dhcp = false;
+        select_syslog = false;
         select_redis_request = false;
         select_redis_response = false;
         select_imap_request = false;
@@ -643,30 +636,22 @@ public:
             }   
         }
         if (protocols["ssh"] || protocols["all"]) {
-            select_ssh_client = true;
-            select_ssh_server = true;
+            select_ssh_direction = flow_direction_selector::any;
             tcp.add_protocol(ssh_init_packet::matcher, tcp_msg_type_ssh);
             tcp.add_protocol(ssh_kex_init::matcher, tcp_msg_type_ssh_kex);
         } else {
+            uint8_t ssh_dir_bits = 0;
             if (protocols["ssh.client"]) {
-                select_ssh_client = true;
+                ssh_dir_bits |= static_cast<uint8_t>(flow_direction_selector::client);
             }
             if (protocols["ssh.server"]) {
-                select_ssh_server = true;
+                ssh_dir_bits |= static_cast<uint8_t>(flow_direction_selector::server);
             }
-            if (select_ssh_client || select_ssh_server) {
+            select_ssh_direction = static_cast<flow_direction_selector>(ssh_dir_bits);
+            if (select_ssh_direction != flow_direction_selector::none) {
                 tcp.add_protocol(ssh_init_packet::matcher, tcp_msg_type_ssh);
                 tcp.add_protocol(ssh_kex_init::matcher, tcp_msg_type_ssh_kex);
             }
-        }
-        if (select_ssh_client && select_ssh_server) {
-            select_ssh_direction = direction::any;
-        } else if (select_ssh_client) {
-            select_ssh_direction = direction::client;
-        } else if (select_ssh_server) {
-            select_ssh_direction = direction::server;
-        } else {
-            select_ssh_direction = direction::none;
         }
         if (protocols["smtp"] || protocols["all"]) {
             tcp.add_protocol(smtp_server::matcher, tcp_msg_type_smtp_server);

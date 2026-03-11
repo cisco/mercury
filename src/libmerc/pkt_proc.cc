@@ -538,7 +538,7 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         x.emplace<tls_certificate>(pkt, tcp_pkt);
         break;
     case tcp_msg_type_ssh:
-        if (tcp_pkt && tcp_pkt->header) {
+        if (tcp_pkt) {
             if (!(selector.ssh_direction() & tcp_pkt->get_direction_from_ports())) {
                 return;
             }
@@ -553,7 +553,7 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         }
         return;
     case tcp_msg_type_ssh_kex:
-        if (tcp_pkt && tcp_pkt->header) {
+        if (tcp_pkt) {
             if (!(selector.ssh_direction() & tcp_pkt->get_direction_from_ports())) {
                 return;
             }
