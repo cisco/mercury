@@ -40,6 +40,14 @@ constexpr bool operator&(flow_direction_selector sel, flow_direction dir) {
 
 /// \brief tests whether selector and packet direction have a non-zero bitwise AND
 ///
+/// For example, tests whether a packet's direction matches a
+/// selector mask: (selector & packet_dir) is true on match.
+///
+/// \note this test is actually performed at compile time; if it
+/// compiles successfully, it is passed. The function returns true
+/// only to allow use in unit test frameworks that expect such
+/// behavior.
+///
 [[maybe_unused]] inline bool flow_direction_selector_unit_test() {
     static_assert((flow_direction_selector::client & flow_direction::client)  == true);
     static_assert((flow_direction_selector::client & flow_direction::server)  == false);
