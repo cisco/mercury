@@ -476,6 +476,7 @@ class traffic_selector {
     bool select_http_response{false};
     bool select_smtp{false};
     bool select_tofsee{false};
+    flow_direction_selector select_ssh_direction{flow_direction_selector::none};
     bool select_dhcp{false};
     bool select_syslog{false};
     bool select_redis_request{false};
@@ -549,6 +550,8 @@ public:
 
     bool tofsee() const { return select_tofsee; }
 
+    flow_direction_selector ssh_direction() const { return select_ssh_direction; }
+
     bool dhcp() const { return select_dhcp; }
 
     bool syslog() const { return select_syslog; }
@@ -598,7 +601,9 @@ public:
         select_http_response = false;
         select_smtp = false;
         select_tofsee = false;
+        select_ssh_direction = flow_direction_selector::none;
         select_dhcp = false;
+        select_syslog = false;
         select_redis_request = false;
         select_redis_response = false;
         select_imap_request = false;
@@ -632,8 +637,22 @@ public:
             }   
         }
         if (protocols["ssh"] || protocols["all"]) {
+            select_ssh_direction = flow_direction_selector::any;
             tcp.add_protocol(ssh_init_packet::matcher, tcp_msg_type_ssh);
             tcp.add_protocol(ssh_kex_init::matcher, tcp_msg_type_ssh_kex);
+        } else {
+            uint8_t ssh_dir_bits = 0;
+            if (protocols["ssh.client"]) {
+                ssh_dir_bits |= static_cast<uint8_t>(flow_direction_selector::client);
+            }
+            if (protocols["ssh.server"]) {
+                ssh_dir_bits |= static_cast<uint8_t>(flow_direction_selector::server);
+            }
+            select_ssh_direction = static_cast<flow_direction_selector>(ssh_dir_bits);
+            if (select_ssh_direction != flow_direction_selector::none) {
+                tcp.add_protocol(ssh_init_packet::matcher, tcp_msg_type_ssh);
+                tcp.add_protocol(ssh_kex_init::matcher, tcp_msg_type_ssh_kex);
+            }
         }
         if (protocols["smtp"] || protocols["all"]) {
             tcp.add_protocol(smtp_server::matcher, tcp_msg_type_smtp_server);

@@ -36,7 +36,7 @@ _mercury()
     fi
 
     if [[ $prev == --select ]]; then
-        COMPREPLY=( $( compgen -W 'all arp cdp dhcp dns dtls gre http http.request http.response icmp iec lldp mdns nbds nbns nbss none ospf quic sctp smb ssdp ssh stun tcp tcp.message tcp.syn_ack tls tls.certificates tls.client_hello tls.server_hello wireguard' -- "$cur") )
+        COMPREPLY=( $( compgen -W 'all arp cdp dhcp dns dtls gre http http.request http.response icmp iec lldp mdns nbds nbns nbss none ospf quic sctp smb ssdp ssh ssh.client ssh.server stun tcp tcp.message tcp.syn_ack tls tls.certificates tls.client_hello tls.server_hello wireguard' -- "$cur") )
         return 0
     fi
 

@@ -15,6 +15,59 @@
 #define MAX_ADDR_STR_LEN 48
 #define MAX_PORT_STR_LEN 6
 
+/// \brief flow_direction describes observed packet direction within a flow
+///
+enum class flow_direction : uint8_t {
+    client  = 1,  ///< client-to-server traffic
+    server  = 2,  ///< server-to-client traffic
+    unknown = 3,  ///< unknown
+};
+
+/// \brief flow_direction_selector describes desired flow-direction selection
+///
+enum class flow_direction_selector : uint8_t {
+    none   = 0,  ///< neither client traffic nor server traffic
+    client = 1,  ///< client traffic only
+    server = 2,  ///< server traffic only
+    any    = 3,  ///< both client traffic and server traffic
+};
+
+/// \brief returns true when \p sel and \p dir are compatible
+///
+constexpr bool operator&(flow_direction_selector sel, flow_direction dir) {
+    return static_cast<uint8_t>(sel) & static_cast<uint8_t>(dir);
+}
+
+/// \brief tests whether selector and packet direction have a non-zero bitwise AND
+///
+/// For example, tests whether a packet's direction matches a
+/// selector mask: (selector & packet_dir) is true on match.
+///
+/// \note this test is actually performed at compile time; if it
+/// compiles successfully, it is passed. The function returns true
+/// only to allow use in unit test frameworks that expect such
+/// behavior.
+///
+[[maybe_unused]] inline bool flow_direction_selector_unit_test() {
+    static_assert((flow_direction_selector::client & flow_direction::client)  == true);
+    static_assert((flow_direction_selector::client & flow_direction::server)  == false);
+    static_assert((flow_direction_selector::client & flow_direction::unknown) == true);
+
+    static_assert((flow_direction_selector::server & flow_direction::client)  == false);
+    static_assert((flow_direction_selector::server & flow_direction::server)  == true);
+    static_assert((flow_direction_selector::server & flow_direction::unknown) == true);
+
+    static_assert((flow_direction_selector::any    & flow_direction::client)  == true);
+    static_assert((flow_direction_selector::any    & flow_direction::server)  == true);
+    static_assert((flow_direction_selector::any    & flow_direction::unknown) == true);
+
+    static_assert((flow_direction_selector::none   & flow_direction::client)  == false);
+    static_assert((flow_direction_selector::none   & flow_direction::server)  == false);
+    static_assert((flow_direction_selector::none   & flow_direction::unknown) == false);
+
+    return true;
+}
+
 struct key {
     uint16_t src_port;   // source port in network byte order
     uint16_t dst_port;   // destination port in network byte order
