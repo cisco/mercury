@@ -105,6 +105,7 @@ enum tcp_msg_type {
     tcp_msg_type_ftp_request,
     tcp_msg_type_ftp_response,
     tcp_msg_type_rdp,
+    tcp_msg_type_krb5,
     tcp_msg_type_redis_request,
     tcp_msg_type_redis_response,
     tcp_msg_type_imap_request,
@@ -477,6 +478,7 @@ class traffic_selector {
     bool select_http_response{false};
     bool select_smtp{false};
     bool select_tofsee{false};
+    flow_direction_selector select_ssh_direction{flow_direction_selector::none};
     bool select_dhcp{false};
     bool select_syslog{false};
     bool select_redis_request{false};
@@ -551,6 +553,8 @@ public:
 
     bool tofsee() const { return select_tofsee; }
 
+    flow_direction_selector ssh_direction() const { return select_ssh_direction; }
+
     bool dhcp() const { return select_dhcp; }
 
     bool syslog() const { return select_syslog; }
@@ -602,7 +606,9 @@ public:
         select_http_response = false;
         select_smtp = false;
         select_tofsee = false;
+        select_ssh_direction = flow_direction_selector::none;
         select_dhcp = false;
+        select_syslog = false;
         select_redis_request = false;
         select_redis_response = false;
         select_imap_request = false;
@@ -637,8 +643,22 @@ public:
             }   
         }
         if (protocols["ssh"] || protocols["all"]) {
+            select_ssh_direction = flow_direction_selector::any;
             tcp.add_protocol(ssh_init_packet::matcher, tcp_msg_type_ssh);
             tcp.add_protocol(ssh_kex_init::matcher, tcp_msg_type_ssh_kex);
+        } else {
+            uint8_t ssh_dir_bits = 0;
+            if (protocols["ssh.client"]) {
+                ssh_dir_bits |= static_cast<uint8_t>(flow_direction_selector::client);
+            }
+            if (protocols["ssh.server"]) {
+                ssh_dir_bits |= static_cast<uint8_t>(flow_direction_selector::server);
+            }
+            select_ssh_direction = static_cast<flow_direction_selector>(ssh_dir_bits);
+            if (select_ssh_direction != flow_direction_selector::none) {
+                tcp.add_protocol(ssh_init_packet::matcher, tcp_msg_type_ssh);
+                tcp.add_protocol(ssh_kex_init::matcher, tcp_msg_type_ssh_kex);
+            }
         }
         if (protocols["smtp"] || protocols["all"]) {
             tcp.add_protocol(smtp_server::matcher, tcp_msg_type_smtp_server);
@@ -706,7 +726,7 @@ public:
            //
            // kerberos is not yet ready for integration
            //
-           // select_krb5 = true;
+           select_krb5 = true;
         }
         if (protocols["snmp"] || protocols["all"]) {
             select_snmp = true;
@@ -1025,6 +1045,10 @@ public:
 
         if (mysql_login_request() and ( (tcp_pkt->header->src_port == hton<uint16_t>(3306)) || (tcp_pkt->header->dst_port == hton<uint16_t>(3306)) ) ) {
             return tcp_msg_type_mysql_login_request;
+        }
+
+        if (krb5() and (tcp_pkt->header->src_port == hton<uint16_t>(88) or tcp_pkt->header->dst_port == hton<uint16_t>(88))) {
+            return tcp_msg_type_krb5;
         }
 
         if (redis_request() and (tcp_pkt->header->dst_port == hton<uint16_t>(6379))) {

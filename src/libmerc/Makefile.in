@@ -311,9 +311,11 @@ endif
 
 .PHONY: clean
 clean:
-	rm -rf libmerc.so libmerc.so.* unstripped-libmerc.so libmerc.a *.o .depend cppclean_report.txt
+	rm -rf libmerc.so libmerc.so.* unstripped-libmerc.so libmerc.a *.o .depend cppclean_report.txt *.dSYM
+	rm -f "__.SYMDEF SORTED"
 	cd asn1 && $(MAKE) clean
 	cd lctrie && $(MAKE) clean
+	find . -type d -name "*.dSYM" -prune -exec rm -rf {} +
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	for file in $(MERC) $(MERC_H) $(LIBMERC) $(LIBMERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	find . -type f -name "*.gcno" -delete

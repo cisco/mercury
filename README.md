@@ -221,6 +221,7 @@ DETAILS
       imap              IMAP request and response
       imap.request      IMAP request
       imap.response     IMAP response
+      kerberos          Kerberos v5
       mdns              multicast DNS
       mysql             MySQL Client/Server Protocol
       nbns              NetBIOS Name Service
@@ -233,7 +234,9 @@ DETAILS
       redis.request     Redis request
       redis.response    Redis response
       sctp              SCTP message
-      ssh               SSH handshake and KEX
+      ssh               SSH handshake and KEX (client and server)
+      ssh.client        SSH handshake and KEX (only client)
+      ssh.server        SSH handshake and KEX (only server)
       smb               SMB v1 and v2
       smtp              SMTP client and server messages
       snmp              SNMP messages

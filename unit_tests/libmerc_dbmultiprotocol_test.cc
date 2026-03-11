@@ -1313,6 +1313,41 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ssh fingerprinting and reassembly")
     }
 }
 
+TEST_CASE_METHOD(LibmercTestFixture, "test ssh direction selectors with resources-mp")
+{
+    auto ssh_count = [&](const char *selector_cfg)
+    {
+        libmerc_config config = create_config();
+        config.do_analysis = false;
+        config.resources = resources_minimal_path;
+        config.packet_filter_cfg = (char *)selector_cfg;
+
+        initialize(config);
+        int count = counter(fingerprint_type_ssh_init, fingerprint_type_ssh_kex);
+        deinitialize();
+        return count;
+    };
+
+    set_pcap("ssh_direction_asym.pcap");
+    int all_count = ssh_count("ssh");
+
+    set_pcap("ssh_direction_asym.pcap");
+    int client_count = ssh_count("ssh.client");
+
+    set_pcap("ssh_direction_asym.pcap");
+    int server_count = ssh_count("ssh.server");
+
+    set_pcap("ssh_direction_asym.pcap");
+    int both_count = ssh_count("ssh.client,ssh.server");
+
+    CHECK(all_count == 3);
+    CHECK(client_count == 2);
+    CHECK(server_count == 1);
+    CHECK(client_count != server_count);
+    CHECK(all_count == client_count + server_count);
+    CHECK(both_count == 3);
+}
+
 TEST_CASE_METHOD(LibmercTestFixture, "GRE encapsulation with resources-mp")
 {
 

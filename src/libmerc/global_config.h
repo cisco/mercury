@@ -195,6 +195,8 @@ public:
             { "snmp",                   false },
             { "ssdp",                   false },
             { "ssh",                    false },
+            { "ssh.client",             false },
+            { "ssh.server",             false },
             { "stun",                   false },
             { "syslog",                 false },
             { "telnet",                 false },
