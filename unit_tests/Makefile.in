@@ -227,8 +227,10 @@ clean:
 	rm -rf libmerc_driver_fdc
 	rm -rf libmerc_util_behavior_test
 	rm -rf pdu_verifier
+	rm -rf *.dSYM
 	rm -rf *.json.gz
 	rm -rf $(LIBMERC_DEBUG_FOLDER)
+	find . -type d -name "*.dSYM" -prune -exec rm -rf {} +
 	find . -type f -name "*.gcno" -delete
 	find . -type f -name "*.gcda" -delete
 	find . -type f -name "*.gcov" -delete

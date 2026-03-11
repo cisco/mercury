@@ -163,6 +163,24 @@ tacacs_plus_params.hpp: $(TACPLUS) csv
 	./csv outfile=$@ verbose=true dir=local $(TACPLUS_CMD)
 
 
+# KRB5
+#
+KRB5 += kerberos-parameters-1.csv
+KRB5 += kerberos-parameters-2.csv
+KRB5 += pre-authentication.csv
+
+KRB5_CMD += kerberos-parameters-1.csv:encryption_type
+KRB5_CMD += kerberos-parameters-2.csv:checksum_type
+KRB5_CMD += pre-authentication.csv:pa_data_type
+
+.PHONY: $(KRB5)
+$(KRB5):
+	wget -N -P source/ https://www.iana.org/assignments/kerberos-parameters/$@
+
+krb5_params.hpp: $(KRB5) csv
+	./csv outfile=$@ verbose=true dir=source $(KRB5_CMD)
+
+
 # housekeeping
 #
 clean:

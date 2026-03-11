@@ -103,6 +103,7 @@ enum tcp_msg_type {
     tcp_msg_type_ftp_request,
     tcp_msg_type_ftp_response,
     tcp_msg_type_rdp,
+    tcp_msg_type_krb5,
     tcp_msg_type_redis_request,
     tcp_msg_type_redis_response,
     tcp_msg_type_imap_request,
@@ -716,7 +717,7 @@ public:
            //
            // kerberos is not yet ready for integration
            //
-           // select_krb5 = true;
+           select_krb5 = true;
         }
         if (protocols["snmp"] || protocols["all"]) {
             select_snmp = true;
@@ -1035,6 +1036,10 @@ public:
 
         if (mysql_login_request() and ( (tcp_pkt->header->src_port == hton<uint16_t>(3306)) || (tcp_pkt->header->dst_port == hton<uint16_t>(3306)) ) ) {
             return tcp_msg_type_mysql_login_request;
+        }
+
+        if (krb5() and (tcp_pkt->header->src_port == hton<uint16_t>(88) or tcp_pkt->header->dst_port == hton<uint16_t>(88))) {
+            return tcp_msg_type_krb5;
         }
 
         if (redis_request() and (tcp_pkt->header->dst_port == hton<uint16_t>(6379))) {

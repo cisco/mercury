@@ -25,6 +25,9 @@
 #include "libmerc/archive.h"
 #include "libmerc/fdc.hpp"
 #include "libmerc/imap.hpp"
+#include "libmerc/asn1.h"
+#include "libmerc/oid.hpp"
+#include "libmerc/krb5.hpp"
 // Macros to colorize output
 //
 #define RED_ON     "\033[31m"
@@ -113,6 +116,22 @@ int main(int, char *[]) {
         {
             "imap",
             &imap::unit_test
+        },
+        {
+            "raw_oid",
+            &raw_oid::unit_test
+        },
+        {
+            "tlv",
+            &tlv::unit_test
+        },
+        {
+            "asn1",
+            &asn1::unit_test
+        },
+        {
+            "krb5_int_conversion",
+            &krb5::int_conversion_unit_test
         }
     };
     size_t num_tests = 0;
@@ -189,6 +208,10 @@ int main(int, char *[]) {
         {
             "fdc",
             &fdc::unit_test
+        },
+        {
+            "oid",
+            &asn1::oid_unit_test
         },
     };
     for (const auto &tc : test_cases_verbose) {
