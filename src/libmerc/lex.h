@@ -203,16 +203,16 @@ public:
 };
 
 /// accepts a string handling escape sequences, up to the delimiter \param delim.
-/// The escape character \param escape (default '\\') causes the next character
-/// to be skipped, allowing the delimiter to appear escaped within the string.
+/// When \param escape != \param delim, a byte equal to \param escape causes
+/// the next byte to be skipped, allowing the delimiter to appear escaped.
+/// When \param escape == \param delim, a doubled delimiter is treated as an
+/// escaped literal (e.g. Telnet IAC IAC or SQL '').
 ///
 template <uint8_t delim, uint8_t escape = '\\'>
 class escaped_string_up_to : public datum {
 public:
 
-    /// accepts a string handling escape sequences, up to the delimiter \param delim.
-    /// Characters preceded by \param escape are treated as literal and do not
-    /// terminate the string.
+    /// \param d input datum cursor; advanced past the consumed content on success.
     /// \param skip_delimiter If true (default), advances past the delimiter;
     ///        if false, leaves cursor at the delimiter.
     /// \param accept_all_if_no_delim If true and no delimiter is found, this
