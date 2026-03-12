@@ -890,7 +890,7 @@ namespace crypto_policy {
             if (cryptoAssessmentArray != nullptr) {
                 compliance.emplace(*optional_json_obj, "compliance_result");
             }
-            
+
             // NIST SP 800-52 Rev 2 Compliance Rules
             //
             if (!non_compliant && protocol_version == tls_version::tlsv1_3 && exts.supported_version != tls_version::tlsv1_3) {

@@ -23,7 +23,7 @@ typedef struct ipv6_addr_lct {
     }
 
     // Copy constructor
-    ipv6_addr_lct(const ipv6_addr_lct& other) 
+    ipv6_addr_lct(const ipv6_addr_lct& other)
         : a{other.a[0], other.a[1]} {}
 
     // Assignment operator
