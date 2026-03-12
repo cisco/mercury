@@ -25,9 +25,11 @@
 #include "libmerc/archive.h"
 #include "libmerc/fdc.hpp"
 #include "libmerc/imap.hpp"
+#include "libmerc/telnet.hpp"
 #include "libmerc/asn1.h"
 #include "libmerc/oid.hpp"
 #include "libmerc/krb5.hpp"
+
 // Macros to colorize output
 //
 #define RED_ON     "\033[31m"
@@ -116,6 +118,10 @@ int main(int, char *[]) {
         {
             "imap",
             &imap::unit_test
+        },
+        {
+            "telnet",
+            &telnet::unit_test
         },
         {
             "raw_oid",

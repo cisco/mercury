@@ -30,6 +30,7 @@
 #include "geneve.hpp"
 #include "ip.h"
 #include "vxlan.hpp"
+#include "telnet.hpp"
 
 // protocol is an alias for a std::variant that can hold any protocol
 // data element.  The default value of std::monostate indicates that
@@ -78,6 +79,7 @@ namespace krb5 { class packet; }
 namespace ftp {class request;class response;}
 namespace redis { class request; class response; }
 namespace imap {class imap_requests; class imap_responses;}
+namespace telnet { class message; }
 class esp;
 namespace ike { class packet; }
 namespace rfb { class protocol_version_handshake; }
@@ -113,6 +115,7 @@ using protocol = std::variant<std::monostate,
                               redis::response,
                               imap::imap_requests,
                               imap::imap_responses,
+                              telnet::message,
                               rdp::connection_request_pdu,
                               tftp::packet,
                               unknown_initial_packet,

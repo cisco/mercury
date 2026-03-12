@@ -78,6 +78,7 @@
 #include "syslog.hpp"
 #include "redis.hpp"
 #include "imap.hpp"
+#include "telnet.hpp"
 
 // double malware_prob_threshold = -1.0; // TODO: document hidden option
 
@@ -648,6 +649,9 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         return;
     case tcp_msg_type_redis_request:
         x.emplace<redis::request>(pkt);
+        return;
+    case tcp_msg_type_telnet:
+        x.emplace<telnet::message>(pkt);
         return;
     default:
         if (is_new && global_vars.output_tcp_initial_data) {

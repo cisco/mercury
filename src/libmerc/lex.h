@@ -203,37 +203,69 @@ public:
 };
 
 /// accepts a string handling escape sequences, up to the delimiter \param delim.
-/// The escape character \param escape (default '\\') causes the next character
-/// to be skipped, allowing the delimiter to appear escaped within the string.
+/// When \param escape != \param delim, a byte equal to \param escape prevents
+/// the following byte from being treated as a delimiter, and parsing continues;
+/// both bytes appear in the result.
+/// When \param escape == \param delim (e.g. Telnet IAC IAC), a doubled delimiter
+/// does not terminate the string and parsing continues; both bytes appear in the
+/// result.
 ///
 template <uint8_t delim, uint8_t escape = '\\'>
 class escaped_string_up_to : public datum {
 public:
 
-    /// accepts a string handling escape sequences, up to the delimiter \param delim.
-    /// Characters preceded by \param escape are treated as literal and do not
-    /// terminate the string.
+    /// \param d input datum cursor; advanced past the consumed content on success.
+    /// \param skip_delimiter If true (default), advances past the delimiter;
+    ///        if false, leaves cursor at the delimiter.
+    /// \param accept_all_if_no_delim If true and no delimiter is found, this
+    ///        object is set to the full input span; otherwise both are set null.
     ///
-    escaped_string_up_to(datum &d) {
+    escaped_string_up_to(datum &d, bool skip_delimiter = true, bool accept_all_if_no_delim = false) {
         if (d.data == nullptr || d.data == d.data_end) {
             d.set_null();
             return;
         }
         data = d.data;
-        while (d.data < d.data_end) {
-            if (*d.data == escape && d.data + 1 < d.data_end) {
-                d.data += 2;  // skip escape + escaped char
-            } else if (*d.data == delim) {
-                data_end = d.data;
-                d.data++;  // skip past delimiter
+        const uint8_t *cursor = d.data;
+        const uint8_t *end = d.data_end;
+        if constexpr (escape == delim) {
+            while (cursor < end) {
+                const uint8_t *hit = static_cast<const uint8_t *>(memchr(cursor, delim, static_cast<size_t>(end - cursor)));
+                if (!hit) {
+                    break;
+                }
+                if (hit + 1 < end && *(hit + 1) == delim) {
+                    cursor = hit + 2;  // skip escaped delimiter (double escape)
+                    continue;
+                }
+                data_end = hit;
+                d.data = skip_delimiter ? hit + 1 : hit;
                 return;
-            } else {
-                d.data++;
+            }
+        } else {
+            // Single-pass scan: find whichever of delim or escape comes first
+            while (cursor < end) {
+                if (*cursor == escape && cursor + 1 < end) {
+                    cursor += 2;  // skip escape + escaped char
+                } else if (*cursor == delim) {
+                    data_end = cursor;
+                    d.data = skip_delimiter ? cursor + 1 : cursor;
+                    return;
+                } else {
+                    cursor++;
+                }
             }
         }
-        // No delimiter found
-        this->set_null();
-        d.set_null();
+
+        if (accept_all_if_no_delim) {
+            // No delimiter found: accept all input
+            data_end = end;
+            d.set_empty();
+        } else {
+            // No delimiter found
+            this->set_null();
+            d.set_null();
+        }
     }
 };
 

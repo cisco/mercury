@@ -145,6 +145,7 @@ char mercury_extended_help[] =
     "      tcp               TCP headers\n"
     "      tcp.message       TCP initial message\n"
     "      tcp.syn_ack       TCP syn ack message\n"
+    "      telnet            Telnet (RFC 854/855)\n"
     "      tls               TLS clientHello, serverHello, and certificates\n"
     "      tls.client_hello  TLS clientHello\n"
     "      tls.server_hello  TLS serverHello\n"

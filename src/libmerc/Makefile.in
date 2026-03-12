@@ -127,6 +127,7 @@ LIBMERC_H   += wireguard.h
 LIBMERC_H   += quic.h
 LIBMERC_H   += crypto_engine.h
 LIBMERC_H   += smtp.h
+LIBMERC_H   += telnet.hpp
 LIBMERC_H   += asn1.h
 LIBMERC_H   += asn1/oid.h
 LIBMERC_H   += config_generator.h

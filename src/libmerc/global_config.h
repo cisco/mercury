@@ -203,6 +203,7 @@ public:
             { "tcp",                    false },
             { "tcp.message",            false },
             { "tcp.syn_ack",            false },
+            { "telnet",                 false },
             { "tftp",                   false },
             { "tls",                    false },
             { "tls.client_hello",       false },
