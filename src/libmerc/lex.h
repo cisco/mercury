@@ -205,6 +205,7 @@ public:
 /// accepts a string handling escape sequences, up to the delimiter \param delim.
 /// The escape character \param escape (default '\\') causes the next character
 /// to be skipped, allowing the delimiter to appear escaped within the string.
+///
 template <uint8_t delim, uint8_t escape = '\\'>
 class escaped_string_up_to : public datum {
 public:
