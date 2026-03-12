@@ -28,42 +28,6 @@
 namespace telnet {
 
 ///
-/// \brief Telnet message wrapper for Mercury protocol dispatch.
-///
-class message : public base_protocol {
-    datum msg{};
-    bool valid{false};
-
-public:
-
-    ///
-    /// \brief Construct a message from an input datum.
-    /// \param d Input/output datum cursor.
-    ///
-    message(datum &d);
-
-    ///
-    /// \brief Returns whether the message object is valid.
-    /// \return True when construction succeeded.
-    ///
-    bool is_not_empty() const;
-
-    ///
-    /// \brief Serialize parsed Telnet items to JSON.
-    /// \param record Destination JSON object.
-    /// \param metadata Unused metadata flag.
-    ///
-    void write_json(json_object &record, bool metadata) const;
-
-    ///
-    /// \brief Serialize Telnet protocol presence to L7 metadata.
-    /// \param o Destination CBOR object.
-    /// \param metadata Unused metadata flag.
-    ///
-    void write_l7_metadata(cbor_object &o, bool metadata) const;
-};
-
-///
 /// \brief Telnet command codes as defined by RFC 854.
 ///
 
@@ -141,6 +105,7 @@ enum class telnet_option : uint8_t {
     kermit = 47,
     send_url = 48,
     forward_x = 49,
+    // Options 50-137 are unassigned per IANA
     telopt_pragma_logon = 138,
     telopt_sspi_logon = 139,
     telopt_pragma_heartbeat = 140,
@@ -158,18 +123,21 @@ static constexpr uint8_t iac = static_cast<uint8_t>(command::iac);
 /// \brief Parser for Telnet option/command objects beginning with IAC.
 ///
 class option {
-    command command_value{command::se};
-    bool has_suboption{false};
+    literal_byte<iac> prefix;
+    encoded<uint8_t> cmd_byte;
     uint8_t suboption{0};
     datum option_data{};
+    bool has_suboption{false};
     bool valid{false};
 
-    static bool consume_byte(datum &cursor, uint8_t &value);
-    static bool command_has_suboption(command cmd);
+    command get_command() const { return static_cast<command>(cmd_byte.value()); }
+
+    static bool command_has_suboption(command cmd) {
+        return cmd == command::will || cmd == command::wont || cmd == command::do_cmd || cmd == command::dont || cmd == command::sb;
+    }
+
     static const char *command_name(command cmd);
     static const char *telnet_option_name(uint8_t option);
-    static void print_suboption(json_object &cmd, uint8_t option);
-    static bool parse_subnegotiation(datum &d, uint8_t &opt, datum &opt_data);
 
 public:
 
@@ -183,20 +151,30 @@ public:
     /// \brief Returns whether parsing succeeded.
     /// \return True if object contains a valid command.
     ///
-    bool is_not_empty() const;
+    bool is_not_empty() const { return valid; }
 
     ///
     /// \brief Serialize this command object as one item in a JSON array.
     /// \param items Destination JSON array.
     ///
-    void write_json(json_array &items) const;
+    void write_json(json_array &items) const {
+        json_object item{items};
+        item.print_key_string("command", command_name(get_command()));
+        if (has_suboption) {
+            item.print_key_string_or_unknown_code("suboption", telnet_option_name(suboption), suboption);
+        }
+        if (option_data.is_not_empty()) {
+            item.print_key_json_string("data", option_data);
+        }
+        item.close();
+    }
 };
 
 ///
 /// \brief Parser for contiguous Telnet data-byte sequences.
 ///
 class data {
-    datum bytes{};
+    escaped_string_up_to<iac, iac> bytes;
     bool valid{false};
 
 public:
@@ -206,25 +184,81 @@ public:
     /// \param d Datum cursor snapshot.
     /// \return True if data parsing should be attempted first.
     ///
-    static bool can_parse(datum d);
+    static bool can_parse(datum d) {
+        if (!d.is_readable()) {
+            return false;
+        }
+        if (lookahead<literal_byte<iac, iac>> escaped{d}) {
+            return true;
+        }
+        return !lookahead<literal_byte<iac>>{d};
+    }
 
     ///
     /// \brief Parse one contiguous data segment (or escaped IAC) from a datum.
     /// \param d Input/output datum cursor.
     ///
-    data(datum &d);
+    data(datum &d) :
+      bytes{d, false, true},  // skip_delimiter=false, accept_all_if_no_delim=true
+      valid{bytes.is_not_empty()} { }
 
     ///
     /// \brief Returns whether parsing succeeded.
     /// \return True if object contains valid data bytes.
     ///
-    bool is_not_empty() const;
+    bool is_not_empty() const { return valid; }
 
     ///
     /// \brief Serialize this data segment as one item in a JSON array.
     /// \param items Destination JSON array.
     ///
-    void write_json(json_array &items) const;
+    void write_json(json_array &items) const {
+        json_object item{items};
+        item.print_key_json_string("data", bytes);
+        item.close();
+    }
+};
+
+///
+/// \brief Telnet message wrapper for Mercury protocol dispatch.
+///
+class message : public base_protocol {
+    datum msg{};
+    bool valid{false};
+
+public:
+
+    ///
+    /// \brief Construct a message from an input datum.
+    /// \param d Input/output datum cursor.
+    ///
+    message(datum &d) : msg{d}, valid{d.is_not_empty()} { }
+
+    ///
+    /// \brief Returns whether the message object is valid.
+    /// \return True when construction succeeded.
+    ///
+    bool is_not_empty() const { return valid; }
+
+    ///
+    /// \brief Serialize parsed Telnet items to JSON.
+    /// \param record Destination JSON object.
+    /// \param metadata Unused metadata flag.
+    ///
+    void write_json(json_object &record, bool metadata) const;
+
+    ///
+    /// \brief Serialize Telnet protocol presence to L7 metadata.
+    /// \param o Destination CBOR object.
+    /// \param metadata Unused metadata flag.
+    ///
+    void write_l7_metadata(cbor_object &o, bool metadata) const {
+        (void)metadata;
+
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("telnet");
+        protocols.close();
+    }
 };
 
 #ifndef NDEBUG
@@ -242,19 +276,6 @@ static inline bool unit_test_passed = telnet::unit_test();
 #endif
 
 // ===== Definitions =====
-
-inline bool option::consume_byte(datum &cursor, uint8_t &value) {
-    encoded<uint8_t> byte{cursor};
-    if (cursor.is_null()) {
-        return false;
-    }
-    value = byte.value();
-    return true;
-}
-
-inline bool option::command_has_suboption(command cmd) {
-    return cmd == command::will || cmd == command::wont || cmd == command::do_cmd || cmd == command::dont || cmd == command::sb;
-}
 
 inline const char *option::command_name(command cmd) {
     switch (cmd) {
@@ -340,180 +361,44 @@ inline const char *option::telnet_option_name(uint8_t option_code) {
     }
 }
 
-inline void option::print_suboption(json_object &cmd, uint8_t option_code) {
-    if (const char *name = telnet_option_name(option_code)) {
-        cmd.print_key_string("suboption", name);
+inline option::option(datum &d) :
+    prefix{d},
+    cmd_byte{d},
+    suboption{0},
+    option_data{},
+    valid{d.is_not_null() && cmd_byte.value() != iac}
+{
+    if (!valid) {
         return;
     }
 
-    output_buffer<48> unknown_name{};
-    if ((option_code >= 50 && option_code <= 137) || (option_code >= 141 && option_code <= 254)) {
-        unknown_name.snprintf("unassigned_%u", static_cast<unsigned>(option_code));
-        cmd.print_key_string("suboption", unknown_name.get_buffer_start());
-        return;
-    }
-
-    unknown_name.snprintf("unknown_%u", static_cast<unsigned>(option_code));
-    cmd.print_key_string("suboption", unknown_name.get_buffer_start());
-}
-
-inline bool option::parse_subnegotiation(datum &d, uint8_t &opt, datum &opt_data) {
-    if (!consume_byte(d, opt)) {
-        return false;
-    }
-
-    datum payload_start{d};
-    size_t payload_len = 0;
-
-    while (d.is_not_empty()) {
-        uint8_t byte = 0;
-        if (!consume_byte(d, byte)) {
-            return false;
-        }
-        if (byte != iac) {
-            payload_len += 1;
-            continue;
-        }
-
-        uint8_t next = 0;
-        if (!consume_byte(d, next)) {
-            return false;
-        }
-        if (next == iac) {
-            payload_len += 2;
-            continue; // escaped 0xff inside subnegotiation payload
-        }
-        if (next == static_cast<uint8_t>(command::se)) {
-            opt_data = datum{payload_start, static_cast<ssize_t>(payload_len)};
-            return opt_data.is_not_null();
-        }
-
-        payload_len += 2;
-    }
-
-    d.set_null();
-    return false;
-}
-
-inline option::option(datum &d) : command_value{command::se}, has_suboption{false}, suboption{0}, option_data{}, valid{false} {
-    if (!d.is_readable()) {
-        d.set_null();
-        return;
-    }
-
-    literal_byte<iac> prefix{d};
-    if (d.is_null()) {
-        return;
-    }
-
-    uint8_t parsed_command = 0;
-    if (!consume_byte(d, parsed_command)) {
-        return;
-    }
-
-    // Escaped IAC should be parsed as data, not option.
-    if (parsed_command == iac) {
-        d.set_null();
-        return;
-    }
-
-    command cmd = static_cast<command>(parsed_command);
-    command_value = cmd;
+    command cmd = get_command();
 
     if (cmd == command::sb) {
-        if (!parse_subnegotiation(d, suboption, option_data)) {
-            return;
-        }
+        // Subnegotiation: parse option byte, then payload up to IAC SE
+        // Per RFC 855, IAC IAC within payload is an escaped 0xFF data byte
+        encoded<uint8_t> opt_byte{d};
+        suboption = opt_byte.value();
         has_suboption = true;
-        valid = true;
+
+        // Parse payload handling IAC IAC escapes, stop at unescaped IAC
+        escaped_string_up_to<iac, iac> payload{d, false, false};  // skip_delimiter=false, accept_all_if_no_delim=false
+        option_data = payload;
+        // Consume IAC SE terminator
+        literal_byte<iac, static_cast<uint8_t>(command::se)> terminator{d};
+        valid = d.is_not_null();
         return;
     }
 
     if (command_has_suboption(cmd)) {
-        if (!consume_byte(d, suboption)) {
-            return;
-        }
+        encoded<uint8_t> opt_byte{d};
+        suboption = opt_byte.value();
         has_suboption = true;
-        valid = true;
+        valid = d.is_not_null();
         return;
     }
 
     valid = true;
-}
-
-inline bool option::is_not_empty() const {
-    return valid;
-}
-
-inline void option::write_json(json_array &items) const {
-    json_object item{items};
-    item.print_key_string("command", command_name(command_value));
-    if (has_suboption) {
-        print_suboption(item, suboption);
-    }
-    if (option_data.is_not_empty()) {
-        item.print_key_json_string("data", option_data);
-    }
-    item.close();
-}
-
-inline bool data::can_parse(datum d) {
-    if (!d.is_readable()) {
-        return false;
-    }
-    if (lookahead<literal_byte<iac, iac>> escaped{d}) {
-        return true;
-    }
-    return !lookahead<literal_byte<iac>>{d};
-}
-
-inline data::data(datum &d) : bytes{}, valid{false} {
-    if (!d.is_readable()) {
-        d.set_null();
-        return;
-    }
-
-    lookahead<literal_byte<iac>> iac_prefix{d};
-    if (iac_prefix && !lookahead<literal_byte<iac, iac>>{d}) {
-        d.set_null();
-        return;
-    }
-
-    datum d_scan{d};
-    escaped_string_up_to<iac, iac> parsed{d_scan};
-    if (d_scan.is_null()) {
-        bytes = d;
-        d.set_empty();
-        valid = bytes.is_not_empty();
-        return;
-    }
-
-    bytes = datum{parsed.data, parsed.data_end};
-    d.data = parsed.data_end;
-    valid = bytes.is_not_empty();
-}
-
-inline bool data::is_not_empty() const {
-    return valid;
-}
-
-inline void data::write_json(json_array &items) const {
-    json_object item{items};
-    item.print_key_json_string("data", bytes);
-    item.close();
-}
-
-inline message::message(datum &d) : msg{}, valid{false} {
-    if (!d.is_not_null()) {
-        return;
-    }
-    msg = d;
-    d.set_empty();
-    valid = true;
-}
-
-inline bool message::is_not_empty() const {
-    return valid;
 }
 
 inline void message::write_json(json_object &record, bool metadata) const {
@@ -564,18 +449,6 @@ inline void message::write_json(json_object &record, bool metadata) const {
     }
 }
 
-inline void message::write_l7_metadata(cbor_object &o, bool metadata) const {
-    (void)metadata;
-
-    if (!valid) {
-        return;
-    }
-
-    cbor_array protocols{o, "protocols"};
-    protocols.print_string("telnet");
-    protocols.close();
-}
-
 #ifndef NDEBUG
 inline bool unit_test() {
     auto check = [](datum input, datum expected) {
@@ -601,7 +474,7 @@ inline bool unit_test() {
 
     if (!check(
         datum{negotiation_packet, negotiation_packet + sizeof(negotiation_packet)},
-        datum{"{\"telnet\":{\"message\":[{\"data\":\"hi\"},{\"command\":\"will\",\"suboption\":\"echo\"},{\"command\":\"do\",\"suboption\":\"suppress_go_ahead\"}]}}"}
+        datum{R"({"telnet":{"message":[{"data":"hi"},{"command":"will","suboption":"echo"},{"command":"do","suboption":"suppress_go_ahead"}]}})"}
     )) {
         return false;
     }
@@ -613,7 +486,7 @@ inline bool unit_test() {
 
     if (!check(
         datum{subneg_packet, subneg_packet + sizeof(subneg_packet)},
-        datum{"{\"telnet\":{\"message\":[{\"command\":\"sb\",\"suboption\":\"terminal_type\",\"data\":\"\\u0001\"}]}}"}
+        datum{R"({"telnet":{"message":[{"command":"sb","suboption":"terminal_type","data":"\u0001"}]}})"}
     )) {
         return false;
     }
@@ -625,7 +498,7 @@ inline bool unit_test() {
 
     if (!check(
         datum{interleaved_packet, interleaved_packet + sizeof(interleaved_packet)},
-        datum{"{\"telnet\":{\"message\":[{\"data\":\"a\"},{\"command\":\"do\",\"suboption\":\"suppress_go_ahead\"},{\"data\":\"b\"}]}}"}
+        datum{R"({"telnet":{"message":[{"data":"a"},{"command":"do","suboption":"suppress_go_ahead"},{"data":"b"}]}})"}
     )) {
         return false;
     }
@@ -633,7 +506,7 @@ inline bool unit_test() {
     // Plain data should still be parseable on selected Telnet traffic.
     if (!check(
         datum{"login: root\r\n"},
-        datum{"{\"telnet\":{\"message\":[{\"data\":\"login: root\\u000d\\u000a\"}]}}"}
+        datum{R"({"telnet":{"message":[{"data":"login: root\u000d\u000a"}]}})"}
     )) {
         return false;
     }
@@ -645,7 +518,25 @@ inline bool unit_test() {
 
     if (!check(
         datum{escaped_iac_packet, escaped_iac_packet + sizeof(escaped_iac_packet)},
-        datum{"{\"telnet\":{\"message\":[{\"data\":\"x\\ufffd\"}]}}"}
+        datum{R"({"telnet":{"message":[{"data":"x\ufffd"}]}})"}
+    )) {
+        return false;
+    }
+
+    // IAC SB with escaped IAC (FF FF) in payload followed by F0 data byte.
+    // Per RFC 855, FF FF is escaped 0xFF. The naive scan for FF F0 would
+    // incorrectly match at the wrong position. Correct parsing should treat
+    // FF FF as data and find the real IAC SE terminator.
+    // Payload bytes: 0x01 0xff 0xff 0xf0 (raw, including escape sequence)
+    const uint8_t subneg_escaped_packet[] = {
+        0xff, 0xfa, 0x18,        // IAC SB TTYPE(24)
+        0x01, 0xff, 0xff, 0xf0,  // payload: SEND, escaped IAC (FF FF), 0xf0 data
+        0xff, 0xf0              // IAC SE
+    };
+
+    if (!check(
+        datum{subneg_escaped_packet, subneg_escaped_packet + sizeof(subneg_escaped_packet)},
+        datum{R"({"telnet":{"message":[{"command":"sb","suboption":"terminal_type","data":"\u0001\ufffd\ufffd\ufff0"}]}})"}
     )) {
         return false;
     }

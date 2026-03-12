@@ -205,7 +205,6 @@ public:
 /// accepts a string handling escape sequences, up to the delimiter \param delim.
 /// The escape character \param escape (default '\\') causes the next character
 /// to be skipped, allowing the delimiter to appear escaped within the string.
-///
 template <uint8_t delim, uint8_t escape = '\\'>
 class escaped_string_up_to : public datum {
 public:
@@ -213,8 +212,12 @@ public:
     /// accepts a string handling escape sequences, up to the delimiter \param delim.
     /// Characters preceded by \param escape are treated as literal and do not
     /// terminate the string.
+    /// \param skip_delimiter If true (default), advances past the delimiter;
+    ///        if false, leaves cursor at the delimiter.
+    /// \param accept_all_if_no_delim If true and no delimiter is found, this
+    ///        object is set to the full input span; otherwise both are set null.
     ///
-    escaped_string_up_to(datum &d) {
+    escaped_string_up_to(datum &d, bool skip_delimiter = true, bool accept_all_if_no_delim = false) {
         if (d.data == nullptr || d.data == d.data_end) {
             d.set_null();
             return;
@@ -233,34 +236,33 @@ public:
                     continue;
                 }
                 data_end = hit;
-                d.data = hit + 1;  // skip past delimiter
+                d.data = skip_delimiter ? hit + 1 : hit;
                 return;
             }
         } else {
+            // Single-pass scan: find whichever of delim or escape comes first
             while (cursor < end) {
-                const uint8_t *delim_hit = static_cast<const uint8_t *>(memchr(cursor, delim, static_cast<size_t>(end - cursor)));
-                const uint8_t *escape_hit = static_cast<const uint8_t *>(memchr(cursor, escape, static_cast<size_t>(end - cursor)));
-                if (!delim_hit && !escape_hit) {
-                    break;
-                }
-                if (escape_hit && (!delim_hit || escape_hit < delim_hit)) {
-                    if (escape_hit + 1 < end) {
-                        cursor = escape_hit + 2;  // skip escape + escaped char
-                    } else {
-                        cursor = escape_hit + 1;  // trailing escape treated as literal
-                    }
-                    continue;
-                }
-                if (delim_hit) {
-                    data_end = delim_hit;
-                    d.data = delim_hit + 1;  // skip past delimiter
+                if (*cursor == escape && cursor + 1 < end) {
+                    cursor += 2;  // skip escape + escaped char
+                } else if (*cursor == delim) {
+                    data_end = cursor;
+                    d.data = skip_delimiter ? cursor + 1 : cursor;
                     return;
+                } else {
+                    cursor++;
                 }
             }
         }
-        // No delimiter found
-        this->set_null();
-        d.set_null();
+
+        if (accept_all_if_no_delim) {
+            // No delimiter found: accept all input
+            data_end = end;
+            d.set_empty();
+        } else {
+            // No delimiter found
+            this->set_null();
+            d.set_null();
+        }
     }
 };
 
