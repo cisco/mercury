@@ -203,10 +203,12 @@ public:
 };
 
 /// accepts a string handling escape sequences, up to the delimiter \param delim.
-/// When \param escape != \param delim, a byte equal to \param escape causes
-/// the next byte to be skipped, allowing the delimiter to appear escaped.
-/// When \param escape == \param delim, a doubled delimiter is treated as an
-/// escaped literal (e.g. Telnet IAC IAC or SQL '').
+/// When \param escape != \param delim, a byte equal to \param escape prevents
+/// the following byte from being treated as a delimiter, and parsing continues;
+/// both bytes appear in the result.
+/// When \param escape == \param delim (e.g. Telnet IAC IAC), a doubled delimiter
+/// does not terminate the string and parsing continues; both bytes appear in the
+/// result.
 ///
 template <uint8_t delim, uint8_t escape = '\\'>
 class escaped_string_up_to : public datum {
