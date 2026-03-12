@@ -245,7 +245,7 @@ DETAILS
       stun              STUN messages
       syslog            SYSLOG (BSD and IETF)
       tacacs            TACACS+
-      telnet            Telnet commands and options
+      telnet            Telnet (RFC 854/855)
       tcp               TCP headers
       tcp.message       TCP initial message
       tcp.syn_ack       TCP syn ack message
