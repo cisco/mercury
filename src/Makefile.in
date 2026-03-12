@@ -219,7 +219,7 @@ tls_scanner: tls_scanner.cc libmerc.a libmerc/crypto_hash.hpp libmerc/verbosity.
 
 batch_gcd: CFLAGS += -march=native -flto=auto
 batch_gcd: batch_gcd.cc
-	$(CXX) $(CFLAGS) batch_gcd.cc libmerc/asn1/oid.cc -lgmpxx -lgmp -pthread -o batch_gcd
+	$(CXX) $(CFLAGS) batch_gcd.cc libmerc/asn1/oid.cc $(LDFLAGS) -lgmpxx -lgmp -pthread -o batch_gcd
 
 cert_analyze: cert_analyze.cc libmerc/asn1.h
 	$(CXX) $(CFLAGS) cert_analyze.cc libmerc/asn1/oid.cc -pthread $(LDFLAGS) -lcrypto -o cert_analyze

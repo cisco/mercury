@@ -4,7 +4,7 @@ RUN apt-get update \
     pkg-config wget python3-dev python3-pip \
     valgrind jq tcpreplay iproute2 sudo \
     clang libfuzzer-14-dev \
-    zlib1g-dev libssl-dev ruby-dev rubygems --no-install-recommends \
+    zlib1g-dev libssl-dev libgmp-dev ruby-dev rubygems --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install --upgrade pip && pip3 install setuptools wheel && pip3 install jsonschema cryptography Cython
