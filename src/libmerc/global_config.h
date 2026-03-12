@@ -295,7 +295,7 @@ public:
         if (policy.empty()) {
             crypto_assess_policy = "default";
         }
-        else { 
+        else {
             crypto_assess_policy = policy;
         }
         return true;

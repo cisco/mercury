@@ -640,7 +640,7 @@ public:
             }
             if (protocols["tls.server_certificate"]) {
                 tcp.add_protocol(tls_server_certificate::matcher, tcp_msg_type_tls_certificate);
-            }   
+            }
         }
         if (protocols["ssh"] || protocols["all"]) {
             select_ssh_direction = flow_direction_selector::any;
