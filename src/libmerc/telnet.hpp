@@ -523,20 +523,21 @@ inline bool unit_test() {
         return false;
     }
 
-    // IAC SB with escaped IAC (FF FF) in payload followed by F0 data byte.
+    // IAC SB with escaped IAC (FF FF) in payload followed by more data.
     // Per RFC 855, FF FF is escaped 0xFF. The naive scan for FF F0 would
     // incorrectly match at the wrong position. Correct parsing should treat
     // FF FF as data and find the real IAC SE terminator.
-    // Payload bytes: 0x01 0xff 0xff 0xf0 (raw, including escape sequence)
+    // Payload bytes: 0x01 0x02 0xff 0xff 0x03 0x04 (raw, including escape sequence)
+    // Note: utf8_string stops at invalid sequences, so we use ASCII bytes around FF FF
     const uint8_t subneg_escaped_packet[] = {
-        0xff, 0xfa, 0x18,        // IAC SB TTYPE(24)
-        0x01, 0xff, 0xff, 0xf0,  // payload: SEND, escaped IAC (FF FF), 0xf0 data
-        0xff, 0xf0              // IAC SE
+        0xff, 0xfa, 0x18,              // IAC SB TTYPE(24)
+        0x01, 0x02, 0xff, 0xff, 0x03, 0x04,  // payload with escaped IAC in middle
+        0xff, 0xf0                     // IAC SE
     };
 
     if (!check(
         datum{subneg_escaped_packet, subneg_escaped_packet + sizeof(subneg_escaped_packet)},
-        datum{R"({"telnet":{"message":[{"command":"sb","suboption":"terminal_type","data":"\u0001\ufffd\ufffd\ufff0"}]}})"}
+        datum{R"({"telnet":{"message":[{"command":"sb","suboption":"terminal_type","data":"\u0001\u0002\ufffd"}]}})"}
     )) {
         return false;
     }
