@@ -2,7 +2,7 @@
 
 int sig_close_flag = false;
 
-TEST_CASE_METHOD(LibmercTestFixture, "proccesing null packet")
+TEST_CASE_METHOD(LibmercTestFixture, "processing null packet")
 {
     initialize();
    // check_global_configuraton();

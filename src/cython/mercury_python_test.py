@@ -197,6 +197,7 @@ class TestMercuryPython(unittest.TestCase):
         cls_result = self.libmerc.perform_analysis(str_repr, server_name, dst_ip, dst_port)
         self.assertEqual(cls_result['analysis']['process'], f"good",
                          f"The classifier is using 1.1:443 as the domain feature")
+                
     def test_perform_analysis_with_weights(self):
         """Test from cython_test.py - verifies perform_analysis and perform_analysis_with_weights"""
         str_repr = 'quic/(00000001)(0303)(0a0a1301130213035600)[(0000)(000500050100000000)(000a000c000a0a0a001d001700180019)(000d0018001604030804040105030203080508050501080606010201)(001000050003026833)(0012)(001b0003020001)(002b0005040a0a0304)(002d00020101)(0033)((0039)[(04)(05)(06)(07)(09)(0e)(0f)])(0a0a)(0a0a)]'

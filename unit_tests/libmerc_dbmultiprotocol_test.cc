@@ -49,11 +49,9 @@ TEST_CASE_METHOD(LibmercTestFixture, "test http with analysis")
         CHECK(analysis_context_get_fingerprint_type(ac) == 3);
     };
 
-    libmerc_config config{
-        .do_analysis = true,
-        .resources = resources_minimal_path,
-        .packet_filter_cfg = (char *)"http",
-    };
+    libmerc_config config{.do_analysis = true,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"http"};
     initialize(config);
 
     set_pcap("capture2.pcap");
@@ -75,7 +73,9 @@ TEST_CASE_METHOD(LibmercTestFixture, "test http with analysis and linktype raw")
         CHECK(analysis_context_get_fingerprint_type(ac) == 3);
     };
 
-    libmerc_config config{.do_analysis = true, .resources = resources_minimal_path, .packet_filter_cfg = (char *)"http"};
+    libmerc_config config{.do_analysis = true,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"http"};
     initialize(config);
     set_pcap("http_rawip.pcap");
     CHECK(9 == counter(fingerprint_type_http, destination_check_callback, LINKTYPE_RAW));
@@ -236,9 +236,10 @@ TEST_CASE_METHOD(LibmercTestFixture, "test smtp")
 
 TEST_CASE_METHOD(LibmercTestFixture, "test smtp with dns json output")
 {
-    libmerc_config config{.dns_json_output = true, .do_analysis = true,
-        .resources = resources_minimal_path,
-        .packet_filter_cfg = (char *)"smtp"};
+    libmerc_config config{.dns_json_output = true,
+                          .do_analysis = true,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"smtp"};
     initialize(config);
 
     set_pcap("smtp.pcap");
@@ -256,8 +257,9 @@ TEST_CASE_METHOD(LibmercTestFixture, "test dns with analysis")
             CHECK(false);
     };
 
-    libmerc_config config{.do_analysis = true, .resources = resources_minimal_path,
-        .packet_filter_cfg = (char *)"dns"};
+    libmerc_config config{.do_analysis = true,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"dns"};
     initialize(config);
 
     set_pcap("capture2.pcap");
@@ -281,9 +283,10 @@ TEST_CASE_METHOD(LibmercTestFixture, "test dns with analysis and json output")
             CHECK(false);
     };
 
-    libmerc_config config{.dns_json_output = true, .do_analysis = true,
-        .resources = resources_minimal_path,
-        .packet_filter_cfg = (char *)"dns"};
+    libmerc_config config{.dns_json_output = true,
+                          .do_analysis = true,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"dns"};
     initialize(config);
 
     set_pcap("capture2.pcap");
@@ -301,8 +304,9 @@ TEST_CASE_METHOD(LibmercTestFixture, "test mdns with analysis")
             CHECK(false);
     };
 
-    libmerc_config config{.do_analysis = true, .resources = resources_minimal_path,
-        .packet_filter_cfg = (char *)"mdns"};
+    libmerc_config config{.do_analysis = true,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"mdns"};
     initialize(config);
 
     set_pcap("mdns_capture.pcap");
@@ -313,8 +317,9 @@ TEST_CASE_METHOD(LibmercTestFixture, "test mdns with analysis")
 
 TEST_CASE_METHOD(LibmercTestFixture, "test smb with analysis")
 {
-    libmerc_config config{.do_analysis = true, .resources = resources_minimal_path,
-        .packet_filter_cfg = (char *)"smb"};
+    libmerc_config config{.do_analysis = true,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"smb"};
     initialize(config);
 
     set_pcap("smb.pcap");
@@ -328,8 +333,9 @@ TEST_CASE_METHOD(LibmercTestFixture, "test smb with analysis")
 
 TEST_CASE_METHOD(LibmercTestFixture, "test iec with analysis")
 {
-    libmerc_config config{.do_analysis = true, .resources = resources_minimal_path,
-        .packet_filter_cfg = (char *)"iec"};
+    libmerc_config config{.do_analysis = true,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"iec"};
     initialize(config);
 
     set_pcap("iec.pcap");
@@ -343,8 +349,9 @@ TEST_CASE_METHOD(LibmercTestFixture, "test iec with analysis")
 
 TEST_CASE_METHOD(LibmercTestFixture, "test dnp3 with analysis")
 {
-    libmerc_config config{.do_analysis = true, .resources = resources_minimal_path,
-        .packet_filter_cfg = (char *)"dnp3"};
+    libmerc_config config{.do_analysis = true,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"dnp3"};
     initialize(config);
 
     set_pcap("dnp3.pcap");
@@ -406,19 +413,20 @@ TEST_CASE_METHOD(LibmercTestFixture, "test imap")
 
 TEST_CASE_METHOD(LibmercTestFixture, "test attribute detection with analysis")
 {
-    auto check_callback = [](size_t attr_count, size_t expected_attr_count)
+    auto attribute_check_callback = [](size_t attr_count, size_t expected_attr_count)
     {
         fprintf(stderr, "attr_count: %zu, expected_attr_count: %zu\n", attr_count, expected_attr_count);
         CHECK((attr_count == expected_attr_count));
     };
 
-    libmerc_config config{.do_analysis = true, .resources = resources_minimal_path,
-        .packet_filter_cfg = (char *)"all"};
+    libmerc_config config{.do_analysis = true,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"all"};
     initialize(config);
 
     // encrypted_channel, malware as attributes
     set_pcap("malware_tls.pcap");
-    CHECK(counter(2, check_callback));
+    CHECK(counter(2, attribute_check_callback));
 
     // domain_faking attribute in modified ipv6 curl pcap
     set_pcap("ipv6-domain-faking.pcap");
@@ -443,8 +451,9 @@ TEST_CASE_METHOD(LibmercTestFixture, "test network behavioral detection attribut
         CHECK((attr_count == expected_attr_count));
     };
 
-    libmerc_config config{.do_analysis = true, .resources = resources_minimal_path,
-        .packet_filter_cfg = (char *)"all;network-behavioral-detections"};
+    libmerc_config config{.do_analysis = true,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"all;network-behavioral-detections"};
     initialize(config);
 
     // residential_proxy as attributes
@@ -493,11 +502,9 @@ TEST_CASE_METHOD(LibmercTestFixture, "test exposed_creds with write_json and ana
 {
     set_pcap("http_auth.pcap");
 
-    libmerc_config config{
-        .do_analysis = false,
-        .resources = resources_minimal_path,
-        .packet_filter_cfg = (char *)"all;exposed-creds"
-    };
+    libmerc_config config{.do_analysis = false,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"all;exposed-creds"};
 
     initialize(config);
 
@@ -532,11 +539,9 @@ TEST_CASE_METHOD(LibmercTestFixture, "test exposed_creds with analyze_ip_packet 
 {
     set_pcap("http_auth.pcap");
 
-    libmerc_config config{
-        .do_analysis = false,
-        .resources = resources_minimal_path,
-        .packet_filter_cfg = (char *)"all;exposed-creds"
-    };
+    libmerc_config config{.do_analysis = false,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"all;exposed-creds"};
 
     initialize(config);
 
@@ -689,8 +694,9 @@ TEST_CASE_METHOD(LibmercTestFixture, "geneve encapsulated IPv4 and Ethernet")
 
 TEST_CASE_METHOD(LibmercTestFixture, "test stun with analysis")
 {
-    libmerc_config config{.do_analysis = true, .resources = resources_minimal_path,
-        .packet_filter_cfg = (char *)"stun"};
+    libmerc_config config{.do_analysis = true,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"stun"};
     initialize(config);
 
     set_pcap("stun.pcap");
@@ -707,8 +713,9 @@ TEST_CASE_METHOD(LibmercTestFixture, "test stun with analysis")
 
 TEST_CASE_METHOD(LibmercTestFixture, "test ssh fingerprinting with reassembly")
 {
-    libmerc_config config{.do_analysis = true, .resources = resources_minimal_path,
-        .packet_filter_cfg = (char *)"ssh;reassembly"};
+    libmerc_config config{.do_analysis = true,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"ssh;reassembly"};
     initialize(config);
 
     set_pcap("ssh_frag.pcap");
@@ -717,45 +724,59 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ssh fingerprinting with reassembly")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test ssh direction selectors with resources-mp")
+TEST_CASE_METHOD(LibmercTestFixture, "test ssh direction selector 'ssh'")
 {
-    auto ssh_count = [&](const char *selector_cfg)
-    {
-        libmerc_config config = create_config();
-        config.do_analysis = false;
-        config.resources = resources_minimal_path;
-        config.packet_filter_cfg = (char *)selector_cfg;
-
-        initialize(config);
-        int count = counter(fingerprint_type_ssh_init, fingerprint_type_ssh_kex);
-        deinitialize();
-        return count;
-    };
+    libmerc_config config{.resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"ssh"};
+    initialize(config);
 
     set_pcap("ssh_direction_asym.pcap");
-    int all_count = ssh_count("ssh");
+    CHECK(3 == counter(fingerprint_type_ssh_init, fingerprint_type_ssh_kex));
+
+    deinitialize();
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "test ssh direction selector 'ssh.client'")
+{
+    libmerc_config config{.resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"ssh.client"};
+    initialize(config);
 
     set_pcap("ssh_direction_asym.pcap");
-    int client_count = ssh_count("ssh.client");
+    CHECK(2 == counter(fingerprint_type_ssh_init, fingerprint_type_ssh_kex));
+
+    deinitialize();
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "test ssh direction selector 'ssh.server'")
+{
+    libmerc_config config{.resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"ssh.server"};
+    initialize(config);
 
     set_pcap("ssh_direction_asym.pcap");
-    int server_count = ssh_count("ssh.server");
+    CHECK(1 == counter(fingerprint_type_ssh_init, fingerprint_type_ssh_kex));
+
+    deinitialize();
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "test ssh direction selector 'ssh.client,ssh.server'")
+{
+    libmerc_config config{.resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"ssh.client,ssh.server"};
+    initialize(config);
 
     set_pcap("ssh_direction_asym.pcap");
-    int both_count = ssh_count("ssh.client,ssh.server");
+    CHECK(3 == counter(fingerprint_type_ssh_init, fingerprint_type_ssh_kex));
 
-    CHECK(all_count == 3);
-    CHECK(client_count == 2);
-    CHECK(server_count == 1);
-    CHECK(client_count != server_count);
-    CHECK(all_count == client_count + server_count);
-    CHECK(both_count == 3);
+    deinitialize();
 }
 
 TEST_CASE_METHOD(LibmercTestFixture, "GRE encapsulation with resources-mp")
 {
-    libmerc_config config{.do_analysis = true, .resources = resources_minimal_path,
-        .packet_filter_cfg = (char *)"ssh"};
+    libmerc_config config{.do_analysis = true,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"ssh"};
     initialize(config);
 
     set_pcap("ssh_frag.pcap");
@@ -766,8 +787,9 @@ TEST_CASE_METHOD(LibmercTestFixture, "GRE encapsulation with resources-mp")
 
 TEST_CASE_METHOD(LibmercTestFixture, "test ssh_kex fingerprinting")
 {
-    libmerc_config config{.do_analysis = true, .resources = resources_minimal_path,
-        .packet_filter_cfg = (char *)"ssh"};
+    libmerc_config config{.do_analysis = true,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"ssh"};
     initialize(config);
 
     set_pcap("ssh_frag.pcap");
@@ -800,7 +822,8 @@ TEST_CASE_METHOD(LibmercTestFixture, "GRE encapsulation with gre filter")
 
 TEST_CASE_METHOD(LibmercTestFixture, "IP encapsulation")
 {
-    libmerc_config config{.do_analysis = true, .resources = resources_minimal_path};
+    libmerc_config config{.do_analysis = true,
+                          .resources = resources_minimal_path};
     initialize(config);
 
     set_pcap("ip_encapsulation.pcap");
@@ -857,8 +880,9 @@ TEST_CASE_METHOD(LibmercTestFixture, "test raw-features write_json output for tl
     // 1. raw-features enabled — features key must be present
     set_pcap("tls_client_hello_test_packet.pcap");
     {
-        libmerc_config config{.do_analysis = true, .resources = resources_minimal_path,
-            .packet_filter_cfg = (char *)"tls.client_hello;raw-features=tls"};
+        libmerc_config config{.do_analysis = true,
+                              .resources = resources_minimal_path,
+                              .packet_filter_cfg = (char *)"tls.client_hello;raw-features=tls"};
         initialize(config);
         std::string json = get_first_json();
         REQUIRE(json.size() > 0);
@@ -869,8 +893,9 @@ TEST_CASE_METHOD(LibmercTestFixture, "test raw-features write_json output for tl
     // 2. raw-features disabled — features key must be absent
     set_pcap("tls_client_hello_test_packet.pcap");
     {
-        libmerc_config config{.do_analysis = true, .resources = resources_minimal_path,
-            .packet_filter_cfg = (char *)"tls.client_hello"};
+        libmerc_config config{.do_analysis = true,
+                              .resources = resources_minimal_path,
+                              .packet_filter_cfg = (char *)"tls.client_hello"};
         initialize(config);
         std::string json = get_first_json();
         REQUIRE(json.size() > 0);
@@ -881,8 +906,9 @@ TEST_CASE_METHOD(LibmercTestFixture, "test raw-features write_json output for tl
     // 3. raw-features re-enabled — features key must be present again
     set_pcap("tls_client_hello_test_packet.pcap");
     {
-        libmerc_config config{.do_analysis = true, .resources = resources_minimal_path,
-            .packet_filter_cfg = (char *)"tls.client_hello;raw-features=tls"};
+        libmerc_config config{.do_analysis = true,
+                              .resources = resources_minimal_path,
+                              .packet_filter_cfg = (char *)"tls.client_hello;raw-features=tls"};
         initialize(config);
         std::string json = get_first_json();
         REQUIRE(json.size() > 0);
