@@ -14,13 +14,20 @@ jobs:
       name: pypi
       url: https://pypi.org/p/mercury-python
     permissions:
-      id-token: write
+      contents: read
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
+    env:
+      CIBW_ARCHS_LINUX: aarch64 x86_64
+      CIBW_ARCHS_MACOS: arm64
+      CIBW_SKIP: "*-musllinux_* pp* cp38* cp37* cp36*"
+      CIBW_BEFORE_ALL_LINUX: (yum install -y epel-release && yum install -y openssl-devel make zlib-devel xsimd-devel) || apt-get install -y zlib1g-dev libssl-dev make libxsimd-dev || apk add zlib1g-dev libssl-dev make
+      CIBW_BEFORE_ALL_MACOS: brew install openssl zlib xsimd
+      CIBW_TEST_COMMAND: cd {project} && python mercury_python_test.py
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 1
           submodules: recursive
@@ -34,33 +41,40 @@ jobs:
         run: brew install openssl zlib xsimd
 
       - name: Set up Python
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v6
         with:
           python-version: '3.x'
 
       - name: Set up QEMU
-        if: runner.os == 'Linux'
-        uses: docker/setup-qemu-action@v3
+        if: runner.os == 'Linux' && vars.USE_INTERNAL_ACTIONS != 'true'
+        uses: docker/setup-qemu-action@v4.0.0
+        with:
+          platforms: all
+
+      - name: Set up QEMU (GitHub EMU)
+        if: runner.os == 'Linux' && vars.USE_INTERNAL_ACTIONS == 'true'
+        uses: cisco-actions/docker-setup-qemu-action@v4.0.0
         with:
           platforms: all
 
       - name: Install pip packages
-        run: python -m pip install cython cibuildwheel==3.3.1
+        run: python -m pip install cython
 
       - name: Build Mercury
         run: ./configure && make && cp -r src/cython/* ./
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.3.1
-        env:
-          CIBW_ARCHS_LINUX: aarch64 x86_64
-          CIBW_ARCHS_MACOS: arm64
-          CIBW_SKIP: "*-musllinux_* pp* cp38* cp37* cp36*"
-          CIBW_BEFORE_ALL_LINUX: (yum install -y epel-release && yum install -y openssl-devel make zlib-devel xsimd-devel) || apt-get install -y zlib1g-dev libssl-dev make libxsimd-dev || apk add zlib1g-dev libssl-dev make
-          CIBW_BEFORE_ALL_MACOS: brew install openssl zlib xsimd
-          CIBW_TEST_COMMAND: cd {project} && python mercury_python_test.py
+        if: vars.USE_INTERNAL_ACTIONS != 'true'
+        uses: pypa/cibuildwheel@v3.4.0
+        # CIBW_* configuration is in the job-level env block above
+
+      - name: Build wheels (GitHub EMU)
+        if: vars.USE_INTERNAL_ACTIONS == 'true'
+        uses: cisco-actions/pypa-cibuildwheel@v3.4.0
+        # CIBW_* configuration is in the job-level env block above
 
       - name: Upload to S3
+        if: vars.UPLOAD_PYTHON_WHEELS_TO_S3 == 'true'
         env:
           AWS_ACCESS_KEY_ID: ${{secrets.ACCESS_KEY_ID}}
           AWS_SECRET_ACCESS_KEY: ${{secrets.ACCESS_KEY_SECRET}}
