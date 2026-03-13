@@ -27,7 +27,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test http")
 {
     auto destination_check_callback = [](const analysis_context *ac)
     {
-        CHECK(analysis_context_get_fingerprint_type(ac) == 3);
+        CHECK(analysis_context_get_fingerprint_type(ac) == fingerprint_type_http);
     };
 
     libmerc_config config{.packet_filter_cfg = (char *)"http"};
@@ -46,7 +46,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test http with analysis")
 {
     auto destination_check_callback = [](const analysis_context *ac)
     {
-        CHECK(analysis_context_get_fingerprint_type(ac) == 3);
+        CHECK(analysis_context_get_fingerprint_type(ac) == fingerprint_type_http);
     };
 
     libmerc_config config{.do_analysis = true,
@@ -70,7 +70,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test http with analysis and linktype raw")
 {
     auto destination_check_callback = [](const analysis_context *ac)
     {
-        CHECK(analysis_context_get_fingerprint_type(ac) == 3);
+        CHECK(analysis_context_get_fingerprint_type(ac) == fingerprint_type_http);
     };
 
     libmerc_config config{.do_analysis = true,
@@ -86,7 +86,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic")
 {
     auto destination_check_callback = [](const analysis_context *ac)
     {
-        CHECK(analysis_context_get_fingerprint_type(ac) == 12);
+        CHECK(analysis_context_get_fingerprint_type(ac) == fingerprint_type_quic);
     };
 
     libmerc_config config{.packet_filter_cfg = (char *)"quic"};
@@ -111,7 +111,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic with analysis")
 {
     auto destination_check_callback = [](const analysis_context *ac)
     {
-        CHECK(analysis_context_get_fingerprint_type(ac) == 12);
+        CHECK(analysis_context_get_fingerprint_type(ac) == fingerprint_type_quic);
     };
 
     libmerc_config config{.do_analysis = true,
@@ -135,7 +135,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic with analysis and reassembly")
 {
     auto destination_check_callback = [](const analysis_context *ac)
     {
-        CHECK(analysis_context_get_fingerprint_type(ac) == 12);
+        CHECK(analysis_context_get_fingerprint_type(ac) == fingerprint_type_quic);
     };
 
     libmerc_config config{.do_analysis = true,
@@ -168,7 +168,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test SGT encapsulated TLS with analysis")
     set_pcap("tls_sgt.pcap");
     CHECK(58 == counter(fingerprint_type_tls, destination_check_callback));
 
-    // Test basic JSON output counting
+    // Test basic JSON output counting with a fresh packet processor
     set_pcap("tls_sgt.pcap");
     CHECK(58 == counter());
 
@@ -199,7 +199,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic with analysis and various linkty
 {
     auto destination_check_callback = [](const analysis_context *ac)
     {
-        CHECK(analysis_context_get_fingerprint_type(ac) == 12);
+        CHECK(analysis_context_get_fingerprint_type(ac) == fingerprint_type_quic);
     };
 
     libmerc_config config{.do_analysis = true,
@@ -772,7 +772,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ssh direction selector 'ssh.client,ss
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "GRE encapsulation with resources-mp")
+TEST_CASE_METHOD(LibmercTestFixture, "test ssh_init fingerprinting")
 {
     libmerc_config config{.do_analysis = true,
                           .resources = resources_minimal_path,

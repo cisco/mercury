@@ -45,7 +45,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test tls client_hello filtering with analy
 {
     auto destination_check_callback = [](const analysis_context *ac)
     {
-        CHECK(analysis_context_get_fingerprint_type(ac) == 1);
+        CHECK(analysis_context_get_fingerprint_type(ac) == fingerprint_type_tls);
         CHECK(strcmp(ac->destination.dst_ip_str, "13.89.178.27") == 0);
         CHECK(ac->destination.dst_port == hton<uint16_t>(443));
         CHECK(ac->result.is_valid());
