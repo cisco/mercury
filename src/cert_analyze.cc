@@ -279,18 +279,22 @@ public:
         bool is_closed = false;
         while ((nread = getline(&line, &len, stream)) > 0 ) {
             ssize_t advance = 0;
-            if (nread == 65) {
-                advance = nread-1;
+            // strip trailing \n and \r (handles both \n and \r\n line endings)
+            ssize_t trimmed = nread;
+            if (trimmed > 0 && line[trimmed-1] == '\n') {
+                trimmed--;
+            }
+            if (trimmed > 0 && line[trimmed-1] == '\r') {
+                trimmed--;
+            }
+            if (trimmed == 64) {
+                advance = trimmed;
             } else {
                 if ((size_t)nread >= sizeof(closing_line)-1 && strncmp(line, closing_line, sizeof(closing_line)-1) == 0) {
                     is_closed = true;
                     break;
                 } else {
-                     if (line[nread-1] == '\n') {
-                        advance = nread - 1;
-                    } else {
-                        advance = nread;
-                    }
+                    advance = trimmed;
                 }
             }
             if (b_ptr + advance >= base64_buffer_end) {
@@ -750,7 +754,13 @@ int main(int argc, char *argv[]) {
                                 throw std::runtime_error{"could not write PEM output"};
                             }
                         } else {
-                            c.print_as_json(buf, trusted_certs, kg);
+                            const auto sha1_writer = [&](json_object &o) {
+                                hasher sha1{"sha1"};
+                                uint8_t digest[20];
+                                sha1.hash_buffer(cert_buf, cert_len, digest, sizeof(digest));
+                                o.print_key_hex("sha1", digest, sizeof(digest));
+                            };
+                            c.print_as_json(buf, trusted_certs, kg, sha1_writer);
                             buf.write_line(stdout);
                         }
                     }

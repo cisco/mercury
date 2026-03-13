@@ -127,6 +127,7 @@ LIBMERC_H   += wireguard.h
 LIBMERC_H   += quic.h
 LIBMERC_H   += crypto_engine.h
 LIBMERC_H   += smtp.h
+LIBMERC_H   += telnet.hpp
 LIBMERC_H   += asn1.h
 LIBMERC_H   += asn1/oid.h
 LIBMERC_H   += config_generator.h
@@ -310,9 +311,11 @@ endif
 
 .PHONY: clean
 clean:
-	rm -rf libmerc.so libmerc.so.* unstripped-libmerc.so libmerc.a *.o .depend cppclean_report.txt
+	rm -rf libmerc.so libmerc.so.* unstripped-libmerc.so libmerc.a *.o .depend cppclean_report.txt *.dSYM
+	rm -f "__.SYMDEF SORTED"
 	cd asn1 && $(MAKE) clean
 	cd lctrie && $(MAKE) clean
+	find . -type d -name "*.dSYM" -prune -exec rm -rf {} +
 	for file in Makefile.in README.md configure.ac; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	for file in $(MERC) $(MERC_H) $(LIBMERC) $(LIBMERC_H); do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
 	find . -type f -name "*.gcno" -delete

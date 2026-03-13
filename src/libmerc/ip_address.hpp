@@ -787,7 +787,7 @@ public:
 
         // Create a temporary array to hold all 8 pieces (including zeros)
         uint16_t full_pieces[8] = {0};
-        
+
         // Copy prefix pieces
         for (ssize_t i = 0; i < prefix_length; i++) {
             full_pieces[i] = pieces[i];

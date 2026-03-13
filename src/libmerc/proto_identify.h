@@ -45,6 +45,7 @@
 #include "rdp.hpp"
 #include "redis.hpp"
 #include "imap.hpp"
+#include "telnet.hpp"
 
 #include "dhcp.h"  // udp protocols
 #include "quic.h"
@@ -83,6 +84,7 @@ enum tcp_msg_type {
     tcp_msg_type_ssh_kex,
     tcp_msg_type_smtp_client,
     tcp_msg_type_smtp_server,
+    tcp_msg_type_telnet,
     tcp_msg_type_dns,
     tcp_msg_type_smb1,
     tcp_msg_type_smb2,
@@ -103,6 +105,7 @@ enum tcp_msg_type {
     tcp_msg_type_ftp_request,
     tcp_msg_type_ftp_response,
     tcp_msg_type_rdp,
+    tcp_msg_type_krb5,
     tcp_msg_type_redis_request,
     tcp_msg_type_redis_response,
     tcp_msg_type_imap_request,
@@ -475,12 +478,14 @@ class traffic_selector {
     bool select_http_response{false};
     bool select_smtp{false};
     bool select_tofsee{false};
+    flow_direction_selector select_ssh_direction{flow_direction_selector::none};
     bool select_dhcp{false};
     bool select_syslog{false};
     bool select_redis_request{false};
     bool select_redis_response{false};
     bool select_imap_request{false};
     bool select_imap_response{false};
+    bool select_telnet{false};
 
 public:
 
@@ -548,6 +553,8 @@ public:
 
     bool tofsee() const { return select_tofsee; }
 
+    flow_direction_selector ssh_direction() const { return select_ssh_direction; }
+
     bool dhcp() const { return select_dhcp; }
 
     bool syslog() const { return select_syslog; }
@@ -559,6 +566,8 @@ public:
     bool imap_request() const { return select_imap_request; }
 
     bool imap_response() const { return select_imap_response; }
+
+    bool telnet() const { return select_telnet; }
 
     void disable_all() {
         tcp.disable_all();
@@ -597,11 +606,14 @@ public:
         select_http_response = false;
         select_smtp = false;
         select_tofsee = false;
+        select_ssh_direction = flow_direction_selector::none;
         select_dhcp = false;
+        select_syslog = false;
         select_redis_request = false;
         select_redis_response = false;
         select_imap_request = false;
         select_imap_response = false;
+        select_telnet = false;
 
     }
 
@@ -628,15 +640,32 @@ public:
             }
             if (protocols["tls.server_certificate"]) {
                 tcp.add_protocol(tls_server_certificate::matcher, tcp_msg_type_tls_certificate);
-            }   
+            }
         }
         if (protocols["ssh"] || protocols["all"]) {
+            select_ssh_direction = flow_direction_selector::any;
             tcp.add_protocol(ssh_init_packet::matcher, tcp_msg_type_ssh);
             tcp.add_protocol(ssh_kex_init::matcher, tcp_msg_type_ssh_kex);
+        } else {
+            uint8_t ssh_dir_bits = 0;
+            if (protocols["ssh.client"]) {
+                ssh_dir_bits |= static_cast<uint8_t>(flow_direction_selector::client);
+            }
+            if (protocols["ssh.server"]) {
+                ssh_dir_bits |= static_cast<uint8_t>(flow_direction_selector::server);
+            }
+            select_ssh_direction = static_cast<flow_direction_selector>(ssh_dir_bits);
+            if (select_ssh_direction != flow_direction_selector::none) {
+                tcp.add_protocol(ssh_init_packet::matcher, tcp_msg_type_ssh);
+                tcp.add_protocol(ssh_kex_init::matcher, tcp_msg_type_ssh_kex);
+            }
         }
         if (protocols["smtp"] || protocols["all"]) {
             tcp.add_protocol(smtp_server::matcher, tcp_msg_type_smtp_server);
             select_smtp = true;
+        }
+        if (protocols["telnet"] || protocols["all"]) {
+            select_telnet = true;
         }
         if (protocols["rfb"] || protocols["all"]) {
             select_rfb = true;
@@ -697,7 +726,7 @@ public:
            //
            // kerberos is not yet ready for integration
            //
-           // select_krb5 = true;
+           select_krb5 = true;
         }
         if (protocols["snmp"] || protocols["all"]) {
             select_snmp = true;
@@ -1018,6 +1047,10 @@ public:
             return tcp_msg_type_mysql_login_request;
         }
 
+        if (krb5() and (tcp_pkt->header->src_port == hton<uint16_t>(88) or tcp_pkt->header->dst_port == hton<uint16_t>(88))) {
+            return tcp_msg_type_krb5;
+        }
+
         if (redis_request() and (tcp_pkt->header->dst_port == hton<uint16_t>(6379))) {
             return tcp_msg_type_redis_request;
         }
@@ -1032,6 +1065,10 @@ public:
 
         if (imap_response() and (tcp_pkt->header->src_port == hton<uint16_t>(143))) {
             return tcp_msg_type_imap_response;
+        }
+
+        if (telnet() and (tcp_pkt->header->src_port == hton<uint16_t>(23) or tcp_pkt->header->dst_port == hton<uint16_t>(23))) {
+            return tcp_msg_type_telnet;
         }
 
         return tcp_msg_type_unknown;

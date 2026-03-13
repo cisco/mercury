@@ -1,5 +1,32 @@
 # CHANGELOG for Mercury
 
+## VERSION 2.15.0
+* Added Telnet (RFC 854/855) support.
+* Added Kerberos v5 support.
+* Added exposed credentials reporting for LDAP, SNMP, Redis, FTP, HTTP, and
+  TACACS+. Emit attributes even when fingerprints are not present.
+* Crypto-assessment: updated CNSA 2.0 check for TLS extern PSK with Cert.
+* Crypto-assessment: added SecP384r1MLKEM1024 to supported groups allow-list.
+* Extended L7 metadata HTTP header and body reporting.
+* Extended FDC to report tls_server, http_server, and dtls fingerprints.
+* Added L7 metadata reporting for DNS/NBNS payloads and TLS certs.
+* Added L7 metadata capture of initial payload for unknown TCP/UDP traffic.
+* Added finer-grained SSH reporting: ssh.client and ssh.server.
+* Added certificate sha1 field to JSON output of cert_analyze.
+* Optimizations: per-thread packet counters and cacheline-aligned lockless
+  queue members to eliminate false sharing in standalone mercury.
+* Hardened mercury startup/shutdown with async-signal-safe signal handler.
+* Fixed PEM file parsing in cert_analyze to handle \r\n line endings.
+* Fixed configuration parsing bug when --select is used with multiple
+  sub-types of the same protocol.
+* Fixed silent fuzz test skips and added corpus minimization.
+* Fixed compiler warnings related to struct/class mismatched-tags.
+* Fixed startup crash when running exposed-credentials check without analysis.
+* Fixed intermittent CI hang caused by condvar signaling races and data races.
+* CI: added GMP development library to all CI Docker build environments.
+* CI: enabled `make test` to run without a proprietary resources file.
+* Changed xsimd to an external dependency; bundled copy retained as fallback.
+
 ## VERSION 2.14.0
 * Added support for nested VLAN tagging (multiple stacked 802.1Q tags).
 * Added IMAPv4 support in JSON output.

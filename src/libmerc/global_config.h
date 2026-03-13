@@ -195,12 +195,15 @@ public:
             { "snmp",                   false },
             { "ssdp",                   false },
             { "ssh",                    false },
+            { "ssh.client",             false },
+            { "ssh.server",             false },
             { "stun",                   false },
             { "syslog",                 false },
             { "tacacs",                 false },
             { "tcp",                    false },
             { "tcp.message",            false },
             { "tcp.syn_ack",            false },
+            { "telnet",                 false },
             { "tftp",                   false },
             { "tls",                    false },
             { "tls.client_hello",       false },
@@ -292,7 +295,7 @@ public:
         if (policy.empty()) {
             crypto_assess_policy = "default";
         }
-        else { 
+        else {
             crypto_assess_policy = policy;
         }
         return true;

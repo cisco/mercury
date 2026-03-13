@@ -73,9 +73,9 @@ directory of the `mercury` source repository.
 ```
 $ ./configure
 $ make
-$ make tls_scanner --dir=src
-$ make batch_gcd --dir=src
-$ make batch_gcd_test --dir=test   # run tests (optional)
+$ make --directory=src tls_scanner
+$ make --directory=src batch_gcd
+$ make --directory=test batch_gcd_test   # run tests (optional)
 ```
 The executables will be built within the `src` directory, e.g., `src/batch_gcd`.
 

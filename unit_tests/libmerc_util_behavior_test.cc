@@ -121,6 +121,7 @@ TEST_CASE("emix.pcap") {
         {"http", 10},
         {"iec60870_5_104", 42},
         {"ike", 30},
+        {"kerberos",54},
         {"ldap", 25},
         {"mdns", 6},
         {"mysql", 4},
@@ -137,11 +138,12 @@ TEST_CASE("emix.pcap") {
         {"ssh", 2},
         {"stun", 4},
         {"tacacs", 12},
+        {"telnet", 168},
         {"tftp", 17},
         {"vnc", 2},
         {"tls", 5},
         {"quic", 4}
     };
 
-    test_pcap_file("emix.pcap", 1616, expected_protocols);
+    test_pcap_file("emix.pcap", 1776, expected_protocols);
 }
