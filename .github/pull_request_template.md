@@ -26,7 +26,7 @@ Sample JSON or other output.
   - [ ] Run on live traffic - new protocol data appears in expected quantity
   - [ ] Run on live traffic - existing protocol data is not suppressed
 - Output and Schema Changes
-  - [ ] Follow JSON output guidelines (see `doc/guidelines.md`)
+  - [ ] Follow JSON output guidelines in `doc/protocol-guidelines.md`
   - [ ] Schema changes reviewed by stakeholders
   - [ ] Estimate % increase in size of JSON output based on suitable reference pcap
 - Documentation
