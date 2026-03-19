@@ -1964,6 +1964,34 @@ bool stateful_pkt_proc::analyze_raw_packet(const uint8_t *packet,
     return analyze_ip_packet(pkt.data, pkt.length(), ts, reassembler);
 }
 
+bool stateful_pkt_proc::analyze_sll_packet(const uint8_t *packet,
+                                           size_t length,
+                                           struct timespec *ts,
+                                           struct tcp_reassembler *reassembler) {
+
+    struct datum pkt{packet, packet+length};
+    linux_sll::skip_to_ip(pkt);
+    if (pkt.is_null()) {
+        return false;   // not an IP packet
+    }
+
+    return analyze_ip_packet(pkt.data, pkt.length(), ts, reassembler);
+}
+
+bool stateful_pkt_proc::analyze_sll2_packet(const uint8_t *packet,
+                                            size_t length,
+                                            struct timespec *ts,
+                                            struct tcp_reassembler *reassembler) {
+
+    struct datum pkt{packet, packet+length};
+    linux_sll2::skip_to_ip(pkt);
+    if (pkt.is_null()) {
+        return false;   // not an IP packet
+    }
+
+    return analyze_ip_packet(pkt.data, pkt.length(), ts, reassembler);
+}
+
 bool stateful_pkt_proc::analyze_packet(const uint8_t *eth_packet,
                             size_t length,
                             struct timespec *ts,
@@ -1979,6 +2007,12 @@ bool stateful_pkt_proc::analyze_packet(const uint8_t *eth_packet,
         break;
     case LINKTYPE_RAW:
         return analyze_raw_packet(eth_packet, length, ts, reassembler);
+        break;
+    case LINKTYPE_LINUX_SLL:
+        return analyze_sll_packet(eth_packet, length, ts, reassembler);
+        break;
+    case LINKTYPE_LINUX_SLL2:
+        return analyze_sll2_packet(eth_packet, length, ts, reassembler);
         break;
     default:
         break;
