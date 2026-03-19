@@ -25,26 +25,16 @@ SCENARIO("test packet_processor_get_analysis_context with http encapsulated in P
 
 TEST_CASE_METHOD(LibmercTestFixture, "test linux sll2")
 {
-    auto linux_sll2 = [&](int expected_count, const struct libmerc_config &config)
-    {
-        initialize(config);
-        REQUIRE(expected_count == counter(LINKTYPE_LINUX_SLL2));
-        deinitialize();
-    };
+    libmerc_config config{.do_analysis = true,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"all"};
+    
+    initialize(config);
 
-    std::vector<std::pair<test_config, int>> test_set_up{
-        {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_minimal_path,
-                .packet_filter_cfg = (char *)"all"},
-             .m_pc{"agent-traffic.pcap"}},
-         2128}
-    };
+    set_pcap("agent-traffic.pcap");
+    CHECK(2128 == counter(LINKTYPE_LINUX_SLL2));
 
-    for (auto &[config, count] : test_set_up)
-    {
-        set_pcap(config.m_pc.c_str());
-        linux_sll2(count, config.m_lc);
-    }
+    deinitialize(); 
 }
 
 TEST_CASE_METHOD(LibmercTestFixture, "test http")
