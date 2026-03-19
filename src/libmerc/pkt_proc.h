@@ -28,6 +28,7 @@
 #include "exposed_creds.h"
 #include "pkt_proc_util.h"
 #include "reassembly.hpp"
+#include "protocol_config.h"
 
 /**
  * enum linktype is a 16-bit enumeration that identifies a protocol
@@ -103,6 +104,10 @@ struct mercury {
             }
         }
         finalize_attribute_common_data();
+
+        // configure static protocol settings from global config;
+        // must happen once before packet processors are created
+        configure_protocol_classes(global_vars);
     }
 
     ~mercury() {
@@ -161,9 +166,6 @@ struct stateful_pkt_proc {
 
         // classifier may be unavailable if analysis resources are missing;
         // protocol parsing and non-classifier analysis still proceed safely.
-
-        // setting protocol based configuration option to output the raw features
-        set_raw_features(global_vars.raw_features);
 
         //fprintf(stderr, "note: setting classifier to %p, setting global_vars to %p\n", (void *)m->c, (void *)&m->global_vars));
         // }
@@ -316,30 +318,6 @@ struct stateful_pkt_proc {
 
     bool dump_pkt ();
 
-    void set_raw_features(const std::unordered_map<std::string, bool> &raw_features) {
-        if (raw_features.at("all") or raw_features.at("tls")) {
-            tls_client_hello::set_raw_features(true);
-        }
-
-        if (raw_features.at("all") or raw_features.at("stun")) {
-            stun::message::set_raw_features(true);
-        }
-
-        if (raw_features.at("all") or raw_features.at("bittorrent")) {
-            bittorrent_dht::set_raw_features(true);
-            bittorrent_lsd::set_raw_features(true);
-            bittorrent_handshake::set_raw_features(true);
-        }
-
-        if (raw_features.at("all") or raw_features.at("smb")) {
-            smb2_packet::set_raw_features(true);
-        }
-
-        if (raw_features.at("all") or raw_features.at("ssdp")) {
-            ssdp::set_raw_features(true);
-        }
-    }
-
     bool set_exposed_creds_attr(exposed_creds_type exposed_creds_res) {
         if (!analysis.result.attr.is_initialized()) {
             return false;
@@ -381,6 +359,7 @@ struct stateful_pkt_proc {
 
         return output_attr;
     }
+
 };
 
 #endif /* PKT_PROC_H */

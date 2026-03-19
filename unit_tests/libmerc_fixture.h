@@ -33,6 +33,8 @@ protected:
     bool counter(size_t expected_attrs_count, std::function<void(size_t, size_t)> callback);
     bool check_attr(std::string &expected_attr);
 
+    std::string get_first_json();
+
     void check_global_configuraton(libmerc_config config);
 
 protected:
@@ -52,12 +54,4 @@ protected:
     packet<65536> m_pkt;
     char * m_pcap_file_name;
     std::string m_pcap_folder_name;
-};
-
-struct test_config
-{
-    struct libmerc_config m_lc;                //libmerc config
-    std::string m_pc; //pcap name string config
-    fingerprint_type fp_t = fingerprint_type_unknown;
-    std::function<void(const analysis_context*)> callback = NULL;
 };

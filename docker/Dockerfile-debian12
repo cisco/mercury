@@ -1,7 +1,7 @@
 FROM debian:12
 RUN apt-get update \
     && apt-get install -y git pkg-config wget jq tcpreplay iproute2 sudo \
-    debconf zlib1g-dev libssl-dev \
+    debconf zlib1g-dev libssl-dev libgmp-dev \
     valgrind libc-dev make dpkg-dev gcc g++ python3-dev python3-pip python3-venv \
     --no-install-recommends \
     && apt-get -f install \

@@ -1,0 +1,10 @@
+# build artifacts
+fuzz_*_exec
+fuzz_test_*.c
+*.log
+libmerc.a
+
+# transient files from generate_fuzz_test.sh
+.corpus_pre_count
+.minimize_*.log
+corpus.min/

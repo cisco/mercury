@@ -29,6 +29,7 @@ Mercury produces fingerprint strings for TLS, DTLS, SSH, HTTP, TCP, and other pr
 Mercury itself has minimal dependencies other than a g++ or llvm build environment, but to run the automated tests and ancillary programs in this package, you will need to install additional packages, as in the following Debian/Ubuntu example:
 ```
 sudo apt install g++ jq git zlib1g-dev tcpreplay valgrind python3-pip libssl-dev clang
+sudo apt install libxsimd-dev   # optional: enables SIMD-accelerated classification
 python3 -m pip install --upgrade pip
 python3 -m pip install --upgrade jsonschema cryptography Cython wheel setuptools
 ```
@@ -45,6 +46,7 @@ interface, since AF_PACKET is Linux-specific.  The following has been tested
 on an M2 mac with Python 3.13.2 installed via the Homebrew command below.
 ```
 brew install python openssl zlib
+brew install xsimd     # optional: enables SIMD-accelerated classification
 brew install cmake     # optional: libmerc can be also built with CMake
 mkdir -p ~/.envs
 python3 -m venv ~/.envs/merc
@@ -145,6 +147,8 @@ GENERAL OPTIONS
    --certs-json                          # output certs as JSON, not base64
    --metadata                            # output more protocol metadata in JSON
    --raw-features                        # select protocols to write out raw features string(see --help)
+   --http-headers=mode                   # controls reporting of HTTP headers in L7 metadata (all or non-sensitive)
+   --http-body-max=N                     # report up to N bytes of the HTTP body in L7 metadata (max 2048 bytes)
    --network-behavioral-detections       # perform network behavioral detections
    --minimize-ram                        # minimize the ram usage of mercury library
    --crypto-assess[=policy]              # perform cryptographic security assessment
@@ -217,6 +221,7 @@ DETAILS
       imap              IMAP request and response
       imap.request      IMAP request
       imap.response     IMAP response
+      kerberos          Kerberos v5
       mdns              multicast DNS
       mysql             MySQL Client/Server Protocol
       nbns              NetBIOS Name Service
@@ -229,7 +234,9 @@ DETAILS
       redis.request     Redis request
       redis.response    Redis response
       sctp              SCTP message
-      ssh               SSH handshake and KEX
+      ssh               SSH handshake and KEX (client and server)
+      ssh.client        SSH handshake and KEX (only client)
+      ssh.server        SSH handshake and KEX (only server)
       smb               SMB v1 and v2
       smtp              SMTP client and server messages
       snmp              SNMP messages
@@ -238,6 +245,7 @@ DETAILS
       stun              STUN messages
       syslog            SYSLOG (BSD and IETF)
       tacacs            TACACS+
+      telnet            Telnet (RFC 854/855)
       tcp               TCP headers
       tcp.message       TCP initial message
       tcp.syn_ack       TCP syn ack message
@@ -316,6 +324,14 @@ DETAILS
        all             All of the above
        none            None of the above
       <no option>     None of the above
+
+   --http-headers=mode controls which HTTP headers are reported in L7 metadata.
+       non-sensitive   report all headers except sensitive ones (cookie, authorization, proxy-authorization, etc.)
+       all             report all headers including sensitive ones
+
+   --http-body-max=N reports up to N bytes of the HTTP body in L7 metadata as hex.
+    N is required and must be between 0 and 2048. If this option is not specified,
+    HTTP bodies are not captured in L7 metadata.
 
    --network-behavioral-detections performs analysis on packets, sessions, and
     sets of sessions independent of the core mercury analysis functionality. These
