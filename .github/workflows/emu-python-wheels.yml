@@ -1,12 +1,12 @@
 #############################################################################
-# IMPORTANT: This file MUST stay in sync with emu-python-wheels.yml.
+# IMPORTANT: This file MUST stay in sync with pub-python-wheels.yml.
 #
 # Expected differences are the cisco-actions/* mirror references and workflow
 # and file naming differences.  A quick sanity self-check is included in the
 # workflow.  Do NOT accept PRs where these files diverge in any other way.
 #############################################################################
 
-name: "[PUB] Python Wheels"
+name: "[EMU] Python Wheels"
 
 on:
   workflow_dispatch:
@@ -66,7 +66,7 @@ jobs:
 
       - name: Set up QEMU
         if: runner.os == 'Linux'
-        uses: docker/setup-qemu-action@v4.0.0
+        uses: cisco-actions/docker-setup-qemu-action@v4.0.0
         with:
           platforms: all
 
@@ -77,7 +77,7 @@ jobs:
         run: ./configure && make && cp -r src/cython/* ./
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.4.0
+        uses: cisco-actions/pypa-cibuildwheel@v3.4.0
         env:
           CIBW_ARCHS_LINUX: aarch64 x86_64
           CIBW_ARCHS_MACOS: arm64
