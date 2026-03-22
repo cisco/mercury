@@ -336,7 +336,7 @@ namespace tacacs {
             if (direction() != msg_type::request || type.value() != 0x01) {
                 return exposed_creds_type::none;
             }
-            
+
             // Encrypted message body
             if (!flags.bit<7>()) {
                 return exposed_creds_type::password_derived;

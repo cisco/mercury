@@ -54,11 +54,3 @@ protected:
     char * m_pcap_file_name;
     std::string m_pcap_folder_name;
 };
-
-struct test_config
-{
-    struct libmerc_config m_lc;                //libmerc config
-    std::string m_pc; //pcap name string config
-    fingerprint_type fp_t = fingerprint_type_unknown;
-    std::function<void(const analysis_context*)> callback = NULL;
-};

@@ -1285,7 +1285,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
 SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented tls client hello payload with reassembly and within number of packets limit") {
     GIVEN("mercury packet processor") {
         libmerc_config config = create_config();
-        config.packet_filter_cfg = "all;format=tls/1;reassembly;minimize-ram";
+        config.packet_filter_cfg = (char *)"all;format=tls/1;reassembly;minimize-ram";
         mercury_context mc = initialize_mercury(config);
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
         const analysis_context* ac = nullptr;
@@ -1347,7 +1347,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
 SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented tls client hello payload with reassembly and exceeding number of packets limit") {
     GIVEN("mercury packet processor") {
         libmerc_config config = create_config();
-        config.packet_filter_cfg = "all;format=tls/1;reassembly;minimize-ram";
+        config.packet_filter_cfg = (char *)"all;format=tls/1;reassembly;minimize-ram";
         mercury_context mc = initialize_mercury(config);
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
         const analysis_context* ac = nullptr;
@@ -1512,7 +1512,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
 SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented QUIC payload with reassembly and within number of packets limit") {
     GIVEN("mercury packet processor") {
         libmerc_config config = create_config();
-        config.packet_filter_cfg = "all;format=tls/1;reassembly;minimize-ram";
+        config.packet_filter_cfg = (char *)"all;format=tls/1;reassembly;minimize-ram";
         mercury_context mc = initialize_mercury(config);
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
         const analysis_context* ac = nullptr;
@@ -1576,7 +1576,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented 
 SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented QUIC payload with reassembly and exceeding number of packets limit") {
     GIVEN("mercury packet processor") {
         libmerc_config config = create_config();
-        config.packet_filter_cfg = "all;format=tls/1;reassembly;minimize-ram";
+        config.packet_filter_cfg = (char *)"all;format=tls/1;reassembly;minimize-ram";
         mercury_context mc = initialize_mercury(config);
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
         const analysis_context* ac = nullptr;
@@ -1679,7 +1679,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for tls client 
 SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for combination of fragmented QUIC + dns + completed QUIC fragment") {
     GIVEN("mercury packet processor") {
         libmerc_config config = create_config();
-        config.packet_filter_cfg = "all;format=tls/1;reassembly;minimize-ram";
+        config.packet_filter_cfg = (char *)"all;format=tls/1;reassembly;minimize-ram";
         mercury_context mc = initialize_mercury(config);
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
         const analysis_context* ac = nullptr;
@@ -1765,7 +1765,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for combination
 SCENARIO("test tcp reassembly for tls server hello/certificate with 3 fragments") {
     GIVEN("mercury packet processor with reassembly enabled") {
         libmerc_config config = create_config();
-        config.packet_filter_cfg = "all;format=tls/1;reassembly;minimize-ram";
+        config.packet_filter_cfg = (char *)"all;format=tls/1;reassembly;minimize-ram";
         mercury_context mc = initialize_mercury(config);
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
         const analysis_context* ac = nullptr;
@@ -1841,7 +1841,7 @@ SCENARIO("test tcp reassembly for tls server hello/certificate with 3 fragments"
 SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for unknown/unparsable TCP payload reports first 256 bytes") {
     GIVEN("mercury packet processor with output_tcp_initial_data enabled") {
         libmerc_config config = create_config();
-        config.packet_filter_cfg = "all;nonselected-tcp-data";
+        config.packet_filter_cfg = (char *)"all;nonselected-tcp-data";
         mercury_context mc = initialize_mercury(config);
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
         const analysis_context* ac = nullptr;
@@ -1907,7 +1907,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for unknown/unp
 SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for unknown/unparsable UDP payload reports first 256 bytes") {
     GIVEN("mercury packet processor with output_udp_initial_data enabled") {
         libmerc_config config = create_config();
-        config.packet_filter_cfg = "all;nonselected-udp-data";
+        config.packet_filter_cfg = (char *)"all;nonselected-udp-data";
         mercury_context mc = initialize_mercury(config);
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
         const analysis_context* ac = nullptr;
@@ -1930,7 +1930,7 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for unknown/unp
         k_unknown.ip_vers = 4;
 
         WHEN("write to FDC buffer for unknown UDP payload") {
-            size_t fdc_buffer_len = max_buffer_allocation;            
+            size_t fdc_buffer_len = max_buffer_allocation;
             int bytes_written = mercury_packet_processor_get_analysis_context_fdc(
                 mpp,
                 &k_unknown,
@@ -2307,4 +2307,3 @@ SCENARIO("test FDC http request with http-body-max config") {
         mercury_finalize(mc);
     }
 }
-

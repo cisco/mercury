@@ -30,8 +30,8 @@ COPY . /src
 WORKDIR /src
 RUN ./configure \
     && make V=s \
-    && make batch_gcd --dir=src \
-    && make tls_scanner --dir=src \
+    && make --directory=src batch_gcd \
+    && make --directory=src tls_scanner \
     && make install-nonroot \
     && make install-certtools
 

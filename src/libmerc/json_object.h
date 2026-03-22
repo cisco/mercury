@@ -184,14 +184,29 @@ struct json_object {
         b->write_hex_uint(u);
         b->write_char('\"');
     }
-    template <typename uint>
-    void print_key_unknown_code(const char *k, uint u) {
+
+    template <typename T>
+    void print_key_unknown_code(const char *k, T c) {
         write_comma(comma);
         b->snprintf("\"%s\":\"UNKNOWN (", k);
-        b->write_hex_uint(u);
+        if constexpr (std::is_unsigned_v<T>) {
+            b->write_hex_uint(c);
+        } else if constexpr (std::is_same<T, int64_t>::value) {
+            b->snprintf("%" PRId64, c);
+        }
         b->write_char(')');
         b->write_char('\"');
     }
+
+    template <typename T>
+    void print_key_string_or_unknown_code(const char *k, const char *s, T c) {
+        if (s == nullptr) {
+            print_key_unknown_code(k, c);
+        } else {
+            print_key_string(k, s);
+        }
+    }
+
     void print_key_hex(const char *k, const struct datum &value) {
         write_comma(comma);
         b->write_char('\"');
@@ -396,14 +411,29 @@ struct json_array {
         b->memcpy(s, len);
         b->write_char('\"');
     }
-    template <typename uint>
-    void print_unknown_code(uint u) {
+
+    template <typename T>
+    void print_unknown_code(T code) {
         write_comma(comma);
-        b->snprintf("\"UNKNOWN (0x");
-        b->write_hex_uint(u);
+        b->snprintf("\"UNKNOWN (");
+        if constexpr (std::is_unsigned_v<T>) {
+            b->write_hex_uint(code);
+        } else if constexpr (std::is_same<T, int64_t>::value) {
+            b->snprintf("%" PRId64, code);
+        }
         b->write_char(')');
         b->write_char('\"');
     }
+
+    template <typename T>
+    void print_string_or_unknown_code(const char *s, T code) {
+        if (s == nullptr) {
+            print_unknown_code(code);
+        } else {
+            print_string(s);
+        }
+    }
+
     void print_json_string(const struct datum &d) {
         if (d.is_not_readable()) {
             return;
@@ -524,7 +554,7 @@ inline bool test_json_output(datum raw_input,
 template <typename T>
 class json_array_bitflags {
     json_array a;
-    const T &flags;
+    const T flags;
 
 public:
 
