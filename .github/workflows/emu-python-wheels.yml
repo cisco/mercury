@@ -1,9 +1,13 @@
 #############################################################################
-# IMPORTANT: This file MUST stay in sync with pub-python-wheels.yml.
+# EMU variant of the Python Wheels workflow.
 #
-# Expected differences are the cisco-actions/* mirror references and workflow
-# and file naming differences.  A quick sanity self-check is included in the
-# workflow.  Do NOT accept PRs where these files diverge in any other way.
+#   emu-python-wheels.yml  — active on GitHub EMU     (triggers on dev)
+#   pub-python-wheels.yml  — active on Public GitHub  (triggers on main)
+#
+# These two files MUST stay in sync.  Expected differences include the
+# cisco-actions/* mirror references, workflow name, trigger branches,
+# and file naming.  A quick sanity self-check is included in the workflow.
+# Do NOT accept PRs where these files diverge in any other way.
 #############################################################################
 
 name: "[EMU] Python Wheels"
@@ -12,7 +16,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - main
+      - dev   # GitHub EMU (post PR-merge builds)
 
 permissions:
   contents: read
@@ -25,7 +29,7 @@ jobs:
       - uses: actions/checkout@v6
       - name: Check diff between emu and pub workflow files
         run: |
-          MAX_DIFF_LINES=4
+          MAX_DIFF_LINES=5
           COUNT=$(diff -y --suppress-common-lines .github/workflows/emu-python-wheels.yml .github/workflows/pub-python-wheels.yml | wc -l)
           echo "Differing lines: $COUNT (max allowed: $MAX_DIFF_LINES)"
           if [ "$COUNT" -gt "$MAX_DIFF_LINES" ]; then
