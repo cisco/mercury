@@ -336,19 +336,28 @@ mercury_packet_processor mercury_packet_processor_construct(mercury_context mc) 
             return NULL;
         }
 
-        // enforce single-instance restriction when quic trial decryption is enabled
+        // enforce single-instance restriction when quic trial decryption is enabled;
+        // use compare_exchange to atomically check and increment the count,
+        // avoiding a TOCTOU race between get_count() and count_incr()
         if (mc->global_vars.quic_trial_decryption) {
-            if (mercury_packet_processor_get_count(mc) > 0) {
+            int expected = 0;
+            if (!mc->packet_processor_count.compare_exchange_strong(expected, 1)) {
                 printf_err(log_err, "error: quic_trial_decryption cannot be used with multiple packet processor instances\n");
                 return NULL;
             }
         }
 
         stateful_pkt_proc *tmp = new stateful_pkt_proc{mc, 0};
-        mercury_packet_processor_count_incr(mc);
+        if (!mc->global_vars.quic_trial_decryption) {
+            mercury_packet_processor_count_incr(mc);
+        }
         return tmp;
     }
     catch (std::exception &e) {
+        // rollback the count if it was incremented before the exception
+        if (mc && mc->global_vars.quic_trial_decryption) {
+            mercury_packet_processor_count_decr(mc);
+        }
         printf_err(log_err, "%s\n", e.what());
     }
     return NULL;
@@ -373,7 +382,7 @@ int mercury_packet_processor_get_count(mercury_context mc) {
     if (mc == nullptr) {
         return -1;
     }
-    return mc->packet_processor_count;
+    return mc->packet_processor_count.load();
 }
 
 void mercury_packet_processor_count_incr(mercury_context mc) {

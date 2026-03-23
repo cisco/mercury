@@ -254,6 +254,12 @@ char mercury_extended_help[] =
     "       plaintext-derived       Derived credentials like hashed passwords\n"
     "       plaintext-token         Token based credentials like OAuth tokens\n"
     "\n"
+    "   --quic-trial-decryption enables trial decryption of QUIC Initial packets\n"
+    "   using all known version-specific salts, which allows fingerprinting of QUIC\n"
+    "   clients that use unknown or reserved version numbers.  This option requires\n"
+    "   single-threaded operation (--threads 1) because the trial decryption state\n"
+    "   is not thread-safe.\n"
+    "\n"
     "   [-v or --verbose] writes additional information to the standard error,\n"
     "   including the packet count, byte count, elapsed time and processing rate, as\n"
     "   well as information about threads and files.\n"
@@ -315,7 +321,7 @@ int main(int argc, char *argv[]) {
     std::string additional_args;
 
     while(1) {
-      
+
         enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13, reassembly=14, format=15, raw_features=16, crypto_assess=17, minimize_ram=18, network_behavioral_detections=19, exposed_creds=20, http_headers=21, http_body=22, quic_trial_decryption=23 };
 
         int opt_idx = 0;
@@ -746,6 +752,9 @@ int main(int argc, char *argv[]) {
     if (cfg.read_filename) {
         cfg.output_block = true;      // use blocking output, so that no packets are lost in copying
         additional_args.append("stats-blocking;"); // use blocking stats to avoid losing stats events
+    }
+    if (additional_args.find("quic-trial-decryption") != std::string::npos && cfg.num_threads > 1) {
+        usage(argv[0], "option quic-trial-decryption requires single-threaded operation (--threads 1)", extended_help_off);
     }
 
     // setup extended config options
