@@ -255,6 +255,42 @@ extern "C" LIBMERC_DLL_EXPORTED
 void mercury_packet_processor_destruct(mercury_packet_processor mpp);
 
 /**
+ * mercury_packet_processor_get_count() returns the number of active
+ * mercury_packet_processor instances associated with the given
+ * mercury_context.
+ *
+ * @param mc (input) mercury context
+ *
+ * @return the number of active packet processor instances, or -1 on error.
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+int mercury_packet_processor_get_count(mercury_context mc);
+
+/**
+ * mercury_packet_processor_count_incr() atomically increments the
+ * packet processor instance count for the given mercury_context.
+ *
+ * @param mc (input) mercury context
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+void mercury_packet_processor_count_incr(mercury_context mc);
+
+/**
+ * mercury_packet_processor_count_decr() atomically decrements the
+ * packet processor instance count for the given mercury_context.
+ *
+ * @param mc (input) mercury context
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+void mercury_packet_processor_count_decr(mercury_context mc);
+
+/**
  * mercury_packet_processor_write_json() processes a packet and timestamp and
  * writes the resulting JSON into a buffer.
  *

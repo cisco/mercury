@@ -335,7 +335,17 @@ mercury_packet_processor mercury_packet_processor_construct(mercury_context mc) 
             printf_err(log_err, "error: mercury context is null\n");
             return NULL;
         }
+
+        // enforce single-instance restriction when quic trial decryption is enabled
+        if (mc->global_vars.quic_trial_decryption) {
+            if (mercury_packet_processor_get_count(mc) > 0) {
+                printf_err(log_err, "error: quic_trial_decryption cannot be used with multiple packet processor instances\n");
+                return NULL;
+            }
+        }
+
         stateful_pkt_proc *tmp = new stateful_pkt_proc{mc, 0};
+        mercury_packet_processor_count_incr(mc);
         return tmp;
     }
     catch (std::exception &e) {
@@ -347,12 +357,34 @@ mercury_packet_processor mercury_packet_processor_construct(mercury_context mc) 
 void mercury_packet_processor_destruct(mercury_packet_processor mpp) {
     try {
         if (mpp) {
+            if (mpp->m) {
+                mercury_packet_processor_count_decr(mpp->m);
+            }
             mpp->finalize();
             delete mpp;
         }
     }
     catch (std::exception &e) {
         printf_err(log_err, "%s\n", e.what());
+    }
+}
+
+int mercury_packet_processor_get_count(mercury_context mc) {
+    if (mc == nullptr) {
+        return -1;
+    }
+    return mc->packet_processor_count;
+}
+
+void mercury_packet_processor_count_incr(mercury_context mc) {
+    if (mc) {
+        ++mc->packet_processor_count;
+    }
+}
+
+void mercury_packet_processor_count_decr(mercury_context mc) {
+    if (mc) {
+        --mc->packet_processor_count;
     }
 }
 
