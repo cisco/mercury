@@ -329,6 +329,25 @@ bool analysis_context_get_os_info(const struct analysis_context *ac, // input
     return false;
 }
 
+static int packet_processor_get_count(mercury_context mc) {
+    if (mc == nullptr) {
+        return -1;
+    }
+    return mc->packet_processor_count.load();
+}
+
+static void packet_processor_count_incr(mercury_context mc) {
+    if (mc) {
+        ++mc->packet_processor_count;
+    }
+}
+
+static void packet_processor_count_decr(mercury_context mc) {
+    if (mc) {
+        --mc->packet_processor_count;
+    }
+}
+
 mercury_packet_processor mercury_packet_processor_construct(mercury_context mc) {
     try {
         if (mc == nullptr) {
@@ -349,14 +368,14 @@ mercury_packet_processor mercury_packet_processor_construct(mercury_context mc) 
 
         stateful_pkt_proc *tmp = new stateful_pkt_proc{mc, 0};
         if (!mc->global_vars.quic_trial_decryption) {
-            mercury_packet_processor_count_incr(mc);
+            packet_processor_count_incr(mc);
         }
         return tmp;
     }
     catch (std::exception &e) {
         // rollback the count if it was incremented before the exception
         if (mc && mc->global_vars.quic_trial_decryption) {
-            mercury_packet_processor_count_decr(mc);
+            packet_processor_count_decr(mc);
         }
         printf_err(log_err, "%s\n", e.what());
     }
@@ -366,34 +385,14 @@ mercury_packet_processor mercury_packet_processor_construct(mercury_context mc) 
 void mercury_packet_processor_destruct(mercury_packet_processor mpp) {
     try {
         if (mpp) {
-            if (mpp->m) {
-                mercury_packet_processor_count_decr(mpp->m);
-            }
+            mercury_context mc = mpp->m;
             mpp->finalize();
             delete mpp;
+            packet_processor_count_decr(mc);
         }
     }
     catch (std::exception &e) {
         printf_err(log_err, "%s\n", e.what());
-    }
-}
-
-int mercury_packet_processor_get_count(mercury_context mc) {
-    if (mc == nullptr) {
-        return -1;
-    }
-    return mc->packet_processor_count.load();
-}
-
-void mercury_packet_processor_count_incr(mercury_context mc) {
-    if (mc) {
-        ++mc->packet_processor_count;
-    }
-}
-
-void mercury_packet_processor_count_decr(mercury_context mc) {
-    if (mc) {
-        --mc->packet_processor_count;
     }
 }
 
