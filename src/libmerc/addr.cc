@@ -101,6 +101,7 @@ subnet_data::~subnet_data() {
 
     if (ipv6_subnet_trie.root) {
         free(ipv6_subnet_trie.root);
+        ipv6_subnet_trie.root = NULL;
     }
     lct_free(&ipv6_subnet_trie);
     if (ipv6_subnet_array) {
@@ -109,11 +110,13 @@ subnet_data::~subnet_data() {
     if (prefix_v6) {
         delete[] prefix_v6;
     }
+
     if (ipv4_subnet_trie.root) {
         //
         // TBD: this free ought to be in lct_tree()
         //
         free(ipv4_subnet_trie.root);
+        ipv4_subnet_trie.root = NULL;
     }
     lct_free(&ipv4_subnet_trie);
     if (ipv4_subnet_array) {
@@ -125,6 +128,7 @@ subnet_data::~subnet_data() {
 
     if (ipv4_domain_trie.root) {
         free(ipv4_domain_trie.root);
+        ipv4_domain_trie.root = NULL;
     }
     lct_free(&ipv4_domain_trie);
     // free all the memory allocations in ipv4_domain_array
@@ -145,6 +149,7 @@ subnet_data::~subnet_data() {
 
     if (ipv6_domain_trie.root) {
         free(ipv6_domain_trie.root);
+        ipv6_domain_trie.root = NULL;
     }
     lct_free(&ipv6_domain_trie);
     // free all the memory allocations in ipv6_domain_array
