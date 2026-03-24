@@ -329,25 +329,6 @@ bool analysis_context_get_os_info(const struct analysis_context *ac, // input
     return false;
 }
 
-static int packet_processor_get_count(mercury_context mc) {
-    if (mc == nullptr) {
-        return -1;
-    }
-    return mc->packet_processor_count.load();
-}
-
-static void packet_processor_count_incr(mercury_context mc) {
-    if (mc) {
-        ++mc->packet_processor_count;
-    }
-}
-
-static void packet_processor_count_decr(mercury_context mc) {
-    if (mc) {
-        --mc->packet_processor_count;
-    }
-}
-
 mercury_packet_processor mercury_packet_processor_construct(mercury_context mc) {
     try {
         if (mc == nullptr) {
@@ -357,7 +338,7 @@ mercury_packet_processor mercury_packet_processor_construct(mercury_context mc) 
 
         // enforce single-instance restriction when quic trial decryption is enabled;
         // use compare_exchange to atomically check and increment the count,
-        // avoiding a TOCTOU race between get_count() and count_incr()
+        // avoiding a TOCTOU race between separate check and increment operations
         if (mc->global_vars.quic_trial_decryption) {
             int expected = 0;
             if (!mc->packet_processor_count.compare_exchange_strong(expected, 1)) {
@@ -367,15 +348,12 @@ mercury_packet_processor mercury_packet_processor_construct(mercury_context mc) 
         }
 
         stateful_pkt_proc *tmp = new stateful_pkt_proc{mc, 0};
-        if (!mc->global_vars.quic_trial_decryption) {
-            packet_processor_count_incr(mc);
-        }
         return tmp;
     }
     catch (std::exception &e) {
         // rollback the count if it was incremented before the exception
         if (mc && mc->global_vars.quic_trial_decryption) {
-            packet_processor_count_decr(mc);
+            --mc->packet_processor_count;
         }
         printf_err(log_err, "%s\n", e.what());
     }
@@ -388,7 +366,9 @@ void mercury_packet_processor_destruct(mercury_packet_processor mpp) {
             mercury_context mc = mpp->m;
             mpp->finalize();
             delete mpp;
-            packet_processor_count_decr(mc);
+            if (mc && mc->global_vars.quic_trial_decryption) {
+                --mc->packet_processor_count;
+            }
         }
     }
     catch (std::exception &e) {
