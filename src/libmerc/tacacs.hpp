@@ -560,6 +560,16 @@ namespace tacacs {
         };
         passed &= test_json_output<tacacs::packet>(datum{ref_dat_6}, datum{ref_out_6}, output);
 
+        uint8_t ref_dat_7[] = {
+            0xc0, 0x00, 0x01, 0x20, 0x01, 0x02, 0x03, 0x04, 0x00, 0x00, 0x00, 0x02,
+            0xaa, 0xbb
+        };
+        passed &= test_json_output<tacacs::packet>(
+            datum{ref_dat_7},
+            datum{"{\"tacacs_plus\":{\"major_version\":12,\"minor_version\":0,\"type\":\"UNKNOWN (00)\",\"seq_no\":1,\"flags\":[\"UNKNOWN (20)\"],\"session_id\":\"01020304\",\"encrypted_request\":\"aabb\",\"password_recovery\":\"$tacacs-plus$0$01020304$aabb$c001\"}}"},
+            output
+        );
+
         return passed;
 
     }
