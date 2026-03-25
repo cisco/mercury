@@ -128,7 +128,7 @@ namespace tacacs {
             json_object json{o, "authentication_reply"};
             status.write_json(json);
 
-            json_array_bitflags flags_array{json, "flags", flags};
+            json_array_bitflags<uint8_t> flags_array{json, "flags", flags.value()};
             flags_array.flag<7>("noecho");
             flags_array.check_for_unknown_flags<7>();
             flags_array.close();
@@ -177,7 +177,7 @@ namespace tacacs {
             if (!valid) { return; }
             json_object json{o, "authentication_continue"};
 
-            json_array_bitflags flags_array{json, "flags", flags};
+            json_array_bitflags<uint8_t> flags_array{json, "flags", flags.value()};
             flags_array.flag<7>("abort");
             flags_array.check_for_unknown_flags<7>();
             flags_array.close();
@@ -256,7 +256,7 @@ namespace tacacs {
             print_type_code(tacacs_json);
             tacacs_json.print_key_uint("seq_no", seq_no);
 
-            json_array_bitflags flags_array{tacacs_json, "flags", flags};
+            json_array_bitflags<uint8_t> flags_array{tacacs_json, "flags", flags.value()};
             flags_array.flag<5>("single_connect");
             flags_array.flag<7>("unencrypted");
             flags_array.check_for_unknown_flags<5,7>();
@@ -327,7 +327,7 @@ namespace tacacs {
             if (result) {
                 o.print_key_string("type", result);
             } else {
-                o.print_key_unknown_code("type", type);
+                o.print_key_unknown_code("type", type.value());
             }
         }
 
