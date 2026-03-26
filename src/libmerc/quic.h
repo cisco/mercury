@@ -1437,7 +1437,7 @@ public:
         }
     }
 
-    bool do_analysis([[maybe_unused]] const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
+    bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
         struct datum sn{NULL, NULL};
         struct datum user_agent {NULL, NULL};
         datum alpn;
@@ -1693,16 +1693,24 @@ public:
         }
     }
 
-    bool do_analysis([[maybe_unused]] const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
+    bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
         if(pre_decrypted) {
             return decry_pkt.do_analysis(k_, analysis_, c_);
         }
+
+        struct datum sn{NULL, NULL};
+        struct datum user_agent {NULL, NULL};
+        datum alpn;
+
+        hello.extensions.set_meta_data(sn, user_agent, alpn);
+        analysis_.destination.init(sn, user_agent, alpn, k_);
+
         if (c_ == nullptr) {
             return false;
         }
 
-         analysis_.analysis_done = true;
-         bool ret = c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+        analysis_.analysis_done = true;
+        bool ret = c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
 
         // QUIC FakeTLS detection - re-enable when suffcient data is available
         //

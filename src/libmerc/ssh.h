@@ -477,7 +477,7 @@ struct ssh_init_packet : public base_protocol {
         { 'S',  'S',  'H',  '-',  0x00, 0x00, 0x00, 0x00}
     };
 
-    bool do_analysis([[maybe_unused]] const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
+    bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
         // concatenate protocol and comment strings for analysis/observation
         datum tmp_protocol_str = protocol_string;
         datum tmp_comment_str = comment_string;

@@ -1974,7 +1974,7 @@ inline bool tls_client_hello::is_faketls() const {
 }
 
 
-inline bool tls_client_hello::do_analysis([[maybe_unused]] const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
+inline bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
     datum sn;
     datum ua;
     datum alpn;
