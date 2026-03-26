@@ -1085,9 +1085,13 @@ def quic_get_salt(dict quic_data):
     Attempt trial decryption on a QUIC Initial packet and return the salt
     name that successfully decrypted it.
 
+    Only Initial packets (Long Header type 0) are supported. Other packet
+    types (0-RTT, Handshake, Retry) will return None because:
+
+
     The input should be a dictionary with the following keys representing
     the QUIC Initial packet fields:
-        - connection_info: 8-bit binary string (e.g., "11001011")
+        - connection_info: 8-bit binary string (e.g., "11000000") where bits 4-5 must be 00 (Initial)
         - version: 4-byte version as hex (e.g., "00000001")
         - dcid: destination connection ID (variable length hex)
         - scid: source connection ID (variable length hex, can be empty "")
@@ -1096,7 +1100,7 @@ def quic_get_salt(dict quic_data):
 
     Example input:
         {
-            "connection_info": "11001011",
+            "connection_info": "11000000",
             "version": "00000001",
             "dcid": "0abc3242215cdc53",
             "scid": "",
@@ -1104,9 +1108,9 @@ def quic_get_salt(dict quic_data):
             "data": "ad59b9729e5b6da5..."
         }
 
-    :param quic_data: QUIC packet data as a dictionary
+    :param quic_data: QUIC Initial packet data as a dictionary
     :type quic_data: dict
-    :return: salt name string if decryption succeeded, None otherwise
+    :return: salt name string if decryption succeeded, None if failed or not an Initial packet
     :rtype: str or None
 
     WARNING: This function is NOT thread-safe. Only use in single-threaded contexts.
@@ -1134,15 +1138,15 @@ def quic_get_salt(dict quic_data):
         # Long Packet Type is bits 4-5: 00=Initial, 01=0-RTT, 10=Handshake, 11=Retry
         pkt_type = (connection_info[0] >> 4) & 0x03
 
-        # Validate that this is a long-header packet (Initial or 0-RTT).
-        # Header Form bit (0x80) must be set for long headers.
-        # Only Initial (0) and 0-RTT (1) packets can be trial-decrypted.
-        if (connection_info[0] & 0x80) == 0 or pkt_type > 1:
+        # Validate that this is a long-header Initial packet.
+        # Header Form bit (0x80) must be set for long headers, and pkt_type must be 0 (Initial).
+
+        if (connection_info[0] & 0x80) == 0 or pkt_type != 0:
             return None
 
-        # Build the raw QUIC packet bytes
+        # Build the raw QUIC Initial packet bytes
         # Format: connection_info(1) + version(4) + dcid_len(1) + dcid + scid_len(1) + scid
-        #         + [token_len(varint) + token] (only for Initial) + data (length prefix + payload)
+        #         + token_len(varint) + token + data (length prefix + payload)
         raw_packet = bytearray()
         raw_packet.extend(connection_info)
         raw_packet.extend(version)
@@ -1150,11 +1154,8 @@ def quic_get_salt(dict quic_data):
         raw_packet.extend(dcid)
         raw_packet.append(len(scid))
         raw_packet.extend(scid)
-
-        # Only Initial packets (type 0) have a token field; 0-RTT packets do not
-        if pkt_type == 0:
-            raw_packet.extend(_encode_varint(len(token)))
-            raw_packet.extend(token)
+        raw_packet.extend(_encode_varint(len(token)))
+        raw_packet.extend(token)
 
         # data already includes the length prefix and payload
         raw_packet.extend(data)
