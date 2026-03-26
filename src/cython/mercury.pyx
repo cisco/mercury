@@ -1027,3 +1027,131 @@ def parse_ech_config(str b64_ech_config):
     ech_obj = ECHConfig(ech_config)
 
     return ech_obj.get_json_string()
+
+
+cdef extern from "../libmerc/quic.h":
+    const char *quic_trial_decrypt_get_salt(const uint8_t *data, size_t len)
+
+
+def _encode_varint(value):
+    """Encode a value as a QUIC variable-length integer."""
+    if value < 0x40:
+        return bytes([value])
+    elif value < 0x4000:
+        return bytes([(value >> 8) | 0x40, value & 0xff])
+    elif value < 0x40000000:
+        return bytes([(value >> 24) | 0x80, (value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff])
+    else:
+        return bytes([(value >> 56) | 0xc0, (value >> 48) & 0xff, (value >> 40) & 0xff, (value >> 32) & 0xff,
+                      (value >> 24) & 0xff, (value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff])
+
+
+cdef _quic_get_salt_impl(bytes pkt_bytes):
+    """Internal implementation that calls the C function."""
+    cdef const uint8_t* pkt_ptr = pkt_bytes
+    cdef size_t pkt_len = len(pkt_bytes)
+    cdef const char* salt = quic_trial_decrypt_get_salt(pkt_ptr, pkt_len)
+    if salt != NULL:
+        return salt.decode('utf-8')
+    return None
+
+
+def quic_get_salt_from_bytes(bytes raw_packet):
+    """
+    Attempt trial decryption on raw QUIC Initial packet bytes and return
+    the salt name that successfully decrypted it.
+
+    :param raw_packet: Raw QUIC packet bytes (UDP payload)
+    :type raw_packet: bytes
+    :return: salt name string if decryption succeeded, None otherwise
+    :rtype: str or None
+
+    WARNING: This function is NOT thread-safe. Only use in single-threaded contexts.
+    """
+    if len(raw_packet) < 1200:
+        # Pad to minimum QUIC Initial packet length
+        raw_packet = raw_packet + b'\x00' * (1200 - len(raw_packet))
+    return _quic_get_salt_impl(raw_packet)
+
+
+def quic_get_salt(dict quic_data):
+    """
+    Attempt trial decryption on a QUIC Initial packet and return the salt
+    name that successfully decrypted it.
+
+    The input should be a dictionary with the following keys representing
+    the QUIC Initial packet fields:
+        - connection_info: 8-bit binary string (e.g., "11001011")
+        - version: 4-byte version as hex (e.g., "00000001")
+        - dcid: destination connection ID (variable length hex)
+        - scid: source connection ID (variable length hex, can be empty "")
+        - token: token (variable length hex, can be empty "")
+        - data: packet payload including length prefix (hex string)
+
+    Example input:
+        {
+            "connection_info": "11001011",
+            "version": "00000001",
+            "dcid": "0abc3242215cdc53",
+            "scid": "",
+            "token": "",
+            "data": "ad59b9729e5b6da5..."
+        }
+
+    :param quic_data: QUIC packet data as a dictionary
+    :type quic_data: dict
+    :return: salt name string if decryption succeeded, None otherwise
+    :rtype: str or None
+
+    WARNING: This function is NOT thread-safe. Only use in single-threaded contexts.
+    """
+    try:
+        # Extract fields from the dictionary
+        conn_info_str = quic_data.get('connection_info', '')
+        # Handle both binary string format ("11001011") and hex format ("cb")
+        if len(conn_info_str) == 8 and all(c in '01' for c in conn_info_str):
+            connection_info = bytes([int(conn_info_str, 2)])
+        else:
+            connection_info = bytes.fromhex(conn_info_str)
+
+        version = bytes.fromhex(quic_data.get('version', ''))
+        dcid = bytes.fromhex(quic_data.get('dcid', ''))
+        scid = bytes.fromhex(quic_data.get('scid', ''))
+        token = bytes.fromhex(quic_data.get('token', ''))
+        # data field contains the remaining packet data (length prefix + payload)
+        data = bytes.fromhex(quic_data.get('data', ''))
+
+        if len(connection_info) != 1 or len(version) != 4:
+            return None
+
+        # Determine packet type from connection_info
+        # Long Packet Type is bits 4-5: 00=Initial, 01=0-RTT, 10=Handshake, 11=Retry
+        pkt_type = (connection_info[0] >> 4) & 0x03
+
+        # Build the raw QUIC packet bytes
+        # Format: connection_info(1) + version(4) + dcid_len(1) + dcid + scid_len(1) + scid
+        #         + [token_len(varint) + token] (only for Initial) + data (length prefix + payload)
+        raw_packet = bytearray()
+        raw_packet.extend(connection_info)
+        raw_packet.extend(version)
+        raw_packet.append(len(dcid))
+        raw_packet.extend(dcid)
+        raw_packet.append(len(scid))
+        raw_packet.extend(scid)
+
+        # Only Initial packets (type 0) have a token field
+        if pkt_type == 0:
+            raw_packet.extend(_encode_varint(len(token)))
+            raw_packet.extend(token)
+
+        # data already includes the length prefix and payload
+        raw_packet.extend(data)
+
+        # Pad to minimum length if needed (QUIC Initial packets must be >= 1200 bytes)
+        if len(raw_packet) < 1200:
+            raw_packet.extend(b'\x00' * (1200 - len(raw_packet)))
+
+        return _quic_get_salt_impl(bytes(raw_packet))
+    except Exception as e:
+        print(f'quic_get_salt error: {e}')
+        return None

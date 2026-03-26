@@ -888,6 +888,10 @@ public:
         record.print_key_string("salt_string", salt_str);
     }
 
+    const char *get_salt_str() const {
+        return salt_str;
+    }
+
 private:
 
     //bool process_initial_packet(data_buffer<1024> &aad, const quic_initial_packet &quic_pkt, const uint8_t* salt) {
@@ -1739,5 +1743,33 @@ namespace {
     }
 
 }; //end of namespace
+
+/// Attempt trial decryption on raw QUIC Initial packet bytes and return
+/// the salt name that successfully decrypted the packet.
+///
+/// @param data pointer to raw QUIC Initial packet bytes (starting from connection_info byte)
+/// @param len  length of the packet data
+/// @return     salt name string if decryption succeeded, nullptr otherwise
+///
+/// WARNING: This function is NOT thread-safe because it mutates the
+/// process-wide quic_parameters singleton on successful decryption.
+/// Only use in single-threaded contexts.
+///
+inline const char *quic_trial_decrypt_get_salt(const uint8_t *data, size_t len) {
+    if (data == nullptr || len == 0) {
+        return nullptr;
+    }
+    datum d{data, data + len};
+    quic_crypto_engine crypto{true};  // enable trial decryption
+    quic_initial_packet pkt{d};
+    if (!pkt.is_not_empty()) {
+        return nullptr;
+    }
+    datum plaintext = crypto.decrypt(pkt);
+    if (plaintext.is_not_empty()) {
+        return crypto.get_salt_str();
+    }
+    return nullptr;
+}
 
 #endif /* QUIC_H */
