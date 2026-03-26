@@ -1034,7 +1034,13 @@ cdef extern from "../libmerc/quic.h":
 
 
 def _encode_varint(value):
-    """Encode a value as a QUIC variable-length integer."""
+    """Encode a value as a QUIC variable-length integer.
+    
+    QUIC varints are valid for values in range [0, 2^62 - 1].
+    Raises ValueError if value is out of range.
+    """
+    if value < 0 or value >= (1 << 62):
+        raise ValueError(f"QUIC varint value out of range: {value} (must be 0 <= value < 2^62)")
     if value < 0x40:
         return bytes([value])
     elif value < 0x4000:
@@ -1128,6 +1134,12 @@ def quic_get_salt(dict quic_data):
         # Long Packet Type is bits 4-5: 00=Initial, 01=0-RTT, 10=Handshake, 11=Retry
         pkt_type = (connection_info[0] >> 4) & 0x03
 
+        # Validate that this is a long-header packet (Initial or 0-RTT).
+        # Header Form bit (0x80) must be set for long headers.
+        # Only Initial (0) and 0-RTT (1) packets can be trial-decrypted.
+        if (connection_info[0] & 0x80) == 0 or pkt_type > 1:
+            return None
+
         # Build the raw QUIC packet bytes
         # Format: connection_info(1) + version(4) + dcid_len(1) + dcid + scid_len(1) + scid
         #         + [token_len(varint) + token] (only for Initial) + data (length prefix + payload)
@@ -1139,7 +1151,7 @@ def quic_get_salt(dict quic_data):
         raw_packet.append(len(scid))
         raw_packet.extend(scid)
 
-        # Only Initial packets (type 0) have a token field
+        # Only Initial packets (type 0) have a token field; 0-RTT packets do not
         if pkt_type == 0:
             raw_packet.extend(_encode_varint(len(token)))
             raw_packet.extend(token)
