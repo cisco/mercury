@@ -766,7 +766,7 @@ int main(int argc, char *argv[]) {
         libmerc_cfg.packet_filter_cfg = (char *)additional_args.c_str();
     }
 
-    if (strstr(libmerc_cfg.packet_filter_cfg, "quic-trial-decryption") && cfg.num_threads > 1) {
+    if (strstr(libmerc_cfg.packet_filter_cfg, "quic-trial-decryption") && (cfg.num_threads == -1 || cfg.num_threads > 1)) {
         usage(argv[0], "option quic-trial-decryption requires single-threaded operation (--threads 1)", extended_help_off);
     }
 
