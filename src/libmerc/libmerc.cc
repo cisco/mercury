@@ -342,7 +342,7 @@ mercury_packet_processor mercury_packet_processor_construct(mercury_context mc) 
         if (mc->global_vars.quic_trial_decryption) {
             int expected = 0;
             if (!mc->packet_processor_count.compare_exchange_strong(expected, 1)) {
-                printf_err(log_err, "error: quic_trial_decryption cannot be used with multiple packet processor instances\n");
+                printf_err(log_err, "error: quic-trial-decryption cannot be used with multiple packet processor instances\n");
                 return NULL;
             }
         }

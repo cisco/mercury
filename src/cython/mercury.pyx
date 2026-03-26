@@ -1035,7 +1035,7 @@ cdef extern from "../libmerc/quic.h":
 
 def _encode_varint(value):
     """Encode a value as a QUIC variable-length integer.
-    
+
     QUIC varints are valid for values in range [0, 2^62 - 1].
     Raises ValueError if value is out of range.
     """
@@ -1086,8 +1086,7 @@ def quic_get_salt(dict quic_data):
     name that successfully decrypted it.
 
     Only Initial packets (Long Header type 0) are supported. Other packet
-    types (0-RTT, Handshake, Retry) will return None because:
-
+    types (0-RTT, Handshake, Retry) will return None.
 
     The input should be a dictionary with the following keys representing
     the QUIC Initial packet fields:
