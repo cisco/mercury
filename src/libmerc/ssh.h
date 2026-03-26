@@ -489,8 +489,7 @@ struct ssh_init_packet : public base_protocol {
         if (!kex_pkt.is_not_empty()) {
             return false;
         }
-        if (analysis_.fp.get_type() == fingerprint_type_ssh_server ||
-            analysis_.fp.get_type() == fingerprint_type_ssh_init_server) {
+        if (direction == flow_direction::server) {
             return false;
         }
         if (c_ == nullptr) {

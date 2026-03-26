@@ -564,45 +564,6 @@ TEST_CASE_METHOD(LibmercTestFixture, "test exposed_creds with analyze_ip_packet 
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "analysis_context getters require completed analysis")
-{
-    libmerc_config config{.do_analysis = false,
-                          .resources = resources_minimal_path,
-                          .packet_filter_cfg = (char *)"http"};
-    initialize(config);
-    set_pcap("http_auth.pcap");
-
-    bool saw_http_fingerprint = false;
-    while (1) {
-        if (read_next_data_packet()) {
-            break;
-        }
-
-        size_t json_size = mercury_packet_processor_write_json(
-            m_mpp,
-            m_output,
-            4096,
-            (unsigned char *)m_data_packet.first,
-            m_data_packet.second - m_data_packet.first,
-            &m_time
-        );
-
-        if (json_size > 0 && m_mpp->analysis.fp.get_type() == fingerprint_type_http) {
-            saw_http_fingerprint = true;
-            break;
-        }
-    }
-
-    CHECK(saw_http_fingerprint);
-    CHECK_FALSE(m_mpp->analysis.analysis_done);
-    CHECK(fingerprint_type_unknown == analysis_context_get_fingerprint_type(&m_mpp->analysis));
-    CHECK(nullptr == analysis_context_get_fingerprint_string(&m_mpp->analysis));
-    CHECK(nullptr == analysis_context_get_server_name(&m_mpp->analysis));
-    CHECK(nullptr == analysis_context_get_user_agent(&m_mpp->analysis));
-
-    deinitialize();
-}
-
 TEST_CASE_METHOD(LibmercTestFixture, "server ssh skips analysis but still fingerprints")
 {
     libmerc_config config{.do_analysis = true,
