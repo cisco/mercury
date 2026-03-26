@@ -157,11 +157,15 @@ public:
         fp.final();
     }
 
-    bool do_analysis([[maybe_unused]] const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
+    void populate_analysis_context([[maybe_unused]] const struct key &k_, struct analysis_context &analysis_) {
         analysis_.destination.init_tofsee({nullptr,nullptr}, ipv4, {nullptr, nullptr}, k_);
+    }
+
+    bool do_analysis([[maybe_unused]] const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
         if (c_ == nullptr) {
             return false;
         }
+        analysis_.analysis_done = true;
         return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
     }
 

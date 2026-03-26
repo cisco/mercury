@@ -454,6 +454,8 @@ struct tls_client_hello : public base_protocol {
 
     bool is_faketls() const;
 
+    void populate_analysis_context(const struct key &k_, struct analysis_context &analysis_);
+
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c);
 
     bool do_network_behavioral_detections(const struct key &k_, struct analysis_context &analysis_, classifier *c, const struct common_data &nbd_common);
@@ -1974,18 +1976,11 @@ inline bool tls_client_hello::is_faketls() const {
 }
 
 
-inline bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
-    datum sn;
-    datum ua;
-    datum alpn;
-
-    extensions.set_meta_data(sn, ua, alpn);
-
-    analysis_.destination.init(sn, ua, alpn, k_);
+inline bool tls_client_hello::do_analysis([[maybe_unused]] const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
     if (c_ == nullptr) {
             return false;
     }
-
+    analysis_.analysis_done = true;
     bool ret = c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
 
     if (analysis_.result.status == fingerprint_status_randomized) {    // check for faketls on randomized connections only
@@ -1995,6 +1990,16 @@ inline bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_
     }
 
     return ret;
+}
+
+inline void tls_client_hello::populate_analysis_context(const struct key &k_, struct analysis_context &analysis_) {
+    datum sn;
+    datum ua;
+    datum alpn;
+
+    extensions.set_meta_data(sn, ua, alpn);
+
+    analysis_.destination.init(sn, ua, alpn, k_);
 }
 
 

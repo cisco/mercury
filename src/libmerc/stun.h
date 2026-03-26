@@ -1015,8 +1015,7 @@ namespace stun {
         // request format: dst_addr, dst_port
         // response format: src_addr, src_port
 
-        bool do_analysis(const struct key &flow_key, struct analysis_context &ac, classifier* c) {
-
+        void populate_analysis_context(const struct key &flow_key, struct analysis_context &ac) {
             // create a json-friendly utf8 copy of the SOFTWARE atribute's value field
             //
             utf8_safe_string<MAX_USER_AGENT_LEN> utf8_software{software};
@@ -1026,10 +1025,13 @@ namespace stun {
                                 {nullptr,nullptr},         // alpn
                                 flow_key                   // flow key, used for dst_addr and dst_port
                                 );
+        }
 
+        bool do_analysis([[maybe_unused]] const struct key &flow_key, struct analysis_context &ac, classifier* c) {
             if (c == nullptr) {
                 return false;
             }
+            ac.analysis_done = true;
             return c->analyze_fingerprint_and_destination_context(ac.fp, ac.destination, ac.result);
         }
 

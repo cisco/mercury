@@ -568,13 +568,17 @@ struct datum http_response::get_header(const char *header_name) {
     return(headers.get_header(resp_hdrs.index(header_name)));
 }
 
-bool http_request::do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
+bool http_request::do_analysis([[maybe_unused]] const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
+    if (c_ == nullptr) {
+        return false;
+    }
+    analysis_.analysis_done = true;
+    return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+}
+
+void http_request::populate_analysis_context(const struct key &k_, struct analysis_context &analysis_) {
     struct datum host_data = get_header("host");
     struct datum user_agent_data = get_header("user-agent");
 
     analysis_.destination.init(host_data, user_agent_data, {nullptr, nullptr}, k_);
-    if (c_ == nullptr) {
-        return false;
-    }
-    return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
 }

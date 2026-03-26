@@ -412,6 +412,8 @@ struct http_request : public base_protocol {
 
     void compute_fingerprint(class fingerprint &fp);
 
+    void populate_analysis_context(const struct key &k_, struct analysis_context &analysis_);
+
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c);
 
     exposed_creds_type check_credential_exposure() const {

@@ -382,9 +382,10 @@ struct analysis_context {
     fingerprint fp;
     struct destination_context destination;
     struct analysis_result result;
+    bool analysis_done;
     bool flow_state_pkts_needed;
 
-    analysis_context() : fp{}, destination{}, result{}, flow_state_pkts_needed{false} {}
+    analysis_context() : fp{}, destination{}, result{}, analysis_done{false}, flow_state_pkts_needed{false} {}
     // could add structs needed for 'scratchwork'
 
     const char *get_server_name() const {
@@ -422,6 +423,7 @@ struct analysis_context {
         fp.init();
         destination.reset();
         result.reinit();
+        analysis_done = false;
         flow_state_pkts_needed = false;
     }
 };

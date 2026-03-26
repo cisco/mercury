@@ -30,6 +30,8 @@ public:
 
     void compute_fingerprint(fingerprint &) const { }
 
+    void populate_analysis_context(const struct key &, struct analysis_context &) { }
+
     bool do_analysis(const struct key &, struct analysis_context &, classifier*) { return false; }
 
     void write_l7_metadata(cbor_object &, bool) { }

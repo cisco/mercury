@@ -544,7 +544,7 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
                 return;
             }
         }
-        x.emplace<ssh_init_packet>(pkt);
+        x.emplace<ssh_init_packet>(pkt, tcp_pkt ? tcp_pkt->get_direction_from_ports() : flow_direction::unknown);
         {
             uint32_t more_bytes = std::get<ssh_init_packet>(x).more_bytes_needed();
             if (tcp_pkt && more_bytes) {
@@ -567,7 +567,7 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
             else {
                 tcp_pkt->set_supplementary_reassembly();
             }
-            x.emplace<ssh_kex_init>(ssh_pkt);
+            x.emplace<ssh_kex_init>(ssh_pkt, tcp_pkt ? tcp_pkt->get_direction_from_ports() : flow_direction::unknown);
             return;
         }
     case tcp_msg_type_smtp_server:
@@ -1295,6 +1295,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     //
     if (std::visit(is_not_empty{}, x)) {
         std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
+        std::visit(populate_analysis_context{k, analysis}, x);
         bool output_analysis = false;
         bool output_attr = false;
         bool truncated_tls = (truncated_tcp &&
@@ -1305,18 +1306,13 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
 
             output_analysis = std::visit(do_analysis{k, analysis, c}, x);
 
-            // note: we only perform observations when analysis is
-            // configured, because we rely on do_analysis to set the
-
             // check for additional classifier agnostic attributes like encrypted dns and domain-faking
             //
             output_attr = (c && c->check_additional_attributes(analysis)) ? true : output_attr; // set to true only if any additional attribute is set, else keep the previous value
 
-            // analysis_.destination
-            //
-            if (mq) {
-                std::visit(do_observation{k, analysis, mq}, x);
-            }
+        }
+        if (mq && analysis.fp.get_type() != fingerprint_type_unknown) {
+            std::visit(do_observation{k, analysis, mq}, x);
         }
         if (global_vars.do_analysis && mq) {
             if (ip_pkt.src_is_private()) {
@@ -1540,6 +1536,7 @@ inline bool is_fdc_writable(fingerprint_type fp_type) {
     case fingerprint_type_tofsee:
     case fingerprint_type_stun:
     case fingerprint_type_ssh:
+    case fingerprint_type_ssh_server:
     case fingerprint_type_http_server:
     case fingerprint_type_tls_server:
     case fingerprint_type_dtls:
@@ -1661,6 +1658,7 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         return fdc_return::FDC_NO_DATA;
     }
 
+    std::visit(populate_analysis_context{k_, analysis}, x);
     std::visit(do_analysis{k_, analysis, c}, x);
 
     if (context != nullptr and analysis.result.is_valid()) {
@@ -1848,6 +1846,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             std::visit(do_snmp_oid_observation{k, mq}, x);
         }
         std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
+        std::visit(populate_analysis_context{k, analysis}, x);
         if (global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
 
             bool output_analysis = std::visit(do_analysis{k, analysis, c}, x);
@@ -1869,14 +1868,6 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             bool output_nbd = false;
             if (global_vars.network_behavioral_detections) {
                 output_nbd = std::visit(do_network_behavioral_detections{k, analysis, c, attribute_common_data}, x);
-            }
-
-            // note: we only perform observations when analysis is
-            // configured, because we rely on do_analysis to set the
-            // analysis_.destination
-            //
-            if (mq) {
-                std::visit(do_observation{k, analysis, mq}, x);
             }
 
             if (reassembler) {
@@ -1910,6 +1901,9 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             if (exposed_creds) {
                 exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
                 output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
+            }
+            if (mq && analysis.fp.get_type() != fingerprint_type_unknown) {
+                std::visit(do_observation{k, analysis, mq}, x);
             }
             return output_nbd || output_attr;
         }

@@ -252,35 +252,35 @@ try {
 }
 
 enum fingerprint_status analysis_context_get_fingerprint_status(const struct analysis_context *ac) {
-    if (ac) {
+    if (ac && ac->analysis_done) {
         return ac->result.status;
     }
     return fingerprint_status_no_info_available;
 }
 
 enum fingerprint_type analysis_context_get_fingerprint_type(const struct analysis_context *ac) {
-    if (ac) {
+    if (ac && ac->analysis_done) {
         return ac->fp.get_type();
     }
     return fingerprint_type_unknown;
 }
 
 const char *analysis_context_get_fingerprint_string(const struct analysis_context *ac) {
-    if (ac) {
+    if (ac && ac->analysis_done) {
         return ac->fp.string();
     }
     return NULL;
 }
 
 const char *analysis_context_get_server_name(const struct analysis_context *ac) {
-    if (ac) {
+    if (ac && ac->analysis_done) {
         return ac->get_server_name();
     }
     return NULL;
 }
 
 const char *analysis_context_get_user_agent(const struct analysis_context *ac) {
-    if (ac) {
+    if (ac && ac->analysis_done) {
         return ac->get_user_agent();
     }
     return NULL;
@@ -290,7 +290,7 @@ bool analysis_context_get_alpns(const struct analysis_context *ac, // input
                                 const uint8_t **alpn,              // output
                                 size_t *alpn_length                // output
                                 ) {
-    if (ac) {
+    if (ac && ac->analysis_done) {
         return ac->get_alpns(alpn, alpn_length);
     }
 
@@ -301,7 +301,7 @@ bool analysis_context_get_process_info(const struct analysis_context *ac, // inp
                                        const char **probable_process,     // output
                                        double *probability_score          // output
                                        ) {
-    if (ac) {
+    if (ac && ac->analysis_done) {
         return ac->result.get_process_info(probable_process, probability_score);
     }
     return false;
@@ -312,7 +312,7 @@ bool analysis_context_get_malware_info(const struct analysis_context *ac, // inp
                                        double *probability_malware        // output
                                        ) {
 
-    if (ac) {
+    if (ac && ac->analysis_done) {
         return ac->result.get_malware_info(probable_process_is_malware, probability_malware);
     }
     return false;
@@ -323,7 +323,7 @@ bool analysis_context_get_os_info(const struct analysis_context *ac, // input
                                   size_t *os_info_len                // output
                                   ) {
 
-    if (ac) {
+    if (ac && ac->analysis_done) {
         return ac->result.get_os_info(os_info, os_info_len);
     }
     return false;
