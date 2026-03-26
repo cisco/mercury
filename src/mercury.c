@@ -753,9 +753,6 @@ int main(int argc, char *argv[]) {
         cfg.output_block = true;      // use blocking output, so that no packets are lost in copying
         additional_args.append("stats-blocking;"); // use blocking stats to avoid losing stats events
     }
-    if (additional_args.find("quic-trial-decryption") != std::string::npos && cfg.num_threads > 1) {
-        usage(argv[0], "option quic-trial-decryption requires single-threaded operation (--threads 1)", extended_help_off);
-    }
 
     // setup extended config options
     //
@@ -767,6 +764,10 @@ int main(int argc, char *argv[]) {
     }
     if (!using_config_file || (using_config_file && libmerc_cfg.packet_filter_cfg == nullptr)) {
         libmerc_cfg.packet_filter_cfg = (char *)additional_args.c_str();
+    }
+
+    if (strstr(libmerc_cfg.packet_filter_cfg, "quic-trial-decryption") && cfg.num_threads > 1) {
+        usage(argv[0], "option quic-trial-decryption requires single-threaded operation (--threads 1)", extended_help_off);
     }
 
     mercury_context mc = mercury_init(&libmerc_cfg, cfg.verbosity);
