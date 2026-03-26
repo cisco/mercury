@@ -1295,7 +1295,6 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     //
     if (std::visit(is_not_empty{}, x)) {
         std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
-        std::visit(populate_analysis_context{k, analysis}, x);
         bool output_analysis = false;
         bool output_attr = false;
         bool truncated_tls = (truncated_tcp &&
@@ -1311,7 +1310,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             output_attr = (c && c->check_additional_attributes(analysis)) ? true : output_attr; // set to true only if any additional attribute is set, else keep the previous value
 
         }
-        if (mq && analysis.fp.get_type() != fingerprint_type_unknown) {
+        if (mq && global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
             std::visit(do_observation{k, analysis, mq}, x);
         }
         if (global_vars.do_analysis && mq) {
@@ -1658,7 +1657,6 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         return fdc_return::FDC_NO_DATA;
     }
 
-    std::visit(populate_analysis_context{k_, analysis}, x);
     std::visit(do_analysis{k_, analysis, c}, x);
 
     if (context != nullptr and analysis.result.is_valid()) {
@@ -1846,7 +1844,6 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             std::visit(do_snmp_oid_observation{k, mq}, x);
         }
         std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
-        std::visit(populate_analysis_context{k, analysis}, x);
         if (global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
 
             bool output_analysis = std::visit(do_analysis{k, analysis, c}, x);
@@ -1902,7 +1899,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
                 exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
                 output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
             }
-            if (mq && analysis.fp.get_type() != fingerprint_type_unknown) {
+            if (mq && global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
                 std::visit(do_observation{k, analysis, mq}, x);
             }
             return output_nbd || output_attr;

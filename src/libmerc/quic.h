@@ -1437,17 +1437,14 @@ public:
         }
     }
 
-    void populate_analysis_context(const struct key &k_, struct analysis_context &analysis_) {
+    bool do_analysis([[maybe_unused]] const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
         struct datum sn{NULL, NULL};
         struct datum user_agent {NULL, NULL};
         datum alpn;
 
         hello.extensions.set_meta_data(sn, user_agent, alpn);
-
         analysis_.destination.init(sn, user_agent, alpn, k_);
-    }
 
-    bool do_analysis([[maybe_unused]] const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
         if (c_ == nullptr) {
             return false;
         }
@@ -1694,21 +1691,6 @@ public:
             fp.add(hello, format_version);
             fp.final();
         }
-    }
-
-    void populate_analysis_context(const struct key &k_, struct analysis_context &analysis_) {
-        if (pre_decrypted) {
-            decry_pkt.populate_analysis_context(k_, analysis_);
-            return;
-        }
-
-        struct datum sn{NULL, NULL};
-        struct datum user_agent {NULL, NULL};
-        datum alpn;
-
-        hello.extensions.set_meta_data(sn, user_agent, alpn);
-
-        analysis_.destination.init(sn, user_agent, alpn, k_);
     }
 
     bool do_analysis([[maybe_unused]] const struct key &k_, struct analysis_context &analysis_, classifier *c_) {

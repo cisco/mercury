@@ -406,24 +406,6 @@ struct do_analysis {
 
 };
 
-struct populate_analysis_context {
-    const struct key &k_;
-    struct analysis_context &analysis_;
-
-    populate_analysis_context(const struct key &k,
-                              struct analysis_context &analysis) :
-        k_{k},
-        analysis_{analysis}
-    {}
-
-    template <typename T>
-    void operator()(T &msg) {
-        msg.populate_analysis_context(k_, analysis_);
-    }
-
-    void operator()(std::monostate &) { }
-};
-
 struct do_network_behavioral_detections {
     const struct key &k_;
     struct analysis_context &analysis_;

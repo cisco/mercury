@@ -478,10 +478,19 @@ struct ssh_init_packet : public base_protocol {
     };
 
     bool do_analysis([[maybe_unused]] const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
+        // concatenate protocol and comment strings for analysis/observation
+        datum tmp_protocol_str = protocol_string;
+        datum tmp_comment_str = comment_string;
+        user_agent.parse(tmp_protocol_str);
+        user_agent.parse(tmp_comment_str);
+
+        analysis_.destination.init({nullptr, nullptr}, user_agent.contents(), {nullptr, nullptr}, k_);
+
         if (!kex_pkt.is_not_empty()) {
             return false;
         }
-        if (analysis_.fp.get_type() == fingerprint_type_ssh_server) {
+        if (analysis_.fp.get_type() == fingerprint_type_ssh_server ||
+            analysis_.fp.get_type() == fingerprint_type_ssh_init_server) {
             return false;
         }
         if (c_ == nullptr) {
@@ -489,16 +498,6 @@ struct ssh_init_packet : public base_protocol {
         }
         analysis_.analysis_done = true;
         return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
-    }
-
-    void populate_analysis_context(const struct key &k_, struct analysis_context &analysis_) {
-        // concatenate protocol and comment strings for analysis
-        datum tmp_protocol_str = protocol_string;
-        datum tmp_comment_str = comment_string;
-        user_agent.parse(tmp_protocol_str);
-        user_agent.parse(tmp_comment_str);
-
-        analysis_.destination.init({nullptr, nullptr}, user_agent.contents(), {nullptr, nullptr}, k_);
     }
 
 };

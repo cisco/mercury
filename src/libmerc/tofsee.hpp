@@ -157,11 +157,9 @@ public:
         fp.final();
     }
 
-    void populate_analysis_context([[maybe_unused]] const struct key &k_, struct analysis_context &analysis_) {
-        analysis_.destination.init_tofsee({nullptr,nullptr}, ipv4, {nullptr, nullptr}, k_);
-    }
-
     bool do_analysis([[maybe_unused]] const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
+        analysis_.destination.init_tofsee({nullptr,nullptr}, ipv4, {nullptr, nullptr}, k_);
+
         if (c_ == nullptr) {
             return false;
         }
