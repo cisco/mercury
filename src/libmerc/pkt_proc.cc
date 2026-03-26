@@ -1650,9 +1650,7 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         }
     }
 
-    analysis.result.reinit();
-    analysis.destination.reset();
-    analysis.fp.init();
+    analysis.reinit();
 
     if (std::visit(is_not_empty{}, x)) {
         std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
