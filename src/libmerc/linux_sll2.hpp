@@ -53,8 +53,12 @@ public:
         arphrd_type{d},
         packet_type{d},
         address_length{d},
-        link_layer_address{d, 6}, // the length of the link layer address is always 6 bytes as it contains the MAC address
+        link_layer_address{d, 6}, 
         unused{d, 2}
+        // The SLL2 header reserves 8 bytes for a link-layer address.
+        // For Ethernet packets, the meaningful portion is the 6-byte MAC
+        // address and the remaining 2 bytes are padding. For loopback,
+        // this field does not carry a meaningful hardware address.
     { }
 
     /// reads and skips over a linux_sll2 encapsulation header in

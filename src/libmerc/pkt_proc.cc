@@ -1516,6 +1516,10 @@ size_t stateful_pkt_proc::write_json(void *buffer,
         break;
     }
 
+    if (pkt.is_null()) {
+        return 0;   // decapsulation rejected a non-IP payload
+    }
+
     return ip_write_json(buffer,
                          buffer_size,
                          pkt.data,
