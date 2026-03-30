@@ -1151,6 +1151,7 @@ public:
         return perform_analysis_common(fp_str, perform_analysis_fn);
     }
 
+private:
     bool analyze_fingerprint_and_destination_context(const fingerprint &fp,
                                                      const destination_context &dc,
                                                      analysis_result &result
@@ -1178,6 +1179,7 @@ public:
         return true;
     }
 
+public:
     bool analyze_fingerprint_and_destination_context(analysis_context &analysis) {
         analysis.analysis_done = true;
         return analyze_fingerprint_and_destination_context(analysis.fp, analysis.destination, analysis.result);
