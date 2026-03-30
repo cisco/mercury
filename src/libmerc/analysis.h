@@ -451,18 +451,8 @@ public:
             return fingerprint_type_stun;
         } else if (s == "tofsee") {
             return fingerprint_type_tofsee;
-        } else if (s == "ssh_server") {
-            return fingerprint_type_ssh_server;
-        } else if (s == "ssh_kex_server") {
-            return fingerprint_type_ssh_kex_server;
-        } else if (s == "ssh_init_server") {
-            return fingerprint_type_ssh_init_server;
         } else if (s == "ssh") {
             return fingerprint_type_ssh;
-        } else if (s == "ssh_kex") {
-            return fingerprint_type_ssh_kex;
-        } else if (s == "ssh_init") {
-            return fingerprint_type_ssh_init;
         }
         return fingerprint_type_unknown;
     }
@@ -521,18 +511,8 @@ public:
                     type = fingerprint_type_stun;
                 } else if (s.compare(0, idx, "tofsee") == 0) {
                     type = fingerprint_type_tofsee;
-                } else if (s.compare(0, idx, "ssh_server") == 0) {
-                    type = fingerprint_type_ssh_server;
-                } else if (s.compare(0, idx, "ssh_kex_server") == 0) {
-                    type = fingerprint_type_ssh_kex_server;
-                } else if (s.compare(0, idx, "ssh_init_server") == 0) {
-                    type = fingerprint_type_ssh_init_server;
                 } else if (s.compare(0, idx, "ssh") == 0) {
                     type = fingerprint_type_ssh;
-                } else if (s.compare(0, idx, "ssh_kex") == 0) {
-                    type = fingerprint_type_ssh_kex;
-                } else if (s.compare(0, idx, "ssh_init") == 0) {
-                    type = fingerprint_type_ssh_init;
                 }
                 std::string version_and_tail{s.substr(idx+1)};
 
