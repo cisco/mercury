@@ -1985,8 +1985,7 @@ inline bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_
     if (c_ == nullptr) {
             return false;
     }
-    analysis_.analysis_done = true;
-    bool ret = c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+    bool ret = c_->analyze_fingerprint_and_destination_context(analysis_);
 
     if (analysis_.result.status == fingerprint_status_randomized) {    // check for faketls on randomized connections only
         if (is_faketls()) {

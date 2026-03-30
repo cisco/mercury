@@ -1029,8 +1029,7 @@ namespace stun {
             if (c == nullptr) {
                 return false;
             }
-            ac.analysis_done = true;
-            return c->analyze_fingerprint_and_destination_context(ac.fp, ac.destination, ac.result);
+            return c->analyze_fingerprint_and_destination_context(ac);
         }
 
     };

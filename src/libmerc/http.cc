@@ -577,6 +577,5 @@ bool http_request::do_analysis(const struct key &k_, struct analysis_context &an
     if (c_ == nullptr) {
         return false;
     }
-    analysis_.analysis_done = true;
-    return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+    return c_->analyze_fingerprint_and_destination_context(analysis_);
 }

@@ -1178,6 +1178,11 @@ public:
         return true;
     }
 
+    bool analyze_fingerprint_and_destination_context(analysis_context &analysis) {
+        analysis.analysis_done = true;
+        return analyze_fingerprint_and_destination_context(analysis.fp, analysis.destination, analysis.result);
+    }
+
     const char *get_resource_version() {
         return resource_version.c_str();
     }

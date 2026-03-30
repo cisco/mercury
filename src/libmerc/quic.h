@@ -1449,8 +1449,7 @@ public:
             return false;
         }
 
-        analysis_.analysis_done = true;
-        bool ret = c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+        bool ret = c_->analyze_fingerprint_and_destination_context(analysis_);
 
         // QUIC FakeTLS detection - re-enable when suffcient data is available
         //
@@ -1709,8 +1708,7 @@ public:
             return false;
         }
 
-        analysis_.analysis_done = true;
-        bool ret = c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+        bool ret = c_->analyze_fingerprint_and_destination_context(analysis_);
 
         // QUIC FakeTLS detection - re-enable when suffcient data is available
         //

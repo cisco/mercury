@@ -495,8 +495,7 @@ struct ssh_init_packet : public base_protocol {
         if (c_ == nullptr) {
             return false;
         }
-        analysis_.analysis_done = true;
-        return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+        return c_->analyze_fingerprint_and_destination_context(analysis_);
     }
 
 };
