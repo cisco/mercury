@@ -1088,18 +1088,13 @@ def quic_get_salt(dict quic_data):
     Only Initial packets (Long Header type 0) are supported. Other packet
     types (0-RTT, Handshake, Retry) will return None.
 
-    The input should be a dictionary with the following keys representing
-    the QUIC Initial packet fields:
-        - connection_info: 8-bit binary string (e.g., "11000000") where bits 4-5 must be 00 (Initial)
-        - version: 4-byte version as hex (e.g., "00000001")
-        - dcid: destination connection ID (variable length hex)
-        - scid: source connection ID (variable length hex, can be empty "")
-        - token: token (variable length hex, can be empty "")
-        - data: packet payload including length prefix (hex string)
+    IMPORTANT: The 'raw_packet_data' field containing the original packet bytes is
+    required. 
 
     Example input:
         {
-            "connection_info": "11000000",
+            "raw_packet_data": "c000000108...",  # Full original packet hex (required)
+            "connection_info": "11001011",
             "version": "00000001",
             "dcid": "0abc3242215cdc53",
             "scid": "",
@@ -1107,7 +1102,7 @@ def quic_get_salt(dict quic_data):
             "data": "ad59b9729e5b6da5..."
         }
 
-    :param quic_data: QUIC Initial packet data as a dictionary
+    :param quic_data: QUIC Initial packet data as a dictionary with 'raw_packet_data' field
     :type quic_data: dict
     :return: salt name string if decryption succeeded, None if failed or not an Initial packet
     :rtype: str or None
@@ -1115,55 +1110,29 @@ def quic_get_salt(dict quic_data):
     WARNING: This function is NOT thread-safe. Only use in single-threaded contexts.
     """
     try:
-        # Extract fields from the dictionary
-        conn_info_str = quic_data.get('connection_info', '')
-        # Handle both binary string format ("11001011") and hex format ("cb")
-        if len(conn_info_str) == 8 and all(c in '01' for c in conn_info_str):
-            connection_info = bytes([int(conn_info_str, 2)])
-        else:
-            connection_info = bytes.fromhex(conn_info_str)
-
-        version = bytes.fromhex(quic_data.get('version', ''))
-        dcid = bytes.fromhex(quic_data.get('dcid', ''))
-        scid = bytes.fromhex(quic_data.get('scid', ''))
-        token = bytes.fromhex(quic_data.get('token', ''))
-        # data field contains the remaining packet data (length prefix + payload)
-        data = bytes.fromhex(quic_data.get('data', ''))
-
-        if len(connection_info) != 1 or len(version) != 4:
+        raw_hex = quic_data.get('raw_packet_data', '')
+        if not raw_hex:
+            print('quic_get_salt error: "raw_packet_data" field with original packet bytes is required')
             return None
 
-        # Determine packet type from connection_info
-        # Long Packet Type is bits 4-5: 00=Initial, 01=0-RTT, 10=Handshake, 11=Retry
-        pkt_type = (connection_info[0] >> 4) & 0x03
+        raw_packet = bytes.fromhex(raw_hex)
 
-        # Validate that this is a long-header Initial packet.
-        # Header Form bit (0x80) must be set for long headers, and pkt_type must be 0 (Initial).
-
-        if (connection_info[0] & 0x80) == 0 or pkt_type != 0:
+        if len(raw_packet) < 5:
             return None
 
-        # Build the raw QUIC Initial packet bytes
-        # Format: connection_info(1) + version(4) + dcid_len(1) + dcid + scid_len(1) + scid
-        #         + token_len(varint) + token + data (length prefix + payload)
-        raw_packet = bytearray()
-        raw_packet.extend(connection_info)
-        raw_packet.extend(version)
-        raw_packet.append(len(dcid))
-        raw_packet.extend(dcid)
-        raw_packet.append(len(scid))
-        raw_packet.extend(scid)
-        raw_packet.extend(_encode_varint(len(token)))
-        raw_packet.extend(token)
+        # Validate that this is a long-header Initial packet
+        connection_info = raw_packet[0]
+        pkt_type = (connection_info >> 4) & 0x03
 
-        # data already includes the length prefix and payload
-        raw_packet.extend(data)
+        # Header Form bit (0x80) must be set for long headers, and pkt_type must be 0 (Initial)
+        if (connection_info & 0x80) == 0 or pkt_type != 0:
+            return None
 
         # Pad to minimum length if needed (QUIC Initial packets must be >= 1200 bytes)
         if len(raw_packet) < 1200:
-            raw_packet.extend(b'\x00' * (1200 - len(raw_packet)))
+            raw_packet = raw_packet + b'\x00' * (1200 - len(raw_packet))
 
-        return _quic_get_salt_impl(bytes(raw_packet))
+        return _quic_get_salt_impl(raw_packet)
     except Exception as e:
         print(f'quic_get_salt error: {e}')
         return None
