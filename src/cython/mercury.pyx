@@ -1033,25 +1033,6 @@ cdef extern from "../libmerc/quic.h":
     const char *quic_trial_decrypt_get_salt(const uint8_t *data, size_t len)
 
 
-def _encode_varint(value):
-    """Encode a value as a QUIC variable-length integer.
-
-    QUIC varints are valid for values in range [0, 2^62 - 1].
-    Raises ValueError if value is out of range.
-    """
-    if value < 0 or value >= (1 << 62):
-        raise ValueError(f"QUIC varint value out of range: {value} (must be 0 <= value < 2^62)")
-    if value < 0x40:
-        return bytes([value])
-    elif value < 0x4000:
-        return bytes([(value >> 8) | 0x40, value & 0xff])
-    elif value < 0x40000000:
-        return bytes([(value >> 24) | 0x80, (value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff])
-    else:
-        return bytes([(value >> 56) | 0xc0, (value >> 48) & 0xff, (value >> 40) & 0xff, (value >> 32) & 0xff,
-                      (value >> 24) & 0xff, (value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff])
-
-
 cdef _quic_get_salt_impl(bytes pkt_bytes):
     """Internal implementation that calls the C function."""
     cdef const uint8_t* pkt_ptr = pkt_bytes
@@ -1089,7 +1070,7 @@ def quic_get_salt(dict quic_data):
     types (0-RTT, Handshake, Retry) will return None.
 
     IMPORTANT: The 'raw_packet_data' field containing the original packet bytes is
-    required. 
+    required.
 
     Example input:
         {
@@ -1108,31 +1089,30 @@ def quic_get_salt(dict quic_data):
     :rtype: str or None
 
     WARNING: This function is NOT thread-safe. Only use in single-threaded contexts.
+    :raises ValueError: If 'raw_packet_data' field is missing or empty
     """
+    raw_hex = quic_data.get('raw_packet_data', '')
+    if not raw_hex:
+        raise ValueError("'raw_packet_data' field with original packet bytes is required")
+
     try:
-        raw_hex = quic_data.get('raw_packet_data', '')
-        if not raw_hex:
-            print('quic_get_salt error: "raw_packet_data" field with original packet bytes is required')
-            return None
-
         raw_packet = bytes.fromhex(raw_hex)
+    except ValueError as e:
+        raise ValueError(f"Invalid hex string in 'raw_packet_data': {e}")
 
-        if len(raw_packet) < 5:
-            return None
-
-        # Validate that this is a long-header Initial packet
-        connection_info = raw_packet[0]
-        pkt_type = (connection_info >> 4) & 0x03
-
-        # Header Form bit (0x80) must be set for long headers, and pkt_type must be 0 (Initial)
-        if (connection_info & 0x80) == 0 or pkt_type != 0:
-            return None
-
-        # Pad to minimum length if needed (QUIC Initial packets must be >= 1200 bytes)
-        if len(raw_packet) < 1200:
-            raw_packet = raw_packet + b'\x00' * (1200 - len(raw_packet))
-
-        return _quic_get_salt_impl(raw_packet)
-    except Exception as e:
-        print(f'quic_get_salt error: {e}')
+    if len(raw_packet) < 5:
         return None
+
+    # Validate that this is a long-header Initial packet
+    connection_info = raw_packet[0]
+    pkt_type = (connection_info >> 4) & 0x03
+
+    # Header Form bit (0x80) must be set for long headers, and pkt_type must be 0 (Initial)
+    if (connection_info & 0x80) == 0 or pkt_type != 0:
+        return None
+
+    # Pad to minimum length if needed (QUIC Initial packets must be >= 1200 bytes)
+    if len(raw_packet) < 1200:
+        raw_packet = raw_packet + b'\x00' * (1200 - len(raw_packet))
+
+    return _quic_get_salt_impl(raw_packet)
