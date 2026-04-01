@@ -1662,7 +1662,7 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
 
     std::visit(do_analysis{k_, analysis, c}, x);
 
-    if (context != nullptr and analysis.result.is_valid()) {
+    if (context != nullptr and analysis.analysis_is_valid()) {
         *context = &analysis;
     }
 

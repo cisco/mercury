@@ -573,6 +573,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "server ssh skips analysis but still finger
     set_pcap("ssh_direction_asym.pcap");
 
     bool saw_server_ssh = false;
+    const struct analysis_context *ac = nullptr;
     while (1) {
         if (read_next_data_packet()) {
             break;
@@ -589,15 +590,19 @@ TEST_CASE_METHOD(LibmercTestFixture, "server ssh skips analysis but still finger
 
         if (json_size > 0 && m_mpp->analysis.fp.get_type() == fingerprint_type_ssh_init_server) {
             saw_server_ssh = true;
+            ac = mercury_packet_processor_get_analysis_context(
+                m_mpp,
+                (unsigned char *)m_data_packet.first,
+                m_data_packet.second - m_data_packet.first,
+                &m_time
+            );
             break;
         }
     }
 
     CHECK(saw_server_ssh);
     CHECK_FALSE(m_mpp->analysis.analysis_done);
-    CHECK(fingerprint_type_unknown == analysis_context_get_fingerprint_type(&m_mpp->analysis));
-    CHECK(nullptr == analysis_context_get_fingerprint_string(&m_mpp->analysis));
-    CHECK(nullptr == analysis_context_get_user_agent(&m_mpp->analysis));
+    CHECK(nullptr == ac);
 
     deinitialize();
 }

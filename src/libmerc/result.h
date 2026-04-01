@@ -419,6 +419,10 @@ struct analysis_context {
         return flow_state_pkts_needed;
     }
 
+    bool analysis_is_valid() const {
+        return analysis_done && result.is_valid();
+    }
+
     void reinit() {
         fp.init();
         destination.reset();
