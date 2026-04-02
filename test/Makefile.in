@@ -115,7 +115,7 @@ BGCD_TOUT_FILES = $(BGCD_TEST_FILES:%.bgcd-in=%.bgcd-tout) # test run output
 BGCD_COMP_TARG = $(BGCD_TEST_FILES:%.bgcd-in=%.bgcd-comp)  # comp file never exists
 
 .PHONY: all clean
-all: clean comp analysis cython-test cert-check memcheck json-validity-test stats libmerc_driver # dummy-capture
+all: clean comp analysis cython-test cert-check memcheck json-validity-test stats libmerc_driver auto-detect-capture-test # dummy-capture
 ifeq ($(omitted_test),no)
 	@echo $(COLOR_GREEN) "passed all tests" $(COLOR_OFF)
 else
@@ -302,6 +302,26 @@ endif
 	@echo $(COLOR_GREEN) "passed dummy interface capture test" $(COLOR_OFF)
 else
 	@echo $(COLOR_YELLOW) "omitting dummy-capture test; tcpreplay is unavailable" $(COLOR_OFF)
+endif
+
+.PHONY: auto-detect-capture-test
+auto-detect-capture-test:
+ifeq ($(is_macos),yes)
+	@echo $(COLOR_YELLOW) "omitting auto-detect capture test; capture is unavailable on macOS" $(COLOR_OFF)
+else ifneq ($(shell id -u),0)
+	@echo $(COLOR_YELLOW) "omitting auto-detect capture test; root privileges are required" $(COLOR_OFF)
+else
+	@echo "running auto-detect capture test"
+	rm -f mercury.PID tmp.json auto-detect.stderr
+	bash -c '$(MERCURY) --capture $(DROP_ROOT) -f tmp.json 2> auto-detect.stderr & \
+		pid=$$!; \
+		echo $$pid > mercury.PID; \
+		sleep 2; \
+		kill -INT $$pid || true; \
+		wait $$pid || true'
+	grep "^auto-detecting interface: " auto-detect.stderr
+	rm -f mercury.PID tmp.json auto-detect.stderr
+	@echo $(COLOR_GREEN) "passed auto-detect capture test" $(COLOR_OFF)
 endif
 
 .PHONY: json-test
