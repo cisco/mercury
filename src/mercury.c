@@ -305,6 +305,16 @@ bool option_is_valid(const char *opt) {
     return true;
 }
 
+static bool capture_option_omits_interface(const char *argv_token, const char *optarg) {
+    if (optarg != NULL) {
+        return false;
+    }
+    if (argv_token == NULL) {
+        return false;
+    }
+    return strcmp(argv_token, "--capture") == 0;
+}
+
 int main(int argc, char *argv[]) {
     struct mercury_config cfg = mercury_config_init();
     struct libmerc_config libmerc_cfg;
@@ -531,10 +541,10 @@ int main(int argc, char *argv[]) {
             cfg.capture_mode = true;
             if (option_is_valid(optarg)) {
                 cfg.capture_interface = optarg;
+            } else if (capture_option_omits_interface(argv[optind - 1], optarg)) {
+                cfg.capture_interface = NULL;
             } else {
-                if (argv[optind - 1][0] == '-' && argv[optind - 1][1] == 'c' && argv[optind - 1][2] == '\0') {
-                    usage(argv[0], "option c requires interface argument; use --capture for auto-detection", extended_help_off);
-                }
+                usage(argv[0], "option c requires interface argument; use --capture for auto-detection", extended_help_off);
             }
             break;
         case 'f':
