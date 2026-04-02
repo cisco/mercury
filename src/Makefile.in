@@ -55,6 +55,7 @@ MERC_H += af_packet_v3.h
 MERC_H += config.h
 MERC_H += control.h
 MERC_H += json_file_io.h
+MERC_H += libmerc/interface_select.hpp
 MERC_H += llq.h
 MERC_H += output.h
 MERC_H += pkt_processing.h

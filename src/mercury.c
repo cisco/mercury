@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <getopt.h>
+#include <net/if.h>
 #include <pthread.h>
 #include <thread>
 
@@ -24,11 +25,13 @@
 #include "config.h"
 #include "output.h"
 #include "control.h"
+#include "libmerc/interface_select.hpp"
 
 char mercury_help[] =
     "%s [INPUT] [OUTPUT] [OPTIONS]:\n"
     "INPUT\n"
-    "   [-c or --capture] capture_interface   # capture packets from interface\n"
+    "   [-c] capture_interface                # capture packets from interface\n"
+    "   [--capture[=capture_interface]]       # capture packets, auto-detect interface if omitted\n"
     "   [-r or --read] read_file              # read packets from file\n"
     "   no input option                       # read packets from standard input\n"
     "OUTPUT\n"
@@ -72,7 +75,8 @@ char mercury_help[] =
 char mercury_extended_help[] =
     "\n"
     "DETAILS\n"
-    "   \"[-c or --capture] c\" captures packets from interface c with Linux AF_PACKET\n"
+    "   \"[-c] c\" or \"[--capture=c]\" captures packets from interface c with Linux AF_PACKET\n"
+    "   \"[--capture]\" captures packets using an auto-detected Linux interface\n"
     "   using a separate ring buffer for each worker thread.  \"[-t or --thread] t\"\n"
     "   sets the number of worker threads to t, if t is a positive integer; if t is\n"
     "   \"cpu\", then the number of threads will be set to the number of available\n"
@@ -304,6 +308,7 @@ bool option_is_valid(const char *opt) {
 int main(int argc, char *argv[]) {
     struct mercury_config cfg = mercury_config_init();
     struct libmerc_config libmerc_cfg;
+    char detected_capture_interface[IFNAMSIZ] = { 0 };
     bool select_set = false;
     bool raw_features_set = false;
     bool crypto_assess_set = false;
@@ -336,7 +341,7 @@ int main(int argc, char *argv[]) {
             { "read",                          required_argument, NULL,                           'r' },
             { "write",                         required_argument, NULL,                           'w' },
             { "directory",                     required_argument, NULL,                           'd' },
-            { "capture",                       required_argument, NULL,                           'c' },
+            { "capture",                       optional_argument, NULL,                           'c' },
             { "fingerprint",                   required_argument, NULL,                           'f' },
             { "analysis",                            no_argument, NULL,                           'a' },
             { "threads",                       required_argument, NULL,                           't' },
@@ -523,10 +528,13 @@ int main(int argc, char *argv[]) {
             }
             break;
         case 'c':
+            cfg.capture_mode = true;
             if (option_is_valid(optarg)) {
                 cfg.capture_interface = optarg;
             } else {
-                usage(argv[0], "option c or capture requires interface argument", extended_help_off);
+                if (argv[optind - 1][0] == '-' && argv[optind - 1][1] == 'c' && argv[optind - 1][2] == '\0') {
+                    usage(argv[0], "option c requires interface argument; use --capture for auto-detection", extended_help_off);
+                }
             }
             break;
         case 'f':
@@ -716,11 +724,17 @@ int main(int argc, char *argv[]) {
         usage(argv[0], "unrecognized options", extended_help_off);
     }
 
-    if (cfg.read_filename == NULL && cfg.capture_interface == NULL) {
-        cfg.read_filename = (char *)"-";  // convention: a dash indicates to read from stdin
-    }
-    if (cfg.read_filename != NULL && cfg.capture_interface != NULL) {
+    if (cfg.capture_mode && cfg.read_filename != NULL) {
         usage(argv[0], "incompatible arguments read [r] and capture [c] specified on command line", extended_help_off);
+    }
+    if (cfg.capture_mode && cfg.capture_interface == NULL) {
+        if (interface_select::detect_capture_interface(detected_capture_interface, sizeof(detected_capture_interface), cfg.verbosity) != status_ok) {
+            usage(argv[0], "could not auto-detect capture interface", extended_help_off);
+        }
+        cfg.capture_interface = detected_capture_interface;
+    }
+    if (cfg.read_filename == NULL && !cfg.capture_mode) {
+        cfg.read_filename = (char *)"-";  // convention: a dash indicates to read from stdin
     }
     if (cfg.fingerprint_filename && cfg.write_filename) {
         usage(argv[0], "both fingerprint [f] and write [w] specified on command line", extended_help_off);
@@ -776,7 +790,7 @@ int main(int argc, char *argv[]) {
     /* If we're going to capture from the network we don't want this main thread
      * to get interrupted, instead the stats thread needs to recieve the signal.
      */
-    if (cfg.capture_interface) {
+    if (cfg.capture_mode) {
         disable_all_signals(); /* Stats thread will unmask the signals it needs */
     }
 
@@ -800,7 +814,7 @@ int main(int argc, char *argv[]) {
         ctl = new controller{mc, "disabled", cfg.stats_rotation_duration, &out_file, cfg, false};
     }
 
-    if (cfg.capture_interface) {
+    if (cfg.capture_mode) {
         out_file.from_network = 1;
         fprintf(stderr, "Allocating I/O buffer balance: %4.2f%% input; %4.2f%% output\n", cfg.io_balance_frac * 100.0, (1.0 - cfg.io_balance_frac) * 100.0);
     }
@@ -809,7 +823,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "error: unable to initialize output thread\n");
         return EXIT_FAILURE;
     }
-    if (cfg.capture_interface) {
+    if (cfg.capture_mode) {
 
         if (cfg.verbosity) {
             fprintf(stderr, "initializing interface %s\n", cfg.capture_interface);
@@ -831,7 +845,7 @@ int main(int argc, char *argv[]) {
     output_thread_finalize(&out_file);
 
 
-    if (cfg.capture_interface) {
+    if (cfg.capture_mode) {
         fprintf(stderr, "--\n"
                 "%" PRIu64 " packets captured\n"
                 "%" PRIu64 " bytes captured\n"

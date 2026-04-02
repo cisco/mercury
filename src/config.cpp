@@ -95,7 +95,10 @@ static enum status mercury_config_parse_line(struct mercury_config *cfg,
         return status_ok;
 
     } else if ((arg = command_get_argument("capture=", line)) != NULL) {
-        cfg->capture_interface = strdup(arg);
+        cfg->capture_mode = true;
+        if (arg[0] != '\0') {
+            cfg->capture_interface = strdup(arg);
+        }
         return status_ok;
 
     } else if ((arg = command_get_argument("resources=", line)) != NULL) {
@@ -250,10 +253,8 @@ enum status mercury_config_read_from_file(struct mercury_config &cfg,
     }
     global_vars.packet_filter_cfg = strdup((select_arg + additional_args).c_str());
 
-    // when reading from a config file, an interface file must be specified
-    //
-    if (cfg.capture_interface == nullptr) {
-        fprintf(stderr, "error: no capture interface specified in configuration file\n");
+    if (!cfg.capture_mode) {
+        fprintf(stderr, "error: no capture command specified in configuration file\n");
         return status_err;
     }
 
