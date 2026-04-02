@@ -825,6 +825,9 @@ int main(int argc, char *argv[]) {
     }
     if (cfg.capture_mode) {
 
+        if (cfg.capture_interface == detected_capture_interface) {
+            fprintf(stderr, "auto-detecting interface: %s\n", cfg.capture_interface);
+        }
         if (cfg.verbosity) {
             fprintf(stderr, "initializing interface %s\n", cfg.capture_interface);
         }
