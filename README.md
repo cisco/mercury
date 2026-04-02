@@ -68,7 +68,7 @@ Ancillary tools such as the ones listed below may require other packages.
 - `batch_gcd`: [GNU Multiple Precision Arithmetic Library (GMP)](https://gmplib.org/)
 
 ### Installation
-In the root directory, edit mercury.cfg with the network interface you want to capture from, then run
+In the root directory, review `mercury.cfg` as needed, then run
 ```
 ./configure
 make
@@ -79,6 +79,8 @@ to install mercury and create and start a systemd service.  If you don't want th
 ```
 sudo make install-nosystemd
 ```
+The default `mercury.cfg` enables capture mode with `capture=` and auto-detects a network interface on Linux at runtime.  To force a specific interface, set `capture=<interface>` instead.
+
 The default file and directory locations are
    * __/usr/local/bin/mercury__ for the executable
    * __/usr/local/share/mercury__ for the resource files
@@ -117,7 +119,8 @@ If multiple compile time options are used, then they must be passed to make toge
 mercury: packet metadata capture and analysis
 ./src/mercury [INPUT] [OUTPUT] [OPTIONS]:
 INPUT
-   [-c or --capture] capture_interface   # capture packets from interface
+   [-c] capture_interface                # capture packets from interface
+   [--capture[=capture_interface]]       # capture packets, auto-detect interface if omitted
    [-r or --read] read_file              # read packets from file
    no input option                       # read packets from standard input
 OUTPUT
@@ -159,7 +162,8 @@ GENERAL OPTIONS
    [-h or --help]                        # extended help, with examples
 
 DETAILS
-   "[-c or --capture] c" captures packets from interface c with Linux AF_PACKET
+   "[-c] c" or "[--capture=c]" captures packets from interface c with Linux AF_PACKET
+   "[--capture]" captures packets using an auto-detected Linux interface
    using a separate ring buffer for each worker thread.  "[-t or --thread] t"
    sets the number of worker threads to t, if t is a positive integer; if t is
    "cpu", then the number of threads will be set to the number of available
@@ -195,7 +199,7 @@ DETAILS
 
    "[r or --read] r" reads packets from the file r, in PCAP format.
 
-   if neither -r nor -c is specified, then packets are read from standard input,
+   if neither -r, -c, nor --capture is specified, then packets are read from standard input,
    in PCAP format.
 
    "[-s or --select] f" selects packets according to the metadata filter f, which
@@ -361,12 +365,13 @@ see if the directories on your system differ.
 
 ### EXAMPLES
 ```
+   mercury --capture -w foo.pcap         # auto-detect interface, write to foo.pcap
    mercury -c eth0 -w foo.pcap           # capture from eth0, write to foo.pcap
    mercury -c eth0 -w foo.pcap -t cpu    # as above, with one thread per CPU
    mercury -c eth0 -w foo.mcap -t cpu -s # as above, selecting packet metadata
    mercury -r foo.mcap -f foo.json       # read foo.mcap, write fingerprints
    mercury -r foo.mcap -f foo.json -a    # as above, with fingerprint analysis
-   mercury -c eth0 -t cpu -f foo.json -a # capture and analyze fingerprints
+   mercury --capture -t cpu -f foo.json -a # auto-detect interface, capture and analyze fingerprints
 ```
 
 ## Ethics
