@@ -33,3 +33,7 @@ enum status bind_and_dispatch(struct mercury_config *,
 
   return status_err;
 }
+
+bool capture_backend_blocks_main_thread_signals() {
+  return false;
+}

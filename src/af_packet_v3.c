@@ -1170,6 +1170,10 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
     return status_ok;
 }
 
+bool capture_backend_blocks_main_thread_signals() {
+    return true;
+}
+
 #define RING_LIMITS_DEFAULT_FRAC 0.01
 
 void ring_limits_init(struct ring_limits *rl, float frac) {

@@ -20,6 +20,8 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
                               struct output_file *out_ctx,
                               struct cap_stats *cstats);
 
+bool capture_backend_blocks_main_thread_signals();
+
 struct thread_stall {
     int used;          /* To mark the end of the array when searching */
     pthread_t tid;     /* For finding the right pthread's jump env */
