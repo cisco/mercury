@@ -1170,6 +1170,9 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
     return status_ok;
 }
 
+/* The Linux AF_PACKET backend routes shutdown signals through its
+ * dedicated stats thread, so the main thread should block them.
+ */
 bool capture_backend_blocks_main_thread_signals() {
     return true;
 }

@@ -63,6 +63,9 @@ struct pcap_live_context {
 };
 
 
+/* Maps libpcap DLT values for live interfaces onto the Mercury
+ * linktype values expected by packet processing.
+ */
 static uint16_t pcap_datalink_to_mercury_linktype(int datalink) {
     switch (datalink) {
     case DLT_NULL:
@@ -83,6 +86,9 @@ static uint16_t pcap_datalink_to_mercury_linktype(int datalink) {
 }
 
 
+/* Creates and activates a libpcap handle for live capture, applying
+ * the backend's snaplen, timeout, and buffer-size policy.
+ */
 static enum status pcap_live_open(struct mercury_config *cfg,
                                   struct pcap_live_context *ctx) {
     char errbuf[PCAP_ERRBUF_SIZE] = {0};
@@ -172,6 +178,9 @@ static enum status pcap_live_open(struct mercury_config *cfg,
 }
 
 
+/* Releases the libpcap handle and packet processor owned by the live
+ * capture backend.
+ */
 static void pcap_live_close(struct pcap_live_context *ctx) {
     if (ctx->pkt_processor != nullptr) {
         ctx->pkt_processor->finalize();
@@ -186,6 +195,9 @@ static void pcap_live_close(struct pcap_live_context *ctx) {
 }
 
 
+/* Runs the libpcap packet loop and forwards each captured packet into
+ * Mercury's existing packet-processing pipeline.
+ */
 static void *pcap_live_thread_func(void *arg) {
     struct pcap_live_context *ctx = (struct pcap_live_context *)arg;
     struct pcap_pkthdr *pkthdr = nullptr;
@@ -223,6 +235,9 @@ static void *pcap_live_thread_func(void *arg) {
 }
 
 
+/* Implements live interface capture on macOS using a single libpcap
+ * worker and the shared Mercury output and processing path.
+ */
 enum status bind_and_dispatch(struct mercury_config *cfg,
                               mercury_context mc,
                               struct output_file *out_ctx,
@@ -323,6 +338,9 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
     return status_ok;
 }
 
+/* The libpcap backend handles signals in the main thread rather than
+ * delegating them to a backend-specific helper thread.
+ */
 bool capture_backend_blocks_main_thread_signals() {
     return false;
 }

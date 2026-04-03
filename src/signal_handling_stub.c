@@ -35,8 +35,10 @@ void sig_close([[maybe_unused]] int signal_arg) {
     errno = saved_errno;
 }
 
+/* Backtrace-on-signal is not implemented for the non-Linux backend. */
 void sig_backtrace([[maybe_unused]] int signal_arg) { }
 
+/* No backtrace initialization is needed when backtrace signaling is disabled. */
 void sig_init_backtrace() { }
 
 
@@ -67,6 +69,9 @@ enum status setup_signal_handler() {
 /*
  * Enable all signals
  */
+/* Unblocks all signals for threads that should receive normal process
+ * shutdown signals on non-Linux platforms.
+ */
 void enable_all_signals() {
     sigset_t signal_set;
 
@@ -81,6 +86,9 @@ void enable_all_signals() {
 
 /*
  * Disable signals
+ */
+/* Blocks all signals for threads that must not handle process
+ * shutdown signals directly.
  */
 void disable_all_signals() {
     sigset_t signal_set;
@@ -97,6 +105,9 @@ void disable_all_signals() {
 /*
  * Enable backtrace signal (USR1)
  */
+/* Unblocks SIGUSR1 for parity with the Linux signal API, even though
+ * the non-Linux backend does not currently emit backtraces.
+ */
 void enable_bt_signal() {
     sigset_t signal_set;
 
@@ -112,6 +123,9 @@ void enable_bt_signal() {
 
 /*
  * Disable backtrace signal (USR1)
+ */
+/* Blocks SIGUSR1 for parity with the Linux signal API, even though
+ * the non-Linux backend does not currently emit backtraces.
  */
 void disable_bt_signal() {
     sigset_t signal_set;

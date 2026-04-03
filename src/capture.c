@@ -34,6 +34,9 @@ enum status bind_and_dispatch(struct mercury_config *,
   return status_err;
 }
 
+/* The stub backend does not own any signal-handling thread, so the
+ * main thread should keep normal signal delivery semantics.
+ */
 bool capture_backend_blocks_main_thread_signals() {
   return false;
 }
