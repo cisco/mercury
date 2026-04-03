@@ -1,7 +1,7 @@
 # Mercury: network metadata capture and analysis
 <img align="right" src="./mercury.png" width="200">
 
-This package contains two programs for fingerprinting network traffic and capturing and analyzing packet metadata: **mercury**, a Linux application that leverages the modern Linux kernel's high-performance networking capabilities (AF_PACKET and TPACKETv3), which is described below, and [**pmercury**](python/README.md), a portable python application.  There is also a [User's Guide](https://github.com/cisco/mercury/wiki/Using-Mercury).  While mercury is used in some production applications, please consider this software as a 'beta'.  The [CHANGELOG](doc/CHANGELOG.md) itemizes changes across different versions.
+This package contains two programs for fingerprinting network traffic and capturing and analyzing packet metadata: **mercury**, a standalone application for Linux and macOS, and [**pmercury**](python/README.md), a portable python application.  On Linux, mercury leverages the kernel's high-performance AF_PACKET TPACKETv3 capture path; on macOS, mercury supports interface capture through libpcap.  There is also a [User's Guide](https://github.com/cisco/mercury/wiki/Using-Mercury).  While mercury is used in some production applications, please consider this software as a 'beta'.  The [CHANGELOG](doc/CHANGELOG.md) itemizes changes across different versions.
 
 
 ## Overview
@@ -40,10 +40,11 @@ make
 ```
 to build the package (and check for the programs and python modules required to test it).  TPACKETv3 is present in Linux kernels newer than 3.2.
 
-Building mercury on macOS Apple Silicon is currently experimental.  Note that on
-macOS, standalone mercury can read pcap as input but not capture on an
-interface, since AF_PACKET is Linux-specific.  The following has been tested
-on an M2 mac with Python 3.13.2 installed via the Homebrew command below.
+Building mercury on macOS Apple Silicon is currently experimental.  Standalone
+mercury can read pcap files and capture from a network interface on macOS using
+libpcap.  The current macOS live-capture backend supports a single capture
+thread.  The following has been tested on an M2 mac with Python 3.13.2
+installed via the Homebrew command below.
 ```
 brew install python openssl zlib
 brew install xsimd     # optional: enables SIMD-accelerated classification
@@ -159,8 +160,10 @@ GENERAL OPTIONS
    [-h or --help]                        # extended help, with examples
 
 DETAILS
-   "[-c or --capture] c" captures packets from interface c with Linux AF_PACKET
-   using a separate ring buffer for each worker thread.  "[-t or --thread] t"
+   "[-c or --capture] c" captures packets from interface c using the platform
+   live-capture backend.  On Linux, mercury uses AF_PACKET with a separate ring
+   buffer for each worker thread.  On macOS, mercury uses libpcap for interface
+   capture and currently supports a single capture thread.  "[-t or --thread] t"
    sets the number of worker threads to t, if t is a positive integer; if t is
    "cpu", then the number of threads will be set to the number of available
    processors.  "[-b or --buffer] b" sets the total size of all ring buffers to
