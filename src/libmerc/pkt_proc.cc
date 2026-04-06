@@ -1512,8 +1512,9 @@ size_t stateful_pkt_proc::write_json(void *buffer,
                 }
             }
         }
-    default:
         break;
+    default:
+        return 0;   // unsupported link layer type
     }
 
     if (pkt.is_null()) {
