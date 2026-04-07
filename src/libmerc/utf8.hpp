@@ -98,6 +98,11 @@ public:
     //
     static inline bool is_continuation(uint8_t x);
 
+    // return true if byte2 is valid as the second byte given lead byte1
+    // for a UTF-8 sequence; enforces RFC 3629 boundary constraints.
+    //
+    static inline bool is_second_byte_valid(uint8_t byte1, uint8_t byte2);
+
     // write the uint16_t value as a '\uXXXX'-encoded codepoint
     //
     static inline void write_codepoint(buffer_stream &b, uint16_t codepoint) {
@@ -118,12 +123,14 @@ public:
     class test_case {
         std::vector<uint8_t> s_in;   // string to be parsed
         bool valid;                  // true is s_in is valid utf8; false otherwise
+        const char *expected_output; // optional exact JSON-escaped output
 
     public:
 
-        test_case(const std::vector<uint8_t> input, bool is_valid) :
+        test_case(const std::vector<uint8_t> input, bool is_valid, const char *expected=nullptr) :
             s_in{input},
-            valid{is_valid}
+            valid{is_valid},
+            expected_output{expected}
         { }
 
         bool is_valid() const { return valid; }
@@ -133,7 +140,15 @@ public:
             utf8_string s_utf8{s_data};
             char data[4096];
             buffer_stream buf{data, sizeof(data)};
-            return s_utf8.write(buf, s_utf8.data, s_utf8.length()) == valid;
+            bool status = s_utf8.write(buf, s_utf8.data, s_utf8.length());
+            if (status != valid) {
+                return false;
+            }
+            if (expected_output != nullptr) {
+                buf.write_char('\0');
+                return std::string(buf.get_string()) == std::string(expected_output);
+            }
+            return true;
         }
 
         void fprint(FILE *) const {
@@ -210,7 +225,6 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
     const uint8_t *x = data;
     const uint8_t *end = data + len;
     while (x < end) {
-
         if (*x >= 0x80) {            // non-ASCII/multi-byte characters
 
             uint32_t codepoint = 0;
@@ -222,47 +236,40 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
                         if (x >= end - 3) {
                             b.puts(sequence_too_short); // indicate error with private use codepoint
                             valid = false;
-                            break;                 // error; too few bytes for code point
+                            x++;
+                            continue;              // consume one byte and continue
                         }
-                        uint8_t byte1 = *x++;
-                        uint8_t byte2 = *x++;
-                        uint8_t byte3 = *x++;
-                        uint8_t byte4 = *x;
-                        if (is_continuation(byte2) && is_continuation(byte3) && is_continuation(byte4)) {
+                        uint8_t byte1 = x[0];
+                        uint8_t byte2 = x[1];
+                        uint8_t byte3 = x[2];
+                        uint8_t byte4 = x[3];
+                        if (byte1 <= 0xf4 &&
+                            is_second_byte_valid(byte1, byte2) &&
+                            is_continuation(byte3) &&
+                            is_continuation(byte4)) {
                             codepoint = (byte1 & 0x07);
                             codepoint = (byte2 & 0x3f) | (codepoint << 6);
                             codepoint = (byte3 & 0x3f) | (codepoint << 6);
                             codepoint = (byte4 & 0x3f) | (codepoint << 6);
 
-                            // check for overlong encodings using
-                            // the first code point for 4-byte
-                            // sequences
-                            //
-                            if (codepoint < 0x10000) {
-                                codepoint = 0;
-                            }
+                            x += 3;
                         }
                     } else {
                         if (x >= end - 2) {
                             b.puts(sequence_too_short); // indicate error with private use codepoint
                             valid = false;
-                            break;                 // error; too few bytes for code point
+                            x++;
+                            continue;              // consume one byte and continue
                         }
-                        uint8_t byte1 = *x++;
-                        uint8_t byte2 = *x++;
-                        uint8_t byte3 = *x;
-                        if (is_continuation(byte2) && is_continuation(byte3)) {
+                        uint8_t byte1 = x[0];
+                        uint8_t byte2 = x[1];
+                        uint8_t byte3 = x[2];
+                        if (is_second_byte_valid(byte1, byte2) && is_continuation(byte3)) {
                             codepoint = (byte1 & 0x0f);
                             codepoint = (byte2 & 0x3f) | (codepoint << 6);
                             codepoint = (byte3 & 0x3f) | (codepoint << 6);
 
-                            // check for overlong encodings using
-                            // the first code point for 3-byte
-                            // sequences
-                            //
-                            if (codepoint < 0x0800) {
-                                codepoint = 0;
-                            }
+                            x += 2;
                         }
                     }
 
@@ -270,13 +277,15 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
                     if (x >= end - 1) {
                         b.puts(sequence_too_short); // indicate error with private use codepoint
                         valid = false;
-                        break;                 // error; too few bytes for code point
+                        x++;
+                        continue;              // consume one byte and continue
                     }
-                    uint8_t byte1 = *x++;
-                    uint8_t byte2 = *x;
-                    if (is_continuation(byte2) && ((byte1 & 0x1f) != 0)) {
+                    uint8_t byte1 = x[0];
+                    uint8_t byte2 = x[1];
+                    if (is_second_byte_valid(byte1, byte2)) {
                         codepoint = ((byte1 & 0x1f) << 6);
                         codepoint |= byte2 & 0x3f;
+                        x += 1;
                     }
                 }
                 if (codepoint == 0x0) {
@@ -288,7 +297,14 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
                     b.puts(invalid_or_overlong); // indicate error with private use codepoint
                     valid = false;
 
-                } else if (codepoint < 0x10fffd) {
+                } else if (codepoint > 0x10ffff) {
+                    //
+                    // error: value outside Unicode range
+                    //
+                    b.puts(invalid_or_overlong);
+                    valid = false;
+
+                } else {
 
                     // Private-Use Code Point Ranges:
                     //   U+E000..U+F8FF
@@ -372,6 +388,21 @@ inline bool utf8_string::is_continuation(uint8_t x) {
     return true;
 }
 
+inline bool utf8_string::is_second_byte_valid(uint8_t byte1, uint8_t byte2) {
+    switch (byte1) {
+    case 0xe0:
+        return byte2 >= 0xa0 && byte2 <= 0xbf;
+    case 0xed:
+        return byte2 >= 0x80 && byte2 <= 0x9f;
+    case 0xf0:
+        return byte2 >= 0x90 && byte2 <= 0xbf;
+    case 0xf4:
+        return byte2 >= 0x80 && byte2 <= 0x8f;
+    default:
+        return is_continuation(byte2);
+    }
+}
+
 inline bool utf8_string::unit_test(FILE *output) {
 
     // note: output=nullptr by default, but can be set to stdout or
@@ -391,7 +422,8 @@ inline bool utf8_string::unit_test(FILE *output) {
             {
                 0x50, 0x6c, 0x65, 0x69, 0x73, 0x74, 0x6f, 0x63, 0x65, 0x6e, 0x65
             },
-            true
+            true,
+            "Pleistocene"
         },
         //
         // ASCII printable characters
@@ -453,7 +485,8 @@ inline bool utf8_string::unit_test(FILE *output) {
             {
                 0xf0, 0x9d, 0x84, 0x9e
             },
-            true
+            true,
+            "\\ud834\\udd1e"
         },
 
         // first possible sequence of a certain length
@@ -505,9 +538,9 @@ inline bool utf8_string::unit_test(FILE *output) {
         },
         {
             {
-                0xf7, 0xbf, 0xbf, 0xbf
+                0xf7, 0xbf, 0xbf, 0xbf  // invalid lead byte: RFC 3629 limits 4-byte leads to F0..F4
             },
-            true
+            false
         },
 
         // other boundary conditions
@@ -538,9 +571,9 @@ inline bool utf8_string::unit_test(FILE *output) {
         },
         {
             {
-                0xf4, 0x90, 0x80, 0x80
+                0xf4, 0x90, 0x80, 0x80  // invalid second byte for F4 (must be 80..8F), decodes above U+10FFFF
             },
-            true
+            false
         },
 
         // overlong sequences
@@ -944,8 +977,87 @@ inline bool utf8_string::unit_test(FILE *output) {
 
     };
 
+    utf8_string::test_case utf8_output_test_cases[] = {
+        {
+            {0x41, 0x22, 0x5c, 0x42}, // A"\B
+            true,
+            "A\\\"\\\\B"
+        },
+        {
+            {0x0a, 0x09, 0x0d},
+            true,
+            "\\u000a\\u0009\\u000d"
+        },
+        {
+            {0xe2, 0x82, 0xac}, // EURO SIGN
+            true,
+            "\\u20ac"
+        },
+        {
+            {0xc0, 0x80}, // overlong NUL
+            false,
+            "\\ufffd\\ufffd"
+        },
+        {
+            {0xff},
+            false,
+            "\\ufffd"
+        },
+        {
+            {0xf4, 0x8f, 0xbf, 0xbe}, // U+10FFFE
+            true,
+            "\\udbff\\udffe"
+        },
+        {
+            {0xf4, 0x8f, 0xbf, 0xbf}, // U+10FFFF
+            true,
+            "\\udbff\\udfff"
+        },
+        {
+            {0xe2, 0x82, 0x41}, // truncated 3-byte seq followed by ASCII
+            false,
+            "\\ufffd\\ufffdA"
+        },
+        {
+            {0xe0, 0x41, 0x80},
+            false,
+            "\\ufffdA\\ufffd"
+        },
+        {
+            {0xe1, 0x41, 0x80},
+            false,
+            "\\ufffdA\\ufffd"
+        },
+        {
+            {0xf0, 0x41, 0x80, 0x80},
+            false,
+            "\\ufffdA\\ufffd\\ufffd"
+        },
+        {
+            {0xf1, 0x41, 0x80, 0x80},
+            false,
+            "\\ufffdA\\ufffd\\ufffd"
+        },
+        {
+            {0xc2, 0x41},
+            false,
+            "\\ufffdA"
+        },
+        {
+            {0xc2, 0x7f},
+            false,
+            "\\ufffd\\u007f"
+        },
+    };
+
     bool passed = true;
     for (const auto & tc : utf8_test_cases) {
+        passed &= tc.test();
+        if (output) {
+            tc.fprint(output);
+        }
+    }
+    for (const auto & tc : utf8_output_test_cases) {
         passed &= tc.test();
         if (output) {
             tc.fprint(output);
