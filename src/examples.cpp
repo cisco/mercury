@@ -1,11 +1,13 @@
-// examples.cpp
-//
-// example usage of datum and related classes.
-//
-// compilation: g++ -Wall -Ilibmerc/ examples.cpp -o examples
+/// \file examples.cpp
+/// \brief Demonstrates `datum` and related parser helper classes.
+///
+/// Example compilation:
+///
+///     `g++ -Wall -Ilibmerc/ examples.cpp -o examples`
 
 #include <datum.h>
 #include <lex.h>
+#include <alternative.hpp>
 #include <diagnostic.hpp>
 #include <ctype.h>
 
@@ -277,16 +279,33 @@ int main(int argc, char *argv[]) {
         vp.fprint(stdout); fputc('\n', stdout);
     }
 
-    // When we are not sure if a datum contains data that can be read
-    // by a class C, we can create a temporary copy of the datum and
-    // then attempt to construct an object of type C from that object.
-    // If the read was successful, then we can use that object, and if
-    // needed, we can advance the original datum forward to reflect
-    // the bytes accepted during the construction of that object.
-    //
-    // The template class \ref lookahead<> performs all of these steps
-    // for you.
-    //
+    /// \brief Define an `overloaded` visitor for `alternative<>`.
+    ///
+    auto fprint = overloaded {
+        [](const alphabetic &a) { printf("alphabetic: "); a.fprint(stdout); fputc('\n', stdout); return true; },
+        [](const numeric &a)    { printf("numeric:    "); a.fprint(stdout); fputc('\n', stdout); return true; },
+        [](const whitespace &)  { return true;  },
+        [](const nulltype &)    { return false; },
+    };
+
+    datum input{"the quick brown fox 999"};
+    while (input.is_readable()) {
+        alternative<alphabetic, numeric, whitespace> token{input};
+        if (!token.apply(fprint)) {
+            break;
+        }
+    }
+
+    /// When we are not sure if a datum contains data that can be read
+    /// by a class C, we can create a temporary copy of the datum and
+    /// then attempt to construct an object of type C from that object.
+    /// If the read was successful, then we can use that object, and if
+    /// needed, we can advance the original datum forward to reflect
+    /// the bytes accepted during the construction of that object.
+    ///
+    /// The template class \ref lookahead<> performs all of these steps
+    /// for you.
+    ///
     if (lookahead<alphabetic> alpha{p}) {
         printf("read one or more alphabetic characters\n");
     } else if (lookahead<numeric> num{p}) {

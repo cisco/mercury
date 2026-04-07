@@ -9,8 +9,10 @@ Mercury Library Documentation
 .. toctree::
    intro
    datum
+   alternative
    identifiers
    hex
+   examples
    diagnostic
    python
    :maxdepth: 2
