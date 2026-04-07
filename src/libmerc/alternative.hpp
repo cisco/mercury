@@ -50,10 +50,14 @@ template<typename... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 ///     `a = T1 / T2 / ...`
 ///
 /// \tparam Types Parser types that are tried in order.
+///         Each type must be constructible from `datum &`.
 template<typename... Types>
 class alternative {
 
 public:
+
+    static_assert((is_datum_initializable<Types>::value && ...),
+                  "alternative<Types...> requires each type to be initializable from datum&");
 
     /// \brief Variant type holding the first successful parse result or \ref nulltype.
     using type = std::variant<Types..., nulltype>;
