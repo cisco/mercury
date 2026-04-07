@@ -1,0 +1,13 @@
+# CODEOWNERS — specifies required reviewers for pull requests.
+#
+# - Last matching rule wins; earlier matching rules are ignored, not combined.
+# - One approval from any listed owner is sufficient.
+# - The total approvals required is set separately in branch protection rules.
+#
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owners
+*   @mcgrew_cisco @blaander_cisco @andrchi_cisco @apooraj_cisco @vignvisw_cisco
+
+# CI/CD
+.github/workflows/   @andrchi_cisco @blaander_cisco @idobrogo_cisco @sfedynya_cisco
