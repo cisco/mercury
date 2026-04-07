@@ -145,8 +145,8 @@ public:
                 return false;
             }
             if (expected_output != nullptr) {
-                buf.write_char('\0');
-                return std::string(buf.get_string()) == std::string(expected_output);
+                buf.add_null();
+                return buf.get_string() == expected_output;
             }
             return true;
         }
@@ -233,7 +233,7 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
                 if (*x >= 0xe0) {
 
                     if (*x >= 0xf0) {
-                        if (x >= end - 3) {
+                        if ((end - x) < 4) {
                             b.puts(sequence_too_short); // indicate error with private use codepoint
                             valid = false;
                             x++;
@@ -255,7 +255,7 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
                             x += 3;
                         }
                     } else {
-                        if (x >= end - 2) {
+                        if ((end - x) < 3) {
                             b.puts(sequence_too_short); // indicate error with private use codepoint
                             valid = false;
                             x++;
@@ -274,7 +274,7 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
                     }
 
                 } else {
-                    if (x >= end - 1) {
+                    if ((end - x) < 2) {
                         b.puts(sequence_too_short); // indicate error with private use codepoint
                         valid = false;
                         x++;
