@@ -382,10 +382,9 @@ struct analysis_context {
     fingerprint fp;
     struct destination_context destination;
     struct analysis_result result;
-    bool analysis_done;
     bool flow_state_pkts_needed;
 
-    analysis_context() : fp{}, destination{}, result{}, analysis_done{false}, flow_state_pkts_needed{false} {}
+    analysis_context() : fp{}, destination{}, result{}, flow_state_pkts_needed{false}, analysis_done{false} {}
     // could add structs needed for 'scratchwork'
 
     const char *get_server_name() const {
@@ -419,6 +418,14 @@ struct analysis_context {
         return flow_state_pkts_needed;
     }
 
+    bool is_analysis_done() const {
+        return analysis_done;
+    }
+
+    void mark_analysis_done() {
+        analysis_done = true;
+    }
+
     bool analysis_is_valid() const {
         return analysis_done && result.is_valid();
     }
@@ -430,6 +437,13 @@ struct analysis_context {
         analysis_done = false;
         flow_state_pkts_needed = false;
     }
+
+private:
+    // True only when classifier analysis was actually run for this packet.
+    // A fingerprint and destination context may still be populated even when
+    // this is false, but those packets should not be exposed through the
+    // public analysis-context return paths.
+    bool analysis_done;
 };
 
 

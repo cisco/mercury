@@ -489,6 +489,7 @@ struct ssh_init_packet : public base_protocol {
         if (!kex_pkt.is_not_empty()) {
             return false;
         }
+        // only run the classifier on SSH client messages, not server messages
         if (direction == flow_direction::server) {
             return false;
         }

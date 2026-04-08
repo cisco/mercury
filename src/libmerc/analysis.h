@@ -1161,7 +1161,7 @@ private:
 
 public:
     bool analyze_fingerprint_and_destination_context(analysis_context &analysis) {
-        analysis.analysis_done = true;
+        analysis.mark_analysis_done();
         return analyze_fingerprint_and_destination_context(analysis.fp, analysis.destination, analysis.result);
     }
 

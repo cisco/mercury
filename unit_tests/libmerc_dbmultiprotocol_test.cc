@@ -572,8 +572,8 @@ TEST_CASE_METHOD(LibmercTestFixture, "server ssh skips analysis but still finger
     initialize(config);
     set_pcap("ssh_direction_asym.pcap");
 
-    bool saw_server_ssh = false;
-    const struct analysis_context *ac = nullptr;
+    size_t selected_packet_count = 0;
+    size_t null_context_count = 0;
     while (1) {
         if (read_next_data_packet()) {
             break;
@@ -588,21 +588,66 @@ TEST_CASE_METHOD(LibmercTestFixture, "server ssh skips analysis but still finger
             &m_time
         );
 
-        if (json_size > 0 && m_mpp->analysis.fp.get_type() == fingerprint_type_ssh_init_server) {
-            saw_server_ssh = true;
-            ac = mercury_packet_processor_get_analysis_context(
+        if (json_size > 0) {
+            selected_packet_count++;
+            const struct analysis_context *ac = mercury_packet_processor_get_analysis_context(
                 m_mpp,
                 (unsigned char *)m_data_packet.first,
                 m_data_packet.second - m_data_packet.first,
                 &m_time
             );
-            break;
+            if (ac == nullptr) {
+                null_context_count++;
+            }
         }
     }
 
-    CHECK(saw_server_ssh);
-    CHECK_FALSE(m_mpp->analysis.analysis_done);
-    CHECK(nullptr == ac);
+    CHECK(selected_packet_count > 0);
+    CHECK(selected_packet_count == null_context_count);
+
+    deinitialize();
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "tls server skips analysis context but still fingerprints")
+{
+    libmerc_config config{.do_analysis = true,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"tls.server_hello"};
+    initialize(config);
+    set_pcap("tlsv1_3.pcap");
+
+    size_t selected_packet_count = 0;
+    size_t null_context_count = 0;
+    while (1) {
+        if (read_next_data_packet()) {
+            break;
+        }
+
+        size_t json_size = mercury_packet_processor_write_json(
+            m_mpp,
+            m_output,
+            4096,
+            (unsigned char *)m_data_packet.first,
+            m_data_packet.second - m_data_packet.first,
+            &m_time
+        );
+
+        if (json_size > 0) {
+            selected_packet_count++;
+            const struct analysis_context *ac = mercury_packet_processor_get_analysis_context(
+                m_mpp,
+                (unsigned char *)m_data_packet.first,
+                m_data_packet.second - m_data_packet.first,
+                &m_time
+            );
+            if (ac == nullptr) {
+                null_context_count++;
+            }
+        }
+    }
+
+    CHECK(selected_packet_count > 0);
+    CHECK(selected_packet_count == null_context_count);
 
     deinitialize();
 }
