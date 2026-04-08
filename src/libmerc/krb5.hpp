@@ -495,7 +495,7 @@ namespace krb5 {
 
         void print_as_json(struct json_object &o, const char *name) const {
             var_int<uint32_t> flags{bit_string.value, var_int<uint32_t>::asn1_bitstring};
-            json_array_bitflags f{o, name, flags};
+            json_array_bitflags<uint32_t> f{o, name, flags.value()};
             f.flag<0>("reserved");
             f.flag<1>("use_session_key");
             f.flag<2>("mutual_required");

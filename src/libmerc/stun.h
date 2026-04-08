@@ -297,7 +297,7 @@ namespace stun {
                 ;
             }
             if (msg_type == nullptr) {
-                o.print_key_unknown_code("message_type", message_type);
+                o.print_key_unknown_code("message_type", message_type.value());
             } else {
                 o.print_key_string("message_type", msg_type);
             }
