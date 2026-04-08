@@ -41,7 +41,6 @@ class linux_sll2 {
     encoded<uint8_t> packet_type;
     encoded<uint8_t> address_length;
     datum link_layer_address;
-    datum unused;
 
 public:
     /// parses a linux_sll2 header from datum \param d
@@ -53,12 +52,7 @@ public:
         arphrd_type{d},
         packet_type{d},
         address_length{d},
-        link_layer_address{d, 6}, 
-        unused{d, 2}
-        // The SLL2 header reserves 8 bytes for a link-layer address.
-        // For Ethernet packets, the meaningful portion is the 6-byte MAC
-        // address and the remaining 2 bytes are padding. For loopback,
-        // this field does not carry a meaningful hardware address.
+        link_layer_address{d, 8}    // note: hardcoded length
     { }
 
     /// reads and skips over a linux_sll2 encapsulation header in
@@ -67,8 +61,8 @@ public:
     ///
     static void skip_to_ip(datum &d) {
         linux_sll2 sll2{d};
-        if (d.is_not_null()){
-            if(sll2.is_ip()){
+        if (d.is_not_null()) {
+            if (sll2.is_ip()) {
                 return;
             }
         }
@@ -78,9 +72,9 @@ public:
     /// returns `true` if this \ref linux_sll2 encapsulation header is
     /// followed by an IPv4 or IPv6 packet, and false otherwise
     ///
-    bool is_ip() const{
+    bool is_ip() const {
         if ((arphrd_type == arphrd::ETHER or arphrd_type == arphrd::LOOPBACK)
-            and (protocol_type == ETH_TYPE_IP or protocol_type == ETH_TYPE_IPV6)){
+            and (protocol_type == ETH_TYPE_IP or protocol_type == ETH_TYPE_IPV6)) {
             return true;
         }
         return false;
