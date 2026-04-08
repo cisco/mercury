@@ -572,6 +572,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "server ssh skips analysis but still finger
     initialize(config);
     set_pcap("ssh_direction_asym.pcap");
 
+    bool saw_server_ssh_fingerprint = false;
     size_t selected_packet_count = 0;
     size_t null_context_count = 0;
     while (1) {
@@ -590,6 +591,11 @@ TEST_CASE_METHOD(LibmercTestFixture, "server ssh skips analysis but still finger
 
         if (json_size > 0) {
             selected_packet_count++;
+            std::string json_record(m_output, json_size);
+            if (json_record.find("\"ssh_init_server\":") != std::string::npos ||
+                json_record.find("\"ssh_server\":") != std::string::npos) {
+                saw_server_ssh_fingerprint = true;
+            }
             const struct analysis_context *ac = mercury_packet_processor_get_analysis_context(
                 m_mpp,
                 (unsigned char *)m_data_packet.first,
@@ -602,6 +608,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "server ssh skips analysis but still finger
         }
     }
 
+    CHECK(saw_server_ssh_fingerprint);
     CHECK(selected_packet_count > 0);
     CHECK(selected_packet_count == null_context_count);
 
@@ -616,6 +623,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "tls server skips analysis context but stil
     initialize(config);
     set_pcap("tlsv1_3.pcap");
 
+    bool saw_tls_server_fingerprint = false;
     size_t selected_packet_count = 0;
     size_t null_context_count = 0;
     while (1) {
@@ -634,6 +642,10 @@ TEST_CASE_METHOD(LibmercTestFixture, "tls server skips analysis context but stil
 
         if (json_size > 0) {
             selected_packet_count++;
+            std::string json_record(m_output, json_size);
+            if (json_record.find("\"tls_server\":") != std::string::npos) {
+                saw_tls_server_fingerprint = true;
+            }
             const struct analysis_context *ac = mercury_packet_processor_get_analysis_context(
                 m_mpp,
                 (unsigned char *)m_data_packet.first,
@@ -646,6 +658,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "tls server skips analysis context but stil
         }
     }
 
+    CHECK(saw_tls_server_fingerprint);
     CHECK(selected_packet_count > 0);
     CHECK(selected_packet_count == null_context_count);
 
