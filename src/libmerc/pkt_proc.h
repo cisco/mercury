@@ -266,7 +266,7 @@ struct stateful_pkt_proc {
                             size_t length,
                             struct timespec *ts,
                             struct tcp_reassembler *reassembler);
-    
+
     bool analyze_sll_packet(const uint8_t *packet,
                             size_t length,
                             struct timespec *ts,
