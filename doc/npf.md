@@ -407,7 +407,7 @@ where the elements are defined as
 
 ## SSH
 
-SSH fingerprints are formed from the SSH identification string and, when present, the SSH_MSG_KEXINIT message defined in RFC 4253.  Four fingerprint formats are defined for the client-to-server direction, and four corresponding formats are defined for the server-to-client direction.
+SSH fingerprints are formed from the SSH identification string and, when present, the SSH_MSG_KEXINIT message defined in RFC 4253.  Three fingerprint formats are defined for the client-to-server direction, and three corresponding formats are defined for the server-to-client direction.
 
 The complete client fingerprint format is
 ```

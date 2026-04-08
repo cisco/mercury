@@ -610,6 +610,8 @@ TEST_CASE_METHOD(LibmercTestFixture, "server ssh skips analysis but still finger
                           .resources = resources_minimal_path,
                           .packet_filter_cfg = (char *)"ssh.server"};
     initialize(config);
+    mercury_packet_processor context_mpp = mercury_packet_processor_construct(m_mc);
+    REQUIRE(context_mpp != nullptr);
     set_pcap("ssh_direction_asym.pcap");
 
     bool saw_server_ssh_fingerprint = false;
@@ -637,7 +639,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "server ssh skips analysis but still finger
                 saw_server_ssh_fingerprint = true;
             }
             const struct analysis_context *ac = mercury_packet_processor_get_analysis_context(
-                m_mpp,
+                context_mpp,
                 (unsigned char *)m_data_packet.first,
                 m_data_packet.second - m_data_packet.first,
                 &m_time
@@ -652,6 +654,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "server ssh skips analysis but still finger
     CHECK(selected_packet_count > 0);
     CHECK(selected_packet_count == null_context_count);
 
+    mercury_packet_processor_destruct(context_mpp);
     deinitialize();
 }
 
@@ -661,6 +664,8 @@ TEST_CASE_METHOD(LibmercTestFixture, "tls server skips analysis context but stil
                           .resources = resources_minimal_path,
                           .packet_filter_cfg = (char *)"tls.server_hello"};
     initialize(config);
+    mercury_packet_processor context_mpp = mercury_packet_processor_construct(m_mc);
+    REQUIRE(context_mpp != nullptr);
     set_pcap("tlsv1_3.pcap");
 
     bool saw_tls_server_fingerprint = false;
@@ -687,7 +692,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "tls server skips analysis context but stil
                 saw_tls_server_fingerprint = true;
             }
             const struct analysis_context *ac = mercury_packet_processor_get_analysis_context(
-                m_mpp,
+                context_mpp,
                 (unsigned char *)m_data_packet.first,
                 m_data_packet.second - m_data_packet.first,
                 &m_time
@@ -702,6 +707,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "tls server skips analysis context but stil
     CHECK(selected_packet_count > 0);
     CHECK(selected_packet_count == null_context_count);
 
+    mercury_packet_processor_destruct(context_mpp);
     deinitialize();
 }
 
