@@ -26,35 +26,14 @@ public:
     // code sequences used to represent invalid byte sequences
     //
     static const constexpr char *replacement_character   = "\\ufffd";
-#if true
-    //
-    // use the replacement character to represent invalid byte sequences
-    //
-    static const constexpr char *sequence_too_short      = replacement_character;
-    static const constexpr char *invalid_or_overlong     = replacement_character;
-    static const constexpr char *invalid_or_private      = replacement_character;
-    static const constexpr char *unexpected_continuation = replacement_character;
-    static const constexpr char *invalid_surrogate       = replacement_character;
-
-#else
-    //
-    // use a distinct private-usage codepoint for each type of invalid
-    // byte sequences, so that error types can be tracked
-    //
-    static const constexpr char *sequence_too_short      = "\\ue000";
-    static const constexpr char *invalid_or_overlong     = "\\ue001";
-    static const constexpr char *invalid_or_private      = "\\ue002";
-    static const constexpr char *unexpected_continuation = "\\ue003";
-    static const constexpr char *invalid_surrogate       = "\\ue004";
-#endif
 
     /// write the \param len bytes at location \param data as a UTF-8
     /// string with the JSON special characters (quotation mark,
     /// reverse solidus, solidus, backspace, form feed, line feed,
     /// carriage return, tab) escaped as per RFC 8259 Section 7.
     ///
-    /// Invalid byte sequences are replaced with private-usage
-    /// codepoints that describe why the sequence was invalid (see above).
+    /// Invalid byte sequences are replaced with the Unicode replacement
+    /// character (U+FFFD).
     ///
     /// 'Noncharacters' are accepted.
     ///
@@ -68,8 +47,8 @@ public:
     /// (quotation mark, reverse solidus, solidus, backspace, form feed, line feed,
     /// carriage return, tab) escaped as per RFC 8259 Section 7.
     ///
-    /// Invalid byte sequences are replaced with private-usage
-    /// codepoints that describe why the sequence was invalid (see above).
+    /// Invalid byte sequences are replaced with the Unicode replacement
+    /// character (U+FFFD).
 
     /// This operation may fail if there is not enough room in
     /// the buffer stream, with the buffer supporting upto a length
@@ -82,8 +61,8 @@ public:
     static inline std::string get_utf8_string(const char * input);
 
     /// write this utf8 string into a buffer_stream, handling JSON
-    /// special characters, invalid byte sequences, and private-usage
-    /// codepoints as with utf8_string::write().
+    /// special characters and invalid byte sequences as with
+    /// utf8_string::write() (invalid sequences become U+FFFD).
     ///
     /// This operation may fail if there is not enough room in
     /// the buffer stream
@@ -231,7 +210,7 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
 
                     if (*x >= 0xf0 && *x <= 0xf4) {
                         if ((end - x) < 4) {
-                            b.puts(sequence_too_short); // indicate error with private use codepoint
+                            b.puts(replacement_character); // invalid as the sequence too short
                             valid = false;
                             x++;
                             continue;              // consume one byte and continue
@@ -252,7 +231,7 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
                         }
                     } else if (*x <= 0xef) {
                         if ((end - x) < 3) {
-                            b.puts(sequence_too_short); // indicate error with private use codepoint
+                            b.puts(replacement_character); // invalid as the sequence too short
                             valid = false;
                             x++;
                             continue;              // consume one byte and continue
@@ -271,7 +250,7 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
 
                 } else {
                     if ((end - x) < 2) {
-                        b.puts(sequence_too_short); // indicate error with private use codepoint
+                        b.puts(replacement_character); // invalid as the sequence too short
                         valid = false;
                         x++;
                         continue;              // consume one byte and continue
@@ -290,7 +269,7 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
                     // was decoded (e.g., invalid lead byte, invalid
                     // continuation byte, or overlong encoding)
                     //
-                    b.puts(invalid_or_overlong); // indicate error with private use codepoint
+                    b.puts(replacement_character); // indicate error
                     valid = false;
 
                 } else {
@@ -306,14 +285,14 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
                         //
                         // error: invalid or private codepoint
                         //
-                        b.puts(invalid_or_private); // indicate error with private use codepoint
+                        b.puts(replacement_character); // indicate error
                         valid = false;
 
                     } else if (codepoint >= 0xd800 && codepoint <= 0xdfff) {
                         //
                         // invalid surrogate half
                         //
-                        b.puts(invalid_surrogate); // indicate error with private use codepoint
+                        b.puts(replacement_character); // indicate error
                         valid = false;
 
                     } else if (codepoint > 0xffff) {
@@ -337,9 +316,9 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
 
             } else {
                 //
-                // error: initial byte in range 0x80 - 0xc1
+                // error: invalid initial byte(0x80 - 0xc1)
                 //
-                b.puts(invalid_or_overlong); // indicate error with private use codepoint
+                b.puts(replacement_character); // indicate error
                 valid = false;
             }
 
