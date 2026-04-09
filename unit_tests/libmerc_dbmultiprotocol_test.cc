@@ -23,6 +23,46 @@ SCENARIO("test packet_processor_get_analysis_context with http encapsulated in P
     }
 }
 
+TEST_CASE_METHOD(LibmercTestFixture, "test linux sll2")
+{
+    libmerc_config config{.packet_filter_cfg = (char *)"all"};
+
+    initialize(config);
+
+    set_pcap("sll2_tls.pcap");
+    CHECK(1 == counter(LINKTYPE_LINUX_SLL2));
+
+    deinitialize();
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "test linux sll2 with analysis")
+{
+    libmerc_config config{.do_analysis = true,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"all"};
+
+    initialize(config);
+
+    set_pcap("sll2_tls.pcap");
+    CHECK(1 == counter(fingerprint_type_tls, nullptr, LINKTYPE_LINUX_SLL2));
+
+    deinitialize();
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "test linux sll with analysis")
+{
+    libmerc_config config{.do_analysis = true,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"all"};
+
+    initialize(config);
+
+    set_pcap("sll_tls.pcap");
+    CHECK(1 == counter(fingerprint_type_tls, nullptr, LINKTYPE_LINUX_SLL));
+
+    deinitialize();
+}
+
 TEST_CASE_METHOD(LibmercTestFixture, "test http")
 {
     auto destination_check_callback = [](const analysis_context *ac)

@@ -20,6 +20,7 @@
 #include "loopback.hpp"
 #include "linux_sll.hpp"
 #include "event.hpp"
+#include "linux_sll2.hpp"
 
 // include files needed by stateful_pkt_proc; they provide the
 // interface to mercury's packet parsing and handling routines
@@ -1495,6 +1496,9 @@ size_t stateful_pkt_proc::write_json(void *buffer,
     case LINKTYPE_LINUX_SLL:
         linux_sll::skip_to_ip(pkt);
         break;
+    case LINKTYPE_LINUX_SLL2:
+        linux_sll2::skip_to_ip(pkt);
+        break;
     case LINKTYPE_NULL:  // BSD loopback encapsulation
         {
             loopback_header loopback{pkt};
@@ -1508,8 +1512,13 @@ size_t stateful_pkt_proc::write_json(void *buffer,
                 }
             }
         }
-    default:
         break;
+    default:
+        return 0;   // unsupported link layer type
+    }
+
+    if (pkt.is_null()) {
+        return 0;   // decapsulation rejected a non-IP payload
     }
 
     return ip_write_json(buffer,
@@ -1960,6 +1969,34 @@ bool stateful_pkt_proc::analyze_raw_packet(const uint8_t *packet,
     return analyze_ip_packet(pkt.data, pkt.length(), ts, reassembler);
 }
 
+bool stateful_pkt_proc::analyze_sll_packet(const uint8_t *packet,
+                                           size_t length,
+                                           struct timespec *ts,
+                                           struct tcp_reassembler *reassembler) {
+
+    struct datum pkt{packet, packet+length};
+    linux_sll::skip_to_ip(pkt);
+    if (pkt.is_null()) {
+        return false;   // not an IP packet
+    }
+
+    return analyze_ip_packet(pkt.data, pkt.length(), ts, reassembler);
+}
+
+bool stateful_pkt_proc::analyze_sll2_packet(const uint8_t *packet,
+                                            size_t length,
+                                            struct timespec *ts,
+                                            struct tcp_reassembler *reassembler) {
+
+    struct datum pkt{packet, packet+length};
+    linux_sll2::skip_to_ip(pkt);
+    if (pkt.is_null()) {
+        return false;   // not an IP packet
+    }
+
+    return analyze_ip_packet(pkt.data, pkt.length(), ts, reassembler);
+}
+
 bool stateful_pkt_proc::analyze_packet(const uint8_t *eth_packet,
                             size_t length,
                             struct timespec *ts,
@@ -1975,6 +2012,12 @@ bool stateful_pkt_proc::analyze_packet(const uint8_t *eth_packet,
         break;
     case LINKTYPE_RAW:
         return analyze_raw_packet(eth_packet, length, ts, reassembler);
+        break;
+    case LINKTYPE_LINUX_SLL:
+        return analyze_sll_packet(eth_packet, length, ts, reassembler);
+        break;
+    case LINKTYPE_LINUX_SLL2:
+        return analyze_sll2_packet(eth_packet, length, ts, reassembler);
         break;
     default:
         break;
