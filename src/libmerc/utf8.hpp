@@ -169,7 +169,7 @@ public:
 // The general encoding scheme theoretically allows 4-byte sequences
 // up to U+1FFFFF, but RFC 3629 restricts valid UTF-8 to U+10FFFF.
 // The first table shows the encoding scheme; the second table shows
-// the legal byte sequences enforced by this implementation.
+// the well-formed byte sequences enforced by this implementation.
 //
 // Code Points and the byte sequences that encode them
 //
@@ -182,15 +182,17 @@ public:
 //    16    U+0800   U+FFFF      3      1110xxxx    10xxxxxx    10xxxxxx
 //    21    U+10000  U+10FFFF    4      11110xxx    10xxxxxx    10xxxxxx    10xxxxxx
 //
-// Legal UTF-8 Byte Sequences (Unicode Standard, Table 3-7; RFC 3629 section 3)
-// http://www.unicode.org/versions/corrigendum1.html
+// Well-Formed UTF-8 Byte Sequences (Unicode Standard, Table 3-7; RFC 3629 section 3)
+// https://www.unicode.org/versions/Unicode16.0.0/core-spec/chapter-3/#G27506
 //
 //  Code Points         1st Byte  2nd Byte   3rd Byte    4th Byte
 //  ---------------------------------------------------------------
 //  U+0000..U+007F      00..7F    -          -           -
 //  U+0080..U+07FF      C2..DF    80..BF     -           -
 //  U+0800..U+0FFF      E0        A0..BF     80..BF      -
-//  U+1000..U+FFFF      E1..EF    80..BF     80..BF      -
+//  U+1000..U+CFFF      E1..EC    80..BF     80..BF      -
+//  U+D000..U+D7FF      ED        80..9F     80..BF      -
+//  U+E000..U+FFFF      EE..EF    80..BF     80..BF      -
 //  U+10000..U+3FFFF    F0        90..BF     80..BF      80..BF
 //  U+40000..U+FFFFF    F1..F3    80..BF     80..BF      80..BF
 //  U+100000..U+10FFFF  F4        80..8F     80..BF      80..BF
@@ -210,7 +212,7 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
 
                     if (*x >= 0xf0 && *x <= 0xf4) {
                         if ((end - x) < 4) {
-                            b.puts(replacement_character); // invalid as the sequence too short
+                            b.puts(replacement_character); // invalid; sequence too short
                             valid = false;
                             x++;
                             continue;              // consume one byte and continue
@@ -231,7 +233,7 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
                         }
                     } else if (*x <= 0xef) {
                         if ((end - x) < 3) {
-                            b.puts(replacement_character); // invalid as the sequence too short
+                            b.puts(replacement_character); // invalid; sequence too short
                             valid = false;
                             x++;
                             continue;              // consume one byte and continue
@@ -250,7 +252,7 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
 
                 } else {
                     if ((end - x) < 2) {
-                        b.puts(replacement_character); // invalid as the sequence too short
+                        b.puts(replacement_character); // invalid; sequence too short
                         valid = false;
                         x++;
                         continue;              // consume one byte and continue
@@ -316,7 +318,7 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
 
             } else {
                 //
-                // error: invalid initial byte(0x80 - 0xc1)
+                // error: invalid initial byte (0x80 - 0xc1)
                 //
                 b.puts(replacement_character); // indicate error
                 valid = false;
