@@ -127,7 +127,7 @@ public:
 
     public:
 
-        test_case(const std::vector<uint8_t> input, bool is_valid, const char *expected=nullptr) :
+        test_case(const std::vector<uint8_t> &input, bool is_valid, const char *expected=nullptr) :
             s_in{input},
             valid{is_valid},
             expected_output{expected}
@@ -229,7 +229,7 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
 
                 if (*x >= 0xe0) {
 
-                    if (*x >= 0xf0) {
+                    if (*x >= 0xf0 && *x <= 0xf4) {
                         if ((end - x) < 4) {
                             b.puts(sequence_too_short); // indicate error with private use codepoint
                             valid = false;
@@ -251,7 +251,7 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
 
                             x += 3;
                         }
-                    } else {
+                    } else if (*x <= 0xef) {
                         if ((end - x) < 3) {
                             b.puts(sequence_too_short); // indicate error with private use codepoint
                             valid = false;
@@ -338,9 +338,9 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
 
             } else {
                 //
-                // error: initial byte in range 0x80 - 0xbf
+                // error: initial byte in range 0x80 - 0xc1
                 //
-                b.puts(unexpected_continuation); // indicate error with private use codepoint
+                b.puts(invalid_or_overlong); // indicate error with private use codepoint
                 valid = false;
             }
 
