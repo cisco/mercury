@@ -183,9 +183,14 @@ public:
 }
 
 
-// UTF-8 is a variable-length encoding scheme that represents unicode
+// UTF-8 is a variable-length encoding scheme that represents Unicode
 // code points in sequences of one to four bytes.  It is backwards
 // compatible with ASCII.
+//
+// The general encoding scheme theoretically allows 4-byte sequences
+// up to U+1FFFFF, but RFC 3629 restricts valid UTF-8 to U+10FFFF.
+// The first table shows the encoding scheme; the second table shows
+// the legal byte sequences enforced by this implementation.
 //
 // Code Points and the byte sequences that encode them
 //
@@ -196,18 +201,10 @@ public:
 //     7    U+0000   U+007F      1      0xxxxxxx
 //    11    U+0080   U+07FF      2      110xxxxx    10xxxxxx
 //    16    U+0800   U+FFFF      3      1110xxxx    10xxxxxx    10xxxxxx
-//    21    U+10000  U+1FFFFF    4      11110xxx    10xxxxxx    10xxxxxx    10xxxxxx
+//    21    U+10000  U+10FFFF    4      11110xxx    10xxxxxx    10xxxxxx    10xxxxxx
 //
-//          First    Last
-//          Code     Code
-//   Bits   Point    Point      Byte 1      Byte 2      Byte 3      Byte 4
-//   ------------------------------------------------------------------------
-//     7    U+0000   U+007F     0x00-0x7f   -           -           -
-//    11    U+0080   U+07FF     0xc0-0xdf   0x80-0xbf   -           -
-//    16    U+0800   U+FFFF     0xe0-0xef   0x80-0xbf   0x80-0xbf   -
-//    21    U+10000  U+1FFFFF   0xf0-0xf7   0x80-0xbf   0x80-0xbf   0x80-0xbf
-//
-// Legal UTF-8 Byte Sequences, following http://www.unicode.org/versions/corrigendum1.html
+// Legal UTF-8 Byte Sequences (Unicode Standard, Table 3-7; RFC 3629 section 3)
+// http://www.unicode.org/versions/corrigendum1.html
 //
 //  Code Points         1st Byte  2nd Byte   3rd Byte    4th Byte
 //  ---------------------------------------------------------------
@@ -295,13 +292,6 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
                     // overlong encoding was encountered
                     //
                     b.puts(invalid_or_overlong); // indicate error with private use codepoint
-                    valid = false;
-
-                } else if (codepoint > 0x10ffff) {
-                    //
-                    // error: value outside Unicode range
-                    //
-                    b.puts(invalid_or_overlong);
                     valid = false;
 
                 } else {
@@ -1004,6 +994,11 @@ inline bool utf8_string::unit_test(FILE *output) {
             "\\ufffd"
         },
         {
+            {0xf5, 0x80, 0x80, 0x80}, // F5 is invalid lead byte (RFC 3629 limits to F0..F4)
+            false,
+            "\\ufffd\\ufffd\\ufffd\\ufffd"
+        },
+        {
             {0xf4, 0x8f, 0xbf, 0xbe}, // U+10FFFE
             true,
             "\\udbff\\udffe"
@@ -1047,6 +1042,16 @@ inline bool utf8_string::unit_test(FILE *output) {
             {0xc2, 0x7f},
             false,
             "\\ufffd\\u007f"
+        },
+        {
+            {0xc2}, // lone 2-byte lead, no continuation byte available
+            false,
+            "\\ufffd"
+        },
+        {
+            {0xed, 0xa0, 0x80}, // would decode to U+D800 (surrogate), rejected by is_second_byte_valid
+            false,
+            "\\ufffd\\ufffd\\ufffd"
         },
     };
 
