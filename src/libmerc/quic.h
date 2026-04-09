@@ -412,12 +412,15 @@ struct quic_initial_packet {
     bool valid;
     const uint8_t *aad_start = nullptr;
     const uint8_t *aad_end = nullptr;
+    struct datum raw_packet;  // full packet for raw_packet_data output
 
-    quic_initial_packet(struct datum &d) : connection_info{0}, dcid{}, scid{}, token{}, payload{}, valid{false} {
+    quic_initial_packet(struct datum &d) : connection_info{0}, dcid{}, scid{}, token{}, payload{}, valid{false}, raw_packet{} {
         parse(d);
     }
 
     void parse(struct datum &d) {
+
+        raw_packet = d;
 
         // additional authenticated data (aad) is used in authenticated decryption
         //
@@ -537,6 +540,7 @@ struct quic_initial_packet {
         json_quic.print_key_hex("scid", scid);
         json_quic.print_key_hex("token", token);
         json_quic.print_key_hex("data", payload);
+        json_quic.print_key_hex("raw_packet_data", raw_packet);
 
     }
 
