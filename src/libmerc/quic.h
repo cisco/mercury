@@ -540,7 +540,6 @@ struct quic_initial_packet {
         json_quic.print_key_hex("scid", scid);
         json_quic.print_key_hex("token", token);
         json_quic.print_key_hex("data", payload);
-        json_quic.print_key_hex("raw_packet_data", raw_packet);
 
     }
 
@@ -1433,6 +1432,8 @@ public:
         if (plaintext.is_not_empty()) {
             //quic_crypto.write_json(quic_record);
             quic_record.print_key_hex("plaintext", plaintext);
+        } else {
+            quic_record.print_key_hex("raw_packet_data", initial_packet.raw_packet);
         }
         quic_record.close();
     }
@@ -1662,6 +1663,8 @@ public:
         if (plaintext.is_not_empty()) {
             quic_crypto.write_json(quic_record);
             quic_record.print_key_hex("plaintext", plaintext);
+        } else {
+            quic_record.print_key_hex("raw_packet_data", initial_packet.raw_packet);
         }
         // json_object frame_dump{record, "frame_dump"};
         // datum plaintext_copy = plaintext;
