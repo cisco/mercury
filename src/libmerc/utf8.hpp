@@ -240,8 +240,7 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
                         uint8_t byte2 = x[1];
                         uint8_t byte3 = x[2];
                         uint8_t byte4 = x[3];
-                        if (byte1 <= 0xf4 &&
-                            is_second_byte_valid(byte1, byte2) &&
+                        if (is_second_byte_valid(byte1, byte2) &&
                             is_continuation(byte3) &&
                             is_continuation(byte4)) {
                             codepoint = (byte1 & 0x07);
@@ -287,9 +286,9 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
                 }
                 if (codepoint == 0x0) {
                     //
-                    // error: an invalid continuation byte was
-                    // encountered in a multi-byte sequence, or an
-                    // overlong encoding was encountered
+                    // error: invalid UTF-8 sequence; no valid codepoint
+                    // was decoded (e.g., invalid lead byte, invalid
+                    // continuation byte, or overlong encoding)
                     //
                     b.puts(invalid_or_overlong); // indicate error with private use codepoint
                     valid = false;
