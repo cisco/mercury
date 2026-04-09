@@ -545,7 +545,7 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
                 return;
             }
         }
-        x.emplace<ssh_init_packet>(pkt);
+        x.emplace<ssh_init_packet>(pkt, tcp_pkt ? tcp_pkt->get_direction_from_ports() : flow_direction::unknown);
         {
             uint32_t more_bytes = std::get<ssh_init_packet>(x).more_bytes_needed();
             if (tcp_pkt && more_bytes) {
@@ -568,7 +568,7 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
             else {
                 tcp_pkt->set_supplementary_reassembly();
             }
-            x.emplace<ssh_kex_init>(ssh_pkt);
+            x.emplace<ssh_kex_init>(ssh_pkt, tcp_pkt ? tcp_pkt->get_direction_from_ports() : flow_direction::unknown);
             return;
         }
     case tcp_msg_type_smtp_server:
@@ -1549,6 +1549,7 @@ inline bool is_fdc_writable(fingerprint_type fp_type) {
     case fingerprint_type_tofsee:
     case fingerprint_type_stun:
     case fingerprint_type_ssh:
+    case fingerprint_type_ssh_server:
     case fingerprint_type_http_server:
     case fingerprint_type_tls_server:
     case fingerprint_type_dtls:
@@ -1658,9 +1659,7 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         }
     }
 
-    analysis.result.reinit();
-    analysis.destination.reset();
-    analysis.fp.init();
+    analysis.reinit();
 
     if (std::visit(is_not_empty{}, x)) {
         std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
@@ -1672,7 +1671,7 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
 
     std::visit(do_analysis{k_, analysis, c}, x);
 
-    if (context != nullptr and analysis.result.is_valid()) {
+    if (context != nullptr and analysis.analysis_is_valid()) {
         *context = &analysis;
     }
 

@@ -16,6 +16,7 @@
 #include "analysis.h"
 #include "json_object.h"
 #include "fingerprint.h"
+#include "flow_key.h"
 #include "match.h"
 
 // #define L_ssh_version_string                   8
@@ -155,6 +156,7 @@ struct ssh_kex_init : public base_protocol {
     struct name_list languages_server_to_client;
     bool secondary_binary_packet = false;
     ssh_binary_packet sec_pkt;
+    flow_direction direction;
 
     static constexpr ssize_t ssh_msg_code_len = 1;
     static constexpr ssize_t ssh_cookie_len = 16;
@@ -163,7 +165,7 @@ struct ssh_kex_init : public base_protocol {
 
     //ssh_kex_init(datum &p, datum trailing) { parse(p,trailing); };
 
-    ssh_kex_init(ssh_binary_packet& pkt) {
+    ssh_kex_init(ssh_binary_packet& pkt, flow_direction dir = flow_direction::unknown) : direction{dir} {
         if (pkt.has_trailing_data()) {
             parse(pkt.payload,pkt.trailing_data);
         }
@@ -172,7 +174,7 @@ struct ssh_kex_init : public base_protocol {
         }
     }
 
-    ssh_kex_init() { };
+    ssh_kex_init() : direction{flow_direction::unknown} { };
 
     void parse(struct datum &p) {
 
@@ -278,7 +280,7 @@ struct ssh_kex_init : public base_protocol {
     }
 
     void compute_fingerprint(class fingerprint &fp) const {
-        fp.set_type(fingerprint_type_ssh_kex);
+        fp.set_type(direction == flow_direction::server ? fingerprint_type_ssh_kex_server : fingerprint_type_ssh_kex);
         fp.add(*this);
         fp.final();
     }
@@ -329,10 +331,11 @@ struct ssh_init_packet : public base_protocol {
     ssh_binary_packet binary_pkt;
     ssh_kex_init kex_pkt;
     data_buffer<MAX_USER_AGENT_LEN> user_agent;
+    flow_direction direction;
 
     static constexpr size_t max_data_size = 8192;
 
-    ssh_init_packet(datum &p) : protocol_string{NULL, NULL}, comment_string{NULL, NULL}, binary_pkt{}, kex_pkt{}, user_agent{} {
+    ssh_init_packet(datum &p, flow_direction dir = flow_direction::unknown) : protocol_string{NULL, NULL}, comment_string{NULL, NULL}, binary_pkt{}, kex_pkt{}, user_agent{}, direction{dir} {
         parse(p);
     }
 
@@ -348,7 +351,7 @@ struct ssh_init_packet : public base_protocol {
             if (p.is_not_empty()) {
                 binary_pkt = ssh_binary_packet{p};
                 if (binary_pkt.is_not_empty()) {
-                    kex_pkt = ssh_kex_init{binary_pkt};
+                    kex_pkt = ssh_kex_init{binary_pkt, direction};
                 }
             }
 
@@ -365,7 +368,7 @@ struct ssh_init_packet : public base_protocol {
         if (p.is_not_empty()) {
             binary_pkt = ssh_binary_packet{p};
             if (binary_pkt.is_not_empty()) {
-                kex_pkt = ssh_kex_init{binary_pkt};
+                kex_pkt = ssh_kex_init{binary_pkt, direction};
             }
         }
 
@@ -417,10 +420,10 @@ struct ssh_init_packet : public base_protocol {
     void compute_fingerprint(class fingerprint &fp) const {
         // depending on type of pkt, set correct fingerprint type
         if (kex_pkt.is_not_empty()){
-            fp.set_type(fingerprint_type_ssh);
+            fp.set_type(direction == flow_direction::server ? fingerprint_type_ssh_server : fingerprint_type_ssh);
         }
         else {
-            fp.set_type(fingerprint_type_ssh_init);
+            fp.set_type(direction == flow_direction::server ? fingerprint_type_ssh_init_server : fingerprint_type_ssh_init);
         }
         fp.add(*this);
         fp.final();
@@ -475,22 +478,26 @@ struct ssh_init_packet : public base_protocol {
     };
 
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
-        if (!kex_pkt.is_not_empty()) {
-            return false;
-        }
-
-        // concatenate protocol and comment strings for analysis
+        // concatenate protocol and comment strings for analysis/observation
         datum tmp_protocol_str = protocol_string;
         datum tmp_comment_str = comment_string;
         user_agent.parse(tmp_protocol_str);
         user_agent.parse(tmp_comment_str);
 
         analysis_.destination.init({nullptr, nullptr}, user_agent.contents(), {nullptr, nullptr}, k_);
+
+        if (!kex_pkt.is_not_empty()) {
+            return false;
+        }
+        // only run the classifier on SSH client messages, not server messages
+        if (direction == flow_direction::server) {
+            return false;
+        }
         if (c_ == nullptr) {
             return false;
         }
-        return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
-}
+        return c_->analyze_fingerprint_and_destination_context(analysis_);
+    }
 
 };
 
