@@ -539,8 +539,6 @@ struct quic_initial_packet {
         json_quic.print_key_hex("dcid", dcid);
         json_quic.print_key_hex("scid", scid);
         json_quic.print_key_hex("token", token);
-        json_quic.print_key_hex("data", payload);
-
     }
 
     constexpr static mask_and_value<8> matcher = {
@@ -843,15 +841,30 @@ public:
                 salt_str = initial_salt->get_name();
                 if (process_initial_packet(aad, quic_pkt, initial_salt->data(), client_in_label, quic_key_label, quic_iv_label, quic_hp_label,
                                             client_in_label_size, quic_key_label_size, quic_iv_label_size, quic_hp_label_size) == false) {
-                    return {nullptr, nullptr};
+                    if (!quic_trial_decryption) {
+                        return {nullptr, nullptr};
+                    }
+                    // fall through to trial decryption
                 }
-                decrypt__(aad.buffer, aad.readable_length(),
-                      quic_pkt.payload.data, quic_pkt.payload.length());
-                return {plaintext, plaintext+plaintext_len};
+                else {
+                    decrypt__(aad.buffer, aad.readable_length(),
+                          quic_pkt.payload.data, quic_pkt.payload.length());
+                    if (plaintext_len) {
+                        return {plaintext, plaintext+plaintext_len};
+                    }
+                    // decryption failed, fall through to trial decryption if enabled
+                    if (!quic_trial_decryption) {
+                        return {plaintext, plaintext+plaintext_len};
+                    }
+                    reset_buffers();
+                    aad.reset();
+                }
             }
-            return {nullptr, nullptr};
+            else if (!quic_trial_decryption) {
+                return {nullptr, nullptr};
+            }
         }
-        else if (quic_trial_decryption) {
+        if (quic_trial_decryption) {
             // try every salt to decrypt, most likely a version negotiation pkt
             for (const auto &params_kv : quic_params.get_params_map()) {
                 const std::tuple<quic_parameters::salt_enum, quic_parameters::init_pkt_mask_enum, quic_parameters::hkdf_label_enum> param = params_kv.second;
@@ -1430,7 +1443,6 @@ public:
             cc.write_json(quic_record);
         }
         if (plaintext.is_not_empty()) {
-            //quic_crypto.write_json(quic_record);
             quic_record.print_key_hex("plaintext", plaintext);
         } else {
             quic_record.print_key_hex("raw_packet_data", initial_packet.raw_packet);
