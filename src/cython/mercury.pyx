@@ -1053,11 +1053,14 @@ def quic_get_salt_from_bytes(bytes raw_packet):
     :return: salt name string if decryption succeeded, None otherwise
     :rtype: str or None
 
+    Packets shorter than 1200 bytes are rejected and return None; this
+    helper does not modify or pad the caller-provided packet bytes before
+    trial decryption.
+
     WARNING: This function is NOT thread-safe. Only use in single-threaded contexts.
     """
     if len(raw_packet) < 1200:
-        # Pad to minimum QUIC Initial packet length
-        raw_packet = raw_packet + b'\x00' * (1200 - len(raw_packet))
+        return None
     return _quic_get_salt_impl(raw_packet)
 
 
@@ -1088,6 +1091,10 @@ def quic_get_salt(dict quic_data):
     :return: salt name string if decryption succeeded, None if failed or not an Initial packet
     :rtype: str or None
 
+    Packets shorter than 1200 bytes are rejected and return None; this
+    helper does not modify or pad the caller-provided packet bytes before
+    trial decryption.
+
     WARNING: This function is NOT thread-safe. Only use in single-threaded contexts.
     :raises ValueError: If 'raw_packet_data' field is missing or empty
     """
@@ -1111,8 +1118,7 @@ def quic_get_salt(dict quic_data):
     if (connection_info & 0x80) == 0 or pkt_type != 0:
         return None
 
-    # Pad to minimum length if needed (QUIC Initial packets must be >= 1200 bytes)
     if len(raw_packet) < 1200:
-        raw_packet = raw_packet + b'\x00' * (1200 - len(raw_packet))
+        return None
 
     return _quic_get_salt_impl(raw_packet)
