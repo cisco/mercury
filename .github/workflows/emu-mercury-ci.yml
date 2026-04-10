@@ -176,9 +176,9 @@ jobs:
       - name: Build libmerc via CMake
         working-directory: src/libmerc
         run: |
-          cmake -DCMAKE_BUILD_TYPE=Debug -DLIBMERC_ONLY=TRUE -B build-debug
+          cmake -DCMAKE_BUILD_TYPE=Debug -B build-debug
           cmake --build build-debug --parallel 1
-          cmake -DCMAKE_BUILD_TYPE=Release -DLIBMERC_ONLY=TRUE -B build-release
+          cmake -DCMAKE_BUILD_TYPE=Release -B build-release
           cmake --build build-release --parallel 1
       - name: Clean up CMake build directories
         working-directory: src/libmerc
@@ -231,9 +231,9 @@ jobs:
       - name: Build libmerc via CMake
         working-directory: src/libmerc
         run: |
-          cmake -DCMAKE_BUILD_TYPE=Debug -DLIBMERC_ONLY=TRUE -B build-debug
+          cmake -DCMAKE_BUILD_TYPE=Debug -B build-debug
           cmake --build build-debug --parallel 1
-          cmake -DCMAKE_BUILD_TYPE=Release -DLIBMERC_ONLY=TRUE -B build-release
+          cmake -DCMAKE_BUILD_TYPE=Release -B build-release
           cmake --build build-release --parallel 1
 
   # ========== Linux Distro (.deb) and Python Packages (.so) ==========
