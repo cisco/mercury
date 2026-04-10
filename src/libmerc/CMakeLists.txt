@@ -218,7 +218,7 @@ list(GET _version_parts 0 _major)
 list(GET _version_parts 1 _minor)
 list(GET _version_parts 2 _patch)
 
-if(GIT_FOUND)
+if(Git_FOUND)
     execute_process(
         COMMAND "${GIT_EXECUTABLE}" rev-parse HEAD
         OUTPUT_VARIABLE _git_hash OUTPUT_STRIP_TRAILING_WHITESPACE
