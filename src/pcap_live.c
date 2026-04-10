@@ -18,72 +18,21 @@
 
 #include <pcap/pcap.h>
 
-#include "libmerc/utils.h"
 #include "output.h"
 #include "signal_handling.h"
+#include "pkt_proc.hpp"
+#include "libmerc/utils.h"
+
 
 constexpr static size_t PCAP_LIVE_SNAPLEN = 65536;
-
-enum mercury_linktype : uint16_t {
-    mercury_linktype_null = 0,
-    mercury_linktype_ethernet = 1,
-    mercury_linktype_ppp = 9,
-    mercury_linktype_raw = 101,
-};
-
-struct packet_info {
-    struct timespec ts;
-    uint32_t caplen;
-    uint32_t len;
-    uint16_t linktype = mercury_linktype_ethernet;
-};
-
-struct pkt_proc {
-    virtual void apply(struct packet_info *pi, uint8_t *eth) = 0;
-    virtual void flush() = 0;
-    virtual void finalize() = 0;
-    virtual ~pkt_proc() {};
-    size_t bytes_written = 0;
-    size_t packets_written = 0;
-};
-
-struct pkt_proc *pkt_proc_new_from_config(struct mercury_config *cfg,
-                                          mercury_context mc,
-                                          int tnum,
-                                          struct ll_queue *llq);
-
 
 struct pcap_live_context {
     pcap_t *pcap_handle = nullptr;
     struct pkt_proc *pkt_processor = nullptr;
-    uint16_t linktype = mercury_linktype_ethernet;
+    uint16_t linktype = LINKTYPE::ETHERNET;
     uint64_t packets = 0;
     uint64_t bytes = 0;
 };
-
-
-/* Maps libpcap DLT values for live interfaces onto the Mercury
- * linktype values expected by packet processing.
- */
-static uint16_t pcap_datalink_to_mercury_linktype(int datalink) {
-    switch (datalink) {
-    case DLT_NULL:
-        return mercury_linktype_null;
-    case DLT_EN10MB:
-        return mercury_linktype_ethernet;
-    case DLT_PPP:
-        return mercury_linktype_ppp;
-    case DLT_RAW:
-        return mercury_linktype_raw;
-#ifdef DLT_LOOP
-    case DLT_LOOP:
-        return mercury_linktype_null;
-#endif
-    default:
-        return 0xffff;
-    }
-}
-
 
 /* Creates and activates a libpcap handle for live capture, applying
  * the backend's snaplen, timeout, and buffer-size policy.
@@ -161,12 +110,11 @@ static enum status pcap_live_open(struct mercury_config *cfg,
                 pcap_statustostr(rc));
     }
 
-    int datalink = pcap_datalink(handle);
-    ctx->linktype = pcap_datalink_to_mercury_linktype(datalink);
+    ctx->linktype = pcap_datalink(handle);
     if (ctx->linktype == 0xffff) {
         fprintf(stderr, "error: unsupported datalink type %d (%s) on interface %s\n",
-                datalink,
-                pcap_datalink_val_to_name(datalink) ? pcap_datalink_val_to_name(datalink) : "unknown",
+                ctx->linktype,
+                pcap_datalink_val_to_name(ctx->linktype) ? pcap_datalink_val_to_name(ctx->linktype) : "unknown",
                 cfg->capture_interface);
         pcap_close(handle);
         return status_err;
