@@ -45,15 +45,22 @@ minor=$(subst .,,$(shell cat ../../VERSION | grep -o "\.[0-9]*\."))
 patch=$(shell cat ../../VERSION | grep -o "[0-9]*$$")
 FLAGS += "-DMERCURY_SEMANTIC_VERSION=$(major),$(minor),$(patch)"
 
-COMMIT=$(shell git log -n 1 | grep -E -o "commit [0-9a-f]+" || echo "unknown")
-GIT_DIFF=$(shell git diff 2> /dev/null | wc -l)
-ifeq ($(GIT_DIFF),0)
-  DIFF=
+# Embed the git state into compiled objects.
+# GIT_COMMIT_ID identifies the source: full SHA-1 hash, plus
+#   "with local changes" when the working tree is dirty.
+# GIT_COUNT is the total number of commits on HEAD.
+# NOTE: keep in sync with src/libmerc/Makefile.in and
+#   src/libmerc/CMakeLists.txt, which compute the same defines.
+GIT_HASH  := $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
+GIT_DIRTY := $(shell git diff-index --quiet HEAD -- 2>/dev/null; echo $$?)
+GIT_COUNT := $(shell git rev-list --count HEAD 2>/dev/null || echo 0)
+ifeq ($(GIT_DIRTY),1)
+  GIT_COMMIT_STR := commit $(GIT_HASH) with local changes
 else
-  DIFF=with local changes
+  # exit 0 = clean, exit >1 = not a git repo / no HEAD — treat as clean
+  GIT_COMMIT_STR := commit $(GIT_HASH)
 endif
-GIT_COUNT=$(shell git rev-list --count HEAD || echo 0)
-FLAGS += "-DGIT_COMMIT_ID=\"$(COMMIT) $(DIFF)\"" "-DGIT_COUNT=$(GIT_COUNT)"
+FLAGS += "-DGIT_COMMIT_ID=\"$(GIT_COMMIT_STR)\"" "-DGIT_COUNT=$(GIT_COUNT)"
 
 export ENV_CFLAGS=${FLAGS}
 

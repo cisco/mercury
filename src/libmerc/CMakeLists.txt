@@ -198,6 +198,63 @@ endif()
 
 ## end checks and configure
 
+###############################################################################
+## Version and git state
+##
+## Compute the library version and git state for embedding into
+## compiled objects via target_compile_definitions (applied below,
+## after the library targets are defined).
+##
+## MERCURY_SEMANTIC_VERSION is a comma-separated triple (e.g. 2,19,1).
+## GIT_COMMIT_ID identifies the source: "commit <hash>", plus
+##   "with local changes" when the working tree is dirty.
+## GIT_COUNT is the total number of commits on HEAD.
+## NOTE: keep in sync with src/libmerc/Makefile.in and
+##   src/cython/Makefile.in, which compute the same defines.
+###############################################################################
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/../../VERSION" _version_str)
+string(REPLACE "." ";" _version_parts "${_version_str}")
+list(GET _version_parts 0 _major)
+list(GET _version_parts 1 _minor)
+list(GET _version_parts 2 _patch)
+
+if(GIT_FOUND)
+    execute_process(
+        COMMAND "${GIT_EXECUTABLE}" rev-parse HEAD
+        OUTPUT_VARIABLE _git_hash OUTPUT_STRIP_TRAILING_WHITESPACE
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        ERROR_QUIET RESULT_VARIABLE _rc)
+    if(_rc OR NOT _git_hash)
+        set(_git_hash "unknown")
+    endif()
+
+    # diff-index --quiet: exit 0 = clean, exit 1 = dirty,
+    # exit >1 or failure = not a git repo / no HEAD — treat as clean.
+    execute_process(
+        COMMAND "${GIT_EXECUTABLE}" diff-index --quiet HEAD --
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        ERROR_QUIET RESULT_VARIABLE _dirty_rc)
+    if(_dirty_rc EQUAL 1)
+        set(_git_commit_id "commit ${_git_hash} with local changes")
+    else()
+        set(_git_commit_id "commit ${_git_hash}")
+    endif()
+
+    execute_process(
+        COMMAND "${GIT_EXECUTABLE}" rev-list --count HEAD
+        OUTPUT_VARIABLE _git_count OUTPUT_STRIP_TRAILING_WHITESPACE
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        ERROR_QUIET RESULT_VARIABLE _rc)
+    if(_rc OR NOT _git_count)
+        set(_git_count "0")
+    endif()
+else()
+    set(_git_commit_id "commit unknown")
+    set(_git_count "0")
+endif()
+## end version and git state
+###############################################################################
+
 
 ## recursive subdirectories
 add_subdirectory(asn1)
@@ -473,6 +530,15 @@ if(MERCURY_HAVE_XSIMD)
         target_include_directories(libmerc_static PRIVATE ${XSIMD_INCLUDE_DIR})
     endif()
 endif()
+
+# Apply version/git defines computed above (see "Version and git state").
+foreach(_tgt libmerc libmerc_static)
+    target_compile_definitions(${_tgt} PRIVATE
+        MERCURY_SEMANTIC_VERSION=${_major},${_minor},${_patch}
+        GIT_COMMIT_ID="${_git_commit_id}"
+        GIT_COUNT=${_git_count}
+    )
+endforeach()
 
 ## TARGET cbor {
 set(cbor_src
