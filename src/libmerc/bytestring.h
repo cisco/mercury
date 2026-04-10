@@ -8,9 +8,11 @@
 #ifndef BYTESTRING_H
 #define BYTESTRING_H
 
-#include <string>
 #include <cstdint>
 #include <cstring>
+#include <cwchar>    // std::mbstate_t
+#include <iosfwd>    // std::streamoff, std::streampos
+#include <string>
 
 // Provide a std::char_traits<uint8_t> specialization so that
 // std::basic_string<uint8_t> compiles on all platforms.  Apple Xcode
