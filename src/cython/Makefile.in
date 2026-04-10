@@ -46,7 +46,7 @@ minor=$(subst .,,$(shell cat ../../VERSION | grep -o "\.[0-9]*\."))
 patch=$(shell cat ../../VERSION | grep -o "[0-9]*$$")
 FLAGS += "-DMERCURY_SEMANTIC_VERSION=$(major),$(minor),$(patch)"
 
-COMMIT=$(shell git log -n 1 | egrep -o "commit [0-9a-f]+" || echo "unknown")
+COMMIT=$(shell git log -n 1 | grep -E -o "commit [0-9a-f]+" || echo "unknown")
 GIT_DIFF=$(shell git diff 2> /dev/null | wc -l)
 ifeq ($(GIT_DIFF),0)
   DIFF=
