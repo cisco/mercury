@@ -807,7 +807,6 @@ public:
 class hexline_reader : public mpz_reader {
     char *linestr = NULL;
     size_t linelen = 0;
-    ssize_t read;
     size_t linenum = 0;
     FILE *f = nullptr;
 
@@ -843,7 +842,7 @@ public:
 
     size_t get_linenum() override { return linenum; }
 
-    virtual bool write_out_certs(std::vector<size_t> &, const std::string &) {
+    bool write_out_certs(std::vector<size_t> &, const std::string &) override {
         //
         // a hexline_reader operates on integers, not certificates, so
         // we always return false to indicate this fact
