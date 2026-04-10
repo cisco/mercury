@@ -1,7 +1,6 @@
 # Makefile for cython interface to mercury
 #
 
-CC  = @CC@
 CXX = @CXX@
 
 openssl_v1_1_or_newer = @OPENSSL_V1_1_OR_NEWER@
@@ -59,10 +58,10 @@ FLAGS += "-DGIT_COMMIT_ID=\"$(COMMIT) $(DIFF)\"" "-DGIT_COUNT=$(GIT_COUNT)"
 export ENV_CFLAGS=${FLAGS}
 
 all:
-	CC=$(CC) CXX=$(CXX) CFLAGS="$(CFLAGS)" CXXFLAGS="$(CXXFLAGS)" LDFLAGS="$(LDFLAGS)" python3 setup.py build_ext --inplace
+	CC=$(CXX) CXX=$(CXX) CFLAGS="$(CFLAGS)" CXXFLAGS="$(CXXFLAGS)" LDFLAGS="$(LDFLAGS)" python3 setup.py build_ext --inplace
 
 wheel:
-	CC=$(CC) CXX=$(CXX) CFLAGS="$(CFLAGS)" CXXFLAGS="$(CXXFLAGS)" LDFLAGS="$(LDFLAGS)" python3 setup.py bdist_wheel
+	CC=$(CXX) CXX=$(CXX) CFLAGS="$(CFLAGS)" CXXFLAGS="$(CXXFLAGS)" LDFLAGS="$(LDFLAGS)" python3 setup.py bdist_wheel
 
 clean:
 	rm -rf mercury.*.so mercury.cpp build dist mercury_python.egg-info *.dSYM
