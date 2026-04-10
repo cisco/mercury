@@ -18,7 +18,6 @@
 
 #include <pcap/pcap.h>
 
-#include "af_packet_v3.h"
 #include "libmerc/utils.h"
 #include "output.h"
 #include "signal_handling.h"
