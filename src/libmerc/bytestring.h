@@ -8,19 +8,23 @@
 #ifndef BYTESTRING_H
 #define BYTESTRING_H
 
-#include <cstdint>
-#include <cstring>
-#include <cwchar>    // std::mbstate_t
-#include <iosfwd>    // std::streamoff, std::streampos
 #include <string>
+#include <cstdint>
 
 // Provide a std::char_traits<uint8_t> specialization so that
-// std::basic_string<uint8_t> compiles on all platforms.  Apple Xcode
-// 16.3 removed the non-standard base template for char_traits, so
-// basic_string<uint8_t> will not compile without this.  On other
-// platforms this harmlessly overrides the base template via standard
-// template specialization rules.
+// std::basic_string<uint8_t> compiles with libc++.  Newer libc++
+// versions (e.g., Apple Xcode 16.3) removed the non-standard generic
+// base template for char_traits, so basic_string<uint8_t> will not
+// compile without an explicit specialization.  On libstdc++ (GCC)
+// the generic base template still exists and we leave it alone.
 //
+// _LIBCPP_VERSION is defined by libc++ (LLVM/Apple) after including
+// any standard header; it is not defined by libstdc++ (GCC).
+//
+#ifdef _LIBCPP_VERSION
+#include <cstring>   // memmove, memcpy, memset
+#include <cwchar>    // std::mbstate_t
+#include <iosfwd>    // std::streamoff, std::streampos
 namespace std {
     template <>
     struct char_traits<uint8_t> {
@@ -68,6 +72,7 @@ namespace std {
         static constexpr int_type eof() noexcept { return static_cast<int_type>(-1); }
     };
 }
+#endif // _LIBCPP_VERSION
 
 // tell the C++ STL how to hash a basic string of uint8_t values, by
 // creating a specialized struct hash<> template for that type
