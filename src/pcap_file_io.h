@@ -62,19 +62,6 @@ struct pcap_file {
         return pcap_file_read_packet(this, pkthdr, packet_data);
     }
 
-<<<<<<< macos-capture
-=======
-    enum LINKTYPE : uint16_t {
-        NULL_    =   0,  // BSD loopback encapsulation
-        ETHERNET =   1,  // Ethernet
-        PPP      =   9,  // Point-to-Point Protocol (PPP)
-        RAW      = 101,  // Raw IP; begins with IPv4 or IPv6 header
-        LINUX_SLL = 113, // Linux "cooked" capture encapsulation
-        LINUX_SLL2 = 276,// Linux "cooked" capture encapsulation v2
-        NONE     = 65535 // reserved, used here as 'none'
-    };
-
->>>>>>> dev
     const char *get_linktype() const {
         switch(linktype) {
         case LINKTYPE::NULL_:    return "NULL";

@@ -19,6 +19,7 @@ enum LINKTYPE : uint16_t {
     PPP         =    9,  // Point-to-Point Protocol (PPP)
     RAW         =  101,  // Raw IP; begins with IPv4 or IPv6 header
     LINUX_SLL   =  113,  // Linux "cooked" capture encapsulation
+    LINUX_SLL2  =  276,  // Linux "cooked" capture encapsulation v2
     NONE        = 65535  // reserved, used here as 'none'
 };
 
