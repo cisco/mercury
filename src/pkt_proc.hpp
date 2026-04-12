@@ -6,7 +6,7 @@
 #ifndef PKT_PROC_HPP
 #define PKT_PROC_HPP
 
-#include "linktype.hpp"
+#include "libmerc/linktype.hpp"
 
 // struct packet_info contains timestamp and length information about
 // a packet

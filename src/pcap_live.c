@@ -79,7 +79,14 @@ static enum status pcap_live_open(struct mercury_config *cfg,
                               (uint64_t)sysconf(_SC_PAGESIZE) *
                               cfg->buffer_fraction *
                               cfg->io_balance_frac;
-    if (desired_memory > 0 && desired_memory <= INT32_MAX) {
+    if (desired_memory > INT32_MAX) {
+        desired_memory = INT32_MAX;    // clamp to maximum
+        fprintf(stderr,
+                "warning: capture buffer size of %" PRIu64 " requested, but clamped to %" PRIu64 "\n",
+                desired_memory,
+                (uint64_t)INT32_MAX);
+    }
+    if (desired_memory > 0) {
         rc = pcap_set_buffer_size(handle, (int)desired_memory);
         if (rc != 0 && cfg->verbosity) {
             fprintf(stderr,
@@ -261,6 +268,8 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
         pcap_live_close(&ctx);
         return status_err;
     }
+
+    pthread_attr_destroy(&pt_stack_size);  // clean up attributes, now that we are done using them
 
     pthread_join(tid, nullptr);
 

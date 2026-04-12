@@ -17,7 +17,7 @@
 #include <utility>
 #include <stdexcept>
 #include "packet.h"
-#include "linktype.hpp"
+#include "libmerc/linktype.hpp"
 #include "libmerc/libmerc.h"
 
 enum io_direction {
