@@ -880,6 +880,7 @@ public:
                 if (process_initial_packet(aad, quic_pkt, initial_salt->data(), client_in_label, quic_key_label, quic_iv_label, quic_hp_label,
                                         client_in_label_size, quic_key_label_size, quic_iv_label_size, quic_hp_label_size) == false) {
                     reset_buffers();
+                    aad.reset();
                     continue;
                 }
                 decrypt__(aad.buffer, aad.readable_length(),
