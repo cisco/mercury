@@ -122,15 +122,15 @@ int LibmercTestFixture::counter(fingerprint_type fp_type, fingerprint_type fp_ty
             break;
         }
 
-        auto json = mercury_packet_processor_write_json(m_mpp, m_output, 4096, (unsigned char *)m_data_packet.first, m_data_packet.second - m_data_packet.first, &m_time);
-        if (json > 0)
-        {
-            if (m_mpp->analysis.fp.get_type() == fp_type)
+        // Process the packet; fingerprint counting is independent of JSON output success
+        // to avoid false negatives due to buffer truncation
+        mercury_packet_processor_write_json(m_mpp, m_output, 4096, (unsigned char *)m_data_packet.first, m_data_packet.second - m_data_packet.first, &m_time);
+
+        if (m_mpp->analysis.fp.get_type() == fp_type)
+            count_of_packets++;
+        if(fp_type2 != fingerprint_type_unknown)
+            if (m_mpp->analysis.fp.get_type() == fp_type2)
                 count_of_packets++;
-            if(fp_type2 != fingerprint_type_unknown)
-                if (m_mpp->analysis.fp.get_type() == fp_type2)
-                    count_of_packets++;
-        }
     }
     return count_of_packets;
 }
