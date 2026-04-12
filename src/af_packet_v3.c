@@ -53,6 +53,7 @@
 #include "signal_handling.h"
 #include "libmerc/utils.h"
 #include "output.h"
+#include "pkt_proc.hpp"
 
 /*
  * The thread_storage, stats_tracking, and ring_limits structs are
