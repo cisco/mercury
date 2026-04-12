@@ -9,6 +9,7 @@
 #define BYTESTRING_H
 
 #include <string>
+#include <string_view>
 #include <cstdint>
 
 // Provide a std::char_traits<uint8_t> specialization so that
@@ -74,14 +75,14 @@ namespace std {
 }
 #endif // _LIBCPP_VERSION
 
-// tell the C++ STL how to hash a basic string of uint8_t values, by
-// creating a specialized struct hash<> template for that type
+// Tell the C++ STL how to hash a basic_string<uint8_t>, by hashing
+// its raw bytes through std::hash<string_view>.
 //
 namespace std {
     template <>  struct hash<std::basic_string<uint8_t>>  {
         size_t operator()(const basic_string<uint8_t>& k) const {
-            string &s = (string &)k;
-            return hash<string>{}(s);
+            const char *data = reinterpret_cast<const char *>(k.data());
+            return hash<string_view>{}({data, k.size()});
         }
     };
 }
