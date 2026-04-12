@@ -405,6 +405,81 @@ where the elements are defined as
    0xdaba                    type
 ```
 
+## SSH
+
+SSH fingerprints are formed from the SSH identification string and, when present, the SSH_MSG_KEXINIT message defined in RFC 4253.  Three fingerprint formats are defined for the client-to-server direction, and three corresponding formats are defined for the server-to-client direction.
+
+The complete client fingerprint format is
+```
+   "ssh/" (SSH_Identification) (KEX_Algorithms) (Server_Host_Key_Algorithms)
+         (Encryption_Algorithms_Client_to_Server) (Encryption_Algorithms_Server_to_Client)
+         (MAC_Algorithms_Client_to_Server) (MAC_Algorithms_Server_to_Client)
+         (Compression_Algorithms_Client_to_Server) (Compression_Algorithms_Server_to_Client)
+         (Languages_Client_to_Server) (Languages_Server_to_Client)
+```
+
+The complete server fingerprint format is
+```
+   "ssh_server/" (SSH_Identification) (KEX_Algorithms) (Server_Host_Key_Algorithms)
+                (Encryption_Algorithms_Client_to_Server) (Encryption_Algorithms_Server_to_Client)
+                (MAC_Algorithms_Client_to_Server) (MAC_Algorithms_Server_to_Client)
+                (Compression_Algorithms_Client_to_Server) (Compression_Algorithms_Server_to_Client)
+                (Languages_Client_to_Server) (Languages_Server_to_Client)
+```
+
+The identification-only client format is
+```
+   "ssh_init/" (SSH_Identification)
+```
+
+The identification-only server format is
+```
+   "ssh_init_server/" (SSH_Identification)
+```
+
+The key-exchange-only client format is
+```
+   "ssh_kex/" (KEX_Algorithms) (Server_Host_Key_Algorithms)
+             (Encryption_Algorithms_Client_to_Server) (Encryption_Algorithms_Server_to_Client)
+             (MAC_Algorithms_Client_to_Server) (MAC_Algorithms_Server_to_Client)
+             (Compression_Algorithms_Client_to_Server) (Compression_Algorithms_Server_to_Client)
+             (Languages_Client_to_Server) (Languages_Server_to_Client)
+```
+
+and the key-exchange-only server format is
+```
+   "ssh_kex_server/" (KEX_Algorithms) (Server_Host_Key_Algorithms)
+                    (Encryption_Algorithms_Client_to_Server) (Encryption_Algorithms_Server_to_Client)
+                    (MAC_Algorithms_Client_to_Server) (MAC_Algorithms_Server_to_Client)
+                    (Compression_Algorithms_Client_to_Server) (Compression_Algorithms_Server_to_Client)
+                    (Languages_Client_to_Server) (Languages_Server_to_Client)
+```
+
+where:
+
+- `SSH_Identification` (string, variable length) represents the SSH identification string
+
+      SSH-protoversion-softwareversion [SP comments]
+
+  without the terminating line feed.  If the optional comments field is present, the separating space octet (0x20) is included in the fingerprint.
+
+- `KEX_Algorithms` (string, variable length) is the name-list from the `kex_algorithms` field of SSH_MSG_KEXINIT.
+
+- `Server_Host_Key_Algorithms` (string, variable length) is the name-list from the `server_host_key_algorithms` field of SSH_MSG_KEXINIT.
+
+- `Encryption_Algorithms_Client_to_Server` and `Encryption_Algorithms_Server_to_Client` (strings, variable length) are the corresponding name-lists from SSH_MSG_KEXINIT.
+
+- `MAC_Algorithms_Client_to_Server` and `MAC_Algorithms_Server_to_Client` (strings, variable length) are the corresponding name-lists from SSH_MSG_KEXINIT.
+
+- `Compression_Algorithms_Client_to_Server` and `Compression_Algorithms_Server_to_Client` (strings, variable length) are the corresponding name-lists from SSH_MSG_KEXINIT.
+
+- `Languages_Client_to_Server` and `Languages_Server_to_Client` (strings, variable length) are the corresponding name-lists from SSH_MSG_KEXINIT.
+
+An example of the complete client format is
+```
+ssh/(5353482d322e302d4f70656e5353485f382e39207031205562756e74752d332)(637572766532353531392d7368613235362c656364682d736861322d6e697374703235362c6469666669652d68656c6c6d616e2d67726f757031342d736861323536)(7373682d656432353531392c7273612d736861322d353132)(63686163686132302d706f6c7931333035406f70656e7373682e636f6d2c6165733132382d637472)(63686163686132302d706f6c7931333035406f70656e7373682e636f6d2c6165733132382d637472)(756d61632d36342d65746d406f70656e7373682e636f6d2c686d61632d736861322d3235362d65746d406f70656e7373682e636f6d)(756d61632d36342d65746d406f70656e7373682e636f6d2c686d61632d736861322d3235362d65746d406f70656e7373682e636f6d)(6e6f6e652c7a6c6962406f70656e7373682e636f6d)(6e6f6e652c7a6c6962406f70656e7373682e636f6d)()()
+```
+
 ## DTLS
 
 DTLS fingerprints are formed from DTLS Client Hello messages and use the same data feature selection and normalization rules as the TLS fingerprints above.

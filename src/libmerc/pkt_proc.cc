@@ -20,6 +20,7 @@
 #include "loopback.hpp"
 #include "linux_sll.hpp"
 #include "event.hpp"
+#include "linux_sll2.hpp"
 
 // include files needed by stateful_pkt_proc; they provide the
 // interface to mercury's packet parsing and handling routines
@@ -544,7 +545,7 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
                 return;
             }
         }
-        x.emplace<ssh_init_packet>(pkt);
+        x.emplace<ssh_init_packet>(pkt, tcp_pkt ? tcp_pkt->get_direction_from_ports() : flow_direction::unknown);
         {
             uint32_t more_bytes = std::get<ssh_init_packet>(x).more_bytes_needed();
             if (tcp_pkt && more_bytes) {
@@ -567,7 +568,7 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
             else {
                 tcp_pkt->set_supplementary_reassembly();
             }
-            x.emplace<ssh_kex_init>(ssh_pkt);
+            x.emplace<ssh_kex_init>(ssh_pkt, tcp_pkt ? tcp_pkt->get_direction_from_ports() : flow_direction::unknown);
             return;
         }
     case tcp_msg_type_smtp_server:
@@ -1495,6 +1496,9 @@ size_t stateful_pkt_proc::write_json(void *buffer,
     case LINKTYPE_LINUX_SLL:
         linux_sll::skip_to_ip(pkt);
         break;
+    case LINKTYPE_LINUX_SLL2:
+        linux_sll2::skip_to_ip(pkt);
+        break;
     case LINKTYPE_NULL:  // BSD loopback encapsulation
         {
             loopback_header loopback{pkt};
@@ -1508,8 +1512,13 @@ size_t stateful_pkt_proc::write_json(void *buffer,
                 }
             }
         }
-    default:
         break;
+    default:
+        return 0;   // unsupported link layer type
+    }
+
+    if (pkt.is_null()) {
+        return 0;   // decapsulation rejected a non-IP payload
     }
 
     return ip_write_json(buffer,
@@ -1540,6 +1549,7 @@ inline bool is_fdc_writable(fingerprint_type fp_type) {
     case fingerprint_type_tofsee:
     case fingerprint_type_stun:
     case fingerprint_type_ssh:
+    case fingerprint_type_ssh_server:
     case fingerprint_type_http_server:
     case fingerprint_type_tls_server:
     case fingerprint_type_dtls:
@@ -1649,9 +1659,7 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         }
     }
 
-    analysis.result.reinit();
-    analysis.destination.reset();
-    analysis.fp.init();
+    analysis.reinit();
 
     if (std::visit(is_not_empty{}, x)) {
         std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
@@ -1663,7 +1671,7 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
 
     std::visit(do_analysis{k_, analysis, c}, x);
 
-    if (context != nullptr and analysis.result.is_valid()) {
+    if (context != nullptr and analysis.analysis_is_valid()) {
         *context = &analysis;
     }
 
@@ -1960,6 +1968,34 @@ bool stateful_pkt_proc::analyze_raw_packet(const uint8_t *packet,
     return analyze_ip_packet(pkt.data, pkt.length(), ts, reassembler);
 }
 
+bool stateful_pkt_proc::analyze_sll_packet(const uint8_t *packet,
+                                           size_t length,
+                                           struct timespec *ts,
+                                           struct tcp_reassembler *reassembler) {
+
+    struct datum pkt{packet, packet+length};
+    linux_sll::skip_to_ip(pkt);
+    if (pkt.is_null()) {
+        return false;   // not an IP packet
+    }
+
+    return analyze_ip_packet(pkt.data, pkt.length(), ts, reassembler);
+}
+
+bool stateful_pkt_proc::analyze_sll2_packet(const uint8_t *packet,
+                                            size_t length,
+                                            struct timespec *ts,
+                                            struct tcp_reassembler *reassembler) {
+
+    struct datum pkt{packet, packet+length};
+    linux_sll2::skip_to_ip(pkt);
+    if (pkt.is_null()) {
+        return false;   // not an IP packet
+    }
+
+    return analyze_ip_packet(pkt.data, pkt.length(), ts, reassembler);
+}
+
 bool stateful_pkt_proc::analyze_packet(const uint8_t *eth_packet,
                             size_t length,
                             struct timespec *ts,
@@ -1975,6 +2011,12 @@ bool stateful_pkt_proc::analyze_packet(const uint8_t *eth_packet,
         break;
     case LINKTYPE_RAW:
         return analyze_raw_packet(eth_packet, length, ts, reassembler);
+        break;
+    case LINKTYPE_LINUX_SLL:
+        return analyze_sll_packet(eth_packet, length, ts, reassembler);
+        break;
+    case LINKTYPE_LINUX_SLL2:
+        return analyze_sll2_packet(eth_packet, length, ts, reassembler);
         break;
     default:
         break;

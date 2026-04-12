@@ -1980,13 +1980,12 @@ inline bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_
     datum alpn;
 
     extensions.set_meta_data(sn, ua, alpn);
-
     analysis_.destination.init(sn, ua, alpn, k_);
+
     if (c_ == nullptr) {
             return false;
     }
-
-    bool ret = c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+    bool ret = c_->analyze_fingerprint_and_destination_context(analysis_);
 
     if (analysis_.result.status == fingerprint_status_randomized) {    // check for faketls on randomized connections only
         if (is_faketls()) {
@@ -1996,8 +1995,6 @@ inline bool tls_client_hello::do_analysis(const struct key &k_, struct analysis_
 
     return ret;
 }
-
-
 inline bool tls_client_hello::do_network_behavioral_detections(const struct key &k_, struct analysis_context &analysis_,
                                                                classifier *c_, const struct common_data &nbd_common) {
     (void)c_;

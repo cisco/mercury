@@ -169,7 +169,7 @@ const struct analysis_context *mercury_packet_processor_ip_get_analysis_context(
             return NULL;
         }
         if (processor->analyze_ip_packet(packet, length, ts, processor->reassembler_ptr)) {
-            if (processor->analysis.result.is_valid()) {
+            if (processor->analysis.analysis_is_valid()) {
                 return &processor->analysis;
             }
         }
@@ -187,7 +187,7 @@ const struct analysis_context *mercury_packet_processor_get_analysis_context(mer
             return NULL;
         }
         if (processor->analyze_eth_packet(packet, length, ts, processor->reassembler_ptr)) {
-            if (processor->analysis.result.is_valid()) {
+            if (processor->analysis.analysis_is_valid()) {
                 return &processor->analysis;
             }
         }
@@ -226,7 +226,7 @@ const struct analysis_context *mercury_packet_processor_get_analysis_context_lin
             return NULL;
         }
         if (processor->analyze_packet(packet, length, ts, processor->reassembler_ptr, linktype)) {
-            if (processor->analysis.result.is_valid()) {
+            if (processor->analysis.analysis_is_valid()) {
                 return &processor->analysis;
             }
         }
