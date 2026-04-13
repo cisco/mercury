@@ -1057,14 +1057,8 @@ def quic_get_salt_from_bytes(bytes raw_packet):
     :return: salt name string if decryption succeeded, None otherwise
     :rtype: str or None
 
-    Packets shorter than 1200 bytes are rejected and return None; this
-    helper does not modify or pad the caller-provided packet bytes before
-    trial decryption.
-
     WARNING: This function is NOT thread-safe. Only use in single-threaded contexts.
     """
-    if len(raw_packet) < 1200:
-        return None
     return _quic_get_salt_impl(raw_packet)
 
 
@@ -1094,13 +1088,9 @@ def quic_get_salt(dict quic_data):
     :type quic_data: dict
     :return: salt name string if decryption succeeded, None if failed or not an Initial packet
     :rtype: str or None
-
-    Packets shorter than 1200 bytes are rejected and return None; this
-    helper does not modify or pad the caller-provided packet bytes before
-    trial decryption.
+    :raises ValueError: If 'raw_packet_data' field is missing or empty
 
     WARNING: This function is NOT thread-safe. Only use in single-threaded contexts.
-    :raises ValueError: If 'raw_packet_data' field is missing or empty
     """
     raw_hex = quic_data.get('raw_packet_data', '')
     if not raw_hex:
@@ -1110,19 +1100,5 @@ def quic_get_salt(dict quic_data):
         raw_packet = bytes.fromhex(raw_hex)
     except ValueError as e:
         raise ValueError(f"Invalid hex string in 'raw_packet_data': {e}")
-
-    if len(raw_packet) < 5:
-        return None
-
-    # Validate that this is a long-header Initial packet
-    connection_info = raw_packet[0]
-    pkt_type = (connection_info >> 4) & 0x03
-
-    # Header Form bit (0x80) must be set for long headers, and pkt_type must be 0 (Initial)
-    if (connection_info & 0x80) == 0 or pkt_type != 0:
-        return None
-
-    if len(raw_packet) < 1200:
-        return None
 
     return _quic_get_salt_impl(raw_packet)
