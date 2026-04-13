@@ -75,10 +75,14 @@ static enum status pcap_live_open(struct mercury_config *cfg,
         return status_err;
     }
 
-    uint64_t desired_memory = (uint64_t)sysconf(_SC_PHYS_PAGES) *
-                              (uint64_t)sysconf(_SC_PAGESIZE) *
-                              cfg->buffer_fraction *
-                              cfg->io_balance_frac;
+
+    long phys_pages = sysconf(_SC_PHYS_PAGES);
+    long pagesize   = sysconf(_SC_PAGESIZE);
+    if (phys_pages == -1 or pagesize == -1) {
+        fprintf(stderr, "error: could not determine available memory\n");
+        return status_err;
+    }
+    uint64_t desired_memory = (uint64_t) phys_pages * pagesize * cfg->buffer_fraction * cfg->io_balance_frac;
     if (desired_memory > INT32_MAX) {
         desired_memory = INT32_MAX;    // clamp to maximum
         fprintf(stderr,
