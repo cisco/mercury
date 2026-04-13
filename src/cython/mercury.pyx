@@ -1035,9 +1035,9 @@ cdef extern from "../libmerc/quic.h":
 
 cdef _quic_get_salt_impl(bytes pkt_bytes):
     """Internal implementation that calls the C function."""
-    cdef const uint8_t* pkt_ptr = pkt_bytes
+    cdef const unsigned char* pkt_ptr = pkt_bytes
     cdef size_t pkt_len = len(pkt_bytes)
-    cdef const char* salt = quic_trial_decrypt_get_salt(pkt_ptr, pkt_len)
+    cdef const char* salt = quic_trial_decrypt_get_salt(<const uint8_t*>pkt_ptr, pkt_len)
     if salt != NULL:
         return salt.decode('utf-8')
     return None
