@@ -622,6 +622,113 @@ TEST_CASE_METHOD(LibmercTestFixture, "test exposed_creds with analyze_ip_packet 
     deinitialize();
 }
 
+TEST_CASE_METHOD(LibmercTestFixture, "server ssh skips analysis but still fingerprints")
+{
+    libmerc_config config{.do_analysis = true,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"ssh.server"};
+    initialize(config);
+    mercury_packet_processor context_mpp = mercury_packet_processor_construct(m_mc);
+    REQUIRE(context_mpp != nullptr);
+    set_pcap("ssh_direction_asym.pcap");
+
+    bool saw_server_ssh_fingerprint = false;
+    size_t selected_packet_count = 0;
+    size_t null_context_count = 0;
+    while (1) {
+        if (read_next_data_packet()) {
+            break;
+        }
+
+        size_t json_size = mercury_packet_processor_write_json(
+            m_mpp,
+            m_output,
+            4096,
+            (unsigned char *)m_data_packet.first,
+            m_data_packet.second - m_data_packet.first,
+            &m_time
+        );
+
+        if (json_size > 0) {
+            selected_packet_count++;
+            std::string json_record(m_output, json_size);
+            if (json_record.find("\"ssh_init_server\":") != std::string::npos ||
+                json_record.find("\"ssh_server\":") != std::string::npos) {
+                saw_server_ssh_fingerprint = true;
+            }
+            const struct analysis_context *ac = mercury_packet_processor_get_analysis_context(
+                context_mpp,
+                (unsigned char *)m_data_packet.first,
+                m_data_packet.second - m_data_packet.first,
+                &m_time
+            );
+            if (ac == nullptr) {
+                null_context_count++;
+            }
+        }
+    }
+
+    CHECK(saw_server_ssh_fingerprint);
+    CHECK(selected_packet_count > 0);
+    CHECK(selected_packet_count == null_context_count);
+
+    mercury_packet_processor_destruct(context_mpp);
+    deinitialize();
+}
+
+TEST_CASE_METHOD(LibmercTestFixture, "tls server skips analysis context but still fingerprints")
+{
+    libmerc_config config{.do_analysis = true,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"tls.server_hello"};
+    initialize(config);
+    mercury_packet_processor context_mpp = mercury_packet_processor_construct(m_mc);
+    REQUIRE(context_mpp != nullptr);
+    set_pcap("tlsv1_3.pcap");
+
+    bool saw_tls_server_fingerprint = false;
+    size_t selected_packet_count = 0;
+    size_t null_context_count = 0;
+    while (1) {
+        if (read_next_data_packet()) {
+            break;
+        }
+
+        size_t json_size = mercury_packet_processor_write_json(
+            m_mpp,
+            m_output,
+            4096,
+            (unsigned char *)m_data_packet.first,
+            m_data_packet.second - m_data_packet.first,
+            &m_time
+        );
+
+        if (json_size > 0) {
+            selected_packet_count++;
+            std::string json_record(m_output, json_size);
+            if (json_record.find("\"tls_server\":") != std::string::npos) {
+                saw_tls_server_fingerprint = true;
+            }
+            const struct analysis_context *ac = mercury_packet_processor_get_analysis_context(
+                context_mpp,
+                (unsigned char *)m_data_packet.first,
+                m_data_packet.second - m_data_packet.first,
+                &m_time
+            );
+            if (ac == nullptr) {
+                null_context_count++;
+            }
+        }
+    }
+
+    CHECK(saw_tls_server_fingerprint);
+    CHECK(selected_packet_count > 0);
+    CHECK(selected_packet_count == null_context_count);
+
+    mercury_packet_processor_destruct(context_mpp);
+    deinitialize();
+}
+
 
 TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment attributes")
 {
@@ -777,7 +884,9 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ssh fingerprinting with reassembly")
     initialize(config);
 
     set_pcap("ssh_frag.pcap");
-    CHECK(2 == counter(fingerprint_type_ssh));
+    CHECK(1 == counter(fingerprint_type_ssh));
+    set_pcap("ssh_frag.pcap");
+    CHECK(1 == counter(fingerprint_type_ssh_server));
 
     deinitialize();
 }
@@ -789,7 +898,13 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ssh direction selector 'ssh'")
     initialize(config);
 
     set_pcap("ssh_direction_asym.pcap");
-    CHECK(3 == counter(fingerprint_type_ssh_init, fingerprint_type_ssh_kex));
+    CHECK(1 == counter(fingerprint_type_ssh_init));
+    set_pcap("ssh_direction_asym.pcap");
+    CHECK(1 == counter(fingerprint_type_ssh_init_server));
+    set_pcap("ssh_direction_asym.pcap");
+    CHECK(1 == counter(fingerprint_type_ssh_kex));
+    set_pcap("ssh_direction_asym.pcap");
+    CHECK(0 == counter(fingerprint_type_ssh_kex_server));
 
     deinitialize();
 }
@@ -801,7 +916,13 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ssh direction selector 'ssh.client'")
     initialize(config);
 
     set_pcap("ssh_direction_asym.pcap");
-    CHECK(2 == counter(fingerprint_type_ssh_init, fingerprint_type_ssh_kex));
+    CHECK(1 == counter(fingerprint_type_ssh_init));
+    set_pcap("ssh_direction_asym.pcap");
+    CHECK(1 == counter(fingerprint_type_ssh_kex));
+    set_pcap("ssh_direction_asym.pcap");
+    CHECK(0 == counter(fingerprint_type_ssh_init_server));
+    set_pcap("ssh_direction_asym.pcap");
+    CHECK(0 == counter(fingerprint_type_ssh_kex_server));
 
     deinitialize();
 }
@@ -813,7 +934,13 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ssh direction selector 'ssh.server'")
     initialize(config);
 
     set_pcap("ssh_direction_asym.pcap");
-    CHECK(1 == counter(fingerprint_type_ssh_init, fingerprint_type_ssh_kex));
+    CHECK(0 == counter(fingerprint_type_ssh_init));
+    set_pcap("ssh_direction_asym.pcap");
+    CHECK(0 == counter(fingerprint_type_ssh_kex));
+    set_pcap("ssh_direction_asym.pcap");
+    CHECK(1 == counter(fingerprint_type_ssh_init_server));
+    set_pcap("ssh_direction_asym.pcap");
+    CHECK(0 == counter(fingerprint_type_ssh_kex_server));
 
     deinitialize();
 }
@@ -825,7 +952,13 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ssh direction selector 'ssh.client,ss
     initialize(config);
 
     set_pcap("ssh_direction_asym.pcap");
-    CHECK(3 == counter(fingerprint_type_ssh_init, fingerprint_type_ssh_kex));
+    CHECK(1 == counter(fingerprint_type_ssh_init));
+    set_pcap("ssh_direction_asym.pcap");
+    CHECK(1 == counter(fingerprint_type_ssh_init_server));
+    set_pcap("ssh_direction_asym.pcap");
+    CHECK(1 == counter(fingerprint_type_ssh_kex));
+    set_pcap("ssh_direction_asym.pcap");
+    CHECK(0 == counter(fingerprint_type_ssh_kex_server));
 
     deinitialize();
 }
@@ -838,7 +971,9 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ssh_init fingerprinting")
     initialize(config);
 
     set_pcap("ssh_frag.pcap");
-    CHECK(2 == counter(fingerprint_type_ssh_init));
+    CHECK(1 == counter(fingerprint_type_ssh_init));
+    set_pcap("ssh_frag.pcap");
+    CHECK(1 == counter(fingerprint_type_ssh_init_server));
 
     deinitialize();
 }
@@ -851,7 +986,9 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ssh_kex fingerprinting")
     initialize(config);
 
     set_pcap("ssh_frag.pcap");
-    CHECK(2 == counter(fingerprint_type_ssh_kex));
+    CHECK(1 == counter(fingerprint_type_ssh_kex));
+    set_pcap("ssh_frag.pcap");
+    CHECK(1 == counter(fingerprint_type_ssh_kex_server));
 
     deinitialize();
 }

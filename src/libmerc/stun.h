@@ -1016,7 +1016,6 @@ namespace stun {
         // response format: src_addr, src_port
 
         bool do_analysis(const struct key &flow_key, struct analysis_context &ac, classifier* c) {
-
             // create a json-friendly utf8 copy of the SOFTWARE atribute's value field
             //
             utf8_safe_string<MAX_USER_AGENT_LEN> utf8_software{software};
@@ -1030,7 +1029,7 @@ namespace stun {
             if (c == nullptr) {
                 return false;
             }
-            return c->analyze_fingerprint_and_destination_context(ac.fp, ac.destination, ac.result);
+            return c->analyze_fingerprint_and_destination_context(ac);
         }
 
     };

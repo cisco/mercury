@@ -354,6 +354,14 @@ namespace cbor_fingerprint {
             encode_cbor_ssh_fingerprint(d, w);
             m.close();
 
+        } else if (lookahead<literal_byte<'s', 's', 'h', '_', 's', 'e', 'r', 'v', 'e', 'r', '/'>> ssh_server{d}) {
+            fp_type = fingerprint_type_ssh_server;
+            cbor::output::map m{w};
+            cbor::uint64{(uint64_t)fp_type}.write(w);
+            d = ssh_server.advance();
+            encode_cbor_ssh_fingerprint(d, w);
+            m.close();
+
         } else if (lookahead<literal_byte<'t', 'l', 's', '_', 's', 'e', 'r', 'v', 'e', 'r', '/'>> tls_server{d}) {
             fp_type = fingerprint_type_tls_server;
             cbor::output::map m{w};
@@ -628,6 +636,7 @@ namespace cbor_fingerprint {
             decode_stun_fp(d, w);
             break;
         case fingerprint_type_ssh:
+        case fingerprint_type_ssh_server:
             decode_ssh_fp(d, w);
             break;
         case fingerprint_type_dtls:

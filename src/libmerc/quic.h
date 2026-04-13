@@ -1467,14 +1467,13 @@ public:
         datum alpn;
 
         hello.extensions.set_meta_data(sn, user_agent, alpn);
-
         analysis_.destination.init(sn, user_agent, alpn, k_);
 
         if (c_ == nullptr) {
             return false;
         }
 
-        bool ret = c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+        bool ret = c_->analyze_fingerprint_and_destination_context(analysis_);
 
         // QUIC FakeTLS detection - re-enable when suffcient data is available
         //
@@ -1729,14 +1728,13 @@ public:
         datum alpn;
 
         hello.extensions.set_meta_data(sn, user_agent, alpn);
-
         analysis_.destination.init(sn, user_agent, alpn, k_);
 
         if (c_ == nullptr) {
             return false;
         }
 
-         bool ret = c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
+        bool ret = c_->analyze_fingerprint_and_destination_context(analysis_);
 
         // QUIC FakeTLS detection - re-enable when suffcient data is available
         //

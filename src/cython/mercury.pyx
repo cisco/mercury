@@ -224,6 +224,10 @@ fp_type_dict = {
     10: 'dtls',
     11: 'dtls_server',
     12: 'quic',
+    17: 'ssh_init',
+    18: 'ssh_server',
+    19: 'ssh_kex_server',
+    20: 'ssh_init_server',
 }
 
 def get_ciphersuites(fp):
