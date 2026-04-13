@@ -72,8 +72,8 @@ char mercury_help[] =
 char mercury_extended_help[] =
     "\n"
     "DETAILS\n"
-    "   \"[-c or --capture] c\" captures packets from interface c with Linux AF_PACKET\n"
-    "   using a separate ring buffer for each worker thread.  \"[-t or --thread] t\"\n"
+    "   \"[-c or --capture] c\" captures packets from interface c using the platform\n"
+    "   live capture backend (Linux AF_PACKET or libpcap on macOS).  \"[-t or --thread] t\"\n"
     "   sets the number of worker threads to t, if t is a positive integer; if t is\n"
     "   \"cpu\", then the number of threads will be set to the number of available\n"
     "   processors.  \"[-b or --buffer] b\" sets the total size of all ring buffers to\n"
@@ -776,7 +776,7 @@ int main(int argc, char *argv[]) {
     /* If we're going to capture from the network we don't want this main thread
      * to get interrupted, instead the stats thread needs to recieve the signal.
      */
-    if (cfg.capture_interface) {
+    if (cfg.capture_interface && capture_backend_blocks_main_thread_signals()) {
         disable_all_signals(); /* Stats thread will unmask the signals it needs */
     }
 

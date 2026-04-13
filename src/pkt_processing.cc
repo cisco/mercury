@@ -7,7 +7,7 @@
 
 #include <string.h>
 #include <stdexcept>
-#include "pcap_file_io.h"
+#include "mercury.h"
 #include "pkt_processing.h"
 #include "libmerc/utils.h"
 

@@ -53,7 +53,7 @@
 #include "signal_handling.h"
 #include "libmerc/utils.h"
 #include "output.h"
-#include "pkt_processing.h"
+#include "pkt_proc.hpp"
 
 /*
  * The thread_storage, stats_tracking, and ring_limits structs are
@@ -1164,6 +1164,13 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
     cstats->freezes = statst.socket_freezes;
 
     return status_ok;
+}
+
+/* The Linux AF_PACKET backend routes shutdown signals through its
+ * dedicated stats thread, so the main thread should block them.
+ */
+bool capture_backend_blocks_main_thread_signals() {
+    return true;
 }
 
 #define RING_LIMITS_DEFAULT_FRAC 0.01
