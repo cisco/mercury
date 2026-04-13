@@ -83,7 +83,7 @@ public:
                     //
                     //  map "unknown" values in classes_ip_as to zero
                     //
-                    add_update(convert("0"), process_index, y.value.GetUint64(), total_count);
+                    add_update(T{}, process_index, y.value.GetUint64(), total_count);
                 } else if (strcmp(itr->name.GetString(), "classes_user_agent") == 0 && strcmp(y.name.GetString(), "None") == 0) {
                     //
                     // map "None" values in classes_user_agent to the empty string
