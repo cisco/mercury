@@ -12,6 +12,8 @@
 #include <unistd.h>
 #include <variant>
 #include <cassert>
+#include <cstdio>
+#include <cstring>
 #include <stdexcept>
 #include <system_error>
 
