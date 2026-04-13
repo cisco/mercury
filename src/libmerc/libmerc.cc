@@ -18,7 +18,7 @@
 
 #ifndef  MERCURY_SEMANTIC_VERSION
 #ifdef _WIN32
-#pragma message(MERCURY_SEMANTIC_VERSION is not defined)
+#pragma message("MERCURY_SEMANTIC_VERSION is not defined")
 #else
 #warning MERCURY_SEMANTIC_VERSION is not defined
 #endif
@@ -27,7 +27,7 @@
 
 #ifndef  GIT_COMMIT_ID
 #ifdef _WIN32
-#pragma message(GIT_COMMIT_ID is not defined)
+#pragma message("GIT_COMMIT_ID is not defined")
 #else
 #warning GIT_COMMIT_ID is not defined
 #endif
@@ -36,7 +36,7 @@
 
 #ifndef  GIT_COUNT
 #ifdef _WIN32
-#pragma message(GIT_COUNT is not defined)
+#pragma message("GIT_COUNT is not defined")
 #else
 #warning GIT_COUNT is not defined
 #endif

@@ -301,16 +301,19 @@ namespace redis{
         template <typename T> void operator()(T &x) { x.write_json(o); }
     };
 
-    class response : public base_protocol{
-        std::variant<std::monostate, simple_string, error, integer, bulk_string, array> packet{std::monostate{}};
-
-    public:
-        // Suppress GCC false positive: -Wmaybe-uninitialized triggers through
-        // std::variant::emplace() for types with inherited datum members.
+    // Suppress GCC false positive: -Wmaybe-uninitialized triggers through
+    // std::variant::emplace()/visit() for types with inherited datum members.
+    // The pragma must cover the entire class because GCC warns at different
+    // inlining sites (constructor, is_not_empty, write_json) depending on
+    // the call chain and optimization level.
 #if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 12 && __GNUC__ <= 14
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #endif
+    class response : public base_protocol{
+        std::variant<std::monostate, simple_string, error, integer, bulk_string, array> packet{std::monostate{}};
+
+    public:
         response(datum &d) {
             // Guard against empty payloads (e.g., ACK packets on port 6379)
             if (!d.is_readable()) {
@@ -344,9 +347,6 @@ namespace redis{
                 packet.emplace<std::monostate>();
             }
         }
-#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 12 && __GNUC__ <= 14
-#pragma GCC diagnostic pop
-#endif
 
         bool is_not_empty() const {
             return std::visit(overloaded {
@@ -371,6 +371,9 @@ namespace redis{
             protocols.close();
         }
     };
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 12 && __GNUC__ <= 14
+#pragma GCC diagnostic pop
+#endif
 
     // RESP array format command: *<count>\r\n$<len>\r\n<data>\r\n...
     class array_command {

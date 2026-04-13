@@ -99,7 +99,7 @@ struct numlist * makenumlist(size_t len) {
         nlist->alloc = nlist->len;
     }
 
-    nlist->num = (mpz_t *)calloc(sizeof(mpz_t), nlist->alloc);
+    nlist->num = (mpz_t *)calloc(nlist->alloc, sizeof(mpz_t));
     assert(nlist->num != NULL);
 
     for (size_t i = 0; i < nlist->alloc; i++) {
@@ -127,7 +127,7 @@ void grownumlist(struct numlist *nlist) {
     assert(nlist->num != NULL);
 
     nlist->alloc *= 2;
-    nlist->num = (mpz_t *)realloc_safe(nlist->num, sizeof(mpz_t), nlist->alloc);
+    nlist->num = (mpz_t *)realloc_safe(nlist->num, nlist->alloc, sizeof(mpz_t));
     assert(nlist->num != NULL);
 
     for (size_t i = nlist->len; i < nlist->alloc; i++) {
@@ -238,11 +238,11 @@ void threaded_listmul(struct numlist *d, struct numlist *s, int num_threads) {
     assert(d->len > 0);
     assert(num_threads > 0);
 
-    pthread_t *thread_ids = (pthread_t *)calloc(sizeof(pthread_t), num_threads);
+    pthread_t *thread_ids = (pthread_t *)calloc(num_threads, sizeof(pthread_t));
     assert(thread_ids != NULL);
-    pthread_attr_t *thread_attrs = (pthread_attr_t *)calloc(sizeof(pthread_attr_t), num_threads);
+    pthread_attr_t *thread_attrs = (pthread_attr_t *)calloc(num_threads, sizeof(pthread_attr_t));
     assert(thread_attrs != NULL);
-    struct list_worker_thread *lwts = (struct list_worker_thread *)calloc(sizeof(struct list_worker_thread), num_threads);
+    struct list_worker_thread *lwts = (struct list_worker_thread *)calloc(num_threads, sizeof(struct list_worker_thread));
     assert(lwts != NULL);
 
     int err;
@@ -316,11 +316,11 @@ void threaded_listsqmod(struct numlist *X, struct numlist *R, struct numlist *nR
     assert(nR->num != NULL);
     assert(num_threads > 0);
 
-    pthread_t *thread_ids = (pthread_t *)calloc(sizeof(pthread_t), num_threads);
+    pthread_t *thread_ids = (pthread_t *)calloc(num_threads, sizeof(pthread_t));
     assert(thread_ids != NULL);
-    pthread_attr_t *thread_attrs = (pthread_attr_t *)calloc(sizeof(pthread_attr_t), num_threads);
+    pthread_attr_t *thread_attrs = (pthread_attr_t *)calloc(num_threads, sizeof(pthread_attr_t));
     assert(thread_attrs != NULL);
-    struct list_worker_thread *lwts = (struct list_worker_thread *)calloc(sizeof(struct list_worker_thread), num_threads);
+    struct list_worker_thread *lwts = (struct list_worker_thread *)calloc(num_threads, sizeof(struct list_worker_thread));
     assert(lwts != NULL);
 
     int err;
@@ -385,11 +385,11 @@ void threaded_listdivgcd(struct numlist *G, struct numlist *R, struct numlist *N
     assert(N->num != NULL);
     assert(num_threads > 0);
 
-    pthread_t *thread_ids = (pthread_t *)calloc(sizeof(pthread_t), num_threads);
+    pthread_t *thread_ids = (pthread_t *)calloc(num_threads, sizeof(pthread_t));
     assert(thread_ids != NULL);
-    pthread_attr_t *thread_attrs = (pthread_attr_t *)calloc(sizeof(pthread_attr_t), num_threads);
+    pthread_attr_t *thread_attrs = (pthread_attr_t *)calloc(num_threads, sizeof(pthread_attr_t));
     assert(thread_attrs != NULL);
-    struct list_worker_thread *lwts = (struct list_worker_thread *)calloc(sizeof(struct list_worker_thread), num_threads);
+    struct list_worker_thread *lwts = (struct list_worker_thread *)calloc(num_threads, sizeof(struct list_worker_thread));
     assert(lwts != NULL);
 
     int err;
@@ -437,7 +437,7 @@ struct prodtree * producttree(struct numlist *nlist) {
     assert(ptree != NULL);
 
     ptree->height = intlog2(nlist->len) + 1;
-    ptree->level = (struct numlist **)calloc(sizeof(struct numlist *), ptree->height);
+    ptree->level = (struct numlist **)calloc(ptree->height, sizeof(struct numlist *));
     assert(ptree->level != NULL);
 
     /* The first level of the product tree is the list of integers we
@@ -807,7 +807,6 @@ public:
 class hexline_reader : public mpz_reader {
     char *linestr = NULL;
     size_t linelen = 0;
-    ssize_t read;
     size_t linenum = 0;
     FILE *f = nullptr;
 
@@ -843,7 +842,7 @@ public:
 
     size_t get_linenum() override { return linenum; }
 
-    virtual bool write_out_certs(std::vector<size_t> &, const std::string &) {
+    bool write_out_certs(std::vector<size_t> &, const std::string &) override {
         //
         // a hexline_reader operates on integers, not certificates, so
         // we always return false to indicate this fact
