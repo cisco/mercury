@@ -244,7 +244,7 @@ int LibmercTestFixture::counter(fingerprint_type fp_type, std::function<void()> 
             break;
         }
 
-        auto json = mercury_packet_processor_write_json(m_mpp, m_output, sizeof(m_output),
+        auto json = mercury_packet_processor_write_json(m_mpp, m_output, 4096,
                                                         (unsigned char *)m_data_packet.first,
                                                         m_data_packet.second - m_data_packet.first,
                                                         &m_time);
