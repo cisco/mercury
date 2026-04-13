@@ -58,7 +58,7 @@ struct mercury {
     struct common_data attribute_common_data;
     classifier *c;
     class traffic_selector selector;
-    std::atomic<int> packet_processor_count{0};
+    std::atomic<bool> has_trial_decryption_processor{false};
 
     mercury(const struct libmerc_config *vars, int verbosity) :
                 global_vars{*vars},
