@@ -12,6 +12,8 @@
 #include <stdexcept>
 #include <cassert>
 
+#include "libmerc/bytestring.h"
+
 // class matrix<T> is a dynamically-allocated two dimensional array of
 // type T, which is indexed starting at zero.  For efficient access,
 // increment the column index first, and the row index second.

@@ -161,15 +161,23 @@ endif
 
 VERSION=$(shell cat ../../VERSION)
 
-COMMIT=$(shell git log -n 1 | egrep -o "commit [0-9a-f]+" || echo "unknown")
-GIT_DIFF=$(shell git diff 2> /dev/null | wc -l)
-ifeq ($(GIT_DIFF),0)
-  DIFF=
+# Embed the library version and git state into compiled objects.
+# MERCURY_SEMANTIC_VERSION is a comma-separated triple (e.g. 2,19,1).
+# GIT_COMMIT_ID identifies the source: full SHA-1 hash, plus
+#   "with local changes" when the working tree is dirty.
+# GIT_COUNT is the total number of commits on HEAD.
+# NOTE: keep in sync with src/libmerc/CMakeLists.txt, which computes
+#   the same defines for the CMake build.
+GIT_HASH  := $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
+GIT_DIRTY := $(shell git diff-index --quiet HEAD -- 2>/dev/null; echo $$?)
+GIT_COUNT := $(shell git rev-list --count HEAD 2>/dev/null || echo 0)
+ifeq ($(GIT_DIRTY),1)
+  GIT_COMMIT_STR := commit $(GIT_HASH) with local changes
 else
-  DIFF=with local changes
+  # exit 0 = clean, exit >1 = not a git repo / no HEAD — treat as clean
+  GIT_COMMIT_STR := commit $(GIT_HASH)
 endif
-GIT_COUNT=$(shell git rev-list --count HEAD || echo 0)
-CFLAGS += "-DGIT_COMMIT_ID=\"$(COMMIT) $(DIFF)\"" "-DGIT_COUNT=$(GIT_COUNT)"
+CFLAGS += "-DGIT_COMMIT_ID=\"$(GIT_COMMIT_STR)\"" "-DGIT_COUNT=$(GIT_COUNT)"
 
 # variables for determining the semantic version
 #

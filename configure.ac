@@ -6,6 +6,11 @@ AC_USE_SYSTEM_EXTENSIONS
 #AC_PROG_CC
 AC_PROG_CXX
 AC_CANONICAL_HOST
+AC_SUBST([IS_MACOS],[no])
+AC_SUBST([IS_MACOS_ARM],[no])
+AC_SUBST([HAVE_TPACKET_V3],[no])
+AC_SUBST([HAVE_LIBPCAP_CAPTURE],[no])
+AC_SUBST([PCAP_LIBS],[])
 AC_MSG_CHECKING([for platform architecture])
 case "$host_cpu" in
     i?86 | x86_64)
@@ -40,8 +45,12 @@ esac
 AX_CHECK_COMPILE_FLAG([-fno-gnu-unique], [AC_SUBST([USE_NO_GNU_UNIQUE],yes)], [AC_SUBST([USE_NO_GNU_UNIQUE],no)] , [-Werror])
 AX_CHECK_COMPILE_FLAG([-fsanitize=address], [AC_SUBST([USE_FSANITIZE],yes)], [AC_SUBST([USE_FSANITIZE],no)] , [-Werror])
 AX_CHECK_COMPILE_FLAG([-mno-omit-leaf-frame-pointer], [AC_SUBST([USE_NO_OMIT_LEAF_FRAME_POINTER],yes)], [AC_SUBST([USE_NO_OMIT_LEAF_FRAME_POINTER],no)] , [-Werror])
-AC_CHECK_HEADERS([linux/if_packet.h])
-AC_CHECK_MEMBER([struct tpacket_req3.tp_block_size],[AC_SUBST(HAVE_TPACKET_V3,yes)],[AC_MSG_WARN([Linux AF_PACKET's TPACKET V3 is not available])],[[#include <linux/if_packet.h>]])
+case $host_os in
+    linux* )
+        AC_CHECK_HEADERS([linux/if_packet.h])
+        AC_CHECK_MEMBER([struct tpacket_req3.tp_block_size],[AC_SUBST([HAVE_TPACKET_V3],[yes])],[AC_MSG_WARN([Linux AF_PACKET's TPACKET V3 is not available])],[[#include <linux/if_packet.h>]])
+        ;;
+esac
 #AC_CHECK_MEMBER([struct tpacket_req3.tp_block_size],[],[AC_MSG_FAILURE([Linux AF_PACKET's TPACKET V3 is required, but not available])],[[#include <linux/if_packet.h>]])
 AC_CHECK_FUNCS([gettimeofday])
 AC_CHECK_FUNCS([memset])
@@ -58,6 +67,28 @@ AC_CHECK_HEADERS([sys/ioctl.h])
 AC_CHECK_HEADERS([sys/socket.h])
 AC_CHECK_HEADERS([sys/time.h])
 AC_CHECK_HEADERS([x86intrin.h])
+AC_CHECK_HEADERS([pcap/pcap.h pcap.h])
+
+case $host_os in
+    darwin* )
+        AC_SEARCH_LIBS([pcap_create], [pcap], [
+            if test "x$ac_cv_search_pcap_create" = xno; then
+                PCAP_LIBS=""
+            else
+                PCAP_LIBS="$ac_cv_search_pcap_create"
+            fi
+            AC_SUBST([PCAP_LIBS], [$PCAP_LIBS])
+            AC_SUBST([HAVE_LIBPCAP_CAPTURE],[yes])
+
+            mercury_saved_LIBS="$LIBS"
+            LIBS="$LIBS $PCAP_LIBS"
+            AC_CHECK_FUNCS([pcap_set_immediate_mode])
+            LIBS="$mercury_saved_LIBS"
+        ], [
+            AC_MSG_WARN([libpcap live capture support is unavailable])
+        ])
+        ;;
+esac
 
 ###############################################################################
 # xsimd SIMD library detection (header-only, version 9+ required)

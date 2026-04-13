@@ -8,7 +8,8 @@
 #include <list>
 #include "libmerc/datum.h"
 
-struct file_reader {
+class file_reader {
+public:
     virtual ssize_t get_cert(uint8_t *outbuf, size_t outbuf_len) = 0;
     virtual ~file_reader() = default;
 
@@ -18,7 +19,8 @@ struct file_reader {
     }
 };
 
-struct der_file_reader : public file_reader {
+class der_file_reader : public file_reader {
+public:
     FILE *stream;
     bool done = false;
 
@@ -62,8 +64,8 @@ struct der_file_reader : public file_reader {
 };
 
 
-struct pem_file_reader : public file_reader {
-
+class pem_file_reader : public file_reader {
+public:
     enum pem_label {
         NONE                    = 0,
         CERTIFICATE             = 1,

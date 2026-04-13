@@ -5,6 +5,7 @@
 #define CRYPTO_HASH_HPP
 
 #include <openssl/evp.h>
+#include "bytestring.h"
 
 class hasher {
     EVP_MD_CTX *mdctx;

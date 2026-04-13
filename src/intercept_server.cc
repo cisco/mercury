@@ -95,7 +95,6 @@ int main(int argc, char *argv[]) {
         }
         fprintf(outfile, "%s\n", buf);
     }
-    handle_shutdown(0);
 
     return 0;
 }

@@ -28,6 +28,8 @@ python      = @PY@
 have_python3 = @HAVE_PYTHON3@
 have_pip3   = @PIP3@
 have_tpkt3  = @HAVE_TPACKET_V3@
+have_libpcap_capture = @HAVE_LIBPCAP_CAPTURE@
+pcap_libs  = @PCAP_LIBS@
 can_build_cython_package = @CAN_BUILD_CYTHON_PACKAGE@
 CDEFS       = $(filter -DHAVE_X86INTRIN_H=1 -DHAVE_GETTID=1, @DEFS@) -DDEFAULT_RESOURCE_DIR="\"$(datarootdir)\""
 
@@ -39,6 +41,9 @@ include ../Makefile_helper.mk
 ifeq ($(have_tpkt3),yes)
 MERC   += af_packet_v3.c
 MERC   += signal_handling_linux.c
+else ifeq ($(have_libpcap_capture),yes)
+MERC   += pcap_live.c
+MERC   += signal_handling_stub.c
 else
 MERC   += capture.c
 MERC   += signal_handling_stub.c
@@ -147,7 +152,7 @@ compiler_version:
 # libmerc.a itself needs to be rebuild
 #
 mercury: mercury.c $(MERC_OBJ) $(MERC_H) libmerc.a Makefile.in
-	$(CXX) $(CFLAGS) mercury.c $(MERC_OBJ) -pthread libmerc/libmerc.a  $(LDFLAGS) -lz -lcrypto -o mercury
+	$(CXX) $(CFLAGS) mercury.c $(MERC_OBJ) -pthread libmerc/libmerc.a $(pcap_libs) $(LDFLAGS) -lz -lcrypto -o mercury
 	@echo $(COLOR_GREEN) "Build complete; now run 'sudo setcap" $(CAP) "mercury'" $(COLOR_OFF)
 
 ifeq ($(use_fsanitize),yes)

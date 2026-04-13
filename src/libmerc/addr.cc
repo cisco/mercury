@@ -203,7 +203,7 @@ uint32_t subnet_data::get_asn_info(const char* dst_ip) const {
 
 int subnet_data::process_asn_subnets(const std::vector<std::string> &subnets) {
 
-    prefix = (lct_subnet_t *)calloc(sizeof(lct_subnet_t), subnets.size());
+    prefix = (lct_subnet_t *)calloc(subnets.size(), sizeof(lct_subnet_t));
     if (prefix == nullptr) {
         throw std::runtime_error("error: could not initialize subnet_data");
     }
@@ -305,7 +305,7 @@ int subnet_data::lct_add_domain_exception(uint32_t &addr, uint8_t &mask_length) 
 int subnet_data::process_domain_mapping_subnets(const std::vector<std::pair<std::string, std::string>> &subnets) {
 
     std::unordered_map<uint32_t, ssize_t> subnet_map;
-    domains_prefix = (lct_subnet_t *)calloc(sizeof(lct_subnet_t), subnets.size());
+    domains_prefix = (lct_subnet_t *)calloc(subnets.size(), sizeof(lct_subnet_t));
     if (domains_prefix == nullptr) {
         throw std::runtime_error("error: could not initialize domains_prefix");
     }
