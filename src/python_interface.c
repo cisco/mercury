@@ -46,7 +46,7 @@ int init_python() {
             buf[i] = '\0';
         }
     }
-    sprintf(buf2, "sys.path.append(\"%s\")", buf);
+    snprintf(buf2, sizeof(buf2), "sys.path.append(\"%s\")", buf);
     PyRun_SimpleString(buf2);
     if (PyErr_Occurred()) {
         PyErr_Print();

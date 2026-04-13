@@ -27,6 +27,7 @@ typedef SSIZE_T ssize_t;
 #include <string>
 #include <cassert>
 #include <memory>
+#include "bytestring.h"
 #include "buffer_stream.h"
 #include <optional>
 

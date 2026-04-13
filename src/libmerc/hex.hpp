@@ -133,7 +133,7 @@ public:
             return 10 + c - 'a';
         }
 
-#if defined(__GNUC__) && (__GNUC__ < 9)
+#if !defined(__clang__) && defined(__GNUC__) && (__GNUC__ < 9)
 #warning omitting error check to avoid g++ version < 9 bug
 #else
         throw std::logic_error{"invalid hex digit"};

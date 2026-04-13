@@ -261,8 +261,6 @@ void *stats_thread_func(void *statst_arg) {
      */
     disable_bt_signal();
 
-    int duration = 0;
-
     while (sig_close_flag == 0) {
         uint64_t packets_before = __atomic_load_n(&(statst->received_packets), __ATOMIC_RELAXED);
         uint64_t bytes_before = __atomic_load_n(&(statst->received_bytes), __ATOMIC_RELAXED);
@@ -402,8 +400,6 @@ void *stats_thread_func(void *statst_arg) {
                     r_ebips, r_ebips_s,
                     r_spps, r_spps_s, sdps, sfps, worst_bstreak_frac * 100.0);
         }
-
-        duration++;
     }
 
     free(per_tsock_stats);

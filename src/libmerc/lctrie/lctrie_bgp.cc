@@ -7,8 +7,8 @@
 #include <errno.h>
 
 int
-read_asn_table(char *filename,
-               lct_bgp_asn_t prefix[],
-               size_t prefix_size) {
+read_asn_table([[maybe_unused]] char *filename,
+               [[maybe_unused]] lct_bgp_asn_t prefix[],
+               [[maybe_unused]] size_t prefix_size) {
   return -1;
 }

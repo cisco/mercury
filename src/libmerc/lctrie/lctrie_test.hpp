@@ -28,7 +28,7 @@ bool test_ipv4(const char *input_file, FILE *f) {
 
     setlocale(LC_NUMERIC, "");
 
-    if (!(p = (lct_subnet<uint32_t> *)calloc(sizeof(lct_subnet<uint32_t>), BGP_MAX_ENTRIES))) {
+    if (!(p = (lct_subnet<uint32_t> *)calloc(BGP_MAX_ENTRIES, sizeof(lct_subnet<uint32_t>)))) {
         fprintf(stderr, "Could not allocate subnet input buffer\n");
         exit(EXIT_FAILURE);
     }
@@ -121,7 +121,7 @@ bool test_ipv6(const char *input_file, FILE *f) {
     // we need this to get thousands separators ?
     setlocale(LC_NUMERIC, "");
 
-    if (!(p = (lct_subnet<ipv6_addr_lct> *)calloc(sizeof(lct_subnet<ipv6_addr_lct>), BGP_MAX_ENTRIES))) {
+    if (!(p = (lct_subnet<ipv6_addr_lct> *)calloc(BGP_MAX_ENTRIES, sizeof(lct_subnet<ipv6_addr_lct>)))) {
         fprintf(stderr, "Could not allocate subnet input buffer\n");
         exit(EXIT_FAILURE);
     }
