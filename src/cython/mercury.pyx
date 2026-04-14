@@ -1095,10 +1095,12 @@ def quic_get_salt(dict quic_data):
     raw_hex = quic_data.get('raw_packet_data', '')
     if not raw_hex:
         raise ValueError("'raw_packet_data' field with original packet bytes is required")
+    if not isinstance(raw_hex, str):
+        raise ValueError(f"'raw_packet_data' must be a string, got {type(raw_hex).__name__}")
 
     try:
         raw_packet = bytes.fromhex(raw_hex)
-    except ValueError as e:
+    except (ValueError, TypeError) as e:
         raise ValueError(f"Invalid hex string in 'raw_packet_data': {e}")
 
     return _quic_get_salt_impl(raw_packet)
