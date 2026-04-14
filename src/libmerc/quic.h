@@ -856,7 +856,6 @@ public:
                     if (!quic_trial_decryption) {
                         return {plaintext, plaintext+plaintext_len};
                     }
-                    reset_buffers();
                     aad.reset();
                 }
             }
