@@ -1,5 +1,17 @@
 # CHANGELOG for Mercury
 
+## VERSION 2.16.0
+* Added MacOS packet capture capability.
+* Added new server side fingerprints for SSH (ssh, ssh_init, ssh_kex).
+* Added support for LINKTYPE_LINUX_SLL2.
+* Fixed FDC decode buffer truncation for TLS multi-certificate chains.
+* Fixed UTF-8 decoder to not truncate bytes after invalid sequences.
+* Fixed JSON unknown code reporting for wrapper types (encoded/var_int).
+* Eliminate compiler warnings across macOS (clang) and Linux (GCC/clang).
+* Docs: Update kerberos schema; remove stale guidelines.md.
+* CI: simplified and sped up the test suite.
+* CI: mirrored python wheels workflow in both public GitHub and GitHub EMU.
+
 ## VERSION 2.15.0
 * Added Telnet (RFC 854/855) support.
 * Added Kerberos v5 support.
