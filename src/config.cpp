@@ -18,8 +18,9 @@
 #include "libmerc/libmerc.h"
 
 char *command_get_argument(const char *command, char *line) {
-    if (strncmp(command, line, strlen(command)-1) == 0) {
-        char *arg = line + strlen(command);
+    size_t cmd_len = strlen(command);
+    if (strncmp(command, line, cmd_len) == 0) {
+        char *arg = line + cmd_len;
         size_t arg_len = strlen(arg);
         if (arg_len > 0 && arg[arg_len - 1] == '\n') {
             arg[arg_len - 1] = 0;  /* null terminate arg string */
