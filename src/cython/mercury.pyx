@@ -1038,7 +1038,6 @@ cdef extern from "../libmerc/quic.h":
 
 
 cdef _quic_get_salt_impl(bytes pkt_bytes):
-    """Internal implementation that calls the C function."""
     cdef const unsigned char* pkt_ptr = pkt_bytes
     cdef size_t pkt_len = len(pkt_bytes)
     cdef const char* salt = quic_trial_decrypt_get_salt(<const uint8_t*>pkt_ptr, pkt_len)
@@ -1056,8 +1055,6 @@ def quic_get_salt_from_bytes(bytes raw_packet):
     :type raw_packet: bytes
     :return: salt name string if decryption succeeded, None otherwise
     :rtype: str or None
-
-    WARNING: This function is NOT thread-safe. Only use in single-threaded contexts.
     """
     return _quic_get_salt_impl(raw_packet)
 
@@ -1072,17 +1069,6 @@ def quic_get_salt(dict quic_data):
 
     IMPORTANT: The 'raw_packet_data' field containing the original packet bytes is
     required.
-
-    Example input:
-        {
-            "raw_packet_data": "c000000108...",  # Full original packet hex (required)
-            "connection_info": "11001011",
-            "version": "00000001",
-            "dcid": "0abc3242215cdc53",
-            "scid": "",
-            "token": "",
-            "data": "ad59b9729e5b6da5..."
-        }
 
     :param quic_data: QUIC Initial packet data as a dictionary with 'raw_packet_data' field
     :type quic_data: dict
