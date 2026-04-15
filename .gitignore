@@ -1,4 +1,6 @@
 config.*
+!config.guess
+!config.sub
 Makefile
 src/Makefile
 test/Makefile
@@ -17,6 +19,18 @@ python/pmercury/utils/.#*
 unit_tests/pcaps/*.pcap
 .vscode/
 *.mk
+!mk/*.mk
+!mk/config.mk.in
+mk/config.mk
 *.tgz
 *CMakeCache.txt
 *CMakeFiles/
+build/
+.vagrant/
+autom4te.cache/
+tempstats.json
+test/tempstats.json
+src/libmerc/.depend
+src/libmerc/lctrie/.d/
+src/libmerc/lctrie/*.a
+src/libmerc/*.a

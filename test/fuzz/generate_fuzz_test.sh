@@ -8,12 +8,19 @@ COLOR_OFF="\033[0m"
 
 ## script for fuzz testing pkt processing and protocol classes
 
-export CC="clang"
-export CXX="clang++"
+# Fuzz tests require a clang-based compiler (libFuzzer is LLVM-only).
+# Honor caller's CC/CXX if clang-based; otherwise default to clang/clang++.
+: "${CC:=clang}"
+: "${CXX:=clang++}"
+if ! "$CXX" --version 2>&1 | grep -qi clang; then
+    echo -e "${COLOR_YELLOW} warning: CXX=$CXX is not clang-based; overriding with clang++ (libFuzzer requires LLVM)${COLOR_OFF}" >&2
+    CXX="clang++"
+fi
+export CC CXX
 
 parent_path=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 
-LIBMERC_FOLDER=../../src/libmerc/
+LIBMERC_FOLDER=${LIBMERC_FOLDER:-../../src/libmerc/}
 
 USAGE="[-r <iterations> -t <time> -h <help> -n <none(run all test)/test_name>] -s <openssl_v1_1> -v <openssl_v3_0>"
 
@@ -64,7 +71,11 @@ elif [[ "$openssl_v1_1" == "true" ]]; then
     flags+=" -DOPENSSL_V1_1"
 fi;
 
-cd $LIBMERC_FOLDER
+# Resolve LIBMERC_FOLDER to an absolute path once so that cd calls
+# from per-target subdirectories work regardless of nesting depth.
+LIBMERC_INCDIR="$(cd "$LIBMERC_FOLDER" && pwd -P)"
+
+cd "$LIBMERC_INCDIR"
 
 # pre-cleanup: remove transient files from prior runs
 rm -f "$parent_path"/*/.corpus_pre_count
@@ -98,13 +109,13 @@ check_result () {
     if [[ ! -d "./corpus" ]] ; then
         # dir creation failure was already counted in mkdir_fail by exec_testcase
         echo -e "${COLOR_RED} FAILED TEST : $dir_name (corpus dir not found)${COLOR_OFF}"
-        cd ../$LIBMERC_FOLDER
+        cd "$LIBMERC_INCDIR"
         return 1;
     fi;
 
     if [[ ! -f "$dir_name.log" ]] ; then
         # no log means the fuzzer never launched (e.g. build failed); already counted in fail by exec_testcase
-        cd ../$LIBMERC_FOLDER
+        cd "$LIBMERC_INCDIR"
         return 1;
     fi;
 
@@ -123,7 +134,7 @@ check_result () {
         echo -e "${COLOR_GREEN} corpus updated: $new_count new entries${COLOR_OFF}"
     fi;
 
-    cd ../$LIBMERC_FOLDER;
+    cd "$LIBMERC_INCDIR";
 }
 
 # execute test case for a specific struct/class fuzz_test by looking in dir of same name
@@ -154,10 +165,9 @@ exec_testcase () {
 
     # generate the test .cc file
     echo "" > "fuzz_test_$dir_name.c"
-    #echo "#include ../$LIBMERC_FOLDER/$2.h"
 
 cat <<EOF >> "fuzz_test_$dir_name.c"
-#include "../$LIBMERC_FOLDER$2"
+#include "$2"
 EOF
 
 if [[ "$fuzz_type" == "one" ]]; then
@@ -186,11 +196,11 @@ EOF
 fi;
 
     # make fuzz_test
-    $CXX -g -O0 -fno-omit-frame-pointer -x c++ -std=c++17 -fsanitize=fuzzer,address,leak ${flags} -I../../src/libmerc -Wno-narrowing -Wno-deprecated-declarations -L./.. "fuzz_test_$dir_name.c" -l:libmerc.a $LDFLAGS -lssl -lcrypto -lz -o "fuzz_${dir_name}_exec"
+    $CXX -g -O0 -fno-omit-frame-pointer -x c++ -std=c++17 -fsanitize=fuzzer,address,leak ${flags} -I"$LIBMERC_INCDIR" -Wno-narrowing -Wno-deprecated-declarations "fuzz_test_$dir_name.c" -x none "$LIBMERC_A" $LDFLAGS -lssl -lcrypto -lz -o "fuzz_${dir_name}_exec"
     if [[ ! -f "./fuzz_${dir_name}_exec" ]] ; then
         echo -e "${COLOR_RED} executable not built, failed test${COLOR_OFF}"
         fail=$((fail+1))
-        cd ../$LIBMERC_FOLDER;
+        cd "$LIBMERC_INCDIR";
         return 1;
     fi;
 
@@ -199,7 +209,7 @@ fi;
         if ! mkdir -p "./corpus" ; then
             echo -e "${COLOR_RED} failed to create $dir_name corpus dir${COLOR_OFF}"
             mkdir_fail=$((mkdir_fail+1))
-            cd ../$LIBMERC_FOLDER
+            cd "$LIBMERC_INCDIR"
             return 1;
         fi
     fi;
@@ -223,7 +233,7 @@ fi;
     echo -e "${COLOR_YELLOW} ${dir_name} testcase in parallel${COLOR_OFF}"
     ./"fuzz_${dir_name}_exec" -seed=1 ./corpus/ -runs=$default_runs -max_total_time=$default_time > $dir_name.log 2>&1 &
 
-    cd ../$LIBMERC_FOLDER;
+    cd "$LIBMERC_INCDIR";
 }
 
 # Corpus minimization via libFuzzer's merge mode (-merge=1).
@@ -321,12 +331,15 @@ minimize_corpus () {
     fi
 }
 
-# check for libmerc.a
-if [[ ! -f "./libmerc.a" ]]; then
-    make libmerc.a
-fi;
-cp ./libmerc.a $parent_path/.
-
+# Resolve LIBMERC_A: caller can provide an absolute path to a pre-built
+# libmerc.a; otherwise fall back to the in-tree build-and-copy path.
+if [[ -z "$LIBMERC_A" ]]; then
+    if [[ ! -f "./libmerc.a" ]]; then
+        make libmerc.a
+    fi
+    cp ./libmerc.a "$parent_path/"
+    LIBMERC_A="$parent_path/libmerc.a"
+fi
 
 # scan all header files to look for matching {_fuzz_test} function definitions to extract class/testcase name
 # testcase definition format : class_name_fuzz_test() or struct_name_fuzz_test()

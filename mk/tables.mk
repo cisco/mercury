@@ -1,0 +1,132 @@
+# mk/tables.mk -- IANA table download and regeneration
+#
+# Included by Makefile2.  Downloads IANA CSV registries and regenerates
+# protocol header files used by libmerc.
+#
+# When to edit:
+#   - Adding a new IANA registry: add the CSV filename to the
+#     appropriate *_CSV variable and add a name:enum_type entry to
+#     the corresponding *_CMD variable.
+#   - Adding a new top-level target: update the Tables section in
+#     Makefile2 'make help'.
+#
+# Provides:
+#   download-tables       -- fetch latest IANA CSVs into src/tables/source/
+#   regen-tables          -- download + regenerate all protocol headers
+#   regen-tables-offline  -- regenerate from cached CSVs (no download)
+#   clean-tables          -- remove built table-generator binaries
+
+TABLES_DIR     := src/tables
+TABLES_OUTDIR  := src/libmerc
+
+$(TABLES_DIR)/csv: $(TABLES_DIR)/csv.cc
+	$(CXX) $(CXXFLAGS) $(DEPFLAGS) -o $@ $(TABLES_DIR)/csv.cc
+
+$(TABLES_DIR)/tls_csv: $(TABLES_DIR)/tls_extension_generator.cc
+	$(CXX) $(CXXFLAGS) $(DEPFLAGS) -o $@ $(TABLES_DIR)/tls_extension_generator.cc
+
+# TODO: after old build system removal, replace with a single
+# wildcard include for all src/**/*.d in rules.mk.
+-include $(TABLES_DIR)/csv.d $(TABLES_DIR)/tls_extension_generator.d
+
+IKEV2_CSV := ikev2-parameters-1.csv ikev2-parameters-2.csv \
+  ikev2-parameters-3.csv ikev2-parameters-4.csv ikev2-parameters-5.csv \
+  ikev2-parameters-6.csv ikev2-parameters-7.csv ikev2-parameters-8.csv \
+  ikev2-parameters-9.csv ikev2-parameters-10.csv ikev2-parameters-11.csv \
+  ikev2-parameters-12.csv ikev2-parameters-14.csv ikev2-parameters-16.csv \
+  ikev2-parameters-17.csv ikev2-parameters-18.csv ikev2-parameters-19.csv \
+  ikev2-parameters-20.csv ikev2-parameters-21.csv ikev2-parameters-22.csv \
+  ikev2-parameters-23.csv secure-password-methods.csv hash-algorithms.csv \
+  ikev2-post-quantum-preshared-key-id-types.csv
+
+IKEV2_CMD := ikev2-parameters-1.csv:exchange_type \
+  ikev2-parameters-2.csv:payload_type ikev2-parameters-3.csv:transform_type \
+  ikev2-parameters-4.csv:transform_attribute_type \
+  ikev2-parameters-5.csv:encryption_transform_type \
+  ikev2-parameters-6.csv:pseudorandom_function_type \
+  ikev2-parameters-7.csv:integrity_transform_type \
+  ikev2-parameters-8.csv:diffie_hellman_group_type \
+  ikev2-parameters-9.csv:extended_sequence_numbers_type \
+  ikev2-parameters-10.csv:identification_payload_type \
+  ikev2-parameters-11.csv:certificate_encoding_type \
+  ikev2-parameters-12.csv:authentication_method_type \
+  ikev2-parameters-14.csv:notify_message_error_type \
+  ikev2-parameters-16.csv:notify_message_status_type \
+  ikev2-parameters-17.csv:notification_ipcomp_type \
+  ikev2-parameters-18.csv:security_protocol_type \
+  ikev2-parameters-19.csv:traffic_selector_type \
+  ikev2-parameters-20.csv:configuration_payload_type \
+  ikev2-parameters-21.csv:configuration_payload_attribute_type \
+  ikev2-parameters-22.csv:gateway_identity_type \
+  ikev2-parameters-23.csv:rohc_attribute_type \
+  secure-password-methods.csv:secure_password_type \
+  hash-algorithms.csv:hash_algorithm_type \
+  ikev2-post-quantum-preshared-key-id-types.csv:postquantum_preshared_key_type
+
+STUN_CSV := stun-parameters-2.csv stun-parameters-4.csv \
+  stun-parameters-6.csv turn-channel.csv \
+  stun-security-features.csv stun-password-algorithm.csv
+
+STUN_CMD := stun-parameters-2.csv:method \
+  local-stun-attributes.csv,stun-parameters-4.csv:attribute_type:type \
+  stun-parameters-6.csv:error_codes \
+  stun-security-features.csv:security_features \
+  stun-password-algorithm.csv:password_algorithms
+
+TLS_CSV := tls-extensiontype-values-1.csv
+TLS_CMD := include_extensions=local_include_extension.txt \
+  tls-extensiontype-values-1.csv:tls_extensions_assign
+
+HPKE_CSV := hpke-kem-ids.csv hpke-aead-ids.csv hpke-kdf-ids.csv
+HPKE_CMD := hpke-kem-ids.csv:kem hpke-aead-ids.csv:aead hpke-kdf-ids.csv:kdf
+
+KRB5_CSV := kerberos-parameters-1.csv kerberos-parameters-2.csv \
+  pre-authentication.csv
+KRB5_CMD := kerberos-parameters-1.csv:encryption_type \
+  kerberos-parameters-2.csv:checksum_type \
+  pre-authentication.csv:pa_data_type
+
+TACPLUS_CMD := tac_plus_authen_action.csv:authen_action \
+  tac_plus_authen_type.csv:authen_type \
+  tac_plus_authen_service.csv:authen_service \
+  tac_plus_authen_status.csv:authen_status \
+  tac_plus_authen_meth.csv:authen_meth \
+  tac_plus_author_status.csv:author_status \
+  tac_plus_acct_status.csv:acct_status \
+  tac_plus_priv_lvl.csv:privilege_level
+
+.PHONY: download-tables
+download-tables:
+	cd $(TABLES_DIR) && wget -N -P source/ \
+	  $(addprefix https://www.iana.org/assignments/ikev2-parameters/,$(IKEV2_CSV))
+	cd $(TABLES_DIR) && wget -N -P source/ \
+	  $(addprefix https://www.iana.org/assignments/stun-parameters/,$(STUN_CSV))
+	cd $(TABLES_DIR) && wget -N -P source/ \
+	  https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values-1.csv
+	cd $(TABLES_DIR) && wget -N -P source/ \
+	  $(addprefix https://www.iana.org/assignments/hpke/,$(HPKE_CSV))
+	cd $(TABLES_DIR) && wget -N -P source/ \
+	  $(addprefix https://www.iana.org/assignments/kerberos-parameters/,$(KRB5_CSV))
+
+.PHONY: regen-tables regen-tables-offline
+regen-tables: download-tables regen-tables-offline
+
+regen-tables-offline: $(TABLES_DIR)/csv $(TABLES_DIR)/tls_csv
+	cd $(TABLES_DIR) && ./csv outfile=$(abspath $(TABLES_OUTDIR))/ikev2_params.h \
+	  verbose=true dir=source $(IKEV2_CMD)
+	cd $(TABLES_DIR) && ./csv outfile=$(abspath $(TABLES_OUTDIR))/stun_params.h \
+	  verbose=true dir=source $(STUN_CMD)
+	cd $(TABLES_DIR) && ./tls_csv outfile=$(abspath $(TABLES_OUTDIR))/tls_extensions.h \
+	  verbose=true dir=source $(TLS_CMD)
+	cd $(TABLES_DIR) && ./csv outfile=$(abspath $(TABLES_OUTDIR))/hpke_params.h \
+	  verbose=true dir=source $(HPKE_CMD)
+	cd $(TABLES_DIR) && ./csv outfile=$(abspath $(TABLES_OUTDIR))/tacacs_plus_params.hpp \
+	  verbose=true dir=local $(TACPLUS_CMD)
+	cd $(TABLES_DIR) && ./csv outfile=$(abspath $(TABLES_OUTDIR))/krb5_params.hpp \
+	  verbose=true dir=source $(KRB5_CMD)
+	@printf '$(COLOR_GREEN)  regenerated all IANA table headers in src/libmerc/$(COLOR_OFF)\n'
+
+.PHONY: clean-tables
+clean-tables:
+	rm -f $(TABLES_DIR)/csv $(TABLES_DIR)/tls_csv \
+	  $(TABLES_DIR)/csv.d $(TABLES_DIR)/tls_extension_generator.d

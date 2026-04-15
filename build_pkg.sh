@@ -3,15 +3,16 @@
 
 usage() {
 
-    echo -e "$0 [ -h ] | [ -v version ] [ -t deb|rpm]\n"
+    echo -e "$0 [ -h ] | [ -v version ] [ -t deb|rpm] [ -o outdir]\n"
     echo -e "usage:\n"
     echo "-h) prints usage information and exits"
     echo "-v) specifies the version of the package to be built. MANDATORY and should be in the form of Major.Minor"
     echo "-i) specifies the build iteration (optional)"
+    echo "-o) specifies the output directory for the package (default: .)"
     echo -e "-t) specifices which package to build (rpm, deb)\n"
 }
 
-while getopts "ht:v:i:" arg; do
+while getopts "ht:v:i:o:" arg; do
     case $arg in
     h)
         usage
@@ -25,7 +26,10 @@ while getopts "ht:v:i:" arg; do
         echo "-i was triggered with option ${OPTARG}"
         ITERATION=${OPTARG}
         ;;
-
+    o)
+        echo "-o was triggered with option ${OPTARG}"
+        OUTPUT_DIR=${OPTARG}
+        ;;
     t)
         echo "-t was triggered with option ${OPTARG}"
         BUILDTYPE=${OPTARG}
@@ -58,6 +62,22 @@ fi
 if [ -z "$ITERATION" ]; then
     ITERATION="1"
 fi
+
+# Locate mercury binary: prefer Makefile2 out-of-source path, fall back to legacy
+if [ -z "$MERCURY_BIN" ]; then
+    if [ -x build/RelWithDebInfo/bin/mercury ]; then
+        MERCURY_BIN=build/RelWithDebInfo/bin/mercury
+    else
+        MERCURY_BIN=./src/mercury
+    fi
+fi
+echo "using mercury binary: $MERCURY_BIN"
+
+# Output directory for packages (default: current directory)
+if [ -z "$OUTPUT_DIR" ]; then
+    OUTPUT_DIR="."
+fi
+mkdir -p "$OUTPUT_DIR"
 
 DESCRIPTION="Mercury: a tool for network metadata capture and analysis."
 
@@ -111,6 +131,7 @@ if [ "$BUILDTYPE" == "deb" ]; then
     PKG_NAME="mercury${PKG_SUFFIX}"
     echo "building package: $PKG_NAME for $ID $VERSION_ID"
     fpm -s dir -t deb -n $PKG_NAME $FPM_LINUX_OPTIONS \
+        -p "$OUTPUT_DIR" \
         --depends $SSL_LIB \
         --depends zlib1g    \
         --deb-systemd ./install_mercury/mercury.service \
@@ -118,7 +139,7 @@ if [ "$BUILDTYPE" == "deb" ]; then
         --description "$DESCRIPTION" \
         --after-remove ./install_mercury/postuninstall_remove \
         --deb-after-purge ./install_mercury/postuninstall_purge \
-        ./src/mercury=/usr/local/bin/ mercury.cfg=/etc/mercury/ \
+        "$MERCURY_BIN"=/usr/local/bin/ mercury.cfg=/etc/mercury/ \
         ./mercury=/usr/share/bash-completion/completions/
 
 elif [ "$BUILDTYPE" == "rpm" ]; then
@@ -130,6 +151,7 @@ elif [ "$BUILDTYPE" == "rpm" ]; then
     ELX=$(echo $PLATFORM_ID | cut -f2 -d:)
 
     fpm -s dir -t rpm -n mercury $FPM_LINUX_OPTIONS \
+        -p "$OUTPUT_DIR" \
         --depends 'openssl' \
         --depends 'zlib'    \
         --rpm-dist $ELX \
@@ -137,5 +159,5 @@ elif [ "$BUILDTYPE" == "rpm" ]; then
         --description "$DESCRIPTION" \
         --after-remove ./install_mercury/postuninstall_rpm \
         ./install_mercury/mercury.service=/usr/lib/systemd/system/ \
-        ./src/mercury=/usr/local/bin/ mercury.cfg=/etc/mercury/
+        "$MERCURY_BIN"=/usr/local/bin/ mercury.cfg=/etc/mercury/
 fi

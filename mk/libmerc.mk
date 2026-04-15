@@ -1,0 +1,84 @@
+# mk/libmerc.mk -- libmerc source list and library targets
+#
+# Included by Makefile2.  Defines LIBMERC_SRCS (the complete list of
+# source files compiled into libmerc) and the .a / .so library targets.
+#
+# When to edit:
+#   - Adding a new source file to libmerc: append it to LIBMERC_SRCS.
+#   - Adding a new SIMD specialization: add the source under the
+#     appropriate PLATFORM guard and set per-file ISA flags.
+
+LCTRIE_SRCS := \
+  src/libmerc/lctrie/lctrie.cc \
+  src/libmerc/lctrie/lctrie_bgp.cc \
+  src/libmerc/lctrie/lctrie_ip.cc
+
+LIBMERC_SRCS := \
+  src/libmerc/addr.cc \
+  src/libmerc/bencode.cc \
+  src/libmerc/config_generator.cc \
+  src/libmerc/http.cc \
+  src/libmerc/libmerc.cc \
+  src/libmerc/pkt_proc.cc \
+  src/libmerc/smb2.cc \
+  src/libmerc/utils.cc \
+  src/libmerc/asn1/oid.cc \
+  $(LCTRIE_SRCS)
+
+# --- Platform-specific SIMD sources -----------------------------------
+
+ifeq ($(HAVE_XSIMD),yes)
+  ifeq ($(PLATFORM),intel)
+    LIBMERC_SRCS += src/libmerc/softmax_avx.cc \
+                    src/libmerc/softmax_avx2.cc \
+                    src/libmerc/softmax_sse2.cc
+  endif
+  ifeq ($(PLATFORM),arm)
+    LIBMERC_SRCS += src/libmerc/softmax_neon.cc
+  endif
+endif
+
+# --- Per-file ISA flags for x86 SIMD sources --------------------------
+
+$(OBJ)/src/libmerc/softmax_sse2.o: CXXFLAGS += -msse2
+$(OBJ)/src/libmerc/softmax_avx.o:  CXXFLAGS += -mavx
+$(OBJ)/src/libmerc/softmax_avx2.o: CXXFLAGS += -mavx2
+
+# --- Library targets --------------------------------------------------
+
+$(LIB)/libmerc.a: $(call objects,$(LIBMERC_SRCS))
+	$(LINK_A)
+
+$(LIB)/libmerc.so: LDLIBS := -lz -lcrypto
+$(LIB)/libmerc.so: $(call objects,$(LIBMERC_SRCS))
+	$(LINK_SO)
+
+# libmerc_alt.so: same objects, different soname.  Used by the
+# double-bind test (loading two libmerc .so files simultaneously).
+$(LIB)/libmerc_alt.so: LDLIBS := -lz -lcrypto
+$(LIB)/libmerc_alt.so: $(call objects,$(LIBMERC_SRCS))
+	@mkdir -p $(dir $@)
+ifeq ($(IS_MACOS),yes)
+	$(call QUIET,LINK,$@)$(CXX) $(CXXFLAGS) -shared -fPIC -Wl,-install_name,libmerc_alt.so.0 $^ $(LDFLAGS) $(LDLIBS) -o $@
+else
+	$(call QUIET,LINK,$@)$(CXX) $(CXXFLAGS) -shared -fPIC -Wl,-soname,libmerc_alt.so.0 $^ $(LDFLAGS) $(LDLIBS) -o $@
+endif
+
+# --- ASN.1 OID table regeneration -------------------------------------
+
+ASN1_DIR  := src/libmerc/asn1
+ASN1_SRCS := $(wildcard $(ASN1_DIR)/*.asn1)
+
+.PHONY: regen-oid
+regen-oid: $(ASN1_DIR)/oidc
+	cd $(ASN1_DIR) && ./oidc $(sort $(notdir $(ASN1_SRCS)))
+	@printf '$(COLOR_GREEN)  regenerated oid.cc and oid.h from %d .asn1 files$(COLOR_OFF)\n' \
+	  $(words $(ASN1_SRCS))
+	@echo '  Review: git diff src/libmerc/asn1/'
+
+$(ASN1_DIR)/oidc: $(ASN1_DIR)/oidc.cc
+	$(CXX) -std=c++17 -O2 -o $@ $<
+
+.PHONY: clean-oidc
+clean-oidc:
+	rm -f $(ASN1_DIR)/oidc

@@ -11,7 +11,7 @@
 #   $ export INPUT=pcap; ./mercury-json-validity-check --certs-json --dns-json
 
 
-MERCURY=../src/mercury
+MERCURY=${MERCURY:-../src/mercury}
 
 if [[ -z "${INPUT}" ]]; then
     INPUT=data/top-https.pcap

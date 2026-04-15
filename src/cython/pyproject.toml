@@ -1,8 +1,34 @@
 [build-system]
-requires = [
-    "setuptools>=42",
-    "Cython",
+requires = ["setuptools>=68", "Cython>=3.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mercury-python"
+dynamic = ["version"]
+description = "Python interface into mercury's network protocol fingerprinting and analysis functionality"
+readme = "README.md"
+license = {text = "BSD-3-Clause"}
+requires-python = ">=3.8"
+authors = [
+    { name = "Blake Anderson", email = "blake.anderson@cisco.com" },
 ]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: System :: Networking :: Monitoring",
+    "Topic :: Security",
+]
+keywords = ["tls", "fingerprinting", "network", "traffic", "analysis"]
+
+[project.urls]
+Homepage = "https://github.com/cisco/mercury-python/"
+
+[tool.setuptools.dynamic]
+version = { attr = "_version.__version__" }
+
+# Only the C extension matters — no pure-Python modules to ship.
+[tool.setuptools]
+py-modules = []
 
 [tool.cibuildwheel.linux]
 environment = "CC='g++' CXX='g++' MERCURY_DIR='./' ENV_CFLAGS='-DHAVE_XSIMD'"

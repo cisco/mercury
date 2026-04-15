@@ -1,0 +1,8 @@
+# LSan (LeakSanitizer) suppression file for mercury tests.
+#
+# These suppress benign leaks in third-party libraries that are out of
+# our control and not actionable.
+
+# OpenSSL 3.x one-time global allocations (error strings, algorithms,
+# config, etc.) that are never freed by design.
+leak:CRYPTO_malloc

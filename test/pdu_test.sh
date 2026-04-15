@@ -9,8 +9,8 @@ COLOR_GREEN="\033[0;32m"
 COLOR_YELLOW="\033[0;33m"
 COLOR_OFF="\033[0m"
 
-VERIFIER=../unit_tests/pdu_verifier
-export LD_LIBRARY_PATH=../src/libmerc/
+VERIFIER=${VERIFIER:-../unit_tests/pdu_verifier}
+export LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-../src/libmerc/}
 
 echo $LD_LIBRARY_PATH
 

@@ -189,7 +189,10 @@ int verbosity = 0;
 char resources_minimal_path[] = "../test/data/resources-test.tgz";
 
 const char * path_to_libmerc_library = LIBMERC_SO_PATH;
-const char * path_to_libmerc_alt_library = "../src/libmerc/libmerc.so.alt";
+#ifndef LIBMERC_SO_ALT_PATH
+#define LIBMERC_SO_ALT_PATH "../src/libmerc/libmerc.so.alt"
+#endif
+const char * path_to_libmerc_alt_library = LIBMERC_SO_ALT_PATH;
 
 /*variables end */
 

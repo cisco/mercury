@@ -114,6 +114,81 @@ jobs:
       - name: Run batch_gcd tests
         run: make --directory=test batch_gcd_test
 
+  # ========== Linux Multi-Distro Build and Test (Makefile2) ==========
+
+  linux-ci2:
+    if: github.event_name != 'workflow_dispatch' || inputs.run_linux
+    name: "linux-ci2 (${{ matrix.testplatform }}${{ matrix.xsimd && format(',{0}', matrix.xsimd) || '' }}${{ matrix.arch && format(',{0}', matrix.arch) || '' }})"
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        testplatform: [alma8, alma9, alma10, ubuntu20, ubuntu22, ubuntu24, debian11, debian12, debian13]
+        xsimd: [""]  # default: autodetect system xsimd, fallback to scalar
+        arch: [""]   # default: amd64
+        include:
+          - testplatform: ubuntu22
+            xsimd: xsimd-bundled
+          - testplatform: ubuntu24
+            arch: arm64
+    container:
+      image: ghcr.io/cisco-netintel/${{matrix.testplatform}}:buildenv
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Echo OS version
+        run: cat /etc/os-release
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+      - name: Mark workspace as safe for git
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: configure
+        env:
+          XSIMD_FLAGS: ${{ matrix.xsimd == 'xsimd-bundled' && '--enable-xsimd --with-xsimd-include=src/libmerc/xsimd/include' || '' }}
+        run: ./configure $XSIMD_FLAGS
+      - name: Build Mercury RelWithDebInfo
+        run: make -f Makefile2 -j$(nproc) V=1
+      - name: Build Mercury Debug+ASan
+        run: make -f Makefile2 -j$(nproc) V=1 BUILD_TYPE=Debug SANITIZE=address OPTFLAGS=-O2
+      - name: Build Mercury Debug+ASan+visdefault (multiprotocol)
+        run: make -f Makefile2 -j$(nproc) V=1 BUILD_TYPE=Debug SANITIZE=address VISIBILITY=default OPTFLAGS=-O2
+      - name: Build Mercury Debug+ASan+visdefault+staticcfgtls (tls-only)
+        run: make -f Makefile2 -j$(nproc) V=1 BUILD_TYPE=Debug SANITIZE=address VISIBILITY=default STATIC_CFG=tls OPTFLAGS=-O2
+      - name: Generate token for cross-repo access
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.REPO_READER_APP_ID }}
+          private-key: ${{ secrets.REPO_READER_PRIVATE_KEY }}
+          owner: cisco-netintel
+      - name: Checkout mercury-resources
+        uses: actions/checkout@v5
+        with:
+          repository: cisco-netintel/mercury-resources
+          ref: verified
+          path: unit_tests/xtra/resources
+          token: ${{ steps.app-token.outputs.token }}
+      - name: Run test-cython (RelWithDebInfo)
+        run: make -f Makefile2 -j$(nproc) V=1 test-cython
+      - name: Run tests (Debug+ASan)
+        run: |
+          # Work around benign OpenSSL 3.x CRYPTO_malloc leaks at exit.
+          # alma9: 120 bytes via provider_activate.
+          # alma10: 240 bytes via CONF_modules_load (https://github.com/openssl/openssl/issues/29077).
+          case "${{ matrix.testplatform }}" in
+            alma9)  export LSAN_OPTIONS="suppressions=$GITHUB_WORKSPACE/test/lsan.supp" ;;
+            alma10) export OPENSSL_CONF=/dev/null ;;
+          esac
+          # OPTFLAGS=-O2 overrides Debug's -O0 so ASan tests finish in
+          # reasonable time.  No -j for readable test output.
+          make -f Makefile2 V=1 BUILD_TYPE=Debug SANITIZE=address OPTFLAGS=-O2 test
+      - name: Run batch_gcd tests (Debug+ASan)
+        run: make -f Makefile2 V=1 BUILD_TYPE=Debug SANITIZE=address OPTFLAGS=-O2 test-batch-gcd
+
   # ========== Linux Fuzz Testing ==========
 
   linux-fuzz:
@@ -149,6 +224,39 @@ jobs:
         run: |
           make --debug=basic fuzz-test
 
+  # ========== Linux Fuzz Testing (Makefile2) ==========
+
+  linux-fuzz2:
+    if: github.event_name != 'workflow_dispatch' || inputs.run_linux_fuzz
+    runs-on: ubuntu-latest-16-cores
+    timeout-minutes: 60
+    container:
+      image: ghcr.io/cisco-netintel/ubuntufuzz:buildenv
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Echo OS version
+        run: cat /etc/os-release
+      - name: Display system resources
+        run: |
+          echo "CPU count:"
+          nproc
+          echo
+          echo "Memory info:"
+          free -h
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+      - name: Mark workspace as safe for git
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Configure Mercury
+        run: |
+          ./configure
+      - name: Run Fuzz Test
+        run: make -f Makefile2 -j V=1 test-fuzz
+
   # ========== macOS Build and Test ==========
 
   macos-ci:
@@ -173,6 +281,8 @@ jobs:
           source ~/.envs/merc/bin/activate
           python3 -m pip install --upgrade pip
           python3 -m pip install --upgrade jsonschema cryptography Cython wheel setuptools
+          echo "$HOME/.envs/merc/bin" >> "$GITHUB_PATH"
+          echo "VIRTUAL_ENV=$HOME/.envs/merc" >> "$GITHUB_ENV"
       - name: Build libmerc via CMake
         working-directory: src/libmerc
         run: |
@@ -207,6 +317,73 @@ jobs:
         run: make --debug=basic OPTFLAGS=-g test
       - name: Run batch_gcd tests
         run: make --directory=test batch_gcd_test
+
+  # ========== macOS Build and Test (Makefile2) ==========
+
+  macos-ci2:
+    if: github.event_name != 'workflow_dispatch' || inputs.run_macos
+    runs-on: macos-latest
+    steps:
+      - name: Get system hardware information
+        run: system_profiler SPHardwareDataType
+      - name: Get system software information
+        run: system_profiler SPSoftwareDataType
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+      - name: Install Homebrew dependencies
+        run: |
+          brew install zlib gmp  # already installed: python, openssl, cmake
+      - name: Install pip packages
+        run: |
+          mkdir -p ~/.envs
+          python3 -m venv ~/.envs/merc
+          source ~/.envs/merc/bin/activate
+          python3 -m pip install --upgrade pip
+          python3 -m pip install --upgrade jsonschema cryptography Cython wheel setuptools
+          echo "$HOME/.envs/merc/bin" >> "$GITHUB_PATH"
+          echo "VIRTUAL_ENV=$HOME/.envs/merc" >> "$GITHUB_ENV"
+      - name: Build libmerc via CMake
+        working-directory: src/libmerc
+        run: |
+          cmake -DCMAKE_BUILD_TYPE=Debug -DLIBMERC_ONLY=TRUE -B build-debug
+          cmake --build build-debug --parallel 1
+          cmake -DCMAKE_BUILD_TYPE=Release -DLIBMERC_ONLY=TRUE -B build-release
+          cmake --build build-release --parallel 1
+      - name: Clean up CMake build directories
+        working-directory: src/libmerc
+        run: rm -rf build-debug build-release
+      - name: configure
+        run: ./configure
+      - name: Build Mercury RelWithDebInfo
+        run: make -f Makefile2 -j V=1
+      - name: Build Mercury Debug+ASan
+        run: make -f Makefile2 -j V=1 BUILD_TYPE=Debug SANITIZE=address
+      - name: Build Mercury Debug+ASan+visdefault (multiprotocol)
+        run: make -f Makefile2 -j V=1 BUILD_TYPE=Debug SANITIZE=address VISIBILITY=default
+      - name: Build Mercury Debug+ASan+visdefault+staticcfgtls (tls-only)
+        run: make -f Makefile2 -j V=1 BUILD_TYPE=Debug SANITIZE=address VISIBILITY=default STATIC_CFG=tls
+      - name: Generate token for cross-repo access
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.REPO_READER_APP_ID }}
+          private-key: ${{ secrets.REPO_READER_PRIVATE_KEY }}
+          owner: cisco-netintel
+      - name: Checkout mercury-resources
+        uses: actions/checkout@v5
+        with:
+          repository: cisco-netintel/mercury-resources
+          ref: verified
+          path: unit_tests/xtra/resources
+          token: ${{ steps.app-token.outputs.token }}
+      - name: Run test-cython (RelWithDebInfo)
+        run: make -f Makefile2 -j V=1 test-cython
+      - name: Run tests (Debug+ASan)
+        run: make -f Makefile2 -j V=1 BUILD_TYPE=Debug SANITIZE=address test
+      - name: Run batch_gcd tests (Debug+ASan)
+        run: make -f Makefile2 -j V=1 BUILD_TYPE=Debug SANITIZE=address test-batch-gcd
 
   # ========== Windows Build ==========
 
@@ -282,6 +459,57 @@ jobs:
             mercury*.deb
             src/cython/*.so
 
+  # ========== Linux Distro (.deb) and Python Packages (.so) (Makefile2) ==========
+
+  packages2:
+    if: github.event_name != 'workflow_dispatch' || inputs.build_packages
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        testplatform: ["ubuntu22", "ubuntu24"]
+    container:
+      image: ghcr.io/cisco-netintel/${{ matrix.testplatform }}:buildenv
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Echo OS version
+        run: cat /etc/os-release
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+      - name: Mark workspace as safe for git
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: configure
+        run: ./configure
+      - name: make -f Makefile2
+        run: make -f Makefile2 -j V=1
+      - name: Build Mercury Cython
+        run: make -f Makefile2 -j V=1 cython test-cython
+      - name: Build distro package
+        run: |
+          export SHORT_HASH=$(echo ${{ github.sha }} | cut -c1-8)
+          ./build_pkg.sh -t deb -o build/RelWithDebInfo/pkg -i ${{ github.run_number }}-$SHORT_HASH
+      - name: Verify build artifacts exist
+        run: |
+          echo "=== Checking distro package ==="
+          ls -la build/RelWithDebInfo/pkg/mercury*.deb
+          echo "=== Checking Cython shared object ==="
+          ls -la build/RelWithDebInfo/cython/lib/*.so
+          echo "=== Checking wheel ==="
+          ls -la build/RelWithDebInfo/cython/dist/*.whl
+      # Upload is disabled for now; enable when ready to switch to Makefile2 artifacts
+      # - name: Upload distro package as artifact
+      #   uses: actions/upload-artifact@v6
+      #   with:
+      #     name: ${{ matrix.testplatform }}-makefile2
+      #     overwrite: true
+      #     if-no-files-found: error
+      #     path: |
+      #       build/RelWithDebInfo/pkg/mercury*.deb
+      #       build/RelWithDebInfo/cython/lib/*.so
+
   # ========== Status Check Summary (Single Required Check) ==========
 
   # This sentinel job provides a single status that can be used for branch
@@ -297,29 +525,41 @@ jobs:
   ci-success:
     name: Mercury CI Checks
     if: ${{ always() && !cancelled() }}
-    needs: [linux-ci, linux-fuzz, macos-ci, windows-build, packages]
+    needs: [linux-ci, linux-ci2, linux-fuzz, linux-fuzz2, macos-ci, macos-ci2, windows-build, packages, packages2]
     runs-on: ubuntu-latest
     steps:
       - name: Check job results
         run: |
           echo "linux-ci: ${{ needs.linux-ci.result }}"
+          echo "linux-ci2: ${{ needs.linux-ci2.result }}"
           echo "linux-fuzz: ${{ needs.linux-fuzz.result }}"
+          echo "linux-fuzz2: ${{ needs.linux-fuzz2.result }}"
           echo "macos-ci: ${{ needs.macos-ci.result }}"
+          echo "macos-ci2: ${{ needs.macos-ci2.result }}"
           echo "windows-build: ${{ needs.windows-build.result }}"
           echo "packages: ${{ needs.packages.result }}"
+          echo "packages2: ${{ needs.packages2.result }}"
 
           # Treat skipped jobs as success (allows workflow_dispatch with subset)
           # Fail if any job failed or was cancelled
           if [[ "${{ needs.linux-ci.result }}" == "failure" ]] || \
              [[ "${{ needs.linux-ci.result }}" == "cancelled" ]] || \
+             [[ "${{ needs.linux-ci2.result }}" == "failure" ]] || \
+             [[ "${{ needs.linux-ci2.result }}" == "cancelled" ]] || \
              [[ "${{ needs.linux-fuzz.result }}" == "failure" ]] || \
              [[ "${{ needs.linux-fuzz.result }}" == "cancelled" ]] || \
+             [[ "${{ needs.linux-fuzz2.result }}" == "failure" ]] || \
+             [[ "${{ needs.linux-fuzz2.result }}" == "cancelled" ]] || \
              [[ "${{ needs.macos-ci.result }}" == "failure" ]] || \
              [[ "${{ needs.macos-ci.result }}" == "cancelled" ]] || \
+             [[ "${{ needs.macos-ci2.result }}" == "failure" ]] || \
+             [[ "${{ needs.macos-ci2.result }}" == "cancelled" ]] || \
              [[ "${{ needs.windows-build.result }}" == "failure" ]] || \
              [[ "${{ needs.windows-build.result }}" == "cancelled" ]] || \
              [[ "${{ needs.packages.result }}" == "failure" ]] || \
-             [[ "${{ needs.packages.result }}" == "cancelled" ]]; then
+             [[ "${{ needs.packages.result }}" == "cancelled" ]] || \
+             [[ "${{ needs.packages2.result }}" == "failure" ]] || \
+             [[ "${{ needs.packages2.result }}" == "cancelled" ]]; then
             echo "One or more jobs failed or were cancelled"
             exit 1
           fi
