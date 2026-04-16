@@ -1,9 +1,26 @@
+///
+/// \file ph_driver.cc
+///
+/// Standalone benchmark test for perfect_hash implementation.
+///
+/// Unlike other unit tests, this file defines its own main() via
+/// DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN and is compiled as a separate executable.
+/// It is NOT linked with doctest_main.cc.
+///
+/// Copyright (c) 2025 Cisco Systems, Inc. All rights reserved.
+/// License at https://github.com/cisco/mercury/blob/master/LICENSE
+///
+
 #include <perfect_hash.h>
 
-#define CATCH_CONFIG_MAIN
-#include "catch.hpp"
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include "doctest.h"
 
 #include <unordered_map>
+
+// Simple BENCHMARK macro replacement - just executes the code block
+// (doctest doesn't have built-in benchmarking)
+#define BENCHMARK(name) if (true)
 
 std::string gen_random(const int len) {
     static const char alphanum[] =
@@ -68,7 +85,7 @@ SCENARIO("Perfect Hash. Key len = 20; Elements = 100; Lookup count = 100")
     {
         for(size_t i = 0; i < loop_count_1; i++)
         {
-            res[i] = ph->lookup(_test_data[i].c_str(), _test_data[i].length(), valid);
+            res[i] = ph->lookup(reinterpret_cast<const uint8_t*>(_test_data[i].c_str()), _test_data[i].length(), valid);
         }
     }
     valid = false;
@@ -146,7 +163,7 @@ SCENARIO("Perfect Hash. Key len = 50; Elements = 100000; Lookup count = 100000")
     {
         for(size_t i = 0; i < loop_count_2; i++)
         {
-            res[i] = ph->lookup(_test_data[i].c_str(), _test_data[i].length(), valid);
+            res[i] = ph->lookup(reinterpret_cast<const uint8_t*>(_test_data[i].c_str()), _test_data[i].length(), valid);
         }
     }
     valid = false;

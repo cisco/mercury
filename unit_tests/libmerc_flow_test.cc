@@ -1,12 +1,17 @@
-/*
- * libmerc_flow_test.cc
- *
- * libmerc unit tests
- *
- * Copyright (c) 2021 Cisco Systems, Inc. All rights reserved.  License at
- * https://github.com/cisco/mercury/blob/master/LICENSE
- */
 
+///
+/// \file libmerc_flow_test.cc
+///
+/// Tests for libmerc binding and multithreading.
+///
+/// Note: This file does NOT define main(). It is compiled and linked with
+/// doctest_main.cc, which provides the main() entry point that runs all tests.
+///
+/// Copyright (c) 2025 Cisco Systems, Inc. All rights reserved.
+/// License at https://github.com/cisco/mercury/blob/master/LICENSE
+///
+
+#include "doctest.h"
 #include "libmerc_driver_helper.hpp"
 
 // Wrapper for pthread_create with configurable stack size
