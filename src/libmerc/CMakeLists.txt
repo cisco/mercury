@@ -228,10 +228,12 @@ if(Git_FOUND)
         set(_git_hash "unknown")
     endif()
 
-    # diff-index --quiet: exit 0 = clean, exit 1 = dirty,
+    # git diff --quiet: exit 0 = clean, exit 1 = dirty,
     # exit >1 or failure = not a git repo / no HEAD — treat as clean.
+    # Unlike diff-index, diff refreshes the stat cache first, so files
+    # rewritten by ./configure with identical content appear clean.
     execute_process(
-        COMMAND "${GIT_EXECUTABLE}" diff-index --quiet HEAD --
+        COMMAND "${GIT_EXECUTABLE}" diff --quiet HEAD
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
         ERROR_QUIET RESULT_VARIABLE _dirty_rc)
     if(_dirty_rc EQUAL 1)

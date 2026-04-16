@@ -76,7 +76,8 @@ public:
 
 
 // mpz_init_set_datum(mpz, d) initializes an mpz_t integer and then
-// sets it to the vaule of the datum
+// sets it to the value of the datum.  Use only on uninitialized mpz_t;
+// for an already-initialized mpz_t, use mpz_set_datum() instead.
 //
 static inline int mpz_init_set_datum(mpz_t mod, datum mod_tmp) {
     char mod_buf[2048];
@@ -86,6 +87,18 @@ static inline int mpz_init_set_datum(mpz_t mod, datum mod_tmp) {
         return -1;      // error: cannot set integer from datum
     }
     return mpz_init_set_str(mod, mod_buf, 16);
+}
+
+// mpz_set_datum(mpz, d) sets an already-initialized mpz_t to the
+// value of the datum.  Does not re-initialize mpz.
+//
+static inline int mpz_set_datum(mpz_t mod, datum mod_tmp) {
+    char mod_buf[2048];
+    ssize_t chars_written = mod_tmp.write_hex(mod_buf, sizeof(mod_buf), true);
+    if (chars_written < 0) {
+        return -1;      // error: cannot set integer from datum
+    }
+    return mpz_set_str(mod, mod_buf, 16);
 }
 
 #endif // BIGINT_HPP
