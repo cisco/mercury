@@ -25,6 +25,11 @@ char *command_get_argument(const char *command, char *line) {
         if (arg_len > 0 && arg[arg_len - 1] == '\n') {
             arg[arg_len - 1] = 0;  /* strip trailing newline */
         }
+        // For flag-only commands (without '='), reject trailing characters
+        bool command_expects_argument = (cmd_len > 0 && command[cmd_len - 1] == '=');
+        if (!command_expects_argument && arg[0] != '\0') {
+            return NULL;
+        }
         return arg;
     }
     return NULL;
