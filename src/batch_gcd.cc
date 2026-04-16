@@ -693,7 +693,7 @@ int is_hex_line(const char *line) {
 class mpz_reader {
 public:
     virtual bool get_mpz(mpz_t *x) = 0;
-    virtual bool write_out_certs(std::vector<size_t> &original_linenum, const std::string &base_filename);
+    virtual bool write_out_certs(std::vector<size_t> &original_linenum, const std::string &base_filename) = 0;
     virtual size_t get_linenum() = 0;
     virtual ~mpz_reader() { };
 };
@@ -745,7 +745,7 @@ public:
                 // buf.write_line(stdout);
 
                 // mpz_t mod;
-                mpz_init_set_datum(*x, rsa_pub.modulus.value);
+                mpz_set_datum(*x, rsa_pub.modulus.value);
 
                 //  gmp_printf("%#Zx\n", *x);
 
@@ -813,6 +813,8 @@ class hexline_reader : public mpz_reader {
 public:
 
     hexline_reader(FILE *infile) : f{infile} { }
+
+    ~hexline_reader() { free(linestr); }
 
     bool get_mpz(mpz_t *x) override {
         ssize_t read = getline(&linestr, &linelen, f);

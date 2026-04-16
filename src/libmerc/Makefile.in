@@ -169,7 +169,7 @@ VERSION=$(shell cat ../../VERSION)
 # NOTE: keep in sync with src/libmerc/CMakeLists.txt, which computes
 #   the same defines for the CMake build.
 GIT_HASH  := $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
-GIT_DIRTY := $(shell git diff-index --quiet HEAD -- 2>/dev/null; echo $$?)
+GIT_DIRTY := $(shell git diff --quiet HEAD 2>/dev/null; echo $$?)
 GIT_COUNT := $(shell git rev-list --count HEAD 2>/dev/null || echo 0)
 ifeq ($(GIT_DIRTY),1)
   GIT_COMMIT_STR := commit $(GIT_HASH) with local changes

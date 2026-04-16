@@ -1,5 +1,8 @@
 # CHANGELOG for Mercury
 
+## VERSION 2.16.1
+* Fixed configure.ac for compatibility with older versions of autoconf.
+
 ## VERSION 2.16.0
 * Added MacOS packet capture capability.
 * Added new server side fingerprints for SSH (ssh, ssh_init, ssh_kex).
