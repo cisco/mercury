@@ -21,7 +21,7 @@ classifiers = [
 keywords = ["tls", "fingerprinting", "network", "traffic", "analysis"]
 
 [project.urls]
-Homepage = "https://github.com/cisco/mercury-python/"
+Homepage = "https://github.com/cisco/mercury"
 
 [tool.setuptools.dynamic]
 version = { attr = "_version.__version__" }
