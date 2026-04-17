@@ -95,6 +95,7 @@ _DRV_LDLIBS := -pthread -lcrypto -ldl -lz
 $(BIN)/libmerc_util: CXXFLAGS += -UNDEBUG -O2
 $(BIN)/libmerc_util: LDLIBS := $(_DRV_LDLIBS)
 $(BIN)/libmerc_util: $(call objects,src/libmerc_util.cc src/pcap_file_io.c)
+	@printf '$(COLOR_YELLOW)  note: forcing -O2 for libmerc_util (link workaround)$(COLOR_OFF)\n'
 	$(LINK)
 
 # --- Driver targets ---------------------------------------------------
