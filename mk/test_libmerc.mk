@@ -98,29 +98,36 @@ $(BIN)/libmerc_util: $(call objects,src/libmerc_util.cc src/pcap_file_io.c)
 	$(LINK)
 
 # --- Driver targets ---------------------------------------------------
-# Link against the variant's .so, built with VISIBILITY=default (tech
-# debt) so internal symbols are accessible to tests.  Only tls_only
-# needs libmerc_alt.so for the dual-instance test in
-# libmerc_flow_test.cc.
+# Drivers link and dlopen the variant's libmerc.so, which must be built with
+# VISIBILITY=default so internal symbols are accessible to tests.  The link step
+# is tech debt (should be dlopen-only), as is the visibility requirement.
+# libmerc_alt.so and libmerc_util are order-only prerequisites: needed at
+# runtime but not passed to the linker.
 
+# links libmerc.so; dlopen()s libmerc.so and libmerc_alt.so
 $(BIN)/libmerc_driver_tls_only: CXXFLAGS += $(_DRV_EXTRA_CXXFLAGS)
 $(BIN)/libmerc_driver_tls_only: LDLIBS := $(_DRV_LDLIBS)
-$(BIN)/libmerc_driver_tls_only: $(call objects,$(_DRV_TLS_ONLY)) $(LIB)/libmerc.so $(LIB)/libmerc_alt.so
+$(BIN)/libmerc_driver_tls_only: | $(LIB)/libmerc_alt.so
+$(BIN)/libmerc_driver_tls_only: $(call objects,$(_DRV_TLS_ONLY)) $(LIB)/libmerc.so
 	$(LINK)
 
+# links and dlopen()s libmerc.so
 $(BIN)/libmerc_driver_multiprotocol: CXXFLAGS += $(_DRV_EXTRA_CXXFLAGS)
 $(BIN)/libmerc_driver_multiprotocol: LDLIBS := $(_DRV_LDLIBS)
 $(BIN)/libmerc_driver_multiprotocol: $(call objects,$(_DRV_MULTI)) $(LIB)/libmerc.so
 	$(LINK)
 
+# links and dlopen()s libmerc.so
 $(BIN)/libmerc_driver_fdc: CXXFLAGS += $(_DRV_EXTRA_CXXFLAGS)
 $(BIN)/libmerc_driver_fdc: LDLIBS := $(_DRV_LDLIBS)
 $(BIN)/libmerc_driver_fdc: $(call objects,$(_DRV_FDC)) $(LIB)/libmerc.so
 	$(LINK)
 
+# links and dlopen()s libmerc.so; runs libmerc_util as a subprocess
 $(BIN)/libmerc_util_behavior_test: CXXFLAGS += $(_DRV_EXTRA_CXXFLAGS)
 $(BIN)/libmerc_util_behavior_test: LDLIBS := $(_DRV_LDLIBS) $(_stdfslib)
-$(BIN)/libmerc_util_behavior_test: $(call objects,$(_DRV_UTIL)) $(LIB)/libmerc.so | $(BIN)/libmerc_util
+$(BIN)/libmerc_util_behavior_test: | $(BIN)/libmerc_util
+$(BIN)/libmerc_util_behavior_test: $(call objects,$(_DRV_UTIL)) $(LIB)/libmerc.so
 	$(LINK)
 
 # --- Test sandbox (inside the build directory) ------------------------
