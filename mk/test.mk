@@ -95,22 +95,26 @@ endif
 # Tests that require special environments (root, clang, AFL, etc.)
 # are defined after the ====== separator and must be invoked separately.
 
-omitted_test := no
-
 .PHONY: test
 test: all unittest test-comp test-analysis test-cert-check \
       test-json-validity test-stats test-memcheck test-cython test-libmerc
-	@if [ "$(omitted_test)" = "no" ]; then \
-	  printf '$(COLOR_GREEN)  passed all tests$(COLOR_OFF)\n'; \
-	else \
+	@if [ -f $(TESTDIR)/.omitted.flag ]; then \
 	  printf '$(COLOR_GREEN)  passed all tests that could be performed$(COLOR_OFF)\n'; \
 	  printf '$(COLOR_YELLOW)  warning: some tests skipped due to missing dependencies$(COLOR_OFF)\n'; \
+	else \
+	  printf '$(COLOR_GREEN)  passed all tests$(COLOR_OFF)\n'; \
 	fi
+
+# Clear the omitted-test sentinel from any previous run.  Subtests
+# that might skip use an order-only dependency on this target.
+.PHONY: _test-clear-omitted-flag
+_test-clear-omitted-flag:
+	@rm -f $(TESTDIR)/.omitted.flag
 
 # --- Fingerprint comparison tests (comp) ------------------------------
 
 .PHONY: test-comp
-test-comp: $(BIN)/mercury
+test-comp: $(BIN)/mercury | _test-clear-omitted-flag
 ifeq ($(HAVE_JQ),yes)
 	@echo "--- fingerprint comparison tests ---"
 	@rm -rf $(TESTDIR)/comp
@@ -141,13 +145,13 @@ ifeq ($(HAVE_JQ),yes)
 	@printf '$(COLOR_GREEN)  passed comparison tests$(COLOR_OFF)\n'
 else
 	@printf '$(COLOR_YELLOW)  omitting comparison tests; jq unavailable$(COLOR_OFF)\n'
-	$(eval omitted_test := yes)
+	@mkdir -p $(TESTDIR) && touch $(TESTDIR)/.omitted.flag
 endif
 
 # --- Analysis test ----------------------------------------------------
 
 .PHONY: test-analysis
-test-analysis: $(BIN)/mercury
+test-analysis: $(BIN)/mercury | _test-clear-omitted-flag
 ifeq ($(HAVE_PYTHON_JSONSCHEMA),yes)
 	@echo "--- analysis test ---"
 	@rm -rf $(TESTDIR)/analysis
@@ -159,13 +163,13 @@ ifeq ($(HAVE_PYTHON_JSONSCHEMA),yes)
 	@printf '$(COLOR_GREEN)  passed analysis test$(COLOR_OFF)\n'
 else
 	@printf '$(COLOR_YELLOW)  omitting analysis test; python3 or jsonschema unavailable$(COLOR_OFF)\n'
-	$(eval omitted_test := yes)
+	@mkdir -p $(TESTDIR) && touch $(TESTDIR)/.omitted.flag
 endif
 
 # --- Certificate check ------------------------------------------------
 
 .PHONY: test-cert-check
-test-cert-check: $(BIN)/mercury
+test-cert-check: $(BIN)/mercury | _test-clear-omitted-flag
 ifeq ($(HAVE_PYTHON_CRYPTOGRAPHY),yes)
 	@echo "--- certificate tests ---"
 	@rm -rf $(TESTDIR)/cert-check
@@ -185,7 +189,7 @@ ifeq ($(HAVE_PYTHON_CRYPTOGRAPHY),yes)
 	@printf '$(COLOR_GREEN)  passed certificate tests$(COLOR_OFF)\n'
 else
 	@printf '$(COLOR_YELLOW)  omitting certificate test; python3 or cryptography unavailable$(COLOR_OFF)\n'
-	$(eval omitted_test := yes)
+	@mkdir -p $(TESTDIR) && touch $(TESTDIR)/.omitted.flag
 endif
 
 # --- JSON validity test -----------------------------------------------
@@ -202,7 +206,7 @@ test-json-validity: $(BIN)/mercury
 # --- Stats test -------------------------------------------------------
 
 .PHONY: test-stats
-test-stats: $(BIN)/mercury
+test-stats: $(BIN)/mercury | _test-clear-omitted-flag
 ifeq ($(HAVE_PYTHON3),yes)
 	@echo "--- stats tests ---"
 	@rm -rf $(TESTDIR)/stats
@@ -238,13 +242,13 @@ ifeq ($(HAVE_PYTHON3),yes)
 	@printf '$(COLOR_GREEN)  passed stats tests$(COLOR_OFF)\n'
 else
 	@printf '$(COLOR_YELLOW)  omitting stats test; python3 unavailable$(COLOR_OFF)\n'
-	$(eval omitted_test := yes)
+	@mkdir -p $(TESTDIR) && touch $(TESTDIR)/.omitted.flag
 endif
 
 # --- Memcheck ---------------------------------------------------------
 
 .PHONY: test-memcheck
-test-memcheck: $(BIN)/mercury
+test-memcheck: $(BIN)/mercury | _test-clear-omitted-flag
 ifneq ($(SANITIZE),)
 	@printf '$(COLOR_GREEN)  skipping memcheck; incompatible with SANITIZE=$(SANITIZE)$(COLOR_OFF)\n'
 else ifeq ($(HAVE_VALGRIND),yes)
@@ -262,6 +266,7 @@ else ifeq ($(IS_MACOS),yes)
 	@printf '$(COLOR_GREEN)  valgrind unavailable on macOS; skipping memcheck$(COLOR_OFF)\n'
 else
 	@printf '$(COLOR_YELLOW)  valgrind unavailable; skipping memcheck$(COLOR_OFF)\n'
+	@mkdir -p $(TESTDIR) && touch $(TESTDIR)/.omitted.flag
 endif
 
 # --- Batch GCD test ---------------------------------------------------

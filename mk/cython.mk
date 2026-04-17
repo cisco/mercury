@@ -84,10 +84,10 @@ else
 	@echo "skipping cython build (missing Cython/wheel/setuptools)"
 endif
 
-test-cython: $(_cython_stamp)
+test-cython: $(_cython_stamp) | _test-clear-omitted-flag
 ifeq ($(_skip_cython),yes)
 	@printf '$(COLOR_YELLOW)  skipping cython test (incompatible sanitizer)$(COLOR_OFF)\n'
-	$(eval omitted_test := yes)
+	@mkdir -p $(TESTDIR) && touch $(TESTDIR)/.omitted.flag
 else ifeq ($(CAN_BUILD_CYTHON),yes)
 	cd $(CYTHON_DIR) && \
 	  PYTHONDONTWRITEBYTECODE=1 \
@@ -96,5 +96,5 @@ else ifeq ($(CAN_BUILD_CYTHON),yes)
 	@printf '$(COLOR_GREEN)  passed cython interface tests$(COLOR_OFF)\n'
 else
 	@printf '$(COLOR_YELLOW)  omitting cython test; missing Cython/wheel/setuptools$(COLOR_OFF)\n'
-	$(eval omitted_test := yes)
+	@mkdir -p $(TESTDIR) && touch $(TESTDIR)/.omitted.flag
 endif
