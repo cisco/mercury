@@ -19,7 +19,6 @@
 
 #include "libmerc.h"
 #include "pkt_proc.h"
-#include "doctest.h"
 
 namespace snort {
 #define SO_PUBLIC

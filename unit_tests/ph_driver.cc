@@ -18,6 +18,8 @@
 
 #include <unordered_map>
 #include <chrono>
+#include <memory>
+#include <cinttypes>
 
 // Simple timing helper for benchmark sections
 class BenchmarkTimer {
@@ -28,7 +30,7 @@ public:
     ~BenchmarkTimer() {
         auto end = std::chrono::high_resolution_clock::now();
         auto us = std::chrono::duration_cast<std::chrono::microseconds>(end - start_).count();
-        printf("%s: %ld us\n", name_, us);
+        printf("%s: %" PRId64 " us\n", name_, static_cast<int64_t>(us));
     }
 };
 
@@ -83,11 +85,11 @@ SCENARIO("Perfect Hash. Key len = 20; Elements = 100; Lookup count = 100")
         test_data.push_back({strdup(_test_data[i].c_str()), _test_data[i].length(), i});
     }
 
-    perfect_hash<int>* ph = nullptr;
+    std::unique_ptr<perfect_hash<int>> ph;
 
     BENCHMARK("Perfect Hash generation table")
     {
-        ph = new perfect_hash<int>(test_data);
+        ph = std::make_unique<perfect_hash<int>>(test_data);
     }
 
     std::vector<int*> res;
@@ -155,11 +157,11 @@ SCENARIO("Perfect Hash. Key len = 50; Elements = 100000; Lookup count = 100000")
         test_data.push_back({strdup(_test_data[i].c_str()), _test_data[i].length(), i});
     }
 
-    perfect_hash<int>* ph = nullptr;
+    std::unique_ptr<perfect_hash<int>> ph;
 
     BENCHMARK("Perfect Hash generation table")
     {
-        ph = new perfect_hash<int>(test_data);
+        ph = std::make_unique<perfect_hash<int>>(test_data);
     }
 
     std::vector<int*> res;
