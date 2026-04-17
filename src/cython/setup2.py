@@ -73,7 +73,7 @@ class LinkAgainstStaticLib(build_ext):
             libraries=ext.libraries,
             library_dirs=ext.library_dirs,
             runtime_library_dirs=ext.runtime_library_dirs,
-            extra_preargs=ext.extra_link_args,
+            extra_postargs=ext.extra_link_args,
             debug=self.debug,
         )
 
