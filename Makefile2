@@ -29,14 +29,21 @@ VALID_BUILD_TYPES := Release Debug RelWithDebInfo MinSizeRel Coverage
 .PHONY: all
 all:
 
+# --- No-config targets (must be defined before mk/rules.mk) ----------
+# Targets that don't need a configured tree or valid BUILD_TYPE.
+
+_no_config_targets := clean distclean help
+
 # --- Build system includes (order matters) ----------------------------
 # Soft-include: config.mk may not exist before ./configure or after
 # distclean.  Variables that it provides default to empty, which is
 # fine for clean/distclean/help.
+
 -include mk/config.mk
 include mk/rules.mk
 
 # --- Module includes (alphabetical; order doesn't matter) -------------
+
 include mk/cython.mk
 include mk/doc.mk
 include mk/install.mk
@@ -50,7 +57,7 @@ include mk/tools.mk
 # --- Auto-rebuild when configure inputs change ------------------------
 # Skip auto-rebuild rules for targets that don't need a configured tree.
 
-_no_config_targets := clean distclean help
+# Is the user running a target that needs a configured tree?
 ifeq ($(filter $(_no_config_targets),$(MAKECMDGOALS)),)
 
 # Guard: require ./configure to have been run
@@ -73,7 +80,7 @@ config.status: configure
 mk/config.mk: mk/config.mk.in config.status
 	./config.status
 
-endif
+endif # ifeq (needs configured tree)
 
 # --- Default target (full dependency list) ----------------------------
 
