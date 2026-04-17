@@ -3,10 +3,10 @@
 
 usage() {
 
-    echo -e "$0 [ -h ] | [ -v version ] [ -t deb|rpm] [ -o outdir]\n"
+    echo -e "$0 [ -h ] | [ -v version ] [ -i iteration ] [ -t deb|rpm ] [ -o outdir ]\n"
     echo -e "usage:\n"
     echo "-h) prints usage information and exits"
-    echo "-v) specifies the version of the package to be built. MANDATORY and should be in the form of Major.Minor"
+    echo "-v) specifies the version of the package to be built (optional)"
     echo "-i) specifies the build iteration (optional)"
     echo "-o) specifies the output directory for the package (default: .)"
     echo -e "-t) specifies which package to build (rpm, deb)\n"

@@ -146,7 +146,7 @@ cppclean:
 # format — run code formatter
 .PHONY: format
 format:
-	./utils/indent_files.sh src/*.{c,h} src/python-inference/*.py \
+	./utils/indent_files.sh src/*.c src/*.h src/python-inference/*.py \
 	  python/*.py python/*/*.py python/*/*/*.py
 
 # compiler-version — print compiler version string
