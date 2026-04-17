@@ -50,6 +50,7 @@ $(LIB)/libmerc.a: $(call objects,$(LIBMERC_SRCS))
 $(LIB)/libmerc.so: LDLIBS := -lz -lcrypto
 $(LIB)/libmerc.so: $(call objects,$(LIBMERC_SRCS))
 	$(LINK_SO)
+	@ln -sf libmerc.so $(LIB)/libmerc.so.0
 
 # libmerc_alt.so: same objects, different soname.  Used by the
 # double-bind test (loading two libmerc .so files simultaneously).
@@ -61,6 +62,7 @@ ifeq ($(IS_MACOS),yes)
 else
 	$(call QUIET,LINK,$@)$(CXX) $(CXXFLAGS) -shared -fPIC -Wl,-soname,libmerc_alt.so.0 $^ $(LDFLAGS) $(LDLIBS) -o $@
 endif
+	@ln -sf libmerc_alt.so $(LIB)/libmerc_alt.so.0
 
 # --- ASN.1 OID table regeneration -------------------------------------
 
