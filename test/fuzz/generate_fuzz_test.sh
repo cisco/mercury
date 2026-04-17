@@ -12,7 +12,7 @@ COLOR_OFF="\033[0m"
 # Honor caller's CC/CXX if clang-based; otherwise default to clang/clang++.
 : "${CC:=clang}"
 : "${CXX:=clang++}"
-if ! "$CXX" --version 2>&1 | grep -qi clang; then
+if ! $CXX --version 2>&1 | grep -qi clang; then
     echo -e "${COLOR_YELLOW} warning: CXX=$CXX is not clang-based; overriding with clang++ (libFuzzer requires LLVM)${COLOR_OFF}" >&2
     CXX="clang++"
 fi
