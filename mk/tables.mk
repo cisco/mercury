@@ -27,7 +27,7 @@ $(TABLES_DIR)/tls_csv: $(TABLES_DIR)/tls_extension_generator.cc
 
 # TODO: after old build system removal, replace with a single
 # wildcard include for all src/**/*.d in rules.mk.
--include $(TABLES_DIR)/csv.d $(TABLES_DIR)/tls_extension_generator.d
+-include $(TABLES_DIR)/csv.d $(TABLES_DIR)/tls_csv.d
 
 IKEV2_CSV := ikev2-parameters-1.csv ikev2-parameters-2.csv \
   ikev2-parameters-3.csv ikev2-parameters-4.csv ikev2-parameters-5.csv \
@@ -129,4 +129,4 @@ regen-tables-offline: $(TABLES_DIR)/csv $(TABLES_DIR)/tls_csv
 .PHONY: clean-tables
 clean-tables:
 	rm -f $(TABLES_DIR)/csv $(TABLES_DIR)/tls_csv \
-	  $(TABLES_DIR)/csv.d $(TABLES_DIR)/tls_extension_generator.d
+	  $(TABLES_DIR)/csv.d $(TABLES_DIR)/tls_csv.d

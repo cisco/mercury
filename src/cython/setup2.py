@@ -63,8 +63,8 @@ class LinkAgainstStaticLib(build_ext):
             )
             objects.extend(objs)
 
-        # Append the prebuilt static library so the linker pulls in
-        # all of libmerc without needing a shared-library dependency.
+        # Append the prebuilt static library so the linker can resolve
+        # libmerc symbols without needing a shared-library dependency.
         objects.append(libmerc_a)
 
         cc.link_shared_object(

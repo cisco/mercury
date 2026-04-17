@@ -9,7 +9,7 @@ usage() {
     echo "-v) specifies the version of the package to be built. MANDATORY and should be in the form of Major.Minor"
     echo "-i) specifies the build iteration (optional)"
     echo "-o) specifies the output directory for the package (default: .)"
-    echo -e "-t) specifices which package to build (rpm, deb)\n"
+    echo -e "-t) specifies which package to build (rpm, deb)\n"
 }
 
 while getopts "ht:v:i:o:" arg; do
