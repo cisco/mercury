@@ -42,27 +42,29 @@ COLOR_YELLOW := \033[0;33m
 COLOR_OFF    := \033[0m
 
 # --- Base flags (all variants) ----------------------------------------
+# CXXFLAGS is passed to both compile and link steps intentionally;
+# splitting would risk forgetting a flag with link semantics.
 
-BASE_FLAGS := -Wall -Wextra
-BASE_FLAGS += -Wformat -Wformat-security
-BASE_FLAGS += -Wmissing-noreturn
-BASE_FLAGS += -Wunreachable-code
-BASE_FLAGS += -Wno-long-long
-BASE_FLAGS += -Wno-missing-braces
-BASE_FLAGS += -Wno-deprecated
-BASE_FLAGS += -Wno-deprecated-declarations
-BASE_FLAGS += -fPIC
-BASE_FLAGS += -fvisibility=hidden
-BASE_FLAGS += -fno-omit-frame-pointer
-BASE_FLAGS += -fno-builtin-malloc
-BASE_FLAGS += -fno-builtin-calloc
-BASE_FLAGS += -fno-builtin-realloc
-BASE_FLAGS += -fno-builtin-free
+BASE_FLAGS := -Wall -Wextra                    # [compile]
+BASE_FLAGS += -Wformat -Wformat-security       # [compile]
+BASE_FLAGS += -Wmissing-noreturn               # [compile]
+BASE_FLAGS += -Wno-deprecated                  # [compile]
+BASE_FLAGS += -Wno-deprecated-declarations     # [compile]
+BASE_FLAGS += -Wno-long-long                   # [compile]
+BASE_FLAGS += -Wno-missing-braces              # [compile]
+BASE_FLAGS += -Wunreachable-code               # [compile]
+BASE_FLAGS += -fPIC                            # [compile+link]
+BASE_FLAGS += -fno-builtin-calloc              # [compile]
+BASE_FLAGS += -fno-builtin-free                # [compile]
+BASE_FLAGS += -fno-builtin-malloc              # [compile]
+BASE_FLAGS += -fno-builtin-realloc             # [compile]
+BASE_FLAGS += -fno-omit-frame-pointer          # [compile]
+BASE_FLAGS += -fvisibility=hidden              # [compile+link]
 
 BASE_CXXFLAGS := -std=c++17 $(BASE_FLAGS)
-BASE_CXXFLAGS += -fno-rtti
-BASE_CXXFLAGS += -Wno-narrowing
-BASE_CXXFLAGS += -Wno-psabi
+BASE_CXXFLAGS += -Wno-narrowing                # [compile]
+BASE_CXXFLAGS += -Wno-psabi                    # [compile]
+BASE_CXXFLAGS += -fno-rtti                     # [compile+link]
 
 BASE_CFLAGS := -std=c11 $(BASE_FLAGS)
 
@@ -160,7 +162,10 @@ $(OBJ)/%.o: %.cpp
 
 # --- Canned link recipes ----------------------------------------------
 # Each link target sets its own LDLIBS via a target-specific variable,
-# then invokes one of these.  Example:
+# then invokes one of these.  CXXFLAGS is passed intentionally — see
+# [compile+link] annotations in the base flags section above.
+#
+# Example:
 #   $(BIN)/foo: LDLIBS := -lcrypto -lz
 #   $(BIN)/foo: $(objects)
 #   	$(LINK)
