@@ -57,8 +57,9 @@ include mk/tools.mk
 # --- Auto-rebuild when configure inputs change ------------------------
 # Skip auto-rebuild rules for targets that don't need a configured tree.
 
-# Is the user running a target that needs a configured tree?
-ifeq ($(filter $(_no_config_targets),$(MAKECMDGOALS)),)
+# Is the user running any target that needs a configured tree?
+_needs_config := $(if $(MAKECMDGOALS),$(filter-out $(_no_config_targets),$(MAKECMDGOALS)),yes)
+ifneq ($(_needs_config),)
 
 # Guard: require ./configure to have been run
 ifeq ($(wildcard mk/config.mk),)
