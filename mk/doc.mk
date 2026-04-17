@@ -16,7 +16,7 @@ ifeq ($(HAVE_DOXYGEN),yes)
 	doxygen
 	cd doc/latex && $(MAKE) && mv refman.pdf ../mercury.pdf
 else
-	@echo '$(COLOR_YELLOW)  warning: doxygen not found; skipping doc/mercury.pdf$(COLOR_OFF)'
+	@printf '$(COLOR_YELLOW)  warning: doxygen not found; skipping doc/mercury.pdf$(COLOR_OFF)\n'
 endif
 
 .PHONY: sphinx
@@ -24,7 +24,7 @@ sphinx:
 ifeq ($(CAN_BUILD_DOCS),yes)
 	cd doc/sphinx && $(MAKE) html
 else
-	@echo '$(COLOR_YELLOW)  warning: sphinx prerequisites not found; skipping sphinx docs$(COLOR_OFF)'
+	@printf '$(COLOR_YELLOW)  warning: sphinx prerequisites not found; skipping sphinx docs$(COLOR_OFF)\n'
 endif
 
 .PHONY: clean-sphinx
