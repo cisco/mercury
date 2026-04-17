@@ -2,6 +2,10 @@
 #
 # These suppress benign leaks in third-party libraries that are out of
 # our control and not actionable.
+#
+# This file is NOT applied globally.  It is only referenced by
+# specific CI jobs that need to tolerate known OpenSSL init leaks
+# (via LSAN_OPTIONS=suppressions=test/lsan.supp).
 
 # OpenSSL 3.x one-time global allocations (error strings, algorithms,
 # config, etc.) that are never freed by design.
