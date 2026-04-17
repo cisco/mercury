@@ -9,9 +9,7 @@
 #     appropriate PLATFORM guard and set per-file ISA flags.
 
 LCTRIE_SRCS := \
-  src/libmerc/lctrie/lctrie.cc \
-  src/libmerc/lctrie/lctrie_bgp.cc \
-  src/libmerc/lctrie/lctrie_ip.cc
+  src/libmerc/lctrie/lctrie_bgp.cc
 
 LIBMERC_SRCS := \
   src/libmerc/addr.cc \
