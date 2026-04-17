@@ -90,6 +90,8 @@ mercury_ext = Extension(
         "-Wno-narrowing",
         "-Wno-deprecated-declarations",
     ] + extra_cflags,
+    # CFLAGS passed to the link step intentionally — mirrors mk/rules.mk
+    # policy; flags like -fsanitize and -fvisibility have link semantics.
     extra_link_args=["-lz"] + extra_cflags + extra_ldflags,
     libraries=["crypto"],
 )
