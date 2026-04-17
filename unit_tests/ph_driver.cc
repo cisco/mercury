@@ -104,7 +104,6 @@ SCENARIO("Perfect Hash. Key len = 20; Elements = 100; Lookup count = 100")
     for(int i = 0; i < (int)loop_count_1; i++)
     {
         valid |= *res[i] != i;
-        printf("\n\n%d\n\n", *res[i]);
     }
     REQUIRE_FALSE(valid);
     for(auto& d : test_data)
@@ -133,11 +132,6 @@ SCENARIO("Unordered Map. Key len = 20; Elements = 100; Lookup count = 1000")
             res[i] = test_data.find(_test_data[i])->second;
         }
     }
-    for(auto s : res)
-    {
-        printf("\n\n%d\n\n", *s);
-    }
-
     for(size_t i = 0; i < loop_count_1; i++)
     {
         delete test_data.find(_test_data[i])->second;
@@ -182,7 +176,6 @@ SCENARIO("Perfect Hash. Key len = 50; Elements = 100000; Lookup count = 100000")
     for(size_t i = 0; i < loop_count_2; i++)
     {
         valid |= *res[i] != (int)i;
-        printf("%d\n", *res[i]);
     }
     REQUIRE_FALSE(valid);
     for(auto& d : test_data)
@@ -211,11 +204,6 @@ SCENARIO("Unordered Map. Key len = 50; Elements = 100000; Lookup count = 100000"
             res[i] = test_data.find(_test_data[i])->second;
         }
     }
-    for(auto s : res)
-    {
-        printf("\n\n%d\n\n", *s);
-    }
-
     for(size_t i = 0; i < loop_count_2; i++)
     {
         delete test_data.find(_test_data[i])->second;
