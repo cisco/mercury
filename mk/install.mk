@@ -61,7 +61,7 @@ install-nonroot: $(BIN)/mercury install-etc-config
 # --- install-systemd --------------------------------------------------
 
 .PHONY: install-systemd
-install-systemd: install-etc-config
+install-systemd: install-mercury install-etc-config
 	$(INSTALLDATA) install_mercury/mercury.service $(DESTDIR)/etc/systemd/system/
 	systemctl daemon-reload
 	systemctl start mercury
@@ -85,11 +85,17 @@ endif
 # Note: intercept.so cannot currently be built successfully (missing
 # nspr4/gnutls deps on most hosts), so this target exists for
 # completeness and will fail at the dependency step until that is fixed.
+#
+# FIXME: chmod o+w makes interceptdir world-writable, and the .so is
+# installed into libdir rather than interceptdir.  Both are inherited
+# from the old Makefile.  Preserving existing behavior for now since
+# intercept.so can't be built or tested; revisit when it is.
 
 .PHONY: install-intercept
 install-intercept: $(LIB)/intercept.so
 	mkdir -p $(DESTDIR)$(interceptdir)
 	chmod o+w $(DESTDIR)$(interceptdir)
+	mkdir -p $(DESTDIR)$(libdir)
 	$(INSTALL) $(LIB)/intercept.so $(DESTDIR)$(libdir)
 	@echo "install complete; run 'export LD_PRELOAD=$(libdir)/intercept.so' to perform interception"
 
