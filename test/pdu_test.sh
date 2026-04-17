@@ -10,6 +10,8 @@ COLOR_YELLOW="\033[0;33m"
 COLOR_OFF="\033[0m"
 
 VERIFIER=${VERIFIER:-../unit_tests/pdu_verifier}
+# Allow callers (e.g. Makefile2 out-of-source builds) to override
+# LD_LIBRARY_PATH; fall back to the in-tree libmerc location.
 export LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-../src/libmerc/}
 
 echo $LD_LIBRARY_PATH
