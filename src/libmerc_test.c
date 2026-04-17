@@ -345,7 +345,7 @@ int test_libmerc(const struct libmerc_config *config, int verbosity, const char 
     return 0;
 }
 
-int main(int argc, char *argv[]) {
+int main(void) {
     int verbosity = 1;
     int retval;
 
