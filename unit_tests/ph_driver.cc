@@ -17,10 +17,22 @@
 #include "doctest.h"
 
 #include <unordered_map>
+#include <chrono>
 
-// Simple BENCHMARK macro replacement - just executes the code block
-// (doctest doesn't have built-in benchmarking)
-#define BENCHMARK(name) if (true)
+// Simple timing helper for benchmark sections
+class BenchmarkTimer {
+    const char* name_;
+    std::chrono::high_resolution_clock::time_point start_;
+public:
+    BenchmarkTimer(const char* n) : name_(n), start_(std::chrono::high_resolution_clock::now()) {}
+    ~BenchmarkTimer() {
+        auto end = std::chrono::high_resolution_clock::now();
+        auto us = std::chrono::duration_cast<std::chrono::microseconds>(end - start_).count();
+        printf("%s: %ld us\n", name_, us);
+    }
+};
+
+#define BENCHMARK(name) if (BenchmarkTimer DOCTEST_ANONYMOUS(_bt_)(name); true)
 
 std::string gen_random(const int len) {
     static const char alphanum[] =
@@ -79,7 +91,7 @@ SCENARIO("Perfect Hash. Key len = 20; Elements = 100; Lookup count = 100")
     }
 
     std::vector<int*> res;
-    res.reserve(loop_count_1);
+    res.resize(loop_count_1);
     bool valid = false;
     BENCHMARK("Perfect Hash lookup")
     {
@@ -113,7 +125,7 @@ SCENARIO("Unordered Map. Key len = 20; Elements = 100; Lookup count = 1000")
         test_data.insert({_test_data[i], new int(i)});
     }
     std::vector<int*> res;
-    res.reserve(loop_count_1 * 100);
+    res.resize(loop_count_1);
     BENCHMARK("Unordered Map lookup")
     {
         for(size_t i = 0; i < loop_count_1; i++)
@@ -157,7 +169,7 @@ SCENARIO("Perfect Hash. Key len = 50; Elements = 100000; Lookup count = 100000")
     }
 
     std::vector<int*> res;
-    res.reserve(loop_count_2);
+    res.resize(loop_count_2);
     bool valid = false;
     BENCHMARK("Perfect Hash lookup")
     {
@@ -191,7 +203,7 @@ SCENARIO("Unordered Map. Key len = 50; Elements = 100000; Lookup count = 100000"
         test_data.insert({_test_data[i], new int(i)});
     }
     std::vector<int*> res;
-    res.reserve(loop_count_2);
+    res.resize(loop_count_2);
     BENCHMARK("Unordered Map lookup")
     {
         for(size_t i = 0; i < loop_count_2; i++)
