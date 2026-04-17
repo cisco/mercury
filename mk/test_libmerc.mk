@@ -75,7 +75,7 @@ _DRV_UTIL := $(_DRV_BASE) \
 
 # --- Common flags for all drivers -------------------------------------
 
-_DRV_CXXFLAGS = $(CXXFLAGS) -UNDEBUG -I src -I src/libmerc \
+_DRV_EXTRA_CXXFLAGS = -UNDEBUG -I src -I src/libmerc \
   -DLIBMERC_SO_PATH='"$(abspath $(LIB)/libmerc.so)"' \
   -DLIBMERC_SO_ALT_PATH='"$(abspath $(LIB)/libmerc_alt.so)"'
 
@@ -89,12 +89,13 @@ _DRV_LDLIBS := -pthread -lcrypto -ldl -lz
 # Tech debt: libmerc_util #includes internal libmerc headers for its --fdc code
 # path (eth.h, ip.h, tcpip.h, udp.h, and transitively l7m.hpp).  On GCC at -O0,
 # those headers instantiate templates with unresolved symbols that would require
-# linking libmerc.a.  We force -O2 and compile directly so the build works
-# regardless of the variant's optimization level.
+# linking libmerc.a.  We force -O2 so the build works regardless of
+# the variant's optimization level.
 
-$(BIN)/libmerc_util: src/libmerc_util.cc src/pcap_file_io.c
-	@mkdir -p $(dir $@)
-	$(call QUIET,LINK,$@)$(CXX) $(CXXFLAGS) -O2 $^ $(LDFLAGS) $(_DRV_LDLIBS) -o $@
+$(BIN)/libmerc_util: CXXFLAGS += -UNDEBUG -O2
+$(BIN)/libmerc_util: LDLIBS := $(_DRV_LDLIBS)
+$(BIN)/libmerc_util: $(call objects,src/libmerc_util.cc src/pcap_file_io.c)
+	$(LINK)
 
 # --- Driver targets ---------------------------------------------------
 # Link against the variant's .so, built with VISIBILITY=default (tech
@@ -102,25 +103,25 @@ $(BIN)/libmerc_util: src/libmerc_util.cc src/pcap_file_io.c
 # needs libmerc_alt.so for the dual-instance test in
 # libmerc_flow_test.cc.
 
-$(BIN)/libmerc_driver_tls_only: $(LIB)/libmerc.so $(LIB)/libmerc_alt.so
-	@mkdir -p $(dir $@)
-	$(call QUIET,LINK,$@)$(CXX) $(_DRV_CXXFLAGS) $(_DRV_TLS_ONLY) \
-	  $(LDFLAGS) -L$(_libdir) $(LIB)/libmerc.so $(_DRV_LDLIBS) -o $@
+$(BIN)/libmerc_driver_tls_only: CXXFLAGS += $(_DRV_EXTRA_CXXFLAGS)
+$(BIN)/libmerc_driver_tls_only: LDLIBS := $(_DRV_LDLIBS)
+$(BIN)/libmerc_driver_tls_only: $(call objects,$(_DRV_TLS_ONLY)) $(LIB)/libmerc.so $(LIB)/libmerc_alt.so
+	$(LINK)
 
-$(BIN)/libmerc_driver_multiprotocol: $(LIB)/libmerc.so
-	@mkdir -p $(dir $@)
-	$(call QUIET,LINK,$@)$(CXX) $(_DRV_CXXFLAGS) $(_DRV_MULTI) \
-	  $(LDFLAGS) -L$(_libdir) $(LIB)/libmerc.so $(_DRV_LDLIBS) -o $@
+$(BIN)/libmerc_driver_multiprotocol: CXXFLAGS += $(_DRV_EXTRA_CXXFLAGS)
+$(BIN)/libmerc_driver_multiprotocol: LDLIBS := $(_DRV_LDLIBS)
+$(BIN)/libmerc_driver_multiprotocol: $(call objects,$(_DRV_MULTI)) $(LIB)/libmerc.so
+	$(LINK)
 
-$(BIN)/libmerc_driver_fdc: $(LIB)/libmerc.so
-	@mkdir -p $(dir $@)
-	$(call QUIET,LINK,$@)$(CXX) $(_DRV_CXXFLAGS) $(_DRV_FDC) \
-	  $(LDFLAGS) -L$(_libdir) $(LIB)/libmerc.so $(_DRV_LDLIBS) -o $@
+$(BIN)/libmerc_driver_fdc: CXXFLAGS += $(_DRV_EXTRA_CXXFLAGS)
+$(BIN)/libmerc_driver_fdc: LDLIBS := $(_DRV_LDLIBS)
+$(BIN)/libmerc_driver_fdc: $(call objects,$(_DRV_FDC)) $(LIB)/libmerc.so
+	$(LINK)
 
-$(BIN)/libmerc_util_behavior_test: $(LIB)/libmerc.so $(BIN)/libmerc_util
-	@mkdir -p $(dir $@)
-	$(call QUIET,LINK,$@)$(CXX) $(_DRV_CXXFLAGS) $(_DRV_UTIL) \
-	  $(LDFLAGS) -L$(_libdir) $(LIB)/libmerc.so $(_DRV_LDLIBS) $(_stdfslib) -o $@
+$(BIN)/libmerc_util_behavior_test: CXXFLAGS += $(_DRV_EXTRA_CXXFLAGS)
+$(BIN)/libmerc_util_behavior_test: LDLIBS := $(_DRV_LDLIBS) $(_stdfslib)
+$(BIN)/libmerc_util_behavior_test: $(call objects,$(_DRV_UTIL)) $(LIB)/libmerc.so | $(BIN)/libmerc_util
+	$(LINK)
 
 # --- Test sandbox (inside the build directory) ------------------------
 # Drivers use hardcoded relative paths ("./pcaps/", "../test/data/",
