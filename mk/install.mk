@@ -128,10 +128,12 @@ uninstall-certtools:
 
 # --- packaging --------------------------------------------------------
 
+PKGDIR := build/$(_variant)/pkg
+
 .PHONY: package-deb
 package-deb: $(BIN)/mercury
-	MERCURY_BIN=$(BIN)/mercury ./build_pkg.sh -t deb
+	MERCURY_BIN=$(BIN)/mercury ./build_pkg.sh -t deb -o $(PKGDIR)
 
 .PHONY: package-rpm
 package-rpm: $(BIN)/mercury
-	MERCURY_BIN=$(BIN)/mercury ./build_pkg.sh -t rpm
+	MERCURY_BIN=$(BIN)/mercury ./build_pkg.sh -t rpm -o $(PKGDIR)

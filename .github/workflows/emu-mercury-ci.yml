@@ -490,7 +490,7 @@ jobs:
       - name: Build distro package
         run: |
           export SHORT_HASH=$(echo ${{ github.sha }} | cut -c1-8)
-          ./build_pkg.sh -t deb -o build/RelWithDebInfo/pkg -i ${{ github.run_number }}-$SHORT_HASH
+          MERCURY_BIN=build/RelWithDebInfo/bin/mercury ./build_pkg.sh -t deb -o build/RelWithDebInfo/pkg -i ${{ github.run_number }}-$SHORT_HASH
       - name: Verify build artifacts exist
         run: |
           echo "=== Checking distro package ==="
@@ -509,6 +509,7 @@ jobs:
       #     path: |
       #       build/RelWithDebInfo/pkg/mercury*.deb
       #       build/RelWithDebInfo/cython/lib/*.so
+      #       build/RelWithDebInfo/cython/dist/*.whl
 
   # ========== Status Check Summary (Single Required Check) ==========
 
