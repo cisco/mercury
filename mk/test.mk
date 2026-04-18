@@ -95,18 +95,19 @@ endif
 #
 # Tests that require special environments (root, clang, AFL, etc.)
 # are defined after the ====== separator and must be invoked separately.
+#
+# .omitted.*.flag = skipped for missing dependencies (e.g., jq), not platform
+# inapplicability (e.g., memcheck on macOS or with SANITIZE is fine).
 
 .PHONY: test
-test:
-	@rm -f $(TESTDIR)/.omitted.flag
-	@$(MAKE) -f Makefile2 _test-run
-
-.PHONY: _test-run
-_test-run: all unittest test-comp test-analysis test-cert-check \
-           test-json-validity test-stats test-memcheck test-cython test-libmerc
-	@if [ -f $(TESTDIR)/.omitted.flag ]; then \
+test: all unittest test-comp test-analysis test-cert-check \
+      test-json-validity test-stats test-memcheck test-cython test-libmerc
+	@if find $(TESTDIR) -maxdepth 1 -name '.omitted.*.flag' 2>/dev/null | grep -q .; then \
 	  printf '$(COLOR_GREEN)  passed all tests that could be performed$(COLOR_OFF)\n'; \
-	  printf '$(COLOR_YELLOW)  warning: some tests skipped due to missing dependencies$(COLOR_OFF)\n'; \
+	  printf '$(COLOR_YELLOW)  warning: some tests were skipped:\n'; \
+	  find $(TESTDIR) -maxdepth 1 -name '.omitted.*.flag' | sort | \
+	    sed 's|.*/\.omitted\.||; s|\.flag$$||; s|^|    |'; \
+	  printf '$(COLOR_OFF)'; \
 	else \
 	  printf '$(COLOR_GREEN)  passed all tests$(COLOR_OFF)\n'; \
 	fi
@@ -115,6 +116,7 @@ _test-run: all unittest test-comp test-analysis test-cert-check \
 
 .PHONY: test-comp
 test-comp: $(BIN)/mercury
+	@rm -f $(TESTDIR)/.omitted.test-comp.flag
 ifeq ($(HAVE_JQ),yes)
 	@echo "--- fingerprint comparison tests ---"
 	@rm -rf $(TESTDIR)/comp
@@ -145,13 +147,14 @@ ifeq ($(HAVE_JQ),yes)
 	@printf '$(COLOR_GREEN)  passed comparison tests$(COLOR_OFF)\n'
 else
 	@printf '$(COLOR_YELLOW)  omitting comparison tests; jq unavailable$(COLOR_OFF)\n'
-	@mkdir -p $(TESTDIR) && touch $(TESTDIR)/.omitted.flag
+	@mkdir -p $(TESTDIR) && touch $(TESTDIR)/.omitted.test-comp.flag
 endif
 
 # --- Analysis test ----------------------------------------------------
 
 .PHONY: test-analysis
 test-analysis: $(BIN)/mercury
+	@rm -f $(TESTDIR)/.omitted.test-analysis.flag
 ifeq ($(HAVE_PYTHON_JSONSCHEMA),yes)
 	@echo "--- analysis test ---"
 	@rm -rf $(TESTDIR)/analysis
@@ -163,13 +166,14 @@ ifeq ($(HAVE_PYTHON_JSONSCHEMA),yes)
 	@printf '$(COLOR_GREEN)  passed analysis test$(COLOR_OFF)\n'
 else
 	@printf '$(COLOR_YELLOW)  omitting analysis test; python3 or jsonschema unavailable$(COLOR_OFF)\n'
-	@mkdir -p $(TESTDIR) && touch $(TESTDIR)/.omitted.flag
+	@mkdir -p $(TESTDIR) && touch $(TESTDIR)/.omitted.test-analysis.flag
 endif
 
 # --- Certificate check ------------------------------------------------
 
 .PHONY: test-cert-check
 test-cert-check: $(BIN)/mercury
+	@rm -f $(TESTDIR)/.omitted.test-cert-check.flag
 ifeq ($(HAVE_PYTHON_CRYPTOGRAPHY),yes)
 	@echo "--- certificate tests ---"
 	@rm -rf $(TESTDIR)/cert-check
@@ -189,7 +193,7 @@ ifeq ($(HAVE_PYTHON_CRYPTOGRAPHY),yes)
 	@printf '$(COLOR_GREEN)  passed certificate tests$(COLOR_OFF)\n'
 else
 	@printf '$(COLOR_YELLOW)  omitting certificate test; python3 or cryptography unavailable$(COLOR_OFF)\n'
-	@mkdir -p $(TESTDIR) && touch $(TESTDIR)/.omitted.flag
+	@mkdir -p $(TESTDIR) && touch $(TESTDIR)/.omitted.test-cert-check.flag
 endif
 
 # --- JSON validity test -----------------------------------------------
@@ -207,6 +211,7 @@ test-json-validity: $(BIN)/mercury
 
 .PHONY: test-stats
 test-stats: $(BIN)/mercury
+	@rm -f $(TESTDIR)/.omitted.test-stats.flag
 ifeq ($(HAVE_PYTHON3),yes)
 	@echo "--- stats tests ---"
 	@rm -rf $(TESTDIR)/stats
@@ -242,13 +247,14 @@ ifeq ($(HAVE_PYTHON3),yes)
 	@printf '$(COLOR_GREEN)  passed stats tests$(COLOR_OFF)\n'
 else
 	@printf '$(COLOR_YELLOW)  omitting stats test; python3 unavailable$(COLOR_OFF)\n'
-	@mkdir -p $(TESTDIR) && touch $(TESTDIR)/.omitted.flag
+	@mkdir -p $(TESTDIR) && touch $(TESTDIR)/.omitted.test-stats.flag
 endif
 
 # --- Memcheck ---------------------------------------------------------
 
 .PHONY: test-memcheck
 test-memcheck: $(BIN)/mercury
+	@rm -f $(TESTDIR)/.omitted.test-memcheck.flag
 ifneq ($(SANITIZE),)
 	@printf '$(COLOR_GREEN)  skipping memcheck; incompatible with SANITIZE=$(SANITIZE)$(COLOR_OFF)\n'
 else ifeq ($(HAVE_VALGRIND),yes)
@@ -266,7 +272,7 @@ else ifeq ($(IS_MACOS),yes)
 	@printf '$(COLOR_GREEN)  valgrind unavailable on macOS; skipping memcheck$(COLOR_OFF)\n'
 else
 	@printf '$(COLOR_YELLOW)  valgrind unavailable; skipping memcheck$(COLOR_OFF)\n'
-	@mkdir -p $(TESTDIR) && touch $(TESTDIR)/.omitted.flag
+	@mkdir -p $(TESTDIR) && touch $(TESTDIR)/.omitted.test-memcheck.flag
 endif
 
 # --- Batch GCD test ---------------------------------------------------

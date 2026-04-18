@@ -86,9 +86,10 @@ else
 endif
 
 test-cython: $(_cython_stamp)
+	@rm -f $(TESTDIR)/.omitted.test-cython.flag
 ifeq ($(_skip_cython),yes)
 	@printf '$(COLOR_YELLOW)  skipping cython test (incompatible sanitizer)$(COLOR_OFF)\n'
-	@mkdir -p $(TESTDIR) && touch $(TESTDIR)/.omitted.flag
+	@mkdir -p $(TESTDIR) && touch $(TESTDIR)/.omitted.test-cython.flag
 else ifeq ($(CAN_BUILD_CYTHON),yes)
 	cd $(CYTHON_DIR) && \
 	  PYTHONDONTWRITEBYTECODE=1 \
@@ -97,5 +98,5 @@ else ifeq ($(CAN_BUILD_CYTHON),yes)
 	@printf '$(COLOR_GREEN)  passed cython interface tests$(COLOR_OFF)\n'
 else
 	@printf '$(COLOR_YELLOW)  omitting cython test; missing Cython/wheel/setuptools$(COLOR_OFF)\n'
-	@mkdir -p $(TESTDIR) && touch $(TESTDIR)/.omitted.flag
+	@mkdir -p $(TESTDIR) && touch $(TESTDIR)/.omitted.test-cython.flag
 endif
