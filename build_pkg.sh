@@ -71,6 +71,10 @@ if [ -z "$MERCURY_BIN" ]; then
         MERCURY_BIN=./src/mercury
     fi
 fi
+if [ ! -f "$MERCURY_BIN" ] || [ ! -x "$MERCURY_BIN" ]; then
+    echo "error: mercury binary not found or not executable: $MERCURY_BIN" >&2
+    exit 1
+fi
 echo "using mercury binary: $MERCURY_BIN"
 
 # Output directory for packages (default: current directory)

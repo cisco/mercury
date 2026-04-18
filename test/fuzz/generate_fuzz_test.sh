@@ -73,9 +73,18 @@ fi;
 
 # Resolve LIBMERC_FOLDER to an absolute path once so that cd calls
 # from per-target subdirectories work regardless of nesting depth.
-LIBMERC_INCDIR="$(cd "$LIBMERC_FOLDER" && pwd -P)"
-
-cd "$LIBMERC_INCDIR"
+if ! LIBMERC_INCDIR="$(cd "$LIBMERC_FOLDER" && pwd -P)"; then
+    echo -e "${COLOR_RED}ERROR: Unable to access LIBMERC_FOLDER: $LIBMERC_FOLDER${COLOR_OFF}" >&2
+    exit 1
+fi
+if [[ -z "$LIBMERC_INCDIR" ]]; then
+    echo -e "${COLOR_RED}ERROR: Resolved LIBMERC_INCDIR is empty for LIBMERC_FOLDER: $LIBMERC_FOLDER${COLOR_OFF}" >&2
+    exit 1
+fi
+cd "$LIBMERC_INCDIR" || {
+    echo -e "${COLOR_RED}ERROR: Unable to change directory to LIBMERC_INCDIR: $LIBMERC_INCDIR${COLOR_OFF}" >&2
+    exit 1
+}
 
 # pre-cleanup: remove transient files from prior runs
 rm -f "$parent_path"/*/.corpus_pre_count
