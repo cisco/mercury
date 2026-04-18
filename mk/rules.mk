@@ -69,11 +69,8 @@ BASE_CXXFLAGS += -fno-rtti                     # [compile+link]
 BASE_CFLAGS := -std=c11 $(BASE_FLAGS)
 
 # --- Validate BUILD_TYPE ----------------------------------------------
-# Skip validation for targets that don't need a build variant.
-ifeq ($(filter $(_no_config_targets),$(MAKECMDGOALS)),)
-  ifeq ($(filter $(BUILD_TYPE),$(VALID_BUILD_TYPES)),)
-    $(error Unknown BUILD_TYPE='$(BUILD_TYPE)'. Valid: $(VALID_BUILD_TYPES))
-  endif
+ifeq ($(filter $(BUILD_TYPE),$(VALID_BUILD_TYPES)),)
+  $(error Unknown BUILD_TYPE='$(BUILD_TYPE)'. Valid: $(VALID_BUILD_TYPES))
 endif
 
 # --- Sanitizer toggle -------------------------------------------------
