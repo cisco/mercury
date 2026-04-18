@@ -28,7 +28,11 @@ from setuptools.command.build_ext import build_ext
 
 # --- Environment ------------------------------------------------------
 
-mercury_dir: str = os.getenv("MERCURY_DIR", "../../")
+mercury_dir: str | None = os.getenv("MERCURY_DIR")
+if not mercury_dir:
+    raise SystemExit(
+        "error: MERCURY_DIR environment variable must point to the mercury source root"
+    )
 libmerc_a: str | None = os.getenv("LIBMERC_A")
 if not libmerc_a:
     raise SystemExit(
