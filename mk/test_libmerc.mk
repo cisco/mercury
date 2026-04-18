@@ -16,7 +16,8 @@
 # separate drivers is historical; they may be consolidated.)
 #
 # Usage (the top-level target handles the variant self-invocation):
-#   make -f Makefile2 test-libmerc
+#   make -f Makefile2 test-libmerc         # run libmerc.so tests
+#   make -f Makefile2 -j libmerc-drivers   # build drivers only (no run)
 #
 # Or invoke a specific variant manually:
 #   make -f Makefile2 BUILD_TYPE=Debug SANITIZE=address OPTFLAGS=-O2 \
@@ -131,6 +132,24 @@ $(BIN)/libmerc_util_behavior_test: | $(BIN)/libmerc_util
 $(BIN)/libmerc_util_behavior_test: $(call objects,$(_DRV_UTIL)) $(LIB)/libmerc.so
 	$(LINK)
 
+# Convenience: build all drivers without running them.  Useful with -j to
+# pre-build so that test-libmerc only runs tests.
+
+.PHONY: _build-libmerc-drivers
+_build-libmerc-drivers: $(BIN)/libmerc_driver_multiprotocol \
+                        $(BIN)/libmerc_driver_fdc \
+                        $(BIN)/libmerc_util_behavior_test
+
+.PHONY: _build-libmerc-tls-driver
+_build-libmerc-tls-driver: $(BIN)/libmerc_driver_tls_only
+
+.PHONY: libmerc-drivers
+libmerc-drivers:
+	$(MAKE) -f Makefile2 BUILD_TYPE=$(BUILD_TYPE) SANITIZE=$(SANITIZE) \
+	  VISIBILITY=default OPTFLAGS='$(OPTFLAGS)' _build-libmerc-drivers
+	$(MAKE) -f Makefile2 BUILD_TYPE=$(BUILD_TYPE) SANITIZE=$(SANITIZE) \
+	  VISIBILITY=default STATIC_CFG=tls OPTFLAGS='$(OPTFLAGS)' _build-libmerc-tls-driver
+
 # --- Test sandbox (inside the build directory) ------------------------
 # Drivers use hardcoded relative paths ("./pcaps/", "../test/data/",
 # "../src/libmerc_util").  We create a sandbox under the build variant
@@ -165,7 +184,10 @@ _drv_sandbox_setup = \
 # STATIC_CFG=tls); see test-libmerc below for the self-invocation.
 
 .PHONY: _run-libmerc-tls-driver
-_run-libmerc-tls-driver: $(BIN)/libmerc_driver_tls_only test/data/resources-test.tgz
+_run-libmerc-tls-driver: $(BIN)/libmerc_driver_tls_only \
+                         $(LIB)/libmerc.so \
+                         $(LIB)/libmerc_alt.so \
+                         test/data/resources-test.tgz
 	@$(_drv_sandbox_setup)
 	@echo "running libmerc tls-only end-to-end tests"
 	cd $(_drv_cwd) && $(_lib_path_var)=$(_libdir):./debug-libs \
@@ -176,6 +198,8 @@ _run-libmerc-tls-driver: $(BIN)/libmerc_driver_tls_only test/data/resources-test
 _run-libmerc-drivers: $(BIN)/libmerc_driver_multiprotocol \
                       $(BIN)/libmerc_driver_fdc \
                       $(BIN)/libmerc_util_behavior_test \
+                      $(LIB)/libmerc.so \
+                      $(BIN)/libmerc_util \
                       test/data/resources-test.tgz
 	@$(_drv_sandbox_setup)
 	@ln -s $(_libdir)/libmerc.so $(_drv_cwd)/debug-libs/libmerc_multiprotocol.so

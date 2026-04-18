@@ -158,6 +158,8 @@ jobs:
         run: make -f Makefile2 -j$(nproc) V=1 BUILD_TYPE=Debug SANITIZE=address VISIBILITY=default OPTFLAGS=-O2
       - name: Build Mercury Debug+ASan+visdefault+staticcfgtls (tls-only)
         run: make -f Makefile2 -j$(nproc) V=1 BUILD_TYPE=Debug SANITIZE=address VISIBILITY=default STATIC_CFG=tls OPTFLAGS=-O2
+      - name: Build libmerc.so test drivers
+        run: make -f Makefile2 -j$(nproc) V=1 BUILD_TYPE=Debug SANITIZE=address OPTFLAGS=-O2 libmerc-drivers
       - name: Generate token for cross-repo access
         id: app-token
         uses: actions/create-github-app-token@v1
@@ -173,7 +175,7 @@ jobs:
           path: unit_tests/xtra/resources
           token: ${{ steps.app-token.outputs.token }}
       - name: Run test-cython (RelWithDebInfo)
-        run: make -f Makefile2 -j$(nproc) V=1 test-cython
+        run: make -f Makefile2 V=1 test-cython
       - name: Run tests (Debug+ASan)
         run: |
           # Work around benign OpenSSL 3.x CRYPTO_malloc leaks at exit.
@@ -364,6 +366,8 @@ jobs:
         run: make -f Makefile2 -j V=1 BUILD_TYPE=Debug SANITIZE=address VISIBILITY=default
       - name: Build Mercury Debug+ASan+visdefault+staticcfgtls (tls-only)
         run: make -f Makefile2 -j V=1 BUILD_TYPE=Debug SANITIZE=address VISIBILITY=default STATIC_CFG=tls
+      - name: Build libmerc.so test drivers
+        run: make -f Makefile2 -j V=1 BUILD_TYPE=Debug SANITIZE=address libmerc-drivers
       - name: Generate token for cross-repo access
         id: app-token
         uses: actions/create-github-app-token@v1
@@ -379,11 +383,11 @@ jobs:
           path: unit_tests/xtra/resources
           token: ${{ steps.app-token.outputs.token }}
       - name: Run test-cython (RelWithDebInfo)
-        run: make -f Makefile2 -j V=1 test-cython
+        run: make -f Makefile2 V=1 test-cython
       - name: Run tests (Debug+ASan)
-        run: make -f Makefile2 -j V=1 BUILD_TYPE=Debug SANITIZE=address test
+        run: make -f Makefile2 V=1 BUILD_TYPE=Debug SANITIZE=address test
       - name: Run batch_gcd tests (Debug+ASan)
-        run: make -f Makefile2 -j V=1 BUILD_TYPE=Debug SANITIZE=address test-batch-gcd
+        run: make -f Makefile2 V=1 BUILD_TYPE=Debug SANITIZE=address test-batch-gcd
 
   # ========== Windows Build ==========
 
