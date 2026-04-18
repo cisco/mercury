@@ -200,12 +200,18 @@ endif
 
 .PHONY: test-json-validity
 test-json-validity: $(BIN)/mercury
+	@rm -f $(TESTDIR)/.omitted.test-json-validity.flag
+ifeq ($(HAVE_JQ),yes)
 	@echo "--- JSON validity test ---"
 	@cd test && MERCURY=$(_mercury) \
 	  ./mercury-json-validity-check.sh --dns-json --certs-json \
 	    --metadata --nonselected-tcp-data --nonselected-udp-data \
 	    --raw-features=all
 	@printf '$(COLOR_GREEN)  passed JSON validity test$(COLOR_OFF)\n'
+else
+	@printf '$(COLOR_YELLOW)  omitting JSON validity test; jq unavailable$(COLOR_OFF)\n'
+	@mkdir -p $(TESTDIR) && touch $(TESTDIR)/.omitted.test-json-validity.flag
+endif
 
 # --- Stats test -------------------------------------------------------
 
