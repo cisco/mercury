@@ -35,6 +35,7 @@ _cython_srcs := $(CYTHON_DIR)/mercury.pyx $(CYTHON_DIR)/setup2.py \
 #    with visibility("default"), so the init symbol would be hidden.
 _cython_cflags = $(filter-out -DGIT_COMMIT_ID=% -DGIT_COUNT=% \
   -DMERCURY_SEMANTIC_VERSION=% -DDEFAULT_RESOURCE_DIR=% \
+  -DSTATIC_CFG_SELECT=% \
   -fvisibility=hidden, $(CXXFLAGS))
 
 # --- Sanitizer guard --------------------------------------------------
@@ -66,7 +67,7 @@ else ifeq ($(CAN_BUILD_CYTHON),yes)
 	$(Q)cp $(CYTHON_DIR)/setup2.py    '$(abspath $(CYTHON_SRC))/setup.py'
 	$(Q)rm -f '$(abspath $(CYTHON_DIST))'/*.whl
 	$(call QUIET,WHEEL,$(CYTHON_DIST)/)cd '$(abspath $(CYTHON_SRC))' && \
-	  CC=$(CXX) CXX=$(CXX) \
+	  CC='$(CXX)' CXX='$(CXX)' \
 	  ENV_CFLAGS='$(_cython_cflags)' \
 	  ENV_LDFLAGS='$(LDFLAGS)' \
 	  LIBMERC_A='$(abspath $(LIB)/libmerc.a)' \
