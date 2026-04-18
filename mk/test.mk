@@ -92,12 +92,18 @@ endif
 # --- Full test suite --------------------------------------------------
 #
 # 'make test' runs the subtests listed as prerequisites below.
+#
 # Tests that require special environments (root, clang, AFL, etc.)
 # are defined after the ====== separator and must be invoked separately.
 
 .PHONY: test
-test: all unittest test-comp test-analysis test-cert-check \
-      test-json-validity test-stats test-memcheck test-cython test-libmerc
+test:
+	@rm -f $(TESTDIR)/.omitted.flag
+	@$(MAKE) -f Makefile2 _test-run
+
+.PHONY: _test-run
+_test-run: all unittest test-comp test-analysis test-cert-check \
+           test-json-validity test-stats test-memcheck test-cython test-libmerc
 	@if [ -f $(TESTDIR)/.omitted.flag ]; then \
 	  printf '$(COLOR_GREEN)  passed all tests that could be performed$(COLOR_OFF)\n'; \
 	  printf '$(COLOR_YELLOW)  warning: some tests skipped due to missing dependencies$(COLOR_OFF)\n'; \
@@ -105,16 +111,10 @@ test: all unittest test-comp test-analysis test-cert-check \
 	  printf '$(COLOR_GREEN)  passed all tests$(COLOR_OFF)\n'; \
 	fi
 
-# Clear the omitted-test sentinel from any previous run.  Subtests
-# that might skip use an order-only dependency on this target.
-.PHONY: _test-clear-omitted-flag
-_test-clear-omitted-flag:
-	@rm -f $(TESTDIR)/.omitted.flag
-
 # --- Fingerprint comparison tests (comp) ------------------------------
 
 .PHONY: test-comp
-test-comp: $(BIN)/mercury | _test-clear-omitted-flag
+test-comp: $(BIN)/mercury
 ifeq ($(HAVE_JQ),yes)
 	@echo "--- fingerprint comparison tests ---"
 	@rm -rf $(TESTDIR)/comp
@@ -151,7 +151,7 @@ endif
 # --- Analysis test ----------------------------------------------------
 
 .PHONY: test-analysis
-test-analysis: $(BIN)/mercury | _test-clear-omitted-flag
+test-analysis: $(BIN)/mercury
 ifeq ($(HAVE_PYTHON_JSONSCHEMA),yes)
 	@echo "--- analysis test ---"
 	@rm -rf $(TESTDIR)/analysis
@@ -169,7 +169,7 @@ endif
 # --- Certificate check ------------------------------------------------
 
 .PHONY: test-cert-check
-test-cert-check: $(BIN)/mercury | _test-clear-omitted-flag
+test-cert-check: $(BIN)/mercury
 ifeq ($(HAVE_PYTHON_CRYPTOGRAPHY),yes)
 	@echo "--- certificate tests ---"
 	@rm -rf $(TESTDIR)/cert-check
@@ -206,7 +206,7 @@ test-json-validity: $(BIN)/mercury
 # --- Stats test -------------------------------------------------------
 
 .PHONY: test-stats
-test-stats: $(BIN)/mercury | _test-clear-omitted-flag
+test-stats: $(BIN)/mercury
 ifeq ($(HAVE_PYTHON3),yes)
 	@echo "--- stats tests ---"
 	@rm -rf $(TESTDIR)/stats
@@ -248,7 +248,7 @@ endif
 # --- Memcheck ---------------------------------------------------------
 
 .PHONY: test-memcheck
-test-memcheck: $(BIN)/mercury | _test-clear-omitted-flag
+test-memcheck: $(BIN)/mercury
 ifneq ($(SANITIZE),)
 	@printf '$(COLOR_GREEN)  skipping memcheck; incompatible with SANITIZE=$(SANITIZE)$(COLOR_OFF)\n'
 else ifeq ($(HAVE_VALGRIND),yes)

@@ -84,7 +84,7 @@ else
 	@echo "skipping cython build (missing Cython/wheel/setuptools)"
 endif
 
-test-cython: $(_cython_stamp) | _test-clear-omitted-flag
+test-cython: $(_cython_stamp)
 ifeq ($(_skip_cython),yes)
 	@printf '$(COLOR_YELLOW)  skipping cython test (incompatible sanitizer)$(COLOR_OFF)\n'
 	@mkdir -p $(TESTDIR) && touch $(TESTDIR)/.omitted.flag
