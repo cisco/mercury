@@ -257,7 +257,7 @@ jobs:
         run: |
           ./configure
       - name: Run Fuzz Test
-        run: make -f Makefile2 -j V=1 test-fuzz
+        run: make -f Makefile2 -j$(nproc) V=1 test-fuzz
 
   # ========== macOS Build and Test ==========
 
@@ -359,15 +359,15 @@ jobs:
       - name: configure
         run: ./configure
       - name: Build Mercury RelWithDebInfo
-        run: make -f Makefile2 -j V=1
+        run: make -f Makefile2 -j$(sysctl -n hw.ncpu) V=1
       - name: Build Mercury Debug+ASan
-        run: make -f Makefile2 -j V=1 BUILD_TYPE=Debug SANITIZE=address
+        run: make -f Makefile2 -j$(sysctl -n hw.ncpu) V=1 BUILD_TYPE=Debug SANITIZE=address
       - name: Build Mercury Debug+ASan+visdefault (multiprotocol)
-        run: make -f Makefile2 -j V=1 BUILD_TYPE=Debug SANITIZE=address VISIBILITY=default
+        run: make -f Makefile2 -j$(sysctl -n hw.ncpu) V=1 BUILD_TYPE=Debug SANITIZE=address VISIBILITY=default
       - name: Build Mercury Debug+ASan+visdefault+staticcfgtls (tls-only)
-        run: make -f Makefile2 -j V=1 BUILD_TYPE=Debug SANITIZE=address VISIBILITY=default STATIC_CFG=tls
+        run: make -f Makefile2 -j$(sysctl -n hw.ncpu) V=1 BUILD_TYPE=Debug SANITIZE=address VISIBILITY=default STATIC_CFG=tls
       - name: Build libmerc.so test drivers
-        run: make -f Makefile2 -j V=1 BUILD_TYPE=Debug SANITIZE=address libmerc-test-drivers
+        run: make -f Makefile2 -j$(sysctl -n hw.ncpu) V=1 BUILD_TYPE=Debug SANITIZE=address libmerc-test-drivers
       - name: Generate token for cross-repo access
         id: app-token
         uses: actions/create-github-app-token@v1
@@ -488,9 +488,9 @@ jobs:
       - name: configure
         run: ./configure
       - name: make -f Makefile2
-        run: make -f Makefile2 -j V=1
+        run: make -f Makefile2 -j$(nproc) V=1
       - name: Build Mercury Cython
-        run: make -f Makefile2 -j V=1 cython test-cython
+        run: make -f Makefile2 -j$(nproc) V=1 cython test-cython
       - name: Build distro package
         run: |
           export SHORT_HASH=$(echo ${{ github.sha }} | cut -c1-8)
