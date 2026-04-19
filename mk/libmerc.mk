@@ -8,6 +8,10 @@
 #   - Adding a new SIMD specialization: add the source under the
 #     appropriate PLATFORM guard and set per-file ISA flags.
 
+# ===================================================================
+# Variables
+# ===================================================================
+
 LCTRIE_SRCS := \
   src/libmerc/lctrie/lctrie_bgp.cc
 
@@ -36,6 +40,10 @@ ifeq ($(HAVE_XSIMD),yes)
   endif
 endif
 
+# ===================================================================
+# Build rules
+# ===================================================================
+
 # --- Per-file ISA flags for x86 SIMD sources --------------------------
 
 $(OBJ)/src/libmerc/softmax_sse2.o: CXXFLAGS += -msse2
@@ -63,22 +71,3 @@ else
 	$(call QUIET,LINK,$@)$(CXX) $(CXXFLAGS) -shared -fPIC -Wl,-soname,libmerc_alt.so.0 $^ $(LDFLAGS) $(LDLIBS) -o $@
 endif
 	@ln -sf libmerc_alt.so $(LIB)/libmerc_alt.so.0
-
-# --- ASN.1 OID table regeneration -------------------------------------
-
-ASN1_DIR  := src/libmerc/asn1
-ASN1_SRCS := $(wildcard $(ASN1_DIR)/*.asn1)
-
-.PHONY: regen-oid
-regen-oid: $(ASN1_DIR)/oidc
-	cd $(ASN1_DIR) && ./oidc $(sort $(notdir $(ASN1_SRCS)))
-	@printf '$(COLOR_GREEN)  regenerated oid.cc and oid.h from %d .asn1 files$(COLOR_OFF)\n' \
-	  $(words $(ASN1_SRCS))
-	@echo '  Review: git diff src/libmerc/asn1/'
-
-$(ASN1_DIR)/oidc: $(ASN1_DIR)/oidc.cc
-	$(CXX) -std=c++17 -O2 -o $@ $<
-
-.PHONY: clean-oidc
-clean-oidc:
-	rm -f $(ASN1_DIR)/oidc

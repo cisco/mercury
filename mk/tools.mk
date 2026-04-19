@@ -7,6 +7,10 @@
 #   2. Add a build rule below
 #   3. Add a one-line description to the Tools section in Makefile2 help
 
+# ===================================================================
+# Variables
+# ===================================================================
+
 TOOL_TARGETS := \
   $(BIN)/archive_reader \
   $(BIN)/cbor \
@@ -36,6 +40,10 @@ ifeq ($(HAVE_GMP),yes)
   CERTTOOLS += $(BIN)/batch_gcd
 endif
 
+# ===================================================================
+# Public targets
+# ===================================================================
+
 .PHONY: certtools
 certtools: $(CERTTOOLS)
 
@@ -44,7 +52,9 @@ _TOOL_NAMES := $(notdir $(TOOL_TARGETS))
 .PHONY: $(_TOOL_NAMES)
 $(foreach t,$(TOOL_TARGETS),$(eval $(notdir $(t)): $(t)))
 
-# --- Tool build rules -------------------------------------------------
+# ===================================================================
+# Build rules
+# ===================================================================
 
 # archive_reader — archive (gzip/tar) reader
 $(BIN)/archive_reader: LDLIBS := -lz -lcrypto
@@ -121,7 +131,9 @@ $(BIN)/tls_scanner: LDLIBS := -pthread -lssl -lcrypto -lz
 $(BIN)/tls_scanner: $(call objects,src/tls_scanner.cc) $(LIB)/libmerc.a
 	$(LINK)
 
-# --- Development workflow targets -------------------------------------
+# ===================================================================
+# Development workflow targets
+# ===================================================================
 
 # cppcheck — cppcheck static analysis
 .PHONY: cppcheck

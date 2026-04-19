@@ -1,12 +1,21 @@
-# mk/tables.mk -- IANA table download and regeneration
+# mk/tables.mk -- source code regeneration targets
 #
-# Included by Makefile2.  Downloads IANA CSV registries and regenerates
-# protocol header files used by libmerc.
+# Included by Makefile2.  Regenerates checked-in source files from
+# declarative inputs:
+#
+#   - IANA CSV registries -> protocol enum headers (src/libmerc/*.h)
+#   - ASN.1 OID definitions -> oid.cc / oid.h (src/libmerc/asn1/)
+#
+# NOTE: Unlike the main build, generator tools are built IN-SOURCE
+# (e.g. src/tables/csv, src/libmerc/asn1/oidc).  They are developer
+# tools not shipped in packages and not part of 'make all'.
 #
 # When to edit:
 #   - Adding a new IANA registry: add the CSV filename to the
 #     appropriate *_CSV variable and add a name:enum_type entry to
 #     the corresponding *_CMD variable.
+#   - Adding a new .asn1 file: place it in src/libmerc/asn1/ and
+#     run 'make -f Makefile2 regen-oid'.
 #   - Adding a new top-level target: update the Tables section in
 #     Makefile2 'make help'.
 #
@@ -14,20 +23,23 @@
 #   download-tables       -- fetch latest IANA CSVs into src/tables/source/
 #   regen-tables          -- download + regenerate all protocol headers
 #   regen-tables-offline  -- regenerate from cached CSVs (no download)
+#   regen-oid             -- regenerate oid.cc/oid.h from .asn1 files
 #   clean-tables          -- remove built table-generator binaries
+#   clean-oidc            -- remove built oidc tool
+
+# ===================================================================
+# Variables
+# ===================================================================
+
+# --- ASN.1 OID paths --------------------------------------------------
+
+ASN1_DIR       := src/libmerc/asn1
+ASN1_SRCS      := $(wildcard $(ASN1_DIR)/*.asn1)
+
+# --- IANA CSV paths and registry lists --------------------------------
 
 TABLES_DIR     := src/tables
 TABLES_OUTDIR  := src/libmerc
-
-$(TABLES_DIR)/csv: $(TABLES_DIR)/csv.cc
-	$(CXX) $(CXXFLAGS) $(DEPFLAGS) -o $@ $(TABLES_DIR)/csv.cc
-
-$(TABLES_DIR)/tls_csv: $(TABLES_DIR)/tls_extension_generator.cc
-	$(CXX) $(CXXFLAGS) $(DEPFLAGS) -o $@ $(TABLES_DIR)/tls_extension_generator.cc
-
-# TODO: after old build system removal, replace with a single
-# wildcard include for all src/**/*.d in rules.mk.
--include $(TABLES_DIR)/csv.d $(TABLES_DIR)/tls_csv.d
 
 IKEV2_CSV := ikev2-parameters-1.csv ikev2-parameters-2.csv \
   ikev2-parameters-3.csv ikev2-parameters-4.csv ikev2-parameters-5.csv \
@@ -95,6 +107,25 @@ TACPLUS_CMD := tac_plus_authen_action.csv:authen_action \
   tac_plus_acct_status.csv:acct_status \
   tac_plus_priv_lvl.csv:privilege_level
 
+# ===================================================================
+# Build rules + targets
+# ===================================================================
+
+# --- IANA CSV-to-header generators ------------------------------------
+
+$(TABLES_DIR)/csv: $(TABLES_DIR)/csv.cc
+	$(CXX) $(CXXFLAGS) $(DEPFLAGS) -o $@ $(TABLES_DIR)/csv.cc
+
+$(TABLES_DIR)/tls_csv: $(TABLES_DIR)/tls_extension_generator.cc
+	$(CXX) $(CXXFLAGS) $(DEPFLAGS) -o $@ $(TABLES_DIR)/tls_extension_generator.cc
+
+# TODO: after old build system removal, replace with a single
+# wildcard include for all src/**/*.d in rules.mk.
+-include $(TABLES_DIR)/csv.d $(TABLES_DIR)/tls_csv.d
+-include $(ASN1_DIR)/oidc.d
+
+# --- IANA registry download + header regeneration ---------------------
+
 .PHONY: download-tables
 download-tables:
 	cd $(TABLES_DIR) && wget -N -P source/ \
@@ -126,7 +157,25 @@ regen-tables-offline: $(TABLES_DIR)/csv $(TABLES_DIR)/tls_csv
 	  verbose=true dir=source $(KRB5_CMD)
 	@printf '$(COLOR_GREEN)  regenerated all IANA table headers in src/libmerc/$(COLOR_OFF)\n'
 
+# --- ASN.1 OID regeneration --------------------------------------------
+
+.PHONY: regen-oid
+regen-oid: $(ASN1_DIR)/oidc
+	cd $(ASN1_DIR) && ./oidc $(sort $(notdir $(ASN1_SRCS)))
+	@printf '$(COLOR_GREEN)  regenerated oid.cc and oid.h from %d .asn1 files$(COLOR_OFF)\n' \
+	  $(words $(ASN1_SRCS))
+	@echo '  Review: git diff src/libmerc/asn1/'
+
+$(ASN1_DIR)/oidc: $(ASN1_DIR)/oidc.cc
+	$(CXX) $(CXXFLAGS) $(DEPFLAGS) -o $@ $<
+
+# --- clean -----------------------------------------------------------
+
 .PHONY: clean-tables
 clean-tables:
 	rm -f $(TABLES_DIR)/csv $(TABLES_DIR)/tls_csv \
 	  $(TABLES_DIR)/csv.d $(TABLES_DIR)/tls_csv.d
+
+.PHONY: clean-oidc
+clean-oidc:
+	rm -f $(ASN1_DIR)/oidc $(ASN1_DIR)/oidc.d

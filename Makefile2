@@ -42,17 +42,20 @@ _no_config_targets := clean distclean help
 -include mk/config.mk
 include mk/rules.mk
 
-# --- Module includes (alphabetical; order doesn't matter) -------------
+# --- Module includes --------------------------------------------------
 
+# build & test (alphabetical: order doesn't matter)
 include mk/cython.mk
 include mk/doc.mk
-include mk/install.mk
 include mk/libmerc.mk
 include mk/mercury.mk
 include mk/tables.mk
 include mk/test.mk
 include mk/test_libmerc.mk
 include mk/tools.mk
+
+# install (last: may depend on variable definitions like CERTTOOLS)
+include mk/install.mk
 
 # --- Auto-rebuild when configure inputs change ------------------------
 # Skip auto-rebuild rules for targets that don't need a configured tree.

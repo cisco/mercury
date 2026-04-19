@@ -4,10 +4,6 @@
 # except test-libmerc (see test_libmerc.mk).  Also builds unit_test
 # and libmerc_test as part of 'make all' via TEST_TARGETS.
 #
-# libmerc_test is a legacy manual tool written in C, superseded by the
-# Catch2 drivers in test_libmerc.mk; kept as a compile-time check for
-# the C API.
-#
 # When to edit:
 #   - Adding a new test: define a .PHONY target (test-foo), write the
 #     recipe, add test-foo to the 'test' prerequisite list, and add a
@@ -17,9 +13,13 @@
 #   - Adding a new test binary: append to TEST_TARGETS and add its
 #     build rule.
 
+# ===================================================================
+# Variables
+# ===================================================================
+
 TEST_TARGETS := \
   $(BIN)/unit_test \
-  $(BIN)/libmerc_test
+  $(BIN)/libmerc_test  # legacy tool, superseded by test-libmerc drivers
 
 # Absolute paths to built artifacts (for passing to scripts/recipes)
 _mercury       := $(abspath $(BIN)/mercury)
@@ -28,68 +28,11 @@ _libmerc_so    := $(abspath $(LIB)/libmerc.so)
 _libmerc_a     := $(abspath $(LIB)/libmerc.a)
 _libdir        := $(abspath $(LIB))
 
-# --- unit_test --------------------------------------------------------
+# ===================================================================
+# Public targets
+# ===================================================================
 
-$(OBJ)/src/unit_test.o: CXXFLAGS := $(filter-out -DNDEBUG,$(CXXFLAGS))
-
-$(BIN)/unit_test: LDLIBS := -lcrypto -lz
-$(BIN)/unit_test: $(call objects,src/unit_test.cpp src/libmerc/asn1/oid.cc)
-	$(LINK)
-
-# --- libmerc_test -----------------------------------------------------
-# Manual tool for exercising libmerc.so interactively; not run by any
-# test target (not to be confused with 'make test-libmerc', which runs
-# the Catch2 end-to-end tests in unit_tests/).
-
-$(OBJ)/src/libmerc_test.o: src/libmerc_test.c
-	@mkdir -p $(dir $@)
-	$(call QUIET,CC,$@)$(CC) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
-
-$(BIN)/libmerc_test: LDLIBS := -pthread -lz -lcrypto
-$(BIN)/libmerc_test: $(OBJ)/src/libmerc_test.o $(LIB)/libmerc.so
-	@mkdir -p $(dir $@)
-	$(call QUIET,LINK,$@)$(CC) $(CFLAGS) $< $(LDFLAGS) $(LIB)/libmerc.so $(LDLIBS) -o $@
-	@printf '$(COLOR_GREEN)  to run manually: LD_LIBRARY_PATH=%s %s$(COLOR_OFF)\n' $(_libdir) $@
-
-# --- Test execution targets -------------------------------------------
-
-.PHONY: unittest
-unittest: $(BIN)/unit_test
-	cd src && $(abspath $(BIN)/unit_test)
-	@printf '$(COLOR_GREEN)  passed unit tests$(COLOR_OFF)\n'
-
-# --- PDU verifier (test-pdu) -------------------------------------------
-#
-# Builds pdu_verifier (links against libmerc.so via dlopen) and runs it
-# on PCAP files in PCAP_DIR.  Requires PCAP_DIR to be set.
-#
-# Note: pdu_verifier.cc has pre-existing source errors (uses removed
-# packet<65536> template, pcap type mismatches) and will not compile
-# until the source is updated.
-#
-# Usage:
-#   make -f Makefile2 test-pdu PCAP_DIR=/path/to/pcaps
-
-_pdu_verifier := $(abspath $(BIN)/pdu_verifier)
-
-$(BIN)/pdu_verifier: CXXFLAGS += -Isrc -Isrc/libmerc
-$(BIN)/pdu_verifier: LDLIBS := -lcrypto -ldl -lz
-$(BIN)/pdu_verifier: $(call objects,unit_tests/pdu_verifier.cc) $(LIB)/libmerc.so
-	$(LINK)
-
-.PHONY: test-pdu
-test-pdu: $(BIN)/pdu_verifier
-ifeq ($(PCAP_DIR),)
-	@printf '$(COLOR_YELLOW)  error: PCAP_DIR unspecified (run as '\''make -f Makefile2 test-pdu PCAP_DIR=/path/to/pcaps'\'')$(COLOR_OFF)\n'
-	@false
-else
-	@echo "--- PDU verification tests ---"
-	@LD_LIBRARY_PATH=$(_libdir) VERIFIER=$(_pdu_verifier) PCAP_DIR=$(PCAP_DIR) \
-	  test/pdu_test.sh
-	@printf '$(COLOR_GREEN)  passed PDU verification tests$(COLOR_OFF)\n'
-endif
-
-# --- Full test suite --------------------------------------------------
+# --- test (umbrella) --------------------------------------------------
 #
 # 'make test' runs the subtests listed as prerequisites below.
 #
@@ -111,6 +54,19 @@ test: all unittest test-comp test-analysis test-cert-check \
 	else \
 	  printf '$(COLOR_GREEN)  passed all tests$(COLOR_OFF)\n'; \
 	fi
+
+# --- unittest ---------------------------------------------------------
+
+$(OBJ)/src/unit_test.o: CXXFLAGS := $(filter-out -DNDEBUG,$(CXXFLAGS))
+
+$(BIN)/unit_test: LDLIBS := -lcrypto -lz
+$(BIN)/unit_test: $(call objects,src/unit_test.cpp src/libmerc/asn1/oid.cc)
+	$(LINK)
+
+.PHONY: unittest
+unittest: $(BIN)/unit_test
+	cd src && $(abspath $(BIN)/unit_test)
+	@printf '$(COLOR_GREEN)  passed unit tests$(COLOR_OFF)\n'
 
 # --- Fingerprint comparison tests (comp) ------------------------------
 
@@ -275,11 +231,19 @@ else ifeq ($(HAVE_VALGRIND),yes)
 	grep "ERROR SUMMARY: 0" $(TESTDIR)/memcheck/valgrind.log
 	@printf '$(COLOR_GREEN)  passed memcheck$(COLOR_OFF)\n'
 else ifeq ($(IS_MACOS),yes)
-	@printf '$(COLOR_GREEN)  valgrind unavailable on macOS; skipping memcheck$(COLOR_OFF)\n'
+	@printf '$(COLOR_GREEN)  skipping memcheck; valgrind not well-supported on macOS$(COLOR_OFF)\n'
 else
-	@printf '$(COLOR_YELLOW)  valgrind unavailable; skipping memcheck$(COLOR_OFF)\n'
+	@printf '$(COLOR_YELLOW)  skipping memcheck; valgrind unavailable$(COLOR_OFF)\n'
 	@mkdir -p $(TESTDIR) && touch $(TESTDIR)/.omitted.test-memcheck.flag
 endif
+
+# ===================================================================
+# Special-environment and manual targets
+# ===================================================================
+#
+# Targets below are NOT part of the full test suite ('make test').
+# They require special environments (e.g., root, clang, AFL, GMP) or
+# are intended for manual / CI-only invocation.
 
 # --- Batch GCD test ---------------------------------------------------
 
@@ -344,11 +308,36 @@ else
 	@printf '$(COLOR_YELLOW)  clang++ unavailable; skipping fuzz test$(COLOR_OFF)\n'
 endif
 
-# ======================================================================
-# Targets below are NOT part of the full test suite ('make test').
-# They require special environments (root, clang, AFL, etc.) or are
-# intended for manual / CI-only invocation.
-# ======================================================================
+# --- PDU verifier (test-pdu) -------------------------------------------
+#
+# Builds pdu_verifier (links against libmerc.so via dlopen) and runs it
+# on PCAP files in PCAP_DIR.  Requires PCAP_DIR to be set.
+#
+# Note: pdu_verifier.cc has pre-existing source errors (uses removed
+# packet<65536> template, pcap type mismatches) and will not compile
+# until the source is updated.
+#
+# Usage:
+#   make -f Makefile2 test-pdu PCAP_DIR=/path/to/pcaps
+
+_pdu_verifier := $(abspath $(BIN)/pdu_verifier)
+
+$(BIN)/pdu_verifier: CXXFLAGS += -Isrc -Isrc/libmerc
+$(BIN)/pdu_verifier: LDLIBS := -lcrypto -ldl -lz
+$(BIN)/pdu_verifier: $(call objects,unit_tests/pdu_verifier.cc) $(LIB)/libmerc.so
+	$(LINK)
+
+.PHONY: test-pdu
+test-pdu: $(BIN)/pdu_verifier
+ifeq ($(PCAP_DIR),)
+	@printf '$(COLOR_YELLOW)  error: PCAP_DIR unspecified (run as '\''make -f Makefile2 test-pdu PCAP_DIR=/path/to/pcaps'\'')$(COLOR_OFF)\n'
+	@false
+else
+	@echo "--- PDU verification tests ---"
+	@LD_LIBRARY_PATH=$(_libdir) VERIFIER=$(_pdu_verifier) PCAP_DIR=$(PCAP_DIR) \
+	  test/pdu_test.sh
+	@printf '$(COLOR_GREEN)  passed PDU verification tests$(COLOR_OFF)\n'
+endif
 
 # --- Live capture test (requires root + IFNAME) -----------------------
 
@@ -516,3 +505,22 @@ test-coverage-fuzz:
 		  --output-directory $$_cov_rpt $$_cov_dir/filtered.info && \
 		printf "\033[0;32m  fuzz coverage report: %s/index.html\033[0m\n" $$_cov_rpt \
 	' || { printf '\033[0;33m  failed to build fuzz coverage report\033[0m\n'; exit 1; }
+
+# ===================================================================
+# Build rules
+# ===================================================================
+
+# --- libmerc_test (legacy compile check) ------------------------------
+# C tool that exercises libmerc.so interactively; superseded by the
+# Catch2 drivers but retained as a compile-time check for the C API.
+# Not run by any test target (cf. 'make test-libmerc').
+
+$(OBJ)/src/libmerc_test.o: src/libmerc_test.c
+	@mkdir -p $(dir $@)
+	$(call QUIET,CC,$@)$(CC) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
+
+$(BIN)/libmerc_test: LDLIBS := -pthread -lz -lcrypto
+$(BIN)/libmerc_test: $(OBJ)/src/libmerc_test.o $(LIB)/libmerc.so
+	@mkdir -p $(dir $@)
+	$(call QUIET,LINK,$@)$(CC) $(CFLAGS) $< $(LDFLAGS) $(LIB)/libmerc.so $(LDLIBS) -o $@
+	@printf '$(COLOR_GREEN)  to run manually: LD_LIBRARY_PATH=%s %s$(COLOR_OFF)\n' $(_libdir) $@
