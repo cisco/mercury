@@ -29,6 +29,15 @@ _libmerc_a     := $(abspath $(LIB)/libmerc.a)
 _libdir        := $(abspath $(LIB))
 
 # ===================================================================
+# Test infrastructure
+# ===================================================================
+
+# Any rule listing FORCE as a prerequisite always re-runs its recipe.
+# Tests use this to regenerate outputs unconditionally.
+.PHONY: FORCE
+FORCE:
+
+# ===================================================================
 # Public targets
 # ===================================================================
 
@@ -69,37 +78,54 @@ unittest: $(BIN)/unit_test
 	@printf '$(COLOR_GREEN)  passed unit tests$(COLOR_OFF)\n'
 
 # --- Fingerprint comparison tests (comp) ------------------------------
+#
+# Declarative pattern rules: auto-discover expected outputs in
+# test/data/, generate actual outputs in $(TESTDIR)/comp/, diff.
+# Parallelizes automatically under -j.
+
+_COMP_SRCDIR := test/data
+_COMP_OUTDIR := $(TESTDIR)/comp
+
+# Discover inputs from expected-output files present in source tree.
+_FP_EXPECTED   := $(wildcard $(_COMP_SRCDIR)/*.fp)
+_MCAP_EXPECTED := $(wildcard $(_COMP_SRCDIR)/*.mcap)
+_JSON_EXPECTED := $(filter $(patsubst %.pcap,%.json,$(wildcard $(_COMP_SRCDIR)/*.pcap)),\
+                           $(wildcard $(_COMP_SRCDIR)/*.json))
+
+_FP_COMPS   := $(patsubst $(_COMP_SRCDIR)/%.fp,$(_COMP_OUTDIR)/%.fp-comp,$(_FP_EXPECTED))
+_MCAP_COMPS := $(patsubst $(_COMP_SRCDIR)/%.mcap,$(_COMP_OUTDIR)/%.mcap-comp,$(_MCAP_EXPECTED))
+_JSON_COMPS := $(patsubst $(_COMP_SRCDIR)/%.json,$(_COMP_OUTDIR)/%.json-comp,$(_JSON_EXPECTED))
+
+# FP chain: pcap -> json -> fp -> diff
+$(_COMP_OUTDIR)/%.json: $(_COMP_SRCDIR)/%.pcap $(BIN)/mercury FORCE | $(_COMP_OUTDIR)
+	$(call QUIET,TEST,$@)$(_mercury) -r $< -f $@ --reassembly --metadata --raw-features=all
+
+$(_COMP_OUTDIR)/%.fp: $(_COMP_OUTDIR)/%.json
+	$(Q)jq .fingerprints.tls $< | grep -v null | tr -d '"' > $@
+
+$(_COMP_OUTDIR)/%.fp-comp: $(_COMP_OUTDIR)/%.fp
+	$(Q)diff $< $(_COMP_SRCDIR)/$(notdir $<)
+
+# MCAP chain: pcap -> mcap -> diff
+$(_COMP_OUTDIR)/%.mcap: $(_COMP_SRCDIR)/%.pcap $(BIN)/mercury FORCE | $(_COMP_OUTDIR)
+	$(call QUIET,TEST,$@)$(_mercury) -r $< --reassembly -w $@
+
+$(_COMP_OUTDIR)/%.mcap-comp: $(_COMP_OUTDIR)/%.mcap
+	$(Q)diff $< $(_COMP_SRCDIR)/$(notdir $<)
+
+# JSON chain: pcap -> json -> diff (reuses the .json rule above)
+$(_COMP_OUTDIR)/%.json-comp: $(_COMP_OUTDIR)/%.json
+	$(Q)diff $< $(_COMP_SRCDIR)/$(notdir $<)
+
+$(_COMP_OUTDIR):
+	@mkdir -p $@
 
 .PHONY: test-comp
-test-comp: $(BIN)/mercury
+# Conditional prereqs: comp targets only when jq is available.
+test-comp: $(BIN)/mercury $(if $(filter yes,$(HAVE_JQ)),$(_FP_COMPS) $(_MCAP_COMPS) $(_JSON_COMPS))
 	@rm -f $(TESTDIR)/.omitted.test-comp.flag
 ifeq ($(HAVE_JQ),yes)
 	@echo "--- fingerprint comparison tests ---"
-	@rm -rf $(TESTDIR)/comp
-	@mkdir -p $(TESTDIR)/comp
-	@cd test && for fp in data/*.fp; do \
-	  base=$$(basename $$fp .fp); \
-	  $(_mercury) -r data/$$base.pcap -f $(abspath $(TESTDIR)/comp)/$$base.json \
-	    --reassembly --metadata --raw-features=all && \
-	  cat $(abspath $(TESTDIR)/comp)/$$base.json | jq .fingerprints.tls \
-	    | grep -v null | tr -d '"' > $(abspath $(TESTDIR)/comp)/$$base.fp && \
-	  diff $(abspath $(TESTDIR)/comp)/$$base.fp data/$$base.fp || exit 1; \
-	done
-	@# MCAP comparison tests
-	@cd test && for mcap in data/*.mcap; do \
-	  base=$$(basename $$mcap .mcap); \
-	  $(_mercury) -r data/$$base.pcap --reassembly \
-	    -w $(abspath $(TESTDIR)/comp)/$$base.mcap && \
-	  diff $(abspath $(TESTDIR)/comp)/$$base.mcap data/$$base.mcap || exit 1; \
-	done
-	@# JSON comparison tests
-	@cd test && for json in data/*.json; do \
-	  base=$$(basename $$json .json); \
-	  [ -f data/$$base.pcap ] || continue; \
-	  $(_mercury) -r data/$$base.pcap -f $(abspath $(TESTDIR)/comp)/$$base.json \
-	    --reassembly --metadata --raw-features=all && \
-	  diff $(abspath $(TESTDIR)/comp)/$$base.json data/$$base.json || exit 1; \
-	done
 	@printf '$(COLOR_GREEN)  passed comparison tests$(COLOR_OFF)\n'
 else
 	@printf '$(COLOR_YELLOW)  omitting comparison tests; jq unavailable$(COLOR_OFF)\n'
@@ -245,25 +271,34 @@ endif
 # They require special environments (e.g., root, clang, AFL, GMP) or
 # are intended for manual / CI-only invocation.
 
-# --- Batch GCD test ---------------------------------------------------
+# --- Batch GCD test (declarative) -------------------------------------
+#
+# Pattern rules: auto-discover .bgcd-in files, generate .bgcd-tout in
+# $(TESTDIR)/batch-gcd/, diff against .bgcd-out in source tree.
+
+_BGCD_SRCDIR := test/batch_gcd
+_BGCD_OUTDIR := $(TESTDIR)/batch-gcd
+_BGCD_INPUTS := $(wildcard $(_BGCD_SRCDIR)/*.bgcd-in)
+_BGCD_COMPS  := $(patsubst $(_BGCD_SRCDIR)/%.bgcd-in,$(_BGCD_OUTDIR)/%.bgcd-comp,$(_BGCD_INPUTS))
+
+# PEM inputs need --cert-file; non-PEM use stdin.
+# More-specific %.pem.bgcd-tout matches first (shortest-stem rule).
+$(_BGCD_OUTDIR)/%.pem.bgcd-tout: $(_BGCD_SRCDIR)/%.pem.bgcd-in $(BIN)/batch_gcd FORCE | $(_BGCD_OUTDIR)
+	$(call QUIET,TEST,$@)$(_batch_gcd) --cert-file $< > $@
+
+$(_BGCD_OUTDIR)/%.bgcd-tout: $(_BGCD_SRCDIR)/%.bgcd-in $(BIN)/batch_gcd FORCE | $(_BGCD_OUTDIR)
+	$(call QUIET,TEST,$@)$(_batch_gcd) < $< > $@
+
+$(_BGCD_OUTDIR)/%.bgcd-comp: $(_BGCD_OUTDIR)/%.bgcd-tout
+	$(Q)diff $< $(_BGCD_SRCDIR)/$(notdir $(<:.bgcd-tout=.bgcd-out))
+
+$(_BGCD_OUTDIR):
+	@mkdir -p $@
 
 .PHONY: test-batch-gcd
-# conditional prerequisite: batch_gcd can't link without GMP
-test-batch-gcd: $(if $(filter yes,$(HAVE_GMP)),$(BIN)/batch_gcd)
+# Conditional prereqs: comp targets only when GMP is available.
+test-batch-gcd: $(if $(filter yes,$(HAVE_GMP)),$(_BGCD_COMPS))
 ifeq ($(HAVE_GMP),yes)
-	@echo "--- batch GCD tests ---"
-	@rm -rf $(TESTDIR)/batch-gcd
-	@mkdir -p $(TESTDIR)/batch-gcd
-	@cd test && for f in batch_gcd/*.bgcd-in; do \
-	  base=$$(basename $$f .bgcd-in); \
-	  if echo $$f | grep -q '\.pem\.'; then \
-	    $(_batch_gcd) --cert-file $$f > $(abspath $(TESTDIR)/batch-gcd)/$$base.bgcd-tout; \
-	  else \
-	    $(_batch_gcd) < $$f > $(abspath $(TESTDIR)/batch-gcd)/$$base.bgcd-tout; \
-	  fi && \
-	  diff $(abspath $(TESTDIR)/batch-gcd)/$$base.bgcd-tout batch_gcd/$$base.bgcd-out \
-	    || exit 1; \
-	done
 	@printf '$(COLOR_GREEN)  passed batch GCD tests$(COLOR_OFF)\n'
 else
 	@printf '$(COLOR_YELLOW)  omitting batch GCD test; libgmp unavailable$(COLOR_OFF)\n'
