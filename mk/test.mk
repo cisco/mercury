@@ -457,12 +457,12 @@ _run-coverage: $(BIN)/unit_test $(BIN)/mercury $(LIB)/libmerc.so
 	@printf '$(COLOR_GREEN)  captured unit test coverage$(COLOR_OFF)\n'
 	@# --- Stage 2: libmerc tests via test driver (tls-only) ---
 	find build/Coverage* -name '*.gcda' -delete
-	$(_cov_make) VISIBILITY=default STATIC_CFG=tls _run-libmerc-tls-driver
+	$(_cov_make) VISIBILITY=default STATIC_CFG=tls _run-libmerc-tls-only
 	lcov -q --directory build --capture --output-file $(_cov_dir)/libmerc_tls.info
 	@printf '$(COLOR_GREEN)  captured libmerc tls driver coverage$(COLOR_OFF)\n'
-	@# --- Stage 3: libmerc tests via test driver (multiprotocol + fdc + util) ---
+	@# --- Stage 3: libmerc tests via test driver (multiprotocol + fdc + l7-metadata) ---
 	find build/Coverage* -name '*.gcda' -delete
-	$(_cov_make) VISIBILITY=default _run-libmerc-drivers
+	$(_cov_make) VISIBILITY=default _run-libmerc-test-drivers
 	lcov -q --directory build --capture --output-file $(_cov_dir)/libmerc_multi.info
 	@printf '$(COLOR_GREEN)  captured libmerc driver coverage$(COLOR_OFF)\n'
 	@# --- Stage 4: full test suite ---

@@ -159,7 +159,7 @@ jobs:
       - name: Build Mercury Debug+ASan+visdefault+staticcfgtls (tls-only)
         run: make -f Makefile2 -j$(nproc) V=1 BUILD_TYPE=Debug SANITIZE=address VISIBILITY=default STATIC_CFG=tls OPTFLAGS=-O2
       - name: Build libmerc.so test drivers
-        run: make -f Makefile2 -j$(nproc) V=1 BUILD_TYPE=Debug SANITIZE=address OPTFLAGS=-O2 libmerc-drivers
+        run: make -f Makefile2 -j$(nproc) V=1 BUILD_TYPE=Debug SANITIZE=address OPTFLAGS=-O2 libmerc-test-drivers
       - name: Generate token for cross-repo access
         id: app-token
         uses: actions/create-github-app-token@v1
@@ -367,7 +367,7 @@ jobs:
       - name: Build Mercury Debug+ASan+visdefault+staticcfgtls (tls-only)
         run: make -f Makefile2 -j V=1 BUILD_TYPE=Debug SANITIZE=address VISIBILITY=default STATIC_CFG=tls
       - name: Build libmerc.so test drivers
-        run: make -f Makefile2 -j V=1 BUILD_TYPE=Debug SANITIZE=address libmerc-drivers
+        run: make -f Makefile2 -j V=1 BUILD_TYPE=Debug SANITIZE=address libmerc-test-drivers
       - name: Generate token for cross-repo access
         id: app-token
         uses: actions/create-github-app-token@v1

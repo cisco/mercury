@@ -11,27 +11,27 @@
 # source list (_DRV_MULTI, _DRV_TLS_ONLY, _DRV_FDC, or _DRV_UTIL).
 #
 # To add a new driver — a separate executable for tests needing a
-# different libmerc.so build — add a source list, a build rule, and
-# a run step in _run-libmerc-drivers.  (The current split into
-# separate drivers is historical; they may be consolidated.)
+# different libmerc.so build — add a source list, a build rule, a
+# _run-libmerc-<name> target, and add it to _run-libmerc-test-drivers.
+# (The current split into separate drivers is historical; they may
+# be consolidated.)
 #
-# Usage (the top-level target handles the variant self-invocation):
-#   make -f Makefile2 test-libmerc         # run libmerc.so tests
-#   make -f Makefile2 -j libmerc-drivers   # build drivers only (no run)
+# Usage:
+#   make -f Makefile2 test-libmerc                # all libmerc tests
+#   make -f Makefile2 test-libmerc-multiprotocol  # multiprotocol only
+#   make -f Makefile2 test-libmerc-fdc            # FDC only
+#   make -f Makefile2 test-libmerc-l7-metadata    # L7 metadata only
+#   make -f Makefile2 test-libmerc-tls-only       # TLS-only only
+#   make -f Makefile2 -j libmerc-test-drivers     # build test drivers (no run)
 #
-# Or invoke a specific variant manually:
-#   make -f Makefile2 BUILD_TYPE=Debug SANITIZE=address OPTFLAGS=-O2 \
-#       VISIBILITY=default _run-libmerc-drivers
-#   make -f Makefile2 BUILD_TYPE=Debug SANITIZE=address OPTFLAGS=-O2 \
-#       VISIBILITY=default STATIC_CFG=tls _run-libmerc-tls-driver
-#
-# Notes on the manual examples above:
+# Notes:
 #   - VISIBILITY=default is required (tech debt): the test drivers
-#     access internal symbols that the default build hides.
+#     access internal symbols that the default build hides.  The
+#     public targets handle the self-invocation automatically.
 #   - STATIC_CFG=tls is a deprecated variant retained for test coverage
 #     but will be removed in the future.
-#   - OPTFLAGS=-O2 overrides Debug's -O0 so the PCAP-processing tests
-#     finish in reasonable time while still getting ASan and assertions.
+#   - With -j, the per-driver targets run in parallel.  Each gets its
+#     own sandbox directory so there are no races.
 
 # --- Targets built by 'make all' -------------------------------------
 # Only libmerc_util can be built in the default variant; the Catch2
@@ -135,96 +135,137 @@ $(BIN)/libmerc_util_behavior_test: $(call objects,$(_DRV_UTIL)) $(LIB)/libmerc.s
 # Convenience: build all drivers without running them.  Useful with -j to
 # pre-build so that test-libmerc only runs tests.
 
-.PHONY: _build-libmerc-drivers
-_build-libmerc-drivers: $(BIN)/libmerc_driver_multiprotocol \
-                        $(BIN)/libmerc_driver_fdc \
-                        $(BIN)/libmerc_util_behavior_test
+.PHONY: _build-libmerc-test-drivers
+_build-libmerc-test-drivers: $(BIN)/libmerc_driver_multiprotocol \
+                             $(BIN)/libmerc_driver_fdc \
+                             $(BIN)/libmerc_util_behavior_test
 
-.PHONY: _build-libmerc-tls-driver
-_build-libmerc-tls-driver: $(BIN)/libmerc_driver_tls_only
+.PHONY: _build-libmerc-tls-test-driver
+_build-libmerc-tls-test-driver: $(BIN)/libmerc_driver_tls_only
 
-.PHONY: libmerc-drivers
-libmerc-drivers:
-	$(MAKE) -f Makefile2 BUILD_TYPE=$(BUILD_TYPE) SANITIZE=$(SANITIZE) \
-	  VISIBILITY=default OPTFLAGS='$(OPTFLAGS)' _build-libmerc-drivers
-	$(MAKE) -f Makefile2 BUILD_TYPE=$(BUILD_TYPE) SANITIZE=$(SANITIZE) \
-	  VISIBILITY=default STATIC_CFG=tls OPTFLAGS='$(OPTFLAGS)' _build-libmerc-tls-driver
+.PHONY: libmerc-test-drivers
+libmerc-test-drivers:
+	$(MAKE) -f Makefile2 VISIBILITY=default _build-libmerc-test-drivers
+	$(MAKE) -f Makefile2 VISIBILITY=default STATIC_CFG=tls _build-libmerc-tls-test-driver
 
-# --- Test sandbox (inside the build directory) ------------------------
+# --- Per-driver test sandboxes ----------------------------------------
 # Drivers use hardcoded relative paths ("./pcaps/", "../test/data/",
-# "../src/libmerc_util").  We create a sandbox under the build variant
-# with symlinks that satisfy those expectations, keeping the source
-# tree pristine.  Layout:
+# "../src/libmerc_util").  Each driver gets its own sandbox directory
+# under the build variant so that parallel runs (-j) don't race.
 #
-#   build/<variant>/drv/
+# Layout (for driver "foo"):
+#
+#   build/<variant>/drv/foo/
 #     sandbox/              <- cwd when tests run
 #       pcaps/              -> unit_tests/pcaps
 #       debug-libs/
 #         libmerc.so.0      -> lib/libmerc.so
 #     test/data/
 #       resources-test.tgz  -> test/data/resources-test.tgz
-#     src/
-#       libmerc_util        -> bin/libmerc_util
 
-_drv_root := build/$(_variant)/drv
-_drv_cwd  := $(_drv_root)/sandbox
+# $(1) = driver name (e.g. multiprotocol, fdc, l7-metadata, tls-only)
+_drv_root_for = build/$(_variant)/drv/$(1)
+_drv_cwd_for  = $(call _drv_root_for,$(1))/sandbox
 
 # Pre-clean + create the sandbox tree.  Called at the start of every
 # run so leftover files from a previous (possibly failed) run are gone.
-_drv_sandbox_setup = \
-	rm -rf $(_drv_root) && \
-	mkdir -p $(_drv_cwd)/debug-libs $(_drv_root)/test/data $(_drv_root)/src && \
-	ln -s $(abspath unit_tests/pcaps) $(_drv_cwd)/pcaps && \
-	ln -s $(_libdir)/libmerc.so $(_drv_cwd)/debug-libs/libmerc.so.0 && \
-	ln -s $(abspath test/data/resources-test.tgz) $(_drv_root)/test/data/resources-test.tgz && \
-	ln -s $(abspath $(BIN)/libmerc_util) $(_drv_root)/src/libmerc_util
+# Target-specific symlinks (libmerc_multiprotocol.so, src/libmerc_util)
+# are added by the individual run targets that need them.
+define _sandbox_setup # $(1) = driver name
+	rm -rf $(call _drv_root_for,$(1)) && \
+	mkdir -p $(call _drv_cwd_for,$(1))/debug-libs \
+	         $(call _drv_root_for,$(1))/test/data && \
+	ln -s $(abspath unit_tests/pcaps) $(call _drv_cwd_for,$(1))/pcaps && \
+	ln -s $(_libdir)/libmerc.so $(call _drv_cwd_for,$(1))/debug-libs/libmerc.so.0 && \
+	ln -s $(abspath test/data/resources-test.tgz) $(call _drv_root_for,$(1))/test/data/resources-test.tgz
+endef
 
-# --- Internal run targets (called by self-invocation) -----------------
-# These expect to be invoked with VISIBILITY=default (and optionally
-# STATIC_CFG=tls); see test-libmerc below for the self-invocation.
+# --- Per-driver run targets -------------------------------------------
+# Each target has its own sandbox and explicit prerequisites.  They are
+# invoked with VISIBILITY=default (and optionally STATIC_CFG=tls) via
+# the public targets below or the umbrella _run-libmerc-test-drivers.
 
-.PHONY: _run-libmerc-tls-driver
-_run-libmerc-tls-driver: $(BIN)/libmerc_driver_tls_only \
-                         $(LIB)/libmerc.so \
-                         $(LIB)/libmerc_alt.so \
-                         test/data/resources-test.tgz
-	@$(_drv_sandbox_setup)
-	@echo "running libmerc tls-only end-to-end tests"
-	cd $(_drv_cwd) && $(_lib_path_var)=$(_libdir):./debug-libs \
+.PHONY: _run-libmerc-multiprotocol
+_run-libmerc-multiprotocol: $(BIN)/libmerc_driver_multiprotocol \
+                            $(LIB)/libmerc.so \
+                            test/data/resources-test.tgz
+	@$(call _sandbox_setup,multiprotocol)
+	@ln -s $(_libdir)/libmerc.so $(call _drv_cwd_for,multiprotocol)/debug-libs/libmerc_multiprotocol.so
+	@echo "running libmerc multiprotocol tests"
+	cd $(call _drv_cwd_for,multiprotocol) && $(_lib_path_var)=$(_libdir):./debug-libs \
+	  $(abspath $(BIN)/libmerc_driver_multiprotocol) -s
+	@printf '$(COLOR_GREEN)  passed libmerc multiprotocol tests$(COLOR_OFF)\n'
+
+.PHONY: _run-libmerc-fdc
+_run-libmerc-fdc: $(BIN)/libmerc_driver_fdc \
+                  $(LIB)/libmerc.so \
+                  test/data/resources-test.tgz
+	@$(call _sandbox_setup,fdc)
+	@echo "running libmerc fdc tests"
+	cd $(call _drv_cwd_for,fdc) && $(_lib_path_var)=$(_libdir):./debug-libs \
+	  $(abspath $(BIN)/libmerc_driver_fdc) -s
+	@printf '$(COLOR_GREEN)  passed libmerc fdc tests$(COLOR_OFF)\n'
+
+.PHONY: _run-libmerc-l7-metadata
+_run-libmerc-l7-metadata: $(BIN)/libmerc_util_behavior_test \
+                          $(LIB)/libmerc.so \
+                          $(BIN)/libmerc_util \
+                          test/data/resources-test.tgz
+	@$(call _sandbox_setup,l7-metadata)
+	@ln -s $(_libdir)/libmerc.so $(call _drv_cwd_for,l7-metadata)/debug-libs/libmerc_multiprotocol.so
+	@mkdir -p $(call _drv_root_for,l7-metadata)/src
+	@ln -s $(abspath $(BIN)/libmerc_util) $(call _drv_root_for,l7-metadata)/src/libmerc_util
+	@echo "running libmerc l7-metadata tests"
+	cd $(call _drv_cwd_for,l7-metadata) && $(_lib_path_var)=$(_libdir):./debug-libs \
+	  $(abspath $(BIN)/libmerc_util_behavior_test) -s
+	@printf '$(COLOR_GREEN)  passed libmerc l7-metadata tests$(COLOR_OFF)\n'
+
+.PHONY: _run-libmerc-tls-only
+_run-libmerc-tls-only: $(BIN)/libmerc_driver_tls_only \
+                       $(LIB)/libmerc.so \
+                       $(LIB)/libmerc_alt.so \
+                       test/data/resources-test.tgz
+	@$(call _sandbox_setup,tls-only)
+	@echo "running libmerc tls-only tests"
+	cd $(call _drv_cwd_for,tls-only) && $(_lib_path_var)=$(_libdir):./debug-libs \
 	  $(abspath $(BIN)/libmerc_driver_tls_only) -s
 	@printf '$(COLOR_GREEN)  passed libmerc tls-only tests$(COLOR_OFF)\n'
 
-.PHONY: _run-libmerc-drivers
-_run-libmerc-drivers: $(BIN)/libmerc_driver_multiprotocol \
-                      $(BIN)/libmerc_driver_fdc \
-                      $(BIN)/libmerc_util_behavior_test \
-                      $(LIB)/libmerc.so \
-                      $(BIN)/libmerc_util \
-                      test/data/resources-test.tgz
-	@$(_drv_sandbox_setup)
-	@ln -s $(_libdir)/libmerc.so $(_drv_cwd)/debug-libs/libmerc_multiprotocol.so
-	@echo "running libmerc multiprotocol end-to-end tests"
-	cd $(_drv_cwd) && $(_lib_path_var)=$(_libdir):./debug-libs \
-	  $(abspath $(BIN)/libmerc_driver_multiprotocol) -s
-	@echo "running libmerc fdc end-to-end tests"
-	cd $(_drv_cwd) && $(_lib_path_var)=$(_libdir):./debug-libs \
-	  $(abspath $(BIN)/libmerc_driver_fdc) -s
-	@echo "running libmerc_util behavior tests"
-	cd $(_drv_cwd) && $(_lib_path_var)=$(_libdir):./debug-libs \
-	  $(abspath $(BIN)/libmerc_util_behavior_test) -s
-	@printf '$(COLOR_GREEN)  passed libmerc end-to-end tests$(COLOR_OFF)\n'
+# --- Umbrella run target (prerequisite-only, no recipe) ---------------
+# With -j, the three per-driver targets run in parallel.
+
+.PHONY: _run-libmerc-test-drivers
+_run-libmerc-test-drivers: _run-libmerc-multiprotocol \
+                           _run-libmerc-fdc \
+                           _run-libmerc-l7-metadata
+
+# --- Public targets ---------------------------------------------------
+
+.PHONY: test-libmerc-multiprotocol
+test-libmerc-multiprotocol:
+	$(MAKE) -f Makefile2 VISIBILITY=default _run-libmerc-multiprotocol
+
+.PHONY: test-libmerc-fdc
+test-libmerc-fdc:
+	$(MAKE) -f Makefile2 VISIBILITY=default _run-libmerc-fdc
+
+.PHONY: test-libmerc-l7-metadata
+test-libmerc-l7-metadata:
+	$(MAKE) -f Makefile2 VISIBILITY=default _run-libmerc-l7-metadata
+
+.PHONY: test-libmerc-tls-only
+test-libmerc-tls-only:
+	$(MAKE) -f Makefile2 VISIBILITY=default STATIC_CFG=tls _run-libmerc-tls-only
 
 # --- Top-level test-libmerc (self-invoking) ---------------------------
 
 .PHONY: test-libmerc
 test-libmerc:
-	@echo "--- libmerc end-to-end tests (multiprotocol + fdc + util) ---"
-	@printf '$(COLOR_YELLOW)  note: forcing VISIBILITY=default for multiprotocol libmerc.so$(COLOR_OFF)\n'
-	$(MAKE) -f Makefile2 BUILD_TYPE=$(BUILD_TYPE) SANITIZE=$(SANITIZE) \
-	  VISIBILITY=default OPTFLAGS='$(OPTFLAGS)' _run-libmerc-drivers
+	@echo "--- libmerc end-to-end tests (multiprotocol + fdc + l7-metadata) ---"
+	@printf '$(COLOR_YELLOW)  note: forcing VISIBILITY=default for libmerc.so$(COLOR_OFF)\n'
+	$(MAKE) -f Makefile2 VISIBILITY=default _run-libmerc-test-drivers
 	@echo ""
 	@echo "--- libmerc end-to-end tests (tls-only, STATIC_CFG=tls) ---"
 	@printf '$(COLOR_YELLOW)  note: forcing VISIBILITY=default STATIC_CFG=tls for tls-only libmerc.so$(COLOR_OFF)\n'
-	$(MAKE) -f Makefile2 BUILD_TYPE=$(BUILD_TYPE) SANITIZE=$(SANITIZE) \
-	  VISIBILITY=default STATIC_CFG=tls OPTFLAGS='$(OPTFLAGS)' _run-libmerc-tls-driver
+	$(MAKE) -f Makefile2 VISIBILITY=default STATIC_CFG=tls _run-libmerc-tls-only
 	@printf '$(COLOR_GREEN)  passed all libmerc end-to-end tests$(COLOR_OFF)\n'
