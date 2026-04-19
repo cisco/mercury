@@ -30,7 +30,7 @@ VALID_BUILD_TYPES := Release Debug RelWithDebInfo MinSizeRel Coverage
 all:
 
 # --- No-config targets (must be defined before mk/rules.mk) ----------
-# Targets that don't need a configured tree or valid BUILD_TYPE.
+# Targets that work without running ./configure first.
 
 _no_config_targets := clean distclean help
 
