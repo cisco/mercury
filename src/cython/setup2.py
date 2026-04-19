@@ -28,19 +28,19 @@ from setuptools.command.build_ext import build_ext
 
 # --- Environment ------------------------------------------------------
 
-mercury_dir: str | None = os.getenv("MERCURY_DIR")
+mercury_dir = os.getenv("MERCURY_DIR")
 if not mercury_dir:
     raise SystemExit(
         "error: MERCURY_DIR environment variable must point to the mercury source root"
     )
-libmerc_a: str | None = os.getenv("LIBMERC_A")
+libmerc_a = os.getenv("LIBMERC_A")
 if not libmerc_a:
     raise SystemExit(
         "error: LIBMERC_A environment variable must point to the prebuilt libmerc.a"
     )
 
-extra_cflags: list[str] = shlex.split(os.getenv("ENV_CFLAGS", ""))
-extra_ldflags: list[str] = shlex.split(os.getenv("ENV_LDFLAGS", ""))
+extra_cflags = shlex.split(os.getenv("ENV_CFLAGS", ""))
+extra_ldflags = shlex.split(os.getenv("ENV_LDFLAGS", ""))
 
 
 # --- Custom build_ext -------------------------------------------------
@@ -56,7 +56,7 @@ class LinkAgainstStaticLib(build_ext):
             cc.linker_so[0:1] = parts
 
         compile_args = list(ext.extra_compile_args)
-        objects: list[str] = []
+        objects = []
         for src in ext.sources:
             objs = cc.compile(
                 [src],
