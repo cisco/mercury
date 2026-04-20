@@ -114,15 +114,14 @@ TACPLUS_CMD := tac_plus_authen_action.csv:authen_action \
 # --- IANA CSV-to-header generators ------------------------------------
 
 $(TABLES_DIR)/csv: $(TABLES_DIR)/csv.cc
-	$(CXX) $(CXXFLAGS) $(DEPFLAGS) -o $@ $(TABLES_DIR)/csv.cc
+	$(CXX_LINK)
 
 $(TABLES_DIR)/tls_csv: $(TABLES_DIR)/tls_extension_generator.cc
-	$(CXX) $(CXXFLAGS) $(DEPFLAGS) -o $@ $(TABLES_DIR)/tls_extension_generator.cc
+	$(CXX_LINK)
 
-# TODO: after old build system removal, replace with a single
-# wildcard include for all src/**/*.d in rules.mk.
+# These .d files live in src/ (not build/); the auto-include in rules.mk only
+# covers build/.  TODO: after old build system removal, have it cover src/ too.
 -include $(TABLES_DIR)/csv.d $(TABLES_DIR)/tls_csv.d
--include $(ASN1_DIR)/oidc.d
 
 # --- IANA registry download + header regeneration ---------------------
 
@@ -167,7 +166,9 @@ regen-oid: $(ASN1_DIR)/oidc
 	@echo '  Review: git diff src/libmerc/asn1/'
 
 $(ASN1_DIR)/oidc: $(ASN1_DIR)/oidc.cc
-	$(CXX) $(CXXFLAGS) $(DEPFLAGS) -o $@ $<
+	$(CXX_LINK)
+
+-include $(ASN1_DIR)/oidc.d
 
 # --- clean -----------------------------------------------------------
 

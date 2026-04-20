@@ -229,5 +229,11 @@ define LINK_A
 	$(call QUIET,AR,$@)$(AR) rcs $@ $^
 endef
 
+# Compile+link a single source file ($<) into a binary.
+define CXX_LINK
+	@mkdir -p $(dir $@)
+	$(call QUIET,CXX+LD,$@)$(CXX) $(CXXFLAGS) $(DEPFLAGS) $< $(LDFLAGS) $(LDLIBS) -o $@
+endef
+
 # --- Auto-dependency inclusion ----------------------------------------
 -include $(shell find $(OBJ) -name '*.d' 2>/dev/null)
