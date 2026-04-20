@@ -350,6 +350,13 @@ if [[ -z "$LIBMERC_A" ]]; then
     LIBMERC_A="$parent_path/libmerc.a"
 fi
 
+# Validate and canonicalize LIBMERC_A.
+if [[ ! -f "$LIBMERC_A" || ! -r "$LIBMERC_A" ]]; then
+    echo -e "${COLOR_RED}ERROR: LIBMERC_A '$LIBMERC_A' does not exist or is not readable${COLOR_OFF}" >&2
+    exit 1
+fi
+LIBMERC_A="$(cd "$(dirname "$LIBMERC_A")" && pwd -P)/$(basename "$LIBMERC_A")"
+
 # scan all header files to look for matching {_fuzz_test} function definitions to extract class/testcase name
 # testcase definition format : class_name_fuzz_test() or struct_name_fuzz_test()
 # To create multiple fuzz targets for same class/struct, append an identification tag like number post class/struct name eg quic_init01_fuzz_test()

@@ -135,7 +135,7 @@ if [ "$BUILDTYPE" == "deb" ]; then
     PKG_NAME="mercury${PKG_SUFFIX}"
     echo "building package: $PKG_NAME for $ID $VERSION_ID"
     fpm -s dir -t deb -n $PKG_NAME $FPM_LINUX_OPTIONS \
-        -p "$OUTPUT_DIR" \
+        -p "$OUTPUT_DIR/" \
         --depends $SSL_LIB \
         --depends zlib1g    \
         --deb-systemd ./install_mercury/mercury.service \
@@ -155,7 +155,7 @@ elif [ "$BUILDTYPE" == "rpm" ]; then
     ELX=$(echo $PLATFORM_ID | cut -f2 -d:)
 
     fpm -s dir -t rpm -n mercury $FPM_LINUX_OPTIONS \
-        -p "$OUTPUT_DIR" \
+        -p "$OUTPUT_DIR/" \
         --depends 'openssl' \
         --depends 'zlib'    \
         --rpm-dist $ELX \
