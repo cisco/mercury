@@ -29,15 +29,6 @@ _libmerc_a     := $(abspath $(LIB)/libmerc.a)
 _libdir        := $(abspath $(LIB))
 
 # ===================================================================
-# Test infrastructure
-# ===================================================================
-
-# Any rule listing FORCE as a prerequisite always re-runs its recipe.
-# Tests use this to regenerate outputs unconditionally.
-.PHONY: FORCE
-FORCE:
-
-# ===================================================================
 # Public targets
 # ===================================================================
 
