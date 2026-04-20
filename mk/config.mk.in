@@ -26,6 +26,7 @@
 CXX         = @CXX@
 CC          = @CC@
 AR          = @AR@
+STRIP       = @STRIP@
 PLATFORM    = @PLATFORM@
 IS_MACOS    = @IS_MACOS@
 HAVE_TPACKET_V3 = @HAVE_TPACKET_V3@
@@ -104,10 +105,10 @@ endif
 
 ifeq (@IS_MACOS@,yes)
   SONAME_FLAG := -Wl,-install_name,libmerc.so.0
-  STRIP_CMD   := strip -x
+  STRIP_CMD   := $(STRIP) -x
 else
   SONAME_FLAG := -Wl,-soname,libmerc.so.0
-  STRIP_CMD   := strip
+  STRIP_CMD   := $(STRIP)
 endif
 
 # --- Version and git metadata -----------------------------------------
