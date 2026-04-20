@@ -33,6 +33,9 @@
 # Remove targets whose recipe exits non-zero (prevents stale partial files).
 .DELETE_ON_ERROR:
 
+# Never auto-delete intermediate files; clean already does rm -rf build/
+.SECONDARY:
+
 # ===================================================================
 # Variables
 # ===================================================================
