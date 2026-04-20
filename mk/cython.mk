@@ -28,16 +28,6 @@ _cython_srcs := $(CYTHON_DIR)/mercury.pyx $(CYTHON_DIR)/setup2.py \
                 $(CYTHON_DIR)/pyproject.toml $(CYTHON_DIR)/_version.py \
                 $(CYTHON_DIR)/README.md $(CYTHON_DIR)/LICENSE
 
-# Filter out flags unsuitable for Cython extension builds:
-#  - -D defines with embedded quotes/spaces (VERSION_FLAGS) to avoid
-#    shell-quoting nightmares; the wrapper doesn't need them.
-#  - -fvisibility=hidden: Python < 3.9 does not annotate PyMODINIT_FUNC
-#    with visibility("default"), so the init symbol would be hidden.
-_cython_cflags = $(filter-out -DGIT_COMMIT_ID=% -DGIT_COUNT=% \
-  -DMERCURY_SEMANTIC_VERSION=% -DDEFAULT_RESOURCE_DIR=% \
-  -DSTATIC_CFG_SELECT=% \
-  -fvisibility=hidden, $(CXXFLAGS))
-
 # --- Sanitizer guard --------------------------------------------------
 #
 # Sanitizers (other than UBSan) install interceptors at process startup.
@@ -68,7 +58,7 @@ else ifeq ($(CAN_BUILD_CYTHON),yes)
 	$(Q)rm -f '$(abspath $(CYTHON_DIST))'/*.whl
 	$(call QUIET,WHEEL,$(CYTHON_DIST)/)cd '$(abspath $(CYTHON_SRC))' && \
 	  CC='$(CXX)' CXX='$(CXX)' \
-	  ENV_CFLAGS='$(_cython_cflags)' \
+	  ENV_CFLAGS='$(CXXFLAGS)' \
 	  ENV_LDFLAGS='$(LDFLAGS)' \
 	  LIBMERC_A='$(abspath $(LIB)/libmerc.a)' \
 	  MERCURY_DIR='$(abspath .)' \

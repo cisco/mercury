@@ -13,7 +13,10 @@
 #   MERCURY_DIR  -- root of the mercury source tree
 #
 # Optional:
-#   ENV_CFLAGS   -- extra compile flags (e.g. -DHAVE_XSIMD -O3)
+#   ENV_CFLAGS   -- compile flags forwarded verbatim from $(CXXFLAGS);
+#                   shlex.split() parses them so that quoted defines like
+#                   -DGIT_COMMIT_ID="..." survive word-splitting correctly.
+#                   -fvisibility=hidden is stripped (see below).
 #   ENV_LDFLAGS  -- extra linker flags
 
 from __future__ import annotations
@@ -39,7 +42,13 @@ if not libmerc_a:
         "error: LIBMERC_A environment variable must point to the prebuilt libmerc.a"
     )
 
-extra_cflags = shlex.split(os.getenv("ENV_CFLAGS", ""))
+# -fvisibility=hidden must be stripped: Python < 3.9 doesn't annotate
+# PyMODINIT_FUNC with visibility("default"), so PyInit_mercury would be
+# hidden and dlopen couldn't find the module init symbol.
+extra_cflags = [
+    f for f in shlex.split(os.getenv("ENV_CFLAGS", ""))
+    if f != "-fvisibility=hidden"
+]
 extra_ldflags = shlex.split(os.getenv("ENV_LDFLAGS", ""))
 
 
