@@ -321,7 +321,9 @@ _fuzz_a := $(abspath build/$(_fuzz_variant)/lib/libmerc.a)
 
 .PHONY: test-fuzz
 test-fuzz:
-ifeq ($(HAVE_CLANGPP),yes)
+ifeq ($(IS_MACOS),yes)
+	@printf '$(COLOR_YELLOW)  skipping fuzz test; currently requires Linux (libFuzzer runtime + /proc)$(COLOR_OFF)\n'
+else ifeq ($(HAVE_CLANGPP),yes)
 	@echo "--- fuzz tests ---"
 	@printf '$(COLOR_YELLOW)  note: forcing $(_fuzz_build_type)+clang+ASan+O1 (libFuzzer requires LLVM+ASan)$(COLOR_OFF)\n'
 	@rm -rf $(TESTDIR)/fuzz
