@@ -34,13 +34,15 @@ AC_SUBST([PLATFORM])
 case $host_os in
     darwin* )
         AC_SUBST(IS_MACOS,yes)
-        if [[ $(uname -m) == 'arm64' ]]; then
-            CFLAGS="$CFLAGS -I/opt/homebrew/include -I/opt/local/include"
-            CXXFLAGS="$CXXFLAGS -I/opt/homebrew/include -I/opt/local/include"
-            LDFLAGS="$LDFLAGS -L/opt/homebrew/lib -L/opt/local/lib"
-            AC_MSG_WARN([Configuring for Apple Silicon])
-            AC_SUBST(IS_MACOS_ARM,yes)
-        fi
+        case "$host_cpu" in
+            arm* | aarch64)
+                CFLAGS="$CFLAGS -I/opt/homebrew/include -I/opt/local/include"
+                CXXFLAGS="$CXXFLAGS -I/opt/homebrew/include -I/opt/local/include"
+                LDFLAGS="$LDFLAGS -L/opt/homebrew/lib -L/opt/local/lib"
+                AC_MSG_WARN([Configuring for Apple Silicon])
+                AC_SUBST(IS_MACOS_ARM,yes)
+                ;;
+        esac
         ;;
 
 esac
