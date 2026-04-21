@@ -99,15 +99,15 @@ void test_pcap_file(const std::string& pcap_filename, int expected_total_lines,
         INFO("  Total L7 JSON lines: " << counts.total_lines);
 
         // Log all detected protocols
-        for (const auto& [protocol, count] : counts.protocol_map) {
-            INFO("  " << protocol << ": " << count << " records");
+        for (const auto& entry : counts.protocol_map) {
+            INFO("  " << entry.first << ": " << entry.second << " records");
         }
 
         REQUIRE(counts.total_lines == expected_total_lines);
 
         // Check expected protocol counts if specified
-        for (const auto& [protocol, expected_count] : expected_protocols) {
-            REQUIRE(counts.get_count(protocol) == expected_count);
+        for (const auto& entry : expected_protocols) {
+            REQUIRE(counts.get_count(entry.first) == entry.second);
         }
 
         // Cleanup
