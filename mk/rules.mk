@@ -167,6 +167,11 @@ DEPFLAGS := -MMD -MP
 .PHONY: FORCE
 FORCE:
 
+# --- Shell-quoting helpers --------------------------------------------
+# Escape embedded single quotes so a value can be safely placed inside
+# a '...' shell string.  Example: ENV='$(call _escape_sq,$(VAR))'
+_escape_sq = $(subst ','\'',$(1))
+
 # --- Toolchain stamp (detect flag/compiler changes) -------------------
 # Records the toolchain "signature" for this variant (not cryptographic; just
 # an identifying string). If any signed variable changes between invocations,
@@ -179,7 +184,6 @@ FORCE:
 _config_mk_cksum := $(firstword $(shell cksum mk/config.mk 2>/dev/null))
 _toolchain_sig := cksum(config.mk)=$(_config_mk_cksum) CC=$(CC) CXX=$(CXX) AR=$(AR) OPTFLAGS=$(OPTFLAGS) EXTRA_LDFLAGS=$(EXTRA_LDFLAGS)
 _stamp := build/$(_variant)/.toolchain.stamp
-_escape_sq = $(subst ','\'',$(1)) # helper: escape single quotes for shell '...'
 
 $(_stamp): FORCE
 	@mkdir -p $(dir $@)

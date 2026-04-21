@@ -58,8 +58,8 @@ else ifeq ($(CAN_BUILD_CYTHON),yes)
 	$(Q)rm -f '$(abspath $(CYTHON_DIST))'/*.whl
 	$(call QUIET,WHEEL,$(CYTHON_DIST)/)cd '$(abspath $(CYTHON_SRC))' && \
 	  CC='$(CXX)' CXX='$(CXX)' \
-	  ENV_CFLAGS='$(CXXFLAGS)' \
-	  ENV_LDFLAGS='$(LDFLAGS)' \
+	  ENV_CFLAGS='$(call _escape_sq,$(CXXFLAGS))' \
+	  ENV_LDFLAGS='$(call _escape_sq,$(LDFLAGS))' \
 	  LIBMERC_A='$(abspath $(LIB)/libmerc.a)' \
 	  MERCURY_DIR='$(abspath .)' \
 	  $(PYTHON) -m pip wheel --no-build-isolation --no-deps \
