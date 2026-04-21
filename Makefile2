@@ -108,8 +108,8 @@ all: $(BIN)/mercury $(TOOL_TARGETS) $(TEST_TARGETS) $(LIBMERC_TEST_TARGETS) \
 
 .PHONY: libs
 libs:
-	$(MAKE) -f Makefile2 BUILD_TYPE=RelWithDebInfo build/RelWithDebInfo/lib/libmerc.so
-	$(MAKE) -f Makefile2 BUILD_TYPE=Debug SANITIZE=address OPTFLAGS=-O1 build/Debug+address/lib/libmerc.so
+	$(MAKE) -f Makefile2 BUILD_TYPE=RelWithDebInfo SANITIZE= VISIBILITY= STATIC_CFG= build/RelWithDebInfo/lib/libmerc.so
+	$(MAKE) -f Makefile2 BUILD_TYPE=Debug SANITIZE=address VISIBILITY= STATIC_CFG= OPTFLAGS=-O1 build/Debug+address/lib/libmerc.so
 	mkdir -p lib
 	cp build/RelWithDebInfo/lib/libmerc.so  lib/unstripped-libmerc.so
 	cp build/RelWithDebInfo/lib/libmerc.so  lib/libmerc.so
