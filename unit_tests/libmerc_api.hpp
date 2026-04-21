@@ -7,6 +7,9 @@
 /// License at https://github.com/cisco/mercury/blob/master/LICENSE
 ///
 
+#ifndef LIBMERC_API_HPP
+#define LIBMERC_API_HPP
+
 #include <dlfcn.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -125,3 +128,5 @@ struct packet_processor_state {
     packet_processor_state(unsigned int tn, struct libmerc_api *m, mercury_context c) : thread_number{tn}, mercury{m}, mc{c} {}
 
 };
+
+#endif /* LIBMERC_API_HPP */
