@@ -173,10 +173,11 @@ FORCE:
 # the stamp updates and all objects in this variant rebuild.
 #
 # Already encoded in _variant (safe):  BUILD_TYPE, SANITIZE, VISIBILITY, STATIC_CFG
-# From mk/config.mk (safe):            PLATFORM_FLAGS, CDEFS, VERSION_FLAGS
-# Signed here (invisible overrides):   CC, CXX, AR, OPTFLAGS, EXTRA_LDFLAGS
+# From mk/config.mk (cksum+signed):    PLATFORM_FLAGS, CDEFS, HAVE_XSIMD, etc.
+# Invisible overrides (signed):        CC, CXX, AR, OPTFLAGS, EXTRA_LDFLAGS
 
-_toolchain_sig := CC=$(CC) CXX=$(CXX) AR=$(AR) OPTFLAGS=$(OPTFLAGS) EXTRA_LDFLAGS=$(EXTRA_LDFLAGS)
+_config_mk_cksum := $(firstword $(shell cksum mk/config.mk 2>/dev/null))
+_toolchain_sig := cksum(config.mk)=$(_config_mk_cksum) CC=$(CC) CXX=$(CXX) AR=$(AR) OPTFLAGS=$(OPTFLAGS) EXTRA_LDFLAGS=$(EXTRA_LDFLAGS)
 _stamp := build/$(_variant)/.toolchain.stamp
 _escape_sq = $(subst ','\'',$(1)) # helper: escape single quotes for shell '...'
 
