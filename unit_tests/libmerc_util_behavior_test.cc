@@ -9,6 +9,7 @@
 /// Copyright (c) 2025 Cisco Systems, Inc. All rights reserved.
 /// License at https://github.com/cisco/mercury/blob/master/LICENSE
 ///
+#include "doctest.h"
 #include "libmerc_driver_helper.hpp"
 
 #include <fstream>

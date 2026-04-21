@@ -13,6 +13,7 @@
 /// License at https://github.com/cisco/mercury/blob/master/LICENSE
 ///
 
+#include "doctest.h"
 #include "libmerc_fixture.h"
 
 int sig_close_flag = false;

@@ -7,7 +7,9 @@
 /// License at https://github.com/cisco/mercury/blob/master/LICENSE
 ///
 
-#include "doctest.h"
+#ifndef LIBMERC_DRIVER_HELPER_HPP
+#define LIBMERC_DRIVER_HELPER_HPP
+
 #include "libmerc_api.hpp"
 
 #ifndef LIBMERC_SO_PATH
@@ -58,3 +60,5 @@ void check_global_configuraton(mercury_context &mc, libmerc_config &config);
 void *packet_processor(void *arg);
 
 /*function end*/
+
+#endif /* LIBMERC_DRIVER_HELPER_HPP */

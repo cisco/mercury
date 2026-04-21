@@ -115,7 +115,7 @@ SCENARIO("Perfect Hash. Key len = 20; Elements = 100; Lookup count = 100")
     }
 }
 
-SCENARIO("Unordered Map. Key len = 20; Elements = 100; Lookup count = 1000")
+SCENARIO("Unordered Map. Key len = 20; Elements = 100; Lookup count = 100")
 {
     prepare_data(loop_count_1, key_len_1);
 
