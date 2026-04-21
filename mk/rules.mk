@@ -186,9 +186,18 @@ _escape_sq = $(subst ','\'',$(1)) # escape single quotes for shell '...' string
 $(_stamp): FORCE
 	@mkdir -p $(dir $@)
 	@printf '%s\n' '$(call _escape_sq,$(_toolchain_sig))' > "$@.$$$$"; \
-	  if cmp -s "$@.$$$$" "$@" 2>/dev/null; then rm -f "$@.$$$$"; \
-	  else mv -f "$@.$$$$" "$@" && \
-	    printf '  %-7s %s\n' STAMP '$@ (toolchain changed)'; fi
+	  if cmp -s "$@.$$$$" "$@" 2>/dev/null; then \
+	    rm -f "$@.$$$$"; \
+	  elif [ -f "$@" ]; then \
+	    printf '  %-7s %s (toolchain changed)\n' STAMP "$@"; \
+	    printf '          was: %s\n' "$$(cat "$@")"; \
+	    printf '          now: %s\n' "$$(cat "$@.$$$$")"; \
+	    mv -f "$@.$$$$" "$@"; \
+	  else \
+	    mv -f "$@.$$$$" "$@"; \
+	    printf '  %-7s %s (new toolchain)\n' STAMP "$@"; \
+	    printf '          %s\n' "$$(cat "$@")"; \
+	  fi
 
 # --- Compilation rules (with auto-deps) -------------------------------
 $(OBJ)/%.o: %.cc $(_stamp)
