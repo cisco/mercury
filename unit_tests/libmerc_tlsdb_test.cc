@@ -1,8 +1,24 @@
+///
+/// \file libmerc_tlsdb_test.cc
+///
+/// Tests for parsing various protocols.  Originally these "TLS" tests were run
+/// with libmerc compiled with TLS-only flags, and using a resources file with
+/// TLS-only fingerprints.  This is no longer the case and this file can be
+/// combined with libmerc_dbmultiprotocol_test.
+///
+/// Note: This file does NOT define main(). It is compiled and linked with
+/// doctest_main.cc, which provides the main() entry point that runs all tests.
+///
+/// Copyright (c) 2025 Cisco Systems, Inc. All rights reserved.
+/// License at https://github.com/cisco/mercury/blob/master/LICENSE
+///
+
+#include "doctest.h"
 #include "libmerc_fixture.h"
 
 int sig_close_flag = false;
 
-TEST_CASE_METHOD(LibmercTestFixture, "processing null packet")
+TEST_CASE_FIXTURE(LibmercTestFixture, "processing null packet")
 {
     initialize();
    // check_global_configuraton();
@@ -11,7 +27,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "processing null packet")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test tcp with analysis")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test tcp with analysis")
 {
     // TODO: add for tcp_only.pcap
     libmerc_config config{.do_analysis = true, .resources = resources_minimal_path,
@@ -27,7 +43,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test tcp with analysis")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test tcp")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test tcp")
 {
     libmerc_config config{.packet_filter_cfg = (char *)"tcp"};
     initialize(config);
@@ -41,7 +57,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test tcp")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test tls client_hello filtering with analysis")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test tls client_hello filtering with analysis")
 {
     auto destination_check_callback = [](const analysis_context *ac)
     {
@@ -64,7 +80,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test tls client_hello filtering with analy
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test tls filtering with analysis")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test tls filtering with analysis")
 {
     libmerc_config config{.do_analysis = true, .resources = resources_minimal_path,
         .packet_filter_cfg = (char *)"tls"};
@@ -76,7 +92,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test tls filtering with analysis")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test http filtering with analysis")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test http filtering with analysis")
 {
     libmerc_config config{.do_analysis = true, .resources = resources_minimal_path,
         .packet_filter_cfg = (char *)"http"};
@@ -94,7 +110,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test http filtering with analysis")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test http filtering")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test http filtering")
 {
     libmerc_config config{.packet_filter_cfg = (char *)"http"};
     initialize(config);
@@ -108,7 +124,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test http filtering")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test quic filtering with analysis")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test quic filtering with analysis")
 {
     libmerc_config config{.do_analysis = true,
                           .resources = resources_minimal_path,
@@ -127,7 +143,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic filtering with analysis")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test quic filtering")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test quic filtering")
 {
     libmerc_config config{.packet_filter_cfg = (char *)"quic"};
     initialize(config);
@@ -141,7 +157,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic filtering")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test dhcp filtering with analysis")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test dhcp filtering with analysis")
 {
     libmerc_config config{.do_analysis = true,
                           .resources = resources_minimal_path,
@@ -157,7 +173,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test dhcp filtering with analysis")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test dhcp filtering")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test dhcp filtering")
 {
     libmerc_config config{.packet_filter_cfg = (char *)"dhcp"};
     initialize(config);

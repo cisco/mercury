@@ -1,3 +1,6 @@
+#ifndef LIBMERC_FIXTURE_H
+#define LIBMERC_FIXTURE_H
+
 #include "libmerc_driver_helper.hpp"
 #include "pcap.h"
 #include "packet.h"
@@ -55,3 +58,5 @@ protected:
     char * m_pcap_file_name;
     std::string m_pcap_folder_name;
 };
+
+#endif /* LIBMERC_FIXTURE_H */

@@ -1,12 +1,12 @@
-/*
- * libmerc_helper_functions.cc
- *
- * functions for using in unit tests
- *
- * Copyright (c) 2021 Cisco Systems, Inc. All rights reserved.  License at
- * https://github.com/cisco/mercury/blob/master/LICENSE
- */
-
+///
+/// \file libmerc_driver_helper.cc
+///
+/// Helper functions and test data for unit tests.
+///
+/// Copyright (c) 2025 Cisco Systems, Inc. All rights reserved.
+/// License at https://github.com/cisco/mercury/blob/master/LICENSE
+///
+#include "doctest.h"
 #include "libmerc_driver_helper.hpp"
 
 
