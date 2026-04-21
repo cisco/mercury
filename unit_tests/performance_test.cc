@@ -1,3 +1,16 @@
+///
+/// \file performance_test.cc
+///
+/// Performance benchmarks for packet analysis.
+///
+/// Note: This file does NOT define main(). It is compiled and linked with
+/// doctest_main.cc, which provides the main() entry point that runs all tests.
+///
+/// Copyright (c) 2025 Cisco Systems, Inc. All rights reserved.
+/// License at https://github.com/cisco/mercury/blob/master/LICENSE
+///
+
+#include "doctest.h"
 #include "libmerc_driver_helper.hpp"
 
 unsigned char http_get[] = {
@@ -33,8 +46,6 @@ SCENARIO("test single packet http analysis and performance") {
 
     const analysis_context* a;
 
-    // TODO: fix this code to work with catch.hpp version 2.13.8
-    //
     //    BENCHMARK("performance of 10 http context lookups")
     {
         for(size_t i = 0; i < 10; i++)

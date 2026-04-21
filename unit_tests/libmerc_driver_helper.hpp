@@ -1,11 +1,14 @@
-/*
- * libmerc_helper_functions.h
- *
- * functions for using in unit tests
- *
- * Copyright (c) 2021 Cisco Systems, Inc. All rights reserved.  License at
- * https://github.com/cisco/mercury/blob/master/LICENSE
- */
+///
+/// \file libmerc_driver_helper.hpp
+///
+/// Helper functions and external variables for unit tests.
+///
+/// Copyright (c) 2025 Cisco Systems, Inc. All rights reserved.
+/// License at https://github.com/cisco/mercury/blob/master/LICENSE
+///
+
+#ifndef LIBMERC_DRIVER_HELPER_HPP
+#define LIBMERC_DRIVER_HELPER_HPP
 
 #include "libmerc_api.hpp"
 
@@ -57,3 +60,5 @@ void check_global_configuraton(mercury_context &mc, libmerc_config &config);
 void *packet_processor(void *arg);
 
 /*function end*/
+
+#endif /* LIBMERC_DRIVER_HELPER_HPP */
