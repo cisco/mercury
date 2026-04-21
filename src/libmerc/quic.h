@@ -792,8 +792,9 @@ public:
     /// Attempt to decrypt a QUIC Initial packet.
     ///
     /// When quic_trial_decryption is false (the default), only the known
-    /// version->salt mapping is tried.  This path is thread-safe because
-    /// quic_initial_params is treated as read-only after construction.
+    /// version->salt mapping is tried.  This path is thread-safe only
+    /// when there are no concurrent trial-decryption callers mutating
+    /// the shared quic_initial_params map.
     ///
     /// When quic_trial_decryption is true, every known salt is tried in a
     /// brute-force loop.  On success the discovered mapping is cached

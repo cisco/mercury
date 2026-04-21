@@ -350,7 +350,7 @@ mercury_packet_processor mercury_packet_processor_construct(mercury_context mc) 
     }
     catch (std::exception &e) {
         if (mc && mc->global_vars.quic_trial_decryption) {
-            mc->has_trial_decryption_processor = false;
+            mc->has_trial_decryption_processor.store(false);
         }
         printf_err(log_err, "%s\n", e.what());
     }
@@ -363,8 +363,8 @@ void mercury_packet_processor_destruct(mercury_packet_processor mpp) {
             mercury_context mc = mpp->m;
             mpp->finalize();
             delete mpp;
-            if (mc && mc->has_trial_decryption_processor) {
-                mc->has_trial_decryption_processor = false;
+            if (mc && mc->has_trial_decryption_processor.load()) {
+                mc->has_trial_decryption_processor.store(false);
             }
         }
     }
