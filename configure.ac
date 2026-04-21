@@ -205,7 +205,8 @@ AC_CHECK_LIB([gmp], [__gmpz_init],
   [AC_CHECK_LIB([gmpxx], [main],
     [AC_SUBST([HAVE_GMP],[yes])],
     [AC_SUBST([HAVE_GMP],[no])
-     AC_MSG_WARN([libgmpxx not found; batch_gcd will not be built])])],
+     AC_MSG_WARN([libgmpxx not found; batch_gcd will not be built])],
+    [-lgmp])],
   [AC_SUBST([HAVE_GMP],[no])
    AC_MSG_WARN([libgmp not found; batch_gcd will not be built])])
 AC_LANG_POP([C++])

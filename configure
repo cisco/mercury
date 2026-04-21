@@ -6875,7 +6875,7 @@ then :
   printf %s "(cached) " >&6
 else case e in #(
   e) ac_check_lib_save_LIBS=$LIBS
-LIBS="-lgmpxx  $LIBS"
+LIBS="-lgmpxx -lgmp $LIBS"
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
