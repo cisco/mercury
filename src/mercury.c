@@ -24,6 +24,9 @@
 #include "config.h"
 #include "output.h"
 #include "control.h"
+#ifndef OPENSSL_LEGACY
+#include <openssl/crypto.h>  // OPENSSL_cleanup
+#endif
 
 char mercury_help[] =
     "%s [INPUT] [OUTPUT] [OPTIONS]:\n"
@@ -870,6 +873,20 @@ int main(int argc, char *argv[]) {
     }
 
     mercury_finalize(mc);
+
+    // Free OpenSSL's internally cached state so that
+    // AddressSanitizer's leak checker does not report the
+    // allocations made by CRYPTO_malloc (240 bytes on OpenSSL 3.0).
+    // Normally OpenSSL's own atexit handler frees them, but ASan
+    // runs before atexit.  Available since OpenSSL 1.1.0.
+    //
+    // This call lives here rather than in libmerc because
+    // OPENSSL_cleanup() is process-global and irreversible — a host
+    // process that dlopen's libmerc.so may still need OpenSSL after
+    // mercury_finalize() returns.
+#ifndef OPENSSL_LEGACY
+    OPENSSL_cleanup();
+#endif
 
     return 0;
 }

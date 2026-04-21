@@ -1,11 +1,14 @@
-/*
- * libmerc_api.h
- *
- * libmerc api structure and variables needed for unit tests
- *
- * Copyright (c) 2021 Cisco Systems, Inc. All rights reserved.  License at
- * https://github.com/cisco/mercury/blob/master/LICENSE
- */
+///
+/// \file libmerc_api.hpp
+///
+/// libmerc API structure and variables needed for unit tests.
+///
+/// Copyright (c) 2025 Cisco Systems, Inc. All rights reserved.
+/// License at https://github.com/cisco/mercury/blob/master/LICENSE
+///
+
+#ifndef LIBMERC_API_HPP
+#define LIBMERC_API_HPP
 
 #include <dlfcn.h>
 #include <stdlib.h>
@@ -19,7 +22,6 @@
 
 #include "libmerc.h"
 #include "pkt_proc.h"
-#include "catch.hpp"
 
 namespace snort {
 #define SO_PUBLIC
@@ -126,3 +128,5 @@ struct packet_processor_state {
     packet_processor_state(unsigned int tn, struct libmerc_api *m, mercury_context c) : thread_number{tn}, mercury{m}, mc{c} {}
 
 };
+
+#endif /* LIBMERC_API_HPP */

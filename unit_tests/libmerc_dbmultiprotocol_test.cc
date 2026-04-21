@@ -1,3 +1,15 @@
+///
+/// \file libmerc_dbmultiprotocol_test.cc
+///
+/// Tests for multi-protocol detection and analysis.
+///
+/// Note: This file does NOT define main(). It is compiled and linked with
+/// doctest_main.cc, which provides the main() entry point that runs all tests.
+///
+/// Copyright (c) 2025 Cisco Systems, Inc. All rights reserved.
+/// License at https://github.com/cisco/mercury/blob/master/LICENSE
+///
+#include "doctest.h"
 #include "libmerc_fixture.h"
 #include <iostream>
 
@@ -23,7 +35,7 @@ SCENARIO("test packet_processor_get_analysis_context with http encapsulated in P
     }
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test linux sll2")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test linux sll2")
 {
     libmerc_config config{.packet_filter_cfg = (char *)"all"};
 
@@ -35,7 +47,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test linux sll2")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test linux sll2 with analysis")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test linux sll2 with analysis")
 {
     libmerc_config config{.do_analysis = true,
                           .resources = resources_minimal_path,
@@ -49,7 +61,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test linux sll2 with analysis")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test linux sll with analysis")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test linux sll with analysis")
 {
     libmerc_config config{.do_analysis = true,
                           .resources = resources_minimal_path,
@@ -63,7 +75,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test linux sll with analysis")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test http")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test http")
 {
     auto destination_check_callback = [](const analysis_context *ac)
     {
@@ -82,7 +94,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test http")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test http with analysis")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test http with analysis")
 {
     auto destination_check_callback = [](const analysis_context *ac)
     {
@@ -106,7 +118,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test http with analysis")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test http with analysis and linktype raw")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test http with analysis and linktype raw")
 {
     auto destination_check_callback = [](const analysis_context *ac)
     {
@@ -122,7 +134,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test http with analysis and linktype raw")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test quic")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test quic")
 {
     auto destination_check_callback = [](const analysis_context *ac)
     {
@@ -147,7 +159,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test quic with analysis")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test quic with analysis")
 {
     auto destination_check_callback = [](const analysis_context *ac)
     {
@@ -171,7 +183,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic with analysis")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test quic with analysis and trial decryption")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test quic with analysis and trial decryption")
 {
     auto destination_check_callback = [](const analysis_context *ac)
     {
@@ -189,7 +201,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic with analysis and trial decrypti
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test quic with analysis and reassembly")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test quic with analysis and reassembly")
 {
     auto destination_check_callback = [](const analysis_context *ac)
     {
@@ -210,7 +222,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic with analysis and reassembly")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test SGT encapsulated TLS with analysis")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test SGT encapsulated TLS with analysis")
 {
     auto destination_check_callback = [](const analysis_context *ac)
     {
@@ -233,7 +245,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test SGT encapsulated TLS with analysis")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test tls select strings producing different output line counts")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test tls select strings producing different output line counts")
 {
     {
         libmerc_config config{.resources = resources_minimal_path,
@@ -253,7 +265,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test tls select strings producing differen
     }
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test quic with analysis and various linktypes")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test quic with analysis and various linktypes")
 {
     auto destination_check_callback = [](const analysis_context *ac)
     {
@@ -278,7 +290,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test quic with analysis and various linkty
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test smtp")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test smtp")
 {
     libmerc_config config{.packet_filter_cfg = (char *)"smtp"};
     initialize(config);
@@ -292,7 +304,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test smtp")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test smtp with dns json output")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test smtp with dns json output")
 {
     libmerc_config config{.dns_json_output = true,
                           .do_analysis = true,
@@ -306,7 +318,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test smtp with dns json output")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test dns with analysis")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test dns with analysis")
 {
     auto dns_output_check = [&]() {
         bool dns_output_provided = strstr(m_output, "base64") ? false : true;
@@ -332,7 +344,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test dns with analysis")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test dns with analysis and json output")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test dns with analysis and json output")
 {
     auto dns_output_check = [&]() {
         bool dns_output_provided = strstr(m_output, "base64") ? false : true;
@@ -353,7 +365,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test dns with analysis and json output")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test mdns with analysis")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test mdns with analysis")
 {
     auto dns_output_check = [&]() {
         bool dns_output_provided = strstr(m_output, "base64") ? false : true;
@@ -373,7 +385,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test mdns with analysis")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test smb with analysis")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test smb with analysis")
 {
     libmerc_config config{.do_analysis = true,
                           .resources = resources_minimal_path,
@@ -389,7 +401,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test smb with analysis")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test iec with analysis")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test iec with analysis")
 {
     libmerc_config config{.do_analysis = true,
                           .resources = resources_minimal_path,
@@ -405,7 +417,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test iec with analysis")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test dnp3 with analysis")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test dnp3 with analysis")
 {
     libmerc_config config{.do_analysis = true,
                           .resources = resources_minimal_path,
@@ -421,7 +433,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test dnp3 with analysis")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test ftp")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test ftp")
 {
     libmerc_config config{.packet_filter_cfg = (char *)"ftp"};
     initialize(config);
@@ -438,7 +450,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ftp")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test redis")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test redis")
 {
     libmerc_config config{.packet_filter_cfg = (char *)"redis"};
     initialize(config);
@@ -452,7 +464,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test redis")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test imap")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test imap")
 {
     libmerc_config config{.packet_filter_cfg = (char *)"imap"};
     initialize(config);
@@ -469,7 +481,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test imap")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test attribute detection with analysis")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test attribute detection with analysis")
 {
     auto attribute_check_callback = [](size_t attr_count, size_t expected_attr_count)
     {
@@ -501,7 +513,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test attribute detection with analysis")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test network behavioral detection attributes")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test network behavioral detection attributes")
 {
     auto check_callback = [](size_t attr_count, size_t expected_attr_count)
     {
@@ -521,7 +533,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test network behavioral detection attribut
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test exposed_creds attribute")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test exposed_creds attribute")
 {
     libmerc_config config{.packet_filter_cfg = (char *)"all;exposed-creds"};
     initialize(config);
@@ -556,7 +568,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test exposed_creds attribute")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test exposed_creds with write_json and analysis off")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test exposed_creds with write_json and analysis off")
 {
     set_pcap("http_auth.pcap");
 
@@ -593,7 +605,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test exposed_creds with write_json and ana
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test exposed_creds with analyze_ip_packet and analysis off")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test exposed_creds with analyze_ip_packet and analysis off")
 {
     set_pcap("http_auth.pcap");
 
@@ -622,7 +634,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test exposed_creds with analyze_ip_packet 
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "server ssh skips analysis but still fingerprints")
+TEST_CASE_FIXTURE(LibmercTestFixture, "server ssh skips analysis but still fingerprints")
 {
     libmerc_config config{.do_analysis = true,
                           .resources = resources_minimal_path,
@@ -676,7 +688,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "server ssh skips analysis but still finger
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "tls server skips analysis context but still fingerprints")
+TEST_CASE_FIXTURE(LibmercTestFixture, "tls server skips analysis context but still fingerprints")
 {
     libmerc_config config{.do_analysis = true,
                           .resources = resources_minimal_path,
@@ -730,7 +742,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "tls server skips analysis context but stil
 }
 
 
-TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment attributes")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test crypto_assessment attributes")
 {
     libmerc_config config{.packet_filter_cfg = (char *)"all;crypto-assess=default"};
     initialize(config);
@@ -760,7 +772,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment attributes")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment quantum_safe compliance")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test crypto_assessment quantum_safe compliance")
 {
     libmerc_config config{.packet_filter_cfg = (char *)"all;crypto-assess=quantum_safe"};
     initialize(config);
@@ -772,7 +784,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test crypto_assessment quantum_safe compli
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test nbss")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test nbss")
 {
     libmerc_config config{.packet_filter_cfg = (char *)"nbss"};
     initialize(config);
@@ -783,7 +795,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test nbss")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test openvpn tcp")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test openvpn tcp")
 {
     libmerc_config config{.packet_filter_cfg = (char *)"openvpn_tcp"};
     initialize(config);
@@ -797,7 +809,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test openvpn tcp")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test bittorrent")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test bittorrent")
 {
     libmerc_config config{.packet_filter_cfg = (char *)"bittorrent"};
     initialize(config);
@@ -811,7 +823,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test bittorrent")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test mysql")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test mysql")
 {
     libmerc_config config{.packet_filter_cfg = (char *)"mysql"};
     initialize(config);
@@ -825,7 +837,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test mysql")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test socks")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test socks")
 {
     libmerc_config config{.packet_filter_cfg = (char *)"socks"};
     initialize(config);
@@ -839,7 +851,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test socks")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "geneve encapsulated IPv4 and Ethernet")
+TEST_CASE_FIXTURE(LibmercTestFixture, "geneve encapsulated IPv4 and Ethernet")
 {
     {
         libmerc_config config{.packet_filter_cfg = (char *)"tls"};
@@ -857,7 +869,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "geneve encapsulated IPv4 and Ethernet")
     }
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test stun with analysis")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test stun with analysis")
 {
     libmerc_config config{.do_analysis = true,
                           .resources = resources_minimal_path,
@@ -876,7 +888,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test stun with analysis")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test ssh fingerprinting with reassembly")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test ssh fingerprinting with reassembly")
 {
     libmerc_config config{.do_analysis = true,
                           .resources = resources_minimal_path,
@@ -891,7 +903,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ssh fingerprinting with reassembly")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test ssh direction selector 'ssh'")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test ssh direction selector 'ssh'")
 {
     libmerc_config config{.resources = resources_minimal_path,
                           .packet_filter_cfg = (char *)"ssh"};
@@ -909,7 +921,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ssh direction selector 'ssh'")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test ssh direction selector 'ssh.client'")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test ssh direction selector 'ssh.client'")
 {
     libmerc_config config{.resources = resources_minimal_path,
                           .packet_filter_cfg = (char *)"ssh.client"};
@@ -927,7 +939,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ssh direction selector 'ssh.client'")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test ssh direction selector 'ssh.server'")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test ssh direction selector 'ssh.server'")
 {
     libmerc_config config{.resources = resources_minimal_path,
                           .packet_filter_cfg = (char *)"ssh.server"};
@@ -945,7 +957,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ssh direction selector 'ssh.server'")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test ssh direction selector 'ssh.client,ssh.server'")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test ssh direction selector 'ssh.client,ssh.server'")
 {
     libmerc_config config{.resources = resources_minimal_path,
                           .packet_filter_cfg = (char *)"ssh.client,ssh.server"};
@@ -963,7 +975,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ssh direction selector 'ssh.client,ss
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test ssh_init fingerprinting")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test ssh_init fingerprinting")
 {
     libmerc_config config{.do_analysis = true,
                           .resources = resources_minimal_path,
@@ -978,7 +990,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ssh_init fingerprinting")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test ssh_kex fingerprinting")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test ssh_kex fingerprinting")
 {
     libmerc_config config{.do_analysis = true,
                           .resources = resources_minimal_path,
@@ -993,7 +1005,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "test ssh_kex fingerprinting")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "GRE encapsulation without gre filter")
+TEST_CASE_FIXTURE(LibmercTestFixture, "GRE encapsulation without gre filter")
 {
     libmerc_config config{.packet_filter_cfg = (char *)"icmp"};
     initialize(config);
@@ -1004,7 +1016,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "GRE encapsulation without gre filter")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "GRE encapsulation with gre filter")
+TEST_CASE_FIXTURE(LibmercTestFixture, "GRE encapsulation with gre filter")
 {
     libmerc_config config{.packet_filter_cfg = (char *)"gre,icmp"};
     initialize(config);
@@ -1015,7 +1027,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "GRE encapsulation with gre filter")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "IP encapsulation")
+TEST_CASE_FIXTURE(LibmercTestFixture, "IP encapsulation")
 {
     libmerc_config config{.do_analysis = true,
                           .resources = resources_minimal_path};
@@ -1027,7 +1039,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "IP encapsulation")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "VXLAN without vxlan filter")
+TEST_CASE_FIXTURE(LibmercTestFixture, "VXLAN without vxlan filter")
 {
     libmerc_config config{.packet_filter_cfg = (char *)"icmp"};
     initialize(config);
@@ -1038,7 +1050,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "VXLAN without vxlan filter")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "VXLAN with vxlan filter")
+TEST_CASE_FIXTURE(LibmercTestFixture, "VXLAN with vxlan filter")
 {
     libmerc_config config{.packet_filter_cfg = (char *)"vxlan,icmp"};
     initialize(config);
@@ -1049,7 +1061,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "VXLAN with vxlan filter")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "double VLAN tagged PPPoE")
+TEST_CASE_FIXTURE(LibmercTestFixture, "double VLAN tagged PPPoE")
 {
     libmerc_config config{.packet_filter_cfg = (char *)"http"};
     initialize(config);
@@ -1060,7 +1072,7 @@ TEST_CASE_METHOD(LibmercTestFixture, "double VLAN tagged PPPoE")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test raw-features write_json output for tls")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test raw-features write_json output for tls")
 {
     // Stable prefix of the "features" value in JSON output for
     // tls_client_hello_test_packet.pcap when raw-features=tls is enabled.

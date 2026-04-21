@@ -18,11 +18,17 @@
 #include "libmerc/libmerc.h"
 
 char *command_get_argument(const char *command, char *line) {
-    if (strncmp(command, line, strlen(command)-1) == 0) {
-        char *arg = line + strlen(command);
-        size_t arg_len = strlen(arg) - 1;
-        if (arg[arg_len] == '\n')  {
-            arg[arg_len] = 0;  /* null terminate arg string */
+    size_t cmd_len = strlen(command);
+    if (strncmp(command, line, cmd_len) == 0) {
+        char *arg = line + cmd_len;
+        size_t arg_len = strlen(arg);
+        if (arg_len > 0 && arg[arg_len - 1] == '\n') {
+            arg[arg_len - 1] = 0;  /* strip trailing newline */
+        }
+        // For flag-only commands (without '='), reject trailing characters
+        bool command_expects_argument = (cmd_len > 0 && command[cmd_len - 1] == '=');
+        if (!command_expects_argument && arg[0] != '\0') {
+            return NULL;
         }
         return arg;
     }

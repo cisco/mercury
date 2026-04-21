@@ -1,3 +1,13 @@
+///
+/// \file libmerc_fixture.cc
+///
+/// Implementation of LibmercTestFixture for unit tests.
+///
+/// Copyright (c) 2025 Cisco Systems, Inc. All rights reserved.
+/// License at https://github.com/cisco/mercury/blob/master/LICENSE
+///
+
+#include "doctest.h"
 #include "libmerc_fixture.h"
 
 
