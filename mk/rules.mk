@@ -157,19 +157,6 @@ objects = $(call _src_to_obj,$(1))
 # --- Auto-dependency flags --------------------------------------------
 DEPFLAGS := -MMD -MP
 
-# --- Toolchain stamp (detect flag/compiler changes) -------------------
-# Records the toolchain "signature" (identifying string, not
-# cryptographic) for this variant.  If any tracked variable changes
-# between invocations, the stamp updates and all objects in this
-# variant rebuild.
-#
-# Already encoded in _variant (safe):  BUILD_TYPE, SANITIZE, VISIBILITY, STATIC_CFG
-# From mk/config.mk (safe):            PLATFORM_FLAGS, CDEFS, VERSION_FLAGS
-# Signed here (invisible overrides):   CC, CXX, AR, OPTFLAGS, EXTRA_LDFLAGS
-
-_toolchain_sig := CC=$(CC) CXX=$(CXX) AR=$(AR) OPTFLAGS=$(OPTFLAGS) EXTRA_LDFLAGS=$(EXTRA_LDFLAGS)
-_stamp := build/$(_variant)/.toolchain.stamp
-
 # ===================================================================
 # Rules and canned recipes
 # ===================================================================
@@ -179,10 +166,19 @@ _stamp := build/$(_variant)/.toolchain.stamp
 .PHONY: FORCE
 FORCE:
 
-# --- Toolchain stamp rule ---------------------------------------------
-_escape_sq = $(subst ','\'',$(1)) # escape single quotes for shell '...' string
+# --- Toolchain stamp (detect flag/compiler changes) -------------------
+# Records the toolchain "signature" for this variant (not cryptographic; just
+# an identifying string). If any signed variable changes between invocations,
+# the stamp updates and all objects in this variant rebuild.
+#
+# Already encoded in _variant (safe):  BUILD_TYPE, SANITIZE, VISIBILITY, STATIC_CFG
+# From mk/config.mk (safe):            PLATFORM_FLAGS, CDEFS, VERSION_FLAGS
+# Signed here (invisible overrides):   CC, CXX, AR, OPTFLAGS, EXTRA_LDFLAGS
 
-# Updates the stamp only when the signature changes; objects depend on it.
+_toolchain_sig := CC=$(CC) CXX=$(CXX) AR=$(AR) OPTFLAGS=$(OPTFLAGS) EXTRA_LDFLAGS=$(EXTRA_LDFLAGS)
+_stamp := build/$(_variant)/.toolchain.stamp
+_escape_sq = $(subst ','\'',$(1)) # helper: escape single quotes for shell '...'
+
 $(_stamp): FORCE
 	@mkdir -p $(dir $@)
 	@printf '%s\n' '$(call _escape_sq,$(_toolchain_sig))' > "$@.$$$$"; \
