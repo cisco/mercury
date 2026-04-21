@@ -540,7 +540,7 @@ test-coverage-fuzz:
 
 # --- libmerc_test (legacy compile check) ------------------------------
 # C tool that exercises libmerc.so interactively; superseded by the
-# Catch2 drivers but retained as a compile-time check for the C API.
+# test-libmerc drivers but retained as a compile-time check for the C API.
 # Not run by any test target (cf. 'make test-libmerc').
 
 $(OBJ)/src/libmerc_test.o: src/libmerc_test.c

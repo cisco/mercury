@@ -55,7 +55,7 @@ endif
 _drv_dir := unit_tests
 
 _DRV_BASE := \
-  $(_drv_dir)/catch2main.cc \
+  $(_drv_dir)/doctest_main.cc \
   $(_drv_dir)/libmerc_driver_helper.cc \
   $(_drv_dir)/libmerc_fixture.cc
 
