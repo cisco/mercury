@@ -65,7 +65,7 @@ else ifeq ($(CAN_BUILD_CYTHON),yes)
 	  $(PYTHON) -m pip wheel --no-build-isolation --no-deps \
 	    -w '$(abspath $(CYTHON_DIST))' . \
 	  $(if $(filter 0,$(V)),> /dev/null)
-	# extract .so from wheel (using Python zipfile; not all CI images have unzip)
+	@# extract .so from wheel (using Python zipfile; not all CI images have unzip)
 	$(Q)$(PYTHON) -c "import zipfile, glob; \
 	  whl = glob.glob('$(abspath $(CYTHON_DIST))/*.whl')[0]; \
 	  z = zipfile.ZipFile(whl); \
