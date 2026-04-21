@@ -72,7 +72,7 @@ else ifeq ($(CAN_BUILD_CYTHON),yes)
 	  [z.extract(n, '$(abspath $(CYTHON_LIB))') for n in z.namelist() if n.endswith('.so')]"
 	$(Q)touch '$@'
 else
-	@echo "skipping cython build (missing Cython/wheel/setuptools)"
+	@printf '$(COLOR_YELLOW)  skipping cython build (missing Cython/wheel/setuptools)$(COLOR_OFF)\n'
 endif
 
 test-cython: $(_cython_stamp)
