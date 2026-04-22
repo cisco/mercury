@@ -246,12 +246,27 @@ _run-libmerc-test-drivers: _run-libmerc-multiprotocol \
 # those headers instantiate templates with unresolved symbols that would require
 # linking libmerc.a.  We force -O2 so the build works regardless of
 # the variant's optimization level.
+#
+# The objects are placed in a private subdirectory (_libmerc_util_obj/) so the
+# -O2 override does not collide with the shared pcap_file_io.o used by mercury,
+# which must honour the variant's own optimization level.
+
+_UTIL_OBJ := $(OBJ)/_libmerc_util_obj
+
+$(_UTIL_OBJ)/%.o: %.cc $(_stamp)
+	@mkdir -p $(dir $@)
+	$(call QUIET,CXX,$@)$(CXX) $(CXXFLAGS) $(DEPFLAGS) -c $< -o $@
+
+$(_UTIL_OBJ)/%.o: %.c $(_stamp)
+	@mkdir -p $(dir $@)
+	$(call QUIET,CXX,$@)$(CXX) $(CXXFLAGS) $(DEPFLAGS) -c $< -o $@
 
 $(BIN)/libmerc_util: CXXFLAGS += -UNDEBUG -O2
 $(BIN)/libmerc_util: LDLIBS := $(_DRV_LDLIBS)
-$(BIN)/libmerc_util: $(call objects,src/libmerc_util.cc src/pcap_file_io.c)
+$(BIN)/libmerc_util: $(_UTIL_OBJ)/src/libmerc_util.o $(_UTIL_OBJ)/src/pcap_file_io.o
 	@printf '$(COLOR_YELLOW)  note: forcing -O2 for libmerc_util (link workaround)$(COLOR_OFF)\n'
 	$(LINK)
+
 
 # --- Driver targets ---------------------------------------------------
 # Drivers link and dlopen the variant's libmerc.so, which must be built with
