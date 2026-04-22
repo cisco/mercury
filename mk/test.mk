@@ -1,8 +1,9 @@
 # mk/test.mk -- test execution and the unit_test binary
 #
 # Included by Makefile2.  Defines .PHONY targets for every test suite
-# except test-libmerc (see test_libmerc.mk).  Also builds unit_test
-# and libmerc_test as part of 'make all' via TEST_TARGETS.
+# except test-libmerc (see test_libmerc.mk) and test-cython (see
+# cython.mk).  Also builds unit_test and libmerc_test as part of
+# 'make all' via TEST_TARGETS.
 #
 # When to edit:
 #   - Adding a new test: define a .PHONY target (test-foo), write the
