@@ -1778,7 +1778,7 @@ inline const char *quic_trial_decrypt_get_salt(const uint8_t *data, size_t len) 
         return nullptr;
     }
     datum d{data, data + len};
-    quic_crypto_engine crypto{true};  // enable trial decryption
+    static quic_crypto_engine crypto{true};  // enable trial decryption
     quic_initial_packet pkt{d};
     if (!pkt.is_not_empty()) {
         return nullptr;
