@@ -183,6 +183,24 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test quic with analysis")
     deinitialize();
 }
 
+TEST_CASE_FIXTURE(LibmercTestFixture, "test quic with analysis and trial decryption")
+{
+    auto destination_check_callback = [](const analysis_context *ac)
+    {
+        CHECK(analysis_context_get_fingerprint_type(ac) == fingerprint_type_quic);
+    };
+
+    libmerc_config config{.do_analysis = true,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"quic;quic-trial-decryption"};
+    initialize(config);
+
+    set_pcap("quic_v2.pcap");
+    CHECK(11 == counter(fingerprint_type_quic, destination_check_callback));
+
+    deinitialize();
+}
+
 TEST_CASE_FIXTURE(LibmercTestFixture, "test quic with analysis and reassembly")
 {
     auto destination_check_callback = [](const analysis_context *ac)

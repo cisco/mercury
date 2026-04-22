@@ -15,6 +15,7 @@
 #endif
 #include <stdexcept>
 #include <memory>
+#include <atomic>
 #include "tcp.h"
 #include "flow_key.h"
 #include "analysis.h"
@@ -57,6 +58,7 @@ struct mercury {
     struct common_data attribute_common_data;
     classifier *c;
     class traffic_selector selector;
+    std::atomic<bool> has_trial_decryption_processor{false};
 
     mercury(const struct libmerc_config *vars, int verbosity) :
                 global_vars{*vars},
@@ -151,7 +153,7 @@ struct stateful_pkt_proc {
         ag{nullptr},
         global_vars{mc->global_vars},
         selector{mc->selector},
-        quic_crypto{},
+        quic_crypto{global_vars.quic_trial_decryption},
         reassembler_ptr{(global_vars.reassembly) ? (new tcp_reassembler(global_vars.minimize_ram)) : nullptr},
         exposed_creds{global_vars.exposed_creds}
     {

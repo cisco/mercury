@@ -288,6 +288,8 @@ cdef class Mercury:
     :type dns_json_output: bool
     :param certs_json_output: When processing certificates, return a JSON representation as opposed to Base64 Representation (default=`True`).
     :type certs_json_output: bool
+    :param quic_trial_decryption: Try all known QUIC initial salts/parameter sets for unknown versions (default=`False`).
+    :type quic_trial_decryption: bool
     """
     cdef mercury* mercury_context
     cdef stateful_pkt_proc* mpp
@@ -299,7 +301,7 @@ cdef class Mercury:
 
     def __init__(self, bool do_analysis=False, bytes resources=b'', bool output_tcp_initial_data=False, bool output_udp_initial_data=False,
                  bytes packet_filter_cfg=b'all', bool metadata_output=True, bool dns_json_output=True, bool certs_json_output=True,
-                 bool network_behavioral_detections=False):
+                 bool network_behavioral_detections=False, bool quic_trial_decryption=False):
         self.do_analysis = do_analysis
         self.py_config = {
             'output_tcp_initial_data': output_tcp_initial_data,
@@ -313,6 +315,8 @@ cdef class Mercury:
         }
         if network_behavioral_detections:
             self.py_config['packet_filter_cfg'] += b';network-behavioral-detections'
+        if quic_trial_decryption:
+            self.py_config['packet_filter_cfg'] += b';quic-trial-decryption'
         self.default_ts.tv_sec = 0
         self.default_ts.tv_nsec = 0
 
@@ -1027,3 +1031,62 @@ def parse_ech_config(str b64_ech_config):
     ech_obj = ECHConfig(ech_config)
 
     return ech_obj.get_json_string()
+
+
+cdef extern from "../libmerc/quic.h":
+    const char *quic_trial_decrypt_get_salt(const uint8_t *data, size_t len)
+
+
+cdef _quic_get_salt_impl(bytes pkt_bytes):
+    cdef const unsigned char* pkt_ptr = pkt_bytes
+    cdef size_t pkt_len = len(pkt_bytes)
+    cdef const char* salt = quic_trial_decrypt_get_salt(<const uint8_t*>pkt_ptr, pkt_len)
+    if salt != NULL:
+        return salt.decode('utf-8')
+    return None
+
+
+def quic_get_salt_from_bytes(bytes raw_packet):
+    """
+    Attempt trial decryption on raw QUIC Initial packet bytes and return
+    the salt name that successfully decrypted it.
+
+    :param raw_packet: Raw QUIC packet bytes (UDP payload)
+    :type raw_packet: bytes
+    :return: salt name string if decryption succeeded, None otherwise
+    :rtype: str or None
+    """
+    return _quic_get_salt_impl(raw_packet)
+
+
+def quic_get_salt(dict quic_data):
+    """
+    Attempt trial decryption on a QUIC Initial packet and return the salt
+    name that successfully decrypted it.
+
+    Only Initial packets (Long Header type 0) are supported. Other packet
+    types (0-RTT, Handshake, Retry) will return None.
+
+    IMPORTANT: The 'raw_packet_data' field containing the original packet bytes is
+    required.
+
+    :param quic_data: QUIC Initial packet data as a dictionary with 'raw_packet_data' field
+    :type quic_data: dict
+    :return: salt name string if decryption succeeded, None if failed or not an Initial packet
+    :rtype: str or None
+    :raises ValueError: If 'raw_packet_data' field is missing or empty
+
+    WARNING: This function is NOT thread-safe. Only use in single-threaded contexts.
+    """
+    raw_hex = quic_data.get('raw_packet_data', '')
+    if not raw_hex:
+        raise ValueError("'raw_packet_data' field with original packet bytes is required")
+    if not isinstance(raw_hex, str):
+        raise ValueError(f"'raw_packet_data' must be a string, got {type(raw_hex).__name__}")
+
+    try:
+        raw_packet = bytes.fromhex(raw_hex)
+    except (ValueError, TypeError) as e:
+        raise ValueError(f"Invalid hex string in 'raw_packet_data': {e}")
+
+    return _quic_get_salt_impl(raw_packet)

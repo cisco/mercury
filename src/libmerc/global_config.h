@@ -135,6 +135,7 @@ public:
     bool network_behavioral_detections = false; /* perform network behavioral detections */
     fingerprint_format fp_format;    // default fingerprint format
     bool minimize_ram = false;
+    bool quic_trial_decryption = false; /* trial decrypt QUIC initial packets */
     bool exposed_creds = false;      /* detect and report exposed credentials in enabled plaintext protocols */
 
     global_config() : libmerc_config(), reassembly{false}, network_behavioral_detections{false} {};
@@ -351,6 +352,7 @@ static void setup_extended_fields(global_config* lc, const std::string& config) 
         {"format", "", "", SETTER_FUNCTION(&lc){ lc->fp_format.set_fingerprint_format(s); }},
         {"tcp-reassembly", "", "", SETTER_FUNCTION(&lc){ lc->reassembly = true; }},
         {"reassembly", "", "", SETTER_FUNCTION(&lc){ lc->reassembly = true; }},
+        {"quic-trial-decryption", "", "", SETTER_FUNCTION(&lc){ lc->quic_trial_decryption = true; }},
         {"stats-blocking", "", "", SETTER_FUNCTION(&lc){ lc->stats_blocking = true; }},
         {"raw-features", "", "", SETTER_FUNCTION(&lc){ lc->set_raw_features(s); }},
         {"crypto-assess", "", "", SETTER_FUNCTION(&lc){ lc->set_crypto_assess(s); }},

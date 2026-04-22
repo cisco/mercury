@@ -412,12 +412,15 @@ struct quic_initial_packet {
     bool valid;
     const uint8_t *aad_start = nullptr;
     const uint8_t *aad_end = nullptr;
+    struct datum raw_packet;  // full packet for raw_packet_data output
 
-    quic_initial_packet(struct datum &d) : connection_info{0}, dcid{}, scid{}, token{}, payload{}, valid{false} {
+    quic_initial_packet(struct datum &d) : connection_info{0}, dcid{}, scid{}, token{}, payload{}, valid{false}, raw_packet{} {
         parse(d);
     }
 
     void parse(struct datum &d) {
+
+        raw_packet = d;
 
         // additional authenticated data (aad) is used in authenticated decryption
         //
@@ -536,8 +539,6 @@ struct quic_initial_packet {
         json_quic.print_key_hex("dcid", dcid);
         json_quic.print_key_hex("scid", scid);
         json_quic.print_key_hex("token", token);
-        json_quic.print_key_hex("data", payload);
-
     }
 
     constexpr static mask_and_value<8> matcher = {
@@ -783,23 +784,26 @@ class quic_crypto_engine {
     int16_t plaintext_len = 0;
 
     const char *salt_str = nullptr;
+    bool quic_trial_decryption = false;
 
 public:
 
+    explicit quic_crypto_engine(bool quic_trial_decryption=false) : quic_trial_decryption{quic_trial_decryption} {}
     /// Attempt to decrypt a QUIC Initial packet.
     ///
-    /// When trial_decryption is false (the default), only the known
-    /// version->salt mapping is tried.  This path is thread-safe because
-    /// quic_initial_params is treated as read-only after construction.
+    /// When quic_trial_decryption is false (the default), only the known
+    /// version->salt mapping is tried.  This path is thread-safe only
+    /// when there are no concurrent trial-decryption callers mutating
+    /// the shared quic_initial_params map.
     ///
-    /// When trial_decryption is true, every known salt is tried in a
+    /// When quic_trial_decryption is true, every known salt is tried in a
     /// brute-force loop.  On success the discovered mapping is cached
     /// via add_param_mapping(), which writes to the shared
     /// quic_initial_params map.  This is NOT thread-safe and must
     /// only be used in single-threaded contexts (e.g., cython offline
     /// analysis).
     ///
-    datum decrypt(quic_initial_packet &quic_pkt, bool trial_decryption = false) {
+    datum decrypt(quic_initial_packet &quic_pkt) {
         if (!quic_pkt.is_not_empty()) {
             return {nullptr, nullptr};
         }
@@ -838,15 +842,30 @@ public:
                 salt_str = initial_salt->get_name();
                 if (process_initial_packet(aad, quic_pkt, initial_salt->data(), client_in_label, quic_key_label, quic_iv_label, quic_hp_label,
                                             client_in_label_size, quic_key_label_size, quic_iv_label_size, quic_hp_label_size) == false) {
-                    return {nullptr, nullptr};
+                    if (!quic_trial_decryption) {
+                        return {nullptr, nullptr};
+                    }
+                    aad.reset();
+                    // fall through to trial decryption
                 }
-                decrypt__(aad.buffer, aad.readable_length(),
-                      quic_pkt.payload.data, quic_pkt.payload.length());
-                return {plaintext, plaintext+plaintext_len};
+                else {
+                    decrypt__(aad.buffer, aad.readable_length(),
+                          quic_pkt.payload.data, quic_pkt.payload.length());
+                    if (plaintext_len) {
+                        return {plaintext, plaintext+plaintext_len};
+                    }
+                    // decryption failed, fall through to trial decryption if enabled
+                    if (!quic_trial_decryption) {
+                        return {plaintext, plaintext+plaintext_len};
+                    }
+                    aad.reset();
+                }
             }
-            return {nullptr, nullptr};
+            else if (!quic_trial_decryption) {
+                return {nullptr, nullptr};
+            }
         }
-        else if (trial_decryption) {
+        if (quic_trial_decryption) {
             // try every salt to decrypt, most likely a version negotiation pkt
             for (const auto &params_kv : quic_params.get_params_map()) {
                 const std::tuple<quic_parameters::salt_enum, quic_parameters::init_pkt_mask_enum, quic_parameters::hkdf_label_enum> param = params_kv.second;
@@ -862,6 +881,7 @@ public:
                 if (process_initial_packet(aad, quic_pkt, initial_salt->data(), client_in_label, quic_key_label, quic_iv_label, quic_hp_label,
                                         client_in_label_size, quic_key_label_size, quic_iv_label_size, quic_hp_label_size) == false) {
                     reset_buffers();
+                    aad.reset();
                     continue;
                 }
                 decrypt__(aad.buffer, aad.readable_length(),
@@ -870,7 +890,7 @@ public:
                 if (plaintext_len) {
                     salt_str = initial_salt->get_name();
                     // WARNING: not thread-safe.  This write is only
-                    // reachable when trial_decryption is true, so
+                    // reachable when quic_trial_decryption is true, so
                     // callers must ensure single-threaded execution.
                     quic_params.add_param_mapping(version, param);
                     return {plaintext, plaintext+plaintext_len};
@@ -884,6 +904,10 @@ public:
 
     void write_json(struct json_object &record) {
         record.print_key_string("salt_string", salt_str);
+    }
+
+    const char *get_salt_str() const {
+        return salt_str;
     }
 
 private:
@@ -1421,8 +1445,9 @@ public:
             cc.write_json(quic_record);
         }
         if (plaintext.is_not_empty()) {
-            //quic_crypto.write_json(quic_record);
             quic_record.print_key_hex("plaintext", plaintext);
+        } else {
+            quic_record.print_key_hex("raw_packet_data", initial_packet.raw_packet);
         }
         quic_record.close();
     }
@@ -1651,6 +1676,8 @@ public:
         if (plaintext.is_not_empty()) {
             quic_crypto.write_json(quic_record);
             quic_record.print_key_hex("plaintext", plaintext);
+        } else {
+            quic_record.print_key_hex("raw_packet_data", initial_packet.raw_packet);
         }
         // json_object frame_dump{record, "frame_dump"};
         // datum plaintext_copy = plaintext;
@@ -1735,5 +1762,33 @@ namespace {
     }
 
 }; //end of namespace
+
+/// Attempt trial decryption on raw QUIC Initial packet bytes and return
+/// the salt name that successfully decrypted the packet.
+///
+/// @param data pointer to raw QUIC Initial packet bytes (starting from connection_info byte)
+/// @param len  length of the packet data
+/// @return     salt name string if decryption succeeded, nullptr otherwise
+///
+/// WARNING: This function is NOT thread-safe because it mutates the
+/// process-wide quic_parameters singleton on successful decryption.
+/// Only use in single-threaded contexts.
+///
+inline const char *quic_trial_decrypt_get_salt(const uint8_t *data, size_t len) {
+    if (data == nullptr || len == 0) {
+        return nullptr;
+    }
+    datum d{data, data + len};
+    static quic_crypto_engine crypto{true};  // enable trial decryption
+    quic_initial_packet pkt{d};
+    if (!pkt.is_not_empty()) {
+        return nullptr;
+    }
+    datum plaintext = crypto.decrypt(pkt);
+    if (plaintext.is_not_empty()) {
+        return crypto.get_salt_str();
+    }
+    return nullptr;
+}
 
 #endif /* QUIC_H */
