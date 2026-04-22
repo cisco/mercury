@@ -9,6 +9,10 @@
 #   - Adding a new capture backend: add the source files under the
 #     appropriate HAVE_* platform guard.
 
+# ===================================================================
+# Variables
+# ===================================================================
+
 MERCURY_SRCS := \
   src/mercury.c \
   src/config.cpp \
@@ -26,13 +30,24 @@ else
   MERCURY_SRCS += src/capture.c src/signal_handling_stub.c
 endif
 
+# ===================================================================
+# Public targets
+# ===================================================================
+
+.PHONY: mercury
+mercury: $(BIN)/mercury
+
+.PHONY: setcap
+setcap: $(BIN)/mercury
+	sudo setcap cap_net_raw,cap_net_admin,cap_dac_override+eip $<
+
+# ===================================================================
+# Build rules
+# ===================================================================
+
 $(BIN)/mercury: LDLIBS := -pthread $(PCAP_LIBS) -lz -lcrypto
 $(BIN)/mercury: $(call objects,$(MERCURY_SRCS)) $(LIB)/libmerc.a
 	$(LINK)
 ifneq ($(IS_MACOS),yes)
 	@printf '$(COLOR_GREEN)  for live capture: sudo setcap cap_net_raw,cap_net_admin,cap_dac_override+eip %s$(COLOR_OFF)\n' $@
 endif
-
-.PHONY: setcap
-setcap: $(BIN)/mercury
-	sudo setcap cap_net_raw,cap_net_admin,cap_dac_override+eip $<

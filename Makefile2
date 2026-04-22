@@ -177,6 +177,8 @@ help:
 	@echo ''
 	@echo '  Primary:'
 	@echo '    all                  [default] mercury, libmerc, tools, test binaries, cython'
+	@echo '    mercury              standalone packet-processing executable'
+	@echo '    libmerc              libmerc.a and libmerc.so libraries'
 	@echo '    libs                 libmerc.so, unstripped-libmerc.so, debug-libmerc.so'
 	@echo '    cython               mercury-python extension (.so + .whl)'
 	@echo ''
