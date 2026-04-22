@@ -241,11 +241,11 @@ _run-libmerc-test-drivers: _run-libmerc-multiprotocol \
 # primarily used for FDC (Full Data Capture) testing.  Exercised as
 # a subprocess by libmerc_util_behavior_test below.
 #
-# Tech debt: libmerc_util #includes internal libmerc headers for its --fdc code
-# path (eth.h, ip.h, tcpip.h, udp.h, and transitively l7m.hpp).  On GCC at -O0,
-# those headers instantiate templates with unresolved symbols that would require
-# linking libmerc.a.  We force -O2 so the build works regardless of
-# the variant's optimization level.
+# Tech debt: pcap_file_io.c #includes pkt_processing.h, which transitively
+# pulls in internal libmerc headers (http.h, global_config.h, smb2.h,
+# asn1/oid.h).  On GCC at -O0, those headers instantiate templates with
+# unresolved symbols that would require linking libmerc.a.  We force -O2
+# so the build works regardless of the variant's optimization level.
 #
 # The objects are placed in a private subdirectory (_libmerc_util_obj/) so the
 # -O2 override does not collide with the shared pcap_file_io.o used by mercury,
