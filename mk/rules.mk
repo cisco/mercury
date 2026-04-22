@@ -217,28 +217,56 @@ $(OBJ)/%.o: %.cpp $(_toolchain_stamp)
 # Each link target sets its own LDLIBS via a target-specific variable,
 # then invokes one of these.  CXXFLAGS is passed intentionally — see
 # [compile+link] annotations in the base flags section above.
-#
-# Example:
-#   $(BIN)/foo: LDLIBS := -lcrypto -lz
-#   $(BIN)/foo: $(objects)
-#   	$(LINK)
 
+# Link an executable from object files.
+#
+#   $(BIN)/foo: LDLIBS := -lcrypto -lz
+#   $(BIN)/foo: $(objects) libbar.a
+#   	$(LINK)
+#
 define LINK
 	@mkdir -p $(dir $@)
 	$(call QUIET,LINK,$@)$(CXX) $(CXXFLAGS) $^ $(LDFLAGS) $(LDLIBS) -o $@
 endef
 
-define LINK_SO
-	@mkdir -p $(dir $@)
-	$(call QUIET,LINK,$@)$(CXX) $(CXXFLAGS) -shared -fPIC $(SONAME_FLAG) $^ $(LDFLAGS) $(LDLIBS) -o $@
-endef
-
+# Create a static archive from object files.
+#
+#   $(LIB)/libfoo.a: $(objects)
+#   	$(LINK_A)
+#
 define LINK_A
 	@mkdir -p $(dir $@)
 	$(call QUIET,AR,$@)$(AR) rcs $@ $^
 endef
 
-# Compile+link a single source file ($<) into a binary.
+# Link a shared library, embed a soname, and create the .N symlink.
+# _soname_flag (from config.mk) supplies the platform-appropriate
+# linker flag; SONAME_MAJOR (default 0) can be overridden per-target:
+#
+#   $(LIB)/foo.so: SONAME_MAJOR := 2   # override if needed
+#   $(LIB)/foo.so: LDLIBS := -lz -lcrypto
+#   $(LIB)/foo.so: $(objects)
+#   	$(LINK_SO)
+#
+# Example soname for libmerc.so (SONAME_MAJOR=0):
+#   macOS:  -Wl,-install_name,libmerc.so.0
+#   Linux:  -Wl,-soname,libmerc.so.0
+#
+define LINK_SO
+	@mkdir -p $(dir $@)
+	$(call QUIET,LINK,$@)$(CXX) $(CXXFLAGS) -shared -fPIC $(_soname_flag) $^ $(LDFLAGS) $(LDLIBS) -o $@
+	@ln -sf $(notdir $@) $(dir $@)$(notdir $@).$(SONAME_MAJOR)
+endef
+
+# Compile and link a single source file ($<) into a binary.
+# Only for simple single-file utilities.  Note: DEPFLAGS places a .d file
+# alongside the output executable (e.g., in $(BIN)/), unlike the pattern rules,
+# which put .d files alongside the output object file (e.g., under $(OBJ)/).
+#
+#   $(BIN)/foo: LDLIBS :=
+#   $(BIN)/foo: src/foo.cc
+#   	$(CXX_LINK)
+#
 define CXX_LINK
 	@mkdir -p $(dir $@)
 	$(call QUIET,CXX+LD,$@)$(CXX) $(CXXFLAGS) $(DEPFLAGS) $< $(LDFLAGS) $(LDLIBS) -o $@

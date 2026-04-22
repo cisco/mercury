@@ -14,7 +14,7 @@
 #
 # This auto-detects CC (aarch64-linux-gnu-gcc), CXX (aarch64-linux-gnu-g++),
 # and AR (aarch64-linux-gnu-ar), and sets PLATFORM=arm (from $host_cpu).  All
-# downstream flags (SIMD source selection, SONAME_FLAG, etc.) follow
+# downstream flags (SIMD source selection, soname, etc.) follow
 # automatically.
 #
 # Optional overrides — useful for vendor-specific toolchains:
@@ -102,12 +102,17 @@ else
 endif
 
 # --- Platform-conditional link settings -------------------------------
+#
+# _soname_flag is recursively expanded (=) so that $(notdir $@) and
+# $(SONAME_MAJOR) resolve at recipe time inside LINK_SO (rules.mk).
+
+SONAME_MAJOR := 0
 
 ifeq (@IS_MACOS@,yes)
-  SONAME_FLAG := -Wl,-install_name,libmerc.so.0
+  _soname_flag = -Wl,-install_name,$(notdir $@).$(SONAME_MAJOR)
   STRIP_CMD   := $(STRIP) -x
 else
-  SONAME_FLAG := -Wl,-soname,libmerc.so.0
+  _soname_flag = -Wl,-soname,$(notdir $@).$(SONAME_MAJOR)
   STRIP_CMD   := $(STRIP)
 endif
 

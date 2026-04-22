@@ -65,16 +65,9 @@ $(LIB)/libmerc.a: $(call objects,$(LIBMERC_SRCS))
 $(LIB)/libmerc.so: LDLIBS := -lz -lcrypto
 $(LIB)/libmerc.so: $(call objects,$(LIBMERC_SRCS))
 	$(LINK_SO)
-	@ln -sf libmerc.so $(LIB)/libmerc.so.0
 
 # libmerc_alt.so: same objects, different soname.  Used by the
 # double-bind test (loading two libmerc .so files simultaneously).
 $(LIB)/libmerc_alt.so: LDLIBS := -lz -lcrypto
 $(LIB)/libmerc_alt.so: $(call objects,$(LIBMERC_SRCS))
-	@mkdir -p $(dir $@)
-ifeq ($(IS_MACOS),yes)
-	$(call QUIET,LINK,$@)$(CXX) $(CXXFLAGS) -shared -fPIC -Wl,-install_name,libmerc_alt.so.0 $^ $(LDFLAGS) $(LDLIBS) -o $@
-else
-	$(call QUIET,LINK,$@)$(CXX) $(CXXFLAGS) -shared -fPIC -Wl,-soname,libmerc_alt.so.0 $^ $(LDFLAGS) $(LDLIBS) -o $@
-endif
-	@ln -sf libmerc_alt.so $(LIB)/libmerc_alt.so.0
+	$(LINK_SO)
