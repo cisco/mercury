@@ -845,6 +845,7 @@ public:
                     if (!quic_trial_decryption) {
                         return {nullptr, nullptr};
                     }
+                    aad.reset();
                     // fall through to trial decryption
                 }
                 else {
