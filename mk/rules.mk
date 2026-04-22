@@ -5,8 +5,6 @@
 # other mk/ file.
 #
 # When to edit:
-#   - Adding a new BUILD_TYPE (e.g., MinSizeRel): add FLAGS_<type>
-#     and update the Variant flags section in Makefile2 'make help'.
 #   - Changing warning/hardening flags: edit BASE_FLAGS.
 #   - Adding a new variant axis (like SANITIZE, VISIBILITY): add the
 #     toggle block and append to _variant.
@@ -19,7 +17,7 @@
 #   $(DEPFLAGS)                        -- -MMD -MP for auto-dependency tracking
 #   $(BIN), $(LIB), $(OBJ), $(TESTDIR) -- variant output directories
 #   $(call objects,SRCS)               -- maps source paths to .o paths
-#   LINK, LINK_SO, LINK_A              -- canned recipes for link steps
+#   LINK, LINK_SO, LINK_A, CXX_LINK    -- canned recipes for link steps
 #   Pattern rules for .c/.cc/.cpp -> .o with $(DEPFLAGS) dependency tracking
 #
 # Quiet / verbose output (a la Linux Kbuild):

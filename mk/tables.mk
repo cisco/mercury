@@ -14,8 +14,8 @@
 #   - Adding a new IANA registry: add the CSV filename to the
 #     appropriate *_CSV variable and add a name:enum_type entry to
 #     the corresponding *_CMD variable.
-#   - Adding a new .asn1 file: place it in src/libmerc/asn1/ and
-#     run 'make -f Makefile2 regen-oid'.
+#   - Adding a new .asn1 file: just place it in src/libmerc/asn1/
+#     (auto-discovered by wildcard) and run 'make -f Makefile2 regen-oid'.
 #   - Adding a new top-level target: update the Tables section in
 #     Makefile2 'make help'.
 #

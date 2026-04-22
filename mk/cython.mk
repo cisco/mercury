@@ -6,7 +6,6 @@
 #
 # When to edit:
 #   - Cython source or packaging files change: update _cython_srcs.
-#   - Build flags need filtering: update _cython_cflags.
 #
 # Source files are copied to a per-variant build tree so that (a) the
 # source directory stays clean, and (b) parallel builds for different
