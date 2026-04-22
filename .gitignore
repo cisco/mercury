@@ -34,3 +34,5 @@ src/libmerc/.depend
 src/libmerc/lctrie/.d/
 src/libmerc/lctrie/*.a
 src/libmerc/*.a
+*.d
+*.dSYM/
