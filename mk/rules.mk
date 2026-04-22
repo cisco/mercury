@@ -183,9 +183,9 @@ _escape_sq = $(subst ','\'',$(1))
 
 _config_mk_cksum := $(firstword $(shell cksum mk/config.mk 2>/dev/null))
 _toolchain_sig := cksum(config.mk)=$(_config_mk_cksum) CC=$(CC) CXX=$(CXX) AR=$(AR) OPTFLAGS=$(OPTFLAGS) EXTRA_LDFLAGS=$(EXTRA_LDFLAGS)
-_stamp := build/$(_variant)/.toolchain.stamp
+_toolchain_stamp := build/$(_variant)/.toolchain.stamp
 
-$(_stamp): FORCE
+$(_toolchain_stamp): FORCE
 	@mkdir -p $(dir $@)
 	@printf '%s\n' '$(call _escape_sq,$(_toolchain_sig))' > "$@.$$$$"; \
 	  if cmp -s "$@.$$$$" "$@" 2>/dev/null; then \
@@ -202,16 +202,16 @@ $(_stamp): FORCE
 	  fi
 
 # --- Compilation rules (with auto-deps) -------------------------------
-$(OBJ)/%.o: %.cc $(_stamp)
+$(OBJ)/%.o: %.cc $(_toolchain_stamp)
 	@mkdir -p $(dir $@)
 	$(call QUIET,CXX,$@)$(CXX) $(CXXFLAGS) $(DEPFLAGS) -c $< -o $@
 
 # Many .c files include C++ headers; compile as C++ intentionally.
-$(OBJ)/%.o: %.c $(_stamp)
+$(OBJ)/%.o: %.c $(_toolchain_stamp)
 	@mkdir -p $(dir $@)
 	$(call QUIET,CXX,$@)$(CXX) $(CXXFLAGS) $(DEPFLAGS) -c $< -o $@
 
-$(OBJ)/%.o: %.cpp $(_stamp)
+$(OBJ)/%.o: %.cpp $(_toolchain_stamp)
 	@mkdir -p $(dir $@)
 	$(call QUIET,CXX,$@)$(CXX) $(CXXFLAGS) $(DEPFLAGS) -c $< -o $@
 

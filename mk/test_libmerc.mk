@@ -253,11 +253,11 @@ _run-libmerc-test-drivers: _run-libmerc-multiprotocol \
 
 _UTIL_OBJ := $(OBJ)/_libmerc_util_obj
 
-$(_UTIL_OBJ)/%.o: %.cc $(_stamp)
+$(_UTIL_OBJ)/%.o: %.cc $(_toolchain_stamp)
 	@mkdir -p $(dir $@)
 	$(call QUIET,CXX,$@)$(CXX) $(CXXFLAGS) $(DEPFLAGS) -c $< -o $@
 
-$(_UTIL_OBJ)/%.o: %.c $(_stamp)
+$(_UTIL_OBJ)/%.o: %.c $(_toolchain_stamp)
 	@mkdir -p $(dir $@)
 	$(call QUIET,CXX,$@)$(CXX) $(CXXFLAGS) $(DEPFLAGS) -c $< -o $@
 

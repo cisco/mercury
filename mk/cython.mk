@@ -41,13 +41,14 @@ _skip_cython := $(if $(filter-out undefined,$(subst $(comma), ,$(SANITIZE))),yes
 
 .PHONY: cython test-cython
 
-_cython_stamp := $(CYTHON_BUILD)/.stamp
+_cython_stamp := $(CYTHON_BUILD)/.cythonbuild.stamp
 
 cython: $(_cython_stamp)
 
-$(_cython_stamp): $(LIB)/libmerc.a $(_cython_srcs)
+$(_cython_stamp): $(LIB)/libmerc.a $(_cython_srcs) $(_toolchain_stamp)
 ifeq ($(_skip_cython),yes)
 	@printf '$(COLOR_YELLOW)  skipping cython build (incompatible sanitizer)$(COLOR_OFF)\n'
+	@mkdir -p $(dir $@) && touch '$@'
 else ifeq ($(CAN_BUILD_CYTHON),yes)
 	$(Q)mkdir -p '$(abspath $(CYTHON_SRC))' '$(abspath $(CYTHON_LIB))' \
 	             '$(abspath $(CYTHON_DIST))'
@@ -73,6 +74,7 @@ else ifeq ($(CAN_BUILD_CYTHON),yes)
 	$(Q)touch '$@'
 else
 	@printf '$(COLOR_YELLOW)  skipping cython build (missing Cython/wheel/setuptools)$(COLOR_OFF)\n'
+	@mkdir -p $(dir $@) && touch '$@'
 endif
 
 test-cython: $(_cython_stamp)
