@@ -135,7 +135,7 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test quic filtering with analysis")
     CHECK(0 == counter(fingerprint_type_quic));
 
     set_pcap("quic-crypto-packets.pcap");
-    CHECK(0 == counter(fingerprint_type_quic));
+    CHECK(670 == counter(fingerprint_type_quic));
 
     set_pcap("http_request.capture2.pcap");
     CHECK(0 == counter(fingerprint_type_quic));
@@ -149,7 +149,7 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test quic filtering")
     initialize(config);
 
     set_pcap("quic_init.capture2.pcap");
-    CHECK(0 == counter(fingerprint_type_quic));
+    CHECK(1 == counter(fingerprint_type_quic));
 
     set_pcap("mdns_capture.pcap");
     CHECK(0 == counter(fingerprint_type_quic));

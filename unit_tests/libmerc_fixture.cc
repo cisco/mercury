@@ -112,7 +112,7 @@ int LibmercTestFixture::counter()
         if (read_next_data_packet())
             break;
 
-        auto json = mercury_packet_processor_write_json(m_mpp, m_output, 4096,
+        auto json = mercury_packet_processor_write_json(m_mpp, m_output, sizeof(m_output),
                                                         (unsigned char *)m_data_packet.first,
                                                         m_data_packet.second - m_data_packet.first,
                                                         &m_time);
@@ -210,7 +210,7 @@ int LibmercTestFixture::counter(uint16_t linktype)
             break;
         }
 
-        auto json = mercury_packet_processor_write_json_linktype(m_mpp, m_output, 4096, (unsigned char *)m_data_packet.first, m_data_packet.second - m_data_packet.first, &m_time, linktype);
+        auto json = mercury_packet_processor_write_json_linktype(m_mpp, m_output, sizeof(m_output), (unsigned char *)m_data_packet.first, m_data_packet.second - m_data_packet.first, &m_time, linktype);
 
         if (json > 0)
         {

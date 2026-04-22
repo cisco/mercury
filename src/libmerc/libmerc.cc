@@ -335,10 +335,23 @@ mercury_packet_processor mercury_packet_processor_construct(mercury_context mc) 
             printf_err(log_err, "error: mercury context is null\n");
             return NULL;
         }
+
+        // enforce single-instance restriction when quic trial decryption is enabled;
+        if (mc->global_vars.quic_trial_decryption) {
+            bool expected = false;
+            if (!mc->has_trial_decryption_processor.compare_exchange_strong(expected, true)) {
+                printf_err(log_err, "error: quic-trial-decryption cannot be used with multiple packet processor instances\n");
+                return NULL;  // failed to acquire, never set the flag
+            }
+        }
+
         stateful_pkt_proc *tmp = new stateful_pkt_proc{mc, 0};
         return tmp;
     }
     catch (std::exception &e) {
+        if (mc && mc->global_vars.quic_trial_decryption) {
+            mc->has_trial_decryption_processor.store(false);
+        }
         printf_err(log_err, "%s\n", e.what());
     }
     return NULL;
@@ -347,8 +360,12 @@ mercury_packet_processor mercury_packet_processor_construct(mercury_context mc) 
 void mercury_packet_processor_destruct(mercury_packet_processor mpp) {
     try {
         if (mpp) {
+            mercury_context mc = mpp->m;
             mpp->finalize();
             delete mpp;
+            if (mc && mc->has_trial_decryption_processor.load()) {
+                mc->has_trial_decryption_processor.store(false);
+            }
         }
     }
     catch (std::exception &e) {

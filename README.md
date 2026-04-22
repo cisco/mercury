@@ -154,6 +154,7 @@ GENERAL OPTIONS
    --minimize-ram                        # minimize the ram usage of mercury library
    --crypto-assess[=policy]              # perform cryptographic security assessment
    --exposed-creds                       # detect exposed credentials in enabled protocols
+   --quic-trial-decryption               # try all known QUIC initial salts for unknown versions
    [-v or --verbose]                     # additional information sent to stderr
    --license                             # write license information to stdout
    --version                             # write version information to stdout
