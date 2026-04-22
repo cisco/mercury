@@ -51,10 +51,8 @@ ifeq ($(_skip_cython),yes)
 else ifeq ($(CAN_BUILD_CYTHON),yes)
 	$(Q)mkdir -p '$(abspath $(CYTHON_SRC))' '$(abspath $(CYTHON_LIB))' \
 	             '$(abspath $(CYTHON_DIST))'
-	$(Q)cp $(CYTHON_DIR)/mercury.pyx  $(CYTHON_DIR)/pyproject.toml \
-	       $(CYTHON_DIR)/_version.py  $(CYTHON_DIR)/README.md \
-	       $(CYTHON_DIR)/LICENSE       '$(abspath $(CYTHON_SRC))/'
-	$(Q)cp $(CYTHON_DIR)/setup2.py    '$(abspath $(CYTHON_SRC))/setup.py'
+	$(Q)cp $(_cython_srcs) '$(abspath $(CYTHON_SRC))/'
+	$(Q)cd '$(abspath $(CYTHON_SRC))' && mv setup2.py setup.py
 	$(Q)rm -f '$(abspath $(CYTHON_DIST))'/*.whl
 	$(call QUIET,WHEEL,$(CYTHON_DIST)/)cd '$(abspath $(CYTHON_SRC))' && \
 	  CC='$(CXX)' CXX='$(CXX)' \
