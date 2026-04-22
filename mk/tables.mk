@@ -141,19 +141,24 @@ download-tables:
 .PHONY: regen-tables regen-tables-offline
 regen-tables: download-tables regen-tables-offline
 
+# Relative path from $(TABLES_DIR) to $(TABLES_OUTDIR), used by
+# outfile= so the csv generators derive sane include-guard names
+# (basename only, not an absolute path).
+_tables_relout := ../libmerc
+
 regen-tables-offline: $(TABLES_DIR)/csv $(TABLES_DIR)/tls_csv
-	cd $(TABLES_DIR) && ./csv outfile=$(abspath $(TABLES_OUTDIR))/ikev2_params.h \
-	  verbose=true dir=source $(IKEV2_CMD)
-	cd $(TABLES_DIR) && ./csv outfile=$(abspath $(TABLES_OUTDIR))/stun_params.h \
-	  verbose=true dir=source $(STUN_CMD)
-	cd $(TABLES_DIR) && ./tls_csv outfile=$(abspath $(TABLES_OUTDIR))/tls_extensions.h \
-	  verbose=true dir=source $(TLS_CMD)
-	cd $(TABLES_DIR) && ./csv outfile=$(abspath $(TABLES_OUTDIR))/hpke_params.h \
-	  verbose=true dir=source $(HPKE_CMD)
-	cd $(TABLES_DIR) && ./csv outfile=$(abspath $(TABLES_OUTDIR))/tacacs_plus_params.hpp \
-	  verbose=true dir=local $(TACPLUS_CMD)
-	cd $(TABLES_DIR) && ./csv outfile=$(abspath $(TABLES_OUTDIR))/krb5_params.hpp \
-	  verbose=true dir=source $(KRB5_CMD)
+	cd $(TABLES_DIR) && ./csv outfile=ikev2_params.h \
+	  verbose=true dir=source $(IKEV2_CMD) && mv ikev2_params.h $(_tables_relout)/
+	cd $(TABLES_DIR) && ./csv outfile=stun_params.h \
+	  verbose=true dir=source $(STUN_CMD) && mv stun_params.h $(_tables_relout)/
+	cd $(TABLES_DIR) && ./tls_csv outfile=tls_extensions.h \
+	  verbose=true dir=source $(TLS_CMD) && mv tls_extensions.h $(_tables_relout)/
+	cd $(TABLES_DIR) && ./csv outfile=hpke_params.h \
+	  verbose=true dir=source $(HPKE_CMD) && mv hpke_params.h $(_tables_relout)/
+	cd $(TABLES_DIR) && ./csv outfile=tacacs_plus_params.hpp \
+	  verbose=true dir=local $(TACPLUS_CMD) && mv tacacs_plus_params.hpp $(_tables_relout)/
+	cd $(TABLES_DIR) && ./csv outfile=krb5_params.hpp \
+	  verbose=true dir=source $(KRB5_CMD) && mv krb5_params.hpp $(_tables_relout)/
 	@printf '$(COLOR_GREEN)  regenerated all IANA table headers in src/libmerc/$(COLOR_OFF)\n'
 
 # --- ASN.1 OID regeneration --------------------------------------------
