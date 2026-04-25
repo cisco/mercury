@@ -86,15 +86,20 @@ endif
 # nspr4/gnutls deps on most hosts), so this target exists for
 # completeness and will fail at the dependency step until that is fixed.
 #
-# FIXME: chmod o+w makes interceptdir world-writable, and the .so is
-# installed into libdir rather than interceptdir.  Both are inherited
-# from the old Makefile.  Preserving existing behavior for now since
-# intercept.so can't be built or tested; revisit when it is.
+# interceptdir is a runtime output directory where intercept.so writes
+# intercept.json in file mode (the default).  The hard-coded default
+# in intercept.cc is /usr/local/var/intercept/; ideally it should be
+# replaced with a -D define at build time so ./configure flows through.
+#
+# FIXME: the directory needs to be writable by intercepted processes,
+# but chmod o+w is a security vulnerability (symlink attacks, spoofing).
+# The proper fix is to make daemon mode (via intercept_server) the
+# default, so only the server needs write access.  Disabled for now.
 
 .PHONY: install-intercept
 install-intercept: $(LIB)/intercept.so
 	mkdir -p $(DESTDIR)$(interceptdir)
-	chmod o+w $(DESTDIR)$(interceptdir)
+	@# chmod o+w $(DESTDIR)$(interceptdir)  # security vulnerability; see comment above
 	mkdir -p $(DESTDIR)$(libdir)
 	$(INSTALL) $(LIB)/intercept.so $(DESTDIR)$(libdir)
 	@echo "install complete; run 'export LD_PRELOAD=$(libdir)/intercept.so' to perform interception"

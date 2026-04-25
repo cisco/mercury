@@ -60,7 +60,7 @@ exec_prefix = @exec_prefix@
 bindir      = @bindir@
 libdir      = @libdir@
 datarootdir = @datarootdir@/mercury
-interceptdir = @datarootdir@/intercept
+interceptdir = @localstatedir@/intercept
 localstatedir = @localstatedir@/mercury
 
 # --- Platform-conditional flags ---------------------------------------
