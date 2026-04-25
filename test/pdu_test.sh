@@ -10,11 +10,18 @@ COLOR_YELLOW="\033[0;33m"
 COLOR_OFF="\033[0m"
 
 VERIFIER=${VERIFIER:-../unit_tests/pdu_verifier}
-# Allow callers (e.g. Makefile2 out-of-source builds) to override
-# LD_LIBRARY_PATH; fall back to the in-tree libmerc location.
-export LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-../src/libmerc/}
 
-echo $LD_LIBRARY_PATH
+# Set the platform-specific dynamic library search path so the
+# dynamically linked pdu_verifier can find libmerc.so at runtime.
+# Callers (e.g. Makefile2) pass LIBMERC_DIR; fall back to the
+# in-tree libmerc location for manual runs.
+LIBMERC_DIR=${LIBMERC_DIR:-../src/libmerc/}
+case "$(uname)" in
+    Darwin) export DYLD_LIBRARY_PATH="${LIBMERC_DIR}${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" ;;
+    *)      export LD_LIBRARY_PATH="${LIBMERC_DIR}${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ;;
+esac
+
+echo "LIBMERC_DIR=$LIBMERC_DIR"
 
 # check to make sure that we have the executable, library, and
 # directory (set through environment variable) that we need

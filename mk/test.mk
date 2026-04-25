@@ -339,8 +339,9 @@ endif
 
 # --- PDU verifier (test-pdu) -------------------------------------------
 #
-# Builds pdu_verifier (links against libmerc.so via dlopen) and runs it
-# on PCAP files in PCAP_DIR.  Requires PCAP_DIR to be set.
+# Builds pdu_verifier dynamically linked against libmerc.so to exercise
+# the shared library build, and runs it on PCAP files in the directory
+# specified by PCAP_DIR (required).
 #
 # Note: pdu_verifier.cc has pre-existing source errors (uses removed
 # packet<65536> template, pcap type mismatches) and will not compile
@@ -363,7 +364,7 @@ ifeq ($(PCAP_DIR),)
 	@false
 else
 	@echo "--- PDU verification tests ---"
-	@LD_LIBRARY_PATH=$(_libdir) VERIFIER=$(_pdu_verifier) PCAP_DIR=$(PCAP_DIR) \
+	@LIBMERC_DIR=$(_libdir) VERIFIER=$(_pdu_verifier) PCAP_DIR=$(PCAP_DIR) \
 	  test/pdu_test.sh
 	@printf '$(COLOR_GREEN)  passed PDU verification tests$(COLOR_OFF)\n'
 endif
