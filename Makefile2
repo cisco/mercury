@@ -88,7 +88,7 @@ endif # ifeq (needs configured tree)
 
 # --- Default target (full dependency list) ----------------------------
 
-all: $(BIN)/mercury $(TOOL_TARGETS) $(TEST_TARGETS) $(LIBMERC_TEST_TARGETS) \
+all: $(BIN)/mercury $(TOOL_TARGETS) $(TEST_TARGETS) \
      $(LIB)/libmerc.a $(LIB)/libmerc.so \
      cython
 
@@ -189,14 +189,15 @@ help:
 	@echo '    cbor                 CBOR encoder/decoder'
 	@echo '    cert_analyze         X.509 certificate analysis'
 	@echo '    certtools            cert_analyze, tls_scanner, batch_gcd'
-	@echo '    classify             Protocol classifier using libmerc'
+	@echo '    classify             Protocol classifier using libmerc.a'
 	@echo '    cms                  CMS/PKCS#7 parser'
 	@echo '    decode               Hex/binary decoder'
 	@echo '    intercept            intercept_server + intercept.so'
 	@echo '    intercept_server     TLS interception server'
+	@echo '    libmerc_util         PCAP analysis tool using libmerc.so'
 	@echo '    os_identifier        OS identification'
 	@echo '    pcap                 PCAP file reader and packet dumper'
-	@echo '    pcap_filter          PCAP filtering using libmerc'
+	@echo '    pcap_filter          PCAP filtering using libmerc.a'
 	@echo '    string               String utilities'
 	@echo '    tls_scanner          TLS scanner (Linux only)'
 	@echo ''

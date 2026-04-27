@@ -35,12 +35,6 @@
 # Variables
 # ===================================================================
 
-# --- Targets built by 'make all' -------------------------------------
-# Only libmerc_util can be built in the default variant; the libmerc.so
-# test drivers require VISIBILITY=default (a different variant).
-
-LIBMERC_TEST_TARGETS := $(BIN)/libmerc_util
-
 # --- Library path env var (macOS vs Linux) ----------------------------
 
 ifeq ($(IS_MACOS),yes)
@@ -235,38 +229,6 @@ _run-libmerc-test-drivers: _run-libmerc-multiprotocol \
 # ===================================================================
 # Build rules
 # ===================================================================
-
-# --- libmerc_util -----------------------------------------------------
-# Command-line tool that dlopen()s libmerc.so and processes PCAPs;
-# primarily used for FDC (Full Data Capture) testing.  Exercised as
-# a subprocess by libmerc_util_behavior_test below.
-#
-# Tech debt: pcap_file_io.c #includes pkt_processing.h, which transitively
-# pulls in internal libmerc headers (http.h, global_config.h, smb2.h,
-# asn1/oid.h).  On GCC at -O0, those headers instantiate templates with
-# unresolved symbols that would require linking libmerc.a.  We force -O2
-# so the build works regardless of the variant's optimization level.
-#
-# The objects are placed in a private subdirectory (_libmerc_util_obj/) so the
-# -O2 override does not collide with the shared pcap_file_io.o used by mercury,
-# which must honour the variant's own optimization level.
-
-_UTIL_OBJ := $(OBJ)/_libmerc_util_obj
-
-$(_UTIL_OBJ)/%.o: %.cc $(_toolchain_stamp)
-	@mkdir -p $(dir $@)
-	$(call QUIET,CXX,$@)$(CXX) $(CXXFLAGS) $(DEPFLAGS) -c $< -o $@
-
-$(_UTIL_OBJ)/%.o: %.c $(_toolchain_stamp)
-	@mkdir -p $(dir $@)
-	$(call QUIET,CXX,$@)$(CXX) $(CXXFLAGS) $(DEPFLAGS) -c $< -o $@
-
-$(BIN)/libmerc_util: CXXFLAGS += -UNDEBUG -O2
-$(BIN)/libmerc_util: LDLIBS := $(_DRV_LDLIBS)
-$(BIN)/libmerc_util: $(_UTIL_OBJ)/src/libmerc_util.o $(_UTIL_OBJ)/src/pcap_file_io.o
-	@printf '$(COLOR_YELLOW)  note: forcing -O2 for libmerc_util (link workaround)$(COLOR_OFF)\n'
-	$(LINK)
-
 
 # --- Driver targets ---------------------------------------------------
 # Drivers link and dlopen the variant's libmerc.so, which must be built with

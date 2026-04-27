@@ -1,7 +1,7 @@
 // libmerc_util.cc
 //
-// a wrapper around libmerc.so that processes pcap files and can be
-// used for testing and debugging that library
+// a PCAP analysis tool using libmerc.so (via dlopen), useful for
+// testing and debugging that library
 //
 // compile as:
 //

@@ -19,6 +19,7 @@ TOOL_TARGETS := \
   $(BIN)/cms \
   $(BIN)/decode \
   $(BIN)/intercept_server \
+  $(BIN)/libmerc_util \
   $(BIN)/os_identifier \
   $(BIN)/pcap \
   $(BIN)/pcap_filter \
@@ -78,7 +79,7 @@ $(BIN)/cert_analyze: LDLIBS := -pthread -lcrypto
 $(BIN)/cert_analyze: $(call objects,src/cert_analyze.cc src/libmerc/asn1/oid.cc)
 	$(LINK)
 
-# classify — protocol classifier using libmerc
+# classify — protocol classifier using libmerc.a
 $(BIN)/classify: LDLIBS := -lcrypto -lz
 $(BIN)/classify: $(call objects,src/classify.cpp) $(LIB)/libmerc.a
 	$(LINK)
@@ -110,6 +111,34 @@ $(LIB)/intercept.so: $(LIB)/libmerc.a
 	  -fPIC -shared $(LIB)/libmerc.a \
 	  $(LDFLAGS) -lssl -lnspr4 -lgnutls -o $@
 
+# libmerc_util — PCAP analysis tool using libmerc.so (via dlopen)
+#
+# Tech debt: pcap_file_io.c #includes pkt_processing.h, which transitively
+# pulls in internal libmerc headers (http.h, global_config.h, smb2.h,
+# asn1/oid.h).  On GCC at -O0, those headers instantiate templates with
+# unresolved symbols that would require linking libmerc.a.  We force -O2
+# so the build works regardless of the variant's optimization level.
+#
+# The objects are placed in a private subdirectory (_libmerc_util_obj/) so the
+# -O2 override does not collide with the shared pcap_file_io.o used by mercury,
+# which must honour the variant's own optimization level.
+
+_UTIL_OBJ := $(OBJ)/_libmerc_util_obj
+
+$(_UTIL_OBJ)/%.o: %.cc $(_toolchain_stamp)
+	@mkdir -p $(dir $@)
+	$(call QUIET,CXX,$@)$(CXX) $(CXXFLAGS) $(DEPFLAGS) -c $< -o $@
+
+$(_UTIL_OBJ)/%.o: %.c $(_toolchain_stamp)
+	@mkdir -p $(dir $@)
+	$(call QUIET,CXX,$@)$(CXX) $(CXXFLAGS) $(DEPFLAGS) -c $< -o $@
+
+$(BIN)/libmerc_util: CXXFLAGS += -UNDEBUG -O2
+$(BIN)/libmerc_util: LDLIBS := -pthread -lcrypto -ldl -lz
+$(BIN)/libmerc_util: $(_UTIL_OBJ)/src/libmerc_util.o $(_UTIL_OBJ)/src/pcap_file_io.o
+	@printf '$(COLOR_YELLOW)  note: forcing -O2 for libmerc_util (link workaround)$(COLOR_OFF)\n'
+	$(LINK)
+
 # os_identifier — OS identification from network traffic
 $(OBJ)/src/os_identifier.o: CXXFLAGS += -Isrc/libmerc
 $(BIN)/os_identifier: LDLIBS := -lz
@@ -120,7 +149,7 @@ $(BIN)/os_identifier: $(call objects,src/os_identifier.cc)
 $(BIN)/pcap: $(call objects,src/pcap.cc)
 	$(LINK)
 
-# pcap_filter — PCAP filtering using libmerc
+# pcap_filter — PCAP filtering using libmerc.a
 $(BIN)/pcap_filter: LDLIBS := -lz -lcrypto -pthread
 $(BIN)/pcap_filter: $(call objects,src/pcap_filter.cc src/pcap_file_io.c) $(LIB)/libmerc.a
 	$(LINK)
