@@ -6,6 +6,8 @@ AC_USE_SYSTEM_EXTENSIONS
 AC_PROG_CC
 AC_PROG_CXX
 AC_CANONICAL_HOST
+AC_CHECK_TOOL([AR], [ar])
+AC_CHECK_TOOL([STRIP], [strip])
 AC_SUBST([IS_MACOS],[no])
 AC_SUBST([IS_MACOS_ARM],[no])
 AC_SUBST([HAVE_TPACKET_V3],[no])
@@ -32,13 +34,15 @@ AC_SUBST([PLATFORM])
 case $host_os in
     darwin* )
         AC_SUBST(IS_MACOS,yes)
-        if [[ $(uname -m) == 'arm64' ]]; then
-            CFLAGS="$CFLAGS -I/opt/homebrew/include -I/opt/local/include"
-            CXXFLAGS="$CXXFLAGS -I/opt/homebrew/include -I/opt/local/include"
-            LDFLAGS="$LDFLAGS -L/opt/homebrew/lib -L/opt/local/lib"
-            AC_MSG_WARN([Configuring for Apple Silicon])
-            AC_SUBST(IS_MACOS_ARM,yes)
-        fi
+        case "$host_cpu" in
+            arm* | aarch64)
+                CFLAGS="$CFLAGS -I/opt/homebrew/include -I/opt/local/include"
+                CXXFLAGS="$CXXFLAGS -I/opt/homebrew/include -I/opt/local/include"
+                LDFLAGS="$LDFLAGS -L/opt/homebrew/lib -L/opt/local/lib"
+                AC_MSG_WARN([Configuring for Apple Silicon])
+                AC_SUBST(IS_MACOS_ARM,yes)
+                ;;
+        esac
         ;;
 
 esac
@@ -194,6 +198,19 @@ AC_TYPE_UINT64_T
 AC_TYPE_UINT8_T
 AC_CHECK_HEADERS(zlib.h, [], [AC_MSG_ERROR([A working zlib is required])])
 AC_SEARCH_LIBS(deflate, z, [], [AC_MSG_ERROR([A working zlib is required])])
+
+# Check for GMP (needed by batch_gcd)
+AC_LANG_PUSH([C++])
+AC_CHECK_LIB([gmp], [__gmpz_init],
+  [AC_CHECK_LIB([gmpxx], [main],
+    [AC_SUBST([HAVE_GMP],[yes])],
+    [AC_SUBST([HAVE_GMP],[no])
+     AC_MSG_WARN([libgmpxx not found; batch_gcd will not be built])],
+    [-lgmp])],
+  [AC_SUBST([HAVE_GMP],[no])
+   AC_MSG_WARN([libgmp not found; batch_gcd will not be built])])
+AC_LANG_POP([C++])
+
 # Check for OpenSSL version and set appropriate flags
 # First check for OpenSSL 3.0+ (EVP_MAC_fetch function)
 AC_SEARCH_LIBS(EVP_MAC_fetch, crypto, [
@@ -321,5 +338,5 @@ AS_IF([test "x$HAVE_DOT" = xyes],
     [],
     [AC_MSG_WARN([dot (from graphviz) not found; make doc will not work])])
 
-AC_CONFIG_FILES(src/libmerc/Makefile src/cython/Makefile src/Makefile test/Makefile unit_tests/Makefile Makefile_helper.mk install_mercury/mercury.service)
+AC_CONFIG_FILES(src/libmerc/Makefile src/cython/Makefile src/Makefile test/Makefile unit_tests/Makefile Makefile_helper.mk install_mercury/mercury.service mk/config.mk)
 AC_OUTPUT

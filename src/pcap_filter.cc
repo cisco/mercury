@@ -82,7 +82,8 @@ int main(int argc, char *argv[]) {
 
     quic_crypto_engine quic_crypto{}; // initialize quic_crypto_engine for quic decryption
 
-    size_t i=0, total=0, transport=0;
+    size_t total=0;
+    [[maybe_unused]] size_t i=0, transport=0;
     try {
 
         // create input and output pcap files
