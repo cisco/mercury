@@ -181,6 +181,7 @@ help:
 	@echo '    libmerc              libmerc.a and libmerc.so libraries'
 	@echo '    libs                 libmerc.so, unstripped-libmerc.so, debug-libmerc.so'
 	@echo '    cython               mercury-python extension (.so + .whl)'
+	@echo '    tools                all standalone tool executables'
 	@echo ''
 	@echo '  Tools:'
 	@echo '    archive_reader       Archive (gzip/tar) reader'

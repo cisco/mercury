@@ -44,6 +44,9 @@ endif
 # Public targets
 # ===================================================================
 
+.PHONY: tools
+tools: $(TOOL_TARGETS)
+
 .PHONY: certtools
 certtools: $(CERTTOOLS)
 
