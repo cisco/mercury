@@ -209,8 +209,8 @@ endif()
 ## GIT_COMMIT_ID identifies the source: "commit <hash>", plus
 ##   "with local changes" when the working tree is dirty.
 ## GIT_COUNT is the total number of commits on HEAD.
-## NOTE: keep in sync with src/libmerc/Makefile.in and
-##   src/cython/Makefile.in, which compute the same defines.
+## NOTE: keep in sync with mk/libmerc.mk and mk/cython.mk, which
+##   compute the same defines.
 ###############################################################################
 file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/../../VERSION" _version_str)
 string(REPLACE "." ";" _version_parts "${_version_str}")

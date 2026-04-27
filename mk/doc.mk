@@ -1,12 +1,12 @@
 # mk/doc.mk -- documentation targets (doxygen, sphinx)
 #
-# Included by Makefile2.  Provides targets for building API reference
+# Included by the top-level Makefile.  Provides targets for building API reference
 # (Doxygen) and user documentation (Sphinx).
 #
 # When to edit:
 #   - Adding a new documentation format or tool: add a new .PHONY
 #     target and recipe below, and update the Documentation section
-#     in Makefile2 'make help'.
+#     in 'make help'.
 
 .PHONY: doc
 doc: doc/mercury.pdf sphinx

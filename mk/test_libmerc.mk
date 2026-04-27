@@ -1,6 +1,6 @@
 # mk/test_libmerc.mk -- end-to-end tests for libmerc.so
 #
-# Included by Makefile2.  Testing libmerc.so requires two things:
+# Included by the top-level Makefile.  Testing libmerc.so requires two things:
 #
 #   1. A build of libmerc.so.
 #   2. A test driver binary that dlopen()s and exercises it.
@@ -17,12 +17,12 @@
 # be consolidated.)
 #
 # Usage:
-#   make -f Makefile2 test-libmerc                # all libmerc tests
-#   make -f Makefile2 test-libmerc-multiprotocol  # multiprotocol only
-#   make -f Makefile2 test-libmerc-fdc            # FDC only
-#   make -f Makefile2 test-libmerc-l7-metadata    # L7 metadata only
-#   make -f Makefile2 test-libmerc-tls-only       # TLS-only only
-#   make -f Makefile2 -j libmerc-test-drivers     # build test drivers (no run)
+#   make test-libmerc                # all libmerc tests
+#   make test-libmerc-multiprotocol  # multiprotocol only
+#   make test-libmerc-fdc            # FDC only
+#   make test-libmerc-l7-metadata    # L7 metadata only
+#   make test-libmerc-tls-only       # TLS-only only
+#   make -j libmerc-test-drivers     # build test drivers (no run)
 #
 # Notes:
 #   - VISIBILITY=default is required (tech debt): the test drivers
@@ -88,37 +88,37 @@ _DRV_LDLIBS := -pthread -lcrypto -ldl -lz
 test-libmerc:
 	@echo "--- libmerc end-to-end tests (multiprotocol + fdc + l7-metadata) ---"
 	@printf '$(COLOR_YELLOW)  note: forcing VISIBILITY=default for libmerc.so$(COLOR_OFF)\n'
-	$(MAKE) -f Makefile2 VISIBILITY=default _run-libmerc-test-drivers
+	$(MAKE) VISIBILITY=default _run-libmerc-test-drivers
 	@echo ""
 	@echo "--- libmerc end-to-end tests (tls-only, STATIC_CFG=tls) ---"
 	@printf '$(COLOR_YELLOW)  note: forcing VISIBILITY=default STATIC_CFG=tls for tls-only libmerc.so$(COLOR_OFF)\n'
-	$(MAKE) -f Makefile2 VISIBILITY=default STATIC_CFG=tls _run-libmerc-tls-only
+	$(MAKE) VISIBILITY=default STATIC_CFG=tls _run-libmerc-tls-only
 	@printf '$(COLOR_GREEN)  passed all libmerc end-to-end tests$(COLOR_OFF)\n'
 
 # --- Per-driver public convenience targets ----------------------------
 
 .PHONY: test-libmerc-multiprotocol
 test-libmerc-multiprotocol:
-	$(MAKE) -f Makefile2 VISIBILITY=default _run-libmerc-multiprotocol
+	$(MAKE) VISIBILITY=default _run-libmerc-multiprotocol
 
 .PHONY: test-libmerc-fdc
 test-libmerc-fdc:
-	$(MAKE) -f Makefile2 VISIBILITY=default _run-libmerc-fdc
+	$(MAKE) VISIBILITY=default _run-libmerc-fdc
 
 .PHONY: test-libmerc-l7-metadata
 test-libmerc-l7-metadata:
-	$(MAKE) -f Makefile2 VISIBILITY=default _run-libmerc-l7-metadata
+	$(MAKE) VISIBILITY=default _run-libmerc-l7-metadata
 
 .PHONY: test-libmerc-tls-only
 test-libmerc-tls-only:
-	$(MAKE) -f Makefile2 VISIBILITY=default STATIC_CFG=tls _run-libmerc-tls-only
+	$(MAKE) VISIBILITY=default STATIC_CFG=tls _run-libmerc-tls-only
 
 # --- Build all drivers (no run) ---------------------------------------
 
 .PHONY: libmerc-test-drivers
 libmerc-test-drivers:
-	$(MAKE) -f Makefile2 VISIBILITY=default _build-libmerc-test-drivers
-	$(MAKE) -f Makefile2 VISIBILITY=default STATIC_CFG=tls _build-libmerc-tls-test-driver
+	$(MAKE) VISIBILITY=default _build-libmerc-test-drivers
+	$(MAKE) VISIBILITY=default STATIC_CFG=tls _build-libmerc-tls-test-driver
 
 # ===================================================================
 # Internal targets

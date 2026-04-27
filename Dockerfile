@@ -29,9 +29,9 @@ RUN apt-get update \
 COPY . /src
 WORKDIR /src
 RUN ./configure \
-    && make V=s \
-    && make --directory=src batch_gcd \
-    && make --directory=src tls_scanner \
+    && make -j V=1 \
+    && make batch_gcd \
+    && make tls_scanner \
     && make install-nonroot \
     && make install-certtools
 

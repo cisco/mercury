@@ -63,16 +63,16 @@ if [ -z "$ITERATION" ]; then
     ITERATION="1"
 fi
 
-# Locate mercury binary: prefer Makefile2 out-of-source path, fall back to legacy
+# Locate mercury binary: use $MERCURY_BIN if set, otherwise the out-of-source
+# build path produced by `make`. The legacy in-source path (./src/mercury) is
+# no longer auto-detected to avoid accidentally packaging a stale ignored
+# binary; set MERCURY_BIN explicitly if you need to package a custom build.
 if [ -z "$MERCURY_BIN" ]; then
-    if [ -x build/RelWithDebInfo/bin/mercury ]; then
-        MERCURY_BIN=build/RelWithDebInfo/bin/mercury
-    else
-        MERCURY_BIN=./src/mercury
-    fi
+    MERCURY_BIN=build/RelWithDebInfo/bin/mercury
 fi
 if [ ! -f "$MERCURY_BIN" ] || [ ! -x "$MERCURY_BIN" ]; then
     echo "error: mercury binary not found or not executable: $MERCURY_BIN" >&2
+    echo "hint: run \`./configure && make -j\` first, or set MERCURY_BIN to an explicit path" >&2
     exit 1
 fi
 echo "using mercury binary: $MERCURY_BIN"

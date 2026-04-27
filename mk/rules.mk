@@ -1,6 +1,6 @@
 # mk/rules.mk -- compilation engine
 #
-# Included by Makefile2.  Provides compiler/linker flags, variant
+# Included by the top-level Makefile.  Provides compiler/linker flags, variant
 # directory layout, pattern rules, and canned recipes used by every
 # other mk/ file.
 #
@@ -273,4 +273,6 @@ define CXX_LINK
 endef
 
 # --- Auto-dependency inclusion ----------------------------------------
--include $(shell find $(OBJ) -name '*.d' 2>/dev/null)
+# Covers .d files under build/ (per-variant compilation outputs) and
+# under src/ (in-source table generator builds; see mk/tables.mk).
+-include $(shell find $(OBJ) src -name '*.d' 2>/dev/null)

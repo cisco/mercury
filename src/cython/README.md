@@ -21,12 +21,14 @@ pip install wheel
 pip install setuptools
 ```
 
-Within mercury's `src/cython/` directory, `Makefile` will build the package based on the makefile target:
+From the top of the mercury source tree, the top-level `Makefile` builds the package:
 
 ```bash
-make        # default build in-place
-make wheel  # generates pip-installable wheel file
+make cython       # build the Cython extension and a pip-installable wheel
+make test-cython  # run the cython interface tests
 ```
+
+The wheel and the .so are placed under `build/<variant>/cython/` (default variant: `RelWithDebInfo`).
 
 ## Usage
 

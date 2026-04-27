@@ -1,6 +1,6 @@
 # mk/libmerc.mk -- libmerc source list and library targets
 #
-# Included by Makefile2.  Defines LIBMERC_SRCS (the complete list of
+# Included by the top-level Makefile.  Defines LIBMERC_SRCS (the complete list of
 # source files compiled into libmerc) and the .a / .so library targets.
 #
 # When to edit:

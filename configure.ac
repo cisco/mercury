@@ -265,6 +265,30 @@ AS_IF([test "x$HAVE_PYTHON3" = xyes], [
     CHECK_PYTHON_PACKAGE([HAVE_PYTHON_WHEEL],[Cython package],[wheel])
     CHECK_PYTHON_PACKAGE([HAVE_PYTHON_SETUPTOOLS],[Cython package],[setuptools])
 
+    # Keep these version floors in sync with src/cython/pyproject.toml
+    AC_MSG_CHECKING([for python >= 3.9])
+    AS_IF([python3 -c "import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)" 2>/dev/null], [
+        AC_MSG_RESULT(yes)
+        AC_SUBST([HAVE_PYTHON_3_9],yes)
+    ], [
+        AC_MSG_RESULT(no)
+        AC_SUBST([HAVE_PYTHON_3_9],no)
+        AC_MSG_WARN([python >= 3.9 is required to build the Cython package])
+    ])
+    AS_IF([test "x$HAVE_PYTHON_SETUPTOOLS" = xyes], [
+        AC_MSG_CHECKING([for setuptools >= 77])
+        AS_IF([python3 -c "import sys, setuptools; v = tuple(int(x) for x in setuptools.__version__.split('.')[[:2]]); sys.exit(0 if v >= (77, 0) else 1)" 2>/dev/null], [
+            AC_MSG_RESULT(yes)
+            AC_SUBST([HAVE_PYTHON_SETUPTOOLS_77],yes)
+        ], [
+            AC_MSG_RESULT(no)
+            AC_SUBST([HAVE_PYTHON_SETUPTOOLS_77],no)
+            AC_MSG_WARN([setuptools >= 77 is required to build the Cython package (PEP 639 license syntax).  Upgrade with 'python3 -m pip install --upgrade setuptools'])
+        ])
+    ], [
+        AC_SUBST([HAVE_PYTHON_SETUPTOOLS_77],no)
+    ])
+
     # Auto-generated documentation
     CHECK_PYTHON_PACKAGE([HAVE_PYTHON_SPHINX],[generating docs],[sphinx])
     CHECK_PYTHON_PACKAGE([HAVE_PYTHON_SPHINX_RTD_THEME],[generating docs],[sphinx-rtd-theme],[sphinx_rtd_theme])
@@ -272,7 +296,9 @@ AS_IF([test "x$HAVE_PYTHON3" = xyes], [
     CHECK_PYTHON_PACKAGE([HAVE_PYTHON_BREATHE],[generating docs],[breathe])
 
     # Composite variables
-    AS_IF([test "x$HAVE_PYTHON_CYTHON" = xyes -a "x$HAVE_PYTHON_WHEEL" = xyes -a "x$HAVE_PYTHON_SETUPTOOLS" = xyes], [
+    AS_IF([test "x$HAVE_PYTHON_CYTHON" = xyes -a "x$HAVE_PYTHON_WHEEL" = xyes -a \
+                "x$HAVE_PYTHON_SETUPTOOLS" = xyes -a "x$HAVE_PYTHON_SETUPTOOLS_77" = xyes -a \
+                "x$HAVE_PYTHON_3_9" = xyes], [
         AC_SUBST([CAN_BUILD_CYTHON_PACKAGE],yes)
     ], [
         AC_SUBST([CAN_BUILD_CYTHON_PACKAGE],no)
@@ -309,16 +335,16 @@ AC_CHECK_PROG(HAVE_DOXYGEN,doxygen,yes)
 AC_CHECK_PROG(HAVE_DOT,dot,yes)
 AS_IF([test "x$TCPREPLAY" = xyes],
     [],
-    [AC_MSG_WARN([tcpreplay not found; test/Makefile dummy-capture test will not work])])
+    [AC_MSG_WARN([tcpreplay not found; make test-dummy-capture will not work])])
 AS_IF([test "x$JQ" = xyes],
     [],
-    [AC_MSG_WARN([jq not found; test/Makefile comparison test will not work])])
+    [AC_MSG_WARN([jq not found; comparison tests (make test) will not work])])
 AS_IF([test "x$WGET" = xyes],
     [],
     [AC_MSG_WARN([wget not found; test/capture script will not work])])
 AS_IF([test "x$VALGRIND" = xyes],
     [],
-    [AC_MSG_WARN([valgrind not found; test/Makefile memcheck test will not work])])
+    [AC_MSG_WARN([valgrind not found; make test-memcheck will not work])])
 AS_IF([test "x$USE_FSANITIZE" = xyes],
     [],
     [AC_MSG_WARN([-fsanitize not supported; debug targets will not use address sanitization])])
@@ -338,5 +364,5 @@ AS_IF([test "x$HAVE_DOT" = xyes],
     [],
     [AC_MSG_WARN([dot (from graphviz) not found; make doc will not work])])
 
-AC_CONFIG_FILES(src/libmerc/Makefile src/cython/Makefile src/Makefile test/Makefile unit_tests/Makefile Makefile_helper.mk install_mercury/mercury.service mk/config.mk)
+AC_CONFIG_FILES(install_mercury/mercury.service mk/config.mk)
 AC_OUTPUT

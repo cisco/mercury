@@ -1,6 +1,6 @@
 # mk/test.mk -- test execution and the unit_test binary
 #
-# Included by Makefile2.  Defines .PHONY targets for every test suite
+# Included by the top-level Makefile.  Defines .PHONY targets for every test suite
 # except test-libmerc (see test_libmerc.mk) and test-cython (see
 # cython.mk).  Also builds unit_test and libmerc_test as part of
 # 'make all' via TEST_TARGETS.
@@ -8,7 +8,7 @@
 # When to edit:
 #   - Adding a new test: define a .PHONY target (test-foo), write the
 #     recipe, add test-foo to the 'test' prerequisite list, and add a
-#     one-line description to the Test section in Makefile2 'make help'.
+#     one-line description to the Test section in 'make help'.
 #   - Each subtest should use its own directory under $(TESTDIR)/<name>/
 #     with rm -rf + mkdir -p pre-cleanup for isolation.
 #   - Adding a new test binary: append to TEST_TARGETS and add its
@@ -74,6 +74,14 @@ unittest: $(BIN)/unit_test
 # Declarative pattern rules: auto-discover expected outputs in
 # test/data/, generate actual outputs in $(TESTDIR)/comp/, diff.
 # Parallelizes automatically under -j.
+#
+# How it works:
+#
+#   For each test/data/foo.pcap that has a corresponding test/data/foo.fp,
+#   .mcap, or .json, the test generates the output from the pcap and diffs
+#   it against the expected file.  If they differ, the test fails.
+#   To add a new test case, just drop a .pcap and its expected output
+#   into test/data/.
 
 _COMP_SRCDIR := test/data
 _COMP_OUTDIR := $(TESTDIR)/comp
@@ -265,8 +273,11 @@ endif
 
 # --- Batch GCD test (declarative) -------------------------------------
 #
-# Pattern rules: auto-discover .bgcd-in files, generate .bgcd-tout in
-# $(TESTDIR)/batch-gcd/, diff against .bgcd-out in source tree.
+# Same declarative pattern as test-comp above (see "How it works" there).
+# Suffixes:
+#   - .bgcd-in   = input (in source tree)
+#   - .bgcd-out  = expected output (in source tree)
+#   - .bgcd-tout = generated test output (under $(TESTDIR)/batch-gcd/)
 
 _BGCD_SRCDIR := test/batch_gcd
 _BGCD_OUTDIR := $(TESTDIR)/batch-gcd
@@ -321,7 +332,7 @@ else ifeq ($(HAVE_CLANGPP),yes)
 	@rm -rf $(TESTDIR)/fuzz
 	@mkdir -p $(TESTDIR)
 	@cp -R test/fuzz $(TESTDIR)/fuzz
-	$(MAKE) -f Makefile2 BUILD_TYPE=$(_fuzz_build_type) \
+	$(MAKE) BUILD_TYPE=$(_fuzz_build_type) \
 	  CXX=clang++ CC=clang SANITIZE=address OPTFLAGS=-O1 \
 	  PLATFORM_FLAGS='$(filter-out -fno-gnu-unique,$(PLATFORM_FLAGS))' \
 	  build/$(_fuzz_variant)/lib/libmerc.a
@@ -348,7 +359,7 @@ endif
 # until the source is updated.
 #
 # Usage:
-#   make -f Makefile2 test-pdu PCAP_DIR=/path/to/pcaps
+#   make test-pdu PCAP_DIR=/path/to/pcaps
 
 _pdu_verifier := $(abspath $(BIN)/pdu_verifier)
 
@@ -360,7 +371,7 @@ $(BIN)/pdu_verifier: $(call objects,unit_tests/pdu_verifier.cc) $(LIB)/libmerc.s
 .PHONY: test-pdu
 test-pdu: $(BIN)/pdu_verifier
 ifeq ($(PCAP_DIR),)
-	@printf '$(COLOR_YELLOW)  error: PCAP_DIR unspecified (run as '\''make -f Makefile2 test-pdu PCAP_DIR=/path/to/pcaps'\'')$(COLOR_OFF)\n'
+	@printf '$(COLOR_YELLOW)  error: PCAP_DIR unspecified (run as '\''make test-pdu PCAP_DIR=/path/to/pcaps'\'')$(COLOR_OFF)\n'
 	@false
 else
 	@echo "--- PDU verification tests ---"
@@ -382,7 +393,7 @@ endif
 .PHONY: test-capture
 test-capture: $(BIN)/mercury
 ifeq ($(IFNAME),)
-	@printf '$(COLOR_YELLOW)  error: IFNAME unspecified (run as '\''make -f Makefile2 test-capture IFNAME=eth0'\'')$(COLOR_OFF)\n'
+	@printf '$(COLOR_YELLOW)  error: IFNAME unspecified (run as '\''make test-capture IFNAME=eth0'\'')$(COLOR_OFF)\n'
 	@false
 else ifneq ($(shell id -u),0)
 	@printf '$(COLOR_YELLOW)  error: capture test must be run as root$(COLOR_OFF)\n'
@@ -440,7 +451,7 @@ test-afl-fuzz: $(TESTDIR)/afl-mercury
 $(TESTDIR)/afl-mercury:
 ifeq ($(HAVE_AFL),yes)
 	@echo "building AFL-instrumented mercury with afl-g++"
-	$(MAKE) -f Makefile2 CXX=afl-g++ CC=afl-g++ $(BIN)/mercury
+	$(MAKE) CXX=afl-g++ CC=afl-g++ $(BIN)/mercury
 	@mkdir -p $(dir $@)
 	cp $(BIN)/mercury $@
 else
@@ -455,7 +466,7 @@ endif
 # generates an HTML report.
 #
 # Usage:
-#   make -f Makefile2 test-coverage
+#   make test-coverage
 #
 # Output:
 #   build/Coverage/coverage/           .info trace files
@@ -463,7 +474,7 @@ endif
 
 _cov_dir := build/Coverage/coverage
 _cov_rpt := build/Coverage/coverage_report
-_cov_make = $(MAKE) -f Makefile2 BUILD_TYPE=Coverage
+_cov_make = $(MAKE) BUILD_TYPE=Coverage
 
 # Internal target: runs inside the Coverage variant.
 .PHONY: _run-coverage
@@ -516,7 +527,7 @@ test-coverage-fuzz:
 		_cov_dir=build/Coverage/coverage_fuzz && \
 		_cov_rpt=build/Coverage/coverage_report_fuzz && \
 		mkdir -p $$_cov_dir && \
-		$(MAKE) -f Makefile2 BUILD_TYPE=Coverage test-fuzz && \
+		$(MAKE) BUILD_TYPE=Coverage test-fuzz && \
 		find build/Coverage -name "*.profraw" | xargs -I {} sh -c \
 		  "llvm-profdata merge -sparse {} -o $$(dirname {})/default.profdata" && \
 		find build/Coverage -name "*exec" | xargs -I {} sh -c \

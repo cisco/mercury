@@ -13,7 +13,7 @@ VERIFIER=${VERIFIER:-../unit_tests/pdu_verifier}
 
 # Set the platform-specific dynamic library search path so the
 # dynamically linked pdu_verifier can find libmerc.so at runtime.
-# Callers (e.g. Makefile2) pass LIBMERC_DIR; fall back to the
+# Callers (e.g. mk/test.mk) pass LIBMERC_DIR; fall back to the
 # in-tree libmerc location for manual runs.
 LIBMERC_DIR=${LIBMERC_DIR:-../src/libmerc/}
 case "$(uname)" in

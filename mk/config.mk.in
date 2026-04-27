@@ -10,7 +10,7 @@
 # Cross-compilation:
 #
 #   ./configure --host=aarch64-linux-gnu
-#   make -f Makefile2 -j
+#   make -j
 #
 # This auto-detects CC (aarch64-linux-gnu-gcc), CXX (aarch64-linux-gnu-g++),
 # and AR (aarch64-linux-gnu-ar), and sets PLATFORM=arm (from $host_cpu).  All

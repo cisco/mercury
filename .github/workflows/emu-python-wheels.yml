@@ -21,6 +21,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   sync-self-check:
     name: Sync self-check
@@ -29,7 +33,7 @@ jobs:
       - uses: actions/checkout@v6
       - name: Check diff between emu and pub workflow files
         run: |
-          MAX_DIFF_LINES=5
+          MAX_DIFF_LINES=4
           COUNT=$(diff -y --suppress-common-lines .github/workflows/emu-python-wheels.yml .github/workflows/pub-python-wheels.yml | wc -l)
           echo "Differing lines: $COUNT (max allowed: $MAX_DIFF_LINES)"
           if [ "$COUNT" -gt "$MAX_DIFF_LINES" ]; then
@@ -46,8 +50,18 @@ jobs:
       name: pypi
       url: https://pypi.org/p/mercury-python
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest      # native x86_64
+            cibw_archs_linux: x86_64
+            cibw_archs_macos: ""
+          - os: ubuntu-24.04-arm   # native aarch64
+            cibw_archs_linux: aarch64
+            cibw_archs_macos: ""
+          - os: macos-latest       # native arm64
+            cibw_archs_linux: ""
+            cibw_archs_macos: arm64
 
     steps:
       - uses: actions/checkout@v6
@@ -55,39 +69,32 @@ jobs:
           fetch-depth: 1
           submodules: recursive
 
-      - name: Install packages (Linux)
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev libssl-dev make libxsimd-dev
-
-      - name: Install packages (macOS)
-        if: runner.os == 'macOS'
-        run: brew install openssl zlib xsimd
-
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: '3.x'
 
-      - name: Set up QEMU
-        if: runner.os == 'Linux'
-        uses: cisco-actions/docker-setup-qemu-action@v4.0.0
-        with:
-          platforms: all
-
-      - name: Install pip packages
-        run: python -m pip install cython
-
-      - name: Build Mercury
-        run: ./configure && make && cp -r src/cython/* ./
+      - name: Stage cython sources at repo root for cibuildwheel
+        # Copy cython sources to repo root so cibuildwheel uses it as the package dir.
+        # Intentionally overwrites README/LICENSE with cython package metadata.
+        run: cp -r src/cython/* ./
 
       - name: Build wheels
         uses: cisco-actions/pypa-cibuildwheel@v3.4.0
         env:
-          CIBW_ARCHS_LINUX: aarch64 x86_64
-          CIBW_ARCHS_MACOS: arm64
+          CIBW_ARCHS_LINUX: ${{ matrix.cibw_archs_linux }}
+          CIBW_ARCHS_MACOS: ${{ matrix.cibw_archs_macos }}
+          MACOSX_DEPLOYMENT_TARGET: "15.0"
           CIBW_SKIP: "*-musllinux_* cp38*"
-          CIBW_BEFORE_ALL_LINUX: (yum install -y epel-release && yum install -y openssl-devel make zlib-devel xsimd-devel) || apt-get install -y zlib1g-dev libssl-dev make libxsimd-dev || apk add --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community zlib-dev openssl-dev make xsimd-dev
-          CIBW_BEFORE_ALL_MACOS: brew install openssl zlib xsimd
+          # Build libmerc.a per-arch inside each sandbox so it matches the wheel target.
+          CIBW_BEFORE_ALL_LINUX: >-
+            ( (yum install -y epel-release && yum install -y openssl-devel make zlib-devel xsimd-devel autoconf gcc-c++)
+            || (apt-get update && apt-get install -y zlib1g-dev libssl-dev make libxsimd-dev autoconf g++)
+            || (apk add --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community zlib-dev openssl-dev make xsimd-dev autoconf g++) )
+            && cd {package} && ./configure --enable-xsimd && make -j libmerc
+          CIBW_BEFORE_ALL_MACOS: >-
+            brew install openssl zlib xsimd autoconf
+            && cd {package} && ./configure --enable-xsimd && make -j libmerc
           CIBW_TEST_COMMAND: cd {project} && python mercury_python_test.py
 
       - name: Upload to S3
