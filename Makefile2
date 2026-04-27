@@ -121,8 +121,8 @@ libs:
 .PHONY: clean distclean
 clean: # Remove all build/<variant>/ output
 	rm -rf build
-	# TODO: after old build system removal, drop lib/.gitkeep and
-	# remove lib/ from version control; libs already does mkdir -p.
+	@# TODO: after old build system removal, drop lib/.gitkeep and
+	@# remove lib/ from version control; libs already does mkdir -p.
 	rm -f lib/*.so
 distclean: clean clean-sphinx clean-tables clean-oidc
 	rm -f mk/config.mk config.status config.log
