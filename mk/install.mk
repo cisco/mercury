@@ -1,13 +1,13 @@
 # mk/install.mk -- install, uninstall, and packaging targets
 #
-# Included by Makefile2.  Provides targets for installing mercury and
+# Included by the top-level Makefile.  Provides targets for installing mercury and
 # certtools, managing the systemd service, and building .deb/.rpm
 # packages.
 #
 # When to edit:
 #   - Adding a new installable binary: add an install-<name> target
 #     and include it in the appropriate install umbrella target.  Update
-#     the Install/package section in Makefile2 'make help'.
+#     the Install/package section in 'make help'.
 #   - Changing package layout: edit the package-deb / package-rpm
 #     recipes.
 #

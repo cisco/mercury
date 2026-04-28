@@ -1,176 +1,141 @@
-from setuptools import Extension, setup
+# setup.py -- Cython build that links against a prebuilt libmerc.a
+#
+# Used by the mercury build system.  This script only compiles the
+# Cython wrapper and links it against a prebuilt libmerc.a; libmerc
+# itself is built by the top-level Makefile.
+#
+# mk/cython.mk copies this file (and the other sources listed in
+# _cython_srcs) into a per-variant build tree, where the PEP 517 build
+# backend (setuptools.build_meta) finds it.  All project metadata
+# lives in pyproject.toml (PEP 621).
+#
+# Optional environment variables:
+#   MERCURY_DIR  -- root of the mercury source tree (defaults to the
+#                   directory containing setup.py).
+#   LIBMERC_A    -- absolute path to the prebuilt libmerc.a
+#                   (defaults to MERCURY_DIR/build/RelWithDebInfo/lib/libmerc.a,
+#                   which is where the top-level Makefile builds it).
+#   ENV_CFLAGS   -- compile flags forwarded verbatim from $(CXXFLAGS);
+#                   shlex.split() parses them so that quoted defines like
+#                   -DGIT_COMMIT_ID="..." survive word-splitting correctly.
+#                   -fvisibility=hidden is stripped (see below).
+#   ENV_LDFLAGS  -- extra linker flags
 
-# from distutils.core import setup, Extension
-from Cython.Distutils import build_ext
-from Cython.Build import cythonize
+from __future__ import annotations
 
-# from distutils.extension import Extension
 import os
-import re
 import shlex
 import shutil
-import platform
 
-###
-## to build: CC=g++ CXX=g++ python setup.py build_ext --inplace
+from Cython.Build import cythonize
+from setuptools import Extension, setup
+from setuptools.command.build_ext import build_ext
+
+# --- Environment ------------------------------------------------------
 #
+# Inputs come from environment variables (see header comment); we resolve
+# them here.
 
-###
-## Notes:
-#
-# "-Wno-narrowing" was needed because of the OID char conversions on my platform
-# "../parser.c" is needed to include parser functions
-# "-std=c++17" is needed due to c++17 dependency
+# MERCURY_DIR and LIBMERC_A get inferred defaults so that libmerc.a is
+# found under all three supported invocations:
+#   - `make cython`                  (mk/cython.mk sets MERCURY_DIR explicitly)
+#   - cibuildwheel from CI           (workflow stages sources at repo root)
+#   - `cd src/cython && pip wheel .` (manual build by a developer)
+# The walk-up looks for src/libmerc/libmerc.h to identify the repo root.
 
+def _find_mercury_root(start: str) -> str:
+    d = start
+    while True:
+        if os.path.isfile(os.path.join(d, "src", "libmerc", "libmerc.h")):
+            return d
+        parent = os.path.dirname(d)
+        if parent == d:
+            return start  # not found; fall back to setup.py's directory
+        d = parent
 
-def readme():
-    with open("README.md") as f:
-        return f.read()
+_setup_dir = os.path.dirname(os.path.abspath(__file__))
+mercury_dir = os.getenv("MERCURY_DIR") or _find_mercury_root(_setup_dir)
+libmerc_a = os.getenv("LIBMERC_A") or os.path.join(
+    mercury_dir, "build", "RelWithDebInfo", "lib", "libmerc.a"
+)
+if not os.path.isfile(libmerc_a):
+    raise SystemExit(
+        f"error: libmerc.a not found at {libmerc_a}; "
+        "build it first (e.g. './configure && make -j libmerc') or set LIBMERC_A"
+    )
 
-
-###
-## get version string
-#
-VERSIONFILE = "_version.py"
-verstrline = open(VERSIONFILE, "rt").read()
-VSRE = r"^__version__ = ['\"]([^'\"]*)['\"]"
-mo = re.search(VSRE, verstrline, re.M)
-if mo:
-    version_str = mo.group(1)
-else:
-    raise RuntimeError("Unable to find version string in %s." % (VERSIONFILE,))
-
-mercury_dir = ""
-if "MERCURY_DIR" in os.environ:
-    mercury_dir = os.getenv("MERCURY_DIR")
-else:
-    mercury_dir = "../../"
-
-sources = [
-    "mercury.pyx",
-    "{mercury_dir}/src/libmerc/asn1/oid.cc".format(mercury_dir=mercury_dir),
-    "{mercury_dir}/src/libmerc/utils.cc".format(mercury_dir=mercury_dir),
-    "{mercury_dir}/src/libmerc/libmerc.cc".format(mercury_dir=mercury_dir),
-    "{mercury_dir}/src/libmerc/addr.cc".format(mercury_dir=mercury_dir),
-    "{mercury_dir}/src/libmerc/http.cc".format(mercury_dir=mercury_dir),
-    "{mercury_dir}/src/libmerc/pkt_proc.cc".format(mercury_dir=mercury_dir),
-    "{mercury_dir}/src/libmerc/smb2.cc".format(mercury_dir=mercury_dir),
-    "{mercury_dir}/src/libmerc/config_generator.cc".format(mercury_dir=mercury_dir),
-    "{mercury_dir}/src/libmerc/bencode.cc".format(mercury_dir=mercury_dir),
+# ENV_CFLAGS and ENV_LDFLAGS are taken verbatim, with one exception:
+# -fvisibility=hidden must be stripped, because Python < 3.9 doesn't
+# annotate PyMODINIT_FUNC with visibility("default") -- so PyInit_mercury
+# would be hidden and dlopen couldn't find the module init symbol.
+extra_cflags = [
+    f for f in shlex.split(os.getenv("ENV_CFLAGS", ""))
+    if f != "-fvisibility=hidden"
 ]
-
-arch = platform.machine()
-simd_sources = []
-
-# SIMD-specific sources and flags
-if arch in ["x86_64", "i386"]:
-    simd_sources = [
-        (f"{mercury_dir}/src/libmerc/softmax_sse2.cc", ["-msse2"]),
-        (f"{mercury_dir}/src/libmerc/softmax_avx.cc", ["-mavx"]),
-        (f"{mercury_dir}/src/libmerc/softmax_avx2.cc", ["-mavx2"]),
-    ]
-elif arch in ["aarch64", "arm64"]:
-    simd_sources = [
-        (f"{mercury_dir}/src/libmerc/softmax_neon.cc", [])
-    ]
-
-def get_additional_flags():
-    env_cflags = os.getenv("ENV_CFLAGS")
-    if env_cflags is None:
-        return []
-    else:
-        return shlex.split(env_cflags)
+extra_ldflags = shlex.split(os.getenv("ENV_LDFLAGS", ""))
 
 
-additional_flags = get_additional_flags()
-print("additional_flags =", repr(additional_flags))
+# --- Custom build_ext -------------------------------------------------
 
-class CustomBuildExt(build_ext):
-    def build_extension(self, ext):
-        """
-        Override build_extension so that we compile each source file with
-        the appropriate extra flags (either normal flags, or SIMD‐specific).
-        """
-        compiler = self.compiler
-        compiler.linker_so[0] = shutil.which("g++")
+class LinkAgainstStaticLib(build_ext):
+    """Compile mercury.pyx, then link against the prebuilt libmerc.a."""
 
-        # 4.1) Prepare a list to hold all object filenames we generate
+    def build_extension(self, ext: Extension) -> None:
+        cc = self.compiler
+        cxx = os.getenv("CXX") or shutil.which("g++")
+        if cxx:
+            parts = shlex.split(cxx)
+            cc.linker_so[0:1] = parts
+
+        compile_args = list(ext.extra_compile_args)
         objects = []
-
-        # 4.2) Base flags that apply to "non‐SIMD" files
-        base_compile_args = list(ext.extra_compile_args)
-
-        # 4.3) For each source file in ext.sources, decide which flags to pass
         for src in ext.sources:
-            # Determine per‐source flags
-            per_file_flags = base_compile_args[:]  # start with the common flags
-            for simd_src, simd_flags in simd_sources:
-                if os.path.normpath(src) == os.path.normpath(simd_src):
-                    # Replace flags with (common) + (that source's SIMD flags)
-                    per_file_flags = base_compile_args + simd_flags
-                    break
-
-            # Compile this single source file into an object
-            # `compiler.compile` returns a list with exactly one object filename
-            obj = compiler.compile(
+            objs = cc.compile(
                 [src],
                 output_dir=self.build_temp,
                 include_dirs=ext.include_dirs,
-                extra_preargs=per_file_flags,
+                extra_preargs=compile_args,
                 debug=self.debug,
             )
-            # obj is a list of length 1
-            objects.extend(obj)
+            objects.extend(objs)
 
-        compiler.link_shared_object(
+        # Append the prebuilt static library so the linker can resolve
+        # libmerc symbols without needing a shared-library dependency.
+        objects.append(libmerc_a)
+
+        cc.link_shared_object(
             objects,
             self.get_ext_fullpath(ext.name),
-            libraries=ext.libraries + ["stdc++"],
+            libraries=ext.libraries,
             library_dirs=ext.library_dirs,
             runtime_library_dirs=ext.runtime_library_dirs,
-            extra_preargs=ext.extra_link_args,
+            extra_postargs=ext.extra_link_args,
             debug=self.debug,
         )
 
-# ------------------------------------------------------------------------------
-# 5) Build the Extension object (all sources just go into one Extension)
-# ------------------------------------------------------------------------------
-ext = Extension(
+
+# --- Extension definition ---------------------------------------------
+
+mercury_ext = Extension(
     "mercury",
-    sources=sources + [s[0] for s in simd_sources],
+    sources=["mercury.pyx"],
     include_dirs=[os.path.join(mercury_dir, "src/libmerc")],
     language="c++",
-    # These flags apply to *all* sources by default.  In build_ext we adjust them per‐source.
     extra_compile_args=[
         "-std=c++17",
         "-Wno-narrowing",
         "-Wno-deprecated-declarations",
-    ] + additional_flags,
-    extra_link_args=["-std=c++17", "-lz"] + additional_flags,
+    ] + extra_cflags,
+    # CFLAGS passed to the link step intentionally — mirrors mk/rules.mk
+    # policy; flags like -fsanitize and -fvisibility have link semantics.
+    extra_link_args=["-lz"] + extra_cflags + extra_ldflags,
     libraries=["crypto"],
-    runtime_library_dirs=[os.path.join(mercury_dir, "src/")],
 )
 
-# ------------------------------------------------------------------------------
-# 6) Call setup(...) using our CustomBuildExt handler
-# ------------------------------------------------------------------------------
+
+# --- setup() -- metadata comes from pyproject.toml --------------------
+
 setup(
-    name="mercury-python",
-    version=version_str,
-    description="Python interface into mercury's network protocol fingerprinting and analysis functionality",
-    long_description=readme(),
-    long_description_content_type="text/markdown",
-    classifiers=[
-        "Development Status :: 3 - Alpha",
-        "Programming Language :: Python :: 3 :: Only",
-        "Topic :: System :: Networking :: Monitoring",
-        "Topic :: Security",
-    ],
-    python_requires=">=3.6.0",
-    keywords="tls fingerprinting network traffic analysis",
-    url="https://github.com/cisco/mercury-python/",
-    author="Blake Anderson",
-    author_email="blake.anderson@cisco.com",
-    ext_modules=cythonize([ext]),
-    cmdclass={"build_ext": CustomBuildExt},
+    ext_modules=cythonize([mercury_ext]),
+    cmdclass={"build_ext": LinkAgainstStaticLib},
 )

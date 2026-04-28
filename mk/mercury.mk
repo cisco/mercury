@@ -1,6 +1,6 @@
 # mk/mercury.mk -- mercury binary
 #
-# Included by Makefile2.  Builds the mercury packet-processing binary
+# Included by the top-level Makefile.  Builds the mercury packet-processing binary
 # from MERCURY_SRCS, linked against libmerc.a.
 #
 # When to edit:

@@ -656,6 +656,8 @@ HAVE_PYTHON_BREATHE
 HAVE_PYTHON_SPHINX_AUTODOC_TYPEHINTS
 HAVE_PYTHON_SPHINX_RTD_THEME
 HAVE_PYTHON_SPHINX
+HAVE_PYTHON_SETUPTOOLS_77
+HAVE_PYTHON_3_9
 HAVE_PYTHON_SETUPTOOLS
 HAVE_PYTHON_WHEEL
 HAVE_PYTHON_CYTHON
@@ -7343,6 +7345,61 @@ esac
 fi
 
 
+    # Keep these version floors in sync with src/cython/pyproject.toml
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for python >= 3.9" >&5
+printf %s "checking for python >= 3.9... " >&6; }
+    if python3 -c "import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)" 2>/dev/null
+then :
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+        HAVE_PYTHON_3_9=yes
+
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+        HAVE_PYTHON_3_9=no
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: python >= 3.9 is required to build the Cython package" >&5
+printf "%s\n" "$as_me: WARNING: python >= 3.9 is required to build the Cython package" >&2;}
+     ;;
+esac
+fi
+    if test "x$HAVE_PYTHON_SETUPTOOLS" = xyes
+then :
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for setuptools >= 77" >&5
+printf %s "checking for setuptools >= 77... " >&6; }
+        if python3 -c "import sys, setuptools; v = tuple(int(x) for x in setuptools.__version__.split('.')[:2]); sys.exit(0 if v >= (77, 0) else 1)" 2>/dev/null
+then :
+
+            { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+            HAVE_PYTHON_SETUPTOOLS_77=yes
+
+
+else case e in #(
+  e)
+            { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+            HAVE_PYTHON_SETUPTOOLS_77=no
+
+            { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: setuptools >= 77 is required to build the Cython package (PEP 639 license syntax).  Upgrade with 'python3 -m pip install --upgrade setuptools'" >&5
+printf "%s\n" "$as_me: WARNING: setuptools >= 77 is required to build the Cython package (PEP 639 license syntax).  Upgrade with 'python3 -m pip install --upgrade setuptools'" >&2;}
+         ;;
+esac
+fi
+
+else case e in #(
+  e)
+        HAVE_PYTHON_SETUPTOOLS_77=no
+
+     ;;
+esac
+fi
+
     # Auto-generated documentation
 
     if test "x" != "x"; then
@@ -7458,7 +7515,9 @@ fi
 
 
     # Composite variables
-    if test "x$HAVE_PYTHON_CYTHON" = xyes -a "x$HAVE_PYTHON_WHEEL" = xyes -a "x$HAVE_PYTHON_SETUPTOOLS" = xyes
+    if test "x$HAVE_PYTHON_CYTHON" = xyes -a "x$HAVE_PYTHON_WHEEL" = xyes -a \
+                "x$HAVE_PYTHON_SETUPTOOLS" = xyes -a "x$HAVE_PYTHON_SETUPTOOLS_77" = xyes -a \
+                "x$HAVE_PYTHON_3_9" = xyes
 then :
 
         CAN_BUILD_CYTHON_PACKAGE=yes
@@ -7949,16 +8008,16 @@ if test "x$TCPREPLAY" = xyes
 then :
 
 else case e in #(
-  e) { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: tcpreplay not found; test/Makefile dummy-capture test will not work" >&5
-printf "%s\n" "$as_me: WARNING: tcpreplay not found; test/Makefile dummy-capture test will not work" >&2;} ;;
+  e) { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: tcpreplay not found; make test-dummy-capture will not work" >&5
+printf "%s\n" "$as_me: WARNING: tcpreplay not found; make test-dummy-capture will not work" >&2;} ;;
 esac
 fi
 if test "x$JQ" = xyes
 then :
 
 else case e in #(
-  e) { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: jq not found; test/Makefile comparison test will not work" >&5
-printf "%s\n" "$as_me: WARNING: jq not found; test/Makefile comparison test will not work" >&2;} ;;
+  e) { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: jq not found; comparison tests (make test) will not work" >&5
+printf "%s\n" "$as_me: WARNING: jq not found; comparison tests (make test) will not work" >&2;} ;;
 esac
 fi
 if test "x$WGET" = xyes
@@ -7973,8 +8032,8 @@ if test "x$VALGRIND" = xyes
 then :
 
 else case e in #(
-  e) { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: valgrind not found; test/Makefile memcheck test will not work" >&5
-printf "%s\n" "$as_me: WARNING: valgrind not found; test/Makefile memcheck test will not work" >&2;} ;;
+  e) { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: valgrind not found; make test-memcheck will not work" >&5
+printf "%s\n" "$as_me: WARNING: valgrind not found; make test-memcheck will not work" >&2;} ;;
 esac
 fi
 if test "x$USE_FSANITIZE" = xyes
@@ -8026,7 +8085,7 @@ printf "%s\n" "$as_me: WARNING: dot (from graphviz) not found; make doc will not
 esac
 fi
 
-ac_config_files="$ac_config_files src/libmerc/Makefile src/cython/Makefile src/Makefile test/Makefile unit_tests/Makefile Makefile_helper.mk install_mercury/mercury.service mk/config.mk"
+ac_config_files="$ac_config_files install_mercury/mercury.service mk/config.mk"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -8729,12 +8788,6 @@ cat >>$CONFIG_STATUS <<\_ACEOF || ac_write_fail=1
 for ac_config_target in $ac_config_targets
 do
   case $ac_config_target in
-    "src/libmerc/Makefile") CONFIG_FILES="$CONFIG_FILES src/libmerc/Makefile" ;;
-    "src/cython/Makefile") CONFIG_FILES="$CONFIG_FILES src/cython/Makefile" ;;
-    "src/Makefile") CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
-    "test/Makefile") CONFIG_FILES="$CONFIG_FILES test/Makefile" ;;
-    "unit_tests/Makefile") CONFIG_FILES="$CONFIG_FILES unit_tests/Makefile" ;;
-    "Makefile_helper.mk") CONFIG_FILES="$CONFIG_FILES Makefile_helper.mk" ;;
     "install_mercury/mercury.service") CONFIG_FILES="$CONFIG_FILES install_mercury/mercury.service" ;;
     "mk/config.mk") CONFIG_FILES="$CONFIG_FILES mk/config.mk" ;;
 

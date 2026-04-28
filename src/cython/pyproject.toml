@@ -1,5 +1,11 @@
+# pyproject.toml — mercury-python
+#
+# When changing the setuptools minimum in [build-system].requires or the
+# requires-python floor below, update the corresponding checks in
+# configure.ac so that CAN_BUILD_CYTHON_PACKAGE stays in sync.
+
 [build-system]
-requires = ["setuptools>=68", "Cython>=3.0", "wheel"]
+requires = ["setuptools>=77", "Cython>=3.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,8 +13,9 @@ name = "mercury-python"
 dynamic = ["version"]
 description = "Python interface into mercury's network protocol fingerprinting and analysis functionality"
 readme = "README.md"
-license = {text = "BSD-3-Clause"}
-requires-python = ">=3.8"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+requires-python = ">=3.9"
 authors = [
     { name = "Blake Anderson", email = "blake.anderson@cisco.com" },
 ]
@@ -30,10 +37,11 @@ version = { attr = "_version.__version__" }
 [tool.setuptools]
 py-modules = []
 
+# Note: -DHAVE_XSIMD requires ./configure --enable-xsimd
 [tool.cibuildwheel.linux]
-environment = "CC='g++' CXX='g++' MERCURY_DIR='./' ENV_CFLAGS='-DHAVE_XSIMD'"
+environment = "CC='g++' CXX='g++' ENV_CFLAGS='-DHAVE_XSIMD'"
 manylinux-x86_64-image = "quay.io/pypa/manylinux_2_34_x86_64:latest"
-manylinux-aarch64-image = "quay.io/pypa/manylinux_2_34_aarch64:2026.01.04-1"
+manylinux-aarch64-image = "quay.io/pypa/manylinux_2_34_aarch64:latest"
 
 [tool.cibuildwheel.macos]
-environment = "CC='g++' CXX='g++' MERCURY_DIR='./' ENV_CFLAGS='-DSSLNEW -DHAVE_XSIMD' LDFLAGS='-L/opt/homebrew/opt/openssl/lib' CPPFLAGS='-I/opt/homebrew/opt/openssl/include -I/opt/homebrew/include' MACOSX_DEPLOYMENT_TARGET=15"
+environment = "CC='g++' CXX='g++' ENV_CFLAGS='-DHAVE_XSIMD' LDFLAGS='-L/opt/homebrew/opt/openssl/lib' CPPFLAGS='-I/opt/homebrew/opt/openssl/include -I/opt/homebrew/include'"

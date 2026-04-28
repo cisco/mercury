@@ -1,6 +1,6 @@
 # mk/tables.mk -- source code regeneration targets
 #
-# Included by Makefile2.  Regenerates checked-in source files from
+# Included by the top-level Makefile.  Regenerates checked-in source files from
 # declarative inputs:
 #
 #   - IANA CSV registries -> protocol enum headers (src/libmerc/*.h)
@@ -15,9 +15,9 @@
 #     appropriate *_CSV variable and add a name:enum_type entry to
 #     the corresponding *_CMD variable.
 #   - Adding a new .asn1 file: just place it in src/libmerc/asn1/
-#     (auto-discovered by wildcard) and run 'make -f Makefile2 regen-oid'.
+#     (auto-discovered by wildcard) and run 'make regen-oid'.
 #   - Adding a new top-level target: update the Tables section in
-#     Makefile2 'make help'.
+#     'make help'.
 #
 # Provides:
 #   download-tables       -- fetch latest IANA CSVs into src/tables/source/
@@ -119,10 +119,6 @@ $(TABLES_DIR)/csv: $(TABLES_DIR)/csv.cc
 $(TABLES_DIR)/tls_csv: $(TABLES_DIR)/tls_extension_generator.cc
 	$(CXX_LINK)
 
-# These .d files live in src/ (not build/); the auto-include in rules.mk only
-# covers build/.  TODO: after old build system removal, have it cover src/ too.
--include $(TABLES_DIR)/csv.d $(TABLES_DIR)/tls_csv.d
-
 # --- IANA registry download + header regeneration ---------------------
 
 .PHONY: download-tables
@@ -162,6 +158,9 @@ regen-tables-offline: $(TABLES_DIR)/csv $(TABLES_DIR)/tls_csv
 	@printf '$(COLOR_GREEN)  regenerated all IANA table headers in src/libmerc/$(COLOR_OFF)\n'
 
 # --- ASN.1 OID regeneration --------------------------------------------
+#
+# Tip: pass OPTFLAGS=-DASN1_DEBUG=1 to enable debug output during OID
+# compilation (e.g. 'make regen-oid OPTFLAGS=-DASN1_DEBUG=1').
 
 .PHONY: regen-oid
 regen-oid: $(ASN1_DIR)/oidc
@@ -172,8 +171,6 @@ regen-oid: $(ASN1_DIR)/oidc
 
 $(ASN1_DIR)/oidc: $(ASN1_DIR)/oidc.cc
 	$(CXX_LINK)
-
--include $(ASN1_DIR)/oidc.d
 
 # --- clean -----------------------------------------------------------
 

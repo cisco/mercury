@@ -10,7 +10,7 @@ In additional to `pmercury`, this folder contains two tools to facilitate users 
 
 ## Dependencies
 
-pmercury and its associated tools require Python 3.8+ and the following packages:
+pmercury and its associated tools require Python 3.9+ and the following packages:
 
 ```bash
 pip3 install pypcap
@@ -71,5 +71,7 @@ Once `mercury_network_monitor.py` generates a sufficient amount of labeled recor
 Within the resources directory that you chose, there will be a `resources-mp.tgz` file, which can be used to enable inline mercury classification:
 
 ```bash
-~/ $: ../src/mercury -r <pcap file> -f output.json -a --resources=resources/resources-mp.tgz
+~/ $: mercury -r <pcap file> -f output.json -a --resources=resources/resources-mp.tgz
 ```
+
+The `mercury` binary is built at `build/RelWithDebInfo/bin/mercury` from the repository root; the example above assumes it is on your `PATH`.

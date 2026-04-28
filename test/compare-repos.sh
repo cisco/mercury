@@ -93,23 +93,29 @@ if $VERBOSE; then
     echo "resource archive:       $RESOURCES"
 fi
 
-# verify paths
+# locate the mercury binary in a repo: prefer the out-of-source build path,
+# fall back to the legacy in-source path for older revisions.
 #
-if [ ! -f $MERC_PATH/src/mercury ]; then
-    echo "error: file not found:" $MERC_PATH/src/mercury
-    exit 1
-fi
-if [ ! -f $ALT_MERC_PATH/src/mercury ]; then
-    echo "error: file not found:" $ALT_MERC_PATH/src/mercury
-    exit 1
-fi
+find_mercury() {
+    local repo=$1
+    if [ -x "$repo/build/RelWithDebInfo/bin/mercury" ]; then
+        echo "$repo/build/RelWithDebInfo/bin/mercury"
+    elif [ -x "$repo/src/mercury" ]; then
+        echo "$repo/src/mercury"
+    else
+        return 1
+    fi
+}
+
+MERCURY=$(find_mercury "$MERC_PATH") || { echo "error: mercury binary not found in $MERC_PATH (tried build/RelWithDebInfo/bin/mercury and src/mercury)"; exit 1; }
+ALT_MERCURY=$(find_mercury "$ALT_MERC_PATH") || { echo "error: mercury binary not found in $ALT_MERC_PATH (tried build/RelWithDebInfo/bin/mercury and src/mercury)"; exit 1; }
 
 ANALYSIS="--analysis --resources $RESOURCES"
 
 COMMANDS=" --read $PCAP --metadata --dns-json --certs-json $ANALYSIS"
 
-$MERC_PATH/src/mercury      $COMMANDS > $NAME.json
-$ALT_MERC_PATH/src/mercury  $COMMANDS > $ALT_NAME.json
+$MERCURY      $COMMANDS > $NAME.json
+$ALT_MERCURY  $COMMANDS > $ALT_NAME.json
 
 # compute the diff of the two JSON files, using sed to tweak the
 # output so that successive lines of the output file represent

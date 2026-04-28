@@ -5,7 +5,7 @@
 # To add a new tool:
 #   1. Append $(BIN)/your_tool to TOOL_TARGETS
 #   2. Add a build rule below
-#   3. Add a one-line description to the Tools section in Makefile2 help
+#   3. Add a one-line description to the Tools section in 'make help'
 
 # ===================================================================
 # Variables
