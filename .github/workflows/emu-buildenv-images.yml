@@ -29,19 +29,19 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - name: Set up QEMU
-        uses: cisco-actions/docker-setup-qemu-action@v3.7.0
+        uses: cisco-actions/docker-setup-qemu-action@v4.0.0
       - name: Set up Docker Buildx
-        uses: cisco-actions/docker-setup-buildx-action@v3.12.0
+        uses: cisco-actions/docker-setup-buildx-action@v4.0.0
       - name: Login to GitHub Container Registry
-        uses: cisco-actions/docker-login-action@v3.7.0
+        uses: cisco-actions/docker-login-action@v4.0.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and Push Docker image
-        uses: cisco-actions/docker-build-push-action@v6.18.0
+        uses: cisco-actions/docker-build-push-action@v7.1.0
         with:
           context: .
           file: docker/Dockerfile-${{matrix.testplatform}}

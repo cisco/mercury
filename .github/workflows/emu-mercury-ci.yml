@@ -62,7 +62,7 @@ jobs:
       - name: Echo OS version
         run: cat /etc/os-release
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           submodules: true
       - name: Mark workspace as safe for git
@@ -83,13 +83,13 @@ jobs:
         run: make -j$(nproc) V=1 BUILD_TYPE=Debug SANITIZE=address OPTFLAGS=-O2 libmerc-test-drivers
       - name: Generate token for cross-repo access
         id: app-token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ secrets.REPO_READER_APP_ID }}
           private-key: ${{ secrets.REPO_READER_PRIVATE_KEY }}
           owner: cisco-netintel
       - name: Checkout mercury-resources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: cisco-netintel/mercury-resources
           ref: verified
@@ -134,7 +134,7 @@ jobs:
           echo "Memory info:"
           free -h
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           submodules: true
       - name: Mark workspace as safe for git
@@ -156,7 +156,7 @@ jobs:
       - name: Get system software information
         run: system_profiler SPSoftwareDataType
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           submodules: true
       - name: Install Homebrew dependencies
@@ -195,13 +195,13 @@ jobs:
         run: make -j$(sysctl -n hw.ncpu) V=1 BUILD_TYPE=Debug SANITIZE=address libmerc-test-drivers
       - name: Generate token for cross-repo access
         id: app-token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ secrets.REPO_READER_APP_ID }}
           private-key: ${{ secrets.REPO_READER_PRIVATE_KEY }}
           owner: cisco-netintel
       - name: Checkout mercury-resources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: cisco-netintel/mercury-resources
           ref: verified
@@ -223,7 +223,7 @@ jobs:
       CMAKE_TOOLCHAIN_FILE: C:/vcpkg/scripts/buildsystems/vcpkg.cmake
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           submodules: true
       - name: Get system information
@@ -259,7 +259,7 @@ jobs:
       - name: Echo OS version
         run: cat /etc/os-release
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           submodules: true
       - name: Mark workspace as safe for git
