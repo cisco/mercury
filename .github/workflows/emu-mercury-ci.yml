@@ -45,7 +45,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        testplatform: [alma8, alma9, alma10, ubuntu20, ubuntu22, ubuntu24, debian11, debian12, debian13]
+        testplatform: [alma8, alma9, alma10, ubuntu20, ubuntu22, ubuntu24, ubuntu26, debian11, debian12, debian13]
         xsimd: [""]  # default: autodetect system xsimd, fallback to scalar
         arch: [""]   # default: amd64
         include:
