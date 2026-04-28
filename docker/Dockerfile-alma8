@@ -16,8 +16,8 @@ RUN yum install -y epel-release \
 
 ENV PATH="/opt/venv/bin:$PATH"
 RUN pip3.11 install --upgrade pip \
-    && pip3.11 install setuptools wheel \
-    && pip3.11 install jsonschema cryptography Cython
+    && pip3.11 install --upgrade setuptools wheel \
+    && pip3.11 install --upgrade jsonschema cryptography Cython
 
 # Disabled: no RHEL8 rpm use case (saves 1hr build time)
 #

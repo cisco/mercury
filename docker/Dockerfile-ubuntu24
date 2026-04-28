@@ -10,6 +10,6 @@ RUN apt-get update \
 
 ENV PATH="/opt/venv/bin:$PATH"
 RUN pip3 install --upgrade pip \
-    && pip3 install setuptools wheel \
-    && pip3 install jsonschema cryptography Cython
+    && pip3 install --upgrade setuptools wheel \
+    && pip3 install --upgrade jsonschema cryptography Cython
 RUN gem install fpm
