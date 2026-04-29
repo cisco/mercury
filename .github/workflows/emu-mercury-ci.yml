@@ -249,7 +249,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        testplatform: ["ubuntu22", "ubuntu24"]
+        testplatform: ["ubuntu22", "ubuntu24", "ubuntu26"]
     container:
       image: ghcr.io/cisco-netintel/${{ matrix.testplatform }}:buildenv
       credentials:
