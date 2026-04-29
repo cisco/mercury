@@ -17,9 +17,9 @@ name: "[EMU] Promote & Tag Release"
 #   - VERSION file and doc/CHANGELOG.md must already be updated on dev
 #     (the workflow validates both before proceeding)
 #
-# Required repository secrets (from the cisco-netintel-release-promoter GitHub App):
-#   - RELEASE_PROMOTER_APP_ID
-#   - RELEASE_PROMOTER_PRIVATE_KEY
+# Requires the cisco-netintel-release-promoter GitHub App:
+#   variable: RELEASE_PROMOTER_APP_CLIENT_ID
+#   secret:   RELEASE_PROMOTER_PRIVATE_KEY
 
 on:
   workflow_dispatch:
@@ -39,7 +39,7 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ secrets.RELEASE_PROMOTER_APP_ID }}
+          client-id: ${{ vars.RELEASE_PROMOTER_APP_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_PROMOTER_PRIVATE_KEY }}
           owner: cisco-netintel
 
