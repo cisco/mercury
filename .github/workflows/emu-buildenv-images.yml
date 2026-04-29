@@ -76,7 +76,7 @@ jobs:
           gh api /rate_limit --jq '.resources.core' 2>&1 || true
           echo
           echo "=== Package metadata ==="
-          gh api "/orgs/cisco-netintel/packages/container/${{ matrix.testplatform }}" \
+          gh api "/orgs/${{ github.repository_owner }}/packages/container/${{ matrix.testplatform }}" \
             --jq '{name, visibility, repository: (.repository.full_name // "(unlinked)")}' \
             2>&1 || true
       - name: Clean up old untagged package versions
