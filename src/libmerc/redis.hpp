@@ -306,7 +306,7 @@ namespace redis{
     // The pragma must cover the entire class because GCC warns at different
     // inlining sites (constructor, is_not_empty, write_json) depending on
     // the call chain and optimization level.
-#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 12 && __GNUC__ <= 14
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 12 && __GNUC__ <= 15
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #endif
@@ -371,7 +371,7 @@ namespace redis{
             protocols.close();
         }
     };
-#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 12 && __GNUC__ <= 14
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 12 && __GNUC__ <= 15
 #pragma GCC diagnostic pop
 #endif
 
@@ -543,7 +543,7 @@ namespace redis{
     public:
         // Suppress GCC false positive: -Wmaybe-uninitialized triggers through
         // std::variant::emplace() for types with inherited datum members.
-#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 12 && __GNUC__ <= 14
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 12 && __GNUC__ <= 15
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #endif
@@ -563,7 +563,7 @@ namespace redis{
                 }
             }
         }
-#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 12 && __GNUC__ <= 14
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 12 && __GNUC__ <= 15
 #pragma GCC diagnostic pop
 #endif
 
