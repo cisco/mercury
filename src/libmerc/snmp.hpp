@@ -15,23 +15,6 @@
 #include <variant>
 
 
-/// return the integer formed by interpreting the bytes of \ref datum
-/// \param d as an unsigned integer in network byte order
-///
-/// \note: ASN.1 integers will have a leading 0x00 byte if they are
-/// unsigned
-///
-inline uint64_t get_uint64(const datum &d) {
-    uint64_t result = 0;
-    if (d.is_readable()) {
-        for (const auto & byte : d) {
-            result *= 256;
-            result += byte;
-        }
-    }
-    return result;
-}
-
 namespace snmp {
 
     // forward declarations
@@ -119,7 +102,7 @@ namespace snmp {
                     break;
                 case 1:
                     if (object.value.length() <= 5) {
-                        value.print_key_uint("counter32", get_uint64(object.value));
+                        value.print_key_uint("counter32", asn1::to_uint64(object.value));
                         return;
                     }
                     break;
@@ -174,7 +157,7 @@ namespace snmp {
                     value.print_key_hex("octet_string", object.value);
                     return;
                 case tlv::INTEGER:
-                    value.print_key_uint("integer", get_uint64(object.value));
+                    value.print_key_uint("integer", asn1::to_uint64(object.value));
                     return;
                 case tlv::NULL_TAG:
                     value.print_key_bool("null", true);
@@ -344,7 +327,7 @@ namespace snmp {
             json_object trap{o, "trap"};
             trap.print_key_value("enterprise", raw_oid{enterprise_oid.value});
             trap.print_key_hex("agent_addr", agent_addr.value);
-            trap.print_key_string("generic_trap", trap_number_get_string(get_uint64(generic_trap.value)));
+            trap.print_key_string("generic_trap", trap_number_get_string(asn1::to_uint64(generic_trap.value)));
             trap.print_key_hex("specific_trap", specific_trap.value);
             trap.print_key_hex("timestamp", timestamp.value);
 
@@ -441,7 +424,7 @@ namespace snmp {
                 return;
             }
             json_object pdu{o, "pdu"};
-            pdu.print_key_uint("request_id", get_uint64(request_id.value));
+            pdu.print_key_uint("request_id", asn1::to_uint64(request_id.value));
             std::array<uint8_t,1> zero{0x00};
             if (!error_status.value.matches(zero)) {
                 pdu.print_key_hex("error_status", error_status.value);
@@ -649,7 +632,7 @@ namespace snmp {
         { }
 
         void write_json(json_object &o) const {
-            o.print_key_uint("request_id", get_uint64(request_id.value));
+            o.print_key_uint("request_id", asn1::to_uint64(request_id.value));
             o.print_key_hex("error_status", error_status.value);
             o.print_key_hex("error_index", error_index.value);
             tlv tmp{any};
@@ -714,7 +697,7 @@ namespace snmp {
                 o.print_key_hex("msg_max_size", msgMaxSize.value);
                 o.print_key_hex("msg_flags", msgFlags.value);
             }
-            o.print_key_uint("msg_security_model", get_uint64(msgSecurityModel.value));
+            o.print_key_uint("msg_security_model", asn1::to_uint64(msgSecurityModel.value));
             o.print_key_bool("auth", auth());
             o.print_key_bool("priv", priv());
         }
@@ -1033,7 +1016,7 @@ namespace snmp {
                 return;
             }
             json_object snmp{o, "snmp"};
-            snmp.print_key_uint("version", get_uint64(version.value));
+            snmp.print_key_uint("version", asn1::to_uint64(version.value));
             hd.write_json(o);
             usm_security_parameters{msgSecurityParameters.value}.write_json(o, pdu_copy, hd.priv(), hd.auth());
 
@@ -1103,7 +1086,7 @@ namespace snmp {
             tlv seq{d, tlv::SEQUENCE};
             tlv version{&seq.value, tlv::INTEGER};
             if (seq.value.is_not_null() and version.length == 1) {
-                return get_uint64(version.value);
+                return asn1::to_uint64(version.value);
             }
             return 255; // not a valid version
         }

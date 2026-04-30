@@ -27,92 +27,6 @@ namespace krb5 {
     [[maybe_unused]] inline const char *etype_get_string(int64_t etype);
     static inline void print_key_ciphertext(json_object &o, const datum &ciphertext);
 
-    [[maybe_unused]] inline uint64_t to_uint64(const datum &d) {
-        uint64_t result = 0;
-        for (const uint8_t & x : d) {
-            result = result * 256 + x;
-        }
-        return result;
-    }
-
-    [[maybe_unused]] inline uint64_t to_uint64(const tlv &x) {
-        return to_uint64(x.value);
-    }
-
-    [[maybe_unused]] inline int64_t to_int64(const datum &d) {
-        if (d.is_not_readable() || d.length() == 0 || d.length() > 8) {
-            return 0;
-        }
-
-        uint64_t result = 0;
-        for (const uint8_t &x : d) {
-            result = (result << 8) | x;
-        }
-
-        const bool is_negative = (d.data[0] & 0x80) != 0;
-        const size_t bits = static_cast<size_t>(d.length()) * 8;
-        if (is_negative && bits < 64) {
-            result |= (~uint64_t{0}) << bits;
-        }
-
-        return static_cast<int64_t>(result);
-    }
-
-    [[maybe_unused]] inline int64_t to_int64(const tlv &x) {
-        return to_int64(x.value);
-    }
-
-    [[maybe_unused]] inline bool int_conversion_unit_test() {
-        bool passed = true;
-
-        // unsigned conversion from datum
-        const uint8_t u16_bytes[] = { 0x01, 0x00 };
-        datum u16_datum{u16_bytes, u16_bytes + sizeof(u16_bytes)};
-        passed &= to_uint64(u16_datum) == 256;
-
-        // unsigned conversion from tlv
-        tlv u16_tlv;
-        u16_tlv.set(tlv::INTEGER, u16_bytes, sizeof(u16_bytes));
-        passed &= to_uint64(u16_tlv) == 256;
-
-        // positive signed values
-        const uint8_t p7_bytes[] = { 0x7f };
-        datum p7_datum{p7_bytes, p7_bytes + sizeof(p7_bytes)};
-        passed &= to_int64(p7_datum) == 127;
-
-        // negative signed values (two's complement)
-        const uint8_t n1_bytes[] = { 0xff };
-        datum n1_datum{n1_bytes, n1_bytes + sizeof(n1_bytes)};
-        passed &= to_int64(n1_datum) == -1;
-
-        const uint8_t n256_bytes[] = { 0xff, 0x00 };
-        datum n256_datum{n256_bytes, n256_bytes + sizeof(n256_bytes)};
-        passed &= to_int64(n256_datum) == -256;
-
-        // 64-bit boundary value
-        const uint8_t int64_min_bytes[] = { 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-        datum int64_min_datum{int64_min_bytes, int64_min_bytes + sizeof(int64_min_bytes)};
-        passed &= to_int64(int64_min_datum) == INT64_MIN;
-
-        // signed conversion from tlv
-        tlv n1_tlv;
-        n1_tlv.set(tlv::INTEGER, n1_bytes, sizeof(n1_bytes));
-        passed &= to_int64(n1_tlv) == -1;
-
-        // invalid inputs should fail closed to zero
-        datum empty{u16_bytes, u16_bytes};
-        passed &= to_int64(empty) == 0;
-
-        const uint8_t too_long_bytes[] = { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-        datum too_long{too_long_bytes, too_long_bytes + sizeof(too_long_bytes)};
-        passed &= to_int64(too_long) == 0;
-
-        // overflow-prone unsigned decode should remain deterministic
-        passed &= to_uint64(too_long) == 0;
-
-        return passed;
-    }
-
 
     // KerberosFlags   ::= BIT STRING (SIZE (32..MAX))
     //                     -- minimum number of bits shall be sent,
@@ -234,7 +148,7 @@ namespace krb5 {
         void write_json(json_object &o, const char *object_name) {
             json_object pn{o, object_name};
             tlv type_int{name_type.value, tlv::INTEGER, "type"};
-            const int64_t name_type_value = to_int64(type_int.value);
+            const int64_t name_type_value = asn1::to_int64(type_int.value);
             pn.print_key_string_or_unknown_code("type", name_type_get_string(name_type_value), name_type_value);
             json_array array{pn, "names"};
             tlv tmp_seq{name_sequence.value, tlv::SEQUENCE, "tmp_seq"};
@@ -280,10 +194,10 @@ namespace krb5 {
             }
             json_object enc_data{o, name};
             enc_data.print_key_string_or_unknown_code("etype",
-                                                      etype_get_string(to_int64(etype.value)),
-                                                      to_int64(etype.value));
+                                                      etype_get_string(asn1::to_int64(etype.value)),
+                                                      asn1::to_int64(etype.value));
             if (kvno) {
-                enc_data.print_key_uint("kvno", to_uint64(kvno.value));
+                enc_data.print_key_uint("kvno", asn1::to_uint64(kvno.value));
             }
             print_key_ciphertext(enc_data, cipher.value);
             enc_data.close();
@@ -341,7 +255,7 @@ namespace krb5 {
                 return;
             }
             json_object tkt{o, "ticket"};
-            tkt.print_key_uint("vno", static_cast<unsigned long int>(to_uint64(tkt_vno.value)));
+            tkt.print_key_uint("vno", static_cast<unsigned long int>(asn1::to_uint64(tkt_vno.value)));
             if (realm) {
                 tkt.print_key_json_string("realm", realm.value);
             }
@@ -424,7 +338,7 @@ namespace krb5 {
             }
 
             json_object h{a};
-            const uint64_t t = to_uint64(addr_type.value);
+            const uint64_t t = asn1::to_uint64(addr_type.value);
             h.print_key_uint("type", static_cast<unsigned long int>(t));
 
             const char *name = addr_type_name(t);
@@ -563,10 +477,10 @@ namespace krb5 {
                 return;
             }
             json_object ap_req_json{o, "ap_req"};
-            ap_req_json.print_key_uint("pvno", static_cast<unsigned long int>(to_uint64(pvno.value)));
+            ap_req_json.print_key_uint("pvno", static_cast<unsigned long int>(asn1::to_uint64(pvno.value)));
             ap_req_json.print_key_string_or_unknown_code("msg_type",
-                                                         msg_type_get_string(to_uint64(msg_type.value)),
-                                                         to_uint64(msg_type.value));
+                                                         msg_type_get_string(asn1::to_uint64(msg_type.value)),
+                                                         asn1::to_uint64(msg_type.value));
             ap_options{ap_opt.value}.print_as_json(ap_req_json, "ap_options");
             ticket{tkt.value}.write_json(ap_req_json);
             encrypted_data{auth}.write_json(ap_req_json, "authenticator");
@@ -620,10 +534,10 @@ namespace krb5 {
                 return;
             }
             json_object ap_rep_json{o, name};
-            ap_rep_json.print_key_uint("pvno", static_cast<unsigned long int>(to_uint64(pvno.value)));
+            ap_rep_json.print_key_uint("pvno", static_cast<unsigned long int>(asn1::to_uint64(pvno.value)));
             ap_rep_json.print_key_string_or_unknown_code("msg_type",
-                                                         msg_type_get_string(to_uint64(msg_type.value)),
-                                                         to_uint64(msg_type.value));
+                                                         msg_type_get_string(asn1::to_uint64(msg_type.value)),
+                                                         asn1::to_uint64(msg_type.value));
             encrypted_data{enc_part}.write_json(ap_rep_json, "enc_data");
             ap_rep_json.close();
         }
@@ -740,12 +654,12 @@ namespace krb5 {
             if (rtime) {
                 rtime.print_as_json_generalized_time(o, "rtime");
             }
-            o.print_key_uint("nonce", static_cast<unsigned long int>(to_uint64(nonce.value)));
+            o.print_key_uint("nonce", static_cast<unsigned long int>(asn1::to_uint64(nonce.value)));
             json_array etype_array{o, "etype"};
             datum tmp = etype.value;
             while (tmp.is_not_empty()) {
                 tlv e{tmp};
-                const int64_t etype_code = to_int64(e.value);
+                const int64_t etype_code = asn1::to_int64(e.value);
                 etype_array.print_string_or_unknown_code(etype_get_string(etype_code), etype_code);
             }
             etype_array.close();
@@ -827,8 +741,8 @@ namespace krb5 {
             }
 
             o.print_key_string_or_unknown_code("etype",
-                                               etype_get_string(to_int64(etype.value)),
-                                               to_int64(etype.value));
+                                               etype_get_string(asn1::to_int64(etype.value)),
+                                               asn1::to_int64(etype.value));
             if (salt) {
                 o.print_key_json_string("salt", salt.value);
             }
@@ -861,7 +775,7 @@ namespace krb5 {
             json_object pad{a};
 
             datum tmp = type.value;
-            const uint64_t pa_type_code = to_uint64(tlv{tmp});
+            const uint64_t pa_type_code = asn1::to_uint64(tlv{tmp});
             pa_data_type<uint32_t> pa_type{pa_type_code};
             const char *pa_type_name = pa_type.get_name();
             pad.print_key_string_or_unknown_code("pa_data_type", pa_type_name, pa_type_code);
@@ -998,7 +912,7 @@ namespace krb5 {
         }
 
         uint64_t get_msg_type() const {
-            return to_uint64(msg_type.value);
+            return asn1::to_uint64(msg_type.value);
         }
 
         void write_json(json_object &o, const char *name) const {
@@ -1006,10 +920,10 @@ namespace krb5 {
                 return;
             }
             json_object req_json{o, name};
-            req_json.print_key_uint("pvno", static_cast<unsigned long int>(to_uint64(pvno.value)));
+            req_json.print_key_uint("pvno", static_cast<unsigned long int>(asn1::to_uint64(pvno.value)));
             req_json.print_key_string_or_unknown_code("msg_type",
-                                                      msg_type_get_string(to_uint64(msg_type.value)),
-                                                      to_uint64(msg_type.value));
+                                                      msg_type_get_string(asn1::to_uint64(msg_type.value)),
+                                                      asn1::to_uint64(msg_type.value));
             pa_data_sequence{padata.value}.write_json(req_json, "pa_data");
             if (req_body.is_valid()) {
                 if (lookahead<kdc_req_body> body{req_body.value}) {
@@ -1312,19 +1226,19 @@ namespace krb5 {
                 return;
             }
             json_object error_json{o, "error"};
-            error_json.print_key_uint("pvno", static_cast<unsigned long int>(to_uint64(pvno.value)));
+            error_json.print_key_uint("pvno", static_cast<unsigned long int>(asn1::to_uint64(pvno.value)));
             error_json.print_key_string_or_unknown_code("msg_type",
-                                                        msg_type_get_string(to_uint64(msg_type.value)),
-                                                        to_uint64(msg_type.value));
+                                                        msg_type_get_string(asn1::to_uint64(msg_type.value)),
+                                                        asn1::to_uint64(msg_type.value));
             if (ctime) {
                 ctime.print_as_json_generalized_time(error_json, "ctime");
             }
             if (cusec) {
-                error_json.print_key_uint("cusec", static_cast<unsigned long int>(to_uint64(cusec.value)));
+                error_json.print_key_uint("cusec", static_cast<unsigned long int>(asn1::to_uint64(cusec.value)));
             }
             stime.print_as_json_generalized_time(error_json, "stime");
-            error_json.print_key_uint("susec", static_cast<unsigned long int>(to_uint64(susec.value)));
-            const int64_t error_code_value = to_int64(error_code.value);
+            error_json.print_key_uint("susec", static_cast<unsigned long int>(asn1::to_uint64(susec.value)));
+            const int64_t error_code_value = asn1::to_int64(error_code.value);
             print_key_error_code(error_json, "error_code", static_cast<size_t>(error_code_value));
             if (crealm) {
                 error_json.print_key_json_string("crealm", crealm.value);
@@ -1409,7 +1323,7 @@ namespace krb5 {
         }
 
         uint64_t get_msg_type() const {
-            return to_uint64(msg_type.value);
+            return asn1::to_uint64(msg_type.value);
         }
 
         void write_json(json_object &o, const char *name) const {
@@ -1417,10 +1331,10 @@ namespace krb5 {
                 return;
             }
             json_object rep_json{o, name};
-            rep_json.print_key_uint("pvno", static_cast<unsigned long int>(to_uint64(pvno.value)));
+            rep_json.print_key_uint("pvno", static_cast<unsigned long int>(asn1::to_uint64(pvno.value)));
             rep_json.print_key_string_or_unknown_code("msg_type",
-                                                      msg_type_get_string(to_uint64(msg_type.value)),
-                                                      to_uint64(msg_type.value));
+                                                      msg_type_get_string(asn1::to_uint64(msg_type.value)),
+                                                      asn1::to_uint64(msg_type.value));
             pa_data_sequence{padata.value}.write_json(rep_json, "pa_data");
             rep_json.print_key_json_string("crealm", crealm.value);
             principal_name{cname}.write_json(rep_json, "cname");
@@ -1598,6 +1512,15 @@ namespace krb5 {
         };
 
     };
+
+#ifndef NDEBUG
+    // TODO: krb5 has no real unit tests.  The previous
+    // krb5::int_conversion_unit_test was moved to namespace asn1.
+    //
+    [[maybe_unused]] inline bool unit_test() {
+        return true;
+    }
+#endif // NDEBUG
 
 } // namespace krb5
 

@@ -982,7 +982,60 @@ bool parse_explicitly_tagged_positional(datum &d, Fields &...fields) {
     return d.is_not_null();
 }
 
-inline bool unit_test() {
+/// Decode the bytes of \p d as an unsigned big-endian integer.
+///
+/// Intended for ASN.1 INTEGER (BER/DER/CER) value-octet payloads where the
+/// payload is known to be non-negative (e.g. a protocol version number,
+/// message-type discriminant, or other unsigned identifier).
+/// Returns 0 if \p d is not readable, has zero length, or is longer than
+/// 8 bytes.  Symmetric with \ref to_int64; both helpers fail closed.
+///
+inline uint64_t to_uint64(const datum &d) {
+    if (d.is_not_readable() || d.length() == 0 || d.length() > 8) {
+        return 0;
+    }
+    uint64_t result = 0;
+    for (const uint8_t &b : d) {
+        result = (result << 8) | b;
+    }
+    return result;
+}
+
+inline uint64_t to_uint64(const tlv &x) {
+    return to_uint64(x.value);
+}
+
+/// Decode the bytes of \p d as a signed two's-complement big-endian integer.
+///
+/// Intended for ASN.1 INTEGER (BER/DER/CER) value-octet payloads encoded
+/// in two's-complement form (the encoding used by every ASN.1 INTEGER,
+/// including signed application types such as SNMP Integer32 and Kerberos
+/// etype/error-code).  Returns 0 if \p d is not readable, has zero length,
+/// or is longer than 8 bytes.  Symmetric with \ref to_uint64; both
+/// helpers fail closed.
+///
+inline int64_t to_int64(const datum &d) {
+    if (d.is_not_readable() || d.length() == 0 || d.length() > 8) {
+        return 0;
+    }
+    uint64_t result = 0;
+    for (const uint8_t &b : d) {
+        result = (result << 8) | b;
+    }
+    const bool is_negative = (d.data[0] & 0x80) != 0;
+    const size_t bits = static_cast<size_t>(d.length()) * 8;
+    if (is_negative && bits < 64) {
+        result |= (~uint64_t{0}) << bits;
+    }
+    return static_cast<int64_t>(result);
+}
+
+inline int64_t to_int64(const tlv &x) {
+    return to_int64(x.value);
+}
+
+#ifndef NDEBUG
+inline bool unit_test(FILE *f = nullptr) {
     auto parse_uint = [](const tlv &x) -> uint64_t {
         uint64_t v = 0;
         for (const uint8_t b : x.value) {
@@ -1006,10 +1059,22 @@ inline bool unit_test() {
         tlv_expected f2{tlv::OCTET_STRING};
 
         const bool ok = parse_explicitly_tagged_positional(d, f0, f1, f2);
-        passed &= ok;
-        passed &= f0.is_not_null() && parse_uint(f0) == 5;
-        passed &= f1.is_not_null() && parse_uint(f1) == 14;
-        passed &= f2.is_not_null() && f2.value.length() == 2;
+        if (!ok) {
+            passed = false;
+            if (f) { fprintf(f, "parse_explicitly_tagged_positional: success case failed to parse\n"); }
+        }
+        if (!(f0.is_not_null() && parse_uint(f0) == 5)) {
+            passed = false;
+            if (f) { fprintf(f, "parse_explicitly_tagged_positional: f0 expected 5\n"); }
+        }
+        if (!(f1.is_not_null() && parse_uint(f1) == 14)) {
+            passed = false;
+            if (f) { fprintf(f, "parse_explicitly_tagged_positional: f1 expected 14\n"); }
+        }
+        if (!(f2.is_not_null() && f2.value.length() == 2)) {
+            passed = false;
+            if (f) { fprintf(f, "parse_explicitly_tagged_positional: f2 expected length 2\n"); }
+        }
     }
 
     // Duplicate explicit tag should fail.
@@ -1021,7 +1086,10 @@ inline bool unit_test() {
         datum d{bytes, bytes + sizeof(bytes)};
         tlv_expected f0{tlv::INTEGER};
         tlv_expected f1{tlv::INTEGER};
-        passed &= !parse_explicitly_tagged_positional(d, f0, f1);
+        if (parse_explicitly_tagged_positional(d, f0, f1)) {
+            passed = false;
+            if (f) { fprintf(f, "parse_explicitly_tagged_positional: duplicate-tag case unexpectedly succeeded\n"); }
+        }
     }
 
     // Unknown explicit tag should fail (N=3, tag [3] out of range).
@@ -1031,7 +1099,10 @@ inline bool unit_test() {
         tlv_expected f0{tlv::INTEGER};
         tlv_expected f1{tlv::INTEGER};
         tlv_expected f2{tlv::INTEGER};
-        passed &= !parse_explicitly_tagged_positional(d, f0, f1, f2);
+        if (parse_explicitly_tagged_positional(d, f0, f1, f2)) {
+            passed = false;
+            if (f) { fprintf(f, "parse_explicitly_tagged_positional: unknown-tag case unexpectedly succeeded\n"); }
+        }
     }
 
     // Wrong inner type should fail ([0] expected INTEGER, got OCTET STRING).
@@ -1039,11 +1110,136 @@ inline bool unit_test() {
         const uint8_t bytes[] = { 0xa0, 0x03, 0x04, 0x01, 0xff };
         datum d{bytes, bytes + sizeof(bytes)};
         tlv_expected f0{tlv::INTEGER};
-        passed &= !parse_explicitly_tagged_positional(d, f0);
+        if (parse_explicitly_tagged_positional(d, f0)) {
+            passed = false;
+            if (f) { fprintf(f, "parse_explicitly_tagged_positional: wrong-inner-type case unexpectedly succeeded\n"); }
+        }
+    }
+
+    // asn1::to_int64 — table-driven cases for ASN.1 BER signed
+    // two's-complement INTEGER value-octet decoding.  Per-row notes
+    // document the boundary or bug each case exists for.
+    //
+    struct int64_case {
+        const uint8_t *bytes;
+        size_t len;
+        int64_t expected;
+        const char *note;
+    };
+    static const int64_case int64_cases[] = {
+        { (const uint8_t *)"\x00",                                 1, 0,                                  "zero" },
+        { (const uint8_t *)"\x7f",                                 1, 127,                                "max positive in 1 byte" },
+        { (const uint8_t *)"\x80",                                 1, -128,                               "min negative in 1 byte (sign bit set)" },
+        { (const uint8_t *)"\xff",                                 1, -1,                                 "all-ones in 1 byte == -1" },
+        { (const uint8_t *)"\x00\x80",                             2, 128,                                "leading 0x00 keeps value positive" },
+        { (const uint8_t *)"\xff\x7f",                             2, -129,                               "negative requiring 2 bytes" },
+        { (const uint8_t *)"\xff\x00",                             2, -256,                               "two-byte negative" },
+        { (const uint8_t *)"\x7f\xff\xff\xff",                     4, INT64_C(2147483647),                "INT32_MAX" },
+        { (const uint8_t *)"\x80\x00\x00\x00",                     4, INT64_C(-2147483648),               "INT32_MIN" },
+        { (const uint8_t *)"\xff\xff\xff\xff\xff\xff\xff",         7, -1,                                 "7-byte all-ones, sign-extend bits=56" },
+        { (const uint8_t *)"\x80\x00\x00\x00\x00\x00\x00",         7, INT64_C(-36028797018963968),        "7-byte min negative" },
+        { (const uint8_t *)"\x7f\xff\xff\xff\xff\xff\xff\xff",     8, INT64_MAX,                          "INT64_MAX (no shift, bits == 64)" },
+        { (const uint8_t *)"\x80\x00\x00\x00\x00\x00\x00\x00",     8, INT64_MIN,                          "INT64_MIN (no shift, bits == 64)" },
+        { (const uint8_t *)"\x80\x00\x00\x00\x00\x00\x00\x01",     8, INT64_MIN + 1,                      "INT64_MIN + 1" },
+        // fail-closed coverage symmetric with to_uint64
+        { (const uint8_t *)"",                                     0, 0,                                  "empty -> 0 (fail-closed)" },
+        { (const uint8_t *)"\x00\x00\x00\x00\x00\x00\x00\x00\x00", 9, 0,                                  "9-byte input -> 0 (fail-closed)" },
+    };
+    for (const auto &tc : int64_cases) {
+        datum d{tc.bytes, tc.bytes + tc.len};
+        const int64_t got = to_int64(d);
+        if (got != tc.expected) {
+            passed = false;
+            if (f) {
+                fprintf(f,
+                        "asn1::to_int64 case '%s' (len=%zu): expected %lld, got %lld\n",
+                        tc.note, tc.len,
+                        static_cast<long long>(tc.expected),
+                        static_cast<long long>(got));
+            }
+        }
+    }
+
+    // asn1::to_uint64 — sanity, fail-closed, and oversize-input
+    // (>8 bytes -> 0) coverage.
+    //
+    struct uint64_case {
+        const uint8_t *bytes;
+        size_t len;
+        uint64_t expected;
+        const char *note;
+    };
+    const uint8_t empty_bytes[1] = {};
+    const uint8_t nine_bytes[9]  = {};
+    const uint8_t nine_high_bit[9] = {
+        0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
+    };
+    const uint64_case uint64_cases[] = {
+        { (const uint8_t *)"\x00",                                 1, 0,                              "zero (1 byte)" },
+        { (const uint8_t *)"\x01",                                 1, 1,                              "one (1 byte)" },
+        { (const uint8_t *)"\x7f",                                 1, 127,                            "127 (1 byte, high bit clear)" },
+        { (const uint8_t *)"\xff",                                 1, 255,                            "255 (1 byte, all-ones; differs from to_int64)" },
+        { (const uint8_t *)"\x01\x00",                             2, 256,                            "256 (sanity)" },
+        { (const uint8_t *)"\xff\xff",                             2, 65535,                          "UINT16_MAX (2 bytes)" },
+        { (const uint8_t *)"\x00\x80\x00\x00",                     4, UINT64_C(8388608),              "leading 0x00 + 23-bit value" },
+        { (const uint8_t *)"\xff\xff\xff\xff",                     4, UINT64_C(0xffffffff),           "UINT32_MAX (4 bytes)" },
+        { (const uint8_t *)"\x80\x00\x00\x00\x00\x00\x00\x00",     8, UINT64_C(0x8000000000000000),   "high bit set at 8 bytes (>INT64_MAX)" },
+        { (const uint8_t *)"\xff\xff\xff\xff\xff\xff\xff\xff",     8, ~uint64_t{0},                   "UINT64_MAX (all-ones at 8 bytes)" },
+        // fail-closed coverage symmetric with to_int64
+        { empty_bytes,                                             0, 0,                              "empty -> 0 (fail-closed)" },
+        { nine_bytes,                                              9, 0,                              "9-byte input -> 0 (fail-closed)" },
+        { nine_high_bit,                                           9, 0,                              "9-byte ASN.1-style 0x00 + 8x0xff -> 0 (fail-closed)" },
+    };
+    for (const auto &tc : uint64_cases) {
+        datum d{tc.bytes, tc.bytes + tc.len};
+        const uint64_t got = to_uint64(d);
+        if (got != tc.expected) {
+            passed = false;
+            if (f) {
+                fprintf(f,
+                        "asn1::to_uint64 case '%s' (len=%zu): expected %llu, got %llu\n",
+                        tc.note, tc.len,
+                        static_cast<unsigned long long>(tc.expected),
+                        static_cast<unsigned long long>(got));
+            }
+        }
+    }
+
+    // tlv overloads must forward to the datum versions.
+    {
+        const uint8_t neg_bytes[]   = { 0xff };
+        const uint8_t pos_bytes[]   = { 0x01, 0x00 };
+        tlv neg_tlv;
+        neg_tlv.set(tlv::INTEGER, neg_bytes, sizeof(neg_bytes));
+        tlv pos_tlv;
+        pos_tlv.set(tlv::INTEGER, pos_bytes, sizeof(pos_bytes));
+        if (to_int64(neg_tlv) != -1) {
+            passed = false;
+            if (f) { fprintf(f, "asn1::to_int64(tlv) forwarding failed\n"); }
+        }
+        if (to_uint64(pos_tlv) != 256) {
+            passed = false;
+            if (f) { fprintf(f, "asn1::to_uint64(tlv) forwarding failed\n"); }
+        }
+    }
+
+    // null datum must fail closed for both helpers
+    {
+        datum null_d;
+        null_d.set_null();
+        if (to_int64(null_d) != 0) {
+            passed = false;
+            if (f) { fprintf(f, "asn1::to_int64(null datum) expected 0\n"); }
+        }
+        if (to_uint64(null_d) != 0) {
+            passed = false;
+            if (f) { fprintf(f, "asn1::to_uint64(null datum) expected 0\n"); }
+        }
     }
 
     return passed;
 }
+#endif // NDEBUG
 
 } // namespace asn1
 

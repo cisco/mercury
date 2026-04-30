@@ -132,12 +132,8 @@ int main(int, char *[]) {
             &tlv::unit_test
         },
         {
-            "asn1",
-            &asn1::unit_test
-        },
-        {
-            "krb5_int_conversion",
-            &krb5::int_conversion_unit_test
+            "krb5",
+            &krb5::unit_test  // TODO: stub; needs real coverage
         }
     };
     size_t num_tests = 0;
@@ -218,6 +214,10 @@ int main(int, char *[]) {
         {
             "oid",
             &asn1::oid_unit_test
+        },
+        {
+            "asn1",
+            &asn1::unit_test
         },
     };
     for (const auto &tc : test_cases_verbose) {
