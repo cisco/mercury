@@ -982,23 +982,45 @@ bool parse_explicitly_tagged_positional(datum &d, Fields &...fields) {
     return d.is_not_null();
 }
 
-/// Decode the bytes of \p d as an unsigned big-endian integer.
+/// Decode the bytes of \p d as a non-negative ASN.1 BER/DER INTEGER.
 ///
-/// Intended for ASN.1 INTEGER (BER/DER/CER) value-octet payloads where the
-/// payload is known to be non-negative (e.g. a protocol version number,
-/// message-type discriminant, or other unsigned identifier).
-/// Returns 0 if \p d is not readable, has zero length, or is longer than
-/// 8 bytes.
+/// Intended for ASN.1 INTEGER value-octet payloads known to be
+/// non-negative (e.g. a protocol version number, message-type
+/// discriminant, or other unsigned identifier).
+///
+/// Enforces X.690 §8.3 strictly: value octets are two's-complement
+/// signed (§8.3.3), and multi-octet contents must be minimal (§8.3.2:
+/// leading 0x00 is only valid when the next octet's high bit is set).
+/// Returns 0 if \p d is not readable, has zero length, encodes a
+/// negative value, violates §8.3.2 minimality, or does not fit in
+/// uint64_t (longer than 9 octets, or 9 octets without leading 0x00).
 ///
 /// \sa asn1::to_int64()
 ///
 inline uint64_t to_uint64(const datum &d) {
-    if (d.is_not_readable() || d.length() == 0 || d.length() > 8) {
+    if (d.is_not_readable() || d.length() == 0 || d.length() > 9) {
         return 0;
     }
+    const uint8_t *p = d.data;
+    size_t len = d.length();
+
+    if (p[0] & 0x80) {
+        return 0;  // negative
+    }
+    if (len > 1 && p[0] == 0x00 && (p[1] & 0x80) == 0) {
+        return 0;  // §8.3.2 minimality violation
+    }
+    if (len == 9) {
+        if (p[0] != 0x00) {
+            return 0;  // value > UINT64_MAX
+        }
+        ++p;
+        --len;
+    }
+
     uint64_t result = 0;
-    for (const uint8_t &b : d) {
-        result = (result << 8) | b;
+    for (size_t i = 0; i < len; ++i) {
+        result = (result << 8) | p[i];
     }
     return result;
 }
@@ -1007,13 +1029,17 @@ inline uint64_t to_uint64(const tlv &x) {
     return to_uint64(x.value);
 }
 
-/// Decode the bytes of \p d as a signed two's-complement big-endian integer.
+/// Decode the bytes of \p d as a signed two's-complement ASN.1 BER/DER INTEGER.
 ///
-/// Intended for ASN.1 INTEGER (BER/DER/CER) value-octet payloads encoded
-/// in two's-complement form (the encoding used by every ASN.1 INTEGER,
-/// including signed application types such as SNMP Integer32 and Kerberos
-/// etype/error-code).  Returns 0 if \p d is not readable, has zero length,
-/// or is longer than 8 bytes.
+/// Intended for ASN.1 INTEGER value-octet payloads that may be
+/// negative (e.g. SNMP Integer32, Kerberos etype/error-code).
+///
+/// Enforces X.690 §8.3 strictly: value octets are two's-complement
+/// (§8.3.3), and multi-octet contents must be minimal (§8.3.2: the
+/// first octet plus bit 8 of the second octet shall not all be zero
+/// and shall not all be ones).  Returns 0 if \p d is not readable,
+/// has zero length, is longer than 8 octets, or violates §8.3.2
+/// minimality.
 ///
 /// \sa asn1::to_uint64()
 ///
@@ -1021,12 +1047,20 @@ inline int64_t to_int64(const datum &d) {
     if (d.is_not_readable() || d.length() == 0 || d.length() > 8) {
         return 0;
     }
+    const uint8_t *p = d.data;
+    const size_t len = d.length();
+    if (len > 1 &&
+        ((p[0] == 0x00 && (p[1] & 0x80) == 0) ||
+         (p[0] == 0xff && (p[1] & 0x80) != 0))) {
+        return 0;  // §8.3.2 minimality violation
+    }
+
     uint64_t result = 0;
     for (const uint8_t &b : d) {
         result = (result << 8) | b;
     }
-    const bool is_negative = (d.data[0] & 0x80) != 0;
-    const size_t bits = static_cast<size_t>(d.length()) * 8;
+    const bool is_negative = (p[0] & 0x80) != 0;
+    const size_t bits = len * 8;
     if (is_negative && bits < 64) {
         result |= (~uint64_t{0}) << bits;
     }
@@ -1119,9 +1153,8 @@ inline bool unit_test(FILE *f = nullptr) {
         }
     }
 
-    // asn1::to_int64 — table-driven cases for ASN.1 BER signed
-    // two's-complement INTEGER value-octet decoding.  Per-row notes
-    // document the boundary or bug each case exists for.
+    // asn1::to_int64 — strict ASN.1 BER signed INTEGER decoding
+    // (X.690 §8.3).
     //
     struct int64_case {
         const uint8_t *bytes;
@@ -1132,21 +1165,26 @@ inline bool unit_test(FILE *f = nullptr) {
     static const int64_case int64_cases[] = {
         { (const uint8_t *)"\x00",                                 1, 0,                                  "zero" },
         { (const uint8_t *)"\x7f",                                 1, 127,                                "max positive in 1 byte" },
-        { (const uint8_t *)"\x80",                                 1, -128,                               "min negative in 1 byte (sign bit set)" },
-        { (const uint8_t *)"\xff",                                 1, -1,                                 "all-ones in 1 byte == -1" },
+        { (const uint8_t *)"\x80",                                 1, -128,                               "min negative in 1 byte" },
+        { (const uint8_t *)"\xff",                                 1, -1,                                 "-1 in 1 byte" },
         { (const uint8_t *)"\x00\x80",                             2, 128,                                "leading 0x00 keeps value positive" },
         { (const uint8_t *)"\xff\x7f",                             2, -129,                               "negative requiring 2 bytes" },
         { (const uint8_t *)"\xff\x00",                             2, -256,                               "two-byte negative" },
         { (const uint8_t *)"\x7f\xff\xff\xff",                     4, INT64_C(2147483647),                "INT32_MAX" },
         { (const uint8_t *)"\x80\x00\x00\x00",                     4, INT64_C(-2147483648),               "INT32_MIN" },
-        { (const uint8_t *)"\xff\xff\xff\xff\xff\xff\xff",         7, -1,                                 "7-byte all-ones, sign-extend bits=56" },
         { (const uint8_t *)"\x80\x00\x00\x00\x00\x00\x00",         7, INT64_C(-36028797018963968),        "7-byte min negative" },
-        { (const uint8_t *)"\x7f\xff\xff\xff\xff\xff\xff\xff",     8, INT64_MAX,                          "INT64_MAX (no shift, bits == 64)" },
-        { (const uint8_t *)"\x80\x00\x00\x00\x00\x00\x00\x00",     8, INT64_MIN,                          "INT64_MIN (no shift, bits == 64)" },
+        { (const uint8_t *)"\x7f\xff\xff\xff\xff\xff\xff\xff",     8, INT64_MAX,                          "INT64_MAX" },
+        { (const uint8_t *)"\x80\x00\x00\x00\x00\x00\x00\x00",     8, INT64_MIN,                          "INT64_MIN" },
         { (const uint8_t *)"\x80\x00\x00\x00\x00\x00\x00\x01",     8, INT64_MIN + 1,                      "INT64_MIN + 1" },
-        // fail-closed coverage symmetric with to_uint64
-        { (const uint8_t *)"",                                     0, 0,                                  "empty -> 0 (fail-closed)" },
-        { (const uint8_t *)"\x00\x00\x00\x00\x00\x00\x00\x00\x00", 9, 0,                                  "9-byte input -> 0 (fail-closed)" },
+        // §8.3.2 minimality violations -> rejected
+        { (const uint8_t *)"\x00\x01",                             2, 0,                                  "non-minimal positive (0x00 0x01)" },
+        { (const uint8_t *)"\x00\x7f",                             2, 0,                                  "non-minimal positive (0x00 0x7f)" },
+        { (const uint8_t *)"\xff\xff",                             2, 0,                                  "non-minimal negative (0xff 0xff, minimal is 0xff)" },
+        { (const uint8_t *)"\xff\xff\xff\xff\xff\xff\xff",         7, 0,                                  "non-minimal -1 in 7 bytes" },
+        // fail-closed coverage
+        { (const uint8_t *)"",                                     0, 0,                                  "empty" },
+        { (const uint8_t *)"\x00\x80\x00\x00\x00\x00\x00\x00\x00", 9, 0,                                  "INT64_MAX + 1 = 2^63 (valid BER, out of range)" },
+        { (const uint8_t *)"\xff\x7f\xff\xff\xff\xff\xff\xff\xff", 9, 0,                                  "INT64_MIN - 1 (valid BER, out of range)" },
     };
     for (const auto &tc : int64_cases) {
         datum d{tc.bytes, tc.bytes + tc.len};
@@ -1163,8 +1201,8 @@ inline bool unit_test(FILE *f = nullptr) {
         }
     }
 
-    // asn1::to_uint64 — sanity, fail-closed, and oversize-input
-    // (>8 bytes -> 0) coverage.
+    // asn1::to_uint64 — strict ASN.1 BER non-negative INTEGER
+    // decoding (X.690 §8.3).
     //
     struct uint64_case {
         const uint8_t *bytes;
@@ -1172,26 +1210,34 @@ inline bool unit_test(FILE *f = nullptr) {
         uint64_t expected;
         const char *note;
     };
-    const uint8_t empty_bytes[1] = {};
-    const uint8_t nine_bytes[9]  = {};
-    const uint8_t nine_high_bit[9] = {
-        0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
-    };
     const uint64_case uint64_cases[] = {
-        { (const uint8_t *)"\x00",                                 1, 0,                              "zero (1 byte)" },
-        { (const uint8_t *)"\x01",                                 1, 1,                              "one (1 byte)" },
-        { (const uint8_t *)"\x7f",                                 1, 127,                            "127 (1 byte, high bit clear)" },
-        { (const uint8_t *)"\xff",                                 1, 255,                            "255 (1 byte, all-ones; differs from to_int64)" },
-        { (const uint8_t *)"\x01\x00",                             2, 256,                            "256 (sanity)" },
-        { (const uint8_t *)"\xff\xff",                             2, 65535,                          "UINT16_MAX (2 bytes)" },
-        { (const uint8_t *)"\x00\x80\x00\x00",                     4, UINT64_C(8388608),              "leading 0x00 + 23-bit value" },
-        { (const uint8_t *)"\xff\xff\xff\xff",                     4, UINT64_C(0xffffffff),           "UINT32_MAX (4 bytes)" },
-        { (const uint8_t *)"\x80\x00\x00\x00\x00\x00\x00\x00",     8, UINT64_C(0x8000000000000000),   "high bit set at 8 bytes (>INT64_MAX)" },
-        { (const uint8_t *)"\xff\xff\xff\xff\xff\xff\xff\xff",     8, ~uint64_t{0},                   "UINT64_MAX (all-ones at 8 bytes)" },
-        // fail-closed coverage symmetric with to_int64
-        { empty_bytes,                                             0, 0,                              "empty -> 0 (fail-closed)" },
-        { nine_bytes,                                              9, 0,                              "9-byte input -> 0 (fail-closed)" },
-        { nine_high_bit,                                           9, 0,                              "9-byte ASN.1-style 0x00 + 8x0xff -> 0 (fail-closed)" },
+        { (const uint8_t *)"\x00",                                             1, 0,                              "zero" },
+        { (const uint8_t *)"\x01",                                             1, 1,                              "one" },
+        { (const uint8_t *)"\x7f",                                             1, 127,                            "127 (max without sign-preserving prefix)" },
+        { (const uint8_t *)"\x00\x80",                                         2, 128,                            "128 (minimal: 0x00 + 0x80)" },
+        { (const uint8_t *)"\x00\xff",                                         2, 255,                            "255 (minimal: 0x00 + 0xff)" },
+        { (const uint8_t *)"\x01\x00",                                         2, 256,                            "256" },
+        { (const uint8_t *)"\x00\xff\xff",                                     3, 65535,                          "UINT16_MAX (minimal)" },
+        { (const uint8_t *)"\x00\xff\xff\xff\xff",                             5, UINT64_C(0xffffffff),           "UINT32_MAX (minimal)" },
+        { (const uint8_t *)"\x7f\xff\xff\xff\xff\xff\xff\xff",                 8, UINT64_C(0x7fffffffffffffff),   "INT64_MAX as unsigned (8 bytes)" },
+        { (const uint8_t *)"\x00\x80\x00\x00\x00\x00\x00\x00\x00",             9, UINT64_C(0x8000000000000000),   "2^63 (9-byte, minimal)" },
+        { (const uint8_t *)"\x00\xff\xff\xff\xff\xff\xff\xff\xff",             9, ~uint64_t{0},                   "UINT64_MAX (9-byte, minimal)" },
+        // negative two's-complement -> rejected
+        { (const uint8_t *)"\xff",                                             1, 0,                              "0xff (encodes -1)" },
+        { (const uint8_t *)"\x80",                                             1, 0,                              "0x80 (encodes -128)" },
+        { (const uint8_t *)"\xff\xff",                                         2, 0,                              "0xffff (encodes -1)" },
+        { (const uint8_t *)"\x80\x00\x00\x00\x00\x00\x00\x00",                 8, 0,                              "INT64_MIN-encoded" },
+        // §8.3.2 minimality violations -> rejected
+        { (const uint8_t *)"\x00\x00",                                         2, 0,                              "non-minimal: 0x00 0x00" },
+        { (const uint8_t *)"\x00\x01",                                         2, 0,                              "non-minimal: 0x00 0x01" },
+        { (const uint8_t *)"\x00\x7f",                                         2, 0,                              "non-minimal: 0x00 0x7f" },
+        { (const uint8_t *)"\x00\x00\x80",                                     3, 0,                              "non-minimal: 0x00 0x00 0x80" },
+        { (const uint8_t *)"\x00\x7f\xff\xff\xff\xff\xff\xff\xff",             9, 0,                              "non-minimal 9-byte (fits in 8)" },
+        { (const uint8_t *)"\x00\x00\x00\x00\x00\x00\x00\x00\x00",             9, 0,                              "non-minimal 9-byte all-zeros" },
+        // fail-closed coverage
+        { (const uint8_t *)"",                                                 0, 0,                              "empty" },
+        { (const uint8_t *)"\x01\x00\x00\x00\x00\x00\x00\x00\x00",             9, 0,                              "UINT64_MAX + 1 = 2^64 (9-byte, out of range)" },
+        { (const uint8_t *)"\x01\x00\x00\x00\x00\x00\x00\x00\x01",             9, 0,                              "2^64 + 1 (9-byte without leading 0x00 guard)" },
     };
     for (const auto &tc : uint64_cases) {
         datum d{tc.bytes, tc.bytes + tc.len};
