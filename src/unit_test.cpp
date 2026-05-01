@@ -130,10 +130,6 @@ int main(int, char *[]) {
         {
             "tlv",
             &tlv::unit_test
-        },
-        {
-            "krb5",
-            &krb5::unit_test  // TODO: stub; needs real coverage
         }
     };
     size_t num_tests = 0;

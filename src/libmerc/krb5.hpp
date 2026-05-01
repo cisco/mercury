@@ -1513,15 +1513,6 @@ namespace krb5 {
 
     };
 
-#ifndef NDEBUG
-    // TODO: krb5 has no real unit tests.  The previous
-    // krb5::int_conversion_unit_test was moved to namespace asn1.
-    //
-    [[maybe_unused]] inline bool unit_test() {
-        return true;
-    }
-#endif // NDEBUG
-
 } // namespace krb5
 
 [[maybe_unused]] inline int krb5_fuzz_test(const uint8_t *data, size_t size) {
