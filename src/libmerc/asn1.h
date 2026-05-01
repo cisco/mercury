@@ -988,7 +988,9 @@ bool parse_explicitly_tagged_positional(datum &d, Fields &...fields) {
 /// payload is known to be non-negative (e.g. a protocol version number,
 /// message-type discriminant, or other unsigned identifier).
 /// Returns 0 if \p d is not readable, has zero length, or is longer than
-/// 8 bytes.  Symmetric with \ref to_int64; both helpers fail closed.
+/// 8 bytes.
+///
+/// \sa asn1::to_int64()
 ///
 inline uint64_t to_uint64(const datum &d) {
     if (d.is_not_readable() || d.length() == 0 || d.length() > 8) {
@@ -1011,8 +1013,9 @@ inline uint64_t to_uint64(const tlv &x) {
 /// in two's-complement form (the encoding used by every ASN.1 INTEGER,
 /// including signed application types such as SNMP Integer32 and Kerberos
 /// etype/error-code).  Returns 0 if \p d is not readable, has zero length,
-/// or is longer than 8 bytes.  Symmetric with \ref to_uint64; both
-/// helpers fail closed.
+/// or is longer than 8 bytes.
+///
+/// \sa asn1::to_uint64()
 ///
 inline int64_t to_int64(const datum &d) {
     if (d.is_not_readable() || d.length() == 0 || d.length() > 8) {
