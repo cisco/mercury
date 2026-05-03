@@ -723,6 +723,10 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
         break;
     case udp_msg_type_dtls_client_hello:
         x.emplace<dtls_client_hello>(pkt);
+        more_bytes = std::get<dtls_client_hello>(x).additional_bytes_needed();
+        if (more_bytes) {
+            udp_pkt.reassembly_needed(more_bytes);
+        }
         break;
     case udp_msg_type_dtls_server_hello:
         x.emplace<dtls_server_hello>(pkt);
@@ -920,29 +924,39 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
     }
     //datum pkt_copy{pkt};
 
-    // For UDP reassembly, all the reassembly will always happen at the encapsulated application or transport protocol layer, like QUIC
-    // currently this code is tailored for QUIC only
-    // A QUIC pkt/ UDP pkt can be checked if it is involved in reassembly if either the CH initial part is seen with additional bytes needed,
-    // or a QUIC pkt with crypto frames and the flow exists in reassembly table
+    // For UDP reassembly, all the reassembly will always happen at the encapsulated
+    // application or transport protocol layer (e.g., QUIC or DTLS).
+    // A UDP packet is a candidate for reassembly when:
+    //   - QUIC: the initial QUIC/TLS ClientHello is fragmented across multiple QUIC
+    //     CRYPTO frames or datagrams, or
+    //   - DTLS: a DTLS handshake message is fragmented across multiple UDP datagrams.
 
     set_udp_protocol(x, pkt, udp_pkt.get_ports(), is_new, k, udp_pkt);
-    //if ( (!udp_pkt.additional_bytes_needed() && (std::holds_alternative<quic_init>(x)))  || (!(std::holds_alternative<quic_init>(x))) ) {
-    if (!(std::holds_alternative<quic_init>(x))) {
+
+    bool is_quic = std::holds_alternative<quic_init>(x);
+    bool is_dtls_ch = std::holds_alternative<dtls_client_hello>(x);
+
+    if (!is_quic && !is_dtls_ch) {
         // no need for reassembly
         return true;
     }
-    else if ((udp_pkt.additional_bytes_needed() > reassembly_flow_context::max_data_size)){ //|| (tcp_pkt.data_length > reassembly_flow_context::max_data_size)) {
-        // cant do reassembly
-        // TODO: add indication for truncation
+    else if (udp_pkt.additional_bytes_needed() > reassembly_flow_context::max_data_size) {
+        // payload too large for the reassembly buffer; output as-is (truncated)
         return true;
     }
 
-    // reassembly may be needed
-    // pkts that reach here are inital msg with/without additional_bytes_needed, missing crypto frames or
-    // non initial pkts that dont match any protocol, so could be part of a reassembly flow
-    // check if in reassembly table to continue
-    // init otherwise
-    //
+    if (is_quic) {
+        return process_quic_reassembly(x, udp_pkt, k, ts, reassembler);
+    }
+
+    return process_dtls_reassembly(x, udp_pkt, k, ts, reassembler);
+}
+
+bool stateful_pkt_proc::process_quic_reassembly(protocol &x,
+                                                 udp &udp_pkt,
+                                                 const struct key &k,
+                                                 struct timespec *ts,
+                                                 struct tcp_reassembler *reassembler) {
     const datum &cid = std::get<quic_init>(x).get_cid();
     uint32_t crypto_len = 0;
     const uint8_t *crypto_data = std::get<quic_init>(x).get_crypto_buf(&crypto_len);
@@ -961,17 +975,17 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
         return true;
     }
 
-    reassembly_state r_state = reassembler->check_flow(k,ts->tv_sec, cid);
+    reassembly_state r_state = reassembler->check_flow(k, ts->tv_sec, cid);
 
     if ((r_state == reassembly_state::reassembly_none) && !udp_pkt.additional_bytes_needed()) {
         // pkt not involved in reassembly
         return true;
     }
-    else if ((r_state == reassembly_state::reassembly_none) && udp_pkt.additional_bytes_needed()){
+    else if ((r_state == reassembly_state::reassembly_none) && udp_pkt.additional_bytes_needed()) {
         if (!missing_crypto_frames) {
             // init reassembly
-            quic_segment seg{true,crypto_len,crypto_offset,udp_pkt.additional_bytes_needed(),(uint64_t)ts->tv_sec, cid};
-            reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+crypto_offset,crypto_data+crypto_offset+crypto_len});
+            udp_segment seg{true,crypto_len,crypto_offset,udp_pkt.additional_bytes_needed(),(uint64_t)ts->tv_sec, cid};
+            reassembler->process_udp_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+crypto_offset,crypto_data+crypto_offset+crypto_len});
             reassembler->dump_pkt = true;
         }
         // special case for missing / reordered crypto frames
@@ -996,8 +1010,8 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
                         seg_len = available_len;
                     }
                     if (seg_len && (seg_len <= UINT32_MAX)) {
-                        quic_segment seg{true,(uint32_t)seg_len,(uint32_t)frame_offset,udp_pkt.additional_bytes_needed(),(uint64_t)ts->tv_sec, cid};
-                        reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frame_offset,
+                        udp_segment seg{true,(uint32_t)seg_len,(uint32_t)frame_offset,udp_pkt.additional_bytes_needed(),(uint64_t)ts->tv_sec, cid};
+                        reassembler->process_udp_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frame_offset,
                                         crypto_data+frame_offset+seg_len});
                     }
                 }
@@ -1009,11 +1023,10 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
                     (frame_offset + frame_len <= max_crypto_end) &&
                     (frame_offset <= UINT32_MAX) &&
                     (frame_len <= UINT32_MAX)) {
-                    quic_segment seg{true,(uint32_t)frame_len,(uint32_t)frame_offset,udp_pkt.additional_bytes_needed(),(uint64_t)ts->tv_sec, cid};
-                    reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frame_offset,
+                    udp_segment seg{true,(uint32_t)frame_len,(uint32_t)frame_offset,udp_pkt.additional_bytes_needed(),(uint64_t)ts->tv_sec, cid};
+                    reassembler->process_udp_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frame_offset,
                                     crypto_data+frame_offset+frame_len});
                 }
-
             }
 
             for (uint16_t i = 0; i < frame_count; i++) {
@@ -1024,19 +1037,19 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
                         (frame_offset + frame_len <= max_crypto_end) &&
                         (frame_offset <= UINT32_MAX) &&
                         (frame_len <= UINT32_MAX)) {
-                        quic_segment seg{false,(uint32_t)frame_len,(uint32_t)frame_offset,0,(uint64_t)ts->tv_sec, cid};
-                        reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frame_offset,crypto_data+frame_offset+frame_len});
+                        udp_segment seg{false,(uint32_t)frame_len,(uint32_t)frame_offset,0,(uint64_t)ts->tv_sec, cid};
+                        reassembler->process_udp_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frame_offset,crypto_data+frame_offset+frame_len});
                     }
                 }
             }
             reassembler->dump_pkt = true;
         }
     }
-    else if (r_state == reassembly_state::reassembly_progress){
+    else if (r_state == reassembly_state::reassembly_progress) {
         if (!missing_crypto_frames) {
             // continue reassembly
-            quic_segment seg{false,crypto_len,crypto_offset,0,(uint64_t)ts->tv_sec, cid};
-            reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+crypto_offset,crypto_data+crypto_offset+crypto_len});
+            udp_segment seg{false,crypto_len,crypto_offset,0,(uint64_t)ts->tv_sec, cid};
+            reassembler->process_udp_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+crypto_offset,crypto_data+crypto_offset+crypto_len});
             reassembler->dump_pkt = true;
         }
         else {
@@ -1055,10 +1068,9 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
                     (frame_offset + frame_len <= max_crypto_end) &&
                     (frame_offset <= UINT32_MAX) &&
                     (frame_len <= UINT32_MAX)) {
-                    quic_segment seg{false,(uint32_t)frame_len,(uint32_t)frame_offset,0,(uint64_t)ts->tv_sec, cid};
-                    reassembler->process_quic_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frame_offset,crypto_data+frame_offset+frame_len});
+                    udp_segment seg{false,(uint32_t)frame_len,(uint32_t)frame_offset,0,(uint64_t)ts->tv_sec, cid};
+                    reassembler->process_udp_data_pkt(k,ts->tv_sec,seg,datum{crypto_data+frame_offset,crypto_data+frame_offset+frame_len});
                 }
-
             }
             reassembler->dump_pkt = true;
         }
@@ -1067,7 +1079,7 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
         // this will never happen
         return false;
     }
-    else if (r_state == reassembly_state::reassembly_quic_discard) {
+    else if (r_state == reassembly_state::reassembly_cid_mismatch) {
         // some non matching quic flow on known 5 tuple
         return true;
     }
@@ -1079,15 +1091,93 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
     // after processing this pkt, check for states again
     reassembly_map_iterator it = reassembler->get_current_flow();
     if (reassembler->is_ready(it)) {
-        // reassmbly done
-        // process reassembled data
-        //
+        // reassembly done; update QUIC crypto buffer and reparse client hello
         struct datum reassembled_data = reassembler->get_reassembled_data(it);
-        //set_tcp_protocol(x, reassembled_data, true, &tcp_pkt);
-        // update quic crpto buffer and reparse client hello
         std::get<quic_init>(x).reparse_crypto_buf(reassembled_data);
 
-        // mark flow as completed
+        reassembler->set_completed(it);
+        return true;
+    }
+
+    return false;
+}
+
+// DTLS (RFC 6347) can fragment a single handshake message across multiple
+// UDP datagrams.  Each fragment carries:
+//   fragment_offset  - byte offset of this fragment in the full message
+//   fragment_length  - bytes carried in this fragment
+//   length           - total length of the full handshake message
+//
+// The generic udp_segment type is used with an empty CID (DTLS has no
+// connection ID) so that the standard reassembly_flow_context machinery
+// handles ordering and completion detection.  On completion the full
+// handshake body (without DTLS record/handshake headers) is available in
+// the reassembly buffer and is re-parsed to populate the tls_client_hello
+// inside dtls_client_hello.
+bool stateful_pkt_proc::process_dtls_reassembly(protocol &x,
+                                                 udp &udp_pkt,
+                                                 const struct key &k,
+                                                 struct timespec *ts,
+                                                 struct tcp_reassembler *reassembler) {
+    const dtls_client_hello &dtls_ch = std::get<dtls_client_hello>(x);
+    uint32_t frag_offset = dtls_ch.get_fragment_offset();
+    uint32_t frag_len    = dtls_ch.get_fragment_length();
+    datum    frag_data   = dtls_ch.get_fragment_data();
+
+    if (frag_len > reassembly_flow_context::max_data_size || frag_len == 0) {
+        // nothing usable
+        return true;
+    }
+
+    // skip reassembly for a complete (non-fragmented) message
+    if (frag_offset == 0 && !udp_pkt.additional_bytes_needed()) {
+        return true;
+    }
+
+    // use an empty CID – DTLS has no connection-ID concept; a single DTLS
+    // session is uniquely identified by its 5-tuple alone
+    datum empty_cid{nullptr, nullptr};
+    reassembly_state r_state = reassembler->check_flow(k, ts->tv_sec, empty_cid);
+
+    if ((r_state == reassembly_state::reassembly_none) && !udp_pkt.additional_bytes_needed()) {
+        // non-first fragment (fragment_offset > 0) arrived before the first fragment;
+        // ignore — reassembly can only be initialised from the fragment at offset 0
+        return true;
+    }
+    else if ((r_state == reassembly_state::reassembly_none) && udp_pkt.additional_bytes_needed()) {
+        // first fragment (fragment_offset == 0) — init reassembly
+        udp_segment seg{true, frag_len, frag_offset,
+                         udp_pkt.additional_bytes_needed(),
+                         (uint64_t)ts->tv_sec, empty_cid};
+        reassembler->process_udp_data_pkt(k, ts->tv_sec, seg, frag_data);
+        reassembler->dump_pkt = true;
+    }
+    else if (r_state == reassembly_state::reassembly_progress) {
+        // subsequent fragment – continue reassembly
+        udp_segment seg{false, frag_len, frag_offset,
+                         0,
+                         (uint64_t)ts->tv_sec, empty_cid};
+        reassembler->process_udp_data_pkt(k, ts->tv_sec, seg, frag_data);
+        reassembler->dump_pkt = true;
+    }
+    else if (r_state == reassembly_state::reassembly_consumed) {
+        return false;
+    }
+    else if (r_state == reassembly_state::reassembly_cid_mismatch) {
+        // CID mismatch – should not happen for DTLS (empty CID always matches)
+        return true;
+    }
+    else {
+        return false;
+    }
+
+    // after processing this fragment, check whether reassembly is complete
+    reassembly_map_iterator it = reassembler->get_current_flow();
+    if (reassembler->is_ready(it)) {
+        // reassembly done; re-parse the full handshake body
+        struct datum reassembled_data = reassembler->get_reassembled_data(it);
+        std::get<dtls_client_hello>(x).reparse_from_buf(reassembled_data);
+
         reassembler->set_completed(it);
         return true;
     }

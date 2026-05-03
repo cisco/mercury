@@ -44,22 +44,23 @@ struct tcp_segment {
         seg_time{seg_time_} {}
 };
 
-// quic_segment contains info about the quic segment
-// to be used in the reassembly - crypto offset, cid, data len, timestamp
+// udp_segment contains info about a UDP offset-based segment
+// to be used in reassembly — byte offset within the payload, optional
+// connection ID, data length, and timestamp.
 //
-// if the segment is first segment, {inti_seg == true},
-// it also holds additional bytes needed for reassmebly
+// if the segment is first segment, {init_seg == true},
+// it also holds additional bytes needed for reassembly
 //
-struct quic_segment {
+struct udp_segment {
     bool init_seg;
     uint32_t data_length;
-    uint32_t seq;   // crypto frame offset
+    uint32_t seq;   // byte offset within the reassembled payload
     uint32_t additional_bytes_needed;
     indefinite_reassembly_type indefinite_reassembly = indefinite_reassembly_type::definite;
     uint64_t seg_time;
-    const datum &cid;
+    const datum &cid;  // QUIC connection ID; pass an empty datum for protocols without connection IDs (e.g. DTLS)
 
-    quic_segment(bool init, uint32_t len, uint32_t offset, uint32_t additional_bytes, uint64_t seg_time_, const datum &cid_,
+    udp_segment(bool init, uint32_t len, uint32_t offset, uint32_t additional_bytes, uint64_t seg_time_, const datum &cid_,
                         indefinite_reassembly_type indef_reassembly = indefinite_reassembly_type::definite) :
         init_seg{init},
         data_length{len},
@@ -115,7 +116,7 @@ enum class reassembly_state : uint8_t {
     reassembly_success = 2,      // reassembly success
     reassembly_truncated = 3,    // reassembly failed, output truncated, either max segments or timeout
     reassembly_consumed = 4,     // reassembly data already consumed, either success or truncated
-    reassembly_quic_discard = 5, // mismatching cid, discard this flow from reassembly
+    reassembly_cid_mismatch = 5, // connection-ID mismatch; discard this UDP flow from reassembly
 };
 
 //static constexpr unsigned int reassembly_timeout = 15;
@@ -152,8 +153,8 @@ struct reassembly_flow_context {
     size_t curr_seg_count;
     std::vector<std::pair<uint32_t,uint32_t> > seg_list;  // pair of start and end seq for segment
 
-    // quic meta
-    bool is_quic = false;
+    // udp offset meta
+    bool is_udp_offset = false;
     static constexpr size_t max_cid_len = 20;
     uint8_t cid[max_cid_len];
     size_t cid_len;
@@ -174,11 +175,9 @@ struct reassembly_flow_context {
         buffer{},
         curr_seg_count{0},
         seg_list{},
-        is_quic{false},
+        is_udp_offset{false},
         cid{},
         cid_len{0} {
-
-        // preventive checks
         if (seg.data_length == 0 || tcp_pkt.is_not_readable()) {
             state = reassembly_state::reassembly_truncated;
             reassembly_flag_val[(size_t)reassembly_flags::truncated] = true;
@@ -211,8 +210,8 @@ struct reassembly_flow_context {
     }
 
      // ctor to be called only on inital tcp data segment required for reassembly, for the first time
-    // QUIC version of ctor
-    reassembly_flow_context(const quic_segment &seg, const datum &crypto_buf) :
+    // UDP offset ctor — offset-based reassembly with optional connection ID
+    reassembly_flow_context(const udp_segment &seg, const datum &crypto_buf) :
         reassembly_flag_val{},
         reassembly_overlap_flags{},
         state{reassembly_state::reassembly_progress},
@@ -225,7 +224,7 @@ struct reassembly_flow_context {
         buffer{},
         curr_seg_count{0},
         seg_list{},
-        is_quic{true},
+        is_udp_offset{true},
         cid{},
         cid_len{(size_t)(seg.cid.length() > (ssize_t)max_cid_len ? max_cid_len : seg.cid.length())} {
 
@@ -560,7 +559,7 @@ struct tcp_reassembler {
     reassembly_state check_flow(const struct key &k, uint64_t sec);
     reassembly_state check_flow(const struct key &k, uint64_t sec, const datum &cid);
     reassembly_map_iterator process_tcp_data_pkt(const struct key &k, uint64_t sec, const tcp_segment &seg, const datum &d);
-    reassembly_map_iterator process_quic_data_pkt(const struct key &k, uint64_t sec, const quic_segment &seg, const datum &d);
+    reassembly_map_iterator process_udp_data_pkt(const struct key &k, uint64_t sec, const udp_segment &seg, const datum &d);
     reassembly_map_iterator get_current_flow();
     bool is_ready(reassembly_map_iterator it);
     bool in_progress(reassembly_map_iterator it);
@@ -649,8 +648,9 @@ inline reassembly_state tcp_reassembler::check_flow(const struct key &k, uint64_
     }
 }
 
-// QUIC version of check_flow also matches connection ID so that at a time, only one flow is in reassembly per unique 5-tuple
-//
+// UDP-offset overload of check_flow; validates the optional connection ID so that
+// only one session per 5-tuple is reassembled at a time.
+// Pass an empty datum as cid for protocols that have no connection ID (e.g. DTLS).
 inline reassembly_state tcp_reassembler::check_flow(const struct key &k, uint64_t sec, const datum &cid_) {
     // housekeeping before find/emplace for maintain iterator validity
     //
@@ -669,7 +669,7 @@ inline reassembly_state tcp_reassembler::check_flow(const struct key &k, uint64_
         if (cid.is_empty() || (cid.cmp(cid_prefix) == 0))
             return curr_flow->second.state;
         else
-            return reassembly_state::reassembly_quic_discard;
+            return reassembly_state::reassembly_cid_mismatch;
     }
     else {
         curr_flow = table.end();
@@ -730,13 +730,13 @@ inline reassembly_map_iterator tcp_reassembler::process_tcp_data_pkt(const struc
     }
 }
 
-inline reassembly_map_iterator tcp_reassembler::process_quic_data_pkt(const struct key &k, uint64_t sec, const quic_segment &seg, const datum &d){
+inline reassembly_map_iterator tcp_reassembler::process_udp_data_pkt(const struct key &k, uint64_t sec, const udp_segment &seg, const datum &d){
     reassembly_state flow_state = check_flow(k,sec,seg.cid);
 
     switch (flow_state)
     {
-    case reassembly_state::reassembly_quic_discard :
-        // untracked quic flow sharing 5 tuple
+    case reassembly_state::reassembly_cid_mismatch :
+        // connection-ID mismatch; another UDP session is sharing this 5-tuple
         return table.end();
 
     case reassembly_state::reassembly_none :

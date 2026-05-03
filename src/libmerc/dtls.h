@@ -43,15 +43,16 @@ struct dtls_record {
 
 struct dtls_handshake {
     handshake_type msg_type;
-    uint32_t length;  // note: only 24 bits on the wire (L_HandshakeLength)
+    uint32_t length;           // note: only 24 bits on the wire (L_HandshakeLength); full message length
     uint16_t message_seq;      // DTLS-only field
     uint32_t fragment_offset;  // 24 bits on wire; DTLS-only field
     uint32_t fragment_length;  // 24 bits on wire; DTLS-only field
     struct datum body;
+    size_t additional_bytes_needed = 0;
 
-    dtls_handshake() : msg_type{handshake_type::unknown}, length{0}, body{NULL, NULL} {}
+    dtls_handshake() : msg_type{handshake_type::unknown}, length{0}, message_seq{0}, fragment_offset{0}, fragment_length{0}, body{NULL, NULL} {}
 
-    dtls_handshake(struct datum &d) : msg_type{handshake_type::unknown}, length{0}, body{NULL, NULL} {
+    dtls_handshake(struct datum &d) : msg_type{handshake_type::unknown}, length{0}, message_seq{0}, fragment_offset{0}, fragment_length{0}, body{NULL, NULL} {
         parse(d);
     }
 
@@ -68,7 +69,18 @@ struct dtls_handshake {
         fragment_offset = tmp;
         d.read_uint(&tmp, 3);  // 24 bits on wire
         fragment_length = tmp;
-        body.init_from_outer_parser(&d, length);
+        // body contains only the fragment data (fragment_length bytes),
+        // not the full message (length bytes)
+        body.init_from_outer_parser(&d, fragment_length);
+        // Only set additional_bytes_needed when this is the start of the message
+        // (fragment_offset == 0).  Fragments that begin mid-message must not
+        // trigger reassembly initialisation; they are continuations or will be
+        // ignored until the first fragment establishes the flow.
+        if (fragment_offset == 0) {
+            additional_bytes_needed = length - body.length();
+        } else {
+            additional_bytes_needed = 0;
+        }
     }
 
     // DTLS handshake records begin with content-type 0x16 (Handshake).
@@ -122,6 +134,37 @@ public:
     }
 
     const tls_client_hello &get_tls_client_hello() const { return hello; }
+
+    // Reassembly support: mirrors quic_init interface so that process_udp_data
+    // can treat DTLS fragments analogously to QUIC CRYPTO frames.
+
+    /// Returns bytes still needed to complete the full handshake message.
+    uint32_t additional_bytes_needed() const {
+        return static_cast<uint32_t>(handshake.additional_bytes_needed);
+    }
+
+    /// Returns the fragment offset (analogous to QUIC crypto frame offset).
+    uint32_t get_fragment_offset() const { return handshake.fragment_offset; }
+
+    /// Returns the number of fragment bytes present in this datagram.
+    uint32_t get_fragment_length() const {
+        return static_cast<uint32_t>(handshake.body.length());
+    }
+
+    /// Returns the full (reassembled) handshake message length.
+    uint32_t get_handshake_length() const { return handshake.length; }
+
+    /// Returns a datum over the fragment payload in this datagram.
+    datum get_fragment_data() const { return handshake.body; }
+
+    /// Re-parse the TLS ClientHello from a fully reassembled handshake body.
+    void reparse_from_buf(datum buf) {
+        hello = tls_client_hello{buf};
+    }
+
+    bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
+        return hello.do_analysis(k_, analysis_, c_);
+    }
 
     // DTLS handshake records begin with content-type 0x16 (Handshake).
     // The next two bytes are the protocol version:
