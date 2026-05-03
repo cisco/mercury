@@ -312,18 +312,6 @@ struct stateful_pkt_proc {
                           struct timespec *ts,
                           struct tcp_reassembler *reassembler);
 
-    bool process_quic_reassembly(protocol &x,
-                                 udp &udp_pkt,
-                                 const struct key &k,
-                                 struct timespec *ts,
-                                 struct tcp_reassembler *reassembler);
-
-    bool process_dtls_reassembly(protocol &x,
-                                 udp &udp_pkt,
-                                 const struct key &k,
-                                 struct timespec *ts,
-                                 struct tcp_reassembler *reassembler);
-
     bool set_tcp_protocol_from_keyword(protocol &x,
                                        datum pkt_copy,
                                        tcp_msg_type msg_type);

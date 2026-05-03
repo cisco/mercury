@@ -10,6 +10,9 @@
 
 #include "datum.h"
 #include "json_object.h"
+#include "udp.h"
+#include "quic.h"
+#include "dtls.h"
 
 #include <bitset>
 #include <vector>
@@ -829,6 +832,207 @@ inline void tcp_reassembler::write_json(json_object &record) {
 
 inline void tcp_reassembler::clear_all() {
     table.clear();
+}
+
+// Returns true when the packet should be fingerprinted/analysed by the caller.
+// Manages the QUIC CRYPTO-frame reassembly state machine and repopulates the
+// quic_init object once reassembly is complete.
+inline bool process_quic_reassembly(quic_init &qi,
+                                    udp &udp_pkt,
+                                    const struct key &k,
+                                    struct timespec *ts,
+                                    struct tcp_reassembler *reassembler) {
+    const datum &cid = qi.get_cid();
+    uint32_t crypto_len = 0;
+    const uint8_t *crypto_data = qi.get_crypto_buf(&crypto_len);
+    uint32_t crypto_offset = qi.get_min_crypto_offset();
+    bool missing_crypto_frames = qi.missing_crypto_frames();
+    bool min_crypto_data = qi.min_crypto_data();
+    if (crypto_len > reassembly_flow_context::max_data_size) {
+        return true;
+    }
+
+    // skip reassembly table lookup when:
+    // 1. no crypto data present, or
+    // 2. offset is 0 and no additional bytes needed (complete initial packet)
+    if (!crypto_len || (!crypto_offset && !udp_pkt.additional_bytes_needed())) {
+        return true;
+    }
+
+    reassembly_state r_state = reassembler->check_flow(k, ts->tv_sec, cid);
+
+    if ((r_state == reassembly_state::reassembly_none) && !udp_pkt.additional_bytes_needed()) {
+        return true;
+    }
+    else if ((r_state == reassembly_state::reassembly_none) && udp_pkt.additional_bytes_needed()) {
+        if (!missing_crypto_frames) {
+            udp_segment seg{true, crypto_len, crypto_offset, udp_pkt.additional_bytes_needed(), (uint64_t)ts->tv_sec, cid};
+            reassembler->process_udp_data_pkt(k, ts->tv_sec, seg, datum{crypto_data+crypto_offset, crypto_data+crypto_offset+crypto_len});
+            reassembler->dump_pkt = true;
+        }
+        else {
+            uint16_t frame_count = 0;
+            uint16_t first_frame_idx = 0;
+            const crypto* frames = qi.get_crypto_frames(frame_count, first_frame_idx);
+            uint64_t max_crypto_end = (uint64_t)crypto_offset + (uint64_t)crypto_len;
+            if (frame_count == 0 || first_frame_idx == cryptographic_buffer::invalid_first_frame_index) {
+                return true;
+            }
+
+            if (min_crypto_data) {
+                uint64_t frame_offset = frames[first_frame_idx].offset();
+                if ((frame_offset < max_crypto_end) && (frame_offset <= UINT32_MAX)) {
+                    uint64_t seg_len = cryptographic_buffer::min_crypto_data_len;
+                    uint64_t available_len = max_crypto_end - frame_offset;
+                    if (available_len < seg_len) {
+                        seg_len = available_len;
+                    }
+                    if (seg_len && (seg_len <= UINT32_MAX)) {
+                        udp_segment seg{true, (uint32_t)seg_len, (uint32_t)frame_offset, udp_pkt.additional_bytes_needed(), (uint64_t)ts->tv_sec, cid};
+                        reassembler->process_udp_data_pkt(k, ts->tv_sec, seg, datum{crypto_data+frame_offset, crypto_data+frame_offset+seg_len});
+                    }
+                }
+            }
+            else {
+                uint64_t frame_len = frames[first_frame_idx].length();
+                uint64_t frame_offset = frames[first_frame_idx].offset();
+                if (frame_len &&
+                    (frame_offset + frame_len <= max_crypto_end) &&
+                    (frame_offset <= UINT32_MAX) &&
+                    (frame_len <= UINT32_MAX)) {
+                    udp_segment seg{true, (uint32_t)frame_len, (uint32_t)frame_offset, udp_pkt.additional_bytes_needed(), (uint64_t)ts->tv_sec, cid};
+                    reassembler->process_udp_data_pkt(k, ts->tv_sec, seg, datum{crypto_data+frame_offset, crypto_data+frame_offset+frame_len});
+                }
+            }
+
+            for (uint16_t i = 0; i < frame_count; i++) {
+                if (i != first_frame_idx) {
+                    uint64_t frame_len = frames[i].length();
+                    uint64_t frame_offset = frames[i].offset();
+                    if (frame_len &&
+                        (frame_offset + frame_len <= max_crypto_end) &&
+                        (frame_offset <= UINT32_MAX) &&
+                        (frame_len <= UINT32_MAX)) {
+                        udp_segment seg{false, (uint32_t)frame_len, (uint32_t)frame_offset, 0, (uint64_t)ts->tv_sec, cid};
+                        reassembler->process_udp_data_pkt(k, ts->tv_sec, seg, datum{crypto_data+frame_offset, crypto_data+frame_offset+frame_len});
+                    }
+                }
+            }
+            reassembler->dump_pkt = true;
+        }
+    }
+    else if (r_state == reassembly_state::reassembly_progress) {
+        if (!missing_crypto_frames) {
+            udp_segment seg{false, crypto_len, crypto_offset, 0, (uint64_t)ts->tv_sec, cid};
+            reassembler->process_udp_data_pkt(k, ts->tv_sec, seg, datum{crypto_data+crypto_offset, crypto_data+crypto_offset+crypto_len});
+            reassembler->dump_pkt = true;
+        }
+        else {
+            uint16_t frame_count = 0;
+            uint16_t first_frame_idx = 0;
+            const crypto* frames = qi.get_crypto_frames(frame_count, first_frame_idx);
+            uint64_t max_crypto_end = (uint64_t)crypto_offset + (uint64_t)crypto_len;
+            if (frame_count == 0) {
+                return true;
+            }
+            for (uint16_t i = 0; i < frame_count; i++) {
+                uint64_t frame_len = frames[i].length();
+                uint64_t frame_offset = frames[i].offset();
+                if (frame_len &&
+                    (frame_offset + frame_len <= max_crypto_end) &&
+                    (frame_offset <= UINT32_MAX) &&
+                    (frame_len <= UINT32_MAX)) {
+                    udp_segment seg{false, (uint32_t)frame_len, (uint32_t)frame_offset, 0, (uint64_t)ts->tv_sec, cid};
+                    reassembler->process_udp_data_pkt(k, ts->tv_sec, seg, datum{crypto_data+frame_offset, crypto_data+frame_offset+frame_len});
+                }
+            }
+            reassembler->dump_pkt = true;
+        }
+    }
+    else if (r_state == reassembly_state::reassembly_consumed) {
+        return false;
+    }
+    else if (r_state == reassembly_state::reassembly_cid_mismatch) {
+        return true;
+    }
+    else {
+        return false;
+    }
+
+    reassembly_map_iterator it = reassembler->get_current_flow();
+    if (reassembler->is_ready(it)) {
+        struct datum reassembled_data = reassembler->get_reassembled_data(it);
+        qi.reparse_crypto_buf(reassembled_data);
+        reassembler->set_completed(it);
+        return true;
+    }
+
+    return false;
+}
+
+// Returns true when the packet should be fingerprinted/analysed by the caller.
+// Manages the DTLS handshake-fragment reassembly state machine and re-parses
+// the full ClientHello body once all fragments have been accumulated.
+//
+// DTLS (RFC 6347) fragments large handshake messages across multiple UDP
+// datagrams.  Each fragment carries fragment_offset, fragment_length, and the
+// total message length.  An empty CID datum is used because DTLS has no
+// connection-ID concept; the 5-tuple alone identifies the flow.
+inline bool process_dtls_reassembly(dtls_client_hello &dtls_ch,
+                                    udp &udp_pkt,
+                                    const struct key &k,
+                                    struct timespec *ts,
+                                    struct tcp_reassembler *reassembler) {
+    uint32_t frag_offset = dtls_ch.get_fragment_offset();
+    uint32_t frag_len    = dtls_ch.get_fragment_length();
+    datum    frag_data   = dtls_ch.get_fragment_data();
+
+    if (frag_len > reassembly_flow_context::max_data_size || frag_len == 0) {
+        return true;
+    }
+
+    // skip reassembly for a complete (non-fragmented) message
+    if (frag_offset == 0 && !udp_pkt.additional_bytes_needed()) {
+        return true;
+    }
+
+    datum empty_cid{nullptr, nullptr};
+    reassembly_state r_state = reassembler->check_flow(k, ts->tv_sec, empty_cid);
+
+    if ((r_state == reassembly_state::reassembly_none) && !udp_pkt.additional_bytes_needed()) {
+        // non-first fragment arrived before the first; ignore
+        return true;
+    }
+    else if ((r_state == reassembly_state::reassembly_none) && udp_pkt.additional_bytes_needed()) {
+        // first fragment (fragment_offset == 0) — init reassembly
+        udp_segment seg{true, frag_len, frag_offset, udp_pkt.additional_bytes_needed(), (uint64_t)ts->tv_sec, empty_cid};
+        reassembler->process_udp_data_pkt(k, ts->tv_sec, seg, frag_data);
+        reassembler->dump_pkt = true;
+    }
+    else if (r_state == reassembly_state::reassembly_progress) {
+        udp_segment seg{false, frag_len, frag_offset, 0, (uint64_t)ts->tv_sec, empty_cid};
+        reassembler->process_udp_data_pkt(k, ts->tv_sec, seg, frag_data);
+        reassembler->dump_pkt = true;
+    }
+    else if (r_state == reassembly_state::reassembly_consumed) {
+        return false;
+    }
+    else if (r_state == reassembly_state::reassembly_cid_mismatch) {
+        return true;
+    }
+    else {
+        return false;
+    }
+
+    reassembly_map_iterator it = reassembler->get_current_flow();
+    if (reassembler->is_ready(it)) {
+        struct datum reassembled_data = reassembler->get_reassembled_data(it);
+        dtls_ch.reparse_from_buf(reassembled_data);
+        reassembler->set_completed(it);
+        return true;
+    }
+
+    return false;
 }
 
 #endif /* REASSEMBLY_HPP */
