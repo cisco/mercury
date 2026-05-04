@@ -229,18 +229,12 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test dtls with reassembly")
     // (fragment_offset=0 in pkt1, fragment_offset=88 in pkt2).  With
     // reassembly enabled the two fragments are merged and one complete DTLS
     // fingerprint should be produced.
-    auto destination_check_callback = [](const analysis_context *ac)
-    {
-        CHECK(analysis_context_get_fingerprint_type(ac) == fingerprint_type_dtls);
-    };
-
-    libmerc_config config{.do_analysis = true,
-                          .resources = resources_minimal_path,
+    libmerc_config config{.resources = resources_minimal_path,
                           .packet_filter_cfg = (char *)"dtls;reassembly"};
     initialize(config);
 
     set_pcap("dtls_fragmented_client_hello.pcap");
-    CHECK(1 == counter(fingerprint_type_dtls, destination_check_callback));
+    CHECK(1 == counter(fingerprint_type_dtls));
 
     deinitialize();
 }

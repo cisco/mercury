@@ -162,10 +162,6 @@ public:
         hello = tls_client_hello{buf};
     }
 
-    bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
-        return hello.do_analysis(k_, analysis_, c_);
-    }
-
     // DTLS handshake records begin with content-type 0x16 (Handshake).
     // The next two bytes are the protocol version:
     //   0xfe 0xfd for DTLS 1.3/DTLS 1.2 legacy version
