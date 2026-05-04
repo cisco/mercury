@@ -49,6 +49,26 @@ esac
 AX_CHECK_COMPILE_FLAG([-fno-gnu-unique], [AC_SUBST([USE_NO_GNU_UNIQUE],yes)], [AC_SUBST([USE_NO_GNU_UNIQUE],no)] , [-Werror])
 AX_CHECK_COMPILE_FLAG([-fsanitize=address], [AC_SUBST([USE_FSANITIZE],yes)], [AC_SUBST([USE_FSANITIZE],no)] , [-Werror])
 AX_CHECK_COMPILE_FLAG([-mno-omit-leaf-frame-pointer], [AC_SUBST([USE_NO_OMIT_LEAF_FRAME_POINTER],yes)], [AC_SUBST([USE_NO_OMIT_LEAF_FRAME_POINTER],no)] , [-Werror])
+
+# ARM PAC/BTI hardening
+# -mbranch-protection=standard enables Pointer Authentication (PAC) and
+# Branch Target Identification (BTI) on AArch64.  These instructions are
+# NOPs on hardware that does not support them.
+AC_SUBST([USE_BRANCH_PROTECTION],[no])
+AC_SUBST([USE_BTI_REPORT_WARNING],[no])
+case "$host_cpu" in
+    arm*|aarch64)
+        AC_LANG_PUSH([C++])
+        AX_CHECK_COMPILE_FLAG([-mbranch-protection=standard],
+            [AC_SUBST([USE_BRANCH_PROTECTION],[yes])],
+            [], [-Werror])
+        AX_CHECK_LINK_FLAG([-Wl,-z,bti-report=warning],
+            [AC_SUBST([USE_BTI_REPORT_WARNING],[yes])],
+            [], [-Wl,--fatal-warnings])
+        AC_LANG_POP([C++])
+        ;;
+esac
+
 case $host_os in
     linux* )
         AC_CHECK_HEADERS([linux/if_packet.h])

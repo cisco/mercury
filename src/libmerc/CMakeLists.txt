@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.18)
 project(libmerc)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
@@ -455,6 +455,17 @@ else()
         add_compile_options(-fno-gnu-unique)
     else()
         message(STATUS "no support for -fno-gnu-unique")
+    endif()
+
+    # ARM PAC + BTI hardening
+    check_cxx_compiler_flag(-mbranch-protection=standard use_branch_protection)
+    if(use_branch_protection)
+        add_compile_options(-mbranch-protection=standard)
+        include(CheckLinkerFlag)
+        check_linker_flag(CXX -Wl,-z,bti-report=warning use_bti_report_warning)
+        if(use_bti_report_warning)
+            add_link_options(-Wl,-z,bti-report=warning)
+        endif()
     endif()
 
     # Check for address sanitizer support (not currently used, available for debugging)
