@@ -62,9 +62,10 @@ case "$host_cpu" in
         AX_CHECK_COMPILE_FLAG([-mbranch-protection=standard],
             [AC_SUBST([USE_BRANCH_PROTECTION],[yes])],
             [], [-Werror])
-        AX_CHECK_LINK_FLAG([-Wl,-z,bti-report=warning],
-            [AC_SUBST([USE_BTI_REPORT_WARNING],[yes])],
-            [], [-Wl,--fatal-warnings])
+        AS_IF([test "x$USE_BRANCH_PROTECTION" = "xyes"],
+            [AX_CHECK_LINK_FLAG([-Wl,-z,bti-report=warning],
+                [AC_SUBST([USE_BTI_REPORT_WARNING],[yes])],
+                [])])
         AC_LANG_POP([C++])
         ;;
 esac

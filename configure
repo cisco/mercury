@@ -5884,15 +5884,17 @@ else case e in #(
 esac
 fi
 
-        { printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking whether the linker accepts -Wl,-z,bti-report=warning" >&5
+        if test "x$USE_BRANCH_PROTECTION" = "xyes"
+then :
+  { printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking whether the linker accepts -Wl,-z,bti-report=warning" >&5
 printf %s "checking whether the linker accepts -Wl,-z,bti-report=warning... " >&6; }
-if test ${ax_cv_check_ldflags__Wl___fatal_warnings__Wl__z_bti_report_warning+y}
+if test ${ax_cv_check_ldflags___Wl__z_bti_report_warning+y}
 then :
   printf %s "(cached) " >&6
 else case e in #(
   e)
   ax_check_save_flags=$LDFLAGS
-  LDFLAGS="$LDFLAGS -Wl,--fatal-warnings -Wl,-z,bti-report=warning"
+  LDFLAGS="$LDFLAGS  -Wl,-z,bti-report=warning"
   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -5906,9 +5908,9 @@ main (void)
 _ACEOF
 if ac_fn_cxx_try_link "$LINENO"
 then :
-  ax_cv_check_ldflags__Wl___fatal_warnings__Wl__z_bti_report_warning=yes
+  ax_cv_check_ldflags___Wl__z_bti_report_warning=yes
 else case e in #(
-  e) ax_cv_check_ldflags__Wl___fatal_warnings__Wl__z_bti_report_warning=no ;;
+  e) ax_cv_check_ldflags___Wl__z_bti_report_warning=no ;;
 esac
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
@@ -5916,9 +5918,9 @@ rm -f core conftest.err conftest.$ac_objext conftest.beam \
   LDFLAGS=$ax_check_save_flags ;;
 esac
 fi
-{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $ax_cv_check_ldflags__Wl___fatal_warnings__Wl__z_bti_report_warning" >&5
-printf '%s\n' "$ax_cv_check_ldflags__Wl___fatal_warnings__Wl__z_bti_report_warning" >&6; }
-if test "x$ax_cv_check_ldflags__Wl___fatal_warnings__Wl__z_bti_report_warning" = xyes
+{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $ax_cv_check_ldflags___Wl__z_bti_report_warning" >&5
+printf '%s\n' "$ax_cv_check_ldflags___Wl__z_bti_report_warning" >&6; }
+if test "x$ax_cv_check_ldflags___Wl__z_bti_report_warning" = xyes
 then :
   USE_BTI_REPORT_WARNING=yes
 
@@ -5927,6 +5929,7 @@ else case e in #(
 esac
 fi
 
+fi
         ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
