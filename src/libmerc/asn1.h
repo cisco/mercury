@@ -982,7 +982,131 @@ bool parse_explicitly_tagged_positional(datum &d, Fields &...fields) {
     return d.is_not_null();
 }
 
-inline bool unit_test() {
+
+//////////////////////////////////////////////////////////////////////////////
+// X.690 §8.3 — Encoding of an integer value
+//
+// 8.3.1 The encoding of an integer value shall be primitive. The
+//   contents octets shall consist of one or more octets.
+//
+// 8.3.2 If the contents octets of an integer value encoding consist of
+//   more than one octet, then the bits of the first octet and bit 8 of
+//   the second octet:
+//     a) shall not all be ones; and
+//     b) shall not all be zero.
+//   NOTE – These rules ensure that an integer value is always encoded
+//   in the smallest possible number of octets.
+//
+// 8.3.3 The contents octets shall be a two's complement binary number
+//   equal to the integer value, and consisting of bits 8 to 1 of the
+//   first octet, followed by bits 8 to 1 of the second octet, followed
+//   by bits 8 to 1 of each octet in turn up to and including the last
+//   octet of the contents octets.
+//
+//   NOTE – The value of a two's complement binary number is derived by
+//   numbering the bits in the contents octets, starting with bit 1 of
+//   the last octet as bit zero and ending with bit 8 of the first octet.
+//   Each bit is assigned a numerical value of 2^N, where N is its
+//   position in the above numbering sequence. The value of the two's
+//   complement binary number is obtained by summing the numerical values
+//   assigned to each bit for those bits which are set to one, excluding
+//   bit 8 of the first octet, and then reducing this value by the
+//   numerical value assigned to bit 8 of the first octet if that bit is
+//   set to one.
+//////////////////////////////////////////////////////////////////////////////
+
+
+/// Decode the bytes of \p d as a non-negative ASN.1 BER/DER INTEGER.
+///
+/// Intended for ASN.1 INTEGER value-octet payloads known to be
+/// non-negative (e.g. a protocol version number, message-type
+/// discriminant, or other unsigned identifier).
+///
+/// Enforces X.690 §8.3 strictly: value octets are two's-complement
+/// signed (§8.3.3), and multi-octet contents must be minimal (§8.3.2:
+/// leading 0x00 is only valid when the next octet's high bit is set).
+/// Returns 0 if \p d is not readable, has zero length, encodes a
+/// negative value, violates §8.3.2 minimality, or does not fit in
+/// uint64_t (longer than 9 octets, or 9 octets without leading 0x00).
+///
+/// \sa asn1::to_int64()
+///
+inline uint64_t to_uint64(const datum &d) {
+    if (d.is_not_readable() || d.length() == 0 || d.length() > 9) {
+        return 0;
+    }
+    const uint8_t *p = d.data;
+    size_t len = d.length();
+
+    if (p[0] & 0x80) {
+        return 0;  // negative
+    }
+    if (len > 1 && p[0] == 0x00 && (p[1] & 0x80) == 0) {
+        return 0;  // §8.3.2 minimality violation
+    }
+    if (len == 9) {
+        if (p[0] != 0x00) {
+            return 0;  // value > UINT64_MAX
+        }
+        ++p;
+        --len;
+    }
+
+    uint64_t result = 0;
+    for (size_t i = 0; i < len; ++i) {
+        result = (result << 8) | p[i];
+    }
+    return result;
+}
+
+inline uint64_t to_uint64(const tlv &x) {
+    return to_uint64(x.value);
+}
+
+/// Decode the bytes of \p d as a signed two's-complement ASN.1 BER/DER INTEGER.
+///
+/// Intended for ASN.1 INTEGER value-octet payloads that may be
+/// negative (e.g. SNMP Integer32, Kerberos etype/error-code).
+///
+/// Enforces X.690 §8.3 strictly: value octets are two's-complement
+/// (§8.3.3), and multi-octet contents must be minimal (§8.3.2: the
+/// first octet plus bit 8 of the second octet shall not all be zero
+/// and shall not all be ones).  Returns 0 if \p d is not readable,
+/// has zero length, is longer than 8 octets, or violates §8.3.2
+/// minimality.
+///
+/// \sa asn1::to_uint64()
+///
+inline int64_t to_int64(const datum &d) {
+    if (d.is_not_readable() || d.length() == 0 || d.length() > 8) {
+        return 0;
+    }
+    const uint8_t *p = d.data;
+    const size_t len = d.length();
+    if (len > 1 &&
+        ((p[0] == 0x00 && (p[1] & 0x80) == 0) ||
+         (p[0] == 0xff && (p[1] & 0x80) != 0))) {
+        return 0;  // §8.3.2 minimality violation
+    }
+
+    uint64_t result = 0;
+    for (const uint8_t &b : d) {
+        result = (result << 8) | b;
+    }
+    const bool is_negative = (p[0] & 0x80) != 0;
+    const size_t bits = len * 8;
+    if (is_negative && bits < 64) {
+        result |= (~uint64_t{0}) << bits;
+    }
+    return static_cast<int64_t>(result);
+}
+
+inline int64_t to_int64(const tlv &x) {
+    return to_int64(x.value);
+}
+
+#ifndef NDEBUG
+inline bool unit_test(FILE *f = nullptr) {
     auto parse_uint = [](const tlv &x) -> uint64_t {
         uint64_t v = 0;
         for (const uint8_t b : x.value) {
@@ -1006,10 +1130,22 @@ inline bool unit_test() {
         tlv_expected f2{tlv::OCTET_STRING};
 
         const bool ok = parse_explicitly_tagged_positional(d, f0, f1, f2);
-        passed &= ok;
-        passed &= f0.is_not_null() && parse_uint(f0) == 5;
-        passed &= f1.is_not_null() && parse_uint(f1) == 14;
-        passed &= f2.is_not_null() && f2.value.length() == 2;
+        if (!ok) {
+            passed = false;
+            if (f) { fprintf(f, "parse_explicitly_tagged_positional: success case failed to parse\n"); }
+        }
+        if (!(f0.is_not_null() && parse_uint(f0) == 5)) {
+            passed = false;
+            if (f) { fprintf(f, "parse_explicitly_tagged_positional: f0 expected 5\n"); }
+        }
+        if (!(f1.is_not_null() && parse_uint(f1) == 14)) {
+            passed = false;
+            if (f) { fprintf(f, "parse_explicitly_tagged_positional: f1 expected 14\n"); }
+        }
+        if (!(f2.is_not_null() && f2.value.length() == 2)) {
+            passed = false;
+            if (f) { fprintf(f, "parse_explicitly_tagged_positional: f2 expected length 2\n"); }
+        }
     }
 
     // Duplicate explicit tag should fail.
@@ -1021,7 +1157,10 @@ inline bool unit_test() {
         datum d{bytes, bytes + sizeof(bytes)};
         tlv_expected f0{tlv::INTEGER};
         tlv_expected f1{tlv::INTEGER};
-        passed &= !parse_explicitly_tagged_positional(d, f0, f1);
+        if (parse_explicitly_tagged_positional(d, f0, f1)) {
+            passed = false;
+            if (f) { fprintf(f, "parse_explicitly_tagged_positional: duplicate-tag case unexpectedly succeeded\n"); }
+        }
     }
 
     // Unknown explicit tag should fail (N=3, tag [3] out of range).
@@ -1031,7 +1170,10 @@ inline bool unit_test() {
         tlv_expected f0{tlv::INTEGER};
         tlv_expected f1{tlv::INTEGER};
         tlv_expected f2{tlv::INTEGER};
-        passed &= !parse_explicitly_tagged_positional(d, f0, f1, f2);
+        if (parse_explicitly_tagged_positional(d, f0, f1, f2)) {
+            passed = false;
+            if (f) { fprintf(f, "parse_explicitly_tagged_positional: unknown-tag case unexpectedly succeeded\n"); }
+        }
     }
 
     // Wrong inner type should fail ([0] expected INTEGER, got OCTET STRING).
@@ -1039,11 +1181,148 @@ inline bool unit_test() {
         const uint8_t bytes[] = { 0xa0, 0x03, 0x04, 0x01, 0xff };
         datum d{bytes, bytes + sizeof(bytes)};
         tlv_expected f0{tlv::INTEGER};
-        passed &= !parse_explicitly_tagged_positional(d, f0);
+        if (parse_explicitly_tagged_positional(d, f0)) {
+            passed = false;
+            if (f) { fprintf(f, "parse_explicitly_tagged_positional: wrong-inner-type case unexpectedly succeeded\n"); }
+        }
+    }
+
+    // asn1::to_int64 — strict ASN.1 BER signed INTEGER decoding
+    // (X.690 §8.3).
+    //
+    struct int64_case {
+        const uint8_t *bytes;
+        size_t len;
+        int64_t expected;
+        const char *note;
+    };
+    static const int64_case int64_cases[] = {
+        { (const uint8_t *)"\x00",                                 1, 0,                                  "zero" },
+        { (const uint8_t *)"\x7f",                                 1, 127,                                "max positive in 1 byte" },
+        { (const uint8_t *)"\x80",                                 1, -128,                               "min negative in 1 byte" },
+        { (const uint8_t *)"\xff",                                 1, -1,                                 "-1 in 1 byte" },
+        { (const uint8_t *)"\x00\x80",                             2, 128,                                "leading 0x00 keeps value positive" },
+        { (const uint8_t *)"\xff\x7f",                             2, -129,                               "negative requiring 2 bytes" },
+        { (const uint8_t *)"\xff\x00",                             2, -256,                               "two-byte negative" },
+        { (const uint8_t *)"\x7f\xff\xff\xff",                     4, INT64_C(2147483647),                "INT32_MAX" },
+        { (const uint8_t *)"\x80\x00\x00\x00",                     4, INT64_C(-2147483648),               "INT32_MIN" },
+        { (const uint8_t *)"\x80\x00\x00\x00\x00\x00\x00",         7, INT64_C(-36028797018963968),        "7-byte min negative" },
+        { (const uint8_t *)"\x7f\xff\xff\xff\xff\xff\xff\xff",     8, INT64_MAX,                          "INT64_MAX" },
+        { (const uint8_t *)"\x80\x00\x00\x00\x00\x00\x00\x00",     8, INT64_MIN,                          "INT64_MIN" },
+        { (const uint8_t *)"\x80\x00\x00\x00\x00\x00\x00\x01",     8, INT64_MIN + 1,                      "INT64_MIN + 1" },
+        // §8.3.2 minimality violations -> rejected
+        { (const uint8_t *)"\x00\x01",                             2, 0,                                  "non-minimal positive (0x00 0x01)" },
+        { (const uint8_t *)"\x00\x7f",                             2, 0,                                  "non-minimal positive (0x00 0x7f)" },
+        { (const uint8_t *)"\xff\xff",                             2, 0,                                  "non-minimal negative (0xff 0xff, minimal is 0xff)" },
+        { (const uint8_t *)"\xff\xff\xff\xff\xff\xff\xff",         7, 0,                                  "non-minimal -1 in 7 bytes" },
+        // fail-closed coverage
+        { (const uint8_t *)"",                                     0, 0,                                  "empty" },
+        { (const uint8_t *)"\x00\x80\x00\x00\x00\x00\x00\x00\x00", 9, 0,                                  "INT64_MAX + 1 = 2^63 (valid BER, out of range)" },
+        { (const uint8_t *)"\xff\x7f\xff\xff\xff\xff\xff\xff\xff", 9, 0,                                  "INT64_MIN - 1 (valid BER, out of range)" },
+    };
+    for (const auto &tc : int64_cases) {
+        datum d{tc.bytes, tc.bytes + tc.len};
+        const int64_t got = to_int64(d);
+        if (got != tc.expected) {
+            passed = false;
+            if (f) {
+                fprintf(f,
+                        "asn1::to_int64 case '%s' (len=%zu): expected %lld, got %lld\n",
+                        tc.note, tc.len,
+                        static_cast<long long>(tc.expected),
+                        static_cast<long long>(got));
+            }
+        }
+    }
+
+    // asn1::to_uint64 — strict ASN.1 BER non-negative INTEGER
+    // decoding (X.690 §8.3).
+    //
+    struct uint64_case {
+        const uint8_t *bytes;
+        size_t len;
+        uint64_t expected;
+        const char *note;
+    };
+    const uint64_case uint64_cases[] = {
+        { (const uint8_t *)"\x00",                                             1, 0,                              "zero" },
+        { (const uint8_t *)"\x01",                                             1, 1,                              "one" },
+        { (const uint8_t *)"\x7f",                                             1, 127,                            "127 (max without sign-preserving prefix)" },
+        { (const uint8_t *)"\x00\x80",                                         2, 128,                            "128 (minimal: 0x00 + 0x80)" },
+        { (const uint8_t *)"\x00\xff",                                         2, 255,                            "255 (minimal: 0x00 + 0xff)" },
+        { (const uint8_t *)"\x01\x00",                                         2, 256,                            "256" },
+        { (const uint8_t *)"\x00\xff\xff",                                     3, 65535,                          "UINT16_MAX (minimal)" },
+        { (const uint8_t *)"\x00\xff\xff\xff\xff",                             5, UINT64_C(0xffffffff),           "UINT32_MAX (minimal)" },
+        { (const uint8_t *)"\x7f\xff\xff\xff\xff\xff\xff\xff",                 8, UINT64_C(0x7fffffffffffffff),   "INT64_MAX as unsigned (8 bytes)" },
+        { (const uint8_t *)"\x00\x80\x00\x00\x00\x00\x00\x00\x00",             9, UINT64_C(0x8000000000000000),   "2^63 (9-byte, minimal)" },
+        { (const uint8_t *)"\x00\xff\xff\xff\xff\xff\xff\xff\xff",             9, ~uint64_t{0},                   "UINT64_MAX (9-byte, minimal)" },
+        // negative two's-complement -> rejected
+        { (const uint8_t *)"\xff",                                             1, 0,                              "0xff (encodes -1)" },
+        { (const uint8_t *)"\x80",                                             1, 0,                              "0x80 (encodes -128)" },
+        { (const uint8_t *)"\xff\xff",                                         2, 0,                              "0xffff (encodes -1)" },
+        { (const uint8_t *)"\x80\x00\x00\x00\x00\x00\x00\x00",                 8, 0,                              "INT64_MIN-encoded" },
+        // §8.3.2 minimality violations -> rejected
+        { (const uint8_t *)"\x00\x00",                                         2, 0,                              "non-minimal: 0x00 0x00" },
+        { (const uint8_t *)"\x00\x01",                                         2, 0,                              "non-minimal: 0x00 0x01" },
+        { (const uint8_t *)"\x00\x7f",                                         2, 0,                              "non-minimal: 0x00 0x7f" },
+        { (const uint8_t *)"\x00\x00\x80",                                     3, 0,                              "non-minimal: 0x00 0x00 0x80" },
+        { (const uint8_t *)"\x00\x7f\xff\xff\xff\xff\xff\xff\xff",             9, 0,                              "non-minimal 9-byte (fits in 8)" },
+        { (const uint8_t *)"\x00\x00\x00\x00\x00\x00\x00\x00\x00",             9, 0,                              "non-minimal 9-byte all-zeros" },
+        // fail-closed coverage
+        { (const uint8_t *)"",                                                 0, 0,                              "empty" },
+        { (const uint8_t *)"\x01\x00\x00\x00\x00\x00\x00\x00\x00",             9, 0,                              "UINT64_MAX + 1 = 2^64 (9-byte, out of range)" },
+        { (const uint8_t *)"\x01\x00\x00\x00\x00\x00\x00\x00\x01",             9, 0,                              "2^64 + 1 (9-byte without leading 0x00 guard)" },
+    };
+    for (const auto &tc : uint64_cases) {
+        datum d{tc.bytes, tc.bytes + tc.len};
+        const uint64_t got = to_uint64(d);
+        if (got != tc.expected) {
+            passed = false;
+            if (f) {
+                fprintf(f,
+                        "asn1::to_uint64 case '%s' (len=%zu): expected %llu, got %llu\n",
+                        tc.note, tc.len,
+                        static_cast<unsigned long long>(tc.expected),
+                        static_cast<unsigned long long>(got));
+            }
+        }
+    }
+
+    // tlv overloads must forward to the datum versions.
+    {
+        const uint8_t neg_bytes[]   = { 0xff };
+        const uint8_t pos_bytes[]   = { 0x01, 0x00 };
+        tlv neg_tlv;
+        neg_tlv.set(tlv::INTEGER, neg_bytes, sizeof(neg_bytes));
+        tlv pos_tlv;
+        pos_tlv.set(tlv::INTEGER, pos_bytes, sizeof(pos_bytes));
+        if (to_int64(neg_tlv) != -1) {
+            passed = false;
+            if (f) { fprintf(f, "asn1::to_int64(tlv) forwarding failed\n"); }
+        }
+        if (to_uint64(pos_tlv) != 256) {
+            passed = false;
+            if (f) { fprintf(f, "asn1::to_uint64(tlv) forwarding failed\n"); }
+        }
+    }
+
+    // null datum must fail closed for both helpers
+    {
+        datum null_d;
+        null_d.set_null();
+        if (to_int64(null_d) != 0) {
+            passed = false;
+            if (f) { fprintf(f, "asn1::to_int64(null datum) expected 0\n"); }
+        }
+        if (to_uint64(null_d) != 0) {
+            passed = false;
+            if (f) { fprintf(f, "asn1::to_uint64(null datum) expected 0\n"); }
+        }
     }
 
     return passed;
 }
+#endif // NDEBUG
 
 } // namespace asn1
 
