@@ -14,7 +14,10 @@
 /// num_bytes_to_check bytes), and `false` otherwise
 ///
 inline bool is_ascii(datum d, ssize_t num_bytes_to_check) {
-    d.trim(num_bytes_to_check);
+    if (d.is_not_readable()) {
+        return false;
+    }
+    d.trim_to_length(num_bytes_to_check);
     for (const auto & byte : d ) {
         if (byte & 0x80) {
             return false;
@@ -228,6 +231,46 @@ public:
 
     bool is_not_empty() const {
         return valid;
+    }
+
+    /// runs unit tests on syslog and returns true if all pass, and false otherwise
+    ///
+    [[maybe_unused]] static bool unit_test() {
+        auto make_ascii_buffer_with_non_ascii_byte = [](size_t index) {
+            std::array<uint8_t, 100> data{};
+            data.fill('A');
+            data[index] = 0xff;
+            return data;
+        };
+
+        uint8_t ascii_data[] = {
+            0x3c, 0x31, 0x33, 0x3e, 0x4d, 0x61, 0x79, 0x20,
+            0x20, 0x36, 0x20, 0x31, 0x32, 0x3a, 0x30, 0x30,
+            0x3a, 0x30, 0x30, 0x20, 0x68, 0x6f, 0x73, 0x74,
+            0x20, 0x61, 0x70, 0x70, 0x3a, 0x20, 0x6d, 0x73,
+            0x67
+        };
+        datum ascii{ascii_data, ascii_data + sizeof(ascii_data)};
+        syslog ascii_msg{ascii};
+        if (!ascii_msg.is_not_empty()) {
+            return false;
+        }
+
+        auto non_ascii_in_prefix = make_ascii_buffer_with_non_ascii_byte(1);
+        datum invalid_prefix{non_ascii_in_prefix};
+        syslog invalid_prefix_msg{invalid_prefix};
+        if (invalid_prefix_msg.is_not_empty()) {
+            return false;
+        }
+
+        auto non_ascii_after_prefix = make_ascii_buffer_with_non_ascii_byte(ascii_check_len + 8);
+        datum valid_prefix{non_ascii_after_prefix};
+        syslog valid_prefix_msg{valid_prefix};
+        if (!valid_prefix_msg.is_not_empty()) {
+            return false;
+        }
+
+        return true;
     }
 
 };
