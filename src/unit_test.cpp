@@ -30,6 +30,7 @@
 #include "libmerc/oid.hpp"
 #include "libmerc/krb5.hpp"
 #include "libmerc/json_object.h"
+#include "libmerc/stun.h"
 
 // Macros to colorize output
 //
@@ -131,6 +132,10 @@ int main(int, char *[]) {
         {
             "tlv",
             &tlv::unit_test
+        },
+        {
+            "stun",
+            &stun::unit_test
         }
     };
     size_t num_tests = 0;

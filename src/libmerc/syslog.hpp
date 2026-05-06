@@ -227,7 +227,7 @@ public:
     }
 
     bool is_not_empty() const {
-        return body.is_not_null();
+        return valid;
     }
 
 };
