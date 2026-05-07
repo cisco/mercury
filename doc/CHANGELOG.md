@@ -1,5 +1,22 @@
 # CHANGELOG for Mercury
 
+## VERSION 2.17.0
+* Enabled ARM Pointer Authentication (PAC) and Branch Target
+  Identification (BTI) hardening on Linux.
+* Fixed SNMP JSON to decode VarBind INTEGER and request-id as
+  signed integers.
+* Fixed SNMP and Kerberos misdecoding of valid ASN.1 BER INTEGER values
+  and consolidated BER INTEGER decoders into the common ASN.1 header.
+* CI: added ubuntu26 as package target and build maintenance.
+* Revamped Makefile with non-recursive, out-of-source build system.
+* Migrated test framework from Catch2 to doctest.
+* Fixed latent compile error in pkcs8.hpp (data_buffer comparison at -O0).
+* Fixed batch_gcd.cc: undefined vtable reference, GMP limb memory leak, hexline_reader buffer leak.
+* Fixed lctrie memory leak (trie->root never freed by lct_free).
+* Fixed false-positive ASan leak report from OpenSSL 3.0 algorithm caching.
+* Fixed missing #include <sstream> in tls_extension_generator.cc.
+* Fixed GIT_COMMIT_ID falsely reporting "with local changes" after ./configure.
+
 ## VERSION 2.16.1
 * Fixed configure.ac for compatibility with older versions of autoconf.
 
