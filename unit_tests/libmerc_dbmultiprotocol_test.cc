@@ -222,21 +222,71 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test quic with analysis and reassembly")
     deinitialize();
 }
 
-TEST_CASE_FIXTURE(LibmercTestFixture, "test dtls with reassembly")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test dtls with and without reassembly")
 {
-    // dtls_fragmented_client_hello.pcap contains two UDP datagrams, each
-    // carrying one 88-byte fragment of a single 176-byte DTLS 1.2 ClientHello
-    // (fragment_offset=0 in pkt1, fragment_offset=88 in pkt2).  With
-    // reassembly enabled the two fragments are merged and one complete DTLS
-    // fingerprint should be produced.
-    libmerc_config config{.resources = resources_minimal_path,
-                          .packet_filter_cfg = (char *)"dtls;reassembly"};
-    initialize(config);
+    // dtls_fragmented_client_hello.pcap contains two UDP datagrams extracted
+    // from a real DTLS 1.2 handshake.  Pkt1 carries the first 203 bytes of
+    // a 307-byte ClientHello body (fragment_offset=0, fragment_length=203);
+    // pkt2 carries the remaining 104 bytes (fragment_offset=203).  The
+    // cipher-suite list itself is split across the two fragments.
 
-    set_pcap("dtls_fragmented_client_hello.pcap");
-    CHECK(1 == counter(fingerprint_type_dtls));
+    SUBCASE("without reassembly") {
+        // Without reassembly, neither fragment alone parses the inner
+        // ClientHello past the cipher-suite vector, so dtls_client_hello
+        // is treated as empty and the entire JSON record is suppressed
+        // (no fingerprint, no dtls object, no truncated marker).
+        libmerc_config config{.resources = resources_minimal_path,
+                              .packet_filter_cfg = (char *)"dtls"};
+        initialize(config);
+        set_pcap("dtls_fragmented_client_hello.pcap");
+        CHECK(0 == counter(fingerprint_type_dtls));
+        deinitialize();
+    }
 
-    deinitialize();
+    SUBCASE("with reassembly") {
+        // With reassembly enabled the two fragments are merged and exactly
+        // one complete DTLS fingerprint is produced.
+        libmerc_config config{.resources = resources_minimal_path,
+                              .packet_filter_cfg = (char *)"dtls;reassembly"};
+        initialize(config);
+        set_pcap("dtls_fragmented_client_hello.pcap");
+        CHECK(1 == counter(fingerprint_type_dtls));
+        deinitialize();
+    }
+}
+
+TEST_CASE_FIXTURE(LibmercTestFixture, "test dtls partial fragment with and without reassembly")
+{
+    // dtls_fragmented_client_hello_partial.pcap is constructed so that the
+    // first fragment (frag_off=0, frag_len=226) contains the full
+    // cipher-suite vector and compression-methods field, but extensions
+    // are split across the two fragments (frag2 offset=226, len=81).
+    //
+    // Expected behavior:
+    //   - Without reassembly: pkt1 alone parses far enough to satisfy
+    //     hello.is_not_empty() (compression_methods present), so a DTLS
+    //     fingerprint is produced (with empty extensions) and the JSON
+    //     record carries reassembly_properties.truncated=true.
+    //   - With reassembly: the two fragments are merged and a complete
+    //     DTLS fingerprint with full extensions is produced.
+
+    SUBCASE("without reassembly") {
+        libmerc_config config{.resources = resources_minimal_path,
+                              .packet_filter_cfg = (char *)"dtls"};
+        initialize(config);
+        set_pcap("dtls_fragmented_client_hello_partial.pcap");
+        CHECK(1 == counter(fingerprint_type_dtls));
+        deinitialize();
+    }
+
+    SUBCASE("with reassembly") {
+        libmerc_config config{.resources = resources_minimal_path,
+                              .packet_filter_cfg = (char *)"dtls;reassembly"};
+        initialize(config);
+        set_pcap("dtls_fragmented_client_hello_partial.pcap");
+        CHECK(1 == counter(fingerprint_type_dtls));
+        deinitialize();
+    }
 }
 
 TEST_CASE_FIXTURE(LibmercTestFixture, "test SGT encapsulated TLS with analysis")

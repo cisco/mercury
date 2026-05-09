@@ -1068,7 +1068,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     struct datum pkt{ip_packet, ip_packet+length};
     ip ip_pkt{pkt, k};
     bool truncated_tcp = false;
-    bool truncated_quic = false;
+    bool truncated_udp = false;   // set on truncated QUIC or DTLS fragments
 
     analysis.reinit();
     if (reassembler) {
@@ -1141,11 +1141,12 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         class udp udp_pkt{pkt};
         udp_pkt.set_key(k);
 
-        if (!process_udp_data(x, pkt, udp_pkt, k, ts, reassembler)) {
+        bool udp_result = process_udp_data(x, pkt, udp_pkt, k, ts, reassembler);
+        if (!udp_result) {
             return 0;
         }
         else if (udp_pkt.additional_bytes_needed()) {
-            truncated_quic = true;
+            truncated_udp = true;
         }
     }
 
@@ -1158,7 +1159,9 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         bool truncated_tls = (truncated_tcp &&
                               (std::holds_alternative<tls_client_hello>(x) ||
                                std::holds_alternative<tls_server_hello_and_certificate>(x)))
-                             || (truncated_quic && std::holds_alternative<quic_init>(x));
+                             || (truncated_udp &&
+                                 (std::holds_alternative<quic_init>(x) ||
+                                  std::holds_alternative<dtls_client_hello>(x)));
         if (global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
 
             output_analysis = std::visit(do_analysis{k, analysis, c}, x);
@@ -1218,8 +1221,8 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
 
         // write indication of truncation or reassembly
         //
-        if ((!reassembler && (truncated_tcp || truncated_quic))
-                || (!global_vars.reassembly && (truncated_tcp || truncated_quic)) ) {
+        if ((!reassembler && (truncated_tcp || truncated_udp))
+                || (!global_vars.reassembly && (truncated_tcp || truncated_udp)) ) {
             struct json_object flags{record, "reassembly_properties"};
             flags.print_key_bool("truncated", true);
             flags.close();
@@ -1704,7 +1707,9 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
         bool truncated_tls = (truncated_tcp &&
                               (std::holds_alternative<tls_client_hello>(x) ||
                                std::holds_alternative<tls_server_hello_and_certificate>(x)))
-                             || (truncated_udp && std::holds_alternative<quic_init>(x));
+                             || (truncated_udp &&
+                                 (std::holds_alternative<quic_init>(x) ||
+                                  std::holds_alternative<dtls_client_hello>(x)));
 
         if (global_vars.do_analysis && mq) {
             if (ip_pkt.src_is_private()) {

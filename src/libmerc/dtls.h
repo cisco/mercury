@@ -102,11 +102,13 @@ struct dtls_handshake {
 class dtls_client_hello : public base_protocol {
     dtls_record rec;
     dtls_handshake handshake;
+    datum raw_fragment;       // snapshot of handshake.body before tls_client_hello::parse consumes it
     tls_client_hello hello;
 public:
     dtls_client_hello(struct datum &pkt) :
         rec{pkt},
         handshake{rec.fragment},
+        raw_fragment{handshake.body},   // captured before hello{} advances/nullifies handshake.body
         hello{handshake.body} {}
 
     void fingerprint(struct buffer_stream &buf, size_t format_version) const {
@@ -120,6 +122,10 @@ public:
     }
 
     void write_json(json_object &record, bool output_metadata) const {
+        // tls_client_hello::write_json wraps its output under a "dtls" key
+        // when hello.dtls is true (set by parse() based on the 0xfe-prefixed
+        // protocol_version), so a plain delegation gives us the desired
+        // DTLS-wrapped JSON envelope.
         hello.write_json(record, output_metadata);
     }
 
@@ -130,6 +136,11 @@ public:
     }
 
     bool is_not_empty() const {
+        // require the inner ClientHello to have parsed at least up to and
+        // including compression_methods.  fragments that did not reach that
+        // point carry no actionable metadata, so the caller suppresses the
+        // entire JSON record (no fingerprint, no `dtls` object, and no
+        // bare `truncated: true` marker).
         return hello.is_not_empty();
     }
 
@@ -147,18 +158,22 @@ public:
     uint32_t get_fragment_offset() const { return handshake.fragment_offset; }
 
     /// Returns the number of fragment bytes present in this datagram.
+    /// Uses the pre-parse snapshot because tls_client_hello::parse() advances
+    /// (and may nullify) handshake.body, making body.length() unreliable after
+    /// construction.
     uint32_t get_fragment_length() const {
-        return static_cast<uint32_t>(handshake.body.length());
+        return static_cast<uint32_t>(raw_fragment.length());
     }
 
     /// Returns the full (reassembled) handshake message length.
     uint32_t get_handshake_length() const { return handshake.length; }
 
     /// Returns a datum over the fragment payload in this datagram.
-    datum get_fragment_data() const { return handshake.body; }
+    datum get_fragment_data() const { return raw_fragment; }
 
     /// Re-parse the TLS ClientHello from a fully reassembled handshake body.
     void reparse_from_buf(datum buf) {
+        raw_fragment = buf;
         hello = tls_client_hello{buf};
     }
 
