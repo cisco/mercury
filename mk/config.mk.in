@@ -81,6 +81,12 @@ endif
 ifeq (@USE_NO_OMIT_LEAF_FRAME_POINTER@,yes)
   PLATFORM_FLAGS += -mno-omit-leaf-frame-pointer
 endif
+ifeq (@USE_BRANCH_PROTECTION@,yes)  # ARM PAC + BTI
+  PLATFORM_FLAGS += -mbranch-protection=standard
+  ifeq (@USE_BTI_REPORT_WARNING@,yes)
+    PLATFORM_LDFLAGS += -Wl,-z,bti-report=warning
+  endif
+endif
 ifeq (@HAVE_XSIMD@,yes)
   PLATFORM_FLAGS += -DHAVE_XSIMD
   ifneq (@XSIMD_INCLUDE@,)
