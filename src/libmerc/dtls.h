@@ -72,17 +72,15 @@ struct dtls_handshake {
         // body contains only the fragment data (fragment_length bytes),
         // not the full message (length bytes)
         body.init_from_outer_parser(&d, fragment_length);
-        // Only set additional_bytes_needed when this is the start of the message
-        // (fragment_offset == 0).  Fragments that begin mid-message must not
-        // trigger reassembly initialisation; they are continuations or will be
-        // ignored until the first fragment establishes the flow.
+        // additional_bytes_needed is only meaningful for the first fragment
+        // (fragment_offset == 0); continuations must not trigger reassembly
+        // initialisation.  Validate sizes to avoid wraparound on malformed
+        // headers where fragment_length > length.
         if (fragment_offset == 0) {
             int body_len = body.length();
             if (fragment_length <= length && body_len >= 0 && (uint32_t)body_len <= length) {
                 additional_bytes_needed = length - (uint32_t)body_len;
             } else {
-                // Malformed or inconsistent fragment/header lengths; do not
-                // trigger reassembly based on an invalid size calculation.
                 additional_bytes_needed = 0;
             }
         } else {
@@ -130,9 +128,7 @@ public:
 
     void write_json(json_object &record, bool output_metadata) const {
         // tls_client_hello::write_json wraps its output under a "dtls" key
-        // when hello.dtls is true (set by parse() based on the 0xfe-prefixed
-        // protocol_version), so a plain delegation gives us the desired
-        // DTLS-wrapped JSON envelope.
+        // when hello.dtls is true, so a plain delegation suffices.
         hello.write_json(record, output_metadata);
     }
 
@@ -142,49 +138,25 @@ public:
         protocols.close();
     }
 
-    bool is_not_empty() const {
-        // require the inner ClientHello to have parsed at least up to and
-        // including compression_methods.  fragments that did not reach that
-        // point carry no actionable metadata, so the caller suppresses the
-        // entire JSON record (no fingerprint, no `dtls` object, and no
-        // bare `truncated: true` marker).
-        return hello.is_not_empty();
-    }
+    bool is_not_empty() const { return hello.is_not_empty(); }
 
     const tls_client_hello &get_tls_client_hello() const { return hello; }
 
-    // Reassembly support: mirrors quic_init interface so that process_udp_data
-    // can treat DTLS fragments analogously to QUIC CRYPTO frames.
+    // Offset-based UDP reassembly trait (see process_udp_offset_reassembly
+    // in reassembly.hpp).  raw_fragment is used instead of handshake.body
+    // because tls_client_hello::parse may advance/nullify handshake.body
+    // during construction.
+    uint32_t additional_bytes_needed() const { return static_cast<uint32_t>(handshake.additional_bytes_needed); }
+    uint32_t get_fragment_offset() const     { return handshake.fragment_offset; }
+    uint32_t get_fragment_length() const     { return static_cast<uint32_t>(raw_fragment.length()); }
+    uint32_t get_handshake_length() const    { return handshake.length; }
+    datum    get_fragment_data() const       { return raw_fragment; }
 
-    /// Returns bytes still needed to complete the full handshake message.
-    uint32_t additional_bytes_needed() const {
-        return static_cast<uint32_t>(handshake.additional_bytes_needed);
-    }
-
-    /// Returns the fragment offset (analogous to QUIC crypto frame offset).
-    uint32_t get_fragment_offset() const { return handshake.fragment_offset; }
-
-    /// Returns the number of fragment bytes present in this datagram.
-    /// Uses the pre-parse snapshot because tls_client_hello::parse() advances
-    /// (and may nullify) handshake.body, making body.length() unreliable after
-    /// construction.
-    uint32_t get_fragment_length() const {
-        return static_cast<uint32_t>(raw_fragment.length());
-    }
-
-    /// Returns the full (reassembled) handshake message length.
-    uint32_t get_handshake_length() const { return handshake.length; }
-
-    /// Returns a datum over the fragment payload in this datagram.
-    datum get_fragment_data() const { return raw_fragment; }
-
-    /// Re-parse the TLS ClientHello from a fully reassembled handshake body.
     void reparse_from_buf(datum buf) {
         raw_fragment = buf;
         hello = tls_client_hello{buf};
     }
 
-    /// Opts dtls_client_hello in to offset-based UDP reassembly.
     bool supports_udp_offset_reassembly() const { return true; }
 
     // DTLS handshake records begin with content-type 0x16 (Handshake).

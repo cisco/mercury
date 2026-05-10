@@ -1110,14 +1110,4 @@ struct dispatch_udp_offset_reassembly {
     bool operator()(std::monostate) const { return true; }
 };
 
-// Backwards-compatible alias for any external caller that passed a
-// dtls_client_hello directly.
-inline bool process_dtls_reassembly(dtls_client_hello &dtls_ch,
-                                    udp &udp_pkt,
-                                    const struct key &k,
-                                    struct timespec *ts,
-                                    struct tcp_reassembler *reassembler) {
-    return process_udp_offset_reassembly(dtls_ch, udp_pkt, k, ts, reassembler);
-}
-
 #endif /* REASSEMBLY_HPP */
