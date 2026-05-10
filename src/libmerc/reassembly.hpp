@@ -996,7 +996,8 @@ inline bool process_dtls_reassembly(dtls_client_hello &dtls_ch,
         return true;
     }
 
-    datum empty_cid{nullptr, nullptr};
+    static constexpr uint8_t empty_cid_storage[1] = {0};
+    datum empty_cid{empty_cid_storage, empty_cid_storage};
     reassembly_state r_state = reassembler->check_flow(k, ts->tv_sec, empty_cid);
 
     if ((r_state == reassembly_state::reassembly_none) && !udp_pkt.additional_bytes_needed()) {
