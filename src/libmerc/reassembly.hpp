@@ -971,21 +971,31 @@ inline bool process_quic_reassembly(quic_init &qi,
 }
 
 // Returns true when the packet should be fingerprinted/analysed by the caller.
-// Manages the DTLS handshake-fragment reassembly state machine and re-parses
-// the full ClientHello body once all fragments have been accumulated.
+// Manages the offset-based UDP fragment reassembly state machine for any
+// protocol whose first packet carries (offset, length, total-message-length)
+// and whose subsequent packets are continuation fragments at non-zero offset.
 //
 // DTLS (RFC 6347) fragments large handshake messages across multiple UDP
 // datagrams.  Each fragment carries fragment_offset, fragment_length, and the
 // total message length.  An empty CID datum is used because DTLS has no
-// connection-ID concept; the 5-tuple alone identifies the flow.
-inline bool process_dtls_reassembly(dtls_client_hello &dtls_ch,
-                                    udp &udp_pkt,
-                                    const struct key &k,
-                                    struct timespec *ts,
-                                    struct tcp_reassembler *reassembler) {
-    uint32_t frag_offset = dtls_ch.get_fragment_offset();
-    uint32_t frag_len    = dtls_ch.get_fragment_length();
-    datum    frag_data   = dtls_ch.get_fragment_data();
+// connection-ID concept; the 5-tuple alone identifies the flow.  Other
+// future UDP protocols that fragment in the same offset/length style can
+// reuse this template by satisfying the small accessor trait below.
+//
+// Trait expected from Proto:
+//   uint32_t get_fragment_offset() const;
+//   uint32_t get_fragment_length() const;
+//   datum    get_fragment_data()   const;
+//   void     reparse_from_buf(datum buf);
+template <typename Proto>
+inline bool process_udp_offset_reassembly(Proto &proto,
+                                          udp &udp_pkt,
+                                          const struct key &k,
+                                          struct timespec *ts,
+                                          struct tcp_reassembler *reassembler) {
+    uint32_t frag_offset = proto.get_fragment_offset();
+    uint32_t frag_len    = proto.get_fragment_length();
+    datum    frag_data   = proto.get_fragment_data();
 
     if (frag_len > reassembly_flow_context::max_data_size || frag_len == 0) {
         return true;
@@ -1028,12 +1038,86 @@ inline bool process_dtls_reassembly(dtls_client_hello &dtls_ch,
     reassembly_map_iterator it = reassembler->get_current_flow();
     if (reassembler->is_ready(it)) {
         struct datum reassembled_data = reassembler->get_reassembled_data(it);
-        dtls_ch.reparse_from_buf(reassembled_data);
+        proto.reparse_from_buf(reassembled_data);
         reassembler->set_completed(it);
         return true;
     }
 
     return false;
+}
+
+// Visitor that asks each protocol whether it participates in offset-based
+// UDP reassembly.  Mirrors the existing pattern used for is_not_empty,
+// compute_fingerprint, do_analysis, etc.  Protocols opt in by overriding
+// base_protocol::supports_udp_offset_reassembly() to return true; the
+// default (and the std::monostate alternative) returns false.
+struct supports_udp_offset_reassembly {
+    template <typename Proto>
+    bool operator()(const Proto &proto) const { return proto.supports_udp_offset_reassembly(); }
+
+    bool operator()(std::monostate) const { return false; }
+};
+
+// Visitor that dispatches to process_udp_offset_reassembly for any protocol
+// that opts in via supports_udp_offset_reassembly().  Protocols that do not
+// opt in (the common case) are treated as no-ops and the packet flows
+// through unchanged.
+//
+// Adding a new offset-fragmented UDP protocol therefore requires only:
+//   1. satisfying the trait expected by process_udp_offset_reassembly
+//      (get_fragment_offset / get_fragment_length / get_fragment_data /
+//      reparse_from_buf), and
+//   2. overriding base_protocol::supports_udp_offset_reassembly() to
+//      return true on the new protocol class.
+// No changes are needed here or at the call site in pkt_proc.cc.
+// SFINAE detector for "does Proto provide the offset-reassembly trait"
+// (i.e. all four required accessors).  Only protocols satisfying the full
+// trait can actually be passed to process_udp_offset_reassembly, so the
+// dispatcher uses this to fall back to a no-op for protocols that opted in
+// at the base_protocol level but do not yet implement the accessors --
+// this keeps the dispatcher compilable for every protocol in the variant
+// without requiring stub methods on each one.
+template <typename, typename = void>
+struct has_udp_offset_reassembly_trait : std::false_type {};
+
+template <typename Proto>
+struct has_udp_offset_reassembly_trait<
+    Proto,
+    std::void_t<
+        decltype(std::declval<const Proto &>().get_fragment_offset()),
+        decltype(std::declval<const Proto &>().get_fragment_length()),
+        decltype(std::declval<const Proto &>().get_fragment_data()),
+        decltype(std::declval<Proto &>().reparse_from_buf(std::declval<datum>()))
+    >
+> : std::true_type {};
+
+struct dispatch_udp_offset_reassembly {
+    udp                    &udp_pkt;
+    const struct key       &k;
+    struct timespec        *ts;
+    struct tcp_reassembler *reassembler;
+
+    template <typename Proto>
+    bool operator()(Proto &proto) const {
+        if constexpr (has_udp_offset_reassembly_trait<Proto>::value) {
+            return process_udp_offset_reassembly(proto, udp_pkt, k, ts, reassembler);
+        } else {
+            (void)proto;
+            return true;
+        }
+    }
+
+    bool operator()(std::monostate) const { return true; }
+};
+
+// Backwards-compatible alias for any external caller that passed a
+// dtls_client_hello directly.
+inline bool process_dtls_reassembly(dtls_client_hello &dtls_ch,
+                                    udp &udp_pkt,
+                                    const struct key &k,
+                                    struct timespec *ts,
+                                    struct tcp_reassembler *reassembler) {
+    return process_udp_offset_reassembly(dtls_ch, udp_pkt, k, ts, reassembler);
 }
 
 #endif /* REASSEMBLY_HPP */

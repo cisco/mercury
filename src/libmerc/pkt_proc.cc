@@ -933,23 +933,31 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
 
     set_udp_protocol(x, pkt, udp_pkt.get_ports(), is_new, k, udp_pkt);
 
-    bool is_quic = std::holds_alternative<quic_init>(x);
-    bool is_dtls_ch = std::holds_alternative<dtls_client_hello>(x);
-
-    if (!is_quic && !is_dtls_ch) {
-        // no need for reassembly
-        return true;
-    }
-    else if (udp_pkt.additional_bytes_needed() > reassembly_flow_context::max_data_size) {
-        // payload too large for the reassembly buffer; output as-is (truncated)
-        return true;
-    }
-
-    if (is_quic) {
+    // QUIC reassembly is handled separately: QUIC has CRYPTO-frame-level
+    // sub-segmentation and connection-ID matching that do not fit the
+    // simple offset/length trait used by other UDP protocols, so it keeps
+    // its own dedicated helper.  All offset-fragmented UDP protocols
+    // (currently only DTLS) are dispatched through the
+    // udp_reassembly_protocol variant + visitor.
+    if (std::holds_alternative<quic_init>(x)) {
+        if (udp_pkt.additional_bytes_needed() > reassembly_flow_context::max_data_size) {
+            return true;
+        }
         return process_quic_reassembly(std::get<quic_init>(x), udp_pkt, k, ts, reassembler);
     }
 
-    return process_dtls_reassembly(std::get<dtls_client_hello>(x), udp_pkt, k, ts, reassembler);
+    // Offset-based UDP reassembly.  Protocols opt in by overriding
+    // base_protocol::supports_udp_offset_reassembly() and satisfying the
+    // small trait expected by process_udp_offset_reassembly.  Adding a new
+    // offset-fragmented UDP protocol therefore only requires changes in
+    // that protocol's class; this call site does not need to change.
+    if (!std::visit(supports_udp_offset_reassembly{}, x)) {
+        return true;
+    }
+    if (udp_pkt.additional_bytes_needed() > reassembly_flow_context::max_data_size) {
+        return true;
+    }
+    return std::visit(dispatch_udp_offset_reassembly{udp_pkt, k, ts, reassembler}, x);
 }
 
 struct process_next_header {

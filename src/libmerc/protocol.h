@@ -36,6 +36,15 @@ public:
 
     bool do_network_behavioral_detections(const struct key &, struct analysis_context &, classifier*, const struct common_data &) { return false; }
 
+    // Returns true if this protocol participates in offset-based UDP
+    // reassembly (see process_udp_offset_reassembly in reassembly.hpp).
+    // Protocols that opt in must also satisfy the trait expected by that
+    // template (get_fragment_offset / get_fragment_length /
+    // get_fragment_data / reparse_from_buf).  Defaults to false so that
+    // any protocol not using this scheme flows through the dispatcher
+    // as a no-op.
+    bool supports_udp_offset_reassembly() const { return false; }
+
 };
 
 #endif // PROTOCOL_H

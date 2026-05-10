@@ -184,6 +184,9 @@ public:
         hello = tls_client_hello{buf};
     }
 
+    /// Opts dtls_client_hello in to offset-based UDP reassembly.
+    bool supports_udp_offset_reassembly() const { return true; }
+
     // DTLS handshake records begin with content-type 0x16 (Handshake).
     // The next two bytes are the protocol version:
     //   0xfe 0xfd for DTLS 1.3/DTLS 1.2 legacy version
