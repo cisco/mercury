@@ -77,7 +77,14 @@ struct dtls_handshake {
         // trigger reassembly initialisation; they are continuations or will be
         // ignored until the first fragment establishes the flow.
         if (fragment_offset == 0) {
-            additional_bytes_needed = length - body.length();
+            int body_len = body.length();
+            if (fragment_length <= length && body_len >= 0 && (uint32_t)body_len <= length) {
+                additional_bytes_needed = length - (uint32_t)body_len;
+            } else {
+                // Malformed or inconsistent fragment/header lengths; do not
+                // trigger reassembly based on an invalid size calculation.
+                additional_bytes_needed = 0;
+            }
         } else {
             additional_bytes_needed = 0;
         }
