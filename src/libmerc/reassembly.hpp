@@ -13,6 +13,7 @@
 #include "udp.h"
 #include "quic.h"
 #include "dtls.h"
+#include "fdc.hpp"     // for truncation_status
 
 #include <bitset>
 #include <vector>
@@ -1078,9 +1079,6 @@ struct dispatch_udp_offset_reassembly {
 
     bool operator()(std::monostate) const { return true; }
 };
-
-// forward decl; defined in fdc.hpp
-enum class truncation_status : uint64_t;
 
 // Maps (reassembler-state, truncated?) to the FDC truncation_status enum:
 //

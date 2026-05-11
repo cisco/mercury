@@ -946,11 +946,10 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
         return process_quic_reassembly(std::get<quic_init>(x), udp_pkt, k, ts, reassembler);
     }
 
-    // Offset-based UDP reassembly.  Protocols opt in by overriding
-    // base_protocol::supports_udp_offset_reassembly() and satisfying the
-    // small trait expected by process_udp_offset_reassembly.  Adding a new
-    // offset-fragmented UDP protocol therefore only requires changes in
-    // that protocol's class; this call site does not need to change.
+    // Offset-based UDP reassembly; protocols opt in via
+    // supports_udp_offset_reassembly() and the trait expected by
+    // process_udp_offset_reassembly.  No edits needed here for new
+    // offset-fragmented UDP protocols.
     if (!std::visit(supports_udp_offset_reassembly{}, x)) {
         return true;
     }
