@@ -970,23 +970,10 @@ inline bool process_quic_reassembly(quic_init &qi,
     return false;
 }
 
-// Returns true when the packet should be fingerprinted/analysed by the caller.
-// Manages the offset-based UDP fragment reassembly state machine for any
-// protocol whose first packet carries (offset, length, total-message-length)
-// and whose subsequent packets are continuation fragments at non-zero offset.
-//
-// DTLS (RFC 6347) fragments large handshake messages across multiple UDP
-// datagrams.  Each fragment carries fragment_offset, fragment_length, and the
-// total message length.  An empty CID datum is used because DTLS has no
-// connection-ID concept; the 5-tuple alone identifies the flow.  Other
-// future UDP protocols that fragment in the same offset/length style can
-// reuse this template by satisfying the small accessor trait below.
-//
-// Trait expected from Proto:
-//   uint32_t get_fragment_offset() const;
-//   uint32_t get_fragment_length() const;
-//   datum    get_fragment_data()   const;
-//   void     reparse_from_buf(datum buf);
+// Offset-based UDP fragment reassembly state machine; returns true when
+// the caller should fingerprint/analyse the packet.  Trait expected
+// from Proto: get_fragment_offset, get_fragment_length,
+// get_fragment_data, reparse_from_buf.
 template <typename Proto>
 inline bool process_udp_offset_reassembly(Proto &proto,
                                           udp &udp_pkt,
@@ -1046,11 +1033,7 @@ inline bool process_udp_offset_reassembly(Proto &proto,
     return false;
 }
 
-// Visitor that asks each protocol whether it participates in offset-based
-// UDP reassembly.  Mirrors the existing pattern used for is_not_empty,
-// compute_fingerprint, do_analysis, etc.  Protocols opt in by overriding
-// base_protocol::supports_udp_offset_reassembly() to return true; the
-// default (and the std::monostate alternative) returns false.
+// Visitor: returns whether a protocol opts in to offset-based UDP reassembly.
 struct supports_udp_offset_reassembly {
     template <typename Proto>
     bool operator()(const Proto &proto) const { return proto.supports_udp_offset_reassembly(); }
@@ -1058,25 +1041,9 @@ struct supports_udp_offset_reassembly {
     bool operator()(std::monostate) const { return false; }
 };
 
-// Visitor that dispatches to process_udp_offset_reassembly for any protocol
-// that opts in via supports_udp_offset_reassembly().  Protocols that do not
-// opt in (the common case) are treated as no-ops and the packet flows
-// through unchanged.
-//
-// Adding a new offset-fragmented UDP protocol therefore requires only:
-//   1. satisfying the trait expected by process_udp_offset_reassembly
-//      (get_fragment_offset / get_fragment_length / get_fragment_data /
-//      reparse_from_buf), and
-//   2. overriding base_protocol::supports_udp_offset_reassembly() to
-//      return true on the new protocol class.
-// No changes are needed here or at the call site in pkt_proc.cc.
-// SFINAE detector for "does Proto provide the offset-reassembly trait"
-// (i.e. all four required accessors).  Only protocols satisfying the full
-// trait can actually be passed to process_udp_offset_reassembly, so the
-// dispatcher uses this to fall back to a no-op for protocols that opted in
-// at the base_protocol level but do not yet implement the accessors --
-// this keeps the dispatcher compilable for every protocol in the variant
-// without requiring stub methods on each one.
+// SFINAE detector: true iff Proto provides the four offset-reassembly
+// accessors.  Lets the dispatcher no-op for variant alternatives that
+// don't implement them, avoiding stub methods on every protocol.
 template <typename, typename = void>
 struct has_udp_offset_reassembly_trait : std::false_type {};
 
@@ -1091,6 +1058,8 @@ struct has_udp_offset_reassembly_trait<
     >
 > : std::true_type {};
 
+// Visitor: invokes process_udp_offset_reassembly for protocols that
+// satisfy the trait; no-op otherwise.
 struct dispatch_udp_offset_reassembly {
     udp                    &udp_pkt;
     const struct key       &k;
@@ -1113,17 +1082,14 @@ struct dispatch_udp_offset_reassembly {
 // forward decl; defined in fdc.hpp
 enum class truncation_status : uint64_t;
 
-// Maps the (reassembler-state, truncated?) tuple to the FDC
-// truncation_status enum used by both the FDC and analysis-context
-// output paths.  Centralised here so all callers agree:
+// Maps (reassembler-state, truncated?) to the FDC truncation_status enum:
 //
-//   * reassembler done    + truncated   -> reassembled_truncated
-//   * reassembler done    + clean       -> reassembled
-//   * reassembler present + truncated   -> truncated   (e.g. oversized
-//                                          first fragment skipped by
-//                                          process_udp_data)
-//   * no reassembler      + truncated   -> truncated
-//   * otherwise                         -> none
+//   reassembler done    + truncated -> reassembled_truncated
+//   reassembler done    + clean     -> reassembled
+//   reassembler present + truncated -> truncated   (e.g. oversized first
+//                                                   fragment skipped)
+//   no reassembler      + truncated -> truncated
+//   otherwise                       -> none
 inline truncation_status compute_truncation_status(struct tcp_reassembler *reassembler,
                                                    bool truncated) {
     if (reassembler && reassembler->is_done(reassembler->curr_flow)) {
@@ -1136,10 +1102,8 @@ inline truncation_status compute_truncation_status(struct tcp_reassembler *reass
     return truncation_status::none;
 }
 
-// Closes out a reassembly flow on the current key: marks
-// flow_state_pkts_needed false once the flow has reached a terminal
-// state, then clears the per-call cursor so the next packet starts
-// fresh.  No-op when no reassembler is attached.
+// End-of-call cleanup: clears flow_state_pkts_needed if the flow is
+// done, then resets the per-call cursor.  No-op without a reassembler.
 inline void finalize_reassembly_flow(struct tcp_reassembler *reassembler,
                                      bool &flow_state_pkts_needed) {
     if (!reassembler) {
