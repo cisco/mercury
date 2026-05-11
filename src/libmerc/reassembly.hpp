@@ -1110,4 +1110,68 @@ struct dispatch_udp_offset_reassembly {
     bool operator()(std::monostate) const { return true; }
 };
 
+// forward decl; defined in fdc.hpp
+enum class truncation_status : uint64_t;
+
+// Maps the (reassembler-state, truncated?) tuple to the FDC
+// truncation_status enum used by both the FDC and analysis-context
+// output paths.  Centralised here so all callers agree:
+//
+//   * reassembler done    + truncated   -> reassembled_truncated
+//   * reassembler done    + clean       -> reassembled
+//   * reassembler present + truncated   -> truncated   (e.g. oversized
+//                                          first fragment skipped by
+//                                          process_udp_data)
+//   * no reassembler      + truncated   -> truncated
+//   * otherwise                         -> none
+inline truncation_status compute_truncation_status(struct tcp_reassembler *reassembler,
+                                                   bool truncated) {
+    if (reassembler && reassembler->is_done(reassembler->curr_flow)) {
+        return truncated ? truncation_status::reassembled_truncated
+                         : truncation_status::reassembled;
+    }
+    if (truncated) {
+        return truncation_status::truncated;
+    }
+    return truncation_status::none;
+}
+
+// Closes out a reassembly flow on the current key: marks
+// flow_state_pkts_needed false once the flow has reached a terminal
+// state, then clears the per-call cursor so the next packet starts
+// fresh.  No-op when no reassembler is attached.
+inline void finalize_reassembly_flow(struct tcp_reassembler *reassembler,
+                                     bool &flow_state_pkts_needed) {
+    if (!reassembler) {
+        return;
+    }
+    if (reassembler->is_done(reassembler->curr_flow)) {
+        flow_state_pkts_needed = false;
+    }
+    reassembler->clean_curr_flow();
+}
+
+// Emits the "reassembly_properties" JSON: "truncated" when the message
+// is incomplete and no flow reached a terminal state, or "reassembled"
+// when a flow finished.  in_progress flows produce no output.
+inline void write_reassembly_properties(json_object &record,
+                                        struct tcp_reassembler *reassembler,
+                                        bool truncated,
+                                        bool reassembly_enabled) {
+    bool no_active_flow =
+        !reassembler ||
+        (!reassembler->is_done(reassembler->curr_flow) &&
+         !reassembler->in_progress(reassembler->curr_flow));
+
+    if (truncated && (!reassembly_enabled || no_active_flow)) {
+        struct json_object flags{record, "reassembly_properties"};
+        flags.print_key_bool("truncated", true);
+        flags.close();
+        return;
+    }
+    if (reassembler && reassembler->is_done(reassembler->curr_flow)) {
+        reassembler->write_json(record);
+    }
+}
+
 #endif /* REASSEMBLY_HPP */

@@ -1229,15 +1229,10 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
 
         // write indication of truncation or reassembly
         //
-        if ((!reassembler && (truncated_tcp || truncated_udp))
-                || (!global_vars.reassembly && (truncated_tcp || truncated_udp)) ) {
-            struct json_object flags{record, "reassembly_properties"};
-            flags.print_key_bool("truncated", true);
-            flags.close();
-        }
-        else if (reassembler && reassembler->is_done(reassembler->curr_flow)) {
-            reassembler->write_json(record);
-        }
+        write_reassembly_properties(record,
+                                    reassembler,
+                                    truncated_tcp || truncated_udp,
+                                    global_vars.reassembly);
 
         if (global_vars.metadata_output) {
             ip_pkt.write_json(record);      // write out ip{version,ttl,id}
@@ -1514,6 +1509,10 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
             if (!ret) {
                 return fdc_return::FDC_NO_DATA;
             }
+            // oversized first fragment skipped by reassembly; mark truncated
+            if (udp_pseudoheader.additional_bytes_needed()) {
+                truncated_udp = true;
+            }
         }
         else {
 
@@ -1543,21 +1542,8 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         *context = &analysis;
     }
 
-    truncation_status status = truncation_status::none;
-
-    if (reassembler_ptr) {
-        if (reassembler_ptr->is_done(reassembler_ptr->curr_flow)) {
-            if (truncated_tcp || truncated_udp) {
-                status = truncation_status::reassembled_truncated;
-            }
-            else {
-                status = truncation_status::reassembled;
-            }
-        }
-    }
-    else if (truncated_tcp || truncated_udp) {
-        status = truncation_status::truncated;
-    }
+    truncation_status status = compute_truncation_status(reassembler_ptr,
+                                                         truncated_tcp || truncated_udp);
 
     size_t internal_buffer_size = *buffer_size;
     writeable output{buffer, buffer + internal_buffer_size};
@@ -1623,12 +1609,7 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         return fdc_return::UNKNOWN_ERROR;  // unsupported FDC version
     }
 
-    if (reassembler_ptr) {
-        if (reassembler_ptr->is_done(reassembler_ptr->curr_flow)) {
-            analysis.flow_state_pkts_needed = false;
-        }
-        reassembler_ptr->clean_curr_flow();
-    }
+    finalize_reassembly_flow(reassembler_ptr, analysis.flow_state_pkts_needed);
     return internal_buffer_size - output.writeable_length();
 }
 
@@ -1699,6 +1680,10 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             if (!ret) {
                 return 0;
             }
+            // oversized first fragment skipped by reassembly; mark truncated
+            if (udp_pkt.additional_bytes_needed()) {
+                truncated_udp = true;
+            }
         }
         else {
             process_udp_data(x, pkt, udp_pkt, k, ts, reassembler);
@@ -1757,12 +1742,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
                 std::visit(do_observation{k, analysis, mq}, x);
             }
 
-            if (reassembler) {
-                if (reassembler->is_done(reassembler->curr_flow)) {
-                    analysis.flow_state_pkts_needed = false;
-                }
-                reassembler->clean_curr_flow();
-            }
+            finalize_reassembly_flow(reassembler, analysis.flow_state_pkts_needed);
 
             // if fingerprint truncated, set fp status to unlabeled
             if (truncated_tcp or truncated_udp) {
@@ -1793,12 +1773,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
         }
     }
 
-    if (reassembler) {
-        if (reassembler->is_done(reassembler->curr_flow)) {
-            analysis.flow_state_pkts_needed = false;
-        }
-        reassembler->clean_curr_flow();
-    }
+    finalize_reassembly_flow(reassembler, analysis.flow_state_pkts_needed);
 
     return false;  // indicate no analysis results were returned
 }
