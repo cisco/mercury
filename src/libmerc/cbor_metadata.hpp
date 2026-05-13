@@ -21,25 +21,18 @@ class cbor_metadata_context {
 public:
     cbor_metadata_context() : buffer_{}, w_{} {}
 
-    /// Reset buffer and open outer indefinite map (0xBF).
+    /// Reset buffer for new packet.
     void reset() {
         w_ = writeable{buffer_, buffer_ + MAX_CBOR_METADATA_LEN};
         length_ = 0;
         truncated_ = false;
-        w_.copy(0xbf);  // indefinite-length map
     }
 
-    /// Get writeable for feature classes to write key+value pairs into.
+    /// Get writeable for cbor_object to write into.
     writeable& get_writer() { return w_; }
 
-    /// Close the outer indefinite map (0xFF) and finalize length.
+    /// Finalize and compute length after cbor_object::close().
     void end_encode() {
-        if (w_.is_null()) {
-            truncated_ = true;
-            length_ = 0;
-            return;
-        }
-        w_.copy(0xff);  // break code — end of indefinite map
         if (w_.is_null()) {
             truncated_ = true;
             length_ = 0;
