@@ -56,4 +56,42 @@ public:
 
 };
 
+namespace loopback {
+#ifndef NDEBUG
+    inline bool unit_test() {
+        uint8_t ipv4_le[] = { 0x02, 0x00, 0x00, 0x00 };
+        datum d1{ipv4_le, ipv4_le + sizeof(ipv4_le)};
+        loopback_header h1{d1};
+        if (h1.get_protocol_type() != ETH_TYPE_IP) return false;
+
+        uint8_t ipv4_be[] = { 0x00, 0x00, 0x00, 0x02 };
+        datum d2{ipv4_be, ipv4_be + sizeof(ipv4_be)};
+        loopback_header h2{d2};
+        if (h2.get_protocol_type() != ETH_TYPE_IP) return false;
+
+        uint8_t ipv6_24[] = { 0x18, 0x00, 0x00, 0x00 };
+        datum d3{ipv6_24, ipv6_24 + sizeof(ipv6_24)};
+        loopback_header h3{d3};
+        if (h3.get_protocol_type() != ETH_TYPE_IPV6) return false;
+
+        uint8_t ipv6_28[] = { 0x1c, 0x00, 0x00, 0x00 };
+        datum d4{ipv6_28, ipv6_28 + sizeof(ipv6_28)};
+        loopback_header h4{d4};
+        if (h4.get_protocol_type() != ETH_TYPE_IPV6) return false;
+
+        uint8_t ipv6_30[] = { 0x1e, 0x00, 0x00, 0x00 };
+        datum d5{ipv6_30, ipv6_30 + sizeof(ipv6_30)};
+        loopback_header h5{d5};
+        if (h5.get_protocol_type() != ETH_TYPE_IPV6) return false;
+
+        uint8_t unknown[] = { 0xff, 0x00, 0x00, 0x00 };
+        datum d6{unknown, unknown + sizeof(unknown)};
+        loopback_header h6{d6};
+        if (h6.get_protocol_type() != ETH_TYPE_NONE) return false;
+
+        return true;
+    }
+#endif
+} // namespace loopback
+
 #endif // LOOPBACK_HPP

@@ -1190,4 +1190,30 @@ namespace {
 
 };
 
+namespace dns {
+
+#ifndef NDEBUG
+    inline bool unit_test() {
+        uint8_t query[] = {
+            0x12, 0x34, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x04, 't', 'e', 's', 't', 0x03, 'c', 'o', 'm', 0x00, 0x00, 0x01, 0x00, 0x01
+        };
+        datum d{query, query + sizeof(query)};
+        dns_packet pkt{d};
+        if (!pkt.is_not_empty()) return false;
+
+        char buffer[2048];
+        buffer_stream buf{buffer, sizeof(buffer)};
+        json_object json{&buf};
+        pkt.write_json(json, false);
+        json.close();
+        buf.write_char('\0');
+        if (!strstr(buffer, "query")) return false;
+
+        return true;
+    }
+#endif
+
+} // namespace dns
+
 #endif /* DNS_H */

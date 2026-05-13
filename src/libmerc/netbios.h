@@ -352,5 +352,132 @@ namespace {
     }
 }; // end of namespace
 
+namespace netbios {
+#ifndef NDEBUG
+    inline bool unit_test() {
+        char buffer[2048];
+
+        uint8_t session_msg[] = {
+            0x00, 0x00, 0x00, 0x04,
+            0xde, 0xad, 0xbe, 0xef
+        };
+        datum d1{session_msg, session_msg + sizeof(session_msg)};
+        nbss_packet p1{d1};
+        if (!p1.is_not_empty()) return false;
+        if (p1.get_code() != 0x00) return false;
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_object json{&buf};
+            p1.write_json(json, false);
+            json.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "nbss")) return false;
+            if (!strstr(buffer, "session_message")) return false;
+        }
+
+        uint8_t session_req[] = { 0x81, 0x00, 0x00, 0x04, 0x01, 0x02, 0x03, 0x04 };
+        datum d2{session_req, session_req + sizeof(session_req)};
+        nbss_packet p2{d2};
+        if (!p2.is_not_empty()) return false;
+        if (strcmp(p2.get_code_str(), "session_request") != 0) return false;
+
+        uint8_t pos_resp[] = { 0x82, 0x00, 0x00, 0x00 };
+        datum d3{pos_resp, pos_resp + sizeof(pos_resp)};
+        nbss_packet p3{d3};
+        if (strcmp(p3.get_code_str(), "positive_session_response") != 0) return false;
+
+        uint8_t neg_resp[] = { 0x83, 0x00, 0x00, 0x01, 0x80 };
+        datum d4{neg_resp, neg_resp + sizeof(neg_resp)};
+        nbss_packet p4{d4};
+        if (strcmp(p4.get_code_str(), "negative_session_response") != 0) return false;
+
+        uint8_t retarget[] = { 0x84, 0x00, 0x00, 0x06, 0xc0, 0xa8, 0x01, 0x02, 0x00, 0x8b };
+        datum d5{retarget, retarget + sizeof(retarget)};
+        nbss_packet p5{d5};
+        if (strcmp(p5.get_code_str(), "retarget_session_response") != 0) return false;
+
+        uint8_t keepalive[] = { 0x85, 0x00, 0x00, 0x00 };
+        datum d6{keepalive, keepalive + sizeof(keepalive)};
+        nbss_packet p6{d6};
+        if (strcmp(p6.get_code_str(), "session_keep_alive") != 0) return false;
+
+        uint8_t direct_unique[] = {
+            0x10, 0x02, 0x00, 0x01,
+            0xc0, 0xa8, 0x01, 0x01,
+            0x00, 0x8a,
+            0x00, 0x10, 0x00, 0x00,
+            0x20, 0x41, 0x41, 0x41, 0x41, 0x00,
+            0x20, 0x42, 0x42, 0x42, 0x42, 0x00,
+            0xde, 0xad
+        };
+        datum d7{direct_unique, direct_unique + sizeof(direct_unique)};
+        nbds_packet p7{d7};
+        if (!p7.is_not_empty()) return false;
+        if (strcmp(p7.get_code_str(), "direct_unique_datagram") != 0) return false;
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_object json{&buf};
+            p7.write_json(json, false);
+            json.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "nbds")) return false;
+            if (!strstr(buffer, "source_ip")) return false;
+        }
+
+        uint8_t dgm_error[] = {
+            0x13, 0x00, 0x00, 0x02,
+            0xc0, 0xa8, 0x01, 0x01,
+            0x00, 0x8a,
+            0x82
+        };
+        datum d8{dgm_error, dgm_error + sizeof(dgm_error)};
+        nbds_packet p8{d8};
+        if (strcmp(p8.get_code_str(), "datagram_error") != 0) return false;
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_object json{&buf};
+            p8.write_json(json, false);
+            json.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "error_code")) return false;
+        }
+
+        uint8_t dgm_query[] = {
+            0x14, 0x00, 0x00, 0x03,
+            0xc0, 0xa8, 0x01, 0x01,
+            0x00, 0x8a,
+            0x20, 0x43, 0x43, 0x00
+        };
+        datum d9{dgm_query, dgm_query + sizeof(dgm_query)};
+        nbds_packet p9{d9};
+        if (strcmp(p9.get_code_str(), "datagram_query_request") != 0) return false;
+
+        uint8_t direct_group[] = {
+            0x11, 0x02, 0x00, 0x01,
+            0xc0, 0xa8, 0x01, 0x01,
+            0x00, 0x8a,
+            0x00, 0x08, 0x00, 0x00,
+            0x00, 0x00
+        };
+        datum d10{direct_group, direct_group + sizeof(direct_group)};
+        nbds_packet p10{d10};
+        if (strcmp(p10.get_code_str(), "direct_group_datagram") != 0) return false;
+
+        uint8_t broadcast[] = {
+            0x12, 0x02, 0x00, 0x01,
+            0xc0, 0xa8, 0x01, 0x01,
+            0x00, 0x8a,
+            0x00, 0x08, 0x00, 0x00,
+            0x00, 0x00
+        };
+        datum d11{broadcast, broadcast + sizeof(broadcast)};
+        nbds_packet p11{d11};
+        if (strcmp(p11.get_code_str(), "broadcast_datagram") != 0) return false;
+
+        return true;
+    }
+#endif
+} // namespace netbios
+
 
 #endif

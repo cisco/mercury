@@ -278,4 +278,47 @@ public:
     return json_output_fuzzer<syslog>(data, size);
 }
 
+namespace syslog_unit_test {
+#ifndef NDEBUG
+    inline bool unit_test() {
+        char buffer[1024];
+
+        const char *info_msg = "<14>Test syslog message";
+        datum d1{(const uint8_t*)info_msg, (const uint8_t*)info_msg + strlen(info_msg)};
+        class syslog s1{d1};
+        if (!s1.is_not_empty()) return false;
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_object json{&buf};
+            s1.write_json(json, false);
+            json.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "syslog")) return false;
+            if (!strstr(buffer, "informational")) return false;
+            if (!strstr(buffer, "user-level")) return false;
+        }
+
+        const char *err_msg = "<11>Error message";
+        datum d2{(const uint8_t*)err_msg, (const uint8_t*)err_msg + strlen(err_msg)};
+        class syslog s2{d2};
+        if (!s2.is_not_empty()) return false;
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_object json{&buf};
+            s2.write_json(json, false);
+            json.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "error")) return false;
+        }
+
+        const char *no_pri = "Plain text message";
+        datum d3{(const uint8_t*)no_pri, (const uint8_t*)no_pri + strlen(no_pri)};
+        class syslog s3{d3};
+        if (!s3.is_not_empty()) return false;
+
+        return true;
+    }
+#endif
+} // namespace syslog_unit_test
+
 #endif // SYSLOG_HPP

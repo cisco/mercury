@@ -510,4 +510,30 @@ public:
 
     return 0;
 }
+
+namespace bittorrent_ns {
+#ifndef NDEBUG
+    inline bool unit_test() {
+        // BitTorrent DHT ping query
+        const char *dht = "d1:ad2:id20:abcdefghij0123456789e1:q4:ping1:t2:aa1:y1:qe";
+        datum d{(const uint8_t*)dht, (const uint8_t*)dht + strlen(dht)};
+        bittorrent_dht msg{d};
+        if (!msg.is_not_empty()) return false;
+
+        // BitTorrent handshake
+        uint8_t handshake[68];
+        handshake[0] = 19;  // pstrlen
+        memcpy(&handshake[1], "BitTorrent protocol", 19);
+        memset(&handshake[20], 0, 8);  // reserved
+        memset(&handshake[28], 0xab, 20);  // info_hash
+        memset(&handshake[48], 0xcd, 20);  // peer_id
+        datum d2{handshake, handshake + sizeof(handshake)};
+        bittorrent_handshake hs{d2};
+        if (!hs.is_not_empty()) return false;
+
+        return true;
+    }
+#endif
+} // namespace bittorrent_ns
+
 #endif // BITTORRENT_H

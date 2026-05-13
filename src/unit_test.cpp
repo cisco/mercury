@@ -30,8 +30,21 @@
 #include "libmerc/oid.hpp"
 #include "libmerc/krb5.hpp"
 #include "libmerc/json_object.h"
-#include "libmerc/stun.h"
+#include "libmerc/icmp.h"
+#include "libmerc/socks.h"
+#include "libmerc/dns.h"
+#include "libmerc/dhcp.h"
+#include "libmerc/lldp.h"
+#include "libmerc/cdp.h"
+#include "libmerc/ospf.h"
+#include "libmerc/sctp.h"
+#include "libmerc/loopback.hpp"
 #include "libmerc/syslog.hpp"
+#include "libmerc/wireguard.h"
+#include "libmerc/netbios.h"
+#include "libmerc/stun.h"
+#include "libmerc/bittorrent.h"
+#include "libmerc/ssdp.h"
 
 // Macros to colorize output
 //
@@ -135,12 +148,64 @@ int main(int, char *[]) {
             &tlv::unit_test
         },
         {
-            "stun",
-            &stun::unit_test
+            "icmp",
+            &icmp::unit_test
+        },
+        {
+            "socks",
+            &socks::unit_test
+        },
+        {
+            "dns",
+            &dns::unit_test
+        },
+        {
+            "dhcp",
+            &dhcp::unit_test
+        },
+        {
+            "lldp",
+            &lldp_unit_test::unit_test
+        },
+        {
+            "cdp",
+            &cdp_unit_test::unit_test
+        },
+        {
+            "ospf",
+            &ospf_unit_test::unit_test
+        },
+        {
+            "sctp",
+            &sctp::unit_test
+        },
+        {
+            "loopback",
+            &loopback::unit_test
         },
         {
             "syslog",
-            &syslog::unit_test
+            &syslog_unit_test::unit_test
+        },
+        {
+            "wireguard",
+            &wireguard::unit_test
+        },
+        {
+            "netbios",
+            &netbios::unit_test
+        },
+        {
+            "stun",
+            &stun_unit_test::unit_test
+        },
+        {
+            "bittorrent",
+            &bittorrent_ns::unit_test
+        },
+        {
+            "ssdp",
+            &ssdp_ns::unit_test
         }
     };
     size_t num_tests = 0;
