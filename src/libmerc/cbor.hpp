@@ -851,6 +851,8 @@ namespace cbor::output {
             w << initial_byte{map_type, 31};  // 0xbf
         }
 
+        operator writeable &() { return w; }
+
         void close() {
             w << initial_byte{simple_or_float_type, 31}; // 0xff
         }
@@ -862,8 +864,6 @@ namespace cbor::output {
             k.write(w);
             v.write(w);
         }
-
-        operator writeable & () { return w; }
     };
 
 };

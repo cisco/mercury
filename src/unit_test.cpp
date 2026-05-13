@@ -32,6 +32,7 @@
 #include "libmerc/json_object.h"
 #include "libmerc/stun.h"
 #include "libmerc/syslog.hpp"
+#include "libmerc/cbor_decoded_metadata.hpp"
 
 // Macros to colorize output
 //
@@ -229,6 +230,10 @@ int main(int, char *[]) {
         {
             "asn1",
             &asn1::unit_test
+        },
+        {
+            "cbor_metadata",
+            &cbor_metadata_unit_test
         },
     };
     for (const auto &tc : test_cases_verbose) {

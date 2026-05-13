@@ -52,6 +52,8 @@ public:
 
     cbor_object(cbor_object &o, datum key) : m{create_named_map(key, o)} { }
 
+    cbor_object(cbor_object &o) : m{o.get_writeable()} { }
+
     template <size_t N>
     cbor_object(cbor_object_compact<N> &o, const char *key);
 
@@ -103,6 +105,8 @@ public:
     }
 
     void close() { m.close(); }
+
+    writeable &get_writeable() { return m; }
 
 };
 
