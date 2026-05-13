@@ -27,6 +27,7 @@
 #include "perfect_hash.h"
 #include "crypto_assess.h"
 #include "exposed_creds.h"
+#include "cbor_metadata.hpp"
 #include "pkt_proc_util.h"
 #include "reassembly.hpp"
 #include "protocol_config.h"
@@ -140,6 +141,7 @@ struct stateful_pkt_proc {
     struct tcp_reassembler *reassembler_ptr = nullptr;
     std::vector<const crypto_policy::assessor *> crypto_policies;
     const bool exposed_creds = false;
+    cbor_metadata_context cbor_meta;
 
     explicit stateful_pkt_proc(mercury_context mc, size_t prealloc_size=0) :
         ip_flow_table{(unsigned int)prealloc_size},
