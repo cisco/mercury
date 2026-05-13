@@ -63,16 +63,16 @@ public:
         return msg;
     }
 
-    /// Templated write 
+    /// Templated write
     template<typename Object, typename Array>
     void write(Object &parent) const {
         Object o{parent, KEY};
         if (protocol_.is_valid())
-            o.print_key_string("protocol", protocol_.value());
+            o.print_key_json_string("protocol", protocol_.value());
         if (auth_method_.is_valid())
-            o.print_key_string("authentication_method", auth_method_.value());
+            o.print_key_json_string("authentication_method", auth_method_.value());
         if (username_.is_valid())
-            o.print_key_string("username", username_.value());
+            o.print_key_json_string("username", username_.value());
         o.close();
     }
 

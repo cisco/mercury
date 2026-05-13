@@ -81,6 +81,10 @@ public:
         }
     }
 
+    void print_key_json_string(const char *key, datum d) {
+        print_key_string(key, d);
+    }
+
     void print_key_hex(const char *key, datum bytes) {
         if (bytes.is_readable()) {
             cbor::text_string{key}.write(m);

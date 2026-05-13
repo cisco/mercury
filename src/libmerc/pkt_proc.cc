@@ -80,6 +80,7 @@
 #include "redis.hpp"
 #include "imap.hpp"
 #include "telnet.hpp"
+#include "cbor_messages.hpp"
 
 // double malware_prob_threshold = -1.0; // TODO: document hidden option
 
@@ -246,15 +247,42 @@ struct do_crypto_assessment {
 
 };
 
+template<typename Object, typename Array>
 struct check_exposed_creds {
+    Object *output_;
 
-    check_exposed_creds() { }
-
-    exposed_creds_type operator()(const http_request &msg) {
-        return exposed_creds_assessor::assess(msg);
-    }
+    check_exposed_creds(Object *out) : output_{out} {}
 
     exposed_creds_type operator()(const imap::imap_requests &msg) {
+        exposed_creds_type type = msg.check_credential_exposure();
+        if (type == exposed_creds_type::none || !output_) return type;
+
+        datum auth_method = msg.get_auth_method();
+        datum username = msg.get_username();
+
+        switch (type) {
+        case exposed_creds_type::plaintext_password:
+            exposed_creds_plaintext_message::construct(
+                datum{"imap"}, auth_method, username
+            ).template write<Object, Array>(*output_);
+            break;
+        case exposed_creds_type::plaintext_token:
+            exposed_creds_token_message::construct(
+                datum{"imap"}, auth_method, username
+            ).template write<Object, Array>(*output_);
+            break;
+        case exposed_creds_type::password_derived:
+            exposed_creds_derived_message::construct(
+                datum{"imap"}, auth_method, username
+            ).template write<Object, Array>(*output_);
+            break;
+        default:
+            break;
+        }
+        return type;
+    }
+
+    exposed_creds_type operator()(const http_request &msg) {
         return exposed_creds_assessor::assess(msg);
     }
 
@@ -1346,7 +1374,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         }
 
         if (exposed_creds) {
-            exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
+            exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds<json_object, json_array>{&record}, x);
             output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
         }
 
@@ -1865,7 +1893,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             output_attr = (c && c->check_additional_attributes(analysis)) ? true : output_attr;
 
             if (exposed_creds) {
-                exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
+                exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds<json_object, json_array>{nullptr}, x);
                 output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
             }
 
@@ -1916,7 +1944,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
                 output_attr = set_crypto_assessment_attr(crypto_result) ? true : output_attr;
             }
             if (exposed_creds) {
-                exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
+                exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds<json_object, json_array>{nullptr}, x);
                 output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
             }
             return output_nbd || output_attr;
