@@ -334,7 +334,7 @@ public:
             Object params{o, "negotiated_parameters"};
             if (protocol_version_.is_valid())
                 params.print_key_string("protocol_version", protocol_version_.value());
-            if (extensions_count_ > 0) {
+            {
                 Array exts_arr{params, "extensions"};
                 for (size_t i = 0; i < extensions_count_; i++)
                     exts_arr.print_string(extensions_[i].value());

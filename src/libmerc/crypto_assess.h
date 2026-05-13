@@ -840,161 +840,133 @@ namespace crypto_policy {
             return cs.value();
         }
 
-        bool assess_impl(const tls_server_hello &sh, json_array *cryptoAssessmentArray) const {
-
-            // dummy json object. Not to be used without checking for o != nullptr
-            //
-            std::optional<json_object> optional_json_obj = std::nullopt;
-            if (cryptoAssessmentArray != nullptr) {
-                optional_json_obj.emplace(*cryptoAssessmentArray);
-                optional_json_obj->print_key_string("policy", "nist_sp_800_52_2");
-            }
+        bool assess_impl(const tls_server_hello &sh, crypto_nist_message *msg) const {
 
             bool non_compliant = false;
             tls_version protocol_version = sh.get_version();
             required_extensions exts = sh.extensions.get_required_extensions();
             uint16_t ciphersuite = get_negotiated_cipher_suite(sh.ciphersuite_vector);
 
-            // negotiated parameters compliance checks based on NIST SP 800-52 Rev 2
-            //
-            if (verbose_output && cryptoAssessmentArray != nullptr) {
-                json_object params{*optional_json_obj, "negotiated_parameters"};
-                if (exts.supported_version != tls_version::none) {
-                    params.print_key_string("protocol_version", tls_version_to_string(exts.supported_version).c_str());
-                } else {
-                    params.print_key_string("protocol_version", tls_version_to_string(protocol_version).c_str());
-                }
+            if (msg) {
+                msg->set_policy("nist_sp_800_52_2");
 
-                json_array exts_array{params, "extensions"};
-                for (const auto &ext : exts.supported_extensions) {
-                    if (!is_grease(ext)) {
-                        tls::extensions<uint16_t> extn{ext};
-                        exts_array.print_string(extn.get_name());
+                if (verbose_output) {
+                    msg->set_has_negotiated_params();
+                    if (exts.supported_version != tls_version::none) {
+                        msg->set_protocol_version(tls_version_to_string(exts.supported_version).c_str());
+                    } else {
+                        msg->set_protocol_version(tls_version_to_string(protocol_version).c_str());
                     }
+
+                    for (const auto &ext : exts.supported_extensions) {
+                        if (!is_grease(ext)) {
+                            tls::extensions<uint16_t> extn{ext};
+                            msg->add_extension(extn.get_name());
+                        }
+                    }
+
+                    msg->set_cipher_suite(tls::cipher_suites{ciphersuite}.get_name());
+                    msg->set_supported_group(tls::supported_groups{exts.negotiated_supported_group}.get_name());
                 }
-                exts_array.close();
-
-                params.print_key_string("cipher_suite", tls::cipher_suites{ciphersuite}.get_name());
-
-                params.print_key_string("supported_group", tls::supported_groups{exts.negotiated_supported_group}.get_name());
-
-                params.close();
-            }
-
-            std::optional<json_object> compliance = std::nullopt;
-            if (cryptoAssessmentArray != nullptr) {
-                compliance.emplace(*optional_json_obj, "compliance_result");
             }
 
             // NIST SP 800-52 Rev 2 Compliance Rules
             //
             if (!non_compliant && protocol_version == tls_version::tlsv1_3 && exts.supported_version != tls_version::tlsv1_3) {
-                if (cryptoAssessmentArray != nullptr) {
-                    compliance->print_key_string("tls_version_non_compliant", "TLSv1.3 negotiated but supported_versions extension missing or invalid");
+                if (msg) {
+                    msg->set_non_compliant("tls_version_non_compliant", "TLSv1.3 negotiated but supported_versions extension missing or invalid");
                 }
                 non_compliant = true;
             }
 
             if (!non_compliant && sh.compression_method.is_readable() &&
-                sh.compression_method.is_not_empty() && sh.compression_method.data[0] != 0x00) {  // NIST SP-800-52-2 Section 3.7
-                if (cryptoAssessmentArray != nullptr) {
-                    compliance->print_key_string("compression_method_non_compliant", "non-zero compression method");
+                sh.compression_method.is_not_empty() && sh.compression_method.data[0] != 0x00) {
+                if (msg) {
+                    msg->set_non_compliant("compression_method_non_compliant", "non-zero compression method");
                 }
                 non_compliant = true;
             }
 
             if (!non_compliant && exts.supported_extensions.count(type_supported_versions)) {
                 if (exts.supported_version == tls_version::tlsv1_3) {
-                    // keyshare extension needs to be parsed for supported groups in tlsv1.3
-                    //
-                    // if (!non_compliant && !exts.supported_extensions.count(type_supported_groups)) {  // NIST SP-800-52-2 Section 3.4.2.1
-                    //     if (cryptoAssessmentArray != nullptr) {
-                    //         compliance->print_key_string("supported_groups_missing", "TLSv1.3 requires supported_groups extension");
-                    //     }
-                    //     non_compliant = true;
-                    // }
-
-                    if (!non_compliant && !v1_3_allowed_ciphersuites.count(ciphersuite)) {          // NIST SP-800-52-2 Section 3.3.1
-                        if (cryptoAssessmentArray != nullptr) {
-                            compliance->print_key_string("cipher_suite_non_compliant", "disallowed cipher suite for TLSv1.3");
+                    if (!non_compliant && !v1_3_allowed_ciphersuites.count(ciphersuite)) {
+                        if (msg) {
+                            msg->set_non_compliant("cipher_suite_non_compliant", "disallowed cipher suite for TLSv1.3");
                         }
                         non_compliant = true;
                     }
                 }
                 else {
-                    if (cryptoAssessmentArray != nullptr) {
-                        compliance->print_key_string("tls_version_non_compliant", "supported_versions extension invalid"); // invalid supported_versions extension for negotiated tls version
+                    if (msg) {
+                        msg->set_non_compliant("tls_version_non_compliant", "supported_versions extension invalid");
                     }
                     non_compliant = true;
                 }
             }
             else if (!non_compliant) {
-                if (ecdhe_ciphersuites.count(ciphersuite) && !exts.supported_extensions.count(type_supported_groups)) {    // NIST SP-800-52-2 Section 3.4.2.1
-                    if (cryptoAssessmentArray != nullptr) {
-                        compliance->print_key_string("supported_groups_missing", "supported_groups extension missing for ECDHE cipher suite");
+                if (ecdhe_ciphersuites.count(ciphersuite) && !exts.supported_extensions.count(type_supported_groups)) {
+                    if (msg) {
+                        msg->set_non_compliant("supported_groups_missing", "supported_groups extension missing for ECDHE cipher suite");
                     }
                     non_compliant = true;
                 }
 
                 if (!non_compliant && ec_ciphersuites.count(ciphersuite)) {
-                    if (!non_compliant && !exts.ec_points_format) {   // NIST SP-800-52-2 Section 3.4.2.4
-                        if (cryptoAssessmentArray != nullptr) {
-                            compliance->print_key_string("ec_points_format_non_compliant", "ec_points_format extension missing but EC cipher suite negotiated");
+                    if (!non_compliant && !exts.ec_points_format) {
+                        if (msg) {
+                            msg->set_non_compliant("ec_points_format_non_compliant", "ec_points_format extension missing but EC cipher suite negotiated");
                         }
                         non_compliant = true;
                     }
                     if (!non_compliant && !(exts.negotiated_supported_group == tls::supported_groups::code::secp256r1 ||
-                        exts.negotiated_supported_group == tls::supported_groups::code::secp384r1)) {  // NIST SP-800-52-2 Section 3.4.2.2
-                        if (cryptoAssessmentArray != nullptr) {
-                            compliance->print_key_string("supported_group_non_compliant", "disallowed supported group for EC cipher suite");
+                        exts.negotiated_supported_group == tls::supported_groups::code::secp384r1)) {
+                        if (msg) {
+                            msg->set_non_compliant("supported_group_non_compliant", "disallowed supported group for EC cipher suite");
                         }
                         non_compliant = true;
                     }
                 }
 
-                if (!non_compliant && cbc_ciphersuites.count(ciphersuite) && !exts.encrypt_then_mac) {   // NIST SP-800-52-2 Section 3.4.2.7
-                    if (cryptoAssessmentArray != nullptr) {
-                        compliance->print_key_string("encrypt_then_mac_non_compliant", "encrypt_then_mac extension missing for CBC cipher suite");
+                if (!non_compliant && cbc_ciphersuites.count(ciphersuite) && !exts.encrypt_then_mac) {
+                    if (msg) {
+                        msg->set_non_compliant("encrypt_then_mac_non_compliant", "encrypt_then_mac extension missing for CBC cipher suite");
                     }
                     non_compliant = true;
                 }
 
                 if (protocol_version == tls_version::tlsv1_2) {
-                    if (!non_compliant && !v1_2_allowed_ciphersuites.count(ciphersuite)) {          // NIST SP-800-52-2 Section 3.3.1
-                        if (cryptoAssessmentArray != nullptr) {
-                            compliance->print_key_string("cipher_suite_non_compliant", "disallowed cipher suite for TLSv1.2");
+                    if (!non_compliant && !v1_2_allowed_ciphersuites.count(ciphersuite)) {
+                        if (msg) {
+                            msg->set_non_compliant("cipher_suite_non_compliant", "disallowed cipher suite for TLSv1.2");
                         }
                         non_compliant = true;
                     }
                 }
                 else if (protocol_version == tls_version::tlsv1_1) {
-                    if (!non_compliant && !v1_1_allowed_ciphersuites.count(ciphersuite)) {          // NIST SP-800-52-2 Section 3.3.1
-                        if (cryptoAssessmentArray != nullptr) {
-                            compliance->print_key_string("cipher_suite_non_compliant", "disallowed cipher suite for TLSv1.1");
+                    if (!non_compliant && !v1_1_allowed_ciphersuites.count(ciphersuite)) {
+                        if (msg) {
+                            msg->set_non_compliant("cipher_suite_non_compliant", "disallowed cipher suite for TLSv1.1");
                         }
                         non_compliant = true;
                     }
                 }
                 else if (!non_compliant) {
-                    if (cryptoAssessmentArray != nullptr) {
-                        compliance->print_key_string("tls_version_non_compliant", tls_version_to_string(protocol_version).c_str());   // invalid/disallowed tls protocol version
+                    if (msg) {
+                        msg->set_non_compliant("tls_version_non_compliant", tls_version_to_string(protocol_version).c_str());
                     }
                     non_compliant = true;
                 }
             }
 
-            if (cryptoAssessmentArray != nullptr) {
-                if (!non_compliant) {
-                    compliance->print_key_bool("compliant", true);
-                }
-                else {
-                    compliance->print_key_bool("compliant", false);
-                }
-                compliance->close();
-                optional_json_obj->close();
+            if (msg) {
+                msg->set_valid();
             }
 
             return !non_compliant;
+        }
+
+        bool assess(const tls_server_hello &sh, crypto_nist_message &msg) const {
+            return assess_impl(sh, &msg);
         }
 
         bool assess(const tls_server_hello& sh) const override {
@@ -1009,7 +981,10 @@ namespace crypto_policy {
         }
 
         bool assess(const tls_server_hello &sh, json_array &a) const override {
-        return assess_impl(sh, &a);
+            crypto_nist_message msg;
+            bool compliant = assess(sh, msg);
+            msg.write<json_object, json_array>(a);
+            return compliant;
         }
 
         bool assess(const tls_server_hello_and_certificate &hello_and_cert, json_array &a) const override {
