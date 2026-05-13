@@ -19,7 +19,7 @@
 
 using crypto_assess_result = std::bitset<MAX_CRYPTO_ASSESSMENT_TYPES>;
 
-inline std::string tls_version_to_string(tls_version v) {
+inline const char* tls_version_to_string(tls_version v) {
     switch (v) {
         case tls_version::sslv2_0:
             return "SSLv2.0";
@@ -93,6 +93,37 @@ namespace crypto_policy {
         }
 
         virtual bool assess(const ssh_kex_init &, json_array &) const {
+            return true;
+        }
+
+        virtual bool assess(const tls_client_hello &, crypto_cnsa_message &) const {
+            return true;
+        }
+        virtual bool assess(const tls_server_hello &, crypto_cnsa_message &) const {
+            return true;
+        }
+        virtual bool assess(const tls_server_hello_and_certificate &, crypto_cnsa_message &) const {
+            return true;
+        }
+        virtual bool assess(const dtls_client_hello &, crypto_cnsa_message &) const {
+            return true;
+        }
+        virtual bool assess(const dtls_server_hello &, crypto_cnsa_message &) const {
+            return true;
+        }
+        virtual bool assess(const tls_client_hello &, crypto_nist_message &) const {
+            return true;
+        }
+        virtual bool assess(const tls_server_hello &, crypto_nist_message &) const {
+            return true;
+        }
+        virtual bool assess(const tls_server_hello_and_certificate &, crypto_nist_message &) const {
+            return true;
+        }
+        virtual bool assess(const dtls_client_hello &, crypto_nist_message &) const {
+            return true;
+        }
+        virtual bool assess(const dtls_server_hello &, crypto_nist_message &) const {
             return true;
         }
 
@@ -683,7 +714,7 @@ namespace crypto_policy {
                    assess_tls_extensions(ch.extensions);
         }
 
-        bool assess(const tls_client_hello &ch, crypto_cnsa_message &msg) const {
+        bool assess(const tls_client_hello &ch, crypto_cnsa_message &msg) const override {
             msg.set_policy("quantum_safe");
             msg.set_target("client");
             bool suites_compliant = assess_tls_ciphersuites(ch.ciphersuite_vector, msg);
@@ -700,7 +731,7 @@ namespace crypto_policy {
             return compliant;
         }
 
-        bool assess(const tls_server_hello &ch, crypto_cnsa_message &msg) const {
+        bool assess(const tls_server_hello &ch, crypto_cnsa_message &msg) const override {
             msg.set_policy("quantum_safe");
             msg.set_target("session");
             bool suites_compliant = assess_tls_ciphersuites(ch.ciphersuite_vector, msg);
@@ -722,7 +753,7 @@ namespace crypto_policy {
                    assess_tls_extensions(ch.extensions);
         }
 
-        bool assess(const tls_server_hello_and_certificate &hello_and_cert, crypto_cnsa_message &msg) const {
+        bool assess(const tls_server_hello_and_certificate &hello_and_cert, crypto_cnsa_message &msg) const override {
             if (hello_and_cert.is_not_empty()) {
                 return assess(hello_and_cert.get_server_hello(), msg);
             }
@@ -771,7 +802,7 @@ namespace crypto_policy {
                    assess_tls_extensions(ch.extensions);
         }
 
-        bool assess(const dtls_client_hello &dtls_ch, crypto_cnsa_message &msg) const {
+        bool assess(const dtls_client_hello &dtls_ch, crypto_cnsa_message &msg) const override {
             const tls_client_hello &ch = dtls_ch.get_tls_client_hello();
             return assess(ch, msg);
         }
@@ -790,7 +821,7 @@ namespace crypto_policy {
                    assess_tls_extensions(sh.extensions);
         }
 
-        bool assess(const dtls_server_hello &dtls_sh, crypto_cnsa_message &msg) const {
+        bool assess(const dtls_server_hello &dtls_sh, crypto_cnsa_message &msg) const override {
             const tls_server_hello &sh = dtls_sh.get_tls_server_hello();
             return assess(sh, msg);
         }
@@ -853,9 +884,9 @@ namespace crypto_policy {
                 if (verbose_output) {
                     msg->set_has_negotiated_params();
                     if (exts.supported_version != tls_version::none) {
-                        msg->set_protocol_version(tls_version_to_string(exts.supported_version).c_str());
+                        msg->set_protocol_version(tls_version_to_string(exts.supported_version));
                     } else {
-                        msg->set_protocol_version(tls_version_to_string(protocol_version).c_str());
+                        msg->set_protocol_version(tls_version_to_string(protocol_version));
                     }
 
                     for (const auto &ext : exts.supported_extensions) {
@@ -952,7 +983,7 @@ namespace crypto_policy {
                 }
                 else if (!non_compliant) {
                     if (msg) {
-                        msg->set_non_compliant("tls_version_non_compliant", tls_version_to_string(protocol_version).c_str());
+                        msg->set_non_compliant("tls_version_non_compliant", tls_version_to_string(protocol_version));
                     }
                     non_compliant = true;
                 }
@@ -965,12 +996,19 @@ namespace crypto_policy {
             return !non_compliant;
         }
 
-        bool assess(const tls_server_hello &sh, crypto_nist_message &msg) const {
+        bool assess(const tls_server_hello &sh, crypto_nist_message &msg) const override {
             return assess_impl(sh, &msg);
         }
 
         bool assess(const tls_server_hello& sh) const override {
             return assess_impl(sh, nullptr);
+        }
+
+        bool assess(const tls_server_hello_and_certificate &hello_and_cert, crypto_nist_message &msg) const override {
+            if (hello_and_cert.is_not_empty()) {
+                return assess(hello_and_cert.get_server_hello(), msg);
+            }
+            return true;
         }
 
         bool assess(const tls_server_hello_and_certificate &hello_and_cert) const override {

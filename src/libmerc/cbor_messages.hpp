@@ -95,19 +95,19 @@ using exposed_creds_derived_message   = exposed_creds_message<exposed_creds_tag:
 /// outer CBOR metadata dispatch.
 class crypto_cnsa_message {
     static constexpr size_t MAX_ITEMS = 48;
-    static constexpr size_t HEX_STR_LEN = 5; // "xxxx" + null
-
     cbor::text_string policy_;
     cbor::text_string target_;
 
     cbor::text_string cs_not_allowed_[MAX_ITEMS];
+    uint16_t          cs_not_allowed_hex_[MAX_ITEMS];
+    bool              cs_not_allowed_is_hex_[MAX_ITEMS] = {};
     size_t            cs_not_allowed_count_ = 0;
-    char              cs_hex_bufs_[MAX_ITEMS][HEX_STR_LEN];
     cbor::text_string cs_allowed_;
 
     cbor::text_string grp_not_allowed_[MAX_ITEMS];
+    uint16_t          grp_not_allowed_hex_[MAX_ITEMS];
+    bool              grp_not_allowed_is_hex_[MAX_ITEMS] = {};
     size_t            grp_not_allowed_count_ = 0;
-    char              grp_hex_bufs_[MAX_ITEMS][HEX_STR_LEN];
     cbor::text_string grp_allowed_;
 
     bool psk_mode_ = false;
@@ -125,26 +125,32 @@ public:
     void set_policy(const char* p)              { policy_ = cbor::text_string(p); }
     void set_target(const char* t)              { target_ = cbor::text_string(t); }
     void add_cs_not_allowed(const char* name) {
-        if (cs_not_allowed_count_ < MAX_ITEMS)
-            cs_not_allowed_[cs_not_allowed_count_++] = cbor::text_string(name);
+        if (cs_not_allowed_count_ < MAX_ITEMS) {
+            cs_not_allowed_[cs_not_allowed_count_] = cbor::text_string(name);
+            cs_not_allowed_is_hex_[cs_not_allowed_count_] = false;
+            cs_not_allowed_count_++;
+        }
     }
     void add_cs_not_allowed_hex(uint16_t value) {
         if (cs_not_allowed_count_ < MAX_ITEMS) {
-            size_t idx = cs_not_allowed_count_;
-            snprintf(cs_hex_bufs_[idx], HEX_STR_LEN, "%04x", value);
-            cs_not_allowed_[cs_not_allowed_count_++] = cbor::text_string(cs_hex_bufs_[idx]);
+            cs_not_allowed_hex_[cs_not_allowed_count_] = value;
+            cs_not_allowed_is_hex_[cs_not_allowed_count_] = true;
+            cs_not_allowed_count_++;
         }
     }
     void set_cs_allowed(const char* q)          { cs_allowed_ = cbor::text_string(q); }
     void add_grp_not_allowed(const char* name) {
-        if (grp_not_allowed_count_ < MAX_ITEMS)
-            grp_not_allowed_[grp_not_allowed_count_++] = cbor::text_string(name);
+        if (grp_not_allowed_count_ < MAX_ITEMS) {
+            grp_not_allowed_[grp_not_allowed_count_] = cbor::text_string(name);
+            grp_not_allowed_is_hex_[grp_not_allowed_count_] = false;
+            grp_not_allowed_count_++;
+        }
     }
     void add_grp_not_allowed_hex(uint16_t value) {
         if (grp_not_allowed_count_ < MAX_ITEMS) {
-            size_t idx = grp_not_allowed_count_;
-            snprintf(grp_hex_bufs_[idx], HEX_STR_LEN, "%04x", value);
-            grp_not_allowed_[grp_not_allowed_count_++] = cbor::text_string(grp_hex_bufs_[idx]);
+            grp_not_allowed_hex_[grp_not_allowed_count_] = value;
+            grp_not_allowed_is_hex_[grp_not_allowed_count_] = true;
+            grp_not_allowed_count_++;
         }
     }
     void set_grp_allowed(const char* q)         { grp_allowed_ = cbor::text_string(q); }
@@ -171,8 +177,12 @@ public:
 
         if (cs_not_allowed_count_ > 0) {
             Array cs_arr{tgt, "ciphersuites_not_allowed"};
-            for (size_t i = 0; i < cs_not_allowed_count_; i++)
-                cs_arr.print_string(cs_not_allowed_[i].value());
+            for (size_t i = 0; i < cs_not_allowed_count_; i++) {
+                if (cs_not_allowed_is_hex_[i])
+                    cs_arr.print_uint16_hex(cs_not_allowed_hex_[i]);
+                else
+                    cs_arr.print_string(cs_not_allowed_[i].value());
+            }
             cs_arr.close();
         }
         if (cs_allowed_.is_valid())
@@ -180,8 +190,12 @@ public:
 
         if (grp_not_allowed_count_ > 0) {
             Array grp_arr{tgt, "groups_not_allowed"};
-            for (size_t i = 0; i < grp_not_allowed_count_; i++)
-                grp_arr.print_string(grp_not_allowed_[i].value());
+            for (size_t i = 0; i < grp_not_allowed_count_; i++) {
+                if (grp_not_allowed_is_hex_[i])
+                    grp_arr.print_uint16_hex(grp_not_allowed_hex_[i]);
+                else
+                    grp_arr.print_string(grp_not_allowed_[i].value());
+            }
             grp_arr.close();
         }
         if (grp_allowed_.is_valid())

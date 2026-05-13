@@ -139,6 +139,12 @@ public:
         }
     }
 
+    void print_uint16_hex(uint16_t value) {
+        char buf[5];
+        snprintf(buf, sizeof(buf), "%04x", value);
+        cbor::text_string{buf}.write(a);
+    }
+
     void close() { a.close(); }
 
     writeable & get_writeable() { return a; }

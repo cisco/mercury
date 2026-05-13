@@ -94,157 +94,82 @@ void write_flow_key(struct json_object &o, const struct key &k) {
     // o.b->snprintf(",\"flowhash\":\"%016lx\"", std::hash<struct key>{}(k));
 }
 
+template<typename Object, typename Array>
 struct do_crypto_assessment {
     const std::vector<const crypto_policy::assessor *>& ca;
-    json_object *record;
+    Object *output_;
 
-    // json_object record is to be passed to the assess function only if it is passed to the visitor function
-    do_crypto_assessment(const std::vector<const crypto_policy::assessor *>& assessors, json_object &o) : ca{assessors}, record{&o} { }
-    do_crypto_assessment(const std::vector<const crypto_policy::assessor *>& assessors) : ca{assessors}, record{nullptr} { }
+    crypto_cnsa_message cnsa_msg;
+    crypto_nist_message nist_msg;
 
-
-    crypto_assess_result operator()(const tls_client_hello &msg) {
-        crypto_assess_result assessment_result;
-        if (!record) {
-            for (const auto& crypto_assessor : ca) {
-                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg));
-            }
+    template<typename MsgType>
+    crypto_assess_result assess_tls(const MsgType &msg) {
+        crypto_assess_result result;
+        for (const auto& assessor : ca) {
+            if (assessor->get_result_idx() == crypto_policy::quantum_safe::result_idx)
+                result.set(assessor->get_result_idx(), !assessor->assess(msg, cnsa_msg));
+            else if (assessor->get_result_idx() == crypto_policy::nist_sp_800_52::result_idx)
+                result.set(assessor->get_result_idx(), !assessor->assess(msg, nist_msg));
+            else
+                result.set(assessor->get_result_idx(), !assessor->assess(msg));
         }
-        else {  // write metadata to json record
-            json_array assessor_record{record, "cryptographic_security_assessment"};
-            for (const auto& crypto_assessor : ca)
-                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg, assessor_record));
+        if (output_) {
+            Array assessor_record{*output_, "cryptographic_security_assessment"};
+            if (cnsa_msg.is_valid())
+                cnsa_msg.write<Object, Array>(assessor_record);
+            if (nist_msg.is_valid())
+                nist_msg.write<Object, Array>(assessor_record);
             assessor_record.close();
         }
-        return assessment_result;
+        return result;
     }
 
-    crypto_assess_result operator()(const tls_server_hello &msg) {
-        crypto_assess_result assessment_result;
-        if (!record) {
-            for (const auto& crypto_assessor : ca) {
-                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg));
-            }
-        }
-        else {  // write metadata to json record
-            json_array assessor_record{record, "cryptographic_security_assessment"};
-            for (const auto& crypto_assessor : ca)
-                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg, assessor_record));
-            assessor_record.close();
-        }
-        return assessment_result;
-    }
-
-    crypto_assess_result operator()(const tls_server_hello_and_certificate &msg) {
-        crypto_assess_result assessment_result;
-        if (!record) {
-            for (const auto& crypto_assessor : ca) {
-                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg));
-            }
-        }
-        else {  // write metadata to json record
-            json_array assessor_record{record, "cryptographic_security_assessment"};
-            for (const auto& crypto_assessor : ca)
-                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg, assessor_record));
-            assessor_record.close();
-        }
-        return assessment_result;
-    }
-
-    crypto_assess_result operator()(const dtls_client_hello &msg) {
-        crypto_assess_result assessment_result;
-        if (!record) {
-            for (const auto& crypto_assessor : ca) {
-                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg));
-            }
-        }
-        else {  // write metadata to json record
-            json_array assessor_record{record, "cryptographic_security_assessment"};
-            for (const auto& crypto_assessor : ca)
-                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg, assessor_record));
-            assessor_record.close();
-        }
-        return assessment_result;
-    }
-
-    crypto_assess_result operator()(const dtls_server_hello &msg) {
-        crypto_assess_result assessment_result;
-        if (!record) {
-            for (const auto& crypto_assessor : ca) {
-                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg));
-            }
-        }
-        else {  // write metadata to json record
-            json_array assessor_record{record, "cryptographic_security_assessment"};
-            for (const auto& crypto_assessor : ca)
-                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg, assessor_record));
-            assessor_record.close();
-        }
-        return assessment_result;
-    }
+    crypto_assess_result operator()(const tls_client_hello &msg) { return assess_tls(msg); }
+    crypto_assess_result operator()(const tls_server_hello &msg) { return assess_tls(msg); }
+    crypto_assess_result operator()(const tls_server_hello_and_certificate &msg) { return assess_tls(msg); }
+    crypto_assess_result operator()(const dtls_client_hello &msg) { return assess_tls(msg); }
+    crypto_assess_result operator()(const dtls_server_hello &msg) { return assess_tls(msg); }
 
     crypto_assess_result operator()(const quic_init &msg) {
-        crypto_assess_result assessment_result;
-        if (msg.has_tls()) {
-            if (!record) {
-                for (const auto& crypto_assessor : ca) {
-                    assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg.get_tls_client_hello()));
-                }
-            }
-            else {  // write metadata to json record
-                json_array assessor_record{record, "cryptographic_security_assessment"};
-                for (const auto& crypto_assessor : ca)
-                    assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg.get_tls_client_hello(), assessor_record));
-                assessor_record.close();
-            }
-        }
-        return assessment_result;
+        if (msg.has_tls()) return assess_tls(msg.get_tls_client_hello());
+        return crypto_assess_result{};
     }
 
+    // SSH: different output structure, uses json_array virtual overloads
     crypto_assess_result operator()(const ssh_init_packet &msg) {
-        crypto_assess_result assessment_result;
+        crypto_assess_result result;
         if (msg.kex_pkt.is_not_empty()) {
-            if (!record) {
-                for (const auto& crypto_assessor : ca) {
-                    assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg.kex_pkt));
-                }
-            }
-            else {  // write metadata to json record
-                json_array assessor_record{record, "cryptographic_security_assessment"};
-                for (const auto& crypto_assessor : ca)
-                    assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg.kex_pkt, assessor_record));
+            for (const auto& assessor : ca)
+                result.set(assessor->get_result_idx(), !assessor->assess(msg.kex_pkt));
+            if (output_) {
+                Array assessor_record{*output_, "cryptographic_security_assessment"};
+                for (const auto& assessor : ca)
+                    assessor->assess(msg.kex_pkt, assessor_record);
                 assessor_record.close();
-
             }
         }
-        return assessment_result;
+        return result;
     }
 
     crypto_assess_result operator()(const ssh_kex_init &msg) {
-        crypto_assess_result assessment_result;
+        crypto_assess_result result;
         if (msg.is_not_empty()) {
-            if (!record) {
-                for (const auto& crypto_assessor : ca) {
-                    assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg));
-                }
-            }
-            else {  // write metadata to json record
-                json_array assessor_record{record, "cryptographic_security_assessment"};
-                for (const auto& crypto_assessor : ca)
-                    assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg, assessor_record));
+            for (const auto& assessor : ca)
+                result.set(assessor->get_result_idx(), !assessor->assess(msg));
+            if (output_) {
+                Array assessor_record{*output_, "cryptographic_security_assessment"};
+                for (const auto& assessor : ca)
+                    assessor->assess(msg, assessor_record);
                 assessor_record.close();
             }
         }
-        return assessment_result;
+        return result;
     }
 
     template <typename T>
-    crypto_assess_result operator()(const T &) {
-        return crypto_assess_result{};   // no assessment performed for all other types
-    }
+    crypto_assess_result operator()(const T &) { return crypto_assess_result{}; }
 
     crypto_assess_result operator()(std::monostate &) { return crypto_assess_result{}; }
-
 };
 
 template<typename Object, typename Array>
@@ -1369,7 +1294,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         std::visit(write_metadata{record, global_vars.metadata_output, global_vars.certs_json_output, global_vars.dns_json_output}, x);
 
         if (!crypto_policies.empty() && !truncated_tls) {
-            crypto_assess_result assessment_result = std::visit(do_crypto_assessment{crypto_policies, record}, x);
+            crypto_assess_result assessment_result = std::visit(do_crypto_assessment<json_object, json_array>{crypto_policies, &record}, x);
             output_attr = set_crypto_assessment_attr(assessment_result) ? true : output_attr;
         }
 
@@ -1898,7 +1823,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             }
 
             if (!crypto_policies.empty() && !truncated_tls) {
-                crypto_assess_result assessment_result = std::visit(do_crypto_assessment{crypto_policies}, x);
+                crypto_assess_result assessment_result = std::visit(do_crypto_assessment<json_object, json_array>{crypto_policies, nullptr}, x);
                 output_attr = set_crypto_assessment_attr(assessment_result) ? true : output_attr;
             }
 
@@ -1940,7 +1865,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
                 output_nbd = std::visit(do_network_behavioral_detections{k, analysis, c, attribute_common_data}, x);
             }
             if (!crypto_policies.empty() && !truncated_tls) {
-                crypto_assess_result crypto_result = std::visit(do_crypto_assessment{crypto_policies}, x);
+                crypto_assess_result crypto_result = std::visit(do_crypto_assessment<json_object, json_array>{crypto_policies, nullptr}, x);
                 output_attr = set_crypto_assessment_attr(crypto_result) ? true : output_attr;
             }
             if (exposed_creds) {
