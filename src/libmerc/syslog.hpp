@@ -18,12 +18,11 @@ inline bool is_ascii(datum d, ssize_t num_bytes_to_check) {
         return false;
     }
     d.trim_to_length(num_bytes_to_check);
-    for (const auto & byte : d ) {
-        if (byte & 0x80) {
-            return false;
-        }
+    unsigned char acc = 0;
+    for (const auto & byte : d) {
+        acc |= byte;
     }
-    return true;
+    return (acc & 0x80) == 0;
 }
 
 class syslog : public base_protocol {
