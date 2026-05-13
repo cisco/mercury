@@ -86,7 +86,7 @@ namespace stun {
                 }
                 break;
             case ipv6:
-                if (address.length() == 4) {
+                if (address.length() == 16) {
                     o.print_key_ipv6_addr("address", address.data);
                 }
                 break;
@@ -1157,6 +1157,99 @@ namespace stun {
 
     return 0;
 }
+
+namespace stun_unit_test {
+#ifndef NDEBUG
+    inline bool unit_test() {
+        char buffer[4096];
+
+        uint8_t binding_req[] = {
+            0x00, 0x01, 0x00, 0x08,
+            0x21, 0x12, 0xa4, 0x42,
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+            0x09, 0x0a, 0x0b, 0x0c,
+            0x00, 0x06, 0x00, 0x04,
+            't', 'e', 's', 't'
+        };
+        datum d1{binding_req, binding_req + sizeof(binding_req)};
+        stun::message msg1{d1};
+        if (!msg1.is_not_empty()) return false;
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_object json{&buf};
+            msg1.write_json(json, false);
+            json.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "stun")) return false;
+        }
+
+        uint8_t binding_resp_ipv4[] = {
+            0x01, 0x01, 0x00, 0x0c,
+            0x21, 0x12, 0xa4, 0x42,
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+            0x09, 0x0a, 0x0b, 0x0c,
+            0x00, 0x01, 0x00, 0x08,
+            0x00, 0x01, 0x00, 0x50,
+            0xc0, 0xa8, 0x01, 0x01
+        };
+        datum d2{binding_resp_ipv4, binding_resp_ipv4 + sizeof(binding_resp_ipv4)};
+        stun::message msg2{d2};
+        if (!msg2.is_not_empty()) return false;
+
+        uint8_t xor_mapped_ipv4[] = {
+            0x01, 0x01, 0x00, 0x0c,
+            0x21, 0x12, 0xa4, 0x42,
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+            0x09, 0x0a, 0x0b, 0x0c,
+            0x00, 0x20, 0x00, 0x08,
+            0x00, 0x01, 0x21, 0x62,
+            0xe1, 0xba, 0xa5, 0x43
+        };
+        datum d3{xor_mapped_ipv4, xor_mapped_ipv4 + sizeof(xor_mapped_ipv4)};
+        stun::message msg3{d3};
+        if (!msg3.is_not_empty()) return false;
+
+        uint8_t error_code[] = {
+            0x01, 0x11, 0x00, 0x0c,
+            0x21, 0x12, 0xa4, 0x42,
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+            0x09, 0x0a, 0x0b, 0x0c,
+            0x00, 0x09, 0x00, 0x08,
+            0x00, 0x00, 0x04, 0x01,
+            'f', 'a', 'i', 'l'
+        };
+        datum d4{error_code, error_code + sizeof(error_code)};
+        stun::message msg4{d4};
+        if (!msg4.is_not_empty()) return false;
+
+        uint8_t software[] = {
+            0x01, 0x01, 0x00, 0x0c,
+            0x21, 0x12, 0xa4, 0x42,
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+            0x09, 0x0a, 0x0b, 0x0c,
+            0x80, 0x22, 0x00, 0x06,
+            't', 'e', 's', 't', 'S', 'W', 0x00, 0x00
+        };
+        datum d5{software, software + sizeof(software)};
+        stun::message msg5{d5};
+        if (!msg5.is_not_empty()) return false;
+
+        uint8_t fingerprint[] = {
+            0x01, 0x01, 0x00, 0x08,
+            0x21, 0x12, 0xa4, 0x42,
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+            0x09, 0x0a, 0x0b, 0x0c,
+            0x80, 0x28, 0x00, 0x04,
+            0xde, 0xad, 0xbe, 0xef
+        };
+        datum d6{fingerprint, fingerprint + sizeof(fingerprint)};
+        stun::message msg6{d6};
+        if (!msg6.is_not_empty()) return false;
+
+        return true;
+    }
+#endif
+} // namespace stun_unit_test
 
 // STUN implementation notes
 //

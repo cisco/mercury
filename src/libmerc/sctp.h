@@ -120,11 +120,25 @@ namespace sctp {
     //    ~                                                               ~
     //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     //
+    //    Chunk Length (RFC 4960): 16-bit unsigned integer representing
+    //    the size of the chunk in bytes, including Type (1), Flags (1),
+    //    Length (2), and Value fields. Minimum valid length is 4.
+    //
     class chunk_header {
+        static constexpr size_t header_size = 4;  // type + flags + length
         encoded<uint8_t> type;
         encoded<uint8_t> flags;
-        encoded<uint8_t> length;
+        encoded<uint16_t> length;
         datum value;
+        bool valid;
+
+        static datum parse_value(datum &d, uint16_t len) {
+            if (len < header_size) {
+                d.set_null();  // invalid length as per RFC 4960
+                return datum{};
+            }
+            return datum{d, static_cast<ssize_t>(len - header_size)};
+        }
 
     public:
 
@@ -132,8 +146,12 @@ namespace sctp {
             type{d},
             flags{d},
             length{d},
-            value{d, length}
+            value{parse_value(d, length)},
+            valid{d.is_not_null()}
         { }
+
+        bool is_type(chunk_type t) const { return valid && type == t; }
+        bool has_min_length(uint16_t min_len) const { return valid && length >= min_len; }
 
         void write_json(json_object &o, bool metadata=false) const {
             (void)metadata;
@@ -164,7 +182,9 @@ public:
     sctp_init(datum &d) :
         header{d},
         chunk{d},
-        is_valid{header.is_init()}
+        is_valid{header.is_init()
+                 && chunk.is_type(sctp::INIT)
+                 && chunk.has_min_length(20)}  // 4-byte header + 16-byte fixed INIT fields
     { }
 
     explicit operator bool() const { return is_valid; }
@@ -184,6 +204,98 @@ public:
 [[maybe_unused]] inline int sctp_init_fuzz_test(const uint8_t *data, size_t size) {
     return json_output_fuzzer<sctp_init>(data, size);
 }
+
+namespace sctp {
+#ifndef NDEBUG
+    inline bool unit_test() {
+        char buffer[1024];
+
+        // valid INIT: 12-byte common header + 20-byte INIT chunk (4 header + 16 value)
+        uint8_t init[] = {
+            0x00, 0x50, 0x00, 0x51,  // src_port=80, dst_port=81
+            0x00, 0x00, 0x00, 0x00,  // verification_tag=0
+            0x00, 0x00, 0x00, 0x00,  // checksum
+            0x01, 0x00,              // chunk type=INIT, flags=0
+            0x00, 0x14,              // chunk length=20
+            0xde, 0xad, 0xbe, 0xef,  // initiate tag
+            0x00, 0x01, 0x00, 0x00,  // a_rwnd
+            0x00, 0x0a, 0x00, 0x0a,  // outbound/inbound streams
+            0x01, 0x02, 0x03, 0x04   // initial TSN
+        };
+        datum d1{init, init + sizeof(init)};
+        sctp_init msg1{d1};
+        if (!msg1.is_not_empty()) return false;
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_object json{&buf};
+            msg1.write_json(json, false);
+            json.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "sctp")) return false;
+            if (!strstr(buffer, "INIT")) return false;
+            if (!strstr(buffer, "src_port")) return false;
+            if (!strstr(buffer, "dst_port")) return false;
+            if (!strstr(buffer, "deadbeef")) return false;
+        }
+
+        uint8_t non_init[] = {
+            0x00, 0x50, 0x00, 0x51,
+            0x12, 0x34, 0x56, 0x78,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x08
+        };
+        datum d2{non_init, non_init + sizeof(non_init)};
+        sctp_init msg2{d2};
+        if (msg2.is_not_empty()) return false;
+
+        uint8_t too_short[] = { 0x00, 0x50, 0x00, 0x51 };
+        datum d3{too_short, too_short + sizeof(too_short)};
+        sctp_init msg3{d3};
+        if (msg3.is_not_empty()) return false;
+
+        // zero verification tag but non-INIT chunk type (DATA=0x00)
+        uint8_t zero_tag_non_init[] = {
+            0x00, 0x50, 0x00, 0x51,
+            0x00, 0x00, 0x00, 0x00,  // verification_tag = 0
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00,              // chunk type = DATA (not INIT)
+            0x00, 0x08
+        };
+        datum d4{zero_tag_non_init, zero_tag_non_init + sizeof(zero_tag_non_init)};
+        sctp_init msg4{d4};
+        if (msg4.is_not_empty()) return false;
+
+        // invalid chunk length (< 4)
+        uint8_t invalid_chunk_len[] = {
+            0x00, 0x50, 0x00, 0x51,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x01, 0x00,              // chunk type = INIT
+            0x00, 0x03               // length = 3 (invalid, minimum is 4)
+        };
+        datum d5{invalid_chunk_len, invalid_chunk_len + sizeof(invalid_chunk_len)};
+        sctp_init msg5{d5};
+        if (msg5.is_not_empty()) return false;
+
+        // INIT chunk with length < 20 (missing fixed fields)
+        uint8_t init_too_short[] = {
+            0x00, 0x50, 0x00, 0x51,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x01, 0x00,              // chunk type = INIT
+            0x00, 0x10,              // length = 16 (< 20 required for INIT)
+            0xde, 0xad, 0xbe, 0xef,
+            0x00, 0x01, 0x00, 0x00,
+            0x00, 0x0a, 0x00, 0x0a
+        };
+        datum d6{init_too_short, init_too_short + sizeof(init_too_short)};
+        sctp_init msg6{d6};
+        if (msg6.is_not_empty()) return false;
+
+        return true;
+    }
+#endif
+} // namespace sctp
 
 // TODO: move sctp_init into SCTP namespace
 //
