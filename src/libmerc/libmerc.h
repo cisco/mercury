@@ -885,4 +885,35 @@ int mercury_packet_processor_get_analysis_context_fdc(
     size_t* buffer_size,
     const struct analysis_context** ac);
 
+/**
+ * enum cbor_metadata_return indicates the result of a CBOR metadata
+ * retrieval.
+ */
+enum cbor_metadata_return {
+    CBOR_NO_DATA                  =  0,
+    CBOR_WRITE_INSUFFICIENT_SPACE = -1,
+    CBOR_WRITE_FAILURE            = -2,
+};
+
+/**
+ * mercury_packet_processor_get_cbor_metadata() returns a pointer to
+ * the CBOR-encoded metadata buffer for the most recently processed
+ * packet, along with its length.
+ *
+ * @param processor (input) is a mercury_packet_processor.
+ * @param buffer (output) is set to point to the CBOR buffer.
+ * @param length (output) is set to the length of the CBOR data.
+ *
+ * @return a positive value on success, CBOR_NO_DATA if no metadata
+ * was produced, or a negative error code on failure.
+ */
+#ifdef __cplusplus
+extern "C" LIBMERC_DLL_EXPORTED
+#endif
+int mercury_packet_processor_get_cbor_metadata(
+    mercury_packet_processor processor,
+    const uint8_t **buffer,
+    size_t *length
+);
+
 #endif /* LIBMERC_H */
