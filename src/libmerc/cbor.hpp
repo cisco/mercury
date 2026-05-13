@@ -129,6 +129,23 @@ namespace cbor {
         }
     }
 
+    /// Decode a CBOR boolean (simple values True=21, False=20).
+    static inline bool decode_bool(datum &d) {
+        initial_byte ib{d};
+        if (ib.major_type() != simple_or_float_type) {
+            d.set_null();
+            return false;
+        }
+        if (ib.additional_info() == initial_byte::True) {
+            return true;
+        }
+        if (ib.additional_info() == initial_byte::False) {
+            return false;
+        }
+        d.set_null();
+        return false;
+    }
+
     // Major type 0: An unsigned integer in the range 0..2^64-1
     // inclusive. The value of the encoded item is the argument
     // itself.
@@ -136,8 +153,12 @@ namespace cbor {
     class uint64 {
         initial_byte ib;
         uint64_t value__{0};
+        bool valid_{false};
 
     public:
+
+        /// default constructor — creates an invalid uint64
+        uint64() : ib{0, 0}, value__{0}, valid_{false} {}
 
         /// construct a uint64 object by decoding it from the \ref
         /// datum \param d
@@ -165,7 +186,7 @@ namespace cbor {
             if (ai == 27) {
                 value__ = encoded<uint64_t>{d}.value();
             }
-
+            valid_ = true;
         }
 
         /// construct a uint64 object, suitable for encoding, with the
@@ -175,8 +196,11 @@ namespace cbor {
         ///
         uint64(uint64_t x, uint8_t type=unsigned_integer_type) :
             ib{type, additional_info(x)},
-            value__{x}
+            value__{x},
+            valid_{true}
         { }
+
+        bool is_valid() const { return valid_; }
 
         /// decode a uint64 object, accepting only values that are no
         /// greater than \param value_max.
@@ -426,6 +450,9 @@ namespace cbor {
 
     public:
 
+        /// default constructor — creates an invalid text_string
+        text_string() : length{0, text_string_type}, value__{nullptr, nullptr} {}
+
         /// construct and return a \ref text_string object by decoding
         /// it from the \ref datum \param d
         ///
@@ -604,6 +631,62 @@ namespace cbor {
     public:
         compact_map(const std::array<const char *, N> &a [[maybe_unused]], datum &d) : map{d} { }
     };
+
+    /// Advance \param d past exactly one CBOR value without output.
+    static inline void skip_cbor_value(datum &d) {
+        if (lookahead<initial_byte> ib{d}) {
+            switch (ib.value.major_type()) {
+            case unsigned_integer_type:
+                { uint64 tmp{d}; }
+                break;
+            case byte_string_type:
+                { byte_string::decode(d); }
+                break;
+            case text_string_type:
+                { text_string::decode(d); }
+                break;
+            case array_type:
+                {
+                    array arr{d};
+                    if (d.is_null()) return;
+                    while (d.is_not_empty() && *d.data != 0xff) {
+                        skip_cbor_value(d);
+                        if (d.is_null()) return;
+                    }
+                    arr.close();
+                }
+                break;
+            case map_type:
+                {
+                    map m{d};
+                    if (d.is_null()) return;
+                    while (d.is_not_empty() && *d.data != 0xff) {
+                        skip_cbor_value(d);  // key
+                        if (d.is_null()) return;
+                        skip_cbor_value(d);  // value
+                        if (d.is_null()) return;
+                    }
+                    m.close();
+                }
+                break;
+            case tagged_item_type:
+                {
+                    tag tmp{d};
+                    if (d.is_null()) return;
+                    skip_cbor_value(d);  // tagged content
+                }
+                break;
+            case simple_or_float_type:
+                {
+                    initial_byte consumed{d};  // consume the byte
+                }
+                break;
+            default:
+                d.set_null();
+                break;
+            }
+        }
+    }
 
     static inline bool decode_data(datum &d, FILE *f, int r=0) {
         char tabs[] = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t";

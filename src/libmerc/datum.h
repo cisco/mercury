@@ -432,6 +432,21 @@ struct datum {
         return false;            // no matches found
     }
 
+    /// Case-sensitive exact match against a null-terminated string.
+    bool match(const char *name) const {
+        if (name == nullptr) return false;
+        const uint8_t *d = data;
+        const char *k = name;
+        while (d < data_end) {
+            if (*d != (uint8_t)*k || *k == '\0') {
+                return false;
+            }
+            d++;
+            k++;
+        }
+        return (*k == '\0');
+    }
+
     /// Compares this \ref datum to `p` lexicographically, and returns
     /// an integer less than, equal to, or greater than zero if this
     /// is found to be less than, to match, or to be greater than `p`,

@@ -14,6 +14,8 @@ python/pmercury/utils/.#*
 *.deb
 *.rpm
 unit_tests/pcaps/*.pcap
+unit_tests/pcaps/*.cap
+unit_tests/pcaps/*.py
 .vscode/
 mk/config.mk
 *.tgz
@@ -30,3 +32,63 @@ src/libmerc/lctrie/*.a
 src/libmerc/*.a
 *.d
 *.dSYM/
+
+# Claude Code
+.claude/
+.env
+CLAUDE.md
+
+# Dev scratch files
+configure~
+configure_diff.txt
+interface_cbor_dev_diff.txt
+message_interface_diff_dev.txt
+context_cbor_interface/
+custom_pcap_output_CSM.json
+Makefile_helper.mk
+SPEC.md
+imap_rfc.txt
+imap_rfc_version4rev2.txt
+tacacs_output.txt
+¯¯a
+
+# Build artifacts and binaries
+lib/
+src/cert_analyze
+src/intercept_server
+src/libmerc_test
+src/libmerc_util
+src/unit_test
+src/Makefile
+src/libmerc/Makefile
+src/libmerc/libmerc.so.*
+src/libmerc/default.profraw
+src/libmerc/cbor_metadata_backup.hpp
+src/cbor_decoder/
+src/cbor_parse_test.cpp
+src/cython/Makefile
+unit_tests/libmerc_driver_multiprotocol
+unit_tests/debug-libs/
+unit_tests/Makefile
+test/Makefile
+test_imap_creds
+
+# Scratch data files
+src/27
+src/27_jan_imap2.json
+src/imap_27Jan.json
+src/output_exposed_cred.txt
+src/output_exposed_cred_http_auth.json
+
+# Profiling data
+*.profraw
+*.profdata
+
+# Fuzz corpus (generated, large)
+test/fuzz/*/corpus/
+test/fuzz/imap_requests/
+test/fuzz/imap_responses/
+
+# Doc reference files (generated)
+doc/api-reference.md
+doc/design-patterns.md

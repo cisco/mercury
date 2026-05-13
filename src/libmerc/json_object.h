@@ -81,6 +81,12 @@ struct json_object {
         write_comma(object->comma);
         b->write_char('{');
     }
+    json_object(struct json_object &object, datum key) : b{object.b} {
+        write_comma(object.comma);
+        b->write_char('\"');
+        b->memcpy((const char *)key.data, key.length());
+        b->puts("\":{");
+    }
 
     // copy constructor for std::optional compatibility
     //
@@ -115,6 +121,26 @@ struct json_object {
         b->puts("\":\"");
         b->puts(v);
         b->write_char('\"');
+    }
+    void print_key_string(const char *k, datum d) {
+        if (d.is_readable()) {
+            write_comma(comma);
+            b->write_char('\"');
+            b->puts(k);
+            b->puts("\":\"");
+            b->memcpy((const char *)d.data, d.length());
+            b->write_char('\"');
+        }
+    }
+    void print_key_string(datum k, datum d) {
+        if (k.is_readable() && d.is_readable()) {
+            write_comma(comma);
+            b->write_char('\"');
+            b->memcpy((const char *)k.data, k.length());
+            b->puts("\":\"");
+            b->memcpy((const char *)d.data, d.length());
+            b->write_char('\"');
+        }
     }
     void print_key_bool(const char *k, bool x) {
         write_comma(comma);
@@ -415,6 +441,14 @@ struct json_array {
         b->write_char('\"');
         b->memcpy(s, len);
         b->write_char('\"');
+    }
+    void print_string(datum d) {
+        if (d.is_readable()) {
+            write_comma(comma);
+            b->write_char('\"');
+            b->memcpy((const char *)d.data, d.length());
+            b->write_char('\"');
+        }
     }
 
     template <typename T>

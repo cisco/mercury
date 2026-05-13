@@ -33,6 +33,11 @@ class cbor_object {
         return o.m;
     }
 
+    static writeable &create_named_map(datum key, cbor_object &o) {
+        cbor::text_string::construct(key).write(o.m);
+        return o.m;
+    }
+
     friend class cbor_array;
 
     template <size_t N> friend class cbor_object_compact;
@@ -44,6 +49,8 @@ public:
     cbor_object(cbor_object &o, const char *key) : m{create_named_map(key, o)} { }
 
     cbor_object(cbor_object &o, uint64_t k) : m{create_named_map(k, o)} { }
+
+    cbor_object(cbor_object &o, datum key) : m{create_named_map(key, o)} { }
 
     template <size_t N>
     cbor_object(cbor_object_compact<N> &o, const char *key);
@@ -64,6 +71,13 @@ public:
         if (d.is_readable()) {
             cbor::text_string{key}.write(m);
             cbor::text_string::construct(d).write(m);
+        }
+    }
+
+    void print_key_string(datum key, datum value) {
+        if (key.is_readable() && value.is_readable()) {
+            cbor::text_string::construct(key).write(m);
+            cbor::text_string::construct(value).write(m);
         }
     }
 
