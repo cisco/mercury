@@ -1246,6 +1246,50 @@ namespace stun_unit_test {
         stun::message msg6{d6};
         if (!msg6.is_not_empty()) return false;
 
+        uint8_t mapped_ipv6[] = {
+            0x01, 0x01, 0x00, 0x18,
+            0x21, 0x12, 0xa4, 0x42,
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+            0x09, 0x0a, 0x0b, 0x0c,
+            0x00, 0x01, 0x00, 0x14,
+            0x00, 0x02, 0x00, 0x50,
+            0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
+        };
+        datum d7{mapped_ipv6, mapped_ipv6 + sizeof(mapped_ipv6)};
+        stun::message msg7{d7};
+        if (!msg7.is_not_empty()) return false;
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_object json{&buf};
+            msg7.write_json(json, false);
+            json.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "2001:db8::1")) return false;
+        }
+
+        uint8_t xor_mapped_ipv6[] = {
+            0x01, 0x01, 0x00, 0x18,
+            0x21, 0x12, 0xa4, 0x42,
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+            0x09, 0x0a, 0x0b, 0x0c,
+            0x00, 0x20, 0x00, 0x14,
+            0x00, 0x02, 0x21, 0x62,
+            0x01, 0x13, 0xa9, 0xfa, 0x01, 0x02, 0x03, 0x04,
+            0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c
+        };
+        datum d8{xor_mapped_ipv6, xor_mapped_ipv6 + sizeof(xor_mapped_ipv6)};
+        stun::message msg8{d8};
+        if (!msg8.is_not_empty()) return false;
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_object json{&buf};
+            msg8.write_json(json, false);
+            json.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "\"family\":\"ipv6\"")) return false;
+        }
+
         return true;
     }
 #endif

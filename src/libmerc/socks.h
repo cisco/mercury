@@ -676,6 +676,11 @@ namespace socks {
             if (!strstr(buffer, "domain")) return false;
         }
 
+        uint8_t s5_trunc[] = { 0x05, 0x01, 0x00, 0x01, 0xc0, 0xa8, 0x01, 0x01 };
+        datum d7{s5_trunc, s5_trunc + sizeof(s5_trunc)};
+        socks5_req_resp req_trunc{d7};
+        if (req_trunc.is_not_empty()) return false;
+
         return true;
     }
 #endif
