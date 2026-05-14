@@ -52,7 +52,6 @@
 #include "libmerc/vxlan.hpp"
 #include "libmerc/gre.h"
 #include "libmerc/mdns.h"
-#include "libmerc/http.h"
 #include "libmerc/http2.h"
 #include "libmerc/ssh.h"
 #include "libmerc/tls.h"
@@ -245,10 +244,6 @@ int main(int, char *[]) {
         {
             "mdns",
             &mdns_test::unit_test
-        },
-        {
-            "http",
-            &http_test::unit_test
         },
         {
             "http2",
