@@ -183,57 +183,82 @@ struct check_exposed_creds {
 
     check_exposed_creds(Object *out) : output_{out} {}
 
-    exposed_creds_type operator()(const imap::imap_requests &msg) {
-        exposed_creds_type type = msg.check_credential_exposure();
-        if (type == exposed_creds_type::none || !output_) return type;
-
-        datum auth_method = msg.get_auth_method();
-        datum username = msg.get_username();
-
+    void write_feature(exposed_creds_type type, datum protocol,
+                       datum auth_method, datum username) {
+        if (!output_) return;
         switch (type) {
         case exposed_creds_type::plaintext_password:
-            exposed_creds_plaintext_message::construct(
-                datum{"imap"}, auth_method, username
-            ).template write<Object, Array>(*output_);
+            exposed_creds_plaintext_message::construct(protocol, auth_method, username)
+                .template write<Object, Array>(*output_);
             break;
         case exposed_creds_type::plaintext_token:
-            exposed_creds_token_message::construct(
-                datum{"imap"}, auth_method, username
-            ).template write<Object, Array>(*output_);
+            exposed_creds_token_message::construct(protocol, auth_method, username)
+                .template write<Object, Array>(*output_);
             break;
         case exposed_creds_type::password_derived:
-            exposed_creds_derived_message::construct(
-                datum{"imap"}, auth_method, username
-            ).template write<Object, Array>(*output_);
+            exposed_creds_derived_message::construct(protocol, auth_method, username)
+                .template write<Object, Array>(*output_);
             break;
         default:
             break;
         }
+    }
+
+    exposed_creds_type operator()(const imap::imap_requests &msg) {
+        exposed_creds_type type = msg.check_credential_exposure();
+        if (type != exposed_creds_type::none)
+            write_feature(type, datum{"imap"}, msg.get_auth_method(), msg.get_username());
         return type;
     }
 
     exposed_creds_type operator()(const http_request &msg) {
-        return exposed_creds_assessor::assess(msg);
+        exposed_creds_type type = msg.check_credential_exposure();
+        if (type != exposed_creds_type::none) {
+            datum auth_hdr = msg.get_header("authorization");
+            datum scheme_datum = authorization{auth_hdr}.get_scheme();
+            write_feature(type, datum{"http"}, scheme_datum, datum{});
+        }
+        return type;
     }
 
     exposed_creds_type operator()(const tacacs::packet &msg) {
-        return exposed_creds_assessor::assess(msg);
+        exposed_creds_type type = msg.check_credential_exposure();
+        if (type != exposed_creds_type::none) {
+            write_feature(type, datum{"tacacs"}, msg.get_auth_method(), msg.get_username());
+        }
+        return type;
     }
 
     exposed_creds_type operator()(const ldap::message &msg) {
-        return exposed_creds_assessor::assess(msg);
+        exposed_creds_type type = msg.check_credential_exposure();
+        if (type != exposed_creds_type::none) {
+            write_feature(type, datum{"ldap"}, msg.get_auth_method(), datum{});
+        }
+        return type;
     }
 
     exposed_creds_type operator()(const ftp::request &msg) {
-        return exposed_creds_assessor::assess(msg);
+        exposed_creds_type type = msg.check_credential_exposure();
+        if (type != exposed_creds_type::none) {
+            write_feature(type, datum{"ftp"}, datum{"PASS"}, datum{});
+        }
+        return type;
     }
 
     exposed_creds_type operator()(const redis::request &msg) {
-        return exposed_creds_assessor::assess(msg);
+        exposed_creds_type type = msg.check_credential_exposure();
+        if (type != exposed_creds_type::none) {
+            write_feature(type, datum{"redis"}, datum{"AUTH"}, msg.get_username());
+        }
+        return type;
     }
 
     exposed_creds_type operator()(const snmp::packet &msg) {
-        return exposed_creds_assessor::assess(msg);
+        exposed_creds_type type = msg.check_credential_exposure();
+        if (type != exposed_creds_type::none) {
+            write_feature(type, datum{"snmp"}, msg.get_auth_method(), datum{});
+        }
+        return type;
     }
 
     template <typename T>
@@ -1817,6 +1842,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
         cbor_meta.reset();
         writeable& cbor_w = cbor_meta.get_writer();
         cbor_object cbor_output{cbor_w};
+        cbor_output.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
 
         if (global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
 

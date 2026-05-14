@@ -53,16 +53,8 @@ struct cbor_decoded_metadata {
     void reset() { count = 0; valid = false; }
 };
 
-inline void decode_cbor_metadata(const uint8_t* buf, size_t len,
-                                  cbor_decoded_metadata& out) {
-    out.reset();
-    if (!buf || len == 0) return;
-
-    datum d{buf, buf + len};
-    cbor::map m{d};
-    if (d.is_null()) return;
-
-    while (d.is_not_empty() && *d.data != 0xff && out.count < cbor_decoded_metadata::MAX_ENTRIES) {
+inline void decode_v1(datum &d, cbor_decoded_metadata& out) {
+    while (d.is_not_empty() && !cbor::is_break(d) && out.count < cbor_decoded_metadata::MAX_ENTRIES) {
         cbor::text_string feature_key = cbor::text_string::decode(d);
         if (d.is_null()) return;
 
@@ -81,6 +73,31 @@ inline void decode_cbor_metadata(const uint8_t* buf, size_t len,
             out.entries[out.count++] = unknown_feature::decode(feature_key.value(), d);
 
         if (d.is_null()) return;
+    }
+}
+
+inline void decode_cbor_metadata(const uint8_t* buf, size_t len,
+                                  cbor_decoded_metadata& out) {
+    out.reset();
+    if (!buf || len == 0) return;
+
+    datum d{buf, buf + len};
+    cbor::map m{d};
+    if (d.is_null()) return;
+
+    // first key-value pair must be schema_version
+    if (d.is_not_empty() && !cbor::is_break(d)) {
+        cbor::text_string ver_key = cbor::text_string::decode(d);
+        if (d.is_null() || !ver_key.value().match("schema_version")) return;
+        cbor::uint64 ver{d};
+        if (d.is_null()) return;
+
+        uint32_t version = ver.value();
+        if (version == 1) {
+            decode_v1(d, out);
+        } else if (version > CBOR_METADATA_SCHEMA_VERSION) {
+            return;  // future schema — fail-fast
+        }
     }
 
     m.close();
@@ -103,6 +120,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
     {
         data_buffer<512> buf;
         cbor_object outer{buf};
+        outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
         auto msg = exposed_creds_plaintext_message::construct(
             datum{"imap"}, datum{"LOGIN"}, datum{"alice"});
         msg.template write<cbor_object, cbor_array>(outer);
@@ -133,6 +151,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
     {
         data_buffer<512> buf;
         cbor_object outer{buf};
+        outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
         auto msg = exposed_creds_token_message::construct(
             datum{"imap"}, datum{"OAUTHBEARER"}, datum{});
         msg.template write<cbor_object, cbor_array>(outer);
@@ -160,6 +179,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
     {
         data_buffer<1024> buf;
         cbor_object outer{buf};
+        outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
 
         crypto_cnsa_message msg;
         msg.set_policy("quantum_safe");
@@ -196,6 +216,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
     {
         data_buffer<2048> buf;
         cbor_object outer{buf};
+        outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
 
         exposed_creds_plaintext_message::construct(
             datum{"http"}, datum{"basic"}, datum{"admin"})
@@ -239,6 +260,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
     {
         data_buffer<512> buf;
         cbor_object outer{buf};
+        outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
         outer.print_key_string("some_future_feature", "some_value");
         outer.close();
 

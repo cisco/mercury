@@ -71,6 +71,8 @@ namespace tacacs {
         bool is_valid() const { return data.is_not_null(); }
 
         uint8_t get_auth_type() const { return type.value(); }
+        const char* get_auth_type_name() const { return type.get_name(); }
+        datum get_user() const { return user; }
 
         void write_json(json_object &o, bool metadata=false) const {
             (void)metadata;
@@ -355,6 +357,29 @@ namespace tacacs {
             return exposed_creds_type::none;
         }
 
+        datum get_auth_method() const {
+            if (direction() != msg_type::request || type.value() != 0x01) return datum{};
+            if (!flags.bit<7>()) return datum{"encrypted"};
+            if (seq_no.value() == 1) {
+                if (lookahead<authentication_start> as{body}) {
+                    const char* name = as.value.get_auth_type_name();
+                    if (name) return datum{name};
+                }
+            }
+            return datum{};
+        }
+
+        datum get_username() const {
+            if (direction() != msg_type::request || type.value() != 0x01) return datum{};
+            if (!flags.bit<7>()) return datum{};
+            if (seq_no.value() == 1) {
+                if (lookahead<authentication_start> as{body}) {
+                    return as.value.get_user();
+                }
+            }
+            return datum{};
+        }
+
     };
 
     /// return the password_recovery input string for a tacacs+ encrypted message
@@ -569,6 +594,20 @@ namespace tacacs {
             datum{"{\"tacacs_plus\":{\"major_version\":12,\"minor_version\":0,\"type\":\"UNKNOWN (00)\",\"seq_no\":1,\"flags\":[\"UNKNOWN (20)\"],\"session_id\":\"01020304\",\"encrypted_request\":\"aabb\",\"password_recovery\":\"$tacacs-plus$0$01020304$aabb$c001\"}}"},
             output
         );
+
+        // Exposed creds accessor test (ref_dat_1 is unencrypted ASCII auth)
+        {
+            datum d{ref_dat_1, ref_dat_1 + sizeof(ref_dat_1)};
+            tacacs::packet pkt{d};
+            if (pkt.check_credential_exposure() != exposed_creds_type::plaintext_password) {
+                if (output) fprintf(output, "  FAIL: tacacs cred type != plaintext_password\n");
+                passed = false;
+            }
+            if (!pkt.get_auth_method().match("ASCII")) {
+                if (output) fprintf(output, "  FAIL: tacacs auth_method != ASCII\n");
+                passed = false;
+            }
+        }
 
         return passed;
 

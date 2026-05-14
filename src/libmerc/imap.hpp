@@ -1225,6 +1225,22 @@ namespace imap {
             return false;
         }
 
+        // Exposed creds accessor tests
+        {
+            datum d{"a001 LOGIN username password\r\n"};
+            imap_requests req{d};
+            if (req.check_credential_exposure() != exposed_creds_type::plaintext_password) return false;
+            if (!req.get_auth_method().match("LOGIN")) return false;
+            if (!req.get_username().match("username")) return false;
+        }
+        {
+            datum d{"a001 AUTHENTICATE CRAM-MD5\r\n"};
+            imap_requests req{d};
+            if (req.check_credential_exposure() != exposed_creds_type::password_derived) return false;
+            if (!req.get_auth_method().match("CRAM-MD5")) return false;
+            if (req.get_username().is_readable()) return false;  // no username for AUTHENTICATE
+        }
+
         return true;
     }
 

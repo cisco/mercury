@@ -632,6 +632,14 @@ namespace cbor {
         compact_map(const std::array<const char *, N> &a [[maybe_unused]], datum &d) : map{d} { }
     };
 
+    /// Check if next byte is the CBOR break code (0xFF) without consuming it.
+    static inline bool is_break(datum &d) {
+        if (lookahead<initial_byte> ib{d}) {
+            return ib.value.is_break();
+        }
+        return false;
+    }
+
     /// Advance \param d past exactly one CBOR value without output.
     static inline void skip_cbor_value(datum &d) {
         if (lookahead<initial_byte> ib{d}) {

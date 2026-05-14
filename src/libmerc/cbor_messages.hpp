@@ -9,6 +9,8 @@
 #include "cbor.hpp"
 #include "exposed_creds.hpp"
 
+inline constexpr uint32_t CBOR_METADATA_SCHEMA_VERSION = 1;
+
 /// Tags for exposed credentials.
 enum class exposed_creds_tag : uint8_t {
     plaintext,
@@ -49,7 +51,7 @@ public:
         exposed_creds_message msg;
         const uint8_t* begin = d.data;
         cbor::map m{d};
-        while (d.is_not_empty() && *d.data != 0xff) {
+        while (d.is_not_empty() && !cbor::is_break(d)) {
             cbor::text_string key = cbor::text_string::decode(d);
             datum k = key.value();
             if (k.match("protocol"))                   msg.protocol_ = cbor::text_string::decode(d);
@@ -215,7 +217,7 @@ public:
         crypto_cnsa_message msg;
         const uint8_t* begin = d.data;
         cbor::map m{d};
-        while (d.is_not_empty() && *d.data != 0xff) {
+        while (d.is_not_empty() && !cbor::is_break(d)) {
             cbor::text_string key = cbor::text_string::decode(d);
             datum k = key.value();
             if (k.match("policy")) {
@@ -225,12 +227,12 @@ public:
                      || k.match("offered")) {
                 msg.target_ = key;
                 cbor::map tgt{d};
-                while (d.is_not_empty() && *d.data != 0xff) {
+                while (d.is_not_empty() && !cbor::is_break(d)) {
                     cbor::text_string tkey = cbor::text_string::decode(d);
                     datum tk = tkey.value();
                     if (tk.match("ciphersuites_not_allowed")) {
                         cbor::array arr{d};
-                        while (d.is_not_empty() && *d.data != 0xff) {
+                        while (d.is_not_empty() && !cbor::is_break(d)) {
                             if (msg.cs_not_allowed_count_ < MAX_ITEMS)
                                 msg.cs_not_allowed_[msg.cs_not_allowed_count_++] =
                                     cbor::text_string::decode(d);
@@ -244,7 +246,7 @@ public:
                     }
                     else if (tk.match("groups_not_allowed")) {
                         cbor::array arr{d};
-                        while (d.is_not_empty() && *d.data != 0xff) {
+                        while (d.is_not_empty() && !cbor::is_break(d)) {
                             if (msg.grp_not_allowed_count_ < MAX_ITEMS)
                                 msg.grp_not_allowed_[msg.grp_not_allowed_count_++] =
                                     cbor::text_string::decode(d);
@@ -375,7 +377,7 @@ public:
         crypto_nist_message msg;
         const uint8_t* begin = d.data;
         cbor::map m{d};
-        while (d.is_not_empty() && *d.data != 0xff) {
+        while (d.is_not_empty() && !cbor::is_break(d)) {
             cbor::text_string key = cbor::text_string::decode(d);
             datum k = key.value();
             if (k.match("policy")) {
@@ -384,7 +386,7 @@ public:
             else if (k.match("negotiated_parameters")) {
                 msg.has_negotiated_params_ = true;
                 cbor::map params{d};
-                while (d.is_not_empty() && *d.data != 0xff) {
+                while (d.is_not_empty() && !cbor::is_break(d)) {
                     cbor::text_string pkey = cbor::text_string::decode(d);
                     datum pk = pkey.value();
                     if (pk.match("protocol_version")) {
@@ -392,7 +394,7 @@ public:
                     }
                     else if (pk.match("extensions")) {
                         cbor::array arr{d};
-                        while (d.is_not_empty() && *d.data != 0xff) {
+                        while (d.is_not_empty() && !cbor::is_break(d)) {
                             if (msg.extensions_count_ < MAX_EXTENSIONS)
                                 msg.extensions_[msg.extensions_count_++] =
                                     cbor::text_string::decode(d);
@@ -413,7 +415,7 @@ public:
             }
             else if (k.match("compliance_result")) {
                 cbor::map comp{d};
-                while (d.is_not_empty() && *d.data != 0xff) {
+                while (d.is_not_empty() && !cbor::is_break(d)) {
                     cbor::text_string ckey = cbor::text_string::decode(d);
                     datum ck = ckey.value();
                     if (ck.match("compliant")) {
