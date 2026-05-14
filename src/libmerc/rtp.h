@@ -157,4 +157,57 @@ namespace rtp {
     return 0;
 }
 
+namespace rtp_test {
+#ifndef NDEBUG
+    inline bool unit_test() {
+        char buffer[2048];
+
+        uint8_t rtp_basic[] = {
+            0x80, 0x00, 0x04, 0xd2,
+            0x00, 0x00, 0x10, 0x00,
+            0x12, 0x34, 0x56, 0x78,
+            0x01, 0x02, 0x03, 0x04
+        };
+        datum d1{rtp_basic, rtp_basic + sizeof(rtp_basic)};
+        rtp::packet pkt1{d1};
+        if (!pkt1.is_not_empty()) return false;
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_object json{&buf};
+            pkt1.write_json(json);
+            json.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "\"version\":2")) return false;
+        }
+
+        uint8_t rtp_ext[] = {
+            0x90, 0x60, 0x00, 0x01,
+            0x00, 0x00, 0x00, 0x00,
+            0xaa, 0xbb, 0xcc, 0xdd
+        };
+        datum d2{rtp_ext, rtp_ext + sizeof(rtp_ext)};
+        rtp::packet pkt2{d2};
+        if (!pkt2.is_not_empty()) return false;
+
+        uint8_t rtp_csrc[] = {
+            0x82, 0x08, 0x00, 0x01,
+            0x00, 0x00, 0x00, 0x00,
+            0x11, 0x22, 0x33, 0x44,
+            0xaa, 0xaa, 0xaa, 0xaa,
+            0xbb, 0xbb, 0xbb, 0xbb
+        };
+        datum d3{rtp_csrc, rtp_csrc + sizeof(rtp_csrc)};
+        rtp::packet pkt3{d3};
+        if (!pkt3.is_not_empty()) return false;
+
+        uint8_t too_short[] = { 0x80, 0x00, 0x00 };
+        datum d4{too_short, too_short + sizeof(too_short)};
+        rtp::packet pkt4{d4};
+        if (pkt4.is_not_empty()) return false;
+
+        return true;
+    }
+#endif
+} // namespace rtp_test
+
 #endif // RTP_H

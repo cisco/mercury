@@ -45,6 +45,17 @@
 #include "libmerc/stun.h"
 #include "libmerc/bittorrent.h"
 #include "libmerc/ssdp.h"
+#include "libmerc/arp.h"
+#include "libmerc/ntp.h"
+#include "libmerc/rtp.h"
+#include "libmerc/esp.hpp"
+#include "libmerc/vxlan.hpp"
+#include "libmerc/gre.h"
+#include "libmerc/mdns.h"
+#include "libmerc/http.h"
+#include "libmerc/http2.h"
+#include "libmerc/ssh.h"
+#include "libmerc/tls.h"
 
 // Macros to colorize output
 //
@@ -206,6 +217,50 @@ int main(int, char *[]) {
         {
             "ssdp",
             &ssdp_ns::unit_test
+        },
+        {
+            "arp",
+            &arp::unit_test
+        },
+        {
+            "ntp",
+            &ntp_test::unit_test
+        },
+        {
+            "rtp",
+            &rtp_test::unit_test
+        },
+        {
+            "esp",
+            &esp_test::unit_test
+        },
+        {
+            "vxlan",
+            &vxlan_test::unit_test
+        },
+        {
+            "gre",
+            &gre_test::unit_test
+        },
+        {
+            "mdns",
+            &mdns_test::unit_test
+        },
+        {
+            "http",
+            &http_test::unit_test
+        },
+        {
+            "http2",
+            &http2_test::unit_test
+        },
+        {
+            "ssh",
+            &ssh_test::unit_test
+        },
+        {
+            "tls_extensions",
+            &tls_extensions::unit_test
         }
     };
     size_t num_tests = 0;

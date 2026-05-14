@@ -320,4 +320,73 @@ namespace {
 
 };
 
+namespace http2_test {
+#ifndef NDEBUG
+    inline bool unit_test() {
+        char buffer[2048];
+
+        // Test HTTP/2 frame parsing (SETTINGS frame)
+        uint8_t settings_frame[] = {
+            0x00, 0x00, 0x00,       // length: 0
+            0x04,                   // type: SETTINGS
+            0x00,                   // flags
+            0x00, 0x00, 0x00, 0x00  // stream ID: 0
+        };
+        datum d1{settings_frame, settings_frame + sizeof(settings_frame)};
+        http2_frame frame1;
+        frame1.parse(d1);
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_object json{&buf};
+            frame1.write_json(json);
+            json.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "SETTINGS")) return false;
+        }
+
+        // Test HTTP/2 HEADERS frame
+        uint8_t headers_frame[] = {
+            0x00, 0x00, 0x05,       // length: 5
+            0x01,                   // type: HEADERS
+            0x04,                   // flags: END_HEADERS
+            0x00, 0x00, 0x00, 0x01, // stream ID: 1
+            0x82, 0x86, 0x84, 0x41, 0x8a  // HPACK encoded headers
+        };
+        datum d2{headers_frame, headers_frame + sizeof(headers_frame)};
+        http2_frame frame2;
+        frame2.parse(d2);
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_object json{&buf};
+            frame2.write_json(json);
+            json.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "HEADERS")) return false;
+        }
+
+        // Test HTTP/2 DATA frame
+        uint8_t data_frame[] = {
+            0x00, 0x00, 0x04,       // length: 4
+            0x00,                   // type: DATA
+            0x01,                   // flags: END_STREAM
+            0x00, 0x00, 0x00, 0x01, // stream ID: 1
+            0x74, 0x65, 0x73, 0x74  // payload: "test"
+        };
+        datum d3{data_frame, data_frame + sizeof(data_frame)};
+        http2_frame frame3;
+        frame3.parse(d3);
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_object json{&buf};
+            frame3.write_json(json);
+            json.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "DATA")) return false;
+        }
+
+        return true;
+    }
+#endif
+} // namespace http2_test
+
 #endif // HTTP2_H

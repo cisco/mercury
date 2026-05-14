@@ -482,7 +482,7 @@ public:
         rsv{pkt},
         addr{pkt},
         dst_port{pkt},
-        valid{true} {}
+        valid{pkt.is_not_null()} {}
 
     bool is_not_empty() { return valid; }
 

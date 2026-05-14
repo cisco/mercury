@@ -61,7 +61,7 @@ test: all unittest test-comp test-analysis test-cert-check \
 $(OBJ)/src/unit_test.o: CXXFLAGS := $(filter-out -DNDEBUG,$(CXXFLAGS))
 
 $(BIN)/unit_test: LDLIBS := -lcrypto -lz
-$(BIN)/unit_test: $(call objects,src/unit_test.cpp src/libmerc/asn1/oid.cc)
+$(BIN)/unit_test: $(call objects,src/unit_test.cpp src/libmerc/asn1/oid.cc src/libmerc/http.cc)
 	$(LINK)
 
 .PHONY: unittest
