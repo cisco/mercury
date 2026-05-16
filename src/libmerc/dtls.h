@@ -37,7 +37,7 @@ struct dtls_record {
         d.read_uint16(&epoch);
         d.read_uint(&sequence_number, 6);   // 6 bytes == 48 bits
         d.read_uint16(&length);
-        fragment.init_from_outer_parser(&d, length);
+        fragment.parse(d, length);
     }
 };
 
@@ -71,7 +71,7 @@ struct dtls_handshake {
         fragment_length = tmp;
         // body contains only the fragment data (fragment_length bytes),
         // not the full message (length bytes)
-        body.init_from_outer_parser(&d, fragment_length);
+        body.parse(d, fragment_length);
         // additional_bytes_needed is only meaningful for the first fragment
         // (fragment_offset == 0); continuations must not trigger reassembly
         // initialisation.  Validate sizes to avoid wraparound on malformed
