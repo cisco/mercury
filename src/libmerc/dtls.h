@@ -148,6 +148,13 @@ public:
     uint32_t get_handshake_length() const    { return handshake.length; }
     datum    get_fragment_data() const       { return raw_fragment; }
 
+    // Per-handshake discriminator so retransmitted/interleaved ClientHellos
+    // (e.g. pre- vs post-HelloVerifyRequest) get distinct reassembly flows.
+    datum get_cid() const {
+        const uint8_t *p = reinterpret_cast<const uint8_t *>(&handshake.message_seq);
+        return datum{p, p + sizeof(handshake.message_seq)};
+    }
+
     void reparse_from_buf(datum buf) {
         raw_fragment = buf;
         hello = tls_client_hello{buf};

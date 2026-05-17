@@ -16,8 +16,10 @@
 #include "fdc.hpp"     // for truncation_status
 
 #include <bitset>
-#include <vector>
+#include <type_traits>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 enum class indefinite_reassembly_type : uint8_t {
     definite = 0,
@@ -993,7 +995,9 @@ inline bool process_quic_reassembly(quic_init &qi,
 
 // Offset-based UDP fragment reassembly; returns true when the caller
 // should fingerprint/analyse the packet.  Proto trait: get_fragment_offset,
-// get_fragment_length, get_fragment_data, reparse_from_buf.
+// get_fragment_length, get_fragment_data, get_cid, reparse_from_buf.
+// get_cid() returns a per-handshake discriminator so distinct handshakes
+// sharing a 5-tuple (e.g. DTLS pre/post HelloVerifyRequest) get distinct flows.
 template <typename Proto>
 inline bool process_udp_offset_reassembly(Proto &proto,
                                           udp &udp_pkt,
@@ -1004,6 +1008,7 @@ inline bool process_udp_offset_reassembly(Proto &proto,
     const uint32_t frag_len               = proto.get_fragment_length();
     const uint32_t additional_bytes_needed = udp_pkt.additional_bytes_needed();
     datum          frag_data              = proto.get_fragment_data();
+    datum          cid                    = proto.get_cid();
 
     if (frag_len > reassembly_flow_context::max_data_size || frag_len == 0) {
         return true;
@@ -1020,9 +1025,7 @@ inline bool process_udp_offset_reassembly(Proto &proto,
         return true;
     }
 
-    static constexpr uint8_t empty_cid_storage[1] = {0};
-    datum empty_cid{empty_cid_storage, empty_cid_storage};
-    reassembly_state r_state = reassembler->check_flow(k, ts->tv_sec, empty_cid);
+    reassembly_state r_state = reassembler->check_flow(k, ts->tv_sec, cid);
 
     if ((r_state == reassembly_state::reassembly_none) && !additional_bytes_needed) {
         // non-first fragment without prior init; ignore
@@ -1030,12 +1033,12 @@ inline bool process_udp_offset_reassembly(Proto &proto,
     }
     else if ((r_state == reassembly_state::reassembly_none) && additional_bytes_needed) {
         // first fragment; init reassembly
-        udp_segment seg{true, frag_len, frag_offset, additional_bytes_needed, (uint64_t)ts->tv_sec, empty_cid};
+        udp_segment seg{true, frag_len, frag_offset, additional_bytes_needed, (uint64_t)ts->tv_sec, cid};
         reassembler->process_udp_data_pkt(k, ts->tv_sec, seg, frag_data);
         reassembler->dump_pkt = true;
     }
     else if (r_state == reassembly_state::reassembly_progress) {
-        udp_segment seg{false, frag_len, frag_offset, 0, (uint64_t)ts->tv_sec, empty_cid};
+        udp_segment seg{false, frag_len, frag_offset, 0, (uint64_t)ts->tv_sec, cid};
         reassembler->process_udp_data_pkt(k, ts->tv_sec, seg, frag_data);
         reassembler->dump_pkt = true;
     }
@@ -1079,6 +1082,7 @@ struct has_udp_offset_reassembly_trait<
         decltype(std::declval<const Proto &>().get_fragment_offset()),
         decltype(std::declval<const Proto &>().get_fragment_length()),
         decltype(std::declval<const Proto &>().get_fragment_data()),
+        decltype(std::declval<const Proto &>().get_cid()),
         decltype(std::declval<Proto &>().reparse_from_buf(std::declval<datum>()))
     >
 > : std::true_type {};

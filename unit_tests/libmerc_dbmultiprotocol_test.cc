@@ -305,6 +305,23 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test dtls partial fragment with and witho
     }
 }
 
+TEST_CASE_FIXTURE(LibmercTestFixture, "test dtls interleaved client hellos with reassembly")
+{
+    // Stray msg_seq=0 fragment between the two msg_seq=1 fragments must
+    // be isolated by per-handshake CID; otherwise it corrupts the buffer.
+    libmerc_config config{.resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"dtls;reassembly"};
+    initialize(config);
+    set_pcap("dtls_interleaved_client_hello.pcap");
+    CHECK(1 == counter(fingerprint_type_dtls));
+
+    set_pcap("dtls_interleaved_client_hello.pcap");
+    const std::string json = get_first_json();
+    CHECK(json.find("c004009c003c002f00960041") != std::string::npos);  // clean bytes
+    CHECK(json.find("c0040063ffc3ffd0ff69") == std::string::npos);      // corrupted bytes
+    deinitialize();
+}
+
 TEST_CASE_FIXTURE(LibmercTestFixture, "test SGT encapsulated TLS with analysis")
 {
     auto destination_check_callback = [](const analysis_context *ac)
