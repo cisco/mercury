@@ -1046,21 +1046,6 @@ public:
     }
 };
 
-// Folds packet- and flow-level truncation into one boolean.
-// Call after process_tcp_data / process_udp_data; reassembler may be null.
-static inline bool detect_truncation(bool more_bytes_needed,
-                                     struct tcp_reassembler *reassembler) {
-    if (more_bytes_needed) {
-        return true;
-    }
-    if (reassembler &&
-        reassembler->is_done(reassembler->curr_flow) &&
-        reassembler->was_flow_truncated(reassembler->curr_flow)) {
-        return true;
-    }
-    return false;
-}
-
 // True for truncated TLS/QUIC/DTLS handshakes; gates crypto-assessment.
 static inline bool is_truncated_crypto_handshake(const protocol &x,
                                                  bool truncated_tcp,

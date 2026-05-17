@@ -1107,6 +1107,21 @@ struct dispatch_udp_offset_reassembly {
     bool operator()(std::monostate) const { return true; }
 };
 
+// Folds packet- and flow-level truncation into one boolean.
+// Call after process_tcp_data / process_udp_data; reassembler may be null.
+inline bool detect_truncation(bool more_bytes_needed,
+                              struct tcp_reassembler *reassembler) {
+    if (more_bytes_needed) {
+        return true;
+    }
+    if (reassembler &&
+        reassembler->is_done(reassembler->curr_flow) &&
+        reassembler->was_flow_truncated(reassembler->curr_flow)) {
+        return true;
+    }
+    return false;
+}
+
 // Maps (reassembler-state, truncated?) to the FDC truncation_status enum:
 //
 //   done    + truncated -> reassembled_truncated
@@ -1115,7 +1130,7 @@ struct dispatch_udp_offset_reassembly {
 //   otherwise           -> none
 //
 // Caller's `truncated` must already include flow-level signals
-// (see detect_truncation in pkt_proc.cc).
+// (see detect_truncation above).
 inline truncation_status compute_truncation_status(struct tcp_reassembler *reassembler,
                                                    bool truncated) {
     if (reassembler && reassembler->is_done(reassembler->curr_flow)) {
