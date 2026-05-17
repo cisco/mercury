@@ -996,8 +996,10 @@ inline bool process_quic_reassembly(quic_init &qi,
 // Offset-based UDP fragment reassembly; returns true when the caller
 // should fingerprint/analyse the packet.  Proto trait: get_fragment_offset,
 // get_fragment_length, get_fragment_data, get_cid, reparse_from_buf.
-// get_cid() returns a per-handshake discriminator so distinct handshakes
-// sharing a 5-tuple (e.g. DTLS pre/post HelloVerifyRequest) get distinct flows.
+// get_cid() returns a per-handshake discriminator used to validate that
+// fragments on a shared 5-tuple belong to the currently active reassembly
+// context; mismatched discriminators are isolated by rejecting them rather
+// than by creating distinct concurrent flows.
 template <typename Proto>
 inline bool process_udp_offset_reassembly(Proto &proto,
                                           udp &udp_pkt,
