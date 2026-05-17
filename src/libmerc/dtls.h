@@ -69,13 +69,10 @@ struct dtls_handshake {
         fragment_offset = tmp;
         d.read_uint(&tmp, 3);  // 24 bits on wire
         fragment_length = tmp;
-        // body contains only the fragment data (fragment_length bytes),
-        // not the full message (length bytes)
+        // body holds only the fragment, not the full message
         body.parse(d, fragment_length);
-        // additional_bytes_needed is only meaningful for the first fragment
-        // (fragment_offset == 0); continuations must not trigger reassembly
-        // initialisation.  Validate sizes to avoid wraparound on malformed
-        // headers where fragment_length > length.
+        // only meaningful for the first fragment; guard against wraparound
+        // when fragment_length > length on malformed headers
         if (fragment_offset == 0) {
             int body_len = body.length();
             if (fragment_length <= length && body_len >= 0 && (uint32_t)body_len <= length) {
@@ -107,13 +104,13 @@ struct dtls_handshake {
 class dtls_client_hello : public base_protocol {
     dtls_record rec;
     dtls_handshake handshake;
-    datum raw_fragment;       // snapshot of handshake.body before tls_client_hello::parse consumes it
+    datum raw_fragment;       // snapshot of handshake.body before tls_client_hello parses it
     tls_client_hello hello;
 public:
     dtls_client_hello(struct datum &pkt) :
         rec{pkt},
         handshake{rec.fragment},
-        raw_fragment{handshake.body},   // captured before hello{} advances/nullifies handshake.body
+        raw_fragment{handshake.body},   // captured before hello{} consumes handshake.body
         hello{handshake.body} {}
 
     void fingerprint(struct buffer_stream &buf, size_t format_version) const {
@@ -142,10 +139,9 @@ public:
 
     const tls_client_hello &get_tls_client_hello() const { return hello; }
 
-    // Offset-based UDP reassembly trait (see process_udp_offset_reassembly
-    // in reassembly.hpp).  raw_fragment is used instead of handshake.body
-    // because tls_client_hello::parse may advance/nullify handshake.body
-    // during construction.
+    // Offset-based UDP reassembly trait (see reassembly.hpp).
+    // raw_fragment is used instead of handshake.body since the latter
+    // may be consumed by tls_client_hello during construction.
     uint32_t additional_bytes_needed() const { return static_cast<uint32_t>(handshake.additional_bytes_needed); }
     uint32_t get_fragment_offset() const     { return handshake.fragment_offset; }
     uint32_t get_fragment_length() const     { return static_cast<uint32_t>(raw_fragment.length()); }

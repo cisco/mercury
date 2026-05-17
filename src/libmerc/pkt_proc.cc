@@ -922,23 +922,9 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
     if (global_vars.output_udp_initial_data && pkt.is_not_empty()) {
         is_new = ip_flow_table.flow_is_new(k, ts->tv_sec);
     }
-    //datum pkt_copy{pkt};
-
-    // For UDP reassembly, all the reassembly will always happen at the encapsulated
-    // application or transport protocol layer (e.g., QUIC or DTLS).
-    // A UDP packet is a candidate for reassembly when:
-    //   - QUIC: the initial QUIC/TLS ClientHello is fragmented across multiple QUIC
-    //     CRYPTO frames or datagrams, or
-    //   - DTLS: a DTLS handshake message is fragmented across multiple UDP datagrams.
-
     set_udp_protocol(x, pkt, udp_pkt.get_ports(), is_new, k, udp_pkt);
 
-    // QUIC reassembly is handled separately: QUIC has CRYPTO-frame-level
-    // sub-segmentation and connection-ID matching that do not fit the
-    // simple offset/length trait used by other UDP protocols, so it keeps
-    // its own dedicated helper.  All offset-fragmented UDP protocols
-    // (currently only DTLS) are dispatched through the
-    // udp_reassembly_protocol variant + visitor.
+    // QUIC has its own helper (CRYPTO-frame sub-segmentation + CID matching).
     if (std::holds_alternative<quic_init>(x)) {
         if (udp_pkt.additional_bytes_needed() > reassembly_flow_context::max_data_size) {
             return true;
@@ -946,10 +932,7 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
         return process_quic_reassembly(std::get<quic_init>(x), udp_pkt, k, ts, reassembler);
     }
 
-    // Offset-based UDP reassembly; protocols opt in via
-    // supports_udp_offset_reassembly() and the trait expected by
-    // process_udp_offset_reassembly.  No edits needed here for new
-    // offset-fragmented UDP protocols.
+    // Generic offset-based UDP reassembly; protocols opt in via the trait.
     if (!std::visit(supports_udp_offset_reassembly{}, x)) {
         return true;
     }
@@ -1063,6 +1046,33 @@ public:
     }
 };
 
+// Folds packet- and flow-level truncation into one boolean.
+// Call after process_tcp_data / process_udp_data; reassembler may be null.
+static inline bool detect_truncation(bool more_bytes_needed,
+                                     struct tcp_reassembler *reassembler) {
+    if (more_bytes_needed) {
+        return true;
+    }
+    if (reassembler &&
+        reassembler->is_done(reassembler->curr_flow) &&
+        reassembler->was_flow_truncated(reassembler->curr_flow)) {
+        return true;
+    }
+    return false;
+}
+
+// True for truncated TLS/QUIC/DTLS handshakes; gates crypto-assessment.
+static inline bool is_truncated_crypto_handshake(const protocol &x,
+                                                 bool truncated_tcp,
+                                                 bool truncated_udp) {
+    return (truncated_tcp &&
+            (std::holds_alternative<tls_client_hello>(x) ||
+             std::holds_alternative<tls_server_hello_and_certificate>(x)))
+        || (truncated_udp &&
+            (std::holds_alternative<quic_init>(x) ||
+             std::holds_alternative<dtls_client_hello>(x)));
+}
+
 size_t stateful_pkt_proc::ip_write_json(void *buffer,
                                         size_t buffer_size,
                                         const uint8_t *ip_packet,
@@ -1075,7 +1085,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
     struct datum pkt{ip_packet, ip_packet+length};
     ip ip_pkt{pkt, k};
     bool truncated_tcp = false;
-    bool truncated_udp = false;   // set on truncated QUIC or DTLS fragments
+    bool truncated_udp = false;
 
     analysis.reinit();
     if (reassembler) {
@@ -1139,9 +1149,8 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
             if (!process_tcp_data(x, pkt, tcp_pkt, k, ts, reassembler)) {
                 return 0;
             }
-            else if (tcp_pkt.additional_bytes_needed) {
-                truncated_tcp = true;
-            }
+            truncated_tcp = detect_truncation(tcp_pkt.additional_bytes_needed,
+                                              reassembler);
         }
 
     } else if (transport_proto == ip::protocol::udp) {
@@ -1152,9 +1161,8 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         if (!udp_result) {
             return 0;
         }
-        else if (udp_pkt.additional_bytes_needed()) {
-            truncated_udp = true;
-        }
+        truncated_udp = detect_truncation(udp_pkt.additional_bytes_needed(),
+                                          reassembler);
     }
 
     // process transport/application protocol
@@ -1163,12 +1171,8 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
         bool output_analysis = false;
         bool output_attr = false;
-        bool truncated_crypto_handshake = (truncated_tcp &&
-                              (std::holds_alternative<tls_client_hello>(x) ||
-                               std::holds_alternative<tls_server_hello_and_certificate>(x)))
-                             || (truncated_udp &&
-                                 (std::holds_alternative<quic_init>(x) ||
-                                  std::holds_alternative<dtls_client_hello>(x)));
+        bool truncated_crypto_handshake =
+            is_truncated_crypto_handshake(x, truncated_tcp, truncated_udp);
         if (global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
 
             output_analysis = std::visit(do_analysis{k, analysis, c}, x);
@@ -1475,54 +1479,37 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         //setting synthetic pkt to true to seed a synthetic SYN entry
         tcp_pkt.set_synthetic_pkt();
 
-        if (reassembler_ptr && global_vars.reassembly && perform_reassembly) {
+        struct tcp_reassembler *r =
+            (reassembler_ptr && global_vars.reassembly && perform_reassembly)
+            ? reassembler_ptr : nullptr;
+        if (r) {
             analysis.flow_state_pkts_needed = false;
-            bool ret = process_tcp_data(x, pkt, tcp_pkt, k_, &ts, reassembler_ptr);
-            if (reassembler_ptr->in_progress(reassembler_ptr->curr_flow)) {
-                analysis.flow_state_pkts_needed = true;
-                return fdc_return::MORE_PACKETS_NEEDED;
-            }
-            if (!ret) {
-                return fdc_return::FDC_NO_DATA;
-            }
         }
-        else {
-            bool ret = process_tcp_data(x, pkt, tcp_pkt, k_, &ts, nullptr);
-            if (!ret) {
-                return fdc_return::FDC_NO_DATA;
-            }
-            if (tcp_pkt.additional_bytes_needed) {
-                truncated_tcp = true;
-            }
+        bool ret = process_tcp_data(x, pkt, tcp_pkt, k_, &ts, r);
+        if (r && r->in_progress(r->curr_flow)) {
+            analysis.flow_state_pkts_needed = true;
+            return fdc_return::MORE_PACKETS_NEEDED;
         }
+        if (!ret) {
+            return fdc_return::FDC_NO_DATA;
+        }
+        truncated_tcp = detect_truncation(tcp_pkt.additional_bytes_needed, r);
 
     } else if (k->protocol == ip::protocol::udp) {
         udp udp_pseudoheader{k_};
+        struct tcp_reassembler *r =
+            (reassembler_ptr && global_vars.reassembly && perform_reassembly)
+            ? reassembler_ptr : nullptr;
 
-        if (reassembler_ptr && global_vars.reassembly && perform_reassembly) {
-            bool ret = process_udp_data(x, pkt, udp_pseudoheader, k_, &ts, reassembler_ptr);
-            if (reassembler_ptr->in_progress(reassembler_ptr->curr_flow)) {
-                analysis.flow_state_pkts_needed = true;
-                return fdc_return::MORE_PACKETS_NEEDED;
-            }
-            if (!ret) {
-                return fdc_return::FDC_NO_DATA;
-            }
-            // oversized first fragment skipped by reassembly; mark truncated
-            if (udp_pseudoheader.additional_bytes_needed()) {
-                truncated_udp = true;
-            }
+        bool ret = process_udp_data(x, pkt, udp_pseudoheader, k_, &ts, r);
+        if (r && r->in_progress(r->curr_flow)) {
+            analysis.flow_state_pkts_needed = true;
+            return fdc_return::MORE_PACKETS_NEEDED;
         }
-        else {
-
-            bool ret = process_udp_data(x, pkt, udp_pseudoheader, k_, &ts, nullptr);
-            if (!ret) {
-                return fdc_return::FDC_NO_DATA;
-            }
-            if (udp_pseudoheader.additional_bytes_needed()) {
-                truncated_udp = true;
-            }
+        if (!ret) {
+            return fdc_return::FDC_NO_DATA;
         }
+        truncated_udp = detect_truncation(udp_pseudoheader.additional_bytes_needed(), r);
     }
 
     analysis.reinit();
@@ -1645,63 +1632,51 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             return 0;  // incomplete tcp header; can't process packet
          }
         tcp_pkt.set_key(k);
-        if (reassembler && global_vars.reassembly) {
+        struct tcp_reassembler *r =
+            (reassembler && global_vars.reassembly) ? reassembler : nullptr;
+        if (r) {
             analysis.flow_state_pkts_needed = false;
             if (tcp_pkt.is_SYN() || tcp_pkt.is_SYN_ACK() || tcp_pkt.is_RST()) {
-                ; // do nothing
+                // skip handshake control packets in reassembly mode
             }
             else {
-                bool ret = process_tcp_data(x, pkt, tcp_pkt, k, ts, reassembler);
-                if (reassembler->in_progress(reassembler->curr_flow)) {
+                bool ret = process_tcp_data(x, pkt, tcp_pkt, k, ts, r);
+                if (r->in_progress(r->curr_flow)) {
                     analysis.flow_state_pkts_needed = true;
                 }
                 if (!ret) {
                     return 0;
                 }
+                truncated_tcp = detect_truncation(tcp_pkt.additional_bytes_needed, r);
             }
         }
         else {
             set_tcp_protocol(x, pkt, false, &tcp_pkt);
-            if (tcp_pkt.additional_bytes_needed) {
-                truncated_tcp = true;
-            }
+            truncated_tcp = detect_truncation(tcp_pkt.additional_bytes_needed, nullptr);
         }
 
     } else if (transport_proto == ip::protocol::udp) {
         class udp udp_pkt{pkt};
         udp_pkt.set_key(k);
 
-        if (reassembler && global_vars.reassembly) {
-            bool ret = process_udp_data(x, pkt, udp_pkt, k, ts, reassembler);
-            if (reassembler->in_progress(reassembler->curr_flow)) {
-                analysis.flow_state_pkts_needed = true;
-            }
-            if (!ret) {
-                return 0;
-            }
-            // oversized first fragment skipped by reassembly; mark truncated
-            if (udp_pkt.additional_bytes_needed()) {
-                truncated_udp = true;
-            }
+        struct tcp_reassembler *r =
+            (reassembler && global_vars.reassembly) ? reassembler : nullptr;
+        bool ret = process_udp_data(x, pkt, udp_pkt, k, ts, r);
+        if (r && r->in_progress(r->curr_flow)) {
+            analysis.flow_state_pkts_needed = true;
         }
-        else {
-            process_udp_data(x, pkt, udp_pkt, k, ts, reassembler);
-            if (udp_pkt.additional_bytes_needed()) {
-                truncated_udp = true;
-            }
+        if (r && !ret) {
+            return 0;
         }
+        truncated_udp = detect_truncation(udp_pkt.additional_bytes_needed(), r);
     }
 
     // process protocol data element
     //
     if (std::visit(is_not_empty{}, x)) {
         bool output_attr = false;
-        bool truncated_crypto_handshake = (truncated_tcp &&
-                              (std::holds_alternative<tls_client_hello>(x) ||
-                               std::holds_alternative<tls_server_hello_and_certificate>(x)))
-                             || (truncated_udp &&
-                                 (std::holds_alternative<quic_init>(x) ||
-                                  std::holds_alternative<dtls_client_hello>(x)));
+        bool truncated_crypto_handshake =
+            is_truncated_crypto_handshake(x, truncated_tcp, truncated_udp);
 
         if (global_vars.do_analysis && mq) {
             if (ip_pkt.src_is_private()) {

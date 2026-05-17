@@ -142,7 +142,7 @@ struct reassembly_flow_context {
     uint32_t init_seq;
     uint32_t init_seg_len;
     uint32_t total_bytes_needed;
-    indefinite_reassembly_type indefinite_reassembly;
+    indefinite_reassembly_type indefinite_reassembly = indefinite_reassembly_type::definite;
 
     static constexpr unsigned int reassembly_timeout = 15;
 
@@ -223,6 +223,7 @@ struct reassembly_flow_context {
         init_seq{seg.seq},
         init_seg_len{seg.data_length},
         total_bytes_needed{(seg.data_length) + (seg.additional_bytes_needed)},
+        indefinite_reassembly{seg.indefinite_reassembly},
         curr_contiguous_data{seg.data_length},
         total_set_data{seg.data_length},
         buffer{},
@@ -568,6 +569,8 @@ struct tcp_reassembler {
     bool is_ready(reassembly_map_iterator it);
     bool in_progress(reassembly_map_iterator it);
     bool is_done(reassembly_map_iterator it);
+    // true if any truncation flag is set (persists past set_completed)
+    bool was_flow_truncated(reassembly_map_iterator it) const;
     datum get_reassembled_data(reassembly_map_iterator it);
     void set_completed(reassembly_map_iterator it);
     void write_json(json_object &record);
@@ -790,6 +793,18 @@ inline bool tcp_reassembler::is_done(reassembly_map_iterator it)  {
         return false;
 }
 
+inline bool tcp_reassembler::was_flow_truncated(reassembly_map_iterator it) const {
+    if (it == table.end()) {
+        return false;
+    }
+    const auto &flags = it->second.reassembly_flag_val;
+    return flags[(size_t)reassembly_flags::truncated]
+        || flags[(size_t)reassembly_flags::timeout]
+        || flags[(size_t)reassembly_flags::out_of_buffer]
+        || flags[(size_t)reassembly_flags::max_seg_exceed]
+        || flags[(size_t)reassembly_flags::missing_mid_segment];
+}
+
 inline datum tcp_reassembler::get_reassembled_data(reassembly_map_iterator it) {
     if (it != table.end())
         return it->second.get_reassembled_data();
@@ -847,27 +862,32 @@ inline bool process_quic_reassembly(quic_init &qi,
     uint32_t crypto_len = 0;
     const uint8_t *crypto_data = qi.get_crypto_buf(&crypto_len);
     uint32_t crypto_offset = qi.get_min_crypto_offset();
+    const uint32_t additional_bytes_needed = udp_pkt.additional_bytes_needed();
     bool missing_crypto_frames = qi.missing_crypto_frames();
     bool min_crypto_data = qi.min_crypto_data();
     if (crypto_len > reassembly_flow_context::max_data_size) {
         return true;
     }
 
-    // skip reassembly table lookup when:
-    // 1. no crypto data present, or
-    // 2. offset is 0 and no additional bytes needed (complete initial packet)
-    if (!crypto_len || (!crypto_offset && !udp_pkt.additional_bytes_needed())) {
+    // skip reassembly: no crypto data, or complete initial packet
+    if (!crypto_len || (!crypto_offset && !additional_bytes_needed)) {
+        return true;
+    }
+
+    // total must fit the reassembly buffer
+    if ((uint64_t)crypto_len + (uint64_t)additional_bytes_needed >
+        reassembly_flow_context::max_data_size) {
         return true;
     }
 
     reassembly_state r_state = reassembler->check_flow(k, ts->tv_sec, cid);
 
-    if ((r_state == reassembly_state::reassembly_none) && !udp_pkt.additional_bytes_needed()) {
+    if ((r_state == reassembly_state::reassembly_none) && !additional_bytes_needed) {
         return true;
     }
-    else if ((r_state == reassembly_state::reassembly_none) && udp_pkt.additional_bytes_needed()) {
+    else if ((r_state == reassembly_state::reassembly_none) && additional_bytes_needed) {
         if (!missing_crypto_frames) {
-            udp_segment seg{true, crypto_len, crypto_offset, udp_pkt.additional_bytes_needed(), (uint64_t)ts->tv_sec, cid};
+            udp_segment seg{true, crypto_len, crypto_offset, additional_bytes_needed, (uint64_t)ts->tv_sec, cid};
             reassembler->process_udp_data_pkt(k, ts->tv_sec, seg, datum{crypto_data+crypto_offset, crypto_data+crypto_offset+crypto_len});
             reassembler->dump_pkt = true;
         }
@@ -889,7 +909,7 @@ inline bool process_quic_reassembly(quic_init &qi,
                         seg_len = available_len;
                     }
                     if (seg_len && (seg_len <= UINT32_MAX)) {
-                        udp_segment seg{true, (uint32_t)seg_len, (uint32_t)frame_offset, udp_pkt.additional_bytes_needed(), (uint64_t)ts->tv_sec, cid};
+                        udp_segment seg{true, (uint32_t)seg_len, (uint32_t)frame_offset, additional_bytes_needed, (uint64_t)ts->tv_sec, cid};
                         reassembler->process_udp_data_pkt(k, ts->tv_sec, seg, datum{crypto_data+frame_offset, crypto_data+frame_offset+seg_len});
                     }
                 }
@@ -901,7 +921,7 @@ inline bool process_quic_reassembly(quic_init &qi,
                     (frame_offset + frame_len <= max_crypto_end) &&
                     (frame_offset <= UINT32_MAX) &&
                     (frame_len <= UINT32_MAX)) {
-                    udp_segment seg{true, (uint32_t)frame_len, (uint32_t)frame_offset, udp_pkt.additional_bytes_needed(), (uint64_t)ts->tv_sec, cid};
+                    udp_segment seg{true, (uint32_t)frame_len, (uint32_t)frame_offset, additional_bytes_needed, (uint64_t)ts->tv_sec, cid};
                     reassembler->process_udp_data_pkt(k, ts->tv_sec, seg, datum{crypto_data+frame_offset, crypto_data+frame_offset+frame_len});
                 }
             }
@@ -971,26 +991,32 @@ inline bool process_quic_reassembly(quic_init &qi,
     return false;
 }
 
-// Offset-based UDP fragment reassembly state machine; returns true when
-// the caller should fingerprint/analyse the packet.  Trait expected
-// from Proto: get_fragment_offset, get_fragment_length,
-// get_fragment_data, reparse_from_buf.
+// Offset-based UDP fragment reassembly; returns true when the caller
+// should fingerprint/analyse the packet.  Proto trait: get_fragment_offset,
+// get_fragment_length, get_fragment_data, reparse_from_buf.
 template <typename Proto>
 inline bool process_udp_offset_reassembly(Proto &proto,
                                           udp &udp_pkt,
                                           const struct key &k,
                                           struct timespec *ts,
                                           struct tcp_reassembler *reassembler) {
-    uint32_t frag_offset = proto.get_fragment_offset();
-    uint32_t frag_len    = proto.get_fragment_length();
-    datum    frag_data   = proto.get_fragment_data();
+    const uint32_t frag_offset            = proto.get_fragment_offset();
+    const uint32_t frag_len               = proto.get_fragment_length();
+    const uint32_t additional_bytes_needed = udp_pkt.additional_bytes_needed();
+    datum          frag_data              = proto.get_fragment_data();
 
     if (frag_len > reassembly_flow_context::max_data_size || frag_len == 0) {
         return true;
     }
 
-    // skip reassembly for a complete (non-fragmented) message
-    if (frag_offset == 0 && !udp_pkt.additional_bytes_needed()) {
+    // complete (non-fragmented) message; nothing to reassemble
+    if (frag_offset == 0 && !additional_bytes_needed) {
+        return true;
+    }
+
+    // total must fit the reassembly buffer
+    if ((uint64_t)frag_len + (uint64_t)additional_bytes_needed >
+        reassembly_flow_context::max_data_size) {
         return true;
     }
 
@@ -998,13 +1024,13 @@ inline bool process_udp_offset_reassembly(Proto &proto,
     datum empty_cid{empty_cid_storage, empty_cid_storage};
     reassembly_state r_state = reassembler->check_flow(k, ts->tv_sec, empty_cid);
 
-    if ((r_state == reassembly_state::reassembly_none) && !udp_pkt.additional_bytes_needed()) {
-        // non-first fragment arrived before the first; ignore
+    if ((r_state == reassembly_state::reassembly_none) && !additional_bytes_needed) {
+        // non-first fragment without prior init; ignore
         return true;
     }
-    else if ((r_state == reassembly_state::reassembly_none) && udp_pkt.additional_bytes_needed()) {
-        // first fragment (fragment_offset == 0) — init reassembly
-        udp_segment seg{true, frag_len, frag_offset, udp_pkt.additional_bytes_needed(), (uint64_t)ts->tv_sec, empty_cid};
+    else if ((r_state == reassembly_state::reassembly_none) && additional_bytes_needed) {
+        // first fragment; init reassembly
+        udp_segment seg{true, frag_len, frag_offset, additional_bytes_needed, (uint64_t)ts->tv_sec, empty_cid};
         reassembler->process_udp_data_pkt(k, ts->tv_sec, seg, frag_data);
         reassembler->dump_pkt = true;
     }
@@ -1034,7 +1060,7 @@ inline bool process_udp_offset_reassembly(Proto &proto,
     return false;
 }
 
-// Visitor: returns whether a protocol opts in to offset-based UDP reassembly.
+// Visitor: protocol opts in to offset-based UDP reassembly?
 struct supports_udp_offset_reassembly {
     template <typename Proto>
     bool operator()(const Proto &proto) const { return proto.supports_udp_offset_reassembly(); }
@@ -1042,9 +1068,7 @@ struct supports_udp_offset_reassembly {
     bool operator()(std::monostate) const { return false; }
 };
 
-// SFINAE detector: true iff Proto provides the four offset-reassembly
-// accessors.  Lets the dispatcher no-op for variant alternatives that
-// don't implement them, avoiding stub methods on every protocol.
+// SFINAE: true iff Proto provides the offset-reassembly accessors.
 template <typename, typename = void>
 struct has_udp_offset_reassembly_trait : std::false_type {};
 
@@ -1059,8 +1083,7 @@ struct has_udp_offset_reassembly_trait<
     >
 > : std::true_type {};
 
-// Visitor: invokes process_udp_offset_reassembly for protocols that
-// satisfy the trait; no-op otherwise.
+// Visitor: dispatches to process_udp_offset_reassembly when the trait is satisfied.
 struct dispatch_udp_offset_reassembly {
     udp                    &udp_pkt;
     const struct key       &k;
@@ -1082,12 +1105,13 @@ struct dispatch_udp_offset_reassembly {
 
 // Maps (reassembler-state, truncated?) to the FDC truncation_status enum:
 //
-//   reassembler done    + truncated -> reassembled_truncated
-//   reassembler done    + clean     -> reassembled
-//   reassembler present + truncated -> truncated   (e.g. oversized first
-//                                                   fragment skipped)
-//   no reassembler      + truncated -> truncated
-//   otherwise                       -> none
+//   done    + truncated -> reassembled_truncated
+//   done    + clean     -> reassembled
+//   any     + truncated -> truncated
+//   otherwise           -> none
+//
+// Caller's `truncated` must already include flow-level signals
+// (see detect_truncation in pkt_proc.cc).
 inline truncation_status compute_truncation_status(struct tcp_reassembler *reassembler,
                                                    bool truncated) {
     if (reassembler && reassembler->is_done(reassembler->curr_flow)) {
@@ -1100,8 +1124,7 @@ inline truncation_status compute_truncation_status(struct tcp_reassembler *reass
     return truncation_status::none;
 }
 
-// End-of-call cleanup: clears flow_state_pkts_needed if the flow is
-// done, then resets the per-call cursor.  No-op without a reassembler.
+// End-of-call cleanup: clears flow_state_pkts_needed when done and resets the cursor.
 inline void finalize_reassembly_flow(struct tcp_reassembler *reassembler,
                                      bool &flow_state_pkts_needed) {
     if (!reassembler) {
@@ -1113,9 +1136,8 @@ inline void finalize_reassembly_flow(struct tcp_reassembler *reassembler,
     reassembler->clean_curr_flow();
 }
 
-// Emits the "reassembly_properties" JSON: "truncated" when the message
-// is incomplete and no flow reached a terminal state, or "reassembled"
-// when a flow finished.  in_progress flows produce no output.
+// Emits "reassembly_properties": "truncated" when incomplete and no
+// terminal flow, "reassembled" when a flow finished.
 inline void write_reassembly_properties(json_object &record,
                                         struct tcp_reassembler *reassembler,
                                         bool truncated,

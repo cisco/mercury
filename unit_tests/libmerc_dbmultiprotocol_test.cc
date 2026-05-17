@@ -276,6 +276,14 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test dtls partial fragment with and witho
         initialize(config);
         set_pcap("dtls_fragmented_client_hello_partial.pcap");
         CHECK(1 == counter(fingerprint_type_dtls));
+
+        // re-iterate the pcap to inspect the emitted JSON; the first
+        // record must carry the truncation marker so consumers can tell
+        // the partial fingerprint apart from a fully parsed one.
+        set_pcap("dtls_fragmented_client_hello_partial.pcap");
+        const std::string json = get_first_json();
+        CHECK(json.find("\"reassembly_properties\":{\"truncated\":true")
+              != std::string::npos);
         deinitialize();
     }
 
@@ -285,6 +293,14 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test dtls partial fragment with and witho
         initialize(config);
         set_pcap("dtls_fragmented_client_hello_partial.pcap");
         CHECK(1 == counter(fingerprint_type_dtls));
+
+        // the reassembled record must be flagged "reassembled" rather
+        // than "truncated", and must not regress to the truncated form.
+        set_pcap("dtls_fragmented_client_hello_partial.pcap");
+        const std::string json = get_first_json();
+        CHECK(json.find("\"reassembly_properties\":{\"reassembled\":true")
+              != std::string::npos);
+        CHECK(json.find("\"truncated\":true") == std::string::npos);
         deinitialize();
     }
 }
