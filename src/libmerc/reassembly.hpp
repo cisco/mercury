@@ -64,7 +64,7 @@ struct udp_segment {
     uint32_t additional_bytes_needed;
     indefinite_reassembly_type indefinite_reassembly = indefinite_reassembly_type::definite;
     uint64_t seg_time;
-    const datum &cid;  // QUIC connection ID; pass an empty datum for protocols without connection IDs (e.g. DTLS)
+    const datum &cid;  // QUIC connection ID or other per-flow discriminator; pass an empty datum only for protocols that truly have none
 
     udp_segment(bool init, uint32_t len, uint32_t offset, uint32_t additional_bytes, uint64_t seg_time_, const datum &cid_,
                         indefinite_reassembly_type indef_reassembly = indefinite_reassembly_type::definite) :
