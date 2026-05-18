@@ -663,7 +663,8 @@ inline reassembly_state tcp_reassembler::check_flow(const struct key &k, uint64_
 
 // UDP-offset overload of check_flow; matches the per-flow discriminator
 // (QUIC CID, DTLS message_seq) so only one session per 5-tuple is
-// reassembled at a time.  Empty cid_ wildcards-matches.
+// reassembled at a time. An empty stored flow CID wildcard-matches;
+// otherwise the trimmed incoming cid_ must match the stored CID.
 inline reassembly_state tcp_reassembler::check_flow(const struct key &k, uint64_t sec, const datum &cid_) {
     // housekeeping before find/emplace for maintain iterator validity
     //
