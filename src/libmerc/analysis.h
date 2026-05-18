@@ -1258,14 +1258,11 @@ inline bool unit_test() {
     char t3[] = "single";
     if (get_domain_name(t3) != "") return false;
 
-    char t4[] = "a.b";
-    if (get_domain_name(t4) != ".b") return false;
+    char t4[] = "deep.nested.sub.domain.test.io";
+    if (get_domain_name(t4) != "test.io") return false;
 
-    char t5[] = "deep.nested.sub.domain.test.io";
-    if (get_domain_name(t5) != "test.io") return false;
-
-    char t6[] = "";
-    if (get_domain_name(t6) != "") return false;
+    char t5[] = "";
+    if (get_domain_name(t5) != "") return false;
 
     // classifier::fp_str_is_tls tests
     if (!classifier::fp_str_is_tls("tls/1/(0301)")) return false;

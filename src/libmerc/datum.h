@@ -359,6 +359,7 @@ struct datum {
             }
             r.data++;
         }
+        data_end = r.data_end;
         return 0;
     }
     bool skip(size_t length) {
@@ -2088,6 +2089,8 @@ namespace datum_test {
         uint8_t no_delim[] = "nodelimiter";
         datum nd{no_delim, no_delim + 11};
         if (r.parse_up_to_delimiters(nd, ':', ';', '!') != 0) return false;
+        if (r.length() != 11) return false;
+        if (r.data != no_delim) return false;
 
         // find_delim
         datum fd{data, data + 8};
