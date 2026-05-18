@@ -20,6 +20,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <variant>
 
 enum class indefinite_reassembly_type : uint8_t {
     definite = 0,
