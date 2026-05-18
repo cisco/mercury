@@ -55,6 +55,7 @@
 #include "libmerc/http2.h"
 #include "libmerc/ssh.h"
 #include "libmerc/tls.h"
+#include "libmerc/analysis.h"
 
 // Macros to colorize output
 //
@@ -256,6 +257,18 @@ int main(int, char *[]) {
         {
             "tls_extensions",
             &tls_extensions::unit_test
+        },
+        {
+            "datum",
+            &datum_test::unit_test
+        },
+        {
+            "analysis",
+            &analysis::unit_test
+        },
+        {
+            "naive_bayes",
+            &naive_bayes_test::unit_test
         }
     };
     size_t num_tests = 0;

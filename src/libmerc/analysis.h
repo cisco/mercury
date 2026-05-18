@@ -1244,5 +1244,53 @@ inline std::string get_domain_name(char* server_name) {
     return out_domain;
 }
 
+#ifndef NDEBUG
+namespace analysis {
+
+inline bool unit_test() {
+    // get_domain_name tests
+    char t1[] = "www.example.com";
+    if (get_domain_name(t1) != "example.com") return false;
+
+    char t2[] = "sub.domain.example.org";
+    if (get_domain_name(t2) != "example.org") return false;
+
+    char t3[] = "single";
+    if (get_domain_name(t3) != "") return false;
+
+    char t4[] = "a.b";
+    if (get_domain_name(t4) != ".b") return false;
+
+    char t5[] = "deep.nested.sub.domain.test.io";
+    if (get_domain_name(t5) != "test.io") return false;
+
+    char t6[] = "";
+    if (get_domain_name(t6) != "") return false;
+
+    // classifier::fp_str_is_tls tests
+    if (!classifier::fp_str_is_tls("tls/1/(0301)")) return false;
+    if (!classifier::fp_str_is_tls("tls/2/(0303)")) return false;
+    if (!classifier::fp_str_is_tls("tls/")) return false;
+    if (classifier::fp_str_is_tls("tls")) return false;
+    if (classifier::fp_str_is_tls("http/1.1")) return false;
+    if (classifier::fp_str_is_tls("quic/")) return false;
+    if (classifier::fp_str_is_tls(nullptr)) return false;
+    if (classifier::fp_str_is_tls("")) return false;
+    if (classifier::fp_str_is_tls("TLS/")) return false;
+
+    // os_information equality tests
+    os_information os1{(char*)"Windows", 50};
+    os_information os2{(char*)"Windows", 50};
+    os_information os3{(char*)"Linux", 30};
+    os_information os4{(char*)"Windows", 30};
+    if (!(os1 == os2)) return false;
+    if (os1 == os3) return false;
+    if (os1 == os4) return false;
+
+    return true;
+}
+
+}
+#endif
 
 #endif /* ANALYSIS_H */

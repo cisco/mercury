@@ -355,7 +355,7 @@ struct datum {
             }
             if (*r.data == delim3) { // found third delimiter
                 data_end = r.data;
-                return delim2;
+                return delim3;
             }
             r.data++;
         }
@@ -1996,6 +1996,134 @@ namespace writeable_unit_test {
         return result;
     }
 };
+
+namespace datum_test {
+
+    inline bool unit_test() {
+        uint8_t data[] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
+
+        // state tests
+        datum d{data, data + sizeof(data)};
+        if (d.length() != 8) return false;
+        if (d.is_null()) return false;
+        if (!d.is_not_null()) return false;
+        if (!d.is_not_empty()) return false;
+        if (!d.is_readable()) return false;
+
+        datum empty{data, data};
+        if (!empty.is_empty()) return false;
+        if (empty.is_not_empty()) return false;
+        if (empty.is_readable()) return false;
+        if (!empty.is_not_readable()) return false;
+
+        datum null_d{nullptr, nullptr};
+        if (!null_d.is_null()) return false;
+        if (null_d.is_not_null()) return false;
+
+        // constructors
+        datum from_str{"test"};
+        if (from_str.length() != 4) return false;
+
+        std::string str = "hello";
+        datum from_std_str{str};
+        if (from_std_str.length() != 5) return false;
+
+        std::array<uint8_t, 3> arr = {0x01, 0x02, 0x03};
+        datum from_arr{arr};
+        if (from_arr.length() != 3) return false;
+
+        // skip and trim
+        datum d2{data, data + 8};
+        if (!d2.skip(3)) return false;
+        if (d2.length() != 5) return false;
+        if (!d2.skip(5)) return false;
+        if (d2.length() != 0) return false;
+        if (d2.skip(1)) return false;
+
+        datum d3{data, data + 8};
+        d3.trim(2);
+        if (d3.length() != 6) return false;
+        d3.trim(10);
+        if (d3.length() != 0) return false;
+
+        datum d4{data, data + 8};
+        d4.trim_to_length(3);
+        if (d4.length() != 3) return false;
+
+        // comparison
+        uint8_t cmp_data[] = {0x01, 0x02, 0x03, 0x04};
+        datum a{data, data + 4};
+        datum b{cmp_data, cmp_data + 4};
+        if (a.cmp(b) != 0) return false;
+        if (!(a == b)) return false;
+        if (a != b) return false;
+
+        datum c{data, data + 3};
+        if (a.cmp(c) <= 0) return false;
+        if (!(c < a)) return false;
+
+        if (!a.matches(std::array<uint8_t, 2>{0x01, 0x02})) return false;
+        if (a.matches(std::array<uint8_t, 2>{0x02, 0x01})) return false;
+
+        datum ends{data, data + 4};
+        if (!ends.ends_with(std::array<uint8_t, 2>{0x03, 0x04})) return false;
+        if (ends.ends_with(std::array<uint8_t, 2>{0x01, 0x02})) return false;
+
+        // parse_up_to_delimiters (2 delims)
+        uint8_t delim2_data[] = "foo:bar";
+        datum delim2{delim2_data, delim2_data + 7};
+        datum r;
+        if (r.parse_up_to_delimiters(delim2, ':', ';') != ':') return false;
+        if (r.length() != 3) return false;
+
+        // parse_up_to_delimiters (3 delims)
+        uint8_t delim3_data[] = "hello:world;test!end";
+        datum delim3{delim3_data, delim3_data + 20};
+        if (r.parse_up_to_delimiters(delim3, ':', ';', '!') != ':') return false;
+        delim3.skip(1);
+        if (r.parse_up_to_delimiters(delim3, ':', ';', '!') != ';') return false;
+        delim3.skip(1);
+        if (r.parse_up_to_delimiters(delim3, ':', ';', '!') != '!') return false;
+
+        uint8_t no_delim[] = "nodelimiter";
+        datum nd{no_delim, no_delim + 11};
+        if (r.parse_up_to_delimiters(nd, ':', ';', '!') != 0) return false;
+
+        // find_delim
+        datum fd{data, data + 8};
+        if (fd.find_delim(0x03) != 2) return false;
+        if (fd.find_delim(0xff) != -1) return false;
+
+        // case_insensitive_match
+        uint8_t upper[] = "HELLO";
+        uint8_t lower[] = "hello";
+        datum du{upper, upper + 5};
+        datum dl{lower, lower + 5};
+        if (!du.case_insensitive_match("hello")) return false;
+        if (du.case_insensitive_match("world")) return false;
+        if (du.case_insensitive_match(nullptr)) return false;
+
+        // get_string
+        datum gs{lower, lower + 5};
+        if (gs.get_string() != "hello") return false;
+
+        // operator[]
+        datum idx{data, data + 4};
+        if (idx[0] != 0x01) return false;
+        if (idx[3] != 0x04) return false;
+        if (idx[10].has_value()) return false;
+
+        // set_empty and set_null
+        datum se{data, data + 4};
+        se.set_empty();
+        if (!se.is_empty()) return false;
+        se.set_null();
+        if (!se.is_null()) return false;
+
+        return true;
+    }
+
+}
 
 #endif // NDEBUG
 
