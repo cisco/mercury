@@ -28,14 +28,19 @@ struct dtls_record {
         parse(d);
     }
 
+    static constexpr size_t header_len =
+        sizeof(content_type) + sizeof(protocol_version) +
+        sizeof(epoch) + 6 /* sequence_number */ + sizeof(length);
+
     void parse(struct datum &d) {
-        if (d.length() < (int)(sizeof(content_type) + sizeof(protocol_version) + sizeof(length))) {
+        if (d.length() < (ssize_t)header_len) {
+            d.set_null();
             return;
         }
         d.read_uint8(&content_type);
         d.read_uint16(&protocol_version);
         d.read_uint16(&epoch);
-        d.read_uint(&sequence_number, 6);   // 6 bytes == 48 bits
+        d.read_uint(&sequence_number, 6);
         d.read_uint16(&length);
         fragment.parse(d, length);
     }
@@ -56,8 +61,13 @@ struct dtls_handshake {
         parse(d);
     }
 
+    // Full handshake header: msg_type(1) + length(3) + message_seq(2)
+    //                       + fragment_offset(3) + fragment_length(3) = 12.
+    static constexpr size_t header_len = 12;
+
     void parse(struct datum &d) {
-        if (d.length() < (int)(4)) {
+        if (d.length() < (ssize_t)header_len) {
+            d.set_null();
             return;
         }
         d.read_uint8((uint8_t *)&msg_type);
@@ -65,9 +75,9 @@ struct dtls_handshake {
         d.read_uint(&tmp, L_HandshakeLength);
         length = tmp;
         d.read_uint16(&message_seq);
-        d.read_uint(&tmp, 3);  // 24 bits on wire
+        d.read_uint(&tmp, 3);
         fragment_offset = tmp;
-        d.read_uint(&tmp, 3);  // 24 bits on wire
+        d.read_uint(&tmp, 3);
         fragment_length = tmp;
         // body holds only the fragment, not the full message
         body.parse(d, fragment_length);
