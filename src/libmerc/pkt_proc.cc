@@ -680,6 +680,7 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
                       bool is_new,
                       const struct key& k,
                       udp &udp_pkt) {
+    (void)udp_pkt;  // additional_bytes_needed is propagated by the caller
 
     // note: std::get<T>() throws exceptions; it might be better to
     // use get_if<T>(), which does not
@@ -689,8 +690,6 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
     //     msg_type = udp_pkt.estimate_msg_type_from_ports();
     // }
     enum udp_msg_type msg_type = (udp_msg_type) selector.get_udp_msg_type(pkt, ports);
-
-    uint32_t more_bytes = 0;
 
     switch(msg_type) {
     case udp_msg_type_dns:
@@ -716,17 +715,10 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
         break;
     case udp_msg_type_quic:
         x.emplace<quic_init>(pkt, quic_crypto);
-        more_bytes = std::get<quic_init>(x).additional_bytes_needed();
-        if (more_bytes) {
-            udp_pkt.reassembly_needed(more_bytes);
-        }
+        // QUIC uses its own CRYPTO-frame reassembly helper, not the offset trait.
         break;
     case udp_msg_type_dtls_client_hello:
         x.emplace<dtls_client_hello>(pkt);
-        more_bytes = std::get<dtls_client_hello>(x).additional_bytes_needed();
-        if (more_bytes) {
-            udp_pkt.reassembly_needed(more_bytes);
-        }
         break;
     case udp_msg_type_dtls_server_hello:
         x.emplace<dtls_server_hello>(pkt);
@@ -908,13 +900,26 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
                           struct timespec *ts,
                           struct tcp_reassembler *reassembler) {
 
-    // No reassembler : call set_udp_protocol on every data pkt
+    // Propagate Proto::additional_bytes_needed() into udp_pkt so truncation
+    // is reported even when reassembly is disabled or skipped.
+    auto check_additional_bytes = [&]() {
+        if (auto *qi = std::get_if<quic_init>(&x)) {
+            uint32_t more = qi->additional_bytes_needed();
+            if (more) {
+                udp_pkt.reassembly_needed(more);
+            }
+            return;
+        }
+        std::visit(check_additional_bytes_needed{udp_pkt}, x);
+    };
+
     if (!reassembler || !global_vars.reassembly) {
         bool is_new = false;
         if (global_vars.output_udp_initial_data && pkt.is_not_empty()) {
             is_new = ip_flow_table.flow_is_new(k, ts->tv_sec);
         }
         set_udp_protocol(x, pkt, udp_pkt.get_ports(), is_new, k, udp_pkt);
+        check_additional_bytes();
         return true;
     }
 
@@ -923,8 +928,9 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
         is_new = ip_flow_table.flow_is_new(k, ts->tv_sec);
     }
     set_udp_protocol(x, pkt, udp_pkt.get_ports(), is_new, k, udp_pkt);
+    check_additional_bytes();
 
-    // QUIC has its own helper (CRYPTO-frame sub-segmentation + CID matching).
+    // QUIC: CRYPTO-frame sub-segmentation, separate from the offset trait.
     if (std::holds_alternative<quic_init>(x)) {
         if (udp_pkt.additional_bytes_needed() > reassembly_flow_context::max_data_size) {
             return true;
@@ -932,14 +938,10 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
         return process_quic_reassembly(std::get<quic_init>(x), udp_pkt, k, ts, reassembler);
     }
 
-    // Generic offset-based UDP reassembly; protocols opt in via the trait.
     if (!std::visit(supports_udp_offset_reassembly{}, x)) {
         return true;
     }
-    if (udp_pkt.additional_bytes_needed() > reassembly_flow_context::max_data_size) {
-        return true;
-    }
-    return std::visit(dispatch_udp_offset_reassembly{udp_pkt, k, ts, reassembler}, x);
+    return std::visit(dispatch_udp_offset_reassembly{k, ts, reassembler}, x);
 }
 
 struct process_next_header {
@@ -1442,6 +1444,7 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
             return fdc_return::FDC_NO_DATA;
         reassembly_state state = reassembler_ptr->check_flow(k_,(uint64_t)ts.tv_sec);
         if (state != reassembly_state::reassembly_progress) {
+            finalize_reassembly_flow(reassembler_ptr, analysis.flow_state_pkts_needed);
             return fdc_return::FDC_NO_DATA;
         }
         datum curr_data = reassembler_ptr->get_reassembled_data(reassembler_ptr->get_current_flow());
@@ -1476,6 +1479,7 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
             return fdc_return::MORE_PACKETS_NEEDED;
         }
         if (!ret) {
+            finalize_reassembly_flow(reassembler_ptr, analysis.flow_state_pkts_needed);
             return fdc_return::FDC_NO_DATA;
         }
         truncated_tcp = detect_truncation(tcp_pkt.additional_bytes_needed, r);
@@ -1492,6 +1496,7 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
             return fdc_return::MORE_PACKETS_NEEDED;
         }
         if (!ret) {
+            finalize_reassembly_flow(reassembler_ptr, analysis.flow_state_pkts_needed);
             return fdc_return::FDC_NO_DATA;
         }
         truncated_udp = detect_truncation(udp_pseudoheader.additional_bytes_needed(), r);
@@ -1504,6 +1509,7 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
     }
 
     if (analysis.fp.get_type() == fingerprint_type_unknown && std::get_if<std::monostate>(&x) != nullptr) {
+        finalize_reassembly_flow(reassembler_ptr, analysis.flow_state_pkts_needed);
         return fdc_return::FDC_NO_DATA;
     }
 
@@ -1534,6 +1540,7 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
             bool encoding_ok = fdc_object.encode(output);
             if (encoding_ok == false) {
                 *buffer_size = 2 * internal_buffer_size;
+                finalize_reassembly_flow(reassembler_ptr, analysis.flow_state_pkts_needed);
                 return -1;
             }
 
@@ -1562,6 +1569,7 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
         ssize_t previous = output.writeable_length();
         std::visit(write_l7_metadata{outer_map}, x);
         if (output.writeable_length() == previous) {
+            finalize_reassembly_flow(reassembler_ptr, analysis.flow_state_pkts_needed);
             return fdc_return::FDC_NO_DATA;     // empty message; nothing to report
         }
 
@@ -1573,10 +1581,12 @@ int stateful_pkt_proc::analyze_payload_fdc(const struct flow_key_ext *k,
 
         if (output.is_null()) {
             *buffer_size = 2 * internal_buffer_size;
+            finalize_reassembly_flow(reassembler_ptr, analysis.flow_state_pkts_needed);
             return fdc_return::FDC_WRITE_INSUFFICIENT_SPACE;
         }
 
     } else {
+        finalize_reassembly_flow(reassembler_ptr, analysis.flow_state_pkts_needed);
         return fdc_return::UNKNOWN_ERROR;  // unsupported FDC version
     }
 
@@ -1728,6 +1738,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
                 exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
                 output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
             }
+            finalize_reassembly_flow(reassembler, analysis.flow_state_pkts_needed);
             return output_nbd || output_attr;
         }
     }

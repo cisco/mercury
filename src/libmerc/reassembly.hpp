@@ -64,7 +64,10 @@ struct udp_segment {
     uint32_t additional_bytes_needed;
     indefinite_reassembly_type indefinite_reassembly = indefinite_reassembly_type::definite;
     uint64_t seg_time;
-    const datum &cid;  // QUIC connection ID or other per-flow discriminator; pass an empty datum only for protocols that truly have none
+    // Per-flow discriminator (e.g. QUIC CID, DTLS message_seq).  The
+    // referent need only outlive process_udp_data_pkt, which memcpys it
+    // into the flow_context.  Empty for protocols with no per-flow ID.
+    const datum &cid;
 
     udp_segment(bool init, uint32_t len, uint32_t offset, uint32_t additional_bytes, uint64_t seg_time_, const datum &cid_,
                         indefinite_reassembly_type indef_reassembly = indefinite_reassembly_type::definite) :
@@ -577,6 +580,7 @@ struct tcp_reassembler {
     void set_completed(reassembly_map_iterator it);
     void write_json(json_object &record);
     void clean_curr_flow();
+    void reset_current_flow() { curr_flow = table.end(); }
     void clear_all();
 
 private:
@@ -657,9 +661,9 @@ inline reassembly_state tcp_reassembler::check_flow(const struct key &k, uint64_
     }
 }
 
-// UDP-offset overload of check_flow; validates the optional connection ID so that
-// only one session per 5-tuple is reassembled at a time.
-// Pass an empty datum as cid for protocols that have no connection ID (e.g. DTLS).
+// UDP-offset overload of check_flow; matches the per-flow discriminator
+// (QUIC CID, DTLS message_seq) so only one session per 5-tuple is
+// reassembled at a time.  Empty cid_ wildcards-matches.
 inline reassembly_state tcp_reassembler::check_flow(const struct key &k, uint64_t sec, const datum &cid_) {
     // housekeeping before find/emplace for maintain iterator validity
     //
@@ -745,7 +749,9 @@ inline reassembly_map_iterator tcp_reassembler::process_udp_data_pkt(const struc
     switch (flow_state)
     {
     case reassembly_state::reassembly_cid_mismatch :
-        // connection-ID mismatch; another UDP session is sharing this 5-tuple
+        // CID mismatch: don't disturb the in-progress flow and don't let
+        // callers see it through curr_flow.
+        reset_current_flow();
         return table.end();
 
     case reassembly_state::reassembly_none :
@@ -976,6 +982,8 @@ inline bool process_quic_reassembly(quic_init &qi,
         return false;
     }
     else if (r_state == reassembly_state::reassembly_cid_mismatch) {
+        // Don't let downstream code see the unrelated flow via curr_flow.
+        reassembler->reset_current_flow();
         return true;
     }
     else {
@@ -994,23 +1002,18 @@ inline bool process_quic_reassembly(quic_init &qi,
 }
 
 // Offset-based UDP fragment reassembly; returns true when the caller
-// should fingerprint/analyse the packet.  Proto trait: get_fragment_offset,
-// get_fragment_length, get_fragment_data, get_cid, reparse_from_buf.
-// get_cid() returns a per-handshake discriminator used to validate that
-// fragments on a shared 5-tuple belong to the currently active reassembly
-// context; mismatched discriminators are isolated by rejecting them rather
-// than by creating distinct concurrent flows.
+// should fingerprint/analyse the packet.  See has_udp_offset_reassembly_trait
+// for the Proto contract.
 template <typename Proto>
 inline bool process_udp_offset_reassembly(Proto &proto,
-                                          udp &udp_pkt,
                                           const struct key &k,
                                           struct timespec *ts,
                                           struct tcp_reassembler *reassembler) {
-    const uint32_t frag_offset            = proto.get_fragment_offset();
-    const uint32_t frag_len               = proto.get_fragment_length();
-    const uint32_t additional_bytes_needed = udp_pkt.additional_bytes_needed();
-    datum          frag_data              = proto.get_fragment_data();
-    datum          cid                    = proto.get_cid();
+    const uint32_t frag_offset             = proto.get_fragment_offset();
+    const uint32_t frag_len                = proto.get_fragment_length();
+    const uint32_t additional_bytes_needed = proto.additional_bytes_needed();
+    datum          frag_data               = proto.get_fragment_data();
+    datum          cid                     = proto.get_cid();
 
     if (frag_len > reassembly_flow_context::max_data_size || frag_len == 0) {
         return true;
@@ -1048,6 +1051,8 @@ inline bool process_udp_offset_reassembly(Proto &proto,
         return false;
     }
     else if (r_state == reassembly_state::reassembly_cid_mismatch) {
+        // Don't let downstream code see the unrelated flow via curr_flow.
+        reassembler->reset_current_flow();
         return true;
     }
     else {
@@ -1065,14 +1070,6 @@ inline bool process_udp_offset_reassembly(Proto &proto,
     return false;
 }
 
-// Visitor: protocol opts in to offset-based UDP reassembly?
-struct supports_udp_offset_reassembly {
-    template <typename Proto>
-    bool operator()(const Proto &proto) const { return proto.supports_udp_offset_reassembly(); }
-
-    bool operator()(std::monostate) const { return false; }
-};
-
 // SFINAE: true iff Proto provides the offset-reassembly accessors.
 template <typename, typename = void>
 struct has_udp_offset_reassembly_trait : std::false_type {};
@@ -1081,6 +1078,7 @@ template <typename Proto>
 struct has_udp_offset_reassembly_trait<
     Proto,
     std::void_t<
+        decltype(std::declval<const Proto &>().additional_bytes_needed()),
         decltype(std::declval<const Proto &>().get_fragment_offset()),
         decltype(std::declval<const Proto &>().get_fragment_length()),
         decltype(std::declval<const Proto &>().get_fragment_data()),
@@ -1089,9 +1087,46 @@ struct has_udp_offset_reassembly_trait<
     >
 > : std::true_type {};
 
-// Visitor: dispatches to process_udp_offset_reassembly when the trait is satisfied.
+// Visitor: protocol opts in to offset-based UDP reassembly?
+struct supports_udp_offset_reassembly {
+    template <typename Proto>
+    bool operator()(const Proto &proto) const { return proto.supports_udp_offset_reassembly(); }
+
+    bool operator()(std::monostate) const { return false; }
+};
+
+// Visitor: copies Proto::additional_bytes_needed() into udp_pkt.
+struct check_additional_bytes_needed {
+    udp &udp_pkt;
+
+    template <typename Proto>
+    void operator()(const Proto &proto) const {
+        if constexpr (has_udp_offset_reassembly_trait<Proto>::value) {
+            uint32_t more = proto.additional_bytes_needed();
+            if (more) {
+                udp_pkt.reassembly_needed(more);
+            }
+        } else {
+            (void)proto;
+        }
+    }
+
+    void operator()(std::monostate) const {}
+};
+
+// Compile-time opt-in detector: true iff Proto shadows the base's
+// supports_udp_offset_reassembly with its own (non-virtual) method.
+template <typename Proto>
+struct opts_into_udp_offset_reassembly {
+    static constexpr bool value =
+        !std::is_same_v<
+            decltype(&Proto::supports_udp_offset_reassembly),
+            decltype(&base_protocol::supports_udp_offset_reassembly)>;
+};
+
+// Visitor: dispatches to process_udp_offset_reassembly.  Opt-in without
+// a complete trait is a compile-time error.
 struct dispatch_udp_offset_reassembly {
-    udp                    &udp_pkt;
     const struct key       &k;
     struct timespec        *ts;
     struct tcp_reassembler *reassembler;
@@ -1099,8 +1134,11 @@ struct dispatch_udp_offset_reassembly {
     template <typename Proto>
     bool operator()(Proto &proto) const {
         if constexpr (has_udp_offset_reassembly_trait<Proto>::value) {
-            return process_udp_offset_reassembly(proto, udp_pkt, k, ts, reassembler);
+            return process_udp_offset_reassembly(proto, k, ts, reassembler);
         } else {
+            static_assert(!opts_into_udp_offset_reassembly<Proto>::value,
+                          "protocol opts into UDP offset reassembly but is "
+                          "missing one or more trait methods");
             (void)proto;
             return true;
         }
@@ -1157,25 +1195,24 @@ inline void finalize_reassembly_flow(struct tcp_reassembler *reassembler,
     reassembler->clean_curr_flow();
 }
 
-// Emits "reassembly_properties": "truncated" when incomplete and no
-// terminal flow, "reassembled" when a flow finished.
+// Emits the "reassembly_properties" JSON block: delegates to
+// tcp_reassembler::write_json on a completed flow, else "truncated".
 inline void write_reassembly_properties(json_object &record,
                                         struct tcp_reassembler *reassembler,
                                         bool truncated,
                                         bool reassembly_enabled) {
-    bool no_active_flow =
-        !reassembler ||
-        (!reassembler->is_done(reassembler->curr_flow) &&
-         !reassembler->in_progress(reassembler->curr_flow));
+    bool is_done = reassembler && reassembler->is_done(reassembler->curr_flow);
+    bool in_progress = reassembler && reassembler->in_progress(reassembler->curr_flow);
 
-    if (truncated && (!reassembly_enabled || no_active_flow)) {
+    if (is_done) {
+        reassembler->write_json(record);
+        return;
+    }
+
+    if (truncated && (!reassembly_enabled || !in_progress)) {
         struct json_object flags{record, "reassembly_properties"};
         flags.print_key_bool("truncated", true);
         flags.close();
-        return;
-    }
-    if (reassembler && reassembler->is_done(reassembler->curr_flow)) {
-        reassembler->write_json(record);
     }
 }
 

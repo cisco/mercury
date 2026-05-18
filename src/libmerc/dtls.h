@@ -106,12 +106,15 @@ class dtls_client_hello : public base_protocol {
     dtls_handshake handshake;
     datum raw_fragment;       // snapshot of handshake.body before tls_client_hello parses it
     tls_client_hello hello;
+    uint8_t cid_buf[2];       // big-endian copy of handshake.message_seq for get_cid()
 public:
     dtls_client_hello(struct datum &pkt) :
         rec{pkt},
         handshake{rec.fragment},
         raw_fragment{handshake.body},   // captured before hello{} consumes handshake.body
-        hello{handshake.body} {}
+        hello{handshake.body},
+        cid_buf{static_cast<uint8_t>(handshake.message_seq >> 8),
+                static_cast<uint8_t>(handshake.message_seq & 0xff)} {}
 
     void fingerprint(struct buffer_stream &buf, size_t format_version) const {
         hello.fingerprint(buf, format_version);
@@ -148,12 +151,9 @@ public:
     uint32_t get_handshake_length() const    { return handshake.length; }
     datum    get_fragment_data() const       { return raw_fragment; }
 
-    // Per-handshake discriminator so retransmitted/interleaved ClientHellos
-    // (e.g. pre- vs post-HelloVerifyRequest) get distinct reassembly flows.
-    datum get_cid() const {
-        const uint8_t *p = reinterpret_cast<const uint8_t *>(&handshake.message_seq);
-        return datum{p, p + sizeof(handshake.message_seq)};
-    }
+    // Per-handshake discriminator (big-endian message_seq); keeps
+    // interleaved ClientHellos in distinct reassembly flows.
+    datum get_cid() const { return datum{cid_buf, cid_buf + sizeof(cid_buf)}; }
 
     void reparse_from_buf(datum buf) {
         raw_fragment = buf;
