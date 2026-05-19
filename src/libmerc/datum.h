@@ -2508,6 +2508,16 @@ inline bool encoded<uint64_t>::unit_test() {
 
 // @}
 
+inline bool datum_match_unit_test() {
+    return datum{"hello"}.match("hello")
+        && !datum{"hello"}.match("hell")
+        && !datum{"hello"}.match("hello!")
+        && !datum{"Hello"}.match("hello")  // case-sensitive
+        && !datum{"hello"}.match("")
+        && !datum{}.match("hello")         // null datum
+        && !datum{"hello"}.match(nullptr);
+}
+
 #endif // NDEBUG
 
 /// `class lookahead<T>` attempts to read an element of type `T` from

@@ -175,6 +175,35 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         }
     }
 
+    // Test 2b: exposed_creds_derived round-trip (LDAP DIGEST-MD5)
+    {
+        data_buffer<512> buf;
+        cbor_object outer{buf};
+        outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
+        auto msg = exposed_creds_derived_message::construct(
+            datum{"ldap"}, datum{"DIGEST-MD5"}, datum{});
+        msg.template write<cbor_object, cbor_array>(outer);
+        outer.close();
+
+        datum encoded = buf.contents();
+        cbor_decoded_metadata decoded;
+        decode_cbor_metadata(encoded.data, encoded.length(), decoded);
+
+        report("exposed_creds_derived decode valid", decoded.valid);
+        report("exposed_creds_derived count == 1", decoded.count == 1);
+        if (decoded.count >= 1) {
+            bool is_derived = std::holds_alternative<exposed_creds_derived_message>(decoded.entries[0]);
+            report("exposed_creds_derived variant type", is_derived);
+            if (is_derived) {
+                auto &dec = std::get<exposed_creds_derived_message>(decoded.entries[0]);
+                report("protocol == ldap", dec.protocol().match("ldap"));
+                report("auth_method == DIGEST-MD5", dec.auth_method().match("DIGEST-MD5"));
+                report("key == exposed_credentials_derived",
+                       dec.key().match("exposed_credentials_derived"));
+            }
+        }
+    }
+
     // Test 3: crypto_cnsa round-trip
     {
         data_buffer<1024> buf;
@@ -208,6 +237,42 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
                 auto &dec = std::get<crypto_cnsa_message>(decoded.entries[0]);
                 report("cnsa is_valid", dec.is_valid());
                 report("cnsa key matches", dec.key().match("cnsa_2_0_non_conformant"));
+            }
+        }
+    }
+
+    // Test 3b: crypto_nist round-trip (TLS server hello non-compliant)
+    {
+        data_buffer<1024> buf;
+        cbor_object outer{buf};
+        outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
+
+        crypto_nist_message nist;
+        nist.set_policy("nist_sp_800_52_2");
+        nist.set_has_negotiated_params();
+        nist.set_protocol_version("TLSv1.0");
+        nist.set_cipher_suite("TLS_RSA_WITH_RC4_128_SHA");
+        nist.set_supported_group("UNKNOWN");
+        nist.set_non_compliant("tls_version_non_compliant", "TLSv1.0");
+        nist.set_valid();
+
+        cbor::text_string(crypto_nist_message::KEY).write(buf);
+        nist.template write<cbor_object, cbor_array>(outer);
+        outer.close();
+
+        datum encoded = buf.contents();
+        cbor_decoded_metadata decoded;
+        decode_cbor_metadata(encoded.data, encoded.length(), decoded);
+
+        report("crypto_nist decode valid", decoded.valid);
+        report("crypto_nist count == 1", decoded.count == 1);
+        if (decoded.count >= 1) {
+            bool is_nist = std::holds_alternative<crypto_nist_message>(decoded.entries[0]);
+            report("crypto_nist variant type", is_nist);
+            if (is_nist) {
+                auto &dec = std::get<crypto_nist_message>(decoded.entries[0]);
+                report("nist is_valid", dec.is_valid());
+                report("nist key matches", dec.key().match("nist_sp_800_52_2_non_conformant"));
             }
         }
     }
@@ -256,12 +321,17 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         report("empty buffer count == 0", decoded.count == 0);
     }
 
-    // Test 6: unknown feature forwarded
+    // Test 6: unknown feature with fields — verify cbor_span produces correct JSON
     {
         data_buffer<512> buf;
         cbor_object outer{buf};
         outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
-        outer.print_key_string("some_future_feature", "some_value");
+        // Write a map value for the unknown key (simulates a future feature)
+        cbor_object unknown_map{outer, "future_detection"};
+        unknown_map.print_key_string("severity", "high");
+        unknown_map.print_key_string("category", "malware");
+        unknown_map.print_key_uint("confidence", 95);
+        unknown_map.close();
         outer.close();
 
         datum encoded = buf.contents();
@@ -275,7 +345,22 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
                    std::holds_alternative<unknown_feature>(decoded.entries[0]));
             if (std::holds_alternative<unknown_feature>(decoded.entries[0])) {
                 auto &uf = std::get<unknown_feature>(decoded.entries[0]);
-                report("unknown key matches", uf.key().match("some_future_feature"));
+                report("unknown key matches", uf.key().match("future_detection"));
+
+                // Verify cbor_span can be decoded to JSON
+                datum span = uf.cbor_span();
+                output_buffer<512> json_buf;
+                bool json_ok = decode_cbor_map_to_json(span, json_buf, nullptr);
+                report("unknown cbor_span decodes to JSON", json_ok);
+                if (json_ok) {
+                    // Check JSON contains expected fields
+                    report("JSON contains severity",
+                           std::string(json_buf.dstr, json_buf.length()).find("\"severity\":\"high\"") != std::string::npos);
+                    report("JSON contains category",
+                           std::string(json_buf.dstr, json_buf.length()).find("\"category\":\"malware\"") != std::string::npos);
+                    report("JSON contains confidence",
+                           std::string(json_buf.dstr, json_buf.length()).find("\"confidence\":95") != std::string::npos);
+                }
             }
         }
     }

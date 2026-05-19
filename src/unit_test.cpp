@@ -60,6 +60,10 @@ int main(int, char *[]) {
     };
     test_case test_cases[] = {
         {
+            "datum_match",
+            &datum_match_unit_test
+        },
+        {
             "encoded<uint8_t>",
             &encoded<uint8_t>::unit_test
         },
