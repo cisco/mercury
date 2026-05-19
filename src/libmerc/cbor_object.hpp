@@ -140,9 +140,13 @@ public:
     }
 
     void print_uint16_hex(uint16_t value) {
-        char buf[5];
-        snprintf(buf, sizeof(buf), "%04x", value);
-        cbor::text_string{buf}.write(a);
+        char buf[4];
+        buf[0] = hex_table[(value & 0xf000) >> 12];
+        buf[1] = hex_table[(value & 0x0f00) >> 8];
+        buf[2] = hex_table[(value & 0x00f0) >> 4];
+        buf[3] = hex_table[value & 0x000f];
+        datum d{(const uint8_t *)buf, (const uint8_t *)buf + 4};
+        cbor::text_string::construct(d).write(a);
     }
 
     void close() { a.close(); }

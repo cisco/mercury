@@ -242,6 +242,55 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         }
     }
 
+    // Test 3 hex: crypto_cnsa with hex cipher suite values (exercises print_uint16_hex)
+    {
+        data_buffer<1024> buf;
+        cbor_object outer{buf};
+        outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
+
+        crypto_cnsa_message msg;
+        msg.set_policy("quantum_safe");
+        msg.set_target("client");
+        msg.add_cs_not_allowed_hex(0xc02c);  // TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+        msg.add_cs_not_allowed_hex(0x0005);  // TLS_RSA_WITH_RC4_128_SHA
+        msg.add_grp_not_allowed_hex(0x001d); // x25519
+        msg.set_cs_allowed("some");
+        msg.set_grp_allowed("some");
+        msg.set_psk_mode(false);
+        msg.set_valid();
+
+        cbor::text_string(crypto_cnsa_message::KEY).write(buf);
+        msg.template write<cbor_object, cbor_array>(outer);
+        outer.close();
+
+        datum encoded = buf.contents();
+        cbor_decoded_metadata decoded;
+        decode_cbor_metadata(encoded.data, encoded.length(), decoded);
+
+        report("cnsa hex decode valid", decoded.valid);
+        report("cnsa hex count == 1", decoded.count == 1);
+        if (decoded.count >= 1) {
+            bool is_cnsa = std::holds_alternative<crypto_cnsa_message>(decoded.entries[0]);
+            report("cnsa hex variant type", is_cnsa);
+            if (is_cnsa) {
+                auto &dec = std::get<crypto_cnsa_message>(decoded.entries[0]);
+                report("cnsa hex is_valid", dec.is_valid());
+                report("cnsa hex cs_count == 2", dec.cs_not_allowed_count() == 2);
+                if (dec.cs_not_allowed_count() >= 2) {
+                    report("cnsa hex cs[0] == c02c",
+                           dec.cs_not_allowed_at(0).value().match("c02c"));
+                    report("cnsa hex cs[1] == 0005",
+                           dec.cs_not_allowed_at(1).value().match("0005"));
+                }
+                report("cnsa hex grp_count == 1", dec.grp_not_allowed_count() == 1);
+                if (dec.grp_not_allowed_count() >= 1) {
+                    report("cnsa hex grp[0] == 001d",
+                           dec.grp_not_allowed_at(0).value().match("001d"));
+                }
+            }
+        }
+    }
+
     // Test 3a: crypto_cnsa with multiple PSK non-compliant entries + unknown field
     {
         data_buffer<2048> buf;
