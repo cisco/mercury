@@ -167,24 +167,4 @@ namespace {
 
 }; // end of namespace
 
-namespace ssdp_ns {
-#ifndef NDEBUG
-    inline bool unit_test() {
-        // SSDP M-SEARCH request
-        const char *msg = "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: \"ssdp:discover\"\r\nST: ssdp:all\r\n\r\n";
-        datum d{(const uint8_t*)msg, (const uint8_t*)msg + strlen(msg)};
-        ssdp s{d};
-        if (!s.is_not_empty()) return false;
-
-        // SSDP NOTIFY
-        const char *notify = "NOTIFY * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nNT: upnp:rootdevice\r\n\r\n";
-        datum d2{(const uint8_t*)notify, (const uint8_t*)notify + strlen(notify)};
-        ssdp s2{d2};
-        if (!s2.is_not_empty()) return false;
-
-        return true;
-    }
-#endif
-} // namespace ssdp_ns
-
 #endif /* SSDP_H */

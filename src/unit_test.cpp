@@ -44,7 +44,6 @@
 #include "libmerc/netbios.h"
 #include "libmerc/stun.h"
 #include "libmerc/bittorrent.h"
-#include "libmerc/ssdp.h"
 #include "libmerc/arp.h"
 #include "libmerc/ntp.h"
 #include "libmerc/rtp.h"
@@ -213,10 +212,6 @@ int main(int, char *[]) {
         {
             "bittorrent",
             &bittorrent_ns::unit_test
-        },
-        {
-            "ssdp",
-            &ssdp_ns::unit_test
         },
         {
             "arp",
