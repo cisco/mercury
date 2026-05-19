@@ -1855,11 +1855,15 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             if (exposed_creds) {
                 exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds<cbor_object, cbor_array>{&cbor_output}, x);
                 output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
+                if (exposed_creds_ret != exposed_creds_type::none)
+                    cbor_meta.set_feature_written();
             }
 
             if (!crypto_policies.empty() && !truncated_tls) {
                 crypto_assess_result assessment_result = std::visit(do_crypto_assessment<cbor_object, cbor_array>{crypto_policies, &cbor_output}, x);
                 output_attr = set_crypto_assessment_attr(assessment_result) ? true : output_attr;
+                if (assessment_result.any())
+                    cbor_meta.set_feature_written();
             }
 
             bool output_nbd = false;
@@ -1904,10 +1908,14 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             if (!crypto_policies.empty() && !truncated_tls) {
                 crypto_assess_result crypto_result = std::visit(do_crypto_assessment<cbor_object, cbor_array>{crypto_policies, &cbor_output}, x);
                 output_attr = set_crypto_assessment_attr(crypto_result) ? true : output_attr;
+                if (crypto_result.any())
+                    cbor_meta.set_feature_written();
             }
             if (exposed_creds) {
                 exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds<cbor_object, cbor_array>{&cbor_output}, x);
                 output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
+                if (exposed_creds_ret != exposed_creds_type::none)
+                    cbor_meta.set_feature_written();
             }
             cbor_output.close();
             cbor_meta.end_encode();

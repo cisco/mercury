@@ -10,6 +10,7 @@
 #include "cbor.hpp"
 #include "cbor_object.hpp"
 #include "cbor_messages.hpp"
+#include "cbor_metadata.hpp"
 
 /// Forwards unknown CBOR keys to the enrichment string unchanged.
 class unknown_feature {
@@ -407,6 +408,66 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         decode_cbor_metadata(nullptr, 0, decoded);
         report("empty buffer valid == false", !decoded.valid);
         report("empty buffer count == 0", decoded.count == 0);
+    }
+
+    // Test 5b: cbor_metadata_context reports no data when no feature written
+    {
+        cbor_metadata_context ctx;
+        ctx.reset();
+        writeable& w = ctx.get_writer();
+        cbor_object outer{w};
+        outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
+        // No feature written — don't call set_feature_written()
+        outer.close();
+        ctx.end_encode();
+        report("no-feature has_data == false", !ctx.has_data());
+        report("no-feature length == 0", ctx.get_length() == 0);
+    }
+
+    // Test 5c: cbor_metadata_context reports data when feature is written
+    {
+        cbor_metadata_context ctx;
+        ctx.reset();
+        writeable& w = ctx.get_writer();
+        cbor_object outer{w};
+        outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
+        // Write a feature and set the flag
+        exposed_creds_plaintext_message::construct(
+            datum{"http"}, datum{"basic"}, datum{"admin"})
+            .template write<cbor_object, cbor_array>(outer);
+        ctx.set_feature_written();
+        outer.close();
+        ctx.end_encode();
+        report("with-feature has_data == true", ctx.has_data());
+        report("with-feature length > 0", ctx.get_length() > 0);
+
+        // Verify the buffer is decodable
+        cbor_decoded_metadata decoded;
+        decode_cbor_metadata(ctx.get_buffer(), ctx.get_length(), decoded);
+        report("with-feature decode valid", decoded.valid);
+        report("with-feature decode count == 1", decoded.count == 1);
+    }
+
+    // Test 5d: cbor_metadata_context reset clears the flag
+    {
+        cbor_metadata_context ctx;
+        ctx.reset();
+        writeable& w = ctx.get_writer();
+        cbor_object outer{w};
+        outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
+        ctx.set_feature_written();
+        outer.close();
+        ctx.end_encode();
+        report("before reset has_data == true", ctx.has_data());
+
+        // Reset and encode again without setting the flag
+        ctx.reset();
+        writeable& w2 = ctx.get_writer();
+        cbor_object outer2{w2};
+        outer2.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
+        outer2.close();
+        ctx.end_encode();
+        report("after reset has_data == false", !ctx.has_data());
     }
 
     // Test 6: unknown feature with fields — verify cbor_span produces correct JSON
