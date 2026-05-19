@@ -34,6 +34,7 @@ public:
                                               "exposed_credentials_derived";
 
     /// Construct from raw data (encoding path).
+    /// protocol and auth_method are mandatory; username is optional.
     static exposed_creds_message construct(datum protocol,
                                             datum auth_method,
                                             datum username) {
@@ -41,12 +42,13 @@ public:
         msg.protocol_ = cbor::text_string::construct(protocol);
         msg.auth_method_ = cbor::text_string::construct(auth_method);
         msg.username_ = cbor::text_string::construct(username);
-        msg.valid_ = true;
+        msg.valid_ = msg.protocol_.is_valid() && msg.auth_method_.is_valid();
         return msg;
     }
 
     /// Decode from CBOR indefinite map (decoding path).
     /// d must point at the 0xBF opening byte.
+    /// protocol and auth_method must be present for valid decode.
     static exposed_creds_message decode(datum &d) {
         exposed_creds_message msg;
         const uint8_t* begin = d.data;
@@ -61,7 +63,7 @@ public:
         }
         m.close();
         msg.cbor_span_ = datum{begin, d.data};
-        msg.valid_ = !d.is_null();
+        msg.valid_ = !d.is_null() && msg.protocol_.is_valid() && msg.auth_method_.is_valid();
         return msg;
     }
 
@@ -162,7 +164,7 @@ public:
         psk_non_compliant_reason_ = cbor::text_string(reason);
     }
     void set_compliant(bool c)                  { compliant_ = c; }
-    void set_valid()                            { valid_ = true; }
+    void set_valid()                            { valid_ = policy_.is_valid() && target_.is_valid(); }
 
     bool is_compliant() const { return compliant_; }
     bool is_valid()     const { return valid_; }
@@ -274,7 +276,7 @@ public:
         }
         m.close();
         msg.cbor_span_ = datum{begin, d.data};
-        msg.valid_ = !d.is_null();
+        msg.valid_ = !d.is_null() && msg.policy_.is_valid() && msg.target_.is_valid();
         return msg;
     }
 
@@ -335,7 +337,7 @@ public:
         non_compliant_key_ = cbor::text_string(key);
         non_compliant_reason_ = cbor::text_string(reason);
     }
-    void set_valid()                            { valid_ = true; }
+    void set_valid()                            { valid_ = policy_.is_valid(); }
 
     bool is_compliant() const { return compliant_; }
     bool is_valid()     const { return valid_; }
@@ -435,7 +437,7 @@ public:
         }
         m.close();
         msg.cbor_span_ = datum{begin, d.data};
-        msg.valid_ = !d.is_null();
+        msg.valid_ = !d.is_null() && msg.policy_.is_valid();
         return msg;
     }
 
