@@ -75,6 +75,13 @@ inline void decode_v1(datum &d, cbor_decoded_metadata& out) {
 
         if (d.is_null()) return;
     }
+    // skip remaining entries if container was full
+    while (d.is_not_empty() && !cbor::is_break(d)) {
+        cbor::skip_cbor_value(d);  // key
+        if (d.is_null()) return;
+        cbor::skip_cbor_value(d);  // value
+        if (d.is_null()) return;
+    }
 }
 
 inline void decode_cbor_metadata(const uint8_t* buf, size_t len,
@@ -561,6 +568,27 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
                 }
             }
         }
+    }
+
+    // Test 7: overflow — more than MAX_ENTRIES features
+    {
+        data_buffer<4096> buf;
+        cbor_object outer{buf};
+        outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
+        for (int i = 0; i < 10; i++) {
+            exposed_creds_plaintext_message::construct(
+                datum{"http"}, datum{"Basic"}, datum{})
+                .template write<cbor_object, cbor_array>(outer);
+        }
+        outer.close();
+
+        datum encoded = buf.contents();
+        cbor_decoded_metadata decoded;
+        decode_cbor_metadata(encoded.data, encoded.length(), decoded);
+
+        report("overflow decode valid", decoded.valid);
+        report("overflow count == MAX_ENTRIES",
+               decoded.count == cbor_decoded_metadata::MAX_ENTRIES);
     }
 
     return all_passed;
