@@ -1402,8 +1402,8 @@ namespace crypto_policy {
         if (ext_msg.grp_allowed_valid())
             d.print_key_string("groups_allowed", ext_msg.grp_allowed_value().value());
         d.print_key_bool("tls_cert_with_extern_psk", ext_msg.psk_mode());
-        if (ext_msg.psk_non_compliant_key_valid())
-            d.print_key_string(ext_msg.psk_non_compliant_key_value().value(), ext_msg.psk_non_compliant_reason_value().value());
+        for (size_t i = 0; i < ext_msg.psk_non_compliant_count(); i++)
+            d.print_key_string(ext_msg.psk_non_compliant_key_at(i).value(), ext_msg.psk_non_compliant_reason_at(i).value());
         d.close();
 
         std::string tls_extensions_output_str = "{\"groups_not_allowed\":[\"sect163k1\"],\"groups_allowed\":\"some\",\"tls_cert_with_extern_psk\":false}";

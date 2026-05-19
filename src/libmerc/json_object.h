@@ -84,7 +84,8 @@ struct json_object {
     json_object(struct json_object &object, datum key) : b{object.b} {
         write_comma(object.comma);
         b->write_char('\"');
-        b->memcpy((const char *)key.data, key.length());
+        utf8_string key_str{key};
+        key_str.write(*b);
         b->puts("\":{");
     }
 
@@ -123,22 +124,17 @@ struct json_object {
         b->write_char('\"');
     }
     void print_key_string(const char *k, datum d) {
-        if (d.is_readable()) {
-            write_comma(comma);
-            b->write_char('\"');
-            b->puts(k);
-            b->puts("\":\"");
-            b->memcpy((const char *)d.data, d.length());
-            b->write_char('\"');
-        }
+        print_key_json_string(k, d);
     }
     void print_key_string(datum k, datum d) {
         if (k.is_readable() && d.is_readable()) {
             write_comma(comma);
             b->write_char('\"');
-            b->memcpy((const char *)k.data, k.length());
+            utf8_string key_str{k};
+            key_str.write(*b);
             b->puts("\":\"");
-            b->memcpy((const char *)d.data, d.length());
+            utf8_string val_str{d};
+            val_str.write(*b);
             b->write_char('\"');
         }
     }
@@ -446,7 +442,8 @@ struct json_array {
         if (d.is_readable()) {
             write_comma(comma);
             b->write_char('\"');
-            b->memcpy((const char *)d.data, d.length());
+            utf8_string s{d};
+            s.write(*b);
             b->write_char('\"');
         }
     }

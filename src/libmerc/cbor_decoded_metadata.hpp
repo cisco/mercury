@@ -241,6 +241,94 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         }
     }
 
+    // Test 3a: crypto_cnsa with multiple PSK non-compliant entries + unknown field
+    {
+        data_buffer<2048> buf;
+        cbor_object outer{buf};
+        outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
+
+        crypto_cnsa_message msg;
+        msg.set_policy("quantum_safe");
+        msg.set_target("client");
+        msg.set_cs_allowed("all");
+        msg.set_grp_allowed("all");
+        msg.set_psk_mode(true);
+        msg.set_psk_non_compliant("tls_cert_with_extern_psk_non_compliant",
+                                   "tls_cert_with_extern_psk requires pre_shared_key, psk_key_exchange_modes, and key_share");
+        msg.set_psk_non_compliant("psk_key_exchange_modes_non_compliant",
+                                   "psk_key_exchange_modes must include psk_dhe_ke and must not include psk_ke");
+        msg.set_compliant(false);
+        msg.set_valid();
+
+        cbor::text_string(crypto_cnsa_message::KEY).write(buf);
+        msg.template write<cbor_object, cbor_array>(outer);
+        outer.close();
+
+        datum encoded = buf.contents();
+        cbor_decoded_metadata decoded;
+        decode_cbor_metadata(encoded.data, encoded.length(), decoded);
+
+        report("cnsa multi-psk decode valid", decoded.valid);
+        report("cnsa multi-psk count == 1", decoded.count == 1);
+        if (decoded.count >= 1) {
+            bool is_cnsa = std::holds_alternative<crypto_cnsa_message>(decoded.entries[0]);
+            report("cnsa multi-psk variant type", is_cnsa);
+            if (is_cnsa) {
+                auto &dec = std::get<crypto_cnsa_message>(decoded.entries[0]);
+                report("cnsa multi-psk is_valid", dec.is_valid());
+                report("cnsa multi-psk psk_count == 2", dec.psk_non_compliant_count() == 2);
+                if (dec.psk_non_compliant_count() >= 2) {
+                    report("cnsa psk[0] key",
+                           dec.psk_non_compliant_key_at(0).value().match("tls_cert_with_extern_psk_non_compliant"));
+                    report("cnsa psk[1] key",
+                           dec.psk_non_compliant_key_at(1).value().match("psk_key_exchange_modes_non_compliant"));
+                }
+            }
+        }
+    }
+
+    // Test 3a2: crypto_cnsa decode with unknown field in target map (forward compat)
+    {
+        // Manually encode a cnsa message with an extra unknown field in the target map
+        data_buffer<2048> buf;
+        cbor_object outer{buf};
+        outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
+
+        // Write the cnsa key
+        cbor::text_string(crypto_cnsa_message::KEY).write(buf);
+        // Write an anonymous map (the cnsa message body)
+        cbor_object cnsa_body{outer};
+        cnsa_body.print_key_string("policy", "quantum_safe");
+        // Write target sub-map with an unknown field
+        cbor_object target{cnsa_body, "client"};
+        target.print_key_string("ciphersuites_allowed", "all");
+        target.print_key_string("groups_allowed", "all");
+        target.print_key_bool("tls_cert_with_extern_psk", false);
+        // Unknown future field — should be skipped by decoder
+        target.print_key_string("signature_algorithms_not_allowed", "rsa_pkcs1_sha256");
+        target.close();
+        cnsa_body.close();
+        outer.close();
+
+        datum encoded = buf.contents();
+        cbor_decoded_metadata decoded;
+        decode_cbor_metadata(encoded.data, encoded.length(), decoded);
+
+        report("cnsa unknown-field decode valid", decoded.valid);
+        report("cnsa unknown-field count == 1", decoded.count == 1);
+        if (decoded.count >= 1) {
+            bool is_cnsa = std::holds_alternative<crypto_cnsa_message>(decoded.entries[0]);
+            report("cnsa unknown-field variant type", is_cnsa);
+            if (is_cnsa) {
+                auto &dec = std::get<crypto_cnsa_message>(decoded.entries[0]);
+                report("cnsa unknown-field is_valid", dec.is_valid());
+                report("cnsa unknown-field psk_count == 0", dec.psk_non_compliant_count() == 0);
+                report("cnsa unknown-field cs_allowed", dec.cs_allowed_valid());
+                report("cnsa unknown-field grp_allowed", dec.grp_allowed_valid());
+            }
+        }
+    }
+
     // Test 3b: crypto_nist round-trip (TLS server hello non-compliant)
     {
         data_buffer<1024> buf;

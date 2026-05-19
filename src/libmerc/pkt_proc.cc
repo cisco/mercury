@@ -1761,6 +1761,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
     uint8_t transport_proto = ip_pkt.transport_protocol();
 
     analysis.reinit();
+    cbor_meta.reset();
     if (reassembler) {
         reassembler->dump_pkt = false;
         reassembler_ptr->clean_curr_flow();
@@ -1839,7 +1840,6 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             std::visit(do_snmp_oid_observation{k, mq}, x);
         }
         std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
-        cbor_meta.reset();
         writeable& cbor_w = cbor_meta.get_writer();
         cbor_object cbor_output{cbor_w};
         cbor_output.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);

@@ -72,11 +72,11 @@ public:
     void write(Object &parent) const {
         Object o{parent, KEY};
         if (protocol_.is_valid())
-            o.print_key_json_string("protocol", protocol_.value());
+            o.print_key_string("protocol", protocol_.value());
         if (auth_method_.is_valid())
-            o.print_key_json_string("authentication_method", auth_method_.value());
+            o.print_key_string("authentication_method", auth_method_.value());
         if (username_.is_valid())
-            o.print_key_json_string("username", username_.value());
+            o.print_key_string("username", username_.value());
         o.close();
     }
 
@@ -116,8 +116,10 @@ class crypto_cnsa_message {
 
     bool psk_mode_ = false;
 
-    cbor::text_string psk_non_compliant_key_;
-    cbor::text_string psk_non_compliant_reason_;
+    static constexpr size_t MAX_PSK_ENTRIES = 4;
+    cbor::text_string psk_non_compliant_keys_[MAX_PSK_ENTRIES];
+    cbor::text_string psk_non_compliant_reasons_[MAX_PSK_ENTRIES];
+    size_t            psk_non_compliant_count_ = 0;
 
     bool compliant_ = true;
     bool valid_ = false;
@@ -160,8 +162,11 @@ public:
     void set_grp_allowed(const char* q)         { grp_allowed_ = cbor::text_string(q); }
     void set_psk_mode(bool v)                   { psk_mode_ = v; }
     void set_psk_non_compliant(const char* key, const char* reason) {
-        psk_non_compliant_key_ = cbor::text_string(key);
-        psk_non_compliant_reason_ = cbor::text_string(reason);
+        if (psk_non_compliant_count_ < MAX_PSK_ENTRIES) {
+            psk_non_compliant_keys_[psk_non_compliant_count_] = cbor::text_string(key);
+            psk_non_compliant_reasons_[psk_non_compliant_count_] = cbor::text_string(reason);
+            psk_non_compliant_count_++;
+        }
     }
     void set_compliant(bool c)                  { compliant_ = c; }
     void set_valid()                            { valid_ = policy_.is_valid() && target_.is_valid(); }
@@ -207,9 +212,10 @@ public:
 
         tgt.print_key_bool("tls_cert_with_extern_psk", psk_mode_);
 
-        if (psk_non_compliant_key_.is_valid())
-            tgt.print_key_string(psk_non_compliant_key_.value(),
-                                  psk_non_compliant_reason_.value());
+        for (size_t i = 0; i < psk_non_compliant_count_; i++) {
+            tgt.print_key_string(psk_non_compliant_keys_[i].value(),
+                                  psk_non_compliant_reasons_[i].value());
+        }
 
         tgt.close();
         o.close();
@@ -263,9 +269,20 @@ public:
                     else if (tk.match("tls_cert_with_extern_psk")) {
                         msg.psk_mode_ = cbor::decode_bool(d);
                     }
+                    else if (tk.match("tls_cert_with_extern_psk_non_compliant") ||
+                             tk.match("psk_key_exchange_modes_non_compliant") ||
+                             tk.match("psk_key_exchange_mlkem1024_non_compliant") ||
+                             tk.match("pre_shared_key_non_compliant")) {
+                        if (msg.psk_non_compliant_count_ < MAX_PSK_ENTRIES) {
+                            msg.psk_non_compliant_keys_[msg.psk_non_compliant_count_] = tkey;
+                            msg.psk_non_compliant_reasons_[msg.psk_non_compliant_count_] = cbor::text_string::decode(d);
+                            msg.psk_non_compliant_count_++;
+                        } else {
+                            cbor::skip_cbor_value(d);
+                        }
+                    }
                     else {
-                        msg.psk_non_compliant_key_ = tkey;
-                        msg.psk_non_compliant_reason_ = cbor::text_string::decode(d);
+                        cbor::skip_cbor_value(d);
                     }
                 }
                 tgt.close();
@@ -292,9 +309,9 @@ public:
     bool grp_allowed_valid() const { return grp_allowed_.is_valid(); }
     cbor::text_string grp_allowed_value() const { return grp_allowed_; }
     bool psk_mode() const { return psk_mode_; }
-    bool psk_non_compliant_key_valid() const { return psk_non_compliant_key_.is_valid(); }
-    cbor::text_string psk_non_compliant_key_value() const { return psk_non_compliant_key_; }
-    cbor::text_string psk_non_compliant_reason_value() const { return psk_non_compliant_reason_; }
+    size_t psk_non_compliant_count() const { return psk_non_compliant_count_; }
+    cbor::text_string psk_non_compliant_key_at(size_t i) const { return psk_non_compliant_keys_[i]; }
+    cbor::text_string psk_non_compliant_reason_at(size_t i) const { return psk_non_compliant_reasons_[i]; }
 };
 
 
