@@ -114,12 +114,23 @@ struct do_crypto_assessment {
                 result.set(assessor->get_result_idx(), !assessor->assess(msg));
         }
         if (output_) {
-            Array assessor_record{*output_, "cryptographic_security_assessment"};
-            if (cnsa_msg.is_valid())
-                cnsa_msg.write<Object, Array>(assessor_record);
-            if (nist_msg.is_valid())
-                nist_msg.write<Object, Array>(assessor_record);
-            assessor_record.close();
+            if constexpr (std::is_same_v<Object, json_object>) {
+                Array assessor_record{*output_, "cryptographic_security_assessment"};
+                if (cnsa_msg.is_valid())
+                    cnsa_msg.write<Object, Array>(assessor_record);
+                if (nist_msg.is_valid())
+                    nist_msg.write<Object, Array>(assessor_record);
+                assessor_record.close();
+            } else {
+                if (cnsa_msg.is_valid() && !cnsa_msg.is_compliant()) {
+                    cbor::text_string(crypto_cnsa_message::KEY).write(output_->get_writeable());
+                    cnsa_msg.write<Object, Array>(*output_);
+                }
+                if (nist_msg.is_valid() && !nist_msg.is_compliant()) {
+                    cbor::text_string(crypto_nist_message::KEY).write(output_->get_writeable());
+                    nist_msg.write<Object, Array>(*output_);
+                }
+            }
         }
         return result;
     }
