@@ -466,6 +466,7 @@ namespace cbor {
         /// bytes in the \ref datum \param d
         ///
         static text_string construct(const datum &d) {
+            if (!d.is_readable()) return text_string{};
             uint64 len{(uint64_t)d.length(), text_string_type};
             datum val{d};
             return text_string{len, val};
@@ -647,6 +648,9 @@ namespace cbor {
             case unsigned_integer_type:
                 { uint64 tmp{d}; }
                 break;
+            case negative_integer_type:
+                { uint64 tmp{d, negative_integer_type}; }
+                break;
             case byte_string_type:
                 { byte_string::decode(d); }
                 break;
@@ -717,6 +721,11 @@ namespace cbor {
             case simple_or_float_type:
                 {
                     initial_byte consumed{d};
+                    uint8_t ai = consumed.additional_info();
+                    if (ai == 24)      { d.skip(1); }  // 1-byte simple value
+                    else if (ai == 25) { d.skip(2); }  // float16
+                    else if (ai == 26) { d.skip(4); }  // float32
+                    else if (ai == 27) { d.skip(8); }  // float64
                 }
                 break;
             default:
@@ -1199,6 +1208,27 @@ namespace cbor {
             // definite-length map: 0xa1 = 1-pair map, key: "a" (0x61,0x61), value: 1
             uint8_t data[] = {0xa1, 0x61, 0x61, 0x01, 0xf4};
             datum d{data, data + 5};
+            skip_cbor_value(d);
+            if (d.length() != 1 || *d.data != 0xf4) passed = false;
+        }
+        {
+            // negative integer: 0x38 0x63 = -100 (1-byte payload), then true
+            uint8_t data[] = {0x38, 0x63, 0xf5};
+            datum d{data, data + 3};
+            skip_cbor_value(d);
+            if (d.length() != 1 || *d.data != 0xf5) passed = false;
+        }
+        {
+            // float32: 0xfa + 4 bytes payload, then true
+            uint8_t data[] = {0xfa, 0x47, 0xc3, 0x50, 0x00, 0xf5};
+            datum d{data, data + 6};
+            skip_cbor_value(d);
+            if (d.length() != 1 || *d.data != 0xf5) passed = false;
+        }
+        {
+            // float16: 0xf9 + 2 bytes payload, then false
+            uint8_t data[] = {0xf9, 0x3c, 0x00, 0xf4};
+            datum d{data, data + 4};
             skip_cbor_value(d);
             if (d.length() != 1 || *d.data != 0xf4) passed = false;
         }

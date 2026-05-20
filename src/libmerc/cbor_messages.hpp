@@ -94,9 +94,9 @@ using exposed_creds_derived_message   = exposed_creds_message<exposed_creds_tag:
 
 
 /// CNSA 2.0 crypto assessment (quantum_safe policy).
-/// write() produces an anonymous object (no KEY) for use inside the
-/// "cryptographic_security_assessment" array. KEY is used only by the
-/// outer CBOR metadata dispatch.
+/// write() produces an anonymous object (no KEY). On the JSON path it is
+/// written inside the "cryptographic_security_assessment" array. On the
+/// CBOR path the caller writes KEY separately before calling write().
 class crypto_cnsa_message {
     static constexpr size_t MAX_ITEMS = 48;
     cbor::text_string policy_;

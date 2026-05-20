@@ -7,9 +7,9 @@
 
 #include "cbor.hpp"
 
-/// Fixed-buffer CBOR writer for per-packet metadata. Opens an outer
-/// indefinite map on reset(), exposes a writeable for feature encoding,
-/// and closes the map on end_encode().
+/// Fixed-buffer CBOR writer for per-packet metadata. Manages the raw
+/// buffer; the caller is responsible for opening/closing the outer CBOR
+/// map via cbor_object.
 class cbor_metadata_context {
     static constexpr size_t MAX_CBOR_METADATA_LEN = 4096;
 
