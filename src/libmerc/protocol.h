@@ -36,8 +36,11 @@ public:
 
     bool do_network_behavioral_detections(const struct key &, struct analysis_context &, classifier*, const struct common_data &) { return false; }
 
-    // Opt-in for offset-based UDP reassembly (see reassembly.hpp).
-    // Protocols hide this with their own returning true; dispatch is static via std::visit.
+    // returns true if this protocol/message supports offset-based UDP reassembly (see reassembly.hpp)
+    //
+    // classes derived from base_protocol should overload this member function to return true; the base
+    // class version returns false
+    //
     bool supports_udp_offset_reassembly() const { return false; }
 
 };

@@ -152,9 +152,10 @@ public:
 
     const tls_client_hello &get_tls_client_hello() const { return hello; }
 
-    // Offset-based UDP reassembly trait (see reassembly.hpp).
-    // raw_fragment is used instead of handshake.body since the latter
-    // may be consumed by tls_client_hello during construction.
+    // dtls_client_hello member functions supporting the offset-based UDP
+    // reassembly trait (see reassembly.hpp). raw_fragment is used instead of
+    // handshake.body since the latter may be consumed by tls_client_hello
+    // during construction.
     uint32_t additional_bytes_needed() const { return static_cast<uint32_t>(handshake.additional_bytes_needed); }
     uint32_t get_fragment_offset() const     { return handshake.fragment_offset; }
     uint32_t get_fragment_length() const     { return static_cast<uint32_t>(raw_fragment.length()); }

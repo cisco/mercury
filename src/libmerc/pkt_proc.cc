@@ -549,7 +549,7 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
         {
             uint32_t more_bytes = std::get<ssh_init_packet>(x).more_bytes_needed();
             if (tcp_pkt && more_bytes) {
-                tcp_pkt->reassembly_needed(more_bytes,(uint8_t)indefinite_reassembly_type::ssh);
+                tcp_pkt->reassembly_needed(more_bytes,(uint8_t)reassembly_type::ssh);
                 return;
             }
         }
@@ -847,7 +847,7 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
 
     if ((r_state == reassembly_state::reassembly_none) && tcp_pkt.additional_bytes_needed){
         // init reassembly
-        tcp_segment seg{true,tcp_pkt.data_length,tcp_pkt.seq(),tcp_pkt.additional_bytes_needed,(uint64_t)ts->tv_sec, (indefinite_reassembly_type)tcp_pkt.indefinite_reassembly};
+        tcp_segment seg{true,tcp_pkt.data_length,tcp_pkt.seq(),tcp_pkt.additional_bytes_needed,(uint64_t)ts->tv_sec, (reassembly_type)tcp_pkt.indefinite_reassembly};
         reassembler->process_tcp_data_pkt(k,ts->tv_sec,seg,pkt_copy);
         reassembler->dump_pkt = true;
     }
@@ -857,11 +857,11 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
             // 0 seq number, inorder reassembly, seq = existing_data
             reassembly_map_iterator curr_flow = reassembler->get_current_flow();
             uint32_t tmp_seq = curr_flow->second.curr_contiguous_data;
-            tcp_segment seg{false,tcp_pkt.data_length,tmp_seq,0,(uint64_t)ts->tv_sec, (indefinite_reassembly_type)tcp_pkt.indefinite_reassembly};
+            tcp_segment seg{false,tcp_pkt.data_length,tmp_seq,0,(uint64_t)ts->tv_sec, (reassembly_type)tcp_pkt.indefinite_reassembly};
             reassembler->process_tcp_data_pkt(k,ts->tv_sec,seg,pkt_copy);
             reassembler->dump_pkt = true;
         } else {
-            tcp_segment seg{false,tcp_pkt.data_length,tcp_pkt.seq(),0,(uint64_t)ts->tv_sec, (indefinite_reassembly_type)tcp_pkt.indefinite_reassembly};
+            tcp_segment seg{false,tcp_pkt.data_length,tcp_pkt.seq(),0,(uint64_t)ts->tv_sec, (reassembly_type)tcp_pkt.indefinite_reassembly};
             reassembler->process_tcp_data_pkt(k,ts->tv_sec,seg,pkt_copy);
             reassembler->dump_pkt = true;
         }

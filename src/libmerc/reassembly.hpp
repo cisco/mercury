@@ -22,7 +22,7 @@
 #include <vector>
 #include <variant>
 
-enum class indefinite_reassembly_type : uint8_t {
+enum class reassembly_type : uint8_t {
     definite = 0,
     ssh = 1
 };
@@ -38,11 +38,11 @@ struct tcp_segment {
     uint32_t data_length;
     uint32_t seq;
     uint32_t additional_bytes_needed;
-    indefinite_reassembly_type indefinite_reassembly = indefinite_reassembly_type::definite;
+    reassembly_type indefinite_reassembly = reassembly_type::definite;
     uint64_t seg_time;
 
     tcp_segment(bool init, uint32_t len, uint32_t seq_no, uint32_t additional_bytes, uint64_t seg_time_,
-                    indefinite_reassembly_type indef_reassembly = indefinite_reassembly_type::definite) :
+                    reassembly_type indef_reassembly = reassembly_type::definite) :
         init_seg{init},
         data_length{len},
         seq{seq_no},
@@ -63,7 +63,7 @@ struct udp_segment {
     uint32_t data_length;
     uint32_t seq;   // byte offset within the reassembled payload
     uint32_t additional_bytes_needed;
-    indefinite_reassembly_type indefinite_reassembly = indefinite_reassembly_type::definite;
+    reassembly_type indefinite_reassembly = reassembly_type::definite;
     uint64_t seg_time;
     // Per-flow discriminator (e.g. QUIC CID, DTLS message_seq).  The
     // referent need only outlive process_udp_data_pkt, which memcpys it
@@ -71,7 +71,7 @@ struct udp_segment {
     const datum &cid;
 
     udp_segment(bool init, uint32_t len, uint32_t offset, uint32_t additional_bytes, uint64_t seg_time_, const datum &cid_,
-                        indefinite_reassembly_type indef_reassembly = indefinite_reassembly_type::definite) :
+                        reassembly_type indef_reassembly = reassembly_type::definite) :
         init_seg{init},
         data_length{len},
         seq{offset},
@@ -148,7 +148,7 @@ struct reassembly_flow_context {
     uint32_t init_seq;
     uint32_t init_seg_len;
     uint32_t total_bytes_needed;
-    indefinite_reassembly_type indefinite_reassembly = indefinite_reassembly_type::definite;
+    reassembly_type indefinite_reassembly = reassembly_type::definite;
 
     static constexpr unsigned int reassembly_timeout = 15;
 
@@ -219,8 +219,8 @@ struct reassembly_flow_context {
         memcpy(buffer, tcp_pkt.data, init_seg_len);
     }
 
-     // ctor to be called only on inital tcp data segment required for reassembly, for the first time
-    // UDP offset ctor — offset-based reassembly with optional connection ID
+    // UDP offset ctor — offset-based reassembly with optional connection ID;
+    // called only on the initial data segment required for reassembly
     reassembly_flow_context(const udp_segment &seg, const datum &crypto_buf) :
         reassembly_flag_val{},
         reassembly_overlap_flags{},
@@ -428,7 +428,7 @@ template <typename T> inline void reassembly_flow_context::handle_indefinite_rea
         if (more_bytes != max_data_size) {
             // no longer indefinite reassembly
             total_bytes_needed = more_bytes + curr_contiguous_data;
-            indefinite_reassembly = indefinite_reassembly_type::definite;
+            indefinite_reassembly = reassembly_type::definite;
         }
         else {
             // still indefinite reassembly
@@ -441,14 +441,14 @@ inline void reassembly_flow_context::handle_indefinite_reassembly() {
 
     switch (indefinite_reassembly)
     {
-    case indefinite_reassembly_type::ssh:
+    case reassembly_type::ssh:
         {
             pkt = get_reassembled_data();
             ssh_init_packet ssh_pkt{pkt};
             handle_indefinite_reassembly(ssh_pkt);
         }
         break;
-    case indefinite_reassembly_type::definite:
+    case reassembly_type::definite:
         break;
     default:
         break;
@@ -529,7 +529,7 @@ inline void reassembly_flow_context::process_tcp_segment(const T &seg, const dat
         state = reassembly_state::reassembly_success;
     }
 
-    if (indefinite_reassembly != indefinite_reassembly_type::definite) {
+    if (indefinite_reassembly != reassembly_type::definite) {
         // handle special case for indefinite reassembly
         handle_indefinite_reassembly();
     }
@@ -860,9 +860,9 @@ inline void tcp_reassembler::clear_all() {
     table.clear();
 }
 
-// Returns true when the packet should be fingerprinted/analysed by the caller.
-// Manages the QUIC CRYPTO-frame reassembly state machine and repopulates the
-// quic_init object once reassembly is complete.
+// Returns true when the QUIC packet is complete and ready to be parsed and
+// processed. Manages the QUIC CRYPTO-frame reassembly state machine and
+// repopulates the quic_init object once reassembly is complete.
 inline bool process_quic_reassembly(quic_init &qi,
                                     udp &udp_pkt,
                                     const struct key &k,
