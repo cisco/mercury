@@ -253,6 +253,37 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test dtls with and without reassembly")
         CHECK(1 == counter(fingerprint_type_dtls));
         deinitialize();
     }
+
+    SUBCASE("analysis-context path, gated by more_pkts_needed") {
+        // Mimic a strict caller: feed packets through the analysis-context
+        // API and only keep feeding while more_pkts_needed() is true. After
+        // we stop feeding, a complete DTLS fingerprint must have been
+        // produced on the packet processor. If more_pkts_needed went false
+        // prematurely (e.g. due to a reassembly bookkeeping bug) the
+        // fingerprint would still be unknown when we break out.
+        libmerc_config config{.resources = resources_minimal_path,
+                              .packet_filter_cfg = (char *)"dtls;reassembly"};
+        initialize(config);
+        set_pcap("dtls_fragmented_client_hello.pcap");
+
+        int pkts_fed = 0;
+        while (read_next_data_packet() == 0) {
+            mercury_packet_processor_get_analysis_context(
+                m_mpp,
+                (uint8_t *)m_data_packet.first,
+                m_data_packet.second - m_data_packet.first,
+                &m_time);
+            pkts_fed++;
+            if (!mercury_packet_processor_more_pkts_needed(m_mpp)) {
+                break;  // strict caller: stop feeding once no more pkts are needed
+            }
+        }
+        // Both fragments must have been consumed before we stopped.
+        CHECK(pkts_fed == 2);
+        // The completing fragment must yield a full DTLS fingerprint.
+        CHECK(m_mpp->analysis.fp.get_type() == fingerprint_type_dtls);
+        deinitialize();
+    }
 }
 
 TEST_CASE_FIXTURE(LibmercTestFixture, "test dtls partial fragment with and without reassembly")

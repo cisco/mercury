@@ -860,6 +860,35 @@ inline void tcp_reassembler::clear_all() {
     table.clear();
 }
 
+// CID-mismatch behaviour in process_quic_reassembly() and
+// process_udp_offset_reassembly():
+//   On a CID mismatch (a pkt arrives mid-reassembly on the same 5-tuple but
+//   with a different connection-ID -- DTLS message_seq, QUIC connection id,
+//   etc.) both helpers reset curr_flow to end() and return true. The
+//   in-progress flow's reassembly buffer is left untouched; the stray pkt
+//   is handed back to the caller as a standalone parse.
+//
+// Per-path effect:
+//   write_json:    caller force-feeds every pkt, so the stray is emitted
+//                  standalone (if it parses to anything) and the in-progress
+//                  flow completes when the next CID-matching fragment arrives.
+//   FDC:           in_progress(curr_flow) is false, so the call returns
+//                  FDC_NO_DATA or a positive write -- never MORE_PACKETS_NEEDED.
+//                  Since callers stop feeding on anything other than
+//                  MORE_PACKETS_NEEDED, the in-progress flow is silently
+//                  abandoned and reaped by the idle-timeout sweep.
+//   analysis-ctx:  same as FDC -- flow_state_pkts_needed is left unchanged,
+//                  so a caller polling more_pkts_needed() may stop feeding.
+//
+// Future work:
+//   The current policy is acceptable as long as stray-CID interference with
+//   in-progress reassembly is rare. If we start losing data noticeably,
+//   add counters for stray-CID drops on each path; if they trend up, split
+//   the policy per-path by threading a "drop_stray_cid" flag through
+//   process_udp_data() and the two helpers (FDC/analysis return false so
+//   the caller sees MORE_PACKETS_NEEDED / more_pkts_needed=true; write_json
+//   keeps current behaviour), or replace the bool return with a richer enum.
+//
 // Returns true when the QUIC packet is complete and ready to be parsed and
 // processed. Manages the QUIC CRYPTO-frame reassembly state machine and
 // repopulates the quic_init object once reassembly is complete.

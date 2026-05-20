@@ -892,7 +892,7 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
     return false;
 }
 
-// returns boolean whether to fingerprrint/analyze current udp pkt
+// returns boolean whether to fingerprint/analyze the current udp pkt
 bool stateful_pkt_proc::process_udp_data (protocol &x,
                           struct datum &pkt,
                           udp &udp_pkt,
