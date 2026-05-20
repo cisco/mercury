@@ -2519,13 +2519,10 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for interleaved
             THEN("CID-mismatch pkt does not disturb the msg_seq=1 flow; third pkt emits the clean reassembled record") {
                 // pkt 1 must report MORE_PACKETS_NEEDED for the msg_seq=1 flow.
                 REQUIRE(bytes_written_1 == fdc_return::MORE_PACKETS_NEEDED);
-                // pkt 2 has a distinct msg_seq (CID) and so opens its own flow;
-                // its outcome may be MORE_PACKETS_NEEDED or FDC_NO_DATA depending
-                // on what the corrupted body parses to, but it must not consume
-                // or corrupt the in-progress msg_seq=1 flow.
-                CHECK((bytes_written_2 == fdc_return::MORE_PACKETS_NEEDED ||
-                       bytes_written_2 == fdc_return::FDC_NO_DATA ||
-                       bytes_written_2 > 0));
+                // pkt 2 has a distinct msg_seq (CID) and is rejected/ignored for
+                // the active reassembly flow. It must not emit completed output
+                // or consume/corrupt the in-progress msg_seq=1 flow.
+                CHECK(bytes_written_2 == fdc_return::FDC_NO_DATA);
                 // pkt 3 completes msg_seq=1; result must equal the clean
                 // reassembled fingerprint and not contain corrupted bytes.
                 REQUIRE(bytes_written_3 > 0);
