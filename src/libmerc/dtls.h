@@ -161,8 +161,9 @@ public:
     uint32_t get_handshake_length() const    { return handshake.length; }
     datum    get_fragment_data() const       { return raw_fragment; }
 
-    // Per-handshake discriminator (big-endian message_seq); keeps
-    // interleaved ClientHellos in distinct reassembly flows.
+    // Per-handshake discriminator (big-endian message_seq); used to
+    // identify the current DTLS handshake and reject fragments whose
+    // CID does not match the active reassembly state on this 5-tuple.
     datum get_cid() const { return datum{cid_buf, cid_buf + sizeof(cid_buf)}; }
 
     void reparse_from_buf(datum buf) {
