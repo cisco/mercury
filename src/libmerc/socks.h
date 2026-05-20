@@ -436,6 +436,7 @@ struct socks5_addr {
             }
             default : {
                 addr.emplace<std::monostate>();
+                pkt.set_null();
                 break;
             }
         }
@@ -680,6 +681,11 @@ namespace socks {
         datum d7{s5_trunc, s5_trunc + sizeof(s5_trunc)};
         socks5_req_resp req_trunc{d7};
         if (req_trunc.is_not_empty()) return false;
+
+        uint8_t s5_unsupported_addr[] = { 0x05, 0x01, 0x00, 0x02, 0xaa, 0xbb, 0xcc, 0xdd, 0x00, 0x50 };
+        datum d8{s5_unsupported_addr, s5_unsupported_addr + sizeof(s5_unsupported_addr)};
+        socks5_req_resp req_unsupported_addr{d8};
+        if (req_unsupported_addr.is_not_empty()) return false;
 
         return true;
     }
