@@ -45,6 +45,9 @@ const std::string expected_tls_server_fragments_reassembly_json = R"fdcjson({"ve
 
 const std::string expected_dtls_client_hello_json = R"json({"version":2,"fingerprints":["dtls/1/(fefd)(c02c)[(000a000c000a001d0017001e00190018)(000b000403000102)(000d0030002e040305030603080708080809080a080b080408050806040105010601030302030301020103020202040205020602)(0016)]"],"protocols":["dtls"],"truncation":0})json";
 const std::string expected_dtls_server_hello_json = R"json({"version":2,"fingerprints":["dtls_server/(fefd)(c02c)()"],"protocols":["dtls"],"truncation":0})json";
+const std::string expected_dtls_fragment_reassembly_json = R"json({"version":2,"fingerprints":["dtls/1/(fefd)(c030c02cc028c024c014c00a00a500a300a1009f006b006a0069006800390038003700360088008700860085c032c02ec02ac026c00fc005009d003d00350084c02fc02bc027c023c013c00900a400a200a0009e00670040003f003e0033003200310030009a0099009800970045004400430042c031c02dc029c025c00ec004009c003c002f009600410007c012c008001600130010000dc00dc003000a00ff)[(000a001c001a00170019001c001b0018001a0016000e000d000b000c0009000a)(000b000403000102)(000d0020001e060106020603050105020503040104020403030103020303020102020203)(000f000101)(0023)]"],"protocols":["dtls"],"truncation":1})json";
+const std::string expected_dtls_partial_fragment_no_reassembly_json = R"json({"version":2,"fingerprints":["dtls/1/(fefd)(c030c02cc028c024c014c00a00a500a300a1009f006b006a0069006800390038003700360088008700860085c032c02ec02ac026c00fc005009d003d00350084c02fc02bc027c023c013c00900a400a200a0009e00670040003f003e0033003200310030009a0099009800970045004400430042c031c02dc029c025c00ec004009c003c002f009600410007c012c008001600130010000dc00dc003000a00ff)[]"],"protocols":["dtls"],"truncation":2})json";
+const std::string expected_dtls_partial_fragment_reassembly_json = R"json({"version":2,"fingerprints":["dtls/1/(fefd)(c030c02cc028c024c014c00a00a500a300a1009f006b006a0069006800390038003700360088008700860085c032c02ec02ac026c00fc005009d003d00350084c02fc02bc027c023c013c00900a400a200a0009e00670040003f003e0033003200310030009a0099009800970045004400430042c031c02dc029c025c00ec004009c003c002f009600410007c012c008001600130010000dc00dc003000a00ff)[(000a001c001a00170019001c001b0018001a0016000e000d000b000c0009000a)(000b000403000102)(000d0020001e060106020603050105020503040104020403030103020303020102020203)(000f000101)(0023)]"],"protocols":["dtls"],"truncation":1})json";
 const std::string expected_http_response_json = R"json({"version":2,"fingerprints":["http_server/(485454502f312e31)(323030)(4f4b)((5365727665723a204a657474792f342e322e39726332202853756e4f532f352e38207370617263206a6176612f312e342e315f303429)(436f6e74656e742d54797065)(436f6e6e656374696f6e3a20636c6f7365))"],"protocols":["http"],"http":{"response":{"version":"HTTP/1.1","status_code":"200","status_reason":"OK","content_length":"60037","server":"Jetty/4.2.9rc2 (SunOS/5.8 sparc java/1.4.1_04)"}},"truncation":0})json";
 
 } // namespace
@@ -568,6 +571,87 @@ unsigned char dtls_server_hello_udp_payload[] = {
     0x89, 0xb9, 0x13, 0x36, 0xf9, 0x96, 0x58, 0x56, 0x17, 0x19, 0xeb, 0xd2, 0x08,
     0x46, 0xb8, 0x66, 0x4f, 0xbf, 0xd0, 0xac, 0x48, 0x22, 0xd8, 0x22, 0xe7, 0xbf,
     0xf5
+};
+
+// DTLS ClientHello fragmented across two UDP datagrams.  In this PCAP the
+// cipher-suite vector itself is split between fragment 1 and fragment 2, so
+// without reassembly tls_client_hello::is_not_empty() returns false and the
+// FDC record is suppressed entirely.
+unsigned char dtls_fragment_1_udp_payload[] = {
+    0x16, 0xfe, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00,
+    0xd7, 0x01, 0x00, 0x01, 0x33, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0xcb, 0xfe, 0xfd, 0x06, 0xac, 0x43, 0x43, 0xe7, 0x01, 0xfd, 0x74, 0xca,
+    0xc1, 0x5b, 0xdb, 0x8d, 0x0f, 0xb7, 0x35, 0xdc, 0xa3, 0x54, 0xf8, 0xe4,
+    0xcc, 0x1e, 0x65, 0x94, 0x4f, 0x8d, 0x44, 0x3a, 0x1a, 0xf9, 0xb2, 0x00,
+    0x14, 0x4c, 0x28, 0x1d, 0xa5, 0x21, 0x6e, 0x0b, 0xcd, 0xc6, 0xd3, 0x57,
+    0x70, 0x17, 0x6e, 0xe1, 0x2f, 0x67, 0x6b, 0xaa, 0x9b, 0x00, 0xa0, 0xc0,
+    0x30, 0xc0, 0x2c, 0xc0, 0x28, 0xc0, 0x24, 0xc0, 0x14, 0xc0, 0x0a, 0x00,
+    0xa5, 0x00, 0xa3, 0x00, 0xa1, 0x00, 0x9f, 0x00, 0x6b, 0x00, 0x6a, 0x00,
+    0x69, 0x00, 0x68, 0x00, 0x39, 0x00, 0x38, 0x00, 0x37, 0x00, 0x36, 0x00,
+    0x88, 0x00, 0x87, 0x00, 0x86, 0x00, 0x85, 0xc0, 0x32, 0xc0, 0x2e, 0xc0,
+    0x2a, 0xc0, 0x26, 0xc0, 0x0f, 0xc0, 0x05, 0x00, 0x9d, 0x00, 0x3d, 0x00,
+    0x35, 0x00, 0x84, 0xc0, 0x2f, 0xc0, 0x2b, 0xc0, 0x27, 0xc0, 0x23, 0xc0,
+    0x13, 0xc0, 0x09, 0x00, 0xa4, 0x00, 0xa2, 0x00, 0xa0, 0x00, 0x9e, 0x00,
+    0x67, 0x00, 0x40, 0x00, 0x3f, 0x00, 0x3e, 0x00, 0x33, 0x00, 0x32, 0x00,
+    0x31, 0x00, 0x30, 0x00, 0x9a, 0x00, 0x99, 0x00, 0x98, 0x00, 0x97, 0x00,
+    0x45, 0x00, 0x44, 0x00, 0x43, 0x00, 0x42, 0xc0, 0x31, 0xc0, 0x2d, 0xc0,
+    0x29, 0xc0, 0x25, 0xc0, 0x0e, 0xc0, 0x04, 0x00, 0x9c, 0x00, 0x3c, 0x00,
+    0x2f, 0x00, 0x96, 0x00, 0x41, 0x00, 0x07, 0xc0, 0x12, 0xc0, 0x08, 0x00,
+};
+
+unsigned char dtls_fragment_2_udp_payload[] = {
+    0x16, 0xfe, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00,
+    0x74, 0x01, 0x00, 0x01, 0x33, 0x00, 0x01, 0x00, 0x00, 0xcb, 0x00, 0x00,
+    0x68, 0x16, 0x00, 0x13, 0x00, 0x10, 0x00, 0x0d, 0xc0, 0x0d, 0xc0, 0x03,
+    0x00, 0x0a, 0x00, 0xff, 0x01, 0x00, 0x00, 0x55, 0x00, 0x0b, 0x00, 0x04,
+    0x03, 0x00, 0x01, 0x02, 0x00, 0x0a, 0x00, 0x1c, 0x00, 0x1a, 0x00, 0x17,
+    0x00, 0x19, 0x00, 0x1c, 0x00, 0x1b, 0x00, 0x18, 0x00, 0x1a, 0x00, 0x16,
+    0x00, 0x0e, 0x00, 0x0d, 0x00, 0x0b, 0x00, 0x0c, 0x00, 0x09, 0x00, 0x0a,
+    0x00, 0x23, 0x00, 0x00, 0x00, 0x0d, 0x00, 0x20, 0x00, 0x1e, 0x06, 0x01,
+    0x06, 0x02, 0x06, 0x03, 0x05, 0x01, 0x05, 0x02, 0x05, 0x03, 0x04, 0x01,
+    0x04, 0x02, 0x04, 0x03, 0x03, 0x01, 0x03, 0x02, 0x03, 0x03, 0x02, 0x01,
+    0x02, 0x02, 0x02, 0x03, 0x00, 0x0f, 0x00, 0x01, 0x01,
+};
+
+// DTLS ClientHello fragmented across two UDP datagrams.  In this PCAP the
+// first fragment includes the complete cipher-suite vector and compression
+// methods, but the extensions are split, so without reassembly the inner
+// tls_client_hello parses far enough that is_not_empty() returns true and a
+// partial DTLS fingerprint plus metadata are emitted (with truncation flag).
+unsigned char dtls_partial_fragment_1_udp_payload[] = {
+    0x16, 0xfe, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00,
+    0xee, 0x01, 0x00, 0x01, 0x33, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0xe2, 0xfe, 0xfd, 0x06, 0xac, 0x43, 0x43, 0xe7, 0x01, 0xfd, 0x74, 0xca,
+    0xc1, 0x5b, 0xdb, 0x8d, 0x0f, 0xb7, 0x35, 0xdc, 0xa3, 0x54, 0xf8, 0xe4,
+    0xcc, 0x1e, 0x65, 0x94, 0x4f, 0x8d, 0x44, 0x3a, 0x1a, 0xf9, 0xb2, 0x00,
+    0x14, 0x4c, 0x28, 0x1d, 0xa5, 0x21, 0x6e, 0x0b, 0xcd, 0xc6, 0xd3, 0x57,
+    0x70, 0x17, 0x6e, 0xe1, 0x2f, 0x67, 0x6b, 0xaa, 0x9b, 0x00, 0xa0, 0xc0,
+    0x30, 0xc0, 0x2c, 0xc0, 0x28, 0xc0, 0x24, 0xc0, 0x14, 0xc0, 0x0a, 0x00,
+    0xa5, 0x00, 0xa3, 0x00, 0xa1, 0x00, 0x9f, 0x00, 0x6b, 0x00, 0x6a, 0x00,
+    0x69, 0x00, 0x68, 0x00, 0x39, 0x00, 0x38, 0x00, 0x37, 0x00, 0x36, 0x00,
+    0x88, 0x00, 0x87, 0x00, 0x86, 0x00, 0x85, 0xc0, 0x32, 0xc0, 0x2e, 0xc0,
+    0x2a, 0xc0, 0x26, 0xc0, 0x0f, 0xc0, 0x05, 0x00, 0x9d, 0x00, 0x3d, 0x00,
+    0x35, 0x00, 0x84, 0xc0, 0x2f, 0xc0, 0x2b, 0xc0, 0x27, 0xc0, 0x23, 0xc0,
+    0x13, 0xc0, 0x09, 0x00, 0xa4, 0x00, 0xa2, 0x00, 0xa0, 0x00, 0x9e, 0x00,
+    0x67, 0x00, 0x40, 0x00, 0x3f, 0x00, 0x3e, 0x00, 0x33, 0x00, 0x32, 0x00,
+    0x31, 0x00, 0x30, 0x00, 0x9a, 0x00, 0x99, 0x00, 0x98, 0x00, 0x97, 0x00,
+    0x45, 0x00, 0x44, 0x00, 0x43, 0x00, 0x42, 0xc0, 0x31, 0xc0, 0x2d, 0xc0,
+    0x29, 0xc0, 0x25, 0xc0, 0x0e, 0xc0, 0x04, 0x00, 0x9c, 0x00, 0x3c, 0x00,
+    0x2f, 0x00, 0x96, 0x00, 0x41, 0x00, 0x07, 0xc0, 0x12, 0xc0, 0x08, 0x00,
+    0x16, 0x00, 0x13, 0x00, 0x10, 0x00, 0x0d, 0xc0, 0x0d, 0xc0, 0x03, 0x00,
+    0x0a, 0x00, 0xff, 0x01, 0x00, 0x00, 0x55, 0x00, 0x0b, 0x00, 0x04,
+};
+
+unsigned char dtls_partial_fragment_2_udp_payload[] = {
+    0x16, 0xfe, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00,
+    0x5d, 0x01, 0x00, 0x01, 0x33, 0x00, 0x01, 0x00, 0x00, 0xe2, 0x00, 0x00,
+    0x51, 0x03, 0x00, 0x01, 0x02, 0x00, 0x0a, 0x00, 0x1c, 0x00, 0x1a, 0x00,
+    0x17, 0x00, 0x19, 0x00, 0x1c, 0x00, 0x1b, 0x00, 0x18, 0x00, 0x1a, 0x00,
+    0x16, 0x00, 0x0e, 0x00, 0x0d, 0x00, 0x0b, 0x00, 0x0c, 0x00, 0x09, 0x00,
+    0x0a, 0x00, 0x23, 0x00, 0x00, 0x00, 0x0d, 0x00, 0x20, 0x00, 0x1e, 0x06,
+    0x01, 0x06, 0x02, 0x06, 0x03, 0x05, 0x01, 0x05, 0x02, 0x05, 0x03, 0x04,
+    0x01, 0x04, 0x02, 0x04, 0x03, 0x03, 0x01, 0x03, 0x02, 0x03, 0x03, 0x02,
+    0x01, 0x02, 0x02, 0x02, 0x03, 0x00, 0x0f, 0x00, 0x01, 0x01,
 };
 
 unsigned char http_response_tcp_payload[] = {
@@ -2078,6 +2162,228 @@ SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for dtls server
             THEN("FDC should be written to output buffer") {
                 REQUIRE(bytes_written == 74);
                 CHECK(json == expected_dtls_server_hello_json);
+            }
+            mercury_packet_processor_destruct(mpp);
+        }
+        mercury_finalize(mc);
+    }
+}
+
+SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented DTLS payload without reassembly") {
+    GIVEN("mercury packet processor") {
+        libmerc_config config = create_config();
+        mercury_context mc = initialize_mercury(config);
+        mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
+        const analysis_context* ac = nullptr;
+
+        const int max_buffer_allocation = 1500;
+        uint8_t wbuffer[max_buffer_allocation];
+
+        // 192.168.17.58:60934 -> 165.227.57.17:4400
+        uint32_t src_ip = 980367040;
+        uint32_t dst_ip = 287516581;
+        uint16_t src_port = 60934;
+        uint16_t dst_port = 4400;
+        uint8_t proto = ip::protocol::udp;
+
+        struct flow_key_ext k;
+        k.ip_vers = 4;
+        k.src_port = src_port;
+        k.dst_port = dst_port;
+        k.addr.ipv4.src = src_ip;
+        k.addr.ipv4.dst = dst_ip;
+        k.protocol = proto;
+
+        WHEN("write to FDC buffer for first DTLS fragment without reassembly enabled") {
+            // The first fragment carries only the start of the cipher-suite
+            // vector, so tls_client_hello::is_not_empty() returns false and
+            // the FDC record is suppressed (no fingerprint, no metadata).
+            size_t fdc_buffer_len = max_buffer_allocation;
+            int bytes_written = mercury_packet_processor_get_analysis_context_fdc(
+                mpp,
+                &k,
+                dtls_fragment_1_udp_payload,
+                sizeof(dtls_fragment_1_udp_payload),
+                wbuffer,
+                &fdc_buffer_len,
+                &ac);
+
+            THEN("FDC writer should report no data for the truncated fragment") {
+                REQUIRE(bytes_written == fdc_return::FDC_NO_DATA);
+            }
+            mercury_packet_processor_destruct(mpp);
+        }
+        mercury_finalize(mc);
+    }
+}
+
+SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for fragmented DTLS payload with reassembly") {
+    GIVEN("mercury packet processor with reassembly enabled") {
+        libmerc_config config = create_config();
+        config.packet_filter_cfg = (char *)"all;reassembly;minimize-ram";
+        mercury_context mc = initialize_mercury(config);
+        mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
+        const analysis_context* ac = nullptr;
+
+        const int max_buffer_allocation = 1500;
+        uint8_t wbuffer[max_buffer_allocation];
+
+        // 192.168.17.58:60934 -> 165.227.57.17:4400
+        uint32_t src_ip = 980367040;
+        uint32_t dst_ip = 287516581;
+        uint16_t src_port = 60934;
+        uint16_t dst_port = 4400;
+        uint8_t proto = ip::protocol::udp;
+
+        struct flow_key_ext k;
+        k.ip_vers = 4;
+        k.src_port = src_port;
+        k.dst_port = dst_port;
+        k.addr.ipv4.src = src_ip;
+        k.addr.ipv4.dst = dst_ip;
+        k.protocol = proto;
+
+        WHEN("write to FDC buffer for the 2 DTLS fragments") {
+            size_t fdc_buffer_len = max_buffer_allocation;
+            std::string json;
+            int bytes_written_1 = mercury_packet_processor_get_analysis_context_fdc(
+                mpp,
+                &k,
+                dtls_fragment_1_udp_payload,
+                sizeof(dtls_fragment_1_udp_payload),
+                wbuffer,
+                &fdc_buffer_len,
+                &ac);
+            int bytes_written_2 = mercury_packet_processor_get_analysis_context_fdc(
+                mpp,
+                &k,
+                dtls_fragment_2_udp_payload,
+                sizeof(dtls_fragment_2_udp_payload),
+                wbuffer,
+                &fdc_buffer_len,
+                &ac);
+            if (bytes_written_2 > 0) {
+                json = decode_fdc_json(wbuffer, bytes_written_2);
+                maybe_print_json("dtls_fragment_reassembly", json);
+            }
+
+            THEN("FDC should report MORE_PACKETS_NEEDED then write the reassembled record") {
+                REQUIRE(bytes_written_1 == fdc_return::MORE_PACKETS_NEEDED);
+                REQUIRE(bytes_written_2 > 0);
+                CHECK(json == expected_dtls_fragment_reassembly_json);
+            }
+            mercury_packet_processor_destruct(mpp);
+        }
+        mercury_finalize(mc);
+    }
+}
+
+SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for partially fragmented DTLS payload without reassembly") {
+    GIVEN("mercury packet processor") {
+        libmerc_config config = create_config();
+        mercury_context mc = initialize_mercury(config);
+        mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
+        const analysis_context* ac = nullptr;
+
+        const int max_buffer_allocation = 1500;
+        uint8_t wbuffer[max_buffer_allocation];
+
+        uint32_t src_ip = 980367040;
+        uint32_t dst_ip = 287516581;
+        uint16_t src_port = 60934;
+        uint16_t dst_port = 4400;
+        uint8_t proto = ip::protocol::udp;
+
+        struct flow_key_ext k;
+        k.ip_vers = 4;
+        k.src_port = src_port;
+        k.dst_port = dst_port;
+        k.addr.ipv4.src = src_ip;
+        k.addr.ipv4.dst = dst_ip;
+        k.protocol = proto;
+
+        WHEN("write to FDC buffer for the partial first fragment without reassembly") {
+            // The first fragment includes the full cipher-suite vector and
+            // compression methods but the extensions are split, so a partial
+            // fingerprint plus metadata are emitted with a "truncated" flag.
+            size_t fdc_buffer_len = max_buffer_allocation;
+            std::string json;
+            int bytes_written = mercury_packet_processor_get_analysis_context_fdc(
+                mpp,
+                &k,
+                dtls_partial_fragment_1_udp_payload,
+                sizeof(dtls_partial_fragment_1_udp_payload),
+                wbuffer,
+                &fdc_buffer_len,
+                &ac);
+            if (bytes_written > 0) {
+                json = decode_fdc_json(wbuffer, bytes_written);
+                maybe_print_json("dtls_partial_fragment_no_reassembly", json);
+            }
+
+            THEN("FDC should write a truncated DTLS fingerprint record") {
+                REQUIRE(bytes_written > 0);
+                CHECK(json == expected_dtls_partial_fragment_no_reassembly_json);
+            }
+            mercury_packet_processor_destruct(mpp);
+        }
+        mercury_finalize(mc);
+    }
+}
+
+SCENARIO("test mercury_packet_processor_get_analysis_context_fdc for partially fragmented DTLS payload with reassembly") {
+    GIVEN("mercury packet processor with reassembly enabled") {
+        libmerc_config config = create_config();
+        config.packet_filter_cfg = (char *)"all;reassembly;minimize-ram";
+        mercury_context mc = initialize_mercury(config);
+        mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
+        const analysis_context* ac = nullptr;
+
+        const int max_buffer_allocation = 1500;
+        uint8_t wbuffer[max_buffer_allocation];
+
+        uint32_t src_ip = 980367040;
+        uint32_t dst_ip = 287516581;
+        uint16_t src_port = 60934;
+        uint16_t dst_port = 4400;
+        uint8_t proto = ip::protocol::udp;
+
+        struct flow_key_ext k;
+        k.ip_vers = 4;
+        k.src_port = src_port;
+        k.dst_port = dst_port;
+        k.addr.ipv4.src = src_ip;
+        k.addr.ipv4.dst = dst_ip;
+        k.protocol = proto;
+
+        WHEN("write to FDC buffer for the 2 partial DTLS fragments") {
+            size_t fdc_buffer_len = max_buffer_allocation;
+            std::string json;
+            int bytes_written_1 = mercury_packet_processor_get_analysis_context_fdc(
+                mpp,
+                &k,
+                dtls_partial_fragment_1_udp_payload,
+                sizeof(dtls_partial_fragment_1_udp_payload),
+                wbuffer,
+                &fdc_buffer_len,
+                &ac);
+            int bytes_written_2 = mercury_packet_processor_get_analysis_context_fdc(
+                mpp,
+                &k,
+                dtls_partial_fragment_2_udp_payload,
+                sizeof(dtls_partial_fragment_2_udp_payload),
+                wbuffer,
+                &fdc_buffer_len,
+                &ac);
+            if (bytes_written_2 > 0) {
+                json = decode_fdc_json(wbuffer, bytes_written_2);
+                maybe_print_json("dtls_partial_fragment_reassembly", json);
+            }
+
+            THEN("FDC should report MORE_PACKETS_NEEDED then write the reassembled record") {
+                REQUIRE(bytes_written_1 == fdc_return::MORE_PACKETS_NEEDED);
+                REQUIRE(bytes_written_2 > 0);
+                CHECK(json == expected_dtls_partial_fragment_reassembly_json);
             }
             mercury_packet_processor_destruct(mpp);
         }

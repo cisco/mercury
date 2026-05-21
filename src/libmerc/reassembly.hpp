@@ -10,12 +10,19 @@
 
 #include "datum.h"
 #include "json_object.h"
+#include "udp.h"
+#include "quic.h"
+#include "dtls.h"
+#include "fdc.hpp"     // for truncation_status
 
 #include <bitset>
-#include <vector>
+#include <type_traits>
 #include <unordered_map>
+#include <utility>
+#include <vector>
+#include <variant>
 
-enum class indefinite_reassembly_type : uint8_t {
+enum class reassembly_type : uint8_t {
     definite = 0,
     ssh = 1
 };
@@ -31,11 +38,11 @@ struct tcp_segment {
     uint32_t data_length;
     uint32_t seq;
     uint32_t additional_bytes_needed;
-    indefinite_reassembly_type indefinite_reassembly = indefinite_reassembly_type::definite;
+    reassembly_type indefinite_reassembly = reassembly_type::definite;
     uint64_t seg_time;
 
     tcp_segment(bool init, uint32_t len, uint32_t seq_no, uint32_t additional_bytes, uint64_t seg_time_,
-                    indefinite_reassembly_type indef_reassembly = indefinite_reassembly_type::definite) :
+                    reassembly_type indef_reassembly = reassembly_type::definite) :
         init_seg{init},
         data_length{len},
         seq{seq_no},
@@ -44,23 +51,27 @@ struct tcp_segment {
         seg_time{seg_time_} {}
 };
 
-// quic_segment contains info about the quic segment
-// to be used in the reassembly - crypto offset, cid, data len, timestamp
+// udp_segment contains info about a UDP offset-based segment
+// to be used in reassembly — byte offset within the payload, optional
+// connection ID, data length, and timestamp.
 //
-// if the segment is first segment, {inti_seg == true},
-// it also holds additional bytes needed for reassmebly
+// if the segment is first segment, {init_seg == true},
+// it also holds additional bytes needed for reassembly
 //
-struct quic_segment {
+struct udp_segment {
     bool init_seg;
     uint32_t data_length;
-    uint32_t seq;   // crypto frame offset
+    uint32_t seq;   // byte offset within the reassembled payload
     uint32_t additional_bytes_needed;
-    indefinite_reassembly_type indefinite_reassembly = indefinite_reassembly_type::definite;
+    reassembly_type indefinite_reassembly = reassembly_type::definite;
     uint64_t seg_time;
+    // Per-flow discriminator (e.g. QUIC CID, DTLS message_seq).  The
+    // referent need only outlive process_udp_data_pkt, which memcpys it
+    // into the flow_context.  Empty for protocols with no per-flow ID.
     const datum &cid;
 
-    quic_segment(bool init, uint32_t len, uint32_t offset, uint32_t additional_bytes, uint64_t seg_time_, const datum &cid_,
-                        indefinite_reassembly_type indef_reassembly = indefinite_reassembly_type::definite) :
+    udp_segment(bool init, uint32_t len, uint32_t offset, uint32_t additional_bytes, uint64_t seg_time_, const datum &cid_,
+                        reassembly_type indef_reassembly = reassembly_type::definite) :
         init_seg{init},
         data_length{len},
         seq{offset},
@@ -115,7 +126,7 @@ enum class reassembly_state : uint8_t {
     reassembly_success = 2,      // reassembly success
     reassembly_truncated = 3,    // reassembly failed, output truncated, either max segments or timeout
     reassembly_consumed = 4,     // reassembly data already consumed, either success or truncated
-    reassembly_quic_discard = 5, // mismatching cid, discard this flow from reassembly
+    reassembly_cid_mismatch = 5, // connection-ID mismatch; discard this UDP flow from reassembly
 };
 
 //static constexpr unsigned int reassembly_timeout = 15;
@@ -137,7 +148,7 @@ struct reassembly_flow_context {
     uint32_t init_seq;
     uint32_t init_seg_len;
     uint32_t total_bytes_needed;
-    indefinite_reassembly_type indefinite_reassembly;
+    reassembly_type indefinite_reassembly = reassembly_type::definite;
 
     static constexpr unsigned int reassembly_timeout = 15;
 
@@ -152,8 +163,8 @@ struct reassembly_flow_context {
     size_t curr_seg_count;
     std::vector<std::pair<uint32_t,uint32_t> > seg_list;  // pair of start and end seq for segment
 
-    // quic meta
-    bool is_quic = false;
+    // udp offset meta
+    bool is_udp_offset = false;
     static constexpr size_t max_cid_len = 20;
     uint8_t cid[max_cid_len];
     size_t cid_len;
@@ -174,11 +185,9 @@ struct reassembly_flow_context {
         buffer{},
         curr_seg_count{0},
         seg_list{},
-        is_quic{false},
+        is_udp_offset{false},
         cid{},
         cid_len{0} {
-
-        // preventive checks
         if (seg.data_length == 0 || tcp_pkt.is_not_readable()) {
             state = reassembly_state::reassembly_truncated;
             reassembly_flag_val[(size_t)reassembly_flags::truncated] = true;
@@ -210,9 +219,9 @@ struct reassembly_flow_context {
         memcpy(buffer, tcp_pkt.data, init_seg_len);
     }
 
-     // ctor to be called only on inital tcp data segment required for reassembly, for the first time
-    // QUIC version of ctor
-    reassembly_flow_context(const quic_segment &seg, const datum &crypto_buf) :
+    // UDP offset ctor — offset-based reassembly with optional connection ID;
+    // called only on the initial data segment required for reassembly
+    reassembly_flow_context(const udp_segment &seg, const datum &crypto_buf) :
         reassembly_flag_val{},
         reassembly_overlap_flags{},
         state{reassembly_state::reassembly_progress},
@@ -220,12 +229,13 @@ struct reassembly_flow_context {
         init_seq{seg.seq},
         init_seg_len{seg.data_length},
         total_bytes_needed{(seg.data_length) + (seg.additional_bytes_needed)},
+        indefinite_reassembly{seg.indefinite_reassembly},
         curr_contiguous_data{seg.data_length},
         total_set_data{seg.data_length},
         buffer{},
         curr_seg_count{0},
         seg_list{},
-        is_quic{true},
+        is_udp_offset{true},
         cid{},
         cid_len{(size_t)(seg.cid.length() > (ssize_t)max_cid_len ? max_cid_len : seg.cid.length())} {
 
@@ -418,7 +428,7 @@ template <typename T> inline void reassembly_flow_context::handle_indefinite_rea
         if (more_bytes != max_data_size) {
             // no longer indefinite reassembly
             total_bytes_needed = more_bytes + curr_contiguous_data;
-            indefinite_reassembly = indefinite_reassembly_type::definite;
+            indefinite_reassembly = reassembly_type::definite;
         }
         else {
             // still indefinite reassembly
@@ -431,14 +441,14 @@ inline void reassembly_flow_context::handle_indefinite_reassembly() {
 
     switch (indefinite_reassembly)
     {
-    case indefinite_reassembly_type::ssh:
+    case reassembly_type::ssh:
         {
             pkt = get_reassembled_data();
             ssh_init_packet ssh_pkt{pkt};
             handle_indefinite_reassembly(ssh_pkt);
         }
         break;
-    case indefinite_reassembly_type::definite:
+    case reassembly_type::definite:
         break;
     default:
         break;
@@ -519,7 +529,7 @@ inline void reassembly_flow_context::process_tcp_segment(const T &seg, const dat
         state = reassembly_state::reassembly_success;
     }
 
-    if (indefinite_reassembly != indefinite_reassembly_type::definite) {
+    if (indefinite_reassembly != reassembly_type::definite) {
         // handle special case for indefinite reassembly
         handle_indefinite_reassembly();
     }
@@ -560,15 +570,18 @@ struct tcp_reassembler {
     reassembly_state check_flow(const struct key &k, uint64_t sec);
     reassembly_state check_flow(const struct key &k, uint64_t sec, const datum &cid);
     reassembly_map_iterator process_tcp_data_pkt(const struct key &k, uint64_t sec, const tcp_segment &seg, const datum &d);
-    reassembly_map_iterator process_quic_data_pkt(const struct key &k, uint64_t sec, const quic_segment &seg, const datum &d);
+    reassembly_map_iterator process_udp_data_pkt(const struct key &k, uint64_t sec, const udp_segment &seg, const datum &d);
     reassembly_map_iterator get_current_flow();
     bool is_ready(reassembly_map_iterator it);
     bool in_progress(reassembly_map_iterator it);
     bool is_done(reassembly_map_iterator it);
+    // true if any truncation flag is set (persists past set_completed)
+    bool was_flow_truncated(reassembly_map_iterator it) const;
     datum get_reassembled_data(reassembly_map_iterator it);
     void set_completed(reassembly_map_iterator it);
     void write_json(json_object &record);
     void clean_curr_flow();
+    void reset_current_flow() { curr_flow = table.end(); }
     void clear_all();
 
 private:
@@ -649,8 +662,10 @@ inline reassembly_state tcp_reassembler::check_flow(const struct key &k, uint64_
     }
 }
 
-// QUIC version of check_flow also matches connection ID so that at a time, only one flow is in reassembly per unique 5-tuple
-//
+// UDP-offset overload of check_flow; matches the per-flow discriminator
+// (QUIC CID, DTLS message_seq) so only one session per 5-tuple is
+// reassembled at a time. An empty stored flow CID wildcard-matches;
+// otherwise the trimmed incoming cid_ must match the stored CID.
 inline reassembly_state tcp_reassembler::check_flow(const struct key &k, uint64_t sec, const datum &cid_) {
     // housekeeping before find/emplace for maintain iterator validity
     //
@@ -669,7 +684,7 @@ inline reassembly_state tcp_reassembler::check_flow(const struct key &k, uint64_
         if (cid.is_empty() || (cid.cmp(cid_prefix) == 0))
             return curr_flow->second.state;
         else
-            return reassembly_state::reassembly_quic_discard;
+            return reassembly_state::reassembly_cid_mismatch;
     }
     else {
         curr_flow = table.end();
@@ -730,13 +745,15 @@ inline reassembly_map_iterator tcp_reassembler::process_tcp_data_pkt(const struc
     }
 }
 
-inline reassembly_map_iterator tcp_reassembler::process_quic_data_pkt(const struct key &k, uint64_t sec, const quic_segment &seg, const datum &d){
+inline reassembly_map_iterator tcp_reassembler::process_udp_data_pkt(const struct key &k, uint64_t sec, const udp_segment &seg, const datum &d){
     reassembly_state flow_state = check_flow(k,sec,seg.cid);
 
     switch (flow_state)
     {
-    case reassembly_state::reassembly_quic_discard :
-        // untracked quic flow sharing 5 tuple
+    case reassembly_state::reassembly_cid_mismatch :
+        // CID mismatch: don't disturb the in-progress flow and don't let
+        // callers see it through curr_flow.
+        reset_current_flow();
         return table.end();
 
     case reassembly_state::reassembly_none :
@@ -786,6 +803,18 @@ inline bool tcp_reassembler::is_done(reassembly_map_iterator it)  {
         return false;
 }
 
+inline bool tcp_reassembler::was_flow_truncated(reassembly_map_iterator it) const {
+    if (it == table.end()) {
+        return false;
+    }
+    const auto &flags = it->second.reassembly_flag_val;
+    return flags[(size_t)reassembly_flags::truncated]
+        || flags[(size_t)reassembly_flags::timeout]
+        || flags[(size_t)reassembly_flags::out_of_buffer]
+        || flags[(size_t)reassembly_flags::max_seg_exceed]
+        || flags[(size_t)reassembly_flags::missing_mid_segment];
+}
+
 inline datum tcp_reassembler::get_reassembled_data(reassembly_map_iterator it) {
     if (it != table.end())
         return it->second.get_reassembled_data();
@@ -829,6 +858,393 @@ inline void tcp_reassembler::write_json(json_object &record) {
 
 inline void tcp_reassembler::clear_all() {
     table.clear();
+}
+
+// CID-mismatch behaviour in process_quic_reassembly() and
+// process_udp_offset_reassembly():
+//   On a CID mismatch (a pkt arrives mid-reassembly on the same 5-tuple but
+//   with a different connection-ID -- DTLS message_seq, QUIC connection id,
+//   etc.) both helpers reset curr_flow to end() and return true. The
+//   in-progress flow's reassembly buffer is left untouched; the stray pkt
+//   is handed back to the caller as a standalone parse.
+//
+// Per-path effect:
+//   write_json:    caller force-feeds every pkt, so the stray is emitted
+//                  standalone (if it parses to anything) and the in-progress
+//                  flow completes when the next CID-matching fragment arrives.
+//   FDC:           in_progress(curr_flow) is false, so the call returns
+//                  FDC_NO_DATA or a positive write -- never MORE_PACKETS_NEEDED.
+//                  Since callers stop feeding on anything other than
+//                  MORE_PACKETS_NEEDED, the in-progress flow is silently
+//                  abandoned and reaped by the idle-timeout sweep.
+//   analysis-ctx:  same as FDC -- flow_state_pkts_needed is left unchanged,
+//                  so a caller polling more_pkts_needed() may stop feeding.
+//
+// Future work:
+//   The current policy is acceptable as long as stray-CID interference with
+//   in-progress reassembly is rare. If we start losing data noticeably,
+//   add counters for stray-CID drops on each path; if they trend up, split
+//   the policy per-path by threading a "drop_stray_cid" flag through
+//   process_udp_data() and the two helpers (FDC/analysis return false so
+//   the caller sees MORE_PACKETS_NEEDED / more_pkts_needed=true; write_json
+//   keeps current behaviour), or replace the bool return with a richer enum.
+//
+// Returns true when the QUIC packet is complete and ready to be parsed and
+// processed. Manages the QUIC CRYPTO-frame reassembly state machine and
+// repopulates the quic_init object once reassembly is complete.
+inline bool process_quic_reassembly(quic_init &qi,
+                                    udp &udp_pkt,
+                                    const struct key &k,
+                                    struct timespec *ts,
+                                    struct tcp_reassembler *reassembler) {
+    const datum &cid = qi.get_cid();
+    uint32_t crypto_len = 0;
+    const uint8_t *crypto_data = qi.get_crypto_buf(&crypto_len);
+    uint32_t crypto_offset = qi.get_min_crypto_offset();
+    const uint32_t additional_bytes_needed = udp_pkt.additional_bytes_needed();
+    bool missing_crypto_frames = qi.missing_crypto_frames();
+    bool min_crypto_data = qi.min_crypto_data();
+    if (crypto_len > reassembly_flow_context::max_data_size) {
+        return true;
+    }
+
+    // skip reassembly: no crypto data, or complete initial packet
+    if (!crypto_len || (!crypto_offset && !additional_bytes_needed)) {
+        return true;
+    }
+
+    // total must fit the reassembly buffer
+    if ((uint64_t)crypto_len + (uint64_t)additional_bytes_needed >
+        reassembly_flow_context::max_data_size) {
+        return true;
+    }
+
+    reassembly_state r_state = reassembler->check_flow(k, ts->tv_sec, cid);
+
+    if ((r_state == reassembly_state::reassembly_none) && !additional_bytes_needed) {
+        return true;
+    }
+    else if ((r_state == reassembly_state::reassembly_none) && additional_bytes_needed) {
+        if (!missing_crypto_frames) {
+            udp_segment seg{true, crypto_len, crypto_offset, additional_bytes_needed, (uint64_t)ts->tv_sec, cid};
+            reassembler->process_udp_data_pkt(k, ts->tv_sec, seg, datum{crypto_data+crypto_offset, crypto_data+crypto_offset+crypto_len});
+            reassembler->dump_pkt = true;
+        }
+        else {
+            uint16_t frame_count = 0;
+            uint16_t first_frame_idx = 0;
+            const crypto* frames = qi.get_crypto_frames(frame_count, first_frame_idx);
+            uint64_t max_crypto_end = (uint64_t)crypto_offset + (uint64_t)crypto_len;
+            if (frame_count == 0 || first_frame_idx == cryptographic_buffer::invalid_first_frame_index) {
+                return true;
+            }
+
+            if (min_crypto_data) {
+                uint64_t frame_offset = frames[first_frame_idx].offset();
+                if ((frame_offset < max_crypto_end) && (frame_offset <= UINT32_MAX)) {
+                    uint64_t seg_len = cryptographic_buffer::min_crypto_data_len;
+                    uint64_t available_len = max_crypto_end - frame_offset;
+                    if (available_len < seg_len) {
+                        seg_len = available_len;
+                    }
+                    if (seg_len && (seg_len <= UINT32_MAX)) {
+                        udp_segment seg{true, (uint32_t)seg_len, (uint32_t)frame_offset, additional_bytes_needed, (uint64_t)ts->tv_sec, cid};
+                        reassembler->process_udp_data_pkt(k, ts->tv_sec, seg, datum{crypto_data+frame_offset, crypto_data+frame_offset+seg_len});
+                    }
+                }
+            }
+            else {
+                uint64_t frame_len = frames[first_frame_idx].length();
+                uint64_t frame_offset = frames[first_frame_idx].offset();
+                if (frame_len &&
+                    (frame_offset + frame_len <= max_crypto_end) &&
+                    (frame_offset <= UINT32_MAX) &&
+                    (frame_len <= UINT32_MAX)) {
+                    udp_segment seg{true, (uint32_t)frame_len, (uint32_t)frame_offset, additional_bytes_needed, (uint64_t)ts->tv_sec, cid};
+                    reassembler->process_udp_data_pkt(k, ts->tv_sec, seg, datum{crypto_data+frame_offset, crypto_data+frame_offset+frame_len});
+                }
+            }
+
+            for (uint16_t i = 0; i < frame_count; i++) {
+                if (i != first_frame_idx) {
+                    uint64_t frame_len = frames[i].length();
+                    uint64_t frame_offset = frames[i].offset();
+                    if (frame_len &&
+                        (frame_offset + frame_len <= max_crypto_end) &&
+                        (frame_offset <= UINT32_MAX) &&
+                        (frame_len <= UINT32_MAX)) {
+                        udp_segment seg{false, (uint32_t)frame_len, (uint32_t)frame_offset, 0, (uint64_t)ts->tv_sec, cid};
+                        reassembler->process_udp_data_pkt(k, ts->tv_sec, seg, datum{crypto_data+frame_offset, crypto_data+frame_offset+frame_len});
+                    }
+                }
+            }
+            reassembler->dump_pkt = true;
+        }
+    }
+    else if (r_state == reassembly_state::reassembly_progress) {
+        if (!missing_crypto_frames) {
+            udp_segment seg{false, crypto_len, crypto_offset, 0, (uint64_t)ts->tv_sec, cid};
+            reassembler->process_udp_data_pkt(k, ts->tv_sec, seg, datum{crypto_data+crypto_offset, crypto_data+crypto_offset+crypto_len});
+            reassembler->dump_pkt = true;
+        }
+        else {
+            uint16_t frame_count = 0;
+            uint16_t first_frame_idx = 0;
+            const crypto* frames = qi.get_crypto_frames(frame_count, first_frame_idx);
+            uint64_t max_crypto_end = (uint64_t)crypto_offset + (uint64_t)crypto_len;
+            if (frame_count == 0) {
+                return true;
+            }
+            for (uint16_t i = 0; i < frame_count; i++) {
+                uint64_t frame_len = frames[i].length();
+                uint64_t frame_offset = frames[i].offset();
+                if (frame_len &&
+                    (frame_offset + frame_len <= max_crypto_end) &&
+                    (frame_offset <= UINT32_MAX) &&
+                    (frame_len <= UINT32_MAX)) {
+                    udp_segment seg{false, (uint32_t)frame_len, (uint32_t)frame_offset, 0, (uint64_t)ts->tv_sec, cid};
+                    reassembler->process_udp_data_pkt(k, ts->tv_sec, seg, datum{crypto_data+frame_offset, crypto_data+frame_offset+frame_len});
+                }
+            }
+            reassembler->dump_pkt = true;
+        }
+    }
+    else if (r_state == reassembly_state::reassembly_consumed) {
+        return false;
+    }
+    else if (r_state == reassembly_state::reassembly_cid_mismatch) {
+        // Don't let downstream code see the unrelated flow via curr_flow.
+        reassembler->reset_current_flow();
+        return true;
+    }
+    else {
+        return false;
+    }
+
+    reassembly_map_iterator it = reassembler->get_current_flow();
+    if (reassembler->is_ready(it)) {
+        struct datum reassembled_data = reassembler->get_reassembled_data(it);
+        qi.reparse_crypto_buf(reassembled_data);
+        reassembler->set_completed(it);
+        return true;
+    }
+
+    return false;
+}
+
+// Offset-based UDP fragment reassembly; returns true when the caller
+// should fingerprint/analyse the packet.  See has_udp_offset_reassembly_trait
+// for the Proto contract.
+template <typename Proto>
+inline bool process_udp_offset_reassembly(Proto &proto,
+                                          const struct key &k,
+                                          struct timespec *ts,
+                                          struct tcp_reassembler *reassembler) {
+    const uint32_t frag_offset             = proto.get_fragment_offset();
+    const uint32_t frag_len                = proto.get_fragment_length();
+    const uint32_t additional_bytes_needed = proto.additional_bytes_needed();
+    datum          frag_data               = proto.get_fragment_data();
+    datum          cid                     = proto.get_cid();
+
+    if (frag_len > reassembly_flow_context::max_data_size || frag_len == 0) {
+        return true;
+    }
+
+    // complete (non-fragmented) message; nothing to reassemble
+    if (frag_offset == 0 && !additional_bytes_needed) {
+        return true;
+    }
+
+    // total must fit the reassembly buffer
+    if ((uint64_t)frag_len + (uint64_t)additional_bytes_needed >
+        reassembly_flow_context::max_data_size) {
+        return true;
+    }
+
+    reassembly_state r_state = reassembler->check_flow(k, ts->tv_sec, cid);
+
+    if ((r_state == reassembly_state::reassembly_none) && !additional_bytes_needed) {
+        // non-first fragment without prior init; ignore
+        return true;
+    }
+    else if ((r_state == reassembly_state::reassembly_none) && additional_bytes_needed) {
+        // first fragment; init reassembly
+        udp_segment seg{true, frag_len, frag_offset, additional_bytes_needed, (uint64_t)ts->tv_sec, cid};
+        reassembler->process_udp_data_pkt(k, ts->tv_sec, seg, frag_data);
+        reassembler->dump_pkt = true;
+    }
+    else if (r_state == reassembly_state::reassembly_progress) {
+        udp_segment seg{false, frag_len, frag_offset, 0, (uint64_t)ts->tv_sec, cid};
+        reassembler->process_udp_data_pkt(k, ts->tv_sec, seg, frag_data);
+        reassembler->dump_pkt = true;
+    }
+    else if (r_state == reassembly_state::reassembly_consumed) {
+        return false;
+    }
+    else if (r_state == reassembly_state::reassembly_cid_mismatch) {
+        // Don't let downstream code see the unrelated flow via curr_flow.
+        reassembler->reset_current_flow();
+        return true;
+    }
+    else {
+        return false;
+    }
+
+    reassembly_map_iterator it = reassembler->get_current_flow();
+    if (reassembler->is_ready(it)) {
+        struct datum reassembled_data = reassembler->get_reassembled_data(it);
+        proto.reparse_from_buf(reassembled_data);
+        reassembler->set_completed(it);
+        return true;
+    }
+
+    return false;
+}
+
+// SFINAE: true iff Proto provides the offset-reassembly accessors.
+template <typename, typename = void>
+struct has_udp_offset_reassembly_trait : std::false_type {};
+
+template <typename Proto>
+struct has_udp_offset_reassembly_trait<
+    Proto,
+    std::void_t<
+        decltype(std::declval<const Proto &>().additional_bytes_needed()),
+        decltype(std::declval<const Proto &>().get_fragment_offset()),
+        decltype(std::declval<const Proto &>().get_fragment_length()),
+        decltype(std::declval<const Proto &>().get_fragment_data()),
+        decltype(std::declval<const Proto &>().get_cid()),
+        decltype(std::declval<Proto &>().reparse_from_buf(std::declval<datum>()))
+    >
+> : std::true_type {};
+
+// Visitor: protocol opts in to offset-based UDP reassembly?
+struct supports_udp_offset_reassembly {
+    template <typename Proto>
+    bool operator()(const Proto &proto) const { return proto.supports_udp_offset_reassembly(); }
+
+    bool operator()(std::monostate) const { return false; }
+};
+
+// Visitor: copies Proto::additional_bytes_needed() into udp_pkt.
+struct check_additional_bytes_needed {
+    udp &udp_pkt;
+
+    template <typename Proto>
+    void operator()(const Proto &proto) const {
+        if constexpr (has_udp_offset_reassembly_trait<Proto>::value) {
+            uint32_t more = proto.additional_bytes_needed();
+            if (more) {
+                udp_pkt.reassembly_needed(more);
+            }
+        } else {
+            (void)proto;
+        }
+    }
+
+    void operator()(std::monostate) const {}
+};
+
+// Compile-time opt-in detector: true iff Proto shadows the base's
+// supports_udp_offset_reassembly with its own (non-virtual) method.
+template <typename Proto>
+struct opts_into_udp_offset_reassembly {
+    static constexpr bool value =
+        !std::is_same_v<
+            decltype(&Proto::supports_udp_offset_reassembly),
+            decltype(&base_protocol::supports_udp_offset_reassembly)>;
+};
+
+// Visitor: dispatches to process_udp_offset_reassembly.  Opt-in without
+// a complete trait is a compile-time error.
+struct dispatch_udp_offset_reassembly {
+    const struct key       &k;
+    struct timespec        *ts;
+    struct tcp_reassembler *reassembler;
+
+    template <typename Proto>
+    bool operator()(Proto &proto) const {
+        if constexpr (has_udp_offset_reassembly_trait<Proto>::value) {
+            return process_udp_offset_reassembly(proto, k, ts, reassembler);
+        } else {
+            static_assert(!opts_into_udp_offset_reassembly<Proto>::value,
+                          "protocol opts into UDP offset reassembly but is "
+                          "missing one or more trait methods");
+            (void)proto;
+            return true;
+        }
+    }
+
+    bool operator()(std::monostate) const { return true; }
+};
+
+// Folds packet- and flow-level truncation into one boolean.
+// Call after process_tcp_data / process_udp_data; reassembler may be null.
+inline bool detect_truncation(bool more_bytes_needed,
+                              struct tcp_reassembler *reassembler) {
+    if (more_bytes_needed) {
+        return true;
+    }
+    if (reassembler &&
+        reassembler->is_done(reassembler->curr_flow) &&
+        reassembler->was_flow_truncated(reassembler->curr_flow)) {
+        return true;
+    }
+    return false;
+}
+
+// Maps (reassembler-state, truncated?) to the FDC truncation_status enum:
+//
+//   done    + truncated -> reassembled_truncated
+//   done    + clean     -> reassembled
+//   any     + truncated -> truncated
+//   otherwise           -> none
+//
+// Caller's `truncated` must already include flow-level signals
+// (see detect_truncation above).
+inline truncation_status compute_truncation_status(struct tcp_reassembler *reassembler,
+                                                   bool truncated) {
+    if (reassembler && reassembler->is_done(reassembler->curr_flow)) {
+        return truncated ? truncation_status::reassembled_truncated
+                         : truncation_status::reassembled;
+    }
+    if (truncated) {
+        return truncation_status::truncated;
+    }
+    return truncation_status::none;
+}
+
+// End-of-call cleanup: clears flow_state_pkts_needed when done and resets the cursor.
+inline void finalize_reassembly_flow(struct tcp_reassembler *reassembler,
+                                     bool &flow_state_pkts_needed) {
+    if (!reassembler) {
+        return;
+    }
+    if (reassembler->is_done(reassembler->curr_flow)) {
+        flow_state_pkts_needed = false;
+    }
+    reassembler->clean_curr_flow();
+}
+
+// Emits the "reassembly_properties" JSON block: delegates to
+// tcp_reassembler::write_json on a completed flow, else "truncated".
+inline void write_reassembly_properties(json_object &record,
+                                        struct tcp_reassembler *reassembler,
+                                        bool truncated,
+                                        bool reassembly_enabled) {
+    bool is_done = reassembler && reassembler->is_done(reassembler->curr_flow);
+    bool in_progress = reassembler && reassembler->in_progress(reassembler->curr_flow);
+
+    if (is_done) {
+        reassembler->write_json(record);
+        return;
+    }
+
+    if (truncated && (!reassembly_enabled || !in_progress)) {
+        struct json_object flags{record, "reassembly_properties"};
+        flags.print_key_bool("truncated", true);
+        flags.close();
+    }
 }
 
 #endif /* REASSEMBLY_HPP */
