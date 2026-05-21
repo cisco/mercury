@@ -232,46 +232,6 @@ public:
         return valid;
     }
 
-    /// runs unit tests on syslog and returns true if all pass, and false otherwise
-    ///
-    [[maybe_unused]] static bool unit_test() {
-        auto make_ascii_buffer_with_non_ascii_byte = [](size_t index) {
-            std::array<uint8_t, 100> data{};
-            data.fill('A');
-            data[index] = 0xff;
-            return data;
-        };
-
-        uint8_t ascii_data[] = {
-            0x3c, 0x31, 0x33, 0x3e, 0x4d, 0x61, 0x79, 0x20,
-            0x20, 0x36, 0x20, 0x31, 0x32, 0x3a, 0x30, 0x30,
-            0x3a, 0x30, 0x30, 0x20, 0x68, 0x6f, 0x73, 0x74,
-            0x20, 0x61, 0x70, 0x70, 0x3a, 0x20, 0x6d, 0x73,
-            0x67
-        };
-        datum ascii{ascii_data, ascii_data + sizeof(ascii_data)};
-        syslog ascii_msg{ascii};
-        if (!ascii_msg.is_not_empty()) {
-            return false;
-        }
-
-        auto non_ascii_in_prefix = make_ascii_buffer_with_non_ascii_byte(1);
-        datum invalid_prefix{non_ascii_in_prefix};
-        syslog invalid_prefix_msg{invalid_prefix};
-        if (invalid_prefix_msg.is_not_empty()) {
-            return false;
-        }
-
-        auto non_ascii_after_prefix = make_ascii_buffer_with_non_ascii_byte(ascii_check_len + 8);
-        datum valid_prefix{non_ascii_after_prefix};
-        syslog valid_prefix_msg{valid_prefix};
-        if (!valid_prefix_msg.is_not_empty()) {
-            return false;
-        }
-
-        return true;
-    }
-
 };
 
 [[maybe_unused]] inline int syslog_fuzz_test(const uint8_t *data, size_t size) {
@@ -283,6 +243,7 @@ namespace syslog_unit_test {
     inline bool unit_test() {
         char buffer[1024];
 
+        // JSON output tests
         const char *info_msg = "<14>Test syslog message";
         datum d1{(const uint8_t*)info_msg, (const uint8_t*)info_msg + strlen(info_msg)};
         class syslog s1{d1};
@@ -315,6 +276,35 @@ namespace syslog_unit_test {
         datum d3{(const uint8_t*)no_pri, (const uint8_t*)no_pri + strlen(no_pri)};
         class syslog s3{d3};
         if (!s3.is_not_empty()) return false;
+
+        // ASCII validation tests
+        auto make_ascii_buffer_with_non_ascii_byte = [](size_t index) {
+            std::array<uint8_t, 100> data{};
+            data.fill('A');
+            data[index] = 0xff;
+            return data;
+        };
+
+        uint8_t ascii_data[] = {
+            0x3c, 0x31, 0x33, 0x3e, 0x4d, 0x61, 0x79, 0x20,
+            0x20, 0x36, 0x20, 0x31, 0x32, 0x3a, 0x30, 0x30,
+            0x3a, 0x30, 0x30, 0x20, 0x68, 0x6f, 0x73, 0x74,
+            0x20, 0x61, 0x70, 0x70, 0x3a, 0x20, 0x6d, 0x73,
+            0x67
+        };
+        datum ascii{ascii_data, ascii_data + sizeof(ascii_data)};
+        class syslog ascii_msg{ascii};
+        if (!ascii_msg.is_not_empty()) return false;
+
+        auto non_ascii_in_prefix = make_ascii_buffer_with_non_ascii_byte(1);
+        datum invalid_prefix{non_ascii_in_prefix};
+        class syslog invalid_prefix_msg{invalid_prefix};
+        if (invalid_prefix_msg.is_not_empty()) return false;
+
+        auto non_ascii_after_prefix = make_ascii_buffer_with_non_ascii_byte(syslog::ascii_check_len + 8);
+        datum valid_prefix{non_ascii_after_prefix};
+        class syslog valid_prefix_msg{valid_prefix};
+        if (!valid_prefix_msg.is_not_empty()) return false;
 
         return true;
     }

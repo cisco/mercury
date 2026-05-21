@@ -40,7 +40,7 @@
 /// comparison operator for os_information
 ///
 [[maybe_unused]] static bool operator==(const os_information &lhs, const os_information &rhs) {
-    return lhs.os_name == rhs.os_name
+    return strcmp(lhs.os_name, rhs.os_name) == 0
         && lhs.os_prevalence == rhs.os_prevalence;
 }
 
@@ -1276,10 +1276,14 @@ inline bool unit_test() {
     if (classifier::fp_str_is_tls("TLS/")) return false;
 
     // os_information equality tests
-    os_information os1{(char*)"Windows", 50};
-    os_information os2{(char*)"Windows", 50};
-    os_information os3{(char*)"Linux", 30};
-    os_information os4{(char*)"Windows", 30};
+    char os1_name[] = "Windows";
+    char os2_name[] = "Windows";
+    char os3_name[] = "Linux";
+    char os4_name[] = "Windows";
+    os_information os1{os1_name, 50};
+    os_information os2{os2_name, 50};
+    os_information os3{os3_name, 30};
+    os_information os4{os4_name, 30};
     if (!(os1 == os2)) return false;
     if (os1 == os3) return false;
     if (os1 == os4) return false;

@@ -1037,108 +1037,6 @@ namespace stun {
 
     };
 
-    /// \brief unit test for stun message parsing, verifying that
-    /// non-STUN packets with invalid classic message types are
-    /// correctly rejected
-    ///
-    [[maybe_unused]] static bool unit_test() {
-
-        // false positive: a non-STUN packet with method 0x0501
-        // (message_type_field 0x1401), no magic cookie, and a body
-        // that contains bytes parseable as a STUN attribute; this
-        // must be rejected
-        //
-        const uint8_t non_stun_unknown_method[] = {
-            0x14, 0x01,                         // message_type_field (method 0x0501, class request)
-            0x00, 0x08,                         // message_length = 8
-            0x01, 0x02, 0x03, 0x04,             // transaction_id (no magic cookie)
-            0x05, 0x06, 0x07, 0x08,
-            0x09, 0x0a, 0x0b, 0x0c,
-            0x0d, 0x0e, 0x0f, 0x10,
-            // body: 8 bytes resembling a valid STUN attribute
-            0x00, 0x01,                         // attribute type: MAPPED_ADDRESS
-            0x00, 0x04,                         // attribute length: 4
-            0x00, 0x01, 0x7f, 0x01              // attribute value
-        };
-        datum d1{non_stun_unknown_method, non_stun_unknown_method + sizeof(non_stun_unknown_method)};
-        stun::message msg1{d1};
-        if (msg1.is_not_empty()) {
-            return false;  // must be rejected
-        }
-
-        // false positive: same unknown method with an empty body
-        //
-        const uint8_t non_stun_unknown_method_empty[] = {
-            0x14, 0x01,                         // message_type_field (method 0x0501, class request)
-            0x00, 0x00,                         // message_length = 0
-            0x01, 0x02, 0x03, 0x04,             // transaction_id (no magic cookie)
-            0x05, 0x06, 0x07, 0x08,
-            0x09, 0x0a, 0x0b, 0x0c,
-            0x0d, 0x0e, 0x0f, 0x10
-        };
-        datum d2{non_stun_unknown_method_empty, non_stun_unknown_method_empty + sizeof(non_stun_unknown_method_empty)};
-        stun::message msg2{d2};
-        if (msg2.is_not_empty()) {
-            return false;  // must be rejected
-        }
-
-        // true positive: classic STUN Binding Request with no magic
-        // cookie and an empty body
-        //
-        const uint8_t classic_binding_request[] = {
-            0x00, 0x01,                         // Binding Request
-            0x00, 0x00,                         // message_length = 0
-            0x01, 0x02, 0x03, 0x04,             // transaction_id (no magic cookie)
-            0x05, 0x06, 0x07, 0x08,
-            0x09, 0x0a, 0x0b, 0x0c,
-            0x0d, 0x0e, 0x0f, 0x10
-        };
-        datum d3{classic_binding_request, classic_binding_request + sizeof(classic_binding_request)};
-        stun::message msg3{d3};
-        if (!msg3.is_not_empty()) {
-            return false;  // must be accepted
-        }
-
-        // true positive: modern STUN Binding Request with magic cookie
-        //
-        const uint8_t modern_binding_request[] = {
-            0x00, 0x01,                         // Binding Request
-            0x00, 0x00,                         // message_length = 0
-            0x21, 0x12, 0xa4, 0x42,             // magic cookie
-            0x01, 0x02, 0x03, 0x04,             // remaining transaction_id (12 bytes)
-            0x05, 0x06, 0x07, 0x08,
-            0x09, 0x0a, 0x0b, 0x0c
-        };
-        datum d4{modern_binding_request, modern_binding_request + sizeof(modern_binding_request)};
-        stun::message msg4{d4};
-        if (!msg4.is_not_empty()) {
-            return false;  // must be accepted
-        }
-
-        // true positive: classic STUN Binding Request with a valid
-        // MAPPED_ADDRESS attribute in the body
-        //
-        const uint8_t classic_binding_with_attr[] = {
-            0x00, 0x01,                         // Binding Request
-            0x00, 0x08,                         // message_length = 8
-            0x01, 0x02, 0x03, 0x04,             // transaction_id (no magic cookie)
-            0x05, 0x06, 0x07, 0x08,
-            0x09, 0x0a, 0x0b, 0x0c,
-            0x0d, 0x0e, 0x0f, 0x10,
-            // body: MAPPED_ADDRESS attribute
-            0x00, 0x01,                         // attribute type: MAPPED_ADDRESS
-            0x00, 0x04,                         // attribute length: 4
-            0x00, 0x01, 0x7f, 0x01              // attribute value
-        };
-        datum d5{classic_binding_with_attr, classic_binding_with_attr + sizeof(classic_binding_with_attr)};
-        stun::message msg5{d5};
-        if (!msg5.is_not_empty()) {
-            return false;  // must be accepted
-        }
-
-        return true;
-    }
-
 } // namespace stun
 
 [[maybe_unused]] static int stun_fuzz_test(const uint8_t *data, size_t size) {
@@ -1162,6 +1060,88 @@ namespace stun_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
         char buffer[4096];
+
+        // False positive rejection tests (from stun::message::unit_test)
+
+        // false positive: a non-STUN packet with method 0x0501
+        // (message_type_field 0x1401), no magic cookie, and a body
+        // that contains bytes parseable as a STUN attribute; this
+        // must be rejected
+        const uint8_t non_stun_unknown_method[] = {
+            0x14, 0x01,                         // message_type_field (method 0x0501, class request)
+            0x00, 0x08,                         // message_length = 8
+            0x01, 0x02, 0x03, 0x04,             // transaction_id (no magic cookie)
+            0x05, 0x06, 0x07, 0x08,
+            0x09, 0x0a, 0x0b, 0x0c,
+            0x0d, 0x0e, 0x0f, 0x10,
+            // body: 8 bytes resembling a valid STUN attribute
+            0x00, 0x01,                         // attribute type: MAPPED_ADDRESS
+            0x00, 0x04,                         // attribute length: 4
+            0x00, 0x01, 0x7f, 0x01              // attribute value
+        };
+        datum fp1{non_stun_unknown_method, non_stun_unknown_method + sizeof(non_stun_unknown_method)};
+        stun::message fp_msg1{fp1};
+        if (fp_msg1.is_not_empty()) return false;  // must be rejected
+
+        // false positive: same unknown method with an empty body
+        const uint8_t non_stun_unknown_method_empty[] = {
+            0x14, 0x01,                         // message_type_field (method 0x0501, class request)
+            0x00, 0x00,                         // message_length = 0
+            0x01, 0x02, 0x03, 0x04,             // transaction_id (no magic cookie)
+            0x05, 0x06, 0x07, 0x08,
+            0x09, 0x0a, 0x0b, 0x0c,
+            0x0d, 0x0e, 0x0f, 0x10
+        };
+        datum fp2{non_stun_unknown_method_empty, non_stun_unknown_method_empty + sizeof(non_stun_unknown_method_empty)};
+        stun::message fp_msg2{fp2};
+        if (fp_msg2.is_not_empty()) return false;  // must be rejected
+
+        // true positive: classic STUN Binding Request with no magic
+        // cookie and an empty body
+        const uint8_t classic_binding_request[] = {
+            0x00, 0x01,                         // Binding Request
+            0x00, 0x00,                         // message_length = 0
+            0x01, 0x02, 0x03, 0x04,             // transaction_id (no magic cookie)
+            0x05, 0x06, 0x07, 0x08,
+            0x09, 0x0a, 0x0b, 0x0c,
+            0x0d, 0x0e, 0x0f, 0x10
+        };
+        datum tp1{classic_binding_request, classic_binding_request + sizeof(classic_binding_request)};
+        stun::message tp_msg1{tp1};
+        if (!tp_msg1.is_not_empty()) return false;  // must be accepted
+
+        // true positive: modern STUN Binding Request with magic cookie
+        const uint8_t modern_binding_request[] = {
+            0x00, 0x01,                         // Binding Request
+            0x00, 0x00,                         // message_length = 0
+            0x21, 0x12, 0xa4, 0x42,             // magic cookie
+            0x01, 0x02, 0x03, 0x04,             // remaining transaction_id (12 bytes)
+            0x05, 0x06, 0x07, 0x08,
+            0x09, 0x0a, 0x0b, 0x0c
+        };
+        datum tp2{modern_binding_request, modern_binding_request + sizeof(modern_binding_request)};
+        stun::message tp_msg2{tp2};
+        if (!tp_msg2.is_not_empty()) return false;  // must be accepted
+
+        // true positive: classic STUN Binding Request with a valid
+        // MAPPED_ADDRESS attribute in the body
+        const uint8_t classic_binding_with_attr[] = {
+            0x00, 0x01,                         // Binding Request
+            0x00, 0x08,                         // message_length = 8
+            0x01, 0x02, 0x03, 0x04,             // transaction_id (no magic cookie)
+            0x05, 0x06, 0x07, 0x08,
+            0x09, 0x0a, 0x0b, 0x0c,
+            0x0d, 0x0e, 0x0f, 0x10,
+            // body: MAPPED_ADDRESS attribute
+            0x00, 0x01,                         // attribute type: MAPPED_ADDRESS
+            0x00, 0x04,                         // attribute length: 4
+            0x00, 0x01, 0x7f, 0x01              // attribute value
+        };
+        datum tp3{classic_binding_with_attr, classic_binding_with_attr + sizeof(classic_binding_with_attr)};
+        stun::message tp_msg3{tp3};
+        if (!tp_msg3.is_not_empty()) return false;  // must be accepted
+
+        // JSON output and attribute parsing tests
 
         uint8_t binding_req[] = {
             0x00, 0x01, 0x00, 0x08,

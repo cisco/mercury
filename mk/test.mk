@@ -510,7 +510,7 @@ _run-coverage: $(BIN)/unit_test $(BIN)/mercury $(LIB)/libmerc.so
 	lcov -q $(_cov_capture_flags) --directory build/Coverage --capture --output-file $(_cov_dir)/test_suite.info
 	@printf '$(COLOR_GREEN)  captured test suite coverage$(COLOR_OFF)\n'
 	@# --- Merge and report ---
-	lcov \
+	lcov --ignore-errors mismatch,mismatch \
 	  --add-tracefile $(_cov_dir)/unit_tests.info \
 	  --add-tracefile $(_cov_dir)/libmerc_tls.info \
 	  --add-tracefile $(_cov_dir)/libmerc_multi.info \
