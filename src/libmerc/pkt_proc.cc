@@ -98,9 +98,12 @@ template<typename Object, typename Array>
 struct do_crypto_assessment {
     const std::vector<const crypto_policy::assessor *>& ca;
     Object *output_;
+    bool wrote_cbor_feature_ = false;
 
     crypto_cnsa_message cnsa_msg;
     crypto_nist_message nist_msg;
+
+    bool wrote_cbor_feature() const { return wrote_cbor_feature_; }
 
     template<typename MsgType>
     crypto_assess_result assess_tls(const MsgType &msg) {
@@ -125,10 +128,38 @@ struct do_crypto_assessment {
                 if (cnsa_msg.is_valid() && !cnsa_msg.is_compliant()) {
                     cbor::text_string(crypto_cnsa_message::KEY).write(output_->get_writeable());
                     cnsa_msg.write<Object, Array>(*output_);
+                    wrote_cbor_feature_ = true;
                 }
                 if (nist_msg.is_valid() && !nist_msg.is_compliant()) {
                     cbor::text_string(crypto_nist_message::KEY).write(output_->get_writeable());
                     nist_msg.write<Object, Array>(*output_);
+                    wrote_cbor_feature_ = true;
+                }
+            }
+        }
+        return result;
+    }
+
+    template<typename MsgType>
+    crypto_assess_result assess_ssh(const MsgType &msg) {
+        crypto_assess_result result;
+        for (const auto& assessor : ca) {
+            if (assessor->get_result_idx() == crypto_policy::quantum_safe::result_idx)
+                result.set(assessor->get_result_idx(), !assessor->assess(msg, cnsa_msg));
+            else
+                result.set(assessor->get_result_idx(), !assessor->assess(msg));
+        }
+        if (output_) {
+            if constexpr (std::is_same_v<Object, json_object>) {
+                Array assessor_record{*output_, "cryptographic_security_assessment"};
+                if (cnsa_msg.is_valid())
+                    cnsa_msg.write<Object, Array>(assessor_record);
+                assessor_record.close();
+            } else {
+                if (cnsa_msg.is_valid() && !cnsa_msg.is_compliant()) {
+                    cbor::text_string(crypto_cnsa_message::KEY).write(output_->get_writeable());
+                    cnsa_msg.write<Object, Array>(*output_);
+                    wrote_cbor_feature_ = true;
                 }
             }
         }
@@ -146,40 +177,14 @@ struct do_crypto_assessment {
         return crypto_assess_result{};
     }
 
-    // SSH: uses json_array virtual overloads (no feature class).
-    // On CBOR path, only set attributes — no CBOR output for SSH.
     crypto_assess_result operator()(const ssh_init_packet &msg) {
-        crypto_assess_result result;
-        if (msg.kex_pkt.is_not_empty()) {
-            for (const auto& assessor : ca)
-                result.set(assessor->get_result_idx(), !assessor->assess(msg.kex_pkt));
-            if constexpr (std::is_same_v<Object, json_object>) {
-                if (output_) {
-                    json_array assessor_record{output_, "cryptographic_security_assessment"};
-                    for (const auto& assessor : ca)
-                        assessor->assess(msg.kex_pkt, assessor_record);
-                    assessor_record.close();
-                }
-            }
-        }
-        return result;
+        if (msg.kex_pkt.is_not_empty()) return assess_ssh(msg.kex_pkt);
+        return crypto_assess_result{};
     }
 
     crypto_assess_result operator()(const ssh_kex_init &msg) {
-        crypto_assess_result result;
-        if (msg.is_not_empty()) {
-            for (const auto& assessor : ca)
-                result.set(assessor->get_result_idx(), !assessor->assess(msg));
-            if constexpr (std::is_same_v<Object, json_object>) {
-                if (output_) {
-                    json_array assessor_record{output_, "cryptographic_security_assessment"};
-                    for (const auto& assessor : ca)
-                        assessor->assess(msg, assessor_record);
-                    assessor_record.close();
-                }
-            }
-        }
-        return result;
+        if (msg.is_not_empty()) return assess_ssh(msg);
+        return crypto_assess_result{};
     }
 
     template <typename T>
@@ -191,8 +196,11 @@ struct do_crypto_assessment {
 template<typename Object, typename Array>
 struct check_exposed_creds {
     Object *output_;
+    bool wrote_cbor_feature_ = false;
 
     check_exposed_creds(Object *out) : output_{out} {}
+
+    bool wrote_cbor_feature() const { return wrote_cbor_feature_; }
 
     void write_feature(exposed_creds_type type, datum protocol,
                        datum auth_method, datum username) {
@@ -201,14 +209,17 @@ struct check_exposed_creds {
         case exposed_creds_type::plaintext_password:
             exposed_creds_plaintext_message::construct(protocol, auth_method, username)
                 .template write<Object, Array>(*output_);
+            wrote_cbor_feature_ = true;
             break;
         case exposed_creds_type::plaintext_token:
             exposed_creds_token_message::construct(protocol, auth_method, username)
                 .template write<Object, Array>(*output_);
+            wrote_cbor_feature_ = true;
             break;
         case exposed_creds_type::password_derived:
             exposed_creds_derived_message::construct(protocol, auth_method, username)
                 .template write<Object, Array>(*output_);
+            wrote_cbor_feature_ = true;
             break;
         default:
             break;
@@ -1864,16 +1875,18 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             output_attr = (c && c->check_additional_attributes(analysis)) ? true : output_attr;
 
             if (exposed_creds) {
-                exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds<cbor_object, cbor_array>{&cbor_output}, x);
+                auto creds_visitor = check_exposed_creds<cbor_object, cbor_array>{&cbor_output};
+                exposed_creds_type exposed_creds_ret = std::visit(creds_visitor, x);
                 output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
-                if (exposed_creds_ret != exposed_creds_type::none)
+                if (creds_visitor.wrote_cbor_feature())
                     cbor_meta.set_feature_written();
             }
 
             if (!crypto_policies.empty() && !truncated_tls) {
-                crypto_assess_result assessment_result = std::visit(do_crypto_assessment<cbor_object, cbor_array>{crypto_policies, &cbor_output}, x);
+                auto crypto_visitor = do_crypto_assessment<cbor_object, cbor_array>{crypto_policies, &cbor_output};
+                crypto_assess_result assessment_result = std::visit(crypto_visitor, x);
                 output_attr = set_crypto_assessment_attr(assessment_result) ? true : output_attr;
-                if (assessment_result.any())
+                if (crypto_visitor.wrote_cbor_feature())
                     cbor_meta.set_feature_written();
             }
 
@@ -1917,15 +1930,17 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
                 output_nbd = std::visit(do_network_behavioral_detections{k, analysis, c, attribute_common_data}, x);
             }
             if (!crypto_policies.empty() && !truncated_tls) {
-                crypto_assess_result crypto_result = std::visit(do_crypto_assessment<cbor_object, cbor_array>{crypto_policies, &cbor_output}, x);
+                auto crypto_visitor = do_crypto_assessment<cbor_object, cbor_array>{crypto_policies, &cbor_output};
+                crypto_assess_result crypto_result = std::visit(crypto_visitor, x);
                 output_attr = set_crypto_assessment_attr(crypto_result) ? true : output_attr;
-                if (crypto_result.any())
+                if (crypto_visitor.wrote_cbor_feature())
                     cbor_meta.set_feature_written();
             }
             if (exposed_creds) {
-                exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds<cbor_object, cbor_array>{&cbor_output}, x);
+                auto creds_visitor = check_exposed_creds<cbor_object, cbor_array>{&cbor_output};
+                exposed_creds_type exposed_creds_ret = std::visit(creds_visitor, x);
                 output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
-                if (exposed_creds_ret != exposed_creds_type::none)
+                if (creds_visitor.wrote_cbor_feature())
                     cbor_meta.set_feature_written();
             }
             cbor_output.close();

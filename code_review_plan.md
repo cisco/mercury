@@ -242,3 +242,58 @@ Returns default invalid `text_string` for null/empty datum. Callers' `is_valid()
 - `cbor_messages.hpp`: "On the JSON path it is written inside the array. On the CBOR path the caller writes KEY separately before calling write()."
 
 **Verification:** Documentation-only change, all 41 tests pass.
+
+---
+
+## Issue 14: SSH crypto assessment not emitting CBOR + `feature_written_` bug (Medium) — RESOLVED
+
+**Problem (two sub-issues):**
+
+1. **SSH CBOR missing:** The SSH operator in `do_crypto_assessment` used `if constexpr` to skip CBOR output entirely. SSH crypto assessment set attributes (`cnsa_2_0_non_conformant`) but wrote nothing to the CBOR buffer. The inspector received no SSH crypto metadata for enrichment.
+
+2. **`feature_written_` driven by wrong signal:** `cbor_meta.set_feature_written()` was called based on `assessment_result.any()` (semantic result) and `exposed_creds_ret != none` — not actual CBOR emission. For SSH, `assessment_result.any()` was true (attributes set) but no CBOR was written, causing schema-only buffers to leak to the inspector.
+
+**Design Decision:** Target-name branching with single class.
+
+SSH has a fundamentally different negotiation structure from TLS: bidirectional per-direction cipher lists (`kex_algorithms`, `encryption_algorithms_client_to_server`, `encryption_algorithms_server_to_client`). Rather than creating a separate class or adding a wire-format discriminator field, the existing `crypto_cnsa_message` holds a superset of TLS + SSH fields. The `write()` and `decode()` methods branch on the target key name:
+- `"offered"` → SSH structure (kex_not_allowed + client_to_server/server_to_client sub-objects)
+- `"client"` / `"session"` → TLS structure (ciphersuites_not_allowed, groups_not_allowed, psk)
+
+This is unambiguous because the target names are semantically defined by the underlying protocols (SSH RFC 4253 vs TLS). No explicit discriminator field is written to the wire or shown in output. The inspector already knows the protocol via `get_fingerprint_type(analysis_ctxt)` if needed.
+
+**Fix (multi-part):**
+
+1. **SSH fields in `crypto_cnsa_message`** (`cbor_messages.hpp`):
+   - Added `kex_not_allowed_[]`, `c2s_cs_not_allowed_[]`, `s2c_cs_not_allowed_[]` arrays with `_allowed_` quantifier strings
+   - Added datum-based setters (`add_kex_not_allowed(datum)`, etc.) to avoid dangling pointer from temporary `std::string`
+   - Refactored `write()` into `write_tls_target()` and `write_ssh_target()` helpers, branching on `target_.value().match("offered")`
+   - Refactored `decode()` into `decode_tls_target()` and `decode_ssh_target()` static helpers, branching on target key name
+
+2. **SSH assess functions** (`crypto_assess.h`):
+   - Added `assess(ssh_kex_init, crypto_cnsa_message&)` virtual overload to base `assessor`
+   - Added `assess_ssh_kex_methods_msg()`, `assess_ssh_ciphers_c2s()`, `assess_ssh_ciphers_s2c()` to `quantum_safe` — populate feature class with datum directly from packet buffer
+   - Unified `assess(ssh_kex_init, json_array&)` to use feature class + `msg.write<json_object, json_array>(a)`
+
+3. **SSH CBOR emission** (`pkt_proc.cc`):
+   - Added `assess_ssh()` helper template in `do_crypto_assessment` — mirrors `assess_tls()` but only uses CNSA (no NIST for SSH)
+   - SSH operators (`ssh_init_packet`, `ssh_kex_init`) now call `assess_ssh()` which populates `cnsa_msg`, writes CBOR on the CBOR path
+
+4. **`feature_written_` fix** (`pkt_proc.cc`):
+   - Added `bool wrote_cbor_feature_` + accessor to both `do_crypto_assessment` and `check_exposed_creds`
+   - Set flag after each successful CBOR write (in `assess_tls()`, `assess_ssh()`, `write_feature()`)
+   - Replaced `if (assessment_result.any()) cbor_meta.set_feature_written()` with `if (crypto_visitor.wrote_cbor_feature()) cbor_meta.set_feature_written()`
+   - Replaced `if (exposed_creds_ret != none) cbor_meta.set_feature_written()` with `if (creds_visitor.wrote_cbor_feature()) cbor_meta.set_feature_written()`
+   - Applied in both CBOR branches (fingerprint-known and fingerprint-unknown paths)
+
+**Wire format:**
+```
+TLS: {"policy":"quantum_safe","client":{"ciphersuites_not_allowed":[...],"groups_not_allowed":[...],"tls_cert_with_extern_psk":false}}
+SSH: {"policy":"quantum_safe","offered":{"kex_not_allowed":[...],"kex_allowed":"none","client_to_server":{"ciphersuites_not_allowed":[...],"ciphersuites_allowed":"some"},"server_to_client":{...}}}
+```
+
+**Verification:**
+- All 41 unit tests pass, `make test` passes (comparison + e2e)
+- TLS JSON output unchanged from baseline
+- SSH JSON output correct with full kex/cipher structure
+- E2E: TLS metadata appears in Snort `unified.out` enrichment (SSH requires labeled VDB fingerprint for unified output, verified via snort.out attribute tag)
+- `CBOR_NO_DATA` correctly returned for SSH-only attribute cases (feature_written_ fix working)

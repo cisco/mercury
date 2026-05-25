@@ -96,6 +96,10 @@ namespace crypto_policy {
             return true;
         }
 
+        virtual bool assess(const ssh_kex_init &, crypto_cnsa_message &) const {
+            return true;
+        }
+
         virtual bool assess(const tls_client_hello &, crypto_cnsa_message &) const {
             return true;
         }
@@ -709,6 +713,144 @@ namespace crypto_policy {
             return all_allowed;
         }
 
+        bool assess_ssh_kex_methods_msg(const name_list &kex_list, crypto_cnsa_message &msg) const {
+            bool all_allowed = true;
+            bool some_allowed = false;
+            name_list tmp_list = kex_list;
+
+            while (tmp_list.is_readable()) {
+                datum tmp{};
+                tmp.parse_up_to_delim(tmp_list, ',');
+                std::string_view tmp_sv{(char*)tmp.data, (size_t)tmp.length()};
+                if (tmp.end() == tmp_list.end()) {
+                    tmp_list.set_null();
+                } else {
+                    tmp_list.skip(1);
+                }
+                bool found = (ssh_allowed_kex.find(tmp_sv) != ssh_allowed_kex.end());
+                if (!found) {
+                    all_allowed = false;
+                    while (true) {
+                        found = (ssh_allowed_kex.find(tmp_sv) != ssh_allowed_kex.end());
+                        if (!found) {
+                            msg.add_kex_not_allowed(tmp);
+                        } else {
+                            some_allowed = true;
+                        }
+                        if (!tmp_list.is_readable()) break;
+                        tmp.set_null();
+                        tmp.parse_up_to_delim(tmp_list, ',');
+                        tmp_sv = {(char*)tmp.data, (size_t)tmp.length()};
+                        if (tmp.end() == tmp_list.end()) {
+                            tmp_list.set_null();
+                        } else {
+                            tmp_list.skip(1);
+                        }
+                    }
+                    break;
+                } else {
+                    some_allowed = true;
+                }
+            }
+            const char *quantifier = "none";
+            if (all_allowed) quantifier = "all";
+            else if (some_allowed) quantifier = "some";
+            msg.set_kex_allowed(quantifier);
+            return all_allowed;
+        }
+
+        bool assess_ssh_ciphers_c2s(const name_list &ciphers, crypto_cnsa_message &msg) const {
+            bool all_allowed = true;
+            bool some_allowed = false;
+            name_list tmp_list = ciphers;
+
+            while (tmp_list.is_readable()) {
+                datum tmp{};
+                tmp.parse_up_to_delim(tmp_list, ',');
+                std::string_view tmp_sv{(char*)tmp.data, (size_t)tmp.length()};
+                if (tmp.end() == tmp_list.end()) {
+                    tmp_list.set_null();
+                } else {
+                    tmp_list.skip(1);
+                }
+                bool found = ssh_allowed_ciphers.find(tmp_sv) != ssh_allowed_ciphers.end();
+                if (!found) {
+                    all_allowed = false;
+                    while (true) {
+                        found = ssh_allowed_ciphers.find(tmp_sv) != ssh_allowed_ciphers.end();
+                        if (!found) {
+                            msg.add_c2s_cs_not_allowed(tmp);
+                        } else {
+                            some_allowed = true;
+                        }
+                        if (!tmp_list.is_readable()) break;
+                        tmp.set_null();
+                        tmp.parse_up_to_delim(tmp_list, ',');
+                        tmp_sv = {(char*)tmp.data, (size_t)tmp.length()};
+                        if (tmp.end() == tmp_list.end()) {
+                            tmp_list.set_null();
+                        } else {
+                            tmp_list.skip(1);
+                        }
+                    }
+                    break;
+                } else {
+                    some_allowed = true;
+                }
+            }
+            const char *quantifier = "none";
+            if (all_allowed) quantifier = "all";
+            else if (some_allowed) quantifier = "some";
+            msg.set_c2s_cs_allowed(quantifier);
+            return all_allowed;
+        }
+
+        bool assess_ssh_ciphers_s2c(const name_list &ciphers, crypto_cnsa_message &msg) const {
+            bool all_allowed = true;
+            bool some_allowed = false;
+            name_list tmp_list = ciphers;
+
+            while (tmp_list.is_readable()) {
+                datum tmp{};
+                tmp.parse_up_to_delim(tmp_list, ',');
+                std::string_view tmp_sv{(char*)tmp.data, (size_t)tmp.length()};
+                if (tmp.end() == tmp_list.end()) {
+                    tmp_list.set_null();
+                } else {
+                    tmp_list.skip(1);
+                }
+                bool found = ssh_allowed_ciphers.find(tmp_sv) != ssh_allowed_ciphers.end();
+                if (!found) {
+                    all_allowed = false;
+                    while (true) {
+                        found = ssh_allowed_ciphers.find(tmp_sv) != ssh_allowed_ciphers.end();
+                        if (!found) {
+                            msg.add_s2c_cs_not_allowed(tmp);
+                        } else {
+                            some_allowed = true;
+                        }
+                        if (!tmp_list.is_readable()) break;
+                        tmp.set_null();
+                        tmp.parse_up_to_delim(tmp_list, ',');
+                        tmp_sv = {(char*)tmp.data, (size_t)tmp.length()};
+                        if (tmp.end() == tmp_list.end()) {
+                            tmp_list.set_null();
+                        } else {
+                            tmp_list.skip(1);
+                        }
+                    }
+                    break;
+                } else {
+                    some_allowed = true;
+                }
+            }
+            const char *quantifier = "none";
+            if (all_allowed) quantifier = "all";
+            else if (some_allowed) quantifier = "some";
+            msg.set_s2c_cs_allowed(quantifier);
+            return all_allowed;
+        }
+
         bool assess(const tls_client_hello &ch) const override {
             return assess_tls_ciphersuites(ch.ciphersuite_vector) &&
                    assess_tls_extensions(ch.extensions);
@@ -780,20 +922,22 @@ namespace crypto_policy {
                    assess_ssh_ciphers(ssh_kex.encryption_algorithms_server_to_client);
         }
 
-        bool assess(const ssh_kex_init &ssh_kex, json_array &a) const override {
-            json_object o{a};
-            o.print_key_string("policy", "quantum_safe");
-            json_object assessment{o, "offered"};
-            bool kex_compliant = assess_ssh_kex_methods(ssh_kex.kex_algorithms, assessment);
-            json_object client_server{assessment, "client_to_server"};
-            bool c2s_compliant = assess_ssh_ciphers(ssh_kex.encryption_algorithms_client_to_server, client_server);
-            client_server.close();
-            json_object server_client{assessment, "server_to_client"};
-            bool s2c_compliant = assess_ssh_ciphers(ssh_kex.encryption_algorithms_server_to_client, server_client);
-            server_client.close();
-            assessment.close();
-            o.close();
+        bool assess(const ssh_kex_init &ssh_kex, crypto_cnsa_message &msg) const override {
+            msg.set_policy("quantum_safe");
+            msg.set_target("offered");
+            bool kex_compliant = assess_ssh_kex_methods_msg(ssh_kex.kex_algorithms, msg);
+            bool c2s_compliant = assess_ssh_ciphers_c2s(ssh_kex.encryption_algorithms_client_to_server, msg);
+            bool s2c_compliant = assess_ssh_ciphers_s2c(ssh_kex.encryption_algorithms_server_to_client, msg);
+            msg.set_compliant(kex_compliant && c2s_compliant && s2c_compliant);
+            msg.set_valid();
             return kex_compliant && c2s_compliant && s2c_compliant;
+        }
+
+        bool assess(const ssh_kex_init &ssh_kex, json_array &a) const override {
+            crypto_cnsa_message msg;
+            bool compliant = assess(ssh_kex, msg);
+            msg.write<json_object, json_array>(a);
+            return compliant;
         }
 
         bool assess(const dtls_client_hello &dtls_ch) const override {
