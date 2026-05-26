@@ -476,13 +476,11 @@ _cov_dir := build/Coverage/coverage
 _cov_rpt := build/Coverage/coverage_report
 _cov_make = $(MAKE) BUILD_TYPE=Coverage
 
-# --rc geninfo_unexecuted_blocks=1: zero-count unexecuted blocks on lines
-#   with non-zero hit counts (a known GCC coverage artifact at -O0).
-# --ignore-errors mismatch,mismatch: ignore and suppress doctest anonymous class line mismatches
-# --ignore-errors unused,unused: ignore and suppress unused exclude pattern warnings
+# lcov capture flags:
+#   geninfo_unexecuted_blocks=1 - suppress GCC false "unexecuted block" warnings
+#   mismatch,mismatch           - ignore doctest macro line number mismatches
+#   unused,unused               - ignore exclude patterns that don't match in all stages
 _cov_capture_flags := --rc geninfo_unexecuted_blocks=1 --ignore-errors mismatch,mismatch,unused,unused
-
-# Exclude doctest source files to prevent macro mismatch errors.
 _cov_exclude_doctest := --exclude '*/unit_tests/doctest.h'
 
 # Internal target: runs inside the Coverage variant.

@@ -1996,7 +1996,7 @@ namespace writeable_unit_test {
 
         return result;
     }
-};
+}
 
 namespace datum_test {
 
