@@ -28,35 +28,46 @@ struct dtls_record {
         parse(d);
     }
 
+    static constexpr size_t header_len =
+        sizeof(content_type) + sizeof(protocol_version) +
+        sizeof(epoch) + 6 /* sequence_number */ + sizeof(length);
+
     void parse(struct datum &d) {
-        if (d.length() < (int)(sizeof(content_type) + sizeof(protocol_version) + sizeof(length))) {
+        if (d.length() < (ssize_t)header_len) {
+            d.set_null();
             return;
         }
         d.read_uint8(&content_type);
         d.read_uint16(&protocol_version);
         d.read_uint16(&epoch);
-        d.read_uint(&sequence_number, 6);   // 6 bytes == 48 bits
+        d.read_uint(&sequence_number, 6);
         d.read_uint16(&length);
-        fragment.init_from_outer_parser(&d, length);
+        fragment.parse(d, length);
     }
 };
 
 struct dtls_handshake {
     handshake_type msg_type;
-    uint32_t length;  // note: only 24 bits on the wire (L_HandshakeLength)
+    uint32_t length;           // note: only 24 bits on the wire (L_HandshakeLength); full message length
     uint16_t message_seq;      // DTLS-only field
     uint32_t fragment_offset;  // 24 bits on wire; DTLS-only field
     uint32_t fragment_length;  // 24 bits on wire; DTLS-only field
     struct datum body;
+    size_t additional_bytes_needed = 0;
 
-    dtls_handshake() : msg_type{handshake_type::unknown}, length{0}, body{NULL, NULL} {}
+    dtls_handshake() : msg_type{handshake_type::unknown}, length{0}, message_seq{0}, fragment_offset{0}, fragment_length{0}, body{NULL, NULL} {}
 
-    dtls_handshake(struct datum &d) : msg_type{handshake_type::unknown}, length{0}, body{NULL, NULL} {
+    dtls_handshake(struct datum &d) : msg_type{handshake_type::unknown}, length{0}, message_seq{0}, fragment_offset{0}, fragment_length{0}, body{NULL, NULL} {
         parse(d);
     }
 
+    // Full handshake header: msg_type(1) + length(3) + message_seq(2)
+    //                       + fragment_offset(3) + fragment_length(3) = 12.
+    static constexpr size_t header_len = 12;
+
     void parse(struct datum &d) {
-        if (d.length() < (int)(4)) {
+        if (d.length() < (ssize_t)header_len) {
+            d.set_null();
             return;
         }
         d.read_uint8((uint8_t *)&msg_type);
@@ -64,11 +75,24 @@ struct dtls_handshake {
         d.read_uint(&tmp, L_HandshakeLength);
         length = tmp;
         d.read_uint16(&message_seq);
-        d.read_uint(&tmp, 3);  // 24 bits on wire
+        d.read_uint(&tmp, 3);
         fragment_offset = tmp;
-        d.read_uint(&tmp, 3);  // 24 bits on wire
+        d.read_uint(&tmp, 3);
         fragment_length = tmp;
-        body.init_from_outer_parser(&d, length);
+        // body holds only the fragment, not the full message
+        body.parse(d, fragment_length);
+        // only meaningful for the first fragment; guard against wraparound
+        // when fragment_length > length on malformed headers
+        if (fragment_offset == 0) {
+            int body_len = body.length();
+            if (fragment_length <= length && body_len >= 0 && (uint32_t)body_len <= length) {
+                additional_bytes_needed = length - (uint32_t)body_len;
+            } else {
+                additional_bytes_needed = 0;
+            }
+        } else {
+            additional_bytes_needed = 0;
+        }
     }
 
     // DTLS handshake records begin with content-type 0x16 (Handshake).
@@ -90,12 +114,17 @@ struct dtls_handshake {
 class dtls_client_hello : public base_protocol {
     dtls_record rec;
     dtls_handshake handshake;
+    datum raw_fragment;       // snapshot of handshake.body before tls_client_hello parses it
     tls_client_hello hello;
+    uint8_t cid_buf[2];       // big-endian copy of handshake.message_seq for get_cid()
 public:
     dtls_client_hello(struct datum &pkt) :
         rec{pkt},
         handshake{rec.fragment},
-        hello{handshake.body} {}
+        raw_fragment{handshake.body},   // captured before hello{} consumes handshake.body
+        hello{handshake.body},
+        cid_buf{static_cast<uint8_t>(handshake.message_seq >> 8),
+                static_cast<uint8_t>(handshake.message_seq & 0xff)} {}
 
     void fingerprint(struct buffer_stream &buf, size_t format_version) const {
         hello.fingerprint(buf, format_version);
@@ -108,6 +137,8 @@ public:
     }
 
     void write_json(json_object &record, bool output_metadata) const {
+        // tls_client_hello::write_json wraps its output under a "dtls" key
+        // when hello.dtls is true, so a plain delegation suffices.
         hello.write_json(record, output_metadata);
     }
 
@@ -117,11 +148,31 @@ public:
         protocols.close();
     }
 
-    bool is_not_empty() const {
-        return hello.is_not_empty();
-    }
+    bool is_not_empty() const { return hello.is_not_empty(); }
 
     const tls_client_hello &get_tls_client_hello() const { return hello; }
+
+    // dtls_client_hello member functions supporting the offset-based UDP
+    // reassembly trait (see reassembly.hpp). raw_fragment is used instead of
+    // handshake.body since the latter may be consumed by tls_client_hello
+    // during construction.
+    uint32_t additional_bytes_needed() const { return static_cast<uint32_t>(handshake.additional_bytes_needed); }
+    uint32_t get_fragment_offset() const     { return handshake.fragment_offset; }
+    uint32_t get_fragment_length() const     { return static_cast<uint32_t>(raw_fragment.length()); }
+    uint32_t get_handshake_length() const    { return handshake.length; }
+    datum    get_fragment_data() const       { return raw_fragment; }
+
+    // Per-handshake discriminator (big-endian message_seq); used to
+    // identify the current DTLS handshake and reject fragments whose
+    // CID does not match the active reassembly state on this 5-tuple.
+    datum get_cid() const { return datum{cid_buf, cid_buf + sizeof(cid_buf)}; }
+
+    void reparse_from_buf(datum buf) {
+        raw_fragment = buf;
+        hello = tls_client_hello{buf};
+    }
+
+    bool supports_udp_offset_reassembly() const { return true; }
 
     // DTLS handshake records begin with content-type 0x16 (Handshake).
     // The next two bytes are the protocol version:
