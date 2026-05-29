@@ -11,15 +11,9 @@
 
 inline constexpr uint32_t CBOR_METADATA_SCHEMA_VERSION = 1;
 
-/// Tags for exposed credentials.
-enum class exposed_creds_tag : uint8_t {
-    plaintext,
-    token,      
-    derived      
-};
-
-template<exposed_creds_tag Tag>
+/// Exposed credentials message — runtime KEY distinguishes plaintext/token/derived.
 class exposed_creds_message {
+    const char* key_ = nullptr;
     cbor::text_string protocol_;
     cbor::text_string auth_method_;
     cbor::text_string username_;
@@ -27,18 +21,16 @@ class exposed_creds_message {
     bool valid_ = false;
 
 public:
-    
-    static constexpr const char* KEY =
-        Tag == exposed_creds_tag::plaintext ? "exposed_credentials_plaintext" :
-        Tag == exposed_creds_tag::token     ? "exposed_credentials_token" :
-                                              "exposed_credentials_derived";
+    static constexpr const char* KEY_PLAINTEXT = "exposed_credentials_plaintext";
+    static constexpr const char* KEY_TOKEN     = "exposed_credentials_token";
+    static constexpr const char* KEY_DERIVED   = "exposed_credentials_derived";
 
-    /// Construct from raw data (encoding path).
-    /// protocol and auth_method are mandatory; username is optional.
-    static exposed_creds_message construct(datum protocol,
-                                            datum auth_method,
-                                            datum username) {
+    static exposed_creds_message construct(const char* key,
+                                           datum protocol,
+                                           datum auth_method,
+                                           datum username) {
         exposed_creds_message msg;
+        msg.key_ = key;
         msg.protocol_ = cbor::text_string::construct(protocol);
         msg.auth_method_ = cbor::text_string::construct(auth_method);
         msg.username_ = cbor::text_string::construct(username);
@@ -46,19 +38,17 @@ public:
         return msg;
     }
 
-    /// Decode from CBOR indefinite map (decoding path).
-    /// d must point at the 0xBF opening byte.
-    /// protocol and auth_method must be present for valid decode.
-    static exposed_creds_message decode(datum &d) {
+    static exposed_creds_message decode(datum &d, const char* key) {
         exposed_creds_message msg;
+        msg.key_ = key;
         const uint8_t* begin = d.data;
         cbor::map m{d};
         while (d.is_not_empty() && !cbor::is_break(d)) {
-            cbor::text_string key = cbor::text_string::decode(d);
-            datum k = key.value();
-            if (k.match("protocol"))                   msg.protocol_ = cbor::text_string::decode(d);
-            else if (k.match("authentication_method")) msg.auth_method_ = cbor::text_string::decode(d);
-            else if (k.match("username"))              msg.username_ = cbor::text_string::decode(d);
+            cbor::text_string k = cbor::text_string::decode(d);
+            datum kv = k.value();
+            if (kv.match("protocol"))                   msg.protocol_ = cbor::text_string::decode(d);
+            else if (kv.match("authentication_method")) msg.auth_method_ = cbor::text_string::decode(d);
+            else if (kv.match("username"))              msg.username_ = cbor::text_string::decode(d);
             else cbor::skip_cbor_value(d);
         }
         m.close();
@@ -67,10 +57,9 @@ public:
         return msg;
     }
 
-    /// Templated write
     template<typename Object, typename Array>
     void write(Object &parent) const {
-        Object o{parent, KEY};
+        Object o{parent, key_};
         if (protocol_.is_valid())
             o.print_key_string("protocol", protocol_.value());
         if (auth_method_.is_valid())
@@ -81,16 +70,12 @@ public:
     }
 
     bool is_valid() const { return valid_; }
-    datum key() const { return datum{KEY}; }
+    datum key() const { return datum{key_}; }
     datum protocol() const { return protocol_.value(); }
     datum auth_method() const { return auth_method_.value(); }
     datum username() const { return username_.value(); }
     datum cbor_span() const { return cbor_span_; }
 };
-
-using exposed_creds_plaintext_message = exposed_creds_message<exposed_creds_tag::plaintext>;
-using exposed_creds_token_message     = exposed_creds_message<exposed_creds_tag::token>;
-using exposed_creds_derived_message   = exposed_creds_message<exposed_creds_tag::derived>;
 
 
 /// CNSA 2.0 TLS crypto assessment (quantum_safe policy).

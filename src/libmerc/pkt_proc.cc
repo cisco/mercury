@@ -214,25 +214,20 @@ struct check_exposed_creds {
     void write_feature(exposed_creds_type type, datum protocol,
                        datum auth_method, datum username) {
         if (!output_) return;
+        const char* key = nullptr;
         switch (type) {
         case exposed_creds_type::plaintext_password:
-            exposed_creds_plaintext_message::construct(protocol, auth_method, username)
-                .template write<Object, Array>(*output_);
-            wrote_cbor_feature_ = true;
-            break;
+            key = exposed_creds_message::KEY_PLAINTEXT; break;
         case exposed_creds_type::plaintext_token:
-            exposed_creds_token_message::construct(protocol, auth_method, username)
-                .template write<Object, Array>(*output_);
-            wrote_cbor_feature_ = true;
-            break;
+            key = exposed_creds_message::KEY_TOKEN; break;
         case exposed_creds_type::password_derived:
-            exposed_creds_derived_message::construct(protocol, auth_method, username)
-                .template write<Object, Array>(*output_);
-            wrote_cbor_feature_ = true;
-            break;
+            key = exposed_creds_message::KEY_DERIVED; break;
         default:
-            break;
+            return;
         }
+        exposed_creds_message::construct(key, protocol, auth_method, username)
+            .template write<Object, Array>(*output_);
+        wrote_cbor_feature_ = true;
     }
 
     exposed_creds_type operator()(const imap::imap_requests &msg) {

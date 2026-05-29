@@ -37,9 +37,7 @@ public:
 };
 
 using metadata_entry = std::variant<
-    exposed_creds_plaintext_message,
-    exposed_creds_token_message,
-    exposed_creds_derived_message,
+    exposed_creds_message,
     crypto_cnsa_tls_message,
     crypto_cnsa_ssh_message,
     crypto_nist_message,
@@ -74,12 +72,12 @@ inline void decode_v1(datum &d, cbor_decoded_metadata& out) {
         if (d.is_null()) return;
 
         datum k = feature_key.value();
-        if (k.match(exposed_creds_plaintext_message::KEY))
-            out.entries[out.count++] = exposed_creds_plaintext_message::decode(d);
-        else if (k.match(exposed_creds_token_message::KEY))
-            out.entries[out.count++] = exposed_creds_token_message::decode(d);
-        else if (k.match(exposed_creds_derived_message::KEY))
-            out.entries[out.count++] = exposed_creds_derived_message::decode(d);
+        if (k.match(exposed_creds_message::KEY_PLAINTEXT))
+            out.entries[out.count++] = exposed_creds_message::decode(d, exposed_creds_message::KEY_PLAINTEXT);
+        else if (k.match(exposed_creds_message::KEY_TOKEN))
+            out.entries[out.count++] = exposed_creds_message::decode(d, exposed_creds_message::KEY_TOKEN);
+        else if (k.match(exposed_creds_message::KEY_DERIVED))
+            out.entries[out.count++] = exposed_creds_message::decode(d, exposed_creds_message::KEY_DERIVED);
         else if (k.match(crypto_cnsa_tls_message::KEY)) {
             if (peek_cnsa_is_ssh(d.data, d.data_end))
                 out.entries[out.count++] = crypto_cnsa_ssh_message::decode(d);
@@ -147,7 +145,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         data_buffer<512> buf;
         cbor_object outer{buf};
         outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
-        auto msg = exposed_creds_plaintext_message::construct(
+        auto msg = exposed_creds_message::construct(exposed_creds_message::KEY_PLAINTEXT, 
             datum{"imap"}, datum{"LOGIN"}, datum{"alice"});
         msg.template write<cbor_object, cbor_array>(outer);
         outer.close();
@@ -160,10 +158,10 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         report("exposed_creds_plaintext count == 1", decoded.count == 1);
 
         if (decoded.count >= 1) {
-            bool is_plaintext = std::holds_alternative<exposed_creds_plaintext_message>(decoded.entries[0]);
+            bool is_plaintext = std::holds_alternative<exposed_creds_message>(decoded.entries[0]);
             report("exposed_creds_plaintext variant type", is_plaintext);
             if (is_plaintext) {
-                auto &dec = std::get<exposed_creds_plaintext_message>(decoded.entries[0]);
+                auto &dec = std::get<exposed_creds_message>(decoded.entries[0]);
                 report("protocol == imap", dec.protocol().match("imap"));
                 report("auth_method == LOGIN", dec.auth_method().match("LOGIN"));
                 report("username == alice", dec.username().match("alice"));
@@ -178,7 +176,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         data_buffer<512> buf;
         cbor_object outer{buf};
         outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
-        auto msg = exposed_creds_token_message::construct(
+        auto msg = exposed_creds_message::construct(exposed_creds_message::KEY_TOKEN, 
             datum{"imap"}, datum{"OAUTHBEARER"}, datum{});
         msg.template write<cbor_object, cbor_array>(outer);
         outer.close();
@@ -190,10 +188,10 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         report("exposed_creds_token decode valid", decoded.valid);
         report("exposed_creds_token count == 1", decoded.count == 1);
         if (decoded.count >= 1) {
-            bool is_token = std::holds_alternative<exposed_creds_token_message>(decoded.entries[0]);
+            bool is_token = std::holds_alternative<exposed_creds_message>(decoded.entries[0]);
             report("exposed_creds_token variant type", is_token);
             if (is_token) {
-                auto &dec = std::get<exposed_creds_token_message>(decoded.entries[0]);
+                auto &dec = std::get<exposed_creds_message>(decoded.entries[0]);
                 report("protocol == imap", dec.protocol().match("imap"));
                 report("auth_method == OAUTHBEARER", dec.auth_method().match("OAUTHBEARER"));
                 report("username is empty (not readable)", !dec.username().is_readable());
@@ -206,7 +204,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         data_buffer<512> buf;
         cbor_object outer{buf};
         outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
-        auto msg = exposed_creds_derived_message::construct(
+        auto msg = exposed_creds_message::construct(exposed_creds_message::KEY_DERIVED, 
             datum{"ldap"}, datum{"DIGEST-MD5"}, datum{});
         msg.template write<cbor_object, cbor_array>(outer);
         outer.close();
@@ -218,10 +216,10 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         report("exposed_creds_derived decode valid", decoded.valid);
         report("exposed_creds_derived count == 1", decoded.count == 1);
         if (decoded.count >= 1) {
-            bool is_derived = std::holds_alternative<exposed_creds_derived_message>(decoded.entries[0]);
+            bool is_derived = std::holds_alternative<exposed_creds_message>(decoded.entries[0]);
             report("exposed_creds_derived variant type", is_derived);
             if (is_derived) {
-                auto &dec = std::get<exposed_creds_derived_message>(decoded.entries[0]);
+                auto &dec = std::get<exposed_creds_message>(decoded.entries[0]);
                 report("protocol == ldap", dec.protocol().match("ldap"));
                 report("auth_method == DIGEST-MD5", dec.auth_method().match("DIGEST-MD5"));
                 report("key == exposed_credentials_derived",
@@ -446,7 +444,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         cbor_object outer{buf};
         outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
 
-        exposed_creds_plaintext_message::construct(
+        exposed_creds_message::construct(exposed_creds_message::KEY_PLAINTEXT, 
             datum{"http"}, datum{"basic"}, datum{"admin"})
             .template write<cbor_object, cbor_array>(outer);
 
@@ -470,7 +468,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         report("multi-feature count == 2", decoded.count == 2);
         if (decoded.count >= 2) {
             report("entry[0] is exposed_creds_plaintext",
-                   std::holds_alternative<exposed_creds_plaintext_message>(decoded.entries[0]));
+                   std::holds_alternative<exposed_creds_message>(decoded.entries[0]));
             report("entry[1] is crypto_cnsa",
                    std::holds_alternative<crypto_cnsa_message>(decoded.entries[1]));
         }
@@ -506,7 +504,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         cbor_object outer{w};
         outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
         // Write a feature and set the flag
-        exposed_creds_plaintext_message::construct(
+        exposed_creds_message::construct(exposed_creds_message::KEY_PLAINTEXT, 
             datum{"http"}, datum{"basic"}, datum{"admin"})
             .template write<cbor_object, cbor_array>(outer);
         ctx.set_feature_written();
@@ -594,7 +592,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         cbor_object outer{buf};
         outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
         for (int i = 0; i < 10; i++) {
-            exposed_creds_plaintext_message::construct(
+            exposed_creds_message::construct(exposed_creds_message::KEY_PLAINTEXT, 
                 datum{"http"}, datum{"Basic"}, datum{})
                 .template write<cbor_object, cbor_array>(outer);
         }
