@@ -40,7 +40,8 @@ using metadata_entry = std::variant<
     exposed_creds_plaintext_message,
     exposed_creds_token_message,
     exposed_creds_derived_message,
-    crypto_cnsa_message,
+    crypto_cnsa_tls_message,
+    crypto_cnsa_ssh_message,
     crypto_nist_message,
     unknown_feature
 >;
@@ -54,6 +55,19 @@ struct cbor_decoded_metadata {
     void reset() { count = 0; valid = false; }
 };
 
+static inline bool peek_cnsa_is_ssh(const uint8_t* begin, const uint8_t* end) {
+    datum peek{begin, end};
+    cbor::map m{peek};
+    while (peek.is_not_empty() && !cbor::is_break(peek)) {
+        cbor::text_string key = cbor::text_string::decode(peek);
+        datum k = key.value();
+        if (k.match("offered")) return true;
+        if (k.match("client") || k.match("session")) return false;
+        cbor::skip_cbor_value(peek);
+    }
+    return false;
+}
+
 inline void decode_v1(datum &d, cbor_decoded_metadata& out) {
     while (d.is_not_empty() && !cbor::is_break(d) && out.count < cbor_decoded_metadata::MAX_ENTRIES) {
         cbor::text_string feature_key = cbor::text_string::decode(d);
@@ -66,8 +80,12 @@ inline void decode_v1(datum &d, cbor_decoded_metadata& out) {
             out.entries[out.count++] = exposed_creds_token_message::decode(d);
         else if (k.match(exposed_creds_derived_message::KEY))
             out.entries[out.count++] = exposed_creds_derived_message::decode(d);
-        else if (k.match(crypto_cnsa_message::KEY))
-            out.entries[out.count++] = crypto_cnsa_message::decode(d);
+        else if (k.match(crypto_cnsa_tls_message::KEY)) {
+            if (peek_cnsa_is_ssh(d.data, d.data_end))
+                out.entries[out.count++] = crypto_cnsa_ssh_message::decode(d);
+            else
+                out.entries[out.count++] = crypto_cnsa_tls_message::decode(d);
+        }
         else if (k.match(crypto_nist_message::KEY))
             out.entries[out.count++] = crypto_nist_message::decode(d);
         else

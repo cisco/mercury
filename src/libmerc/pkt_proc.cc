@@ -100,7 +100,8 @@ struct do_crypto_assessment {
     Object *output_;
     bool wrote_cbor_feature_ = false;
 
-    crypto_cnsa_message cnsa_msg;
+    crypto_cnsa_tls_message cnsa_tls_msg;
+    crypto_cnsa_ssh_message cnsa_ssh_msg;
     crypto_nist_message nist_msg;
 
     bool wrote_cbor_feature() const { return wrote_cbor_feature_; }
@@ -111,7 +112,7 @@ struct do_crypto_assessment {
         for (const auto& assessor : ca) {
             if (output_) {
                 if (assessor->get_result_idx() == crypto_policy::quantum_safe::result_idx)
-                    result.set(assessor->get_result_idx(), !assessor->assess(msg, cnsa_msg));
+                    result.set(assessor->get_result_idx(), !assessor->assess(msg, cnsa_tls_msg));
                 else if (assessor->get_result_idx() == crypto_policy::nist_sp_800_52::result_idx)
                     result.set(assessor->get_result_idx(), !assessor->assess(msg, nist_msg));
                 else
@@ -123,15 +124,15 @@ struct do_crypto_assessment {
         if (output_) {
             if constexpr (std::is_same_v<Object, json_object>) {
                 Array assessor_record{*output_, "cryptographic_security_assessment"};
-                if (cnsa_msg.is_valid())
-                    cnsa_msg.write<Object, Array>(assessor_record);
+                if (cnsa_tls_msg.is_valid())
+                    cnsa_tls_msg.write<Object, Array>(assessor_record);
                 if (nist_msg.is_valid())
                     nist_msg.write<Object, Array>(assessor_record);
                 assessor_record.close();
             } else {
-                if (cnsa_msg.is_valid() && !cnsa_msg.is_compliant()) {
-                    cbor::text_string(crypto_cnsa_message::KEY).write(output_->get_writeable());
-                    cnsa_msg.write<Object, Array>(*output_);
+                if (cnsa_tls_msg.is_valid() && !cnsa_tls_msg.is_compliant()) {
+                    cbor::text_string(crypto_cnsa_tls_message::KEY).write(output_->get_writeable());
+                    cnsa_tls_msg.write<Object, Array>(*output_);
                     wrote_cbor_feature_ = true;
                 }
                 if (nist_msg.is_valid() && !nist_msg.is_compliant()) {
@@ -150,7 +151,7 @@ struct do_crypto_assessment {
         for (const auto& assessor : ca) {
             if (output_) {
                 if (assessor->get_result_idx() == crypto_policy::quantum_safe::result_idx)
-                    result.set(assessor->get_result_idx(), !assessor->assess(msg, cnsa_msg));
+                    result.set(assessor->get_result_idx(), !assessor->assess(msg, cnsa_ssh_msg));
                 else
                     result.set(assessor->get_result_idx(), !assessor->assess(msg));
             } else {
@@ -160,13 +161,13 @@ struct do_crypto_assessment {
         if (output_) {
             if constexpr (std::is_same_v<Object, json_object>) {
                 Array assessor_record{*output_, "cryptographic_security_assessment"};
-                if (cnsa_msg.is_valid())
-                    cnsa_msg.write<Object, Array>(assessor_record);
+                if (cnsa_ssh_msg.is_valid())
+                    cnsa_ssh_msg.write<Object, Array>(assessor_record);
                 assessor_record.close();
             } else {
-                if (cnsa_msg.is_valid() && !cnsa_msg.is_compliant()) {
-                    cbor::text_string(crypto_cnsa_message::KEY).write(output_->get_writeable());
-                    cnsa_msg.write<Object, Array>(*output_);
+                if (cnsa_ssh_msg.is_valid() && !cnsa_ssh_msg.is_compliant()) {
+                    cbor::text_string(crypto_cnsa_ssh_message::KEY).write(output_->get_writeable());
+                    cnsa_ssh_msg.write<Object, Array>(*output_);
                     wrote_cbor_feature_ = true;
                 }
             }

@@ -93,18 +93,14 @@ using exposed_creds_token_message     = exposed_creds_message<exposed_creds_tag:
 using exposed_creds_derived_message   = exposed_creds_message<exposed_creds_tag::derived>;
 
 
-/// CNSA 2.0 crypto assessment (quantum_safe policy).
-/// write() produces an anonymous object (no KEY). On the JSON path it is
-/// written inside the "cryptographic_security_assessment" array. On the
-/// CBOR path the caller writes KEY separately before calling write().
-/// Supports both TLS and SSH structures. Decoder branches on target key name:
-/// "offered" → SSH subtree, "client"/"session" → TLS subtree.
-class crypto_cnsa_message {
+/// CNSA 2.0 TLS crypto assessment (quantum_safe policy).
+/// Caller writes KEY before calling write(). write() produces anonymous object.
+class crypto_cnsa_tls_message {
     static constexpr size_t MAX_ITEMS = 48;
+    static constexpr size_t MAX_PSK_ENTRIES = 4;
     cbor::text_string policy_;
     cbor::text_string target_;
 
-    // TLS fields
     cbor::text_string cs_not_allowed_[MAX_ITEMS];
     uint16_t          cs_not_allowed_hex_[MAX_ITEMS];
     bool              cs_not_allowed_is_hex_[MAX_ITEMS] = {};
@@ -119,21 +115,9 @@ class crypto_cnsa_message {
 
     bool psk_mode_ = false;
 
-    static constexpr size_t MAX_PSK_ENTRIES = 4;
     cbor::text_string psk_non_compliant_keys_[MAX_PSK_ENTRIES];
     cbor::text_string psk_non_compliant_reasons_[MAX_PSK_ENTRIES];
     size_t            psk_non_compliant_count_ = 0;
-
-    // SSH fields
-    cbor::text_string kex_not_allowed_[MAX_ITEMS];
-    size_t            kex_not_allowed_count_ = 0;
-    cbor::text_string kex_allowed_;
-    cbor::text_string c2s_cs_not_allowed_[MAX_ITEMS];
-    size_t            c2s_cs_not_allowed_count_ = 0;
-    cbor::text_string c2s_cs_allowed_;
-    cbor::text_string s2c_cs_not_allowed_[MAX_ITEMS];
-    size_t            s2c_cs_not_allowed_count_ = 0;
-    cbor::text_string s2c_cs_allowed_;
 
     bool compliant_ = true;
     bool valid_ = false;
@@ -182,6 +166,157 @@ public:
             psk_non_compliant_count_++;
         }
     }
+    void set_compliant(bool c)                  { compliant_ = c; }
+    void set_valid()                            { valid_ = policy_.is_valid() && target_.is_valid(); }
+
+    bool is_compliant() const { return compliant_; }
+    bool is_valid()     const { return valid_; }
+
+    template<typename Object, typename Array, typename Parent>
+    void write(Parent &parent) const {
+        Object o{parent};
+        if (policy_.is_valid())
+            o.print_key_string("policy", policy_.value());
+        if (!target_.is_valid()) { o.close(); return; }
+        Object tgt{o, target_.value()};
+        if (cs_not_allowed_count_ > 0) {
+            Array cs_arr{tgt, "ciphersuites_not_allowed"};
+            for (size_t i = 0; i < cs_not_allowed_count_; i++) {
+                if (cs_not_allowed_is_hex_[i])
+                    cs_arr.print_uint16_hex(cs_not_allowed_hex_[i]);
+                else
+                    cs_arr.print_string(cs_not_allowed_[i].value());
+            }
+            cs_arr.close();
+        }
+        if (cs_allowed_.is_valid())
+            tgt.print_key_string("ciphersuites_allowed", cs_allowed_.value());
+        if (grp_not_allowed_count_ > 0) {
+            Array grp_arr{tgt, "groups_not_allowed"};
+            for (size_t i = 0; i < grp_not_allowed_count_; i++) {
+                if (grp_not_allowed_is_hex_[i])
+                    grp_arr.print_uint16_hex(grp_not_allowed_hex_[i]);
+                else
+                    grp_arr.print_string(grp_not_allowed_[i].value());
+            }
+            grp_arr.close();
+        }
+        if (grp_allowed_.is_valid())
+            tgt.print_key_string("groups_allowed", grp_allowed_.value());
+        tgt.print_key_bool("tls_cert_with_extern_psk", psk_mode_);
+        for (size_t i = 0; i < psk_non_compliant_count_; i++) {
+            tgt.print_key_string(psk_non_compliant_keys_[i].value(),
+                                  psk_non_compliant_reasons_[i].value());
+        }
+        tgt.close();
+        o.close();
+    }
+
+    static crypto_cnsa_tls_message decode(datum &d) {
+        crypto_cnsa_tls_message msg;
+        const uint8_t* begin = d.data;
+        cbor::map m{d};
+        while (d.is_not_empty() && !cbor::is_break(d)) {
+            cbor::text_string key = cbor::text_string::decode(d);
+            datum k = key.value();
+            if (k.match("policy")) {
+                msg.policy_ = cbor::text_string::decode(d);
+            }
+            else if (k.match("client") || k.match("session")) {
+                msg.target_ = key;
+                cbor::map tgt{d};
+                while (d.is_not_empty() && !cbor::is_break(d)) {
+                    cbor::text_string tkey = cbor::text_string::decode(d);
+                    datum tk = tkey.value();
+                    if (tk.match("ciphersuites_not_allowed")) {
+                        cbor::array arr{d};
+                        while (d.is_not_empty() && !cbor::is_break(d)) {
+                            if (msg.cs_not_allowed_count_ < MAX_ITEMS)
+                                msg.cs_not_allowed_[msg.cs_not_allowed_count_++] = cbor::text_string::decode(d);
+                            else cbor::skip_cbor_value(d);
+                        }
+                        arr.close();
+                    }
+                    else if (tk.match("ciphersuites_allowed"))
+                        msg.cs_allowed_ = cbor::text_string::decode(d);
+                    else if (tk.match("groups_not_allowed")) {
+                        cbor::array arr{d};
+                        while (d.is_not_empty() && !cbor::is_break(d)) {
+                            if (msg.grp_not_allowed_count_ < MAX_ITEMS)
+                                msg.grp_not_allowed_[msg.grp_not_allowed_count_++] = cbor::text_string::decode(d);
+                            else cbor::skip_cbor_value(d);
+                        }
+                        arr.close();
+                    }
+                    else if (tk.match("groups_allowed"))
+                        msg.grp_allowed_ = cbor::text_string::decode(d);
+                    else if (tk.match("tls_cert_with_extern_psk"))
+                        msg.psk_mode_ = cbor::decode_bool(d);
+                    else if (tk.match("tls_cert_with_extern_psk_non_compliant") ||
+                             tk.match("psk_key_exchange_modes_non_compliant") ||
+                             tk.match("psk_key_exchange_mlkem1024_non_compliant") ||
+                             tk.match("pre_shared_key_non_compliant")) {
+                        if (msg.psk_non_compliant_count_ < MAX_PSK_ENTRIES) {
+                            msg.psk_non_compliant_keys_[msg.psk_non_compliant_count_] = tkey;
+                            msg.psk_non_compliant_reasons_[msg.psk_non_compliant_count_] = cbor::text_string::decode(d);
+                            msg.psk_non_compliant_count_++;
+                        } else cbor::skip_cbor_value(d);
+                    }
+                    else cbor::skip_cbor_value(d);
+                }
+                tgt.close();
+            }
+            else cbor::skip_cbor_value(d);
+        }
+        m.close();
+        msg.cbor_span_ = datum{begin, d.data};
+        msg.valid_ = !d.is_null() && msg.policy_.is_valid() && msg.target_.is_valid();
+        return msg;
+    }
+
+    datum key()       const { return datum{KEY}; }
+    datum cbor_span() const { return cbor_span_; }
+
+    size_t cs_not_allowed_count() const { return cs_not_allowed_count_; }
+    cbor::text_string cs_not_allowed_at(size_t i) const { return cs_not_allowed_[i]; }
+    bool cs_allowed_valid() const { return cs_allowed_.is_valid(); }
+    cbor::text_string cs_allowed_value() const { return cs_allowed_; }
+    size_t grp_not_allowed_count() const { return grp_not_allowed_count_; }
+    cbor::text_string grp_not_allowed_at(size_t i) const { return grp_not_allowed_[i]; }
+    bool grp_allowed_valid() const { return grp_allowed_.is_valid(); }
+    cbor::text_string grp_allowed_value() const { return grp_allowed_; }
+    bool psk_mode() const { return psk_mode_; }
+    size_t psk_non_compliant_count() const { return psk_non_compliant_count_; }
+    cbor::text_string psk_non_compliant_key_at(size_t i) const { return psk_non_compliant_keys_[i]; }
+    cbor::text_string psk_non_compliant_reason_at(size_t i) const { return psk_non_compliant_reasons_[i]; }
+};
+
+
+/// CNSA 2.0 SSH crypto assessment (quantum_safe policy).
+/// Caller writes KEY before calling write(). write() produces anonymous object.
+/// No target_ member — always writes "offered" hardcoded.
+class crypto_cnsa_ssh_message {
+    static constexpr size_t MAX_ITEMS = 48;
+    cbor::text_string policy_;
+
+    cbor::text_string kex_not_allowed_[MAX_ITEMS];
+    size_t            kex_not_allowed_count_ = 0;
+    cbor::text_string kex_allowed_;
+    cbor::text_string c2s_cs_not_allowed_[MAX_ITEMS];
+    size_t            c2s_cs_not_allowed_count_ = 0;
+    cbor::text_string c2s_cs_allowed_;
+    cbor::text_string s2c_cs_not_allowed_[MAX_ITEMS];
+    size_t            s2c_cs_not_allowed_count_ = 0;
+    cbor::text_string s2c_cs_allowed_;
+
+    bool compliant_ = true;
+    bool valid_ = false;
+    datum cbor_span_;
+
+public:
+    static constexpr const char* KEY = "cnsa_2_0_non_conformant";
+
+    void set_policy(const char* p)              { policy_ = cbor::text_string(p); }
     void add_kex_not_allowed(const char* name) {
         if (kex_not_allowed_count_ < MAX_ITEMS)
             kex_not_allowed_[kex_not_allowed_count_++] = cbor::text_string(name);
@@ -210,72 +345,17 @@ public:
     }
     void set_s2c_cs_allowed(const char* q)      { s2c_cs_allowed_ = cbor::text_string(q); }
     void set_compliant(bool c)                  { compliant_ = c; }
-    void set_valid()                            { valid_ = policy_.is_valid() && target_.is_valid(); }
+    void set_valid()                            { valid_ = policy_.is_valid(); }
 
     bool is_compliant() const { return compliant_; }
     bool is_valid()     const { return valid_; }
 
-    /// Templated write
     template<typename Object, typename Array, typename Parent>
     void write(Parent &parent) const {
         Object o{parent};
         if (policy_.is_valid())
             o.print_key_string("policy", policy_.value());
-
-        if (!target_.is_valid()) { o.close(); return; }
-
-        if (target_.value().match("offered")) {
-            write_ssh_target<Object, Array>(o);
-        } else {
-            write_tls_target<Object, Array>(o);
-        }
-        o.close();
-    }
-
-    template<typename Object, typename Array>
-    void write_tls_target(Object &o) const {
-        Object tgt{o, target_.value()};
-
-        if (cs_not_allowed_count_ > 0) {
-            Array cs_arr{tgt, "ciphersuites_not_allowed"};
-            for (size_t i = 0; i < cs_not_allowed_count_; i++) {
-                if (cs_not_allowed_is_hex_[i])
-                    cs_arr.print_uint16_hex(cs_not_allowed_hex_[i]);
-                else
-                    cs_arr.print_string(cs_not_allowed_[i].value());
-            }
-            cs_arr.close();
-        }
-        if (cs_allowed_.is_valid())
-            tgt.print_key_string("ciphersuites_allowed", cs_allowed_.value());
-
-        if (grp_not_allowed_count_ > 0) {
-            Array grp_arr{tgt, "groups_not_allowed"};
-            for (size_t i = 0; i < grp_not_allowed_count_; i++) {
-                if (grp_not_allowed_is_hex_[i])
-                    grp_arr.print_uint16_hex(grp_not_allowed_hex_[i]);
-                else
-                    grp_arr.print_string(grp_not_allowed_[i].value());
-            }
-            grp_arr.close();
-        }
-        if (grp_allowed_.is_valid())
-            tgt.print_key_string("groups_allowed", grp_allowed_.value());
-
-        tgt.print_key_bool("tls_cert_with_extern_psk", psk_mode_);
-
-        for (size_t i = 0; i < psk_non_compliant_count_; i++) {
-            tgt.print_key_string(psk_non_compliant_keys_[i].value(),
-                                  psk_non_compliant_reasons_[i].value());
-        }
-
-        tgt.close();
-    }
-
-    template<typename Object, typename Array>
-    void write_ssh_target(Object &o) const {
         Object offered{o, "offered"};
-
         if (kex_not_allowed_count_ > 0) {
             Array kex_arr{offered, "kex_not_allowed"};
             for (size_t i = 0; i < kex_not_allowed_count_; i++)
@@ -284,7 +364,6 @@ public:
         }
         if (kex_allowed_.is_valid())
             offered.print_key_string("kex_allowed", kex_allowed_.value());
-
         {
             Object c2s{offered, "client_to_server"};
             if (c2s_cs_not_allowed_count_ > 0) {
@@ -309,143 +388,12 @@ public:
                 s2c.print_key_string("ciphersuites_allowed", s2c_cs_allowed_.value());
             s2c.close();
         }
-
         offered.close();
+        o.close();
     }
 
-    static void decode_tls_target(datum &d, crypto_cnsa_message &msg) {
-        cbor::map tgt{d};
-        while (d.is_not_empty() && !cbor::is_break(d)) {
-            cbor::text_string tkey = cbor::text_string::decode(d);
-            datum tk = tkey.value();
-            if (tk.match("ciphersuites_not_allowed")) {
-                cbor::array arr{d};
-                while (d.is_not_empty() && !cbor::is_break(d)) {
-                    if (msg.cs_not_allowed_count_ < MAX_ITEMS)
-                        msg.cs_not_allowed_[msg.cs_not_allowed_count_++] =
-                            cbor::text_string::decode(d);
-                    else
-                        cbor::skip_cbor_value(d);
-                }
-                arr.close();
-            }
-            else if (tk.match("ciphersuites_allowed")) {
-                msg.cs_allowed_ = cbor::text_string::decode(d);
-            }
-            else if (tk.match("groups_not_allowed")) {
-                cbor::array arr{d};
-                while (d.is_not_empty() && !cbor::is_break(d)) {
-                    if (msg.grp_not_allowed_count_ < MAX_ITEMS)
-                        msg.grp_not_allowed_[msg.grp_not_allowed_count_++] =
-                            cbor::text_string::decode(d);
-                    else
-                        cbor::skip_cbor_value(d);
-                }
-                arr.close();
-            }
-            else if (tk.match("groups_allowed")) {
-                msg.grp_allowed_ = cbor::text_string::decode(d);
-            }
-            else if (tk.match("tls_cert_with_extern_psk")) {
-                msg.psk_mode_ = cbor::decode_bool(d);
-            }
-            else if (tk.match("tls_cert_with_extern_psk_non_compliant") ||
-                     tk.match("psk_key_exchange_modes_non_compliant") ||
-                     tk.match("psk_key_exchange_mlkem1024_non_compliant") ||
-                     tk.match("pre_shared_key_non_compliant")) {
-                if (msg.psk_non_compliant_count_ < MAX_PSK_ENTRIES) {
-                    msg.psk_non_compliant_keys_[msg.psk_non_compliant_count_] = tkey;
-                    msg.psk_non_compliant_reasons_[msg.psk_non_compliant_count_] = cbor::text_string::decode(d);
-                    msg.psk_non_compliant_count_++;
-                } else {
-                    cbor::skip_cbor_value(d);
-                }
-            }
-            else {
-                cbor::skip_cbor_value(d);
-            }
-        }
-        tgt.close();
-    }
-
-    static void decode_ssh_target(datum &d, crypto_cnsa_message &msg) {
-        cbor::map offered{d};
-        while (d.is_not_empty() && !cbor::is_break(d)) {
-            cbor::text_string tkey = cbor::text_string::decode(d);
-            datum tk = tkey.value();
-            if (tk.match("kex_not_allowed")) {
-                cbor::array arr{d};
-                while (d.is_not_empty() && !cbor::is_break(d)) {
-                    if (msg.kex_not_allowed_count_ < MAX_ITEMS)
-                        msg.kex_not_allowed_[msg.kex_not_allowed_count_++] =
-                            cbor::text_string::decode(d);
-                    else
-                        cbor::skip_cbor_value(d);
-                }
-                arr.close();
-            }
-            else if (tk.match("kex_allowed")) {
-                msg.kex_allowed_ = cbor::text_string::decode(d);
-            }
-            else if (tk.match("client_to_server")) {
-                cbor::map c2s{d};
-                while (d.is_not_empty() && !cbor::is_break(d)) {
-                    cbor::text_string ckey = cbor::text_string::decode(d);
-                    datum ck = ckey.value();
-                    if (ck.match("ciphersuites_not_allowed")) {
-                        cbor::array arr{d};
-                        while (d.is_not_empty() && !cbor::is_break(d)) {
-                            if (msg.c2s_cs_not_allowed_count_ < MAX_ITEMS)
-                                msg.c2s_cs_not_allowed_[msg.c2s_cs_not_allowed_count_++] =
-                                    cbor::text_string::decode(d);
-                            else
-                                cbor::skip_cbor_value(d);
-                        }
-                        arr.close();
-                    }
-                    else if (ck.match("ciphersuites_allowed")) {
-                        msg.c2s_cs_allowed_ = cbor::text_string::decode(d);
-                    }
-                    else {
-                        cbor::skip_cbor_value(d);
-                    }
-                }
-                c2s.close();
-            }
-            else if (tk.match("server_to_client")) {
-                cbor::map s2c{d};
-                while (d.is_not_empty() && !cbor::is_break(d)) {
-                    cbor::text_string skey = cbor::text_string::decode(d);
-                    datum sk = skey.value();
-                    if (sk.match("ciphersuites_not_allowed")) {
-                        cbor::array arr{d};
-                        while (d.is_not_empty() && !cbor::is_break(d)) {
-                            if (msg.s2c_cs_not_allowed_count_ < MAX_ITEMS)
-                                msg.s2c_cs_not_allowed_[msg.s2c_cs_not_allowed_count_++] =
-                                    cbor::text_string::decode(d);
-                            else
-                                cbor::skip_cbor_value(d);
-                        }
-                        arr.close();
-                    }
-                    else if (sk.match("ciphersuites_allowed")) {
-                        msg.s2c_cs_allowed_ = cbor::text_string::decode(d);
-                    }
-                    else {
-                        cbor::skip_cbor_value(d);
-                    }
-                }
-                s2c.close();
-            }
-            else {
-                cbor::skip_cbor_value(d);
-            }
-        }
-        offered.close();
-    }
-
-    static crypto_cnsa_message decode(datum &d) {
-        crypto_cnsa_message msg;
+    static crypto_cnsa_ssh_message decode(datum &d) {
+        crypto_cnsa_ssh_message msg;
         const uint8_t* begin = d.data;
         cbor::map m{d};
         while (d.is_not_empty() && !cbor::is_break(d)) {
@@ -455,38 +403,76 @@ public:
                 msg.policy_ = cbor::text_string::decode(d);
             }
             else if (k.match("offered")) {
-                msg.target_ = key;
-                decode_ssh_target(d, msg);
+                cbor::map offered{d};
+                while (d.is_not_empty() && !cbor::is_break(d)) {
+                    cbor::text_string tkey = cbor::text_string::decode(d);
+                    datum tk = tkey.value();
+                    if (tk.match("kex_not_allowed")) {
+                        cbor::array arr{d};
+                        while (d.is_not_empty() && !cbor::is_break(d)) {
+                            if (msg.kex_not_allowed_count_ < MAX_ITEMS)
+                                msg.kex_not_allowed_[msg.kex_not_allowed_count_++] = cbor::text_string::decode(d);
+                            else cbor::skip_cbor_value(d);
+                        }
+                        arr.close();
+                    }
+                    else if (tk.match("kex_allowed"))
+                        msg.kex_allowed_ = cbor::text_string::decode(d);
+                    else if (tk.match("client_to_server")) {
+                        cbor::map c2s{d};
+                        while (d.is_not_empty() && !cbor::is_break(d)) {
+                            cbor::text_string ckey = cbor::text_string::decode(d);
+                            datum ck = ckey.value();
+                            if (ck.match("ciphersuites_not_allowed")) {
+                                cbor::array arr{d};
+                                while (d.is_not_empty() && !cbor::is_break(d)) {
+                                    if (msg.c2s_cs_not_allowed_count_ < MAX_ITEMS)
+                                        msg.c2s_cs_not_allowed_[msg.c2s_cs_not_allowed_count_++] = cbor::text_string::decode(d);
+                                    else cbor::skip_cbor_value(d);
+                                }
+                                arr.close();
+                            }
+                            else if (ck.match("ciphersuites_allowed"))
+                                msg.c2s_cs_allowed_ = cbor::text_string::decode(d);
+                            else cbor::skip_cbor_value(d);
+                        }
+                        c2s.close();
+                    }
+                    else if (tk.match("server_to_client")) {
+                        cbor::map s2c{d};
+                        while (d.is_not_empty() && !cbor::is_break(d)) {
+                            cbor::text_string skey = cbor::text_string::decode(d);
+                            datum sk = skey.value();
+                            if (sk.match("ciphersuites_not_allowed")) {
+                                cbor::array arr{d};
+                                while (d.is_not_empty() && !cbor::is_break(d)) {
+                                    if (msg.s2c_cs_not_allowed_count_ < MAX_ITEMS)
+                                        msg.s2c_cs_not_allowed_[msg.s2c_cs_not_allowed_count_++] = cbor::text_string::decode(d);
+                                    else cbor::skip_cbor_value(d);
+                                }
+                                arr.close();
+                            }
+                            else if (sk.match("ciphersuites_allowed"))
+                                msg.s2c_cs_allowed_ = cbor::text_string::decode(d);
+                            else cbor::skip_cbor_value(d);
+                        }
+                        s2c.close();
+                    }
+                    else cbor::skip_cbor_value(d);
+                }
+                offered.close();
             }
-            else if (k.match("client") || k.match("session")) {
-                msg.target_ = key;
-                decode_tls_target(d, msg);
-            }
-            else {
-                cbor::skip_cbor_value(d);
-            }
+            else cbor::skip_cbor_value(d);
         }
         m.close();
         msg.cbor_span_ = datum{begin, d.data};
-        msg.valid_ = !d.is_null() && msg.policy_.is_valid() && msg.target_.is_valid();
+        msg.valid_ = !d.is_null() && msg.policy_.is_valid();
         return msg;
     }
 
     datum key()       const { return datum{KEY}; }
     datum cbor_span() const { return cbor_span_; }
 
-    size_t cs_not_allowed_count() const { return cs_not_allowed_count_; }
-    cbor::text_string cs_not_allowed_at(size_t i) const { return cs_not_allowed_[i]; }
-    bool cs_allowed_valid() const { return cs_allowed_.is_valid(); }
-    cbor::text_string cs_allowed_value() const { return cs_allowed_; }
-    size_t grp_not_allowed_count() const { return grp_not_allowed_count_; }
-    cbor::text_string grp_not_allowed_at(size_t i) const { return grp_not_allowed_[i]; }
-    bool grp_allowed_valid() const { return grp_allowed_.is_valid(); }
-    cbor::text_string grp_allowed_value() const { return grp_allowed_; }
-    bool psk_mode() const { return psk_mode_; }
-    size_t psk_non_compliant_count() const { return psk_non_compliant_count_; }
-    cbor::text_string psk_non_compliant_key_at(size_t i) const { return psk_non_compliant_keys_[i]; }
-    cbor::text_string psk_non_compliant_reason_at(size_t i) const { return psk_non_compliant_reasons_[i]; }
     size_t kex_not_allowed_count() const { return kex_not_allowed_count_; }
     cbor::text_string kex_not_allowed_at(size_t i) const { return kex_not_allowed_[i]; }
     bool kex_allowed_valid() const { return kex_allowed_.is_valid(); }
@@ -500,6 +486,10 @@ public:
     bool s2c_cs_allowed_valid() const { return s2c_cs_allowed_.is_valid(); }
     cbor::text_string s2c_cs_allowed_value() const { return s2c_cs_allowed_; }
 };
+
+
+// Legacy alias for backward compatibility during transition
+using crypto_cnsa_message = crypto_cnsa_tls_message;
 
 
 /// NIST SP 800-52 Rev 2 crypto assessment.

@@ -96,7 +96,7 @@ namespace crypto_policy {
             return true;
         }
 
-        virtual bool assess(const ssh_kex_init &, crypto_cnsa_message &) const {
+        virtual bool assess(const ssh_kex_init &, crypto_cnsa_ssh_message &) const {
             return true;
         }
 
@@ -713,7 +713,7 @@ namespace crypto_policy {
             return all_allowed;
         }
 
-        bool assess_ssh_kex_methods_msg(const name_list &kex_list, crypto_cnsa_message &msg) const {
+        bool assess_ssh_kex_methods_msg(const name_list &kex_list, crypto_cnsa_ssh_message &msg) const {
             bool all_allowed = true;
             bool some_allowed = false;
             name_list tmp_list = kex_list;
@@ -759,7 +759,7 @@ namespace crypto_policy {
             return all_allowed;
         }
 
-        bool assess_ssh_ciphers_c2s(const name_list &ciphers, crypto_cnsa_message &msg) const {
+        bool assess_ssh_ciphers_c2s(const name_list &ciphers, crypto_cnsa_ssh_message &msg) const {
             bool all_allowed = true;
             bool some_allowed = false;
             name_list tmp_list = ciphers;
@@ -805,7 +805,7 @@ namespace crypto_policy {
             return all_allowed;
         }
 
-        bool assess_ssh_ciphers_s2c(const name_list &ciphers, crypto_cnsa_message &msg) const {
+        bool assess_ssh_ciphers_s2c(const name_list &ciphers, crypto_cnsa_ssh_message &msg) const {
             bool all_allowed = true;
             bool some_allowed = false;
             name_list tmp_list = ciphers;
@@ -922,9 +922,8 @@ namespace crypto_policy {
                    assess_ssh_ciphers(ssh_kex.encryption_algorithms_server_to_client);
         }
 
-        bool assess(const ssh_kex_init &ssh_kex, crypto_cnsa_message &msg) const override {
+        bool assess(const ssh_kex_init &ssh_kex, crypto_cnsa_ssh_message &msg) const override {
             msg.set_policy("quantum_safe");
-            msg.set_target("offered");
             bool kex_compliant = assess_ssh_kex_methods_msg(ssh_kex.kex_algorithms, msg);
             bool c2s_compliant = assess_ssh_ciphers_c2s(ssh_kex.encryption_algorithms_client_to_server, msg);
             bool s2c_compliant = assess_ssh_ciphers_s2c(ssh_kex.encryption_algorithms_server_to_client, msg);
@@ -934,7 +933,7 @@ namespace crypto_policy {
         }
 
         bool assess(const ssh_kex_init &ssh_kex, json_array &a) const override {
-            crypto_cnsa_message msg;
+            crypto_cnsa_ssh_message msg;
             bool compliant = assess(ssh_kex, msg);
             msg.write<json_object, json_array>(a);
             return compliant;
