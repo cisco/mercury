@@ -137,6 +137,7 @@ public:
     bool minimize_ram = false;
     bool quic_trial_decryption = false; /* trial decrypt QUIC initial packets */
     bool exposed_creds = false;      /* detect and report exposed credentials in enabled plaintext protocols */
+    bool cbor_metadata = false;         /* encode CBOR metadata for inspector */
 
     global_config() : libmerc_config(), reassembly{false}, network_behavioral_detections{false} {};
     global_config(const libmerc_config& c) : libmerc_config(c), reassembly{false}, network_behavioral_detections{false} {
@@ -360,7 +361,8 @@ static void setup_extended_fields(global_config* lc, const std::string& config) 
         {"network-behavioral-detections", "", "", SETTER_FUNCTION(&lc){ lc->network_behavioral_detections = true; }},
         {"exposed-creds", "", "", SETTER_FUNCTION(&lc){ lc->exposed_creds = true; }},
         {"http-headers", "", "", SETTER_FUNCTION(&lc){ lc->set_http_headers(s); }},
-        {"http-body-max", "", "", SETTER_FUNCTION(&lc){ lc->set_http_body_max(s); }}
+        {"http-body-max", "", "", SETTER_FUNCTION(&lc){ lc->set_http_body_max(s); }},
+        {"cbor-metadata", "", "", SETTER_FUNCTION(&lc){ lc->cbor_metadata = true; }}
     };
 
     parse_additional_options(options, config, *lc);
