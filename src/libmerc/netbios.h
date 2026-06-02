@@ -352,7 +352,7 @@ namespace {
     }
 }; // end of namespace
 
-namespace netbios {
+namespace netbios_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
         char buffer[2048];
@@ -477,7 +477,7 @@ namespace netbios {
         return true;
     }
 #endif
-} // namespace netbios
+} // namespace netbios_unit_test
 
 
 #endif

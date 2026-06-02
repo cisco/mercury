@@ -550,7 +550,7 @@ public:
     return json_output_fuzzer<dhcp_message>(data, size);
 }
 
-namespace dhcp {
+namespace dhcp_unit_test {
 
 #ifndef NDEBUG
     inline bool unit_test() {
@@ -582,6 +582,6 @@ namespace dhcp {
     }
 #endif
 
-} // namespace dhcp
+} // namespace dhcp_unit_test
 
 #endif /* DHCP_H */

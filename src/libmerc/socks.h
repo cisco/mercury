@@ -603,7 +603,7 @@ namespace {
 
 };
 
-namespace socks {
+namespace socks_unit_test {
 
 #ifndef NDEBUG
     inline bool unit_test() {
@@ -691,6 +691,6 @@ namespace socks {
     }
 #endif
 
-} // namespace socks
+} // namespace socks_unit_test
 
 #endif  // SOCKS_H

@@ -136,7 +136,7 @@ public:
     return json_output_fuzzer<arp_packet>(data, size);
 }
 
-namespace arp {
+namespace arp_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
         char buffer[1024];
@@ -179,6 +179,6 @@ namespace arp {
         return true;
     }
 #endif
-} // namespace arp
+} // namespace arp_unit_test
 
 #endif // ARP_H

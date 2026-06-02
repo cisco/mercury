@@ -166,7 +166,7 @@ public:
     return json_output_fuzzer<icmp_packet>(data, size);
 }
 
-namespace icmp {
+namespace icmp_unit_test {
 
 #ifndef NDEBUG
     inline bool unit_test() {
@@ -229,6 +229,6 @@ namespace icmp {
     }
 #endif
 
-} // namespace icmp
+} // namespace icmp_unit_test
 
 #endif // ICMP_H

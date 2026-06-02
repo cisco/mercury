@@ -1190,7 +1190,7 @@ namespace {
 
 };
 
-namespace dns {
+namespace dns_unit_test {
 
 #ifndef NDEBUG
     inline bool unit_test() {
@@ -1214,6 +1214,6 @@ namespace dns {
     }
 #endif
 
-} // namespace dns
+} // namespace dns_unit_test
 
 #endif /* DNS_H */

@@ -205,7 +205,7 @@ public:
     return json_output_fuzzer<sctp_init>(data, size);
 }
 
-namespace sctp {
+namespace sctp_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
         char buffer[1024];
@@ -295,7 +295,7 @@ namespace sctp {
         return true;
     }
 #endif
-} // namespace sctp
+} // namespace sctp_unit_test
 
 // TODO: move sctp_init into SCTP namespace
 //

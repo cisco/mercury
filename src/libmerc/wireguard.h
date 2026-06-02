@@ -88,7 +88,7 @@ inline void wireguard_handshake_init::write_json(struct json_object &o, bool wri
     return json_output_fuzzer<wireguard_handshake_init>(data, size);
 }
 
-namespace wireguard {
+namespace wireguard_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
         char buffer[512];
@@ -123,6 +123,6 @@ namespace wireguard {
         return true;
     }
 #endif
-} // namespace wireguard
+} // namespace wireguard_unit_test
 
 #endif /* WIREGUARD_H */

@@ -511,7 +511,7 @@ public:
     return 0;
 }
 
-namespace bittorrent_ns {
+namespace bittorrent_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
         // BitTorrent DHT ping query
@@ -534,6 +534,6 @@ namespace bittorrent_ns {
         return true;
     }
 #endif
-} // namespace bittorrent_ns
+} // namespace bittorrent_unit_test
 
 #endif // BITTORRENT_H

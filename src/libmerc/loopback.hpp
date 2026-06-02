@@ -56,7 +56,7 @@ public:
 
 };
 
-namespace loopback {
+namespace loopback_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
         uint8_t ipv4_le[] = { 0x02, 0x00, 0x00, 0x00 };
@@ -92,6 +92,6 @@ namespace loopback {
         return true;
     }
 #endif
-} // namespace loopback
+} // namespace loopback_unit_test
 
 #endif // LOOPBACK_HPP

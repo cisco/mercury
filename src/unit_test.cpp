@@ -159,19 +159,19 @@ int main(int, char *[]) {
         },
         {
             "icmp",
-            &icmp::unit_test
+            &icmp_unit_test::unit_test
         },
         {
             "socks",
-            &socks::unit_test
+            &socks_unit_test::unit_test
         },
         {
             "dns",
-            &dns::unit_test
+            &dns_unit_test::unit_test
         },
         {
             "dhcp",
-            &dhcp::unit_test
+            &dhcp_unit_test::unit_test
         },
         {
             "lldp",
@@ -187,11 +187,11 @@ int main(int, char *[]) {
         },
         {
             "sctp",
-            &sctp::unit_test
+            &sctp_unit_test::unit_test
         },
         {
             "loopback",
-            &loopback::unit_test
+            &loopback_unit_test::unit_test
         },
         {
             "syslog",
@@ -199,11 +199,11 @@ int main(int, char *[]) {
         },
         {
             "wireguard",
-            &wireguard::unit_test
+            &wireguard_unit_test::unit_test
         },
         {
             "netbios",
-            &netbios::unit_test
+            &netbios_unit_test::unit_test
         },
         {
             "stun",
@@ -211,11 +211,11 @@ int main(int, char *[]) {
         },
         {
             "bittorrent",
-            &bittorrent_ns::unit_test
+            &bittorrent_unit_test::unit_test
         },
         {
             "arp",
-            &arp::unit_test
+            &arp_unit_test::unit_test
         },
         {
             "ntp",
@@ -259,7 +259,7 @@ int main(int, char *[]) {
         },
         {
             "analysis",
-            &analysis::unit_test
+            &analysis_unit_test::unit_test
         },
         {
             "naive_bayes",

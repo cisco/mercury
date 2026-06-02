@@ -1249,7 +1249,7 @@ inline std::string get_domain_name(char* server_name) {
 }
 
 #ifndef NDEBUG
-namespace analysis {
+namespace analysis_unit_test {
 
 inline bool unit_test() {
     // get_domain_name tests
