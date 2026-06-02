@@ -40,6 +40,10 @@
 /// comparison operator for os_information
 ///
 [[maybe_unused]] static bool operator==(const os_information &lhs, const os_information &rhs) {
+    if (lhs.os_name == nullptr || rhs.os_name == nullptr) {
+        return lhs.os_name == rhs.os_name
+            && lhs.os_prevalence == rhs.os_prevalence;
+    }
     return strcmp(lhs.os_name, rhs.os_name) == 0
         && lhs.os_prevalence == rhs.os_prevalence;
 }
@@ -1284,9 +1288,16 @@ inline bool unit_test() {
     os_information os2{os2_name, 50};
     os_information os3{os3_name, 30};
     os_information os4{os4_name, 30};
+    os_information null_os1{nullptr, 50};
+    os_information null_os2{nullptr, 50};
+    os_information null_os3{nullptr, 30};
     if (!(os1 == os2)) return false;
     if (os1 == os3) return false;
     if (os1 == os4) return false;
+    if (!(null_os1 == null_os2)) return false;
+    if (null_os1 == os1) return false;
+    if (os1 == null_os1) return false;
+    if (null_os1 == null_os3) return false;
 
     return true;
 }
