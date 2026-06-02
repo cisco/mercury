@@ -533,7 +533,6 @@ _run-coverage: $(BIN)/unit_test $(BIN)/mercury $(LIB)/libmerc.so
 	  --hierarchical \
 	  --highlight \
 	  --missed \
-	  --dark-mode \
 	  --num-spaces 4 \
 	  --precision 1 \
 	  $(_cov_dir)/filtered.info
@@ -610,7 +609,6 @@ _run-coverage-fuzz: $(BIN)/unit_test $(BIN)/mercury $(LIB)/libmerc.so
 	  --hierarchical \
 	  --highlight \
 	  --missed \
-	  --dark-mode \
 	  --num-spaces 4 \
 	  --precision 1 \
 	  $(_cov_fuzz_dir)/filtered.info
