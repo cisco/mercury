@@ -640,6 +640,7 @@ namespace socks_unit_test {
         uint8_t s5v4[] = { 0x05, 0x01, 0x00, 0x01, 0xc0, 0xa8, 0x01, 0x01, 0x00, 0x50 };
         datum d4{s5v4, s5v4 + sizeof(s5v4)};
         socks5_req_resp req_v4{d4};
+        if (!req_v4.is_not_empty()) return false;
         {
             buffer_stream buf{buffer, sizeof(buffer)};
             json_object json{&buf};
@@ -655,6 +656,7 @@ namespace socks_unit_test {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x50 };
         datum d5{s5v6, s5v6 + sizeof(s5v6)};
         socks5_req_resp req_v6{d5};
+        if (!req_v6.is_not_empty()) return false;
         {
             buffer_stream buf{buffer, sizeof(buffer)};
             json_object json{&buf};
@@ -668,6 +670,7 @@ namespace socks_unit_test {
         uint8_t s5d[] = { 0x05, 0x01, 0x00, 0x03, 0x04, 't', 'e', 's', 't', 0x00, 0x50 };
         datum d6{s5d, s5d + sizeof(s5d)};
         socks5_req_resp req_dom{d6};
+        if (!req_dom.is_not_empty()) return false;
         {
             buffer_stream buf{buffer, sizeof(buffer)};
             json_object json{&buf};
