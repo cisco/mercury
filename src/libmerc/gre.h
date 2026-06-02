@@ -86,7 +86,7 @@ public:
     return 0;
 }
 
-namespace gre_test {
+namespace gre_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
         char buffer[2048];
@@ -126,6 +126,6 @@ namespace gre_test {
         return true;
     }
 #endif
-} // namespace gre_test
+} // namespace gre_unit_test
 
 #endif

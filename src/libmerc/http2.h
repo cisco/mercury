@@ -320,7 +320,7 @@ namespace {
 
 };
 
-namespace http2_test {
+namespace http2_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
         char buffer[2048];
@@ -387,6 +387,6 @@ namespace http2_test {
         return true;
     }
 #endif
-} // namespace http2_test
+} // namespace http2_unit_test
 
 #endif // HTTP2_H

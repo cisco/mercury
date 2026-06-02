@@ -796,7 +796,7 @@ public:
 };
 
 #ifndef NDEBUG
-namespace naive_bayes_test {
+namespace naive_bayes_unit_test {
 
 inline bool unit_test() {
     // update class tests

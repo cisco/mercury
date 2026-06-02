@@ -99,7 +99,7 @@ namespace {
 
 }; // end of namespace
 
-namespace mdns_test {
+namespace mdns_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
         uint8_t mdns_query[] = {
@@ -129,6 +129,6 @@ namespace mdns_test {
         return true;
     }
 #endif
-} // namespace mdns_test
+} // namespace mdns_unit_test
 
 #endif /* MDNS_H */

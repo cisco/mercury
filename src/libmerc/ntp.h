@@ -127,7 +127,7 @@ public:
     return json_output_fuzzer<ntp>(data, size);
 }
 
-namespace ntp_test {
+namespace ntp_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
         char buffer[2048];
@@ -172,7 +172,7 @@ namespace ntp_test {
         return true;
     }
 #endif
-} // namespace ntp_test
+} // namespace ntp_unit_test
 
 // NTP udp.data examples:
 //

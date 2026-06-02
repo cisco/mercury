@@ -505,7 +505,7 @@ struct ssh_init_packet : public base_protocol {
     return json_output_fuzzer<ssh_init_packet>(data, size);
 }
 
-namespace ssh_test {
+namespace ssh_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
         char buffer[4096];
@@ -559,6 +559,6 @@ namespace ssh_test {
         return true;
     }
 #endif
-} // namespace ssh_test
+} // namespace ssh_unit_test
 
 #endif // SSH_H

@@ -81,7 +81,7 @@ public:
     return 0;
 }
 
-namespace vxlan_test {
+namespace vxlan_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
         uint8_t vxlan_valid[] = {
@@ -107,6 +107,6 @@ namespace vxlan_test {
         return true;
     }
 #endif
-} // namespace vxlan_test
+} // namespace vxlan_unit_test
 
 #endif  // VXLAN_HPP

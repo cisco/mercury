@@ -1998,7 +1998,7 @@ namespace writeable_unit_test {
     }
 }
 
-namespace datum_test {
+namespace datum_unit_test {
 
     inline bool unit_test() {
         uint8_t data[] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};

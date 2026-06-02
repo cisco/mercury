@@ -157,7 +157,7 @@ namespace rtp {
     return 0;
 }
 
-namespace rtp_test {
+namespace rtp_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
         char buffer[2048];
@@ -208,6 +208,6 @@ namespace rtp_test {
         return true;
     }
 #endif
-} // namespace rtp_test
+} // namespace rtp_unit_test
 
 #endif // RTP_H

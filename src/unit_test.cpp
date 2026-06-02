@@ -219,35 +219,35 @@ int main(int, char *[]) {
         },
         {
             "ntp",
-            &ntp_test::unit_test
+            &ntp_unit_test::unit_test
         },
         {
             "rtp",
-            &rtp_test::unit_test
+            &rtp_unit_test::unit_test
         },
         {
             "esp",
-            &esp_test::unit_test
+            &esp_unit_test::unit_test
         },
         {
             "vxlan",
-            &vxlan_test::unit_test
+            &vxlan_unit_test::unit_test
         },
         {
             "gre",
-            &gre_test::unit_test
+            &gre_unit_test::unit_test
         },
         {
             "mdns",
-            &mdns_test::unit_test
+            &mdns_unit_test::unit_test
         },
         {
             "http2",
-            &http2_test::unit_test
+            &http2_unit_test::unit_test
         },
         {
             "ssh",
-            &ssh_test::unit_test
+            &ssh_unit_test::unit_test
         },
         {
             "tls_extensions",
@@ -255,7 +255,7 @@ int main(int, char *[]) {
         },
         {
             "datum",
-            &datum_test::unit_test
+            &datum_unit_test::unit_test
         },
         {
             "analysis",
@@ -263,7 +263,7 @@ int main(int, char *[]) {
         },
         {
             "naive_bayes",
-            &naive_bayes_test::unit_test
+            &naive_bayes_unit_test::unit_test
         }
     };
     size_t num_tests = 0;

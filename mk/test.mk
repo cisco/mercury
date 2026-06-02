@@ -549,6 +549,83 @@ _run-coverage: $(BIN)/unit_test $(BIN)/mercury $(LIB)/libmerc.so
 test-coverage:
 	$(_cov_make) _run-coverage
 
+# Separate output directories for coverage with fuzz tests
+_cov_fuzz_dir := build/Coverage/coverage_with_fuzz
+_cov_fuzz_rpt := build/Coverage/coverage_report_with_fuzz
+
+# Internal target: runs all coverage stages plus fuzz tests.
+.PHONY: _run-coverage-fuzz
+_run-coverage-fuzz: $(BIN)/unit_test $(BIN)/mercury $(LIB)/libmerc.so
+	@mkdir -p $(_cov_fuzz_dir)
+	@# --- Stage 1: unit tests ---
+	find build/Coverage* -name '*.gcda' -delete 2>/dev/null || true
+	cd src && $(abspath $(BIN)/unit_test)
+	lcov -q $(_cov_capture_flags) $(_cov_exclude_doctest) --directory build/Coverage --capture --output-file $(_cov_fuzz_dir)/unit_tests.info
+	@printf '$(COLOR_GREEN)  captured unit test coverage$(COLOR_OFF)\n'
+	@# --- Stage 2: libmerc tests via test driver (tls-only) ---
+	find build/Coverage* -name '*.gcda' -delete
+	$(_cov_make) VISIBILITY=default STATIC_CFG=tls _run-libmerc-tls-only
+	lcov -q $(_cov_capture_flags) $(_cov_exclude_doctest) --directory build --capture --output-file $(_cov_fuzz_dir)/libmerc_tls.info
+	@printf '$(COLOR_GREEN)  captured libmerc tls driver coverage$(COLOR_OFF)\n'
+	@# --- Stage 3: libmerc tests via test driver (multiprotocol + fdc + l7-metadata) ---
+	find build/Coverage* -name '*.gcda' -delete
+	$(_cov_make) VISIBILITY=default _run-libmerc-test-drivers
+	lcov -q $(_cov_capture_flags) $(_cov_exclude_doctest) --directory build --capture --output-file $(_cov_fuzz_dir)/libmerc_multi.info
+	@printf '$(COLOR_GREEN)  captured libmerc driver coverage$(COLOR_OFF)\n'
+	@# --- Stage 4: full test suite ---
+	find build/Coverage* -name '*.gcda' -delete
+	$(_cov_make) test-comp test-analysis test-cert-check test-json-validity test-stats test-memcheck
+	lcov -q $(_cov_capture_flags) --directory build/Coverage --capture --output-file $(_cov_fuzz_dir)/test_suite.info
+	@printf '$(COLOR_GREEN)  captured test suite coverage$(COLOR_OFF)\n'
+	@# --- Stage 5: fuzz tests ---
+	find build/Coverage* -name '*.gcda' -delete
+	$(_cov_make) test-fuzz || printf '$(COLOR_YELLOW)  fuzz tests skipped (requires clang/Linux)$(COLOR_OFF)\n'
+	lcov -q $(_cov_capture_flags) --directory build/Coverage --capture --output-file $(_cov_fuzz_dir)/fuzz.info 2>/dev/null || true
+	@printf '$(COLOR_GREEN)  captured fuzz test coverage$(COLOR_OFF)\n'
+	@# --- Merge and report ---
+	lcov --ignore-errors mismatch,mismatch \
+	  --add-tracefile $(_cov_fuzz_dir)/unit_tests.info \
+	  --add-tracefile $(_cov_fuzz_dir)/libmerc_tls.info \
+	  --add-tracefile $(_cov_fuzz_dir)/libmerc_multi.info \
+	  --add-tracefile $(_cov_fuzz_dir)/test_suite.info \
+	  $(if $(wildcard $(_cov_fuzz_dir)/fuzz.info),--add-tracefile $(_cov_fuzz_dir)/fuzz.info) \
+	  --output-file $(_cov_fuzz_dir)/total.info
+	lcov -q --ignore-errors unused,unused --remove $(_cov_fuzz_dir)/total.info \
+	  '*/rapidjson/*' \
+	  '*/unit_tests/*' \
+	  '*/test/fuzz/*' \
+	  '/usr/*' \
+	  -o $(_cov_fuzz_dir)/filtered.info
+	@_branch=$$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown); \
+	 _commit=$$(git rev-parse --short HEAD 2>/dev/null || echo unknown); \
+	 genhtml \
+	  --output-directory $(_cov_fuzz_rpt) \
+	  --title "mercury+fuzz ($$_branch @ $$_commit)" \
+	  --header-title "Mercury Test Coverage (with Fuzz)" \
+	  --function-coverage \
+	  --demangle-cpp \
+	  --legend \
+	  --sort \
+	  --show-navigation \
+	  --hierarchical \
+	  --highlight \
+	  --missed \
+	  --dark-mode \
+	  --num-spaces 4 \
+	  --precision 1 \
+	  $(_cov_fuzz_dir)/filtered.info
+	@printf '\n$(COLOR_GREEN)  ══════════════════════════════════════════$(COLOR_OFF)\n'
+	@printf '$(COLOR_GREEN)  Coverage report: %s/index.html$(COLOR_OFF)\n' $(_cov_fuzz_rpt)
+	@printf '$(COLOR_GREEN)  ══════════════════════════════════════════$(COLOR_OFF)\n'
+	@lcov --summary $(_cov_fuzz_dir)/filtered.info 2>&1 | \
+	  sed 's/^/  /' | grep -E 'lines|functions'
+	@printf '$(COLOR_GREEN)  ══════════════════════════════════════════$(COLOR_OFF)\n'
+
+# Top-level entry point for coverage with fuzz tests.
+.PHONY: test-coverage-with-fuzz
+test-coverage-with-fuzz:
+	$(_cov_make) _run-coverage-fuzz
+
 # --- Coverage report (fuzz, llvm-based) -------------------------------
 
 .PHONY: test-coverage-fuzz

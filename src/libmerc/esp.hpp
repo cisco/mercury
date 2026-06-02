@@ -116,7 +116,7 @@ public:
     return json_output_fuzzer<esp>(data, size);
 }
 
-namespace esp_test {
+namespace esp_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
         char buffer[2048];
@@ -151,6 +151,6 @@ namespace esp_test {
         return true;
     }
 #endif
-} // namespace esp_test
+} // namespace esp_unit_test
 
 #endif // ESP_H
