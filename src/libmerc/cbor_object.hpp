@@ -34,8 +34,13 @@ class cbor_object {
     }
 
     static writeable &create_named_map(datum key, cbor_object &o) {
+        writeable &w = o.m;
+        if (!key.is_readable()) {
+            w.set_null();
+            return w;
+        }
         cbor::text_string::construct(key).write(o.m);
-        return o.m;
+        return w;
     }
 
     friend class cbor_array;
