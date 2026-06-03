@@ -32,7 +32,7 @@
 #include "libmerc/json_object.h"
 #include "libmerc/stun.h"
 #include "libmerc/syslog.hpp"
-#include "libmerc/cbor_decoded_metadata.hpp"
+#include "libmerc/cbor_decoded_metadata_test.hpp"
 
 // Macros to colorize output
 //

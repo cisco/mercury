@@ -7,7 +7,6 @@
 #define CBOR_MESSAGES_HPP
 
 #include "cbor.hpp"
-#include "exposed_creds.hpp"
 
 inline constexpr uint32_t CBOR_METADATA_SCHEMA_VERSION = 1;
 
