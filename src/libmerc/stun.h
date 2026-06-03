@@ -1043,8 +1043,6 @@ namespace stun {
     struct datum request_data{data, data+size};
     char buffer_1[8192];
     struct buffer_stream buf_json(buffer_1, sizeof(buffer_1));
-    char buffer_2[8192];
-    struct buffer_stream buf_fp(buffer_2, sizeof(buffer_2));
     struct json_object record(&buf_json);
 
     stun::message stun_msg{request_data};
