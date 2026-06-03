@@ -8,7 +8,7 @@
 
 #include "cbor.hpp"
 
-inline constexpr uint32_t CBOR_METADATA_SCHEMA_VERSION = 1;
+inline constexpr const char* CBOR_METADATA_VERSION_KEY = "v1";
 
 /// Exposed credentials message — runtime KEY distinguishes plaintext/token/derived.
 class exposed_creds_message {

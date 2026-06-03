@@ -1701,8 +1701,8 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
 
             if (global_vars.cbor_metadata) {
                 writeable& cbor_w = cbor_meta.get_writer();
-                cbor_object cbor_output{cbor_w};
-                cbor_output.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
+                cbor_object cbor_outer{cbor_w};
+                cbor_object cbor_output{cbor_outer, CBOR_METADATA_VERSION_KEY};
 
                 if (exposed_creds) {
                     auto creds_visitor = check_exposed_creds<cbor_object, cbor_array>{&cbor_output};
@@ -1721,6 +1721,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
                 }
 
                 cbor_output.close();
+                cbor_outer.close();
                 cbor_meta.end_encode();
             } else {
                 if (exposed_creds) {
@@ -1770,8 +1771,8 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
 
             if (global_vars.cbor_metadata) {
                 writeable& cbor_w = cbor_meta.get_writer();
-                cbor_object cbor_output{cbor_w};
-                cbor_output.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
+                cbor_object cbor_outer{cbor_w};
+                cbor_object cbor_output{cbor_outer, CBOR_METADATA_VERSION_KEY};
 
                 if (!crypto_policies.empty() && !truncated_crypto_handshake) {
                     auto crypto_visitor = do_crypto_assessment<cbor_object, cbor_array>{crypto_policies, &cbor_output};
@@ -1789,6 +1790,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
                 }
 
                 cbor_output.close();
+                cbor_outer.close();
                 cbor_meta.end_encode();
             } else {
                 if (!crypto_policies.empty() && !truncated_crypto_handshake) {

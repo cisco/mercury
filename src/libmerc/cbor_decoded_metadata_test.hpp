@@ -24,12 +24,13 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
     // Test 1: exposed_creds_plaintext round-trip
     {
         data_buffer<512> buf;
-        cbor_object outer{buf};
-        outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
+        cbor_object cbor_outer{buf};
+        cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
         auto msg = exposed_creds_message::construct(exposed_creds_message::KEY_PLAINTEXT, 
             datum{"imap"}, datum{"LOGIN"}, datum{"alice"});
         msg.template write<cbor_object, cbor_array>(outer);
         outer.close();
+        cbor_outer.close();
 
         datum encoded = buf.contents();
         cbor_decoded_metadata decoded;
@@ -55,12 +56,13 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
     // Test 2: exposed_creds_token round-trip
     {
         data_buffer<512> buf;
-        cbor_object outer{buf};
-        outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
+        cbor_object cbor_outer{buf};
+        cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
         auto msg = exposed_creds_message::construct(exposed_creds_message::KEY_TOKEN, 
             datum{"imap"}, datum{"OAUTHBEARER"}, datum{});
         msg.template write<cbor_object, cbor_array>(outer);
         outer.close();
+        cbor_outer.close();
 
         datum encoded = buf.contents();
         cbor_decoded_metadata decoded;
@@ -83,12 +85,13 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
     // Test 2b: exposed_creds_derived round-trip (LDAP DIGEST-MD5)
     {
         data_buffer<512> buf;
-        cbor_object outer{buf};
-        outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
+        cbor_object cbor_outer{buf};
+        cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
         auto msg = exposed_creds_message::construct(exposed_creds_message::KEY_DERIVED, 
             datum{"ldap"}, datum{"DIGEST-MD5"}, datum{});
         msg.template write<cbor_object, cbor_array>(outer);
         outer.close();
+        cbor_outer.close();
 
         datum encoded = buf.contents();
         cbor_decoded_metadata decoded;
@@ -112,8 +115,8 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
     // Test 3: crypto_cnsa round-trip
     {
         data_buffer<1024> buf;
-        cbor_object outer{buf};
-        outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
+        cbor_object cbor_outer{buf};
+        cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
 
         crypto_cnsa_message msg;
         msg.set_policy("quantum_safe");
@@ -128,6 +131,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         cbor::text_string(crypto_cnsa_message::KEY).write(buf);
         msg.template write<cbor_object, cbor_array>(outer);
         outer.close();
+        cbor_outer.close();
 
         datum encoded = buf.contents();
         cbor_decoded_metadata decoded;
@@ -149,8 +153,8 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
     // Test 3 hex: crypto_cnsa with hex cipher suite values (exercises print_uint16_hex)
     {
         data_buffer<1024> buf;
-        cbor_object outer{buf};
-        outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
+        cbor_object cbor_outer{buf};
+        cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
 
         crypto_cnsa_message msg;
         msg.set_policy("quantum_safe");
@@ -166,6 +170,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         cbor::text_string(crypto_cnsa_message::KEY).write(buf);
         msg.template write<cbor_object, cbor_array>(outer);
         outer.close();
+        cbor_outer.close();
 
         datum encoded = buf.contents();
         cbor_decoded_metadata decoded;
@@ -198,8 +203,8 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
     // Test 3a: crypto_cnsa with multiple PSK non-compliant entries + unknown field
     {
         data_buffer<2048> buf;
-        cbor_object outer{buf};
-        outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
+        cbor_object cbor_outer{buf};
+        cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
 
         crypto_cnsa_message msg;
         msg.set_policy("quantum_safe");
@@ -217,6 +222,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         cbor::text_string(crypto_cnsa_message::KEY).write(buf);
         msg.template write<cbor_object, cbor_array>(outer);
         outer.close();
+        cbor_outer.close();
 
         datum encoded = buf.contents();
         cbor_decoded_metadata decoded;
@@ -245,8 +251,8 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
     {
         // Manually encode a cnsa message with an extra unknown field in the target map
         data_buffer<2048> buf;
-        cbor_object outer{buf};
-        outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
+        cbor_object cbor_outer{buf};
+        cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
 
         // Write the cnsa key
         cbor::text_string(crypto_cnsa_message::KEY).write(buf);
@@ -263,6 +269,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         target.close();
         cnsa_body.close();
         outer.close();
+        cbor_outer.close();
 
         datum encoded = buf.contents();
         cbor_decoded_metadata decoded;
@@ -286,8 +293,8 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
     // Test 3b: crypto_nist round-trip (TLS server hello non-compliant)
     {
         data_buffer<1024> buf;
-        cbor_object outer{buf};
-        outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
+        cbor_object cbor_outer{buf};
+        cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
 
         crypto_nist_message nist;
         nist.set_policy("nist_sp_800_52_2");
@@ -301,6 +308,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         cbor::text_string(crypto_nist_message::KEY).write(buf);
         nist.template write<cbor_object, cbor_array>(outer);
         outer.close();
+        cbor_outer.close();
 
         datum encoded = buf.contents();
         cbor_decoded_metadata decoded;
@@ -322,8 +330,8 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
     // Test 4: multiple features in one buffer
     {
         data_buffer<2048> buf;
-        cbor_object outer{buf};
-        outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
+        cbor_object cbor_outer{buf};
+        cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
 
         exposed_creds_message::construct(exposed_creds_message::KEY_PLAINTEXT, 
             datum{"http"}, datum{"basic"}, datum{"admin"})
@@ -340,6 +348,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         cnsa.template write<cbor_object, cbor_array>(outer);
 
         outer.close();
+        cbor_outer.close();
 
         datum encoded = buf.contents();
         cbor_decoded_metadata decoded;
@@ -368,10 +377,11 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         cbor_metadata_context ctx;
         ctx.reset();
         writeable& w = ctx.get_writer();
-        cbor_object outer{w};
-        outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
+        cbor_object cbor_outer{w};
+        cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
         // No feature written — don't call set_feature_written()
         outer.close();
+        cbor_outer.close();
         ctx.end_encode();
         report("no-feature has_data == false", !ctx.has_data());
         report("no-feature length == 0", ctx.get_length() == 0);
@@ -382,14 +392,15 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         cbor_metadata_context ctx;
         ctx.reset();
         writeable& w = ctx.get_writer();
-        cbor_object outer{w};
-        outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
+        cbor_object cbor_outer{w};
+        cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
         // Write a feature and set the flag
         exposed_creds_message::construct(exposed_creds_message::KEY_PLAINTEXT, 
             datum{"http"}, datum{"basic"}, datum{"admin"})
             .template write<cbor_object, cbor_array>(outer);
         ctx.set_feature_written();
         outer.close();
+        cbor_outer.close();
         ctx.end_encode();
         report("with-feature has_data == true", ctx.has_data());
         report("with-feature length > 0", ctx.get_length() > 0);
@@ -406,19 +417,21 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         cbor_metadata_context ctx;
         ctx.reset();
         writeable& w = ctx.get_writer();
-        cbor_object outer{w};
-        outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
+        cbor_object cbor_outer{w};
+        cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
         ctx.set_feature_written();
         outer.close();
+        cbor_outer.close();
         ctx.end_encode();
         report("before reset has_data == true", ctx.has_data());
 
         // Reset and encode again without setting the flag
         ctx.reset();
         writeable& w2 = ctx.get_writer();
-        cbor_object outer2{w2};
-        outer2.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
+        cbor_object cbor_outer2{w2};
+        cbor_object outer2{cbor_outer2, CBOR_METADATA_VERSION_KEY};
         outer2.close();
+        cbor_outer2.close();
         ctx.end_encode();
         report("after reset has_data == false", !ctx.has_data());
     }
@@ -426,8 +439,8 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
     // Test 6: unknown feature with fields — verify cbor_span produces correct JSON
     {
         data_buffer<512> buf;
-        cbor_object outer{buf};
-        outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
+        cbor_object cbor_outer{buf};
+        cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
         // Write a map value for the unknown key (simulates a future feature)
         cbor_object unknown_map{outer, "future_detection"};
         unknown_map.print_key_string("severity", "high");
@@ -435,6 +448,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         unknown_map.print_key_uint("confidence", 95);
         unknown_map.close();
         outer.close();
+        cbor_outer.close();
 
         datum encoded = buf.contents();
         cbor_decoded_metadata decoded;
@@ -470,14 +484,15 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
     // Test 7: overflow — more than MAX_ENTRIES features
     {
         data_buffer<4096> buf;
-        cbor_object outer{buf};
-        outer.print_key_uint("schema_version", CBOR_METADATA_SCHEMA_VERSION);
+        cbor_object cbor_outer{buf};
+        cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
         for (int i = 0; i < 10; i++) {
             exposed_creds_message::construct(exposed_creds_message::KEY_PLAINTEXT, 
                 datum{"http"}, datum{"Basic"}, datum{})
                 .template write<cbor_object, cbor_array>(outer);
         }
         outer.close();
+        cbor_outer.close();
 
         datum encoded = buf.contents();
         cbor_decoded_metadata decoded;

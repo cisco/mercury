@@ -105,25 +105,25 @@ inline void decode_cbor_metadata(const uint8_t* buf, size_t len,
     if (!buf || len == 0) return;
 
     datum d{buf, buf + len};
-    cbor::map m{d};
+    cbor::map outer{d};
     if (d.is_null()) return;
 
-    // first key-value pair must be schema_version
     if (d.is_not_empty() && !cbor::is_break(d)) {
         cbor::text_string ver_key = cbor::text_string::decode(d);
-        if (d.is_null() || !ver_key.value().match("schema_version")) return;
-        cbor::uint64 ver{d};
         if (d.is_null()) return;
 
-        uint32_t version = ver.value();
-        if (version == 1) {
+        datum k = ver_key.value();
+        if (k.match("v1")) {
+            cbor::map inner{d};
+            if (d.is_null()) return;
             decode_v1(d, out);
-        } else if (version > CBOR_METADATA_SCHEMA_VERSION) {
-            return;  // future schema — fail-fast
+            inner.close();
+        } else {
+            cbor::skip_cbor_value(d);
         }
     }
 
-    m.close();
+    outer.close();
     out.valid = !d.is_null();
 }
 
