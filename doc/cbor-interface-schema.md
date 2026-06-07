@@ -6,28 +6,42 @@ The format is encoded using [CBOR](https://datatracker.ietf.org/doc/html/rfc8949
 
 ## Outer Buffer Format
 
-The outer buffer is an indefinite-length CBOR map. The first key-value pair is always `schema_version`. Subsequent key-value pairs are feature entries, keyed by attribute tag name.
+The outer buffer is an indefinite-length CBOR map containing exactly one
+key-value pair: a version key (currently `"v1"`) whose value is an inner
+indefinite-length map of feature entries. Each inner key-value pair is a
+feature entry, keyed by attribute tag name.
 
 ```
 cbor_metadata_buffer = {
-    "schema_version": uint,          ; currently 1
-    * feature_key => feature_value   ; zero or more feature entries
+    "v1": {
+        * feature_key => feature_value   ; zero or more feature entries
+    }
 }
 ```
 
-If no features fire for a packet, the buffer is empty (length 0) and `get_cbor_metadata()` returns `CBOR_NO_DATA`.
+There is **no** `schema_version` integer in the buffer. The version is carried
+by the outer map key string. The constant is `CBOR_METADATA_VERSION_KEY`
+(value `"v1"`) in `cbor_messages.hpp` — not `CBOR_METADATA_SCHEMA_VERSION`.
+
+If no features fire for a packet, the buffer is empty (length 0) and
+`get_cbor_metadata()` returns `CBOR_NO_DATA`.
 
 ## Schema Version
 
-The `schema_version` field enables forward compatibility. The decoder checks:
-- If `schema_version` is absent or not the first key: decode fails.
-- If `schema_version` > decoder's `CBOR_METADATA_SCHEMA_VERSION`: decode fails (future schema).
-- If `schema_version` <= decoder's version: decode proceeds via version-dispatched function (`decode_v1`).
+The outer version key enables forward compatibility. `decode_cbor_metadata()`
+checks the key:
+- If the outer version key is the recognized version (`"v1"`): the inner map is
+  decoded via the version-dispatched function `decode_v1()`, and the result is
+  marked `valid == true` on clean decode.
+- If the outer version key is unrecognized (e.g. `"v99"`): the value is skipped
+  and the decode result is marked `valid == false`. An old decoder MUST NOT
+  treat a future schema as valid empty metadata.
 
 Version bump policy:
-- New field added to existing message: no version bump (unknown keys are skipped).
-- New message type added: no version bump (unknown keys become `unknown_feature`).
-- Breaking change (field renamed, restructured, or removed): bump version.
+- New field added to existing message: no version bump (unknown inner keys are skipped).
+- New message type added: no version bump (unknown inner keys become `unknown_feature`).
+- Breaking change (field renamed, restructured, or removed): bump the version key
+  (e.g. `"v1"` → `"v2"`) and add a `decode_v2()` dispatch.
 
 ## Message Types
 
@@ -159,15 +173,15 @@ To add a new feature to the CBOR metadata interface:
 
 1. **Add a feature class** in `src/libmerc/cbor_messages.hpp` following the `exposed_creds_message` pattern: `cbor::text_string` members, `construct()` / `decode()` static methods, templated `write<Object, Array>()`.
 
-2. **Add to the variant** in `src/libmerc/cbor_decoded_metadata.hpp`: add the class to `metadata_entry` and add KEY dispatch in `decode_v1()`.
+2. **Add a typed bucket** in `struct cbor_decoded_metadata` (`src/libmerc/cbor_decoded_metadata.hpp`) if the inspector needs typed access to the feature, and add KEY dispatch in `decode_v1()`. The decoder uses typed bucket members (plus a `std::vector<unknown_feature>` for unrecognized keys) — **not** a `std::variant`. Single-fire features are plain members checked via `is_valid()`; features that can fire multiple times per packet use a vector.
 
-3. **Wire the encode path** in `src/libmerc/pkt_proc.cc`: add a visitor overload that constructs and writes the feature class.
+3. **Wire the encode path** in `src/libmerc/pkt_proc.cc`: add a visitor overload that constructs and writes the feature class. Call `cbor_meta_->set_feature_written()` only at the actual CBOR write site.
 
-4. **Add unit tests**: round-trip test in `cbor_decoded_metadata.hpp`, protocol accessor test in the protocol's `unit_test()`.
+4. **Add unit tests**: round-trip test in `cbor_decoded_metadata_test.hpp`, plus an unknown-field test, and a protocol accessor test in the protocol's `unit_test()`.
 
 5. **Document** the new message type in this file.
 
-No schema version bump is required for new fields or new message types. Unknown keys are skipped by existing decoders via `skip_cbor_value()` (forward compatibility).
+No version-key bump is required for new fields or new message types. Unknown inner keys are skipped (or preserved as `unknown_feature`) by existing decoders via `skip_cbor_value()` (forward compatibility). Only a breaking restructure requires bumping the outer version key.
 
 ## Implementation Reference
 
@@ -178,5 +192,5 @@ No schema version bump is required for new fields or new message types. Unknown 
 | CBOR buffer manager | `src/libmerc/cbor_metadata.hpp` |
 | C API | `src/libmerc/libmerc.h`, `src/libmerc/libmerc.cc` |
 | Encode wiring | `src/libmerc/pkt_proc.cc` |
-| Schema version | `CBOR_METADATA_SCHEMA_VERSION` in `cbor_messages.hpp` |
-| Unit tests | `src/unit_test.cpp`, inline in `cbor_decoded_metadata.hpp` |
+| Version key constant | `CBOR_METADATA_VERSION_KEY` (`"v1"`) in `cbor_messages.hpp` |
+| Unit tests | `src/unit_test.cpp`, `src/libmerc/cbor_decoded_metadata_test.hpp` |

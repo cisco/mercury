@@ -113,6 +113,8 @@ inline void decode_cbor_metadata(const uint8_t* buf, size_t len,
     out.reset();
     if (!buf || len == 0) return;
 
+    bool recognized_version = false;
+
     datum d{buf, buf + len};
     cbor::map outer{d};
     if (d.is_null()) return;
@@ -122,7 +124,8 @@ inline void decode_cbor_metadata(const uint8_t* buf, size_t len,
         if (d.is_null()) return;
 
         datum k = ver_key.value();
-        if (k.match("v1")) {
+        if (k.match(CBOR_METADATA_VERSION_KEY)) {
+            recognized_version = true;
             cbor::map inner{d};
             if (d.is_null()) return;
             decode_v1(d, out);
@@ -133,7 +136,10 @@ inline void decode_cbor_metadata(const uint8_t* buf, size_t len,
     }
 
     outer.close();
-    out.valid = !d.is_null();
+    // Only mark valid when the outer version key was recognized AND the
+    // recognized version decoded cleanly. An unknown version (e.g. "v99")
+    // decodes without error but must NOT be reported as valid metadata.
+    out.valid = recognized_version && !d.is_null();
 }
 
 #endif // CBOR_DECODED_METADATA_HPP

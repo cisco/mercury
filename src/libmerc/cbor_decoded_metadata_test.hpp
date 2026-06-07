@@ -372,6 +372,27 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         report("empty buffer count == 0", !decoded.exposed_creds.is_valid());
     }
 
+    // Test 5a: unknown outer version key -> valid == false
+    // A well-formed buffer with an unrecognized version wrapper must NOT be
+    // reported as valid (forward-compat: old decoder, future schema).
+    {
+        data_buffer<256> buf;
+        cbor_object cbor_outer{buf};
+        cbor_object cbor_inner{cbor_outer, "v99"};
+        cbor_inner.print_key_string("some_key", "some_value");
+        cbor_inner.close();
+        cbor_outer.close();
+
+        datum encoded = buf.contents();
+        cbor_decoded_metadata decoded;
+        decode_cbor_metadata(encoded.data, encoded.length(), decoded);
+
+        report("unknown version valid == false", !decoded.valid);
+        report("unknown version no features populated",
+               !decoded.exposed_creds.is_valid() && !decoded.cnsa_tls.is_valid()
+               && !decoded.cnsa_ssh.is_valid() && !decoded.nist.is_valid());
+    }
+
     // Test 5b: cbor_metadata_context reports no data when no feature written
     {
         cbor_metadata_context ctx;
