@@ -688,7 +688,7 @@ public:
                             // uint16_t hex digits conversion could be
                             // simplified
 
-                            if (sprintf(v4_addr_hex, "%08x", ntoh(v4_addr.get_value())) != 8) {
+                            if (snprintf(v4_addr_hex, sizeof(v4_addr_hex), "%08x", ntoh(v4_addr.get_value())) != 8) {
                                 d.set_null();
                                 return; // error; could not create hex representation of v4 addr
                             }

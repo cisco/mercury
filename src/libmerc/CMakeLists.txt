@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.18)
 project(libmerc)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
@@ -197,6 +197,65 @@ else()
 endif()
 
 ## end checks and configure
+
+###############################################################################
+## Version and git state
+##
+## Compute the library version and git state for embedding into
+## compiled objects via target_compile_definitions (applied below,
+## after the library targets are defined).
+##
+## MERCURY_SEMANTIC_VERSION is a comma-separated triple (e.g. 2,19,1).
+## GIT_COMMIT_ID identifies the source: "commit <hash>", plus
+##   "with local changes" when the working tree is dirty.
+## GIT_COUNT is the total number of commits on HEAD.
+## NOTE: keep in sync with mk/libmerc.mk and mk/cython.mk, which
+##   compute the same defines.
+###############################################################################
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/../../VERSION" _version_str)
+string(REPLACE "." ";" _version_parts "${_version_str}")
+list(GET _version_parts 0 _major)
+list(GET _version_parts 1 _minor)
+list(GET _version_parts 2 _patch)
+
+if(Git_FOUND)
+    execute_process(
+        COMMAND "${GIT_EXECUTABLE}" rev-parse HEAD
+        OUTPUT_VARIABLE _git_hash OUTPUT_STRIP_TRAILING_WHITESPACE
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        ERROR_QUIET RESULT_VARIABLE _rc)
+    if(_rc OR NOT _git_hash)
+        set(_git_hash "unknown")
+    endif()
+
+    # git diff --quiet: exit 0 = clean, exit 1 = dirty,
+    # exit >1 or failure = not a git repo / no HEAD — treat as clean.
+    # Unlike diff-index, diff refreshes the stat cache first, so files
+    # rewritten by ./configure with identical content appear clean.
+    execute_process(
+        COMMAND "${GIT_EXECUTABLE}" diff --quiet HEAD
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        ERROR_QUIET RESULT_VARIABLE _dirty_rc)
+    if(_dirty_rc EQUAL 1)
+        set(_git_commit_id "commit ${_git_hash} with local changes")
+    else()
+        set(_git_commit_id "commit ${_git_hash}")
+    endif()
+
+    execute_process(
+        COMMAND "${GIT_EXECUTABLE}" rev-list --count HEAD
+        OUTPUT_VARIABLE _git_count OUTPUT_STRIP_TRAILING_WHITESPACE
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        ERROR_QUIET RESULT_VARIABLE _rc)
+    if(_rc OR NOT _git_count)
+        set(_git_count "0")
+    endif()
+else()
+    set(_git_commit_id "commit unknown")
+    set(_git_count "0")
+endif()
+## end version and git state
+###############################################################################
 
 
 ## recursive subdirectories
@@ -398,6 +457,19 @@ else()
         message(STATUS "no support for -fno-gnu-unique")
     endif()
 
+    # ARM PAC + BTI hardening (Linux AArch64 only; Apple Clang breaks C++ exceptions in dylibs)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm")
+        check_cxx_compiler_flag(-mbranch-protection=standard use_branch_protection)
+        if(use_branch_protection)
+            add_compile_options(-mbranch-protection=standard)
+            include(CheckLinkerFlag)
+            check_linker_flag(CXX -Wl,-z,bti-report=warning use_bti_report_warning)
+            if(use_bti_report_warning)
+                add_link_options(-Wl,-z,bti-report=warning)
+            endif()
+        endif()
+    endif()
+
     # Check for address sanitizer support (not currently used, available for debugging)
     check_cxx_compiler_flag(-fsanitize=address addr_sanitizer_avail)
     if(addr_sanitizer_avail)
@@ -473,6 +545,15 @@ if(MERCURY_HAVE_XSIMD)
         target_include_directories(libmerc_static PRIVATE ${XSIMD_INCLUDE_DIR})
     endif()
 endif()
+
+# Apply version/git defines computed above (see "Version and git state").
+foreach(_tgt libmerc libmerc_static)
+    target_compile_definitions(${_tgt} PRIVATE
+        MERCURY_SEMANTIC_VERSION=${_major},${_minor},${_patch}
+        GIT_COMMIT_ID="${_git_commit_id}"
+        GIT_COUNT=${_git_count}
+    )
+endforeach()
 
 ## TARGET cbor {
 set(cbor_src

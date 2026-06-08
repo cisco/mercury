@@ -1,7 +1,7 @@
 # Mercury: network metadata capture and analysis
 <img align="right" src="./mercury.png" width="200">
 
-This package contains two programs for fingerprinting network traffic and capturing and analyzing packet metadata: **mercury**, a Linux application that leverages the modern Linux kernel's high-performance networking capabilities (AF_PACKET and TPACKETv3), which is described below, and [**pmercury**](python/README.md), a portable python application.  There is also a [User's Guide](https://github.com/cisco/mercury/wiki/Using-Mercury).  While mercury is used in some production applications, please consider this software as a 'beta'.  The [CHANGELOG](doc/CHANGELOG.md) itemizes changes across different versions.
+This package contains two programs for fingerprinting network traffic and capturing and analyzing packet metadata: **mercury**, a standalone application for Linux and macOS, and [**pmercury**](python/README.md), a portable python application.  On Linux, mercury leverages the kernel's high-performance AF_PACKET TPACKETv3 capture path; on macOS, mercury supports interface capture through libpcap.  There is also a [User's Guide](https://github.com/cisco/mercury/wiki/Using-Mercury).  While mercury is used in some production applications, please consider this software as a 'beta'.  The [CHANGELOG](doc/CHANGELOG.md) itemizes changes across different versions.
 
 
 ## Overview
@@ -40,10 +40,11 @@ make
 ```
 to build the package (and check for the programs and python modules required to test it).  TPACKETv3 is present in Linux kernels newer than 3.2.
 
-Building mercury on macOS Apple Silicon is currently experimental.  Note that on
-macOS, standalone mercury can read pcap as input but not capture on an
-interface, since AF_PACKET is Linux-specific.  The following has been tested
-on an M2 mac with Python 3.13.2 installed via the Homebrew command below.
+Building mercury on macOS Apple Silicon is currently experimental.  Standalone
+mercury can read pcap files and capture from a network interface on macOS using
+libpcap.  The current macOS live-capture backend supports a single capture
+thread.  The following has been tested on an M2 mac with Python 3.13.2
+installed via the Homebrew command below.
 ```
 brew install python openssl zlib
 brew install xsimd     # optional: enables SIMD-accelerated classification
@@ -54,7 +55,7 @@ source ~/.envs/merc/bin/activate
 python3 -m pip install --upgrade pip
 python3 -m pip install --upgrade jsonschema cryptography Cython wheel setuptools
 ./configure && make
-cd src/cython && make && make wheel
+make cython
 ```
 
 In terms of runtime dependencies, the `mercury` standalone binary should only require:
@@ -63,7 +64,7 @@ In terms of runtime dependencies, the `mercury` standalone binary should only re
 
 The included [Dockerfile](Dockerfile) provides a working example on Debian.
 Ancillary tools such as the ones listed below may require other packages.
-- [pmercury](python/README.md) and associated tools: Python 3.8+ and several pip
+- [pmercury](python/README.md) and associated tools: Python 3.9+ and several pip
   packages.
 - `batch_gcd`: [GNU Multiple Precision Arithmetic Library (GMP)](https://gmplib.org/)
 
@@ -104,9 +105,9 @@ sudo make uninstall
 which will remove the mercury program, resources directory, user, group, and systemd related files.  The directory containing capture files will be retained, but its owner will be changed to root, to avoid unintentional data loss.  All captured data files are retained across successive installs and uninstalls, and must be manually deleted.
 
 ### Compile-time options
-To create a debugging version of mercury, use the **make debug-mercury** target in the src/ subdirectory.  Be sure to run **make clean** first.
+To create a debugging version of mercury, build with **BUILD_TYPE=Debug** (and optionally a sanitizer), e.g. `make -j BUILD_TYPE=Debug SANITIZE=address`.  Each variant gets its own `build/<variant>/` tree, so there is no need to `make clean` between variants.  See `make help` for the full list of variant flags.
 
-There are compile-time options that can tune mercury for your hardware.  Each of these options is set via a C/C++ preprocessor directive, which should be passed as an argument to "make" through the OPTFLAGS variable.   First run **make clean** to remove the previous build, then run **make "OPTFLAGS=<DIRECTIVE>"**.   This runs make, telling it to pass <DIRECTIVE> to the C/C++ compiler.  The available compile time options are:
+There are compile-time options that can tune mercury for your hardware.  Each of these options is set via a C/C++ preprocessor directive, which should be passed as an argument to "make" through the OPTFLAGS variable.   Run **make "OPTFLAGS=<DIRECTIVE>"** to pass <DIRECTIVE> to the C/C++ compiler.  The available compile time options are:
 
    * -DDEBUG, which turns on debugging, and
    * -FBUFSIZE=16384, which sets the fwrite/fread buffer to 16,384 bytes (for instance).
@@ -115,7 +116,7 @@ If multiple compile time options are used, then they must be passed to make toge
 ## Running mercury
 ```
 mercury: packet metadata capture and analysis
-./src/mercury [INPUT] [OUTPUT] [OPTIONS]:
+build/RelWithDebInfo/bin/mercury [INPUT] [OUTPUT] [OPTIONS]:
 INPUT
    [-c or --capture] capture_interface   # capture packets from interface
    [-r or --read] read_file              # read packets from file
@@ -153,14 +154,17 @@ GENERAL OPTIONS
    --minimize-ram                        # minimize the ram usage of mercury library
    --crypto-assess[=policy]              # perform cryptographic security assessment
    --exposed-creds                       # detect exposed credentials in enabled protocols
+   --quic-trial-decryption               # try all known QUIC initial salts for unknown versions
    [-v or --verbose]                     # additional information sent to stderr
    --license                             # write license information to stdout
    --version                             # write version information to stdout
    [-h or --help]                        # extended help, with examples
 
 DETAILS
-   "[-c or --capture] c" captures packets from interface c with Linux AF_PACKET
-   using a separate ring buffer for each worker thread.  "[-t or --thread] t"
+   "[-c or --capture] c" captures packets from interface c using the platform
+   live-capture backend.  On Linux, mercury uses AF_PACKET with a separate ring
+   buffer for each worker thread.  On macOS, mercury uses libpcap for interface
+   capture and currently supports a single capture thread.  "[-t or --thread] t"
    sets the number of worker threads to t, if t is a positive integer; if t is
    "cpu", then the number of threads will be set to the number of available
    processors.  "[-b or --buffer] b" sets the total size of all ring buffers to

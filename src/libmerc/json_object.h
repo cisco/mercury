@@ -11,6 +11,8 @@
 #include "datum.h"
 #include "utf8.hpp"
 
+#include <cinttypes>
+#include <cstdint>
 #include <iostream>
 #include <type_traits>
 #include <utility>
@@ -43,6 +45,7 @@ constexpr bool has_write_v = has_write<T>::value;
 struct json_object {
     buffer_stream *b;
     bool comma = false;
+
     void write_comma(bool &c) {
         if (c) {
             b->write_char(',');
@@ -158,13 +161,15 @@ struct json_object {
         b->write_hex_uint(u);
         b->write_char('\"');
     }
-    void print_key_uint(const char *k, unsigned long int u) { // note: JSON can't represent a uint64_t over 2^53
+    // note: values above 2^53 may lose precision in IEEE-754 consumers
+    void print_key_uint(const char *k, uint64_t u) {
         write_comma(comma);
-        b->snprintf("\"%s\":%lu", k, u);
+        b->snprintf("\"%s\":%" PRIu64, k, u);
     }
-    void print_key_int(const char *k, long int i) {
+    // note: values above 2^53 may lose precision in IEEE-754 consumers
+    void print_key_int(const char *k, int64_t i) {
         write_comma(comma);
-        b->snprintf("\"%s\":%ld", k, i);
+        b->snprintf("\"%s\":%" PRId64, k, i);
     }
     void print_key_float(const char *k, double d) {
         write_comma(comma);
@@ -387,13 +392,13 @@ struct json_array {
         b->write_hex_uint(u);
         b->write_char('\"');
     }
-    void print_uint(unsigned long int u) {
+    void print_uint(uint64_t u) {
         write_comma(comma);
-        b->snprintf("%lu", u);
+        b->snprintf("%" PRIu64, u);
     }
-    void print_int(long int i) {
+    void print_int(int64_t i) {
         write_comma(comma);
-        b->snprintf("%ld", i);
+        b->snprintf("%" PRId64, i);
     }
     void print_float(double d) {
         write_comma(comma);
@@ -673,12 +678,12 @@ struct json_file_object {
         fputc('\"', f);
         comma = ',';
     }
-    void print_key_uint(const char *k, unsigned long int u) {
-        fprintf(f, "%c\"%s\":%lu", comma, k, u);
+    void print_key_uint(const char *k, uint64_t u) {
+        fprintf(f, "%c\"%s\":%" PRIu64, comma, k, u);
         comma = ',';
     }
-    void print_key_int(const char *k, long int i) {
-        fprintf(f, "%c\"%s\":%ld", comma, k, i);
+    void print_key_int(const char *k, int64_t i) {
+        fprintf(f, "%c\"%s\":%" PRId64, comma, k, i);
         comma = ',';
     }
     void print_key_float(const char *k, double d) {
@@ -712,8 +717,8 @@ struct json_file_array {
         fputs("\"}", f);
         comma = ',';
     }
-    void print_int(long int i) {
-        fprintf(f, "%c%ld", comma, i);
+    void print_int(int64_t i) {
+        fprintf(f, "%c%" PRId64, comma, i);
         comma = ',';
     }
 };
@@ -724,5 +729,108 @@ json_file_object::json_file_object(struct json_file_array &array) : f{array.f} {
 }
 
 #endif // USE_JSON_FILE_OBJECT
+
+#ifndef NDEBUG
+
+#include <string>
+#include <string_view>
+
+[[maybe_unused]] inline bool json_object_unit_test(FILE *f = nullptr) {
+    constexpr auto npos = std::string_view::npos;
+
+    struct int_case  { int64_t  value; const char *expected; };
+    struct uint_case { uint64_t value; const char *expected; };
+
+    const int_case int_cases[] = {
+        { INT64_C(0),             "0"                    },
+        { INT64_C(-1),            "-1"                   },
+        { INT64_C(1),             "1"                    },
+        { INT64_MAX,              "9223372036854775807"  },
+        { INT64_MIN,              "-9223372036854775808" },
+        { INT64_C(1) << 53,       "9007199254740992"     },
+        { (INT64_C(1) << 53) + 1, "9007199254740993"     },
+    };
+    const uint_case uint_cases[] = {
+        { UINT64_C(0),            "0"                    },
+        { UINT64_MAX,             "18446744073709551615" },
+        { UINT64_C(1) << 63,      "9223372036854775808"  },
+    };
+
+    char json_buf[128];
+
+    for (const auto &c : int_cases) {
+        buffer_stream json_bs{json_buf, sizeof(json_buf)};
+        {
+            json_object outer{&json_bs};
+            outer.print_key_int("k", c.value);
+            outer.close();
+        }
+        std::string_view json{json_buf, json_bs.length()};
+        std::string obj_exp = std::string(":") + c.expected;
+        if (json.find(obj_exp) == npos) {
+            if (f) {
+                fprintf(f, "json_object::print_key_int(%" PRId64 "): expected substring \"%s\", got \"%.*s\"\n",
+                        c.value, obj_exp.c_str(), (int)json.size(), json.data());
+            }
+            return false;
+        }
+    }
+
+    for (const auto &c : uint_cases) {
+        buffer_stream json_bs{json_buf, sizeof(json_buf)};
+        {
+            json_object outer{&json_bs};
+            outer.print_key_uint("k", c.value);
+            outer.close();
+        }
+        std::string_view json{json_buf, json_bs.length()};
+        std::string obj_exp = std::string(":") + c.expected;
+        if (json.find(obj_exp) == npos) {
+            if (f) {
+                fprintf(f, "json_object::print_key_uint(%" PRIu64 "): expected substring \"%s\", got \"%.*s\"\n",
+                        c.value, obj_exp.c_str(), (int)json.size(), json.data());
+            }
+            return false;
+        }
+    }
+
+    for (const auto &c : int_cases) {
+        buffer_stream json_bs{json_buf, sizeof(json_buf)};
+        {
+            json_array outer{&json_bs};
+            outer.print_int(c.value);
+            outer.close();
+        }
+        std::string_view json{json_buf, json_bs.length()};
+        if (json.find(c.expected) == npos) {
+            if (f) {
+                fprintf(f, "json_array::print_int(%" PRId64 "): expected substring \"%s\", got \"%.*s\"\n",
+                        c.value, c.expected, (int)json.size(), json.data());
+            }
+            return false;
+        }
+    }
+
+    for (const auto &c : uint_cases) {
+        buffer_stream json_bs{json_buf, sizeof(json_buf)};
+        {
+            json_array outer{&json_bs};
+            outer.print_uint(c.value);
+            outer.close();
+        }
+        std::string_view json{json_buf, json_bs.length()};
+        if (json.find(c.expected) == npos) {
+            if (f) {
+                fprintf(f, "json_array::print_uint(%" PRIu64 "): expected substring \"%s\", got \"%.*s\"\n",
+                        c.value, c.expected, (int)json.size(), json.data());
+            }
+            return false;
+        }
+    }
+
+    return true;
+}
+
+#endif // NDEBUG
 
 #endif // JSON_OBJECT_H

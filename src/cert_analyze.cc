@@ -16,6 +16,7 @@
 #include <string>
 #include <list>
 #include <regex>
+#include <stdexcept>
 
 #include "libmerc/x509.h"
 #include "libmerc/base64.h"
@@ -27,11 +28,15 @@
 void fprint_hash(FILE *f, const void *buffer, unsigned int len, const char *algo) {
 
     class hasher h{algo};
-    uint8_t output_buffer[h.output_size()];
+    size_t hash_len = h.output_size();
+    uint8_t output_buffer[64];
+    if (hash_len > sizeof(output_buffer)) {
+        throw std::length_error{"hash output exceeds buffer size"};
+    }
 
     h.hash_buffer((uint8_t *)buffer, len, output_buffer, sizeof(output_buffer));
 
-    for (size_t i = 0; i < sizeof(output_buffer); i++) {
+    for (size_t i = 0; i < hash_len; i++) {
         fprintf(f, "%.2x", output_buffer[i]);
     }
     fputc('\n', f);
@@ -151,11 +156,13 @@ public:
                     if (!server_certs_array.IsArray()) {
                         fprintf(stderr, "warning: no \"server_certs\" in \"tls\" object\n");
                     } else {
-                        for (auto& c : server_certs_array.GetArray()) {
-                            // fprintf(stderr, "%s ", c.GetString());
+                        //
+                        // process only the first cert in the chain for now
+                        //
+                        if (server_certs_array.Size() > 0) {
+                            auto &c = server_certs_array[0];
                             std::string s = c.GetString();
                             cert_len = base64::decode(outbuf, outbuf_len, s.c_str(), s.size());
-                            break; // just process first cert for now // TODO: process all certs
                         }
                         free(line);
                         line = NULL;

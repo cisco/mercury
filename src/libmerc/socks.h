@@ -408,7 +408,7 @@ struct socks5_addr {
         o.print_key_ipv4_addr("ipv4",(uint8_t*)&ip_val);
     }
 
-    void write_json_add(datum &ip, json_object &o){
+    void write_json_addr(datum &ip, json_object &o){
         o.print_key_ipv6_addr("ipv6",ip.begin());
     }
 
@@ -436,6 +436,7 @@ struct socks5_addr {
             }
             default : {
                 addr.emplace<std::monostate>();
+                pkt.set_null();
                 break;
             }
         }
@@ -482,7 +483,7 @@ public:
         rsv{pkt},
         addr{pkt},
         dst_port{pkt},
-        valid{true} {}
+        valid{pkt.is_not_null()} {}
 
     bool is_not_empty() { return valid; }
 
@@ -601,5 +602,98 @@ namespace {
     }
 
 };
+
+namespace socks_unit_test {
+
+#ifndef NDEBUG
+    inline bool unit_test() {
+        char buffer[2048];
+
+        // SOCKS4 Connect
+        uint8_t s4[] = { 0x04, 0x01, 0x00, 0x50, 0xc0, 0xa8, 0x01, 0x01, 'u', 's', 'e', 'r', 0x00 };
+        datum d1{s4, s4 + sizeof(s4)};
+        socks4_req s4_req{d1};
+        if (!s4_req.is_not_empty()) return false;
+        if (s4_req.get_code() != 0x01) return false;
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_object json{&buf};
+            s4_req.write_json(json, true);
+            json.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "socks4")) return false;
+        }
+
+        // SOCKS4a with domain
+        uint8_t s4a[] = { 0x04, 0x01, 0x00, 0x50, 0x00, 0x00, 0x00, 0x01, 'u', 0x00, 'e', 'x', 0x00 };
+        datum d2{s4a, s4a + sizeof(s4a)};
+        socks4_req s4a_req{d2};
+        if (!s4a_req.is_not_empty()) return false;
+
+        // SOCKS5 Hello
+        uint8_t s5h[] = { 0x05, 0x02, 0x00, 0x02 };
+        datum d3{s5h, s5h + sizeof(s5h)};
+        socks5_hello hello{d3};
+        if (!hello.is_not_empty()) return false;
+
+        // SOCKS5 Connect IPv4
+        uint8_t s5v4[] = { 0x05, 0x01, 0x00, 0x01, 0xc0, 0xa8, 0x01, 0x01, 0x00, 0x50 };
+        datum d4{s5v4, s5v4 + sizeof(s5v4)};
+        socks5_req_resp req_v4{d4};
+        if (!req_v4.is_not_empty()) return false;
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_object json{&buf};
+            req_v4.write_json(json, true);
+            json.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "ipv4")) return false;
+        }
+
+        // SOCKS5 Connect IPv6
+        uint8_t s5v6[] = { 0x05, 0x01, 0x00, 0x04,
+            0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x50 };
+        datum d5{s5v6, s5v6 + sizeof(s5v6)};
+        socks5_req_resp req_v6{d5};
+        if (!req_v6.is_not_empty()) return false;
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_object json{&buf};
+            req_v6.write_json(json, true);
+            json.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "ipv6")) return false;
+        }
+
+        // SOCKS5 Connect Domain
+        uint8_t s5d[] = { 0x05, 0x01, 0x00, 0x03, 0x04, 't', 'e', 's', 't', 0x00, 0x50 };
+        datum d6{s5d, s5d + sizeof(s5d)};
+        socks5_req_resp req_dom{d6};
+        if (!req_dom.is_not_empty()) return false;
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_object json{&buf};
+            req_dom.write_json(json, true);
+            json.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "domain")) return false;
+        }
+
+        uint8_t s5_trunc[] = { 0x05, 0x01, 0x00, 0x01, 0xc0, 0xa8, 0x01, 0x01 };
+        datum d7{s5_trunc, s5_trunc + sizeof(s5_trunc)};
+        socks5_req_resp req_trunc{d7};
+        if (req_trunc.is_not_empty()) return false;
+
+        uint8_t s5_unsupported_addr[] = { 0x05, 0x01, 0x00, 0x02, 0xaa, 0xbb, 0xcc, 0xdd, 0x00, 0x50 };
+        datum d8{s5_unsupported_addr, s5_unsupported_addr + sizeof(s5_unsupported_addr)};
+        socks5_req_resp req_unsupported_addr{d8};
+        if (req_unsupported_addr.is_not_empty()) return false;
+
+        return true;
+    }
+#endif
+
+} // namespace socks_unit_test
 
 #endif  // SOCKS_H

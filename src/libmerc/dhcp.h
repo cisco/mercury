@@ -550,4 +550,38 @@ public:
     return json_output_fuzzer<dhcp_message>(data, size);
 }
 
+namespace dhcp_unit_test {
+
+#ifndef NDEBUG
+    inline bool unit_test() {
+        // Too short - should fail
+        uint8_t too_short[] = { 0x01, 0x01, 0x06, 0x00 };
+        datum d1{too_short, too_short + sizeof(too_short)};
+        dhcp_message msg1{d1};
+        if (msg1.is_not_empty()) return false;
+
+        // Valid DHCP DISCOVER (236 header + 4 cookie + options)
+        uint8_t pkt[256] = {0};
+        pkt[0] = 0x01; pkt[1] = 0x01; pkt[2] = 0x06;
+        pkt[236] = 0x63; pkt[237] = 0x82; pkt[238] = 0x53; pkt[239] = 0x63;
+        pkt[240] = 0x35; pkt[241] = 0x01; pkt[242] = 0x01; pkt[243] = 0xff;
+
+        datum d2{pkt, pkt + 244};
+        dhcp_message msg2{d2};
+        if (!msg2.is_not_empty()) return false;
+
+        char buffer[2048];
+        buffer_stream buf{buffer, sizeof(buffer)};
+        json_object json{&buf};
+        msg2.write_json(json, false);
+        json.close();
+        buf.write_char('\0');
+        if (!strstr(buffer, "dhcp")) return false;
+
+        return true;
+    }
+#endif
+
+} // namespace dhcp_unit_test
+
 #endif /* DHCP_H */

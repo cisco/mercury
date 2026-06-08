@@ -18,7 +18,7 @@
 
 #ifndef  MERCURY_SEMANTIC_VERSION
 #ifdef _WIN32
-#pragma message(MERCURY_SEMANTIC_VERSION is not defined)
+#pragma message("MERCURY_SEMANTIC_VERSION is not defined")
 #else
 #warning MERCURY_SEMANTIC_VERSION is not defined
 #endif
@@ -27,7 +27,7 @@
 
 #ifndef  GIT_COMMIT_ID
 #ifdef _WIN32
-#pragma message(GIT_COMMIT_ID is not defined)
+#pragma message("GIT_COMMIT_ID is not defined")
 #else
 #warning GIT_COMMIT_ID is not defined
 #endif
@@ -36,7 +36,7 @@
 
 #ifndef  GIT_COUNT
 #ifdef _WIN32
-#pragma message(GIT_COUNT is not defined)
+#pragma message("GIT_COUNT is not defined")
 #else
 #warning GIT_COUNT is not defined
 #endif
@@ -169,7 +169,7 @@ const struct analysis_context *mercury_packet_processor_ip_get_analysis_context(
             return NULL;
         }
         if (processor->analyze_ip_packet(packet, length, ts, processor->reassembler_ptr)) {
-            if (processor->analysis.result.is_valid()) {
+            if (processor->analysis.analysis_is_valid()) {
                 return &processor->analysis;
             }
         }
@@ -187,7 +187,7 @@ const struct analysis_context *mercury_packet_processor_get_analysis_context(mer
             return NULL;
         }
         if (processor->analyze_eth_packet(packet, length, ts, processor->reassembler_ptr)) {
-            if (processor->analysis.result.is_valid()) {
+            if (processor->analysis.analysis_is_valid()) {
                 return &processor->analysis;
             }
         }
@@ -226,7 +226,7 @@ const struct analysis_context *mercury_packet_processor_get_analysis_context_lin
             return NULL;
         }
         if (processor->analyze_packet(packet, length, ts, processor->reassembler_ptr, linktype)) {
-            if (processor->analysis.result.is_valid()) {
+            if (processor->analysis.analysis_is_valid()) {
                 return &processor->analysis;
             }
         }
@@ -335,10 +335,23 @@ mercury_packet_processor mercury_packet_processor_construct(mercury_context mc) 
             printf_err(log_err, "error: mercury context is null\n");
             return NULL;
         }
+
+        // enforce single-instance restriction when quic trial decryption is enabled;
+        if (mc->global_vars.quic_trial_decryption) {
+            bool expected = false;
+            if (!mc->has_trial_decryption_processor.compare_exchange_strong(expected, true)) {
+                printf_err(log_err, "error: quic-trial-decryption cannot be used with multiple packet processor instances\n");
+                return NULL;  // failed to acquire, never set the flag
+            }
+        }
+
         stateful_pkt_proc *tmp = new stateful_pkt_proc{mc, 0};
         return tmp;
     }
     catch (std::exception &e) {
+        if (mc && mc->global_vars.quic_trial_decryption) {
+            mc->has_trial_decryption_processor.store(false);
+        }
         printf_err(log_err, "%s\n", e.what());
     }
     return NULL;
@@ -347,8 +360,12 @@ mercury_packet_processor mercury_packet_processor_construct(mercury_context mc) 
 void mercury_packet_processor_destruct(mercury_packet_processor mpp) {
     try {
         if (mpp) {
+            mercury_context mc = mpp->m;
             mpp->finalize();
             delete mpp;
+            if (mc && mc->has_trial_decryption_processor.load()) {
+                mc->has_trial_decryption_processor.store(false);
+            }
         }
     }
     catch (std::exception &e) {

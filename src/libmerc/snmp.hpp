@@ -15,23 +15,6 @@
 #include <variant>
 
 
-/// return the integer formed by interpreting the bytes of \ref datum
-/// \param d as an unsigned integer in network byte order
-///
-/// \note: ASN.1 integers will have a leading 0x00 byte if they are
-/// unsigned
-///
-inline uint64_t get_uint64(const datum &d) {
-    uint64_t result = 0;
-    if (d.is_readable()) {
-        for (const auto & byte : d) {
-            result *= 256;
-            result += byte;
-        }
-    }
-    return result;
-}
-
 namespace snmp {
 
     // forward declarations
@@ -119,7 +102,7 @@ namespace snmp {
                     break;
                 case 1:
                     if (object.value.length() <= 5) {
-                        value.print_key_uint("counter32", get_uint64(object.value));
+                        value.print_key_uint("counter32", asn1::to_uint64(object.value));
                         return;
                     }
                     break;
@@ -174,7 +157,8 @@ namespace snmp {
                     value.print_key_hex("octet_string", object.value);
                     return;
                 case tlv::INTEGER:
-                    value.print_key_uint("integer", get_uint64(object.value));
+                    // SimpleSyntax.integer-value is signed Integer32; decode as int64
+                    value.print_key_int("integer", asn1::to_int64(object.value));
                     return;
                 case tlv::NULL_TAG:
                     value.print_key_bool("null", true);
@@ -344,7 +328,7 @@ namespace snmp {
             json_object trap{o, "trap"};
             trap.print_key_value("enterprise", raw_oid{enterprise_oid.value});
             trap.print_key_hex("agent_addr", agent_addr.value);
-            trap.print_key_string("generic_trap", trap_number_get_string(get_uint64(generic_trap.value)));
+            trap.print_key_string("generic_trap", trap_number_get_string(asn1::to_uint64(generic_trap.value)));
             trap.print_key_hex("specific_trap", specific_trap.value);
             trap.print_key_hex("timestamp", timestamp.value);
 
@@ -441,7 +425,8 @@ namespace snmp {
                 return;
             }
             json_object pdu{o, "pdu"};
-            pdu.print_key_uint("request_id", get_uint64(request_id.value));
+            // request-id is signed Integer32; decode as int64
+            pdu.print_key_int("request_id", asn1::to_int64(request_id.value));
             std::array<uint8_t,1> zero{0x00};
             if (!error_status.value.matches(zero)) {
                 pdu.print_key_hex("error_status", error_status.value);
@@ -649,7 +634,8 @@ namespace snmp {
         { }
 
         void write_json(json_object &o) const {
-            o.print_key_uint("request_id", get_uint64(request_id.value));
+            // request-id is Integer32 (signed); see v2_pdu::write_json
+            o.print_key_int("request_id", asn1::to_int64(request_id.value));
             o.print_key_hex("error_status", error_status.value);
             o.print_key_hex("error_index", error_index.value);
             tlv tmp{any};
@@ -714,7 +700,7 @@ namespace snmp {
                 o.print_key_hex("msg_max_size", msgMaxSize.value);
                 o.print_key_hex("msg_flags", msgFlags.value);
             }
-            o.print_key_uint("msg_security_model", get_uint64(msgSecurityModel.value));
+            o.print_key_uint("msg_security_model", asn1::to_uint64(msgSecurityModel.value));
             o.print_key_bool("auth", auth());
             o.print_key_bool("priv", priv());
         }
@@ -1033,7 +1019,7 @@ namespace snmp {
                 return;
             }
             json_object snmp{o, "snmp"};
-            snmp.print_key_uint("version", get_uint64(version.value));
+            snmp.print_key_uint("version", asn1::to_uint64(version.value));
             hd.write_json(o);
             usm_security_parameters{msgSecurityParameters.value}.write_json(o, pdu_copy, hd.priv(), hd.auth());
 
@@ -1103,7 +1089,7 @@ namespace snmp {
             tlv seq{d, tlv::SEQUENCE};
             tlv version{&seq.value, tlv::INTEGER};
             if (seq.value.is_not_null() and version.length == 1) {
-                return get_uint64(version.value);
+                return asn1::to_uint64(version.value);
             }
             return 255; // not a valid version
         }
@@ -1219,7 +1205,16 @@ namespace snmp {
         return 255; // not a valid version
     }
 
+} // namespace snmp
+
+#ifndef NDEBUG
+#include <string_view>
+
+namespace snmp {
+
     [[maybe_unused]] static bool unit_test() {
+        // SNMPv3 GetRequest, decoded as v3_packet
+        //
         const unsigned char get_request[] = {
             0x30, 0x3e, 0x02, 0x01, 0x03, 0x30, 0x11, 0x02, 0x04, 0x5d, 0x05, 0x5b,
             0xa3, 0x02, 0x03, 0x00, 0xff, 0xe3, 0x04, 0x01, 0x04, 0x02, 0x01, 0x03,
@@ -1228,13 +1223,121 @@ namespace snmp {
             0xa0, 0x0e, 0x02, 0x04, 0x2e, 0xd1, 0xe4, 0xaa, 0x02, 0x01, 0x00, 0x02,
             0x01, 0x00, 0x30, 0x00
         };
-
         datum get_request_datum{get_request, get_request + sizeof(get_request)};
-        snmp::v3_packet snmp{get_request_datum};
-        return snmp.is_not_empty();
+        if (!snmp::v3_packet{get_request_datum}.is_not_empty()) {
+            return false;
+        }
+
+        // regression: an SNMPv1 trap whose VarBind INTEGER value has the
+        // high bit set in an 8-byte payload must render as a negative
+        // JSON number that fits in int64, not as an unsigned value
+        // greater than 2^63 - 1 (which breaks downstream parquet
+        // conversion)
+        //
+        const unsigned char trap_with_neg_integer[] = {
+            0x30, 0x3b,                                                        // SEQUENCE
+              0x02, 0x01, 0x00,                                                //   INTEGER 0 (v1)
+              0x04, 0x06, 'p','u','b','l','i','c',                             //   OCTET STRING "public"
+              0xa4, 0x2e,                                                      //   [4] Trap-PDU
+                0x06, 0x05, 0x2b, 0x06, 0x01, 0x04, 0x01,                      //     OID 1.3.6.1.4.1
+                0x40, 0x04, 0x7f, 0x00, 0x00, 0x01,                            //     [APP 0] IpAddress 127.0.0.1
+                0x02, 0x01, 0x02,                                              //     INTEGER 2 (linkDown)
+                0x02, 0x01, 0x00,                                              //     INTEGER 0
+                0x43, 0x01, 0x00,                                              //     [APP 3] TimeTicks 0
+                0x30, 0x16,                                                    //     SEQUENCE OF VarBind
+                  0x30, 0x14,                                                  //       VarBind
+                    0x06, 0x08, 0x2b, 0x06, 0x01, 0x02, 0x01, 0x01, 0x03, 0x00,//         OID 1.3.6.1.2.1.1.3.0
+                    0x02, 0x08, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80 //         INTEGER 0x8080..80
+        };
+        datum trap_datum{trap_with_neg_integer,
+                         trap_with_neg_integer + sizeof(trap_with_neg_integer)};
+        snmp::v2_packet trap_packet{trap_datum};
+        if (!trap_packet.is_not_empty()) {
+            return false;
+        }
+
+        char json_buf[1024];
+        buffer_stream json_bs{json_buf, sizeof(json_buf)};
+        {
+            json_object outer{&json_bs};
+            trap_packet.write_json(outer);
+            outer.close();
+        }
+
+        // the rendered JSON must contain the signed value and must not
+        // contain the unsigned mis-interpretation
+        //
+        std::string_view json{json_buf, json_bs.length()};
+        if (json.find("-9187201950435737472") == std::string_view::npos) { return false; }
+        if (json.find("9259542123273814144")  != std::string_view::npos) { return false; }
+
+        // regression: request-id is Integer32, but malformed/over-wide
+        // BER payloads with the high bit set must not render as
+        // unsigned values > 2^63 - 1.  Exercises v2_pdu::write_json.
+        //
+        const unsigned char response_with_neg_request_id[] = {
+            0x30, 0x1f,                                                        // SEQUENCE (31 bytes)
+              0x02, 0x01, 0x01,                                                //   INTEGER 1 (v2c)
+              0x04, 0x06, 'p','u','b','l','i','c',                             //   OCTET STRING "public"
+              0xa2, 0x12,                                                      //   [2] Response-PDU (18 bytes)
+                0x02, 0x08, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,    //     INTEGER request-id 0x8080..80
+                0x02, 0x01, 0x00,                                              //     INTEGER error-status 0
+                0x02, 0x01, 0x00,                                              //     INTEGER error-index 0
+                0x30, 0x00                                                     //     SEQUENCE OF VarBind (empty)
+        };
+        datum response_datum{response_with_neg_request_id,
+                             response_with_neg_request_id + sizeof(response_with_neg_request_id)};
+        snmp::v2_packet response_packet{response_datum};
+        if (!response_packet.is_not_empty()) {
+            return false;
+        }
+        char response_json_buf[1024];
+        buffer_stream response_json_bs{response_json_buf, sizeof(response_json_buf)};
+        {
+            json_object outer{&response_json_bs};
+            response_packet.write_json(outer);
+            outer.close();
+        }
+        std::string_view response_json{response_json_buf, response_json_bs.length()};
+        if (response_json.find("-9187201950435737472") == std::string_view::npos) { return false; }
+        if (response_json.find("9259542123273814144")  != std::string_view::npos) { return false; }
+
+        // regression: snmp::pdu (the v1-style PDU scaffold, currently
+        // unreachable from v2_packet) must also render request-id as
+        // signed.  Constructed directly to cover the second changed
+        // call site in this fix.
+        //
+        const unsigned char v1_pdu_with_neg_request_id[] = {
+            0x02, 0x08, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,        // INTEGER request-id 0x8080..80
+            0x02, 0x01, 0x00,                                                  // INTEGER error-status 0
+            0x02, 0x01, 0x00,                                                  // INTEGER error-index 0
+            0x30, 0x0b,                                                        // SEQUENCE "any" (11 bytes), wrapping a v2_pdu-shaped body
+              0x02, 0x01, 0x01,                                                //   INTEGER inner request-id 1
+              0x02, 0x01, 0x00,                                                //   INTEGER inner error-status 0
+              0x02, 0x01, 0x00,                                                //   INTEGER inner error-index 0
+              0x30, 0x00                                                       //   SEQUENCE OF VarBind (empty)
+        };
+        datum v1_pdu_datum{v1_pdu_with_neg_request_id,
+                           v1_pdu_with_neg_request_id + sizeof(v1_pdu_with_neg_request_id)};
+        snmp::pdu v1_pdu{v1_pdu_datum};
+
+        char v1_json_buf[1024];
+        buffer_stream v1_json_bs{v1_json_buf, sizeof(v1_json_buf)};
+        {
+            json_object outer{&v1_json_bs};
+            v1_pdu.write_json(outer);
+            outer.close();
+        }
+        std::string_view v1_json{v1_json_buf, v1_json_bs.length()};
+        if (v1_json.find("-9187201950435737472") == std::string_view::npos) { return false; }
+        if (v1_json.find("9259542123273814144")  != std::string_view::npos) { return false; }
+
+        return true;
     }
 
-}
+} // namespace snmp
+#endif // NDEBUG
+
 
 [[maybe_unused]] static int snmp_fuzz_test(const uint8_t *data, size_t size) {
     return json_output_fuzzer<snmp::packet>(data, size);

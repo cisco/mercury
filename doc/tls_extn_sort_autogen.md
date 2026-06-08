@@ -13,7 +13,7 @@ The TLS fingerprint string consists of TLS version, cipher suites and TLS extens
 
 The hash table mentioned above needs rework as when there is modification to the TLS extension include list.
 
-Mercury package provides tls_csv utility which can generate C++ classes and supporting apis required to sort tls extensions based on the above mentioned algorithm. The autogeneration code for tls_csv utility is present under src/tables folder in the mercury repository and source code is present in src/tables/tls_extension_generator.cc.
+Mercury package provides tls_csv utility which can generate C++ classes and supporting apis required to sort tls extensions based on the above mentioned algorithm. The autogeneration code for tls_csv utility lives under `src/tables/` in the mercury repository, with source code in `src/tables/tls_extension_generator.cc`; build rules live in `mk/tables.mk`.
 
 ## How to use tls_csv utility to generate C++ classes
 
@@ -33,7 +33,7 @@ tls_csv utility can be run as below
 
 
 ### CSV files containing tls extension type code and name
-The tls_csv reads one or more CSV files which contains the mapping between tls extension type code and the name. The Makefile in the src/tables has the changes to download the csv files from the IANA site.
+The tls_csv reads one or more CSV files which contains the mapping between tls extension type code and the name. The `regen-tables` target in `mk/tables.mk` downloads the latest CSV files from the IANA site (use `make regen-tables-offline` to skip the download and regenerate from cached CSVs).
 
 Sample csv file
 ```
@@ -53,23 +53,17 @@ Example:
 
 Mercury package has the input text file local_include_extension.txt and is present in the path src/tables/source. This file needs to be edited for any change in the tls extensions include list.
 
-## Compiling tls_csv utility
-The Makefile in src/folder has the required changes to compile tls_csv utility.
+## Compiling and running tls_csv utility
 
-To compile the changes, do either of the below
+The `tls_csv` binary is built in-source by `mk/tables.mk` as a side effect of
+the table-regeneration targets. To rebuild the protocol header from the
+current IANA CSVs, run from the repository root:
 
-> make
+> make regen-tables-offline
 
-This will compile both csv and tls_csv utility
-
-
-> make tls
-
-This will compile the tls_csv utility only.
-
-## Running tls_csv utility
-
-Let us see how to run the tls_csv file and understand its output
+(or `make regen-tables` to download the latest CSVs first). This builds both
+`src/tables/csv` and `src/tables/tls_csv` as needed and regenerates
+`src/libmerc/tls_extensions.h`. To invoke `tls_csv` directly:
 ```
 ./tls_csv outfile=tls_extensions.h verbose=true dir=source include_extensions=local_include_extension.txt tls-extensiontype-values-1.csv:tls_extensions_assign
 ```

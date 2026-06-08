@@ -1,4 +1,15 @@
-#include "catch.hpp"
+///
+/// \file libmerc_util_behavior_test.cc
+///
+/// L7 metadata tests that invoke the libmerc_util CLI tool.
+///
+/// Note: This file does NOT define main(). It is compiled and linked with
+/// doctest_main.cc, which provides the main() entry point that runs all tests.
+///
+/// Copyright (c) 2025 Cisco Systems, Inc. All rights reserved.
+/// License at https://github.com/cisco/mercury/blob/master/LICENSE
+///
+#include "doctest.h"
 #include "libmerc_driver_helper.hpp"
 
 #include <fstream>
@@ -88,15 +99,15 @@ void test_pcap_file(const std::string& pcap_filename, int expected_total_lines,
         INFO("  Total L7 JSON lines: " << counts.total_lines);
 
         // Log all detected protocols
-        for (const auto& [protocol, count] : counts.protocol_map) {
-            INFO("  " << protocol << ": " << count << " records");
+        for (const auto& entry : counts.protocol_map) {
+            INFO("  " << entry.first << ": " << entry.second << " records");
         }
 
         REQUIRE(counts.total_lines == expected_total_lines);
 
         // Check expected protocol counts if specified
-        for (const auto& [protocol, expected_count] : expected_protocols) {
-            REQUIRE(counts.get_count(protocol) == expected_count);
+        for (const auto& entry : expected_protocols) {
+            REQUIRE(counts.get_count(entry.first) == entry.second);
         }
 
         // Cleanup
@@ -133,7 +144,7 @@ TEST_CASE("emix.pcap") {
         {"smb2", 412},
         {"socks4", 1},
         {"socks5", 4},
-        {"socks5_req_resp", 5},
+        {"socks5_req_resp", 4},
         {"ssdp", 34},
         {"ssh", 2},
         {"stun", 4},
@@ -145,5 +156,5 @@ TEST_CASE("emix.pcap") {
         {"quic", 4}
     };
 
-    test_pcap_file("emix.pcap", 1776, expected_protocols);
+    test_pcap_file("emix.pcap", 1775, expected_protocols);
 }

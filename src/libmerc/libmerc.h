@@ -364,8 +364,8 @@ enum fingerprint_type {
      fingerprint_type_tls_server = 2,  /**< TLS server fingerprint             */
      fingerprint_type_http = 3,        /**< HTTP client fingerprint            */
      fingerprint_type_http_server = 4, /**< HTTP server fingerprint            */
-     fingerprint_type_ssh = 5,         /**< SSH init + kex fingerprint         */
-     fingerprint_type_ssh_kex = 6,     /**< SSH kex fingerprint                */
+     fingerprint_type_ssh = 5,         /**< SSH client init + kex fingerprint  */
+     fingerprint_type_ssh_kex = 6,     /**< SSH client kex fingerprint         */
      fingerprint_type_tcp = 7,         /**< TCP SYN fingerprint                */
      fingerprint_type_dhcp = 8,        /**< DHCP client fingerprint            */
      fingerprint_type_smtp_server = 9, /**< SMTP server fingerprint            */
@@ -376,8 +376,11 @@ enum fingerprint_type {
      fingerprint_type_openvpn = 14, /**< OpenVPN TCP fingerprint           */
      fingerprint_type_tofsee = 15,    /**< Tofsee initial message fingerprint  */
      fingerprint_type_stun = 16,       /**< STUN fingerprint                   */
-     fingerprint_type_ssh_init = 17,   /**< SSH protocol init msg fingerprint  */
-     fingerprint_type_max = 18,       /**< Placeholder: # of fingerprint types */
+     fingerprint_type_ssh_init = 17,   /**< SSH client protocol init fingerprint */
+     fingerprint_type_ssh_server = 18, /**< SSH server init + kex fingerprint  */
+     fingerprint_type_ssh_kex_server = 19, /**< SSH server kex fingerprint      */
+     fingerprint_type_ssh_init_server = 20, /**< SSH server protocol init fingerprint */
+     fingerprint_type_max = 21,       /**< Placeholder: # of fingerprint types */
 };
 
 /**

@@ -29,6 +29,32 @@
 #include "libmerc/asn1.h"
 #include "libmerc/oid.hpp"
 #include "libmerc/krb5.hpp"
+#include "libmerc/json_object.h"
+#include "libmerc/icmp.h"
+#include "libmerc/socks.h"
+#include "libmerc/dns.h"
+#include "libmerc/dhcp.h"
+#include "libmerc/lldp.h"
+#include "libmerc/cdp.h"
+#include "libmerc/ospf.h"
+#include "libmerc/sctp.h"
+#include "libmerc/loopback.hpp"
+#include "libmerc/syslog.hpp"
+#include "libmerc/wireguard.h"
+#include "libmerc/netbios.h"
+#include "libmerc/stun.h"
+#include "libmerc/bittorrent.h"
+#include "libmerc/arp.h"
+#include "libmerc/ntp.h"
+#include "libmerc/rtp.h"
+#include "libmerc/esp.hpp"
+#include "libmerc/vxlan.hpp"
+#include "libmerc/gre.h"
+#include "libmerc/mdns.h"
+#include "libmerc/http2.h"
+#include "libmerc/ssh.h"
+#include "libmerc/tls.h"
+#include "libmerc/analysis.h"
 
 // Macros to colorize output
 //
@@ -132,12 +158,112 @@ int main(int, char *[]) {
             &tlv::unit_test
         },
         {
-            "asn1",
-            &asn1::unit_test
+            "icmp",
+            &icmp_unit_test::unit_test
         },
         {
-            "krb5_int_conversion",
-            &krb5::int_conversion_unit_test
+            "socks",
+            &socks_unit_test::unit_test
+        },
+        {
+            "dns",
+            &dns_unit_test::unit_test
+        },
+        {
+            "dhcp",
+            &dhcp_unit_test::unit_test
+        },
+        {
+            "lldp",
+            &lldp_unit_test::unit_test
+        },
+        {
+            "cdp",
+            &cdp_unit_test::unit_test
+        },
+        {
+            "ospf",
+            &ospf_unit_test::unit_test
+        },
+        {
+            "sctp",
+            &sctp_unit_test::unit_test
+        },
+        {
+            "loopback",
+            &loopback_unit_test::unit_test
+        },
+        {
+            "syslog",
+            &syslog_unit_test::unit_test
+        },
+        {
+            "wireguard",
+            &wireguard_unit_test::unit_test
+        },
+        {
+            "netbios",
+            &netbios_unit_test::unit_test
+        },
+        {
+            "stun",
+            &stun_unit_test::unit_test
+        },
+        {
+            "bittorrent",
+            &bittorrent_unit_test::unit_test
+        },
+        {
+            "arp",
+            &arp_unit_test::unit_test
+        },
+        {
+            "ntp",
+            &ntp_unit_test::unit_test
+        },
+        {
+            "rtp",
+            &rtp_unit_test::unit_test
+        },
+        {
+            "esp",
+            &esp_unit_test::unit_test
+        },
+        {
+            "vxlan",
+            &vxlan_unit_test::unit_test
+        },
+        {
+            "gre",
+            &gre_unit_test::unit_test
+        },
+        {
+            "mdns",
+            &mdns_unit_test::unit_test
+        },
+        {
+            "http2",
+            &http2_unit_test::unit_test
+        },
+        {
+            "ssh",
+            &ssh_unit_test::unit_test
+        },
+        {
+            "tls_extensions",
+            &tls_extensions::unit_test
+        },
+        {
+            "datum",
+            &datum_unit_test::unit_test
+        },
+        {
+            "analysis",
+            &analysis_unit_test::unit_test
+        },
+        {
+            "naive_bayes",
+            &naive_bayes_unit_test::unit_test
         }
     };
     size_t num_tests = 0;
@@ -184,6 +310,10 @@ int main(int, char *[]) {
             &cbor_object_unit_test
         },
         {
+            "json_object",
+            &json_object_unit_test
+        },
+        {
             "decimal_integer",
             &decimal_integer_unit_test
         },
@@ -218,6 +348,10 @@ int main(int, char *[]) {
         {
             "oid",
             &asn1::oid_unit_test
+        },
+        {
+            "asn1",
+            &asn1::unit_test
         },
     };
     for (const auto &tc : test_cases_verbose) {

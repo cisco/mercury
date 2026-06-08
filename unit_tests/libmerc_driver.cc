@@ -1,12 +1,16 @@
-/*
- * libmerc_driver.cc
- *
- * main() file for libmerc.so test driver program
- *
- * Copyright (c) 2020-2021 Cisco Systems, Inc. All rights reserved.  License at
- * https://github.com/cisco/mercury/blob/master/LICENSE
- */
 
+///
+/// \file libmerc_driver.cc
+///
+/// libmerc.so test driver program
+///
+/// Note: This file does NOT define main(). It is compiled and linked with
+/// doctest_main.cc, which provides the main() entry point that runs all tests.
+///
+/// Copyright (c) 2025 Cisco Systems, Inc. All rights reserved.
+/// License at https://github.com/cisco/mercury/blob/master/LICENSE
+///
+#include "doctest.h"
 #include "libmerc_driver_helper.hpp"
 
 //TODO: make a scenario
@@ -135,13 +139,13 @@ SCENARIO("test_packet_processor_destruct") {
         mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
 
         WHEN("destruct packet processor") {
-            THEN("no throws catched") {
+            THEN("no throws caught") {
                 REQUIRE_NOTHROW(mercury_packet_processor_destruct(mpp));
             }
         }
 
         // WHEN("destruct twice") {
-        //     THEN("throws catched") {
+        //     THEN("throws caught") {
         //         REQUIRE_NOTHROW(mercury_packet_processor_destruct(mpp));
         //         REQUIRE_THROWS(mercury_packet_processor_destruct(mpp));
         //     }
@@ -149,7 +153,7 @@ SCENARIO("test_packet_processor_destruct") {
 
         // WHEN("packet processor is nullptr") { /*failed: no exception. memory leak*/
         //     mpp = nullptr;
-        //     THEN("throws catched") {
+        //     THEN("throws caught") {
         //         REQUIRE_THROWS(mercury_packet_processor_destruct(mpp));
         //     }
         // }

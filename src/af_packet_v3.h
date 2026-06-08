@@ -20,6 +20,11 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
                               struct output_file *out_ctx,
                               struct cap_stats *cstats);
 
+/* Returns true when the backend expects the main thread to block
+ * signals and defer signal handling to a backend-owned thread.
+ */
+bool capture_backend_blocks_main_thread_signals();
+
 struct thread_stall {
     int used;          /* To mark the end of the array when searching */
     pthread_t tid;     /* For finding the right pthread's jump env */

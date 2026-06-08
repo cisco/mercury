@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <regex>
 #include <fstream>
+#include <sstream>
 #include <unistd.h>
 
 #include "csv.h"

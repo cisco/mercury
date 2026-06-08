@@ -70,11 +70,11 @@ public:
                 return false;
             }
             d.emplace(value, count);
-            sprintf(index_string, "%" PRIx64, count);
+            snprintf(index_string, index_length, "%" PRIx64, count);
             count++;
             return true;
         }
-        sprintf(index_string, "%" PRIx64, x->second);
+        snprintf(index_string, index_length, "%" PRIx64, x->second);
         return true;
     }
 
