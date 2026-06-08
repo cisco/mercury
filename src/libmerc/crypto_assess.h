@@ -737,7 +737,7 @@ namespace crypto_policy {
                         } else {
                             some_allowed = true;
                         }
-                        if (!tmp_list.is_readable()) break;
+                        if (!tmp_list.is_readable()) { break; }
                         tmp.set_null();
                         tmp.parse_up_to_delim(tmp_list, ',');
                         tmp_sv = {(char*)tmp.data, (size_t)tmp.length()};
@@ -753,8 +753,8 @@ namespace crypto_policy {
                 }
             }
             const char *quantifier = "none";
-            if (all_allowed) quantifier = "all";
-            else if (some_allowed) quantifier = "some";
+            if (all_allowed) { quantifier = "all"; }
+            else if (some_allowed) { quantifier = "some"; }
             msg.set_kex_allowed(quantifier);
             return all_allowed;
         }
@@ -783,7 +783,7 @@ namespace crypto_policy {
                         } else {
                             some_allowed = true;
                         }
-                        if (!tmp_list.is_readable()) break;
+                        if (!tmp_list.is_readable()) { break; }
                         tmp.set_null();
                         tmp.parse_up_to_delim(tmp_list, ',');
                         tmp_sv = {(char*)tmp.data, (size_t)tmp.length()};
@@ -799,8 +799,8 @@ namespace crypto_policy {
                 }
             }
             const char *quantifier = "none";
-            if (all_allowed) quantifier = "all";
-            else if (some_allowed) quantifier = "some";
+            if (all_allowed) { quantifier = "all"; }
+            else if (some_allowed) { quantifier = "some"; }
             msg.set_c2s_cs_allowed(quantifier);
             return all_allowed;
         }
@@ -829,7 +829,7 @@ namespace crypto_policy {
                         } else {
                             some_allowed = true;
                         }
-                        if (!tmp_list.is_readable()) break;
+                        if (!tmp_list.is_readable()) { break; }
                         tmp.set_null();
                         tmp.parse_up_to_delim(tmp_list, ',');
                         tmp_sv = {(char*)tmp.data, (size_t)tmp.length()};
@@ -845,8 +845,8 @@ namespace crypto_policy {
                 }
             }
             const char *quantifier = "none";
-            if (all_allowed) quantifier = "all";
-            else if (some_allowed) quantifier = "some";
+            if (all_allowed) { quantifier = "all"; }
+            else if (some_allowed) { quantifier = "some"; }
             msg.set_s2c_cs_allowed(quantifier);
             return all_allowed;
         }
@@ -1460,8 +1460,9 @@ namespace crypto_policy {
                     cs_arr.print_string(cs_msg.cs_not_allowed_at(i).value());
                 cs_arr.close();
             }
-            if (cs_msg.cs_allowed_valid())
+            if (cs_msg.cs_allowed_valid()) {
                 c.print_key_string("ciphersuites_allowed", cs_msg.cs_allowed_value().value());
+            }
         }
         c.close();
 
@@ -1483,8 +1484,9 @@ namespace crypto_policy {
         assessor.assess_tls_ciphersuites(ciphersuites_vector_all_allowed, cs_msg_all);
         buffer_stream tls_cphrs_buff_strm_all_allowed{buff, 1024};
         json_object c_all_allowed{&tls_cphrs_buff_strm_all_allowed};
-        if (cs_msg_all.cs_allowed_valid())
+        if (cs_msg_all.cs_allowed_valid()) {
             c_all_allowed.print_key_string("ciphersuites_allowed", cs_msg_all.cs_allowed_value().value());
+        }
         c_all_allowed.close();
 
         std::string tls_ciphers_all_allowed_output_str = "{\"ciphersuites_allowed\":\"all\"}";
@@ -1510,8 +1512,9 @@ namespace crypto_policy {
                 cs_arr.print_string(cs_msg_none.cs_not_allowed_at(i).value());
             cs_arr.close();
         }
-        if (cs_msg_none.cs_allowed_valid())
+        if (cs_msg_none.cs_allowed_valid()) {
             c_none_allowed.print_key_string("ciphersuites_allowed", cs_msg_none.cs_allowed_value().value());
+        }
         c_none_allowed.close();
 
         std::string tls_ciphers_none_allowed_output_str = "{\"ciphersuites_not_allowed\":[\"TLS_ECDHE_ECDSA_WITH_NULL_SHA\",\"TLS_ECDHE_ECDSA_WITH_RC4_128_SHA\"],\"ciphersuites_allowed\":\"none\"}";
@@ -1542,8 +1545,9 @@ namespace crypto_policy {
                 grp_arr.print_string(ext_msg.grp_not_allowed_at(i).value());
             grp_arr.close();
         }
-        if (ext_msg.grp_allowed_valid())
+        if (ext_msg.grp_allowed_valid()) {
             d.print_key_string("groups_allowed", ext_msg.grp_allowed_value().value());
+        }
         d.print_key_bool("tls_cert_with_extern_psk", ext_msg.psk_mode());
         for (size_t i = 0; i < ext_msg.psk_non_compliant_count(); i++)
             d.print_key_string(ext_msg.psk_non_compliant_key_at(i).value(), ext_msg.psk_non_compliant_reason_at(i).value());
@@ -1588,8 +1592,9 @@ namespace crypto_policy {
         assessor.assess_tls_extensions(extensions_all_allowed, ext_msg_all);
         buffer_stream tls_extn_buff_strm_all_allowed{buff, 1024};
         json_object d_all_allowed{&tls_extn_buff_strm_all_allowed};
-        if (ext_msg_all.grp_allowed_valid())
+        if (ext_msg_all.grp_allowed_valid()) {
             d_all_allowed.print_key_string("groups_allowed", ext_msg_all.grp_allowed_value().value());
+        }
         d_all_allowed.print_key_bool("tls_cert_with_extern_psk", ext_msg_all.psk_mode());
         d_all_allowed.close();
 
@@ -1621,8 +1626,9 @@ namespace crypto_policy {
                 grp_arr.print_string(ext_msg_no.grp_not_allowed_at(i).value());
             grp_arr.close();
         }
-        if (ext_msg_no.grp_allowed_valid())
+        if (ext_msg_no.grp_allowed_valid()) {
             d_no_allowed.print_key_string("groups_allowed", ext_msg_no.grp_allowed_value().value());
+        }
         d_no_allowed.print_key_bool("tls_cert_with_extern_psk", ext_msg_no.psk_mode());
         d_no_allowed.close();
 

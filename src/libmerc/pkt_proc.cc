@@ -109,12 +109,13 @@ struct do_crypto_assessment {
         crypto_assess_result result;
         for (const auto& assessor : ca) {
             if (output_) {
-                if (assessor->get_result_idx() == crypto_policy::quantum_safe::result_idx)
+                if (assessor->get_result_idx() == crypto_policy::quantum_safe::result_idx) {
                     result.set(assessor->get_result_idx(), !assessor->assess(msg, cnsa_tls_msg));
-                else if (assessor->get_result_idx() == crypto_policy::nist_sp_800_52::result_idx)
+                } else if (assessor->get_result_idx() == crypto_policy::nist_sp_800_52::result_idx) {
                     result.set(assessor->get_result_idx(), !assessor->assess(msg, nist_msg));
-                else
+                } else {
                     result.set(assessor->get_result_idx(), !assessor->assess(msg));
+                }
             } else {
                 result.set(assessor->get_result_idx(), !assessor->assess(msg));
             }
@@ -122,21 +123,23 @@ struct do_crypto_assessment {
         if (output_) {
             if constexpr (std::is_same_v<Object, json_object>) {
                 Array assessor_record{*output_, "cryptographic_security_assessment"};
-                if (cnsa_tls_msg.is_valid())
+                if (cnsa_tls_msg.is_valid()) {
                     cnsa_tls_msg.write<Object, Array>(assessor_record);
-                if (nist_msg.is_valid())
+                }
+                if (nist_msg.is_valid()) {
                     nist_msg.write<Object, Array>(assessor_record);
+                }
                 assessor_record.close();
             } else {
                 if (cnsa_tls_msg.is_valid() && !cnsa_tls_msg.is_compliant()) {
                     cbor::text_string(crypto_cnsa_tls_message::KEY).write(output_->get_writeable());
                     cnsa_tls_msg.write<Object, Array>(*output_);
-                    if (cbor_meta_) cbor_meta_->set_feature_written();
+                    if (cbor_meta_) { cbor_meta_->set_feature_written(); }
                 }
                 if (nist_msg.is_valid() && !nist_msg.is_compliant()) {
                     cbor::text_string(crypto_nist_message::KEY).write(output_->get_writeable());
                     nist_msg.write<Object, Array>(*output_);
-                    if (cbor_meta_) cbor_meta_->set_feature_written();
+                    if (cbor_meta_) { cbor_meta_->set_feature_written(); }
                 }
             }
         }
@@ -148,10 +151,11 @@ struct do_crypto_assessment {
         crypto_assess_result result;
         for (const auto& assessor : ca) {
             if (output_) {
-                if (assessor->get_result_idx() == crypto_policy::quantum_safe::result_idx)
+                if (assessor->get_result_idx() == crypto_policy::quantum_safe::result_idx) {
                     result.set(assessor->get_result_idx(), !assessor->assess(msg, cnsa_ssh_msg));
-                else
+                } else {
                     result.set(assessor->get_result_idx(), !assessor->assess(msg));
+                }
             } else {
                 result.set(assessor->get_result_idx(), !assessor->assess(msg));
             }
@@ -159,14 +163,15 @@ struct do_crypto_assessment {
         if (output_) {
             if constexpr (std::is_same_v<Object, json_object>) {
                 Array assessor_record{*output_, "cryptographic_security_assessment"};
-                if (cnsa_ssh_msg.is_valid())
+                if (cnsa_ssh_msg.is_valid()) {
                     cnsa_ssh_msg.write<Object, Array>(assessor_record);
+                }
                 assessor_record.close();
             } else {
                 if (cnsa_ssh_msg.is_valid() && !cnsa_ssh_msg.is_compliant()) {
                     cbor::text_string(crypto_cnsa_ssh_message::KEY).write(output_->get_writeable());
                     cnsa_ssh_msg.write<Object, Array>(*output_);
-                    if (cbor_meta_) cbor_meta_->set_feature_written();
+                    if (cbor_meta_) { cbor_meta_->set_feature_written(); }
                 }
             }
         }
@@ -180,17 +185,17 @@ struct do_crypto_assessment {
     crypto_assess_result operator()(const dtls_server_hello &msg) { return assess_tls(msg); }
 
     crypto_assess_result operator()(const quic_init &msg) {
-        if (msg.has_tls()) return assess_tls(msg.get_tls_client_hello());
+        if (msg.has_tls()) { return assess_tls(msg.get_tls_client_hello()); }
         return crypto_assess_result{};
     }
 
     crypto_assess_result operator()(const ssh_init_packet &msg) {
-        if (msg.kex_pkt.is_not_empty()) return assess_ssh(msg.kex_pkt);
+        if (msg.kex_pkt.is_not_empty()) { return assess_ssh(msg.kex_pkt); }
         return crypto_assess_result{};
     }
 
     crypto_assess_result operator()(const ssh_kex_init &msg) {
-        if (msg.is_not_empty()) return assess_ssh(msg);
+        if (msg.is_not_empty()) { return assess_ssh(msg); }
         return crypto_assess_result{};
     }
 
@@ -210,7 +215,7 @@ struct check_exposed_creds {
 
     void write_feature(exposed_creds_type type, datum protocol,
                        datum auth_method, datum username) {
-        if (!output_) return;
+        if (!output_) { return; }
         const char* key = nullptr;
         switch (type) {
         case exposed_creds_type::plaintext_password:
@@ -224,13 +229,14 @@ struct check_exposed_creds {
         }
         exposed_creds_message::construct(key, protocol, auth_method, username)
             .template write<Object, Array>(*output_);
-        if (cbor_meta_) cbor_meta_->set_feature_written();
+        if (cbor_meta_) { cbor_meta_->set_feature_written(); }
     }
 
     exposed_creds_type operator()(const imap::imap_requests &msg) {
         exposed_creds_type type = msg.check_credential_exposure();
-        if (type != exposed_creds_type::none)
+        if (type != exposed_creds_type::none) {
             write_feature(type, datum{"imap"}, msg.get_auth_method(), msg.get_username());
+        }
         return type;
     }
 

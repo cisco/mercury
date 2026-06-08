@@ -68,8 +68,8 @@ static inline bool peek_cnsa_is_ssh(const uint8_t* begin, const uint8_t* end) {
     while (peek.is_not_empty() && !cbor::is_break(peek)) {
         cbor::text_string key = cbor::text_string::decode(peek);
         datum k = key.value();
-        if (k.match("offered")) return true;
-        if (k.match("client") || k.match("session")) return false;
+        if (k.match("offered")) { return true; }
+        if (k.match("client") || k.match("session")) { return false; }
         cbor::skip_cbor_value(peek);
     }
     return false;
@@ -78,7 +78,7 @@ static inline bool peek_cnsa_is_ssh(const uint8_t* begin, const uint8_t* end) {
 inline void decode_v1(datum &d, cbor_decoded_metadata& out) {
     while (d.is_not_empty() && !cbor::is_break(d)) {
         cbor::text_string feature_key = cbor::text_string::decode(d);
-        if (d.is_null()) return;
+        if (d.is_null()) { return; }
 
         datum k = feature_key.value();
         if (k.match(exposed_creds_message::KEY_PLAINTEXT) ||
@@ -92,10 +92,11 @@ inline void decode_v1(datum &d, cbor_decoded_metadata& out) {
             out.exposed_creds = exposed_creds_message::decode(d, key);
         }
         else if (k.match(crypto_cnsa_tls_message::KEY)) {
-            if (peek_cnsa_is_ssh(d.data, d.data_end))
+            if (peek_cnsa_is_ssh(d.data, d.data_end)) {
                 out.cnsa_ssh = crypto_cnsa_ssh_message::decode(d);
-            else
+            } else {
                 out.cnsa_tls = crypto_cnsa_tls_message::decode(d);
+            }
         }
         else if (k.match(crypto_nist_message::KEY)) {
             out.nist = crypto_nist_message::decode(d);
@@ -104,30 +105,30 @@ inline void decode_v1(datum &d, cbor_decoded_metadata& out) {
             out.unknown.push_back(unknown_feature::decode(feature_key.value(), d));
         }
 
-        if (d.is_null()) return;
+        if (d.is_null()) { return; }
     }
 }
 
 inline void decode_cbor_metadata(const uint8_t* buf, size_t len,
                                   cbor_decoded_metadata& out) {
     out.reset();
-    if (!buf || len == 0) return;
+    if (!buf || len == 0) { return; }
 
     bool recognized_version = false;
 
     datum d{buf, buf + len};
     cbor::map outer{d};
-    if (d.is_null()) return;
+    if (d.is_null()) { return; }
 
     if (d.is_not_empty() && !cbor::is_break(d)) {
         cbor::text_string ver_key = cbor::text_string::decode(d);
-        if (d.is_null()) return;
+        if (d.is_null()) { return; }
 
         datum k = ver_key.value();
         if (k.match(CBOR_METADATA_VERSION_KEY)) {
             recognized_version = true;
             cbor::map inner{d};
-            if (d.is_null()) return;
+            if (d.is_null()) { return; }
             decode_v1(d, out);
             inner.close();
         } else {

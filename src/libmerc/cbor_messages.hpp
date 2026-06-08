@@ -45,10 +45,15 @@ public:
         while (d.is_not_empty() && !cbor::is_break(d)) {
             cbor::text_string k = cbor::text_string::decode(d);
             datum kv = k.value();
-            if (kv.match("protocol"))                   msg.protocol_ = cbor::text_string::decode(d);
-            else if (kv.match("authentication_method")) msg.auth_method_ = cbor::text_string::decode(d);
-            else if (kv.match("username"))              msg.username_ = cbor::text_string::decode(d);
-            else cbor::skip_cbor_value(d);
+            if (kv.match("protocol")) {
+                msg.protocol_ = cbor::text_string::decode(d);
+            } else if (kv.match("authentication_method")) {
+                msg.auth_method_ = cbor::text_string::decode(d);
+            } else if (kv.match("username")) {
+                msg.username_ = cbor::text_string::decode(d);
+            } else {
+                cbor::skip_cbor_value(d);
+            }
         }
         m.close();
         msg.cbor_span_ = datum{begin, d.data};
@@ -59,12 +64,15 @@ public:
     template<typename Object, typename Array>
     void write(Object &parent) const {
         Object o{parent, key_};
-        if (protocol_.is_valid())
+        if (protocol_.is_valid()) {
             o.print_key_string("protocol", protocol_.value());
-        if (auth_method_.is_valid())
+        }
+        if (auth_method_.is_valid()) {
             o.print_key_string("authentication_method", auth_method_.value());
-        if (username_.is_valid())
+        }
+        if (username_.is_valid()) {
             o.print_key_string("username", username_.value());
+        }
         o.close();
     }
 
@@ -159,34 +167,41 @@ public:
     template<typename Object, typename Array, typename Parent>
     void write(Parent &parent) const {
         Object o{parent};
-        if (policy_.is_valid())
+        if (policy_.is_valid()) {
             o.print_key_string("policy", policy_.value());
+        }
         if (!target_.is_valid()) { o.close(); return; }
         Object tgt{o, target_.value()};
         if (cs_not_allowed_count_ > 0) {
             Array cs_arr{tgt, "ciphersuites_not_allowed"};
             for (size_t i = 0; i < cs_not_allowed_count_; i++) {
-                if (cs_not_allowed_is_hex_[i])
+                if (cs_not_allowed_is_hex_[i]) {
                     cs_arr.print_uint16_hex(cs_not_allowed_hex_[i]);
-                else
+                }
+                else {
                     cs_arr.print_string(cs_not_allowed_[i].value());
+                }
             }
             cs_arr.close();
         }
-        if (cs_allowed_.is_valid())
+        if (cs_allowed_.is_valid()) {
             tgt.print_key_string("ciphersuites_allowed", cs_allowed_.value());
+        }
         if (grp_not_allowed_count_ > 0) {
             Array grp_arr{tgt, "groups_not_allowed"};
             for (size_t i = 0; i < grp_not_allowed_count_; i++) {
-                if (grp_not_allowed_is_hex_[i])
+                if (grp_not_allowed_is_hex_[i]) {
                     grp_arr.print_uint16_hex(grp_not_allowed_hex_[i]);
-                else
+                }
+                else {
                     grp_arr.print_string(grp_not_allowed_[i].value());
+                }
             }
             grp_arr.close();
         }
-        if (grp_allowed_.is_valid())
+        if (grp_allowed_.is_valid()) {
             tgt.print_key_string("groups_allowed", grp_allowed_.value());
+        }
         tgt.print_key_bool("tls_cert_with_extern_psk", psk_mode_);
         for (size_t i = 0; i < psk_non_compliant_count_; i++) {
             tgt.print_key_string(psk_non_compliant_keys_[i].value(),
@@ -215,27 +230,32 @@ public:
                     if (tk.match("ciphersuites_not_allowed")) {
                         cbor::array arr{d};
                         while (d.is_not_empty() && !cbor::is_break(d)) {
-                            if (msg.cs_not_allowed_count_ < MAX_ITEMS)
+                            if (msg.cs_not_allowed_count_ < MAX_ITEMS) {
                                 msg.cs_not_allowed_[msg.cs_not_allowed_count_++] = cbor::text_string::decode(d);
-                            else cbor::skip_cbor_value(d);
+                            }
+                            else { cbor::skip_cbor_value(d); }
                         }
                         arr.close();
                     }
-                    else if (tk.match("ciphersuites_allowed"))
+                    else if (tk.match("ciphersuites_allowed")) {
                         msg.cs_allowed_ = cbor::text_string::decode(d);
+                    }
                     else if (tk.match("groups_not_allowed")) {
                         cbor::array arr{d};
                         while (d.is_not_empty() && !cbor::is_break(d)) {
-                            if (msg.grp_not_allowed_count_ < MAX_ITEMS)
+                            if (msg.grp_not_allowed_count_ < MAX_ITEMS) {
                                 msg.grp_not_allowed_[msg.grp_not_allowed_count_++] = cbor::text_string::decode(d);
-                            else cbor::skip_cbor_value(d);
+                            }
+                            else { cbor::skip_cbor_value(d); }
                         }
                         arr.close();
                     }
-                    else if (tk.match("groups_allowed"))
+                    else if (tk.match("groups_allowed")) {
                         msg.grp_allowed_ = cbor::text_string::decode(d);
-                    else if (tk.match("tls_cert_with_extern_psk"))
+                    }
+                    else if (tk.match("tls_cert_with_extern_psk")) {
                         msg.psk_mode_ = cbor::decode_bool(d);
+                    }
                     else if (tk.match("tls_cert_with_extern_psk_non_compliant") ||
                              tk.match("psk_key_exchange_modes_non_compliant") ||
                              tk.match("psk_key_exchange_mlkem1024_non_compliant") ||
@@ -244,13 +264,13 @@ public:
                             msg.psk_non_compliant_keys_[msg.psk_non_compliant_count_] = tkey;
                             msg.psk_non_compliant_reasons_[msg.psk_non_compliant_count_] = cbor::text_string::decode(d);
                             msg.psk_non_compliant_count_++;
-                        } else cbor::skip_cbor_value(d);
+                        } else { cbor::skip_cbor_value(d); }
                     }
-                    else cbor::skip_cbor_value(d);
+                    else { cbor::skip_cbor_value(d); }
                 }
                 tgt.close();
             }
-            else cbor::skip_cbor_value(d);
+            else { cbor::skip_cbor_value(d); }
         }
         m.close();
         msg.cbor_span_ = datum{begin, d.data};
@@ -302,30 +322,36 @@ public:
 
     void set_policy(const char* p)              { policy_ = cbor::text_string(p); }
     void add_kex_not_allowed(const char* name) {
-        if (kex_not_allowed_count_ < MAX_ITEMS)
+        if (kex_not_allowed_count_ < MAX_ITEMS) {
             kex_not_allowed_[kex_not_allowed_count_++] = cbor::text_string(name);
+        }
     }
     void add_kex_not_allowed(datum d) {
-        if (kex_not_allowed_count_ < MAX_ITEMS)
+        if (kex_not_allowed_count_ < MAX_ITEMS) {
             kex_not_allowed_[kex_not_allowed_count_++] = cbor::text_string::construct(d);
+        }
     }
     void set_kex_allowed(const char* q)         { kex_allowed_ = cbor::text_string(q); }
     void add_c2s_cs_not_allowed(const char* name) {
-        if (c2s_cs_not_allowed_count_ < MAX_ITEMS)
+        if (c2s_cs_not_allowed_count_ < MAX_ITEMS) {
             c2s_cs_not_allowed_[c2s_cs_not_allowed_count_++] = cbor::text_string(name);
+        }
     }
     void add_c2s_cs_not_allowed(datum d) {
-        if (c2s_cs_not_allowed_count_ < MAX_ITEMS)
+        if (c2s_cs_not_allowed_count_ < MAX_ITEMS) {
             c2s_cs_not_allowed_[c2s_cs_not_allowed_count_++] = cbor::text_string::construct(d);
+        }
     }
     void set_c2s_cs_allowed(const char* q)      { c2s_cs_allowed_ = cbor::text_string(q); }
     void add_s2c_cs_not_allowed(const char* name) {
-        if (s2c_cs_not_allowed_count_ < MAX_ITEMS)
+        if (s2c_cs_not_allowed_count_ < MAX_ITEMS) {
             s2c_cs_not_allowed_[s2c_cs_not_allowed_count_++] = cbor::text_string(name);
+        }
     }
     void add_s2c_cs_not_allowed(datum d) {
-        if (s2c_cs_not_allowed_count_ < MAX_ITEMS)
+        if (s2c_cs_not_allowed_count_ < MAX_ITEMS) {
             s2c_cs_not_allowed_[s2c_cs_not_allowed_count_++] = cbor::text_string::construct(d);
+        }
     }
     void set_s2c_cs_allowed(const char* q)      { s2c_cs_allowed_ = cbor::text_string(q); }
     void set_compliant(bool c)                  { compliant_ = c; }
@@ -337,8 +363,9 @@ public:
     template<typename Object, typename Array, typename Parent>
     void write(Parent &parent) const {
         Object o{parent};
-        if (policy_.is_valid())
+        if (policy_.is_valid()) {
             o.print_key_string("policy", policy_.value());
+        }
         Object offered{o, "offered"};
         if (kex_not_allowed_count_ > 0) {
             Array kex_arr{offered, "kex_not_allowed"};
@@ -346,8 +373,9 @@ public:
                 kex_arr.print_string(kex_not_allowed_[i].value());
             kex_arr.close();
         }
-        if (kex_allowed_.is_valid())
+        if (kex_allowed_.is_valid()) {
             offered.print_key_string("kex_allowed", kex_allowed_.value());
+        }
         {
             Object c2s{offered, "client_to_server"};
             if (c2s_cs_not_allowed_count_ > 0) {
@@ -356,8 +384,9 @@ public:
                     cs_arr.print_string(c2s_cs_not_allowed_[i].value());
                 cs_arr.close();
             }
-            if (c2s_cs_allowed_.is_valid())
+            if (c2s_cs_allowed_.is_valid()) {
                 c2s.print_key_string("ciphersuites_allowed", c2s_cs_allowed_.value());
+            }
             c2s.close();
         }
         {
@@ -368,8 +397,9 @@ public:
                     cs_arr.print_string(s2c_cs_not_allowed_[i].value());
                 cs_arr.close();
             }
-            if (s2c_cs_allowed_.is_valid())
+            if (s2c_cs_allowed_.is_valid()) {
                 s2c.print_key_string("ciphersuites_allowed", s2c_cs_allowed_.value());
+            }
             s2c.close();
         }
         offered.close();
@@ -394,14 +424,16 @@ public:
                     if (tk.match("kex_not_allowed")) {
                         cbor::array arr{d};
                         while (d.is_not_empty() && !cbor::is_break(d)) {
-                            if (msg.kex_not_allowed_count_ < MAX_ITEMS)
+                            if (msg.kex_not_allowed_count_ < MAX_ITEMS) {
                                 msg.kex_not_allowed_[msg.kex_not_allowed_count_++] = cbor::text_string::decode(d);
-                            else cbor::skip_cbor_value(d);
+                            }
+                            else { cbor::skip_cbor_value(d); }
                         }
                         arr.close();
                     }
-                    else if (tk.match("kex_allowed"))
+                    else if (tk.match("kex_allowed")) {
                         msg.kex_allowed_ = cbor::text_string::decode(d);
+                    }
                     else if (tk.match("client_to_server")) {
                         cbor::map c2s{d};
                         while (d.is_not_empty() && !cbor::is_break(d)) {
@@ -410,15 +442,17 @@ public:
                             if (ck.match("ciphersuites_not_allowed")) {
                                 cbor::array arr{d};
                                 while (d.is_not_empty() && !cbor::is_break(d)) {
-                                    if (msg.c2s_cs_not_allowed_count_ < MAX_ITEMS)
+                                    if (msg.c2s_cs_not_allowed_count_ < MAX_ITEMS) {
                                         msg.c2s_cs_not_allowed_[msg.c2s_cs_not_allowed_count_++] = cbor::text_string::decode(d);
-                                    else cbor::skip_cbor_value(d);
+                                    }
+                                    else { cbor::skip_cbor_value(d); }
                                 }
                                 arr.close();
                             }
-                            else if (ck.match("ciphersuites_allowed"))
+                            else if (ck.match("ciphersuites_allowed")) {
                                 msg.c2s_cs_allowed_ = cbor::text_string::decode(d);
-                            else cbor::skip_cbor_value(d);
+                            }
+                            else { cbor::skip_cbor_value(d); }
                         }
                         c2s.close();
                     }
@@ -430,23 +464,25 @@ public:
                             if (sk.match("ciphersuites_not_allowed")) {
                                 cbor::array arr{d};
                                 while (d.is_not_empty() && !cbor::is_break(d)) {
-                                    if (msg.s2c_cs_not_allowed_count_ < MAX_ITEMS)
+                                    if (msg.s2c_cs_not_allowed_count_ < MAX_ITEMS) {
                                         msg.s2c_cs_not_allowed_[msg.s2c_cs_not_allowed_count_++] = cbor::text_string::decode(d);
-                                    else cbor::skip_cbor_value(d);
+                                    }
+                                    else { cbor::skip_cbor_value(d); }
                                 }
                                 arr.close();
                             }
-                            else if (sk.match("ciphersuites_allowed"))
+                            else if (sk.match("ciphersuites_allowed")) {
                                 msg.s2c_cs_allowed_ = cbor::text_string::decode(d);
-                            else cbor::skip_cbor_value(d);
+                            }
+                            else { cbor::skip_cbor_value(d); }
                         }
                         s2c.close();
                     }
-                    else cbor::skip_cbor_value(d);
+                    else { cbor::skip_cbor_value(d); }
                 }
                 offered.close();
             }
-            else cbor::skip_cbor_value(d);
+            else { cbor::skip_cbor_value(d); }
         }
         m.close();
         msg.cbor_span_ = datum{begin, d.data};
@@ -503,8 +539,9 @@ public:
     void set_policy(const char* p)              { policy_ = cbor::text_string(p); }
     void set_protocol_version(const char* v)    { protocol_version_ = cbor::text_string(v); }
     void add_extension(const char* name) {
-        if (extensions_count_ < MAX_EXTENSIONS)
+        if (extensions_count_ < MAX_EXTENSIONS) {
             extensions_[extensions_count_++] = cbor::text_string(name);
+        }
     }
     void set_cipher_suite(const char* name)     { cipher_suite_ = cbor::text_string(name); }
     void set_supported_group(const char* name)  { supported_group_ = cbor::text_string(name); }
@@ -523,30 +560,35 @@ public:
     template<typename Object, typename Array, typename Parent>
     void write(Parent &parent) const {
         Object o{parent};
-        if (policy_.is_valid())
+        if (policy_.is_valid()) {
             o.print_key_string("policy", policy_.value());
+        }
 
         if (has_negotiated_params_) {
             Object params{o, "negotiated_parameters"};
-            if (protocol_version_.is_valid())
+            if (protocol_version_.is_valid()) {
                 params.print_key_string("protocol_version", protocol_version_.value());
+            }
             {
                 Array exts_arr{params, "extensions"};
                 for (size_t i = 0; i < extensions_count_; i++)
                     exts_arr.print_string(extensions_[i].value());
                 exts_arr.close();
             }
-            if (cipher_suite_.is_valid())
+            if (cipher_suite_.is_valid()) {
                 params.print_key_string("cipher_suite", cipher_suite_.value());
-            if (supported_group_.is_valid())
+            }
+            if (supported_group_.is_valid()) {
                 params.print_key_string("supported_group", supported_group_.value());
+            }
             params.close();
         }
 
         Object compliance{o, "compliance_result"};
-        if (non_compliant_key_.is_valid())
+        if (non_compliant_key_.is_valid()) {
             compliance.print_key_string(non_compliant_key_.value(),
                                          non_compliant_reason_.value());
+        }
         compliance.print_key_bool("compliant", compliant_);
         compliance.close();
 
@@ -575,11 +617,13 @@ public:
                     else if (pk.match("extensions")) {
                         cbor::array arr{d};
                         while (d.is_not_empty() && !cbor::is_break(d)) {
-                            if (msg.extensions_count_ < MAX_EXTENSIONS)
+                            if (msg.extensions_count_ < MAX_EXTENSIONS) {
                                 msg.extensions_[msg.extensions_count_++] =
                                     cbor::text_string::decode(d);
-                            else
+                            }
+                            else {
                                 cbor::skip_cbor_value(d);
+                            }
                         }
                         arr.close();
                     }
@@ -589,7 +633,7 @@ public:
                     else if (pk.match("supported_group")) {
                         msg.supported_group_ = cbor::text_string::decode(d);
                     }
-                    else cbor::skip_cbor_value(d);
+                    else { cbor::skip_cbor_value(d); }
                 }
                 params.close();
             }

@@ -1355,8 +1355,8 @@ namespace snmp {
             };
             datum d{v2c_get, v2c_get + sizeof(v2c_get)};
             snmp::packet pkt{d};
-            if (pkt.check_credential_exposure() != exposed_creds_type::plaintext_password) return false;
-            if (!pkt.get_auth_method().match("community")) return false;
+            if (pkt.check_credential_exposure() != exposed_creds_type::plaintext_password) { return false; }
+            if (!pkt.get_auth_method().match("community")) { return false; }
         }
 
         return true;

@@ -689,8 +689,8 @@ namespace redis{
         {
             datum d{"*3\r\n$4\r\nAUTH\r\n$5\r\nadmin\r\n$8\r\npassword\r\n"};
             redis::request req{d};
-            if (req.check_credential_exposure() != exposed_creds_type::plaintext_password) return false;
-            if (!req.get_username().match("admin")) return false;
+            if (req.check_credential_exposure() != exposed_creds_type::plaintext_password) { return false; }
+            if (!req.get_username().match("admin")) { return false; }
         }
 
         return true;

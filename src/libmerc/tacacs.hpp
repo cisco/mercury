@@ -600,11 +600,11 @@ namespace tacacs {
             datum d{ref_dat_1, ref_dat_1 + sizeof(ref_dat_1)};
             tacacs::packet pkt{d};
             if (pkt.check_credential_exposure() != exposed_creds_type::plaintext_password) {
-                if (output) fprintf(output, "  FAIL: tacacs cred type != plaintext_password\n");
+                if (output) { fprintf(output, "  FAIL: tacacs cred type != plaintext_password\n"); }
                 passed = false;
             }
             if (!pkt.get_auth_method().match("ASCII")) {
-                if (output) fprintf(output, "  FAIL: tacacs auth_method != ASCII\n");
+                if (output) { fprintf(output, "  FAIL: tacacs auth_method != ASCII\n"); }
                 passed = false;
             }
         }

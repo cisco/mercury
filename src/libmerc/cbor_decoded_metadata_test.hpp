@@ -15,9 +15,9 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
     auto report = [&](const char *name, bool pass) {
         if (!pass) {
             all_passed = false;
-            if (f) fprintf(f, "  FAIL: %s\n", name);
+            if (f) { fprintf(f, "  FAIL: %s\n", name); }
         } else {
-            if (f) fprintf(f, "  pass: %s\n", name);
+            if (f) { fprintf(f, "  pass: %s\n", name); }
         }
     };
 

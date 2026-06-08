@@ -664,7 +664,7 @@ namespace cbor {
                     if (ai == 31) {
                         while (d.is_not_empty() && !is_break(d)) {
                             skip_cbor_value(d);
-                            if (d.is_null()) return;
+                            if (d.is_null()) { return; }
                         }
                         read_break(d);
                     } else {
@@ -674,10 +674,10 @@ namespace cbor {
                         else if (ai == 25) { count = encoded<uint16_t>{d}.value(); }
                         else if (ai == 26) { count = encoded<uint32_t>{d}.value(); }
                         else if (ai == 27) { count = encoded<uint64_t>{d}.value(); }
-                        if (d.is_null()) return;
+                        if (d.is_null()) { return; }
                         for (uint64_t i = 0; i < count; i++) {
                             skip_cbor_value(d);
-                            if (d.is_null()) return;
+                            if (d.is_null()) { return; }
                         }
                     }
                 }
@@ -689,9 +689,9 @@ namespace cbor {
                     if (ai == 31) {
                         while (d.is_not_empty() && !is_break(d)) {
                             skip_cbor_value(d);  // key
-                            if (d.is_null()) return;
+                            if (d.is_null()) { return; }
                             skip_cbor_value(d);  // value
-                            if (d.is_null()) return;
+                            if (d.is_null()) { return; }
                         }
                         read_break(d);
                     } else {
@@ -701,12 +701,12 @@ namespace cbor {
                         else if (ai == 25) { count = encoded<uint16_t>{d}.value(); }
                         else if (ai == 26) { count = encoded<uint32_t>{d}.value(); }
                         else if (ai == 27) { count = encoded<uint64_t>{d}.value(); }
-                        if (d.is_null()) return;
+                        if (d.is_null()) { return; }
                         for (uint64_t i = 0; i < count; i++) {
                             skip_cbor_value(d);  // key
-                            if (d.is_null()) return;
+                            if (d.is_null()) { return; }
                             skip_cbor_value(d);  // value
-                            if (d.is_null()) return;
+                            if (d.is_null()) { return; }
                         }
                     }
                 }
@@ -714,7 +714,7 @@ namespace cbor {
             case tagged_item_type:
                 {
                     tag tmp{d};
-                    if (d.is_null()) return;
+                    if (d.is_null()) { return; }
                     skip_cbor_value(d);  // tagged content
                 }
                 break;
@@ -1136,36 +1136,36 @@ namespace cbor {
         {
             uint8_t true_byte[] = {0xf5};
             datum d{true_byte, true_byte + 1};
-            if (!decode_bool(d) || d.is_null()) passed = false;
+            if (!decode_bool(d) || d.is_null()) { passed = false; }
         }
         {
             uint8_t false_byte[] = {0xf4};
             datum d{false_byte, false_byte + 1};
-            if (decode_bool(d) || d.is_null()) passed = false;
+            if (decode_bool(d) || d.is_null()) { passed = false; }
         }
         {
             uint8_t not_bool[] = {0xf6};  // null, not a bool
             datum d{not_bool, not_bool + 1};
             decode_bool(d);
-            if (!d.is_null()) passed = false;  // should set null
+            if (!d.is_null()) { passed = false; }  // should set null
         }
 
         // uint64::is_valid tests
         {
             cbor::uint64 default_val;
-            if (default_val.is_valid()) passed = false;
+            if (default_val.is_valid()) { passed = false; }
         }
         {
             uint8_t valid_uint[] = {0x18, 0x2a};  // uint 42
             datum d{valid_uint, valid_uint + 2};
             cbor::uint64 val{d};
-            if (!val.is_valid() || val.value() != 42) passed = false;
+            if (!val.is_valid() || val.value() != 42) { passed = false; }
         }
         {
             uint8_t wrong_type[] = {0x61, 0x41};  // text string "A"
             datum d{wrong_type, wrong_type + 2};
             cbor::uint64 val{d};
-            if (val.is_valid()) passed = false;
+            if (val.is_valid()) { passed = false; }
         }
 
         // skip_cbor_value tests
@@ -1174,63 +1174,63 @@ namespace cbor {
             uint8_t data[] = {0x18, 0x2a, 0xf5};  // uint 42, then true
             datum d{data, data + 3};
             skip_cbor_value(d);
-            if (d.length() != 1 || *d.data != 0xf5) passed = false;
+            if (d.length() != 1 || *d.data != 0xf5) { passed = false; }
         }
         {
             // text string
             uint8_t data[] = {0x63, 'f', 'o', 'o', 0x18, 0x01};  // "foo", then uint 1
             datum d{data, data + 6};
             skip_cbor_value(d);
-            if (d.length() != 2) passed = false;
+            if (d.length() != 2) { passed = false; }
         }
         {
             // indefinite map
             uint8_t data[] = {0xbf, 0x61, 'a', 0x01, 0xff, 0xf5};  // {"a":1}, then true
             datum d{data, data + 6};
             skip_cbor_value(d);
-            if (d.length() != 1 || *d.data != 0xf5) passed = false;
+            if (d.length() != 1 || *d.data != 0xf5) { passed = false; }
         }
         {
             // indefinite array
             uint8_t data[] = {0x9f, 0x01, 0x02, 0xff, 0xf4};  // [1,2], then false
             datum d{data, data + 5};
             skip_cbor_value(d);
-            if (d.length() != 1 || *d.data != 0xf4) passed = false;
+            if (d.length() != 1 || *d.data != 0xf4) { passed = false; }
         }
         {
             // definite-length array: 0x83 = 3-item array, items: 0x01,0x02,0x03
             uint8_t data[] = {0x83, 0x01, 0x02, 0x03, 0xf5};
             datum d{data, data + 5};
             skip_cbor_value(d);
-            if (d.length() != 1 || *d.data != 0xf5) passed = false;
+            if (d.length() != 1 || *d.data != 0xf5) { passed = false; }
         }
         {
             // definite-length map: 0xa1 = 1-pair map, key: "a" (0x61,0x61), value: 1
             uint8_t data[] = {0xa1, 0x61, 0x61, 0x01, 0xf4};
             datum d{data, data + 5};
             skip_cbor_value(d);
-            if (d.length() != 1 || *d.data != 0xf4) passed = false;
+            if (d.length() != 1 || *d.data != 0xf4) { passed = false; }
         }
         {
             // negative integer: 0x38 0x63 = -100 (1-byte payload), then true
             uint8_t data[] = {0x38, 0x63, 0xf5};
             datum d{data, data + 3};
             skip_cbor_value(d);
-            if (d.length() != 1 || *d.data != 0xf5) passed = false;
+            if (d.length() != 1 || *d.data != 0xf5) { passed = false; }
         }
         {
             // float32: 0xfa + 4 bytes payload, then true
             uint8_t data[] = {0xfa, 0x47, 0xc3, 0x50, 0x00, 0xf5};
             datum d{data, data + 6};
             skip_cbor_value(d);
-            if (d.length() != 1 || *d.data != 0xf5) passed = false;
+            if (d.length() != 1 || *d.data != 0xf5) { passed = false; }
         }
         {
             // float16: 0xf9 + 2 bytes payload, then false
             uint8_t data[] = {0xf9, 0x3c, 0x00, 0xf4};
             datum d{data, data + 4};
             skip_cbor_value(d);
-            if (d.length() != 1 || *d.data != 0xf4) passed = false;
+            if (d.length() != 1 || *d.data != 0xf4) { passed = false; }
         }
 
         return passed;

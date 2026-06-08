@@ -434,9 +434,9 @@ struct datum {
 
     /// Case-sensitive exact match against a null-terminated string.
     bool match(const char *name) const {
-        if (name == nullptr || !is_readable()) return false;
+        if (name == nullptr || !is_readable()) { return false; }
         size_t name_len = strlen(name);
-        if (length() != (ssize_t)name_len) return false;
+        if (length() != (ssize_t)name_len) { return false; }
         return strncmp((const char *)data, name, name_len) == 0;
     }
 

@@ -249,7 +249,7 @@ namespace ftp
         {
             datum d{"PASS secretpass\r\n"};
             ftp::request req{d};
-            if (req.check_credential_exposure() != exposed_creds_type::plaintext_password) return false;
+            if (req.check_credential_exposure() != exposed_creds_type::plaintext_password) { return false; }
         }
 
         return true;
