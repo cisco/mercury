@@ -7,9 +7,7 @@
 #ifndef ALTERNATIVE_HPP
 #define ALTERNATIVE_HPP
 
-#include <iostream>
 #include <variant>
-#include <string>
 #include <utility>
 
 #include "datum.h"
