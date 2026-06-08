@@ -31,16 +31,17 @@ public:
 /// \tparam Ts Function object types that provide `operator()`.
 template<typename... Ts> struct overloaded : Ts... { using Ts::operator()...; };
 
-/// \brief Alias for \ref overloaded.
+/// \brief Shorter overload helper that supports class template argument deduction.
 /// \tparam Ts Function object types that provide `operator()`.
-template<typename... Ts> using lambda = struct overloaded<Ts...>; // : Ts... { using Ts::operator()...; };
+template<typename... Ts> struct lambda : Ts... { using Ts::operator()...; };
 
 /// \brief Deduction guide for \ref overloaded.
 /// \tparam Ts Function object types that provide `operator()`.
 template<typename... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
-
-
+/// \brief Deduction guide for \ref lambda.
+/// \tparam Ts Function object types that provide `operator()`.
+template<typename... Ts> lambda(Ts...) -> lambda<Ts...>;
 /// \brief Implements an ordered Parsing Expression Grammar (PEG) alternative.
 ///
 /// `alternative<T1, T2, ...>` attempts to parse the input as `T1`, then `T2`,
