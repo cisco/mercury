@@ -99,4 +99,36 @@ namespace {
 
 }; // end of namespace
 
+namespace mdns_unit_test {
+#ifndef NDEBUG
+    inline bool unit_test() {
+        uint8_t mdns_query[] = {
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x05, '_', 'h', 't', 't', 'p',
+            0x04, '_', 't', 'c', 'p',
+            0x05, 'l', 'o', 'c', 'a', 'l',
+            0x00, 0x00, 0x0c, 0x00, 0x01
+        };
+        datum d1{mdns_query, mdns_query + sizeof(mdns_query)};
+        mdns_packet pkt1{d1};
+        if (!pkt1.is_not_empty()) return false;
+
+        key k_mdns{};
+        k_mdns.src_port = 5353;
+        k_mdns.dst_port = 5353;
+        k_mdns.ip_vers = 4;
+        if (!mdns_packet::check_if_mdns(k_mdns)) return false;
+
+        key k_not_mdns{};
+        k_not_mdns.src_port = 53;
+        k_not_mdns.dst_port = 53;
+        k_not_mdns.ip_vers = 4;
+        k_not_mdns.addr.ipv4.dst = 0x08080808;
+        if (mdns_packet::check_if_mdns(k_not_mdns)) return false;
+
+        return true;
+    }
+#endif
+} // namespace mdns_unit_test
+
 #endif /* MDNS_H */

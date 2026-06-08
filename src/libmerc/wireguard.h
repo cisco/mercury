@@ -88,4 +88,41 @@ inline void wireguard_handshake_init::write_json(struct json_object &o, bool wri
     return json_output_fuzzer<wireguard_handshake_init>(data, size);
 }
 
+namespace wireguard_unit_test {
+#ifndef NDEBUG
+    inline bool unit_test() {
+        char buffer[512];
+
+        uint8_t valid[148] = {0};
+        valid[0] = 0x01;
+        valid[4] = 0x12; valid[5] = 0x34; valid[6] = 0x56; valid[7] = 0x78;
+        datum d1{valid, valid + sizeof(valid)};
+        wireguard_handshake_init msg1{d1};
+        if (!msg1.is_not_empty()) return false;
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_object json{&buf};
+            msg1.write_json(json, false);
+            json.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "wireguard")) return false;
+            if (!strstr(buffer, "sender_index")) return false;
+        }
+
+        uint8_t wrong_size[100] = {0};
+        wrong_size[0] = 0x01;
+        datum d2{wrong_size, wrong_size + sizeof(wrong_size)};
+        wireguard_handshake_init msg2{d2};
+        if (msg2.is_not_empty()) return false;
+
+        uint8_t too_short[] = { 0x01, 0x00, 0x00, 0x00 };
+        datum d3{too_short, too_short + sizeof(too_short)};
+        wireguard_handshake_init msg3{d3};
+        if (msg3.is_not_empty()) return false;
+
+        return true;
+    }
+#endif
+} // namespace wireguard_unit_test
+
 #endif /* WIREGUARD_H */

@@ -153,4 +153,47 @@ struct cdp {
     return json_output_fuzzer<cdp>(data, size);
 }
 
+namespace cdp_unit_test {
+
+#ifndef NDEBUG
+    inline bool unit_test() {
+        char buffer[2048];
+
+        uint8_t frame[] = {
+            0xaa, 0xaa, 0x03, 0x00, 0x00, 0x0c, 0x20, 0x00,
+            0x02, 0xb4, 0x00, 0x00,
+            0x00, 0x01, 0x00, 0x0c, 's', 'w', 'i', 't', 'c', 'h', '0', '1',
+            0x00, 0x05, 0x00, 0x08, 'v', '1', '.', '0',
+            0x00, 0x06, 0x00, 0x0a, 'C', 'i', 's', 'c', 'o', '0',
+            0x00, 0x0b, 0x00, 0x05, 0x01
+        };
+        datum d{frame, frame + sizeof(frame)};
+        class cdp pkt{d};
+        if (!pkt.is_not_empty()) return false;
+
+        buffer_stream buf{buffer, sizeof(buffer)};
+        json_object json{&buf};
+        pkt.write_json(json, false);
+        json.close();
+        buf.write_char('\0');
+        if (!strstr(buffer, "cdp")) return false;
+        if (!strstr(buffer, "device_id")) return false;
+        if (!strstr(buffer, "software_version")) return false;
+        if (!strstr(buffer, "platform")) return false;
+
+        uint8_t minimal[] = {
+            0xaa, 0xaa, 0x03, 0x00, 0x00, 0x0c, 0x20, 0x00,
+            0x02, 0x3c, 0x00, 0x00,
+            0x00, 0x01, 0x00, 0x06, 'r', '1'
+        };
+        datum d2{minimal, minimal + sizeof(minimal)};
+        class cdp pkt2{d2};
+        if (!pkt2.is_not_empty()) return false;
+
+        return true;
+    }
+#endif
+
+} // namespace cdp_unit_test
+
 #endif // CDP_H

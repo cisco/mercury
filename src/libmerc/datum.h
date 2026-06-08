@@ -355,10 +355,11 @@ struct datum {
             }
             if (*r.data == delim3) { // found third delimiter
                 data_end = r.data;
-                return delim2;
+                return delim3;
             }
             r.data++;
         }
+        data_end = r.data_end;
         return 0;
     }
     bool skip(size_t length) {
@@ -1995,7 +1996,343 @@ namespace writeable_unit_test {
 
         return result;
     }
-};
+}
+
+namespace datum_unit_test {
+
+    inline bool unit_test() {
+        uint8_t data[] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
+
+        // state tests
+        datum d{data, data + sizeof(data)};
+        if (d.length() != 8) return false;
+        if (d.is_null()) return false;
+        if (!d.is_not_null()) return false;
+        if (!d.is_not_empty()) return false;
+        if (!d.is_readable()) return false;
+
+        datum empty{data, data};
+        if (!empty.is_empty()) return false;
+        if (empty.is_not_empty()) return false;
+        if (empty.is_readable()) return false;
+        if (!empty.is_not_readable()) return false;
+
+        datum null_d{nullptr, nullptr};
+        if (!null_d.is_null()) return false;
+        if (null_d.is_not_null()) return false;
+
+        // constructors
+        datum from_str{"test"};
+        if (from_str.length() != 4) return false;
+
+        std::string str = "hello";
+        datum from_std_str{str};
+        if (from_std_str.length() != 5) return false;
+
+        std::array<uint8_t, 3> arr = {0x01, 0x02, 0x03};
+        datum from_arr{arr};
+        if (from_arr.length() != 3) return false;
+
+        // skip and trim
+        datum d2{data, data + 8};
+        if (!d2.skip(3)) return false;
+        if (d2.length() != 5) return false;
+        if (!d2.skip(5)) return false;
+        if (d2.length() != 0) return false;
+        if (d2.skip(1)) return false;
+
+        datum d3{data, data + 8};
+        d3.trim(2);
+        if (d3.length() != 6) return false;
+        d3.trim(10);
+        if (d3.length() != 0) return false;
+
+        datum d4{data, data + 8};
+        d4.trim_to_length(3);
+        if (d4.length() != 3) return false;
+
+        // comparison
+        uint8_t cmp_data[] = {0x01, 0x02, 0x03, 0x04};
+        datum a{data, data + 4};
+        datum b{cmp_data, cmp_data + 4};
+        if (a.cmp(b) != 0) return false;
+        if (!(a == b)) return false;
+        if (a != b) return false;
+
+        datum c{data, data + 3};
+        if (a.cmp(c) <= 0) return false;
+        if (!(c < a)) return false;
+
+        if (!a.matches(std::array<uint8_t, 2>{0x01, 0x02})) return false;
+        if (a.matches(std::array<uint8_t, 2>{0x02, 0x01})) return false;
+
+        datum ends{data, data + 4};
+        if (!ends.ends_with(std::array<uint8_t, 2>{0x03, 0x04})) return false;
+        if (ends.ends_with(std::array<uint8_t, 2>{0x01, 0x02})) return false;
+
+        // parse_up_to_delimiters (2 delims)
+        uint8_t delim2_data[] = "foo:bar";
+        datum delim2{delim2_data, delim2_data + 7};
+        datum r;
+        if (r.parse_up_to_delimiters(delim2, ':', ';') != ':') return false;
+        if (r.length() != 3) return false;
+
+        // parse_up_to_delimiters (3 delims)
+        uint8_t delim3_data[] = "hello:world;test!end";
+        datum delim3{delim3_data, delim3_data + 20};
+        if (r.parse_up_to_delimiters(delim3, ':', ';', '!') != ':') return false;
+        delim3.skip(1);
+        if (r.parse_up_to_delimiters(delim3, ':', ';', '!') != ';') return false;
+        delim3.skip(1);
+        if (r.parse_up_to_delimiters(delim3, ':', ';', '!') != '!') return false;
+
+        uint8_t no_delim[] = "nodelimiter";
+        datum nd{no_delim, no_delim + 11};
+        if (r.parse_up_to_delimiters(nd, ':', ';', '!') != 0) return false;
+        if (r.length() != 11) return false;
+        if (r.data != no_delim) return false;
+
+        // find_delim
+        datum fd{data, data + 8};
+        if (fd.find_delim(0x03) != 2) return false;
+        if (fd.find_delim(0xff) != -1) return false;
+
+        // case_insensitive_match
+        uint8_t upper[] = "HELLO";
+        uint8_t lower[] = "hello";
+        datum du{upper, upper + 5};
+        datum dl{lower, lower + 5};
+        if (!du.case_insensitive_match("hello")) return false;
+        if (du.case_insensitive_match("world")) return false;
+        if (du.case_insensitive_match(nullptr)) return false;
+
+        // get_string
+        datum gs{lower, lower + 5};
+        if (gs.get_string() != "hello") return false;
+
+        // operator[]
+        datum idx{data, data + 4};
+        if (idx[0] != 0x01) return false;
+        if (idx[3] != 0x04) return false;
+        if (idx[10].has_value()) return false;
+
+        // set_empty and set_null
+        datum se{data, data + 4};
+        se.set_empty();
+        if (!se.is_empty()) return false;
+        se.set_null();
+        if (!se.is_null()) return false;
+
+        // parse
+        datum src{data, data + 8};
+        datum parsed;
+        parsed.parse(src, 3);
+        if (parsed.length() != 3) return false;
+        if (src.length() != 5) return false;
+
+        datum src2{data, data + 2};
+        datum parsed2;
+        parsed2.parse(src2, 5);
+        if (!parsed2.is_null()) return false;
+        if (!src2.is_null()) return false;
+
+        // parse_soft_fail
+        datum src3{data, data + 4};
+        datum parsed3;
+        parsed3.parse_soft_fail(src3, 10);
+        if (parsed3.length() != 4) return false;
+
+        // parse_up_to_delim
+        uint8_t delim_data[] = "key=value";
+        datum dd{delim_data, delim_data + 9};
+        datum key;
+        key.parse_up_to_delim(dd, '=');
+        if (key.length() != 3) return false;
+
+        // skip_up_to_delim
+        datum sud{delim_data, delim_data + 9};
+        sud.skip_up_to_delim('=');
+        if (*sud.data != '=') return false;
+
+        // trim_leading_whitespace
+        uint8_t ws_data[] = "   hello";
+        datum ws{ws_data, ws_data + 8};
+        ws.trim_leading_whitespace();
+        if (ws.length() != 5) return false;
+
+        // trim_trail
+        uint8_t trail_data[] = "hello...";
+        datum tr{trail_data, trail_data + 8};
+        tr.trim_trail('.');
+        if (tr.length() != 5) return false;
+
+        // is_alnum
+        uint8_t alnum[] = "abc123";
+        datum an{alnum, alnum + 6};
+        if (!an.is_alnum()) return false;
+        uint8_t not_alnum[] = "abc!123";
+        datum nan{not_alnum, not_alnum + 7};
+        if (nan.is_alnum()) return false;
+
+        // isupper
+        uint8_t up[] = "ABC";
+        datum ud{up, up + 3};
+        if (!ud.isupper()) return false;
+        uint8_t low[] = "abc";
+        datum ld{low, low + 3};
+        if (ld.isupper()) return false;
+
+        // accept
+        datum acc{data, data + 4};
+        if (acc.accept(0x01)) return false;
+        if (acc.length() != 3) return false;
+        if (!acc.accept(0xff)) return false;
+        if (!acc.is_null()) return false;
+
+        // lookahead_uint8
+        datum la{data, data + 4};
+        uint8_t val;
+        la.lookahead_uint8(&val);
+        if (val != 0x01) return false;
+        if (la.length() != 4) return false;
+
+        // lookahead_uint
+        uint64_t val64;
+        if (!la.lookahead_uint(2, &val64)) return false;
+        if (val64 != 0x0102) return false;
+
+        // copy
+        char buf[10];
+        datum cp{data, data + 4};
+        if (!cp.copy(buf, 10)) return false;
+        if (buf[0] != 0x01) return false;
+
+        // strncpy
+        uint8_t str_data[] = "hello";
+        datum scp{str_data, str_data + 5};
+        char strbuf[10];
+        if (!scp.strncpy(strbuf, 10)) return false;
+        if (strcmp(strbuf, "hello") != 0) return false;
+
+        // compare
+        datum cmp_d{data, data + 4};
+        uint8_t cmp_arr[] = {0x01, 0x02, 0x03, 0x04};
+        if (cmp_d.compare(cmp_arr, 4) != 0) return false;
+
+        // compare_nbytes
+        if (!cmp_d.compare_nbytes(cmp_arr, 2)) return false;
+
+        // equals
+        if (!cmp_d.equals(std::array<uint8_t, 4>{0x01, 0x02, 0x03, 0x04})) return false;
+        if (cmp_d.equals(std::array<uint8_t, 4>{0x01, 0x02, 0x03, 0x05})) return false;
+
+        // get_bytestring
+        datum bs{data, data + 3};
+        auto bstr = bs.get_bytestring();
+        if (bstr.size() != 3) return false;
+
+        // bits_in_data
+        uint8_t bits_data[] = {0x00, 0x0f};
+        datum bd{bits_data, bits_data + 2};
+        if (bd.bits_in_data() != 4) return false;
+
+        // find_delim (multi-byte delimiter)
+        uint8_t find_mb[] = "hello\r\nworld";
+        datum fmb{find_mb, find_mb + 12};
+        uint8_t crlf[] = "\r\n";
+        int pos = fmb.find_delim(crlf, 2);
+        if (pos != 7) return false;  // position after \r\n
+        uint8_t notfound[] = "xx";
+        if (fmb.find_delim(notfound, 2) >= 0) return false;
+
+        // skip_up_to_delim (multi-byte delimiter)
+        datum smb{find_mb, find_mb + 12};
+        if (!smb.skip_up_to_delim(crlf, 2)) return false;
+        if (smb.length() != 5) return false;  // "world" remaining
+
+        // is_any_alpha
+        uint8_t alpha_data[] = "123abc";
+        datum alpha_d{alpha_data, alpha_data + 6};
+        if (!alpha_d.is_any_alpha()) return false;
+        uint8_t no_alpha[] = "12345";
+        datum no_alpha_d{no_alpha, no_alpha + 5};
+        if (no_alpha_d.is_any_alpha()) return false;
+
+        // accept_byte
+        uint8_t accept_data[] = {0x01, 0x02, 0x03};
+        datum ab{accept_data, accept_data + 3};
+        uint8_t alternatives[] = {0x01, 0x05, 0x09, 0x00};  // null-terminated
+        uint8_t accepted;
+        if (ab.accept_byte(alternatives, &accepted)) return false;  // should succeed (return false)
+        if (accepted != 0x01) return false;
+        if (ab.length() != 2) return false;
+        // now try to accept a byte not in alternatives
+        uint8_t alt2[] = {0x05, 0x09, 0x00};
+        if (!ab.accept_byte(alt2, &accepted)) return false;  // should fail (return true)
+        if (!ab.is_null()) return false;
+
+        // accept (array version)
+        uint8_t acc_arr_data[] = {0x01, 0x02, 0x03, 0x04};
+        datum acc_arr{acc_arr_data, acc_arr_data + 4};
+        acc_arr.accept(std::array<uint8_t, 2>{0x01, 0x02});
+        if (acc_arr.is_null()) return false;
+        if (acc_arr.length() != 2) return false;
+        acc_arr.accept(std::array<uint8_t, 2>{0xff, 0xff});  // should fail
+        if (!acc_arr.is_null()) return false;
+
+        // copy (unsigned char version)
+        uint8_t copy_src[] = {0x01, 0x02, 0x03, 0x04};
+        datum copy_d{copy_src, copy_src + 4};
+        unsigned char copy_dst[10];
+        if (!copy_d.copy(copy_dst, 10)) return false;
+        if (copy_dst[0] != 0x01 || copy_dst[3] != 0x04) return false;
+        // test truncation case
+        unsigned char small_dst[2];
+        if (copy_d.copy(small_dst, 2)) return false;  // should return false (truncated)
+
+        // is_printable
+        uint8_t printable[] = "Hello World!";
+        datum pr{printable, printable + 12};
+        if (!pr.is_printable()) return false;
+        uint8_t not_printable[] = {0x01, 0x02, 0x03};
+        datum npr{not_printable, not_printable + 3};
+        if (npr.is_printable()) return false;
+
+        // case_insensitive_match (datum version)
+        uint8_t cim_upper[] = "HELLO";
+        uint8_t cim_lower[] = "hello";
+        datum cim_u{cim_upper, cim_upper + 5};
+        datum cim_l{cim_lower, cim_lower + 5};
+        if (!cim_l.case_insensitive_match(cim_u)) return false;
+        uint8_t cim_diff[] = "world";
+        datum cim_d{cim_diff, cim_diff + 5};
+        if (cim_l.case_insensitive_match(cim_d)) return false;
+        // different lengths should not match
+        uint8_t cim_short[] = "hel";
+        datum cim_s{cim_short, cim_short + 3};
+        if (cim_l.case_insensitive_match(cim_s)) return false;
+
+        // begin/end/cbegin/cend iterators
+        datum iter_d{data, data + 4};
+        if (iter_d.begin() != data) return false;
+        if (iter_d.end() != data + 4) return false;
+        if (iter_d.cbegin() != data) return false;
+        if (iter_d.cend() != data + 4) return false;
+
+        // constructor from pair
+        std::pair<const uint8_t *, const uint8_t *> pair_data{data, data + 4};
+        datum from_pair{pair_data};
+        if (from_pair.length() != 4) return false;
+
+        // constructor from C array
+        uint8_t c_arr[3] = {0x01, 0x02, 0x03};
+        datum from_c_arr{c_arr};
+        if (from_c_arr.length() != 3) return false;
+
+        return true;
+    }
+
+}
 
 #endif // NDEBUG
 

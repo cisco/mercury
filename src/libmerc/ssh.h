@@ -505,4 +505,60 @@ struct ssh_init_packet : public base_protocol {
     return json_output_fuzzer<ssh_init_packet>(data, size);
 }
 
+namespace ssh_unit_test {
+#ifndef NDEBUG
+    inline bool unit_test() {
+        char buffer[4096];
+
+        // Test SSH init packet with protocol version
+        const char *ssh_banner = "SSH-2.0-OpenSSH_8.9\r\n";
+        datum d1{(const uint8_t*)ssh_banner, (const uint8_t*)ssh_banner + strlen(ssh_banner)};
+        ssh_init_packet pkt1{d1};
+        if (!pkt1.is_not_empty()) return false;
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_object json{&buf};
+            pkt1.write_json(json, true);
+            json.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "SSH-2.0")) return false;
+        }
+
+        // Test SSH init packet with comment
+        const char *ssh_banner_comment = "SSH-2.0-OpenSSH_8.9 Ubuntu-3ubuntu0.1\r\n";
+        datum d2{(const uint8_t*)ssh_banner_comment, (const uint8_t*)ssh_banner_comment + strlen(ssh_banner_comment)};
+        ssh_init_packet pkt2{d2};
+        if (!pkt2.is_not_empty()) return false;
+
+        // Test SSH binary packet structure
+        uint8_t binary_pkt[] = {
+            0x00, 0x00, 0x00, 0x1c,  // packet_length: 28
+            0x06,                    // padding_length: 6
+            0x14,                    // SSH_MSG_KEXINIT (20)
+            // 16 bytes cookie
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+            0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10,
+            // minimal name-list (empty)
+            0x00, 0x00, 0x00, 0x00
+        };
+        datum d3{binary_pkt, binary_pkt + sizeof(binary_pkt)};
+        ssh_binary_packet bin_pkt{d3};
+        if (!bin_pkt.is_not_empty()) return false;
+        if (bin_pkt.padding_length != 6) return false;
+
+        // Test invalid binary packet (length too large)
+        uint8_t bad_pkt[] = {
+            0x00, 0x01, 0x00, 0x00,  // packet_length: 65536 (too large)
+            0x06,
+            0x14
+        };
+        datum d4{bad_pkt, bad_pkt + sizeof(bad_pkt)};
+        ssh_binary_packet bad_bin_pkt{d4};
+        if (bad_bin_pkt.is_not_empty()) return false;
+
+        return true;
+    }
+#endif
+} // namespace ssh_unit_test
+
 #endif // SSH_H

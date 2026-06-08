@@ -166,4 +166,69 @@ public:
     return json_output_fuzzer<icmp_packet>(data, size);
 }
 
+namespace icmp_unit_test {
+
+#ifndef NDEBUG
+    inline bool unit_test() {
+        char buffer[1024];
+
+        // Echo Request (Type 8)
+        uint8_t echo_req[] = { 0x08, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x61, 0x62 };
+        datum d1{echo_req, echo_req + sizeof(echo_req)};
+        icmp_packet pkt1{d1};
+        if (!pkt1.is_not_empty()) return false;
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_object json{&buf};
+            pkt1.write_json(json, false);
+            json.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "echo")) return false;
+        }
+
+        // Destination Unreachable (Type 3)
+        uint8_t dest_unreach[] = { 0x03, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x45, 0x00 };
+        datum d2{dest_unreach, dest_unreach + sizeof(dest_unreach)};
+        icmp_packet pkt2{d2};
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_object json{&buf};
+            pkt2.write_json(json, false);
+            json.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "destination_unreachable")) return false;
+        }
+
+        // Packet Too Big (Type 2)
+        uint8_t pkt_too_big[] = { 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0xdc, 0x60, 0x00 };
+        datum d3{pkt_too_big, pkt_too_big + sizeof(pkt_too_big)};
+        icmp_packet pkt3{d3};
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_object json{&buf};
+            pkt3.write_json(json, false);
+            json.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "packet_too_big")) return false;
+        }
+
+        // Unknown type (falls through to hex body)
+        uint8_t unknown[] = { 0x63, 0x00, 0x00, 0x00, 0xde, 0xad };
+        datum d4{unknown, unknown + sizeof(unknown)};
+        icmp_packet pkt4{d4};
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_object json{&buf};
+            pkt4.write_json(json, false);
+            json.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "body")) return false;
+        }
+
+        return true;
+    }
+#endif
+
+} // namespace icmp_unit_test
+
 #endif // ICMP_H

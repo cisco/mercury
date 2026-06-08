@@ -136,4 +136,49 @@ public:
     return json_output_fuzzer<arp_packet>(data, size);
 }
 
+namespace arp_unit_test {
+#ifndef NDEBUG
+    inline bool unit_test() {
+        char buffer[1024];
+
+        uint8_t arp_request[] = {
+            0x00, 0x01, 0x08, 0x00, 0x06, 0x04, 0x00, 0x01,
+            0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+            0xc0, 0xa8, 0x01, 0x01,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0xc0, 0xa8, 0x01, 0x02
+        };
+        datum d1{arp_request, arp_request + sizeof(arp_request)};
+        arp_packet pkt1{d1};
+        if (!pkt1.is_valid()) return false;
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_object json{&buf};
+            pkt1.write_json(json);
+            json.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "REQUEST")) return false;
+        }
+
+        uint8_t arp_reply[] = {
+            0x00, 0x01, 0x08, 0x00, 0x06, 0x04, 0x00, 0x02,
+            0x11, 0x22, 0x33, 0x44, 0x55, 0x66,
+            0xc0, 0xa8, 0x01, 0x02,
+            0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+            0xc0, 0xa8, 0x01, 0x01
+        };
+        datum d2{arp_reply, arp_reply + sizeof(arp_reply)};
+        arp_packet pkt2{d2};
+        if (!pkt2.is_valid()) return false;
+
+        uint8_t too_short[] = { 0x00, 0x01, 0x08, 0x00 };
+        datum d3{too_short, too_short + sizeof(too_short)};
+        arp_packet pkt3{d3};
+        if (pkt3.is_valid()) return false;
+
+        return true;
+    }
+#endif
+} // namespace arp_unit_test
+
 #endif // ARP_H
