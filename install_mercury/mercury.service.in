@@ -7,8 +7,9 @@ After=network.target
 Type=simple
 WorkingDirectory=@prefix@/var/mercury/
 ExecStart=@prefix@/bin/mercury --config /etc/mercury/mercury.cfg
-StandardOutput=file:/var/log/mercury.log
-StandardError=file:/var/log/mercury.log
+SyslogIdentifier=mercury
+StandardOutput=journal
+StandardError=journal
 Restart=always
 
 [Install]

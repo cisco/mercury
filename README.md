@@ -97,6 +97,13 @@ and the output should contain 'active (running)'.  To view the log (stderr) outp
 ```
 sudo journalctl -u mercury
 ```
+Mercury's stdout and stderr are sent to the systemd journal with the identifier `mercury`; on systems where journald entries are forwarded or imported by syslog/rsyslog (as in the default RHEL/Alma logging setup), these messages will also appear in `/var/log/messages`.  To skip journald/syslog and redirect stdout and stderr directly to a file instead, run `sudo systemctl edit mercury` and add
+```
+[Service]
+StandardOutput=append:/var/log/mercury.log
+StandardError=append:/var/log/mercury.log
+```
+then `sudo systemctl restart mercury`.  Note that Mercury's JSON output files are written under the working directory (`/usr/local/var/mercury` by default) and are not affected by these settings.
 
 To uninstall mercury, run
 ```
