@@ -80,7 +80,7 @@ $(BIN)/cert_analyze: $(call objects,src/cert_analyze.cc src/libmerc/asn1/oid.cc)
 	$(LINK)
 
 # classify — protocol classifier using libmerc.a
-$(BIN)/classify: LDLIBS := -lcrypto -lz
+$(BIN)/classify: LDLIBS := -pthread -lcrypto -lz
 $(BIN)/classify: $(call objects,src/classify.cpp) $(LIB)/libmerc.a
 	$(LINK)
 

@@ -7,6 +7,7 @@
 #include <vector>
 #include <unordered_map>
 #include "watchlist.hpp"
+#include "printf_err.h"
 
 /// data type used in floating point computations
 ///

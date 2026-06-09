@@ -11,6 +11,7 @@
 #include <stdbool.h>
 #include <algorithm>
 #include "libmerc.h"
+#include "printf_err.h"
 #include "json_object.h"
 #include "addr.h"
 #include "fingerprint.h"

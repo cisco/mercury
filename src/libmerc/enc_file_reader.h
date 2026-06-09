@@ -20,11 +20,8 @@
 typedef SSIZE_T ssize_t;
 #endif
 
-#ifdef DONT_USE_STDERR
 #include "libmerc.h"
-#else
-#define printf_err(level, ...) fprintf(stderr, __VA_ARGS__)
-#endif
+#include "printf_err.h"
 
 // The encrypted_file class decrypts and reads files that are
 // encrypted in AES-128-CBC mode, with the Initialization Vector (IV)

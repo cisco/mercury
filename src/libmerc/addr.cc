@@ -13,6 +13,7 @@
 #include <unordered_map>
 #include "addr.h"
 #include "archive.h"
+#include "printf_err.h"
 #include "datum.h"  // for ntoh()
 #include "ipv6_lctrie.h"
 #include "ip_address.hpp"

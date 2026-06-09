@@ -18,6 +18,7 @@
 #include "utils.h"
 #include "asn1/oid.h"
 #include "time.hpp"
+#include "printf_err.h"
 
 static constexpr const char *oid_empty_string = oid::oid_empty_string;
 

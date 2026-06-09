@@ -26,11 +26,8 @@
 #include "enc_file_reader.h"
 #include "datum.h"
 
-#ifdef DONT_USE_STDERR
 #include "libmerc.h"
-#else
-#define printf_err(level, ...) fprintf(stderr, __VA_ARGS__)
-#endif
+#include "printf_err.h"
 
 // for debugging
 //

@@ -16,6 +16,7 @@
 #include "addr.h"
 #include "result.h"
 #include "dict.h"
+#include "printf_err.h"
 
 #include <mutex>
 #include <shared_mutex>

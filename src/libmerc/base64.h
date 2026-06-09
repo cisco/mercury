@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstring>
 #include <stdexcept>
+#include "printf_err.h"
 
 inline std::string hex_encode(const unsigned char *src, size_t len) {
     char hex_table[] =

@@ -65,29 +65,20 @@ extern "C"
 #endif
 typedef int (*printf_err_ptr)(enum log_level level, const char *format, va_list args);
 
-#ifdef DONT_USE_STDERR
-int printf_err(enum log_level level, const char *format, ...);
-#else
-#define printf_err(level, ...) fprintf(stderr, __VA_ARGS__)
-#endif
-
 // register_printf_err_callback() registers a callback function for
-// printing error messages with a printf-style function.  The function
-// int printf_err_func() in err.cc provides an example of how to
-// construct such a function using a standard C va_list.
+// printing error messages with a printf-style function.
 //
 // If the callback argument passed to this function is null, then no
 // error messages will be output.  (That is, the callback is set to a
 // function that ignores its arguments and generates no output.)
 //
+// When no callback has been registered, libmerc's default
+// implementation writes log messages to stderr.
+//
 #ifdef __cplusplus
 extern "C" LIBMERC_DLL_EXPORTED
 #endif
 void register_printf_err_callback(printf_err_ptr callback);
-
-// printf_err() should be called to invoke the callback function
-//
-//extern printf_err_ptr printf_err;  // defined in libmerc.cc
 
 //
 // start of libmerc version 1 API
