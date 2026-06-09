@@ -116,4 +116,41 @@ public:
     return json_output_fuzzer<esp>(data, size);
 }
 
+namespace esp_unit_test {
+#ifndef NDEBUG
+    inline bool unit_test() {
+        char buffer[2048];
+
+        uint8_t esp_first[] = {
+            0x12, 0x34, 0x56, 0x78,
+            0x00, 0x00, 0x00, 0x01,
+            0xde, 0xad, 0xbe, 0xef, 0x01, 0x02, 0x03, 0x04
+        };
+        datum d1{esp_first, esp_first + sizeof(esp_first)};
+        esp pkt1{d1};
+        if (!pkt1.is_not_empty()) return false;
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_object json{&buf};
+            pkt1.write_json(json, true);
+            json.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "12345678")) return false;
+        }
+
+        uint8_t esp_not_first[] = { 0x12, 0x34, 0x56, 0x78, 0x00, 0x00, 0x00, 0x02, 0xde, 0xad, 0xbe, 0xef };
+        datum d2{esp_not_first, esp_not_first + sizeof(esp_not_first)};
+        esp pkt2{d2};
+        if (pkt2.is_not_empty()) return false;
+
+        uint8_t non_esp[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xde, 0xad, 0xbe, 0xef };
+        datum d3{non_esp, non_esp + sizeof(non_esp)};
+        esp pkt3{d3};
+        if (pkt3.is_not_empty()) return false;
+
+        return true;
+    }
+#endif
+} // namespace esp_unit_test
+
 #endif // ESP_H

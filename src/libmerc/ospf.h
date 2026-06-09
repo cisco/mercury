@@ -122,4 +122,61 @@ public:
     return json_output_fuzzer<ospf>(data, size);
 }
 
+namespace ospf_unit_test {
+#ifndef NDEBUG
+    inline bool unit_test() {
+        char buffer[1024];
+
+        uint8_t hello[] = {
+            0x02, 0x01, 0x00, 0x1c,
+            0x01, 0x01, 0x01, 0x01,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0xde, 0xad, 0xbe, 0xef
+        };
+        datum d1{hello, hello + sizeof(hello)};
+        class ospf msg1{d1};
+        if (!msg1.is_not_empty()) return false;
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_object json{&buf};
+            msg1.write_json(json, false);
+            json.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "ospf")) return false;
+            if (!strstr(buffer, "hello")) return false;
+            if (!strstr(buffer, "router_id")) return false;
+        }
+
+        uint8_t db_desc[] = {
+            0x02, 0x02, 0x00, 0x20,
+            0x02, 0x02, 0x02, 0x02,
+            0x00, 0x00, 0x00, 0x01,
+            0x00, 0x00, 0x00, 0x02,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08
+        };
+        datum d2{db_desc, db_desc + sizeof(db_desc)};
+        class ospf msg2{d2};
+        if (!msg2.is_not_empty()) return false;
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_object json{&buf};
+            msg2.write_json(json, false);
+            json.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "database_description")) return false;
+        }
+
+        uint8_t too_short[] = { 0x02, 0x01, 0x00, 0x10 };
+        datum d3{too_short, too_short + sizeof(too_short)};
+        class ospf msg3{d3};
+        if (msg3.is_not_empty()) return false;
+
+        return true;
+    }
+#endif
+} // namespace ospf_unit_test
+
 #endif // OSPF_H

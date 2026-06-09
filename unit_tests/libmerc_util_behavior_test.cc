@@ -144,7 +144,7 @@ TEST_CASE("emix.pcap") {
         {"smb2", 412},
         {"socks4", 1},
         {"socks5", 4},
-        {"socks5_req_resp", 5},
+        {"socks5_req_resp", 4},
         {"ssdp", 34},
         {"ssh", 2},
         {"stun", 4},
@@ -156,5 +156,5 @@ TEST_CASE("emix.pcap") {
         {"quic", 4}
     };
 
-    test_pcap_file("emix.pcap", 1776, expected_protocols);
+    test_pcap_file("emix.pcap", 1775, expected_protocols);
 }

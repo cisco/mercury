@@ -86,7 +86,7 @@ namespace stun {
                 }
                 break;
             case ipv6:
-                if (address.length() == 4) {
+                if (address.length() == 16) {
                     o.print_key_ipv6_addr("address", address.data);
                 }
                 break;
@@ -1037,17 +1037,34 @@ namespace stun {
 
     };
 
-    /// \brief unit test for stun message parsing, verifying that
-    /// non-STUN packets with invalid classic message types are
-    /// correctly rejected
-    ///
-    [[maybe_unused]] static bool unit_test() {
+} // namespace stun
+
+[[maybe_unused]] static int stun_fuzz_test(const uint8_t *data, size_t size) {
+    struct datum request_data{data, data+size};
+    char buffer_1[8192];
+    struct buffer_stream buf_json(buffer_1, sizeof(buffer_1));
+    struct json_object record(&buf_json);
+
+    stun::message stun_msg{request_data};
+    if (stun_msg.is_not_empty()) {
+        stun_msg.write_json(record, true);
+        // TODO: test fingerprint
+    }
+
+    return 0;
+}
+
+namespace stun_unit_test {
+#ifndef NDEBUG
+    inline bool unit_test() {
+        char buffer[4096];
+
+        // False positive rejection tests (from stun::message::unit_test)
 
         // false positive: a non-STUN packet with method 0x0501
         // (message_type_field 0x1401), no magic cookie, and a body
         // that contains bytes parseable as a STUN attribute; this
         // must be rejected
-        //
         const uint8_t non_stun_unknown_method[] = {
             0x14, 0x01,                         // message_type_field (method 0x0501, class request)
             0x00, 0x08,                         // message_length = 8
@@ -1060,14 +1077,11 @@ namespace stun {
             0x00, 0x04,                         // attribute length: 4
             0x00, 0x01, 0x7f, 0x01              // attribute value
         };
-        datum d1{non_stun_unknown_method, non_stun_unknown_method + sizeof(non_stun_unknown_method)};
-        stun::message msg1{d1};
-        if (msg1.is_not_empty()) {
-            return false;  // must be rejected
-        }
+        datum fp1{non_stun_unknown_method, non_stun_unknown_method + sizeof(non_stun_unknown_method)};
+        stun::message fp_msg1{fp1};
+        if (fp_msg1.is_not_empty()) return false;  // must be rejected
 
         // false positive: same unknown method with an empty body
-        //
         const uint8_t non_stun_unknown_method_empty[] = {
             0x14, 0x01,                         // message_type_field (method 0x0501, class request)
             0x00, 0x00,                         // message_length = 0
@@ -1076,15 +1090,12 @@ namespace stun {
             0x09, 0x0a, 0x0b, 0x0c,
             0x0d, 0x0e, 0x0f, 0x10
         };
-        datum d2{non_stun_unknown_method_empty, non_stun_unknown_method_empty + sizeof(non_stun_unknown_method_empty)};
-        stun::message msg2{d2};
-        if (msg2.is_not_empty()) {
-            return false;  // must be rejected
-        }
+        datum fp2{non_stun_unknown_method_empty, non_stun_unknown_method_empty + sizeof(non_stun_unknown_method_empty)};
+        stun::message fp_msg2{fp2};
+        if (fp_msg2.is_not_empty()) return false;  // must be rejected
 
         // true positive: classic STUN Binding Request with no magic
         // cookie and an empty body
-        //
         const uint8_t classic_binding_request[] = {
             0x00, 0x01,                         // Binding Request
             0x00, 0x00,                         // message_length = 0
@@ -1093,14 +1104,11 @@ namespace stun {
             0x09, 0x0a, 0x0b, 0x0c,
             0x0d, 0x0e, 0x0f, 0x10
         };
-        datum d3{classic_binding_request, classic_binding_request + sizeof(classic_binding_request)};
-        stun::message msg3{d3};
-        if (!msg3.is_not_empty()) {
-            return false;  // must be accepted
-        }
+        datum tp1{classic_binding_request, classic_binding_request + sizeof(classic_binding_request)};
+        stun::message tp_msg1{tp1};
+        if (!tp_msg1.is_not_empty()) return false;  // must be accepted
 
         // true positive: modern STUN Binding Request with magic cookie
-        //
         const uint8_t modern_binding_request[] = {
             0x00, 0x01,                         // Binding Request
             0x00, 0x00,                         // message_length = 0
@@ -1109,15 +1117,12 @@ namespace stun {
             0x05, 0x06, 0x07, 0x08,
             0x09, 0x0a, 0x0b, 0x0c
         };
-        datum d4{modern_binding_request, modern_binding_request + sizeof(modern_binding_request)};
-        stun::message msg4{d4};
-        if (!msg4.is_not_empty()) {
-            return false;  // must be accepted
-        }
+        datum tp2{modern_binding_request, modern_binding_request + sizeof(modern_binding_request)};
+        stun::message tp_msg2{tp2};
+        if (!tp_msg2.is_not_empty()) return false;  // must be accepted
 
         // true positive: classic STUN Binding Request with a valid
         // MAPPED_ADDRESS attribute in the body
-        //
         const uint8_t classic_binding_with_attr[] = {
             0x00, 0x01,                         // Binding Request
             0x00, 0x08,                         // message_length = 8
@@ -1130,33 +1135,143 @@ namespace stun {
             0x00, 0x04,                         // attribute length: 4
             0x00, 0x01, 0x7f, 0x01              // attribute value
         };
-        datum d5{classic_binding_with_attr, classic_binding_with_attr + sizeof(classic_binding_with_attr)};
+        datum tp3{classic_binding_with_attr, classic_binding_with_attr + sizeof(classic_binding_with_attr)};
+        stun::message tp_msg3{tp3};
+        if (!tp_msg3.is_not_empty()) return false;  // must be accepted
+
+        // JSON output and attribute parsing tests
+
+        uint8_t binding_req[] = {
+            0x00, 0x01, 0x00, 0x08,
+            0x21, 0x12, 0xa4, 0x42,
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+            0x09, 0x0a, 0x0b, 0x0c,
+            0x00, 0x06, 0x00, 0x04,
+            't', 'e', 's', 't'
+        };
+        datum d1{binding_req, binding_req + sizeof(binding_req)};
+        stun::message msg1{d1};
+        if (!msg1.is_not_empty()) return false;
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_object json{&buf};
+            msg1.write_json(json, false);
+            json.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "stun")) return false;
+        }
+
+        uint8_t binding_resp_ipv4[] = {
+            0x01, 0x01, 0x00, 0x0c,
+            0x21, 0x12, 0xa4, 0x42,
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+            0x09, 0x0a, 0x0b, 0x0c,
+            0x00, 0x01, 0x00, 0x08,
+            0x00, 0x01, 0x00, 0x50,
+            0xc0, 0xa8, 0x01, 0x01
+        };
+        datum d2{binding_resp_ipv4, binding_resp_ipv4 + sizeof(binding_resp_ipv4)};
+        stun::message msg2{d2};
+        if (!msg2.is_not_empty()) return false;
+
+        uint8_t xor_mapped_ipv4[] = {
+            0x01, 0x01, 0x00, 0x0c,
+            0x21, 0x12, 0xa4, 0x42,
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+            0x09, 0x0a, 0x0b, 0x0c,
+            0x00, 0x20, 0x00, 0x08,
+            0x00, 0x01, 0x21, 0x62,
+            0xe1, 0xba, 0xa5, 0x43
+        };
+        datum d3{xor_mapped_ipv4, xor_mapped_ipv4 + sizeof(xor_mapped_ipv4)};
+        stun::message msg3{d3};
+        if (!msg3.is_not_empty()) return false;
+
+        uint8_t error_code[] = {
+            0x01, 0x11, 0x00, 0x0c,
+            0x21, 0x12, 0xa4, 0x42,
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+            0x09, 0x0a, 0x0b, 0x0c,
+            0x00, 0x09, 0x00, 0x08,
+            0x00, 0x00, 0x04, 0x01,
+            'f', 'a', 'i', 'l'
+        };
+        datum d4{error_code, error_code + sizeof(error_code)};
+        stun::message msg4{d4};
+        if (!msg4.is_not_empty()) return false;
+
+        uint8_t software[] = {
+            0x01, 0x01, 0x00, 0x0c,
+            0x21, 0x12, 0xa4, 0x42,
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+            0x09, 0x0a, 0x0b, 0x0c,
+            0x80, 0x22, 0x00, 0x06,
+            't', 'e', 's', 't', 'S', 'W', 0x00, 0x00
+        };
+        datum d5{software, software + sizeof(software)};
         stun::message msg5{d5};
-        if (!msg5.is_not_empty()) {
-            return false;  // must be accepted
+        if (!msg5.is_not_empty()) return false;
+
+        uint8_t fingerprint[] = {
+            0x01, 0x01, 0x00, 0x08,
+            0x21, 0x12, 0xa4, 0x42,
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+            0x09, 0x0a, 0x0b, 0x0c,
+            0x80, 0x28, 0x00, 0x04,
+            0xde, 0xad, 0xbe, 0xef
+        };
+        datum d6{fingerprint, fingerprint + sizeof(fingerprint)};
+        stun::message msg6{d6};
+        if (!msg6.is_not_empty()) return false;
+
+        uint8_t mapped_ipv6[] = {
+            0x01, 0x01, 0x00, 0x18,
+            0x21, 0x12, 0xa4, 0x42,
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+            0x09, 0x0a, 0x0b, 0x0c,
+            0x00, 0x01, 0x00, 0x14,
+            0x00, 0x02, 0x00, 0x50,
+            0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
+        };
+        datum d7{mapped_ipv6, mapped_ipv6 + sizeof(mapped_ipv6)};
+        stun::message msg7{d7};
+        if (!msg7.is_not_empty()) return false;
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_object json{&buf};
+            msg7.write_json(json, false);
+            json.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "2001:db8::1")) return false;
+        }
+
+        uint8_t xor_mapped_ipv6[] = {
+            0x01, 0x01, 0x00, 0x18,
+            0x21, 0x12, 0xa4, 0x42,
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+            0x09, 0x0a, 0x0b, 0x0c,
+            0x00, 0x20, 0x00, 0x14,
+            0x00, 0x02, 0x21, 0x62,
+            0x01, 0x13, 0xa9, 0xfa, 0x01, 0x02, 0x03, 0x04,
+            0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c
+        };
+        datum d8{xor_mapped_ipv6, xor_mapped_ipv6 + sizeof(xor_mapped_ipv6)};
+        stun::message msg8{d8};
+        if (!msg8.is_not_empty()) return false;
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_object json{&buf};
+            msg8.write_json(json, false);
+            json.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "\"family\":\"ipv6\"")) return false;
         }
 
         return true;
     }
-
-} // namespace stun
-
-[[maybe_unused]] static int stun_fuzz_test(const uint8_t *data, size_t size) {
-    struct datum request_data{data, data+size};
-    char buffer_1[8192];
-    struct buffer_stream buf_json(buffer_1, sizeof(buffer_1));
-    char buffer_2[8192];
-    struct buffer_stream buf_fp(buffer_2, sizeof(buffer_2));
-    struct json_object record(&buf_json);
-
-    stun::message stun_msg{request_data};
-    if (stun_msg.is_not_empty()) {
-        stun_msg.write_json(record, true);
-        // TODO: test fingerprint
-    }
-
-    return 0;
-}
+#endif
+} // namespace stun_unit_test
 
 // STUN implementation notes
 //
