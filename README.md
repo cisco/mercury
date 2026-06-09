@@ -93,7 +93,7 @@ The easiest way to run mercury in capture mode is using systemd; the OS automati
 ```
 systemctl status mercury
 ```
-and the output should contain 'active (running)'.  To view the log (stderr) output from the mercury unit, run
+and the output should contain 'active (running)'.  To view the log output (mostly stderr) from the mercury unit, run
 ```
 sudo journalctl -u mercury
 ```
@@ -101,7 +101,7 @@ Mercury's stdout and stderr are sent to the systemd journal with the identifier 
 ```
 [Service]
 StandardOutput=append:/var/log/mercury.log
-StandardError=append:/var/log/mercury.log
+StandardError=inherit
 ```
 then `sudo systemctl restart mercury`.  Note that Mercury's JSON output files are written under the working directory (`/usr/local/var/mercury` by default) and are not affected by these settings.
 
