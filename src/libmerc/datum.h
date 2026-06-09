@@ -31,6 +31,7 @@ typedef SSIZE_T ssize_t;
 #include "bytestring.h"
 #include "buffer_stream.h"
 #include <optional>
+#include <utility>
 
 /// `mercury_debug` is a compile-time option that turns on debugging output
 ///
