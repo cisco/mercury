@@ -796,4 +796,65 @@ public:
 
 };
 
+#ifndef NDEBUG
+namespace naive_bayes_unit_test {
+
+inline bool unit_test() {
+    // update class tests
+    update u1{0, 1.5};
+    update u2{0, 1.5};
+    update u3{1, 1.5};
+    update u4{0, 2.5};
+    if (!(u1 == u2)) return false;
+    if (u1 == u3) return false;
+    if (u1 == u4) return false;
+
+    // feature class tests
+    feature<uint32_t> feat{"test_feature", 1.0};
+    if (feat.json_name != "test_feature") return false;
+    if (feat.weight != 1.0) return false;
+    if (!feat.updates.empty()) return false;
+
+    feature<std::string> sf{"string_feature", 2.0};
+    if (sf.weight != 2.0) return false;
+    if (sf.json_name != "string_feature") return false;
+
+    feature<uint16_t> pf{"port_feature", 0.5};
+    if (pf.weight != 0.5) return false;
+
+    // feature_weights tests
+    feature_weights w{1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+    if (w.sum() != 6.0) return false;
+    if (!w.is_initialized()) return false;
+
+    feature_weights w2{2.0, 3.0, 1.0, 0.5, 0.5, 1.0};
+    if (w2.sum() != 8.0) return false;
+    if (w2.as != 2.0) return false;
+    if (w2.domain != 3.0) return false;
+    if (w2.port != 1.0) return false;
+    if (w2.ip != 0.5) return false;
+    if (w2.sni != 0.5) return false;
+    if (w2.ua != 1.0) return false;
+
+    feature_weights w3{};
+    if (w3.is_initialized()) return false;
+
+    // domain_name_model::get_tld_domain_name tests
+    if (domain_name_model::get_tld_domain_name("www.example.com") != "example.com") return false;
+    if (domain_name_model::get_tld_domain_name("s3.amazonaws.com") != "amazonaws.com") return false;
+    if (domain_name_model::get_tld_domain_name("deep.sub.domain.test.org") != "test.org") return false;
+    if (domain_name_model::get_tld_domain_name("example.com") != "example.com") return false;
+    if (domain_name_model::get_tld_domain_name("localhost") != "localhost") return false;
+
+    // ip_addr_feature tests
+    ip_addr_feature ipf{"dst_ip", 1.0};
+    if (ipf.json_name != "dst_ip") return false;
+    if (ipf.weight != 1.0) return false;
+
+    return true;
+}
+
+}
+#endif
+
 #endif // NAIVE_BAYES_HPP

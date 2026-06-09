@@ -10,6 +10,7 @@
 
 #include <stdio.h>
 #include <math.h>
+#include <string.h>
 #include <algorithm>
 #include <stdexcept>
 #include <assert.h>
@@ -41,7 +42,11 @@
 /// comparison operator for os_information
 ///
 [[maybe_unused]] static bool operator==(const os_information &lhs, const os_information &rhs) {
-    return lhs.os_name == rhs.os_name
+    if (lhs.os_name == nullptr || rhs.os_name == nullptr) {
+        return lhs.os_name == rhs.os_name
+            && lhs.os_prevalence == rhs.os_prevalence;
+    }
+    return strcmp(lhs.os_name, rhs.os_name) == 0
         && lhs.os_prevalence == rhs.os_prevalence;
 }
 
@@ -1245,5 +1250,61 @@ inline std::string get_domain_name(char* server_name) {
     return out_domain;
 }
 
+#ifndef NDEBUG
+namespace analysis_unit_test {
+
+inline bool unit_test() {
+    // get_domain_name tests
+    char t1[] = "www.example.com";
+    if (get_domain_name(t1) != "example.com") return false;
+
+    char t2[] = "sub.domain.example.org";
+    if (get_domain_name(t2) != "example.org") return false;
+
+    char t3[] = "single";
+    if (get_domain_name(t3) != "") return false;
+
+    char t4[] = "deep.nested.sub.domain.test.io";
+    if (get_domain_name(t4) != "test.io") return false;
+
+    char t5[] = "";
+    if (get_domain_name(t5) != "") return false;
+
+    // classifier::fp_str_is_tls tests
+    if (!classifier::fp_str_is_tls("tls/1/(0301)")) return false;
+    if (!classifier::fp_str_is_tls("tls/2/(0303)")) return false;
+    if (!classifier::fp_str_is_tls("tls/")) return false;
+    if (classifier::fp_str_is_tls("tls")) return false;
+    if (classifier::fp_str_is_tls("http/1.1")) return false;
+    if (classifier::fp_str_is_tls("quic/")) return false;
+    if (classifier::fp_str_is_tls(nullptr)) return false;
+    if (classifier::fp_str_is_tls("")) return false;
+    if (classifier::fp_str_is_tls("TLS/")) return false;
+
+    // os_information equality tests
+    char os1_name[] = "Windows";
+    char os2_name[] = "Windows";
+    char os3_name[] = "Linux";
+    char os4_name[] = "Windows";
+    os_information os1{os1_name, 50};
+    os_information os2{os2_name, 50};
+    os_information os3{os3_name, 30};
+    os_information os4{os4_name, 30};
+    os_information null_os1{nullptr, 50};
+    os_information null_os2{nullptr, 50};
+    os_information null_os3{nullptr, 30};
+    if (!(os1 == os2)) return false;
+    if (os1 == os3) return false;
+    if (os1 == os4) return false;
+    if (!(null_os1 == null_os2)) return false;
+    if (null_os1 == os1) return false;
+    if (os1 == null_os1) return false;
+    if (null_os1 == null_os3) return false;
+
+    return true;
+}
+
+}
+#endif
 
 #endif /* ANALYSIS_H */

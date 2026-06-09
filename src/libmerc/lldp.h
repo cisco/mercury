@@ -279,4 +279,51 @@ public:
     return json_output_fuzzer<lldp>(data, size);
 }
 
+namespace lldp_unit_test {
+
+#ifndef NDEBUG
+    inline bool unit_test() {
+        char buffer[2048];
+
+        uint8_t frame[] = {
+            0x02, 0x07, 0x04, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55,
+            0x04, 0x05, 0x05, 'e', 't', 'h', '0',
+            0x06, 0x02, 0x00, 0x78,
+            0x0a, 0x06, 's', 'w', 'i', 't', 'c', 'h',
+            0x0c, 0x04, 't', 'e', 's', 't',
+            0x0e, 0x04, 0x00, 0x14, 0x00, 0x10,
+            0xfe, 0x06, 0x00, 0x12, 0x0f, 0x01, 'a', 'b',
+            0x00, 0x00
+        };
+        datum d{frame, frame + sizeof(frame)};
+        class lldp pkt{d};
+        if (!pkt.is_not_empty()) return false;
+
+        buffer_stream buf{buffer, sizeof(buffer)};
+        json_object json{&buf};
+        pkt.write_json(json, false);
+        json.close();
+        buf.write_char('\0');
+        if (!strstr(buffer, "lldp")) return false;
+        if (!strstr(buffer, "chassis_id")) return false;
+        if (!strstr(buffer, "port_id")) return false;
+        if (!strstr(buffer, "ttl")) return false;
+        if (!strstr(buffer, "system_name")) return false;
+
+        uint8_t minimal[] = {
+            0x02, 0x07, 0x04, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55,
+            0x04, 0x02, 0x05, 'x',
+            0x06, 0x02, 0x00, 0x3c,
+            0x00, 0x00
+        };
+        datum d2{minimal, minimal + sizeof(minimal)};
+        class lldp pkt2{d2};
+        if (!pkt2.is_not_empty()) return false;
+
+        return true;
+    }
+#endif
+
+} // namespace lldp_unit_test
+
 #endif // LLDP_H
