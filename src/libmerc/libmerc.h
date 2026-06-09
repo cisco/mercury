@@ -60,6 +60,13 @@ enum log_level {
 // register an error-handling function that performs specialized
 // output of a formatted error message.
 //
+// A conforming callback takes a severity level, a printf-style format
+// string, and the va_list of arguments associated with the format
+// string, and writes the message to wherever the embedder chooses.
+// On success it returns the number of characters written; on failure
+// it returns a negative number.  See printf_err_func() in
+// src/libmerc/printf_err.h for a reference implementation.
+//
 #ifdef __cplusplus
 extern "C"
 #endif
