@@ -465,10 +465,10 @@ const char *mercury_get_license_string() {
 // syslog-style severity levels
 
 // register_printf_err_callback() installs the callback used by
-// printf_err() (declared inline in printf_err.h).  Passing nullptr
+// printf_err() (declared inline in printf_err.hpp).  Passing nullptr
 // silences all log output; passing a non-null callback redirects
 // messages through it.  When this function is never called the
-// default emitter (printf_err_func in printf_err.h) writes to stderr.
+// default emitter (printf_err_func in printf_err.hpp) writes to stderr.
 //
 void register_printf_err_callback(printf_err_ptr callback) {
     printf_err_callback = (callback == nullptr) ? silent_err_func : callback;
