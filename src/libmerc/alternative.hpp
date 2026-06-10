@@ -71,8 +71,9 @@ class alternative {
 
 public:
 
-    static_assert((is_datum_initializable<Types>::value && ...),
-                  "alternative<Types...> requires each type to be initializable from datum&");
+    static_assert((is_datum_initializable<Types>::value && ...) &&
+                  !(std::is_same_v<Types, nulltype> || ...),
+                  "alternative<Types...>: each type must be datum-initializable and must not be nulltype");
 
     /// \brief Variant type holding the type of the first successful
     /// parse result or \ref nulltype.
