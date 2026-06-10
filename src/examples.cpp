@@ -279,23 +279,6 @@ int main(int argc, char *argv[]) {
         vp.fprint(stdout); fputc('\n', stdout);
     }
 
-    /// \brief Define an `overloaded` visitor for `alternative<>`.
-    ///
-    auto fprint = overloaded {
-        [](const alphabetic &a) { printf("alphabetic: "); a.fprint(stdout); fputc('\n', stdout); return true; },
-        [](const numeric &a)    { printf("numeric:    "); a.fprint(stdout); fputc('\n', stdout); return true; },
-        [](const whitespace &)  { return true;  },
-        [](const nulltype &)    { return false; },
-    };
-
-    datum input{"the quick brown fox 999"};
-    while (input.is_readable()) {
-        alternative<alphabetic, numeric, whitespace> token{input};
-        if (!token.apply(fprint)) {
-            break;
-        }
-    }
-
     /// When we are not sure if a datum contains data that can be read
     /// by a class C, we can create a temporary copy of the datum and
     /// then attempt to construct an object of type C from that object.
@@ -312,6 +295,40 @@ int main(int argc, char *argv[]) {
         printf("read one or more numeric characters\n");
         num.value.fprint(stdout); fputc('\n', stdout);
         p = num.advance();
+    }
+
+    /// When a datum may contain data that can be read by more than
+    /// one class C1, C2, ..., we can use the template class
+    /// `alternative<C1,C2,...>`.  The constructor for that class tries
+    /// each class in order, stopping when a parse succeeds.
+    ///
+    /// To apply a function to the object, define an overloaded
+    /// callable object that performs the desired action on each type,
+    /// then invoke the `apply()` member function on that object.  The
+    /// callable object must include a member function for each of the
+    /// template parameter types `C1,C2,...`, as well as a member
+    /// function for `class nulltype`, which represents the case that
+    /// none of the parses succeed.
+    ///
+    /// Internally, `alternative<C1,C2,...>` contains a
+    /// `std::variant<C1,C2,...,nulltype>`.
+    ///
+    /// In the following example, we create an overloaded callable for
+    /// `alternative<alphabetic,numeric,whitespace>`.
+    ///
+    auto fprint = overloaded {
+        [](const alphabetic &a) { printf("alphabetic: "); a.fprint(stdout); fputc('\n', stdout); return true; },
+        [](const numeric &a)    { printf("numeric:    "); a.fprint(stdout); fputc('\n', stdout); return true; },
+        [](const whitespace &)  { return true;  },
+        [](const nulltype &)    { return false; },
+    };
+
+    datum input{"the quick brown fox 999"};
+    while (input.is_readable()) {
+        alternative<alphabetic, numeric, whitespace> token{input};
+        if (!token.apply(fprint)) {
+            break;
+        }
     }
 
     // Sometimes while writing or debugging a parsing class, it is
