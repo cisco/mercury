@@ -64,8 +64,8 @@ enum log_level {
 // string, and the va_list of arguments associated with the format
 // string, and writes the message to wherever the embedder chooses.
 // On success it returns the number of characters written; on failure
-// it returns a negative number.  See printf_err_func() in
-// src/libmerc/printf_err.hpp for a reference implementation.
+// it returns a negative number.  See printf_err_func() in printf_err.hpp
+// for a reference implementation.
 //
 #ifdef __cplusplus
 extern "C"
