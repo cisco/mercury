@@ -48,9 +48,8 @@ inline int silent_err_func(enum log_level, const char *, va_list) {
     return 0;
 }
 
-// Active callback; mutated by register_printf_err_callback().  C++17
-// inline variable gives one linker-merged instance per binary.
-//
+// Active callback; mutated by register_printf_err_callback().
+// C++17 inline variable yields one instance per final link unit (e.g., an executable or a shared library).
 inline printf_err_ptr printf_err_callback = printf_err_func;
 
 inline int printf_err(enum log_level level, const char *format, ...) {
