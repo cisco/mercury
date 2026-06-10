@@ -14,4 +14,4 @@ Alternative Visitor Example
 
 .. literalinclude:: ../../../src/examples.cpp
    :language: cpp
-   :lines: 281-295
+   :lines: 300-332
