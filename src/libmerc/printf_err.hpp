@@ -1,11 +1,18 @@
-// printf_err.h -- libmerc logging helper.
-//
-// Header-only printf_err() used throughout libmerc.  Routes messages
-// through the callback installed by register_printf_err_callback()
-// (see libmerc.h); defaults to stderr with a severity prefix.
+/*
+ * printf_err.hpp
+ *
+ * A C++17 header-only implementation of a log output facility,
+ * modeled after SYSLOG.  Provides printf_err(), used throughout
+ * libmerc to emit log messages.  Routes messages through the
+ * callback installed by register_printf_err_callback() (see
+ * libmerc.h); defaults to stderr with a severity prefix.
+ *
+ * Copyright (c) 2026 Cisco Systems, Inc. All rights reserved.
+ * License at https://github.com/cisco/mercury/blob/master/LICENSE
+ */
 
-#ifndef LIBMERC_PRINTF_ERR_H
-#define LIBMERC_PRINTF_ERR_H
+#ifndef LIBMERC_PRINTF_ERR_HPP
+#define LIBMERC_PRINTF_ERR_HPP
 
 #include "libmerc.h"  // for enum log_level, printf_err_ptr
 
@@ -54,4 +61,4 @@ inline int printf_err(enum log_level level, const char *format, ...) {
     return retval;
 }
 
-#endif // LIBMERC_PRINTF_ERR_H
+#endif // LIBMERC_PRINTF_ERR_HPP

@@ -21,7 +21,7 @@ typedef SSIZE_T ssize_t;
 #endif
 
 #include "libmerc.h"
-#include "printf_err.h"
+#include "printf_err.hpp"
 
 /// a 20-bit integer, stored as the least significant 20 bits of a
 /// 32-bit integer, for convenience of output

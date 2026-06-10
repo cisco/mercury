@@ -23,7 +23,7 @@ typedef uint32_t useconds_t;
 #include <algorithm>
 #include <thread>
 #include <chrono>
-#include "printf_err.h"
+#include "printf_err.hpp"
 #include <atomic>
 #include <functional>
 #include <tuple>

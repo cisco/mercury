@@ -22,7 +22,7 @@ typedef SSIZE_T ssize_t;
 #include <stdlib.h>
 #include <time.h>
 #include "libmerc.h"
-#include "printf_err.h"
+#include "printf_err.hpp"
 #include "utils.h"
 
 #ifndef _WIN32

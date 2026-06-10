@@ -27,7 +27,7 @@
 #include "datum.h"
 
 #include "libmerc.h"
-#include "printf_err.h"
+#include "printf_err.hpp"
 
 // for debugging
 //

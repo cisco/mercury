@@ -13,7 +13,7 @@
 #include "tls.h"
 #include "dtls.h"
 #include "ssh.h"
-#include "printf_err.h"
+#include "printf_err.hpp"
 
 #define MAX_CRYPTO_ASSESSMENT_TYPES 2
 

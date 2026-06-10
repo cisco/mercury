@@ -14,7 +14,7 @@
 #include "datum.h"
 #include "json_object.h"
 #include "flow_key.h"
-#include "printf_err.h"
+#include "printf_err.hpp"
 
 #ifdef _WIN32
 

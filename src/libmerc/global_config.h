@@ -2,7 +2,7 @@
 #define GLOBAL_CONFIG_H
 
 #include "libmerc.h"
-#include "printf_err.h"
+#include "printf_err.hpp"
 #include "config_generator.h"
 #include "decimal_int.hpp"
 #include <map>

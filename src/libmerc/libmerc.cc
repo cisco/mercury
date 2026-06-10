@@ -9,7 +9,7 @@
 #include <ctime>
 
 #include "libmerc.h"
-#include "printf_err.h"
+#include "printf_err.hpp"
 #include "version.h"
 #include "analysis.h"
 #include "pkt_proc.h"
