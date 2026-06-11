@@ -1,6 +1,7 @@
 #ifndef SOFTMAX_HPP
 #define SOFTMAX_HPP
 #include "result.h"
+#include "printf_err.hpp"
 #include <cmath>
 #include <type_traits>
 

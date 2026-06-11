@@ -6,6 +6,7 @@
 #include <typeinfo>
 #include <unordered_map>
 #include "libmerc.h"
+#include "printf_err.hpp"
 
 typedef struct ipv6_addr_lct {
     uint64_t a[2];
