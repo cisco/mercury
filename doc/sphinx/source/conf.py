@@ -48,5 +48,13 @@ breathe_projects = {
 }
 
 breathe_projects_source = {
-    "mercury" : ( "../../../", ["src/libmerc/datum.h", "src/libmerc/watchlist.hpp", "src/libmerc/ip_address.hpp", "src/libmerc/hex.hpp", "src/libmerc/diagnostic.hpp" ] )
+    "mercury" : ( "../../../", [
+        "src/libmerc/datum.h",
+        "src/libmerc/watchlist.hpp",
+        "src/libmerc/ip_address.hpp",
+        "src/libmerc/hex.hpp",
+        "src/libmerc/diagnostic.hpp",
+        "src/libmerc/alternative.hpp",
+        "src/examples.cpp",
+    ] )
 }

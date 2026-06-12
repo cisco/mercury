@@ -27,9 +27,11 @@ typedef SSIZE_T ssize_t;
 #include <string>
 #include <cassert>
 #include <memory>
+#include <type_traits>
 #include "bytestring.h"
 #include "buffer_stream.h"
 #include <optional>
+#include <utility>
 
 /// `mercury_debug` is a compile-time option that turns on debugging output
 ///
@@ -2832,6 +2834,16 @@ inline bool encoded<uint64_t>::unit_test() {
 
 #endif // NDEBUG
 
+/// \brief Type trait that indicates whether `T` can be initialized from `datum &`.
+///
+template <typename T, typename = void>
+struct is_datum_initializable : std::false_type {};
+
+/// \brief Specialization for types that support `T{datum &}` initialization.
+///
+template <typename T>
+struct is_datum_initializable<T, std::void_t<decltype(T{std::declval<datum &>()})>> : std::true_type {};
+
 /// `class lookahead<T>` attempts to read an element of type `T` from
 /// a datum, without modifying that datum.  If the read succeeded,
 /// then casting the lookahead object to a `bool` returns `true`;
@@ -2845,6 +2857,9 @@ inline bool encoded<uint64_t>::unit_test() {
 ///
 template <typename T>
 class lookahead {
+    static_assert(is_datum_initializable<T>::value,
+                  "T must be initializable from datum&");
+
 public:
     T value;
 private:
@@ -2894,6 +2909,9 @@ public:
 ///
 template <typename T>
 class acceptor {
+    static_assert(is_datum_initializable<T>::value,
+                  "T must be initializable from datum&");
+
 public:
     T value;       ///< the accepted value, if `valid == true`
 private:
@@ -2922,6 +2940,9 @@ public:
 ///
 template <typename T>
 class optional {
+    static_assert(is_datum_initializable<T>::value,
+                  "T must be initializable from datum&");
+
     datum tmp;
 public:
     T value;
@@ -2953,6 +2974,8 @@ public:
 //
 template <typename T>
 class ignore {
+    static_assert(is_datum_initializable<T>::value,
+                  "T must be initializable from datum&");
 
 public:
 
@@ -2974,8 +2997,7 @@ public:
 /// parses a sequence of objects of type `T` from a datum, when used in
 /// a range-based for loop.
 ///
-/// \note Objects of type `T` must be constructible from a \ref datum
-/// reference.
+/// \note Objects of type `T` must be initializable from `datum &`.
 ///
 /// The following example shows how to read four \ref
 /// encoded<uint16_t> objects from a buffer.
@@ -2995,7 +3017,8 @@ class sequence {
     datum tmp;
     T value;
 
-    static_assert(std::is_constructible_v<T, datum &>, "T must be constructible from a datum reference");
+    static_assert(is_datum_initializable<T>::value,
+                  "T must be initializable from datum&");
 
     struct iterator {
         sequence *seq;
