@@ -17,6 +17,7 @@
 #include "datum.h"
 #include "lex.h"
 #include "ip_address.hpp"
+#include "printf_err.hpp"
 
 // From Section 2.1 of RFC 1123:
 //

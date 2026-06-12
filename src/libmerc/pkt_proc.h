@@ -20,6 +20,7 @@
 #include "flow_key.h"
 #include "analysis.h"
 #include "libmerc.h"
+#include "printf_err.hpp"
 #include "stats.h"
 #include "proto_identify.h"
 #include "global_config.h"
