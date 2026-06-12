@@ -1,5 +1,22 @@
 # CHANGELOG for Mercury
 
+## VERSION 2.18.0
+* Added DTLS ClientHello reassembly via a generalized, trait-driven
+  UDP offset reassembly path reusable by any UDP protocol.
+* Unified reassembly truncation reporting across JSON, FDC, and analysis.
+* Tightened protocol validation for syslog and STUN: reject classic
+  STUN packets with unknown message types; honor the syslog ASCII
+  check and bound it to the first N bytes.
+* Optimized is_ascii() to enable compiler auto-vectorization.
+* Increased unit-test coverage for protocol parsers.
+* Fixed parse_up_to_delimiters() to set data_end when no delimiter found.
+* Fixed SCTP chunk length to uint16_t (RFC 4960) with length validation.
+* Fixed STUN IPv6 address length check (16 bytes instead of 4).
+* Fixed SOCKS5 request/response validity check and write_json_addr typo.
+* Fixed VXLAN VNI flag validation to reject packets with the flag unset.
+* Removed DONT_USE_STDERR and moved printf_err out of the public libmerc.h.
+* Send mercury systemd stdout/stderr to the journal, not the log file.
+
 ## VERSION 2.17.0
 * Enabled ARM Pointer Authentication (PAC) and Branch Target
   Identification (BTI) hardening on Linux.
