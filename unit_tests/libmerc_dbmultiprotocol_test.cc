@@ -532,41 +532,23 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test smb with analysis")
     deinitialize();
 }
 
-TEST_CASE_METHOD(LibmercTestFixture, "test PostgreSQL with resources-mp")
+TEST_CASE_FIXTURE(LibmercTestFixture, "test pgsql with analysis")
 {
+    libmerc_config config{.do_analysis = true,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"pgsql"};
+    initialize(config);
 
-    auto pgsql_check = [&](int expected_count, const struct libmerc_config &config)
-    {
-        initialize(config);
+    set_pcap("pgsql.pcap");
+    CHECK(19 == counter());
 
-        CHECK(expected_count == counter());
+    set_pcap("pgsql_db.pcap");
+    CHECK(891 == counter());
 
-        deinitialize();
-    };
+    set_pcap("top_100_fingerprints.pcap");
+    CHECK(0 == counter());
 
-    std::vector<std::pair<test_config, int>> test_set_up{
-        {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
-                .packet_filter_cfg = (char *)"pgsql"},
-             .m_pc{"pgsql.pcap"}},
-         19},
-        {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
-                .packet_filter_cfg = (char *)"pgsql"},
-             .m_pc{"pgsql_db.pcap"}},
-         891},
-        {test_config{
-             .m_lc{.do_analysis = true, .resources = resources_mp_path,
-                .packet_filter_cfg = (char *)"pgsql"},
-             .m_pc{"top_100_fingerprints.pcap"}},
-         0}
-    };
-
-    for (auto &[config, count] : test_set_up)
-    {
-        set_pcap(config.m_pc.c_str());
-        pgsql_check(count, config.m_lc);
-    }
+    deinitialize();
 }
 
 TEST_CASE_FIXTURE(LibmercTestFixture, "test iec with analysis")
