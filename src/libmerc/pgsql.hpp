@@ -8,7 +8,29 @@
 /*
  * \file pgsql.hpp
  *
- * \brief PostgreSQL protocol parser implementation and interface
+ * \brief PostgreSQL frontend/backend protocol v3 parser (TCP/5432).
+ *
+ * Wire format reference:
+ * https://www.postgresql.org/docs/current/protocol-message-formats.html
+ *
+ * Two packet shapes are parsed:
+ *
+ *   Regular (tagged) message:
+ *     +-------+----------------+-------------------+
+ *     | type  | length (BE32)  |     payload       |
+ *     +-------+----------------+-------------------+
+ *       1 B          4 B           length - 4 B
+ *   `length` includes itself but not the 1-byte tag.
+ *
+ *   "Special" first-contact packet (StartupMessage, SSL/GSS/Cancel
+ *   request): no type tag, discriminated by `tag`:
+ *     +----------------+----------------+-------------------+
+ *     | length (BE32)  |   tag (BE32)   |     payload       |
+ *     +----------------+----------------+-------------------+
+ *         4 B               4 B            length - 8 B
+ *   Reserved tags: 80877103 SSL, 80877104 GSSAPI, 80877102 Cancel.
+ *   Anything else is the protocol version => StartupMessage, whose
+ *   payload is `key\0value\0 ... \0` (empty key terminates).
  */
 #ifndef PGSQL_HPP
 #define PGSQL_HPP
@@ -16,6 +38,8 @@
 #include "json_object.h"
 #include "protocol.h"
 #include "cbor_object.hpp"
+#include "lex.h"
+#include "exposed_creds.hpp"
 
 class pgsql_msg : public base_protocol {
 
@@ -183,6 +207,8 @@ class pgsql_msg : public base_protocol {
         };
     }
 
+    /// Tagged regular pgsql message: `type | length(BE32) | payload`.
+    /// `length` includes itself but not `type`, so `msg_data` is `len-4`.
     struct pgsql_pkt {
         encoded<uint8_t> msg_type;
         encoded<uint32_t> len;
@@ -208,6 +234,53 @@ class pgsql_msg : public base_protocol {
         };
 
         bool is_valid() { return msg_data.is_not_null(); };
+
+        /// Classify the credential exposure represented by this message.
+        /// Only client password messages ('p') are considered. For SASL/GSS
+        /// exchanges and md5-hashed passwords we report a non-plaintext
+        /// type. This is a heuristic since 'p' is used for several
+        /// authentication-response sub-types without a discriminator.
+        exposed_creds_type credential_exposure() const {
+            if (msg_type.value() != 'p' || msg_data.is_null() || msg_data.is_empty()) {
+                return exposed_creds_type::none;
+            }
+            datum body = msg_data;
+            // Strip a single trailing NUL if present, since PasswordMessage is
+            // a NUL-terminated string.
+            ssize_t len = body.length();
+            if (len > 0 && body.data[len - 1] == 0) {
+                body.data_end = body.data + len - 1;
+                len--;
+            }
+            if (len <= 0) {
+                return exposed_creds_type::none;
+            }
+            // md5-hashed password: "md5" + 32 hex chars.
+            if (len == 35
+                && body.data[0] == 'm' && body.data[1] == 'd' && body.data[2] == '5') {
+                bool all_hex = true;
+                for (ssize_t i = 3; i < len; ++i) {
+                    uint8_t c = body.data[i];
+                    bool is_hex = (c >= '0' && c <= '9')
+                               || (c >= 'a' && c <= 'f')
+                               || (c >= 'A' && c <= 'F');
+                    if (!is_hex) { all_hex = false; break; }
+                }
+                if (all_hex) {
+                    return exposed_creds_type::password_derived;
+                }
+            }
+            // Heuristic: treat as plaintext password only when every byte is
+            // printable ASCII (no embedded NULs, control chars, or binary).
+            // SASL/GSS payloads are typically binary and will not match.
+            for (ssize_t i = 0; i < len; ++i) {
+                uint8_t c = body.data[i];
+                if (c < 0x20 || c > 0x7e) {
+                    return exposed_creds_type::none;
+                }
+            }
+            return exposed_creds_type::plaintext_password;
+        }
 
         void write_json(json_array &a, bool client) {
             // TODO: identify what data to report for other msg types
@@ -236,20 +309,10 @@ class pgsql_msg : public base_protocol {
                 o.close();
             }
             else if (msg_type.value() == 'S' && !client) {
-                // parameter status
-                datum param_name{};
-                datum param_value{};
-                param_name.parse_up_to_delim(msg_data, '\0');
-                if (msg_data.is_not_readable() || lookahead<encoded<uint8_t>>{msg_data}.value.value() != '\0') {
-                    return;
-                }
-                msg_data.skip(1);
-                param_value.parse_up_to_delim(msg_data, '\0');
-                if (msg_data.is_not_readable() || lookahead<encoded<uint8_t>>{msg_data}.value.value() != '\0') {
-                    return;
-                }
-                msg_data.skip(1);
-                if (param_name.is_not_null() && param_value.is_not_null() && msg_data.is_not_null()) {
+                // parameter status: param_name '\0' param_value '\0'
+                one_or_more_up_to_delimiter<'\0'> param_name{msg_data};
+                one_or_more_up_to_delimiter<'\0'> param_value{msg_data};
+                if (param_name.is_not_null() && param_value.is_not_null()) {
                     json_object o(a);
                     json_object r(o,get_server_message_code('S'));
                     r.print_key_json_string("param_type",param_name);
@@ -292,6 +355,9 @@ class pgsql_msg : public base_protocol {
 
     };
 
+    /// Untagged first-contact packet: `length(BE32) | tag(BE32) | payload`.
+    /// `tag` is one of the reserved request codes; any other value is a
+    /// protocol version and marks the packet as a StartupMessage.
     struct pgsql_special_pkt {
         encoded<uint32_t> len;
         encoded<uint32_t> tag;
@@ -328,15 +394,35 @@ class pgsql_msg : public base_protocol {
             json_object r(o, get_special_msg_type(tag.value()));
             if (startup) {
                 datum tmp = msg_data;
-                // TODO: Optionally parse PostgreSQL startup message key/value pairs into
-                // individual JSON fields instead of emitting raw msg_data.
-                if (tmp.is_not_empty()) {
-                    r.print_key_json_string("msg_data", tmp);
+                // Parse PostgreSQL startup message key/value pairs (each terminated
+                // by NUL; sequence terminated by an empty key i.e. an extra NUL).
+                json_object params(r, "parameters");
+                bool any_kv = false;
+                while (tmp.is_not_empty()) {
+                    // Detect terminating NUL (empty key) - end of parameter list.
+                    if (lookahead<encoded<uint8_t>>{tmp}.value.value() == 0) {
+                        tmp.skip(1);
+                        break;
+                    }
+                    one_or_more_up_to_delimiter<'\0'> key{tmp};
+                    one_or_more_up_to_delimiter<'\0'> value{tmp};
+                    if (key.is_null() || value.is_null()) {
+                        break;
+                    }
+                    params.print_key_json_string(key, value);
+                    any_kv = true;
+                }
+                params.close();
+                if (!any_kv && msg_data.is_not_empty()) {
+                    // Fall back to raw msg_data if no parameters could be parsed.
+                    datum raw = msg_data;
+                    r.print_key_json_string("msg_data", raw);
                 }
             }
             r.close();
             o.close();
         }
+
     };
 
     bool is_client = false;
@@ -354,6 +440,12 @@ class pgsql_msg : public base_protocol {
 public:
     pgsql_msg (datum pkt, uint16_t src_port){
         is_client = (src_port != hton<uint16_t>(5432));
+        if (pkt.is_not_readable()) {
+            // Guard against `encoded<uint8_t>` defaulting val=0 on an
+            // empty packet, which would mis-classify it as a special pkt.
+            valid = false;
+            return;
+        }
         encoded<uint8_t> first_byte = lookahead<encoded<uint8_t> >{pkt}.value;
         if (!first_byte.value()) {
             has_special_pkt = true;
@@ -403,12 +495,36 @@ public:
         }
     }
 
-    // write L7 metadata so that "pgsql" appears in the protocols list
-    void write_l7_metadata(cbor_object &o, bool metadata) {
-        if (!metadata || !valid) {
+    /// Returns the type of credential exposed in this message, if any.
+    ///
+    /// A client PasswordMessage ('p') may carry a plaintext password;
+    /// md5-hashed responses are reported as ``password_derived``. SASL and
+    /// GSS payloads (which share the 'p' message code) are not classified
+    /// as exposed credentials.
+    exposed_creds_type check_credential_exposure() const {
+        if (!valid || has_special_pkt || !is_client) {
+            return exposed_creds_type::none;
+        }
+        exposed_creds_type worst = exposed_creds_type::none;
+        for (size_t i = 0; i < msg_count; ++i) {
+            exposed_creds_type t = msg_list[i].credential_exposure();
+            // plaintext_password is strictly more severe than password_derived.
+            if (t == exposed_creds_type::plaintext_password) {
+                return t;
+            }
+            if (t == exposed_creds_type::password_derived) {
+                worst = t;
+            }
+        }
+        return worst;
+    }
+
+    // Advertise "pgsql" in the protocols list regardless of the metadata
+    // flag (matches telnet/mysql/redis conventions).
+    void write_l7_metadata(cbor_object &o, bool) {
+        if (!valid) {
             return;
         }
-
         cbor_array protocols{o, "protocols"};
         protocols.print_string("pgsql");
         protocols.close();
@@ -438,6 +554,18 @@ public:
             buf.write_line(verbose_output);
         }
         return result.cmp(expected_output) == 0;
+    }
+
+    static bool test_credential_exposure(const uint8_t *raw_data,
+                                         size_t raw_size,
+                                         uint16_t src_port,
+                                         exposed_creds_type expected) {
+        datum raw_input{raw_data, raw_data + raw_size};
+        pgsql_msg pkt{raw_input, hton<uint16_t>(src_port)};
+        if (!pkt.is_not_empty()) {
+            return expected == exposed_creds_type::none;
+        }
+        return pkt.check_credential_exposure() == expected;
     }
 
     static bool unit_test() {
@@ -484,13 +612,44 @@ public:
         }
 
         // special startup packet (first byte is zero, non-special tag => startup_message)
+        // single key ("user") followed by the empty-value terminator.
         static constexpr uint8_t startup_msg[] = {
             0x00, 0x00, 0x00, 0x0e, 0x00, 0x03, 0x00, 0x00,
             0x75, 0x73, 0x65, 0x72, 0x00, 0x00
         };
+        // Empty-value parameters (like the trailing terminator marker) are
+        // intentionally omitted from JSON output, so the parameters object
+        // is empty for this minimal startup message.
         if (!test_json_output_with_port(
                 startup_msg, sizeof(startup_msg), 1,
-                datum{R"({"pgsql":{"client":true,"pgsql_pkts":[{"startup_message":{"msg_data":"user\u0000\u0000"}}]}})"})) {
+                datum{R"({"pgsql":{"client":true,"pgsql_pkts":[{"startup_message":{"parameters":{}}}]}})"})) {
+            return false;
+        }
+
+        // startup packet with full user/database key-value pairs.
+        // length = 4 + 4 + len("user") + 1 + len("alice") + 1
+        //              + len("database") + 1 + len("postgres") + 1 + 1
+        //       = 8 + 5 + 6 + 9 + 9 + 1 = 38 = 0x26
+        static constexpr uint8_t startup_msg_full[] = {
+            0x00, 0x00, 0x00, 0x26, 0x00, 0x03, 0x00, 0x00,
+            'u','s','e','r', 0x00, 'a','l','i','c','e', 0x00,
+            'd','a','t','a','b','a','s','e', 0x00,
+            'p','o','s','t','g','r','e','s', 0x00,
+            0x00
+        };
+        if (!test_json_output_with_port(
+                startup_msg_full, sizeof(startup_msg_full), 1,
+                datum{R"({"pgsql":{"client":true,"pgsql_pkts":[{"startup_message":{"parameters":{"user":"alice","database":"postgres"}}}]}})"})) {
+            return false;
+        }
+
+        // SSL request (special tag) carries no parameters and emits an empty object.
+        static constexpr uint8_t ssl_request[] = {
+            0x00, 0x00, 0x00, 0x08, 0x04, 0xd2, 0x16, 0x2f
+        };
+        if (!test_json_output_with_port(
+                ssl_request, sizeof(ssl_request), 1,
+                datum{R"({"pgsql":{"client":true,"pgsql_pkts":[{"ssl_request":{}}]}})"})) {
             return false;
         }
 
@@ -502,6 +661,94 @@ public:
                 unknown_client_msg, sizeof(unknown_client_msg), 1,
                 datum{R"({"pgsql":{"client":true,"pgsql_pkts":[{"unknown_client_message":{"msg_len":0}}]}})"})) {
             return false;
+        }
+
+        // parameter_status with multiple consecutive key/value pairs in a
+        // single message (exercises the one_or_more_up_to_delimiter loop).
+        // length = 4 + len("server_version") + 1 + len("16.0") + 1 = 24 = 0x18
+        static constexpr uint8_t server_param_status_version[] = {
+            0x53, 0x00, 0x00, 0x00, 0x18,
+            's','e','r','v','e','r','_','v','e','r','s','i','o','n', 0x00,
+            '1','6','.','0', 0x00
+        };
+        if (!test_json_output_with_port(
+                server_param_status_version, sizeof(server_param_status_version), 5432,
+                datum{R"({"pgsql":{"client":false,"pgsql_pkts":[{"parameter_status":{"param_type":"server_version","param_value":"16.0"}}]}})"})) {
+            return false;
+        }
+
+        // credential exposure: client PasswordMessage with plaintext password.
+        // Same bytes as client_auth_msg above.
+        if (!test_credential_exposure(
+                client_auth_msg, sizeof(client_auth_msg), 1,
+                exposed_creds_type::plaintext_password)) {
+            return false;
+        }
+
+        // credential exposure: client PasswordMessage with md5-hashed password
+        // ("md5" prefix + 32 hex chars + trailing NUL).
+        static constexpr uint8_t client_md5_pass_msg[] = {
+            'p', 0x00, 0x00, 0x00, 0x28,
+            'm','d','5',
+            '0','1','2','3','4','5','6','7','8','9',
+            'a','b','c','d','e','f',
+            '0','1','2','3','4','5','6','7','8','9',
+            'a','b','c','d','e','f',
+            0x00
+        };
+        if (!test_credential_exposure(
+                client_md5_pass_msg, sizeof(client_md5_pass_msg), 1,
+                exposed_creds_type::password_derived)) {
+            return false;
+        }
+
+        // credential exposure: SASL-like binary payload should NOT be flagged
+        // as a plaintext password.
+        static constexpr uint8_t client_binary_pass_msg[] = {
+            'p', 0x00, 0x00, 0x00, 0x08, 0x00, 0x01, 0x02, 0x03
+        };
+        if (!test_credential_exposure(
+                client_binary_pass_msg, sizeof(client_binary_pass_msg), 1,
+                exposed_creds_type::none)) {
+            return false;
+        }
+
+        // credential exposure: a server message ('R') never exposes credentials
+        // from the client side.
+        if (!test_credential_exposure(
+                server_auth_md5, sizeof(server_auth_md5), 5432,
+                exposed_creds_type::none)) {
+            return false;
+        }
+
+        // credential exposure: startup messages alone do not expose credentials
+        // (the username is not treated as a credential).
+        if (!test_credential_exposure(
+                startup_msg_full, sizeof(startup_msg_full), 1,
+                exposed_creds_type::none)) {
+            return false;
+        }
+
+        // credential exposure: a non-password client message ('Q' query) is
+        // not classified as credential exposure.
+        static constexpr uint8_t client_query_msg[] = {
+            'Q', 0x00, 0x00, 0x00, 0x0d, 'S','E','L','E','C','T',' ','1', 0x00
+        };
+        if (!test_credential_exposure(
+                client_query_msg, sizeof(client_query_msg), 1,
+                exposed_creds_type::none)) {
+            return false;
+        }
+
+        // empty packet: must not be misclassified as a special packet
+        // (an empty pkt would otherwise hit `encoded<uint8_t>` default
+        // val = 0 and be treated as a startup message).
+        {
+            datum empty_in{};
+            pgsql_msg empty_pkt{empty_in, hton<uint16_t>(1)};
+            if (empty_pkt.is_not_empty()) {
+                return false;
+            }
         }
 
         return true;

@@ -80,6 +80,7 @@
 #include "redis.hpp"
 #include "imap.hpp"
 #include "telnet.hpp"
+#include "pgsql.hpp"
 
 // double malware_prob_threshold = -1.0; // TODO: document hidden option
 
@@ -275,6 +276,10 @@ struct check_exposed_creds {
     }
 
     exposed_creds_type operator()(const snmp::packet &msg) {
+        return exposed_creds_assessor::assess(msg);
+    }
+
+    exposed_creds_type operator()(const pgsql_msg &msg) {
         return exposed_creds_assessor::assess(msg);
     }
 
