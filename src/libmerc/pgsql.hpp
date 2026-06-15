@@ -294,16 +294,22 @@ class pgsql_msg : public base_protocol {
                 o.close();
             }
             else if (msg_type.value() == 'R') {
-                // auth request
+                // auth request: 4-byte auth code followed by optional payload.
+                // Use a local datum so a truncated payload doesn't silently
+                // get decoded as auth_code = 0 (success).
+                datum d = msg_data;
+                encoded<uint32_t> auth_type{d};
+                if (d.is_null()) {
+                    return;
+                }
+                auth_codes auth_code = static_cast<auth_codes>(auth_type.value());
                 json_object o(a);
                 json_object r(o, get_server_message_code('R'));
-                encoded<uint32_t> auth_type{msg_data};
-                auth_codes auth_code = static_cast<auth_codes>(auth_type.value());
                 r.print_key_string("content_type", get_auth_type(auth_code));
                 if (auth_code == auth_codes::md5_pass) {
-                    r.print_key_hex(get_auth_data_type(auth_code), msg_data);
+                    r.print_key_hex(get_auth_data_type(auth_code), d);
                 } else {
-                    r.print_key_json_string(get_auth_data_type(auth_code), msg_data);
+                    r.print_key_json_string(get_auth_data_type(auth_code), d);
                 }
                 r.close();
                 o.close();
@@ -437,21 +443,47 @@ class pgsql_msg : public base_protocol {
 
 
 
+    /// Returns true when `pkt` begins with a special "first-contact"
+    /// PostgreSQL packet (StartupMessage, SSL/GSS/Cancel request).
+    ///
+    /// Discrimination by "first byte == 0" alone is unreliable: it
+    /// assumes the length field's MSB is zero, which fails for
+    /// (admittedly rare) packets >= 16 MiB. Instead we peek at the
+    /// 4-byte tag at offset 4 and accept only the three reserved
+    /// request codes or a recognised v3 protocol version
+    /// (high 16 bits == 0x0003).
+    static bool looks_like_special(const datum &pkt) {
+        datum tmp = pkt;
+        lookahead<encoded<uint32_t>> len{tmp};
+        if (!len) {
+            return false;
+        }
+        lookahead<encoded<uint32_t>> tag{len};
+        if (!tag) {
+            return false;
+        }
+        uint32_t t = tag.value.value();
+        if (t == ssl_request_code
+            || t == gss_encrypt_code
+            || t == cancel_request_code) {
+            return true;
+        }
+        // StartupMessage: high 16 bits encode the protocol major version.
+        // Only v3 (0x0003) is defined; treat that as the discriminator
+        // rather than "any non-reserved value", to avoid accidentally
+        // matching tagged messages.
+        return (t >> 16) == 0x0003;
+    }
+
 public:
     pgsql_msg (datum pkt, uint16_t src_port){
         is_client = (src_port != hton<uint16_t>(5432));
         if (pkt.is_not_readable()) {
-            // Guard against `encoded<uint8_t>` defaulting val=0 on an
-            // empty packet, which would mis-classify it as a special pkt.
             valid = false;
             return;
         }
-        encoded<uint8_t> first_byte = lookahead<encoded<uint8_t> >{pkt}.value;
-        if (!first_byte.value()) {
+        if (looks_like_special(pkt)) {
             has_special_pkt = true;
-        }
-        if (has_special_pkt) {
-            // read the special pkt
             special_pkt = pgsql_special_pkt{pkt};
             valid = special_pkt.is_valid();
             return;
@@ -538,15 +570,15 @@ public:
                                            FILE *verbose_output=nullptr) {
         datum raw_input{raw_data, raw_data + raw_size};
         pgsql_msg pkt{raw_input, hton<uint16_t>(src_port)};
-        if (!raw_input.is_not_null()) {
+        // Every call site of this helper expects the input to parse
+        // successfully; surface parse failures as a test failure.
+        if (!pkt.is_not_empty()) {
             return false;
         }
 
         dynamic_buffer_stream buf{(size_t)expected_output.length() + 512};
         json_object json{&buf};
-        if (pkt.is_not_empty()) {
-            pkt.write_json(json, false);
-        }
+        pkt.write_json(json, false);
         json.close();
 
         datum result = buf.get_datum();
@@ -747,6 +779,64 @@ public:
             datum empty_in{};
             pgsql_msg empty_pkt{empty_in, hton<uint16_t>(1)};
             if (empty_pkt.is_not_empty()) {
+                return false;
+            }
+        }
+
+        // Tagged message with a length whose MSB happens to be zero
+        // (which would have fooled the old "first byte == 0" heuristic
+        // had the type tag itself been zero). Here we exercise a normal
+        // 'Q' message and ensure it is NOT classified as a special pkt.
+        // (Same bytes as client_query_msg above; this assertion is
+        // implicit in the JSON-output tests, but adding an explicit
+        // case documents the contract.)
+        {
+            datum in{client_query_msg,
+                     client_query_msg + sizeof(client_query_msg)};
+            pgsql_msg pkt{in, hton<uint16_t>(1)};
+            if (!pkt.is_not_empty()) {
+                return false;
+            }
+            // A regular tagged 'Q' must not produce a special-pkt JSON
+            // shape (which would have a `startup_message` / `ssl_request`
+            // / ... entry instead of `unknown_client_message`-style).
+            if (!test_json_output_with_port(
+                    client_query_msg, sizeof(client_query_msg), 1,
+                    datum{R"({"pgsql":{"client":true,"pgsql_pkts":[{"query":{"msg_len":9}}]}})"})) {
+                return false;
+            }
+        }
+
+        // Truncated AuthenticationRequest 'R': only 4 bytes of payload
+        // claimed but the auth-code field is missing. Must not be
+        // mis-reported as auth_code = success.
+        static constexpr uint8_t server_auth_truncated[] = {
+            'R', 0x00, 0x00, 0x00, 0x05, 0x00
+        };
+        {
+            datum in{server_auth_truncated,
+                     server_auth_truncated + sizeof(server_auth_truncated)};
+            pgsql_msg pkt{in, hton<uint16_t>(5432)};
+            // The truncated 'R' produces a valid (1-message) pgsql_msg
+            // but write_json() for that message must NOT print a
+            // misleading content_type. We verify by checking that the
+            // output does not contain the string "content_type":"success".
+            dynamic_buffer_stream buf{512};
+            json_object json{&buf};
+            if (pkt.is_not_empty()) {
+                pkt.write_json(json, false);
+            }
+            json.close();
+            datum result = buf.get_datum();
+            const char *needle = "\"content_type\":\"success\"";
+            size_t nlen = strlen(needle);
+            bool found = false;
+            for (ssize_t i = 0; i + (ssize_t)nlen <= result.length(); ++i) {
+                if (memcmp(result.data + i, needle, nlen) == 0) {
+                    found = true; break;
+                }
+            }
+            if (found) {
                 return false;
             }
         }
