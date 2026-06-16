@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <cstdio>
 #include "libmerc/datum.h"
+#include "libmerc/lex.h"
 #include "libmerc/cbor.hpp"
 #include "libmerc/cbor_object.hpp"
 #include "libmerc/base64.h"
@@ -264,6 +265,10 @@ int main(int, char *[]) {
         {
             "naive_bayes",
             &naive_bayes_unit_test::unit_test
+        },
+        {
+            "lex",
+            &lex_unit_test::unit_test
         }
     };
     size_t num_tests = 0;
