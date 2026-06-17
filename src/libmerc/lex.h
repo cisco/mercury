@@ -54,9 +54,12 @@ public:
     }
 };
 
-// class exactly_n<char_class> parses a datum that holds one or more
-// uint8_ts in the character class char_class.  It is implemented
-// using the CRTP (Curiously Recurring Template Pattern).
+// class exactly_n<char_class> parses a datum that holds exactly `n`
+// uint8_ts in the character class char_class.  If fewer than `n`
+// matching bytes are available (because the input is exhausted or a
+// non-matching byte is encountered first), both this object and the
+// input datum `d` are set to null.  It is implemented using the CRTP
+// (Curiously Recurring Template Pattern).
 //
 template <class char_class>
 class exactly_n : public datum {
@@ -64,17 +67,21 @@ public:
     exactly_n(datum &d, size_t n) {
         this->data = d.data;
 
-        while (d.is_not_empty() and n > 0) {
+        while (n > 0) {
             if (lookahead<encoded<uint8_t>> y{d}) {
                 if (char_class::in_class(y.value)) {
                     d = y.advance();
+                    --n;
                 } else {
                     d.set_null();
                     set_null();
-                    break;
+                    return;
                 }
             } else {
-                break;
+                // input exhausted before `n` matching bytes were read
+                d.set_null();
+                set_null();
+                return;
             }
         }
 
@@ -268,5 +275,46 @@ public:
         }
     }
 };
+
+namespace lex_unit_test {
+
+#ifndef NDEBUG
+
+    /// Unit tests for the lexer constructs in lex.h.
+    ///
+    /// Returns true if all tests pass.
+    inline bool unit_test() {
+
+        // exactly_n<hex_digits>: given more input than requested, the
+        // parser must consume EXACTLY n characters and leave the rest in
+        // the input datum. Here we provide 40 hex digits and ask for 32;
+        // the result should hold 32 bytes with 8 bytes remaining in `d`.
+        {
+            static constexpr uint8_t forty_hex[] = {
+                '0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f',
+                '0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f',
+                '0','1','2','3','4','5','6','7'
+            };
+            datum d{forty_hex, forty_hex + sizeof(forty_hex)};
+            exactly_n<hex_digits> hex{d, 32};
+            if (!hex.is_not_null()) {
+                return false;
+            }
+            // The construct must consume exactly 32 bytes...
+            if (hex.length() != 32) {
+                return false;
+            }
+            // ...and leave the remaining 8 bytes unconsumed in `d`.
+            if (d.length() != 8) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+#endif // NDEBUG
+
+} // namespace lex_unit_test
 
 #endif // LEX_H
