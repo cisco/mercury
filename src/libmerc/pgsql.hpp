@@ -235,6 +235,16 @@ class pgsql_msg : public base_protocol {
 
         bool is_valid() { return msg_data.is_not_null(); };
 
+        /// Character class for the printable-ASCII heuristic used to
+        /// distinguish a cleartext password from a binary SASL/GSS payload
+        /// that shares the 'p' message code.
+        class printable_ascii : public one_or_more<printable_ascii> {
+        public:
+            inline static bool in_class(uint8_t x) {
+                return x >= 0x20 && x <= 0x7e;
+            }
+        };
+
         /// Classify the credential exposure represented by this message.
         /// Only client password messages ('p') are considered. For SASL/GSS
         /// exchanges and md5-hashed passwords we report a non-plaintext
@@ -245,41 +255,34 @@ class pgsql_msg : public base_protocol {
                 return exposed_creds_type::none;
             }
             datum body = msg_data;
-            // Strip a single trailing NUL if present, since PasswordMessage is
-            // a NUL-terminated string.
-            ssize_t len = body.length();
-            if (len > 0 && body.data[len - 1] == 0) {
-                body.data_end = body.data + len - 1;
-                len--;
+            // PasswordMessage is a NUL-terminated string; drop a single
+            // trailing NUL if present so the size match below is exact.
+            ssize_t blen = body.length();
+            if (blen > 0 && body.data[blen - 1] == 0) {
+                body.data_end = body.data + blen - 1;
+                blen--;
             }
-            if (len <= 0) {
+            if (blen <= 0) {
                 return exposed_creds_type::none;
             }
-            // md5-hashed password: "md5" + 32 hex chars.
-            if (len == 35
-                && body.data[0] == 'm' && body.data[1] == 'd' && body.data[2] == '5') {
-                bool all_hex = true;
-                for (ssize_t i = 3; i < len; ++i) {
-                    uint8_t c = body.data[i];
-                    bool is_hex = (c >= '0' && c <= '9')
-                               || (c >= 'a' && c <= 'f')
-                               || (c >= 'A' && c <= 'F');
-                    if (!is_hex) { all_hex = false; break; }
-                }
-                if (all_hex) {
+            // md5-hashed password: literal "md5" + exactly 32 hex digits.
+            if (blen == 35) {
+                datum tmp = body;
+                literal_byte<'m', 'd', '5'> md5_prefix{tmp};
+                exactly_n<hex_digits> hex{tmp, 32};
+                if (hex.is_not_null()) {
                     return exposed_creds_type::password_derived;
                 }
             }
-            // Heuristic: treat as plaintext password only when every byte is
-            // printable ASCII (no embedded NULs, control chars, or binary).
-            // SASL/GSS payloads are typically binary and will not match.
-            for (ssize_t i = 0; i < len; ++i) {
-                uint8_t c = body.data[i];
-                if (c < 0x20 || c > 0x7e) {
-                    return exposed_creds_type::none;
-                }
+            // Treat as plaintext only when *every* byte is printable ASCII
+            // (no embedded NULs, control chars, or binary). SASL/GSS
+            // payloads are typically binary and will not match.
+            datum tmp = body;
+            exactly_n<printable_ascii> printable{tmp, (size_t)blen};
+            if (printable.is_not_null()) {
+                return exposed_creds_type::plaintext_password;
             }
-            return exposed_creds_type::plaintext_password;
+            return exposed_creds_type::none;
         }
 
         void write_json(json_array &a, bool client) {
@@ -405,8 +408,8 @@ class pgsql_msg : public base_protocol {
                 json_object params(r, "parameters");
                 bool any_kv = false;
                 while (tmp.is_not_empty()) {
-                    // Detect terminating NUL (empty key) - end of parameter list.
-                    if (lookahead<encoded<uint8_t>>{tmp}.value.value() == 0) {
+                    // An empty key (a lone trailing NUL) terminates the list.
+                    if (lookahead<literal_byte<'\0'>>{tmp}) {
                         tmp.skip(1);
                         break;
                     }
