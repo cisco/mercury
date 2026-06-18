@@ -400,33 +400,67 @@ public:
      * size 4. If required, this can be extended to matchers of other sizes.
      */
     size_t get_msg_type(datum &pkt) const {
+        return get_msg_type_resumable(pkt, 0).type;
+    }
+
+    // Result of a resumable match: the matched message type (0/unknown if
+    // none), and the index from which to resume scanning on the next call.
+    // The index addresses a virtual concatenation of `matchers` followed by
+    // `matchers_and_offset`, so that priority order is preserved across
+    // resumed calls.
+    //
+    struct match_result {
+        size_t type;          // tcp/udp msg type, 0 (unknown) if no match
+        size_t next_index;    // resume index for the following call
+    };
+
+    // get_msg_type_resumable() behaves like get_msg_type(), but begins
+    // scanning at matcher index `start` and reports the index to resume from
+    // on the next call.  This lets a caller retry detection from the matcher
+    // *after* one whose protocol parse failed, without rescanning earlier
+    // matchers (so the total matching work across all retries is bounded by a
+    // single full pass).
+    //
+    match_result get_msg_type_resumable(const datum &pkt_in, size_t start) const {
 
         // TODO: process short data fields
         //
-        if (pkt.length() < 4) {
-            return 0;   // type unknown;
+        if (pkt_in.length() < 4) {
+            return { 0, SIZE_MAX };   // type unknown; no more candidates
         }
-        for (matcher_and_type p : matchers) {
+
+        // Local non-owning copy: matching and pkt_len_match() only read from
+        // the datum, but pkt_len_match() takes a non-const reference, so we
+        // work on a 16-byte copy and never mutate the caller's view.
+        //
+        datum pkt = pkt_in;
+
+        const size_t n_first = matchers.size();
+
+        for (size_t i = start; i < n_first; i++) {
+            const matcher_and_type<N> &p = matchers[i];
             if (N == 4) {
                 if (p.mv.matches(pkt.data, pkt.length()) && pkt_len_match(pkt, p.type)) {
-                return p.type;
+                    return { p.type, i + 1 };
                 }
             } else if (p.mv.matches(pkt.data, pkt.length())) {
-                return p.type;
+                return { p.type, i + 1 };
             }
         }
 
-        for (matcher_type_and_offset p : matchers_and_offset) {
+        const size_t off_start = (start > n_first) ? (start - n_first) : 0;
+        for (size_t i = off_start; i < matchers_and_offset.size(); i++) {
+            const matcher_type_and_offset<N> &p = matchers_and_offset[i];
             if (N == 4) {
                 if (p.mv.matches_at_offset(pkt.data, pkt.length()) && pkt_len_match(pkt, p.type)) {
-                    return p.type;
+                    return { p.type, n_first + i + 1 };
                 }
             } else if (p.mv.matches_at_offset(pkt.data, pkt.length())) {
-                return p.type;
+                return { p.type, n_first + i + 1 };
             }
         }
 
-        return 0;   // type unknown;
+        return { 0, SIZE_MAX };   // type unknown; no more candidates
     }
 
     void disable_all() {
@@ -941,6 +975,35 @@ public:
         return type;
     }
 
+    // get_tcp_msg_type_resumable() iterates the chained TCP mask/value
+    // matcher lists (`tcp` then `tcp4`) as a single virtual list, returning
+    // the matched type and the index to resume from on the next call.  Used
+    // by set_tcp_protocol() to fall through to the next candidate matcher
+    // when a protocol parse fails.  `next_index == SIZE_MAX` indicates that
+    // no further candidates remain.
+    //
+    protocol_identifier<8>::match_result get_tcp_msg_type_resumable(const datum &pkt, size_t start) const {
+        // Identifier boundary: indices [0, tcp_span) address `tcp`,
+        // indices >= tcp_span address `tcp4`.  tcp_span is large enough to
+        // never collide with a real index; we use the count of matchers in
+        // `tcp` via a sentinel offset of 1<<20.
+        constexpr size_t tcp4_base = (size_t{1} << 20);
+
+        if (start < tcp4_base) {
+            auto r = tcp.get_msg_type_resumable(pkt, start);
+            if (r.type != tcp_msg_type_unknown) {
+                return { r.type, r.next_index };
+            }
+            start = tcp4_base;  // exhausted `tcp`, move on to `tcp4`
+        }
+
+        auto r = tcp4.get_msg_type_resumable(pkt, start - tcp4_base);
+        if (r.type != tcp_msg_type_unknown) {
+            return { r.type, tcp4_base + r.next_index };
+        }
+        return { tcp_msg_type_unknown, SIZE_MAX };
+    }
+
     size_t get_udp_msg_type(datum &pkt, udp::ports ports) const {
         size_t type = udp_msg_type_unknown;
         if (ipsec() and ports.either_matches_any(esp_default_port)) {   // esp or ike over udp
@@ -965,6 +1028,41 @@ public:
         }
 
         return type;
+    }
+
+    // get_udp_msg_type_resumable() iterates the chained UDP mask/value
+    // matcher lists (`udp`, then `udp16`, then `udp4`) as a single virtual
+    // list, returning the matched type and the index to resume from on the
+    // next call.  Used by set_udp_protocol() to fall through to the next
+    // candidate matcher when a protocol parse fails.  `next_index ==
+    // SIZE_MAX` indicates no further mask/value candidates remain.  The
+    // ESP/IKE-over-UDP and port-based fallbacks are handled separately by the
+    // caller.
+    //
+    protocol_identifier<8>::match_result get_udp_msg_type_resumable(const datum &pkt, size_t start) const {
+        constexpr size_t udp16_base = (size_t{1} << 20);
+        constexpr size_t udp4_base  = (size_t{2} << 20);
+
+        if (start < udp16_base) {
+            auto r = udp.get_msg_type_resumable(pkt, start);
+            if (r.type != udp_msg_type_unknown) {
+                return { r.type, r.next_index };
+            }
+            start = udp16_base;
+        }
+        if (start < udp4_base) {
+            auto r = udp16.get_msg_type_resumable(pkt, start - udp16_base);
+            if (r.type != udp_msg_type_unknown) {
+                return { r.type, udp16_base + r.next_index };
+            }
+            start = udp4_base;
+        }
+
+        auto r = udp4.get_msg_type_resumable(pkt, start - udp4_base);
+        if (r.type != udp_msg_type_unknown) {
+            return { r.type, udp4_base + r.next_index };
+        }
+        return { udp_msg_type_unknown, SIZE_MAX };
     }
 
     udp_msg_type get_udp_msg_type_from_ports(udp::ports ports) const {
