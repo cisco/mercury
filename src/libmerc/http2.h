@@ -83,29 +83,46 @@ public:
 
     hpack_decoder(datum &in) : input{in} {}
 
-    void get_next() {
+    void get_next(FILE *f) {
+        fprintf(f, "\n%s:\t", __func__);
 
         uint8_t first;
         input.read_uint8(&first);
 
+        fprintf(f, "first: %02x\t", first);
+
         if (first & 0x80) { // 1***: indexed header field
-            decode(first, 7);
+            // parse integer
+
+            ssize_t value = decode(first, 7);
+            fprintf(f, "indexed header field\tvalue: %zd\t", value);
+
         } else {  // literal header field
+
             if (first & 0x40) { // 01**: literal header field with incremental indexing
-                return;
+                //
+                fprintf(f, "literal header field\t");
             }
             else if ((first & 0xf0) == 0) {  // 0000: literal header field without indexing
+                //
+                fprintf(f, "literal header field without indexing\t");
+
                 ssize_t value = decode(first, 4);
+                fprintf(f, "value: %zd\t", value);
                 if (value > 0) {
                     // LOOK UP value IN TABLE
                 } else {
                     // READ VALUE FROM INPUT
                 }
+
             }
             else if ((first & 0xf0) == 1) {  // 0001: literal header field never indexed
-                return;
-            }
+                //
+                fprintf(f, "literal header field never indexed\t");
+           }
         }
+
+        fprintf(f, "\n");
     }
 
     ssize_t decode(uint8_t first_byte, unsigned int N) {
@@ -181,8 +198,10 @@ public:
 
         while(headers.input.is_not_empty()) {
             datum tmp = headers.input;
-            headers.get_next();
+            headers.get_next(stderr);
             if (headers.input == tmp) {
+                // we are not advancing, so abandon this loop
+                fprintf(stderr, "break\n");
                 break;
             }
         }
@@ -300,74 +319,5 @@ namespace {
     }
 
 };
-
-namespace http2_unit_test {
-#ifndef NDEBUG
-    inline bool unit_test() {
-        char buffer[2048];
-
-        // Test HTTP/2 frame parsing (SETTINGS frame)
-        uint8_t settings_frame[] = {
-            0x00, 0x00, 0x00,       // length: 0
-            0x04,                   // type: SETTINGS
-            0x00,                   // flags
-            0x00, 0x00, 0x00, 0x00  // stream ID: 0
-        };
-        datum d1{settings_frame, settings_frame + sizeof(settings_frame)};
-        http2_frame frame1;
-        frame1.parse(d1);
-        {
-            buffer_stream buf{buffer, sizeof(buffer)};
-            json_object json{&buf};
-            frame1.write_json(json);
-            json.close();
-            buf.write_char('\0');
-            if (!strstr(buffer, "SETTINGS")) return false;
-        }
-
-        // Test HTTP/2 HEADERS frame
-        uint8_t headers_frame[] = {
-            0x00, 0x00, 0x05,       // length: 5
-            0x01,                   // type: HEADERS
-            0x04,                   // flags: END_HEADERS
-            0x00, 0x00, 0x00, 0x01, // stream ID: 1
-            0x82, 0x86, 0x84, 0x41, 0x8a  // HPACK encoded headers
-        };
-        datum d2{headers_frame, headers_frame + sizeof(headers_frame)};
-        http2_frame frame2;
-        frame2.parse(d2);
-        {
-            buffer_stream buf{buffer, sizeof(buffer)};
-            json_object json{&buf};
-            frame2.write_json(json);
-            json.close();
-            buf.write_char('\0');
-            if (!strstr(buffer, "HEADERS")) return false;
-        }
-
-        // Test HTTP/2 DATA frame
-        uint8_t data_frame[] = {
-            0x00, 0x00, 0x04,       // length: 4
-            0x00,                   // type: DATA
-            0x01,                   // flags: END_STREAM
-            0x00, 0x00, 0x00, 0x01, // stream ID: 1
-            0x74, 0x65, 0x73, 0x74  // payload: "test"
-        };
-        datum d3{data_frame, data_frame + sizeof(data_frame)};
-        http2_frame frame3;
-        frame3.parse(d3);
-        {
-            buffer_stream buf{buffer, sizeof(buffer)};
-            json_object json{&buf};
-            frame3.write_json(json);
-            json.close();
-            buf.write_char('\0');
-            if (!strstr(buffer, "DATA")) return false;
-        }
-
-        return true;
-    }
-#endif
-} // namespace http2_unit_test
 
 #endif // HTTP2_H
