@@ -37,7 +37,7 @@ bool test_ipv4(const char *input_file, FILE *f) {
     if (f) fprintf(f, "Reading prefixes from %s...\n\n", input_file);
     if (0 > (rc = read_prefix_table<uint32_t>(input_file, &p[num], BGP_MAX_ENTRIES - num))) {
         fprintf(stderr, "could not read prefix file \"%s\"\n", input_file);
-        return rc;
+        return false;
     }
     num += rc;
 

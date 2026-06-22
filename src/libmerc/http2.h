@@ -83,46 +83,29 @@ public:
 
     hpack_decoder(datum &in) : input{in} {}
 
-    void get_next(FILE *f) {
-        fprintf(f, "\n%s:\t", __func__);
+    void get_next() {
 
         uint8_t first;
         input.read_uint8(&first);
 
-        fprintf(f, "first: %02x\t", first);
-
         if (first & 0x80) { // 1***: indexed header field
-            // parse integer
-
-            ssize_t value = decode(first, 7);
-            fprintf(f, "indexed header field\tvalue: %zd\t", value);
-
+            decode(first, 7);
         } else {  // literal header field
-
             if (first & 0x40) { // 01**: literal header field with incremental indexing
-                //
-                fprintf(f, "literal header field\t");
+                return;
             }
             else if ((first & 0xf0) == 0) {  // 0000: literal header field without indexing
-                //
-                fprintf(f, "literal header field without indexing\t");
-
                 ssize_t value = decode(first, 4);
-                fprintf(f, "value: %zd\t", value);
                 if (value > 0) {
                     // LOOK UP value IN TABLE
                 } else {
                     // READ VALUE FROM INPUT
                 }
-
             }
             else if ((first & 0xf0) == 1) {  // 0001: literal header field never indexed
-                //
-                fprintf(f, "literal header field never indexed\t");
-           }
+                return;
+            }
         }
-
-        fprintf(f, "\n");
     }
 
     ssize_t decode(uint8_t first_byte, unsigned int N) {
@@ -198,10 +181,8 @@ public:
 
         while(headers.input.is_not_empty()) {
             datum tmp = headers.input;
-            headers.get_next(stderr);
+            headers.get_next();
             if (headers.input == tmp) {
-                // we are not advancing, so abandon this loop
-                fprintf(stderr, "break\n");
                 break;
             }
         }
