@@ -304,6 +304,11 @@ struct do_observation {
         mq_->push(event_string::construct_event_string(k_, analysis_));
     }
 
+    void operator()(dtls_client_hello &) {
+        // create event and send it to the data/stats aggregator
+        mq_->push(event_string::construct_event_string(k_, analysis_));
+    }
+
     void operator()(quic_init &) {
         // create event and send it to the data/stats aggregator
         mq_->push(event_string::construct_event_string(k_, analysis_));
