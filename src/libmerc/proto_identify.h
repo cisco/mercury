@@ -197,6 +197,12 @@ class tcp_keyword_matcher {
 public:
     // Static member for unknown type - can be used anywhere an unknown tcp_msg_types is needed
     inline static const tcp_msg_types unknown_type{tcp_msg_type_unknown};
+
+    // NOTE: every distinct tcp_msg_type used as a value below must also be
+    // gated in traffic_selector::keyword_type_enabled().  If you add a new
+    // keyword-matched protocol here, add a matching case there or it will be
+    // silently skipped during keyword-based detection.
+    //
     inline static std::unordered_map<uint32_t, tcp_msg_types> tcp_keyword_map = {
         //HTTP methods taken from https://www.iana.org/assignments/http-methods/http-methods.xhtm
         {"ACL "_uint32,              {tcp_msg_type_http_request}},
@@ -403,24 +409,39 @@ public:
         return get_msg_type_resumable(pkt, 0).type;
     }
 
-    // Result of a resumable match: the matched message type (0/unknown if
-    // none), and the index from which to resume scanning on the next call.
-    // The index addresses a virtual concatenation of `matchers` followed by
-    // `matchers_and_offset`, so that priority order is preserved across
-    // resumed calls.
-    //
+    ///
+    /// \brief Result of a resumable match.
+    ///
+    /// Holds the matched message type and the index from which to resume
+    /// scanning on the next call.  The index addresses a virtual concatenation
+    /// of \c matchers followed by \c matchers_and_offset, so that priority
+    /// order is preserved across resumed calls.
+    ///
     struct match_result {
-        size_t type;          // tcp/udp msg type, 0 (unknown) if no match
-        size_t next_index;    // resume index for the following call
+        size_t type;          ///< tcp/udp msg type, 0 (unknown) if no match
+        size_t next_index;    ///< resume index for the following call
     };
 
-    // get_msg_type_resumable() behaves like get_msg_type(), but begins
-    // scanning at matcher index `start` and reports the index to resume from
-    // on the next call.  This lets a caller retry detection from the matcher
-    // *after* one whose protocol parse failed, without rescanning earlier
-    // matchers (so the total matching work across all retries is bounded by a
-    // single full pass).
-    //
+    ///
+    /// \brief Identify the message type, resuming the matcher scan at an index.
+    ///
+    /// Behaves like get_msg_type(), but begins scanning at matcher index
+    /// \p start and reports the index to resume from on the next call.  This
+    /// lets a caller retry detection from the matcher *after* one whose
+    /// protocol parse failed, without rescanning earlier matchers (so the
+    /// total matching work across all retries is bounded by a single full
+    /// pass).
+    ///
+    /// \param pkt_in  packet datum to match against; read-only (a local
+    ///                16-byte copy is taken, so the caller's view is never
+    ///                advanced).
+    /// \param start   matcher index to begin scanning from (0 for a fresh
+    ///                scan); indexes the virtual concatenation of \c matchers
+    ///                then \c matchers_and_offset.
+    /// \return a match_result whose \c type is the matched message type (0 /
+    ///         unknown if none matched) and whose \c next_index is the index
+    ///         to resume from (SIZE_MAX when no further candidates remain).
+    ///
     match_result get_msg_type_resumable(const datum &pkt_in, size_t start) const {
 
         // TODO: process short data fields
@@ -937,6 +958,36 @@ public:
         return tcp_keyword_matcher::get_tcp_msg_type_from_keyword(keyword.value());
     }
 
+    ///
+    /// \brief Report whether a keyword-matched TCP type is enabled by the
+    ///        current selection policy.
+    ///
+    /// This is the single gating authority for keyword-matched TCP types.
+    /// The keyword map is not gated by selection, so set_tcp_protocol()
+    /// consults this before attempting a keyword candidate.
+    ///
+    /// \invariant Every tcp_msg_type that can appear as a value in
+    ///            tcp_keyword_matcher::tcp_keyword_map must have a case here;
+    ///            any type not listed returns \c false and is silently
+    ///            skipped.  Keep this switch in sync with that map (see
+    ///            get_tcp_msg_type_from_keyword()).
+    ///
+    /// \param type  the keyword-matched TCP message type to test.
+    /// \return \c true if the protocol identified by \p type is enabled in the
+    ///         current selection policy, \c false otherwise.
+    ///
+    bool keyword_type_enabled(tcp_msg_type type) const {
+        switch (type) {
+        case tcp_msg_type_http_request:  return http_request();
+        case tcp_msg_type_http_response: return http_response();
+        case tcp_msg_type_ftp_request:   return ftp_request();
+        case tcp_msg_type_smtp_client:   return smtp();
+        case tcp_msg_type_redis_request: return redis_request();
+        case tcp_msg_type_rfb:           return rfb();
+        default:                         return false;
+        }
+    }
+
     tcp_msg_type get_tcp_msg_type_preference_from_port(const tcp_msg_types& protos,
                                                        struct tcp_packet *tcp_pkt) {
         if (protos.size() == 1) {
@@ -975,13 +1026,23 @@ public:
         return type;
     }
 
-    // get_tcp_msg_type_resumable() iterates the chained TCP mask/value
-    // matcher lists (`tcp` then `tcp4`) as a single virtual list, returning
-    // the matched type and the index to resume from on the next call.  Used
-    // by set_tcp_protocol() to fall through to the next candidate matcher
-    // when a protocol parse fails.  `next_index == SIZE_MAX` indicates that
-    // no further candidates remain.
-    //
+    ///
+    /// \brief Identify a TCP message type across the chained matcher lists,
+    ///        resumably.
+    ///
+    /// Iterates the chained TCP mask/value matcher lists (\c tcp then \c tcp4)
+    /// as a single virtual list, returning the matched type and the index to
+    /// resume from on the next call.  Used by set_tcp_protocol() to fall
+    /// through to the next candidate matcher when a protocol parse fails.
+    ///
+    /// \param pkt    packet datum to match against (read-only).
+    /// \param start  virtual index to resume scanning from (0 for a fresh
+    ///               scan); a sentinel offset distinguishes \c tcp from
+    ///               \c tcp4 indices.
+    /// \return a match_result whose \c type is the matched TCP message type
+    ///         (tcp_msg_type_unknown if none) and whose \c next_index is the
+    ///         resume index (SIZE_MAX when no further candidates remain).
+    ///
     protocol_identifier<8>::match_result get_tcp_msg_type_resumable(const datum &pkt, size_t start) const {
         // Identifier boundary: indices [0, tcp_span) address `tcp`,
         // indices >= tcp_span address `tcp4`.  tcp_span is large enough to
@@ -1030,15 +1091,26 @@ public:
         return type;
     }
 
-    // get_udp_msg_type_resumable() iterates the chained UDP mask/value
-    // matcher lists (`udp`, then `udp16`, then `udp4`) as a single virtual
-    // list, returning the matched type and the index to resume from on the
-    // next call.  Used by set_udp_protocol() to fall through to the next
-    // candidate matcher when a protocol parse fails.  `next_index ==
-    // SIZE_MAX` indicates no further mask/value candidates remain.  The
-    // ESP/IKE-over-UDP and port-based fallbacks are handled separately by the
-    // caller.
-    //
+    ///
+    /// \brief Identify a UDP message type across the chained matcher lists,
+    ///        resumably.
+    ///
+    /// Iterates the chained UDP mask/value matcher lists (\c udp, then
+    /// \c udp16, then \c udp4) as a single virtual list, returning the matched
+    /// type and the index to resume from on the next call.  Used by
+    /// set_udp_protocol() to fall through to the next candidate matcher when a
+    /// protocol parse fails.  The ESP/IKE-over-UDP and port-based fallbacks
+    /// are handled separately by the caller.
+    ///
+    /// \param pkt    packet datum to match against (read-only).
+    /// \param start  virtual index to resume scanning from (0 for a fresh
+    ///               scan); sentinel offsets distinguish \c udp, \c udp16, and
+    ///               \c udp4 indices.
+    /// \return a match_result whose \c type is the matched UDP message type
+    ///         (udp_msg_type_unknown if none) and whose \c next_index is the
+    ///         resume index (SIZE_MAX when no further mask/value candidates
+    ///         remain).
+    ///
     protocol_identifier<8>::match_result get_udp_msg_type_resumable(const datum &pkt, size_t start) const {
         constexpr size_t udp16_base = (size_t{1} << 20);
         constexpr size_t udp4_base  = (size_t{2} << 20);

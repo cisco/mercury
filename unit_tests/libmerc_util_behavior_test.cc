@@ -142,7 +142,7 @@ TEST_CASE("emix.pcap") {
         {"openvpn", 16},
         {"smb1", 150},
         {"smb2", 412},
-        {"socks4", 1},
+        {"socks4", 2},
         {"socks5", 4},
         {"socks5_req_resp", 4},
         {"ssdp", 34},
@@ -156,5 +156,10 @@ TEST_CASE("emix.pcap") {
         {"quic", 4}
     };
 
-    test_pcap_file("emix.pcap", 1775, expected_protocols);
+    // Total of 1779 L7 records: +1 over the legacy baseline of 1775 for the
+    // SOCKS4a CONNECT www.example.com flow (now detected as a second socks4
+    // record), plus 3 raw fallback records (two legacy pre-4.1 MySQL flows and
+    // one STUN/UDP flow) that the multi-pass detector retains as
+    // unknown-initial-packet records instead of dropping silently.
+    test_pcap_file("emix.pcap", 1779, expected_protocols);
 }

@@ -391,12 +391,23 @@ struct do_snmp_oid_observation {
     void operator()(std::monostate &) { }
 };
 
-// emplace_protocol_if_not_empty() constructs a protocol parser of type T in
-// the variant `x`, validates that the parse succeeded via is_not_empty(), and
-// on failure resets `x` to std::monostate and returns nullptr.  This is the
-// parse-success oracle used by the multi-pass fallback logic: a nullptr return
-// tells the caller to restore the packet datum and try the next candidate.
-//
+///
+/// \brief Construct a protocol parser in a variant, keeping it only if it
+///        parsed successfully.
+///
+/// Constructs a protocol parser of type \c T in the variant \p x, validates
+/// that the parse succeeded via is_not_empty(), and on failure resets \p x to
+/// std::monostate.  This is the parse-success oracle used by the multi-pass
+/// fallback logic: a \c nullptr return tells the caller to restore the packet
+/// datum and try the next candidate.
+///
+/// \tparam T     the protocol parser type to construct.
+/// \tparam Args  constructor argument types forwarded to \c T.
+/// \param x      the protocol variant to emplace into.
+/// \param args   arguments forwarded to the \c T constructor.
+/// \return a pointer to the constructed \c T on success, or \c nullptr if the
+///         parse failed (in which case \p x is left as std::monostate).
+///
 template <typename T, typename... Args>
 static T *emplace_protocol_if_not_empty(protocol &x, Args&&... args) {
     x.emplace<T>(std::forward<Args>(args)...);
@@ -408,15 +419,25 @@ static T *emplace_protocol_if_not_empty(protocol &x, Args&&... args) {
     return proto;
 }
 
-// try_parse_tcp_type() attempts to parse `pkt` as the protocol identified by
-// `msg_type`, committing the result to `x` on success and returning true.  On
-// parse failure it leaves `x` as std::monostate and returns false, so the
-// caller can restore the packet datum and try the next candidate.  Protocols
-// that request reassembly (TLS client hello, SSH) are treated as a successful
-// classification.  `pkt` is consumed/advanced exactly as in the original
-// single-pass implementation; the caller is responsible for restoring it
-// before any retry.
-//
+///
+/// \brief Attempt to parse a TCP data field as a specific protocol.
+///
+/// Attempts to parse \p pkt as the protocol identified by \p msg_type,
+/// committing the result to \p x on success.  On parse failure it leaves
+/// \p x as std::monostate, so the caller can restore the packet datum and try
+/// the next candidate.  Protocols that request reassembly (TLS client hello,
+/// SSH) are treated as a successful classification.  \p pkt is
+/// consumed/advanced exactly as in the original single-pass implementation;
+/// the caller is responsible for restoring it before any retry.
+///
+/// \param x         the protocol variant to commit a successful parse into.
+/// \param pkt       the TCP data field to parse (advanced during parsing).
+/// \param msg_type  the candidate protocol message type to attempt.
+/// \param tcp_pkt   the enclosing TCP packet, used to drive reassembly
+///                  requests; may be \c nullptr.
+/// \return \c true if the protocol parsed successfully (or requested
+///         reassembly), \c false otherwise.
+///
 bool stateful_pkt_proc::try_parse_tcp_type(protocol &x,
                                            struct datum &pkt,
                                            tcp_msg_type msg_type,
@@ -426,11 +447,14 @@ bool stateful_pkt_proc::try_parse_tcp_type(protocol &x,
         {
             struct tls_record rec{pkt};
             struct tls_handshake handshake{rec.fragment};
+            x.emplace<tls_client_hello>(handshake.body);
             if (tcp_pkt && handshake.additional_bytes_needed) {
                 tcp_pkt->reassembly_needed(handshake.additional_bytes_needed);
-                //  set pkt type as tls CH, so that initial segments can be fingerprinted as best effort for reassembly failed cases
+                // Reassembly required: commit the (possibly partial) hello so
+                // the segment can seed reassembly, and skip the is_not_empty()
+                // parse-success check.
+                return true;
             }
-            x.emplace<tls_client_hello>(handshake.body);
             tls_client_hello *p = std::get_if<tls_client_hello>(&x);
             if (p == nullptr || !p->is_not_empty()) {
                 x.emplace<std::monostate>();
@@ -439,9 +463,31 @@ bool stateful_pkt_proc::try_parse_tcp_type(protocol &x,
             return true;
         }
     case tcp_msg_type_tls_server_hello:
-        return emplace_protocol_if_not_empty<tls_server_hello_and_certificate>(x, pkt, tcp_pkt) != nullptr;
+        {
+            x.emplace<tls_server_hello_and_certificate>(pkt, tcp_pkt);
+            tls_server_hello_and_certificate *p = std::get_if<tls_server_hello_and_certificate>(&x);
+            if (p != nullptr && p->additional_bytes_needed()) {
+                return true;
+            }
+            if (p == nullptr || !p->is_not_empty()) {
+                x.emplace<std::monostate>();
+                return false;
+            }
+            return true;
+        }
     case tcp_msg_type_tls_certificate:
-        return emplace_protocol_if_not_empty<tls_certificate>(x, pkt, tcp_pkt) != nullptr;
+        {
+            x.emplace<tls_certificate>(pkt, tcp_pkt);
+            tls_certificate *p = std::get_if<tls_certificate>(&x);
+            if (p != nullptr && p->additional_bytes_needed()) {
+                return true;
+            }
+            if (p == nullptr || !p->is_not_empty()) {
+                x.emplace<std::monostate>();
+                return false;
+            }
+            return true;
+        }
     case tcp_msg_type_ssh:
         if (tcp_pkt) {
             if (!(selector.ssh_direction() & tcp_pkt->get_direction_from_ports())) {
@@ -469,17 +515,14 @@ bool stateful_pkt_proc::try_parse_tcp_type(protocol &x,
         }
         {
             struct ssh_binary_packet ssh_pkt{pkt};
+            x.emplace<ssh_kex_init>(ssh_pkt, tcp_pkt ? tcp_pkt->get_direction_from_ports() : flow_direction::unknown);
             if (tcp_pkt && ssh_pkt.additional_bytes_needed) {
                 tcp_pkt->reassembly_needed((uint32_t)ssh_pkt.additional_bytes_needed);
+                return true;
             }
             else if (tcp_pkt) {
                 tcp_pkt->set_supplementary_reassembly();
-            }
-            x.emplace<ssh_kex_init>(ssh_pkt, tcp_pkt ? tcp_pkt->get_direction_from_ports() : flow_direction::unknown);
-            ssh_kex_init *p = std::get_if<ssh_kex_init>(&x);
-            if (p == nullptr || !p->is_not_empty()) {
-                x.emplace<std::monostate>();
-                return false;
+                return true;
             }
             return true;
         }
@@ -556,20 +599,28 @@ bool stateful_pkt_proc::try_parse_tcp_type(protocol &x,
     }
 }
 
-// set_tcp_protocol() sets the protocol variant record to the data
-// structure resulting from the parsing of the TCP data field, which
-// will be one of the TCP protocols in that variant.  The default
-// value of std::monostate indicates that the protocol matcher did not
-// recognize, or could not parse, the packet.  The class
-// unknown_initial_packet represents the TCP data field of an
-// unrecognized packet that is the first data packet in a flow.
-//
-// Multi-pass fallback: when a matcher matches but the protocol parse fails,
-// detection resumes from the next candidate rather than dropping the packet.
-// `pkt` is a non-owning {data, data_end} cursor over immutable packet memory,
-// so it is snapshotted (a 16-byte copy, no allocation) and restored before
-// each parse attempt.
-//
+///
+/// \brief Identify and parse the TCP data field, applying multi-pass fallback.
+///
+/// Sets the protocol variant record \p x to the data structure resulting from
+/// parsing the TCP data field, which will be one of the TCP protocols in that
+/// variant.  A default value of std::monostate indicates that the protocol
+/// matcher did not recognize, or could not parse, the packet.  The class
+/// unknown_initial_packet represents the TCP data field of an unrecognized
+/// packet that is the first data packet in a flow.
+///
+/// Multi-pass fallback: when a matcher matches but the protocol parse fails,
+/// detection resumes from the next candidate rather than dropping the packet.
+/// \p pkt is a non-owning {data, data_end} cursor over immutable packet
+/// memory, so it is snapshotted (a 16-byte copy, no allocation) and restored
+/// before each parse attempt.
+///
+/// \param x        the protocol variant to populate with the parsed result.
+/// \param pkt      the TCP data field to identify and parse.
+/// \param is_new   true if this is the first data packet in the flow.
+/// \param tcp_pkt  the enclosing TCP packet, used for port heuristics and
+///                 reassembly; may be \c nullptr.
+///
 void stateful_pkt_proc::set_tcp_protocol(protocol &x,
                                          struct datum &pkt,
                                          bool is_new,
@@ -609,30 +660,21 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
 
     // Pass 3: keyword matcher (may yield several candidate types).  Keyword
     // candidates are only attempted if the corresponding protocol is enabled
-    // in the selector, since the keyword map is not gated by selection.
-    auto keyword_enabled = [&](tcp_msg_type type) -> bool {
-        switch (type) {
-        case tcp_msg_type_http_request:  return selector.http_request();
-        case tcp_msg_type_http_response: return selector.http_response();
-        case tcp_msg_type_ftp_request:   return selector.ftp_request();
-        case tcp_msg_type_smtp_client:   return selector.smtp();
-        case tcp_msg_type_redis_request: return selector.redis_request();
-        case tcp_msg_type_rfb:           return selector.rfb();
-        default:                         return false;
-        }
-    };
+    // in the selector, since the keyword map is not gated by selection.  The
+    // gating lives in traffic_selector::keyword_type_enabled(), co-located
+    // with the keyword map it guards (single source of truth).
     {
         const tcp_msg_types &protos = selector.get_tcp_msg_type_from_keyword(pkt_saved);
         if (protos.front() != tcp_msg_type_unknown) {
             tcp_msg_type preferred = selector.get_tcp_msg_type_preference_from_port(protos, tcp_pkt);
-            if (preferred != tcp_msg_type_unknown && keyword_enabled(preferred) && attempt(preferred)) {
+            if (preferred != tcp_msg_type_unknown && selector.keyword_type_enabled(preferred) && attempt(preferred)) {
                 return;
             }
             for (const auto type : protos) {
                 if (type == preferred) {
                     continue;
                 }
-                if (keyword_enabled(type) && attempt(type)) {
+                if (selector.keyword_type_enabled(type) && attempt(type)) {
                     return;
                 }
             }
@@ -654,20 +696,21 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
     }
 }
 
-// set_udp_protocol() sets the protocol variant record to the data
-// structure resulting from the parsing of the UDP data field, which
-// will be one of the UDP protcols in that variant.  The default value
-// of std::monostate indicates that the protocol matcher did not
-// recognize, or could not parse, the packet.  The class
-// unknown_udp_initial_packet represents the UDP data field of an
-// unrecognized packet that is the first data packet in a flow.
-//
-// try_parse_udp_type() attempts to parse `pkt` as the UDP protocol identified
-// by `msg_type`, committing to `x` on success and returning true.  On failure
-// it leaves `x` as std::monostate and returns false so the caller can restore
-// the packet datum and try the next candidate.  `pkt` is consumed as in the
-// original single-pass implementation; the caller restores it before retries.
-//
+///
+/// \brief Attempt to parse a UDP data field as a specific protocol.
+///
+/// Attempts to parse \p pkt as the UDP protocol identified by \p msg_type,
+/// committing to \p x on success.  On failure it leaves \p x as
+/// std::monostate so the caller can restore the packet datum and try the next
+/// candidate.  \p pkt is consumed as in the original single-pass
+/// implementation; the caller restores it before retries.
+///
+/// \param x         the protocol variant to commit a successful parse into.
+/// \param pkt       the UDP data field to parse (advanced during parsing).
+/// \param msg_type  the candidate UDP protocol message type to attempt.
+/// \param k         the flow key, used to disambiguate DNS vs mDNS/NBNS.
+/// \return \c true if the protocol parsed successfully, \c false otherwise.
+///
 bool stateful_pkt_proc::try_parse_udp_type(protocol &x,
                                            struct datum &pkt,
                                            udp_msg_type msg_type,
@@ -699,7 +742,11 @@ bool stateful_pkt_proc::try_parse_udp_type(protocol &x,
         // QUIC uses its own CRYPTO-frame reassembly helper, not the offset trait.
         return emplace_protocol_if_not_empty<quic_init>(x, pkt, quic_crypto) != nullptr;
     case udp_msg_type_dtls_client_hello:
-        return emplace_protocol_if_not_empty<dtls_client_hello>(x, pkt) != nullptr;
+        // Commit unconditionally rather than via the is_not_empty() check: a
+        // fragmented ClientHello does not parse until reassembled, and the
+        // retained object is required to drive offset-based UDP reassembly.
+        x.emplace<dtls_client_hello>(pkt);
+        return true;
     case udp_msg_type_dtls_server_hello:
         return emplace_protocol_if_not_empty<dtls_server_hello>(x, pkt) != nullptr;
     case udp_msg_type_dtls_hello_verify_request:
@@ -731,18 +778,28 @@ bool stateful_pkt_proc::try_parse_udp_type(protocol &x,
     }
 }
 
-// set_udp_protocol() sets the protocol variant record to the data
-// structure resulting from the parsing of the UDP data field, which
-// will be one of the UDP protcols in that variant.  The default value
-// of std::monostate indicates that the protocol matcher did not
-// recognize, or could not parse, the packet.  The class
-// unknown_udp_initial_packet represents the UDP data field of an
-// unrecognized packet that is the first data packet in a flow.
-//
-// Multi-pass fallback: when a matcher matches but the protocol parse fails,
-// detection resumes from the next candidate.  `pkt` is a non-owning cursor
-// over immutable packet memory, snapshotted and restored before each attempt.
-//
+///
+/// \brief Identify and parse the UDP data field, applying multi-pass fallback.
+///
+/// Sets the protocol variant record \p x to the data structure resulting from
+/// parsing the UDP data field, which will be one of the UDP protocols in that
+/// variant.  A default value of std::monostate indicates that the protocol
+/// matcher did not recognize, or could not parse, the packet.  The class
+/// unknown_udp_initial_packet represents the UDP data field of an unrecognized
+/// packet that is the first data packet in a flow.
+///
+/// Multi-pass fallback: when a matcher matches but the protocol parse fails,
+/// detection resumes from the next candidate.  \p pkt is a non-owning cursor
+/// over immutable packet memory, snapshotted and restored before each attempt.
+///
+/// \param x        the protocol variant to populate with the parsed result.
+/// \param pkt      the UDP data field to identify and parse.
+/// \param ports    the source/destination UDP ports, used for fallbacks.
+/// \param is_new   true if this is the first data packet in the flow.
+/// \param k        the flow key, used to disambiguate DNS vs mDNS/NBNS.
+/// \param udp_pkt  the enclosing UDP packet (reassembly state propagated by
+///                 the caller).
+///
 void stateful_pkt_proc::set_udp_protocol(protocol &x,
                       struct datum &pkt,
                       udp::ports ports,
