@@ -150,6 +150,19 @@ public:
 
     bool is_not_empty() const { return hello.is_not_empty(); }
 
+    // Populate destination metadata for stats collection only; classifier
+    // is intentionally not invoked for DTLS.
+    bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *) {
+        datum sn;
+        datum ua;
+        datum alpn;
+
+        hello.extensions.set_meta_data(sn, ua, alpn);
+        analysis_.destination.init(sn, ua, alpn, k_);
+
+        return false;
+    }
+
     const tls_client_hello &get_tls_client_hello() const { return hello; }
 
     // dtls_client_hello member functions supporting the offset-based UDP
