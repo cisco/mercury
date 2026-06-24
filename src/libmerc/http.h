@@ -227,13 +227,14 @@ class new_http_headers {
     datum header_body;
     datum delim;
     std::array<datum, N> headers;
-    static constexpr size_t max_body_length = 512;  // limit on number of bytes reported
+    datum body;
 
 public:
 
     new_http_headers() :
     header_body{nullptr, nullptr},
-    delim{nullptr, nullptr} {
+    delim{nullptr, nullptr},
+    body{nullptr, nullptr} {
     }
 
     httpheader get_next_header(struct datum& p) {
@@ -271,11 +272,6 @@ public:
             }
             hdrs.close();
         }
-        if (header_body.is_readable()) {
-            datum body = header_body;
-            body.trim_to_length(max_body_length);
-            record.print_key_hex("body", body);
-        }
     }
 
     void write_header(cbor_array &hdrs, const httpheader &h,
@@ -288,6 +284,14 @@ public:
             hdr.print_key_string("value", h.value);
         }
         hdr.close();
+    }
+
+    void write_body(struct json_object &record) const {
+        if (http_config::output_body_max > 0 && body.is_readable()) {
+            datum trimmed = body;
+            trimmed.trim_to_length(http_config::output_body_max);
+            record.print_key_hex("body", trimmed);
+        }
     }
 
     void write_l7_metadata(cbor_object &o, perfect_hash<bool> &ph) {
@@ -309,17 +313,12 @@ public:
                 }
                 hdrs.close();
             }
-        } else if (http_config::output_body_max > 0) {
-            unsigned char crlfcrlf[4] = { '\r', '\n', '\r', '\n' };
-            header_body.skip_up_to_delim(crlfcrlf, sizeof(crlfcrlf));
         }
 
-        if (http_config::output_body_max > 0) {
-            datum body = header_body;
-            if (body.is_readable()) {
-                body.trim_to_length(http_config::output_body_max);
-                o.print_key_hex("body", body);
-            }
+        if (http_config::output_body_max > 0 && body.is_readable()) {
+            datum trimmed = body;
+            trimmed.trim_to_length(http_config::output_body_max);
+            o.print_key_hex("body", trimmed);
         }
     }
 
@@ -366,6 +365,7 @@ public:
                 }
             }
         }
+        body = tmp;
     }
 
 };
@@ -398,6 +398,10 @@ struct http_request : public base_protocol {
 
     datum get_header(const char *name) const {
         return(headers.get_header(req_hdrs.index(name)));
+    }
+
+    void write_body(struct json_object &record) const {
+        headers.write_body(record);
     }
 
     void parse(struct datum &p);

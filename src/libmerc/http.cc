@@ -340,10 +340,10 @@ void http_request::write_json(struct json_object &record, bool output_metadata) 
         } else {
             http_request.print_key_json_string("user_agent", get_header("user-agent"));
         }
+        headers.write_body(http_request);
         http_request.close();
         http.close();
     }
-
 }
 
 void http_request::write_l7_metadata(cbor_object &o, bool) {
@@ -383,22 +383,21 @@ void http_response::parse(struct datum &p) {
 }
 
 void http_response::write_json(struct json_object &record, bool metadata) {
-    if (!metadata) {
-        return;  // TODO: remove this to un-supress output
-    }
-
     struct json_object http{record, "http"};
     struct json_object http_response{http, "response"};
     http_response.print_key_json_string("version", version.data, version.length());
     http_response.print_key_json_string("status_code", status_code.data, status_code.length());
-    http_response.print_key_json_string("status_reason", status_reason.data, status_reason.length());
-    http_response.print_key_json_string("content_type", get_header("content-type"));
-    http_response.print_key_json_string("content_length", get_header("content-length"));
-    http_response.print_key_json_string("server", get_header("server"));
-    http_response.print_key_json_string("via", get_header("via"));
+    if (metadata) {
+        http_response.print_key_json_string("status_reason", status_reason.data, status_reason.length());
+        http_response.print_key_json_string("content_type", get_header("content-type"));
+        http_response.print_key_json_string("content_length", get_header("content-length"));
+        http_response.print_key_json_string("server", get_header("server"));
+        http_response.print_key_json_string("via", get_header("via"));
 
-    headers.write_json(http_response);
+        headers.write_json(http_response);
+    }
 
+    headers.write_body(http_response);
     http_response.close();
     http.close();
 
