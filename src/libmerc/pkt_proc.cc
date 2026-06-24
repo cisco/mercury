@@ -637,7 +637,8 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
     const datum pkt_saved = pkt;   // intact snapshot (two pointers)
 
     auto attempt = [&](tcp_msg_type type) -> bool {
-        pkt = pkt_saved;           // restore cursor before each parse
+        x.emplace<std::monostate>();   // clear any stale state from a prior attempt
+        pkt = pkt_saved;               // restore cursor before each parse
         return try_parse_tcp_type(x, pkt, type, tcp_pkt);
     };
 
@@ -819,7 +820,8 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
     const datum pkt_saved = pkt;   // intact snapshot (two pointers)
 
     auto attempt = [&](udp_msg_type type) -> bool {
-        pkt = pkt_saved;           // restore cursor before each parse
+        x.emplace<std::monostate>();   // clear any stale state from a prior attempt
+        pkt = pkt_saved;               // restore cursor before each parse
         return try_parse_udp_type(x, pkt, type, k);
     };
 
