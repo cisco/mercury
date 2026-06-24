@@ -1044,10 +1044,10 @@ public:
     ///         resume index (SIZE_MAX when no further candidates remain).
     ///
     protocol_identifier<8>::match_result get_tcp_msg_type_resumable(const datum &pkt, size_t start) const {
-        // Identifier boundary: indices [0, tcp_span) address `tcp`,
-        // indices >= tcp_span address `tcp4`.  tcp_span is large enough to
-        // never collide with a real index; we use the count of matchers in
-        // `tcp` via a sentinel offset of 1<<20.
+        // Identifier boundary: indices [0, tcp4_base) address `tcp`,
+        // indices >= tcp4_base address `tcp4`. `tcp4_base` is a sentinel offset
+        // chosen large enough to never collide with a real matcher index
+        // (i.e., larger than any possible index within `tcp`).
         constexpr size_t tcp4_base = (size_t{1} << 20);
 
         if (start < tcp4_base) {
