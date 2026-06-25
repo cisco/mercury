@@ -400,10 +400,6 @@ struct http_request : public base_protocol {
         return(headers.get_header(req_hdrs.index(name)));
     }
 
-    void write_body(struct json_object &record) const {
-        headers.write_body(record);
-    }
-
     void parse(struct datum &p);
 
     bool is_not_empty() const { return protocol.is_not_empty(); }

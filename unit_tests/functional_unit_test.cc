@@ -25,7 +25,6 @@
 #include "http.h"
 
 #include <string>
-#include <vector>
 
 /*
  * The unit_test() functions defined in header files
