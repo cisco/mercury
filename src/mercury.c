@@ -322,7 +322,7 @@ static bool http_body_max_is_valid(const char *opt) {
             return false;
         }
         value = value * 10 + (unsigned)(*p - '0');
-        if (value > HTTP_BODY_MAX_BYTES) {
+        if (value > global_config::max_http_body) {
             return false;
         }
     }
