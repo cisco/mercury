@@ -520,8 +520,8 @@ namespace {
 
         http_request request{request_data};
         if (request.is_not_empty()) {
-            request.write_json(record, true);
             request.fingerprint(buf_fp);
+            request.write_json(record, true);
         }
 
         return 0;
@@ -537,8 +537,8 @@ namespace {
 
         http_response response{response_data};
         if (response.is_not_empty()) {
-            response.write_json(record, true);
             response.fingerprint(buf_fp);
+            response.write_json(record, true);
         }
 
         return 0;

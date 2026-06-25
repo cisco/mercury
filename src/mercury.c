@@ -17,6 +17,7 @@
 #include <thread>
 
 #include "mercury.h"
+#include "libmerc/global_config.h"
 #include "pcap_file_io.h"
 #include "af_packet_v3.h"
 #include "pcap_reader.h"
@@ -311,7 +312,7 @@ bool option_is_valid(const char *opt) {
     return true;
 }
 
-bool http_body_max_is_valid(const char *opt, unsigned max) {
+static bool http_body_max_is_valid(const char *opt) {
     if (!option_is_valid(opt) || opt[0] == '\0') {
         return false;
     }
@@ -321,7 +322,7 @@ bool http_body_max_is_valid(const char *opt, unsigned max) {
             return false;
         }
         value = value * 10 + (unsigned)(*p - '0');
-        if (value > max) {
+        if (value > HTTP_BODY_MAX_BYTES) {
             return false;
         }
     }
@@ -500,7 +501,7 @@ int main(int argc, char *argv[]) {
             }
             break;
         case http_body:
-            if (http_body_max_is_valid(optarg, 2048)) {
+            if (http_body_max_is_valid(optarg)) {
                 additional_args.append("http-body-max=").append(optarg).append(";");
             } else {
                 usage(argv[0], "option http-body-max requires a size argument (0-2048)", extended_help_off);

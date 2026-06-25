@@ -1,6 +1,8 @@
 #ifndef GLOBAL_CONFIG_H
 #define GLOBAL_CONFIG_H
 
+#define HTTP_BODY_MAX_BYTES 2048
+
 #include "libmerc.h"
 #include "printf_err.hpp"
 #include "config_generator.h"
@@ -322,7 +324,7 @@ public:
         }
         return true;
     }
-    static constexpr size_t max_http_body = 2048;
+    static constexpr size_t max_http_body = HTTP_BODY_MAX_BYTES;
 
     bool set_http_body_max(const std::string& s) {
         if (s.empty()) {
