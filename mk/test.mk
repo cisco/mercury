@@ -57,6 +57,8 @@ test: all unittest test-comp test-analysis test-cert-check \
 	fi
 
 # --- unittest ---------------------------------------------------------
+# Run the binary from the repository root so repo-relative fixture paths
+# work consistently for the built-in unit tests.
 
 $(OBJ)/src/unit_test.o: CXXFLAGS := $(filter-out -DNDEBUG,$(CXXFLAGS))
 
@@ -66,7 +68,7 @@ $(BIN)/unit_test: $(call objects,src/unit_test.cpp src/libmerc/asn1/oid.cc)
 
 .PHONY: unittest
 unittest: $(BIN)/unit_test
-	cd src && $(abspath $(BIN)/unit_test)
+	$(abspath $(BIN)/unit_test)
 	@printf '$(COLOR_GREEN)  passed unit tests$(COLOR_OFF)\n'
 
 # --- Fingerprint comparison tests (comp) ------------------------------
@@ -488,7 +490,7 @@ _run-coverage: $(BIN)/unit_test $(BIN)/mercury $(LIB)/libmerc.so
 	@mkdir -p $(_cov_dir)
 	@# --- Stage 1: unit tests ---
 	find build/Coverage* -name '*.gcda' -delete 2>/dev/null || true
-	cd src && $(abspath $(BIN)/unit_test)
+	$(abspath $(BIN)/unit_test)
 	lcov -q $(_cov_capture_flags) --directory build/Coverage --capture --output-file $(_cov_dir)/unit_tests.info
 	@printf '$(COLOR_GREEN)  captured unit test coverage$(COLOR_OFF)\n'
 	@# --- Stage 2: libmerc tests via test driver (tls-only) ---
@@ -549,7 +551,7 @@ _run-coverage-fuzz: $(BIN)/unit_test $(BIN)/mercury $(LIB)/libmerc.so
 	@mkdir -p $(_cov_fuzz_dir)
 	@# --- Stage 1: unit tests ---
 	find build/Coverage* -name '*.gcda' -delete 2>/dev/null || true
-	cd src && $(abspath $(BIN)/unit_test)
+	$(abspath $(BIN)/unit_test)
 	lcov -q $(_cov_capture_flags) --directory build/Coverage --capture --output-file $(_cov_fuzz_dir)/unit_tests.info
 	@printf '$(COLOR_GREEN)  captured unit test coverage$(COLOR_OFF)\n'
 	@# --- Stage 2: libmerc tests via test driver (tls-only) ---
