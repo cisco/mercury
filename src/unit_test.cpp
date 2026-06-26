@@ -12,7 +12,7 @@
 #include "libmerc/tofsee.hpp"
 #include "libmerc/snmp.hpp"
 #include "libmerc/ip_address.hpp"
-#include "libmerc/lctrie/lctrie_test.hpp"
+#include "libmerc/lctrie/lctrie_bgp.hpp"
 #include "libmerc/watchlist.hpp"
 #include "libmerc/rdp.hpp"
 #include "libmerc/rfb.hpp"
