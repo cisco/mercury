@@ -167,5 +167,4 @@ namespace {
 
 }; // end of namespace
 
-
 #endif /* SSDP_H */

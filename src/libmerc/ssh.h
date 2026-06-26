@@ -16,6 +16,7 @@
 #include "analysis.h"
 #include "json_object.h"
 #include "fingerprint.h"
+#include "flow_key.h"
 #include "match.h"
 
 // #define L_ssh_version_string                   8
@@ -155,6 +156,7 @@ struct ssh_kex_init : public base_protocol {
     struct name_list languages_server_to_client;
     bool secondary_binary_packet = false;
     ssh_binary_packet sec_pkt;
+    flow_direction direction;
 
     static constexpr ssize_t ssh_msg_code_len = 1;
     static constexpr ssize_t ssh_cookie_len = 16;
@@ -163,7 +165,7 @@ struct ssh_kex_init : public base_protocol {
 
     //ssh_kex_init(datum &p, datum trailing) { parse(p,trailing); };
 
-    ssh_kex_init(ssh_binary_packet& pkt) {
+    ssh_kex_init(ssh_binary_packet& pkt, flow_direction dir = flow_direction::unknown) : direction{dir} {
         if (pkt.has_trailing_data()) {
             parse(pkt.payload,pkt.trailing_data);
         }
@@ -172,7 +174,7 @@ struct ssh_kex_init : public base_protocol {
         }
     }
 
-    ssh_kex_init() { };
+    ssh_kex_init() : direction{flow_direction::unknown} { };
 
     void parse(struct datum &p) {
 
@@ -278,7 +280,7 @@ struct ssh_kex_init : public base_protocol {
     }
 
     void compute_fingerprint(class fingerprint &fp) const {
-        fp.set_type(fingerprint_type_ssh_kex);
+        fp.set_type(direction == flow_direction::server ? fingerprint_type_ssh_kex_server : fingerprint_type_ssh_kex);
         fp.add(*this);
         fp.final();
     }
@@ -329,10 +331,11 @@ struct ssh_init_packet : public base_protocol {
     ssh_binary_packet binary_pkt;
     ssh_kex_init kex_pkt;
     data_buffer<MAX_USER_AGENT_LEN> user_agent;
+    flow_direction direction;
 
     static constexpr size_t max_data_size = 8192;
 
-    ssh_init_packet(datum &p) : protocol_string{NULL, NULL}, comment_string{NULL, NULL}, binary_pkt{}, kex_pkt{}, user_agent{} {
+    ssh_init_packet(datum &p, flow_direction dir = flow_direction::unknown) : protocol_string{NULL, NULL}, comment_string{NULL, NULL}, binary_pkt{}, kex_pkt{}, user_agent{}, direction{dir} {
         parse(p);
     }
 
@@ -348,7 +351,7 @@ struct ssh_init_packet : public base_protocol {
             if (p.is_not_empty()) {
                 binary_pkt = ssh_binary_packet{p};
                 if (binary_pkt.is_not_empty()) {
-                    kex_pkt = ssh_kex_init{binary_pkt};
+                    kex_pkt = ssh_kex_init{binary_pkt, direction};
                 }
             }
 
@@ -365,7 +368,7 @@ struct ssh_init_packet : public base_protocol {
         if (p.is_not_empty()) {
             binary_pkt = ssh_binary_packet{p};
             if (binary_pkt.is_not_empty()) {
-                kex_pkt = ssh_kex_init{binary_pkt};
+                kex_pkt = ssh_kex_init{binary_pkt, direction};
             }
         }
 
@@ -417,10 +420,10 @@ struct ssh_init_packet : public base_protocol {
     void compute_fingerprint(class fingerprint &fp) const {
         // depending on type of pkt, set correct fingerprint type
         if (kex_pkt.is_not_empty()){
-            fp.set_type(fingerprint_type_ssh);
+            fp.set_type(direction == flow_direction::server ? fingerprint_type_ssh_server : fingerprint_type_ssh);
         }
         else {
-            fp.set_type(fingerprint_type_ssh_init);
+            fp.set_type(direction == flow_direction::server ? fingerprint_type_ssh_init_server : fingerprint_type_ssh_init);
         }
         fp.add(*this);
         fp.final();
@@ -475,27 +478,87 @@ struct ssh_init_packet : public base_protocol {
     };
 
     bool do_analysis(const struct key &k_, struct analysis_context &analysis_, classifier *c_) {
-        if (!kex_pkt.is_not_empty()) {
-            return false;
-        }
-
-        // concatenate protocol and comment strings for analysis
+        // concatenate protocol and comment strings for analysis/observation
         datum tmp_protocol_str = protocol_string;
         datum tmp_comment_str = comment_string;
         user_agent.parse(tmp_protocol_str);
         user_agent.parse(tmp_comment_str);
 
         analysis_.destination.init({nullptr, nullptr}, user_agent.contents(), {nullptr, nullptr}, k_);
+
+        if (!kex_pkt.is_not_empty()) {
+            return false;
+        }
+        // only run the classifier on SSH client messages, not server messages
+        if (direction == flow_direction::server) {
+            return false;
+        }
         if (c_ == nullptr) {
             return false;
         }
-        return c_->analyze_fingerprint_and_destination_context(analysis_.fp, analysis_.destination, analysis_.result);
-}
+        return c_->analyze_fingerprint_and_destination_context(analysis_);
+    }
 
 };
 
 [[maybe_unused]] inline int ssh_init_packet_fuzz_test(const uint8_t *data, size_t size) {
     return json_output_fuzzer<ssh_init_packet>(data, size);
 }
+
+namespace ssh_unit_test {
+#ifndef NDEBUG
+    inline bool unit_test() {
+        char buffer[4096];
+
+        // Test SSH init packet with protocol version
+        const char *ssh_banner = "SSH-2.0-OpenSSH_8.9\r\n";
+        datum d1{(const uint8_t*)ssh_banner, (const uint8_t*)ssh_banner + strlen(ssh_banner)};
+        ssh_init_packet pkt1{d1};
+        if (!pkt1.is_not_empty()) return false;
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_object json{&buf};
+            pkt1.write_json(json, true);
+            json.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "SSH-2.0")) return false;
+        }
+
+        // Test SSH init packet with comment
+        const char *ssh_banner_comment = "SSH-2.0-OpenSSH_8.9 Ubuntu-3ubuntu0.1\r\n";
+        datum d2{(const uint8_t*)ssh_banner_comment, (const uint8_t*)ssh_banner_comment + strlen(ssh_banner_comment)};
+        ssh_init_packet pkt2{d2};
+        if (!pkt2.is_not_empty()) return false;
+
+        // Test SSH binary packet structure
+        uint8_t binary_pkt[] = {
+            0x00, 0x00, 0x00, 0x1c,  // packet_length: 28
+            0x06,                    // padding_length: 6
+            0x14,                    // SSH_MSG_KEXINIT (20)
+            // 16 bytes cookie
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+            0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10,
+            // minimal name-list (empty)
+            0x00, 0x00, 0x00, 0x00
+        };
+        datum d3{binary_pkt, binary_pkt + sizeof(binary_pkt)};
+        ssh_binary_packet bin_pkt{d3};
+        if (!bin_pkt.is_not_empty()) return false;
+        if (bin_pkt.padding_length != 6) return false;
+
+        // Test invalid binary packet (length too large)
+        uint8_t bad_pkt[] = {
+            0x00, 0x01, 0x00, 0x00,  // packet_length: 65536 (too large)
+            0x06,
+            0x14
+        };
+        datum d4{bad_pkt, bad_pkt + sizeof(bad_pkt)};
+        ssh_binary_packet bad_bin_pkt{d4};
+        if (bad_bin_pkt.is_not_empty()) return false;
+
+        return true;
+    }
+#endif
+} // namespace ssh_unit_test
 
 #endif // SSH_H

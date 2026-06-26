@@ -25,6 +25,9 @@
 #include "config.h"
 #include "output.h"
 #include "control.h"
+#ifndef OPENSSL_LEGACY
+#include <openssl/crypto.h>  // OPENSSL_cleanup
+#endif
 #include "libmerc/interface_select.hpp"
 
 char mercury_help[] =
@@ -67,6 +70,7 @@ char mercury_help[] =
     "   --minimize-ram                        # minimize the ram usage of mercury library\n"
     "   --crypto-assess[=policy]              # perform cryptographic security assessment\n"
     "   --exposed-creds                       # detect exposed credentials in enabled protocols\n"
+    "   --quic-trial-decryption               # try all known QUIC initial salts for unknown versions\n"
     "   [-v or --verbose]                     # additional information sent to stderr\n"
     "   --license                             # write license information to stdout\n"
     "   --version                             # write version information to stdout\n"
@@ -75,9 +79,11 @@ char mercury_help[] =
 char mercury_extended_help[] =
     "\n"
     "DETAILS\n"
-    "   \"[-c] c\" or \"[--capture=c]\" captures packets from interface c with Linux AF_PACKET\n"
-    "   \"[--capture]\" captures packets using an auto-detected Linux interface\n"
-    "   using a separate ring buffer for each worker thread.  \"[-t or --thread] t\"\n"
+    "   \"[-c] c\" or \"[--capture=c]\" captures packets from interface c using the platform\n"
+    "   live-capture backend.  On Linux, mercury uses AF_PACKET with a separate ring\n"
+    "   buffer for each worker thread.  On macOS, mercury uses libpcap for interface\n"
+    "   capture and currently supports a single capture thread.  \"[--capture]\" with no\n"
+    "   interface auto-detects a Linux interface (Linux only).  \"[-t or --thread] t\"\n"
     "   sets the number of worker threads to t, if t is a positive integer; if t is\n"
     "   \"cpu\", then the number of threads will be set to the number of available\n"
     "   processors.  \"[-b or --buffer] b\" sets the total size of all ring buffers to\n"
@@ -257,6 +263,12 @@ char mercury_extended_help[] =
     "       plaintext-derived       Derived credentials like hashed passwords\n"
     "       plaintext-token         Token based credentials like OAuth tokens\n"
     "\n"
+    "   --quic-trial-decryption enables trial decryption of QUIC Initial packets\n"
+    "   using all known version-specific salts, which allows fingerprinting of QUIC\n"
+    "   clients that use unknown or reserved version numbers.  This option requires\n"
+    "   single-threaded operation (--threads 1) because the trial decryption state\n"
+    "   is not thread-safe.\n"
+    "\n"
     "   [-v or --verbose] writes additional information to the standard error,\n"
     "   including the packet count, byte count, elapsed time and processing rate, as\n"
     "   well as information about threads and files.\n"
@@ -329,7 +341,9 @@ int main(int argc, char *argv[]) {
     std::string additional_args;
 
     while(1) {
-        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13, reassembly=14, format=15, raw_features=16, crypto_assess=17, minimize_ram=18, network_behavioral_detections=19, exposed_creds=20, http_headers=21, http_body=22 };
+
+        enum opt { config=1, version=2, license=3, dns_json=4, certs_json=5, metadata=6, resources=7, tcp_init_data=8, udp_init_data=9, write_stats=10, stats_limit=11, stats_time=12, output_time=13, reassembly=14, format=15, raw_features=16, crypto_assess=17, minimize_ram=18, network_behavioral_detections=19, exposed_creds=20, http_headers=21, http_body=22, quic_trial_decryption=23 };
+
         int opt_idx = 0;
         static struct option long_opts[] = {
             { "config",                        required_argument, NULL,                        config },
@@ -366,9 +380,10 @@ int main(int argc, char *argv[]) {
             { "http-body-max",                 required_argument, NULL,                     http_body },
             { "minimize-ram",                        no_argument, NULL,                  minimize_ram },
             { "network-behavioral-detections",       no_argument, NULL, network_behavioral_detections },
-            { "exposed-creds",                        no_argument, NULL,                  exposed_creds },
-            { "verbose",                             no_argument, NULL,                           'v' },
-            { NULL,                                            0,    0,                             0 }
+            { "exposed-creds",                       no_argument, NULL,                 exposed_creds },
+            { "quic-trial-decryption",               no_argument, NULL,        quic_trial_decryption },
+            { "verbose",                             no_argument, NULL,                          'v' },
+            { NULL,                                            0,    0,                            0 }
         };
         int c = getopt_long(argc, argv, "r:w:c:f:t:b:l:u:s::oham:vp:d:", long_opts, &opt_idx);
         if (c < 0) {
@@ -450,6 +465,13 @@ int main(int argc, char *argv[]) {
                 usage(argv[0], "option reassembly does not use an argument", extended_help_off);
             } else {
                 additional_args.append("reassembly;");
+            }
+            break;
+        case quic_trial_decryption:
+            if (optarg) {
+                usage(argv[0], "option quic-trial-decryption does not use an argument", extended_help_off);
+            } else {
+                additional_args.append("quic-trial-decryption;");
             }
             break;
         case format:
@@ -773,6 +795,10 @@ int main(int argc, char *argv[]) {
         libmerc_cfg.packet_filter_cfg = (char *)additional_args.c_str();
     }
 
+    if (strstr(libmerc_cfg.packet_filter_cfg, "quic-trial-decryption") && (cfg.num_threads == -1 || cfg.num_threads > 1)) {
+        usage(argv[0], "option quic-trial-decryption requires single-threaded operation (--threads 1)", extended_help_off);
+    }
+
     mercury_context mc = mercury_init(&libmerc_cfg, cfg.verbosity);
     if (mc == nullptr) {
         fprintf(stderr, "error: could not initialize mercury\n");
@@ -800,7 +826,7 @@ int main(int argc, char *argv[]) {
     /* If we're going to capture from the network we don't want this main thread
      * to get interrupted, instead the stats thread needs to recieve the signal.
      */
-    if (cfg.capture_mode) {
+    if (cfg.capture_mode && capture_backend_blocks_main_thread_signals()) {
         disable_all_signals(); /* Stats thread will unmask the signals it needs */
     }
 
@@ -876,6 +902,20 @@ int main(int argc, char *argv[]) {
     }
 
     mercury_finalize(mc);
+
+    // Free OpenSSL's internally cached state so that
+    // AddressSanitizer's leak checker does not report the
+    // allocations made by CRYPTO_malloc (240 bytes on OpenSSL 3.0).
+    // Normally OpenSSL's own atexit handler frees them, but ASan
+    // runs before atexit.  Available since OpenSSL 1.1.0.
+    //
+    // This call lives here rather than in libmerc because
+    // OPENSSL_cleanup() is process-global and irreversible — a host
+    // process that dlopen's libmerc.so may still need OpenSSL after
+    // mercury_finalize() returns.
+#ifndef OPENSSL_LEGACY
+    OPENSSL_cleanup();
+#endif
 
     return 0;
 }

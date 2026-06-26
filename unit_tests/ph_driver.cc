@@ -1,9 +1,40 @@
+///
+/// \file ph_driver.cc
+///
+/// Standalone benchmark test for perfect_hash implementation.
+///
+/// Unlike other unit tests, this file defines its own main() via
+/// DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN and is compiled as a separate executable.
+/// It is NOT linked with doctest_main.cc.
+///
+/// Copyright (c) 2025 Cisco Systems, Inc. All rights reserved.
+/// License at https://github.com/cisco/mercury/blob/master/LICENSE
+///
+
 #include <perfect_hash.h>
 
-#define CATCH_CONFIG_MAIN
-#include "catch.hpp"
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include "doctest.h"
 
 #include <unordered_map>
+#include <chrono>
+#include <memory>
+#include <cinttypes>
+
+// Simple timing helper for benchmark sections
+class BenchmarkTimer {
+    const char* name_;
+    std::chrono::high_resolution_clock::time_point start_;
+public:
+    BenchmarkTimer(const char* n) : name_(n), start_(std::chrono::high_resolution_clock::now()) {}
+    ~BenchmarkTimer() {
+        auto end = std::chrono::high_resolution_clock::now();
+        auto us = std::chrono::duration_cast<std::chrono::microseconds>(end - start_).count();
+        printf("%s: %" PRId64 " us\n", name_, static_cast<int64_t>(us));
+    }
+};
+
+#define BENCHMARK(name) if (BenchmarkTimer DOCTEST_ANONYMOUS(_bt_)(name); true)
 
 std::string gen_random(const int len) {
     static const char alphanum[] =
@@ -54,28 +85,27 @@ SCENARIO("Perfect Hash. Key len = 20; Elements = 100; Lookup count = 100")
         test_data.push_back({strdup(_test_data[i].c_str()), _test_data[i].length(), i});
     }
 
-    perfect_hash<int>* ph = nullptr;
+    std::unique_ptr<perfect_hash<int>> ph;
 
     BENCHMARK("Perfect Hash generation table")
     {
-        ph = new perfect_hash<int>(test_data);
+        ph = std::make_unique<perfect_hash<int>>(test_data);
     }
 
     std::vector<int*> res;
-    res.reserve(loop_count_1);
+    res.resize(loop_count_1);
     bool valid = false;
     BENCHMARK("Perfect Hash lookup")
     {
         for(size_t i = 0; i < loop_count_1; i++)
         {
-            res[i] = ph->lookup(_test_data[i].c_str(), _test_data[i].length(), valid);
+            res[i] = ph->lookup(reinterpret_cast<const uint8_t*>(_test_data[i].c_str()), _test_data[i].length(), valid);
         }
     }
     valid = false;
     for(int i = 0; i < (int)loop_count_1; i++)
     {
         valid |= *res[i] != i;
-        printf("\n\n%d\n\n", *res[i]);
     }
     REQUIRE_FALSE(valid);
     for(auto& d : test_data)
@@ -85,7 +115,7 @@ SCENARIO("Perfect Hash. Key len = 20; Elements = 100; Lookup count = 100")
     }
 }
 
-SCENARIO("Unordered Map. Key len = 20; Elements = 100; Lookup count = 1000")
+SCENARIO("Unordered Map. Key len = 20; Elements = 100; Lookup count = 100")
 {
     prepare_data(loop_count_1, key_len_1);
 
@@ -96,7 +126,7 @@ SCENARIO("Unordered Map. Key len = 20; Elements = 100; Lookup count = 1000")
         test_data.insert({_test_data[i], new int(i)});
     }
     std::vector<int*> res;
-    res.reserve(loop_count_1 * 100);
+    res.resize(loop_count_1);
     BENCHMARK("Unordered Map lookup")
     {
         for(size_t i = 0; i < loop_count_1; i++)
@@ -104,11 +134,6 @@ SCENARIO("Unordered Map. Key len = 20; Elements = 100; Lookup count = 1000")
             res[i] = test_data.find(_test_data[i])->second;
         }
     }
-    for(auto s : res)
-    {
-        printf("\n\n%d\n\n", *s);
-    }
-
     for(size_t i = 0; i < loop_count_1; i++)
     {
         delete test_data.find(_test_data[i])->second;
@@ -132,28 +157,27 @@ SCENARIO("Perfect Hash. Key len = 50; Elements = 100000; Lookup count = 100000")
         test_data.push_back({strdup(_test_data[i].c_str()), _test_data[i].length(), i});
     }
 
-    perfect_hash<int>* ph = nullptr;
+    std::unique_ptr<perfect_hash<int>> ph;
 
     BENCHMARK("Perfect Hash generation table")
     {
-        ph = new perfect_hash<int>(test_data);
+        ph = std::make_unique<perfect_hash<int>>(test_data);
     }
 
     std::vector<int*> res;
-    res.reserve(loop_count_2);
+    res.resize(loop_count_2);
     bool valid = false;
     BENCHMARK("Perfect Hash lookup")
     {
         for(size_t i = 0; i < loop_count_2; i++)
         {
-            res[i] = ph->lookup(_test_data[i].c_str(), _test_data[i].length(), valid);
+            res[i] = ph->lookup(reinterpret_cast<const uint8_t*>(_test_data[i].c_str()), _test_data[i].length(), valid);
         }
     }
     valid = false;
     for(size_t i = 0; i < loop_count_2; i++)
     {
         valid |= *res[i] != (int)i;
-        printf("%d\n", *res[i]);
     }
     REQUIRE_FALSE(valid);
     for(auto& d : test_data)
@@ -174,7 +198,7 @@ SCENARIO("Unordered Map. Key len = 50; Elements = 100000; Lookup count = 100000"
         test_data.insert({_test_data[i], new int(i)});
     }
     std::vector<int*> res;
-    res.reserve(loop_count_2);
+    res.resize(loop_count_2);
     BENCHMARK("Unordered Map lookup")
     {
         for(size_t i = 0; i < loop_count_2; i++)
@@ -182,11 +206,6 @@ SCENARIO("Unordered Map. Key len = 50; Elements = 100000; Lookup count = 100000"
             res[i] = test_data.find(_test_data[i])->second;
         }
     }
-    for(auto s : res)
-    {
-        printf("\n\n%d\n\n", *s);
-    }
-
     for(size_t i = 0; i < loop_count_2; i++)
     {
         delete test_data.find(_test_data[i])->second;

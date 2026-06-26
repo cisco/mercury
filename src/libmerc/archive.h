@@ -26,11 +26,8 @@
 #include "enc_file_reader.h"
 #include "datum.h"
 
-#ifdef DONT_USE_STDERR
 #include "libmerc.h"
-#else
-#define printf_err(level, ...) fprintf(stderr, __VA_ARGS__)
-#endif
+#include "printf_err.hpp"
 
 // for debugging
 //
@@ -697,17 +694,23 @@ struct gz_file_unit_test_tmpfile {
 };
 
 inline bool gz_file_unit_test_make_temp_path(std::string &out_path) {
-    char buf[L_tmpnam];
 #ifdef _WIN32
+    char buf[L_tmpnam];
     if (tmpnam_s(buf, sizeof(buf)) != 0) {
         return false;
     }
+    out_path.assign(buf);
 #else
-    if (std::tmpnam(buf) == nullptr) {
+    std::string tmpl = std::string(P_tmpdir) + "/mercury_test_XXXXXX";
+    std::vector<char> buf(tmpl.begin(), tmpl.end());
+    buf.push_back('\0');
+    int fd = mkstemp(buf.data());
+    if (fd == -1) {
         return false;
     }
+    close(fd);
+    out_path.assign(buf.data());
 #endif
-    out_path.assign(buf);
     return true;
 }
 
@@ -719,6 +722,7 @@ inline std::string gz_file_unit_test_write_gzip(const std::string &content) {
 
     gzFile file = gzopen(path.c_str(), "wb");
     if (file == nullptr) {
+        std::remove(path.c_str());
         return {};
     }
 

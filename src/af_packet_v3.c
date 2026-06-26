@@ -53,7 +53,7 @@
 #include "signal_handling.h"
 #include "libmerc/utils.h"
 #include "output.h"
-#include "pkt_processing.h"
+#include "pkt_proc.hpp"
 
 /*
  * The thread_storage, stats_tracking, and ring_limits structs are
@@ -261,8 +261,6 @@ void *stats_thread_func(void *statst_arg) {
      */
     disable_bt_signal();
 
-    int duration = 0;
-
     while (sig_close_flag == 0) {
         uint64_t packets_before = __atomic_load_n(&(statst->received_packets), __ATOMIC_RELAXED);
         uint64_t bytes_before = __atomic_load_n(&(statst->received_bytes), __ATOMIC_RELAXED);
@@ -402,8 +400,6 @@ void *stats_thread_func(void *statst_arg) {
                     r_ebips, r_ebips_s,
                     r_spps, r_spps_s, sdps, sfps, worst_bstreak_frac * 100.0);
         }
-
-        duration++;
     }
 
     free(per_tsock_stats);
@@ -1168,6 +1164,13 @@ enum status bind_and_dispatch(struct mercury_config *cfg,
     cstats->freezes = statst.socket_freezes;
 
     return status_ok;
+}
+
+/* The Linux AF_PACKET backend routes shutdown signals through its
+ * dedicated stats thread, so the main thread should block them.
+ */
+bool capture_backend_blocks_main_thread_signals() {
+    return true;
 }
 
 #define RING_LIMITS_DEFAULT_FRAC 0.01

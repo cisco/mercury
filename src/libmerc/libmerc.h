@@ -60,34 +60,32 @@ enum log_level {
 // register an error-handling function that performs specialized
 // output of a formatted error message.
 //
+// A conforming callback takes a severity level, a printf-style format
+// string, and the va_list of arguments associated with the format
+// string, and writes the message to wherever the embedder chooses.
+// On success it returns the number of characters written; on failure
+// it returns a negative number.  See printf_err_func() in printf_err.hpp
+// for a reference implementation.
+//
 #ifdef __cplusplus
 extern "C"
 #endif
 typedef int (*printf_err_ptr)(enum log_level level, const char *format, va_list args);
 
-#ifdef DONT_USE_STDERR
-int printf_err(enum log_level level, const char *format, ...);
-#else
-#define printf_err(level, ...) fprintf(stderr, __VA_ARGS__)
-#endif
-
 // register_printf_err_callback() registers a callback function for
-// printing error messages with a printf-style function.  The function
-// int printf_err_func() in err.cc provides an example of how to
-// construct such a function using a standard C va_list.
+// printing error messages with a printf-style function.
 //
 // If the callback argument passed to this function is null, then no
 // error messages will be output.  (That is, the callback is set to a
 // function that ignores its arguments and generates no output.)
 //
+// When no callback has been registered, libmerc's default
+// implementation writes log messages to stderr.
+//
 #ifdef __cplusplus
 extern "C" LIBMERC_DLL_EXPORTED
 #endif
 void register_printf_err_callback(printf_err_ptr callback);
-
-// printf_err() should be called to invoke the callback function
-//
-//extern printf_err_ptr printf_err;  // defined in libmerc.cc
 
 //
 // start of libmerc version 1 API
@@ -364,8 +362,8 @@ enum fingerprint_type {
      fingerprint_type_tls_server = 2,  /**< TLS server fingerprint             */
      fingerprint_type_http = 3,        /**< HTTP client fingerprint            */
      fingerprint_type_http_server = 4, /**< HTTP server fingerprint            */
-     fingerprint_type_ssh = 5,         /**< SSH init + kex fingerprint         */
-     fingerprint_type_ssh_kex = 6,     /**< SSH kex fingerprint                */
+     fingerprint_type_ssh = 5,         /**< SSH client init + kex fingerprint  */
+     fingerprint_type_ssh_kex = 6,     /**< SSH client kex fingerprint         */
      fingerprint_type_tcp = 7,         /**< TCP SYN fingerprint                */
      fingerprint_type_dhcp = 8,        /**< DHCP client fingerprint            */
      fingerprint_type_smtp_server = 9, /**< SMTP server fingerprint            */
@@ -376,8 +374,11 @@ enum fingerprint_type {
      fingerprint_type_openvpn = 14, /**< OpenVPN TCP fingerprint           */
      fingerprint_type_tofsee = 15,    /**< Tofsee initial message fingerprint  */
      fingerprint_type_stun = 16,       /**< STUN fingerprint                   */
-     fingerprint_type_ssh_init = 17,   /**< SSH protocol init msg fingerprint  */
-     fingerprint_type_max = 18,       /**< Placeholder: # of fingerprint types */
+     fingerprint_type_ssh_init = 17,   /**< SSH client protocol init fingerprint */
+     fingerprint_type_ssh_server = 18, /**< SSH server init + kex fingerprint  */
+     fingerprint_type_ssh_kex_server = 19, /**< SSH server kex fingerprint      */
+     fingerprint_type_ssh_init_server = 20, /**< SSH server protocol init fingerprint */
+     fingerprint_type_max = 21,       /**< Placeholder: # of fingerprint types */
 };
 
 /**

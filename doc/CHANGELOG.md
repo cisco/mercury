@@ -1,5 +1,54 @@
 # CHANGELOG for Mercury
 
+## VERSION 2.18.0
+* Added DTLS ClientHello reassembly via a generalized, trait-driven
+  UDP offset reassembly path reusable by any UDP protocol.
+* Unified reassembly truncation reporting across JSON, FDC, and analysis.
+* Tightened protocol validation for syslog and STUN: reject classic
+  STUN packets with unknown message types; honor the syslog ASCII
+  check and bound it to the first N bytes.
+* Optimized is_ascii() to enable compiler auto-vectorization.
+* Increased unit-test coverage for protocol parsers.
+* Fixed parse_up_to_delimiters() to set data_end when no delimiter found.
+* Fixed SCTP chunk length to uint16_t (RFC 4960) with length validation.
+* Fixed STUN IPv6 address length check (16 bytes instead of 4).
+* Fixed SOCKS5 request/response validity check and write_json_addr typo.
+* Fixed VXLAN VNI flag validation to reject packets with the flag unset.
+* Removed DONT_USE_STDERR and moved printf_err out of the public libmerc.h.
+* Send mercury systemd stdout/stderr to the journal, not the log file.
+
+## VERSION 2.17.0
+* Enabled ARM Pointer Authentication (PAC) and Branch Target
+  Identification (BTI) hardening on Linux.
+* Fixed SNMP JSON to decode VarBind INTEGER and request-id as
+  signed integers.
+* Fixed SNMP and Kerberos misdecoding of valid ASN.1 BER INTEGER values
+  and consolidated BER INTEGER decoders into the common ASN.1 header.
+* CI: added ubuntu26 as package target and build maintenance.
+* Revamped Makefile with non-recursive, out-of-source build system.
+* Migrated test framework from Catch2 to doctest.
+* Fixed latent compile error in pkcs8.hpp (data_buffer comparison at -O0).
+* Fixed batch_gcd.cc: undefined vtable reference, GMP limb memory leak, hexline_reader buffer leak.
+* Fixed lctrie memory leak (trie->root never freed by lct_free).
+* Fixed false-positive ASan leak report from OpenSSL 3.0 algorithm caching.
+* Fixed missing #include <sstream> in tls_extension_generator.cc.
+* Fixed GIT_COMMIT_ID falsely reporting "with local changes" after ./configure.
+
+## VERSION 2.16.1
+* Fixed configure.ac for compatibility with older versions of autoconf.
+
+## VERSION 2.16.0
+* Added MacOS packet capture capability.
+* Added new server side fingerprints for SSH (ssh, ssh_init, ssh_kex).
+* Added support for LINKTYPE_LINUX_SLL2.
+* Fixed FDC decode buffer truncation for TLS multi-certificate chains.
+* Fixed UTF-8 decoder to not truncate bytes after invalid sequences.
+* Fixed JSON unknown code reporting for wrapper types (encoded/var_int).
+* Eliminate compiler warnings across macOS (clang) and Linux (GCC/clang).
+* Docs: Update kerberos schema; remove stale guidelines.md.
+* CI: simplified and sped up the test suite.
+* CI: mirrored python wheels workflow in both public GitHub and GitHub EMU.
+
 ## VERSION 2.15.0
 * Added Telnet (RFC 854/855) support.
 * Added Kerberos v5 support.

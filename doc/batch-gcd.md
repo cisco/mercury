@@ -73,11 +73,12 @@ directory of the `mercury` source repository.
 ```
 $ ./configure
 $ make
-$ make --directory=src tls_scanner
-$ make --directory=src batch_gcd
-$ make --directory=test batch_gcd_test   # run tests (optional)
+$ make tls_scanner
+$ make batch_gcd
+$ make test-batch-gcd                    # run tests (optional)
 ```
-The executables will be built within the `src` directory, e.g., `src/batch_gcd`.
+The executables will be built within the variant build directory, e.g.,
+`build/RelWithDebInfo/bin/batch_gcd`.
 
 The exact set of dependencies will vary according to Linux distribution. On
 Debian 12, the following dependencies are sufficient for building the `mercury`

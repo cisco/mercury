@@ -1,7 +1,7 @@
 // libmerc_util.cc
 //
-// a wrapper around libmerc.so that processes pcap files and can be
-// used for testing and debugging that library
+// a PCAP analysis tool using libmerc.so (via dlopen), useful for
+// testing and debugging that library
 //
 // compile as:
 //
@@ -326,8 +326,11 @@ struct libmerc_printer : public libmerc_api {
         case fingerprint_type_http:        return "http";
         case fingerprint_type_http_server: return "http_server";
         case fingerprint_type_ssh:         return "ssh";
+        case fingerprint_type_ssh_server:  return "ssh_server";
         case fingerprint_type_ssh_kex:     return "ssh_kex";
+        case fingerprint_type_ssh_kex_server: return "ssh_kex_server";
         case fingerprint_type_ssh_init:    return "ssh_init";
+        case fingerprint_type_ssh_init_server: return "ssh_init_server";
         case fingerprint_type_tcp:         return "tcp";
         case fingerprint_type_dhcp:        return "dhcp";
         case fingerprint_type_smtp_server: return "smtp_server";

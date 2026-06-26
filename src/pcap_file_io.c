@@ -239,9 +239,10 @@ enum status pcap_file_open(struct pcap_file *f,
         if (file_header.network != LINKTYPE_ETHERNET &&
                 file_header.network != LINKTYPE_LINUX_SLL &&
                 file_header.network != LINKTYPE_PPP  &&
-                file_header.network != LINKTYPE_RAW) {
+                file_header.network != LINKTYPE_RAW &&
+                file_header.network != LINKTYPE_LINUX_SLL2) {
             if (file_header.network == LINKTYPE_NULL) {
-                fprintf(stderr, "warning: pcap file linktype is NULL (0), assuming ETHERNET or PPP\n");
+                fprintf(stderr, "warning: pcap file linktype is NULL (0), treating as BSD loopback encapsulation\n");
             } else {
                 fprintf(stderr, "error: pcap file linktype (%u) unsupported\n", file_header.network);
                 exit(EXIT_FAILURE); // TODO: return error, don't exit

@@ -1,11 +1,16 @@
-/*
- * functional_unit_test.cc
- *
- *
- * Copyright (c) 2021 Cisco Systems, Inc. All rights reserved.  License at
- * https://github.com/cisco/mercury/blob/master/LICENSE
- */
+///
+/// \file functional_unit_test.cc
+///
+/// Unit tests for various protocol parsers and utilities.
+///
+/// Note: This file does NOT define main(). It is compiled and linked with
+/// doctest_main.cc, which provides the main() entry point that runs all tests.
+///
+/// Copyright (c) 2025 Cisco Systems, Inc. All rights reserved.
+/// License at https://github.com/cisco/mercury/blob/master/LICENSE
+///
 
+#include "doctest.h"
 #include "libmerc_driver_helper.hpp"
 #include "bencode.h"
 #include "snmp.hpp"

@@ -180,7 +180,10 @@ public:
             "openvpn",
             "tofsee",
             "stun",
-            "ssh_init"
+            "ssh_init",
+            "ssh_server",
+            "ssh_kex_server",
+            "ssh_init_server"
         };
         if (fp_type > (sizeof(name)/sizeof(const char *)) - 1) {
             return name[0];  // error: unknown type

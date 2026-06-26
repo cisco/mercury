@@ -1,289 +1,273 @@
-# Makefile for mercury
+# Makefile -- mercury build (non-recursive)
 #
+# Run 'make help' for targets, variables, and examples.
 
-export OPTFLAGS
+BUILD_TYPE ?= RelWithDebInfo
 
-# definitions for colorized output
-COLOR_RED    = "\033[0;31m"
-COLOR_GREEN  = "\033[0;32m"
-COLOR_YELLOW = "\033[0;33m"
-COLOR_OFF    = "\033[0m"
+# --- Standard variants (mirror CMake defaults) ------------------------
 
-INSTALL = /usr/bin/install -c
-INSTALLDATA = /usr/bin/install -c -m 644
+FLAGS_Release        := -O3 -DNDEBUG
+FLAGS_Debug          := -O0 -g -UNDEBUG
+FLAGS_RelWithDebInfo := -O3 -g -DNDEBUG
+FLAGS_MinSizeRel     := -Os -DNDEBUG
 
-.PHONY: mercury
-mercury:
-ifneq ($(wildcard src/Makefile), src/Makefile)
-	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
-else
-	cd src && $(MAKE)
+LDFLAGS_Release         :=
+LDFLAGS_Debug           :=
+LDFLAGS_RelWithDebInfo  :=
+LDFLAGS_MinSizeRel      :=
+
+# --- Coverage variant -------------------------------------------------
+
+FLAGS_Coverage := -O0 -g -UNDEBUG -fprofile-arcs --coverage \
+                     -fprofile-update=atomic
+LDFLAGS_Coverage  := --coverage
+
+VALID_BUILD_TYPES := Release Debug RelWithDebInfo MinSizeRel Coverage
+
+# --- Default target (must appear before includes) ---------------------
+
+.PHONY: all
+all:
+
+# --- No-config targets (must be defined before mk/rules.mk) ----------
+# Targets that work without running ./configure first.
+
+_no_config_targets := clean distclean help
+
+# --- Build system includes (order matters) ----------------------------
+# Soft-include: config.mk may not exist before ./configure or after
+# distclean.  Variables that it provides default to empty, which is
+# fine for clean/distclean/help.
+
+-include mk/config.mk
+include mk/rules.mk
+
+# --- Module includes --------------------------------------------------
+
+# build & test (alphabetical: order doesn't matter)
+include mk/cython.mk
+include mk/doc.mk
+include mk/libmerc.mk
+include mk/mercury.mk
+include mk/tables.mk
+include mk/test.mk
+include mk/test_libmerc.mk
+include mk/tools.mk
+
+# install (last: may depend on variable definitions like CERTTOOLS)
+include mk/install.mk
+
+# --- Auto-rebuild when configure inputs change ------------------------
+# Skip auto-rebuild rules for targets that don't need a configured tree.
+
+# Is the user running any target that needs a configured tree?
+_needs_config := $(if $(MAKECMDGOALS),$(filter-out $(_no_config_targets),$(MAKECMDGOALS)),yes)
+ifneq ($(_needs_config),)
+
+# Guard: require ./configure to have been run
+ifeq ($(wildcard mk/config.mk),)
+  $(error mk/config.mk not found. Run ./configure first)
 endif
 
-.PHONY: install install-no-systemd
-install: install-mercury install-etc-config
-install-nosystemd: install-mercury install-etc-config
+configure: configure.ac aclocal.m4 $(wildcard m4/*.m4)
+	@if command -v autoconf >/dev/null 2>&1; then \
+	  echo '  AUTOCONF  configure'; autoconf; \
+	else \
+	  echo 'WARNING: configure.ac is newer than configure, but autoconf is not installed.' >&2; \
+	  echo '         configure may be stale; install autoconf to regenerate it.' >&2; \
+	  touch configure; \
+	fi
 
-.PHONY: install-mercury
-install-mercury:
-ifneq ($(wildcard src/Makefile), src/Makefile)
-	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
-else
-	cd src && $(MAKE) install
-	$(INSTALLDATA) mercury /usr/share/bash-completion/completions/ # note: completion script has same name as binary
-endif
+config.status: configure
+	./config.status --recheck
 
-MERCURY_CFG = mercury.cfg
-.PHONY: install-etc-config
-install-etc-config:
-ifneq ($(wildcard src/Makefile), src/Makefile)
-	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
-else
-ifneq ($(MERCURY_CFG),)
-	$(INSTALL) -d /etc/mercury
-	$(INSTALLDATA) $(MERCURY_CFG) /etc/mercury/mercury.cfg
-else
-	@echo $(COLOR_RED) "error: no configuration file specified; run as 'make install MERCURY_CFG=filename'" $(COLOR_OFF)
-	@false
-endif
-endif
+mk/config.mk: mk/config.mk.in config.status
+	./config.status
 
-.PHONY: install-systemd
-install-systemd: install-etc-config
-ifneq ($(wildcard src/Makefile), src/Makefile)
-	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
-else
-	$(INSTALLDATA) install_mercury/mercury.service /etc/systemd/system/
-	systemctl start mercury
-	systemctl enable mercury
-endif
+endif # ifeq (needs configured tree)
 
-.PHONY: install-nonroot
-install-nonroot:
-ifneq ($(wildcard src/Makefile), src/Makefile)
-	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
-else
-	cd src && $(MAKE) install-nonroot
-endif
+# --- Default target (full dependency list) ----------------------------
 
-.PHONY: install-certtools
-install-certtools:
-ifneq ($(wildcard src/Makefile), src/Makefile)
-	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
-else
-	cd src && $(MAKE) install-certtools
-endif
+all: $(BIN)/mercury $(TOOL_TARGETS) $(TEST_TARGETS) \
+     $(LIB)/libmerc.a $(LIB)/libmerc.so \
+     cython
 
-.PHONY: uninstall
-uninstall: uninstall-mercury uninstall-systemd uninstall-certtools
+# --- libs: build shared library variants for packaging ----------------
+#
+#   libmerc.so              stripped (production install)
+#   unstripped-libmerc.so   same binary, debug symbols retained
+#   debug-libmerc.so        Debug+ASan build for test environments
+#
+# libmerc.so is stripped from unstripped-libmerc.so — never built
+# separately — so they are guaranteed to match.  The unstripped copy
+# is used to decode crash backtraces from production deployments.
+#
+# Note: unlike all other targets, libs copies artifacts back into the
+# source-tree lib/ directory, because that is where downstream
+# consumers (the firewall product build) expect to find them.
 
-.PHONY: uninstall-mercury
-uninstall-mercury:
-ifneq ($(wildcard src/Makefile), src/Makefile)
-	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
-else
-	rm -f  /etc/mercury/mercury.cfg
-	rm -rf /etc/mercury
-	cd src && $(MAKE) uninstall
-endif
-
-.PHONY: uninstall-systemd
-uninstall-systemd:
-ifneq ($(wildcard src/Makefile), src/Makefile)
-	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
-else
-	systemctl stop mercury
-	systemctl disable mercury
-	rm /etc/systemd/system/mercury.service
-	userdel mercury
-endif
-
-.PHONY: uninstall-certtools
-uninstall-certtools:
-ifneq ($(wildcard src/Makefile), src/Makefile)
-	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
-else
-	cd src && $(MAKE) uninstall-certtools
-endif
-
-# the target libs builds three versions of libmerc.so, and copies them
-# to the folder libs/
 .PHONY: libs
 libs:
-	$(MAKE) --directory=src clean
-	$(MAKE) --directory=src unstripped-libmerc
-	$(MAKE) --directory=src stripped-libmerc
-	$(MAKE) --directory=src clean
-	$(MAKE) --directory=src debug-libmerc
+	$(MAKE) BUILD_TYPE=RelWithDebInfo SANITIZE= VISIBILITY= STATIC_CFG= build/RelWithDebInfo/lib/libmerc.so
+	$(MAKE) BUILD_TYPE=Debug SANITIZE=address VISIBILITY= STATIC_CFG= OPTFLAGS=-O1 build/Debug+address/lib/libmerc.so
+	mkdir -p lib
+	cp build/RelWithDebInfo/lib/libmerc.so  lib/unstripped-libmerc.so
+	cp build/RelWithDebInfo/lib/libmerc.so  lib/libmerc.so
+	$(STRIP_CMD) lib/libmerc.so
+	cp build/Debug+address/lib/libmerc.so   lib/debug-libmerc.so
 
-.PHONY: test
-test:
-	cd src && $(MAKE) test
+# --- Clean ------------------------------------------------------------
 
-.PHONY: test-coverage
-test-coverage:
-	@bash -e -c -o pipefail ' \
-		mkdir -p coverage && \
-		make && \
-		make clean-helper > /dev/null && \
-		make --directory=src COVERAGE_ENABLED=1 use_fsanitize=no run_unit_test > /dev/null && \
-		lcov -q --directory . --capture --output-file ./coverage/mercury_unit_tests_1.info && \
-		echo -e $(COLOR_GREEN) "created coverage file for unit tests" $(COLOR_OFF) && \
-		make clean-helper > /dev/null && \
-		\
-		make --directory=src/libmerc COVERAGE_ENABLED=1 use_fsanitize=no libmerc.so > /dev/null && \
-		make --directory=unit_tests COVERAGE_ENABLED=1 use_fsanitize=no libmerc_driver_tls_only > /dev/null && \
-		make --directory=unit_tests run_libmerc_tls_only_tests > /dev/null && \
-		lcov -q --directory . --capture --output-file ./coverage/mercury_libmerc_driver_tls_only.info && \
-		echo -e $(COLOR_GREEN) "created coverage file for libmerc driver tls tests" $(COLOR_OFF) && \
-		make clean-helper > /dev/null && \
-		\
-		make --directory=src/libmerc COVERAGE_ENABLED=1 use_fsanitize=no libmerc.so > /dev/null && \
-		make --directory=unit_tests COVERAGE_ENABLED=1 use_fsanitize=no libmerc_driver_multiprotocol > /dev/null && \
-		make --directory=unit_tests run_libmerc_multiprotocol_tests > /dev/null && \
-		lcov -q --directory . --capture --output-file ./coverage/mercury_libmerc_driver_multiprotocol.info && \
-		echo -e $(COLOR_GREEN) "created coverage file for libmerc driver multiprotocol tests" $(COLOR_OFF) && \
-		make clean-helper > /dev/null && \
-		\
-		make --directory=src/libmerc COVERAGE_ENABLED=1 use_fsanitize=no libmerc.so > /dev/null && \
-		make --directory=unit_tests COVERAGE_ENABLED=1 use_fsanitize=no libmerc_driver_fdc > /dev/null && \
-		make --directory=unit_tests run_libmerc_fdc_tests > /dev/null && \
-		lcov -q --directory . --capture --output-file ./coverage/mercury_libmerc_driver_fdc.info && \
-		echo -e $(COLOR_GREEN) "created coverage file for libmerc driver fdc tests" $(COLOR_OFF) && \
-		make clean-helper > /dev/null && \
-		\
-		make --directory=src COVERAGE_ENABLED=1 use_fsanitize=no mercury > /dev/null && \
-		make --directory=test COVERAGE_ENABLED=1 clean comp analysis cert-check memcheck json-validity-test stats > /dev/null && \
-		lcov -q --directory . --capture --output-file ./coverage/mercury_unit_tests_2.info && \
-		echo -e $(COLOR_GREEN) "created coverage file for other unit tests" $(COLOR_OFF) && \
-		make clean-helper > /dev/null && \
-		\
-		lcov --add-tracefile ./coverage/mercury_unit_tests_1.info \
-		     --add-tracefile ./coverage/mercury_libmerc_driver_tls_only.info \
-		     --add-tracefile ./coverage/mercury_libmerc_driver_multiprotocol.info \
-		     --add-tracefile ./coverage/mercury_unit_tests_2.info \
-			 --add-tracefile ./coverage/mercury_libmerc_driver_fdc.info \
-		     --output-file ./coverage/mercury_total.info 2>&1 | grep -v "function data mismatch" && \
-		lcov -q --remove ./coverage/mercury_total.info "/usr/*" "*/src/libmerc/rapidjson/*" "*/unit_tests/*" -o ./coverage/mercury_filtered_coverage.info && \
-		genhtml --no-function-coverage --output-directory coverage_html_report ./coverage/mercury_filtered_coverage.info && \
-		echo -e $(COLOR_GREEN) "created coverage report" $(COLOR_OFF) \
-	' || { echo $(COLOR_RED) "failed to build coverage report" $(COLOR_OFF); exit 1; }
-
-.PHONY: test-coverage-fuzz
-test-coverage-fuzz:
-	@bash -e -c -o pipefail ' \
-		mkdir -p coverage_fuzz && \
-		make --directory=test COVERAGE_ENABLED=1 fuzz-test &&  \
-		find . -name "*.profraw" | xargs -I {} sh -c "llvm-profdata merge -sparse '{}' -o \$$(dirname '{}')/default.profdata" && \
-		find . -name "*exec" | xargs -I {} sh -c "llvm-cov export -format=lcov --instr-profile \$$(dirname '{}')/default.profdata {} > \$$(dirname '{}')/default.info" && \
-		find ./test/fuzz -name "*.info" | sed "s/\\(\\S\\+\\)/--add-tracefile \\1/g" | xargs lcov --output-file ./coverage_fuzz/mercury_fuzz_test_1.info > /dev/null && \
-		lcov -q --directory ./src --capture --output-file ./coverage_fuzz/mercury_fuzz_test_2.info && \
-		echo -e $(COLOR_GREEN) "created coverage files for fuzz tests" $(COLOR_OFF) && \
-		make clean-helper > /dev/null && \
-		\
-		lcov --add-tracefile ./coverage_fuzz/mercury_fuzz_test_1.info \
-		     --add-tracefile ./coverage_fuzz/mercury_fuzz_test_2.info \
-		     --output-file ./coverage_fuzz/mercury_total_with_fuzz.info 2>&1 | grep -v "function data mismatch" && \
-		lcov -q --remove ./coverage_fuzz/mercury_total_with_fuzz.info \
-		        "/usr/include/*" "*/src/libmerc/rapidjson/*" "*/test/fuzz/*" \
-		        -o ./coverage_fuzz/mercury_filtered_coverage_with_fuzz.info && \
-		genhtml --no-function-coverage --output-directory coverage_html_report_fuzz ./coverage_fuzz/mercury_filtered_coverage_with_fuzz.info && \
-		echo -e $(COLOR_GREEN) "created final fuzz coverage report" $(COLOR_OFF) \
-	' || { echo $(COLOR_RED) "failed to build fuzz coverage report" $(COLOR_OFF); exit 1; }
-
-.PHONY: test_strict
-test_strict:
-	cd src && $(MAKE) test
-
-.PHONY: test_libmerc_so
-test_libmerc_so: unit_tests
-	cd test && $(MAKE) test_libmerc_so
-
-.PHONY: unit_tests
-unit_tests:
-	cd unit_tests && $(MAKE)
-
-.PHONY: coverage_report
-coverage_report: clean
-	cd unit_tests && $(MAKE) libmerc_driver_coverage
-	cd unit_tests && $(MAKE) run
-	cd unit_tests && gcovr -r ../src/libmerc
-
-.PHONY: doc
-doc: doc/mercury.pdf sphinx
-
-doc/mercury.pdf:
-	doxygen
-	cd doc/latex; make; mv refman.pdf ../mercury.pdf
-
-.PHONY: sphinx sphinx-clean
-sphinx:
-	cd doc/sphinx && $(MAKE) html
-
-sphinx-clean:
-	cd doc/sphinx && $(MAKE) clean
-
-.PHONY:
-clean: sphinx-clean
-	for file in Makefile README.md configure.ac Doxyfile; do if [ -e "$$file~" ]; then rm -f "$$file~" ; fi; done
-ifneq ($(wildcard src/Makefile), src/Makefile)
-	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
-	@false
-else
-	$(MAKE) clean-helper
-	rm -rf doc/latex
-	rm -rf coverage coverage_fuzz coverage_html_report coverage_html_report_fuzz
-endif
-
-.PHONY: distclean
-distclean: clean
-ifneq ($(wildcard src/Makefile), src/Makefile)
-	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
-	@false
-else
-	cd src  && $(MAKE) distclean
-	cd test && $(MAKE) distclean
-	rm -rf autom4te.cache config.log config.status Makefile_helper.mk
+.PHONY: clean distclean
+clean: # Remove all build/<variant>/ output
+	rm -rf build
 	rm -f lib/*.so
-endif
+distclean: clean clean-sphinx clean-tables clean-oidc
+	rm -f mk/config.mk config.status config.log
+	rm -rf autom4te.cache
 
-.PHONY: clean-helper
-clean-helper:
-	find . -name "*.gcda" -delete
-	find . -name "*.gcno" -delete
-	find . -name "*.gcov" -delete
-	cd src && $(MAKE) clean
-	cd test && $(MAKE) clean
-	cd unit_tests && $(MAKE) clean
+# --- Help -------------------------------------------------------------
 
-.PHONY: package-deb
-package-deb: mercury
-ifneq ($(wildcard src/Makefile), src/Makefile)
-	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
-else
-	./build_pkg.sh -t deb
-endif
+.PHONY: help
+help:
+	@echo 'Usage: make [TARGET] [VARIABLE=value ...]'
+	@echo ''
+	@echo 'Primary workflow:'
+	@echo '  ./configure         One-time setup (creates mk/config.mk)'
+	@echo '  make -j             Build default targets (RelWithDebInfo)'
+	@echo '  make unittest       Fast built-in unit tests'
+	@echo '  make test           Main test suite (needs Python)'
+	@echo ''
+	@echo 'Optional flags (do not change the build variant):'
+	@echo '  V=1                    Show full compiler/linker command lines'
+	@echo '  OPTFLAGS="..."         Extra flags appended to CXXFLAGS and CFLAGS'
+	@echo '  EXTRA_LDFLAGS="..."    Extra flags appended to LDFLAGS'
+	@echo ''
+	@echo 'Variant flags (each combination gets its own build/<variant>/ directory):'
+	@echo ''
+	@echo '  BUILD_TYPE=  (default: RelWithDebInfo)'
+	@echo '    Release              -O3 -DNDEBUG        optimized, no debug (unused)'
+	@echo '    RelWithDebInfo       -O3 -g -DNDEBUG     optimized + debug symbols'
+	@echo '    Debug                -O0 -g -UNDEBUG     full debug, no optimization'
+	@echo '    MinSizeRel           -Os -DNDEBUG        size-optimized'
+	@echo '    Coverage             -O0 -g --coverage   for coverage reports'
+	@echo ''
+	@echo '  SANITIZE=  (default: none)'
+	@echo '    address              ASan -- memory errors, use-after-free, leaks'
+	@echo '    thread               TSan -- data races  (incompatible with ASan)'
+	@echo '    undefined            UBSan -- undefined behavior'
+	@echo '    memory               MSan -- uninitialized memory (Clang only)'
+	@echo '    address,undefined    ASan + UBSan combined'
+	@echo ''
+	@echo '  VISIBILITY=default     Export all symbols (tech debt; needed by test-libmerc)'
+	@echo '  STATIC_CFG=tls         Compile-time protocol selection (deprecated)'
+	@echo ''
+	@echo '  Examples:'
+	@echo '    make -j'
+	@echo '            -> build/RelWithDebInfo/'
+	@echo '    make -j BUILD_TYPE=Debug SANITIZE=address OPTFLAGS=-O2'
+	@echo '            -> build/Debug+address/'
+	@echo '    make -j BUILD_TYPE=Debug SANITIZE=address \'
+	@echo '            VISIBILITY=default STATIC_CFG=tls OPTFLAGS=-O2'
+	@echo '            -> build/Debug+address+visdefault+staticcfgtls/'
+	@echo ''
+	@echo 'Targets:'
+	@echo ''
+	@echo '  Primary:'
+	@echo '    all                  [default] mercury, libmerc, tools, test binaries, cython'
+	@echo '    mercury              standalone packet-processing executable'
+	@echo '    libmerc              libmerc.a and libmerc.so libraries'
+	@echo '    libs                 libmerc.so, unstripped-libmerc.so, debug-libmerc.so'
+	@echo '    cython               mercury-python extension (.so + .whl)'
+	@echo '    tools                all standalone tool executables'
+	@echo ''
+	@echo '  Tools:'
+	@echo '    archive_reader       Archive (gzip/tar) reader'
+	@echo '    batch_gcd            Batch GCD for RSA moduli (needs libgmp)'
+	@echo '    cbor                 CBOR encoder/decoder'
+	@echo '    cert_analyze         X.509 certificate analysis'
+	@echo '    certtools            cert_analyze, tls_scanner, batch_gcd'
+	@echo '    classify             Protocol classifier using libmerc.a'
+	@echo '    cms                  CMS/PKCS#7 parser'
+	@echo '    decode               Hex/binary decoder'
+	@echo '    intercept            intercept_server + intercept.so'
+	@echo '    intercept_server     TLS interception server'
+	@echo '    libmerc_util         PCAP analysis tool using libmerc.so'
+	@echo '    os_identifier        OS identification'
+	@echo '    pcap                 PCAP file reader and packet dumper'
+	@echo '    pcap_filter          PCAP filtering using libmerc.a'
+	@echo '    string               String utilities'
+	@echo '    tls_scanner          TLS scanner (Linux only)'
+	@echo ''
+	@echo '  Test:'
+	@echo '    unittest             Build and run fast built-in unit tests'
+	@echo '    test                 Main test suite (needs Python)'
+	@echo '    test-fuzz            Fuzz tests (needs clang++, Linux)'
+	@echo '    test-batch-gcd       Batch GCD tests (needs libgmp)'
+	@echo '    test-coverage        Build Coverage variant + generate lcov HTML report'
+	@echo '    test-coverage-fuzz   Fuzz coverage via llvm-cov + lcov merge'
+	@echo '    test-pdu             PDU tests (needs PCAP_DIR; has compile errors)'
+	@echo '    test-capture         Live capture test (needs root + IFNAME)'
+	@echo '    test-dummy-capture   Dummy interface test (needs root + tcpreplay)'
+	@echo '    test-afl-fuzz        AFL fuzz test (self-invokes with CXX=afl-g++)'
+	@echo ''
+	@echo '    Subtests of test (can be run individually):'
+	@echo '      test-comp           Fingerprint / MCAP / JSON comparison'
+	@echo '      test-analysis       Analysis'
+	@echo '      test-cert-check     Certificate check'
+	@echo '      test-json-validity  JSON validity'
+	@echo '      test-stats          Statistics'
+	@echo '      test-memcheck       Valgrind memory check (skipped when SANITIZE set)'
+	@echo '      test-cython         Cython extension tests'
+	@echo '      test-libmerc        End-to-end tests for libmerc.so, rebuilt as a'
+	@echo '                          separate -fvisibility=default variant.  For'
+	@echo '                          per-driver subtargets, see mk/test_libmerc.mk'
+	@echo ''
+	@echo '  Install / package:'
+	@echo '    setcap               Apply setcap to mercury for live capture'
+	@echo '    install              Install mercury + config (requires root)'
+	@echo '    install-nonroot      Install without user/group creation'
+	@echo '    install-systemd      install + deploy + enable systemd service'
+	@echo '    install-nosystemd    Alias for install (no systemd activation)'
+	@echo '    install-certtools    Install cert_analyze, tls_scanner, batch_gcd'
+	@echo '    install-intercept    Install intercept.so to $$(libdir)'
+	@echo '    uninstall            Remove all installed files + systemd + certtools'
+	@echo '    package-deb          Build .deb package via fpm'
+	@echo '    package-rpm          Build .rpm package via fpm'
+	@echo ''
+	@echo '  Documentation:'
+	@echo '    doc                  Doxygen PDF + sphinx HTML'
+	@echo '    sphinx               Sphinx HTML only'
+	@echo ''
+	@echo '  Code quality:'
+	@echo '    cppcheck             cppcheck static analysis'
+	@echo '    cppclean             cppclean on libmerc sources'
+	@echo '    format               Run code formatter (utils/indent_files.sh)'
+	@echo ''
+	@echo '  Tables:'
+	@echo '    regen-oid            Regenerate ASN.1 OID tables'
+	@echo '    regen-tables         Download IANA CSVs + regenerate headers'
+	@echo '    regen-tables-offline Regenerate from cached CSVs (no download)'
+	@echo '    download-tables      Download IANA CSVs only'
+	@echo ''
+	@echo '  Versioning:'
+	@echo '    increment-patchlevel     Bump x.y.Z+1 and commit'
+	@echo '    increment-minor-version  Bump x.Y+1.0 and commit'
+	@echo '    increment-major-version  Bump X+1.0.0 and commit'
+	@echo ''
+	@echo '  Clean:'
+	@echo '    clean                Remove build/ output and lib/*.so (all variants)'
+	@echo '    clean-sphinx         Remove sphinx build output'
+	@echo '    clean-tables         Remove table generator binaries'
+	@echo '    clean-oidc           Remove OID compiler binary'
+	@echo '    distclean            Remove all build output + generated config files'
+	@echo ''
 
-.PHONY: package-rpm
-package-rpm: mercury
-ifneq ($(wildcard src/Makefile), src/Makefile)
-	@echo $(COLOR_RED) "error: run ./configure before running make (src/Makefile is missing)" $(COLOR_OFF)
-else
-	./build_pkg.sh -t rpm
-endif
-
-.PHONY: format
-format:
-	./utils/indent_files.sh src/*.{c,h} src/python-inference/*.py python/*.py python/*/*.py python/*/*/*.py
-
-.PHONY: increment-patchlevel increment-minor-version increment-major-version
-increment-patchlevel:
-	cd src; make increment-patchlevel
-
-increment-minor-version:
-	cd src; make increment-minor-version
-
-increment-major-version:
-	cd src; make increment-major-version
-
-# EOF
+	@echo '  Other:'
+	@echo '    compiler-version     Print $$(CXX) --version'
+	@echo '    help                 Show this message'
+	@echo ''
+	@echo 'Cross-compilation (example):'
+	@echo '  ./configure --host=aarch64-linux-gnu'
+	@echo '  make -j'
+	@echo '  See mk/config.mk.in for details.'

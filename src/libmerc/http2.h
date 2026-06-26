@@ -116,7 +116,7 @@ public:
                 }
 
             }
-            else if ((first & 0xf0) == 1) {  // 0001: literal header field never indexed
+            else if ((first & 0xf0) == 0x10) {  // 0001: literal header field never indexed
                 //
                 fprintf(f, "literal header field never indexed\t");
            }

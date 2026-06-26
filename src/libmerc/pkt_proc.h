@@ -15,10 +15,12 @@
 #endif
 #include <stdexcept>
 #include <memory>
+#include <atomic>
 #include "tcp.h"
 #include "flow_key.h"
 #include "analysis.h"
 #include "libmerc.h"
+#include "printf_err.hpp"
 #include "stats.h"
 #include "proto_identify.h"
 #include "global_config.h"
@@ -42,7 +44,8 @@ enum linktype : uint16_t {
     LINKTYPE_ETHERNET =   1,  // Ethernet
     LINKTYPE_PPP      =   9,  // PPP
     LINKTYPE_RAW      = 101,  // Raw IP; begins with IPv4 or IPv6 header
-    LINKTYPE_LINUX_SLL = 113, // Linux "cooked" capture encapsualtion
+    LINKTYPE_LINUX_SLL = 113, // Linux "cooked" capture encapsulation
+    LINKTYPE_LINUX_SLL2 = 276,// Linux "cooked" capture encapsulation v2
 };
 
 /**
@@ -56,6 +59,7 @@ struct mercury {
     struct common_data attribute_common_data;
     classifier *c;
     class traffic_selector selector;
+    std::atomic<bool> has_trial_decryption_processor{false};
 
     mercury(const struct libmerc_config *vars, int verbosity) :
                 global_vars{*vars},
@@ -150,7 +154,7 @@ struct stateful_pkt_proc {
         ag{nullptr},
         global_vars{mc->global_vars},
         selector{mc->selector},
-        quic_crypto{},
+        quic_crypto{global_vars.quic_trial_decryption},
         reassembler_ptr{(global_vars.reassembly) ? (new tcp_reassembler(global_vars.minimize_ram)) : nullptr},
         exposed_creds{global_vars.exposed_creds}
     {
@@ -265,6 +269,16 @@ struct stateful_pkt_proc {
                             size_t length,
                             struct timespec *ts,
                             struct tcp_reassembler *reassembler);
+
+    bool analyze_sll_packet(const uint8_t *packet,
+                            size_t length,
+                            struct timespec *ts,
+                            struct tcp_reassembler *reassembler);
+
+    bool analyze_sll2_packet(const uint8_t *packet,
+                             size_t length,
+                             struct timespec *ts,
+                             struct tcp_reassembler *reassembler);
 
     bool analyze_ip_packet(const uint8_t *ip_packet,
                            size_t length,

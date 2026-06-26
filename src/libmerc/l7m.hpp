@@ -10,7 +10,7 @@
 #include "cbor_object.hpp"
 
 [[maybe_unused]] inline std::string translate_l7_metadata_to_json_string(datum d) {
-    char buffer[8192];
+    char buffer[16384];
     struct buffer_stream buf_json(buffer, sizeof(buffer));
 
     // determine the L7 metadata version by peeking at the first two

@@ -12,6 +12,8 @@
 #include <unistd.h>
 #include <variant>
 #include <cassert>
+#include <cstdio>
+#include <cstring>
 #include <stdexcept>
 #include <system_error>
 
@@ -30,6 +32,7 @@ namespace pcap {
         PPP      =   9,  // Point-to-Point Protocol (PPP)
         RAW      = 101,  // Raw IP; begins with IPv4 or IPv6 header
         LINUX_SLL = 113, // Linux "cooked" capture encapsulation
+        LINUX_SLL2 = 276, // Linux "cooked" capture encapsulation v2
         NONE     = 65535 // reserved, used here as 'none'
     };
 
@@ -40,6 +43,7 @@ namespace pcap {
         case LINKTYPE::PPP:      return "PPP";
         case LINKTYPE::RAW:      return "RAW";
         case LINKTYPE::LINUX_SLL: return "LINUX_SLL";
+        case LINKTYPE::LINUX_SLL2: return "LINUX_SLL2";
         case LINKTYPE::NONE:     return "NONE";
         }
         return "unknown";
@@ -75,12 +79,14 @@ namespace pcap {
 
                 if (*this == magic_nsec || alt == magic_nsec) {
                     char errmsg_buf[34] = "unsupported file magic: ";
-                    sprintf(errmsg_buf + 25, "%08x", this->value());
+                    size_t len = strlen(errmsg_buf);
+                    snprintf(errmsg_buf + len, sizeof(errmsg_buf) - len, "%08x", this->value());
                     throw std::runtime_error(errmsg_buf);
                 }
 
                 char errmsg_buf[34] = "unrecognized file magic: ";
-                sprintf(errmsg_buf + 25, "%08x", this->value());
+                size_t len = strlen(errmsg_buf);
+                snprintf(errmsg_buf + len, sizeof(errmsg_buf) - len, "%08x", this->value());
                 throw std::runtime_error(errmsg_buf);
             }
         }

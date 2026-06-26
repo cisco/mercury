@@ -9,6 +9,7 @@
 #include <ctime>
 
 #include "libmerc.h"
+#include "printf_err.hpp"
 #include "version.h"
 #include "analysis.h"
 #include "pkt_proc.h"
@@ -18,7 +19,7 @@
 
 #ifndef  MERCURY_SEMANTIC_VERSION
 #ifdef _WIN32
-#pragma message(MERCURY_SEMANTIC_VERSION is not defined)
+#pragma message("MERCURY_SEMANTIC_VERSION is not defined")
 #else
 #warning MERCURY_SEMANTIC_VERSION is not defined
 #endif
@@ -27,7 +28,7 @@
 
 #ifndef  GIT_COMMIT_ID
 #ifdef _WIN32
-#pragma message(GIT_COMMIT_ID is not defined)
+#pragma message("GIT_COMMIT_ID is not defined")
 #else
 #warning GIT_COMMIT_ID is not defined
 #endif
@@ -36,7 +37,7 @@
 
 #ifndef  GIT_COUNT
 #ifdef _WIN32
-#pragma message(GIT_COUNT is not defined)
+#pragma message("GIT_COUNT is not defined")
 #else
 #warning GIT_COUNT is not defined
 #endif
@@ -169,7 +170,7 @@ const struct analysis_context *mercury_packet_processor_ip_get_analysis_context(
             return NULL;
         }
         if (processor->analyze_ip_packet(packet, length, ts, processor->reassembler_ptr)) {
-            if (processor->analysis.result.is_valid()) {
+            if (processor->analysis.analysis_is_valid()) {
                 return &processor->analysis;
             }
         }
@@ -187,7 +188,7 @@ const struct analysis_context *mercury_packet_processor_get_analysis_context(mer
             return NULL;
         }
         if (processor->analyze_eth_packet(packet, length, ts, processor->reassembler_ptr)) {
-            if (processor->analysis.result.is_valid()) {
+            if (processor->analysis.analysis_is_valid()) {
                 return &processor->analysis;
             }
         }
@@ -226,7 +227,7 @@ const struct analysis_context *mercury_packet_processor_get_analysis_context_lin
             return NULL;
         }
         if (processor->analyze_packet(packet, length, ts, processor->reassembler_ptr, linktype)) {
-            if (processor->analysis.result.is_valid()) {
+            if (processor->analysis.analysis_is_valid()) {
                 return &processor->analysis;
             }
         }
@@ -335,10 +336,23 @@ mercury_packet_processor mercury_packet_processor_construct(mercury_context mc) 
             printf_err(log_err, "error: mercury context is null\n");
             return NULL;
         }
+
+        // enforce single-instance restriction when quic trial decryption is enabled;
+        if (mc->global_vars.quic_trial_decryption) {
+            bool expected = false;
+            if (!mc->has_trial_decryption_processor.compare_exchange_strong(expected, true)) {
+                printf_err(log_err, "error: quic-trial-decryption cannot be used with multiple packet processor instances\n");
+                return NULL;  // failed to acquire, never set the flag
+            }
+        }
+
         stateful_pkt_proc *tmp = new stateful_pkt_proc{mc, 0};
         return tmp;
     }
     catch (std::exception &e) {
+        if (mc && mc->global_vars.quic_trial_decryption) {
+            mc->has_trial_decryption_processor.store(false);
+        }
         printf_err(log_err, "%s\n", e.what());
     }
     return NULL;
@@ -347,8 +361,12 @@ mercury_packet_processor mercury_packet_processor_construct(mercury_context mc) 
 void mercury_packet_processor_destruct(mercury_packet_processor mpp) {
     try {
         if (mpp) {
+            mercury_context mc = mpp->m;
             mpp->finalize();
             delete mpp;
+            if (mc && mc->has_trial_decryption_processor.load()) {
+                mc->has_trial_decryption_processor.store(false);
+            }
         }
     }
     catch (std::exception &e) {
@@ -446,73 +464,14 @@ const char *mercury_get_license_string() {
 // flexible error reporting, using a printf-style interface and
 // syslog-style severity levels
 
-// printf_err_func() takes a severity level, a printf-style format
-// string, and the arguments assocaited with the format string, and
-// prints out a message on stderr.  On success, the number of
-// characters written is returned; if a failure occurs, a negative
-// number is returned.
+// register_printf_err_callback() installs the callback used by
+// printf_err() (declared inline in printf_err.hpp).  Passing nullptr
+// silences all log output; passing a non-null callback redirects
+// messages through it.  When this function is never called the
+// default emitter (printf_err_func in printf_err.hpp) writes to stderr.
 //
-// This function is suitable for use with
-// register_printf_err_callback().
-//
-int printf_err_func(enum log_level level, const char *format, va_list args) {
-
-    // output error level message
-    //
-    const char *msg = "";
-    switch(level) {
-    case log_emerg:   msg = "emergency: ";     break;
-    case log_alert:   msg = "alert: ";         break;
-    case log_crit:    msg = "critical: ";      break;
-    case log_err:     msg = "error: ";         break;
-    case log_warning: msg = "warning: ";       break;
-    case log_notice:  msg = "notice: ";        break;
-    case log_info:    msg = "informational: "; break;
-    case log_debug:   msg = "debug: ";         break;
-    case log_none:  break;  // leave msg empty
-    }
-    int retval = fprintf(stderr, "%s", msg);
-    if (retval < 0) {
-        return retval;
-    }
-    int sum = retval;
-
-    // output formatted argument list
-    //
-    retval = vfprintf(stderr, format, args);
-    if (retval < 0) {
-        return retval;
-    }
-    sum += retval;
-
-    return sum;
-}
-
-int silent_err_func(log_level, const char *, va_list) {
-    return 0;
-}
-
-static printf_err_ptr printf_err_static = printf_err_func;
-
-#ifdef DONT_USE_STDERR
-
-int printf_err(enum log_level level, const char *format, ...) {
-    va_list args;
-    va_start(args, format);
-    int retval = printf_err_static(level, format, args);
-    va_end(args);
-    return retval;
-}
-
-#endif
-
 void register_printf_err_callback(printf_err_ptr callback) {
-
-    if (callback == nullptr) {
-        printf_err_static = silent_err_func;
-    } else {
-        printf_err_static = callback;
-    }
+    printf_err_callback = (callback == nullptr) ? silent_err_func : callback;
 }
 
 size_t get_stats_aggregator_num_entries(mercury_context mc)

@@ -85,4 +85,47 @@ public:
     pkt.write_json(record);
     return 0;
 }
+
+namespace gre_unit_test {
+#ifndef NDEBUG
+    inline bool unit_test() {
+        char buffer[2048];
+
+        uint8_t gre_ipv4[] = { 0x00, 0x00, 0x08, 0x00 };
+        key k1;
+        datum d1{gre_ipv4, gre_ipv4 + sizeof(gre_ipv4)};
+        gre_header pkt1{d1, k1};
+        if (pkt1.get_protocol_type() != ETH_TYPE_IP || !pkt1.is_next_header()) return false;
+        {
+            buffer_stream buf{buffer, sizeof(buffer)};
+            json_array arr{&buf};
+            pkt1.write_json(arr);
+            arr.close();
+            buf.write_char('\0');
+            if (!strstr(buffer, "gre")) return false;
+        }
+
+        uint8_t gre_ipv6[] = { 0x00, 0x00, 0x86, 0xdd };
+        key k2;
+        datum d2{gre_ipv6, gre_ipv6 + sizeof(gre_ipv6)};
+        gre_header pkt2{d2, k2};
+        if (pkt2.get_protocol_type() != ETH_TYPE_IPV6 || !pkt2.is_next_header()) return false;
+
+        uint8_t gre_checksum[] = { 0x80, 0x00, 0x08, 0x00, 0x12, 0x34, 0x00, 0x00 };
+        key k3;
+        datum d3{gre_checksum, gre_checksum + sizeof(gre_checksum)};
+        gre_header pkt3{d3, k3};
+        if (pkt3.get_protocol_type() != ETH_TYPE_IP) return false;
+
+        uint8_t gre_unknown[] = { 0x00, 0x00, 0x00, 0x00 };
+        key k4;
+        datum d4{gre_unknown, gre_unknown + sizeof(gre_unknown)};
+        gre_header pkt4{d4, k4};
+        if (pkt4.is_next_header()) return false;
+
+        return true;
+    }
+#endif
+} // namespace gre_unit_test
+
 #endif

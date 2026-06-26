@@ -186,7 +186,7 @@ struct matcher_type_and_offset {
 // It returns a `uint32_t` whose bytes match those of the input string
 // when considered as an unsigned integer in network byte order
 
-constexpr uint32_t operator "" _uint32(const char* str, size_t length) {
+constexpr uint32_t operator ""_uint32(const char* str, size_t length) {
     if (str == nullptr || length != 4) {
         throw std::invalid_argument("_uint32 must be exactly 4 characters");
     }

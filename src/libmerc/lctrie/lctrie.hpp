@@ -10,7 +10,7 @@
 
 // a large root branch performs best under testing
 // and splits up the search space size of the sub-branchs
-// signficantly even when there's repeated bases off the 
+// signficantly even when there's repeated bases off the
 // root due to shorter prefix matches.
 #define ROOT_BRANCH       16
 
@@ -327,6 +327,9 @@ void lct_free(lct<T> *trie) {
   // that's under outside control.
   if (trie->bases) {
       free(trie->bases);
+  }
+  if (trie->root) {
+      free(trie->root);
   }
   trie->bases = NULL;
   trie->root = NULL;

@@ -460,7 +460,7 @@ public:
         char *service = nullptr;
         char port_str[16] = {};
         if (port != 0) {
-            sprintf(port_str, "%d", port);
+            snprintf(port_str, sizeof(port_str), "%d", port);
             service = port_str;
         }
 

@@ -16,8 +16,9 @@
 #include <signal.h>
 #include <utility>
 #include <stdexcept>
-#include "mercury.h"
 #include "packet.h"
+#include "libmerc/linktype.hpp"
+#include "libmerc/libmerc.h"
 
 enum io_direction {
     io_direction_none   = 0,
@@ -61,15 +62,6 @@ struct pcap_file {
         return pcap_file_read_packet(this, pkthdr, packet_data);
     }
 
-    enum LINKTYPE : uint16_t {
-        NULL_    =   0,  // BSD loopback encapsulation
-        ETHERNET =   1,  // Ethernet
-        PPP      =   9,  // Point-to-Point Protocol (PPP)
-        RAW      = 101,  // Raw IP; begins with IPv4 or IPv6 header
-        LINUX_SLL = 113, // Linux "cooked" capture encapsulation
-        NONE     = 65535 // reserved, used here as 'none'
-    };
-
     const char *get_linktype() const {
         switch(linktype) {
         case LINKTYPE::NULL_:    return "NULL";
@@ -77,6 +69,7 @@ struct pcap_file {
         case LINKTYPE::PPP:      return "PPP";
         case LINKTYPE::RAW:      return "RAW";
         case LINKTYPE::LINUX_SLL: return "LINUX_SLL";
+        case LINKTYPE::LINUX_SLL2: return "LINUX_SLL2";
         case LINKTYPE::NONE:     return "NONE";
         }
         return "unknown";
