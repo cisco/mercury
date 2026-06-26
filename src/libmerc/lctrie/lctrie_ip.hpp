@@ -367,7 +367,7 @@ inline void subnet_mask_v6(lct_subnet<ipv6_addr_lct> *subnets, size_t size) {
             fprint_addr(stderr, "address", &p->addr);
             fprint_addr(stderr, "netmask", &netmask);
             fprint_addr(stderr, "newaddr", &newaddr);
-            fprintf(stderr, "Subnet parsed address has not been properly masked, should be expected address");
+            fprintf(stderr, "Subnet parsed address has not been properly masked, should be expected address\n");
             p->addr = newaddr;
         }
     }
@@ -384,7 +384,7 @@ inline void subnet_mask_v4(lct_subnet<ipv4_addr_t> *subnets, size_t size) {
             fprint_addr_rev(stderr, "parsed address", &p->addr);
             fprint_addr_rev(stderr, "expected address", &newaddr);
             fprint_addr_rev(stderr, "netmask", &netmask);
-            fprintf(stderr, "Subnet parsed address has not been properly masked, should be expected address");
+            fprintf(stderr, "Subnet parsed address has not been properly masked, should be expected address\n");
             p->addr = newaddr;
         }
     }

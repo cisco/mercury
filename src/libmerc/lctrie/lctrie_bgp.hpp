@@ -114,31 +114,28 @@ int
 read_prefix_table(const char *filename,
                   lct_subnet<T> prefix[],
                   size_t prefix_size) {
-    (void)prefix_size;
     int num = 0;
     std::ifstream infile;
 
-    // open the file for reading
-    //
     infile.open(filename);
     if (!infile.is_open()) {
         perror("ifstream::open");
         return -1;
     }
 
-    // validate and parse each line of input
-    //
     std::string line;
     while (std::getline(infile, line)) {
 
-        // clip off the trailing newline character
-        //
-        if (!line.empty() && line[line.length()-1] == '\n') {
-            line.erase(line.length()-1);
+        // strip CRLF from Windows line endings
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
         }
 
-        // set the prefix[num] to the subnet and ASN found in line
-        //
+        if ((size_t)num >= prefix_size) {
+            fprintf(stderr, "error: prefix buffer full at %d entries\n", num);
+            return -1;
+        }
+
         if (lct_subnet_set_from_string(&prefix[num], line.c_str()) != 0) {
             fprintf(stderr, "error: could not parse subnet string '%s'\n", line.c_str());
             return -1;
@@ -163,13 +160,16 @@ template <typename T>
 int read_prefix_table_from_string(const char *data,
                                   lct_subnet<T> prefix[],
                                   size_t prefix_size) {
-    (void)prefix_size;
     int num = 0;
     std::istringstream ss(data);
     std::string line;
     while (std::getline(ss, line)) {
-        if (!line.empty() && line.back() == '\n') {
+        if (!line.empty() && line.back() == '\r') {
             line.pop_back();
+        }
+        if ((size_t)num >= prefix_size) {
+            fprintf(stderr, "error: prefix buffer full at %d entries\n", num);
+            return -1;
         }
         if (lct_subnet_set_from_string(&prefix[num], line.c_str()) != 0) {
             fprintf(stderr, "error: could not parse subnet string '%s'\n", line.c_str());
