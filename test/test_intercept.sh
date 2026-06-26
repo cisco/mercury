@@ -4,6 +4,60 @@
 #
 # tests the intercept.so library
 
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+repo_root=$(cd "$script_dir/.." && pwd)
+
+absolute_path() {
+    local path=$1
+    local dir
+    local base
+
+    dir=$(dirname "$path")
+    base=$(basename "$path")
+    if [ -d "$dir" ]; then
+        printf "%s/%s\n" "$(cd "$dir" && pwd)" "$base"
+    else
+        printf "%s\n" "$path"
+    fi
+}
+
+if [ -n "${BUILD_VARIANT:-}" ]; then
+    build_variant=$BUILD_VARIANT
+else
+    build_variant=${BUILD_TYPE:-RelWithDebInfo}
+    if [ -n "${SANITIZE:-}" ]; then
+        build_variant="$build_variant+${SANITIZE//,/+}"
+    fi
+    if [ -n "${VISIBILITY:-}" ]; then
+        build_variant="$build_variant+vis$VISIBILITY"
+    fi
+    if [ -n "${STATIC_CFG:-}" ]; then
+        build_variant="$build_variant+staticcfg$STATIC_CFG"
+    fi
+fi
+build_dir=${BUILD_DIR:-"$repo_root/build/$build_variant"}
+
+default_libmerc_dir="$build_dir/lib"
+if [ ! -d "$default_libmerc_dir" ] && [ -d "$repo_root/src/libmerc" ]; then
+    default_libmerc_dir="$repo_root/src/libmerc"
+fi
+LIBMERC_DIR=${LIBMERC_DIR:-"$default_libmerc_dir"}
+if [ -d "$LIBMERC_DIR" ]; then
+    LIBMERC_DIR=$(cd "$LIBMERC_DIR" && pwd)
+fi
+
+INTERCEPT_SO=${INTERCEPT_SO:-"$LIBMERC_DIR/intercept.so"}
+if [ ! -f "$INTERCEPT_SO" ] && [ -f "$repo_root/src/intercept.so" ]; then
+    INTERCEPT_SO="$repo_root/src/intercept.so"
+fi
+INTERCEPT_SO=$(absolute_path "$INTERCEPT_SO")
+
+INTERCEPT_SERVER=${INTERCEPT_SERVER:-"$build_dir/bin/intercept_server"}
+if [ ! -x "$INTERCEPT_SERVER" ] && [ -x "$repo_root/src/intercept_server" ]; then
+    INTERCEPT_SERVER="$repo_root/src/intercept_server"
+fi
+INTERCEPT_SERVER=$(absolute_path "$INTERCEPT_SERVER")
+
 retain=0
 if [ $# -eq 1 ]; then
     if [ $1 == "--retain" ]; then
@@ -44,23 +98,35 @@ echo "testing intercept.so library for plaintext interception"
 #
 export intercept_output_type="daemon"
 export intercept_output_level="full"
-intercept_dir=`pwd`/tmpdir
-LD_PRELOAD=`pwd`/../src/intercept.so
-mkdir $intercept_dir
+intercept_dir="$script_dir/tmpdir"
+LD_PRELOAD="$INTERCEPT_SO"
+mkdir -p "$intercept_dir"
 echo "using output directory $intercept_dir"
-cd $intercept_dir
+echo "using intercept library $LD_PRELOAD"
+echo "using libmerc directory $LIBMERC_DIR"
+cd "$intercept_dir"
+
+case "$(uname)" in
+    Darwin) export DYLD_LIBRARY_PATH="$LIBMERC_DIR${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" ;;
+    *)      export LD_LIBRARY_PATH="$LIBMERC_DIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ;;
+esac
+
+# verify that library is present
+#
+if [ ! -f "$LD_PRELOAD" ]; then
+    echo "error: file $LD_PRELOAD not found"
+    exit 1
+fi
+
+if [ ! -x "$INTERCEPT_SERVER" ]; then
+    echo "error: executable $INTERCEPT_SERVER not found"
+    exit 1
+fi
 
 # start intercept_server, to collect output and write it to the file
 # intercept.json
 #
-../../src/intercept_server intercept.json & echo $! > intercept_server.PID
-
-# verify that library is present
-#
-if [ ! -f $LD_PRELOAD ]; then
-    echo "error: file $LD_PRELOAD not found"
-    exit
-fi
+"$INTERCEPT_SERVER" intercept.json & echo $! > intercept_server.PID
 
 sites=(accounts.google.com amazon.com apple.com bbc.com bp.blogspot.com cloudflare.com cnn.com creativecommons.org developers.google.com docs.google.com drive.google.com dropbox.com en.wikipedia.org es.wikipedia.org europa.eu facebook.com fr.wikipedia.org github.com google.de googleusercontent.com gstatic.com issuu.com istockphoto.com line.me linkedin.com mail.google.com maps.google.com mozilla.org myspace.com netvibes.com paypal.com play.google.com plus.google.com sites.google.com support.google.com t.me uol.com.br vimeo.com vk.com whatsapp.com who.int wordpress.org www.blogger.com www.google.com www.yahoo.com youtu.be youtube.com)
 

@@ -235,7 +235,7 @@ public:
 };
 
 [[maybe_unused]] inline int syslog_fuzz_test(const uint8_t *data, size_t size) {
-    return json_output_fuzzer<syslog>(data, size);
+    return json_output_fuzzer<class syslog>(data, size);
 }
 
 namespace syslog_unit_test {
