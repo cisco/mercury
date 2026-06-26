@@ -208,6 +208,7 @@ help:
 	@echo '    test-coverage-fuzz   Fuzz coverage via llvm-cov + lcov merge'
 	@echo '    test-pdu             PDU tests (needs PCAP_DIR; has compile errors)'
 	@echo '    test-capture         Live capture test (needs root + IFNAME)'
+	@echo '    test-auto-capture    Auto-detect capture test (needs root, Linux)'
 	@echo '    test-dummy-capture   Dummy interface test (needs root + tcpreplay)'
 	@echo '    test-afl-fuzz        AFL fuzz test (self-invokes with CXX=afl-g++)'
 	@echo ''
