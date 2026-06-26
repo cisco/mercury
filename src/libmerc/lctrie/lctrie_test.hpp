@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <time.h>
 #include <locale.h>
+#include <string>
 #include <unordered_map>
 #include <vector>
 #include <random>
@@ -37,7 +38,7 @@ bool test_ipv4(const char *input_file, FILE *f) {
     if (f) fprintf(f, "Reading prefixes from %s...\n\n", input_file);
     if (0 > (rc = read_prefix_table<uint32_t>(input_file, &p[num], BGP_MAX_ENTRIES - num))) {
         fprintf(stderr, "could not read prefix file \"%s\"\n", input_file);
-        return rc;
+        return false;
     }
     num += rc;
 
@@ -238,9 +239,11 @@ bool test_ipv6(const char *input_file, FILE *f) {
 }
 
 static inline bool lctrie_v4_unit_test(FILE *f = nullptr) {
-    return test_ipv4("libmerc/lctrie/test_files/ipv4_lct", f);
+    std::string input_file = "src/libmerc/lctrie/test_files/ipv4_lct";
+    return test_ipv4(input_file.c_str(), f);
 }
 
 static inline bool lctrie_v6_unit_test(FILE *f = nullptr) {
-    return test_ipv6("libmerc/lctrie/test_files/ipv6_lct", f);
+    std::string input_file = "src/libmerc/lctrie/test_files/ipv6_lct";
+    return test_ipv6(input_file.c_str(), f);
 }

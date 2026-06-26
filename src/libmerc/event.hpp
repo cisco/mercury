@@ -120,7 +120,7 @@ namespace event_string {
 
         std::string dest_context;
         dest_context.append("(");
-        dest_context.append(analysis.destination.sn_str).append(")(");
+        dest_context.append(utf8_string::get_utf8_string(analysis.destination.sn_str)).append(")(");
         dest_context.append(dst_ip_str).append(")(");
         dest_context.append(dst_port_str).append(")");
 
@@ -137,7 +137,7 @@ namespace event_string {
 
         std::string dest_context;
         dest_context.append("(");
-        dest_context.append(analysis.destination.sn_str).append(")(");
+        dest_context.append(utf8_string::get_utf8_string(analysis.destination.sn_str)).append(")(");
         dest_context.append(analysis.destination.dst_ip_str).append(")(");
         dest_context.append(dst_port_str).append(")");
 
