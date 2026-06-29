@@ -180,8 +180,10 @@ int read_prefix_table_from_string(const char *data,
     return num;
 }
 
-#define LCTRIE_BGP_MAX_ENTRIES 4000000
+#ifndef NDEBUG
+#define LCTRIE_BGP_MAX_ENTRIES 1024
 
+// LCOV_EXCL_START
 static inline bool lctrie_v4_unit_test(FILE *f = nullptr) {
     static const char ipv4_data[] =
         "1.0.0.0/24\t13335\n"
@@ -272,7 +274,9 @@ static inline bool lctrie_v4_unit_test(FILE *f = nullptr) {
     free(p);
     return all_matched;
 }
+// LCOV_EXCL_STOP
 
+// LCOV_EXCL_START
 static inline bool lctrie_v6_unit_test(FILE *f = nullptr) {
     static const char ipv6_data[] =
         "2a03::/32\t204094\n"
@@ -698,6 +702,8 @@ static inline bool lctrie_v6_unit_test(FILE *f = nullptr) {
     free(p);
     return all_matched;
 }
+// LCOV_EXCL_STOP
+#endif  // NDEBUG
 
 // end #ifndef guard
 #endif
