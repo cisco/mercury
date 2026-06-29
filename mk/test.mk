@@ -453,7 +453,7 @@ else
 	@echo "--- auto-detect capture test ---"
 	@rm -rf $(TESTDIR)/auto-capture
 	@mkdir -p $(TESTDIR)/auto-capture
-	@bash -c '$(_mercury) --capture $(_DROP_ROOT) \
+	@bash -c '$(_mercury) --capture auto $(_DROP_ROOT) \
 	    -f $(abspath $(TESTDIR)/auto-capture)/output.json \
 	    2> $(abspath $(TESTDIR)/auto-capture)/stderr.log & \
 	    pid=$$!; sleep 2; kill -INT $$pid || true; wait $$pid || true'

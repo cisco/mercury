@@ -102,8 +102,8 @@ static enum status mercury_config_parse_line(struct mercury_config *cfg,
 
     } else if ((arg = command_get_argument("capture=", line)) != NULL) {
         cfg->capture_mode = true;
-        if (arg[0] != '\0') {
-            cfg->capture_interface = strdup(arg);
+        if (strcmp(arg, "auto") != 0) {
+            cfg->capture_interface = strdup(arg);  // "auto" leaves it NULL to auto-detect
         }
         return status_ok;
 

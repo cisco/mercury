@@ -32,8 +32,7 @@
 char mercury_help[] =
     "%s [INPUT] [OUTPUT] [OPTIONS]:\n"
     "INPUT\n"
-    "   [-c] capture_interface                # capture packets from interface\n"
-    "   [--capture[=capture_interface]]       # capture packets, auto-detect interface if omitted\n"
+    "   [-c or --capture] <iface> | auto      # capture from <iface>, or auto-detect with \"auto\"\n"
     "   [-r or --read] read_file              # read packets from file\n"
     "   no input option                       # read packets from standard input\n"
     "OUTPUT\n"
@@ -78,11 +77,12 @@ char mercury_help[] =
 char mercury_extended_help[] =
     "\n"
     "DETAILS\n"
-    "   \"[-c] c\" or \"[--capture=c]\" captures packets from interface c using the platform\n"
+    "   \"[-c or --capture] c\" captures packets from interface c using the platform\n"
     "   live-capture backend.  On Linux, mercury uses AF_PACKET with a separate ring\n"
     "   buffer for each worker thread.  On macOS, mercury uses libpcap for interface\n"
-    "   capture and currently supports a single capture thread.  \"[--capture]\" with no\n"
-    "   interface auto-detects a Linux interface (Linux only).  \"[-t or --thread] t\"\n"
+    "   capture and currently supports a single capture thread.  Use \"-c auto\" to\n"
+    "   auto-detect a capture interface (Linux only); it picks the active,\n"
+    "   non-loopback interface that has received the most packets.  \"[-t or --thread] t\"\n"
     "   sets the number of worker threads to t, if t is a positive integer; if t is\n"
     "   \"cpu\", then the number of threads will be set to the number of available\n"
     "   processors.  \"[-b or --buffer] b\" sets the total size of all ring buffers to\n"
@@ -282,6 +282,7 @@ char mercury_extended_help[] =
     "   Systemd service configuration    /etc/mercury/mercury.cfg\n"
     "\n"
     "EXAMPLES\n"
+    "   mercury -c auto                       # auto-detect iface, metadata to stdout\n"
     "   mercury -c eth0 -w foo.pcap           # capture from eth0, write to foo.pcap\n"
     "   mercury -c eth0 -w foo.pcap -t cpu    # as above, with one thread per CPU\n"
     "   mercury -c eth0 -w foo.mcap -t cpu -s # as above, selecting packet metadata\n"
@@ -314,16 +315,6 @@ bool option_is_valid(const char *opt) {
         return false;  // appears to be in -x or --x format
     }
     return true;
-}
-
-static bool capture_option_omits_interface(const char *argv_token, const char *optarg) {
-    if (optarg != NULL) {
-        return false;
-    }
-    if (argv_token == NULL) {
-        return false;
-    }
-    return strcmp(argv_token, "--capture") == 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -364,7 +355,7 @@ int main(int argc, char *argv[]) {
             { "read",                          required_argument, NULL,                           'r' },
             { "write",                         required_argument, NULL,                           'w' },
             { "directory",                     required_argument, NULL,                           'd' },
-            { "capture",                       optional_argument, NULL,                           'c' },
+            { "capture",                       required_argument, NULL,                           'c' },
             { "fingerprint",                   required_argument, NULL,                           'f' },
             { "analysis",                            no_argument, NULL,                           'a' },
             { "threads",                       required_argument, NULL,                           't' },
@@ -560,12 +551,12 @@ int main(int argc, char *argv[]) {
             break;
         case 'c':
             cfg.capture_mode = true;
-            if (option_is_valid(optarg)) {
-                cfg.capture_interface = optarg;
-            } else if (capture_option_omits_interface(argv[optind - 1], optarg)) {
-                cfg.capture_interface = NULL;
+            if (!option_is_valid(optarg)) {
+                usage(argv[0], "option c or capture requires an interface name or \"auto\"", extended_help_off);
+            } else if (strcmp(optarg, "auto") == 0) {
+                cfg.capture_interface = NULL;  // auto-detect; resolved after option parsing
             } else {
-                usage(argv[0], "option c requires interface argument; use --capture for auto-detection", extended_help_off);
+                cfg.capture_interface = optarg;
             }
             break;
         case 'f':

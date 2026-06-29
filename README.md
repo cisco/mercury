@@ -80,7 +80,7 @@ to install mercury and create and start a systemd service.  If you don't want th
 ```
 sudo make install-nosystemd
 ```
-The default `mercury.cfg` enables capture mode with `capture=` and auto-detects a network interface on Linux at runtime.  To force a specific interface, set `capture=<interface>` instead.
+The default `mercury.cfg` enables capture mode with `capture=auto` and auto-detects a network interface on Linux at runtime.  To force a specific interface, set `capture=<interface>` instead.
 
 The default file and directory locations are
    * __/usr/local/bin/mercury__ for the executable
@@ -127,8 +127,7 @@ If multiple compile time options are used, then they must be passed to make toge
 mercury: packet metadata capture and analysis
 build/RelWithDebInfo/bin/mercury [INPUT] [OUTPUT] [OPTIONS]:
 INPUT
-   [-c] capture_interface                # capture packets from interface
-   [--capture[=capture_interface]]       # capture packets, auto-detect interface if omitted
+   [-c or --capture] <iface> | auto      # capture from <iface>, or auto-detect with "auto"
    [-r or --read] read_file              # read packets from file
    no input option                       # read packets from standard input
 OUTPUT
@@ -171,11 +170,12 @@ GENERAL OPTIONS
    [-h or --help]                        # extended help, with examples
 
 DETAILS
-   "[-c] c" or "[--capture=c]" captures packets from interface c using the platform
+   "[-c or --capture] c" captures packets from interface c using the platform
    live-capture backend.  On Linux, mercury uses AF_PACKET with a separate ring
    buffer for each worker thread.  On macOS, mercury uses libpcap for interface
-   capture and currently supports a single capture thread.  "[--capture]" with no
-   interface auto-detects a Linux interface (Linux only).  "[-t or --thread] t"
+   capture and currently supports a single capture thread.  Use "-c auto" to
+   auto-detect a capture interface (Linux only); it picks the active,
+   non-loopback interface that has received the most packets.  "[-t or --thread] t"
    sets the number of worker threads to t, if t is a positive integer; if t is
    "cpu", then the number of threads will be set to the number of available
    processors.  "[-b or --buffer] b" sets the total size of all ring buffers to
@@ -210,7 +210,7 @@ DETAILS
 
    "[r or --read] r" reads packets from the file r, in PCAP format.
 
-   if neither -r, -c, nor --capture is specified, then packets are read from standard input,
+   if neither -r nor -c is specified, then packets are read from standard input,
    in PCAP format.
 
    "[-s or --select] f" selects packets according to the metadata filter f, which
@@ -376,13 +376,13 @@ see if the directories on your system differ.
 
 ### EXAMPLES
 ```
-   mercury --capture -w foo.pcap         # auto-detect interface, write to foo.pcap
+   mercury -c auto                       # auto-detect iface, metadata to stdout
    mercury -c eth0 -w foo.pcap           # capture from eth0, write to foo.pcap
    mercury -c eth0 -w foo.pcap -t cpu    # as above, with one thread per CPU
    mercury -c eth0 -w foo.mcap -t cpu -s # as above, selecting packet metadata
    mercury -r foo.mcap -f foo.json       # read foo.mcap, write fingerprints
    mercury -r foo.mcap -f foo.json -a    # as above, with fingerprint analysis
-   mercury --capture -t cpu -f foo.json -a # auto-detect interface, capture and analyze fingerprints
+   mercury -c eth0 -t cpu -f foo.json -a # capture and analyze fingerprints
 ```
 
 ## Ethics
