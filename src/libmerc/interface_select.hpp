@@ -10,10 +10,19 @@
 #ifndef INTERFACE_SELECT_HPP
 #define INTERFACE_SELECT_HPP
 
-#include "libmerc.h"
-
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
+
+namespace interface_select {
+
+/// size (including the terminating NUL) of a buffer large enough to hold
+/// any capture interface name across all supported platforms
+///
+static constexpr size_t INTERFACE_NAME_MAX = 16;
+
+} // namespace interface_select
 
 #ifdef __linux__
 
@@ -24,8 +33,11 @@
 
 namespace interface_select {
 
+static_assert(INTERFACE_NAME_MAX >= IFNAMSIZ,
+              "INTERFACE_NAME_MAX must be large enough to hold a Linux interface name");
+
 struct interface_candidate {
-    char name[IFNAMSIZ];
+    char name[INTERFACE_NAME_MAX];
     uint64_t rx_packets;
     double rx_ratio;
     unsigned int flags;
@@ -71,20 +83,25 @@ static inline bool candidate_is_better(const interface_candidate &candidate,
     return strcmp(candidate.name, best.name) < 0;
 }
 
-static inline enum status detect_capture_interface(char *name, size_t name_len, int verbose) {
+/// auto-detects a capture interface and writes its name into the buffer
+/// \p name of length \p name_len
+///
+/// \return 0 on success, or non-zero on failure (reported on stderr)
+///
+static inline int detect_capture_interface(char *name, size_t name_len) {
     if (name == nullptr || name_len == 0) {
-        return status_err;
+        return 1;
     }
 
     struct ifaddrs *head_ifaddr = nullptr;
     if (getifaddrs(&head_ifaddr) == -1) {
         perror("getifaddrs");
-        return status_err;
+        return 1;
     }
 
     interface_candidate best = {};
     bool found = false;
-    char last_name[IFNAMSIZ] = { 0 };
+    char last_name[INTERFACE_NAME_MAX] = { 0 };
 
     for (struct ifaddrs *ifa = head_ifaddr; ifa != nullptr; ifa = ifa->ifa_next) {
         if (ifa->ifa_addr == nullptr || ifa->ifa_name == nullptr) {
@@ -129,22 +146,17 @@ static inline enum status detect_capture_interface(char *name, size_t name_len, 
     freeifaddrs(head_ifaddr);
 
     if (!found) {
-        if (verbose) {
-            fprintf(stderr, "error: could not auto-detect a usable capture interface\n");
-        }
-        return status_err;
+        fprintf(stderr, "error: could not auto-detect a usable capture interface\n");
+        return 1;
     }
 
     if (strlen(best.name) + 1 > name_len) {
-        return status_err;
+        fprintf(stderr, "error: auto-detected interface name does not fit in the supplied buffer\n");
+        return 1;
     }
     memcpy(name, best.name, strlen(best.name) + 1);
 
-    if (verbose) {
-        fprintf(stderr, "auto-detected capture interface %s\n", name);
-    }
-
-    return status_ok;
+    return 0;
 }
 
 } // namespace interface_select
@@ -153,11 +165,11 @@ static inline enum status detect_capture_interface(char *name, size_t name_len, 
 
 namespace interface_select {
 
-static inline enum status detect_capture_interface(char *name, size_t name_len, int verbose) {
+static inline int detect_capture_interface(char *name, size_t name_len) {
     (void)name;
     (void)name_len;
-    (void)verbose;
-    return status_err;
+    fprintf(stderr, "error: capture interface auto-detection is not supported on this platform\n");
+    return 1;
 }
 
 } // namespace interface_select

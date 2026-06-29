@@ -13,7 +13,6 @@
 #include <unistd.h>
 #include <errno.h>
 #include <getopt.h>
-#include <net/if.h>
 #include <pthread.h>
 #include <thread>
 
@@ -330,7 +329,7 @@ static bool capture_option_omits_interface(const char *argv_token, const char *o
 int main(int argc, char *argv[]) {
     struct mercury_config cfg = mercury_config_init();
     struct libmerc_config libmerc_cfg;
-    char detected_capture_interface[IFNAMSIZ] = { 0 };
+    char detected_capture_interface[interface_select::INTERFACE_NAME_MAX] = { 0 };
     bool select_set = false;
     bool raw_features_set = false;
     bool crypto_assess_set = false;
@@ -760,8 +759,8 @@ int main(int argc, char *argv[]) {
         usage(argv[0], "incompatible arguments read [r] and capture [c] specified on command line", extended_help_off);
     }
     if (cfg.capture_mode && cfg.capture_interface == NULL) {
-        if (interface_select::detect_capture_interface(detected_capture_interface, sizeof(detected_capture_interface), cfg.verbosity) != status_ok) {
-            usage(argv[0], "could not auto-detect capture interface", extended_help_off);
+        if (interface_select::detect_capture_interface(detected_capture_interface, sizeof(detected_capture_interface)) != 0) {
+            return EXIT_FAILURE;  // detect_capture_interface() already reported the error
         }
         cfg.capture_interface = detected_capture_interface;
     }
