@@ -693,6 +693,7 @@ struct gz_file_unit_test_tmpfile {
     }
 };
 
+// LCOV_EXCL_START
 inline bool gz_file_unit_test_make_temp_path(std::string &out_path) {
 #ifdef _WIN32
     char buf[L_tmpnam];
@@ -713,7 +714,9 @@ inline bool gz_file_unit_test_make_temp_path(std::string &out_path) {
 #endif
     return true;
 }
+// LCOV_EXCL_STOP
 
+// LCOV_EXCL_START
 inline std::string gz_file_unit_test_write_gzip(const std::string &content) {
     std::string path;
     if (!gz_file_unit_test_make_temp_path(path)) {
@@ -735,7 +738,9 @@ inline std::string gz_file_unit_test_write_gzip(const std::string &content) {
 
     return path;
 }
+// LCOV_EXCL_STOP
 
+// LCOV_EXCL_START
 inline bool gz_file_getline_unit_test_empty_line(FILE *f) {
     bool ok = true;
     const std::string content = "A\n\nB";
@@ -771,7 +776,9 @@ inline bool gz_file_getline_unit_test_empty_line(FILE *f) {
     }
     return ok;
 }
+// LCOV_EXCL_STOP
 
+// LCOV_EXCL_START
 inline bool gz_file_getline_unit_test_remainder_suffix(FILE *f) {
     bool ok = true;
     const std::string content = "A\nHELLO\nWORLD";
@@ -807,7 +814,9 @@ inline bool gz_file_getline_unit_test_remainder_suffix(FILE *f) {
     }
     return ok;
 }
+// LCOV_EXCL_STOP
 
+// LCOV_EXCL_START
 inline bool gz_file_getline_unit_test_read_len_overrun(FILE *f) {
     bool ok = true;
     std::string content(512, 'A');
@@ -845,7 +854,9 @@ inline bool gz_file_getline_unit_test_read_len_overrun(FILE *f) {
     }
     return ok;
 }
+// LCOV_EXCL_STOP
 
+// LCOV_EXCL_START
 inline bool gz_file_getline_unit_test_null_byte_remainder(FILE *f) {
     bool ok = true;
     const std::string content = std::string("A\nB\0C\nD", 7);
@@ -883,9 +894,11 @@ inline bool gz_file_getline_unit_test_null_byte_remainder(FILE *f) {
     }
     return ok;
 }
+// LCOV_EXCL_STOP
 
 } // namespace
 
+// LCOV_EXCL_START
 inline bool gz_file_getline_unit_tests(FILE *f = nullptr) {
     bool ok = true;
     bool result = gz_file_getline_unit_test_empty_line(f);
@@ -910,6 +923,7 @@ inline bool gz_file_getline_unit_tests(FILE *f = nullptr) {
     }
     return ok;
 }
+// LCOV_EXCL_STOP
 
 
 #endif // ARCHIVE_H

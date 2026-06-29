@@ -99,6 +99,7 @@ namespace {
 
 }; // end of namespace
 
+// LCOV_EXCL_START
 namespace mdns_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
@@ -130,5 +131,6 @@ namespace mdns_unit_test {
     }
 #endif
 } // namespace mdns_unit_test
+// LCOV_EXCL_STOP
 
 #endif /* MDNS_H */

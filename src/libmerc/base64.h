@@ -250,6 +250,7 @@ public:
     // test of base64::decode() and returns true if all tests passed,
     // and returns false otherwise.
     //
+    // LCOV_EXCL_START
     static bool unit_test() {
         constexpr bool throw_on_error=false;
 
@@ -275,6 +276,7 @@ public:
         }
         return true;
     }
+    // LCOV_EXCL_STOP
 
 #ifndef NDEBUG
     //

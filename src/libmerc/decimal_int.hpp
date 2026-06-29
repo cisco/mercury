@@ -248,6 +248,7 @@ struct decimal_integer_test_case {
 
 };
 
+// LCOV_EXCL_START
 inline bool decimal_integer_unit_test(FILE *f=nullptr) {
 
     bool result = true;
@@ -389,6 +390,7 @@ inline bool decimal_integer_unit_test(FILE *f=nullptr) {
 
     return result;
 }
+// LCOV_EXCL_STOP
 
 #endif // NDEBUG
 

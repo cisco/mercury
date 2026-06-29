@@ -157,6 +157,7 @@ namespace rtp {
     return 0;
 }
 
+// LCOV_EXCL_START
 namespace rtp_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
@@ -209,5 +210,6 @@ namespace rtp_unit_test {
     }
 #endif
 } // namespace rtp_unit_test
+// LCOV_EXCL_STOP
 
 #endif // RTP_H

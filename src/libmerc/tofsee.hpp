@@ -167,6 +167,7 @@ public:
     }
 
 #ifndef NDEBUG
+    // LCOV_EXCL_START
     static bool unit_test() {
 
         // true positive test: verify the correct parsing of a valid
@@ -218,6 +219,7 @@ public:
         }
         return true;
     }
+    // LCOV_EXCL_STOP
 
     static inline bool unit_test_passed = tofsee_initial_message::unit_test();
 #endif // NDEBUG

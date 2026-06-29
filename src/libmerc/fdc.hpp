@@ -694,6 +694,7 @@ namespace cbor_fingerprint {
     // cbor_fingerprint::unit_test() returns `true` if all unit tests
     // pass, `false` otherwise
     //
+    // LCOV_EXCL_START
     [[maybe_unused]] static bool unit_test(FILE *f=nullptr) {
 
         // example fingerprints
@@ -721,6 +722,7 @@ namespace cbor_fingerprint {
         }
         return all_tests_passed;
     }
+    // LCOV_EXCL_STOP
 };
 
 // define types of reassembly or truncation possible in the FDC object.
@@ -874,6 +876,7 @@ public:
     /// perform unit tests on class fdc, returning `true` if they pass
     /// and `false` otherwise
     ///
+    // LCOV_EXCL_START
     static bool unit_test(FILE *f=nullptr) {
 
         (void)f; // silence warning about unused paramer
@@ -973,6 +976,7 @@ public:
         }
         return true;
     }
+    // LCOV_EXCL_STOP
 
 private:
 

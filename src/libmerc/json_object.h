@@ -735,6 +735,7 @@ json_file_object::json_file_object(struct json_file_array &array) : f{array.f} {
 #include <string>
 #include <string_view>
 
+// LCOV_EXCL_START
 [[maybe_unused]] inline bool json_object_unit_test(FILE *f = nullptr) {
     constexpr auto npos = std::string_view::npos;
 
@@ -830,6 +831,7 @@ json_file_object::json_file_object(struct json_file_array &array) : f{array.f} {
 
     return true;
 }
+// LCOV_EXCL_STOP
 
 #endif // NDEBUG
 

@@ -112,6 +112,7 @@ public:
 #endif
     }
 
+    // LCOV_EXCL_START
     static bool unit_test() {
         tsc_clock start;
         // Pass this test for unsupported platform
@@ -125,6 +126,7 @@ public:
         }
         return false;
     }
+    // LCOV_EXCL_STOP
 };
 
 #endif //TSC_CLOCK_HPP

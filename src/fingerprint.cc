@@ -332,6 +332,7 @@ public:
 // which data will be written (to enable a 'verbose' mode), or nullptr
 // (to enable a 'silent' mode).
 //
+// LCOV_EXCL_START
 bool unit_test(FILE *f) {
 
     struct test_case {
@@ -373,6 +374,7 @@ bool unit_test(FILE *f) {
     if (f) { fprintf(f, "unit test passed\n"); }
     return true;
 }
+// LCOV_EXCL_STOP
 
 std::string ja3_ir_to_bp(const std::string &s) {
 

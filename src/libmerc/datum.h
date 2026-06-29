@@ -1521,6 +1521,7 @@ public:
 // unit tests for class `writeable`, class `data_buffer`, and class
 // `dynamic_buffer`
 //
+// LCOV_EXCL_START
 namespace writeable_unit_test {
 
     // B must be data_buffer or dynamic_buffer
@@ -1999,7 +2000,9 @@ namespace writeable_unit_test {
         return result;
     }
 }
+// LCOV_EXCL_STOP
 
+// LCOV_EXCL_START
 namespace datum_unit_test {
 
     inline bool unit_test() {
@@ -2335,6 +2338,7 @@ namespace datum_unit_test {
     }
 
 }
+// LCOV_EXCL_STOP
 
 #endif // NDEBUG
 
@@ -2539,9 +2543,11 @@ public:
     /// specializations, and they are only defined when NDEBUG is not
     /// `#defined`.
     ///
+    // LCOV_EXCL_START
     static bool unit_test() {
         return false;
     }
+    // LCOV_EXCL_STOP
 
     // TODO: add a function slice<i,j>(T newvalue) that sets the bits
     // associated with a slice
@@ -2760,6 +2766,7 @@ static_assert(sizeof(encoded<uint64_t>) == 8);
 // returns `true` if that template specialization class passes its
 // unit test, and `false` otherwise.
 //
+// LCOV_EXCL_START
 template <>
 inline bool encoded<uint8_t>::unit_test() {
     encoded<uint8_t> x{0xaa};
@@ -2773,10 +2780,12 @@ inline bool encoded<uint8_t>::unit_test() {
         x.bit<6>() == 1 &&
         x.bit<7>() == 0;
 }
+// LCOV_EXCL_STOP
 
 // `encoded<uint16_t>::unit_test()` returns `true` if that class
 // passes its unit test, and `false` otherwise.
 //
+// LCOV_EXCL_START
 template <>
 inline bool encoded<uint16_t>::unit_test() {
     encoded<uint16_t> x{0x9f00};
@@ -2786,10 +2795,12 @@ inline bool encoded<uint16_t>::unit_test() {
         x.slice<3,8>()  == 31 &&
         x.slice<8,16>() == 0;
 }
+// LCOV_EXCL_STOP
 
 // `encoded<uint32_t>::unit_test()` returns `true` if that class
 // passes its unit test, and `false` otherwise.
 //
+// LCOV_EXCL_START
 template <>
 inline bool encoded<uint32_t>::unit_test() {
     encoded<uint32_t> y = 0xa1b2c3df;
@@ -2807,10 +2818,12 @@ inline bool encoded<uint32_t>::unit_test() {
         y.slice<24,32>() == 0xdf       &&
         y.slice<16,32>() == 0xc3df;
 }
+// LCOV_EXCL_STOP
 
 // `encoded<uint64_t>::unit_test()` returns `true` if that class
 // passes its unit test, and `false` otherwise.
 //
+// LCOV_EXCL_START
 template <>
 inline bool encoded<uint64_t>::unit_test() {
     encoded<uint64_t> y = 0xa1b2c3dfaabbccdd;
@@ -2829,6 +2842,7 @@ inline bool encoded<uint64_t>::unit_test() {
         y.slice<16,32>() == 0xc3df     &&
         y.slice<56,64>() == 0xdd;
 }
+// LCOV_EXCL_STOP
 
 // @}
 

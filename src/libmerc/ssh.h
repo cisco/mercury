@@ -505,6 +505,7 @@ struct ssh_init_packet : public base_protocol {
     return json_output_fuzzer<ssh_init_packet>(data, size);
 }
 
+// LCOV_EXCL_START
 namespace ssh_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
@@ -560,5 +561,6 @@ namespace ssh_unit_test {
     }
 #endif
 } // namespace ssh_unit_test
+// LCOV_EXCL_STOP
 
 #endif // SSH_H

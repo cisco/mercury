@@ -214,6 +214,7 @@ namespace asn1 {
     //
     // \note: the unit tests may fail either at run time or at compile time
     //
+    // LCOV_EXCL_START
     static bool oid_unit_test(FILE *f=nullptr) {
         constexpr auto oid_id_pkix_ocsp_basic = oid<1,3,6,1,5,5,7,48,1,1>();
         constexpr auto oid_rsadsi = oid<1,2,840,113549>();
@@ -229,6 +230,7 @@ namespace asn1 {
 
         return all_passed;
     }
+    // LCOV_EXCL_STOP
 
 }  // namespace asn1
 

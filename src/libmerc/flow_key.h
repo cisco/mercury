@@ -48,6 +48,7 @@ constexpr bool operator&(flow_direction_selector sel, flow_direction dir) {
 /// only to allow use in unit test frameworks that expect such
 /// behavior.
 ///
+// LCOV_EXCL_START
 [[maybe_unused]] inline bool flow_direction_selector_unit_test() {
     static_assert((flow_direction_selector::client & flow_direction::client)  == true);
     static_assert((flow_direction_selector::client & flow_direction::server)  == false);
@@ -67,6 +68,7 @@ constexpr bool operator&(flow_direction_selector sel, flow_direction dir) {
 
     return true;
 }
+// LCOV_EXCL_STOP
 
 struct key {
     uint16_t src_port;   // source port in network byte order

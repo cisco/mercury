@@ -373,6 +373,7 @@ inline bool utf8_string::is_second_byte_valid(uint8_t byte1, uint8_t byte2) {
     }
 }
 
+// LCOV_EXCL_START
 inline bool utf8_string::unit_test(FILE *output) {
 
     // note: output=nullptr by default, but can be set to stdout or
@@ -1050,6 +1051,7 @@ inline bool utf8_string::unit_test(FILE *output) {
     }
     return passed;
 }
+// LCOV_EXCL_STOP
 
 /// a class that constructs and holds a UTF-8 encoded string that is
 /// safe for use in JSON, if possible.  This class is suitable for
@@ -1094,6 +1096,7 @@ public:
 
 };
 
+// LCOV_EXCL_START
 [[maybe_unused]] static bool utf8_safe_string_unit_test() {
 
     // verify that correct utf8 is processed correctly and
@@ -1133,6 +1136,7 @@ public:
 
     return true;
 }
+// LCOV_EXCL_STOP
 
 
 #endif // UTF8_HPP

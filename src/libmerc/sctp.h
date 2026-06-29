@@ -205,6 +205,7 @@ public:
     return json_output_fuzzer<sctp_init>(data, size);
 }
 
+// LCOV_EXCL_START
 namespace sctp_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
@@ -296,6 +297,7 @@ namespace sctp_unit_test {
     }
 #endif
 } // namespace sctp_unit_test
+// LCOV_EXCL_STOP
 
 // TODO: move sctp_init into SCTP namespace
 //

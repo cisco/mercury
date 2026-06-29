@@ -69,6 +69,7 @@ inline std::string json_string::get_string() {
     return str;
 }
 
+// LCOV_EXCL_START
 bool json_string::unit_test() {
 
     auto test = [](size_t buflen, const char *expected_output) {
@@ -100,6 +101,7 @@ bool json_string::unit_test() {
 
     return true;
 }
+// LCOV_EXCL_STOP
 
 
 template<typename T>

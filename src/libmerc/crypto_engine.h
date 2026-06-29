@@ -331,6 +331,7 @@ public:
     /// RFC 9001 Appendix A - QUIC Sample Packet Protection.
     /// Returns true if all tests pass, false otherwise.
     ///
+    // LCOV_EXCL_START
     static bool unit_test() {
         crypto_engine engine;
         bool all_passed = true;
@@ -493,6 +494,7 @@ public:
 
         return all_passed;
     }
+    // LCOV_EXCL_STOP
 #endif
 
 };

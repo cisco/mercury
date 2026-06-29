@@ -114,6 +114,7 @@ public:
     /// the dictionary has been populated.  Returns true if the test passed,
     /// and false otherwise.
     ///
+    // LCOV_EXCL_START
     bool unit_test(FILE *f) {
         // sanity check: output forward and reverse mappings, to enable comparison
         bool passed = true;
@@ -135,6 +136,7 @@ public:
         }
         return passed;
     }
+    // LCOV_EXCL_STOP
 
 };
 

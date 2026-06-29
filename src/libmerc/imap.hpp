@@ -987,6 +987,7 @@ namespace imap {
     };
 
 #ifndef NDEBUG
+    // LCOV_EXCL_START
     static bool unit_test() {
         // ================================================================
         // POSITIVE TEST CASES - Login
@@ -1211,6 +1212,7 @@ namespace imap {
 
         return true;
     }
+    // LCOV_EXCL_STOP
 
     static inline bool unit_test_passed = imap::unit_test();
 #endif

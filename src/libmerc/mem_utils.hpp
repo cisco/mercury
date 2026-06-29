@@ -114,6 +114,7 @@ public:
         bool operator==(const Dummy& other) const { return x == other.x; }
     };
 
+    // LCOV_EXCL_START
     static bool unit_test() {
         constexpr size_t M = 4;
         fixed_fifo_allocator<Dummy, M> alloc;
@@ -171,6 +172,7 @@ public:
         // All tests pass
         return true;
     }
+    // LCOV_EXCL_STOP
 
 #endif // NDEBUG
 

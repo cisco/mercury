@@ -450,6 +450,7 @@ inline void message::write_json(json_object &record, bool metadata) const {
 }
 
 #ifndef NDEBUG
+// LCOV_EXCL_START
 inline bool unit_test() {
     auto check = [](datum input, datum expected) {
         if (test_json_output<telnet::message>(input, expected)) {
@@ -544,6 +545,7 @@ inline bool unit_test() {
 
     return true;
 }
+// LCOV_EXCL_STOP
 #endif
 
 } // namespace telnet
