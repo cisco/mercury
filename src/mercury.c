@@ -27,11 +27,12 @@
 #ifndef OPENSSL_LEGACY
 #include <openssl/crypto.h>  // OPENSSL_cleanup
 #endif
+#include "libmerc/interface_select.hpp"
 
 char mercury_help[] =
     "%s [INPUT] [OUTPUT] [OPTIONS]:\n"
     "INPUT\n"
-    "   [-c or --capture] capture_interface   # capture packets from interface\n"
+    "   [-c or --capture] <iface> | auto      # capture from <iface>, or auto-detect with \"auto\"\n"
     "   [-r or --read] read_file              # read packets from file\n"
     "   no input option                       # read packets from standard input\n"
     "OUTPUT\n"
@@ -77,7 +78,11 @@ char mercury_extended_help[] =
     "\n"
     "DETAILS\n"
     "   \"[-c or --capture] c\" captures packets from interface c using the platform\n"
-    "   live capture backend (Linux AF_PACKET or libpcap on macOS).  \"[-t or --thread] t\"\n"
+    "   live-capture backend.  On Linux, mercury uses AF_PACKET with a separate ring\n"
+    "   buffer for each worker thread.  On macOS, mercury uses libpcap for interface\n"
+    "   capture and currently supports a single capture thread.  Use \"-c auto\" to\n"
+    "   auto-detect a capture interface (Linux only); it picks the active,\n"
+    "   non-loopback interface that has received the most packets.  \"[-t or --thread] t\"\n"
     "   sets the number of worker threads to t, if t is a positive integer; if t is\n"
     "   \"cpu\", then the number of threads will be set to the number of available\n"
     "   processors.  \"[-b or --buffer] b\" sets the total size of all ring buffers to\n"
@@ -277,6 +282,7 @@ char mercury_extended_help[] =
     "   Systemd service configuration    /etc/mercury/mercury.cfg\n"
     "\n"
     "EXAMPLES\n"
+    "   mercury -c auto                       # auto-detect iface, metadata to stdout\n"
     "   mercury -c eth0 -w foo.pcap           # capture from eth0, write to foo.pcap\n"
     "   mercury -c eth0 -w foo.pcap -t cpu    # as above, with one thread per CPU\n"
     "   mercury -c eth0 -w foo.mcap -t cpu -s # as above, selecting packet metadata\n"
@@ -314,6 +320,7 @@ bool option_is_valid(const char *opt) {
 int main(int argc, char *argv[]) {
     struct mercury_config cfg = mercury_config_init();
     struct libmerc_config libmerc_cfg;
+    char detected_capture_interface[interface_select::INTERFACE_NAME_MAX] = { 0 };
     bool select_set = false;
     bool raw_features_set = false;
     bool crypto_assess_set = false;
@@ -543,10 +550,13 @@ int main(int argc, char *argv[]) {
             }
             break;
         case 'c':
-            if (option_is_valid(optarg)) {
-                cfg.capture_interface = optarg;
+            cfg.capture_mode = true;
+            if (!option_is_valid(optarg)) {
+                usage(argv[0], "option c or capture requires an interface name or \"auto\"", extended_help_off);
+            } else if (strcmp(optarg, "auto") == 0) {
+                cfg.capture_interface = NULL;  // auto-detect; resolved after option parsing
             } else {
-                usage(argv[0], "option c or capture requires interface argument", extended_help_off);
+                cfg.capture_interface = optarg;
             }
             break;
         case 'f':
@@ -736,11 +746,17 @@ int main(int argc, char *argv[]) {
         usage(argv[0], "unrecognized options", extended_help_off);
     }
 
-    if (cfg.read_filename == NULL && cfg.capture_interface == NULL) {
-        cfg.read_filename = (char *)"-";  // convention: a dash indicates to read from stdin
-    }
-    if (cfg.read_filename != NULL && cfg.capture_interface != NULL) {
+    if (cfg.capture_mode && cfg.read_filename != NULL) {
         usage(argv[0], "incompatible arguments read [r] and capture [c] specified on command line", extended_help_off);
+    }
+    if (cfg.capture_mode && cfg.capture_interface == NULL) {
+        if (interface_select::detect_capture_interface(detected_capture_interface, sizeof(detected_capture_interface)) != 0) {
+            return EXIT_FAILURE;  // detect_capture_interface() already reported the error
+        }
+        cfg.capture_interface = detected_capture_interface;
+    }
+    if (cfg.read_filename == NULL && !cfg.capture_mode) {
+        cfg.read_filename = (char *)"-";  // convention: a dash indicates to read from stdin
     }
     if (cfg.fingerprint_filename && cfg.write_filename) {
         usage(argv[0], "both fingerprint [f] and write [w] specified on command line", extended_help_off);
@@ -800,7 +816,7 @@ int main(int argc, char *argv[]) {
     /* If we're going to capture from the network we don't want this main thread
      * to get interrupted, instead the stats thread needs to recieve the signal.
      */
-    if (cfg.capture_interface && capture_backend_blocks_main_thread_signals()) {
+    if (cfg.capture_mode && capture_backend_blocks_main_thread_signals()) {
         disable_all_signals(); /* Stats thread will unmask the signals it needs */
     }
 
@@ -824,7 +840,7 @@ int main(int argc, char *argv[]) {
         ctl = new controller{mc, "disabled", cfg.stats_rotation_duration, &out_file, cfg, false};
     }
 
-    if (cfg.capture_interface) {
+    if (cfg.capture_mode) {
         out_file.from_network = 1;
         fprintf(stderr, "Allocating I/O buffer balance: %4.2f%% input; %4.2f%% output\n", cfg.io_balance_frac * 100.0, (1.0 - cfg.io_balance_frac) * 100.0);
     }
@@ -833,8 +849,11 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "error: unable to initialize output thread\n");
         return EXIT_FAILURE;
     }
-    if (cfg.capture_interface) {
+    if (cfg.capture_mode) {
 
+        if (cfg.capture_interface == detected_capture_interface) {
+            fprintf(stderr, "auto-detecting interface: %s\n", cfg.capture_interface);
+        }
         if (cfg.verbosity) {
             fprintf(stderr, "initializing interface %s\n", cfg.capture_interface);
         }
@@ -855,7 +874,7 @@ int main(int argc, char *argv[]) {
     output_thread_finalize(&out_file);
 
 
-    if (cfg.capture_interface) {
+    if (cfg.capture_mode) {
         fprintf(stderr, "--\n"
                 "%" PRIu64 " packets captured\n"
                 "%" PRIu64 " bytes captured\n"

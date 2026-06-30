@@ -439,6 +439,28 @@ else
 	@printf '$(COLOR_YELLOW)  omitting dummy-capture test; tcpreplay unavailable$(COLOR_OFF)\n'
 endif
 
+# --- Auto-detect capture test (requires root; Linux only) -------------
+
+.PHONY: test-auto-capture
+test-auto-capture: $(BIN)/mercury
+ifeq ($(IS_MACOS),yes)
+	@printf '$(COLOR_YELLOW)  error: auto-detect capture test is Linux only$(COLOR_OFF)\n'
+	@false
+else ifneq ($(shell id -u),0)
+	@printf '$(COLOR_YELLOW)  error: auto-detect capture test must be run as root$(COLOR_OFF)\n'
+	@false
+else
+	@echo "--- auto-detect capture test ---"
+	@rm -rf $(TESTDIR)/auto-capture
+	@mkdir -p $(TESTDIR)/auto-capture
+	@bash -c '$(_mercury) --capture auto $(_DROP_ROOT) \
+	    -f $(abspath $(TESTDIR)/auto-capture)/output.json \
+	    2> $(abspath $(TESTDIR)/auto-capture)/stderr.log & \
+	    pid=$$!; sleep 2; kill -INT $$pid || true; wait $$pid || true'
+	grep "^auto-detecting interface: " $(abspath $(TESTDIR)/auto-capture)/stderr.log
+	@printf '$(COLOR_GREEN)  passed auto-detect capture test$(COLOR_OFF)\n'
+endif
+
 # --- AFL fuzz test ----------------------------------------------------
 
 _AFL_FUZZ_CMD := --metadata --dns-json --certs-json --analysis -f /dev/null
