@@ -69,7 +69,7 @@ Ancillary tools such as the ones listed below may require other packages.
 - `batch_gcd`: [GNU Multiple Precision Arithmetic Library (GMP)](https://gmplib.org/)
 
 ### Installation
-In the root directory, edit mercury.cfg with the network interface you want to capture from, then run
+In the root directory, review `mercury.cfg` as needed, then run
 ```
 ./configure
 make
@@ -80,6 +80,8 @@ to install mercury and create and start a systemd service.  If you don't want th
 ```
 sudo make install-nosystemd
 ```
+The default `mercury.cfg` enables capture mode with `capture=auto` and auto-detects a network interface on Linux at runtime.  To force a specific interface, set `capture=<interface>` instead.
+
 The default file and directory locations are
    * __/usr/local/bin/mercury__ for the executable
    * __/usr/local/share/mercury__ for the resource files
@@ -125,7 +127,7 @@ If multiple compile time options are used, then they must be passed to make toge
 mercury: packet metadata capture and analysis
 build/RelWithDebInfo/bin/mercury [INPUT] [OUTPUT] [OPTIONS]:
 INPUT
-   [-c or --capture] capture_interface   # capture packets from interface
+   [-c or --capture] <iface> | auto      # capture from <iface>, or auto-detect with "auto"
    [-r or --read] read_file              # read packets from file
    no input option                       # read packets from standard input
 OUTPUT
@@ -171,7 +173,9 @@ DETAILS
    "[-c or --capture] c" captures packets from interface c using the platform
    live-capture backend.  On Linux, mercury uses AF_PACKET with a separate ring
    buffer for each worker thread.  On macOS, mercury uses libpcap for interface
-   capture and currently supports a single capture thread.  "[-t or --thread] t"
+   capture and currently supports a single capture thread.  Use "-c auto" to
+   auto-detect a capture interface (Linux only); it picks the active,
+   non-loopback interface that has received the most packets.  "[-t or --thread] t"
    sets the number of worker threads to t, if t is a positive integer; if t is
    "cpu", then the number of threads will be set to the number of available
    processors.  "[-b or --buffer] b" sets the total size of all ring buffers to
@@ -372,6 +376,7 @@ see if the directories on your system differ.
 
 ### EXAMPLES
 ```
+   mercury -c auto                       # auto-detect iface, metadata to stdout
    mercury -c eth0 -w foo.pcap           # capture from eth0, write to foo.pcap
    mercury -c eth0 -w foo.pcap -t cpu    # as above, with one thread per CPU
    mercury -c eth0 -w foo.mcap -t cpu -s # as above, selecting packet metadata
