@@ -169,7 +169,6 @@ static inline bool lctrie_v4_unit_test(FILE *f = nullptr) {
     subnet_mask_v4(p, num);
     qsort(p, num, sizeof(lct_subnet<uint32_t>), subnet_cmp<uint32_t>);
     num -= subnet_dedup(p, num);
-    p = (lct_subnet<uint32_t> *)realloc(p, num * sizeof(lct_subnet<uint32_t>));
 
     lct_ip_stats_t *stats = (lct_ip_stats_t *)calloc(num, sizeof(lct_ip_stats_t));
     if (!stats) { free(p); return false; }
@@ -567,7 +566,6 @@ static inline bool lctrie_v6_unit_test(FILE *f = nullptr) {
     subnet_mask_v6(p, num);
     qsort(p, num, sizeof(lct_subnet<ipv6_addr_lct>), subnet_cmp<ipv6_addr_lct>);
     num -= subnet_dedup<ipv6_addr_lct>(p, num);
-    p = (lct_subnet<ipv6_addr_lct> *)realloc(p, num * sizeof(lct_subnet<ipv6_addr_lct>));
 
     lct_ip_stats_t *stats = (lct_ip_stats_t *)calloc(num, sizeof(lct_ip_stats_t));
     if (!stats) { free(p); return false; }
