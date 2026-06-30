@@ -94,6 +94,13 @@ lct_subnet_set_from_string(lct_subnet<ipv6_addr_lct> *subnet, const char *subnet
   return -1;  /* error parsing subnet_string */
 }
 
+///
+/// \brief Read subnet-to-ASN entries from an in-memory prefix table.
+/// \param data Prefix table text, one `address/length<TAB>asn` entry per line.
+/// \param prefix Destination prefix array.
+/// \param prefix_size Number of entries available in \p prefix.
+/// \return Number of entries read, or a negative value on failure.
+///
 template <typename T>
 int read_prefix_table_from_string(const char *data,
                                   lct_subnet<T> prefix[],
