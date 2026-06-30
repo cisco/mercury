@@ -57,8 +57,6 @@ test: all unittest test-comp test-analysis test-cert-check \
 	fi
 
 # --- unittest ---------------------------------------------------------
-# Run the binary from the repository root so repo-relative fixture paths
-# work consistently for the built-in unit tests.
 
 $(OBJ)/src/unit_test.o: CXXFLAGS := $(filter-out -DNDEBUG,$(CXXFLAGS))
 
