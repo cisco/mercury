@@ -59,7 +59,7 @@ jobs:
           - os: ubuntu-24.04-arm   # native aarch64
             cibw_archs_linux: aarch64
             cibw_archs_macos: ""
-          - os: macos-latest       # native arm64
+          - os: macos-15           # native arm64
             cibw_archs_linux: ""
             cibw_archs_macos: arm64
 
