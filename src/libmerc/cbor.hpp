@@ -126,7 +126,11 @@ namespace cbor {
 
     };
 
-    /// represents a True or False (simple value)
+    /// \brief represents a True or False (simple value)
+    ///
+    /// \note This definition follows RFC 8610, which defines a `bool`
+    ///       as a "simple value" of either `true` or `false`.  The
+    ///       capital letter distinguishes from the C++ datatype.
     ///
     class Bool : public initial_byte {
     public:
@@ -134,27 +138,27 @@ namespace cbor {
         /// construct a Bool object by parsing \p d
         ///
         Bool(datum &d) : initial_byte{d} {
-            if (value() != True and value() != False) {
+            if (major_type() != simple_or_float_type
+                or (additional_info() != True and additional_info() != False)) {
                 d.set_null();  // could not read d, or wrong type
             }
         }
 
         /// construct a Bool object from a boolean
         ///
-        Bool(bool t) : initial_byte{
-                t ?
-                initial_byte{simple_or_float_type, initial_byte::True} :
-                initial_byte{simple_or_float_type, initial_byte::False}
-            }
-        { }
+        Bool(bool t) : initial_byte{simple_or_float_type, t ? True : False} { }
 
         /// returns `true` if this object is true
         ///
-        bool is_true() const { return value() == True; }
+        bool is_true() const {
+            return value() == initial_byte{simple_or_float_type,True}.value();
+        }
 
         /// returns `false` if this object is false
         ///
-        bool is_false() const { return value() == False; }
+        bool is_false() const {
+            return value() == initial_byte{simple_or_float_type,False}.value();
+        }
 
     };
 
