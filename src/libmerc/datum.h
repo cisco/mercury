@@ -2499,11 +2499,9 @@ public:
         d.data += sizeof(T);
     }
 
-    encoded(const T& rhs) {
-        val = rhs;
-    }
+    constexpr encoded(const T& rhs) : val{rhs} { }
 
-    operator T() const { return val; }
+    constexpr operator T() const { return val; }
 
     T value() const { return val; }
 
