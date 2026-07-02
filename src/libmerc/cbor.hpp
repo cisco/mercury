@@ -1155,22 +1155,22 @@ namespace cbor {
         (void)f;
         bool passed = true;
 
-        // decode_bool tests
+        // cbor::Bool tests
         {
             uint8_t true_byte[] = {0xf5};
             datum d{true_byte, true_byte + 1};
-            if (!cbor::Bool{d}.is_true()) { passed = false; }
+            if (!cbor::Bool{d}.is_true() || d.is_null()) { passed = false; }
         }
         {
             uint8_t false_byte[] = {0xf4};
             datum d{false_byte, false_byte + 1};
-            if (!cbor::Bool{d}.is_false()) { passed = false; }
+            if (!cbor::Bool{d}.is_false() || d.is_null()) { passed = false; }
         }
         {
             uint8_t not_bool[] = {0xf6};  // null, not a bool
             datum d{not_bool, not_bool + 1};
             cbor::Bool not_a_bool{d};
-            if (!d.is_null()) { passed = false; }  // should set null
+            if (!d.is_null() || not_a_bool.is_true() || not_a_bool.is_false()) { passed = false; }  // should set d to null
         }
 
         // uint64::is_valid tests
