@@ -254,7 +254,7 @@ public:
                         msg.grp_allowed_ = cbor::text_string::decode(d);
                     }
                     else if (tk.match("tls_cert_with_extern_psk")) {
-                        msg.psk_mode_ = cbor::decode_bool(d);
+                        msg.psk_mode_ = cbor::Bool{d}.is_true();
                     }
                     else if (tk.match("tls_cert_with_extern_psk_non_compliant") ||
                              tk.match("psk_key_exchange_modes_non_compliant") ||
@@ -643,7 +643,7 @@ public:
                     cbor::text_string ckey = cbor::text_string::decode(d);
                     datum ck = ckey.value();
                     if (ck.match("compliant")) {
-                        msg.compliant_ = cbor::decode_bool(d);
+                        msg.compliant_ = cbor::Bool{d}.is_true();
                     }
                     else if (ck.match("tls_version_non_compliant") ||
                              ck.match("compression_method_non_compliant") ||

@@ -66,10 +66,14 @@ namespace cbor {
 
     public:
 
-        // read an initial byte from `d`
+        // read an initial byte from `d`; if the read fails, the
+        // object will have a state of `undefined` and `d` will be
+        // `null`
         //
         initial_byte(datum &d) : value__{d} {
-            if (d.is_not_null()) {
+            if (d.is_null()) {
+                value__ = initial_byte{simple_or_float_type,initial_byte::undefined}.value();
+            } else {
                 // printf("major_type: %u\n", major_type());
                 // printf("additional_info: %u\n", additional_info());
             }
@@ -107,7 +111,7 @@ namespace cbor {
             buf << value__;
         }
 
-        uint8_t value() const { return value__; }
+        constexpr uint8_t value() const { return value__; }
 
         // "simple values" associated with major_type simple_or_float
         //
@@ -122,28 +126,47 @@ namespace cbor {
 
     };
 
+    /// \brief represents a True or False (simple value)
+    ///
+    /// \note This definition follows RFC 8610, which defines a `bool`
+    ///       as a "simple value" of either `true` or `false`.  The
+    ///       capital letter distinguishes from the C++ datatype.
+    ///
+    class Bool : public initial_byte {
+    public:
+
+        /// construct a Bool object by parsing \p d
+        ///
+        Bool(datum &d) : initial_byte{d} {
+            if (major_type() != simple_or_float_type
+                or (additional_info() != True and additional_info() != False)) {
+                d.set_null();  // could not read d, or wrong type
+            }
+        }
+
+        /// construct a Bool object from a boolean
+        ///
+        Bool(bool t) : initial_byte{simple_or_float_type, t ? True : False} { }
+
+        /// returns `true` if this object is true
+        ///
+        bool is_true() const {
+            return value() == initial_byte{simple_or_float_type,True}.value();
+        }
+
+        /// returns `false` if this object is false
+        ///
+        bool is_false() const {
+            return value() == initial_byte{simple_or_float_type,False}.value();
+        }
+
+    };
+
     static void read_break(datum &d) {
         initial_byte ib{d};
         if (!ib.is_break()) {
             d.set_null();
         }
-    }
-
-    /// Decode a CBOR boolean (simple values True=21, False=20).
-    static inline bool decode_bool(datum &d) {
-        initial_byte ib{d};
-        if (ib.major_type() != simple_or_float_type) {
-            d.set_null();
-            return false;
-        }
-        if (ib.additional_info() == initial_byte::True) {
-            return true;
-        }
-        if (ib.additional_info() == initial_byte::False) {
-            return false;
-        }
-        d.set_null();
-        return false;
     }
 
     // Major type 0: An unsigned integer in the range 0..2^64-1
@@ -1132,22 +1155,22 @@ namespace cbor {
         (void)f;
         bool passed = true;
 
-        // decode_bool tests
+        // cbor::Bool tests
         {
             uint8_t true_byte[] = {0xf5};
             datum d{true_byte, true_byte + 1};
-            if (!decode_bool(d) || d.is_null()) { passed = false; }
+            if (!cbor::Bool{d}.is_true() || d.is_null()) { passed = false; }
         }
         {
             uint8_t false_byte[] = {0xf4};
             datum d{false_byte, false_byte + 1};
-            if (decode_bool(d) || d.is_null()) { passed = false; }
+            if (!cbor::Bool{d}.is_false() || d.is_null()) { passed = false; }
         }
         {
             uint8_t not_bool[] = {0xf6};  // null, not a bool
             datum d{not_bool, not_bool + 1};
-            decode_bool(d);
-            if (!d.is_null()) { passed = false; }  // should set null
+            cbor::Bool not_a_bool{d};
+            if (!d.is_null() || not_a_bool.is_true() || not_a_bool.is_false()) { passed = false; }  // should set d to null
         }
 
         // uint64::is_valid tests
