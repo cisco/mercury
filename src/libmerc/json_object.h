@@ -337,6 +337,10 @@ struct json_object {
 struct json_array {
     buffer_stream *b;
     bool comma = false;
+    json_object *parent = nullptr;
+    const char *key = nullptr;
+    bool opened = true;
+
     void write_comma(bool &c) {
         if (c) {
             b->write_char(',');
@@ -344,39 +348,90 @@ struct json_array {
             c = true;
         }
     }
+
+    /// opens a deferred array by writing its key and the opening `[`.
+    /// This is a no-op unless the array was constructed with
+    /// `omit_if_empty == true` and has not yet been opened.
+    ///
+    void ensure_open() {
+        if (opened) {
+            return;
+        }
+        opened = true;
+        write_comma(parent->comma);
+        b->write_char('\"');
+        b->puts(key);
+        b->puts("\":[");
+    }
+
+    /// prepares the array to receive its next element: opens the array
+    /// if it was deferred (see \ref json_array::ensure_open), then writes
+    /// an element separator if this is not the first element
+    ///
+    void begin_element() {
+        ensure_open();
+        write_comma(comma);
+    }
+
     explicit json_array(struct buffer_stream *buf) : b{buf} {
         b->write_char('[');
     }
+
+    /// creates a nested array as an element of the array \param a.
+    /// note: the parameter is a non-const reference and this
+    /// constructor is `explicit`, so the copy constructor
+    /// (`const json_array &`) below is still selected for copies.
+    ///
     explicit json_array(json_array &a) : b{a.b} {
         write_comma(a.comma);
         b->write_char('[');
     }
-    json_array(struct json_object &object, const char *name) : b{object.b} {
-        write_comma(object.comma);
-        b->write_char('\"');
-        b->puts(name);
-        b->puts("\":[");
+
+    /// creates a \ref json_array field with the name \param name inside
+    /// the \ref json_object \param object. If \param omit_if_empty is
+    /// `true`, the array is opened lazily: nothing is written until the
+    /// first element is added, and \ref json_array::close is a no-op if no
+    /// element is ever added, so an empty array is omitted from the output
+    /// entirely.
+    ///
+    json_array(struct json_object &object, const char *name, bool omit_if_empty = false) :
+        b{object.b}, parent{&object}, key{name}, opened{!omit_if_empty}
+    {
+        if (!omit_if_empty) {
+            write_comma(object.comma);
+            b->write_char('\"');
+            b->puts(name);
+            b->puts("\":[");
+        }
     }
-    json_array(struct json_object *object, const char *name) : b{object->b} {
-        write_comma(object->comma);
-        b->write_char('\"');
-        b->puts(name);
-        b->puts("\":[");
+    /// \overload
+    json_array(struct json_object *object, const char *name, bool omit_if_empty = false) :
+        b{object->b}, parent{object}, key{name}, opened{!omit_if_empty}
+    {
+        if (!omit_if_empty) {
+            write_comma(object->comma);
+            b->write_char('\"');
+            b->puts(name);
+            b->puts("\":[");
+        }
     }
 
     // copy constructor for std::optional compatibility
     //
-    json_array(const json_array &other) : b{other.b}, comma{false} { }
+    json_array(const json_array &other) :
+        b{other.b}, comma{false}, parent{other.parent}, key{other.key}, opened{other.opened} { }
 
     // delete assignment operator to prevent unintended copies
     //
     json_array& operator=(const json_array&) = delete;
 
     void close() {
-        b->write_char(']');
+        if (opened) {
+            b->write_char(']');
+        }
     }
     void print_bool(bool x) {
-        write_comma(comma);
+        begin_element();
         if (x) {
             b->puts("true");
         } else {
@@ -384,35 +439,35 @@ struct json_array {
         }
     }
     void print_null() {
-        write_comma(comma);
+        begin_element();
         b->puts("null");
     }
     void print_uint16_hex(uint16_t u) {
-        write_comma(comma);
+        begin_element();
         b->write_char('\"');
         b->write_hex_uint(u);
         b->write_char('\"');
     }
     void print_uint(uint64_t u) {
-        write_comma(comma);
+        begin_element();
         b->snprintf("%" PRIu64, u);
     }
     void print_int(int64_t i) {
-        write_comma(comma);
+        begin_element();
         b->snprintf("%" PRId64, i);
     }
     void print_float(double d) {
-        write_comma(comma);
+        begin_element();
         b->snprintf("%f", d);
     }
     void print_string(const char *s) {
-        write_comma(comma);
+        begin_element();
         b->write_char('\"');
         b->puts(s);
         b->write_char('\"');
     }
     void print_string(const char *s, size_t len) {
-        write_comma(comma);
+        begin_element();
         b->write_char('\"');
         b->memcpy(s, len);
         b->write_char('\"');
@@ -420,7 +475,7 @@ struct json_array {
 
     template <typename T>
     void print_unknown_code(T code) {
-        write_comma(comma);
+        begin_element();
         b->snprintf("\"UNKNOWN (");
         if constexpr (std::is_unsigned_v<T>) {
             b->write_hex_uint(code);
@@ -448,7 +503,7 @@ struct json_array {
         print_key(s);
     }
     void print_base64(const uint8_t *data, size_t length) {
-        write_comma(comma);
+        begin_element();
         if (data) {
             b->raw_as_base64(data, length);
         } else {
@@ -457,7 +512,7 @@ struct json_array {
         }
     }
     void print_hex(const struct datum &value) {
-        write_comma(comma);
+        begin_element();
         b->write_char('\"');
         if (value.data && value.data_end) {
             b->raw_as_hex(value.data, value.data_end - value.data);
@@ -465,7 +520,7 @@ struct json_array {
         b->write_char('\"');
     }
     template <typename T> void print_key(T &&w) {   // shouldn't this be named print_value()?
-        write_comma(comma);
+        begin_element();
         b->write_char('\"');
         w.write(*b);
         b->write_char('\"');
@@ -474,7 +529,7 @@ struct json_array {
 };
 
 inline json_object::json_object(struct json_array &array) : b{array.b} {
-    write_comma(array.comma);
+    array.begin_element();
     b->write_char('{');
 }
 
@@ -562,16 +617,8 @@ inline bool test_json_output(datum raw_input,
 ///
 template <typename T>
 class json_array_bitflags {
-    json_object &obj;
-    const char *key;
+    json_array a;
     const T flags;
-    std::optional<json_array> a;
-
-    void ensure_array() {
-        if (!a) {
-            a.emplace(obj, key);
-        }
-    }
 
 public:
 
@@ -580,7 +627,8 @@ public:
     /// bit flags in \param flags_value
     ///
     json_array_bitflags(json_object &o, const char *name, const T &flags_value) :
-        obj{o}, key{name}, flags{flags_value}
+        a{o, name, /*omit_if_empty=*/true},
+        flags{flags_value}
     {}
 
     /// checks the bit at \param index and, if it is set, adds the
@@ -589,8 +637,7 @@ public:
     template <size_t index>
     void flag(const char *string) {
         if (bit<index>(flags)) {
-            ensure_array();
-            a->print_string(string);
+            a.print_string(string);
         }
     }
 
@@ -601,17 +648,14 @@ public:
     void check_for_unknown_flags() {
         T mask = (bit<args,T>() | ...);
         if (flags & ~mask) {
-            ensure_array();
-            a->print_unknown_code<T>(flags & ~mask);
+            a.print_unknown_code<T>(flags & ~mask);
         }
     }
 
     /// closes the \ref json_array; no-op if no flags were set
     ///
     void close() {
-        if (a) {
-            a->close();
-        }
+        a.close();
     }
 
 };
