@@ -61,7 +61,7 @@ public:
         return msg;
     }
 
-    template<typename Object, typename Array>
+    template<typename Object>
     void write(Object &parent) const {
         Object o{parent, key_};
         if (protocol_.is_valid()) {
@@ -164,8 +164,9 @@ public:
     bool is_compliant() const { return compliant_; }
     bool is_valid()     const { return valid_; }
 
-    template<typename Object, typename Array, typename Parent>
+    template<typename Object, typename Parent>
     void write(Parent &parent) const {
+        using Array = typename Object::array_type;
         Object o{parent};
         if (policy_.is_valid()) {
             o.print_key_string("policy", policy_.value());
@@ -360,8 +361,9 @@ public:
     bool is_compliant() const { return compliant_; }
     bool is_valid()     const { return valid_; }
 
-    template<typename Object, typename Array, typename Parent>
+    template<typename Object, typename Parent>
     void write(Parent &parent) const {
+        using Array = typename Object::array_type;
         Object o{parent};
         if (policy_.is_valid()) {
             o.print_key_string("policy", policy_.value());
@@ -557,8 +559,9 @@ public:
     bool is_compliant() const { return compliant_; }
     bool is_valid()     const { return valid_; }
 
-    template<typename Object, typename Array, typename Parent>
+    template<typename Object, typename Parent>
     void write(Parent &parent) const {
+        using Array = typename Object::array_type;
         Object o{parent};
         if (policy_.is_valid()) {
             o.print_key_string("policy", policy_.value());

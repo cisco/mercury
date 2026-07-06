@@ -28,7 +28,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
         auto msg = exposed_creds_message::construct(exposed_creds_message::KEY_PLAINTEXT, 
             datum{"imap"}, datum{"LOGIN"}, datum{"alice"});
-        msg.template write<cbor_object, cbor_array>(outer);
+        msg.template write<cbor_object>(outer);
         outer.close();
         cbor_outer.close();
 
@@ -37,7 +37,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         decode_cbor_metadata(encoded.data, encoded.length(), decoded);
 
         report("exposed_creds_plaintext decode valid", decoded.valid);
-        report("exposed_creds_plaintext count == 1", decoded.exposed_creds.is_valid() || decoded.cnsa_tls.is_valid() || decoded.nist.is_valid());
+        report("exposed_creds_plaintext count == 1", decoded.exposed_creds.is_valid() && !decoded.cnsa_tls.is_valid() && !decoded.cnsa_ssh.is_valid() && !decoded.nist.is_valid() && decoded.unknown.empty());
 
         if (true) {
             bool is_plaintext = decoded.exposed_creds.is_valid();
@@ -60,7 +60,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
         auto msg = exposed_creds_message::construct(exposed_creds_message::KEY_TOKEN, 
             datum{"imap"}, datum{"OAUTHBEARER"}, datum{});
-        msg.template write<cbor_object, cbor_array>(outer);
+        msg.template write<cbor_object>(outer);
         outer.close();
         cbor_outer.close();
 
@@ -69,7 +69,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         decode_cbor_metadata(encoded.data, encoded.length(), decoded);
 
         report("exposed_creds_token decode valid", decoded.valid);
-        report("exposed_creds_token count == 1", decoded.exposed_creds.is_valid() || decoded.cnsa_tls.is_valid() || decoded.nist.is_valid());
+        report("exposed_creds_token count == 1", decoded.exposed_creds.is_valid() && !decoded.cnsa_tls.is_valid() && !decoded.cnsa_ssh.is_valid() && !decoded.nist.is_valid() && decoded.unknown.empty());
         if (true) {
             bool is_token = decoded.exposed_creds.is_valid();
             report("exposed_creds_token variant type", is_token);
@@ -89,7 +89,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
         auto msg = exposed_creds_message::construct(exposed_creds_message::KEY_DERIVED, 
             datum{"ldap"}, datum{"DIGEST-MD5"}, datum{});
-        msg.template write<cbor_object, cbor_array>(outer);
+        msg.template write<cbor_object>(outer);
         outer.close();
         cbor_outer.close();
 
@@ -98,7 +98,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         decode_cbor_metadata(encoded.data, encoded.length(), decoded);
 
         report("exposed_creds_derived decode valid", decoded.valid);
-        report("exposed_creds_derived count == 1", decoded.exposed_creds.is_valid() || decoded.cnsa_tls.is_valid() || decoded.nist.is_valid());
+        report("exposed_creds_derived count == 1", decoded.exposed_creds.is_valid() && !decoded.cnsa_tls.is_valid() && !decoded.cnsa_ssh.is_valid() && !decoded.nist.is_valid() && decoded.unknown.empty());
         if (true) {
             bool is_derived = decoded.exposed_creds.is_valid();
             report("exposed_creds_derived variant type", is_derived);
@@ -129,7 +129,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         msg.set_valid();
 
         cbor::text_string(crypto_cnsa_message::KEY).write(buf);
-        msg.template write<cbor_object, cbor_array>(outer);
+        msg.template write<cbor_object>(outer);
         outer.close();
         cbor_outer.close();
 
@@ -138,7 +138,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         decode_cbor_metadata(encoded.data, encoded.length(), decoded);
 
         report("crypto_cnsa decode valid", decoded.valid);
-        report("crypto_cnsa count == 1", decoded.exposed_creds.is_valid() || decoded.cnsa_tls.is_valid() || decoded.nist.is_valid());
+        report("crypto_cnsa count == 1", decoded.cnsa_tls.is_valid() && !decoded.exposed_creds.is_valid() && !decoded.cnsa_ssh.is_valid() && !decoded.nist.is_valid() && decoded.unknown.empty());
         if (true) {
             bool is_cnsa = decoded.cnsa_tls.is_valid();
             report("crypto_cnsa variant type", is_cnsa);
@@ -168,7 +168,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         msg.set_valid();
 
         cbor::text_string(crypto_cnsa_message::KEY).write(buf);
-        msg.template write<cbor_object, cbor_array>(outer);
+        msg.template write<cbor_object>(outer);
         outer.close();
         cbor_outer.close();
 
@@ -177,7 +177,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         decode_cbor_metadata(encoded.data, encoded.length(), decoded);
 
         report("cnsa hex decode valid", decoded.valid);
-        report("cnsa hex count == 1", decoded.exposed_creds.is_valid() || decoded.cnsa_tls.is_valid() || decoded.nist.is_valid());
+        report("cnsa hex count == 1", decoded.cnsa_tls.is_valid() && !decoded.exposed_creds.is_valid() && !decoded.cnsa_ssh.is_valid() && !decoded.nist.is_valid() && decoded.unknown.empty());
         if (true) {
             bool is_cnsa = decoded.cnsa_tls.is_valid();
             report("cnsa hex variant type", is_cnsa);
@@ -220,7 +220,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         msg.set_valid();
 
         cbor::text_string(crypto_cnsa_message::KEY).write(buf);
-        msg.template write<cbor_object, cbor_array>(outer);
+        msg.template write<cbor_object>(outer);
         outer.close();
         cbor_outer.close();
 
@@ -229,7 +229,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         decode_cbor_metadata(encoded.data, encoded.length(), decoded);
 
         report("cnsa multi-psk decode valid", decoded.valid);
-        report("cnsa multi-psk count == 1", decoded.exposed_creds.is_valid() || decoded.cnsa_tls.is_valid() || decoded.nist.is_valid());
+        report("cnsa multi-psk count == 1", decoded.cnsa_tls.is_valid() && !decoded.exposed_creds.is_valid() && !decoded.cnsa_ssh.is_valid() && !decoded.nist.is_valid() && decoded.unknown.empty());
         if (true) {
             bool is_cnsa = decoded.cnsa_tls.is_valid();
             report("cnsa multi-psk variant type", is_cnsa);
@@ -276,7 +276,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         decode_cbor_metadata(encoded.data, encoded.length(), decoded);
 
         report("cnsa unknown-field decode valid", decoded.valid);
-        report("cnsa unknown-field count == 1", decoded.exposed_creds.is_valid() || decoded.cnsa_tls.is_valid() || decoded.nist.is_valid());
+        report("cnsa unknown-field count == 1", decoded.cnsa_tls.is_valid() && !decoded.exposed_creds.is_valid() && !decoded.cnsa_ssh.is_valid() && !decoded.nist.is_valid() && decoded.unknown.empty());
         if (true) {
             bool is_cnsa = decoded.cnsa_tls.is_valid();
             report("cnsa unknown-field variant type", is_cnsa);
@@ -306,7 +306,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         nist.set_valid();
 
         cbor::text_string(crypto_nist_message::KEY).write(buf);
-        nist.template write<cbor_object, cbor_array>(outer);
+        nist.template write<cbor_object>(outer);
         outer.close();
         cbor_outer.close();
 
@@ -315,7 +315,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         decode_cbor_metadata(encoded.data, encoded.length(), decoded);
 
         report("crypto_nist decode valid", decoded.valid);
-        report("crypto_nist count == 1", decoded.exposed_creds.is_valid() || decoded.cnsa_tls.is_valid() || decoded.nist.is_valid());
+        report("crypto_nist count == 1", decoded.nist.is_valid() && !decoded.exposed_creds.is_valid() && !decoded.cnsa_tls.is_valid() && !decoded.cnsa_ssh.is_valid() && decoded.unknown.empty());
         if (true) {
             bool is_nist = decoded.nist.is_valid();
             report("crypto_nist variant type", is_nist);
@@ -335,7 +335,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
 
         exposed_creds_message::construct(exposed_creds_message::KEY_PLAINTEXT, 
             datum{"http"}, datum{"basic"}, datum{"admin"})
-            .template write<cbor_object, cbor_array>(outer);
+            .template write<cbor_object>(outer);
 
         crypto_cnsa_message cnsa;
         cnsa.set_policy("quantum_safe");
@@ -345,7 +345,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         cnsa.set_psk_mode(false);
         cnsa.set_valid();
         cbor::text_string(crypto_cnsa_message::KEY).write(buf);
-        cnsa.template write<cbor_object, cbor_array>(outer);
+        cnsa.template write<cbor_object>(outer);
 
         outer.close();
         cbor_outer.close();
@@ -355,7 +355,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         decode_cbor_metadata(encoded.data, encoded.length(), decoded);
 
         report("multi-feature decode valid", decoded.valid);
-        report("multi-feature count == 2", decoded.exposed_creds.is_valid() && decoded.cnsa_tls.is_valid());
+        report("multi-feature count == 2", decoded.exposed_creds.is_valid() && decoded.cnsa_tls.is_valid() && !decoded.cnsa_ssh.is_valid() && !decoded.nist.is_valid() && decoded.unknown.empty());
         if (true) {
             report("entry[0] is exposed_creds_plaintext",
                    decoded.exposed_creds.is_valid());
@@ -418,7 +418,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         // Write a feature and set the flag
         exposed_creds_message::construct(exposed_creds_message::KEY_PLAINTEXT, 
             datum{"http"}, datum{"basic"}, datum{"admin"})
-            .template write<cbor_object, cbor_array>(outer);
+            .template write<cbor_object>(outer);
         ctx.set_feature_written();
         outer.close();
         cbor_outer.close();
@@ -430,7 +430,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         cbor_decoded_metadata decoded;
         decode_cbor_metadata(ctx.get_buffer(), ctx.get_length(), decoded);
         report("with-feature decode valid", decoded.valid);
-        report("with-feature decode count == 1", decoded.exposed_creds.is_valid() || decoded.cnsa_tls.is_valid() || decoded.nist.is_valid());
+        report("with-feature decode count == 1", decoded.exposed_creds.is_valid() && !decoded.cnsa_tls.is_valid() && !decoded.cnsa_ssh.is_valid() && !decoded.nist.is_valid() && decoded.unknown.empty());
     }
 
     // Test 5d: cbor_metadata_context reset clears the flag
@@ -524,6 +524,52 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         report("overflow decode valid", decoded.valid);
         report("unknown vector has 10 entries",
                decoded.unknown.size() == 10);
+    }
+
+    // Test 8: unknown vector grows on demand and RETAINS capacity across reset
+    {
+        cbor_decoded_metadata decoded;
+        report("unknown initial capacity == reserve floor",
+               decoded.unknown.capacity() == cbor_decoded_metadata::unknown_reserve_count);
+
+        // Encode a buffer with 6 unknown features (6 > the reserve floor, so
+        // the vector must grow).
+        data_buffer<4096> buf;
+        cbor_object cbor_outer{buf};
+        cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
+        for (int i = 0; i < 6; i++) {
+            char key_name[32];
+            snprintf(key_name, sizeof(key_name), "future_feature_%d", i);
+            cbor_object feat{outer, key_name};
+            feat.print_key_string("data", "value");
+            feat.close();
+        }
+        outer.close();
+        cbor_outer.close();
+
+        datum encoded = buf.contents();
+        decode_cbor_metadata(encoded.data, encoded.length(), decoded);
+        report("grew to 6 unknowns", decoded.unknown.size() == 6);
+        size_t grown_capacity = decoded.unknown.capacity();
+        report("capacity grew past floor", grown_capacity >= 6);
+
+        // Re-decode a buffer with NO unknowns on the SAME container. reset()
+        // (called inside decode_cbor_metadata) clears size to 0 but must
+        // retain the grown capacity.
+        data_buffer<256> buf2;
+        cbor_object cbor_outer2{buf2};
+        cbor_object outer2{cbor_outer2, CBOR_METADATA_VERSION_KEY};
+        exposed_creds_message::construct(exposed_creds_message::KEY_PLAINTEXT,
+            datum{"http"}, datum{"basic"}, datum{"admin"})
+            .template write<cbor_object>(outer2);
+        outer2.close();
+        cbor_outer2.close();
+
+        datum encoded2 = buf2.contents();
+        decode_cbor_metadata(encoded2.data, encoded2.length(), decoded);
+        report("unknowns cleared on re-decode", decoded.unknown.empty());
+        report("capacity retained across reset",
+               decoded.unknown.capacity() == grown_capacity);
     }
 
     return all_passed;
