@@ -42,7 +42,10 @@ constexpr bool has_write_v = has_write<T>::value;
  * respectively, into a buffer
  */
 
+struct json_array;   // forward decl so json_object can name its companion array type
+
 struct json_object {
+    using array_type = json_array;   // companion array type (enables 1-param write<>)
     buffer_stream *b;
     bool comma = false;
 

@@ -48,6 +48,7 @@ class cbor_object {
     template <size_t N> friend class cbor_object_compact;
 
 public:
+    using array_type = cbor_array;   // companion array type (enables 1-param write<>)
 
     cbor_object(writeable &w) : m{w} { }
 

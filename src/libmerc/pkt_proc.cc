@@ -81,6 +81,7 @@
 #include "imap.hpp"
 #include "telnet.hpp"
 #include "cbor_messages.hpp"
+#include "metadata_writer.hpp"
 
 // double malware_prob_threshold = -1.0; // TODO: document hidden option
 
