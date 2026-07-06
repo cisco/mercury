@@ -264,6 +264,10 @@ int main(int, char *[]) {
         {
             "lex",
             &lex_unit_test::unit_test
+        },
+        {
+            "krb5_no_empty_arrays",
+            &krb5_unit_test::unit_test
         }
     };
     size_t num_tests = 0;

@@ -14,6 +14,7 @@
 #include <cinttypes>
 #include <cstdint>
 #include <iostream>
+#include <optional>
 #include <type_traits>
 #include <utility>
 
@@ -556,10 +557,21 @@ inline bool test_json_output(datum raw_input,
 
 /// represents a bit flag as a \ref json_array of strings
 ///
+/// The array is created lazily: if no flag bits are set, no array
+/// field appears in the JSON output.
+///
 template <typename T>
 class json_array_bitflags {
-    json_array a;
+    json_object &obj;
+    const char *key;
     const T flags;
+    std::optional<json_array> a;
+
+    void ensure_array() {
+        if (!a) {
+            a.emplace(obj, key);
+        }
+    }
 
 public:
 
@@ -567,13 +579,8 @@ public:
     /// json_object \param o, with the name \param name, based on the
     /// bit flags in \param flags_value
     ///
-    /// note: \ref json_array_bitflags::close() \b must be called before
-    /// the \ref json_object is printed out or goes out of scope, to
-    /// ensure that the generated JSON is valid.
-    ///
     json_array_bitflags(json_object &o, const char *name, const T &flags_value) :
-        a{o, name},
-        flags{flags_value}
+        obj{o}, key{name}, flags{flags_value}
     {}
 
     /// checks the bit at \param index and, if it is set, adds the
@@ -582,7 +589,8 @@ public:
     template <size_t index>
     void flag(const char *string) {
         if (bit<index>(flags)) {
-            a.print_string(string);
+            ensure_array();
+            a->print_string(string);
         }
     }
 
@@ -593,14 +601,17 @@ public:
     void check_for_unknown_flags() {
         T mask = (bit<args,T>() | ...);
         if (flags & ~mask) {
-            a.print_unknown_code<T>(flags & ~mask);
+            ensure_array();
+            a->print_unknown_code<T>(flags & ~mask);
         }
     }
 
-    /// closes the \ref json_array
+    /// closes the \ref json_array; no-op if no flags were set
     ///
     void close() {
-        a.close();
+        if (a) {
+            a->close();
+        }
     }
 
 };
