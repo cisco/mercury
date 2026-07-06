@@ -900,6 +900,13 @@ enum cbor_metadata_return {
  * the CBOR-encoded metadata buffer for the most recently processed
  * packet, along with its length.
  *
+ * mercury_packet_processor_get_cbor_metadata() reads the CBOR buffer populated by the analysis pass, 
+ * so it must only be invoked after a successful call to one of the analysis entry points 
+ * that run `analyze_ip_packet()`:
+ *   - `mercury_packet_processor_get_analysis_context()`
+ *   - `mercury_packet_processor_ip_get_analysis_context()`
+ *   - `mercury_packet_processor_get_analysis_context_linktype()`
+ *
  * @param processor (input) is a mercury_packet_processor.
  * @param buffer (output) is set to point to the CBOR buffer.
  * @param length (output) is set to the length of the CBOR data.

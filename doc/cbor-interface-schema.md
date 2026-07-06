@@ -1,15 +1,12 @@
 # CBOR Metadata Interface Schema
 
-This note documents the data format used in the Mercury CBOR metadata interface. The interface encodes per-packet feature metadata (exposed credentials, cryptographic assessment) into a compact CBOR buffer that is passed from libmerc to the mercury inspector via the `mercury_packet_processor_get_cbor_metadata()` C API. The inspector decodes the buffer and injects the metadata into the enrichment string for Connection Events and Splunk.
+This note documents the data format used in the Mercury CBOR metadata interface. The interface encodes feature metadata (exposed credentials, cryptographic assessment) into a compact CBOR buffer that is passed via the `mercury_packet_processor_get_cbor_metadata()` C API.
 
-The format is encoded using [CBOR](https://datatracker.ietf.org/doc/html/rfc8949) (Concise Binary Object Representation). All maps use indefinite-length encoding (major type 5, additional info 31). All text strings use definite-length encoding (major type 3).
+The format is encoded using [CBOR](https://datatracker.ietf.org/doc/html/rfc8949) (Concise Binary Object Representation).
 
 ## Outer Buffer Format
 
-The outer buffer is an indefinite-length CBOR map containing exactly one
-key-value pair: a version key (currently `"v1"`) whose value is an inner
-indefinite-length map of feature entries. Each inner key-value pair is a
-feature entry, keyed by attribute tag name.
+The outer buffer is an indefinite-length CBOR map containing a version key (currently `"v1"`) whose value is an inner indefinite-length map of feature entries. Each inner key-value pair is a feature entry, keyed by feature key name.
 
 ```
 cbor_metadata_buffer = {
@@ -18,10 +15,6 @@ cbor_metadata_buffer = {
     }
 }
 ```
-
-There is **no** `schema_version` integer in the buffer. The version is carried
-by the outer map key string. The constant is `CBOR_METADATA_VERSION_KEY`
-(value `"v1"`) in `cbor_messages.hpp` — not `CBOR_METADATA_SCHEMA_VERSION`.
 
 If no features fire for a packet, the buffer is empty (length 0) and
 `get_cbor_metadata()` returns `CBOR_NO_DATA`.
@@ -171,11 +164,11 @@ Non-compliant keys include: `tls_version_non_compliant`, `cipher_suite_non_compl
 
 To add a new feature to the CBOR metadata interface:
 
-1. **Add a feature class** in `src/libmerc/cbor_messages.hpp` following the `exposed_creds_message` pattern: `cbor::text_string` members, `construct()` / `decode()` static methods, templated `write<Object, Array>()`.
+1. **Add a non-owning feature class** in `cbor_messages.hpp` with a stable `KEY`, a `decode()` factory (consumer side), a way to populate it on the producer side, and a templated `write<Object, Array>()` for serialization. If a feature can fire multiple times per packet, then its non-owning feature class must be able accomodate multiple metadata generated internally. In the CBOR buffer, the `KEY` corresponding to each fired feature will appear only once.
 
-2. **Add a typed bucket** in `struct cbor_decoded_metadata` (`src/libmerc/cbor_decoded_metadata.hpp`) if the inspector needs typed access to the feature, and add KEY dispatch in `decode_v1()`. The decoder uses typed bucket members (plus a `std::vector<unknown_feature>` for unrecognized keys) — **not** a `std::variant`. Single-fire features are plain members checked via `is_valid()`; features that can fire multiple times per packet use a vector.
+2. **Add a typed bucket** in `struct cbor_decoded_metadata` (`src/libmerc/cbor_decoded_metadata.hpp`) if the inspector needs typed access to the feature, and add KEY dispatch in `decode_v1()`. The decoder uses typed bucket members (plus a `std::vector<unknown_feature>` for unrecognized keys). 
 
-3. **Wire the encode path** in `src/libmerc/pkt_proc.cc`: add a visitor overload that constructs and writes the feature class. Call `cbor_meta_->set_feature_written()` only at the actual CBOR write site.
+3. **Wire the encode path** in `src/libmerc/pkt_proc.cc`: add a visitor overload that constructs and writes the feature class.
 
 4. **Add unit tests**: round-trip test in `cbor_decoded_metadata_test.hpp`, plus an unknown-field test, and a protocol accessor test in the protocol's `unit_test()`.
 

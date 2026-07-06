@@ -435,10 +435,20 @@ struct datum {
 
     /// Case-sensitive exact match against a null-terminated string.
     bool match(const char *name) const {
-        if (name == nullptr || !is_readable()) { return false; }
-        size_t name_len = strlen(name);
-        if (length() != (ssize_t)name_len) { return false; }
-        return strncmp((const char *)data, name, name_len) == 0;
+        if (name == nullptr) { return false; }
+        const uint8_t *d = data;
+        const char *k = name;
+        while (d < data_end) {
+            if (*d != (uint8_t)*k || *k == '\0') { // mismatch
+                return false;
+            }
+            d++;
+            k++;
+        }
+        if (*k == '\0' && d == data_end) {
+            return true;
+        }
+        return false;            // no matches found
     }
 
     /// Compares this \ref datum to `p` lexicographically, and returns

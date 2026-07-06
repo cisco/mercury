@@ -39,6 +39,8 @@ public:
 /// Known single-fire features are plain objects — use is_valid() to check.
 /// Features that can fire multiple times per packet use std::vector.
 struct cbor_decoded_metadata {
+    static constexpr size_t unknown_reserve_count = 1;
+
     exposed_creds_message exposed_creds;
     crypto_cnsa_tls_message cnsa_tls;
     crypto_cnsa_ssh_message cnsa_ssh;
@@ -49,7 +51,7 @@ struct cbor_decoded_metadata {
     bool valid = false;
 
     cbor_decoded_metadata() {
-        unknown.reserve(4);
+        unknown.reserve(unknown_reserve_count);
     }
 
     void reset() {
@@ -132,14 +134,13 @@ inline void decode_cbor_metadata(const uint8_t* buf, size_t len,
             decode_v1(d, out);
             inner.close();
         } else {
-            cbor::skip_cbor_value(d);
+            // Early bail out on unrecognized version key
+            return;
         }
     }
 
     outer.close();
-    // Only mark valid when the outer version key was recognized AND the
-    // recognized version decoded cleanly. An unknown version (e.g. "v99")
-    // decodes without error but must NOT be reported as valid metadata.
+   
     out.valid = recognized_version && !d.is_null();
 }
 

@@ -416,9 +416,17 @@ int mercury_packet_processor_get_cbor_metadata(
 ) {
     try {
         if (!processor || !buffer || !length) {
+            if (buffer) {
+                *buffer = nullptr;
+            }
+            if (length) {
+                *length = 0;
+            }
             return CBOR_WRITE_FAILURE;
         }
         if (processor->cbor_meta.is_truncated()) {
+            *buffer = nullptr;
+            *length = 0;
             return CBOR_WRITE_INSUFFICIENT_SPACE;
         }
         if (!processor->cbor_meta.has_data()) {
@@ -432,6 +440,12 @@ int mercury_packet_processor_get_cbor_metadata(
     }
     catch (std::exception &e) {
         printf_err(log_err, "%s\n", e.what());
+    }
+    if (buffer) {
+        *buffer = nullptr;
+    }
+    if (length) {
+        *length = 0;
     }
     return CBOR_WRITE_FAILURE;
 }
