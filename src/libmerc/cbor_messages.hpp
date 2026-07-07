@@ -171,6 +171,7 @@ public:
         if (policy_.is_valid()) {
             o.print_key_string("policy", policy_.value());
         }
+        o.print_key_string("cnsa_variant", "tls");
         if (!target_.is_valid()) { o.close(); return; }
         Object tgt{o, target_.value()};
         if (cs_not_allowed_count_ > 0) {
@@ -221,6 +222,9 @@ public:
             datum k = key.value();
             if (k.match("policy")) {
                 msg.policy_ = cbor::text_string::decode(d);
+            }
+            else if (k.match("cnsa_variant")) {
+                cbor::text_string::decode(d);   // protocol discriminator; consumed on decode
             }
             else if (k.match("client") || k.match("session")) {
                 msg.target_ = key;
@@ -368,6 +372,7 @@ public:
         if (policy_.is_valid()) {
             o.print_key_string("policy", policy_.value());
         }
+        o.print_key_string("cnsa_variant", "ssh");
         Object offered{o, "offered"};
         if (kex_not_allowed_count_ > 0) {
             Array kex_arr{offered, "kex_not_allowed"};
@@ -417,6 +422,9 @@ public:
             datum k = key.value();
             if (k.match("policy")) {
                 msg.policy_ = cbor::text_string::decode(d);
+            }
+            else if (k.match("cnsa_variant")) {
+                cbor::text_string::decode(d);   // protocol discriminator; consumed on decode
             }
             else if (k.match("offered")) {
                 cbor::map offered{d};

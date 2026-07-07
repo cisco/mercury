@@ -572,6 +572,74 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
                decoded.unknown.capacity() == grown_capacity);
     }
 
+    // Test 9: crypto_cnsa SSH round-trip — routes to cnsa_ssh via the cnsa_variant
+    // discriminator (the SSH path was previously untested).
+    {
+        data_buffer<1024> buf;
+        cbor_object cbor_outer{buf};
+        cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
+
+        crypto_cnsa_ssh_message msg;
+        msg.set_policy("quantum_safe");
+        msg.add_kex_not_allowed("curve25519-sha256");
+        msg.set_kex_allowed("none");
+        msg.add_c2s_cs_not_allowed("chacha20-poly1305@openssh.com");
+        msg.add_s2c_cs_not_allowed("chacha20-poly1305@openssh.com");
+        msg.set_compliant(false);
+        msg.set_valid();
+
+        cbor::text_string(crypto_cnsa_ssh_message::KEY).write(buf);
+        msg.template write<cbor_object>(outer);
+        outer.close();
+        cbor_outer.close();
+
+        datum encoded = buf.contents();
+        cbor_decoded_metadata decoded;
+        decode_cbor_metadata(encoded.data, encoded.length(), decoded);
+
+        report("cnsa ssh decode valid", decoded.valid);
+        report("cnsa ssh routed to cnsa_ssh (not cnsa_tls)",
+               decoded.cnsa_ssh.is_valid() && !decoded.cnsa_tls.is_valid()
+               && !decoded.exposed_creds.is_valid() && !decoded.nist.is_valid()
+               && decoded.unknown.empty());
+        report("cnsa ssh key matches",
+               decoded.cnsa_ssh.is_valid() && decoded.cnsa_ssh.key().match("cnsa_2_0_non_conformant"));
+    }
+
+    // Test 10: cnsa_variant routing is order-independent. Hand-build a cnsa TLS sub-map
+    // whose "cnsa_variant" comes AFTER the "client" structural key — the old structural
+    // peek (offered/client/session first-key inference) is not relied upon; the explicit
+    // discriminator must still route to cnsa_tls.
+    {
+        data_buffer<1024> buf;
+        cbor_object cbor_outer{buf};
+        cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
+
+        cbor::text_string(crypto_cnsa_tls_message::KEY).write(buf);
+        {
+            cbor_object cnsa{outer};
+            cnsa.print_key_string("policy", "quantum_safe");
+            {
+                cbor_object tgt{cnsa, "client"};   // structural target BEFORE the discriminator
+                tgt.print_key_string("ciphersuites_allowed", "none");
+                tgt.print_key_bool("tls_cert_with_extern_psk", false);
+                tgt.close();
+            }
+            cnsa.print_key_string("cnsa_variant", "tls");   // discriminator LAST
+            cnsa.close();
+        }
+        outer.close();
+        cbor_outer.close();
+
+        datum encoded = buf.contents();
+        cbor_decoded_metadata decoded;
+        decode_cbor_metadata(encoded.data, encoded.length(), decoded);
+
+        report("cnsa order-independent decode valid", decoded.valid);
+        report("cnsa_variant after target still routes to cnsa_tls",
+               decoded.cnsa_tls.is_valid() && !decoded.cnsa_ssh.is_valid());
+    }
+
     return all_passed;
 }
 

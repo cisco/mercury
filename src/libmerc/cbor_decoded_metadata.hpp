@@ -64,14 +64,17 @@ struct cbor_decoded_metadata {
     }
 };
 
-static inline bool peek_cnsa_is_ssh(const uint8_t* begin, const uint8_t* end) {
+// Returns true iff the cnsa sub-map's "cnsa_variant" field equals "ssh". Scans a copy of
+// the datum (non-destructive) and is independent of key order. Defaults to false (TLS)
+// when the field is absent.
+static inline bool peek_cnsa_variant_is_ssh(const uint8_t* begin, const uint8_t* end) {
     datum peek{begin, end};
     cbor::map m{peek};
     while (peek.is_not_empty() && !cbor::is_break(peek)) {
         cbor::text_string key = cbor::text_string::decode(peek);
-        datum k = key.value();
-        if (k.match("offered")) { return true; }
-        if (k.match("client") || k.match("session")) { return false; }
+        if (key.value().match("cnsa_variant")) {
+            return cbor::text_string::decode(peek).value().match("ssh");
+        }
         cbor::skip_cbor_value(peek);
     }
     return false;
@@ -94,7 +97,7 @@ inline void decode_v1(datum &d, cbor_decoded_metadata& out) {
             out.exposed_creds = exposed_creds_message::decode(d, key);
         }
         else if (k.match(crypto_cnsa_tls_message::KEY)) {
-            if (peek_cnsa_is_ssh(d.data, d.data_end)) {
+            if (peek_cnsa_variant_is_ssh(d.data, d.data_end)) {
                 out.cnsa_ssh = crypto_cnsa_ssh_message::decode(d);
             } else {
                 out.cnsa_tls = crypto_cnsa_tls_message::decode(d);
