@@ -883,6 +883,41 @@ json_file_object::json_file_object(struct json_file_array &array) : f{array.f} {
         }
     }
 
+    // Deferred (omit_if_empty) json_array tests: open correctly no matter
+    // what type its first element is, and leave no trace when empty.
+    //
+    struct array_case { const char *name; void (*write)(json_object &); const char *expected; };
+    const array_case array_cases[] = {
+        { "empty",
+          [](json_object &o){ json_array a{o, "x", /*omit_if_empty=*/true}; a.close(); },
+          "{}" },
+        { "scalar first element",
+          [](json_object &o){ json_array a{o, "x", /*omit_if_empty=*/true}; a.print_uint(1); a.close(); },
+          R"({"x":[1]})" },
+        { "object first element",
+          [](json_object &o){ json_array a{o, "x", /*omit_if_empty=*/true}; json_object e{a}; e.close(); a.close(); },
+          R"({"x":[{}]})" },
+        { "array first element",
+          [](json_object &o){ json_array a{o, "x", /*omit_if_empty=*/true}; json_array e{a}; e.close(); a.close(); },
+          R"({"x":[[]]})" },
+    };
+    for (const auto &c : array_cases) {
+        buffer_stream json_bs{json_buf, sizeof(json_buf)};
+        {
+            json_object outer{&json_bs};
+            c.write(outer);
+            outer.close();
+        }
+        std::string_view json{json_buf, json_bs.length()};
+        if (json != c.expected) {
+            if (f) {
+                fprintf(f, "json_array omit_if_empty (%s): expected \"%s\", got \"%.*s\"\n",
+                        c.name, c.expected, (int)json.size(), json.data());
+            }
+            return false;
+        }
+    }
+
     return true;
 }
 
