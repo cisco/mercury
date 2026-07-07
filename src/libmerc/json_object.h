@@ -383,7 +383,7 @@ struct json_array {
     /// (`const json_array &`) below is still selected for copies.
     ///
     explicit json_array(json_array &a) : b{a.b} {
-        write_comma(a.comma);
+        a.begin_element();
         b->write_char('[');
     }
 
