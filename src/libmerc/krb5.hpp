@@ -150,21 +150,13 @@ namespace krb5 {
             tlv type_int{name_type.value, tlv::INTEGER, "type"};
             const int64_t name_type_value = asn1::to_int64(type_int.value);
             pn.print_key_string_or_unknown_code("type", name_type_get_string(name_type_value), name_type_value);
-            std::optional<json_array> array;
+            json_array array{pn, "names", /*omit_if_empty=*/true};
             tlv tmp_seq{name_sequence.value, tlv::SEQUENCE, "tmp_seq"};
             while (tmp_seq.value.is_not_empty()) {
                 tlv name{tmp_seq};
-                if (name.value.is_not_readable()) {
-                    continue;
-                }
-                if (!array) {
-                    array.emplace(pn, "names");
-                }
-                array->print_json_string(name.value);
+                array.print_json_string(name.value);
             }
-            if (array) {
-                array->close();
-            }
+            array.close();
             pn.close();
         }
 
@@ -340,10 +332,6 @@ namespace krb5 {
             valid = addr_type.is_not_null() && addr_value.is_not_null();
         }
 
-        bool is_valid() const {
-            return valid;
-        }
-
         void write_json(json_array &a) const {
             if (!valid) {
                 return;
@@ -391,20 +379,13 @@ namespace krb5 {
                 return;
             }
 
-            std::optional<json_array> arr;
+            json_array arr{o, name, /*omit_if_empty=*/true};
             datum tmp = seq.value;
             while (tmp.is_not_empty()) {
                 host_address h{tmp};
-                if (h.is_valid()) {
-                    if (!arr) {
-                        arr.emplace(o, name);
-                    }
-                    h.write_json(*arr);
-                }
+                h.write_json(arr);
             }
-            if (arr) {
-                arr->close();
-            }
+            arr.close();
         }
     };
 
@@ -674,19 +655,14 @@ namespace krb5 {
                 rtime.print_as_json_generalized_time(o, "rtime");
             }
             o.print_key_uint("nonce", asn1::to_uint64(nonce.value));
-            std::optional<json_array> etype_array;
+            json_array etype_array{o, "etype", /*omit_if_empty=*/true};
             datum tmp = etype.value;
             while (tmp.is_not_empty()) {
                 tlv e{tmp};
                 const int64_t etype_code = asn1::to_int64(e.value);
-                if (!etype_array) {
-                    etype_array.emplace(o, "etype");
-                }
-                etype_array->print_string_or_unknown_code(etype_get_string(etype_code), etype_code);
+                etype_array.print_string_or_unknown_code(etype_get_string(etype_code), etype_code);
             }
-            if (etype_array) {
-                etype_array->close();
-            }
+            etype_array.close();
 
             if (address) {
                 host_addresses{address}.write_json(o, "addresses");
@@ -759,9 +735,7 @@ namespace krb5 {
             valid = sequence.is_not_null() && etype.is_not_null();
         }
 
-        bool is_valid() const {
-            return valid && etype;
-        }
+        bool is_valid() const { return valid && etype; }
 
         void write_json(json_object &o) const {
             if (!valid || !etype) {
@@ -798,10 +772,6 @@ namespace krb5 {
             }
         }
 
-        bool is_valid() const {
-            return valid;
-        }
-
         void write_json(json_array &a) const {
             if (!valid) { return; }
             json_object pad{a};
@@ -830,22 +800,17 @@ namespace krb5 {
                     datum seq_data = octets.value;
                     tlv seq{seq_data, tlv::SEQUENCE, "pa_etype_info2.sequence"};
                     if (seq.is_valid()) {
-                        std::optional<json_array> value;
+                        json_array value{pad, pa_type_name, /*omit_if_empty=*/true};
                         datum entries = seq.value;
                         while (entries.is_not_empty()) {
                             etype_info2_entry entry{entries};
                             if (entry.is_valid()) {
-                                if (!value) {
-                                    value.emplace(pad, pa_type_name);
-                                }
-                                json_object entry_json{*value};
+                                json_object entry_json{value};
                                 entry.write_json(entry_json);
                                 entry_json.close();
                             }
                         }
-                        if (value) {
-                            value->close();
-                        }
+                        value.close();
                         handled = true;
                     }
                 } else if (pa_type_code == pa_data_type<uint32_t>::PA_ENC_TIMESTAMP) {
@@ -882,28 +847,19 @@ namespace krb5 {
             valid = d.is_not_null();
         }
 
-        bool is_valid() const {
-            return valid;
-        }
+        bool is_valid() const { return valid; }
 
         void write_json(json_object &o, const char *name) const {
             if (!valid) {
                 return;
             }
-            std::optional<json_array> pa_array;
+            json_array pa_array{o, name, /*omit_if_empty=*/true};
             datum tmp = content;
             while (tmp.is_not_empty()) {
                 pa_data data{tmp};
-                if (data.is_valid()) {
-                    if (!pa_array) {
-                        pa_array.emplace(o, name);
-                    }
-                    data.write_json(*pa_array);
-                }
+                data.write_json(pa_array);
             }
-            if (pa_array) {
-                pa_array->close();
-            }
+            pa_array.close();
         }
     };
 
