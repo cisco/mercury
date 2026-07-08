@@ -763,18 +763,17 @@ public:
             udp::ports udp_ports;
             udp_ports.src = ports.first;
             udp_ports.dst = ports.second;
-            enum udp_msg_type msg_type = (udp_msg_type)(pkt_proc_ctx->selector.get_udp_msg_type(udp_pkt_data, udp_ports));
-            if (msg_type == udp_msg_type_unknown)
-            { // TODO: wrap this up in a traffic_selector member function
-                msg_type = (udp_msg_type)(pkt_proc_ctx->selector.get_udp_msg_type_from_ports(udp_ports));
-            }
             struct key k;
             k.src_port = udp_ports.src;
             k.dst_port = udp_ports.dst;
             k.protocol = 17;
             udp udp_pkt{k};
+            // set_udp_protocol() performs the full multi-pass UDP protocol
+            // detection (ESP/IKE pre-pass, mask/value matcher scan, and
+            // port-based fallback), so is_udp is derived purely from the
+            // resulting variant.
             pkt_proc_ctx->set_udp_protocol(udp_proto, udp_pkt_data, udp_pkt.get_ports(), true, k, udp_pkt);
-            is_udp = (msg_type != udp_msg_type_unknown) && (std::holds_alternative<std::monostate>(udp_proto) == false) && (std::holds_alternative<unknown_udp_initial_packet>(udp_proto) == false);
+            is_udp = (std::holds_alternative<std::monostate>(udp_proto) == false) && (std::holds_alternative<unknown_udp_initial_packet>(udp_proto) == false);
         }
         if (!is_tcp && !is_udp) {
             return;
@@ -843,18 +842,17 @@ public:
         udp::ports udp_ports;
         udp_ports.src = ports.first;
         udp_ports.dst = ports.second;
-        enum udp_msg_type msg_type = (udp_msg_type)(pkt_proc_ctx->selector.get_udp_msg_type(udp_pkt_data, udp_ports));
-        if (msg_type == udp_msg_type_unknown) {
-            // TODO: wrap this up in a traffic_selector member function
-            msg_type = (udp_msg_type)(pkt_proc_ctx->selector.get_udp_msg_type_from_ports(udp_ports));
-        }
         struct key k;
         k.src_port = udp_ports.src;
         k.dst_port = udp_ports.dst;
         k.protocol = 17;
         udp udp_pkt{k};
+        // set_udp_protocol() performs the full multi-pass UDP protocol
+        // detection (ESP/IKE pre-pass, mask/value matcher scan, and
+        // port-based fallback), so is_udp is derived purely from the
+        // resulting variant.
         pkt_proc_ctx->set_udp_protocol(udp_proto, udp_pkt_data, udp_pkt.get_ports(), true, k, udp_pkt);
-        is_udp = (msg_type != udp_msg_type_unknown) && (std::holds_alternative<std::monostate>(udp_proto) == false) && (std::holds_alternative<unknown_udp_initial_packet>(udp_proto) == false);
+        is_udp = (std::holds_alternative<std::monostate>(udp_proto) == false) && (std::holds_alternative<unknown_udp_initial_packet>(udp_proto) == false);
 
         if (!is_udp) {
             datum dummy_pkt{};

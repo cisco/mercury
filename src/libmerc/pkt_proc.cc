@@ -403,25 +403,27 @@ struct do_snmp_oid_observation {
 /// Constructs a protocol parser of type \c T in the variant \p x, validates
 /// that the parse succeeded via is_not_empty(), and on failure resets \p x to
 /// std::monostate.  This is the parse-success oracle used by the multi-pass
-/// fallback logic: a \c nullptr return tells the caller to restore the packet
-/// datum and try the next candidate.
+/// fallback logic: a \c false return tells the caller to restore the packet
+/// datum and try the next candidate.  Protocols that require reassembly (TLS
+/// client/server hello, TLS certificate, SSH, DTLS client hello) are handled
+/// by their own cases, not this helper, since a not-yet-complete parse is a
+/// valid classification for them.
 ///
 /// \tparam T     the protocol parser type to construct.
 /// \tparam Args  constructor argument types forwarded to \c T.
 /// \param x      the protocol variant to emplace into.
 /// \param args   arguments forwarded to the \c T constructor.
-/// \return a pointer to the constructed \c T on success, or \c nullptr if the
-///         parse failed (in which case \p x is left as std::monostate).
+/// \return \c true if the parse succeeded, or \c false if it failed (in which
+///         case \p x is left as std::monostate).
 ///
 template <typename T, typename... Args>
-static T *emplace_protocol_if_not_empty(protocol &x, Args&&... args) {
-    x.emplace<T>(std::forward<Args>(args)...);
-    T *proto = std::get_if<T>(&x);
-    if (proto == nullptr || !proto->is_not_empty()) {
+static bool emplace_protocol_if_not_empty(protocol &x, Args&&... args) {
+    T &proto = x.emplace<T>(std::forward<Args>(args)...);
+    if (!proto.is_not_empty()) {
         x.emplace<std::monostate>();
-        return nullptr;
+        return false;
     }
-    return proto;
+    return true;
 }
 
 ///
@@ -452,7 +454,7 @@ bool stateful_pkt_proc::try_parse_tcp_type(protocol &x,
         {
             struct tls_record rec{pkt};
             struct tls_handshake handshake{rec.fragment};
-            x.emplace<tls_client_hello>(handshake.body);
+            tls_client_hello &proto = x.emplace<tls_client_hello>(handshake.body);
             if (tcp_pkt && handshake.additional_bytes_needed) {
                 tcp_pkt->reassembly_needed(handshake.additional_bytes_needed);
                 // Reassembly required: commit the (possibly partial) hello so
@@ -460,8 +462,7 @@ bool stateful_pkt_proc::try_parse_tcp_type(protocol &x,
                 // parse-success check.
                 return true;
             }
-            tls_client_hello *p = std::get_if<tls_client_hello>(&x);
-            if (p == nullptr || !p->is_not_empty()) {
+            if (!proto.is_not_empty()) {
                 x.emplace<std::monostate>();
                 return false;
             }
@@ -469,12 +470,11 @@ bool stateful_pkt_proc::try_parse_tcp_type(protocol &x,
         }
     case tcp_msg_type_tls_server_hello:
         {
-            x.emplace<tls_server_hello_and_certificate>(pkt, tcp_pkt);
-            tls_server_hello_and_certificate *p = std::get_if<tls_server_hello_and_certificate>(&x);
-            if (p != nullptr && p->additional_bytes_needed()) {
+            tls_server_hello_and_certificate &proto = x.emplace<tls_server_hello_and_certificate>(pkt, tcp_pkt);
+            if (proto.additional_bytes_needed()) {
                 return true;
             }
-            if (p == nullptr || !p->is_not_empty()) {
+            if (!proto.is_not_empty()) {
                 x.emplace<std::monostate>();
                 return false;
             }
@@ -482,12 +482,11 @@ bool stateful_pkt_proc::try_parse_tcp_type(protocol &x,
         }
     case tcp_msg_type_tls_certificate:
         {
-            x.emplace<tls_certificate>(pkt, tcp_pkt);
-            tls_certificate *p = std::get_if<tls_certificate>(&x);
-            if (p != nullptr && p->additional_bytes_needed()) {
+            tls_certificate &proto = x.emplace<tls_certificate>(pkt, tcp_pkt);
+            if (proto.additional_bytes_needed()) {
                 return true;
             }
-            if (p == nullptr || !p->is_not_empty()) {
+            if (!proto.is_not_empty()) {
                 x.emplace<std::monostate>();
                 return false;
             }
@@ -500,15 +499,15 @@ bool stateful_pkt_proc::try_parse_tcp_type(protocol &x,
             }
         }
         {
-            x.emplace<ssh_init_packet>(pkt, tcp_pkt ? tcp_pkt->get_direction_from_ports() : flow_direction::unknown);
-            ssh_init_packet *p = std::get_if<ssh_init_packet>(&x);
-            if (p == nullptr || !p->is_not_empty()) {
-                x.emplace<std::monostate>();
-                return false;
-            }
-            uint32_t more_bytes = p->more_bytes_needed();
+            ssh_init_packet &proto = x.emplace<ssh_init_packet>(pkt, tcp_pkt ? tcp_pkt->get_direction_from_ports() : flow_direction::unknown);
+            uint32_t more_bytes = proto.more_bytes_needed();
             if (tcp_pkt && more_bytes) {
                 tcp_pkt->reassembly_needed(more_bytes,(uint8_t)reassembly_type::ssh);
+                return true;
+            }
+            if (!proto.is_not_empty()) {
+                x.emplace<std::monostate>();
+                return false;
             }
             return true;
         }
@@ -520,7 +519,7 @@ bool stateful_pkt_proc::try_parse_tcp_type(protocol &x,
         }
         {
             struct ssh_binary_packet ssh_pkt{pkt};
-            x.emplace<ssh_kex_init>(ssh_pkt, tcp_pkt ? tcp_pkt->get_direction_from_ports() : flow_direction::unknown);
+            ssh_kex_init &proto = x.emplace<ssh_kex_init>(ssh_pkt, tcp_pkt ? tcp_pkt->get_direction_from_ports() : flow_direction::unknown);
             if (tcp_pkt && ssh_pkt.additional_bytes_needed) {
                 tcp_pkt->reassembly_needed((uint32_t)ssh_pkt.additional_bytes_needed);
                 return true;
@@ -529,14 +528,18 @@ bool stateful_pkt_proc::try_parse_tcp_type(protocol &x,
                 tcp_pkt->set_supplementary_reassembly();
                 return true;
             }
+            if (!proto.is_not_empty()) {
+                x.emplace<std::monostate>();
+                return false;
+            }
             return true;
         }
     case tcp_msg_type_smtp_server:
-        return emplace_protocol_if_not_empty<smtp_server>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<smtp_server>(x, pkt);
     case tcp_msg_type_tacacs:
-        return emplace_protocol_if_not_empty<tacacs::packet>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<tacacs::packet>(x, pkt);
     case tcp_msg_type_rdp:
-        return emplace_protocol_if_not_empty<rdp::connection_request_pdu>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<rdp::connection_request_pdu>(x, pkt);
     case tcp_msg_type_dns:
     {
         /* Trim the 2 byte length field in case of
@@ -545,60 +548,60 @@ bool stateful_pkt_proc::try_parse_tcp_type(protocol &x,
         uint16_t len = 0;
         pkt.read_uint16(&len);
         pkt.trim_to_length(len);
-        return emplace_protocol_if_not_empty<dns_packet>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<dns_packet>(x, pkt);
     }
     case tcp_msg_type_smb1:
-        return emplace_protocol_if_not_empty<smb1_packet>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<smb1_packet>(x, pkt);
     case tcp_msg_type_smb2:
-        return emplace_protocol_if_not_empty<smb2_packet>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<smb2_packet>(x, pkt);
     case tcp_msg_type_iec:
-        return emplace_protocol_if_not_empty<iec60870_5_104>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<iec60870_5_104>(x, pkt);
     case tcp_msg_type_dnp3:
-        return emplace_protocol_if_not_empty<dnp3>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<dnp3>(x, pkt);
     case tcp_msg_type_nbss:
-        return emplace_protocol_if_not_empty<nbss_packet>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<nbss_packet>(x, pkt);
     case tcp_msg_type_openvpn:
-        return emplace_protocol_if_not_empty<openvpn_tcp>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<openvpn_tcp>(x, pkt);
     case tcp_msg_type_bittorrent:
-        return emplace_protocol_if_not_empty<bittorrent_handshake>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<bittorrent_handshake>(x, pkt);
     case tcp_msg_type_mysql_server:
-        return emplace_protocol_if_not_empty<mysql_server_greet>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<mysql_server_greet>(x, pkt);
     case tcp_msg_type_mysql_login_request:
-        return emplace_protocol_if_not_empty<mysql_login_request>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<mysql_login_request>(x, pkt);
     case tcp_msg_type_tofsee_initial_message:
-        return emplace_protocol_if_not_empty<tofsee_initial_message>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<tofsee_initial_message>(x, pkt);
     case tcp_msg_type_socks4:
-        return emplace_protocol_if_not_empty<socks4_req>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<socks4_req>(x, pkt);
     case tcp_msg_type_socks5_hello:
-        return emplace_protocol_if_not_empty<socks5_hello>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<socks5_hello>(x, pkt);
     case tcp_msg_type_socks5_req_resp:
-        return emplace_protocol_if_not_empty<socks5_req_resp>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<socks5_req_resp>(x, pkt);
     case tcp_msg_type_ldap:
-        return emplace_protocol_if_not_empty<ldap::message>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<ldap::message>(x, pkt);
     case tcp_msg_type_ftp_request:
-        return emplace_protocol_if_not_empty<ftp::request>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<ftp::request>(x, pkt);
     case tcp_msg_type_ftp_response:
-        return emplace_protocol_if_not_empty<ftp::response>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<ftp::response>(x, pkt);
     case tcp_msg_type_krb5:
-        return emplace_protocol_if_not_empty<krb5::packet>(x, pkt) != nullptr;  // tcp record marker detected in constructor
+        return emplace_protocol_if_not_empty<krb5::packet>(x, pkt);  // tcp record marker detected in constructor
     case tcp_msg_type_imap_request:
-        return emplace_protocol_if_not_empty<imap::imap_requests>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<imap::imap_requests>(x, pkt);
     case tcp_msg_type_imap_response:
-        return emplace_protocol_if_not_empty<imap::imap_responses>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<imap::imap_responses>(x, pkt);
     case tcp_msg_type_redis_response:
-        return emplace_protocol_if_not_empty<redis::response>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<redis::response>(x, pkt);
     case tcp_msg_type_redis_request:
-        return emplace_protocol_if_not_empty<redis::request>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<redis::request>(x, pkt);
     case tcp_msg_type_http_request:
-        return emplace_protocol_if_not_empty<http_request>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<http_request>(x, pkt);
     case tcp_msg_type_http_response:
-        return emplace_protocol_if_not_empty<http_response>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<http_response>(x, pkt);
     case tcp_msg_type_smtp_client:
-        return emplace_protocol_if_not_empty<smtp_client>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<smtp_client>(x, pkt);
     case tcp_msg_type_rfb:
-        return emplace_protocol_if_not_empty<rfb::protocol_version_handshake>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<rfb::protocol_version_handshake>(x, pkt);
     case tcp_msg_type_telnet:
-        return emplace_protocol_if_not_empty<telnet::message>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<telnet::message>(x, pkt);
     default:
         return false;
     }
@@ -643,8 +646,7 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
     };
 
     // Pass 1: mask/value matchers, resuming from the matcher after a failed parse
-    size_t idx = 0;
-    for (;;) {
+    for (size_t idx = 0; idx < SIZE_MAX; ) {
         auto mr = selector.get_tcp_msg_type_resumable(pkt_saved, idx);
         if (mr.type == tcp_msg_type_unknown) {
             break;                 // no more mask/value candidates
@@ -653,9 +655,6 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
             return;
         }
         idx = mr.next_index;       // resume at the matcher after the failed one
-        if (idx == SIZE_MAX) {
-            break;
-        }
     }
 
     // Pass 2: port-based fallback
@@ -727,7 +726,7 @@ bool stateful_pkt_proc::try_parse_udp_type(protocol &x,
             if (!selector.mdns()) {
                 return false;
             }
-            return emplace_protocol_if_not_empty<mdns_packet>(x, pkt) != nullptr;
+            return emplace_protocol_if_not_empty<mdns_packet>(x, pkt);
         } else {
             dns_packet packet{pkt};
             if (!packet.is_not_empty()) {
@@ -741,44 +740,54 @@ bool stateful_pkt_proc::try_parse_udp_type(protocol &x,
             return true;
         }
     case udp_msg_type_syslog:
-        return emplace_protocol_if_not_empty<syslog>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<syslog>(x, pkt);
     case udp_msg_type_dhcp:
-        return emplace_protocol_if_not_empty<dhcp_message>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<dhcp_message>(x, pkt);
     case udp_msg_type_quic:
         // QUIC uses its own CRYPTO-frame reassembly helper, not the offset trait.
-        return emplace_protocol_if_not_empty<quic_init>(x, pkt, quic_crypto) != nullptr;
+        return emplace_protocol_if_not_empty<quic_init>(x, pkt, quic_crypto);
     case udp_msg_type_dtls_client_hello:
-        // Commit unconditionally rather than via the is_not_empty() check: a
-        // fragmented ClientHello does not parse until reassembled, and the
-        // retained object is required to drive offset-based UDP reassembly.
-        x.emplace<dtls_client_hello>(pkt);
-        return true;
+        {
+            // Retain the object if it is a complete ClientHello, a first
+            // fragment (offset 0, needs more bytes), or a non-first fragment
+            // (offset > 0, reports neither signal but is still required to
+            // drive offset-based UDP reassembly).  Only a mask-matched packet
+            // that is none of these is dropped, so the fallback can continue.
+            dtls_client_hello &proto = x.emplace<dtls_client_hello>(pkt);
+            if (!proto.is_not_empty()
+                && !proto.additional_bytes_needed()
+                && proto.get_fragment_offset() == 0) {
+                x.emplace<std::monostate>();
+                return false;
+            }
+            return true;
+        }
     case udp_msg_type_dtls_server_hello:
-        return emplace_protocol_if_not_empty<dtls_server_hello>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<dtls_server_hello>(x, pkt);
     case udp_msg_type_dtls_hello_verify_request:
-        return emplace_protocol_if_not_empty<dtls_hello_verify_request>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<dtls_hello_verify_request>(x, pkt);
     case udp_msg_type_wireguard:
-        return emplace_protocol_if_not_empty<wireguard_handshake_init>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<wireguard_handshake_init>(x, pkt);
     case udp_msg_type_esp:
-        return emplace_protocol_if_not_empty<esp>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<esp>(x, pkt);
     case udp_msg_type_ike:
-        return emplace_protocol_if_not_empty<ike::packet>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<ike::packet>(x, pkt);
     case udp_msg_type_ssdp:
-        return emplace_protocol_if_not_empty<ssdp>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<ssdp>(x, pkt);
     case udp_msg_type_stun:
-        return emplace_protocol_if_not_empty<stun::message>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<stun::message>(x, pkt);
     case udp_msg_type_nbds:
-        return emplace_protocol_if_not_empty<nbds_packet>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<nbds_packet>(x, pkt);
     case udp_msg_type_dht:
-        return emplace_protocol_if_not_empty<bittorrent_dht>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<bittorrent_dht>(x, pkt);
     case udp_msg_type_lsd:
-        return emplace_protocol_if_not_empty<bittorrent_lsd>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<bittorrent_lsd>(x, pkt);
     case udp_msg_type_krb5:
-        return emplace_protocol_if_not_empty<krb5::packet>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<krb5::packet>(x, pkt);
     case udp_msg_type_snmp:
-        return emplace_protocol_if_not_empty<snmp::packet>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<snmp::packet>(x, pkt);
     case udp_msg_type_tftp:
-        return emplace_protocol_if_not_empty<tftp::packet>(x, pkt) != nullptr;
+        return emplace_protocol_if_not_empty<tftp::packet>(x, pkt);
     default:
         return false;
     }
@@ -839,8 +848,7 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
     }
 
     // Pass 1: mask/value matchers, resuming from the matcher after a failed parse
-    size_t idx = 0;
-    for (;;) {
+    for (size_t idx = 0; idx < SIZE_MAX; ) {
         auto mr = selector.get_udp_msg_type_resumable(pkt_saved, idx);
         if (mr.type == udp_msg_type_unknown) {
             break;                 // no more mask/value candidates
@@ -849,9 +857,6 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
             return;
         }
         idx = mr.next_index;       // resume at the matcher after the failed one
-        if (idx == SIZE_MAX) {
-            break;
-        }
     }
 
     // Pass 2: port-based fallback
