@@ -11,6 +11,7 @@
 #include "datum.h"
 #include "utf8.hpp"
 
+#include <cassert>
 #include <cinttypes>
 #include <cstdint>
 #include <iostream>
@@ -37,14 +38,31 @@ template <typename T>
 constexpr bool has_write_v = has_write<T>::value;
 
 
-/*
- * json_object and json_array serialize JSON objects and arrays,
- * respectively, into a buffer
- */
-
+/// \brief serializes a JSON object into a \ref buffer_stream.
+///
+/// Key/value pairs are added with the `print_key_*` members and the
+/// object is terminated by \ref close; separators are inserted
+/// automatically.  For example, this writes
+/// `{"msg_type":11,"realm":"EXAMPLE"}`:
+///
+///     json_object o{buf};
+///     o.print_key_uint("msg_type", 11);
+///     o.print_key_string("realm", "EXAMPLE");
+///     o.close();
+///
+/// Objects and arrays can be nested.  This writes
+/// `{"id":7,"addr":{"ip":"10.0.0.1"}}`:
+///
+///     json_object o{buf};
+///     o.print_key_uint("id", 7);
+///     json_object addr{o, "addr"};
+///     addr.print_key_string("ip", "10.0.0.1");
+///     addr.close();
+///     o.close();
+///
 struct json_object {
-    buffer_stream *b;
-    bool comma = false;
+    buffer_stream *b;      // output buffer this object is written to
+    bool comma = false;    // whether a separator is needed before the next member
 
     void write_comma(bool &c) {
         if (c) {
@@ -333,12 +351,34 @@ struct json_object {
 
 };
 
+/// \brief serializes a JSON array into a \ref buffer_stream, one element
+/// at a time.
+///
+/// Elements are appended with the `print_*` members and the array is
+/// terminated by \ref close; separators are inserted automatically.
+/// For example, this writes `"etype":[17,23]`:
+///
+///     json_array a{obj, "etype"};
+///     a.print_uint(17);
+///     a.print_uint(23);
+///     a.close();
+///
+/// With `omit_if_empty == true` the array is written lazily: one that
+/// receives no elements emits nothing at all (not even `"etype":[]`),
+/// so the key is omitted from the enclosing object entirely.
+///
+/// Elements may be objects or arrays, so shapes such as `[]`, `[{}]`,
+/// and `[[]]` can all be constructed.
+///
 struct json_array {
-    buffer_stream *b;
-    bool comma = false;
-    json_object *parent = nullptr;
-    const char *key = nullptr;
-    bool opened = true;
+    // core state, present for every array
+    buffer_stream *b;               // output buffer this array is written to
+    bool comma = false;             // whether a separator is needed before the next element
+
+    // deferred-output state, used only by omit_if_empty arrays (see ensure_open)
+    json_object *parent = nullptr;  // enclosing object, for the key and leading comma
+    const char *key = nullptr;      // this array's JSON key (a string literal)
+    bool opened = true;             // false until the opening '[' has been written
 
     void write_comma(bool &c) {
         if (c) {
@@ -356,6 +396,8 @@ struct json_array {
         if (opened) {
             return;
         }
+        // only object-taking constructors defer opening; they set parent/key
+        assert(parent != nullptr && key != nullptr);
         opened = true;
         write_comma(parent->comma);
         b->write_char('\"');
