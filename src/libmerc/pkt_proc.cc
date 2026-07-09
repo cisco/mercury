@@ -114,6 +114,11 @@ struct do_crypto_assessment {
     crypto_cnsa_ssh_message cnsa_ssh_msg;
     crypto_nist_message nist_msg;
 
+    do_crypto_assessment(const std::vector<const crypto_policy::assessor *>& ca_,
+                         Object& output,
+                         cbor_metadata_context* cbor_meta = nullptr)
+        : ca{ca_}, output_{output}, cbor_meta_{cbor_meta} {}
+
     template<typename MsgType>
     crypto_assess_result assess_tls(const MsgType &msg) {
         crypto_assess_result result;
@@ -214,16 +219,6 @@ struct do_crypto_assessment {
 
     crypto_assess_result operator()(std::monostate &) { return crypto_assess_result{}; }
 };
-
-// deduction guides: deduce Object from the writer reference argument (the
-// struct is an aggregate, so C++17 needs explicit guides for CTAD).
-template<typename Object>
-do_crypto_assessment(const std::vector<const crypto_policy::assessor *>&, Object&)
-    -> do_crypto_assessment<Object>;
-template<typename Object>
-do_crypto_assessment(const std::vector<const crypto_policy::assessor *>&, Object&,
-                     cbor_metadata_context*)
-    -> do_crypto_assessment<Object>;
 
 template<typename Object>
 struct check_exposed_creds {
@@ -1744,6 +1739,11 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
                     output_attr = set_crypto_assessment_attr(assessment_result) ? true : output_attr;
                 }
 
+                // Emit the packet/handshake truncation status (string form) as a top-level
+                // key.A buffer with only this key is still dropped by the end_encode() feature-written gate.
+                cbor_output.print_key_string(CBOR_METADATA_TRUNCATION_KEY,
+                    get_truncation_str(compute_truncation_status(reassembler_ptr, truncated_tcp || truncated_udp)));
+
                 cbor_output.close();
                 cbor_outer.close();
                 cbor_meta.end_encode();
@@ -1808,6 +1808,12 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
                     exposed_creds_type exposed_creds_ret = std::visit(creds_visitor, x);
                     output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
                 }
+
+                // Emit the packet/handshake truncation status (string form) as a top-level
+                // key. Not a feature: set_feature_written() is NOT called, so a buffer with
+                // only this key is still dropped by the end_encode() feature-written gate.
+                cbor_output.print_key_string(CBOR_METADATA_TRUNCATION_KEY,
+                    get_truncation_str(compute_truncation_status(reassembler_ptr, truncated_tcp || truncated_udp)));
 
                 cbor_output.close();
                 cbor_outer.close();

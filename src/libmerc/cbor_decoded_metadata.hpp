@@ -7,6 +7,7 @@
 #define CBOR_DECODED_METADATA_HPP
 
 #include <vector>
+#include <tuple>
 #include "cbor.hpp"
 #include "cbor_object.hpp"
 #include "cbor_messages.hpp"
@@ -35,87 +36,73 @@ public:
     datum cbor_span() const { return cbor_span_; }
 };
 
-/// Per-thread decode container for CBOR metadata.
-/// Known single-fire features are plain objects — use is_valid() to check.
-/// Features that can fire multiple times per packet use std::vector.
-struct cbor_decoded_metadata {
+/// Per-thread decode container for CBOR metadata. Holds a typed slot for each REGISTERED
+/// feature (in a std::tuple) plus an unknown vector for everything else. A feature must
+/// provide the contract: static matches(datum), decode_into(datum,datum&), is_valid(),
+/// cbor_span(), key(). Unregistered features flow through the unknown vector.
+template<class... Features>
+struct typed_decoder {
     static constexpr size_t unknown_reserve_count = 1;
 
-    exposed_creds_message exposed_creds;
-    crypto_cnsa_tls_message cnsa_tls;
-    crypto_cnsa_ssh_message cnsa_ssh;
-    crypto_nist_message nist;
-
+    std::tuple<Features...>      slots;
     std::vector<unknown_feature> unknown;
-
+    cbor::text_string            truncation;   // packet-level status (see decode_v1); empty if absent
     bool valid = false;
 
-    cbor_decoded_metadata() {
-        unknown.reserve(unknown_reserve_count);
-    }
+    typed_decoder() { unknown.reserve(unknown_reserve_count); }
 
     void reset() {
-        exposed_creds = exposed_creds_message{};
-        cnsa_tls = crypto_cnsa_tls_message{};
-        cnsa_ssh = crypto_cnsa_ssh_message{};
-        nist = crypto_nist_message{};
+        std::apply([](auto&... f){ ((f = {}), ...); }, slots);
         unknown.clear();
+        truncation = {};
         valid = false;
     }
+
+    // Route one feature key: the first registered feature whose matches() accepts it
+    // decodes in place; if none match, capture it as an unknown_feature.
+    template<class F>
+    bool try_one(datum key, datum &d) {
+        if (F::matches(key)) { std::get<F>(slots).decode_into(key, d); return true; }
+        return false;
+    }
+    void dispatch(datum key, datum &d) {
+        if (!(try_one<Features>(key, d) || ...)) {
+            unknown.push_back(unknown_feature::decode(key, d));
+        }
+    }
+
+    // Typed access to a registered feature (compile error if F is not registered).
+    template<class F> const F& get() const { return std::get<F>(slots); }
 };
 
-// Returns true iff the cnsa sub-map's "cnsa_variant" field equals "ssh". Scans a copy of
-// the datum (non-destructive) and is independent of key order. Defaults to false (TLS)
-// when the field is absent.
-static inline bool peek_cnsa_variant_is_ssh(const uint8_t* begin, const uint8_t* end) {
-    datum peek{begin, end};
-    cbor::map m{peek};
-    while (peek.is_not_empty() && !cbor::is_break(peek)) {
-        cbor::text_string key = cbor::text_string::decode(peek);
-        if (key.value().match("cnsa_variant")) {
-            return cbor::text_string::decode(peek).value().match("ssh");
-        }
-        cbor::skip_cbor_value(peek);
-    }
-    return false;
-}
+/// cbor_decoded_metadata is the shipped decode container: a concrete, forward-declarable
+/// struct (matching the `struct cbor_decoded_metadata;` forward declaration in the inspector's
+/// mercury_config.h) deriving from an EMPTY typed_decoder<>. No feature is registered, so
+/// every feature — known or future — flows through the `unknown` vector and is harvested
+/// uniformly by key + CBOR span; the shipped path needs no typed field access. A consumer that
+/// wants typed, fine-grained access to specific features instantiates
+/// typed_decoder<Features...> with those features directly (see the unit tests).
+struct cbor_decoded_metadata : typed_decoder<> {};
 
-inline void decode_v1(datum &d, cbor_decoded_metadata& out) {
+template<class Decoder>
+inline void decode_v1(datum &d, Decoder& out) {
     while (d.is_not_empty() && !cbor::is_break(d)) {
         cbor::text_string feature_key = cbor::text_string::decode(d);
         if (d.is_null()) { return; }
-
-        datum k = feature_key.value();
-        if (k.match(exposed_creds_message::KEY_PLAINTEXT) ||
-            k.match(exposed_creds_message::KEY_TOKEN) ||
-            k.match(exposed_creds_message::KEY_DERIVED)) {
-            const char* key = k.match(exposed_creds_message::KEY_PLAINTEXT)
-                ? exposed_creds_message::KEY_PLAINTEXT
-                : k.match(exposed_creds_message::KEY_TOKEN)
-                    ? exposed_creds_message::KEY_TOKEN
-                    : exposed_creds_message::KEY_DERIVED;
-            out.exposed_creds = exposed_creds_message::decode(d, key);
+        // "truncation" is a reserved packet-level status key in v1, not a feature: capture
+        // it separately so it never lands in a feature slot or the unknown vector.
+        if (feature_key.value().match(CBOR_METADATA_TRUNCATION_KEY)) {
+            out.truncation = cbor::text_string::decode(d);
+        } else {
+            out.dispatch(feature_key.value(), d);
         }
-        else if (k.match(crypto_cnsa_tls_message::KEY)) {
-            if (peek_cnsa_variant_is_ssh(d.data, d.data_end)) {
-                out.cnsa_ssh = crypto_cnsa_ssh_message::decode(d);
-            } else {
-                out.cnsa_tls = crypto_cnsa_tls_message::decode(d);
-            }
-        }
-        else if (k.match(crypto_nist_message::KEY)) {
-            out.nist = crypto_nist_message::decode(d);
-        }
-        else {
-            out.unknown.push_back(unknown_feature::decode(feature_key.value(), d));
-        }
-
         if (d.is_null()) { return; }
     }
 }
 
+template<class Decoder>
 inline void decode_cbor_metadata(const uint8_t* buf, size_t len,
-                                  cbor_decoded_metadata& out) {
+                                  Decoder& out) {
     out.reset();
     if (!buf || len == 0) { return; }
 

@@ -6,9 +6,15 @@
 #ifndef CBOR_MESSAGES_HPP
 #define CBOR_MESSAGES_HPP
 
+#include <variant>
 #include "cbor.hpp"
 
 inline constexpr const char* CBOR_METADATA_VERSION_KEY = "v1";
+
+// Reserved top-level (inner v1 map) key for the packet/handshake truncation status. This
+// is a packet-level status string, NOT a feature: producer emits it, and the decoder
+// captures it into typed_decoder::truncation rather than routing it as a feature.
+inline constexpr const char* CBOR_METADATA_TRUNCATION_KEY = "truncation";
 
 /// Exposed credentials message — runtime KEY distinguishes plaintext/token/derived.
 class exposed_creds_message {
@@ -59,6 +65,17 @@ public:
         msg.cbor_span_ = datum{begin, d.data};
         msg.valid_ = !d.is_null() && msg.protocol_.is_valid() && msg.auth_method_.is_valid();
         return msg;
+    }
+
+    // typed_decoder contract: recognize this feature's key(s), and decode in place.
+    static bool matches(datum key) {
+        return key.match(KEY_PLAINTEXT) || key.match(KEY_TOKEN) || key.match(KEY_DERIVED);
+    }
+    void decode_into(datum key, datum &d) {
+        const char* k = key.match(KEY_PLAINTEXT) ? KEY_PLAINTEXT
+                      : key.match(KEY_TOKEN)     ? KEY_TOKEN
+                                                 : KEY_DERIVED;
+        *this = decode(d, k);
     }
 
     template<typename Object>
@@ -518,8 +535,60 @@ public:
 };
 
 
-// Legacy alias for backward compatibility during transition
+// Legacy alias: producer/crypto_assess code uses crypto_cnsa_message as the TLS cnsa
+// encoder type. Decode-side routing uses cnsa_feature (below).
 using crypto_cnsa_message = crypto_cnsa_tls_message;
+
+/// Decode-side wrapper for the CNSA 2.0 feature. One wire key
+/// ("cnsa_2_0_non_conformant") carries either a TLS or an SSH schema; the "cnsa_variant"
+/// field selects which. Holds the decoded body in a variant and exposes typed access via
+/// tls_if()/ssh_if(). This is the type registered in the typed_decoder.
+class cnsa_feature {
+    std::variant<std::monostate, crypto_cnsa_tls_message, crypto_cnsa_ssh_message> body_;
+
+    /// Returns true iff the sub-map's "cnsa_variant" field equals "ssh". Scans a copy of
+    /// the datum (non-destructive) and is independent of key order. Defaults to false
+    /// (TLS) when the field is absent.
+    static bool peek_variant_is_ssh(const uint8_t* begin, const uint8_t* end) {
+        datum peek{begin, end};
+        cbor::map m{peek};
+        while (peek.is_not_empty() && !cbor::is_break(peek)) {
+            cbor::text_string key = cbor::text_string::decode(peek);
+            if (key.value().match("cnsa_variant")) {
+                return cbor::text_string::decode(peek).value().match("ssh");
+            }
+            cbor::skip_cbor_value(peek);
+        }
+        return false;
+    }
+
+public:
+    static constexpr const char* KEY = crypto_cnsa_tls_message::KEY; // "cnsa_2_0_non_conformant"
+
+    // typed_decoder contract.
+    static bool matches(datum key) { return key.match(KEY); }
+    void decode_into(datum /*key*/, datum &d) {
+        // Commit the decoded body only if it is valid; a failed decode leaves body_ as
+        // monostate. This keeps index() != 0 an exact validity test and guarantees
+        // tls_if()/ssh_if()/cbor_span() never expose a half-decoded object.
+        if (peek_variant_is_ssh(d.data, d.data_end)) {
+            crypto_cnsa_ssh_message m = crypto_cnsa_ssh_message::decode(d);
+            if (m.is_valid()) { body_ = m; }
+        } else {
+            crypto_cnsa_tls_message m = crypto_cnsa_tls_message::decode(d);
+            if (m.is_valid()) { body_ = m; }
+        }
+    }
+    bool  is_valid()  const { return body_.index() != 0; }
+    datum key()       const { return datum{KEY}; }
+    datum cbor_span() const {
+        if (auto* t = std::get_if<crypto_cnsa_tls_message>(&body_)) { return t->cbor_span(); }
+        if (auto* s = std::get_if<crypto_cnsa_ssh_message>(&body_)) { return s->cbor_span(); }
+        return datum{};
+    }
+    const crypto_cnsa_tls_message* tls_if() const { return std::get_if<crypto_cnsa_tls_message>(&body_); }
+    const crypto_cnsa_ssh_message* ssh_if() const { return std::get_if<crypto_cnsa_ssh_message>(&body_); }
+};
 
 
 /// NIST SP 800-52 Rev 2 crypto assessment.
@@ -682,6 +751,10 @@ public:
         msg.valid_ = !d.is_null() && msg.policy_.is_valid();
         return msg;
     }
+
+    // typed_decoder contract.
+    static bool matches(datum key) { return key.match(KEY); }
+    void decode_into(datum /*key*/, datum &d) { *this = decode(d); }
 
     datum key()       const { return datum{KEY}; }
     datum cbor_span() const { return cbor_span_; }

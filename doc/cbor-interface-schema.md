@@ -76,21 +76,52 @@ Fired when password-derived credential exposure is detected (e.g., challenge-res
 
 Fired when CNSA 2.0 (quantum-safe) cryptographic policy non-conformance is detected.
 
+The metadata under this one key has TWO shapes, selected by the protocol being
+assessed. Both are emitted under the same key `cnsa_2_0_non_conformant`; a decoder
+tells them apart by reading the `cnsa_variant` discriminator field (`"tls"` or
+`"ssh"`) — see the note on shared-key routing below.
+
+TLS (`<target>` is `"client"` for the client hello, `"session"` for the server hello):
+
 ```
 "cnsa_2_0_non_conformant": {
     "policy": "quantum_safe",
-    <target>: {                        ; "client", "session", or "offered"
-        ? "ciphersuites_not_allowed": [* tstr],   ; cipher suite names or hex codes
+    "cnsa_variant": "tls",                         ; discriminator
+    <target>: {                                    ; "client" or "session"
+        ? "ciphersuites_not_allowed": [* tstr],    ; cipher suite names or hex codes
         ? "ciphersuites_allowed": tstr,            ; "all", "some", or "none"
         ? "groups_not_allowed": [* tstr],          ; named group names or hex codes
         ? "groups_allowed": tstr,                  ; "all", "some", or "none"
-        "tls_cert_with_extern_psk": bool,
+        "tls_cert_with_extern_psk": bool,          ; always present (TLS only)
         ? <non_compliant_key>: tstr                ; reason string if PSK non-compliant
     }
 }
 ```
 
-Where `<target>` is one of `"client"` (TLS client hello), `"session"` (TLS server hello), or `"offered"` (SSH kex init).
+SSH (`<target>` is always `"offered"`):
+
+```
+"cnsa_2_0_non_conformant": {
+    "policy": "quantum_safe",
+    "cnsa_variant": "ssh",                         ; discriminator
+    "offered": {
+        ? "kex_not_allowed": [* tstr],             ; key-exchange algorithm names
+        ? "kex_allowed": tstr,                     ; "all", "some", or "none"
+        "client_to_server": {
+            ? "ciphersuites_not_allowed": [* tstr],
+            ? "ciphersuites_allowed": tstr         ; "all", "some", or "none"
+        },
+        "server_to_client": {
+            ? "ciphersuites_not_allowed": [* tstr],
+            ? "ciphersuites_allowed": tstr         ; "all", "some", or "none"
+        }
+    }
+}
+```
+
+The SSH shape does NOT emit `tls_cert_with_extern_psk`, `groups_*`, or the
+top-level `ciphersuites_*` fields; those are TLS-only. Conversely the TLS shape
+does not emit `kex_*` or the `client_to_server`/`server_to_client` sub-maps.
 
 ### `nist_sp_800_52_2_non_conformant`
 
@@ -113,6 +144,35 @@ Fired when NIST SP 800-52 Rev 2 cryptographic policy non-conformance is detected
 ```
 
 Non-compliant keys include: `tls_version_non_compliant`, `cipher_suite_non_compliant`, `supported_groups_missing`, `ec_points_format_non_compliant`, `supported_group_non_compliant`, `encrypt_then_mac_non_compliant`, `compression_method_non_compliant`.
+
+## Truncation Status
+
+The inner (`"v1"`) map may carry a top-level `"truncation"` key describing whether the
+assessed packet/handshake was fully present. It is a **status field, not a feature**: it is
+a sibling of the feature keys, and it is emitted whenever the buffer carries at least one
+feature (a buffer that would contain only `truncation` and no feature is dropped as
+`CBOR_NO_DATA`). It is a **reserved key** — the decoder captures it into its own field
+(`typed_decoder::truncation`), never as a feature slot or an `unknown_feature` — so consumers
+read the packet status separately from the list of detected features.
+
+```
+"truncation": tstr        ; "none" | "reassembled" | "truncated" | "reassembled_truncated"
+```
+
+| Value | Meaning |
+|-------|---------|
+| `none` | Packet arrived complete; no reassembly needed. |
+| `reassembled` | Handshake was reassembled from multiple segments and is complete. |
+| `truncated` | Handshake payload was cut short (incomplete). |
+| `reassembled_truncated` | Reassembled but still incomplete. |
+
+This describes **Type A** truncation (the packet/handshake itself). It is distinct from
+**Type B** truncation — the CBOR metadata buffer running out of space mid-encode — which
+cannot be reported inside the buffer (the buffer is what overflowed) and is instead signaled
+by the C-API return code `CBOR_WRITE_INSUFFICIENT_SPACE` (see `enum cbor_metadata_return` in
+`libmerc.h`). Note: the FDC output reports the same Type A status as an **integer**; the CBOR
+buffer uses the **string** form deliberately, so the buffer is self-describing without the
+C++ enum. Same status, two encodings, separate outputs.
 
 ## Controlled Vocabularies
 
@@ -162,15 +222,70 @@ Non-compliant keys include: `tls_version_non_compliant`, `cipher_suite_non_compl
 
 ## Extension Process
 
-To add a new feature to the CBOR metadata interface:
+### How decoding works
 
-1. **Add a non-owning feature class** in `cbor_messages.hpp` with a stable `KEY`, a `decode()` factory (consumer side), a way to populate it on the producer side, and a templated `write<Object, Array>()` for serialization. If a feature can fire multiple times per packet, then its non-owning feature class must be able accomodate multiple metadata generated internally. In the CBOR buffer, the `KEY` corresponding to each fired feature will appear only once.
+Each feature is implemented as a **feature class** (in `cbor_messages.hpp`) that knows how
+to recognize its own key(s) and decode its own CBOR sub-map — the exact members are the
+**feature contract** listed in step 1 below.
 
-2. **Add a typed bucket** in `struct cbor_decoded_metadata` (`src/libmerc/cbor_decoded_metadata.hpp`) if the inspector needs typed access to the feature, and add KEY dispatch in `decode_v1()`. The decoder uses typed bucket members (plus a `std::vector<unknown_feature>` for unrecognized keys). 
+The decoder, `cbor_decoded_metadata`, is a **registry** of feature classes. "Registering"
+a feature simply means listing its class in that registry's type list
+(`typed_decoder<Features...>` in `cbor_decoded_metadata.hpp`); the registry keeps one typed
+slot per listed class. To decode a buffer it walks each inner key and offers it to every
+registered class's `matches()` in turn — the first that accepts decodes into its slot,
+giving the caller typed field access. A key no registered class accepts is kept as an
+`unknown_feature` (its key + raw CBOR span), so **registration is optional**: an
+unregistered or future feature is never lost — it just lands in the `unknown` list instead
+of a typed slot. Either way a consumer can read convert it into valid JSON, by `key()` + `cbor_span()`.
 
-3. **Wire the encode path** in `src/libmerc/pkt_proc.cc`: add a visitor overload that constructs and writes the feature class.
+A feature's key(s) and its class has a **many-to-many** relationship:
 
-4. **Add unit tests**: round-trip test in `cbor_decoded_metadata_test.hpp`, plus an unknown-field test, and a protocol accessor test in the protocol's `unit_test()`.
+- **One class, several keys** — a single registered class recognizes a key-group in its
+  `matches()` (e.g. `exposed_creds_message` matches
+  `exposed_credentials_plaintext`/`_token`/`_derived`) and uses the matched key in
+  `decode_into()` to decode the right shape.
+- **One key, several schemas** — give each schema its own feature class (one per shape),
+  then add a separate **wrapper feature class** that holds a discriminated (tagged) union
+  (`std::variant`) of those schema classes. Register only the wrapper — so exactly one
+  registered class recognizes that key and the choice between schemas happens inside 
+  the wrapper class rather than during key routing. Example: the
+  schema classes `crypto_cnsa_tls_message` and `crypto_cnsa_ssh_message` each decode one
+  shape; the wrapper `cnsa_feature` holds
+  `std::variant<std::monostate, crypto_cnsa_tls_message, crypto_cnsa_ssh_message>`, and its
+  `decode_into()` reads the `cnsa_variant` discriminator, constructs the matching
+  alternative, and exposes typed access via `tls_if()`/`ssh_if()`.
+
+In both cases `matches()` decides recognition and `decode_into()` selects the shape.
+
+To add a new feature:
+
+1. **Add a non-owning feature class** in `cbor_messages.hpp` satisfying the feature
+   contract:
+   - `static <Msg> decode(datum &d[, const char *key])` — the factory that parses the
+     CBOR sub-map into a decoded instance; the workhorse each `decode_into()` delegates to;
+   - `static bool matches(datum key)` — recognize the feature's key (or key-group);
+   - `void decode_into(datum key, datum &d)` — route in place, then decode. For a
+     multi-key class, use the matched key to decode the right shape. For one key that
+     carries several schemas, write one feature class per schema and a separate wrapper
+     class holding a `std::variant` of them; register the wrapper, and have its
+     `decode_into()` read the discriminator and construct the matching alternative
+     (see `cnsa_feature`);
+   - `bool is_valid()`, `datum key()`, `datum cbor_span()` — validity, downstream key,
+     and the raw CBOR span a consumer reads the feature by;
+   - a templated `write<Object>(parent)` for serialization and a producer-side way to
+     populate it. A feature that can fire multiple times per packet must hold its
+     repeats internally; its `KEY` still appears once in the buffer.
+
+2. **Register it only if a consumer needs typed field access** — add the class to the
+   `typed_decoder<...>` type list in `cbor_decoded_metadata.hpp`. Otherwise skip this
+   step; the feature is still read fine through the `unknown` list.
+
+3. **Wire the encode path** in `src/libmerc/pkt_proc.cc`: add a visitor overload that
+   constructs, populates, and writes the feature class.
+
+4. **Add unit tests** in `cbor_decoded_metadata_test.hpp`: a round-trip test, an
+   unknown-field (forward-compat) test, and a protocol accessor test in the protocol's
+   `unit_test()`.
 
 5. **Document** the new message type in this file.
 
