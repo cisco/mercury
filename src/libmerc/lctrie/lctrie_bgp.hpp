@@ -9,7 +9,6 @@
 #include <string.h>
 #include <ctype.h>
 #include <typeinfo>
-#include <fstream>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -17,11 +16,6 @@
 #include "lctrie.hpp"
 #include <type_traits>
 #include "../ip_address.hpp"
-
-typedef struct lct_bgp_asn {
-  uint32_t num;
-  char *desc;
-} lct_bgp_asn_t;
 
 inline int
 lct_subnet_set_from_string(lct_subnet<uint32_t> *subnet, const char *subnet_string) {
@@ -100,62 +94,13 @@ lct_subnet_set_from_string(lct_subnet<ipv6_addr_lct> *subnet, const char *subnet
   return -1;  /* error parsing subnet_string */
 }
 
-// read the subnet to ASN file
-// return number of entries read
-// return negative on failure
-// template <typename T>
-// extern int
-// read_prefix_table(char *filename,
-//                   lct_subnet_t prefix[],
-//                   size_t prefix_size);
-
-template <typename T>
-int
-read_prefix_table(const char *filename,
-                  lct_subnet<T> prefix[],
-                  size_t prefix_size) {
-    int num = 0;
-    std::ifstream infile;
-
-    infile.open(filename);
-    if (!infile.is_open()) {
-        perror("ifstream::open");
-        return -1;
-    }
-
-    std::string line;
-    while (std::getline(infile, line)) {
-
-        // strip CRLF from Windows line endings
-        if (!line.empty() && line.back() == '\r') {
-            line.pop_back();
-        }
-
-        if ((size_t)num >= prefix_size) {
-            fprintf(stderr, "error: prefix buffer full at %d entries\n", num);
-            return -1;
-        }
-
-        if (lct_subnet_set_from_string(&prefix[num], line.c_str()) != 0) {
-            fprintf(stderr, "error: could not parse subnet string '%s'\n", line.c_str());
-            return -1;
-        }
-
-        num++;
-    }
-
-    infile.close();
-
-    return num;
-}
-
-// read the ASN to description file return number of entries read;
-// return negative on failure
-//
-int read_asn_table(char *filename,
-                   lct_bgp_asn_t prefix[],
-                   size_t prefix_size);
-
+///
+/// \brief Read subnet-to-ASN entries from an in-memory prefix table.
+/// \param data Prefix table text, one `address/length<TAB>asn` entry per line.
+/// \param prefix Destination prefix array.
+/// \param prefix_size Number of entries available in \p prefix.
+/// \return Number of entries read, or a negative value on failure.
+///
 template <typename T>
 int read_prefix_table_from_string(const char *data,
                                   lct_subnet<T> prefix[],
@@ -181,7 +126,7 @@ int read_prefix_table_from_string(const char *data,
 }
 
 #ifndef NDEBUG
-#define LCTRIE_BGP_MAX_ENTRIES 1024
+static constexpr size_t lctrie_bgp_max_entries = 1024;
 
 // LCOV_EXCL_START
 static inline bool lctrie_v4_unit_test(FILE *f = nullptr) {
@@ -214,17 +159,16 @@ static inline bool lctrie_v4_unit_test(FILE *f = nullptr) {
         "205.251.192.0/19\t16509\n";
 
     int num = 0;
-    lct_subnet<uint32_t> *p = (lct_subnet<uint32_t> *)calloc(LCTRIE_BGP_MAX_ENTRIES, sizeof(lct_subnet<uint32_t>));
+    lct_subnet<uint32_t> *p = (lct_subnet<uint32_t> *)calloc(lctrie_bgp_max_entries, sizeof(lct_subnet<uint32_t>));
     if (!p) { fprintf(stderr, "Could not allocate subnet input buffer\n"); return false; }
 
-    int rc = read_prefix_table_from_string<uint32_t>(ipv4_data, &p[num], LCTRIE_BGP_MAX_ENTRIES - num);
+    int rc = read_prefix_table_from_string<uint32_t>(ipv4_data, &p[num], lctrie_bgp_max_entries - num);
     if (rc < 0) { free(p); return false; }
     num += rc;
 
     subnet_mask_v4(p, num);
     qsort(p, num, sizeof(lct_subnet<uint32_t>), subnet_cmp<uint32_t>);
     num -= subnet_dedup(p, num);
-    p = (lct_subnet<uint32_t> *)realloc(p, num * sizeof(lct_subnet<uint32_t>));
 
     lct_ip_stats_t *stats = (lct_ip_stats_t *)calloc(num, sizeof(lct_ip_stats_t));
     if (!stats) { free(p); return false; }
@@ -612,17 +556,16 @@ static inline bool lctrie_v6_unit_test(FILE *f = nullptr) {
         "2001:1490::/32\t8895\n";
 
     int num = 0;
-    lct_subnet<ipv6_addr_lct> *p = (lct_subnet<ipv6_addr_lct> *)calloc(LCTRIE_BGP_MAX_ENTRIES, sizeof(lct_subnet<ipv6_addr_lct>));
+    lct_subnet<ipv6_addr_lct> *p = (lct_subnet<ipv6_addr_lct> *)calloc(lctrie_bgp_max_entries, sizeof(lct_subnet<ipv6_addr_lct>));
     if (!p) { fprintf(stderr, "Could not allocate subnet input buffer\n"); return false; }
 
-    int rc = read_prefix_table_from_string<ipv6_addr_lct>(ipv6_data, &p[num], LCTRIE_BGP_MAX_ENTRIES - num);
+    int rc = read_prefix_table_from_string<ipv6_addr_lct>(ipv6_data, &p[num], lctrie_bgp_max_entries - num);
     if (rc < 0) { free(p); return false; }
     num += rc;
 
     subnet_mask_v6(p, num);
     qsort(p, num, sizeof(lct_subnet<ipv6_addr_lct>), subnet_cmp<ipv6_addr_lct>);
     num -= subnet_dedup<ipv6_addr_lct>(p, num);
-    p = (lct_subnet<ipv6_addr_lct> *)realloc(p, num * sizeof(lct_subnet<ipv6_addr_lct>));
 
     lct_ip_stats_t *stats = (lct_ip_stats_t *)calloc(num, sizeof(lct_ip_stats_t));
     if (!stats) { free(p); return false; }
