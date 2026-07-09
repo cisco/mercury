@@ -360,6 +360,7 @@ End comment reassembly pruning logic */
 struct flow_table {
     std::unordered_map<struct key, unsigned int> table;
     std::unordered_map<struct key, unsigned int>::iterator reap_it;
+    static constexpr uint32_t max_entries = 1'000'000;
 
     flow_table(unsigned int size) : table{}, reap_it{table.end()} {
         table.reserve(size);
@@ -369,12 +370,29 @@ struct flow_table {
     bool flow_is_new(const struct key &k, unsigned int sec) {
 
         auto it = table.find(k);
-        if (it != table.end() && (sec - it->second < flow_table::timeout)) {
+        if (it != table.end()) {
+            bool expired = is_expired(it->second, sec);
             it->second = sec;
             reap(sec);
-            //printf_err(log_debug, "FLOW OLD\n");
-            return false;
+            //printf_err(log_debug, expired ? "FLOW REACTIVATED\n" : "FLOW OLD\n");
+            return expired;
         }
+
+        if (table.size() >= max_entries) {
+            // aggressive : try to remove two entries
+            increment_reap_iterator();
+            if (reap_it != table.end()) {
+                reap_it = table.erase(reap_it);
+            }
+            increment_reap_iterator();
+            if (reap_it != table.end()) {
+                reap_it = table.erase(reap_it);
+            }
+        }
+        else {
+            reap(sec);  // passive: try clean expired entries
+        }
+
         auto tmp = table.insert({k, sec}).first;
         update_reap_iterator(tmp);
         //printf_err(log_debug, "FLOW NEW\n");
@@ -384,18 +402,35 @@ struct flow_table {
     void reap(unsigned int sec) {
 
         // check for expired flows
-        if (reap_it != table.end() && (sec - reap_it->second > flow_table::timeout)) {
+        increment_reap_iterator();
+        if (reap_it != table.end() && is_expired(reap_it->second, sec)) {
             reap_it = table.erase(reap_it);
+        }
+        increment_reap_iterator();
+        if (reap_it != table.end() && is_expired(reap_it->second, sec)) {
+            reap_it = table.erase(reap_it);
+        }
+    }
+
+    static bool is_expired(unsigned int last_seen, unsigned int now) {
+        return (now - last_seen) >= timeout;
+    }
+
+    void increment_reap_iterator() {
+        if (reap_it != table.end()) {
+            ++reap_it;
+        } else {
+            reap_it = table.begin();
         }
     }
 
     void update_reap_iterator(std::unordered_map<struct key, unsigned int>::iterator x) {
         if (x != table.end()) {
-            reap_it = x++;
+            reap_it = x;
         }
     }
 
-    static const unsigned int timeout = 60 * 60; // seconds before flow timeout
+    static const unsigned int timeout = 120; // seconds before flow timeout
 
 };
 
@@ -465,7 +500,8 @@ struct flow_table_tcp {
         }
         auto it = table.find(k);
         if (it == table.end()) {
-            table.insert({k, {sec, seq}});
+            auto tmp = table.insert({k, {sec, seq}}).first;
+            update_reap_iterator(tmp);
             // printf_err(log_debug, "tcp_flow_table size: %zu\n", table.size());
         }
     }
@@ -558,6 +594,12 @@ struct flow_table_tcp {
             ++reap_it;
         } else {
             reap_it = table.begin();
+        }
+    }
+
+    void update_reap_iterator(std::unordered_map<struct key, struct tcp_context>::iterator x) {
+        if (x != table.end()) {
+            reap_it = x;
         }
     }
 
