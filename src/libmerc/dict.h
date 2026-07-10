@@ -111,7 +111,7 @@ public:
 
     // LCOV_EXCL_START
     /// unit_test(f) verifies that the dictionary is the same in both
-    /// the forard and inverse directions; perform this test only after
+    /// the forward and inverse directions; perform this test only after
     /// the dictionary has been populated.  Returns true if the test passed,
     /// and false otherwise.
     ///

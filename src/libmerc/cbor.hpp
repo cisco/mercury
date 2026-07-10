@@ -244,7 +244,7 @@ namespace cbor {
         /// `cbor::uint64::unit_test()` performs unit tests on the
         /// class \ref cbor::uint64 and returns `true` if they all pass,
         /// and `false` otherwise.  If \param f == `nullptr`, then no
-        /// outupt is written; otherwise, output is written to \param
+        /// output is written; otherwise, output is written to \param
         /// f.
         ///
         static bool unit_test(FILE *f=nullptr);
