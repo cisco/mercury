@@ -676,9 +676,9 @@ namespace redis{
 
         return true;
     }
-    // LCOV_EXCL_STOP
 
     static inline bool unit_test_passed = redis::unit_test();
+    // LCOV_EXCL_STOP
 #endif
 
 } // namespace redis

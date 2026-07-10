@@ -885,11 +885,11 @@ public:
         return get_ipv6_address(arry);
     }
 
+    // LCOV_EXCL_START
     // unit_test() is a static function that performs a unit test of
     // this class, using the example addresses from RFC 4291.  It
     // returns true if all tests pass, and false otherwise.
     //
-    // LCOV_EXCL_START
     static bool unit_test(FILE *f=nullptr) {
 
         const char * malformed_ipv6_addr_strings[] = {

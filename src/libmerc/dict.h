@@ -109,12 +109,12 @@ public:
         count = 0;
     }
 
+    // LCOV_EXCL_START
     /// unit_test(f) verifies that the dictionary is the same in both
     /// the forard and inverse directions; perform this test only after
     /// the dictionary has been populated.  Returns true if the test passed,
     /// and false otherwise.
     ///
-    // LCOV_EXCL_START
     bool unit_test(FILE *f) {
         // sanity check: output forward and reverse mappings, to enable comparison
         bool passed = true;

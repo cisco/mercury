@@ -99,6 +99,7 @@ public:
 
     // implements a test case for \ref utf8_string
     //
+    // LCOV_EXCL_START
     class test_case {
         std::vector<uint8_t> s_in;   // string to be parsed
         bool valid;                  // true is s_in is valid utf8; false otherwise
@@ -148,6 +149,7 @@ public:
         }
 
     };
+    // LCOV_EXCL_STOP
 
 };
 

@@ -219,9 +219,9 @@ public:
         }
         return true;
     }
-    // LCOV_EXCL_STOP
 
     static inline bool unit_test_passed = tofsee_initial_message::unit_test();
+    // LCOV_EXCL_STOP
 #endif // NDEBUG
 
 };

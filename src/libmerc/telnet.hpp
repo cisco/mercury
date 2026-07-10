@@ -269,10 +269,12 @@ public:
 ///
 inline bool unit_test();
 
+// LCOV_EXCL_START
 ///
 /// \brief Static test sentinel for debug builds.
 ///
 static inline bool unit_test_passed = telnet::unit_test();
+// LCOV_EXCL_STOP
 #endif
 
 // ===== Definitions =====

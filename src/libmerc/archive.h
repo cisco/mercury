@@ -683,6 +683,7 @@ public:
 
 namespace {
 
+// LCOV_EXCL_START
 struct gz_file_unit_test_tmpfile {
     std::string path;
     explicit gz_file_unit_test_tmpfile(std::string p) : path{std::move(p)} {}
@@ -693,7 +694,6 @@ struct gz_file_unit_test_tmpfile {
     }
 };
 
-// LCOV_EXCL_START
 inline bool gz_file_unit_test_make_temp_path(std::string &out_path) {
 #ifdef _WIN32
     char buf[L_tmpnam];

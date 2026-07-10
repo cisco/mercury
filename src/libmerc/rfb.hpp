@@ -51,10 +51,10 @@ namespace rfb {
 
     };
 
+    // LCOV_EXCL_START
     /// performs unit tests for VNC/RFB and returns true if all pass,
     /// and false otherwise
     ///
-    // LCOV_EXCL_START
     [[maybe_unused]] static bool unit_test() {
 
         uint8_t vnc_protocol_version[] = {

@@ -38,6 +38,7 @@ constexpr bool operator&(flow_direction_selector sel, flow_direction dir) {
     return static_cast<uint8_t>(sel) & static_cast<uint8_t>(dir);
 }
 
+// LCOV_EXCL_START
 /// \brief tests whether selector and packet direction have a non-zero bitwise AND
 ///
 /// For example, tests whether a packet's direction matches a
@@ -48,7 +49,6 @@ constexpr bool operator&(flow_direction_selector sel, flow_direction dir) {
 /// only to allow use in unit test frameworks that expect such
 /// behavior.
 ///
-// LCOV_EXCL_START
 [[maybe_unused]] inline bool flow_direction_selector_unit_test() {
     static_assert((flow_direction_selector::client & flow_direction::client)  == true);
     static_assert((flow_direction_selector::client & flow_direction::server)  == false);

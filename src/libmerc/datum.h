@@ -1518,10 +1518,10 @@ public:
 
 #ifndef NDEBUG
 
+// LCOV_EXCL_START
 // unit tests for class `writeable`, class `data_buffer`, and class
 // `dynamic_buffer`
 //
-// LCOV_EXCL_START
 namespace writeable_unit_test {
 
     // B must be data_buffer or dynamic_buffer
@@ -2537,13 +2537,13 @@ public:
         return (bool) slice<i,i+1>();
     }
 
+    // LCOV_EXCL_START
     /// encoded<T>::unit_test() returns true if there is a unit test
     /// for typename T defined and that test passed; otherwise, it
     /// returns false.  The unit test functions are template
     /// specializations, and they are only defined when NDEBUG is not
     /// `#defined`.
     ///
-    // LCOV_EXCL_START
     static bool unit_test() {
         return false;
     }
@@ -2763,10 +2763,10 @@ static_assert(sizeof(encoded<uint64_t>) == 8);
 //   the compiler flag `-UNDEBUG`), and call each one inside of an
 //   `assert()` macro, or whatever unit test function is appropriate.
 
+// LCOV_EXCL_START
 // returns `true` if that template specialization class passes its
 // unit test, and `false` otherwise.
 //
-// LCOV_EXCL_START
 template <>
 inline bool encoded<uint8_t>::unit_test() {
     encoded<uint8_t> x{0xaa};
@@ -2782,10 +2782,10 @@ inline bool encoded<uint8_t>::unit_test() {
 }
 // LCOV_EXCL_STOP
 
+// LCOV_EXCL_START
 // `encoded<uint16_t>::unit_test()` returns `true` if that class
 // passes its unit test, and `false` otherwise.
 //
-// LCOV_EXCL_START
 template <>
 inline bool encoded<uint16_t>::unit_test() {
     encoded<uint16_t> x{0x9f00};
@@ -2797,10 +2797,10 @@ inline bool encoded<uint16_t>::unit_test() {
 }
 // LCOV_EXCL_STOP
 
+// LCOV_EXCL_START
 // `encoded<uint32_t>::unit_test()` returns `true` if that class
 // passes its unit test, and `false` otherwise.
 //
-// LCOV_EXCL_START
 template <>
 inline bool encoded<uint32_t>::unit_test() {
     encoded<uint32_t> y = 0xa1b2c3df;
@@ -2820,10 +2820,10 @@ inline bool encoded<uint32_t>::unit_test() {
 }
 // LCOV_EXCL_STOP
 
+// LCOV_EXCL_START
 // `encoded<uint64_t>::unit_test()` returns `true` if that class
 // passes its unit test, and `false` otherwise.
 //
-// LCOV_EXCL_START
 template <>
 inline bool encoded<uint64_t>::unit_test() {
     encoded<uint64_t> y = 0xa1b2c3dfaabbccdd;

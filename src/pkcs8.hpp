@@ -167,11 +167,11 @@ public:
 
     }
 
+    // LCOV_EXCL_START
     // rsa_private_key::unit_test() is a static member function that
     // performs a unit test of the rsa_private_key class and returns
     // true if the unit tests passed, and false otherwise
     //
-    // LCOV_EXCL_START
     static bool unit_test(bool verbose=false) {
         uint8_t RSA_PRIVATE_KEY[] = {
             0x30, 0x82, 0x04, 0xa3, 0x02, 0x01, 0x00, 0x02,
@@ -528,10 +528,10 @@ public:
 
 #ifndef NDEBUG
 
+    // LCOV_EXCL_START
     // private_key_info::unit_test() returns true if the unit tests
     // passed, and false otherwise
     //
-    // LCOV_EXCL_START
     static bool unit_test(bool verbose=false) {
         uint8_t PRIVATE_KEY[] = {
             0x30, 0x82, 0x04, 0xbd, 0x02, 0x01, 0x00, 0x30,
@@ -723,9 +723,9 @@ public:
 
         return true;
     }
-    // LCOV_EXCL_STOP
 
     static inline bool unit_test_passed = rsa_private_key::unit_test();
+    // LCOV_EXCL_STOP
 #endif // NDEBUG not defined
 
 };

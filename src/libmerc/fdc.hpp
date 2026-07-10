@@ -667,6 +667,7 @@ namespace cbor_fingerprint {
 
     // test cbor fingerprint encoding and decoding
     //
+    // LCOV_EXCL_START
     static bool test_fingerprint(const char *fingerprint_string, FILE *f=nullptr) {
         data_buffer<2048> data_buf;
         datum fp_data{(uint8_t *)fingerprint_string, (uint8_t *)fingerprint_string + strlen(fingerprint_string)};
@@ -694,7 +695,6 @@ namespace cbor_fingerprint {
     // cbor_fingerprint::unit_test() returns `true` if all unit tests
     // pass, `false` otherwise
     //
-    // LCOV_EXCL_START
     [[maybe_unused]] static bool unit_test(FILE *f=nullptr) {
 
         // example fingerprints
@@ -873,10 +873,10 @@ public:
         }
     }
 
+    // LCOV_EXCL_START
     /// perform unit tests on class fdc, returning `true` if they pass
     /// and `false` otherwise
     ///
-    // LCOV_EXCL_START
     static bool unit_test(FILE *f=nullptr) {
 
         (void)f; // silence warning about unused paramer

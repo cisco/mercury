@@ -995,12 +995,12 @@ namespace cbor {
     }
     // LCOV_EXCL_STOP
 
+    // LCOV_EXCL_START
     /// unit_test() performs unit testing on all classes in the cbor
     /// namespace and returns true if they all pass, and false
     /// otherwise.  If \param f == `nullptr`, then no outupt is
     /// written; otherwise, output is written to \param f.
     ///
-    // LCOV_EXCL_START
     static inline bool unit_test(FILE *f=nullptr) {
         return uint64::unit_test(f)
             and byte_string::unit_test(f)
@@ -1009,9 +1009,9 @@ namespace cbor {
     }
     // LCOV_EXCL_STOP
 
+    // LCOV_EXCL_START
     // static unit test function for cbor::uint64
     //
-    // LCOV_EXCL_START
     inline bool cbor::uint64::unit_test(FILE *f) {
 
         // valid input and output pairs
@@ -1080,9 +1080,9 @@ namespace cbor {
     }
     // LCOV_EXCL_STOP
 
+    // LCOV_EXCL_START
     // static unit test function for cbor::byte_string
     //
-    // LCOV_EXCL_START
     inline bool cbor::byte_string::unit_test(FILE *f) {
 
         // valid input and output pairs
@@ -1141,9 +1141,9 @@ namespace cbor {
     }
     // LCOV_EXCL_STOP
 
+    // LCOV_EXCL_START
     // static unit test function for cbor::text_string
     //
-    // LCOV_EXCL_START
     inline bool cbor::text_string::unit_test(FILE *f) {
 
         // valid input and output pairs

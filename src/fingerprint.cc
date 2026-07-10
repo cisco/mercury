@@ -327,12 +327,12 @@ public:
 };
 
 
+// LCOV_EXCL_START
 // unit_test(f) performs unit testing on the NPF to JA3 conversion.
 // The argument f is either a FILE pointer (e.g. stderr, stdout) to
 // which data will be written (to enable a 'verbose' mode), or nullptr
 // (to enable a 'silent' mode).
 //
-// LCOV_EXCL_START
 bool unit_test(FILE *f) {
 
     struct test_case {

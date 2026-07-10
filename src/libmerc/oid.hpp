@@ -208,13 +208,13 @@ namespace asn1 {
     }
 
 
+    // LCOV_EXCL_START
     // returns true if OID unit tests passed, and false otherwise; if
     // \param f is non-NULL, print out verbose debugging information to
     // that `FILE`.
     //
     // \note: the unit tests may fail either at run time or at compile time
     //
-    // LCOV_EXCL_START
     static bool oid_unit_test(FILE *f=nullptr) {
         constexpr auto oid_id_pkix_ocsp_basic = oid<1,3,6,1,5,5,7,48,1,1>();
         constexpr auto oid_rsadsi = oid<1,2,840,113549>();
