@@ -1005,35 +1005,37 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
                           struct timespec *ts,
                           struct tcp_reassembler *reassembler) {
 
-    // Propagate Proto::additional_bytes_needed() into udp_pkt so truncation
-    // is reported even when reassembly is disabled or skipped.
-    auto check_additional_bytes = [&]() {
-        if (auto *qi = std::get_if<quic_init>(&x)) {
-            uint32_t more = qi->additional_bytes_needed();
-            if (more) {
-                udp_pkt.reassembly_needed(more);
-            }
-            return;
+    // Core UDP packet identification and parsing
+    const bool has_payload = pkt.is_not_empty();
+    set_udp_protocol(x, pkt, udp_pkt.get_ports(), /*is_new=*/false, k, udp_pkt);
+
+    // Unselected-UDP initial-data reporting.  Recording every non-DNS
+    // flow suppresses later unrecognized packets on a known flow.
+    if (global_vars.output_udp_initial_data) {
+        bool is_new = false;
+        const bool is_dns_family = std::holds_alternative<dns_packet>(x)
+                                || std::holds_alternative<mdns_packet>(x);
+        if (has_payload && !is_dns_family) {
+            is_new = ip_flow_table.flow_is_new(k, ts->tv_sec); // record flow
         }
+        if (is_new && std::holds_alternative<std::monostate>(x)) {
+            x.emplace<unknown_udp_initial_packet>(pkt);
+        }
+    }
+
+    // Propagate the parser's additional_bytes_needed() onto udp_pkt, so
+    // truncation is reported even when reassembly is disabled or skipped
+    if (auto *qi = std::get_if<quic_init>(&x)) {
+        if (uint32_t more = qi->additional_bytes_needed()) {
+            udp_pkt.reassembly_needed(more);
+        }
+    } else {
         std::visit(check_additional_bytes_needed{udp_pkt}, x);
-    };
+    }
 
     if (!reassembler || !global_vars.reassembly) {
-        bool is_new = false;
-        if (global_vars.output_udp_initial_data && pkt.is_not_empty()) {
-            is_new = ip_flow_table.flow_is_new(k, ts->tv_sec);
-        }
-        set_udp_protocol(x, pkt, udp_pkt.get_ports(), is_new, k, udp_pkt);
-        check_additional_bytes();
         return true;
     }
-
-    bool is_new = false;
-    if (global_vars.output_udp_initial_data && pkt.is_not_empty()) {
-        is_new = ip_flow_table.flow_is_new(k, ts->tv_sec);
-    }
-    set_udp_protocol(x, pkt, udp_pkt.get_ports(), is_new, k, udp_pkt);
-    check_additional_bytes();
 
     // QUIC: CRYPTO-frame sub-segmentation, separate from the offset trait.
     if (std::holds_alternative<quic_init>(x)) {
