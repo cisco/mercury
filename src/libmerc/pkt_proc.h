@@ -324,7 +324,7 @@ struct stateful_pkt_proc {
 
     void set_udp_protocol(protocol &x,
                           struct datum &pkt,
-                          udp::ports ports,
+                          udp_msg_type msg_type,
                           bool is_new,
                           const struct key& k,
                           udp &udp_pkt);
