@@ -368,17 +368,27 @@ struct json_object {
 /// so the key is omitted from the enclosing object entirely.
 ///
 /// Elements may be objects or arrays, so shapes such as `[]`, `[{}]`,
-/// and `[[]]` can all be constructed.
+/// and `[[]]` can all be constructed. Note that these empty shapes are
+/// what the writer is *capable* of; they are discouraged in protocol
+/// output, where empty objects and arrays should not appear (see
+/// doc/protocol-guidelines.md). Prefer `omit_if_empty` (below) to drop
+/// empty arrays entirely.
 ///
 struct json_array {
-    // core state, present for every array
-    buffer_stream *b;               // output buffer this array is written to
-    bool comma = false;             // whether a separator is needed before the next element
+    // ── state ──────────────────────────────────────────────────────────
+    //   unopened    : deferred array, '[' not yet written (omit_if_empty)
+    //   opened      : '[' written, no elements yet  → next element needs no comma
+    //   needs_comma : '[' written, >=1 element      → next element needs a comma
+    //
+    enum class state { unopened, opened, needs_comma };
+
+    buffer_stream *b;                 // output buffer this array is written to
+    state st = state::opened;         // default for eager arrays
 
     // deferred-output state, used only by omit_if_empty arrays (see ensure_open)
-    json_object *parent = nullptr;  // enclosing object, for the key and leading comma
-    const char *key = nullptr;      // this array's JSON key (a string literal)
-    bool opened = true;             // false until the opening '[' has been written
+    json_object *parent = nullptr;    // enclosing object, for the key and leading comma
+    const char *key = nullptr;        // this array's JSON key; see the omit_if_empty
+                                      // lifetime note on the constructors below
 
     void write_comma(bool &c) {
         if (c) {
@@ -389,20 +399,20 @@ struct json_array {
     }
 
     /// opens a deferred array by writing its key and the opening `[`.
-    /// This is a no-op unless the array was constructed with
-    /// `omit_if_empty == true` and has not yet been opened.
+    /// This is a no-op unless the array is still unopened (constructed
+    /// with `omit_if_empty == true` and not yet written to).
     ///
     void ensure_open() {
-        if (opened) {
+        if (st != state::unopened) {
             return;
         }
         // only object-taking constructors defer opening; they set parent/key
         assert(parent != nullptr && key != nullptr);
-        opened = true;
         write_comma(parent->comma);
         b->write_char('\"');
         b->puts(key);
         b->puts("\":[");
+        st = state::opened;
     }
 
     /// prepares the array to receive its next element: opens the array
@@ -411,10 +421,14 @@ struct json_array {
     ///
     void begin_element() {
         ensure_open();
-        write_comma(comma);
+        if (st == state::needs_comma) {
+            b->write_char(',');
+        } else {
+            st = state::needs_comma;  // first element: no comma, but next one needs it
+        }
     }
 
-    explicit json_array(struct buffer_stream *buf) : b{buf} {
+    explicit json_array(struct buffer_stream *buf) : b{buf}, st{state::opened} {
         b->write_char('[');
     }
 
@@ -423,7 +437,7 @@ struct json_array {
     /// constructor is `explicit`, so the copy constructor
     /// (`const json_array &`) below is still selected for copies.
     ///
-    explicit json_array(json_array &a) : b{a.b} {
+    explicit json_array(json_array &a) : b{a.b}, st{state::opened} {
         a.begin_element();
         b->write_char('[');
     }
@@ -435,8 +449,20 @@ struct json_array {
     /// element is ever added, so an empty array is omitted from the output
     /// entirely.
     ///
+    /// \warning When `omit_if_empty == true`, \param name is not copied: the
+    /// pointer is stored in \ref key and only dereferenced later, when the
+    /// array is opened on its first element (or never). The caller must keep
+    /// \param name valid until the array is opened or closed. A string literal
+    /// (the usual argument) satisfies this; do \b not pass a pointer into a
+    /// temporary, e.g. `std::string{...}.c_str()`. With the default
+    /// `omit_if_empty == false` the key is written immediately and this
+    /// restriction does not apply.
+    ///
     json_array(struct json_object &object, const char *name, bool omit_if_empty = false) :
-        b{object.b}, parent{&object}, key{name}, opened{!omit_if_empty}
+        b{object.b},
+        st{omit_if_empty ? state::unopened : state::opened},
+        parent{&object},
+        key{name}
     {
         if (!omit_if_empty) {
             write_comma(object.comma);
@@ -447,7 +473,10 @@ struct json_array {
     }
     /// \overload
     json_array(struct json_object *object, const char *name, bool omit_if_empty = false) :
-        b{object->b}, parent{object}, key{name}, opened{!omit_if_empty}
+        b{object->b},
+        st{omit_if_empty ? state::unopened : state::opened},
+        parent{object},
+        key{name}
     {
         if (!omit_if_empty) {
             write_comma(object->comma);
@@ -457,17 +486,22 @@ struct json_array {
         }
     }
 
-    // copy constructor for std::optional compatibility
+    // copy constructor for std::optional compatibility; preserves whether the
+    // array was opened but resets the element count (needs_comma -> opened),
+    // matching the previous comma{false}/opened{other.opened} behavior.
     //
     json_array(const json_array &other) :
-        b{other.b}, comma{false}, parent{other.parent}, key{other.key}, opened{other.opened} { }
+        b{other.b},
+        st{other.st == state::unopened ? state::unopened : state::opened},
+        parent{other.parent},
+        key{other.key} { }
 
     // delete assignment operator to prevent unintended copies
     //
     json_array& operator=(const json_array&) = delete;
 
     void close() {
-        if (opened) {
+        if (st != state::unopened) {
             b->write_char(']');
         }
     }
@@ -579,7 +613,7 @@ inline void json_object::reinit(struct json_array &array) {
     b->write_char(',');
     b->write_char('{');
     comma = false;
-    array.comma = true;
+    array.st = json_array::state::needs_comma;
 }
 
 template <typename T>

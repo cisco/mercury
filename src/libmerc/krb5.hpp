@@ -6,6 +6,7 @@
 #define KRB5_HPP
 
 
+#include <string>
 #include <variant>
 #include "datum.h"
 #include "x509.h"
@@ -802,16 +803,22 @@ namespace krb5 {
                     if (seq.is_valid()) {
                         json_array value{pad, pa_type_name, /*omit_if_empty=*/true};
                         datum entries = seq.value;
+                        bool wrote_entry = false;
                         while (entries.is_not_empty()) {
                             etype_info2_entry entry{entries};
                             if (entry.is_valid()) {
                                 json_object entry_json{value};
                                 entry.write_json(entry_json);
                                 entry_json.close();
+                                wrote_entry = true;
                             }
                         }
                         value.close();
-                        handled = true;
+                        // only mark handled when at least one entry was
+                        // emitted; otherwise fall through to the value_hex
+                        // fallback so a valid-but-undecodable sequence isn't
+                        // dropped from the output entirely
+                        handled = wrote_entry;
                     }
                 } else if (pa_type_code == pa_data_type<uint32_t>::PA_ENC_TIMESTAMP) {
                     datum enc_data = octets.value;
