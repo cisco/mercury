@@ -1005,18 +1005,23 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
                           struct timespec *ts,
                           struct tcp_reassembler *reassembler) {
 
-    // Core UDP packet identification and parsing
-    const bool has_payload = pkt.is_not_empty();
+    // Core UDP packet identification and parsing.
+    //
+    // is_new is passed as false: no protocol parser currently consults it,
+    // so there is no need to look up the flow table before parsing.  If a
+    // future parser needs to know whether this is the first packet in the
+    // flow, this code must be refactored to query ip_flow_table.flow_is_new()
+    // before calling set_udp_protocol() and pass the result in here.
     set_udp_protocol(x, pkt, udp_pkt.get_ports(), /*is_new=*/false, k, udp_pkt);
 
-    // Unselected-UDP initial-data reporting.  Recording every non-DNS
-    // flow suppresses later unrecognized packets on a known flow.
     if (global_vars.output_udp_initial_data) {
         bool is_new = false;
-        const bool is_dns_family = std::holds_alternative<dns_packet>(x)
-                                || std::holds_alternative<mdns_packet>(x);
-        if (has_payload && !is_dns_family) {
-            is_new = ip_flow_table.flow_is_new(k, ts->tv_sec); // record flow
+        // Exclude DNS from the flow table.  Due to the high volume of DNS
+        // traffic, tracking DNS flows would fill the table too quickly.
+        const dns_packet *dns = std::get_if<dns_packet>(&x);
+        const bool is_dns = (dns != nullptr && !dns->netbios());
+        if (!is_dns) {
+            is_new = ip_flow_table.flow_is_new(k, ts->tv_sec);
         }
         if (is_new && std::holds_alternative<std::monostate>(x)) {
             x.emplace<unknown_udp_initial_packet>(pkt);
