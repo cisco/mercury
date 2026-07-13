@@ -1285,6 +1285,7 @@ namespace crypto_policy {
         } while (pos != std::string::npos);
     }
 
+    // LCOV_EXCL_START
     [[maybe_unused]] static bool unit_test() {
         quantum_safe assessor{true};
         char buff[1024];
@@ -1626,6 +1627,7 @@ namespace crypto_policy {
 
         return true;
     }
+    // LCOV_EXCL_STOP
 
 }; // namespace crypto_policy
 

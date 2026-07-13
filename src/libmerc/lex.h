@@ -276,6 +276,7 @@ public:
     }
 };
 
+// LCOV_EXCL_START
 namespace lex_unit_test {
 
 #ifndef NDEBUG
@@ -316,5 +317,6 @@ namespace lex_unit_test {
 #endif // NDEBUG
 
 } // namespace lex_unit_test
+// LCOV_EXCL_STOP
 
 #endif // LEX_H

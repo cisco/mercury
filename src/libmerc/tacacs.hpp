@@ -377,6 +377,7 @@ namespace tacacs {
         return result;
     }
 
+    // LCOV_EXCL_START
     [[maybe_unused]] static bool unit_test()  {
 
         FILE *output = nullptr;   // set this to obtain verbose output
@@ -569,6 +570,7 @@ namespace tacacs {
         return passed;
 
     }
+    // LCOV_EXCL_STOP
 
 };
 

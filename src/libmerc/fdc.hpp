@@ -667,6 +667,7 @@ namespace cbor_fingerprint {
 
     // test cbor fingerprint encoding and decoding
     //
+    // LCOV_EXCL_START
     static bool test_fingerprint(const char *fingerprint_string, FILE *f=nullptr) {
         data_buffer<2048> data_buf;
         datum fp_data{(uint8_t *)fingerprint_string, (uint8_t *)fingerprint_string + strlen(fingerprint_string)};
@@ -721,6 +722,7 @@ namespace cbor_fingerprint {
         }
         return all_tests_passed;
     }
+    // LCOV_EXCL_STOP
 };
 
 // define types of reassembly or truncation possible in the FDC object.
@@ -871,6 +873,7 @@ public:
         }
     }
 
+    // LCOV_EXCL_START
     /// perform unit tests on class fdc, returning `true` if they pass
     /// and `false` otherwise
     ///
@@ -973,6 +976,7 @@ public:
         }
         return true;
     }
+    // LCOV_EXCL_STOP
 
 private:
 

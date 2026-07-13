@@ -327,6 +327,7 @@ public:
     }
 
 #ifndef NDEBUG
+    // LCOV_EXCL_START
     /// unit_test() tests the kdf_tls13() function using test vectors from
     /// RFC 9001 Appendix A - QUIC Sample Packet Protection.
     /// Returns true if all tests pass, false otherwise.
@@ -493,6 +494,7 @@ public:
 
         return all_passed;
     }
+    // LCOV_EXCL_STOP
 #endif
 
 };

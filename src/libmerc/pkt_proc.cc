@@ -681,7 +681,7 @@ void stateful_pkt_proc::set_tcp_protocol(protocol &x,
 //
 void stateful_pkt_proc::set_udp_protocol(protocol &x,
                       struct datum &pkt,
-                      udp::ports ports,
+                      udp_msg_type msg_type,
                       bool is_new,
                       const struct key& k,
                       udp &udp_pkt) {
@@ -689,12 +689,6 @@ void stateful_pkt_proc::set_udp_protocol(protocol &x,
 
     // note: std::get<T>() throws exceptions; it might be better to
     // use get_if<T>(), which does not
-
-    // enum msg_type msg_type = udp_get_message_type(pkt.data, pkt.length());
-    // if (msg_type == msg_type_unknown) {
-    //     msg_type = udp_pkt.estimate_msg_type_from_ports();
-    // }
-    enum udp_msg_type msg_type = (udp_msg_type) selector.get_udp_msg_type(pkt, ports);
 
     switch(msg_type) {
     case udp_msg_type_dns:
@@ -918,21 +912,29 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
         std::visit(check_additional_bytes_needed{udp_pkt}, x);
     };
 
+    // Derive UDP msg_type up-front so we can skip flow-table churn for
+    // stateless request/response protocols. DNS in particular dominates
+    // ip_flow_table growth (unique ephemeral src port per query) while
+    // never consulting `is_new` in set_udp_protocol.
+    udp::ports ports = udp_pkt.get_ports();
+    udp_msg_type msg_type = (udp_msg_type) selector.get_udp_msg_type(pkt, ports);
+    const bool tracks_flow = (msg_type != udp_msg_type_dns);
+
     if (!reassembler || !global_vars.reassembly) {
         bool is_new = false;
-        if (global_vars.output_udp_initial_data && pkt.is_not_empty()) {
+        if (tracks_flow && global_vars.output_udp_initial_data && pkt.is_not_empty()) {
             is_new = ip_flow_table.flow_is_new(k, ts->tv_sec);
         }
-        set_udp_protocol(x, pkt, udp_pkt.get_ports(), is_new, k, udp_pkt);
+        set_udp_protocol(x, pkt, msg_type, is_new, k, udp_pkt);
         check_additional_bytes();
         return true;
     }
 
     bool is_new = false;
-    if (global_vars.output_udp_initial_data && pkt.is_not_empty()) {
+    if (tracks_flow && global_vars.output_udp_initial_data && pkt.is_not_empty()) {
         is_new = ip_flow_table.flow_is_new(k, ts->tv_sec);
     }
-    set_udp_protocol(x, pkt, udp_pkt.get_ports(), is_new, k, udp_pkt);
+    set_udp_protocol(x, pkt, msg_type, is_new, k, udp_pkt);
     check_additional_bytes();
 
     // QUIC: CRYPTO-frame sub-segmentation, separate from the offset trait.

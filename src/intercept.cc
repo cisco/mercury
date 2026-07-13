@@ -773,7 +773,7 @@ public:
             k.dst_port = udp_ports.dst;
             k.protocol = 17;
             udp udp_pkt{k};
-            pkt_proc_ctx->set_udp_protocol(udp_proto, udp_pkt_data, udp_pkt.get_ports(), true, k, udp_pkt);
+            pkt_proc_ctx->set_udp_protocol(udp_proto, udp_pkt_data, msg_type, true, k, udp_pkt);
             is_udp = (msg_type != udp_msg_type_unknown) && (std::holds_alternative<std::monostate>(udp_proto) == false) && (std::holds_alternative<unknown_udp_initial_packet>(udp_proto) == false);
         }
         if (!is_tcp && !is_udp) {
@@ -853,7 +853,7 @@ public:
         k.dst_port = udp_ports.dst;
         k.protocol = 17;
         udp udp_pkt{k};
-        pkt_proc_ctx->set_udp_protocol(udp_proto, udp_pkt_data, udp_pkt.get_ports(), true, k, udp_pkt);
+        pkt_proc_ctx->set_udp_protocol(udp_proto, udp_pkt_data, msg_type, true, k, udp_pkt);
         is_udp = (msg_type != udp_msg_type_unknown) && (std::holds_alternative<std::monostate>(udp_proto) == false) && (std::holds_alternative<unknown_udp_initial_packet>(udp_proto) == false);
 
         if (!is_udp) {

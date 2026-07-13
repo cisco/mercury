@@ -81,6 +81,7 @@ public:
     return 0;
 }
 
+// LCOV_EXCL_START
 namespace vxlan_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
@@ -108,5 +109,6 @@ namespace vxlan_unit_test {
     }
 #endif
 } // namespace vxlan_unit_test
+// LCOV_EXCL_STOP
 
 #endif  // VXLAN_HPP

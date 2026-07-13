@@ -160,6 +160,7 @@ namespace std {
 }
 
 
+// LCOV_EXCL_START
 bool ipv4_address::unit_test(FILE *output) {  // output=nullptr by default
     test_case test_cases[] = {
         {
@@ -207,6 +208,7 @@ bool ipv4_address::unit_test(FILE *output) {  // output=nullptr by default
 
     return all_passed;
 }
+// LCOV_EXCL_STOP
 
 
 using ipv6_array_t = std::array<uint8_t, 16>;
@@ -354,12 +356,14 @@ namespace std {
     };
 }
 
+// LCOV_EXCL_START
 inline bool ipv6_address::unit_test() {
 
     // ipv6_address addr;
 
     return true;   // tests passed
 }
+// LCOV_EXCL_STOP
 
 
 /// convert an array of `uint8_t`s into an ipv6_address
@@ -514,6 +518,7 @@ public:
     //
     uint32_t get_value() const { return value; }
 
+    // LCOV_EXCL_START
     static bool unit_test(FILE *f=nullptr) {
         std::pair<const char *, ipv4_t> ipv4_addr_examples[] = {
 #if (__BYTE_ORDER == __LITTLE_ENDIAN)
@@ -543,6 +548,7 @@ public:
 
         return true;
     }
+    // LCOV_EXCL_STOP
 
 };
 
@@ -879,6 +885,7 @@ public:
         return get_ipv6_address(arry);
     }
 
+    // LCOV_EXCL_START
     // unit_test() is a static function that performs a unit test of
     // this class, using the example addresses from RFC 4291.  It
     // returns true if all tests pass, and false otherwise.
@@ -971,6 +978,7 @@ public:
 
         return true;
     }
+    // LCOV_EXCL_STOP
 
 };
 

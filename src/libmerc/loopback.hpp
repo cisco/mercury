@@ -56,6 +56,7 @@ public:
 
 };
 
+// LCOV_EXCL_START
 namespace loopback_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
@@ -93,5 +94,6 @@ namespace loopback_unit_test {
     }
 #endif
 } // namespace loopback_unit_test
+// LCOV_EXCL_STOP
 
 #endif // LOOPBACK_HPP
