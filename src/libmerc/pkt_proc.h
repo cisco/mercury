@@ -139,7 +139,7 @@ struct stateful_pkt_proc {
     class traffic_selector &selector;
     quic_crypto_engine quic_crypto;
     struct tcp_reassembler *reassembler_ptr = nullptr;
-    std::vector<const crypto_policy::assessor *> crypto_policies;
+    std::vector<crypto_policy::assessor *> crypto_policies;
     const bool exposed_creds = false;
     cbor_metadata_context cbor_meta;
 

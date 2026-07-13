@@ -106,111 +106,58 @@ struct do_crypto_assessment {
                   "(json_object / cbor_object / null_object)");
     using Array = typename Object::array_type;
 
-    const std::vector<const crypto_policy::assessor *>& ca;
+    const std::vector<crypto_policy::assessor *>& ca;   // elements non-const: emit/fill mutate them
     Object &output_;
     cbor_metadata_context *cbor_meta_ = nullptr;
 
-    crypto_cnsa_tls_message cnsa_tls_msg;
-    crypto_cnsa_ssh_message cnsa_ssh_msg;
-    crypto_nist_message nist_msg;
-
-    do_crypto_assessment(const std::vector<const crypto_policy::assessor *>& ca_,
+    do_crypto_assessment(const std::vector<crypto_policy::assessor *>& ca_,
                          Object& output,
                          cbor_metadata_context* cbor_meta = nullptr)
         : ca{ca_}, output_{output}, cbor_meta_{cbor_meta} {}
 
+    // One assessment pass, protocol-agnostic. Emitting modes (json_object / cbor_object) run the
+    // FILL path (each policy populates its own message) then emit; NO_OUTPUT (null_object) runs
+    // the compliance-only path and populates/writes nothing.
     template<typename MsgType>
-    crypto_assess_result assess_tls(const MsgType &msg) {
+    crypto_assess_result assess_impl(const MsgType &msg) {
         crypto_assess_result result;
-        for (const auto& assessor : ca) {
-            if constexpr (is_emitting_writer_v<Object>) {
-                if (assessor->get_result_idx() == crypto_policy::quantum_safe::result_idx) {
-                    result.set(assessor->get_result_idx(), !assessor->assess(msg, cnsa_tls_msg));
-                } else if (assessor->get_result_idx() == crypto_policy::nist_sp_800_52::result_idx) {
-                    result.set(assessor->get_result_idx(), !assessor->assess(msg, nist_msg));
-                } else {
-                    result.set(assessor->get_result_idx(), !assessor->assess(msg));
-                }
-            } else {
-                result.set(assessor->get_result_idx(), !assessor->assess(msg));
-            }
-        }
         if constexpr (is_emitting_writer_v<Object>) {
+            for (auto* assessor : ca) {
+                result.set(assessor->get_result_idx(), !assessor->assess_and_fill(msg));
+            }
             if constexpr (std::is_same_v<Object, json_object>) {
                 Array assessor_record{output_, "cryptographic_security_assessment"};
-                if (cnsa_tls_msg.is_valid()) {
-                    cnsa_tls_msg.write<Object>(assessor_record);
-                }
-                if (nist_msg.is_valid()) {
-                    nist_msg.write<Object>(assessor_record);
-                }
+                for (auto* assessor : ca) { assessor->emit(assessor_record); }
                 assessor_record.close();
             } else {
-                if (cnsa_tls_msg.is_valid() && !cnsa_tls_msg.is_compliant()) {
-                    cbor::text_string(crypto_cnsa_tls_message::KEY).write(output_.get_writeable());
-                    cnsa_tls_msg.write<Object>(output_);
-                    if (cbor_meta_) { cbor_meta_->set_feature_written(); }
-                }
-                if (nist_msg.is_valid() && !nist_msg.is_compliant()) {
-                    cbor::text_string(crypto_nist_message::KEY).write(output_.get_writeable());
-                    nist_msg.write<Object>(output_);
-                    if (cbor_meta_) { cbor_meta_->set_feature_written(); }
-                }
+                for (auto* assessor : ca) { assessor->emit(output_, cbor_meta_); }
+            }
+        } else {
+            for (const auto* assessor : ca) {
+                result.set(assessor->get_result_idx(), !assessor->assess(msg));
             }
         }
         return result;
     }
 
-    template<typename MsgType>
-    crypto_assess_result assess_ssh(const MsgType &msg) {
-        crypto_assess_result result;
-        for (const auto& assessor : ca) {
-            if constexpr (is_emitting_writer_v<Object>) {
-                if (assessor->get_result_idx() == crypto_policy::quantum_safe::result_idx) {
-                    result.set(assessor->get_result_idx(), !assessor->assess(msg, cnsa_ssh_msg));
-                } else {
-                    result.set(assessor->get_result_idx(), !assessor->assess(msg));
-                }
-            } else {
-                result.set(assessor->get_result_idx(), !assessor->assess(msg));
-            }
-        }
-        if constexpr (is_emitting_writer_v<Object>) {
-            if constexpr (std::is_same_v<Object, json_object>) {
-                Array assessor_record{output_, "cryptographic_security_assessment"};
-                if (cnsa_ssh_msg.is_valid()) {
-                    cnsa_ssh_msg.write<Object>(assessor_record);
-                }
-                assessor_record.close();
-            } else {
-                if (cnsa_ssh_msg.is_valid() && !cnsa_ssh_msg.is_compliant()) {
-                    cbor::text_string(crypto_cnsa_ssh_message::KEY).write(output_.get_writeable());
-                    cnsa_ssh_msg.write<Object>(output_);
-                    if (cbor_meta_) { cbor_meta_->set_feature_written(); }
-                }
-            }
-        }
-        return result;
-    }
-
-    crypto_assess_result operator()(const tls_client_hello &msg) { return assess_tls(msg); }
-    crypto_assess_result operator()(const tls_server_hello &msg) { return assess_tls(msg); }
-    crypto_assess_result operator()(const tls_server_hello_and_certificate &msg) { return assess_tls(msg); }
-    crypto_assess_result operator()(const dtls_client_hello &msg) { return assess_tls(msg); }
-    crypto_assess_result operator()(const dtls_server_hello &msg) { return assess_tls(msg); }
+    crypto_assess_result operator()(const tls_client_hello &msg) { return assess_impl(msg); }
+    crypto_assess_result operator()(const tls_server_hello &msg) { return assess_impl(msg); }
+    crypto_assess_result operator()(const tls_server_hello_and_certificate &msg) { return assess_impl(msg); }
+    crypto_assess_result operator()(const dtls_client_hello &msg) { return assess_impl(msg); }
+    crypto_assess_result operator()(const dtls_server_hello &msg) { return assess_impl(msg); }
 
     crypto_assess_result operator()(const quic_init &msg) {
-        if (msg.has_tls()) { return assess_tls(msg.get_tls_client_hello()); }
+        if (msg.has_tls()) { return assess_impl(msg.get_tls_client_hello()); }
         return crypto_assess_result{};
     }
 
     crypto_assess_result operator()(const ssh_init_packet &msg) {
-        if (msg.kex_pkt.is_not_empty()) { return assess_ssh(msg.kex_pkt); }
+        if (msg.kex_pkt.is_not_empty()) { return assess_impl(msg.kex_pkt); }
         return crypto_assess_result{};
     }
 
     crypto_assess_result operator()(const ssh_kex_init &msg) {
-        if (msg.is_not_empty()) { return assess_ssh(msg); }
+        if (msg.is_not_empty()) { return assess_impl(msg); }
         return crypto_assess_result{};
     }
 
