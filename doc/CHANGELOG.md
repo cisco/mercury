@@ -1,5 +1,24 @@
 # CHANGELOG for Mercury
 
+## VERSION 2.19.0
+* Added capture interface autodetection capability.
+* Added DTLS ClientHello telemetry.
+* Added 'alternative' construct for PEG/BNF alternatives in protocol parsing.
+* Extended --http-body-max to report HTTP body bytes without requiring
+  --metadata, and honored the option in standalone mercury (0-2048 bytes).
+* Suppressed empty JSON arrays in Kerberos output.
+* Fixed stats output to UTF-8-normalize and JSON-escape server-name and
+  user-agent strings.
+* Fixed unbounded growth in the UDP flow table (added an entry cap and shorter
+  timeout, and skip DNS insertions).
+* Fixed intercept compilation: missing includes and syslog type shadowing.
+* Fixed mismatched-tag warnings in the CDP parser.
+* Fixed the exactly_n lexer to consume exactly n bytes and fail on shortfall.
+* Fixed HTTP/2 HPACK "literal header never indexed" bitmask check.
+* Refactored lctrie unit tests to run from any directory.
+* CI: pinned the macOS wheel runner to macos-15 for the mercury-python wheel.
+* CI: excluded test-only code and xsimd from coverage reports.
+
 ## VERSION 2.18.0
 * Added DTLS ClientHello reassembly via a generalized, trait-driven
   UDP offset reassembly path reusable by any UDP protocol.
