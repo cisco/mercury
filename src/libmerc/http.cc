@@ -383,6 +383,10 @@ void http_response::parse(struct datum &p) {
 }
 
 void http_response::write_json(struct json_object &record, bool metadata) {
+    if (!this->is_not_empty()) {
+        return;
+    }
+
     struct json_object http{record, "http"};
     struct json_object http_response{http, "response"};
     http_response.print_key_json_string("version", version.data, version.length());
