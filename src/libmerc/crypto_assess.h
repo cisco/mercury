@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <array>
 #include <memory>
+#include <optional>
 #include "json_object.h"
 #include "tls_parameters.hpp"
 #include "tls_extensions.hpp"

@@ -6,6 +6,7 @@
 #define KRB5_HPP
 
 
+#include <string>
 #include <variant>
 #include "datum.h"
 #include "x509.h"
@@ -150,7 +151,7 @@ namespace krb5 {
             tlv type_int{name_type.value, tlv::INTEGER, "type"};
             const int64_t name_type_value = asn1::to_int64(type_int.value);
             pn.print_key_string_or_unknown_code("type", name_type_get_string(name_type_value), name_type_value);
-            json_array array{pn, "names"};
+            json_array array{pn, "names", /*omit_if_empty=*/true};
             tlv tmp_seq{name_sequence.value, tlv::SEQUENCE, "tmp_seq"};
             while (tmp_seq.value.is_not_empty()) {
                 tlv name{tmp_seq};
@@ -379,7 +380,7 @@ namespace krb5 {
                 return;
             }
 
-            json_array arr{o, name};
+            json_array arr{o, name, /*omit_if_empty=*/true};
             datum tmp = seq.value;
             while (tmp.is_not_empty()) {
                 host_address h{tmp};
@@ -655,7 +656,7 @@ namespace krb5 {
                 rtime.print_as_json_generalized_time(o, "rtime");
             }
             o.print_key_uint("nonce", asn1::to_uint64(nonce.value));
-            json_array etype_array{o, "etype"};
+            json_array etype_array{o, "etype", /*omit_if_empty=*/true};
             datum tmp = etype.value;
             while (tmp.is_not_empty()) {
                 tlv e{tmp};
@@ -735,6 +736,8 @@ namespace krb5 {
             valid = sequence.is_not_null() && etype.is_not_null();
         }
 
+        bool is_valid() const { return valid && etype; }
+
         void write_json(json_object &o) const {
             if (!valid || !etype) {
                 return;
@@ -789,27 +792,33 @@ namespace krb5 {
                     tlv app_req_tlv{app_data, KRB5_APP_AP_REQ, "pa_tgs_req.ap_req"};
                     ap_req req{app_req_tlv.value};
                     if (req.is_valid()) {
-                        if (req.is_valid()) {
-                            json_object value{pad, pa_type_name};
-                            req.write_json(value);
-                            value.close();
-                            handled = true;
-                        }
+                        json_object value{pad, pa_type_name};
+                        req.write_json(value);
+                        value.close();
+                        handled = true;
                     }
                 } else if (pa_type_code == pa_data_type<uint32_t>::PA_ETYPE_INFO2) {
                     datum seq_data = octets.value;
                     tlv seq{seq_data, tlv::SEQUENCE, "pa_etype_info2.sequence"};
                     if (seq.is_valid()) {
-                        json_array value{pad, pa_type_name};
+                        json_array value{pad, pa_type_name, /*omit_if_empty=*/true};
                         datum entries = seq.value;
+                        bool wrote_entry = false;
                         while (entries.is_not_empty()) {
                             etype_info2_entry entry{entries};
-                            json_object entry_json{value};
-                            entry.write_json(entry_json);
-                            entry_json.close();
+                            if (entry.is_valid()) {
+                                json_object entry_json{value};
+                                entry.write_json(entry_json);
+                                entry_json.close();
+                                wrote_entry = true;
+                            }
                         }
                         value.close();
-                        handled = true;
+                        // only mark handled when at least one entry was
+                        // emitted; otherwise fall through to the value_hex
+                        // fallback so a valid-but-undecodable sequence isn't
+                        // dropped from the output entirely
+                        handled = wrote_entry;
                     }
                 } else if (pa_type_code == pa_data_type<uint32_t>::PA_ENC_TIMESTAMP) {
                     datum enc_data = octets.value;
@@ -851,7 +860,7 @@ namespace krb5 {
             if (!valid) {
                 return;
             }
-            json_array pa_array{o, name};
+            json_array pa_array{o, name, /*omit_if_empty=*/true};
             datum tmp = content;
             while (tmp.is_not_empty()) {
                 pa_data data{tmp};
@@ -1518,5 +1527,191 @@ namespace krb5 {
 [[maybe_unused]] inline int krb5_fuzz_test(const uint8_t *data, size_t size) {
     return json_output_fuzzer<krb5::packet>(data, size);
 }
+
+namespace krb5_unit_test {
+
+    // Helper: run fn(json_object&) into a buffer, return result as string.
+    //
+    template <typename F>
+    static std::string run(F fn) {
+        dynamic_buffer_stream buf{256};
+        json_object o{&buf};
+        fn(o);
+        o.close();
+        datum d = buf.get_datum();
+        return std::string{(const char *)d.data, (size_t)d.length()};
+    }
+
+    // kdc_options with all-zero flags: field must be absent from output.
+    //
+    // Wire: BIT STRING, tag=0x03, len=5, unused_bits=0, four zero bytes.
+    //
+    [[maybe_unused]] static bool test_kdc_options_zero_flags() {
+        uint8_t wire[] = { 0x03, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00 };
+        datum d{wire, wire + sizeof(wire)};
+        auto observed = run([&](json_object &o) {
+            krb5::kdc_options{d}.print_as_json(o, "kdc_options");
+        });
+        return observed == "{}";
+    }
+
+    // kdc_options with bit 1 set (forwardable): array must appear.
+    //
+    // Wire: BIT STRING, unused_bits=0, first data byte=0x40 (bit 1 set).
+    //
+    [[maybe_unused]] static bool test_kdc_options_forwardable() {
+        uint8_t wire[] = { 0x03, 0x05, 0x00, 0x40, 0x00, 0x00, 0x00 };
+        datum d{wire, wire + sizeof(wire)};
+        auto observed = run([&](json_object &o) {
+            krb5::kdc_options{d}.print_as_json(o, "kdc_options");
+        });
+        return observed == R"({"kdc_options":["forwardable"]})";
+    }
+
+    // host_addresses with an empty SEQUENCE: field must be absent from output.
+    //
+    // Wire: SEQUENCE { }, tag=0x30, len=0.
+    //
+    [[maybe_unused]] static bool test_host_addresses_empty() {
+        uint8_t wire[] = { 0x30, 0x00 };
+        datum d{wire, wire + sizeof(wire)};
+        auto observed = run([&](json_object &o) {
+            krb5::host_addresses{d}.write_json(o, "addresses");
+        });
+        return observed == "{}";
+    }
+
+    // host_addresses with one IPv4 entry: array must appear with the address.
+    //
+    // Wire: SEQUENCE { SEQUENCE { [0]{INTEGER(2)} [1]{OCTET_STRING(192.168.1.1)} } }
+    //
+    [[maybe_unused]] static bool test_host_addresses_one_ipv4() {
+        uint8_t wire[] = {
+            0x30, 0x0f,              // outer SEQUENCE OF
+              0x30, 0x0d,            // inner SEQUENCE (one host_address)
+                0xa0, 0x03,          // [0] EXPLICIT
+                  0x02, 0x01, 0x02,  // INTEGER 2 (IPv4)
+                0xa1, 0x06,          // [1] EXPLICIT
+                  0x04, 0x04,        // OCTET STRING, 4 bytes
+                    0xc0, 0xa8, 0x01, 0x01  // 192.168.1.1
+        };
+        datum d{wire, wire + sizeof(wire)};
+        auto observed = run([&](json_object &o) {
+            krb5::host_addresses{d}.write_json(o, "addresses");
+        });
+        return observed == R"({"addresses":[{"type":2,"type_name":"ipv4","address":"192.168.1.1"}]})";
+    }
+
+    // host_addresses with one malformed entry (SEQUENCE with no addr_type/addr_value):
+    // field must be absent from output even though the outer SEQUENCE is non-empty.
+    //
+    // Wire: SEQUENCE { SEQUENCE { } }  — inner entry has no recognized fields.
+    //
+    [[maybe_unused]] static bool test_host_addresses_malformed_entry() {
+        uint8_t wire[] = {
+            0x30, 0x02,   // outer SEQUENCE OF
+              0x30, 0x00  // inner SEQUENCE, empty (no addr_type, no addr_value)
+        };
+        datum d{wire, wire + sizeof(wire)};
+        auto observed = run([&](json_object &o) {
+            krb5::host_addresses{d}.write_json(o, "addresses");
+        });
+        return observed == "{}";
+    }
+
+    // principal_name whose name-string SEQUENCE is empty: the "names"
+    // array must be absent, but the enclosing object (with "type") remains.
+    //
+    // Wire: SEQUENCE { [0]{INTEGER 1} [1]{SEQUENCE { }} }
+    //
+    [[maybe_unused]] static bool test_principal_name_empty_names() {
+        uint8_t wire[] = {
+            0x30, 0x09,              // SEQUENCE (PrincipalName)
+              0xa0, 0x03,            // [0] name-type
+                0x02, 0x01, 0x01,    //   INTEGER 1 (NT_PRINCIPAL)
+              0xa1, 0x02,            // [1] name-string
+                0x30, 0x00           //   SEQUENCE OF, empty
+        };
+        datum d{wire, wire + sizeof(wire)};
+        auto observed = run([&](json_object &o) {
+            tlv pn_tlv{d, tlv::SEQUENCE, "principal_name"};
+            krb5::principal_name{pn_tlv}.write_json(o, "cname");
+        });
+        return observed == R"({"cname":{"type":"PRINCIPAL"}})";
+    }
+
+    // principal_name with one name string: the "names" array must appear.
+    //
+    // Wire: SEQUENCE { [0]{INTEGER 1} [1]{SEQUENCE { GeneralString "krbtgt" }} }
+    //
+    [[maybe_unused]] static bool test_principal_name_with_names() {
+        uint8_t wire[] = {
+            0x30, 0x11,                          // SEQUENCE (PrincipalName)
+              0xa0, 0x03,                        // [0] name-type
+                0x02, 0x01, 0x01,                //   INTEGER 1 (NT_PRINCIPAL)
+              0xa1, 0x0a,                        // [1] name-string
+                0x30, 0x08,                      //   SEQUENCE OF
+                  0x1b, 0x06,                    //     GeneralString, 6 bytes
+                    0x6b, 0x72, 0x62, 0x74, 0x67, 0x74  // "krbtgt"
+        };
+        datum d{wire, wire + sizeof(wire)};
+        auto observed = run([&](json_object &o) {
+            tlv pn_tlv{d, tlv::SEQUENCE, "principal_name"};
+            krb5::principal_name{pn_tlv}.write_json(o, "cname");
+        });
+        return observed == R"({"cname":{"type":"PRINCIPAL","names":["krbtgt"]}})";
+    }
+
+    // principal_name whose name-string SEQUENCE contains only a zero-length
+    // (unreadable) entry: the array is skipped entirely, so "names" must be
+    // absent rather than emitted as an empty array.
+    //
+    // Wire: SEQUENCE { [0]{INTEGER 1} [1]{SEQUENCE { GeneralString "" }} }
+    //
+    [[maybe_unused]] static bool test_principal_name_unreadable_entry() {
+        uint8_t wire[] = {
+            0x30, 0x0b,              // SEQUENCE (PrincipalName)
+              0xa0, 0x03,            // [0] name-type
+                0x02, 0x01, 0x01,    //   INTEGER 1 (NT_PRINCIPAL)
+              0xa1, 0x04,            // [1] name-string
+                0x30, 0x02,          //   SEQUENCE OF
+                  0x1b, 0x00         //     GeneralString, 0 bytes (unreadable)
+        };
+        datum d{wire, wire + sizeof(wire)};
+        auto observed = run([&](json_object &o) {
+            tlv pn_tlv{d, tlv::SEQUENCE, "principal_name"};
+            krb5::principal_name{pn_tlv}.write_json(o, "cname");
+        });
+        return observed == R"({"cname":{"type":"PRINCIPAL"}})";
+    }
+
+    // pa_data_sequence with empty content: the array field must be absent.
+    //
+    // A non-null but empty datum makes the sequence valid with zero entries.
+    //
+    [[maybe_unused]] static bool test_pa_data_sequence_empty() {
+        uint8_t wire[] = { 0x00 };
+        datum d{wire, wire};  // non-null, empty (data == data_end)
+        auto observed = run([&](json_object &o) {
+            krb5::pa_data_sequence{d}.write_json(o, "padata");
+        });
+        return observed == "{}";
+    }
+
+    [[maybe_unused]] static bool unit_test() {
+        bool passed = true;
+        passed &= test_kdc_options_zero_flags();
+        passed &= test_kdc_options_forwardable();
+        passed &= test_host_addresses_empty();
+        passed &= test_host_addresses_one_ipv4();
+        passed &= test_host_addresses_malformed_entry();
+        passed &= test_principal_name_empty_names();
+        passed &= test_principal_name_with_names();
+        passed &= test_principal_name_unreadable_entry();
+        passed &= test_pa_data_sequence_empty();
+        return passed;
+    }
+
+} // namespace krb5_unit_test
 
 #endif // KRB5_H
