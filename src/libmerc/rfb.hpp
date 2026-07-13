@@ -51,6 +51,7 @@ namespace rfb {
 
     };
 
+    // LCOV_EXCL_START
     /// performs unit tests for VNC/RFB and returns true if all pass,
     /// and false otherwise
     ///
@@ -85,6 +86,7 @@ namespace rfb {
         }
         return false;
     }
+    // LCOV_EXCL_STOP
 
 };
 

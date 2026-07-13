@@ -153,6 +153,7 @@ struct cdp {
     return json_output_fuzzer<cdp>(data, size);
 }
 
+// LCOV_EXCL_START
 namespace cdp_unit_test {
 
 #ifndef NDEBUG
@@ -195,5 +196,6 @@ namespace cdp_unit_test {
 #endif
 
 } // namespace cdp_unit_test
+// LCOV_EXCL_STOP
 
 #endif // CDP_H

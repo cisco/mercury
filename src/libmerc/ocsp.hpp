@@ -172,6 +172,7 @@ namespace ocsp {
 
         bool is_valid() const { return tbs.is_valid(); }
 
+        // LCOV_EXCL_START
         static bool unit_test(FILE *output=nullptr) {
             constexpr std::array<uint8_t, 83> ocsp_req = {
                 0x30, 0x51, 0x30, 0x4f, 0x30, 0x4d, 0x30, 0x4b, 0x30, 0x49, 0x30, 0x09,
@@ -199,6 +200,7 @@ namespace ocsp {
             return (buf.memcmp(json_output, strlen(json_output)) == 0);
 
         }
+        // LCOV_EXCL_STOP
 
     };
 

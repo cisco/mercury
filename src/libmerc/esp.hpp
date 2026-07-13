@@ -116,6 +116,7 @@ public:
     return json_output_fuzzer<esp>(data, size);
 }
 
+// LCOV_EXCL_START
 namespace esp_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
@@ -152,5 +153,6 @@ namespace esp_unit_test {
     }
 #endif
 } // namespace esp_unit_test
+// LCOV_EXCL_STOP
 
 #endif // ESP_H

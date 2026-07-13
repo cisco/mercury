@@ -1054,6 +1054,7 @@ namespace stun {
     return 0;
 }
 
+// LCOV_EXCL_START
 namespace stun_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
@@ -1272,6 +1273,7 @@ namespace stun_unit_test {
     }
 #endif
 } // namespace stun_unit_test
+// LCOV_EXCL_STOP
 
 // STUN implementation notes
 //
