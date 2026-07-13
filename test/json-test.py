@@ -76,6 +76,14 @@ mercury_schema = {
                              'user_agent':      {'type': 'string'},
                              'x-forwarded-for': {'type': 'string'}
                              }
+                         },
+                     'response': {
+                         'type': 'object',
+                         'properties': {
+                             'version':         {'type': 'string'},
+                             'status_code':     {'type': 'string'},
+                             'status_reason':   {'type': 'string'}
+                             }
                          }
                  },
                  "additionalProperties": False
