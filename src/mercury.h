@@ -50,6 +50,7 @@ struct mercury_config {
     char *write_filename;           /* base name of pcap file to write, if any        */
     char *fingerprint_filename;     /* base name of fingerprint file to write, if any */
     char *stats_filename;           /* base name of stats file to write, if any       */
+    bool capture_mode;              /* capture packets from a network interface       */
     char *capture_interface;        /* base name of interface to capture from, if any */
     char *working_dir;              /* working directory                              */
     int flags;                      /* flags for open()                               */
@@ -79,7 +80,7 @@ struct cap_stats {
 };
 
 
-#define mercury_config_init() { NULL, NULL, NULL, NULL, NULL, NULL, O_EXCL, (char *)"w", 0, 0.1, 0.8, 1, 0, NULL, 1, 0, 0, 0, false, 300, 0 }
+#define mercury_config_init() { NULL, NULL, NULL, NULL, false, NULL, NULL, O_EXCL, (char *)"w", 0, 0.1, 0.8, 1, 0, NULL, 1, 0, 0, 0, false, 300, 0 }
 
 
 #endif /* MERCURY_H */

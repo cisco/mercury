@@ -235,9 +235,10 @@ public:
 };
 
 [[maybe_unused]] inline int syslog_fuzz_test(const uint8_t *data, size_t size) {
-    return json_output_fuzzer<syslog>(data, size);
+    return json_output_fuzzer<class syslog>(data, size);
 }
 
+// LCOV_EXCL_START
 namespace syslog_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
@@ -310,5 +311,6 @@ namespace syslog_unit_test {
     }
 #endif
 } // namespace syslog_unit_test
+// LCOV_EXCL_STOP
 
 #endif // SYSLOG_HPP

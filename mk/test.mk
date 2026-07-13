@@ -57,8 +57,6 @@ test: all unittest test-comp test-analysis test-cert-check \
 	fi
 
 # --- unittest ---------------------------------------------------------
-# Run the binary from the repository root so repo-relative fixture paths
-# work consistently for the built-in unit tests.
 
 $(OBJ)/src/unit_test.o: CXXFLAGS := $(filter-out -DNDEBUG,$(CXXFLAGS))
 
@@ -439,6 +437,28 @@ else
 	@printf '$(COLOR_YELLOW)  omitting dummy-capture test; tcpreplay unavailable$(COLOR_OFF)\n'
 endif
 
+# --- Auto-detect capture test (requires root; Linux only) -------------
+
+.PHONY: test-auto-capture
+test-auto-capture: $(BIN)/mercury
+ifeq ($(IS_MACOS),yes)
+	@printf '$(COLOR_YELLOW)  error: auto-detect capture test is Linux only$(COLOR_OFF)\n'
+	@false
+else ifneq ($(shell id -u),0)
+	@printf '$(COLOR_YELLOW)  error: auto-detect capture test must be run as root$(COLOR_OFF)\n'
+	@false
+else
+	@echo "--- auto-detect capture test ---"
+	@rm -rf $(TESTDIR)/auto-capture
+	@mkdir -p $(TESTDIR)/auto-capture
+	@bash -c '$(_mercury) --capture auto $(_DROP_ROOT) \
+	    -f $(abspath $(TESTDIR)/auto-capture)/output.json \
+	    2> $(abspath $(TESTDIR)/auto-capture)/stderr.log & \
+	    pid=$$!; sleep 2; kill -INT $$pid || true; wait $$pid || true'
+	grep "^auto-detecting interface: " $(abspath $(TESTDIR)/auto-capture)/stderr.log
+	@printf '$(COLOR_GREEN)  passed auto-detect capture test$(COLOR_OFF)\n'
+endif
+
 # --- AFL fuzz test ----------------------------------------------------
 
 _AFL_FUZZ_CMD := --metadata --dns-json --certs-json --analysis -f /dev/null
@@ -518,6 +538,9 @@ _run-coverage: $(BIN)/unit_test $(BIN)/mercury $(LIB)/libmerc.so
 	lcov -q $(_cov_filter_flags) --remove $(_cov_dir)/total.info \
 	  '*/rapidjson/*' \
 	  '*/unit_tests/*' \
+	  '*/src/unit_test.cpp' \
+	  '*/src/libmerc_test.c' \
+	  '*/xsimd/*' \
 	  '/usr/*' \
 	  -o $(_cov_dir)/filtered.info
 	@_branch=$$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown); \
@@ -596,6 +619,9 @@ _run-coverage-fuzz: $(BIN)/unit_test $(BIN)/mercury $(LIB)/libmerc.so
 	lcov -q $(_cov_filter_flags) --remove $(_cov_fuzz_dir)/total.info \
 	  '*/rapidjson/*' \
 	  '*/unit_tests/*' \
+	  '*/src/unit_test.cpp' \
+	  '*/src/libmerc_test.c' \
+	  '*/xsimd/*' \
 	  '*/test/fuzz/*' \
 	  '/usr/*' \
 	  -o $(_cov_fuzz_dir)/filtered.info

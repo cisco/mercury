@@ -229,6 +229,7 @@ namespace rdp {
 
     };
 
+    // LCOV_EXCL_START
     [[maybe_unused]] static bool unit_test() {
 
         // input: an RDP Connection Request PDU
@@ -273,6 +274,7 @@ namespace rdp {
         }
         return false;
     }
+    // LCOV_EXCL_STOP
 
 }
 

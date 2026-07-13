@@ -550,6 +550,7 @@ public:
     return json_output_fuzzer<dhcp_message>(data, size);
 }
 
+// LCOV_EXCL_START
 namespace dhcp_unit_test {
 
 #ifndef NDEBUG
@@ -583,5 +584,6 @@ namespace dhcp_unit_test {
 #endif
 
 } // namespace dhcp_unit_test
+// LCOV_EXCL_STOP
 
 #endif /* DHCP_H */

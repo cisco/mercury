@@ -122,6 +122,7 @@ public:
     return json_output_fuzzer<ospf>(data, size);
 }
 
+// LCOV_EXCL_START
 namespace ospf_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
@@ -178,5 +179,6 @@ namespace ospf_unit_test {
     }
 #endif
 } // namespace ospf_unit_test
+// LCOV_EXCL_STOP
 
 #endif // OSPF_H

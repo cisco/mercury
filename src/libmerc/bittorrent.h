@@ -511,6 +511,7 @@ public:
     return 0;
 }
 
+// LCOV_EXCL_START
 namespace bittorrent_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
@@ -535,5 +536,6 @@ namespace bittorrent_unit_test {
     }
 #endif
 } // namespace bittorrent_unit_test
+// LCOV_EXCL_STOP
 
 #endif // BITTORRENT_H

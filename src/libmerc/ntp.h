@@ -127,6 +127,7 @@ public:
     return json_output_fuzzer<ntp>(data, size);
 }
 
+// LCOV_EXCL_START
 namespace ntp_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
@@ -173,6 +174,7 @@ namespace ntp_unit_test {
     }
 #endif
 } // namespace ntp_unit_test
+// LCOV_EXCL_STOP
 
 // NTP udp.data examples:
 //

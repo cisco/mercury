@@ -153,6 +153,7 @@ struct cdp {
     return json_output_fuzzer<cdp>(data, size);
 }
 
+// LCOV_EXCL_START
 namespace cdp_unit_test {
 
 #ifndef NDEBUG
@@ -168,7 +169,7 @@ namespace cdp_unit_test {
             0x00, 0x0b, 0x00, 0x05, 0x01
         };
         datum d{frame, frame + sizeof(frame)};
-        class cdp pkt{d};
+        cdp pkt{d};
         if (!pkt.is_not_empty()) return false;
 
         buffer_stream buf{buffer, sizeof(buffer)};
@@ -187,7 +188,7 @@ namespace cdp_unit_test {
             0x00, 0x01, 0x00, 0x06, 'r', '1'
         };
         datum d2{minimal, minimal + sizeof(minimal)};
-        class cdp pkt2{d2};
+        cdp pkt2{d2};
         if (!pkt2.is_not_empty()) return false;
 
         return true;
@@ -195,5 +196,6 @@ namespace cdp_unit_test {
 #endif
 
 } // namespace cdp_unit_test
+// LCOV_EXCL_STOP
 
 #endif // CDP_H

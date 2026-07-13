@@ -523,6 +523,7 @@ int json_output_fuzzer(const uint8_t *data, size_t size) {
 }
 
 
+// LCOV_EXCL_START
 /// test a json output by parsing the \ref datum \param raw_input as
 /// an object of type \param T, writing out the json representation of
 /// that object, then comparing that json to the \param
@@ -552,6 +553,7 @@ inline bool test_json_output(datum raw_input,
     }
     return retval;
 }
+// LCOV_EXCL_STOP
 
 
 /// represents a bit flag as a \ref json_array of strings
@@ -735,6 +737,7 @@ json_file_object::json_file_object(struct json_file_array &array) : f{array.f} {
 #include <string>
 #include <string_view>
 
+// LCOV_EXCL_START
 [[maybe_unused]] inline bool json_object_unit_test(FILE *f = nullptr) {
     constexpr auto npos = std::string_view::npos;
 
@@ -830,6 +833,7 @@ json_file_object::json_file_object(struct json_file_array &array) : f{array.f} {
 
     return true;
 }
+// LCOV_EXCL_STOP
 
 #endif // NDEBUG
 

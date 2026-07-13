@@ -258,6 +258,7 @@ constexpr std::array<uint8_t, M + N> operator+(const std::array<uint8_t, M> &x,
 //
 #ifndef NDEBUG
 
+// LCOV_EXCL_START
 /// \brief Runs unit tests on the `_hex` and `_hexvector` user-defined
 /// literals and returns `true` if the unit tests pass, and `false`
 /// otherwise
@@ -303,6 +304,7 @@ inline bool hex_udl_unit_tests() {
 
     return true;
 }
+// LCOV_EXCL_STOP
 
 #endif // NDEBUG
 

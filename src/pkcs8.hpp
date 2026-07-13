@@ -167,6 +167,7 @@ public:
 
     }
 
+    // LCOV_EXCL_START
     // rsa_private_key::unit_test() is a static member function that
     // performs a unit test of the rsa_private_key class and returns
     // true if the unit tests passed, and false otherwise
@@ -355,6 +356,7 @@ public:
 
         return true;
     }
+    // LCOV_EXCL_STOP
 
 };
 
@@ -526,6 +528,7 @@ public:
 
 #ifndef NDEBUG
 
+    // LCOV_EXCL_START
     // private_key_info::unit_test() returns true if the unit tests
     // passed, and false otherwise
     //
@@ -722,6 +725,7 @@ public:
     }
 
     static inline bool unit_test_passed = rsa_private_key::unit_test();
+    // LCOV_EXCL_STOP
 #endif // NDEBUG not defined
 
 };

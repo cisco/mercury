@@ -86,6 +86,7 @@ public:
     return 0;
 }
 
+// LCOV_EXCL_START
 namespace gre_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
@@ -127,5 +128,6 @@ namespace gre_unit_test {
     }
 #endif
 } // namespace gre_unit_test
+// LCOV_EXCL_STOP
 
 #endif

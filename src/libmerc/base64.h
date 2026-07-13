@@ -222,6 +222,7 @@ public:
         return j;
     }
 
+    // LCOV_EXCL_START
     // class unit_test_case holds a single test case for
     // base64::decode()
     //
@@ -283,6 +284,7 @@ public:
     //
     inline static const bool unit_tests_passed = unit_test();
 #endif
+    // LCOV_EXCL_STOP
 
 };
 

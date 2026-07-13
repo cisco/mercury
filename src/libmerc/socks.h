@@ -603,6 +603,7 @@ namespace {
 
 };
 
+// LCOV_EXCL_START
 namespace socks_unit_test {
 
 #ifndef NDEBUG
@@ -695,5 +696,6 @@ namespace socks_unit_test {
 #endif
 
 } // namespace socks_unit_test
+// LCOV_EXCL_STOP
 
 #endif  // SOCKS_H
