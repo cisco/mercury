@@ -901,8 +901,6 @@ public:
 
         return true;
     }
-
-    static inline bool unit_test_passed = unit_test();
 #endif
 };
 
