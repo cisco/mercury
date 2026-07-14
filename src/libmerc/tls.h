@@ -375,6 +375,7 @@ struct tls_extensions : public datum {
     }
 
 #ifndef NDEBUG
+    // LCOV_EXCL_START
     static bool unit_test() {
         uint8_t extensions[] = {
         0x00, 0x3f, 0x00, 0x01, 0x01,   //check if unassigned extension is encoded correctly
@@ -417,6 +418,7 @@ struct tls_extensions : public datum {
         return true;
 
     }
+    // LCOV_EXCL_STOP
 #endif //NDEBUG
 };
 

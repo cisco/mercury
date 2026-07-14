@@ -208,6 +208,7 @@ namespace asn1 {
     }
 
 
+    // LCOV_EXCL_START
     // returns true if OID unit tests passed, and false otherwise; if
     // \param f is non-NULL, print out verbose debugging information to
     // that `FILE`.
@@ -229,6 +230,7 @@ namespace asn1 {
 
         return all_passed;
     }
+    // LCOV_EXCL_STOP
 
 }  // namespace asn1
 

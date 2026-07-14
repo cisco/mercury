@@ -140,6 +140,7 @@ namespace tftp {
 
     };
 
+    // LCOV_EXCL_START
     /// runs unit tests on tftp::packet and returns true if all pass, and false otherwise
     ///
     [[maybe_unused]] static bool unit_test() {
@@ -190,6 +191,7 @@ namespace tftp {
         }
         return false;
     }
+    // LCOV_EXCL_STOP
 
     // registered port: 69
 

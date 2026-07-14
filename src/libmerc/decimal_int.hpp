@@ -214,6 +214,7 @@ inline decimal_integer<T>::decimal_integer(datum &d) {
 
 #ifndef NDEBUG
 
+// LCOV_EXCL_START
 template <typename T>
 struct decimal_integer_test_case {
     datum text;
@@ -389,6 +390,7 @@ inline bool decimal_integer_unit_test(FILE *f=nullptr) {
 
     return result;
 }
+// LCOV_EXCL_STOP
 
 #endif // NDEBUG
 

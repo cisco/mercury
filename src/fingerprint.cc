@@ -327,6 +327,7 @@ public:
 };
 
 
+// LCOV_EXCL_START
 // unit_test(f) performs unit testing on the NPF to JA3 conversion.
 // The argument f is either a FILE pointer (e.g. stderr, stdout) to
 // which data will be written (to enable a 'verbose' mode), or nullptr
@@ -373,6 +374,7 @@ bool unit_test(FILE *f) {
     if (f) { fprintf(f, "unit test passed\n"); }
     return true;
 }
+// LCOV_EXCL_STOP
 
 std::string ja3_ir_to_bp(const std::string &s) {
 

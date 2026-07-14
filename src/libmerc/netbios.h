@@ -352,6 +352,7 @@ namespace {
     }
 }; // end of namespace
 
+// LCOV_EXCL_START
 namespace netbios_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
@@ -478,6 +479,7 @@ namespace netbios_unit_test {
     }
 #endif
 } // namespace netbios_unit_test
+// LCOV_EXCL_STOP
 
 
 #endif

@@ -11,6 +11,7 @@
 #include "datum.h"
 #include "utf8.hpp"
 
+#include <cassert>
 #include <cinttypes>
 #include <cstdint>
 #include <iostream>
@@ -37,14 +38,31 @@ template <typename T>
 constexpr bool has_write_v = has_write<T>::value;
 
 
-/*
- * json_object and json_array serialize JSON objects and arrays,
- * respectively, into a buffer
- */
-
+/// \brief serializes a JSON object into a \ref buffer_stream.
+///
+/// Key/value pairs are added with the `print_key_*` members and the
+/// object is terminated by \ref close; separators are inserted
+/// automatically.  For example, this writes
+/// `{"msg_type":11,"realm":"EXAMPLE"}`:
+///
+///     json_object o{buf};
+///     o.print_key_uint("msg_type", 11);
+///     o.print_key_string("realm", "EXAMPLE");
+///     o.close();
+///
+/// Objects and arrays can be nested.  This writes
+/// `{"id":7,"addr":{"ip":"10.0.0.1"}}`:
+///
+///     json_object o{buf};
+///     o.print_key_uint("id", 7);
+///     json_object addr{o, "addr"};
+///     addr.print_key_string("ip", "10.0.0.1");
+///     addr.close();
+///     o.close();
+///
 struct json_object {
-    buffer_stream *b;
-    bool comma = false;
+    buffer_stream *b;      // output buffer this object is written to
+    bool comma = false;    // whether a separator is needed before the next member
 
     void write_comma(bool &c) {
         if (c) {
@@ -333,9 +351,45 @@ struct json_object {
 
 };
 
+/// \brief serializes a JSON array into a \ref buffer_stream, one element
+/// at a time.
+///
+/// Elements are appended with the `print_*` members and the array is
+/// terminated by \ref close; separators are inserted automatically.
+/// For example, this writes `"etype":[17,23]`:
+///
+///     json_array a{obj, "etype"};
+///     a.print_uint(17);
+///     a.print_uint(23);
+///     a.close();
+///
+/// With `omit_if_empty == true` the array is written lazily: one that
+/// receives no elements emits nothing at all (not even `"etype":[]`),
+/// so the key is omitted from the enclosing object entirely.
+///
+/// Elements may be objects or arrays, so shapes such as `[]`, `[{}]`,
+/// and `[[]]` can all be constructed. Note that these empty shapes are
+/// what the writer is *capable* of; they are discouraged in protocol
+/// output, where empty objects and arrays should not appear (see
+/// doc/protocol-guidelines.md). Prefer `omit_if_empty` (below) to drop
+/// empty arrays entirely.
+///
 struct json_array {
-    buffer_stream *b;
-    bool comma = false;
+    // ── state ──────────────────────────────────────────────────────────
+    //   unopened    : deferred array, '[' not yet written (omit_if_empty)
+    //   opened      : '[' written, no elements yet  → next element needs no comma
+    //   needs_comma : '[' written, >=1 element      → next element needs a comma
+    //
+    enum class state { unopened, opened, needs_comma };
+
+    buffer_stream *b;                 // output buffer this array is written to
+    state st = state::opened;         // default for eager arrays
+
+    // deferred-output state, used only by omit_if_empty arrays (see ensure_open)
+    json_object *parent = nullptr;    // enclosing object, for the key and leading comma
+    const char *key = nullptr;        // this array's JSON key; see the omit_if_empty
+                                      // lifetime note on the constructors below
+
     void write_comma(bool &c) {
         if (c) {
             b->write_char(',');
@@ -343,39 +397,116 @@ struct json_array {
             c = true;
         }
     }
-    explicit json_array(struct buffer_stream *buf) : b{buf} {
-        b->write_char('[');
-    }
-    explicit json_array(json_array &a) : b{a.b} {
-        write_comma(a.comma);
-        b->write_char('[');
-    }
-    json_array(struct json_object &object, const char *name) : b{object.b} {
-        write_comma(object.comma);
+
+    /// opens a deferred array by writing its key and the opening `[`.
+    /// This is a no-op unless the array is still unopened (constructed
+    /// with `omit_if_empty == true` and not yet written to).
+    ///
+    void ensure_open() {
+        if (st != state::unopened) {
+            return;
+        }
+        // only object-taking constructors defer opening; they set parent/key
+        assert(parent != nullptr && key != nullptr);
+        write_comma(parent->comma);
         b->write_char('\"');
-        b->puts(name);
+        b->puts(key);
         b->puts("\":[");
-    }
-    json_array(struct json_object *object, const char *name) : b{object->b} {
-        write_comma(object->comma);
-        b->write_char('\"');
-        b->puts(name);
-        b->puts("\":[");
+        st = state::opened;
     }
 
-    // copy constructor for std::optional compatibility
+    /// prepares the array to receive its next element: opens the array
+    /// if it was deferred (see \ref json_array::ensure_open), then writes
+    /// an element separator if this is not the first element
+    ///
+    void begin_element() {
+        ensure_open();
+        if (st == state::needs_comma) {
+            b->write_char(',');
+        } else {
+            st = state::needs_comma;  // first element: no comma, but next one needs it
+        }
+    }
+
+    explicit json_array(struct buffer_stream *buf) : b{buf}, st{state::opened} {
+        b->write_char('[');
+    }
+
+    /// creates a nested array as an element of the array \param a.
+    /// note: the parameter is a non-const reference and this
+    /// constructor is `explicit`, so the copy constructor
+    /// (`const json_array &`) below is still selected for copies.
+    ///
+    explicit json_array(json_array &a) : b{a.b}, st{state::opened} {
+        a.begin_element();
+        b->write_char('[');
+    }
+
+    /// creates a \ref json_array field with the name \param name inside
+    /// the \ref json_object \param object. If \param omit_if_empty is
+    /// `true`, the array is opened lazily: nothing is written until the
+    /// first element is added, and \ref json_array::close is a no-op if no
+    /// element is ever added, so an empty array is omitted from the output
+    /// entirely.
+    ///
+    /// \warning When `omit_if_empty == true`, \param name is not copied: the
+    /// pointer is stored in \ref key and only dereferenced later, when the
+    /// array is opened on its first element (or never). The caller must keep
+    /// \param name valid until the array is opened or closed. A string literal
+    /// (the usual argument) satisfies this; do \b not pass a pointer into a
+    /// temporary, e.g. `std::string{...}.c_str()`. With the default
+    /// `omit_if_empty == false` the key is written immediately and this
+    /// restriction does not apply.
+    ///
+    json_array(struct json_object &object, const char *name, bool omit_if_empty = false) :
+        b{object.b},
+        st{omit_if_empty ? state::unopened : state::opened},
+        parent{&object},
+        key{name}
+    {
+        if (!omit_if_empty) {
+            write_comma(object.comma);
+            b->write_char('\"');
+            b->puts(name);
+            b->puts("\":[");
+        }
+    }
+    /// \overload
+    json_array(struct json_object *object, const char *name, bool omit_if_empty = false) :
+        b{object->b},
+        st{omit_if_empty ? state::unopened : state::opened},
+        parent{object},
+        key{name}
+    {
+        if (!omit_if_empty) {
+            write_comma(object->comma);
+            b->write_char('\"');
+            b->puts(name);
+            b->puts("\":[");
+        }
+    }
+
+    // copy constructor for std::optional compatibility; preserves whether the
+    // array was opened but resets the element count (needs_comma -> opened),
+    // matching the previous comma{false}/opened{other.opened} behavior.
     //
-    json_array(const json_array &other) : b{other.b}, comma{false} { }
+    json_array(const json_array &other) :
+        b{other.b},
+        st{other.st == state::unopened ? state::unopened : state::opened},
+        parent{other.parent},
+        key{other.key} { }
 
     // delete assignment operator to prevent unintended copies
     //
     json_array& operator=(const json_array&) = delete;
 
     void close() {
-        b->write_char(']');
+        if (st != state::unopened) {
+            b->write_char(']');
+        }
     }
     void print_bool(bool x) {
-        write_comma(comma);
+        begin_element();
         if (x) {
             b->puts("true");
         } else {
@@ -383,35 +514,35 @@ struct json_array {
         }
     }
     void print_null() {
-        write_comma(comma);
+        begin_element();
         b->puts("null");
     }
     void print_uint16_hex(uint16_t u) {
-        write_comma(comma);
+        begin_element();
         b->write_char('\"');
         b->write_hex_uint(u);
         b->write_char('\"');
     }
     void print_uint(uint64_t u) {
-        write_comma(comma);
+        begin_element();
         b->snprintf("%" PRIu64, u);
     }
     void print_int(int64_t i) {
-        write_comma(comma);
+        begin_element();
         b->snprintf("%" PRId64, i);
     }
     void print_float(double d) {
-        write_comma(comma);
+        begin_element();
         b->snprintf("%f", d);
     }
     void print_string(const char *s) {
-        write_comma(comma);
+        begin_element();
         b->write_char('\"');
         b->puts(s);
         b->write_char('\"');
     }
     void print_string(const char *s, size_t len) {
-        write_comma(comma);
+        begin_element();
         b->write_char('\"');
         b->memcpy(s, len);
         b->write_char('\"');
@@ -419,7 +550,7 @@ struct json_array {
 
     template <typename T>
     void print_unknown_code(T code) {
-        write_comma(comma);
+        begin_element();
         b->snprintf("\"UNKNOWN (");
         if constexpr (std::is_unsigned_v<T>) {
             b->write_hex_uint(code);
@@ -447,7 +578,7 @@ struct json_array {
         print_key(s);
     }
     void print_base64(const uint8_t *data, size_t length) {
-        write_comma(comma);
+        begin_element();
         if (data) {
             b->raw_as_base64(data, length);
         } else {
@@ -456,7 +587,7 @@ struct json_array {
         }
     }
     void print_hex(const struct datum &value) {
-        write_comma(comma);
+        begin_element();
         b->write_char('\"');
         if (value.data && value.data_end) {
             b->raw_as_hex(value.data, value.data_end - value.data);
@@ -464,7 +595,7 @@ struct json_array {
         b->write_char('\"');
     }
     template <typename T> void print_key(T &&w) {   // shouldn't this be named print_value()?
-        write_comma(comma);
+        begin_element();
         b->write_char('\"');
         w.write(*b);
         b->write_char('\"');
@@ -473,7 +604,7 @@ struct json_array {
 };
 
 inline json_object::json_object(struct json_array &array) : b{array.b} {
-    write_comma(array.comma);
+    array.begin_element();
     b->write_char('{');
 }
 
@@ -482,7 +613,7 @@ inline void json_object::reinit(struct json_array &array) {
     b->write_char(',');
     b->write_char('{');
     comma = false;
-    array.comma = true;
+    array.st = json_array::state::needs_comma;
 }
 
 template <typename T>
@@ -523,6 +654,7 @@ int json_output_fuzzer(const uint8_t *data, size_t size) {
 }
 
 
+// LCOV_EXCL_START
 /// test a json output by parsing the \ref datum \param raw_input as
 /// an object of type \param T, writing out the json representation of
 /// that object, then comparing that json to the \param
@@ -552,9 +684,13 @@ inline bool test_json_output(datum raw_input,
     }
     return retval;
 }
+// LCOV_EXCL_STOP
 
 
 /// represents a bit flag as a \ref json_array of strings
+///
+/// The array is created lazily: if no flag bits are set, no array
+/// field appears in the JSON output.
 ///
 template <typename T>
 class json_array_bitflags {
@@ -567,12 +703,8 @@ public:
     /// json_object \param o, with the name \param name, based on the
     /// bit flags in \param flags_value
     ///
-    /// note: \ref json_array_bitflags::close() \b must be called before
-    /// the \ref json_object is printed out or goes out of scope, to
-    /// ensure that the generated JSON is valid.
-    ///
     json_array_bitflags(json_object &o, const char *name, const T &flags_value) :
-        a{o, name},
+        a{o, name, /*omit_if_empty=*/true},
         flags{flags_value}
     {}
 
@@ -597,7 +729,7 @@ public:
         }
     }
 
-    /// closes the \ref json_array
+    /// closes the \ref json_array; no-op if no flags were set
     ///
     void close() {
         a.close();
@@ -735,6 +867,7 @@ json_file_object::json_file_object(struct json_file_array &array) : f{array.f} {
 #include <string>
 #include <string_view>
 
+// LCOV_EXCL_START
 [[maybe_unused]] inline bool json_object_unit_test(FILE *f = nullptr) {
     constexpr auto npos = std::string_view::npos;
 
@@ -828,8 +961,44 @@ json_file_object::json_file_object(struct json_file_array &array) : f{array.f} {
         }
     }
 
+    // Deferred (omit_if_empty) json_array tests: open correctly no matter
+    // what type its first element is, and leave no trace when empty.
+    //
+    struct array_case { const char *name; void (*write)(json_object &); const char *expected; };
+    const array_case array_cases[] = {
+        { "empty",
+          [](json_object &o){ json_array a{o, "x", /*omit_if_empty=*/true}; a.close(); },
+          "{}" },
+        { "scalar first element",
+          [](json_object &o){ json_array a{o, "x", /*omit_if_empty=*/true}; a.print_uint(1); a.close(); },
+          R"({"x":[1]})" },
+        { "object first element",
+          [](json_object &o){ json_array a{o, "x", /*omit_if_empty=*/true}; json_object e{a}; e.close(); a.close(); },
+          R"({"x":[{}]})" },
+        { "array first element",
+          [](json_object &o){ json_array a{o, "x", /*omit_if_empty=*/true}; json_array e{a}; e.close(); a.close(); },
+          R"({"x":[[]]})" },
+    };
+    for (const auto &c : array_cases) {
+        buffer_stream json_bs{json_buf, sizeof(json_buf)};
+        {
+            json_object outer{&json_bs};
+            c.write(outer);
+            outer.close();
+        }
+        std::string_view json{json_buf, json_bs.length()};
+        if (json != c.expected) {
+            if (f) {
+                fprintf(f, "json_array omit_if_empty (%s): expected \"%s\", got \"%.*s\"\n",
+                        c.name, c.expected, (int)json.size(), json.data());
+            }
+            return false;
+        }
+    }
+
     return true;
 }
+// LCOV_EXCL_STOP
 
 #endif // NDEBUG
 

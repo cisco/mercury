@@ -269,6 +269,10 @@ int main(int, char *[]) {
         {
             "traffic_selector",
             &traffic_selector::unit_test
+        },
+        {
+            "krb5_no_empty_arrays",
+            &krb5_unit_test::unit_test
         }
     };
     size_t num_tests = 0;

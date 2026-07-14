@@ -1212,6 +1212,7 @@ namespace snmp {
 
 namespace snmp {
 
+    // LCOV_EXCL_START
     [[maybe_unused]] static bool unit_test() {
         // SNMPv3 GetRequest, decoded as v3_packet
         //
@@ -1334,6 +1335,7 @@ namespace snmp {
 
         return true;
     }
+    // LCOV_EXCL_STOP
 
 } // namespace snmp
 #endif // NDEBUG

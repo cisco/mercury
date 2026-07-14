@@ -279,6 +279,7 @@ public:
     return json_output_fuzzer<lldp>(data, size);
 }
 
+// LCOV_EXCL_START
 namespace lldp_unit_test {
 
 #ifndef NDEBUG
@@ -325,5 +326,6 @@ namespace lldp_unit_test {
 #endif
 
 } // namespace lldp_unit_test
+// LCOV_EXCL_STOP
 
 #endif // LLDP_H

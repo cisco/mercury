@@ -538,6 +538,9 @@ _run-coverage: $(BIN)/unit_test $(BIN)/mercury $(LIB)/libmerc.so
 	lcov -q $(_cov_filter_flags) --remove $(_cov_dir)/total.info \
 	  '*/rapidjson/*' \
 	  '*/unit_tests/*' \
+	  '*/src/unit_test.cpp' \
+	  '*/src/libmerc_test.c' \
+	  '*/xsimd/*' \
 	  '/usr/*' \
 	  -o $(_cov_dir)/filtered.info
 	@_branch=$$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown); \
@@ -616,6 +619,9 @@ _run-coverage-fuzz: $(BIN)/unit_test $(BIN)/mercury $(LIB)/libmerc.so
 	lcov -q $(_cov_filter_flags) --remove $(_cov_fuzz_dir)/total.info \
 	  '*/rapidjson/*' \
 	  '*/unit_tests/*' \
+	  '*/src/unit_test.cpp' \
+	  '*/src/libmerc_test.c' \
+	  '*/xsimd/*' \
 	  '*/test/fuzz/*' \
 	  '/usr/*' \
 	  -o $(_cov_fuzz_dir)/filtered.info

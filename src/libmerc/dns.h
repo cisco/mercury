@@ -1190,6 +1190,7 @@ namespace {
 
 };
 
+// LCOV_EXCL_START
 namespace dns_unit_test {
 
 #ifndef NDEBUG
@@ -1215,5 +1216,6 @@ namespace dns_unit_test {
 #endif
 
 } // namespace dns_unit_test
+// LCOV_EXCL_STOP
 
 #endif /* DNS_H */

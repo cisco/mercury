@@ -17,6 +17,7 @@
 #include <thread>
 
 #include "mercury.h"
+#include "libmerc/global_config.h"
 #include "pcap_file_io.h"
 #include "af_packet_v3.h"
 #include "pcap_reader.h"
@@ -63,7 +64,7 @@ char mercury_help[] =
     "   --metadata                            # output more protocol metadata in JSON\n"
     "   --raw-features                        # select protocols to write out raw features string(see --help)\n"
     "   --http-headers=mode                   # controls reporting of HTTP headers in L7 metadata (all or non-sensitive)\n"
-    "   --http-body-max=N                     # report up to N bytes of the HTTP body in L7 metadata (max 2048 bytes)\n"
+    "   --http-body-max=N                     # report up to N bytes of the HTTP body (max 2048 bytes)\n"
     "   --network-behavioral-detections       # perform network behavioral detections\n"
     "   --minimize-ram                        # minimize the ram usage of mercury library\n"
     "   --crypto-assess[=policy]              # perform cryptographic security assessment\n"
@@ -238,9 +239,9 @@ char mercury_extended_help[] =
     "       non-sensitive   report all headers except sensitive ones (cookie, authorization, proxy-authorization, etc.)\n"
     "       all             report all headers including sensitive ones\n"
     "\n"
-    "   --http-body-max=N reports up to N bytes of the HTTP body in L7 metadata as hex.\n"
+    "   --http-body-max=N reports up to N bytes of the HTTP body as hex.\n"
     "    N is required and must be between 0 and 2048.\n"
-    "    If this option is not specified, HTTP bodies are not captured in L7 metadata.\n"
+    "    If this option is not specified, HTTP bodies are not captured.\n"
     "\n"
     "   --network-behavioral-detections performs analysis on packets, sessions, and\n"
    "    sets of sessions independent of the core mercury analysis functionality. These\n"
@@ -313,6 +314,23 @@ bool option_is_valid(const char *opt) {
     }
     if (opt[0] == '-') {
         return false;  // appears to be in -x or --x format
+    }
+    return true;
+}
+
+static bool http_body_max_is_valid(const char *opt) {
+    if (!option_is_valid(opt) || opt[0] == '\0') {
+        return false;
+    }
+    unsigned value = 0;
+    for (const char *p = opt; *p != '\0'; p++) {
+        if (*p < '0' || *p > '9') {
+            return false;
+        }
+        value = value * 10 + (unsigned)(*p - '0');
+        if (value > global_config::max_http_body) {
+            return false;
+        }
     }
     return true;
 }
@@ -490,7 +508,7 @@ int main(int argc, char *argv[]) {
             }
             break;
         case http_body:
-            if (option_is_valid(optarg)) {
+            if (http_body_max_is_valid(optarg)) {
                 additional_args.append("http-body-max=").append(optarg).append(";");
             } else {
                 usage(argv[0], "option http-body-max requires a size argument (0-2048)", extended_help_off);
