@@ -142,7 +142,7 @@ TEST_CASE("emix.pcap") {
         {"openvpn", 16},
         {"smb1", 150},
         {"smb2", 412},
-        {"socks4", 1},
+        {"socks4", 2},
         {"socks5", 4},
         {"socks5_req_resp", 4},
         {"ssdp", 34},
@@ -156,5 +156,5 @@ TEST_CASE("emix.pcap") {
         {"quic", 4}
     };
 
-    test_pcap_file("emix.pcap", 1775, expected_protocols);
+    test_pcap_file("emix.pcap", 1779, expected_protocols);
 }

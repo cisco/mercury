@@ -1045,7 +1045,7 @@ struct dns_packet : public base_protocol {
         return (header != NULL);
     }
 
-    bool netbios() {
+    bool netbios() const {
         return is_netbios;
     }
 

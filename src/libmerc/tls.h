@@ -604,6 +604,10 @@ public:
         return hello.is_not_empty() || certificate.is_not_empty();
     }
 
+    uint32_t additional_bytes_needed() const {
+        return static_cast<uint32_t>(certificate.additional_bytes_needed);
+    }
+
     void write_json(struct json_object &record, bool metadata_output, bool certs_json_output) {
 
         bool have_hello = hello.is_not_empty();
@@ -741,6 +745,10 @@ public:
 
     bool is_not_empty() {
         return certificate.is_not_empty();
+    }
+
+    uint32_t additional_bytes_needed() const {
+        return static_cast<uint32_t>(certificate.additional_bytes_needed);
     }
 
     void write_json(struct json_object &record, bool metadata_output, bool certs_json_output) {
