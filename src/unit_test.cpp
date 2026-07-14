@@ -55,6 +55,7 @@
 #include "libmerc/ssh.h"
 #include "libmerc/tls.h"
 #include "libmerc/analysis.h"
+#include "libmerc/proto_identify.h"
 
 // Macros to colorize output
 //
@@ -264,6 +265,10 @@ int main(int, char *[]) {
         {
             "lex",
             &lex_unit_test::unit_test
+        },
+        {
+            "traffic_selector",
+            &traffic_selector::unit_test
         }
     };
     size_t num_tests = 0;

@@ -15,6 +15,7 @@
 #define PROTO_IDENTIFY_H
 
 #include <stdint.h>
+#include <cassert>
 
 #include <vector>
 #include <array>
@@ -372,6 +373,11 @@ public:
         // this function is a placeholder for now, but in the future,
         // it may compile a jump table, reorder matchers, etc.
     }
+
+    /// returns the number of matchers, i.e. the length of the virtual
+    /// concatenation of \c matchers and \c matchers_and_offset that
+    /// get_msg_type_resumable() indexes into.
+    size_t size() const { return matchers.size() + matchers_and_offset.size(); }
 
     bool pkt_len_match(datum &pkt, const size_t type) const {
         switch(type) {
@@ -994,6 +1000,22 @@ public:
         }
     }
 
+    /// enforces the invariant that every tcp_msg_type used as a value in
+    /// tcp_keyword_matcher::tcp_keyword_map has an explicit case in
+    /// keyword_type_enabled(); with all protocols enabled each must report
+    /// enabled, otherwise a keyword-matched protocol is silently skipped.
+    [[maybe_unused]] static bool unit_test() {
+        traffic_selector ts{ { {"all", true} } };
+        for (const auto &entry : tcp_keyword_matcher::tcp_keyword_map) {
+            for (tcp_msg_type type : entry.second) {
+                if (!ts.keyword_type_enabled(type)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     tcp_msg_type get_tcp_msg_type_preference_from_port(const tcp_msg_types& protos,
                                                        struct tcp_packet *tcp_pkt) {
         if (protos.size() == 1) {
@@ -1047,6 +1069,8 @@ public:
         // chosen large enough to never collide with a real matcher index
         // (i.e., larger than any possible index within `tcp`).
         constexpr size_t tcp4_base = (size_t{1} << 20);
+        // the sentinel offset must exceed every index within `tcp`
+        assert(tcp.size() < tcp4_base);
 
         if (start < tcp4_base) {
             auto r = tcp.get_msg_type_resumable(pkt, start);
@@ -1086,6 +1110,9 @@ public:
     match_result get_udp_msg_type_resumable(const datum &pkt, size_t start) const {
         constexpr size_t udp16_base = (size_t{1} << 20);
         constexpr size_t udp4_base  = (size_t{2} << 20);
+        // each sentinel offset must exceed every index within its list
+        assert(udp.size() < udp16_base);
+        assert(udp16.size() < udp4_base - udp16_base);
 
         if (start < udp16_base) {
             auto r = udp.get_msg_type_resumable(pkt, start);

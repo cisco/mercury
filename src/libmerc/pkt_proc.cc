@@ -1012,15 +1012,21 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
     // future parser needs to know whether this is the first packet in the
     // flow, this code must be refactored to query ip_flow_table.flow_is_new()
     // before calling set_udp_protocol() and pass the result in here.
+    //
+    // has_payload is captured before parsing, which advances the pkt cursor.
+    const bool has_payload = pkt.is_not_empty();
     set_udp_protocol(x, pkt, udp_pkt.get_ports(), /*is_new=*/false, k, udp_pkt);
 
+    // Update UDP flow table, if applicable.
     if (global_vars.output_udp_initial_data) {
         bool is_new = false;
         // Exclude DNS from the flow table.  Due to the high volume of DNS
         // traffic, tracking DNS flows would fill the table too quickly.
         const dns_packet *dns = std::get_if<dns_packet>(&x);
         const bool is_dns = (dns != nullptr && !dns->netbios());
-        if (!is_dns) {
+        // has_payload gate keeps empty UDP packets (e.g. scan traffic) from
+        // flooding the flow table.
+        if (has_payload && !is_dns) {
             is_new = ip_flow_table.flow_is_new(k, ts->tv_sec);
         }
         if (is_new && std::holds_alternative<std::monostate>(x)) {
