@@ -35,7 +35,6 @@
 #ifndef PGSQL_HPP
 #define PGSQL_HPP
 
-#include <vector>
 #include "json_object.h"
 #include "protocol.h"
 #include "cbor_object.hpp"
@@ -428,39 +427,25 @@ class pgsql_msg : public base_protocol {
                 r.print_key_uint("protocol_major", tag.value() >> 16);
                 r.print_key_uint("protocol_minor", tag.value() & 0xffff);
 
-                // Collect (key, value) pairs first so that we can avoid
-                // emitting an empty `parameters` array, per the JSON output
-                // guidelines.
-                struct kv_pair { datum k; datum v; };
-                std::vector<kv_pair> kvs;
-                {
-                    datum tmp = msg_data;
-                    while (tmp.is_not_empty()) {
-                        if (lookahead<literal_byte<'\0'>>{tmp}) {
-                            tmp.skip(1);
-                            break;
-                        }
-                        one_or_more_up_to_delimiter<'\0'> k{tmp};
-                        one_or_more_up_to_delimiter<'\0'> v{tmp};
-                        if (k.is_null() || v.is_null()) { break; }
-                        if (k.is_not_empty() && v.is_not_empty()) {
-                            kvs.push_back({k, v});
-                        }
+                // Deferred array: omit `parameters` entirely when no pairs.
+                json_array params{r, "parameters", /*omit_if_empty=*/true};
+                datum tmp = msg_data;
+                while (tmp.is_not_empty()) {
+                    if (lookahead<literal_byte<'\0'>>{tmp}) {
+                        tmp.skip(1);
+                        break;
                     }
-                }
-                if (!kvs.empty()) {
-                    // Emit parameters as an array of {key, value} objects so
-                    // that JSON keys remain fixed `const char *` strings
-                    // (packet-controlled names live in the values).
-                    json_array params{r, "parameters"};
-                    for (const auto &p : kvs) {
+                    one_or_more_up_to_delimiter<'\0'> k{tmp};
+                    one_or_more_up_to_delimiter<'\0'> v{tmp};
+                    if (k.is_null() || v.is_null()) { break; }
+                    if (k.is_not_empty() && v.is_not_empty()) {
                         json_object kv{params};
-                        kv.print_key_json_string("key", p.k);
-                        kv.print_key_json_string("value", p.v);
+                        kv.print_key_json_string("key", k);
+                        kv.print_key_json_string("value", v);
                         kv.close();
                     }
-                    params.close();
                 }
+                params.close();
             } else {
                 // SSL/GSS/Cancel requests have no payload of interest, but we
                 // still emit a stable field so the record is never an empty
