@@ -131,6 +131,7 @@ char mercury_extended_help[] =
     "      kerberos          Kerberos v5\n"
     "      mdns              multicast DNS\n"
     "      mysql             MySQL Client/Server Protocol\n"
+    "      pgsql             PostgreSQL Client/Server messages\n"
     "      nbns              NetBIOS Name Service\n"
     "      nbds              NetBIOS Datagram Service\n"
     "      nbss              NetBIOS Session Service\n"

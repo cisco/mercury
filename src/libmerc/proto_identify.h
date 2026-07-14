@@ -73,6 +73,7 @@
 #include "mdns.h"
 #include "krb5.hpp"
 #include "tftp.hpp"
+#include "pgsql.hpp"
 
 enum tcp_msg_type {
     tcp_msg_type_unknown = 0,
@@ -107,6 +108,7 @@ enum tcp_msg_type {
     tcp_msg_type_ftp_response,
     tcp_msg_type_rdp,
     tcp_msg_type_krb5,
+    tcp_msg_type_pgsql,
     tcp_msg_type_redis_request,
     tcp_msg_type_redis_response,
     tcp_msg_type_imap_request,
@@ -553,6 +555,7 @@ class traffic_selector {
     bool select_imap_request{false};
     bool select_imap_response{false};
     bool select_telnet{false};
+    bool select_pgsql{false};
 
 public:
 
@@ -636,6 +639,8 @@ public:
 
     bool telnet() const { return select_telnet; }
 
+    bool pgsql() const { return select_pgsql; }
+
     void disable_all() {
         tcp.disable_all();
         tcp4.disable_all();
@@ -681,6 +686,7 @@ public:
         select_imap_request = false;
         select_imap_response = false;
         select_telnet = false;
+        select_pgsql = false;
 
     }
 
@@ -950,6 +956,10 @@ public:
 
         if (protocols["vxlan"] || protocols["all"]) {
             select_vxlan = true;
+        }
+
+        if (protocols["pgsql"] || protocols["all"]) {
+            select_pgsql = true;
         }
 
         // tell protocol_identification objects to compile lookup tables
@@ -1238,6 +1248,10 @@ public:
 
         if (telnet() and (tcp_pkt->header->src_port == hton<uint16_t>(23) or tcp_pkt->header->dst_port == hton<uint16_t>(23))) {
             return tcp_msg_type_telnet;
+        }
+
+        if (pgsql() and (tcp_pkt->header->src_port == hton<uint16_t>(5432) or tcp_pkt->header->dst_port == hton<uint16_t>(5432))) {
+            return tcp_msg_type_pgsql;
         }
 
         return tcp_msg_type_unknown;

@@ -126,6 +126,19 @@ struct json_object {
         utf8_string s{d};
         print_key_value(k, s);
     }
+    void print_key_json_string(const struct datum &k, const struct datum &d) {
+        if (k.is_not_readable() or d.is_not_readable()) {
+            return;
+        }
+        utf8_string k_s{k};
+        utf8_string s{d};
+        write_comma(comma);
+        b->write_char('\"');
+        k_s.write(*b);
+        b->puts("\":\"");
+        s.write(*b);
+        b->write_char('\"');
+    }
     void print_key_string(const char *k, const char *v) {
         write_comma(comma);
         b->write_char('\"');
@@ -291,6 +304,7 @@ struct json_object {
         w.write(*b);
         b->write_char('\"');
      }
+
     void print_key_ipv4_addr(const char *k, const uint8_t *a) {
         write_comma(comma);
         b->write_char('\"');

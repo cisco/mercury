@@ -80,6 +80,7 @@
 #include "redis.hpp"
 #include "imap.hpp"
 #include "telnet.hpp"
+#include "pgsql.hpp"
 
 // double malware_prob_threshold = -1.0; // TODO: document hidden option
 
@@ -275,6 +276,10 @@ struct check_exposed_creds {
     }
 
     exposed_creds_type operator()(const snmp::packet &msg) {
+        return exposed_creds_assessor::assess(msg);
+    }
+
+    exposed_creds_type operator()(const pgsql_msg &msg) {
         return exposed_creds_assessor::assess(msg);
     }
 
@@ -602,6 +607,11 @@ bool stateful_pkt_proc::try_parse_tcp_type(protocol &x,
         return emplace_protocol_if_not_empty<rfb::protocol_version_handshake>(x, pkt);
     case tcp_msg_type_telnet:
         return emplace_protocol_if_not_empty<telnet::message>(x, pkt);
+    case tcp_msg_type_pgsql:
+        if (tcp_pkt == nullptr || tcp_pkt->header == nullptr) {
+            return false;   // src_port unavailable; let fallback continue
+        }
+        return emplace_protocol_if_not_empty<pgsql_msg>(x, pkt, tcp_pkt->header->src_port);
     default:
         return false;
     }

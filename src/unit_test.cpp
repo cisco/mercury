@@ -56,6 +56,7 @@
 #include "libmerc/tls.h"
 #include "libmerc/analysis.h"
 #include "libmerc/proto_identify.h"
+#include "libmerc/pgsql.hpp"
 
 // Macros to colorize output
 //
@@ -273,6 +274,10 @@ int main(int, char *[]) {
         {
             "krb5_no_empty_arrays",
             &krb5_unit_test::unit_test
+        },
+        {
+            "pgsql",
+            &pgsql_msg::unit_test
         }
     };
     size_t num_tests = 0;

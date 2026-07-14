@@ -532,6 +532,25 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test smb with analysis")
     deinitialize();
 }
 
+TEST_CASE_FIXTURE(LibmercTestFixture, "test pgsql with analysis")
+{
+    libmerc_config config{.do_analysis = true,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"pgsql"};
+    initialize(config);
+
+    set_pcap("pgsql.pcap");
+    CHECK(19 == counter());
+
+    set_pcap("pgsql_db.pcap");
+    CHECK(891 == counter());
+
+    set_pcap("top_100_fingerprints.pcap");
+    CHECK(0 == counter());
+
+    deinitialize();
+}
+
 TEST_CASE_FIXTURE(LibmercTestFixture, "test iec with analysis")
 {
     libmerc_config config{.do_analysis = true,

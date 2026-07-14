@@ -239,6 +239,7 @@ DETAILS
       kerberos          Kerberos v5
       mdns              multicast DNS
       mysql             MySQL Client/Server Protocol
+      pgsql             PostgreSQL Client/Server messages
       nbns              NetBIOS Name Service
       nbds              NetBIOS Datagram Service
       nbss              NetBIOS Session Service
