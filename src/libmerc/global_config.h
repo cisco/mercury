@@ -221,6 +221,7 @@ public:
             { "ftp.request",            false},
             { "geneve",                 false},
             { "vxlan",                  false},
+            { "pgsql",                  false},
             { "redis",                  false},
             { "redis.request",          false},
             { "redis.response",         false}

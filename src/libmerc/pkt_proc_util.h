@@ -94,6 +94,7 @@ class ip_encapsulation;
 class vxlan;
 namespace snmp { class packet; }
 class syslog;
+class pgsql_msg;
 
 using protocol = std::variant<std::monostate,
                               http_request,                      // start of tcp protocols
@@ -153,7 +154,8 @@ using protocol = std::variant<std::monostate,
                               rfb::protocol_version_handshake,
                               tacacs::packet,
                               snmp::packet,
-                              class syslog
+                              class syslog,
+                              pgsql_msg
                               >;
 
 using encapsulation = std::variant<std::monostate,
