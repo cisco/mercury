@@ -153,7 +153,7 @@ public:
 
 };
 
-[[maybe_unused]] static int utf8_fuzz_test(const uint8_t *data, size_t size) {
+[[maybe_unused]] inline static int utf8_fuzz_test(const uint8_t *data, size_t size) {
     struct datum utf8_data{data, data+size};
     utf8_string s_utf8{utf8_data};
     char out_data[4096];

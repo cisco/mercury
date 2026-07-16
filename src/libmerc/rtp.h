@@ -142,7 +142,7 @@ namespace rtp {
 
 };  // end of namespace rtp
 
-[[maybe_unused]] static int rtp_fuzz_test(const uint8_t *data, size_t size) {
+[[maybe_unused]] inline static int rtp_fuzz_test(const uint8_t *data, size_t size) {
     datum rtp_data{data, data+size};
     rtp::packet rtp_pkt{rtp_data};
 

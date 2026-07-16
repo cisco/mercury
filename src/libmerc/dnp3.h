@@ -535,7 +535,7 @@ public:
 
 namespace {
 
-    [[maybe_unused]] int dnp3_fuzz_test(const uint8_t *data, size_t size) {
+    [[maybe_unused]] inline int dnp3_fuzz_test(const uint8_t *data, size_t size) {
         datum pkt_data{data, data+size};
         dnp3 dnp3_record{pkt_data};
 

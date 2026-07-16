@@ -394,7 +394,7 @@ inline bool decimal_integer_unit_test(FILE *f=nullptr) {
 
 #endif // NDEBUG
 
-[[maybe_unused]] static int decimal_integer_fuzz_test(const uint8_t *data, size_t size) {
+[[maybe_unused]] inline static int decimal_integer_fuzz_test(const uint8_t *data, size_t size) {
     datum text_integer{data, data+size};
 
     datum copy1{text_integer};
