@@ -763,7 +763,7 @@ public:
 
 namespace {
 
-    [[maybe_unused]] int mysql_fuzz_test(const uint8_t *data, size_t size) {
+    [[maybe_unused]] inline int mysql_fuzz_test(const uint8_t *data, size_t size) {
         struct datum pkt_data{data, data+size};
         char buffer[8192];
         struct buffer_stream buf_json(buffer, sizeof(buffer));
@@ -776,7 +776,7 @@ namespace {
         return 0;
     }
 
-    [[maybe_unused]] int mysql_login_request_fuzz_test(const uint8_t *data, size_t size) {
+    [[maybe_unused]] inline int mysql_login_request_fuzz_test(const uint8_t *data, size_t size) {
         struct datum pkt_data{data, data+size};
         char buffer[8192];
         struct buffer_stream buf_json(buffer, sizeof(buffer));

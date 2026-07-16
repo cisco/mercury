@@ -563,7 +563,6 @@ public:
         protocols.close();
     }
 
-    static int iec60870_5_104_fuzz_test(const uint8_t *data, size_t size);
 };
 
 [[maybe_unused]] inline static int iec60870_5_104_fuzz_test(const uint8_t *data, size_t size) {

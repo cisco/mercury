@@ -1341,15 +1341,15 @@ namespace snmp {
 #endif // NDEBUG
 
 
-[[maybe_unused]] static int snmp_fuzz_test(const uint8_t *data, size_t size) {
+[[maybe_unused]] inline static int snmp_fuzz_test(const uint8_t *data, size_t size) {
     return json_output_fuzzer<snmp::packet>(data, size);
 }
 
-[[maybe_unused]] static int snmp_trap_fuzz_test(const uint8_t *data, size_t size) {
+[[maybe_unused]] inline static int snmp_trap_fuzz_test(const uint8_t *data, size_t size) {
     return json_output_fuzzer<snmp::trap>(data, size);
 }
 
-[[maybe_unused]] static int snmp_v2_pdu_fuzz_test(const uint8_t *data, size_t size) {
+[[maybe_unused]] inline static int snmp_v2_pdu_fuzz_test(const uint8_t *data, size_t size) {
     return json_output_fuzzer<snmp::v2_pdu>(data, size);
 }
 

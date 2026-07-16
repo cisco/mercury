@@ -159,7 +159,7 @@ public:
 
 namespace {
 
-    [[maybe_unused]] int ssdp_fuzz_test(const uint8_t *data, size_t size) {
+    [[maybe_unused]] inline int ssdp_fuzz_test(const uint8_t *data, size_t size) {
         datum pkt_data{data, data+size};
         ssdp ssdp_record{pkt_data};
         return 0;
