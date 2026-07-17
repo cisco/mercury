@@ -73,7 +73,9 @@ jobs:
         run: ./configure $XSIMD_FLAGS
       - name: Build Mercury RelWithDebInfo
         run: make -j$(nproc) V=1
-      - name: Build Mercury Debug+ASan
+      - name: Build Mercury Debug (-O0)
+        run: make -j$(nproc) V=1 BUILD_TYPE=Debug
+      - name: Build Mercury Debug+ASan (-O2)
         run: make -j$(nproc) V=1 BUILD_TYPE=Debug SANITIZE=address OPTFLAGS=-O2
       - name: Build Mercury Debug+ASan+visdefault (multiprotocol)
         run: make -j$(nproc) V=1 BUILD_TYPE=Debug SANITIZE=address VISIBILITY=default OPTFLAGS=-O2
