@@ -66,14 +66,19 @@ localstatedir = @localstatedir@/mercury
 # --- Platform-conditional flags ---------------------------------------
 #
 # These translate configure-detected booleans into compiler/linker
-# flags.  rules.mk consumes PLATFORM_FLAGS and PLATFORM_LDFLAGS
-# without knowing what platform they came from.
+# flags.  rules.mk consumes PLATFORM_FLAGS, PLATFORM_LDFLAGS, and
+# PLATFORM_LDLIBS without knowing what platform they came from.
 
 PLATFORM_FLAGS :=
 PLATFORM_LDFLAGS  :=
+PLATFORM_LDLIBS   :=
 
 # configure-time feature detection (from @DEFS@)
 CDEFS = $(filter -DHAVE_X86INTRIN_H=1 -DHAVE_GETTID=1, @DEFS@)
+
+ifeq (@NEED_LIBSTDCXXFS@,yes)  # g++ < 9: std::filesystem in a separate archive
+  PLATFORM_LDLIBS += -lstdc++fs
+endif
 
 ifeq (@USE_NO_GNU_UNIQUE@,yes)
   PLATFORM_FLAGS += -fno-gnu-unique

@@ -133,8 +133,10 @@ public:
             return 10 + c - 'a';
         }
 
+        // Digits come from a source literal, not runtime input; an invalid one
+        // is a programmer error (a compile error via `_hex`).
 #if !defined(__clang__) && defined(__GNUC__) && (__GNUC__ < 9)
-#warning omitting error check to avoid g++ version < 9 bug
+        __builtin_trap();  // g++ < 9 forbids `throw` in a constexpr function
 #else
         throw std::logic_error{"invalid hex digit"};
 #endif

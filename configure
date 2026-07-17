@@ -657,6 +657,7 @@ XSIMD_INCLUDE
 HAVE_XSIMD
 USE_BTI_REPORT_WARNING
 USE_BRANCH_PROTECTION
+NEED_LIBSTDCXXFS
 USE_NO_OMIT_LEAF_FRAME_POINTER
 USE_FSANITIZE
 USE_NO_GNU_UNIQUE
@@ -5825,6 +5826,69 @@ esac
 fi
 
 
+# g++ < 9 keeps std::filesystem in a separate archive (-lstdc++fs).
+NEED_LIBSTDCXXFS=no
+
+ac_ext=cpp
+ac_cpp='$CXXCPP $CPPFLAGS'
+ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
+
+mercury_saved_CXXFLAGS="$CXXFLAGS"
+mercury_saved_LIBS="$LIBS"
+CXXFLAGS="$CXXFLAGS -std=c++17"
+{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking whether std::filesystem needs -lstdc++fs" >&5
+printf %s "checking whether std::filesystem needs -lstdc++fs... " >&6; }
+mercury_fs=unavailable
+for mercury_fslib in "" "-lstdc++fs"; do
+  LIBS="$mercury_saved_LIBS $mercury_fslib"
+
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <filesystem>
+int
+main (void)
+{
+std::error_code e; return std::filesystem::create_directory(std::filesystem::path{"/"}, e);
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_cxx_try_link "$LINENO"
+then :
+  if test -n "$mercury_fslib"
+then :
+  mercury_fs=yes
+else case e in #(
+  e) mercury_fs=no ;;
+esac
+fi; break
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+done
+CXXFLAGS="$mercury_saved_CXXFLAGS"
+LIBS="$mercury_saved_LIBS"
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+case $mercury_fs in #(
+  no) :
+    { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf '%s\n' "no" >&6; } ;; #(
+  yes) :
+    { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf '%s\n' "yes" >&6; }; NEED_LIBSTDCXXFS=yes
+ ;; #(
+  *) :
+    { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: unavailable" >&5
+printf '%s\n' "unavailable" >&6; }; as_fn_error $? "std::filesystem is required but not available" "$LINENO" 5 ;;
+esac
+
 # ARM PAC/BTI hardening (Linux AArch64 only)
 # -mbranch-protection=standard enables Pointer Authentication (PAC) and
 # Branch Target Identification (BTI) on AArch64.  These instructions are
@@ -5845,8 +5909,7 @@ ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
 
-
-{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking whether C++ compiler accepts -mbranch-protection=standard" >&5
+                { printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking whether C++ compiler accepts -mbranch-protection=standard" >&5
 printf %s "checking whether C++ compiler accepts -mbranch-protection=standard... " >&6; }
 if test ${ax_cv_check_cxxflags__Werror__mbranch_protection_standard+y}
 then :
