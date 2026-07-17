@@ -44,6 +44,7 @@ public:
     auto begin() const { return a.begin(); }
     auto end() const { return a.end(); }
 
+    // LCOV_EXCL_START
     static bool unit_test(FILE *f=nullptr) {
 
         constexpr static_dictionary<4> dogs{
@@ -79,6 +80,7 @@ public:
             and test("Westi", 0)
             and test("Westie!", 0);
     }
+    // LCOV_EXCL_STOP
 
 };
 

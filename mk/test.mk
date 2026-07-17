@@ -66,7 +66,7 @@ $(BIN)/unit_test: $(call objects,src/unit_test.cpp src/libmerc/asn1/oid.cc)
 
 .PHONY: unittest
 unittest: $(BIN)/unit_test
-	cd src && $(abspath $(BIN)/unit_test)
+	$(abspath $(BIN)/unit_test)
 	@printf '$(COLOR_GREEN)  passed unit tests$(COLOR_OFF)\n'
 
 # --- Fingerprint comparison tests (comp) ------------------------------
@@ -437,6 +437,28 @@ else
 	@printf '$(COLOR_YELLOW)  omitting dummy-capture test; tcpreplay unavailable$(COLOR_OFF)\n'
 endif
 
+# --- Auto-detect capture test (requires root; Linux only) -------------
+
+.PHONY: test-auto-capture
+test-auto-capture: $(BIN)/mercury
+ifeq ($(IS_MACOS),yes)
+	@printf '$(COLOR_YELLOW)  error: auto-detect capture test is Linux only$(COLOR_OFF)\n'
+	@false
+else ifneq ($(shell id -u),0)
+	@printf '$(COLOR_YELLOW)  error: auto-detect capture test must be run as root$(COLOR_OFF)\n'
+	@false
+else
+	@echo "--- auto-detect capture test ---"
+	@rm -rf $(TESTDIR)/auto-capture
+	@mkdir -p $(TESTDIR)/auto-capture
+	@bash -c '$(_mercury) --capture auto $(_DROP_ROOT) \
+	    -f $(abspath $(TESTDIR)/auto-capture)/output.json \
+	    2> $(abspath $(TESTDIR)/auto-capture)/stderr.log & \
+	    pid=$$!; sleep 2; kill -INT $$pid || true; wait $$pid || true'
+	grep "^auto-detecting interface: " $(abspath $(TESTDIR)/auto-capture)/stderr.log
+	@printf '$(COLOR_GREEN)  passed auto-detect capture test$(COLOR_OFF)\n'
+endif
+
 # --- AFL fuzz test ----------------------------------------------------
 
 _AFL_FUZZ_CMD := --metadata --dns-json --certs-json --analysis -f /dev/null
@@ -488,7 +510,7 @@ _run-coverage: $(BIN)/unit_test $(BIN)/mercury $(LIB)/libmerc.so
 	@mkdir -p $(_cov_dir)
 	@# --- Stage 1: unit tests ---
 	find build/Coverage* -name '*.gcda' -delete 2>/dev/null || true
-	cd src && $(abspath $(BIN)/unit_test)
+	$(abspath $(BIN)/unit_test)
 	lcov -q $(_cov_capture_flags) --directory build/Coverage --capture --output-file $(_cov_dir)/unit_tests.info
 	@printf '$(COLOR_GREEN)  captured unit test coverage$(COLOR_OFF)\n'
 	@# --- Stage 2: libmerc tests via test driver (tls-only) ---
@@ -516,6 +538,9 @@ _run-coverage: $(BIN)/unit_test $(BIN)/mercury $(LIB)/libmerc.so
 	lcov -q $(_cov_filter_flags) --remove $(_cov_dir)/total.info \
 	  '*/rapidjson/*' \
 	  '*/unit_tests/*' \
+	  '*/src/unit_test.cpp' \
+	  '*/src/libmerc_test.c' \
+	  '*/xsimd/*' \
 	  '/usr/*' \
 	  -o $(_cov_dir)/filtered.info
 	@_branch=$$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown); \
@@ -549,7 +574,7 @@ _run-coverage-fuzz: $(BIN)/unit_test $(BIN)/mercury $(LIB)/libmerc.so
 	@mkdir -p $(_cov_fuzz_dir)
 	@# --- Stage 1: unit tests ---
 	find build/Coverage* -name '*.gcda' -delete 2>/dev/null || true
-	cd src && $(abspath $(BIN)/unit_test)
+	$(abspath $(BIN)/unit_test)
 	lcov -q $(_cov_capture_flags) --directory build/Coverage --capture --output-file $(_cov_fuzz_dir)/unit_tests.info
 	@printf '$(COLOR_GREEN)  captured unit test coverage$(COLOR_OFF)\n'
 	@# --- Stage 2: libmerc tests via test driver (tls-only) ---
@@ -594,6 +619,9 @@ _run-coverage-fuzz: $(BIN)/unit_test $(BIN)/mercury $(LIB)/libmerc.so
 	lcov -q $(_cov_filter_flags) --remove $(_cov_fuzz_dir)/total.info \
 	  '*/rapidjson/*' \
 	  '*/unit_tests/*' \
+	  '*/src/unit_test.cpp' \
+	  '*/src/libmerc_test.c' \
+	  '*/xsimd/*' \
 	  '*/test/fuzz/*' \
 	  '/usr/*' \
 	  -o $(_cov_fuzz_dir)/filtered.info

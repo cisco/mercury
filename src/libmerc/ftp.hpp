@@ -152,6 +152,7 @@ namespace ftp
     };
 
 #ifndef NDEBUG
+    // LCOV_EXCL_START
     static bool unit_test()
     {
         // Valid Request
@@ -256,7 +257,7 @@ namespace ftp
     }
 
     static inline bool unit_test_passed = ftp::unit_test();
-
+    // LCOV_EXCL_STOP
 #endif
 };
 

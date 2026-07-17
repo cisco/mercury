@@ -613,6 +613,7 @@ namespace redis{
     };
 
 #ifndef NDEBUG
+    // LCOV_EXCL_START
     static bool unit_test(){
 
         // Array command: GET key
@@ -697,6 +698,7 @@ namespace redis{
     }
 
     static inline bool unit_test_passed = redis::unit_test();
+    // LCOV_EXCL_STOP
 #endif
 
 } // namespace redis

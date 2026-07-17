@@ -5,13 +5,14 @@
 #include <unistd.h>
 #include <cstdio>
 #include "libmerc/datum.h"
+#include "libmerc/lex.h"
 #include "libmerc/cbor.hpp"
 #include "libmerc/cbor_object.hpp"
 #include "libmerc/base64.h"
 #include "libmerc/tofsee.hpp"
 #include "libmerc/snmp.hpp"
 #include "libmerc/ip_address.hpp"
-#include "libmerc/lctrie/lctrie_test.hpp"
+#include "libmerc/lctrie/lctrie_bgp.hpp"
 #include "libmerc/watchlist.hpp"
 #include "libmerc/rdp.hpp"
 #include "libmerc/rfb.hpp"
@@ -51,10 +52,11 @@
 #include "libmerc/vxlan.hpp"
 #include "libmerc/gre.h"
 #include "libmerc/mdns.h"
-#include "libmerc/http2.h"
 #include "libmerc/ssh.h"
 #include "libmerc/tls.h"
 #include "libmerc/analysis.h"
+#include "libmerc/proto_identify.h"
+#include "libmerc/pgsql.hpp"
 #include "libmerc/cbor_decoded_metadata_test.hpp"
 
 // Macros to colorize output
@@ -247,10 +249,6 @@ int main(int, char *[]) {
             &mdns_unit_test::unit_test
         },
         {
-            "http2",
-            &http2_unit_test::unit_test
-        },
-        {
             "ssh",
             &ssh_unit_test::unit_test
         },
@@ -269,6 +267,22 @@ int main(int, char *[]) {
         {
             "naive_bayes",
             &naive_bayes_unit_test::unit_test
+        },
+        {
+            "lex",
+            &lex_unit_test::unit_test
+        },
+        {
+            "traffic_selector",
+            &traffic_selector::unit_test
+        },
+        {
+            "krb5_no_empty_arrays",
+            &krb5_unit_test::unit_test
+        },
+        {
+            "pgsql",
+            &pgsql_msg::unit_test
         }
     };
     size_t num_tests = 0;

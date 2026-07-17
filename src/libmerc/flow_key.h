@@ -38,6 +38,7 @@ constexpr bool operator&(flow_direction_selector sel, flow_direction dir) {
     return static_cast<uint8_t>(sel) & static_cast<uint8_t>(dir);
 }
 
+// LCOV_EXCL_START
 /// \brief tests whether selector and packet direction have a non-zero bitwise AND
 ///
 /// For example, tests whether a packet's direction matches a
@@ -67,6 +68,7 @@ constexpr bool operator&(flow_direction_selector sel, flow_direction dir) {
 
     return true;
 }
+// LCOV_EXCL_STOP
 
 struct key {
     uint16_t src_port;   // source port in network byte order

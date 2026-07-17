@@ -108,6 +108,7 @@ public:
 
 #ifndef NDEBUG
 
+    // LCOV_EXCL_START
     struct Dummy {
         int x;
         Dummy(int v = 0) : x(v) {}
@@ -171,6 +172,7 @@ public:
         // All tests pass
         return true;
     }
+    // LCOV_EXCL_STOP
 
 #endif // NDEBUG
 

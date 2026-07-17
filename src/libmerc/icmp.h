@@ -166,6 +166,7 @@ public:
     return json_output_fuzzer<icmp_packet>(data, size);
 }
 
+// LCOV_EXCL_START
 namespace icmp_unit_test {
 
 #ifndef NDEBUG
@@ -230,5 +231,6 @@ namespace icmp_unit_test {
 #endif
 
 } // namespace icmp_unit_test
+// LCOV_EXCL_STOP
 
 #endif // ICMP_H

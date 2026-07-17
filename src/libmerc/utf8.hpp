@@ -99,6 +99,7 @@ public:
 
     // implements a test case for \ref utf8_string
     //
+    // LCOV_EXCL_START
     class test_case {
         std::vector<uint8_t> s_in;   // string to be parsed
         bool valid;                  // true is s_in is valid utf8; false otherwise
@@ -148,10 +149,11 @@ public:
         }
 
     };
+    // LCOV_EXCL_STOP
 
 };
 
-[[maybe_unused]] static int utf8_fuzz_test(const uint8_t *data, size_t size) {
+[[maybe_unused]] inline static int utf8_fuzz_test(const uint8_t *data, size_t size) {
     struct datum utf8_data{data, data+size};
     utf8_string s_utf8{utf8_data};
     char out_data[4096];
@@ -373,6 +375,7 @@ inline bool utf8_string::is_second_byte_valid(uint8_t byte1, uint8_t byte2) {
     }
 }
 
+// LCOV_EXCL_START
 inline bool utf8_string::unit_test(FILE *output) {
 
     // note: output=nullptr by default, but can be set to stdout or
@@ -1050,6 +1053,7 @@ inline bool utf8_string::unit_test(FILE *output) {
     }
     return passed;
 }
+// LCOV_EXCL_STOP
 
 /// a class that constructs and holds a UTF-8 encoded string that is
 /// safe for use in JSON, if possible.  This class is suitable for
@@ -1094,6 +1098,7 @@ public:
 
 };
 
+// LCOV_EXCL_START
 [[maybe_unused]] static bool utf8_safe_string_unit_test() {
 
     // verify that correct utf8 is processed correctly and
@@ -1133,6 +1138,7 @@ public:
 
     return true;
 }
+// LCOV_EXCL_STOP
 
 
 #endif // UTF8_HPP

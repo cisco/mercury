@@ -1045,7 +1045,7 @@ struct dns_packet : public base_protocol {
         return (header != NULL);
     }
 
-    bool netbios() {
+    bool netbios() const {
         return is_netbios;
     }
 
@@ -1184,12 +1184,13 @@ inline std::string dns_get_json_string(const char *dns_pkt, ssize_t pkt_len) {
 
 namespace {
 
-    [[maybe_unused]] int dns_fuzz_test(const uint8_t *data, size_t size) {
+    [[maybe_unused]] inline int dns_fuzz_test(const uint8_t *data, size_t size) {
         return json_output_fuzzer<dns_packet>(data, size);
     }
 
 };
 
+// LCOV_EXCL_START
 namespace dns_unit_test {
 
 #ifndef NDEBUG
@@ -1215,5 +1216,6 @@ namespace dns_unit_test {
 #endif
 
 } // namespace dns_unit_test
+// LCOV_EXCL_STOP
 
 #endif /* DNS_H */

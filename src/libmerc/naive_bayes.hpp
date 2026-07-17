@@ -7,6 +7,7 @@
 #include <vector>
 #include <unordered_map>
 #include "watchlist.hpp"
+#include "printf_err.hpp"
 
 /// data type used in floating point computations
 ///
@@ -796,6 +797,7 @@ public:
 };
 
 #ifndef NDEBUG
+// LCOV_EXCL_START
 namespace naive_bayes_unit_test {
 
 inline bool unit_test() {
@@ -854,6 +856,7 @@ inline bool unit_test() {
 }
 
 }
+// LCOV_EXCL_STOP
 #endif
 
 #endif // NAIVE_BAYES_HPP

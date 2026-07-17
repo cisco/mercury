@@ -227,13 +227,14 @@ class new_http_headers {
     datum header_body;
     datum delim;
     std::array<datum, N> headers;
-    static constexpr size_t max_body_length = 512;  // limit on number of bytes reported
+    datum body;
 
 public:
 
     new_http_headers() :
     header_body{nullptr, nullptr},
-    delim{nullptr, nullptr} {
+    delim{nullptr, nullptr},
+    body{nullptr, nullptr} {
     }
 
     httpheader get_next_header(struct datum& p) {
@@ -271,11 +272,6 @@ public:
             }
             hdrs.close();
         }
-        if (header_body.is_readable()) {
-            datum body = header_body;
-            body.trim_to_length(max_body_length);
-            record.print_key_hex("body", body);
-        }
     }
 
     void write_header(cbor_array &hdrs, const httpheader &h,
@@ -288,6 +284,14 @@ public:
             hdr.print_key_string("value", h.value);
         }
         hdr.close();
+    }
+
+    void write_body(struct json_object &record) const {
+        if (http_config::output_body_max > 0 && body.is_readable()) {
+            datum trimmed = body;
+            trimmed.trim_to_length(http_config::output_body_max);
+            record.print_key_hex("body", trimmed);
+        }
     }
 
     void write_l7_metadata(cbor_object &o, perfect_hash<bool> &ph) {
@@ -309,17 +313,12 @@ public:
                 }
                 hdrs.close();
             }
-        } else if (http_config::output_body_max > 0) {
-            unsigned char crlfcrlf[4] = { '\r', '\n', '\r', '\n' };
-            header_body.skip_up_to_delim(crlfcrlf, sizeof(crlfcrlf));
         }
 
-        if (http_config::output_body_max > 0) {
-            datum body = header_body;
-            if (body.is_readable()) {
-                body.trim_to_length(http_config::output_body_max);
-                o.print_key_hex("body", body);
-            }
+        if (http_config::output_body_max > 0 && body.is_readable()) {
+            datum trimmed = body;
+            trimmed.trim_to_length(http_config::output_body_max);
+            o.print_key_hex("body", trimmed);
         }
     }
 
@@ -366,6 +365,7 @@ public:
                 }
             }
         }
+        body = tmp;
     }
 
 };
@@ -506,7 +506,7 @@ struct http_response : public base_protocol {
 
 namespace {
 
-    [[maybe_unused]] int http_request_fuzz_test(const uint8_t *data, size_t size) {
+    [[maybe_unused]] inline int http_request_fuzz_test(const uint8_t *data, size_t size) {
         struct datum request_data{data, data+size};
         char buffer_1[8192];
         struct buffer_stream buf_json(buffer_1, sizeof(buffer_1));
@@ -516,14 +516,14 @@ namespace {
 
         http_request request{request_data};
         if (request.is_not_empty()) {
-            request.write_json(record, true);
             request.fingerprint(buf_fp);
+            request.write_json(record, true);
         }
 
         return 0;
     }
 
-    [[maybe_unused]] int http_response_fuzz_test(const uint8_t *data, size_t size) {
+    [[maybe_unused]] inline int http_response_fuzz_test(const uint8_t *data, size_t size) {
         struct datum response_data{data, data+size};
         char buffer_1[8192];
         struct buffer_stream buf_json(buffer_1, sizeof(buffer_1));
@@ -533,8 +533,8 @@ namespace {
 
         http_response response{response_data};
         if (response.is_not_empty()) {
-            response.write_json(record, true);
             response.fingerprint(buf_fp);
+            response.write_json(record, true);
         }
 
         return 0;

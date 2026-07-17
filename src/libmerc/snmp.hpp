@@ -480,7 +480,7 @@ namespace snmp {
         snmpv2_trap       = 7,
     };
 
-    const char *v2_pdu_type(uint8_t tag_number) {
+    inline const char *v2_pdu_type(uint8_t tag_number) {
         switch(tag_number) {
         case get_request:      return "get_request";
         case get_next_request: return "get_next_request";
@@ -1225,6 +1225,7 @@ namespace snmp {
 
 namespace snmp {
 
+    // LCOV_EXCL_START
     [[maybe_unused]] static bool unit_test() {
         // SNMPv3 GetRequest, decoded as v3_packet
         //
@@ -1361,20 +1362,21 @@ namespace snmp {
 
         return true;
     }
+    // LCOV_EXCL_STOP
 
 } // namespace snmp
 #endif // NDEBUG
 
 
-[[maybe_unused]] static int snmp_fuzz_test(const uint8_t *data, size_t size) {
+[[maybe_unused]] inline static int snmp_fuzz_test(const uint8_t *data, size_t size) {
     return json_output_fuzzer<snmp::packet>(data, size);
 }
 
-[[maybe_unused]] static int snmp_trap_fuzz_test(const uint8_t *data, size_t size) {
+[[maybe_unused]] inline static int snmp_trap_fuzz_test(const uint8_t *data, size_t size) {
     return json_output_fuzzer<snmp::trap>(data, size);
 }
 
-[[maybe_unused]] static int snmp_v2_pdu_fuzz_test(const uint8_t *data, size_t size) {
+[[maybe_unused]] inline static int snmp_v2_pdu_fuzz_test(const uint8_t *data, size_t size) {
     return json_output_fuzzer<snmp::v2_pdu>(data, size);
 }
 

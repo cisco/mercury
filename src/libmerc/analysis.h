@@ -17,6 +17,7 @@
 #include "addr.h"
 #include "result.h"
 #include "dict.h"
+#include "printf_err.hpp"
 
 #include <mutex>
 #include <shared_mutex>
@@ -1250,6 +1251,7 @@ inline std::string get_domain_name(char* server_name) {
 }
 
 #ifndef NDEBUG
+// LCOV_EXCL_START
 namespace analysis_unit_test {
 
 inline bool unit_test() {
@@ -1304,6 +1306,7 @@ inline bool unit_test() {
 }
 
 }
+// LCOV_EXCL_STOP
 #endif
 
 #endif /* ANALYSIS_H */

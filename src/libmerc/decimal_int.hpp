@@ -214,6 +214,7 @@ inline decimal_integer<T>::decimal_integer(datum &d) {
 
 #ifndef NDEBUG
 
+// LCOV_EXCL_START
 template <typename T>
 struct decimal_integer_test_case {
     datum text;
@@ -389,10 +390,11 @@ inline bool decimal_integer_unit_test(FILE *f=nullptr) {
 
     return result;
 }
+// LCOV_EXCL_STOP
 
 #endif // NDEBUG
 
-[[maybe_unused]] static int decimal_integer_fuzz_test(const uint8_t *data, size_t size) {
+[[maybe_unused]] inline static int decimal_integer_fuzz_test(const uint8_t *data, size_t size) {
     datum text_integer{data, data+size};
 
     datum copy1{text_integer};

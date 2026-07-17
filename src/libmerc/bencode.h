@@ -195,6 +195,7 @@ namespace bencoding {
 
 #ifndef NDEBUG
 
+        // LCOV_EXCL_START
         static bool unit_test() {
             unsigned char data[] = "d1:ad2:idd2:idd2:idd2:idd2:idd2:idd2:idd2:idd2:idd2:id4:testeeeeeeeeeee";
             unsigned char expected_json[] = "{\"attributes\":[{\"key\":\"a\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"unparsed_value_hex\":\"343a74657374656565656565656565656500\"]}]}]}]}]}]}]}]}]}]}]";
@@ -221,6 +222,7 @@ namespace bencoding {
 
             return true;
         }
+        // LCOV_EXCL_STOP
 #endif //NDEBUG
     };
 

@@ -6,6 +6,7 @@
 #include <typeinfo>
 #include <unordered_map>
 #include "libmerc.h"
+#include "printf_err.hpp"
 
 typedef struct ipv6_addr_lct {
     uint64_t a[2];
@@ -256,6 +257,7 @@ inline bool is_private_address(const ipv6_addr_lct &addr) {
     return first_byte == 0xFC || first_byte == 0xFD;
 }
 
+// LCOV_EXCL_START
 static inline bool ipv6_address_lct_unit_test(FILE *f = nullptr) {
 
     // Test case 1: Copy constructor and default constructor
@@ -400,5 +402,6 @@ static inline bool ipv6_address_lct_unit_test(FILE *f = nullptr) {
 
     return true;
 }
+// LCOV_EXCL_STOP
 
 #endif  // IPV6_LCTRIE_H

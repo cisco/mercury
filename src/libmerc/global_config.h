@@ -2,6 +2,7 @@
 #define GLOBAL_CONFIG_H
 
 #include "libmerc.h"
+#include "printf_err.hpp"
 #include "config_generator.h"
 #include "decimal_int.hpp"
 #include <map>
@@ -222,6 +223,7 @@ public:
             { "ftp.request",            false},
             { "geneve",                 false},
             { "vxlan",                  false},
+            { "pgsql",                  false},
             { "redis",                  false},
             { "redis.request",          false},
             { "redis.response",         false}

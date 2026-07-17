@@ -17,6 +17,7 @@
 #include "datum.h"
 #include "lex.h"
 #include "ip_address.hpp"
+#include "printf_err.hpp"
 
 // From Section 2.1 of RFC 1123:
 //
@@ -416,6 +417,7 @@ public:
         std::optional<uint16_t> port;
     };
 
+    // LCOV_EXCL_START
     static bool unit_test(FILE *f=nullptr) {
         std::vector<test_case> test_cases = {
             { "ocsp.digicert.com", "ocsp.digicert.com", {} },                       // FQDN
@@ -507,6 +509,7 @@ public:
 
         return passed;
     }
+    // LCOV_EXCL_STOP
 
 };
 

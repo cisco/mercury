@@ -18,6 +18,7 @@
 #include "utils.h"
 #include "asn1/oid.h"
 #include "time.hpp"
+#include "printf_err.hpp"
 
 static constexpr const char *oid_empty_string = oid::oid_empty_string;
 
@@ -65,6 +66,7 @@ public:
         }
     }
 
+    // LCOV_EXCL_START
     static bool unit_test() {
         bool passed = true;
 
@@ -120,6 +122,7 @@ public:
 
         return passed;
     }
+    // LCOV_EXCL_STOP
 
 private:
     static bool decode_base128(const uint8_t *&p, const uint8_t *end, uint64_t &value) {
@@ -363,6 +366,7 @@ struct tlv {
         value{value_}
     { }
 
+    // LCOV_EXCL_START
     static bool unit_test() {
         // Regression test for issue #6:
         // tlv::set(uint8_t, datum) should preserve value length, not
@@ -374,6 +378,7 @@ struct tlv {
 
         return x.length == sizeof(bytes);
     }
+    // LCOV_EXCL_STOP
 
     void set(uint8_t tag_, datum value_) {
         // Store the actual value length.  The encoded size of the Length
@@ -1106,6 +1111,7 @@ inline int64_t to_int64(const tlv &x) {
 }
 
 #ifndef NDEBUG
+// LCOV_EXCL_START
 inline bool unit_test(FILE *f = nullptr) {
     auto parse_uint = [](const tlv &x) -> uint64_t {
         uint64_t v = 0;
@@ -1322,6 +1328,7 @@ inline bool unit_test(FILE *f = nullptr) {
 
     return passed;
 }
+// LCOV_EXCL_STOP
 #endif // NDEBUG
 
 } // namespace asn1

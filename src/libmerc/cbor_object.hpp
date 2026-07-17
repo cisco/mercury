@@ -554,6 +554,7 @@ static inline bool decode_fprint_json(datum d, FILE *f, vocabulary *v=nullptr) {
     return result;
 }
 
+// LCOV_EXCL_START
 static inline bool cbor_object_unit_test(FILE *f=nullptr) {
 
     // first test
@@ -713,5 +714,6 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
 
     return true;
 }
+// LCOV_EXCL_STOP
 
 #endif // CBOR_OBJECT_HPP

@@ -31,6 +31,8 @@
 #include "ip.h"
 #include "vxlan.hpp"
 #include "telnet.hpp"
+#include "snmp.hpp"
+#include "syslog.hpp"
 
 // protocol is an alias for a std::variant that can hold any protocol
 // data element.  The default value of std::monostate indicates that
@@ -92,6 +94,7 @@ class ip_encapsulation;
 class vxlan;
 namespace snmp { class packet; }
 class syslog;
+class pgsql_msg;
 
 using protocol = std::variant<std::monostate,
                               http_request,                      // start of tcp protocols
@@ -151,7 +154,8 @@ using protocol = std::variant<std::monostate,
                               rfb::protocol_version_handshake,
                               tacacs::packet,
                               snmp::packet,
-                              syslog
+                              class syslog,
+                              pgsql_msg
                               >;
 
 using encapsulation = std::variant<std::monostate,

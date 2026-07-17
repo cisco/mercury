@@ -206,6 +206,7 @@ inline std::string dns_trie<T>::search_string(const std::string &label, node_ind
 }
 
 template <>
+// LCOV_EXCL_START
 inline bool dns_trie<std::string>::unit_test(FILE *f) {
 
     // construct a trie and then verify that searching for the inputs
@@ -306,5 +307,6 @@ inline bool dns_trie<std::string>::unit_test(FILE *f) {
 
     return true;
 }
+// LCOV_EXCL_STOP
 
 #endif // DNS_TRIE_HPP

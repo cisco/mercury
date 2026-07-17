@@ -375,6 +375,7 @@ struct tls_extensions : public datum {
     }
 
 #ifndef NDEBUG
+    // LCOV_EXCL_START
     static bool unit_test() {
         uint8_t extensions[] = {
         0x00, 0x3f, 0x00, 0x01, 0x01,   //check if unassigned extension is encoded correctly
@@ -417,6 +418,7 @@ struct tls_extensions : public datum {
         return true;
 
     }
+    // LCOV_EXCL_STOP
 #endif //NDEBUG
 };
 
@@ -602,6 +604,10 @@ public:
         return hello.is_not_empty() || certificate.is_not_empty();
     }
 
+    uint32_t additional_bytes_needed() const {
+        return static_cast<uint32_t>(certificate.additional_bytes_needed);
+    }
+
     void write_json(struct json_object &record, bool metadata_output, bool certs_json_output) {
 
         bool have_hello = hello.is_not_empty();
@@ -739,6 +745,10 @@ public:
 
     bool is_not_empty() {
         return certificate.is_not_empty();
+    }
+
+    uint32_t additional_bytes_needed() const {
+        return static_cast<uint32_t>(certificate.additional_bytes_needed);
     }
 
     void write_json(struct json_object &record, bool metadata_output, bool certs_json_output) {
@@ -879,7 +889,7 @@ public:
 
 namespace {
 
-    [[maybe_unused]] int tls_client_hello_fuzz_test(const uint8_t *data, size_t size) {
+    [[maybe_unused]] inline int tls_client_hello_fuzz_test(const uint8_t *data, size_t size) {
         struct datum hello_data{data, data+size};
         char buffer_1[8192];
         struct buffer_stream buf_json(buffer_1, sizeof(buffer_1));
@@ -897,7 +907,7 @@ namespace {
         return 0;
     }
 
-    [[maybe_unused]] int tls_server_hello_and_certificate_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+    [[maybe_unused]] inline int tls_server_hello_and_certificate_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
         datum pkt_data{data1, data1+size1};
         datum tcp_data{data2, data2+size2};
         tcp_packet tcp_pkt{tcp_data};

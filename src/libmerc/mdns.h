@@ -82,7 +82,7 @@ struct mdns_packet : public base_protocol {
 
 namespace {
 
-    [[maybe_unused]] int mdns_fuzz_test(const uint8_t *data, size_t size) {
+    [[maybe_unused]] inline int mdns_fuzz_test(const uint8_t *data, size_t size) {
         datum pkt_data{data, data+size};
         mdns_packet mdns_record{pkt_data};
 
@@ -99,6 +99,7 @@ namespace {
 
 }; // end of namespace
 
+// LCOV_EXCL_START
 namespace mdns_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
@@ -130,5 +131,6 @@ namespace mdns_unit_test {
     }
 #endif
 } // namespace mdns_unit_test
+// LCOV_EXCL_STOP
 
 #endif /* MDNS_H */

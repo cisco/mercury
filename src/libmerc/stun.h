@@ -1039,7 +1039,7 @@ namespace stun {
 
 } // namespace stun
 
-[[maybe_unused]] static int stun_fuzz_test(const uint8_t *data, size_t size) {
+[[maybe_unused]] inline static int stun_fuzz_test(const uint8_t *data, size_t size) {
     struct datum request_data{data, data+size};
     char buffer_1[8192];
     struct buffer_stream buf_json(buffer_1, sizeof(buffer_1));
@@ -1054,6 +1054,7 @@ namespace stun {
     return 0;
 }
 
+// LCOV_EXCL_START
 namespace stun_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
@@ -1272,6 +1273,7 @@ namespace stun_unit_test {
     }
 #endif
 } // namespace stun_unit_test
+// LCOV_EXCL_STOP
 
 // STUN implementation notes
 //

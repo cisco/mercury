@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <array>
 #include <memory>
+#include <optional>
 #include "json_object.h"
 #include "cbor_messages.hpp"
 #include "cbor_object.hpp"
@@ -15,6 +16,7 @@
 #include "tls.h"
 #include "dtls.h"
 #include "ssh.h"
+#include "printf_err.hpp"
 
 #define MAX_CRYPTO_ASSESSMENT_TYPES 2
 
@@ -1212,6 +1214,7 @@ namespace crypto_policy {
         } while (pos != std::string::npos);
     }
 
+    // LCOV_EXCL_START
     [[maybe_unused]] static bool unit_test() {
         quantum_safe assessor{true};
         char buff[1024];
@@ -1638,6 +1641,7 @@ namespace crypto_policy {
 
         return true;
     }
+    // LCOV_EXCL_STOP
 
 }; // namespace crypto_policy
 

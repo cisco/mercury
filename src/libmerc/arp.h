@@ -136,6 +136,7 @@ public:
     return json_output_fuzzer<arp_packet>(data, size);
 }
 
+// LCOV_EXCL_START
 namespace arp_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
@@ -180,5 +181,6 @@ namespace arp_unit_test {
     }
 #endif
 } // namespace arp_unit_test
+// LCOV_EXCL_STOP
 
 #endif // ARP_H

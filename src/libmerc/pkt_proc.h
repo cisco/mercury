@@ -20,6 +20,7 @@
 #include "flow_key.h"
 #include "analysis.h"
 #include "libmerc.h"
+#include "printf_err.hpp"
 #include "stats.h"
 #include "proto_identify.h"
 #include "global_config.h"
@@ -315,14 +316,20 @@ struct stateful_pkt_proc {
                           struct timespec *ts,
                           struct tcp_reassembler *reassembler);
 
-    bool set_tcp_protocol_from_keyword(protocol &x,
-                                       datum pkt_copy,
-                                       tcp_msg_type msg_type);
+    bool try_parse_tcp_type(protocol &x,
+                            struct datum &pkt,
+                            tcp_msg_type msg_type,
+                            struct tcp_packet *tcp_pkt);
 
     void set_tcp_protocol(protocol &x,
                           struct datum &pkt,
                           bool is_new,
                           struct tcp_packet *tcp_pkt);
+
+    bool try_parse_udp_type(protocol &x,
+                            struct datum &pkt,
+                            udp_msg_type msg_type,
+                            const struct key& k);
 
     void set_udp_protocol(protocol &x,
                           struct datum &pkt,

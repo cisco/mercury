@@ -142,7 +142,7 @@ namespace rtp {
 
 };  // end of namespace rtp
 
-[[maybe_unused]] static int rtp_fuzz_test(const uint8_t *data, size_t size) {
+[[maybe_unused]] inline static int rtp_fuzz_test(const uint8_t *data, size_t size) {
     datum rtp_data{data, data+size};
     rtp::packet rtp_pkt{rtp_data};
 
@@ -157,6 +157,7 @@ namespace rtp {
     return 0;
 }
 
+// LCOV_EXCL_START
 namespace rtp_unit_test {
 #ifndef NDEBUG
     inline bool unit_test() {
@@ -209,5 +210,6 @@ namespace rtp_unit_test {
     }
 #endif
 } // namespace rtp_unit_test
+// LCOV_EXCL_STOP
 
 #endif // RTP_H

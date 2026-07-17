@@ -13,6 +13,7 @@
 #include <unordered_map>
 #include "addr.h"
 #include "archive.h"
+#include "printf_err.hpp"
 #include "datum.h"  // for ntoh()
 #include "ipv6_lctrie.h"
 #include "ip_address.hpp"
@@ -20,63 +21,6 @@
 #include "lctrie/lctrie.hpp"
 #include "lctrie/lctrie_bgp.hpp"
 
-
-// apply netmasks to IPv6 entries, should be done prior to sorting the subnet array
-//
-void subnet_mask_v6(lct_subnet<ipv6_addr_lct> *subnets, size_t size) {
-
-    constexpr unsigned int bits_in_T = sizeof(ipv6_addr_lct) * 8;
-    for (size_t i = 0; i < size; ++i) {
-        lct_subnet<ipv6_addr_lct> *p = &subnets[i];
-
-        ipv6_addr_lct netmask;
-        netmask.a[0] = netmask.a[1] = -1;
-
-        if (p->len < bits_in_T) {
-            netmask = netmask << (bits_in_T - p->len);
-        }
-
-        ipv6_addr_lct newaddr;
-        newaddr = p->addr & netmask;
-
-        if (newaddr != p->addr) {
-            fprint_addr(stderr, "address", &p->addr);
-            fprint_addr(stderr, "netmask", &netmask);
-            fprint_addr(stderr, "newaddr", &newaddr);
-
-            fprintf(stderr, "Subnet parsed address has not been properly masked, should be expected address");
-
-            p->addr = newaddr;
-        }
-    }
-}
-
-// apply netmasks to IPv4 entries, should be done prior to sorting the subnet array
-//
-void subnet_mask_v4(lct_subnet<ipv4_addr_t> *subnets, size_t size) {
-
-    constexpr unsigned int bits_in_T = sizeof(ipv4_addr_t) * 8;
-    for (size_t i = 0; i < size; ++i) {
-        lct_subnet<ipv4_addr_t> *p = &subnets[i];
-
-        uint32_t netmask = -1;
-        if (p->len < bits_in_T) {
-            netmask = netmask << (bits_in_T - p->len);
-        }
-
-        ipv4_addr_t newaddr = p->addr & netmask;
-
-        if (newaddr != p->addr) {
-            fprint_addr_rev(stderr, "parsed address", &p->addr);
-            fprint_addr_rev(stderr, "expected address", &newaddr);
-            fprint_addr_rev(stderr, "netmask", &netmask);
-
-            fprintf(stderr, "Subnet parsed address has not been properly masked, should be expected address");
-
-            p->addr = newaddr;
-        }
-    }
-}
 
 // char_string_to_ipv4_addr(s, addr) parses a dotted quad IPv4 address
 // out of the null-terminated character string s, sets addr to the

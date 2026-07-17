@@ -15,6 +15,7 @@
 #define PROTO_IDENTIFY_H
 
 #include <stdint.h>
+#include <cassert>
 
 #include <vector>
 #include <array>
@@ -72,6 +73,7 @@
 #include "mdns.h"
 #include "krb5.hpp"
 #include "tftp.hpp"
+#include "pgsql.hpp"
 
 enum tcp_msg_type {
     tcp_msg_type_unknown = 0,
@@ -106,6 +108,7 @@ enum tcp_msg_type {
     tcp_msg_type_ftp_response,
     tcp_msg_type_rdp,
     tcp_msg_type_krb5,
+    tcp_msg_type_pgsql,
     tcp_msg_type_redis_request,
     tcp_msg_type_redis_response,
     tcp_msg_type_imap_request,
@@ -197,6 +200,12 @@ class tcp_keyword_matcher {
 public:
     // Static member for unknown type - can be used anywhere an unknown tcp_msg_types is needed
     inline static const tcp_msg_types unknown_type{tcp_msg_type_unknown};
+
+    // NOTE: every distinct tcp_msg_type used as a value below must also be
+    // gated in traffic_selector::keyword_type_enabled().  If you add a new
+    // keyword-matched protocol here, add a matching case there or it will be
+    // silently skipped during keyword-based detection.
+    //
     inline static std::unordered_map<uint32_t, tcp_msg_types> tcp_keyword_map = {
         //HTTP methods taken from https://www.iana.org/assignments/http-methods/http-methods.xhtm
         {"ACL "_uint32,              {tcp_msg_type_http_request}},
@@ -330,6 +339,19 @@ public:
     }
 };
 
+///
+/// \brief Result of a resumable match.
+///
+/// Holds the matched message type and the index from which to resume
+/// scanning on the next call.  The index addresses a virtual concatenation
+/// of \c matchers followed by \c matchers_and_offset, so that priority
+/// order is preserved across resumed calls.
+///
+struct match_result {
+    size_t type;          ///< tcp/udp msg type, unknown_msg_type if no match
+    size_t next_index;    ///< resume index for the following call
+};
+
 template <size_t N>
 class protocol_identifier {
     std::vector<matcher_and_type<N>> matchers;
@@ -353,6 +375,11 @@ public:
         // this function is a placeholder for now, but in the future,
         // it may compile a jump table, reorder matchers, etc.
     }
+
+    /// returns the number of matchers, i.e. the length of the virtual
+    /// concatenation of \c matchers and \c matchers_and_offset that
+    /// get_msg_type_resumable() indexes into.
+    size_t size() const { return matchers.size() + matchers_and_offset.size(); }
 
     bool pkt_len_match(datum &pkt, const size_t type) const {
         switch(type) {
@@ -400,33 +427,75 @@ public:
      * size 4. If required, this can be extended to matchers of other sizes.
      */
     size_t get_msg_type(datum &pkt) const {
+        return get_msg_type_resumable(pkt, 0).type;
+    }
+
+    /// Protocol-agnostic "no match / unknown type" value for
+    /// match_result::type.
+    /// This template is shared by both TCP and UDP, so it cannot name either
+    /// tcp_msg_type_unknown or udp_msg_type_unknown; all three are 0.
+    static constexpr size_t unknown_msg_type = 0;
+
+    ///
+    /// \brief Identify the message type, resuming the matcher scan at an index.
+    ///
+    /// Behaves like get_msg_type(), but begins scanning at matcher index
+    /// \p start and reports the index to resume from on the next call.  This
+    /// lets a caller retry detection from the matcher *after* one whose
+    /// protocol parse failed, without rescanning earlier matchers (so the
+    /// total matching work across all retries is bounded by a single full
+    /// pass).
+    ///
+    /// \param pkt_in  packet datum to match against; read-only (a local
+    ///                16-byte copy is taken, so the caller's view is never
+    ///                advanced).
+    /// \param start   matcher index to begin scanning from (0 for a fresh
+    ///                scan); indexes the virtual concatenation of \c matchers
+    ///                then \c matchers_and_offset.
+    /// \return a match_result whose \c type is the matched message type (0 /
+    ///         unknown if none matched) and whose \c next_index is the index
+    ///         to resume from (SIZE_MAX when no further candidates remain).
+    ///
+    match_result get_msg_type_resumable(const datum &pkt_in, size_t start) const {
 
         // TODO: process short data fields
         //
-        if (pkt.length() < 4) {
-            return 0;   // type unknown;
+        if (pkt_in.length() < 4) {
+            return { unknown_msg_type, SIZE_MAX };   // type unknown; no more candidates
         }
-        for (matcher_and_type p : matchers) {
+
+        // Local non-owning copy: matching and pkt_len_match() only read from
+        // the datum, but pkt_len_match() takes a non-const reference, so we
+        // work on a 16-byte copy and never mutate the caller's view.
+        //
+        datum pkt = pkt_in;
+
+        const size_t n_first = matchers.size();
+
+        for (size_t i = start; i < n_first; i++) {
+            const matcher_and_type<N> &p = matchers[i];
             if (N == 4) {
                 if (p.mv.matches(pkt.data, pkt.length()) && pkt_len_match(pkt, p.type)) {
-                return p.type;
+                    return { p.type, i + 1 };
                 }
             } else if (p.mv.matches(pkt.data, pkt.length())) {
-                return p.type;
+                return { p.type, i + 1 };
             }
         }
 
-        for (matcher_type_and_offset p : matchers_and_offset) {
+        const size_t off_start = (start > n_first) ? (start - n_first) : 0;
+        for (size_t i = off_start; i < matchers_and_offset.size(); i++) {
+            const matcher_type_and_offset<N> &p = matchers_and_offset[i];
             if (N == 4) {
                 if (p.mv.matches_at_offset(pkt.data, pkt.length()) && pkt_len_match(pkt, p.type)) {
-                    return p.type;
+                    return { p.type, n_first + i + 1 };
                 }
             } else if (p.mv.matches_at_offset(pkt.data, pkt.length())) {
-                return p.type;
+                return { p.type, n_first + i + 1 };
             }
         }
 
-        return 0;   // type unknown;
+        return { unknown_msg_type, SIZE_MAX };   // type unknown; no more candidates
     }
 
     void disable_all() {
@@ -486,6 +555,7 @@ class traffic_selector {
     bool select_imap_request{false};
     bool select_imap_response{false};
     bool select_telnet{false};
+    bool select_pgsql{false};
 
 public:
 
@@ -569,6 +639,8 @@ public:
 
     bool telnet() const { return select_telnet; }
 
+    bool pgsql() const { return select_pgsql; }
+
     void disable_all() {
         tcp.disable_all();
         tcp4.disable_all();
@@ -614,6 +686,7 @@ public:
         select_imap_request = false;
         select_imap_response = false;
         select_telnet = false;
+        select_pgsql = false;
 
     }
 
@@ -885,6 +958,10 @@ public:
             select_vxlan = true;
         }
 
+        if (protocols["pgsql"] || protocols["all"]) {
+            select_pgsql = true;
+        }
+
         // tell protocol_identification objects to compile lookup tables
         tcp4.compile();
         tcp.compile();
@@ -901,6 +978,52 @@ public:
 
         encoded<uint32_t> keyword{pkt};
         return tcp_keyword_matcher::get_tcp_msg_type_from_keyword(keyword.value());
+    }
+
+    ///
+    /// \brief Report whether a keyword-matched TCP type is enabled by the
+    ///        current selection policy.
+    ///
+    /// This is the single gating authority for keyword-matched TCP types.
+    /// The keyword map is not gated by selection, so set_tcp_protocol()
+    /// consults this before attempting a keyword candidate.
+    ///
+    /// \invariant Every tcp_msg_type that can appear as a value in
+    ///            tcp_keyword_matcher::tcp_keyword_map must have a case here;
+    ///            any type not listed returns \c false and is silently
+    ///            skipped.  Keep this switch in sync with that map (see
+    ///            get_tcp_msg_type_from_keyword()).
+    ///
+    /// \param type  the keyword-matched TCP message type to test.
+    /// \return \c true if the protocol identified by \p type is enabled in the
+    ///         current selection policy, \c false otherwise.
+    ///
+    bool keyword_type_enabled(tcp_msg_type type) const {
+        switch (type) {
+        case tcp_msg_type_http_request:  return http_request();
+        case tcp_msg_type_http_response: return http_response();
+        case tcp_msg_type_ftp_request:   return ftp_request();
+        case tcp_msg_type_smtp_client:   return smtp();
+        case tcp_msg_type_redis_request: return redis_request();
+        case tcp_msg_type_rfb:           return rfb();
+        default:                         return false;
+        }
+    }
+
+    /// enforces the invariant that every tcp_msg_type used as a value in
+    /// tcp_keyword_matcher::tcp_keyword_map has an explicit case in
+    /// keyword_type_enabled(); with all protocols enabled each must report
+    /// enabled, otherwise a keyword-matched protocol is silently skipped.
+    [[maybe_unused]] static bool unit_test() {
+        traffic_selector ts{ { {"all", true} } };
+        for (const auto &entry : tcp_keyword_matcher::tcp_keyword_map) {
+            for (tcp_msg_type type : entry.second) {
+                if (!ts.keyword_type_enabled(type)) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     tcp_msg_type get_tcp_msg_type_preference_from_port(const tcp_msg_types& protos,
@@ -933,38 +1056,94 @@ public:
         return tcp_msg_type_unknown;
     }
 
-    size_t  get_tcp_msg_type(datum &pkt) const {
-        size_t type = tcp.get_msg_type(pkt);
-        if (type == tcp_msg_type_unknown)  {
-            type = tcp4.get_msg_type(pkt);
+    ///
+    /// \brief Identify a TCP message type across the chained matcher lists,
+    ///        resumably.
+    ///
+    /// Iterates the chained TCP mask/value matcher lists (\c tcp then \c tcp4)
+    /// as a single virtual list, returning the matched type and the index to
+    /// resume from on the next call.  Used by set_tcp_protocol() to fall
+    /// through to the next candidate matcher when a protocol parse fails.
+    ///
+    /// \param pkt    packet datum to match against (read-only).
+    /// \param start  virtual index to resume scanning from (0 for a fresh
+    ///               scan); a sentinel offset distinguishes \c tcp from
+    ///               \c tcp4 indices.
+    /// \return a match_result whose \c type is the matched TCP message type
+    ///         (tcp_msg_type_unknown if none) and whose \c next_index is the
+    ///         resume index (SIZE_MAX when no further candidates remain).
+    ///
+    match_result get_tcp_msg_type_resumable(const datum &pkt, size_t start) const {
+        // Identifier boundary: indices [0, tcp4_base) address `tcp`,
+        // indices >= tcp4_base address `tcp4`. `tcp4_base` is a sentinel offset
+        // chosen large enough to never collide with a real matcher index
+        // (i.e., larger than any possible index within `tcp`).
+        constexpr size_t tcp4_base = (size_t{1} << 20);
+        // the sentinel offset must exceed every index within `tcp`
+        assert(tcp.size() < tcp4_base);
+
+        if (start < tcp4_base) {
+            auto r = tcp.get_msg_type_resumable(pkt, start);
+            if (r.type != tcp_msg_type_unknown) {
+                return { r.type, r.next_index };
+            }
+            start = tcp4_base;  // exhausted `tcp`, move on to `tcp4`
         }
-        return type;
+
+        auto r = tcp4.get_msg_type_resumable(pkt, start - tcp4_base);
+        if (r.type != tcp_msg_type_unknown) {
+            return { r.type, tcp4_base + r.next_index };
+        }
+        return { tcp_msg_type_unknown, SIZE_MAX };
     }
 
-    size_t get_udp_msg_type(datum &pkt, udp::ports ports) const {
-        size_t type = udp_msg_type_unknown;
-        if (ipsec() and ports.either_matches_any(esp_default_port)) {   // esp or ike over udp
-            if (lookahead<ike::non_esp_marker> non_esp{pkt}) {
-                type = udp_msg_type_ike;
-            } else {
-                type = udp_msg_type_esp;
+    ///
+    /// \brief Identify a UDP message type across the chained matcher lists,
+    ///        resumably.
+    ///
+    /// Iterates the chained UDP mask/value matcher lists (\c udp, then
+    /// \c udp16, then \c udp4) as a single virtual list, returning the matched
+    /// type and the index to resume from on the next call.  Used by
+    /// set_udp_protocol() to fall through to the next candidate matcher when a
+    /// protocol parse fails.  The ESP/IKE-over-UDP and port-based fallbacks
+    /// are handled separately by the caller.
+    ///
+    /// \param pkt    packet datum to match against (read-only).
+    /// \param start  virtual index to resume scanning from (0 for a fresh
+    ///               scan); sentinel offsets distinguish \c udp, \c udp16, and
+    ///               \c udp4 indices.
+    /// \return a match_result whose \c type is the matched UDP message type
+    ///         (udp_msg_type_unknown if none) and whose \c next_index is the
+    ///         resume index (SIZE_MAX when no further mask/value candidates
+    ///         remain).
+    ///
+    match_result get_udp_msg_type_resumable(const datum &pkt, size_t start) const {
+        constexpr size_t udp16_base = (size_t{1} << 20);
+        constexpr size_t udp4_base  = (size_t{2} << 20);
+        // each sentinel offset must exceed every index within its list
+        assert(udp.size() < udp16_base);
+        assert(udp16.size() < udp4_base - udp16_base);
+
+        if (start < udp16_base) {
+            auto r = udp.get_msg_type_resumable(pkt, start);
+            if (r.type != udp_msg_type_unknown) {
+                return { r.type, r.next_index };
             }
-            return type;
+            start = udp16_base;
+        }
+        if (start < udp4_base) {
+            auto r = udp16.get_msg_type_resumable(pkt, start - udp16_base);
+            if (r.type != udp_msg_type_unknown) {
+                return { r.type, udp16_base + r.next_index };
+            }
+            start = udp4_base;
         }
 
-        type = udp.get_msg_type(pkt);
-        if (type == udp_msg_type_unknown)  {
-            type = udp16.get_msg_type(pkt);
+        auto r = udp4.get_msg_type_resumable(pkt, start - udp4_base);
+        if (r.type != udp_msg_type_unknown) {
+            return { r.type, udp4_base + r.next_index };
         }
-        if (type == udp_msg_type_unknown)  {
-            type = udp4.get_msg_type(pkt);
-        }
-
-        if (type == udp_msg_type_unknown) {
-            type = get_udp_msg_type_from_ports(ports);
-        }
-
-        return type;
+        return { udp_msg_type_unknown, SIZE_MAX };
     }
 
     udp_msg_type get_udp_msg_type_from_ports(udp::ports ports) const {
@@ -1069,6 +1248,10 @@ public:
 
         if (telnet() and (tcp_pkt->header->src_port == hton<uint16_t>(23) or tcp_pkt->header->dst_port == hton<uint16_t>(23))) {
             return tcp_msg_type_telnet;
+        }
+
+        if (pgsql() and (tcp_pkt->header->src_port == hton<uint16_t>(5432) or tcp_pkt->header->dst_port == hton<uint16_t>(5432))) {
+            return tcp_msg_type_pgsql;
         }
 
         return tcp_msg_type_unknown;

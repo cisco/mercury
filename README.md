@@ -69,7 +69,7 @@ Ancillary tools such as the ones listed below may require other packages.
 - `batch_gcd`: [GNU Multiple Precision Arithmetic Library (GMP)](https://gmplib.org/)
 
 ### Installation
-In the root directory, edit mercury.cfg with the network interface you want to capture from, then run
+In the root directory, review `mercury.cfg` as needed, then run
 ```
 ./configure
 make
@@ -80,6 +80,8 @@ to install mercury and create and start a systemd service.  If you don't want th
 ```
 sudo make install-nosystemd
 ```
+The default `mercury.cfg` enables capture mode with `capture=auto` and auto-detects a network interface on Linux at runtime.  To force a specific interface, set `capture=<interface>` instead.
+
 The default file and directory locations are
    * __/usr/local/bin/mercury__ for the executable
    * __/usr/local/share/mercury__ for the resource files
@@ -93,10 +95,17 @@ The easiest way to run mercury in capture mode is using systemd; the OS automati
 ```
 systemctl status mercury
 ```
-and the output should contain 'active (running)'.  To view the log (stderr) output from the mercury unit, run
+and the output should contain 'active (running)'.  To view the log output (mostly stderr) from the mercury unit, run
 ```
 sudo journalctl -u mercury
 ```
+Mercury's stdout and stderr are sent to the systemd journal with the identifier `mercury`; on systems where journald entries are forwarded or imported by syslog/rsyslog (as in the default RHEL/Alma logging setup), these messages will also appear in `/var/log/messages`.  To skip journald/syslog and redirect stdout and stderr directly to a file instead, run `sudo systemctl edit mercury` and add
+```
+[Service]
+StandardOutput=append:/var/log/mercury.log
+StandardError=inherit
+```
+then `sudo systemctl restart mercury`.  Note that Mercury's JSON output files are written under the working directory (`/usr/local/var/mercury` by default) and are not affected by these settings.
 
 To uninstall mercury, run
 ```
@@ -118,7 +127,7 @@ If multiple compile time options are used, then they must be passed to make toge
 mercury: packet metadata capture and analysis
 build/RelWithDebInfo/bin/mercury [INPUT] [OUTPUT] [OPTIONS]:
 INPUT
-   [-c or --capture] capture_interface   # capture packets from interface
+   [-c or --capture] <iface> | auto      # capture from <iface>, or auto-detect with "auto"
    [-r or --read] read_file              # read packets from file
    no input option                       # read packets from standard input
 OUTPUT
@@ -149,7 +158,7 @@ GENERAL OPTIONS
    --metadata                            # output more protocol metadata in JSON
    --raw-features                        # select protocols to write out raw features string(see --help)
    --http-headers=mode                   # controls reporting of HTTP headers in L7 metadata (all or non-sensitive)
-   --http-body-max=N                     # report up to N bytes of the HTTP body in L7 metadata (max 2048 bytes)
+   --http-body-max=N                     # report up to N bytes of the HTTP body (max 2048 bytes)
    --network-behavioral-detections       # perform network behavioral detections
    --minimize-ram                        # minimize the ram usage of mercury library
    --crypto-assess[=policy]              # perform cryptographic security assessment
@@ -164,7 +173,9 @@ DETAILS
    "[-c or --capture] c" captures packets from interface c using the platform
    live-capture backend.  On Linux, mercury uses AF_PACKET with a separate ring
    buffer for each worker thread.  On macOS, mercury uses libpcap for interface
-   capture and currently supports a single capture thread.  "[-t or --thread] t"
+   capture and currently supports a single capture thread.  Use "-c auto" to
+   auto-detect a capture interface (Linux only); it picks the active,
+   non-loopback interface that has received the most packets.  "[-t or --thread] t"
    sets the number of worker threads to t, if t is a positive integer; if t is
    "cpu", then the number of threads will be set to the number of available
    processors.  "[-b or --buffer] b" sets the total size of all ring buffers to
@@ -228,6 +239,7 @@ DETAILS
       kerberos          Kerberos v5
       mdns              multicast DNS
       mysql             MySQL Client/Server Protocol
+      pgsql             PostgreSQL Client/Server messages
       nbns              NetBIOS Name Service
       nbds              NetBIOS Datagram Service
       nbss              NetBIOS Session Service
@@ -333,9 +345,9 @@ DETAILS
        non-sensitive   report all headers except sensitive ones (cookie, authorization, proxy-authorization, etc.)
        all             report all headers including sensitive ones
 
-   --http-body-max=N reports up to N bytes of the HTTP body in L7 metadata as hex.
-    N is required and must be between 0 and 2048. If this option is not specified,
-    HTTP bodies are not captured in L7 metadata.
+   --http-body-max=N reports up to N bytes of the HTTP body as hex.
+    N is required and must be between 0 and 2048.
+    If this option is not specified, HTTP bodies are not captured.
 
    --network-behavioral-detections performs analysis on packets, sessions, and
     sets of sessions independent of the core mercury analysis functionality. These
@@ -365,6 +377,7 @@ see if the directories on your system differ.
 
 ### EXAMPLES
 ```
+   mercury -c auto                       # auto-detect iface, metadata to stdout
    mercury -c eth0 -w foo.pcap           # capture from eth0, write to foo.pcap
    mercury -c eth0 -w foo.pcap -t cpu    # as above, with one thread per CPU
    mercury -c eth0 -w foo.mcap -t cpu -s # as above, selecting packet metadata

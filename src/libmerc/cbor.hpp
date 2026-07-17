@@ -291,7 +291,7 @@ namespace cbor {
         /// `cbor::uint64::unit_test()` performs unit tests on the
         /// class \ref cbor::uint64 and returns `true` if they all pass,
         /// and `false` otherwise.  If \param f == `nullptr`, then no
-        /// outupt is written; otherwise, output is written to \param
+        /// output is written; otherwise, output is written to \param
         /// f.
         ///
         static bool unit_test(FILE *f=nullptr);
@@ -1023,6 +1023,7 @@ namespace cbor {
         return true;
     }
 
+    // LCOV_EXCL_START
     static inline bool reencode_unit_test(FILE *f) {
         std::vector<uint8_t> valid_cbor_examples[] = {
             {
@@ -1145,7 +1146,9 @@ namespace cbor {
 
         return all_tests_passed;
     }
+    // LCOV_EXCL_STOP
 
+    // LCOV_EXCL_START
     /// unit_test() performs unit testing on all classes in the cbor
     /// namespace and returns true if they all pass, and false
     /// otherwise.  If \param f == `nullptr`, then no outupt is
@@ -1266,7 +1269,9 @@ namespace cbor {
             and text_string::unit_test(f)
             and reencode_unit_test(f);
     }
+    // LCOV_EXCL_STOP
 
+    // LCOV_EXCL_START
     // static unit test function for cbor::uint64
     //
     inline bool cbor::uint64::unit_test(FILE *f) {
@@ -1335,7 +1340,9 @@ namespace cbor {
 
         return no_tests_failed;
     }
+    // LCOV_EXCL_STOP
 
+    // LCOV_EXCL_START
     // static unit test function for cbor::byte_string
     //
     inline bool cbor::byte_string::unit_test(FILE *f) {
@@ -1394,7 +1401,9 @@ namespace cbor {
 
         return no_tests_failed;
     }
+    // LCOV_EXCL_STOP
 
+    // LCOV_EXCL_START
     // static unit test function for cbor::text_string
     //
     inline bool cbor::text_string::unit_test(FILE *f) {
@@ -1460,6 +1469,7 @@ namespace cbor {
 
         return no_tests_failed;
     }
+    // LCOV_EXCL_STOP
 
 };
 

@@ -1,5 +1,41 @@
 # CHANGELOG for Mercury
 
+## VERSION 2.19.0
+* Added capture interface autodetection capability.
+* Added DTLS ClientHello telemetry.
+* Added 'alternative' construct for PEG/BNF alternatives in protocol parsing.
+* Extended --http-body-max to report HTTP body bytes without requiring
+  --metadata, and honored the option in standalone mercury (0-2048 bytes).
+* Suppressed empty JSON arrays in Kerberos output.
+* Fixed stats output to UTF-8-normalize and JSON-escape server-name and
+  user-agent strings.
+* Fixed unbounded growth in the UDP flow table (added an entry cap and shorter
+  timeout, and skip DNS insertions).
+* Fixed intercept compilation: missing includes and syslog type shadowing.
+* Fixed mismatched-tag warnings in the CDP parser.
+* Fixed the exactly_n lexer to consume exactly n bytes and fail on shortfall.
+* Fixed HTTP/2 HPACK "literal header never indexed" bitmask check.
+* Refactored lctrie unit tests to run from any directory.
+* CI: pinned the macOS wheel runner to macos-15 for the mercury-python wheel.
+* CI: excluded test-only code and xsimd from coverage reports.
+
+## VERSION 2.18.0
+* Added DTLS ClientHello reassembly via a generalized, trait-driven
+  UDP offset reassembly path reusable by any UDP protocol.
+* Unified reassembly truncation reporting across JSON, FDC, and analysis.
+* Tightened protocol validation for syslog and STUN: reject classic
+  STUN packets with unknown message types; honor the syslog ASCII
+  check and bound it to the first N bytes.
+* Optimized is_ascii() to enable compiler auto-vectorization.
+* Increased unit-test coverage for protocol parsers.
+* Fixed parse_up_to_delimiters() to set data_end when no delimiter found.
+* Fixed SCTP chunk length to uint16_t (RFC 4960) with length validation.
+* Fixed STUN IPv6 address length check (16 bytes instead of 4).
+* Fixed SOCKS5 request/response validity check and write_json_addr typo.
+* Fixed VXLAN VNI flag validation to reject packets with the flag unset.
+* Removed DONT_USE_STDERR and moved printf_err out of the public libmerc.h.
+* Send mercury systemd stdout/stderr to the journal, not the log file.
+
 ## VERSION 2.17.0
 * Enabled ARM Pointer Authentication (PAC) and Branch Target
   Identification (BTI) hardening on Linux.
