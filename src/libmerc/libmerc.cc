@@ -436,7 +436,7 @@ int mercury_packet_processor_get_cbor_metadata(
         }
         *buffer = processor->cbor_meta.get_buffer();
         *length = processor->cbor_meta.get_length();
-        return (int)*length;
+        return CBOR_OK;
     }
     catch (std::exception &e) {
         printf_err(log_err, "%s\n", e.what());

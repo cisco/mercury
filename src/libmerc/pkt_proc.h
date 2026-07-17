@@ -157,7 +157,8 @@ struct stateful_pkt_proc {
         selector{mc->selector},
         quic_crypto{global_vars.quic_trial_decryption},
         reassembler_ptr{(global_vars.reassembly) ? (new tcp_reassembler(global_vars.minimize_ram)) : nullptr},
-        exposed_creds{global_vars.exposed_creds}
+        exposed_creds{global_vars.exposed_creds},
+        cbor_meta{global_vars.cbor_metadata, global_vars.cbor_metadata_buffer_size}
     {
 
         if (global_vars.crypto_assess_policy.length() > 0) {

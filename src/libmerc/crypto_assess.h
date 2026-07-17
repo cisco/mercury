@@ -10,7 +10,6 @@
 #include "json_object.h"
 #include "cbor_messages.hpp"
 #include "cbor_object.hpp"
-#include "cbor_metadata.hpp"
 #include "tls_parameters.hpp"
 #include "tls_extensions.hpp"
 #include "tls.h"
@@ -84,9 +83,10 @@ namespace crypto_policy {
         // Render this policy's owned message (if any) into the caller-opened JSON assessment array.
         virtual void emit(json_array &) { }
 
-        // Render this policy's non-compliant finding (if any) as a top-level CBOR feature:
-        // its KEY, its body, and mark the buffer as carrying a feature.
-        virtual void emit(cbor_object &, cbor_metadata_context *) { }
+        // Render this policy's non-compliant finding (if any) as a top-level CBOR
+        // feature: its KEY and body. Whether a feature was written is detected by
+        // the orchestrator (buffer growth); emit() has no metadata-context knowledge.
+        virtual void emit(cbor_object &) { }
 
         virtual ~assessor() { }
 
@@ -739,15 +739,13 @@ namespace crypto_policy {
             else if (cnsa_ssh_msg_.is_valid()) { cnsa_ssh_msg_.write<json_object>(record); }
         }
 
-        void emit(cbor_object &out, cbor_metadata_context *meta) override {
+        void emit(cbor_object &out) override {
             if (cnsa_tls_msg_.is_valid() && !cnsa_tls_msg_.is_compliant()) {
                 cbor::text_string(crypto_cnsa_tls_message::KEY).write(out.get_writeable());
                 cnsa_tls_msg_.write<cbor_object>(out);
-                if (meta) { meta->set_feature_written(); }
             } else if (cnsa_ssh_msg_.is_valid() && !cnsa_ssh_msg_.is_compliant()) {
                 cbor::text_string(crypto_cnsa_ssh_message::KEY).write(out.get_writeable());
                 cnsa_ssh_msg_.write<cbor_object>(out);
-                if (meta) { meta->set_feature_written(); }
             }
         }
 
@@ -949,11 +947,10 @@ namespace crypto_policy {
             if (nist_msg_.is_valid()) { nist_msg_.write<json_object>(record); }
         }
 
-        void emit(cbor_object &out, cbor_metadata_context *meta) override {
+        void emit(cbor_object &out) override {
             if (nist_msg_.is_valid() && !nist_msg_.is_compliant()) {
                 cbor::text_string(crypto_nist_message::KEY).write(out.get_writeable());
                 nist_msg_.write<cbor_object>(out);
-                if (meta) { meta->set_feature_written(); }
             }
         }
 

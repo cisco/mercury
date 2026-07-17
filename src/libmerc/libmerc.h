@@ -890,6 +890,7 @@ int mercury_packet_processor_get_analysis_context_fdc(
  * retrieval.
  */
 enum cbor_metadata_return {
+    CBOR_OK                       =  1,
     CBOR_NO_DATA                  =  0,
     CBOR_WRITE_INSUFFICIENT_SPACE = -1,
     CBOR_WRITE_FAILURE            = -2,
@@ -911,8 +912,8 @@ enum cbor_metadata_return {
  * @param buffer (output) is set to point to the CBOR buffer.
  * @param length (output) is set to the length of the CBOR data.
  *
- * @return a positive value on success, CBOR_NO_DATA if no metadata
- * was produced, or a negative error code on failure.
+ * @return CBOR_OK on success (with the size in *length), CBOR_NO_DATA if no
+ * metadata was produced, or a negative error code on failure.
  */
 #ifdef __cplusplus
 extern "C" LIBMERC_DLL_EXPORTED

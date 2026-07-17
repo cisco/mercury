@@ -1238,7 +1238,7 @@ namespace imap {
             imap_requests req{d};
             if (req.check_credential_exposure() != exposed_creds_type::password_derived) { return false; }
             if (!req.get_auth_method().match("CRAM-MD5")) { return false; }
-            if (req.get_username().is_readable()) return false;  // no username for AUTHENTICATE
+            if (req.get_username().is_readable()) { return false; }  // no username for AUTHENTICATE
         }
 
         return true;

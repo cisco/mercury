@@ -357,7 +357,7 @@ namespace ldap {
         }
 
         datum get_auth_method() const {
-            if (auth.tag == 0x80) return datum{"simple"};
+            if (auth.tag == 0x80) { return datum{"simple"}; }
             if (has_sasl_credentials) { return sasl_cred.get_mechanism(); }
             return datum{};
         }

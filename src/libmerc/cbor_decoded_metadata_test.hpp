@@ -36,8 +36,9 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
     // Renders a decoded CBOR span to a JSON object string (the inspector's harvest step).
     auto render_json = [](datum span) -> std::string {
         output_buffer<4096> buf;
-        if (decode_cbor_map_to_json(span, buf, nullptr))
+        if (decode_cbor_map_to_json(span, buf, nullptr)) {
             return std::string(buf.dstr, buf.length());
+        }
         return std::string();
     };
 
@@ -184,8 +185,9 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
                 report("cnsa hex cs[1] == 0005", c.cs_not_allowed_at(1).value().match("0005"));
             }
             report("cnsa hex grp_count == 1", c.grp_not_allowed_count() == 1);
-            if (c.grp_not_allowed_count() >= 1)
+            if (c.grp_not_allowed_count() >= 1) {
                 report("cnsa hex grp[0] == 001d", c.grp_not_allowed_at(0).value().match("001d"));
+            }
         }
         // 2c: forward-compat unknown field in the target map is skipped; decode still valid
         {
@@ -343,7 +345,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
     {
         // 7a: no feature written -> no data
         {
-            cbor_metadata_context ctx;
+            cbor_metadata_context ctx{true};   // enable -> allocate default (4096) buffer
             ctx.reset();
             writeable& w = ctx.get_writer();
             cbor_object cbor_outer{w};
@@ -356,7 +358,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         }
         // 7b: feature written -> data present and decodable (as an unknown on the shipped type)
         {
-            cbor_metadata_context ctx;
+            cbor_metadata_context ctx{true};   // enable -> allocate default (4096) buffer
             ctx.reset();
             writeable& w = ctx.get_writer();
             cbor_object cbor_outer{w};
@@ -379,7 +381,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         }
         // 7c: reset clears the flag
         {
-            cbor_metadata_context ctx;
+            cbor_metadata_context ctx{true};   // enable -> allocate default (4096) buffer
             ctx.reset();
             writeable& w = ctx.get_writer();
             cbor_object cbor_outer{w};
@@ -406,7 +408,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         // buffer (no feature) is still dropped.
         {
             // feature + truncation -> buffer delivered; truncation captured separately
-            cbor_metadata_context ctx;
+            cbor_metadata_context ctx{true};   // enable -> allocate default (4096) buffer
             ctx.reset();
             writeable& w = ctx.get_writer();
             cbor_object cbor_outer{w};
@@ -431,7 +433,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
                    && decoded.unknown[0].key().match("exposed_credentials_plaintext"));
 
             // truncation-only buffer (no feature written) -> dropped by the end_encode gate
-            cbor_metadata_context ctx2;
+            cbor_metadata_context ctx2{true};
             ctx2.reset();
             writeable& w2 = ctx2.get_writer();
             cbor_object cbor_outer2{w2};
@@ -621,6 +623,154 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
                none.unknown.size() == 1
                && none.unknown[0].is_valid()
                && none.unknown[0].key().match("cnsa_2_0_non_conformant"));
+    }
+
+    // ================================================================
+    // Group C — duplicate keys, encode exhaustion, custom buffer size,
+    // and decode-side robustness against short/truncated input.
+    // ================================================================
+
+    // Test 14: duplicate feature key.
+    //   - Typed slot (full_decoder): the second occurrence OVERWRITES the first
+    //     (decode_into does `*this = decode(...)`); unknown stays empty.
+    //   - Shipped typed_decoder<>: both occurrences are preserved in the unknown
+    //     vector (no overwrite) so harvest never silently drops a duplicate span.
+    {
+        data_buffer<1024> buf;
+        cbor_object cbor_outer{buf};
+        cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
+        exposed_creds_message::construct(exposed_creds_message::KEY_PLAINTEXT,
+            datum{"http"}, datum{"basic"}, datum{"alice"}).template write<cbor_object>(outer);
+        exposed_creds_message::construct(exposed_creds_message::KEY_PLAINTEXT,
+            datum{"http"}, datum{"basic"}, datum{"bob"}).template write<cbor_object>(outer);
+        outer.close();
+        cbor_outer.close();
+        datum encoded = buf.contents();
+
+        full_decoder d;
+        decode_cbor_metadata(encoded.data, encoded.length(), d);
+        auto &ec = d.get<exposed_creds_message>();
+        report("dup typed: valid + slot", d.valid && ec.is_valid());
+        report("dup typed: second overwrites first (username == bob)",
+               ec.username().match("bob"));
+        report("dup typed: unknown empty", d.unknown.empty());
+
+        cbor_decoded_metadata shipped;                 // typed_decoder<>
+        decode_cbor_metadata(encoded.data, encoded.length(), shipped);
+        report("dup shipped: both preserved in unknown",
+               shipped.valid && shipped.unknown.size() == 2
+               && shipped.unknown[0].key().match("exposed_credentials_plaintext")
+               && shipped.unknown[1].key().match("exposed_credentials_plaintext"));
+    }
+
+    // Test 15: buffer exhaustion during encode. A cnsa written into a tiny context
+    // overruns the buffer; the writeable goes null. Asserts is_truncated() true,
+    // get_length() == 0 (end_encode's is_null() branch), and that the point-14
+    // growth check is overflow-safe: bytes_written() reports 0 after the overrun,
+    // so (bytes_written() > before_features) is false and set_feature_written()
+    // is NOT called (mirrors the orchestrator).
+    {
+        cbor_metadata_context ctx{true, 64};   // tiny buffer, forces overrun
+        ctx.reset();
+        writeable& w = ctx.get_writer();
+        cbor_object cbor_outer{w};
+        cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
+
+        const size_t before_features = ctx.bytes_written();
+
+        crypto_cnsa_tls_message msg;
+        msg.set_policy("quantum_safe");
+        msg.set_target("client");
+        for (int i = 0; i < 20; i++) { msg.add_cs_not_allowed("TLS_RSA_WITH_AES_128_CBC_SHA"); }
+        msg.set_cs_allowed("some");
+        msg.set_grp_allowed("all");
+        msg.set_valid();
+        cbor::text_string(crypto_cnsa_tls_message::KEY).write(w);
+        msg.template write<cbor_object>(outer);
+
+        // orchestrator's growth check: on overrun bytes_written() == 0 -> false
+        report("exhaust: bytes_written == 0 after overrun", ctx.bytes_written() == 0);
+        if (ctx.bytes_written() > before_features) { ctx.set_feature_written(); }
+
+        outer.close();
+        cbor_outer.close();
+        ctx.end_encode();
+        report("exhaust: is_truncated() true", ctx.is_truncated());
+        report("exhaust: has_data() false", !ctx.has_data());
+        report("exhaust: get_length() == 0", ctx.get_length() == 0);
+    }
+
+    // Test 16: custom buffer size codepath. The SAME payload truncates at a small
+    // configured size and fits at a larger one (8192) -- exercising the
+    // resolve_capacity(size) path on both sides of the boundary.
+    {
+        // encode a moderate cnsa (10 ciphersuites) into a context of the given
+        // capacity; return the finalized context so the caller can inspect it.
+        auto encode_cnsa = [](size_t cap) -> cbor_metadata_context {
+            cbor_metadata_context ctx{true, cap};
+            ctx.reset();
+            writeable& w = ctx.get_writer();
+            cbor_object cbor_outer{w};
+            cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
+            const size_t before = ctx.bytes_written();
+            crypto_cnsa_tls_message msg;
+            msg.set_policy("quantum_safe");
+            msg.set_target("client");
+            for (int i = 0; i < 10; i++) { msg.add_cs_not_allowed("TLS_RSA_WITH_AES_128_CBC_SHA"); }
+            msg.set_cs_allowed("some");
+            msg.set_grp_allowed("all");
+            msg.set_valid();
+            cbor::text_string(crypto_cnsa_tls_message::KEY).write(w);
+            msg.template write<cbor_object>(outer);
+            if (ctx.bytes_written() > before) { ctx.set_feature_written(); }
+            outer.close();
+            cbor_outer.close();
+            ctx.end_encode();
+            return ctx;
+        };
+
+        cbor_metadata_context small = encode_cnsa(256);    // too small -> truncates
+        report("custom-size: small (256) truncated", small.is_truncated());
+        report("custom-size: small (256) no data", !small.has_data());
+
+        cbor_metadata_context large = encode_cnsa(8192);   // fits
+        report("custom-size: large (8192) not truncated", !large.is_truncated());
+        report("custom-size: large (8192) has data", large.has_data());
+
+        // the 8192 buffer decodes back to the cnsa feature (round-trip intact)
+        cbor_decoded_metadata decoded;
+        decode_cbor_metadata(large.get_buffer(), large.get_length(), decoded);
+        report("custom-size: large decodes valid", decoded.valid);
+        report("custom-size: large -> cnsa unknown",
+               decoded.unknown.size() == 1
+               && decoded.unknown[0].key().match("cnsa_2_0_non_conformant"));
+    }
+
+    // Test 17: decode-side robustness -- a short/truncated buffer handed to
+    // decode_cbor_metadata() must fail cleanly (valid == false, nothing captured,
+    // no crash / no out-of-bounds read). Two flavors: cut mid-stream, and a
+    // 2-byte stub.
+    {
+        // build a valid single-feature buffer, then feed a reduced length.
+        data_buffer<512> buf;
+        cbor_object cbor_outer{buf};
+        cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
+        exposed_creds_message::construct(exposed_creds_message::KEY_PLAINTEXT,
+            datum{"http"}, datum{"basic"}, datum{"alice"}).template write<cbor_object>(outer);
+        outer.close();
+        cbor_outer.close();
+        datum encoded = buf.contents();
+
+        // cut 6 bytes off the end -> chops the final value / break
+        cbor_decoded_metadata cut;
+        decode_cbor_metadata(encoded.data, encoded.length() - 6, cut);
+        report("trunc-decode: mid-stream cut -> valid false", !cut.valid);
+
+        // 2-byte stub -> outer map can't parse
+        cbor_decoded_metadata stub;
+        decode_cbor_metadata(encoded.data, 2, stub);
+        report("trunc-decode: 2-byte stub -> valid false", !stub.valid);
+        report("trunc-decode: stub unknown empty", stub.unknown.empty());
     }
 
     return all_passed;

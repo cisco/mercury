@@ -40,6 +40,8 @@ public:
 /// feature (in a std::tuple) plus an unknown vector for everything else. A feature must
 /// provide the contract: static matches(datum), decode_into(datum,datum&), is_valid(),
 /// cbor_span(), key(). Unregistered features flow through the unknown vector.
+/// All datum accessors reference the source buffer passed to decode_cbor_metadata(); they
+/// are invalidated when that buffer is freed or reused, and by the next decode (reset()).
 template<class... Features>
 struct typed_decoder {
     static constexpr size_t unknown_reserve_count = 1;
@@ -100,6 +102,10 @@ inline void decode_v1(datum &d, Decoder& out) {
     }
 }
 
+/// Decode a CBOR metadata buffer into `out`. All datum-valued results (feature slots'
+/// key()/cbor_span(), the unknown vector's spans, and `truncation`) are NON-OWNING views
+/// into `buf` — they stay valid only while `buf` does. Copy or consume them before `buf`
+/// is freed or reused (the mercury path reuses one buffer per packet).
 template<class Decoder>
 inline void decode_cbor_metadata(const uint8_t* buf, size_t len,
                                   Decoder& out) {
@@ -130,8 +136,22 @@ inline void decode_cbor_metadata(const uint8_t* buf, size_t len,
     }
 
     outer.close();
-   
+
     out.valid = recognized_version && !d.is_null();
+}
+
+namespace {
+
+    // Fuzz target for the shipped decoder: feed arbitrary bytes to
+    // decode_cbor_metadata() and confirm it never crashes / reads out of bounds.
+    // The generator script discovers this by its name suffix and drives it with
+    // the seed corpus under test/fuzz/cbor_decoded_metadata/.
+    [[maybe_unused]] int cbor_decoded_metadata_fuzz_test(const uint8_t *data, size_t size) {
+        cbor_decoded_metadata decoded;
+        decode_cbor_metadata(data, size, decoded);
+        return 0;
+    }
+
 }
 
 #endif // CBOR_DECODED_METADATA_HPP

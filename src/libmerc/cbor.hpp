@@ -489,7 +489,7 @@ namespace cbor {
         /// bytes in the \ref datum \param d
         ///
         static text_string construct(const datum &d) {
-            if (!d.is_readable()) return text_string{};
+            if (!d.is_readable()) { return text_string{}; }
             uint64 len{(uint64_t)d.length(), text_string_type};
             datum val{d};
             return text_string{len, val};

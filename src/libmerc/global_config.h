@@ -138,6 +138,7 @@ public:
     bool quic_trial_decryption = false; /* trial decrypt QUIC initial packets */
     bool exposed_creds = false;      /* detect and report exposed credentials in enabled plaintext protocols */
     bool cbor_metadata = false;         /* encode CBOR metadata for inspector */
+    size_t cbor_metadata_buffer_size = 0;  /* 0 => use default at allocation time */
 
     global_config() : libmerc_config(), reassembly{false}, network_behavioral_detections{false} {};
     global_config(const libmerc_config& c) : libmerc_config(c), reassembly{false}, network_behavioral_detections{false} {
@@ -343,6 +344,31 @@ public:
         http_body_max = value;
         return true;
     }
+
+    static constexpr size_t min_cbor_metadata_buffer_size = 64;
+    static constexpr size_t max_cbor_metadata_buffer_size = 65536;
+
+    bool set_cbor_metadata_buffer_size(const std::string& s) {
+        if (s.empty()) {
+            printf_err(log_err, "--cbor-metadata-buffer-size requires a size argument (%zu-%zu)\n",
+                       min_cbor_metadata_buffer_size, max_cbor_metadata_buffer_size);
+            return false;
+        }
+        datum d{s};
+        decimal_integer<uint32_t> parsed{d};
+        if (d.is_null()) {
+            printf_err(log_err, "invalid cbor metadata buffer size \"%s\"\n", s.c_str());
+            return false;
+        }
+        uint32_t value = parsed.get_value();
+        if (value < min_cbor_metadata_buffer_size || value > max_cbor_metadata_buffer_size) {
+            printf_err(log_err, "cbor metadata buffer size \"%s\" out of range (%zu-%zu)\n",
+                       s.c_str(), min_cbor_metadata_buffer_size, max_cbor_metadata_buffer_size);
+            return false;
+        }
+        cbor_metadata_buffer_size = value;
+        return true;
+    }
 };
 
 static void setup_extended_fields(global_config* lc, const std::string& config) {
@@ -362,7 +388,8 @@ static void setup_extended_fields(global_config* lc, const std::string& config) 
         {"exposed-creds", "", "", SETTER_FUNCTION(&lc){ lc->exposed_creds = true; }},
         {"http-headers", "", "", SETTER_FUNCTION(&lc){ lc->set_http_headers(s); }},
         {"http-body-max", "", "", SETTER_FUNCTION(&lc){ lc->set_http_body_max(s); }},
-        {"cbor-metadata", "", "", SETTER_FUNCTION(&lc){ lc->cbor_metadata = true; }}
+        {"cbor-metadata", "", "", SETTER_FUNCTION(&lc){ lc->cbor_metadata = true; }},
+        {"cbor-metadata-buffer-size", "", "", SETTER_FUNCTION(&lc){ lc->set_cbor_metadata_buffer_size(s); }}
     };
 
     parse_additional_options(options, config, *lc);

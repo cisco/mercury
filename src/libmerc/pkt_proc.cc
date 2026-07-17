@@ -108,12 +108,10 @@ struct do_crypto_assessment {
 
     const std::vector<crypto_policy::assessor *>& ca;   // elements non-const: emit/fill mutate them
     Object &output_;
-    cbor_metadata_context *cbor_meta_ = nullptr;
 
     do_crypto_assessment(const std::vector<crypto_policy::assessor *>& ca_,
-                         Object& output,
-                         cbor_metadata_context* cbor_meta = nullptr)
-        : ca{ca_}, output_{output}, cbor_meta_{cbor_meta} {}
+                         Object& output)
+        : ca{ca_}, output_{output} {}
 
     // One assessment pass, protocol-agnostic. Emitting modes (json_object / cbor_object) run the
     // FILL path (each policy populates its own message) then emit; NO_OUTPUT (null_object) runs
@@ -130,7 +128,7 @@ struct do_crypto_assessment {
                 for (auto* assessor : ca) { assessor->emit(assessor_record); }
                 assessor_record.close();
             } else {
-                for (auto* assessor : ca) { assessor->emit(output_, cbor_meta_); }
+                for (auto* assessor : ca) { assessor->emit(output_); }
             }
         } else {
             for (const auto* assessor : ca) {
@@ -172,10 +170,8 @@ struct check_exposed_creds {
     static_assert(has_array_type_v<Object>,
                   "check_exposed_creds Object must be a metadata writer");
     Object &output_;
-    cbor_metadata_context *cbor_meta_ = nullptr;
 
-    check_exposed_creds(Object &out, cbor_metadata_context *meta = nullptr)
-        : output_{out}, cbor_meta_{meta} {}
+    explicit check_exposed_creds(Object &out) : output_{out} {}
 
     void write_feature(exposed_creds_type type, datum protocol,
                        datum auth_method, datum username) {
@@ -195,7 +191,6 @@ struct check_exposed_creds {
             }
             exposed_creds_message::construct(key, protocol, auth_method, username)
                 .template write<Object>(output_);
-            if (cbor_meta_) { cbor_meta_->set_feature_written(); }
         }
     }
 
@@ -1674,16 +1669,29 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
                 cbor_object cbor_outer{cbor_w};
                 cbor_object cbor_output{cbor_outer, CBOR_METADATA_VERSION_KEY};
 
+                // header is written; record the size so feature writes below can
+                // be detected as growth. all feature visitors must run between
+                // this mark and the check that follows them.
+                const size_t before_features = cbor_meta.bytes_written();
+
                 if (exposed_creds) {
-                    auto creds_visitor = check_exposed_creds{cbor_output, &cbor_meta};
+                    auto creds_visitor = check_exposed_creds{cbor_output};
                     exposed_creds_type exposed_creds_ret = std::visit(creds_visitor, x);
                     output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
                 }
 
                 if (!crypto_policies.empty() && !truncated_crypto_handshake) {
-                    auto crypto_visitor = do_crypto_assessment{crypto_policies, cbor_output, &cbor_meta};
+                    auto crypto_visitor = do_crypto_assessment{crypto_policies, cbor_output};
                     crypto_assess_result assessment_result = std::visit(crypto_visitor, x);
                     output_attr = set_crypto_assessment_attr(assessment_result) ? true : output_attr;
+                }
+
+                // add future feature visitors here (before the growth check)
+
+                // grew past the header => a feature was written (an overrun
+                // reports 0 bytes, so this stays false and the buffer is dropped)
+                if (cbor_meta.bytes_written() > before_features) {
+                    cbor_meta.set_feature_written();
                 }
 
                 // Emit the packet/handshake truncation status (string form) as a top-level
@@ -1745,15 +1753,28 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
                 cbor_object cbor_outer{cbor_w};
                 cbor_object cbor_output{cbor_outer, CBOR_METADATA_VERSION_KEY};
 
+                // header is written; record the size so feature writes below can
+                // be detected as growth. all feature visitors must run between
+                // this mark and the check that follows them.
+                const size_t before_features = cbor_meta.bytes_written();
+
                 if (!crypto_policies.empty() && !truncated_crypto_handshake) {
-                    auto crypto_visitor = do_crypto_assessment{crypto_policies, cbor_output, &cbor_meta};
+                    auto crypto_visitor = do_crypto_assessment{crypto_policies, cbor_output};
                     crypto_assess_result crypto_result = std::visit(crypto_visitor, x);
                     output_attr = set_crypto_assessment_attr(crypto_result) ? true : output_attr;
                 }
                 if (exposed_creds) {
-                    auto creds_visitor = check_exposed_creds{cbor_output, &cbor_meta};
+                    auto creds_visitor = check_exposed_creds{cbor_output};
                     exposed_creds_type exposed_creds_ret = std::visit(creds_visitor, x);
                     output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
+                }
+
+                // add future feature visitors here (before the growth check)
+
+                // grew past the header => a feature was written (an overrun
+                // reports 0 bytes, so this stays false and the buffer is dropped)
+                if (cbor_meta.bytes_written() > before_features) {
+                    cbor_meta.set_feature_written();
                 }
 
                 // Emit the packet/handshake truncation status (string form) as a top-level

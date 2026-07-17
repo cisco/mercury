@@ -72,10 +72,11 @@ public:
         return key.match(KEY_PLAINTEXT) || key.match(KEY_TOKEN) || key.match(KEY_DERIVED);
     }
     void decode_into(datum key, datum &d) {
-        const char* k = key.match(KEY_PLAINTEXT) ? KEY_PLAINTEXT
-                      : key.match(KEY_TOKEN)     ? KEY_TOKEN
-                                                 : KEY_DERIVED;
-        *this = decode(d, k);
+        const char* k = nullptr;
+        if      (key.match(KEY_PLAINTEXT)) { k = KEY_PLAINTEXT; }
+        else if (key.match(KEY_TOKEN))     { k = KEY_TOKEN; }
+        else if (key.match(KEY_DERIVED))   { k = KEY_DERIVED; }
+        if (k) { *this = decode(d, k); }
     }
 
     template<typename Object>

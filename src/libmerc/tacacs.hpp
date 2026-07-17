@@ -358,20 +358,20 @@ namespace tacacs {
         }
 
         datum get_auth_method() const {
-            if (direction() != msg_type::request || type.value() != 0x01) return datum{};
-            if (!flags.bit<7>()) return datum{"encrypted"};
+            if (direction() != msg_type::request || type.value() != 0x01) { return datum{}; }
+            if (!flags.bit<7>()) { return datum{"encrypted"}; }
             if (seq_no.value() == 1) {
                 if (lookahead<authentication_start> as{body}) {
                     const char* name = as.value.get_auth_type_name();
-                    if (name) return datum{name};
+                    if (name) { return datum{name}; }
                 }
             }
             return datum{};
         }
 
         datum get_username() const {
-            if (direction() != msg_type::request || type.value() != 0x01) return datum{};
-            if (!flags.bit<7>()) return datum{};
+            if (direction() != msg_type::request || type.value() != 0x01) { return datum{}; }
+            if (!flags.bit<7>()) { return datum{}; }
             if (seq_no.value() == 1) {
                 if (lookahead<authentication_start> as{body}) {
                     return as.value.get_user();
