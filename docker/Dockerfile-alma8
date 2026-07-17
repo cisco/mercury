@@ -1,28 +1,25 @@
+# Stock AlmaLinux 8 toolchain: "Development Tools" provides gcc 8.5, python 3.12
 FROM almalinux:8
-RUN yum install -y epel-release \
-    && yum update -y \
-    && yum install -y git make \
-    gcc-toolset-9-gcc gcc-toolset-9-gcc-c++ gcc-toolset-9-libasan-devel \
-    pkg-config wget python3.11 python3.11-devel python3.11-pip valgrind \
-    jq tcpreplay iproute sudo zlib-devel lcov \
-    openssl-devel gmp-devel \
-    && yum update -y \
-    && alternatives --install /usr/bin/gcc gcc /opt/rh/gcc-toolset-9/root/usr/bin/gcc 60 \
-    && alternatives --install /usr/bin/g++ g++ /opt/rh/gcc-toolset-9/root/usr/bin/g++ 60 \
-    && alternatives --install /usr/bin/cc cc /opt/rh/gcc-toolset-9/root/usr/bin/gcc 60 \
-    && yum clean all \
-    && rm -rf /var/cache/yum \
-    && python3.11 -m venv /opt/venv
+RUN dnf install -y epel-release \
+    && dnf update -y \
+    && dnf group install -y --with-optional "Development Tools" \
+    && dnf install -y openssl-devel gmp-devel zlib-devel \
+    && dnf install -y libasan libtsan libubsan liblsan \
+    && dnf install -y python3.12-devel \
+    && dnf install -y valgrind wget jq tcpreplay iproute sudo lcov \
+    && dnf clean all \
+    && rm -rf /var/cache/dnf \
+    && python3 -m venv /opt/venv
 
 ENV PATH="/opt/venv/bin:$PATH"
-RUN pip3.11 install --upgrade pip \
-    && pip3.11 install --upgrade setuptools wheel \
-    && pip3.11 install --upgrade jsonschema cryptography Cython
+RUN pip install --upgrade pip \
+    && pip install --upgrade setuptools wheel \
+    && pip install --upgrade jsonschema cryptography Cython
 
 # Disabled: no RHEL8 rpm use case (saves 1hr build time)
 #
 # Default ruby on AlmaLinux 8 is too outdated to execute "gem install fpm"
-# RUN yum install -y rbenv rpm-build squashfs-tools \
+# RUN dnf install -y rbenv rpm-build squashfs-tools \
 #     && eval "$(rbenv init -)" \
 #     && echo 'eval "$(rbenv init -)"' >> .bashrc \
 #     && rbenv install "$(rbenv install -l | grep -v - | tail -1)" \
