@@ -3,9 +3,13 @@
 // a PCAP analysis tool using libmerc.so (via dlopen), useful for
 // testing and debugging that library
 //
-// compile as:
+// Build with the top-level makefile (sets include paths and libraries):
 //
-//   g++ -Wall -Wno-narrowing libmerc_util.cc pcap_file_io.c -pthread -ldl -std=c++17 -o libmerc_util
+//   make libmerc_util        # see the Tools section of 'make help'
+//
+// To compile by hand, run from the src/ directory:
+//
+//   g++ -Wall -Wno-narrowing libmerc_util.cc -pthread -lcrypto -ldl -lz -std=c++17 -o libmerc_util
 
 
 #include "options.h"
