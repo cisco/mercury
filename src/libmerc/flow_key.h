@@ -8,6 +8,7 @@
 #ifndef FLOW_KEY_H
 #define FLOW_KEY_H
 
+#include <cstring>
 #include "ip_address.hpp"
 #include "json_object.h"
 #include "libmerc.h" // flow_key_ext
@@ -272,8 +273,11 @@ struct key {
             x += sa + da + sp + dp + pr;
             x *= multiplier;
         } else {
-            uint64_t *sa = (uint64_t *)&addr.ipv6.src;
-            uint64_t *da = (uint64_t *)&addr.ipv6.dst;
+            // memcpy avoids the strict-aliasing/alignment UB of a (uint64_t *)
+            // cast; at -O3 it compiles away to the same two 64-bit loads.
+            uint64_t sa[2], da[2];
+            memcpy(sa, &addr.ipv6.src, sizeof(sa));
+            memcpy(da, &addr.ipv6.dst, sizeof(da));
             uint16_t sp = src_port;
             uint16_t dp = dst_port;
             uint8_t  pr = protocol;
