@@ -14,6 +14,10 @@ on:
   schedule:
     - cron: '05 14 * * *'  # Run daily at 09:05 AM EST (14:05 UTC)
 
+env:
+  BUILD_IMAGES: ${{ github.event_name != 'workflow_dispatch' || inputs.build_images }}
+  DELETE_OLD_IMAGES: ${{ github.event_name != 'workflow_dispatch' || inputs.delete_old_images }}
+
 permissions:
   contents: read
   packages: write
@@ -55,7 +59,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and Push Docker image
-        if: ${{ inputs.build_images != false }}
+        if: ${{ env.BUILD_IMAGES == 'true' }}
         uses: cisco-actions/docker-build-push-action@v7.1.0
         with:
           context: .
@@ -82,5 +86,5 @@ jobs:
       - name: Clean up old untagged package versions
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DRY_RUN: ${{ inputs.delete_old_images == false && '1' || '0' }}
+          DRY_RUN: ${{ env.DELETE_OLD_IMAGES == 'true' && '0' || '1' }}
         run: .github/scripts/prune-ghcr-untagged.sh "${{ matrix.testplatform }}"
