@@ -122,6 +122,7 @@ struct do_crypto_assessment {
         crypto_assess_result result;
         if constexpr (is_emitting_writer_v<Object>) {
             for (auto* assessor : ca) {
+                assessor->reset_output();   // clear stale owned message before (maybe defaulted) fill
                 result.set(assessor->get_result_idx(), !assessor->assess_and_fill(msg));
             }
             if constexpr (std::is_same_v<Object, json_object>) {
@@ -254,7 +255,15 @@ struct check_exposed_creds {
     }
 
     exposed_creds_type operator()(const pgsql_msg &msg) {
-        return exposed_creds_assessor::assess(msg);
+        exposed_creds_type type = msg.check_credential_exposure();
+        if (type != exposed_creds_type::none) {
+            // pgsql PasswordMessage carries no username (it is in the earlier
+            // StartupMessage); the auth method is implied by the detection type.
+            datum auth_method = (type == exposed_creds_type::password_derived)
+                                    ? datum{"md5"} : datum{"password"};
+            write_feature(type, datum{"pgsql"}, auth_method, datum{});
+        }
+        return type;
     }
 
     template <typename T>

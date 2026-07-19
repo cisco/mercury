@@ -665,7 +665,12 @@ namespace cbor {
     }
 
     /// Advance \param d past exactly one CBOR value without output.
-    static inline void skip_cbor_value(datum &d) {
+    static inline void skip_cbor_value(datum &d, size_t depth=0) {
+        constexpr size_t max_recursion_depth = 256;
+        if (depth > max_recursion_depth) {
+            d.set_null();   // reject excessively nested input
+            return;
+        }
         if (lookahead<initial_byte> ib{d}) {
             switch (ib.value.major_type()) {
             case unsigned_integer_type:
@@ -686,7 +691,7 @@ namespace cbor {
                     uint8_t ai = arr_ib.additional_info();
                     if (ai == 31) {
                         while (d.is_not_empty() && !is_break(d)) {
-                            skip_cbor_value(d);
+                            skip_cbor_value(d, depth + 1);
                             if (d.is_null()) { return; }
                         }
                         read_break(d);
@@ -699,7 +704,7 @@ namespace cbor {
                         else if (ai == 27) { count = encoded<uint64_t>{d}.value(); }
                         if (d.is_null()) { return; }
                         for (uint64_t i = 0; i < count; i++) {
-                            skip_cbor_value(d);
+                            skip_cbor_value(d, depth + 1);
                             if (d.is_null()) { return; }
                         }
                     }
@@ -711,9 +716,9 @@ namespace cbor {
                     uint8_t ai = map_ib.additional_info();
                     if (ai == 31) {
                         while (d.is_not_empty() && !is_break(d)) {
-                            skip_cbor_value(d);  // key
+                            skip_cbor_value(d, depth + 1);  // key
                             if (d.is_null()) { return; }
-                            skip_cbor_value(d);  // value
+                            skip_cbor_value(d, depth + 1);  // value
                             if (d.is_null()) { return; }
                         }
                         read_break(d);
@@ -726,9 +731,9 @@ namespace cbor {
                         else if (ai == 27) { count = encoded<uint64_t>{d}.value(); }
                         if (d.is_null()) { return; }
                         for (uint64_t i = 0; i < count; i++) {
-                            skip_cbor_value(d);  // key
+                            skip_cbor_value(d, depth + 1);  // key
                             if (d.is_null()) { return; }
-                            skip_cbor_value(d);  // value
+                            skip_cbor_value(d, depth + 1);  // value
                             if (d.is_null()) { return; }
                         }
                     }
@@ -738,7 +743,7 @@ namespace cbor {
                 {
                     tag tmp{d};
                     if (d.is_null()) { return; }
-                    skip_cbor_value(d);  // tagged content
+                    skip_cbor_value(d, depth + 1);  // tagged content
                 }
                 break;
             case simple_or_float_type:

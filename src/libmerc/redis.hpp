@@ -606,8 +606,7 @@ namespace redis{
         datum get_username() const {
             return std::visit(overloaded{
                 [](const std::monostate &) { return datum{}; },
-                [](const array_command &r) { return r.get_username(); },
-                [](const inline_command &r) { return r.get_username(); }
+                [](const auto &r) { return r.get_username(); }
             }, packet);
         }
     };

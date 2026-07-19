@@ -82,6 +82,12 @@ namespace crypto_policy {
 
         virtual size_t get_result_idx() const = 0;
 
+        // Clear any owned feature message(s) so a subsequent assessment of a
+        // message type this policy does not fill cannot emit a stale finding.
+        // Called by the orchestrator once per policy before each emitting
+        // assessment; every policy that owns output state must implement it.
+        virtual void reset_output() = 0;
+
         // Render this policy's owned message (if any) into the caller-opened JSON assessment array.
         virtual void emit(json_array &) { }
 
@@ -125,15 +131,17 @@ namespace crypto_policy {
         bool readable_output;
 
         // Owned feature messages; filled by assess_and_fill(), read by emit(). One TLS-family
-        // and one SSH message; only one is valid per packet. reset before each fill.
+        // and one SSH message; only one is valid per packet. Cleared by reset_output(),
+        // which the orchestrator calls before every emitting assessment.
         crypto_cnsa_message     cnsa_tls_msg_;
         crypto_cnsa_ssh_message cnsa_ssh_msg_;
-        void reset_messages() { cnsa_tls_msg_ = {}; cnsa_ssh_msg_ = {}; }
 
         public:
 
         using assessor::assess;           // un-hide inherited assess() defaults for direct calls
         using assessor::assess_and_fill;  // ditto for assess_and_fill()
+
+        void reset_output() override { cnsa_tls_msg_ = {}; cnsa_ssh_msg_ = {}; }
 
         quantum_safe(bool readable=false) :
             readable_output{readable}
@@ -685,7 +693,6 @@ namespace crypto_policy {
         // --- FILL path: populate the owned message, return the compliance bit ---
 
         bool assess_and_fill(const tls_client_hello &ch) override {
-            reset_messages();
             cnsa_tls_msg_.set_policy("quantum_safe");
             cnsa_tls_msg_.set_target("client");
             bool suites = assess_tls_ciphersuites(ch.ciphersuite_vector, cnsa_tls_msg_);
@@ -696,7 +703,6 @@ namespace crypto_policy {
         }
 
         bool assess_and_fill(const tls_server_hello &ch) override {
-            reset_messages();
             cnsa_tls_msg_.set_policy("quantum_safe");
             cnsa_tls_msg_.set_target("session");
             bool suites = assess_tls_ciphersuites(ch.ciphersuite_vector, cnsa_tls_msg_);
@@ -714,7 +720,6 @@ namespace crypto_policy {
         }
 
         bool assess_and_fill(const ssh_kex_init &ssh_kex) override {
-            reset_messages();
             cnsa_ssh_msg_.set_policy("quantum_safe");
             bool kex_compliant = assess_ssh_kex_methods_impl(ssh_kex.kex_algorithms, &cnsa_ssh_msg_);
             bool c2s_compliant = assess_ssh_ciphers_impl(ssh_kex.encryption_algorithms_client_to_server, &cnsa_ssh_msg_,
@@ -768,13 +773,15 @@ namespace crypto_policy {
 
     const bool verbose_output = false;
 
-    // Owned feature message; filled by assess_and_fill(), read by emit(). reset before fill.
+    // Owned feature message; filled by assess_and_fill(), read by emit(). Cleared by
+    // reset_output(), which the orchestrator calls before every emitting assessment.
     crypto_nist_message nist_msg_;
-    void reset_message() { nist_msg_ = {}; }
 
     public:
         using assessor::assess;           // un-hide inherited assess() defaults for direct calls
         using assessor::assess_and_fill;  // ditto for assess_and_fill()
+
+        void reset_output() override { nist_msg_ = {}; }
 
         const static size_t result_idx = 1; // bitset index for nist assessment
 
@@ -934,7 +941,6 @@ namespace crypto_policy {
 
         // FILL path: populate the owned message via assess_impl(&msg), return the compliance bit.
         bool assess_and_fill(const tls_server_hello &sh) override {
-            reset_message();
             return assess_impl(sh, &nist_msg_);
         }
 
@@ -1637,6 +1643,63 @@ namespace crypto_policy {
                 || cs_out.find("\"ciphersuites_allowed\":\"none\"") == std::string::npos) {
                 return false;
             }
+        }
+
+        // TEST-NIST-STALE: a reused nist_sp_800_52 must not emit a stale
+        // ServerHello finding on a later ClientHello it does not assess.
+        // Drives the real policy objects through the same emitting loop the
+        // orchestrator uses (reset_output -> assess_and_fill -> emit). Fails
+        // until reset_output() clears the owned message before each fill.
+        {
+            std::vector<crypto_policy::assessor *> policies;
+            policies.push_back(new nist_sp_800_52{true});
+
+            // one emitting crypto-assessment pass, mirroring the pkt_proc.cc
+            // CBOR block; returns the number of bytes emitted into the v1 map.
+            auto emitted_bytes = [&](auto &&hello) -> ssize_t {
+                data_buffer<1024> buf;
+                cbor_object outer{buf};
+                cbor_object v1{outer, CBOR_METADATA_VERSION_KEY};
+                const ssize_t before = buf.readable_length();
+                for (auto *p : policies) {
+                    p->reset_output();            // the fix under test
+                    p->assess_and_fill(hello);
+                }
+                for (auto *p : policies) { p->emit(v1); }
+                const ssize_t after_features = buf.readable_length();
+                v1.close();
+                outer.close();
+                return after_features - before;   // >0 iff a feature was emitted
+            };
+
+            // --- packet A: non-compliant TLS ServerHello ---
+            uint8_t verA[]  = { 0x03, 0x03 };   // TLS 1.2
+            uint8_t csA[]   = { 0x00, 0x3d };   // TLS_RSA_WITH_AES_256_CBC_SHA256
+            uint8_t compA[] = { 0x01 };         // non-zero compression -> non-compliant
+            tls_server_hello sh;
+            sh.protocol_version   = datum{verA,  verA  + sizeof(verA)};
+            sh.ciphersuite_vector = datum{csA,   csA   + sizeof(csA)};
+            sh.compression_method = datum{compA, compA + sizeof(compA)};
+
+            ssize_t bytes_A = emitted_bytes(sh);
+
+            // --- packet B: ClientHello (NIST inherits the default fill path) ---
+            uint8_t verB[]  = { 0x03, 0x03 };
+            uint8_t csB[]   = { 0x13, 0x01 };   // TLS_AES_128_GCM_SHA256
+            uint8_t compB[] = { 0x00 };
+            tls_client_hello ch;
+            ch.protocol_version    = datum{verB,  verB  + sizeof(verB)};
+            ch.ciphersuite_vector  = datum{csB,   csB   + sizeof(csB)};
+            ch.compression_methods = datum{compB, compB + sizeof(compB)};
+
+            ssize_t bytes_B = emitted_bytes(ch);
+
+            for (auto *p : policies) { delete p; }
+
+            // A (non-compliant ServerHello) must emit; B (ClientHello, not
+            // assessed by NIST) must NOT emit. bytes_B > 0 is the bug.
+            if (bytes_A <= 0) { return false; }   // sanity: A really emitted
+            if (bytes_B  > 0) { return false; }   // THE BUG: stale NIST feature on B
         }
 
         return true;
