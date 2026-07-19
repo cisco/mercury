@@ -175,6 +175,11 @@ struct check_exposed_creds {
 
     explicit check_exposed_creds(Object &out) : output_{out} {}
 
+    // true only when output_ is a real writer. Gating each arm on this lets the
+    // arg evaluation (auth-method/username accessors, which parse) be skipped by
+    // short-circuit when no CBOR/JSON output is requested.
+    static constexpr bool emitting() { return is_emitting_writer_v<Object>; }
+
     void write_feature(exposed_creds_type type, datum protocol,
                        datum auth_method, datum username) {
         // no null check: output_ is a reference. The assess-only path uses the
@@ -198,7 +203,7 @@ struct check_exposed_creds {
 
     exposed_creds_type operator()(const imap::imap_requests &msg) {
         exposed_creds_type type = msg.check_credential_exposure();
-        if (type != exposed_creds_type::none) {
+        if (type != exposed_creds_type::none && emitting()) {
             write_feature(type, datum{"imap"}, msg.get_auth_method(), msg.get_username());
         }
         return type;
@@ -206,7 +211,7 @@ struct check_exposed_creds {
 
     exposed_creds_type operator()(const http_request &msg) {
         exposed_creds_type type = msg.check_credential_exposure();
-        if (type != exposed_creds_type::none) {
+        if (type != exposed_creds_type::none && emitting()) {
             datum auth_hdr = msg.get_header("authorization");
             datum scheme_datum = authorization{auth_hdr}.get_scheme();
             write_feature(type, datum{"http"}, scheme_datum, datum{});
@@ -216,7 +221,7 @@ struct check_exposed_creds {
 
     exposed_creds_type operator()(const tacacs::packet &msg) {
         exposed_creds_type type = msg.check_credential_exposure();
-        if (type != exposed_creds_type::none) {
+        if (type != exposed_creds_type::none && emitting()) {
             write_feature(type, datum{"tacacs"}, msg.get_auth_method(), msg.get_username());
         }
         return type;
@@ -224,7 +229,7 @@ struct check_exposed_creds {
 
     exposed_creds_type operator()(const ldap::message &msg) {
         exposed_creds_type type = msg.check_credential_exposure();
-        if (type != exposed_creds_type::none) {
+        if (type != exposed_creds_type::none && emitting()) {
             write_feature(type, datum{"ldap"}, msg.get_auth_method(), datum{});
         }
         return type;
@@ -232,7 +237,7 @@ struct check_exposed_creds {
 
     exposed_creds_type operator()(const ftp::request &msg) {
         exposed_creds_type type = msg.check_credential_exposure();
-        if (type != exposed_creds_type::none) {
+        if (type != exposed_creds_type::none && emitting()) {
             write_feature(type, datum{"ftp"}, datum{"PASS"}, datum{});
         }
         return type;
@@ -240,7 +245,7 @@ struct check_exposed_creds {
 
     exposed_creds_type operator()(const redis::request &msg) {
         exposed_creds_type type = msg.check_credential_exposure();
-        if (type != exposed_creds_type::none) {
+        if (type != exposed_creds_type::none && emitting()) {
             write_feature(type, datum{"redis"}, datum{"AUTH"}, msg.get_username());
         }
         return type;
@@ -248,7 +253,7 @@ struct check_exposed_creds {
 
     exposed_creds_type operator()(const snmp::packet &msg) {
         exposed_creds_type type = msg.check_credential_exposure();
-        if (type != exposed_creds_type::none) {
+        if (type != exposed_creds_type::none && emitting()) {
             write_feature(type, datum{"snmp"}, msg.get_auth_method(), datum{});
         }
         return type;
@@ -256,7 +261,7 @@ struct check_exposed_creds {
 
     exposed_creds_type operator()(const pgsql_msg &msg) {
         exposed_creds_type type = msg.check_credential_exposure();
-        if (type != exposed_creds_type::none) {
+        if (type != exposed_creds_type::none && emitting()) {
             // pgsql PasswordMessage carries no username (it is in the earlier
             // StartupMessage); the auth method is implied by the detection type.
             datum auth_method = (type == exposed_creds_type::password_derived)
