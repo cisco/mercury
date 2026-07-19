@@ -358,7 +358,7 @@ public:
         }
         datum d{s};
         decimal_integer<uint32_t> parsed{d};
-        if (d.is_null()) {
+        if (d.is_null() || !d.is_empty()) {   // reject a partial parse (trailing non-digit text)
             printf_err(log_err, "invalid cbor metadata buffer size \"%s\"\n", s.c_str());
             return false;
         }

@@ -703,9 +703,13 @@ namespace cbor {
                         else if (ai == 26) { count = encoded<uint32_t>{d}.value(); }
                         else if (ai == 27) { count = encoded<uint64_t>{d}.value(); }
                         if (d.is_null()) { return; }
+                        // each element is at least one byte, so a count larger than
+                        // the remaining input cannot be satisfied
+                        if (count > (uint64_t)d.length()) { d.set_null(); return; }
                         for (uint64_t i = 0; i < count; i++) {
+                            const uint8_t *before = d.data;
                             skip_cbor_value(d, depth + 1);
-                            if (d.is_null()) { return; }
+                            if (d.is_null() || d.data == before) { d.set_null(); return; }
                         }
                     }
                 }
@@ -730,11 +734,16 @@ namespace cbor {
                         else if (ai == 26) { count = encoded<uint32_t>{d}.value(); }
                         else if (ai == 27) { count = encoded<uint64_t>{d}.value(); }
                         if (d.is_null()) { return; }
+                        // each pair is at least two bytes; compare against length/2
+                        // to avoid overflowing count*2 for very large declared counts
+                        if (count > (uint64_t)d.length() / 2) { d.set_null(); return; }
                         for (uint64_t i = 0; i < count; i++) {
+                            const uint8_t *before_key = d.data;
                             skip_cbor_value(d, depth + 1);  // key
-                            if (d.is_null()) { return; }
+                            if (d.is_null() || d.data == before_key) { d.set_null(); return; }
+                            const uint8_t *before_val = d.data;
                             skip_cbor_value(d, depth + 1);  // value
-                            if (d.is_null()) { return; }
+                            if (d.is_null() || d.data == before_val) { d.set_null(); return; }
                         }
                     }
                 }
@@ -750,10 +759,10 @@ namespace cbor {
                 {
                     initial_byte consumed{d};
                     uint8_t ai = consumed.additional_info();
-                    if (ai == 24)      { d.skip(1); }  // 1-byte simple value
-                    else if (ai == 25) { d.skip(2); }  // float16
-                    else if (ai == 26) { d.skip(4); }  // float32
-                    else if (ai == 27) { d.skip(8); }  // float64
+                    if (ai == 24)      { if (!d.skip(1)) { d.set_null(); } }  // 1-byte simple value
+                    else if (ai == 25) { if (!d.skip(2)) { d.set_null(); } }  // float16
+                    else if (ai == 26) { if (!d.skip(4)) { d.set_null(); } }  // float32
+                    else if (ai == 27) { if (!d.skip(8)) { d.set_null(); } }  // float64
                 }
                 break;
             default:
