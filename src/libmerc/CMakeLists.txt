@@ -458,15 +458,12 @@ else()
     endif()
 
     # ARM PAC + BTI hardening (Linux AArch64 only; Apple Clang breaks C++ exceptions in dylibs)
+    # When every object is built with -mbranch-protection, the linker marks the
+    # output with the BTI GNU property automatically; no linker flag is needed.
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm")
         check_cxx_compiler_flag(-mbranch-protection=standard use_branch_protection)
         if(use_branch_protection)
             add_compile_options(-mbranch-protection=standard)
-            include(CheckLinkerFlag)
-            check_linker_flag(CXX -Wl,-z,bti-report=warning use_bti_report_warning)
-            if(use_bti_report_warning)
-                add_link_options(-Wl,-z,bti-report=warning)
-            endif()
         endif()
     endif()
 
