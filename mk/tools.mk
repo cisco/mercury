@@ -61,12 +61,12 @@ $(foreach t,$(TOOL_TARGETS),$(eval $(notdir $(t)): $(t)))
 # ===================================================================
 
 # archive_reader — archive (gzip/tar) reader
-$(BIN)/archive_reader: LDLIBS := -lz -lcrypto
+$(BIN)/archive_reader: LDLIBS += -lz -lcrypto
 $(BIN)/archive_reader: $(call objects,src/archive_reader.cc)
 	$(LINK)
 
 # batch_gcd — batch GCD for RSA moduli (needs libgmp)
-$(BIN)/batch_gcd: LDLIBS := -pthread -lgmpxx -lgmp
+$(BIN)/batch_gcd: LDLIBS += -pthread -lgmpxx -lgmp
 $(BIN)/batch_gcd: $(call objects,src/batch_gcd.cc src/libmerc/asn1/oid.cc)
 	$(LINK)
 
@@ -75,17 +75,17 @@ $(BIN)/cbor: $(call objects,src/cbor.cpp)
 	$(LINK)
 
 # cert_analyze — X.509 certificate analysis
-$(BIN)/cert_analyze: LDLIBS := -pthread -lcrypto
+$(BIN)/cert_analyze: LDLIBS += -pthread -lcrypto
 $(BIN)/cert_analyze: $(call objects,src/cert_analyze.cc src/libmerc/asn1/oid.cc)
 	$(LINK)
 
 # classify — protocol classifier using libmerc.a
-$(BIN)/classify: LDLIBS := -pthread -lcrypto -lz
+$(BIN)/classify: LDLIBS += -pthread -lcrypto -lz
 $(BIN)/classify: $(call objects,src/classify.cpp) $(LIB)/libmerc.a
 	$(LINK)
 
 # cms — CMS/PKCS#7 parser
-$(BIN)/cms: LDLIBS := -lcrypto
+$(BIN)/cms: LDLIBS += -lcrypto
 $(BIN)/cms: $(call objects,src/cms.cpp src/libmerc/asn1/oid.cc)
 	$(LINK)
 
@@ -112,13 +112,13 @@ $(LIB)/intercept.so: $(LIB)/libmerc.a
 	  $(LDFLAGS) -lssl -lnspr4 -lgnutls -o $@
 
 # libmerc_util — PCAP analysis tool using libmerc.so (via dlopen)
-$(BIN)/libmerc_util: LDLIBS := -pthread -lcrypto -ldl -lz
+$(BIN)/libmerc_util: LDLIBS += -pthread -lcrypto -ldl -lz
 $(BIN)/libmerc_util: $(call objects,src/libmerc_util.cc)
 	$(LINK)
 
 # os_identifier — OS identification from network traffic
 $(OBJ)/src/os_identifier.o: CXXFLAGS += -Isrc/libmerc
-$(BIN)/os_identifier: LDLIBS := -lz
+$(BIN)/os_identifier: LDLIBS += -lz
 $(BIN)/os_identifier: $(call objects,src/os_identifier.cc)
 	$(LINK)
 
@@ -127,7 +127,7 @@ $(BIN)/pcap: $(call objects,src/pcap.cc)
 	$(LINK)
 
 # pcap_filter — PCAP filtering using libmerc.a
-$(BIN)/pcap_filter: LDLIBS := -lz -lcrypto -pthread
+$(BIN)/pcap_filter: LDLIBS += -lz -lcrypto -pthread
 $(BIN)/pcap_filter: $(call objects,src/pcap_filter.cc src/pcap_file_io.c) $(LIB)/libmerc.a
 	$(LINK)
 
@@ -136,7 +136,7 @@ $(BIN)/string: $(call objects,src/string.cc)
 	$(LINK)
 
 # tls_scanner — TLS scanner (Linux only)
-$(BIN)/tls_scanner: LDLIBS := -pthread -lssl -lcrypto -lz
+$(BIN)/tls_scanner: LDLIBS += -pthread -lssl -lcrypto -lz
 $(BIN)/tls_scanner: $(call objects,src/tls_scanner.cc) $(LIB)/libmerc.a
 	$(LINK)
 

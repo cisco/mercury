@@ -239,26 +239,26 @@ _run-libmerc-test-drivers: _run-libmerc-multiprotocol \
 
 # links libmerc.so; dlopen()s libmerc.so and libmerc_alt.so
 $(BIN)/libmerc_driver_tls_only: CXXFLAGS += $(_DRV_EXTRA_CXXFLAGS)
-$(BIN)/libmerc_driver_tls_only: LDLIBS := $(_DRV_LDLIBS)
+$(BIN)/libmerc_driver_tls_only: LDLIBS += $(_DRV_LDLIBS)
 $(BIN)/libmerc_driver_tls_only: | $(LIB)/libmerc_alt.so
 $(BIN)/libmerc_driver_tls_only: $(call objects,$(_DRV_TLS_ONLY)) $(LIB)/libmerc.so
 	$(LINK)
 
 # links and dlopen()s libmerc.so
 $(BIN)/libmerc_driver_multiprotocol: CXXFLAGS += $(_DRV_EXTRA_CXXFLAGS)
-$(BIN)/libmerc_driver_multiprotocol: LDLIBS := $(_DRV_LDLIBS)
+$(BIN)/libmerc_driver_multiprotocol: LDLIBS += $(_DRV_LDLIBS)
 $(BIN)/libmerc_driver_multiprotocol: $(call objects,$(_DRV_MULTI)) $(LIB)/libmerc.so
 	$(LINK)
 
 # links and dlopen()s libmerc.so
 $(BIN)/libmerc_driver_fdc: CXXFLAGS += $(_DRV_EXTRA_CXXFLAGS)
-$(BIN)/libmerc_driver_fdc: LDLIBS := $(_DRV_LDLIBS)
+$(BIN)/libmerc_driver_fdc: LDLIBS += $(_DRV_LDLIBS)
 $(BIN)/libmerc_driver_fdc: $(call objects,$(_DRV_FDC)) $(LIB)/libmerc.so
 	$(LINK)
 
 # links and dlopen()s libmerc.so; runs libmerc_util as a subprocess
 $(BIN)/libmerc_util_behavior_test: CXXFLAGS += $(_DRV_EXTRA_CXXFLAGS)
-$(BIN)/libmerc_util_behavior_test: LDLIBS := $(_DRV_LDLIBS) $(_stdfslib)
+$(BIN)/libmerc_util_behavior_test: LDLIBS += $(_DRV_LDLIBS) $(_stdfslib)
 $(BIN)/libmerc_util_behavior_test: | $(BIN)/libmerc_util
 $(BIN)/libmerc_util_behavior_test: $(call objects,$(_DRV_UTIL)) $(LIB)/libmerc.so
 	$(LINK)

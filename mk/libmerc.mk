@@ -62,12 +62,12 @@ $(OBJ)/src/libmerc/softmax_avx2.o: CXXFLAGS += -mavx2
 $(LIB)/libmerc.a: $(call objects,$(LIBMERC_SRCS))
 	$(LINK_A)
 
-$(LIB)/libmerc.so: LDLIBS := -lz -lcrypto
+$(LIB)/libmerc.so: LDLIBS += -lz -lcrypto
 $(LIB)/libmerc.so: $(call objects,$(LIBMERC_SRCS))
 	$(LINK_SO)
 
 # libmerc_alt.so: same objects, different soname.  Used by the
 # double-bind test (loading two libmerc .so files simultaneously).
-$(LIB)/libmerc_alt.so: LDLIBS := -lz -lcrypto
+$(LIB)/libmerc_alt.so: LDLIBS += -lz -lcrypto
 $(LIB)/libmerc_alt.so: $(call objects,$(LIBMERC_SRCS))
 	$(LINK_SO)

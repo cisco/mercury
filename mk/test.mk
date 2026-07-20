@@ -60,7 +60,7 @@ test: all unittest test-comp test-analysis test-cert-check \
 
 $(OBJ)/src/unit_test.o: CXXFLAGS := $(filter-out -DNDEBUG,$(CXXFLAGS))
 
-$(BIN)/unit_test: LDLIBS := -lcrypto -lz
+$(BIN)/unit_test: LDLIBS += -lcrypto -lz
 $(BIN)/unit_test: $(call objects,src/unit_test.cpp src/libmerc/asn1/oid.cc)
 	$(LINK)
 
@@ -364,7 +364,7 @@ endif
 _pdu_verifier := $(abspath $(BIN)/pdu_verifier)
 
 $(BIN)/pdu_verifier: CXXFLAGS += -Isrc -Isrc/libmerc
-$(BIN)/pdu_verifier: LDLIBS := -lcrypto -ldl -lz
+$(BIN)/pdu_verifier: LDLIBS += -lcrypto -ldl -lz
 $(BIN)/pdu_verifier: $(call objects,unit_tests/pdu_verifier.cc) $(LIB)/libmerc.so
 	$(LINK)
 
@@ -658,7 +658,7 @@ $(OBJ)/src/libmerc_test.o: src/libmerc_test.c
 	@mkdir -p $(dir $@)
 	$(call QUIET,CC,$@)$(CC) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
 
-$(BIN)/libmerc_test: LDLIBS := -pthread -lz -lcrypto
+$(BIN)/libmerc_test: LDLIBS += -pthread -lz -lcrypto
 $(BIN)/libmerc_test: $(OBJ)/src/libmerc_test.o $(LIB)/libmerc.so
 	@mkdir -p $(dir $@)
 	$(call QUIET,LINK,$@)$(CC) $(CFLAGS) $< $(LDFLAGS) $(LIB)/libmerc.so $(LDLIBS) -o $@
