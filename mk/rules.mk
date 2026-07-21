@@ -216,9 +216,9 @@ $(OBJ)/%.o: %.cpp $(_toolchain_stamp)
 	$(call QUIET,CXX,$@)$(CXX) $(CXXFLAGS) $(DEPFLAGS) -c $< -o $@
 
 # --- Canned link recipes ----------------------------------------------
-# Each link target sets (:=) its own libraries via a target-specific LDLIBS
-# variable.  CXXFLAGS is passed intentionally; see [compile+link] annotations
-# in the base flags section above.
+# Each link target sets its own LDLIBS via a target-specific variable, then
+# invokes one of these.  CXXFLAGS is passed intentionally; see [compile+link]
+# annotations in the base flags section above.
 
 # Link an executable from object files.
 #
