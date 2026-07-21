@@ -66,19 +66,14 @@ localstatedir = @localstatedir@/mercury
 # --- Platform-conditional flags ---------------------------------------
 #
 # These translate configure-detected booleans into compiler/linker
-# flags.  rules.mk consumes PLATFORM_FLAGS, PLATFORM_LDFLAGS, and
-# PLATFORM_LDLIBS without knowing what platform they came from.
+# flags.  rules.mk consumes PLATFORM_FLAGS and PLATFORM_LDFLAGS without
+# knowing what platform they came from.
 
 PLATFORM_FLAGS :=
 PLATFORM_LDFLAGS  :=
-PLATFORM_LDLIBS   :=
 
 # configure-time feature detection (from @DEFS@)
 CDEFS = $(filter -DHAVE_X86INTRIN_H=1 -DHAVE_GETTID=1, @DEFS@)
-
-ifeq (@NEED_LIBSTDCXXFS@,yes)  # g++ < 9: std::filesystem in a separate archive
-  PLATFORM_LDLIBS += -lstdc++fs
-endif
 
 ifeq (@USE_NO_GNU_UNIQUE@,yes)
   PLATFORM_FLAGS += -fno-gnu-unique
@@ -109,7 +104,7 @@ else
   PLATFORM_FLAGS += -DOPENSSL_LEGACY
 endif
 
-# --- Platform-conditional link settings -------------------------------
+# --- Platform-conditional link settings and libraries -----------------
 #
 # _soname_flag is recursively expanded (=) so that $(notdir $@) and
 # $(SONAME_MAJOR) resolve at recipe time inside LINK_SO (rules.mk).
@@ -122,6 +117,12 @@ ifeq (@IS_MACOS@,yes)
 else
   _soname_flag = -Wl,-soname,$(notdir $@).$(SONAME_MAJOR)
   STRIP_CMD   := $(STRIP)
+endif
+
+# std::filesystem lives in a separate archive on g++ < 9
+STDCXXFS_LDLIBS :=
+ifeq (@NEED_LIBSTDCXXFS@,yes)
+  STDCXXFS_LDLIBS += -lstdc++fs
 endif
 
 # --- Version and git metadata -----------------------------------------

@@ -45,7 +45,7 @@ setcap: $(BIN)/mercury
 # Build rules
 # ===================================================================
 
-$(BIN)/mercury: LDLIBS += -pthread $(PCAP_LIBS) -lz -lcrypto
+$(BIN)/mercury: LDLIBS := -pthread $(PCAP_LIBS) -lz -lcrypto
 $(BIN)/mercury: $(call objects,$(MERCURY_SRCS)) $(LIB)/libmerc.a
 	$(LINK)
 ifneq ($(IS_MACOS),yes)
