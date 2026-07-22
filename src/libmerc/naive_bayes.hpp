@@ -850,6 +850,37 @@ inline bool unit_test() {
     if (ipf.json_name != "dst_ip") return false;
     if (ipf.weight != 1.0) return false;
 
+    // A zero feature weight must contribute exactly 0, never NaN/inf.
+    {
+        feature<uint32_t> zf{"zero_weight_feature", 0.0};   // model weight = 0
+        zf.add_update(42, 0, 5, 100);
+
+        // nonzero custom weight over a zero-weight model must stay finite
+        std::vector<floating_point_type> pv(1, 0.0);
+        zf.update(pv, 42, 0.5);
+        if (!std::isfinite(pv[0])) return false;
+
+        // zero custom weight must contribute exactly nothing
+        std::vector<floating_point_type> pv0(1, 0.0);
+        zf.update(pv0, 42, 0.0);
+        if (!std::isfinite(pv0[0]) || pv0[0] != 0.0) return false;
+    }
+
+    // combine() merges a second observation of the same value: it
+    // recovers the count from the stored log-likelihood ratio, adds the
+    // new count, and re-encodes.  Merging 5 and 5 gives the ratio for 10.
+    {
+        const size_t total_count = 100;
+        floating_point_type base_prior = log(0.1 / total_count);
+        // stored value is the raw log-likelihood ratio for count = 5
+        update u{0, log((floating_point_type)5 / total_count) - base_prior};
+        u.combine(5, total_count, base_prior);  // merge another 5
+        if (!std::isfinite(u.value)) return false;
+        // merged count is 10 => value should equal llr(10/100)
+        floating_point_type expected =
+            log((floating_point_type)10 / total_count) - base_prior;
+        if (std::abs(u.value - expected) > 1e-9) return false;
+    }
     return true;
 }
 
