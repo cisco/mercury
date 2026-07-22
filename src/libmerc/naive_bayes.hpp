@@ -851,7 +851,7 @@ inline bool unit_test() {
     if (ipf.json_name != "dst_ip") return false;
     if (ipf.weight != 1.0) return false;
 
-    // A zero feature weight must contribute exactly 0, never NaN/inf.
+    // zero custom weight must contribute exactly nothing.
     {
         feature<uint32_t> zf{"zero_weight_feature", 0.0};   // model weight = 0
         zf.add_update(42, 0, 5, 100);
