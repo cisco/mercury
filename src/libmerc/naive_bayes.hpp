@@ -3,6 +3,7 @@
 #ifndef NAIVE_BAYES_HPP
 #define NAIVE_BAYES_HPP
 
+#include <cmath>
 #include <string>
 #include <vector>
 #include <unordered_map>
