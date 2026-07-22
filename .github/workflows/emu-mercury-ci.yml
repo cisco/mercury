@@ -70,10 +70,14 @@ jobs:
       - name: configure
         env:
           XSIMD_FLAGS: ${{ matrix.xsimd == 'xsimd-bundled' && '--enable-xsimd --with-xsimd-include=src/libmerc/xsimd/include' || '' }}
-        run: ./configure $XSIMD_FLAGS
+        run: |
+          touch configure  # update mtime to avoid automatic regen
+          ./configure $XSIMD_FLAGS
       - name: Build Mercury RelWithDebInfo
         run: make -j$(nproc) V=1
-      - name: Build Mercury Debug+ASan
+      - name: Build Mercury Debug (-O0)
+        run: make -j$(nproc) V=1 BUILD_TYPE=Debug
+      - name: Build Mercury Debug+ASan (-O2)
         run: make -j$(nproc) V=1 BUILD_TYPE=Debug SANITIZE=address OPTFLAGS=-O2
       - name: Build Mercury Debug+ASan+visdefault (multiprotocol)
         run: make -j$(nproc) V=1 BUILD_TYPE=Debug SANITIZE=address VISIBILITY=default OPTFLAGS=-O2
@@ -141,6 +145,7 @@ jobs:
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Configure Mercury
         run: |
+          touch configure  # update mtime to avoid automatic regen
           ./configure
       - name: Run Fuzz Test
         run: make -j$(nproc) V=1 test-fuzz
@@ -182,7 +187,9 @@ jobs:
         working-directory: src/libmerc
         run: rm -rf build-debug build-release
       - name: configure
-        run: ./configure
+        run: |
+          touch configure  # update mtime to avoid automatic regen
+          ./configure
       - name: Build Mercury RelWithDebInfo
         run: make -j$(sysctl -n hw.ncpu) V=1
       - name: Build Mercury Debug+ASan
@@ -265,7 +272,9 @@ jobs:
       - name: Mark workspace as safe for git
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: configure
-        run: ./configure
+        run: |
+          touch configure  # update mtime to avoid automatic regen
+          ./configure
       - name: make
         run: make -j$(nproc) V=1
       - name: Build Mercury Cython

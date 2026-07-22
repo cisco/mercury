@@ -16,7 +16,7 @@
 
 namespace {
 
-    [[maybe_unused]] int x509_cert_fuzz_test(const uint8_t *data, size_t size) {
+    [[maybe_unused]] inline int x509_cert_fuzz_test(const uint8_t *data, size_t size) {
         struct datum tmp_cert_list{data, data+size};
         char buffer[8192];
         struct buffer_stream buf(buffer, sizeof(buffer));

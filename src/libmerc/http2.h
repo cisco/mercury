@@ -292,7 +292,7 @@ public:
 
 namespace {
 
-    [[maybe_unused]] int http2_frame_fuzz_test(const uint8_t *data, size_t size) {
+    [[maybe_unused]] inline int http2_frame_fuzz_test(const uint8_t *data, size_t size) {
         datum d{data, data+size};
         http2_frame pkt_data;
         pkt_data.parse(d);
@@ -305,7 +305,7 @@ namespace {
         return 0;
     }
 
-    [[maybe_unused]] int http2_header_fuzz_test(const uint8_t *data, size_t size) {
+    [[maybe_unused]] inline int http2_header_fuzz_test(const uint8_t *data, size_t size) {
         datum d{data, data+size};
         http2_headers pkt_data;
         pkt_data.parse(d);

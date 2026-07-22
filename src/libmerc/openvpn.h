@@ -501,7 +501,7 @@ public:
 
 namespace {
 
-    [[maybe_unused]] int openvpn_tcp_fuzz_test(const uint8_t *data, size_t size) {
+    [[maybe_unused]] inline int openvpn_tcp_fuzz_test(const uint8_t *data, size_t size) {
         struct datum pkt_data{data, data+size};
         char buffer_1[8192];
         struct buffer_stream buf_json(buffer_1, sizeof(buffer_1));

@@ -321,7 +321,7 @@ public:
 
 namespace {
 
-    [[maybe_unused]] int nbss_packet_fuzz_test(const uint8_t *data, size_t size) {
+    [[maybe_unused]] inline int nbss_packet_fuzz_test(const uint8_t *data, size_t size) {
         struct datum nbss_data{data, data+size};
         char buffer[8192];
         struct buffer_stream buf_json(buffer, sizeof(buffer));
@@ -336,7 +336,7 @@ namespace {
         return 0;
     }
 
-    [[maybe_unused]] int nbds_packet_fuzz_test(const uint8_t *data, size_t size) {
+    [[maybe_unused]] inline int nbds_packet_fuzz_test(const uint8_t *data, size_t size) {
         struct datum nbds_data{data, data+size};
         char buffer[8192];
         struct buffer_stream buf_json(buffer, sizeof(buffer));

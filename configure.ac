@@ -50,14 +50,38 @@ AX_CHECK_COMPILE_FLAG([-fno-gnu-unique], [AC_SUBST([USE_NO_GNU_UNIQUE],yes)], [A
 AX_CHECK_COMPILE_FLAG([-fsanitize=address], [AC_SUBST([USE_FSANITIZE],yes)], [AC_SUBST([USE_FSANITIZE],no)] , [-Werror])
 AX_CHECK_COMPILE_FLAG([-mno-omit-leaf-frame-pointer], [AC_SUBST([USE_NO_OMIT_LEAF_FRAME_POINTER],yes)], [AC_SUBST([USE_NO_OMIT_LEAF_FRAME_POINTER],no)] , [-Werror])
 
+# g++ < 9 keeps std::filesystem in a separate archive (-lstdc++fs).
+AC_SUBST([NEED_LIBSTDCXXFS],[no])
+AC_LANG_PUSH([C++])
+mercury_saved_CXXFLAGS="$CXXFLAGS"
+mercury_saved_LIBS="$LIBS"
+CXXFLAGS="$CXXFLAGS -std=c++17"
+AC_MSG_CHECKING([whether std::filesystem needs -lstdc++fs])
+mercury_fs=unavailable
+for mercury_fslib in "" "-lstdc++fs"; do
+  LIBS="$mercury_saved_LIBS $mercury_fslib"
+  AC_LINK_IFELSE(
+    [AC_LANG_PROGRAM([[#include <filesystem>]],
+       [[std::error_code e; return std::filesystem::create_directory(std::filesystem::path{"/"}, e);]])],
+    [AS_IF([test -n "$mercury_fslib"], [mercury_fs=yes], [mercury_fs=no]); break])
+done
+CXXFLAGS="$mercury_saved_CXXFLAGS"
+LIBS="$mercury_saved_LIBS"
+AC_LANG_POP([C++])
+AS_CASE([$mercury_fs],
+  [no],  [AC_MSG_RESULT([no])],
+  [yes], [AC_MSG_RESULT([yes]); AC_SUBST([NEED_LIBSTDCXXFS],[yes])],
+  [AC_MSG_RESULT([unavailable]); AC_MSG_ERROR([std::filesystem is required but not available])])
+
 # ARM PAC/BTI hardening (Linux AArch64 only)
 # -mbranch-protection=standard enables Pointer Authentication (PAC) and
 # Branch Target Identification (BTI) on AArch64.  These instructions are
-# NOPs on hardware that does not support them.
+# NOPs on hardware that does not support them.  When every input object is
+# built with this flag, the linker marks the output with the BTI GNU
+# property automatically; no linker flag is required.
 # Note: Apple Clang accepts this flag but produces broken C++ exception
 # handling in shared libraries, so we restrict to Linux.
 AC_SUBST([USE_BRANCH_PROTECTION],[no])
-AC_SUBST([USE_BTI_REPORT_WARNING],[no])
 case "$host_os" in
     linux*)
         case "$host_cpu" in
@@ -66,10 +90,6 @@ case "$host_os" in
                 AX_CHECK_COMPILE_FLAG([-mbranch-protection=standard],
                     [AC_SUBST([USE_BRANCH_PROTECTION],[yes])],
                     [], [-Werror])
-                AS_IF([test "x$USE_BRANCH_PROTECTION" = "xyes"],
-                    [AX_CHECK_LINK_FLAG([-Wl,-z,bti-report=warning],
-                        [AC_SUBST([USE_BTI_REPORT_WARNING],[yes])],
-                        [])])
                 AC_LANG_POP([C++])
                 ;;
         esac

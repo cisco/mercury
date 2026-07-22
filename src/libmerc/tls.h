@@ -889,7 +889,7 @@ public:
 
 namespace {
 
-    [[maybe_unused]] int tls_client_hello_fuzz_test(const uint8_t *data, size_t size) {
+    [[maybe_unused]] inline int tls_client_hello_fuzz_test(const uint8_t *data, size_t size) {
         struct datum hello_data{data, data+size};
         char buffer_1[8192];
         struct buffer_stream buf_json(buffer_1, sizeof(buffer_1));
@@ -907,7 +907,7 @@ namespace {
         return 0;
     }
 
-    [[maybe_unused]] int tls_server_hello_and_certificate_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
+    [[maybe_unused]] inline int tls_server_hello_and_certificate_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
         datum pkt_data{data1, data1+size1};
         datum tcp_data{data2, data2+size2};
         tcp_packet tcp_pkt{tcp_data};

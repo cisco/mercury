@@ -506,7 +506,7 @@ struct http_response : public base_protocol {
 
 namespace {
 
-    [[maybe_unused]] int http_request_fuzz_test(const uint8_t *data, size_t size) {
+    [[maybe_unused]] inline int http_request_fuzz_test(const uint8_t *data, size_t size) {
         struct datum request_data{data, data+size};
         char buffer_1[8192];
         struct buffer_stream buf_json(buffer_1, sizeof(buffer_1));
@@ -523,7 +523,7 @@ namespace {
         return 0;
     }
 
-    [[maybe_unused]] int http_response_fuzz_test(const uint8_t *data, size_t size) {
+    [[maybe_unused]] inline int http_response_fuzz_test(const uint8_t *data, size_t size) {
         struct datum response_data{data, data+size};
         char buffer_1[8192];
         struct buffer_stream buf_json(buffer_1, sizeof(buffer_1));

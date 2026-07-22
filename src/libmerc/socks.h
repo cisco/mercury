@@ -536,7 +536,7 @@ public:
 
 namespace {
 
-    [[maybe_unused]] int socks5_req_resp_fuzz_test(const uint8_t *data, size_t size) {
+    [[maybe_unused]] inline int socks5_req_resp_fuzz_test(const uint8_t *data, size_t size) {
         struct datum pkt_data{data, data+size};
         char buffer[8192];
         struct buffer_stream buf_json(buffer, sizeof(buffer));
@@ -549,7 +549,7 @@ namespace {
         return 0;
     }
 
-    [[maybe_unused]] int socks4_req_fuzz_test(const uint8_t *data, size_t size) {
+    [[maybe_unused]] inline int socks4_req_fuzz_test(const uint8_t *data, size_t size) {
         struct datum pkt_data{data, data+size};
         char buffer[8192];
         struct buffer_stream buf_json(buffer, sizeof(buffer));
@@ -562,7 +562,7 @@ namespace {
         return 0;
     }
 
-    [[maybe_unused]] int socks5_hello_fuzz_test(const uint8_t *data, size_t size) {
+    [[maybe_unused]] inline int socks5_hello_fuzz_test(const uint8_t *data, size_t size) {
         struct datum pkt_data{data, data+size};
         char buffer[8192];
         struct buffer_stream buf_json(buffer, sizeof(buffer));
@@ -575,7 +575,7 @@ namespace {
         return 0;
     }
 
-    [[maybe_unused]] int socks5_usr_pass_fuzz_test(const uint8_t *data, size_t size) {
+    [[maybe_unused]] inline int socks5_usr_pass_fuzz_test(const uint8_t *data, size_t size) {
         struct datum pkt_data{data, data+size};
         char buffer[8192];
         struct buffer_stream buf_json(buffer, sizeof(buffer));
@@ -588,7 +588,7 @@ namespace {
         return 0;
     }
 
-    [[maybe_unused]] int socks5_gss_fuzz_test(const uint8_t *data, size_t size) {
+    [[maybe_unused]] inline int socks5_gss_fuzz_test(const uint8_t *data, size_t size) {
         struct datum pkt_data{data, data+size};
         char buffer[8192];
         struct buffer_stream buf_json(buffer, sizeof(buffer));
