@@ -3,6 +3,7 @@
 #ifndef NAIVE_BAYES_HPP
 #define NAIVE_BAYES_HPP
 
+#include <cmath>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -33,11 +34,11 @@ public:
     /// combines this update with another set of counts \param
     /// rhs_count, associated with the same data feature value
     ///
-    void combine(size_t rhs_count, size_t total_count, floating_point_type base_prior, floating_point_type domain_weight) {
+    void combine(size_t rhs_count, size_t total_count, floating_point_type base_prior) {
 
-        floating_point_type old_count = expl((value / domain_weight) + base_prior) * total_count;
+        floating_point_type old_count = expl(value + base_prior) * total_count;
         size_t old_count_integral = (size_t)roundl(old_count);
-        value = (log((floating_point_type)(rhs_count + old_count_integral) / total_count) - base_prior) * domain_weight;
+        value = log((floating_point_type)(rhs_count + old_count_integral) / total_count) - base_prior;
     }
 
 };
@@ -109,7 +110,7 @@ public:
         floating_point_type base_prior = log(0.1 / total_count);
         std::pair<T,size_t> value_and_count = { feature_value, count };
         const auto x = updates.find(value_and_count.first);
-        class update u{ (unsigned int)process_index, (log((floating_point_type)value_and_count.second / total_count) - base_prior) * weight };
+        class update u{ (unsigned int)process_index, log((floating_point_type)value_and_count.second / total_count) - base_prior };
         if (x != updates.end()) {
             x->second.push_back(u);
         } else {
@@ -129,7 +130,7 @@ public:
         if (u != updates.end()) {
             for (const auto &x : u->second) {
                 assert(x.index < prob_vector.size());
-                prob_vector[x.index] += x.value;
+                prob_vector[x.index] += x.value * weight;
             }
         }
     }
@@ -141,7 +142,7 @@ public:
         if (u != updates.end()) {
             for (const auto &x : u->second) {
                 assert(x.index < prob_vector.size());
-                prob_vector[x.index] += x.value * (w / weight);
+                prob_vector[x.index] += x.value * w;
             }
         }
     }
@@ -276,7 +277,7 @@ public:
                     )
     {
         floating_point_type base_prior = log(0.1 / total_count);
-        class update u{ (unsigned int)process_index, (log((floating_point_type)count / total_count) - base_prior) * weight };
+        class update u{ (unsigned int)process_index, log((floating_point_type)count / total_count) - base_prior };
 
         if (lookahead<ipv4_address_string> ipv4{datum{feature_value}}) {
             ipv4_address addr = normalize(ipv4.value.get_value());
@@ -305,14 +306,14 @@ public:
             auto ip_ip_update = ipv4_updates.find(addr.get_value());
             if (ip_ip_update != ipv4_updates.end()) {
                 for (const auto &x : ip_ip_update->second) {
-                    prob_vector[x.index] += x.value;
+                    prob_vector[x.index] += x.value * weight;
                 }
             }
         } else if (lookahead<ipv6_address_string> ipv6{datum{dst_ip_str}}) {
             auto ip_ip_update = ipv6_updates.find(normalize(ipv6.value.get_address()));
             if (ip_ip_update != ipv6_updates.end()) {
                 for (const auto &x : ip_ip_update->second) {
-                    prob_vector[x.index] += x.value;
+                    prob_vector[x.index] += x.value * weight;
                 }
             }
         } else {
@@ -326,14 +327,14 @@ public:
             auto ip_ip_update = ipv4_updates.find(addr.get_value());
             if (ip_ip_update != ipv4_updates.end()) {
                 for (const auto &x : ip_ip_update->second) {
-                    prob_vector[x.index] += x.value * (w / weight);
+                    prob_vector[x.index] += x.value * w;
                 }
             }
         } else if (lookahead<ipv6_address_string> ipv6{datum{dst_ip_str}}) {
             auto ip_ip_update = ipv6_updates.find(normalize(ipv6.value.get_address()));
             if (ip_ip_update != ipv6_updates.end()) {
                 for (const auto &x : ip_ip_update->second) {
-                    prob_vector[x.index] += x.value * (w / weight);
+                    prob_vector[x.index] += x.value * w;
                 }
             }
         } else {
@@ -398,7 +399,7 @@ public:
             for (auto &y : itr->value.GetObject()) {
                 if (y.value.IsUint64()) {
                     std::string normalized = server_identifier{y.name.GetString()}.get_normalized_domain_name(server_identifier::detail::on);
-                    add_sni_update(process_index, normalized, y.value.GetUint64(), total_count, sni_weight);
+                    add_sni_update(process_index, normalized, y.value.GetUint64(), total_count);
                 }
             }
         }
@@ -413,7 +414,7 @@ public:
         if (itr->value.IsObject()) {
             for (auto &y : itr->value.GetObject()) {
                 if (y.value.IsUint64()) {
-                    add_domain_update(process_index, y.name.GetString(), y.value.GetUint64(), total_count, domain_weight);
+                    add_domain_update(process_index, y.name.GetString(), y.value.GetUint64(), total_count);
                 }
             }
         }
@@ -422,15 +423,14 @@ public:
     void add_domain_update(size_t index,
                            const std::string &hostname_domains,
                            size_t count,
-                           size_t total_count,
-                           floating_point_type domain_weight
+                           size_t total_count
                            ) {
 
         floating_point_type base_prior = log(0.1 / total_count);
         std::pair<std::string,size_t> domains_and_count{ hostname_domains, count };
 
         const auto x = hostname_domain_updates.find(domains_and_count.first);
-        class update u{ (unsigned int)index, (log((floating_point_type)domains_and_count.second / total_count) - base_prior) * domain_weight };
+        class update u{ (unsigned int)index, log((floating_point_type)domains_and_count.second / total_count) - base_prior };
         if (x != hostname_domain_updates.end()) {
 
             // check for previous occurence of this index
@@ -442,7 +442,7 @@ public:
                 }
             }
             if (prev_update) {
-                prev_update->combine(count, total_count, base_prior, domain_weight);
+                prev_update->combine(count, total_count, base_prior);
             } else {
                 x->second.push_back(u);
             }
@@ -456,15 +456,14 @@ public:
     void add_sni_update(size_t index,
                         const std::string &hostname_sni,
                         size_t count,
-                        size_t total_count,
-                        floating_point_type sni_weight
+                        size_t total_count
                         ) {
 
         floating_point_type base_prior = log(0.1 / total_count);
         std::pair<std::string,size_t> sni_and_count{ hostname_sni, count };
 
         const auto x = hostname_sni_updates.find(sni_and_count.first);
-        class update u{ (unsigned int)index, (log((floating_point_type)sni_and_count.second / total_count) - base_prior) * sni_weight };
+        class update u{ (unsigned int)index, log((floating_point_type)sni_and_count.second / total_count) - base_prior };
         if (x != hostname_sni_updates.end()) {
 
             // check for previous occurence of this index
@@ -476,7 +475,7 @@ public:
                 }
             }
             if (prev_update) {
-                prev_update->combine(count, total_count, base_prior, sni_weight);
+                prev_update->combine(count, total_count, base_prior);
             } else {
                 x->second.push_back(u);
             }
@@ -504,7 +503,7 @@ public:
         if (hostname_domain_update != hostname_domain_updates.end()) {
             for (const auto &x : hostname_domain_update->second) {
                 assert(x.index < process_score.size());
-                process_score[x.index] += x.value;
+                process_score[x.index] += x.value * domain_weight;
             }
         }
 
@@ -512,7 +511,7 @@ public:
         if (hostname_sni_update != hostname_sni_updates.end()) {
             for (const auto &x : hostname_sni_update->second) {
                 assert(x.index < process_score.size());
-                process_score[x.index] += x.value;
+                process_score[x.index] += x.value * sni_weight;
             }
         }
     }
@@ -536,7 +535,7 @@ public:
         if (hostname_domain_update != hostname_domain_updates.end()) {
             for (const auto &x : hostname_domain_update->second) {
                 assert(x.index < process_score.size());
-                process_score[x.index] += x.value * (w_domain / domain_weight);
+                process_score[x.index] += x.value * w_domain;
             }
         }
 
@@ -544,7 +543,7 @@ public:
         if (hostname_sni_update != hostname_sni_updates.end()) {
             for (const auto &x : hostname_sni_update->second) {
                 assert(x.index < process_score.size());
-                process_score[x.index] += x.value * (w_sni / sni_weight);
+                process_score[x.index] += x.value * w_sni;
             }
         }
     }
@@ -852,6 +851,37 @@ inline bool unit_test() {
     if (ipf.json_name != "dst_ip") return false;
     if (ipf.weight != 1.0) return false;
 
+    // zero custom weight must contribute exactly nothing.
+    {
+        feature<uint32_t> zf{"zero_weight_feature", 0.0};   // model weight = 0
+        zf.add_update(42, 0, 5, 100);
+
+        // nonzero custom weight over a zero-weight model must stay finite
+        std::vector<floating_point_type> pv(1, 0.0);
+        zf.update(pv, 42, 0.5);
+        if (!std::isfinite(pv[0])) return false;
+
+        // zero custom weight must contribute exactly nothing
+        std::vector<floating_point_type> pv0(1, 0.0);
+        zf.update(pv0, 42, 0.0);
+        if (!std::isfinite(pv0[0]) || pv0[0] != 0.0) return false;
+    }
+
+    // combine() merges a second observation of the same value: it
+    // recovers the count from the stored log-likelihood ratio, adds the
+    // new count, and re-encodes.  Merging 5 and 5 gives the ratio for 10.
+    {
+        const size_t total_count = 100;
+        floating_point_type base_prior = log(0.1 / total_count);
+        // stored value is the raw log-likelihood ratio for count = 5
+        update u{0, log((floating_point_type)5 / total_count) - base_prior};
+        u.combine(5, total_count, base_prior);  // merge another 5
+        if (!std::isfinite(u.value)) return false;
+        // merged count is 10 => value should equal llr(10/100)
+        floating_point_type expected =
+            log((floating_point_type)10 / total_count) - base_prior;
+        if (std::abs(u.value - expected) > 1e-9) return false;
+    }
     return true;
 }
 
