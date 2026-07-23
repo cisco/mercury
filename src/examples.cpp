@@ -11,6 +11,35 @@
 #include <diagnostic.hpp>
 #include <ctype.h>
 
+/// A parser example that uses the named-constructor idiom: callers
+/// parse it with \ref length_prefixed_value::parse(), not with a
+/// public `datum &` constructor.
+///
+class length_prefixed_value {
+    encoded<uint8_t> length;
+    datum value_;
+
+    length_prefixed_value(encoded<uint8_t> len, datum value) :
+        length{len},
+        value_{value}
+    { }
+
+public:
+
+    /// parse a one-byte length followed by that many value bytes
+    ///
+    static length_prefixed_value parse(datum &d) {
+        encoded<uint8_t> len{d};
+        datum value;
+        if (d.is_not_null()) {
+            value.parse(d, len.value());
+        }
+        return length_prefixed_value{len, value};
+    }
+
+    datum value() const { return value_; }
+};
+
 int main(int argc, char *argv[]) {
 
     /// A datum represents a sequence of bytes in memory.  Below we
@@ -295,6 +324,19 @@ int main(int argc, char *argv[]) {
         printf("read one or more numeric characters\n");
         num.value.fprint(stdout); fputc('\n', stdout);
         p = num.advance();
+    }
+
+    /// Classes that use the named-constructor idiom can be used with
+    /// \ref lookahead<> by supplying the parser function pointer as
+    /// the second template parameter.  The parser function must
+    /// accept a `datum &` and return the parsed type.
+    ///
+    uint8_t lpv_buffer[] = { 0x03, 'f', 'o', 'o', '!' };
+    datum lpv_input{lpv_buffer, lpv_buffer + sizeof(lpv_buffer)};
+    if (lookahead<length_prefixed_value, length_prefixed_value::parse> lpv{lpv_input}) {
+        printf("read a length-prefixed value\n");
+        lpv.value.value().fprint(stdout); fputc('\n', stdout);
+        lpv_input = lpv.advance();
     }
 
     /// When a datum may contain data that can be read by more than
