@@ -61,7 +61,7 @@ $(foreach t,$(TOOL_TARGETS),$(eval $(notdir $(t)): $(t)))
 # ===================================================================
 
 # archive_reader — archive (gzip/tar) reader
-$(BIN)/archive_reader: LDLIBS := -lz -lcrypto
+$(BIN)/archive_reader: LDLIBS := -lz -lcrypto $(STDCXXFS_LDLIBS)
 $(BIN)/archive_reader: $(call objects,src/archive_reader.cc)
 	$(LINK)
 

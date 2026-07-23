@@ -41,7 +41,6 @@ ifeq ($(IS_MACOS),yes)
   _lib_path_var := DYLD_LIBRARY_PATH
 else
   _lib_path_var := LD_LIBRARY_PATH
-  _stdfslib := -lstdc++fs
 endif
 
 # --- Source file lists ------------------------------------------------
@@ -258,7 +257,7 @@ $(BIN)/libmerc_driver_fdc: $(call objects,$(_DRV_FDC)) $(LIB)/libmerc.so
 
 # links and dlopen()s libmerc.so; runs libmerc_util as a subprocess
 $(BIN)/libmerc_util_behavior_test: CXXFLAGS += $(_DRV_EXTRA_CXXFLAGS)
-$(BIN)/libmerc_util_behavior_test: LDLIBS := $(_DRV_LDLIBS) $(_stdfslib)
+$(BIN)/libmerc_util_behavior_test: LDLIBS := $(_DRV_LDLIBS) $(STDCXXFS_LDLIBS)
 $(BIN)/libmerc_util_behavior_test: | $(BIN)/libmerc_util
 $(BIN)/libmerc_util_behavior_test: $(call objects,$(_DRV_UTIL)) $(LIB)/libmerc.so
 	$(LINK)
