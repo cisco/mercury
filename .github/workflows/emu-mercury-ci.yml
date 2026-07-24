@@ -11,6 +11,10 @@ on:
         description: 'Run Linux fuzz test'
         type: boolean
         default: true
+      run_linux_coverage:
+        description: 'Run Linux coverage'
+        type: boolean
+        default: true
       run_macos:
         description: 'Run macOS build'
         type: boolean
@@ -149,6 +153,47 @@ jobs:
           ./configure
       - name: Run Fuzz Test
         run: make -j$(nproc) V=1 test-fuzz
+
+  # ========== Linux Coverage ==========
+
+  linux-coverage:
+    if: github.event_name != 'workflow_dispatch' || inputs.run_linux_coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: ghcr.io/cisco-netintel/ubuntu24:buildenv
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Echo OS version
+        run: cat /etc/os-release
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Mark workspace as safe for git
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Configure Mercury
+        run: |
+          touch configure  # update mtime to avoid automatic regen
+          ./configure
+      - name: Build Coverage variant
+        run: make -j$(nproc) V=1 BUILD_TYPE=Coverage
+      - name: Run test-coverage
+        run: make -j$(nproc) V=1 test-coverage
+      - name: Report libmerc coverage
+        run: test/coverage/cov_report.sh
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: coverage-ubuntu24
+          overwrite: true
+          if-no-files-found: error
+          path: |
+            build/Coverage/coverage_report/
+            build/Coverage/coverage_data/
 
   # ========== macOS Build and Test ==========
 
@@ -317,13 +362,14 @@ jobs:
   ci-success:
     name: Mercury CI Checks
     if: ${{ always() && !cancelled() }}
-    needs: [linux-ci, linux-fuzz, macos-ci, windows-build, packages]
+    needs: [linux-ci, linux-fuzz, linux-coverage, macos-ci, windows-build, packages]
     runs-on: ubuntu-latest
     steps:
       - name: Check job results
         run: |
           echo "linux-ci: ${{ needs.linux-ci.result }}"
           echo "linux-fuzz: ${{ needs.linux-fuzz.result }}"
+          echo "linux-coverage: ${{ needs.linux-coverage.result }}"
           echo "macos-ci: ${{ needs.macos-ci.result }}"
           echo "windows-build: ${{ needs.windows-build.result }}"
           echo "packages: ${{ needs.packages.result }}"
@@ -334,6 +380,8 @@ jobs:
              [[ "${{ needs.linux-ci.result }}" == "cancelled" ]] || \
              [[ "${{ needs.linux-fuzz.result }}" == "failure" ]] || \
              [[ "${{ needs.linux-fuzz.result }}" == "cancelled" ]] || \
+             [[ "${{ needs.linux-coverage.result }}" == "failure" ]] || \
+             [[ "${{ needs.linux-coverage.result }}" == "cancelled" ]] || \
              [[ "${{ needs.macos-ci.result }}" == "failure" ]] || \
              [[ "${{ needs.macos-ci.result }}" == "cancelled" ]] || \
              [[ "${{ needs.windows-build.result }}" == "failure" ]] || \
