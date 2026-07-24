@@ -491,10 +491,10 @@ endif
 #   make test-coverage
 #
 # Output:
-#   build/Coverage/coverage/           .info trace files
+#   build/Coverage/coverage_data/      .info trace files
 #   build/Coverage/coverage_report/    HTML report
 
-_cov_dir := build/Coverage/coverage
+_cov_dir := build/Coverage/coverage_data
 _cov_rpt := build/Coverage/coverage_report
 _cov_make = $(MAKE) BUILD_TYPE=Coverage
 
