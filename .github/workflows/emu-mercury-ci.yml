@@ -252,6 +252,38 @@ jobs:
             build/Coverage/coverage_report_diff/
             build/Coverage/coverage_data/
 
+  # ========== Coverage Gate (the policy check) ==========
+
+  coverage-gate:
+    needs: linux-coverage
+    if: ${{ always() && !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Gate on libmerc coverage delta
+        env:
+          RESULT:   ${{ needs.linux-coverage.result }}
+          CUR_PCT:  ${{ needs.linux-coverage.outputs.cur_pct }}
+          BASE_PCT: ${{ needs.linux-coverage.outputs.base_pct }}
+          BASE_SHA: ${{ needs.linux-coverage.outputs.base_sha }}
+          BASE_REF: ${{ needs.linux-coverage.outputs.base_ref }}
+        run: |
+          set -o pipefail
+          {
+            if [ "$RESULT" != success ] && [ "$RESULT" != skipped ]; then
+              echo "🔴 **ERROR**: coverage unverified — linux-coverage $RESULT"
+              false    # producer broken
+            elif [ "$RESULT" = skipped ]; then
+              echo "ℹ️ **SKIPPED**: linux-coverage did not run"
+            elif [ -z "$BASE_PCT" ]; then
+              echo "ℹ️ **SKIPPED**: baseline is HEAD or no baseline to compare"
+            elif awk -v c="$CUR_PCT" -v b="$BASE_PCT" 'BEGIN{exit !(c<b)}'; then
+              echo "🔴 **FAIL**: libmerc coverage decreased ${BASE_PCT}% → ${CUR_PCT}% vs ${BASE_REF} @ ${BASE_SHA}"
+              false
+            else
+              echo "🟢 **PASS**: libmerc coverage held/improved ${BASE_PCT}% → ${CUR_PCT}%"
+            fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
   # ========== macOS Build and Test ==========
 
   macos-ci:
