@@ -20,6 +20,6 @@ in=${1:?usage: cov_extract.sh [--rewrite OLD NEW] <filtered.info> <out.info>}
 out=${2:?usage: cov_extract.sh [--rewrite OLD NEW] <filtered.info> <out.info>}
 
 mkdir -p "$(dirname "$out")"
-lcov --extract "$in" '*/src/libmerc/*' --ignore-errors unused,unused \
+lcov --extract "$in" '*/src/libmerc/*' --ignore-errors unused,unused,inconsistent,inconsistent \
   "${sub[@]}" -o "$out"
-lcov --summary "$out" 2>&1   # log some diagnostic output
+lcov --ignore-errors inconsistent,inconsistent --summary "$out" 2>&1   # log some diagnostic output

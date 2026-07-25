@@ -32,7 +32,7 @@ line_pct() { awk -F: '/^LH:/{h+=$2} /^LF:/{f+=$2} END{print f?100*h/f:0}' "$1"; 
 # Absolute coverage, human-readable summary
 CUR_PCT=$(line_pct "$cur_info")
 { echo "### libmerc coverage"; echo '```';
-  lcov --summary "$cur_info" 2>&1 | grep -E '(lines|functions)\.\.'; echo '```';
+  lcov --ignore-errors inconsistent,inconsistent --summary "$cur_info" 2>&1 | grep -E '(lines|functions)\.\.'; echo '```';
 } >> "$GITHUB_STEP_SUMMARY"
 
 # Differential coverage, when possible
@@ -55,7 +55,7 @@ else
     --baseline-file "$base_info" \
     --diff-file build/Coverage/patch.diff \
     --criteria-script "$here/cov_criteria.sh" \
-    --ignore-errors path,path,unused,unused,unmapped,unmapped,empty,empty \
+    --ignore-errors path,path,unused,unused,unmapped,unmapped,empty,empty,inconsistent,inconsistent \
     -o build/Coverage/coverage_report_diff \
     "$cur_info"
 
