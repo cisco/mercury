@@ -165,6 +165,11 @@ jobs:
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
+    outputs:
+      cur_pct:  ${{ steps.report.outputs.cur_pct }}
+      base_pct: ${{ steps.report.outputs.base_pct }}
+      base_sha: ${{ steps.report.outputs.base_sha }}
+      base_ref: ${{ steps.report.outputs.base_ref }}
     steps:
       - name: Echo OS version
         run: cat /etc/os-release
@@ -172,19 +177,70 @@ jobs:
         uses: actions/checkout@v6
         with:
           submodules: true
-      - name: Mark workspace as safe for git
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-      - name: Configure Mercury
+          fetch-depth: 0
+      - name: Mark workspace repo directories as safe for git
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE/base"
+
+      - name: Coverage reporter self-test
+        run: python3 -m doctest test/coverage/cov_diff_report.py
+
+      # Sets base_sha/head_sha; base_sha == head_sha => na (baseline steps skip).
+      - name: Resolve baseline merge-base
+        id: mergebase
+        run: test/coverage/cov_mergebase.sh
+
+      # ----- Baseline (merge-base): same build as HEAD, in base/ -----
+      - name: Baseline — checkout
+        if: steps.mergebase.outputs.base_sha != steps.mergebase.outputs.head_sha
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.mergebase.outputs.base_sha }}
+          path: base
+          submodules: true
+      - name: Baseline — configure Mercury
+        if: steps.mergebase.outputs.base_sha != steps.mergebase.outputs.head_sha
+        working-directory: base
         run: |
           touch configure  # update mtime to avoid automatic regen
           ./configure
-      - name: Build Coverage variant
+      - name: Baseline — build Coverage variant
+        if: steps.mergebase.outputs.base_sha != steps.mergebase.outputs.head_sha
+        working-directory: base
         run: make -j$(nproc) V=1 BUILD_TYPE=Coverage
-      - name: Run test-coverage
+      - name: Baseline — run test-coverage
+        if: steps.mergebase.outputs.base_sha != steps.mergebase.outputs.head_sha
+        working-directory: base
         run: make -j$(nproc) V=1 test-coverage
-      - name: Report libmerc coverage
+      - name: Baseline — extract libmerc coverage
+        if: steps.mergebase.outputs.base_sha != steps.mergebase.outputs.head_sha
+        run: >-
+          test/coverage/cov_extract.sh
+          --rewrite "$GITHUB_WORKSPACE/base/" "$GITHUB_WORKSPACE/"
+          base/build/Coverage/coverage_data/filtered.info
+          build/Coverage/base.libmerc.info
+
+      # ----- HEAD: the same build -----
+      - name: HEAD — configure Mercury
+        run: |
+          touch configure  # update mtime to avoid automatic regen
+          ./configure
+      - name: HEAD — build Coverage variant
+        run: make -j$(nproc) V=1 BUILD_TYPE=Coverage
+      - name: HEAD — run test-coverage
+        run: make -j$(nproc) V=1 test-coverage
+      - name: HEAD — extract libmerc coverage
+        run: >-
+          test/coverage/cov_extract.sh
+          build/Coverage/coverage_data/filtered.info
+          build/Coverage/cur.libmerc.info
+
+      # ----- Summarize + publish (no gate); feeds coverage-gate -----
+      - name: Summarize libmerc coverage (+ differential if baseline)
+        id: report
         run: test/coverage/cov_report.sh
-      - name: Upload coverage report
+      - name: Upload coverage report(s)
         if: always()
         uses: actions/upload-artifact@v6
         with:
@@ -193,7 +249,43 @@ jobs:
           if-no-files-found: error
           path: |
             build/Coverage/coverage_report/
+            build/Coverage/coverage_report_diff/
             build/Coverage/coverage_data/
+
+  # ========== Coverage Gate (the policy advisory) ==========
+
+  coverage-gate:
+    name: Coverage Advisory
+    needs: linux-coverage
+    if: ${{ always() && !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Gate on libmerc coverage delta
+        env:
+          RESULT:   ${{ needs.linux-coverage.result }}
+          CUR_PCT:  ${{ needs.linux-coverage.outputs.cur_pct }}
+          BASE_PCT: ${{ needs.linux-coverage.outputs.base_pct }}
+          BASE_SHA: ${{ needs.linux-coverage.outputs.base_sha }}
+          BASE_REF: ${{ needs.linux-coverage.outputs.base_ref }}
+        run: |
+          set -o pipefail
+          {
+            echo "ℹ️ Advisory only — not a required check. Coverage regressions are reported, not enforced."
+            echo
+            if [ "$RESULT" != success ] && [ "$RESULT" != skipped ]; then
+              echo "🔴 **ERROR**: coverage unverified — linux-coverage $RESULT"
+              false    # producer broken
+            elif [ "$RESULT" = skipped ]; then
+              echo "ℹ️ **SKIPPED**: linux-coverage did not run"
+            elif [ -z "$BASE_PCT" ]; then
+              echo "ℹ️ **SKIPPED**: baseline is HEAD or no baseline to compare"
+            elif awk -v c="$CUR_PCT" -v b="$BASE_PCT" 'BEGIN{exit !(c<b)}'; then
+              echo "🔴 **FAIL**: libmerc coverage decreased ${BASE_PCT}% → ${CUR_PCT}% vs ${BASE_REF} @ ${BASE_SHA}"
+              false
+            else
+              echo "🟢 **PASS**: libmerc coverage held/improved ${BASE_PCT}% → ${CUR_PCT}%"
+            fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"
 
   # ========== macOS Build and Test ==========
 
