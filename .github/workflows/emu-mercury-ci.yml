@@ -252,9 +252,10 @@ jobs:
             build/Coverage/coverage_report_diff/
             build/Coverage/coverage_data/
 
-  # ========== Coverage Gate (the policy check) ==========
+  # ========== Coverage Gate (the policy advisory) ==========
 
   coverage-gate:
+    name: Coverage Advisory
     needs: linux-coverage
     if: ${{ always() && !cancelled() }}
     runs-on: ubuntu-latest
@@ -269,6 +270,8 @@ jobs:
         run: |
           set -o pipefail
           {
+            echo "ℹ️ Advisory only — not a required check. Coverage regressions are reported, not enforced."
+            echo
             if [ "$RESULT" != success ] && [ "$RESULT" != skipped ]; then
               echo "🔴 **ERROR**: coverage unverified — linux-coverage $RESULT"
               false    # producer broken
