@@ -480,19 +480,26 @@ struct tls_client_hello : public base_protocol {
         additional_bytes_needed = 0;
     }
 
-    void write_l7_metadata(cbor_object &o, bool metadata) {
-        if (metadata) {
-            cbor_array protocols{o, "protocols"};
-            protocols.print_string("tls");
-            protocols.close();
-        }
+    // emits the tls/dtls detail object (random + server_name). The object
+    // name mirrors the protocol identity: "dtls" when this hello was carried
+    // over DTLS, "tls" otherwise. Shared by the top-level entry below and by
+    // nested callers (e.g. quic, dtls) that own the enclosing protocols array
+    // themselves.
+    void write_l7_metadata_detail(cbor_object &o) {
+        const char *proto = dtls ? "dtls" : "tls";
+        cbor_object proto_obj{o, proto};
+        cbor_object client{proto_obj, "client"};
+        client.print_key_hex("random", random);
+        extensions.write_l7_metadata(client);
+        client.close();
+        proto_obj.close();
+    }
 
-        cbor_object tls{o, "tls"};
-        cbor_object tls_client{tls, "client"};
-        tls_client.print_key_hex("random", random);
-        extensions.write_l7_metadata(tls_client);
-        tls_client.close();
-        tls.close();
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("tls");
+        protocols.close();
+        write_l7_metadata_detail(o);
      }
 
 };
