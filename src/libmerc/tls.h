@@ -907,6 +907,21 @@ namespace {
         return 0;
     }
 
+    [[maybe_unused]] inline int tls_certificate_fuzz_test(const uint8_t *data, size_t size) {
+        datum pkt_data{data, data+size};
+
+        char buffer[8192];
+        struct buffer_stream buf_json(buffer, sizeof(buffer));
+        struct json_object record(&buf_json);
+
+        tls_certificate certificate{pkt_data, nullptr};
+        if (certificate.is_not_empty()) {
+            certificate.write_json(record, true, true);
+        }
+
+        return 0;
+    }
+
     [[maybe_unused]] inline int tls_server_hello_and_certificate_fuzz_2_test(const uint8_t *data1, size_t size1, const uint8_t *data2, size_t size2) {
         datum pkt_data{data1, data1+size1};
         datum tcp_data{data2, data2+size2};
