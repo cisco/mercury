@@ -278,4 +278,12 @@ namespace rdp {
 
 }
 
+namespace {
+
+    [[maybe_unused]] inline int rdp_connection_request_pdu_fuzz_test(const uint8_t *data, size_t size) {
+        return json_output_fuzzer<rdp::connection_request_pdu>(data, size);
+    }
+
+}
+
 #endif // RDP_HPP
