@@ -480,20 +480,27 @@ struct tls_client_hello : public base_protocol {
         additional_bytes_needed = 0;
     }
 
-    void write_l7_metadata(cbor_object &o, bool metadata) {
-        if (metadata) {
-            cbor_array protocols{o, "protocols"};
-            protocols.print_string("tls");
-            protocols.close();
-        }
+    // emits the detail object under a key named by the
+    // caller's committed transport: "dtls" when is_dtls is set, "tls"
+    // otherwise. The key is chosen by the caller (which owns protocols[0]) and
+    // is deliberately NOT derived from the parsed legacy_version, which is
+    // untrusted and can be crafted to disagree with the carrier.
+    void write_l7_metadata_detail(cbor_object &o, bool is_dtls = false) {
+        const char *proto = is_dtls ? "dtls" : "tls";
+        cbor_object proto_obj{o, proto};
+        cbor_object client{proto_obj, "client"};
+        client.print_key_hex("random", random);
+        extensions.write_l7_metadata(client);
+        client.close();
+        proto_obj.close();
+    }
 
-        cbor_object tls{o, "tls"};
-        cbor_object tls_client{tls, "client"};
-        tls_client.print_key_hex("random", random);
-        extensions.write_l7_metadata(tls_client);
-        tls_client.close();
-        tls.close();
-     }
+    void write_l7_metadata(cbor_object &o, bool) {
+        cbor_array protocols{o, "protocols"};
+        protocols.print_string("tls");
+        protocols.close();
+        write_l7_metadata_detail(o);
+    }
 
 };
 

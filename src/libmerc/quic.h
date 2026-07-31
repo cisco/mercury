@@ -1695,7 +1695,7 @@ public:
         protocols.close();
 
         if (hello.is_not_empty()) {
-            hello.write_l7_metadata(o, false);
+            hello.write_l7_metadata_detail(o);
         }
     }
 
