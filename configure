@@ -655,7 +655,6 @@ HAVE_GMP
 LIBOBJS
 XSIMD_INCLUDE
 HAVE_XSIMD
-USE_BTI_REPORT_WARNING
 USE_BRANCH_PROTECTION
 NEED_LIBSTDCXXFS
 USE_NO_OMIT_LEAF_FRAME_POINTER
@@ -5892,12 +5891,12 @@ esac
 # ARM PAC/BTI hardening (Linux AArch64 only)
 # -mbranch-protection=standard enables Pointer Authentication (PAC) and
 # Branch Target Identification (BTI) on AArch64.  These instructions are
-# NOPs on hardware that does not support them.
+# NOPs on hardware that does not support them.  When every input object is
+# built with this flag, the linker marks the output with the BTI GNU
+# property automatically; no linker flag is required.
 # Note: Apple Clang accepts this flag but produces broken C++ exception
 # handling in shared libraries, so we restrict to Linux.
 USE_BRANCH_PROTECTION=no
-
-USE_BTI_REPORT_WARNING=no
 
 case "$host_os" in
     linux*)
@@ -5951,52 +5950,6 @@ else case e in #(
 esac
 fi
 
-                if test "x$USE_BRANCH_PROTECTION" = "xyes"
-then :
-  { printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking whether the linker accepts -Wl,-z,bti-report=warning" >&5
-printf %s "checking whether the linker accepts -Wl,-z,bti-report=warning... " >&6; }
-if test ${ax_cv_check_ldflags___Wl__z_bti_report_warning+y}
-then :
-  printf %s "(cached) " >&6
-else case e in #(
-  e)
-  ax_check_save_flags=$LDFLAGS
-  LDFLAGS="$LDFLAGS  -Wl,-z,bti-report=warning"
-  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-int
-main (void)
-{
-
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_cxx_try_link "$LINENO"
-then :
-  ax_cv_check_ldflags___Wl__z_bti_report_warning=yes
-else case e in #(
-  e) ax_cv_check_ldflags___Wl__z_bti_report_warning=no ;;
-esac
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam \
-    conftest$ac_exeext conftest.$ac_ext
-  LDFLAGS=$ax_check_save_flags ;;
-esac
-fi
-{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $ax_cv_check_ldflags___Wl__z_bti_report_warning" >&5
-printf '%s\n' "$ax_cv_check_ldflags___Wl__z_bti_report_warning" >&6; }
-if test "x$ax_cv_check_ldflags___Wl__z_bti_report_warning" = xyes
-then :
-  USE_BTI_REPORT_WARNING=yes
-
-else case e in #(
-  e) : ;;
-esac
-fi
-
-fi
                 ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'

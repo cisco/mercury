@@ -15,6 +15,7 @@
 #   $(CXXFLAGS), $(CFLAGS), $(LDFLAGS) -- final assembled flags
 #   $(OPTFLAGS)                        -- user-supplied optional flags (appended last)
 #   $(DEPFLAGS)                        -- -MMD -MP for auto-dependency tracking
+#   $(LDLIBS)                          -- empty default; targets set their own
 #   $(BIN), $(LIB), $(OBJ), $(TESTDIR) -- variant output directories
 #   $(call objects,SRCS)               -- maps source paths to .o paths
 #   LINK, LINK_SO, LINK_A, CXX_LINK    -- canned recipes for link steps
@@ -146,6 +147,7 @@ CFLAGS   := $(BASE_CFLAGS) $(FLAGS_$(BUILD_TYPE)) $(SANITIZE_FLAGS) \
             $(VIS_FLAGS) $(STATIC_CFG_FLAGS) \
             $(PLATFORM_FLAGS) $(CDEFS) $(VERSION_FLAGS) $(OPTFLAGS)
 LDFLAGS  := $(LDFLAGS_$(BUILD_TYPE)) $(SANITIZE_LDFLAGS) $(PLATFORM_LDFLAGS) $(EXTRA_LDFLAGS)
+LDLIBS   :=
 
 # --- Source-to-object mapping -----------------------------------------
 define _src_to_obj
@@ -214,9 +216,8 @@ $(OBJ)/%.o: %.cpp $(_toolchain_stamp)
 	$(call QUIET,CXX,$@)$(CXX) $(CXXFLAGS) $(DEPFLAGS) -c $< -o $@
 
 # --- Canned link recipes ----------------------------------------------
-# Each link target sets its own LDLIBS via a target-specific variable,
-# then invokes one of these.  PLATFORM_LDLIBS (from config.mk) is appended
-# after LDLIBS.  CXXFLAGS is passed intentionally — see [compile+link]
+# Each link target sets its own LDLIBS via a target-specific variable, then
+# invokes one of these.  CXXFLAGS is passed intentionally; see [compile+link]
 # annotations in the base flags section above.
 
 # Link an executable from object files.
@@ -227,7 +228,7 @@ $(OBJ)/%.o: %.cpp $(_toolchain_stamp)
 #
 define LINK
 	@mkdir -p $(dir $@)
-	$(call QUIET,LINK,$@)$(CXX) $(CXXFLAGS) $^ $(LDFLAGS) $(LDLIBS) $(PLATFORM_LDLIBS) -o $@
+	$(call QUIET,LINK,$@)$(CXX) $(CXXFLAGS) $^ $(LDFLAGS) $(LDLIBS) -o $@
 endef
 
 # Create a static archive from object files.
@@ -255,7 +256,7 @@ endef
 #
 define LINK_SO
 	@mkdir -p $(dir $@)
-	$(call QUIET,LINK,$@)$(CXX) $(CXXFLAGS) -shared -fPIC $(_soname_flag) $^ $(LDFLAGS) $(LDLIBS) $(PLATFORM_LDLIBS) -o $@
+	$(call QUIET,LINK,$@)$(CXX) $(CXXFLAGS) -shared -fPIC $(_soname_flag) $^ $(LDFLAGS) $(LDLIBS) -o $@
 	@ln -sf $(notdir $@) $(dir $@)$(notdir $@).$(SONAME_MAJOR)
 endef
 
@@ -264,13 +265,13 @@ endef
 # alongside the output executable (e.g., in $(BIN)/), unlike the pattern rules,
 # which put .d files alongside the output object file (e.g., under $(OBJ)/).
 #
-#   $(BIN)/foo: LDLIBS :=
+#   $(BIN)/foo: LDLIBS := -lz
 #   $(BIN)/foo: src/foo.cc
 #   	$(CXX_LINK)
 #
 define CXX_LINK
 	@mkdir -p $(dir $@)
-	$(call QUIET,CXX+LD,$@)$(CXX) $(CXXFLAGS) $(DEPFLAGS) $< $(LDFLAGS) $(LDLIBS) $(PLATFORM_LDLIBS) -o $@
+	$(call QUIET,CXX+LD,$@)$(CXX) $(CXXFLAGS) $(DEPFLAGS) $< $(LDFLAGS) $(LDLIBS) -o $@
 endef
 
 # --- Auto-dependency inclusion ----------------------------------------

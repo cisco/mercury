@@ -76,11 +76,12 @@ AS_CASE([$mercury_fs],
 # ARM PAC/BTI hardening (Linux AArch64 only)
 # -mbranch-protection=standard enables Pointer Authentication (PAC) and
 # Branch Target Identification (BTI) on AArch64.  These instructions are
-# NOPs on hardware that does not support them.
+# NOPs on hardware that does not support them.  When every input object is
+# built with this flag, the linker marks the output with the BTI GNU
+# property automatically; no linker flag is required.
 # Note: Apple Clang accepts this flag but produces broken C++ exception
 # handling in shared libraries, so we restrict to Linux.
 AC_SUBST([USE_BRANCH_PROTECTION],[no])
-AC_SUBST([USE_BTI_REPORT_WARNING],[no])
 case "$host_os" in
     linux*)
         case "$host_cpu" in
@@ -89,10 +90,6 @@ case "$host_os" in
                 AX_CHECK_COMPILE_FLAG([-mbranch-protection=standard],
                     [AC_SUBST([USE_BRANCH_PROTECTION],[yes])],
                     [], [-Werror])
-                AS_IF([test "x$USE_BRANCH_PROTECTION" = "xyes"],
-                    [AX_CHECK_LINK_FLAG([-Wl,-z,bti-report=warning],
-                        [AC_SUBST([USE_BTI_REPORT_WARNING],[yes])],
-                        [])])
                 AC_LANG_POP([C++])
                 ;;
         esac
