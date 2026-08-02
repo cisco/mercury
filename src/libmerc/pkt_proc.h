@@ -142,7 +142,7 @@ struct stateful_pkt_proc {
     struct tcp_reassembler *reassembler_ptr = nullptr;
     std::vector<crypto_policy::assessor *> crypto_policies;
     const bool exposed_creds = false;
-    cbor_metadata_context cbor_meta;
+    cbor_metadata_buffer cbor_buf;
 
     explicit stateful_pkt_proc(mercury_context mc, size_t prealloc_size=0) :
         ip_flow_table{(unsigned int)prealloc_size},
@@ -159,7 +159,7 @@ struct stateful_pkt_proc {
         quic_crypto{global_vars.quic_trial_decryption},
         reassembler_ptr{(global_vars.reassembly) ? (new tcp_reassembler(global_vars.minimize_ram)) : nullptr},
         exposed_creds{global_vars.exposed_creds},
-        cbor_meta{global_vars.cbor_metadata, global_vars.cbor_metadata_buffer_size}
+        cbor_buf{global_vars.cbor_metadata ? global_vars.cbor_metadata_buffer_size : 0}
     {
 
         if (global_vars.crypto_assess_policy.length() > 0) {

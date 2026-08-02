@@ -155,6 +155,10 @@ public:
         cbor::text_string::construct(d).write(a);
     }
 
+    void print_uint(uint64_t value) {
+        cbor::uint64{value}.write(a);
+    }
+
     void close() { a.close(); }
 
     writeable & get_writeable() { return a; }

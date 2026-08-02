@@ -1,81 +1,84 @@
 // cbor_metadata.hpp
 //
-// CBOR metadata buffer manager for encoding per-packet feature data.
+// CBOR metadata buffer manager
 
 #ifndef CBOR_METADATA_HPP
 #define CBOR_METADATA_HPP
 
 #include "cbor.hpp"   // pulls in datum.h (dynamic_buffer, writeable)
 
-/// per-packet CBOR metadata writer. Capacity is fixed at construction and the
-/// backing buffer is rewound (not reallocated) per packet, so its base pointer
-/// is stable for the object's lifetime. A zero capacity means the feature is
-/// off and no buffer is allocated.
-class cbor_metadata_context {
-    static constexpr size_t DEFAULT_CBOR_METADATA_LEN = 4096;
-
+/// \brief holds a fixed-capacity buffer for holding CBOR-encoded data.
+///
+/// \note The function reset() re-initializes the buffer, whose base address is
+/// stable for the object's lifetime.
+///
+class cbor_metadata_buffer {
     dynamic_buffer buf_;
-    size_t capacity_ = 0;      // 0 when the feature is disabled
-    size_t length_ = 0;
-    bool truncated_ = false;
+    bool enabled_ = false;
     bool feature_written_ = false;
 
-    static size_t resolve_capacity(bool enabled, size_t size) {
-        if (!enabled) { return 0; }
-        return (size != 0) ? size : DEFAULT_CBOR_METADATA_LEN;
-    }
-
-    // delegating target: buf_ and capacity_ share one value
-    explicit cbor_metadata_context(size_t capacity)
-        : buf_{capacity}, capacity_{capacity} {}
-
 public:
-    /// \param enabled  allocate a buffer only when the feature is on
-    /// \param size     capacity in bytes; 0 selects the default
-    explicit cbor_metadata_context(bool enabled = false, size_t size = 0)
-        : cbor_metadata_context(resolve_capacity(enabled, size)) {}
+    /// capacity used when no size is given
+    ///
+    static constexpr size_t DEFAULT_CBOR_METADATA_LEN = 4096;
 
-    /// rewind the buffer for a new packet
+    /// constructs a buffer with a capacity of \param size bytes; a size of
+    /// zero disables the feature and allocates nothing
+    ///
+    explicit cbor_metadata_buffer(size_t size = DEFAULT_CBOR_METADATA_LEN)
+        : buf_{size}, enabled_{size != 0} {}
+
+    // delete assignment operator to prevent unintended copies; buf_ holds
+    // pointers into its own vector, and a copy would leave them pointing into
+    // the original's vector instead
+    //
+    cbor_metadata_buffer& operator=(const cbor_metadata_buffer&) = delete;
+
+    /// rewinds this buffer for a new packet
+    ///
     void reset() {
-        if (capacity_ == 0) { return; }
+        if (!enabled_) { return; }
         buf_.reset();
-        length_ = 0;
-        truncated_ = false;
         feature_written_ = false;
     }
 
-    /// writeable for cbor_object to write into.
+    /// returns the \ref writeable that cbor_object writes into
+    ///
     writeable& get_writer() { return buf_; }
 
-    /// bytes written so far; 0 if disabled or if a write overran the buffer
+    /// returns the number of bytes written so far, or zero if this buffer is
+    /// disabled or a write overran it
+    ///
     size_t bytes_written() const {
-        return (capacity_ == 0) ? 0 : (size_t)buf_.readable_length();
+        return enabled_ ? (size_t)buf_.readable_length() : 0;
     }
 
-    /// mark that a feature (not just the header) is present in the buffer
+    /// records that a feature, and not just the header, was written
+    ///
     void set_feature_written() { feature_written_ = true; }
 
-    /// finalize length after the outer cbor_object is closed
-    void end_encode() {
-        if (capacity_ == 0) { return; }
-        // check truncation first: an overrun nulls the buffer, and
-        // readable_length() then reads 0 rather than a stale full length.
-        if (buf_.is_null()) {
-            truncated_ = true;
-            length_ = 0;
-            return;
-        }
-        if (!feature_written_) {
-            length_ = 0;   // header only, nothing to deliver
-            return;
-        }
-        length_ = (size_t)buf_.readable_length();
+    /// returns a pointer to the encoded bytes
+    ///
+    const uint8_t* get_buffer() const { return buf_.contents().data; }
+
+    /// returns the deliverable length, or zero if this buffer is disabled, a
+    /// write overran it, or no feature was written
+    ///
+    /// \note read after the `cbor_object`s are closed, or the length is short
+    /// by their break bytes.
+    ///
+    size_t get_length() const {
+        return (enabled_ && feature_written_ && !buf_.is_null())
+            ? (size_t)buf_.readable_length() : 0;
     }
 
-    const uint8_t* get_buffer() const { return buf_.contents().data; }
-    size_t get_length() const { return length_; }
-    bool has_data() const { return length_ > 0; }
-    bool is_truncated() const { return truncated_; }
+    /// returns true if there is anything to deliver
+    ///
+    bool has_data() const { return get_length() > 0; }
+
+    /// returns true if a write overran this buffer; sticky until \ref reset()
+    ///
+    bool is_truncated() const { return enabled_ && buf_.is_null(); }
 };
 
 #endif // CBOR_METADATA_HPP

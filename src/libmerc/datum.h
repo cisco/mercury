@@ -435,9 +435,18 @@ struct datum {
         return false;            // no matches found
     }
 
-    /// Case-sensitive exact match against a null-terminated string.
+    /// performs a case-sensitive comparison between this datum and the
+    /// null-terminated string \p name.
+    ///
+    /// \return true if this datum is exactly as long as `name` and each
+    /// of its bytes equals the corresponding character of `name`, and
+    /// false otherwise.  If this datum is `null`, or `name` is
+    /// `nullptr`, then false is returned.
+    ///
     bool match(const char *name) const {
-        if (name == nullptr) { return false; }
+        if (name == nullptr || is_null()) {
+            return false;
+        }
         const uint8_t *d = data;
         const char *k = name;
         while (d < data_end) {
@@ -447,10 +456,7 @@ struct datum {
             d++;
             k++;
         }
-        if (*k == '\0' && d == data_end) {
-            return true;
-        }
-        return false;            // no matches found
+        return *k == '\0';       // true if both ended together
     }
 
     /// Compares this \ref datum to `p` lexicographically, and returns

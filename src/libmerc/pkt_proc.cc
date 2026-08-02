@@ -123,7 +123,7 @@ struct do_crypto_assessment {
         if constexpr (is_emitting_writer_v<Object>) {
             for (auto* assessor : ca) {
                 assessor->reset_output();   // clear stale owned message before (maybe defaulted) fill
-                result.set(assessor->get_result_idx(), !assessor->assess_and_fill(msg));
+                result.set(assessor->get_result_idx(), !assessor->assess(msg));
             }
             if constexpr (std::is_same_v<Object, json_object>) {
                 Array assessor_record{output_, "cryptographic_security_assessment"};
@@ -1724,7 +1724,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
     uint8_t transport_proto = ip_pkt.transport_protocol();
 
     analysis.reinit();
-    cbor_meta.reset();
+    cbor_buf.reset();
     if (reassembler) {
         reassembler->dump_pkt = false;
         reassembler_ptr->clean_curr_flow();
@@ -1807,14 +1807,19 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             output_attr = (c && c->check_additional_attributes(analysis)) ? true : output_attr;
 
             if (global_vars.cbor_metadata) {
-                writeable& cbor_w = cbor_meta.get_writer();
+                writeable& cbor_w = cbor_buf.get_writer();
                 cbor_object cbor_outer{cbor_w};
                 cbor_object cbor_output{cbor_outer, CBOR_METADATA_VERSION_KEY};
 
+                // Emit the packet/handshake truncation status (string form) as a top-level
+                // key. A packet-level status, not a feature, so it is written as part of the
+                // header, ahead of the mark below, and never counts toward the gate.
+                cbor_output.print_key_string(CBOR_METADATA_TRUNCATION_KEY,
+                    get_truncation_str(compute_truncation_status(reassembler_ptr, truncated_tcp || truncated_udp)));
+
                 // header is written; record the size so feature writes below can
-                // be detected as growth. all feature visitors must run between
-                // this mark and the check that follows them.
-                const size_t before_features = cbor_meta.bytes_written();
+                // be detected as growth
+                const size_t before_features = cbor_buf.bytes_written();
 
                 if (exposed_creds) {
                     auto creds_visitor = check_exposed_creds{cbor_output};
@@ -1832,18 +1837,12 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
 
                 // grew past the header => a feature was written (an overrun
                 // reports 0 bytes, so this stays false and the buffer is dropped)
-                if (cbor_meta.bytes_written() > before_features) {
-                    cbor_meta.set_feature_written();
+                if (cbor_buf.bytes_written() > before_features) {
+                    cbor_buf.set_feature_written();
                 }
-
-                // Emit the packet/handshake truncation status (string form) as a top-level
-                // key.A buffer with only this key is still dropped by the end_encode() feature-written gate.
-                cbor_output.print_key_string(CBOR_METADATA_TRUNCATION_KEY,
-                    get_truncation_str(compute_truncation_status(reassembler_ptr, truncated_tcp || truncated_udp)));
 
                 cbor_output.close();
                 cbor_outer.close();
-                cbor_meta.end_encode();
             } else {
                 if (exposed_creds) {
                     auto creds_visitor = check_exposed_creds{no_output};
@@ -1891,14 +1890,19 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             }
 
             if (global_vars.cbor_metadata) {
-                writeable& cbor_w = cbor_meta.get_writer();
+                writeable& cbor_w = cbor_buf.get_writer();
                 cbor_object cbor_outer{cbor_w};
                 cbor_object cbor_output{cbor_outer, CBOR_METADATA_VERSION_KEY};
 
+                // Emit the packet/handshake truncation status (string form) as a top-level
+                // key. A packet-level status, not a feature, so it is written as part of the
+                // header, ahead of the mark below, and never counts toward the gate.
+                cbor_output.print_key_string(CBOR_METADATA_TRUNCATION_KEY,
+                    get_truncation_str(compute_truncation_status(reassembler_ptr, truncated_tcp || truncated_udp)));
+
                 // header is written; record the size so feature writes below can
-                // be detected as growth. all feature visitors must run between
-                // this mark and the check that follows them.
-                const size_t before_features = cbor_meta.bytes_written();
+                // be detected as growth
+                const size_t before_features = cbor_buf.bytes_written();
 
                 if (!crypto_policies.empty() && !truncated_crypto_handshake) {
                     auto crypto_visitor = do_crypto_assessment{crypto_policies, cbor_output};
@@ -1915,19 +1919,12 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
 
                 // grew past the header => a feature was written (an overrun
                 // reports 0 bytes, so this stays false and the buffer is dropped)
-                if (cbor_meta.bytes_written() > before_features) {
-                    cbor_meta.set_feature_written();
+                if (cbor_buf.bytes_written() > before_features) {
+                    cbor_buf.set_feature_written();
                 }
-
-                // Emit the packet/handshake truncation status (string form) as a top-level
-                // key. Not a feature: set_feature_written() is NOT called, so a buffer with
-                // only this key is still dropped by the end_encode() feature-written gate.
-                cbor_output.print_key_string(CBOR_METADATA_TRUNCATION_KEY,
-                    get_truncation_str(compute_truncation_status(reassembler_ptr, truncated_tcp || truncated_udp)));
 
                 cbor_output.close();
                 cbor_outer.close();
-                cbor_meta.end_encode();
             } else {
                 if (!crypto_policies.empty() && !truncated_crypto_handshake) {
                     auto crypto_visitor = do_crypto_assessment{crypto_policies, no_output};

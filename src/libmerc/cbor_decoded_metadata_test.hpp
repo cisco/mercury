@@ -154,7 +154,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
                 report("cnsa psk[1] key", c.psk_non_compliant_key_at(1).value().match("psk_key_exchange_modes_non_compliant"));
             }
         }
-        // 2b: hex cipher-suite and group values (exercises print_uint16_hex)
+        // 2b: numeric cipher-suite and group codes (exercises print_uint)
         {
             data_buffer<1024> buf;
             cbor_object cbor_outer{buf};
@@ -177,16 +177,53 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
             datum encoded = buf.contents();
             full_decoder d;
             decode_cbor_metadata(encoded.data, encoded.length(), d);
-            report("cnsa hex slot", d.valid && d.get<cnsa_feature>().tls_if() != nullptr);
+            report("cnsa code slot", d.valid && d.get<cnsa_feature>().tls_if() != nullptr);
             auto &c = *d.get<cnsa_feature>().tls_if();
-            report("cnsa hex cs_count == 2", c.cs_not_allowed_count() == 2);
+            report("cnsa code cs_count == 2", c.cs_not_allowed_count() == 2);
             if (c.cs_not_allowed_count() >= 2) {
-                report("cnsa hex cs[0] == c02c", c.cs_not_allowed_at(0).value().match("c02c"));
-                report("cnsa hex cs[1] == 0005", c.cs_not_allowed_at(1).value().match("0005"));
+                report("cnsa code cs[0] numeric", c.cs_not_allowed_is_hex(0));
+                report("cnsa code cs[0] == 0xc02c", c.cs_not_allowed_code_at(0) == 0xc02c);
+                report("cnsa code cs[1] numeric", c.cs_not_allowed_is_hex(1));
+                report("cnsa code cs[1] == 0x0005", c.cs_not_allowed_code_at(1) == 0x0005);
             }
-            report("cnsa hex grp_count == 1", c.grp_not_allowed_count() == 1);
+            report("cnsa code grp_count == 1", c.grp_not_allowed_count() == 1);
             if (c.grp_not_allowed_count() >= 1) {
-                report("cnsa hex grp[0] == 001d", c.grp_not_allowed_at(0).value().match("001d"));
+                report("cnsa code grp[0] numeric", c.grp_not_allowed_is_hex(0));
+                report("cnsa code grp[0] == 0x001d", c.grp_not_allowed_code_at(0) == 0x001d);
+            }
+        }
+        // 2b': mixed array — one name, one numeric code. Exercises the decode peek
+        // branch routing each element by its major type.
+        {
+            data_buffer<1024> buf;
+            cbor_object cbor_outer{buf};
+            cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
+            crypto_cnsa_tls_message msg;
+            msg.set_policy("quantum_safe");
+            msg.set_target("client");
+            msg.add_cs_not_allowed("TLS_RSA_WITH_RC4_128_SHA");
+            msg.add_cs_not_allowed_hex(0xc02c);
+            msg.set_cs_allowed("some");
+            msg.set_grp_allowed("all");
+            msg.set_psk_mode(false);
+            msg.set_valid();
+            cbor::text_string(crypto_cnsa_tls_message::KEY).write(buf);
+            msg.template write<cbor_object>(outer);
+            outer.close();
+            cbor_outer.close();
+
+            datum encoded = buf.contents();
+            full_decoder d;
+            decode_cbor_metadata(encoded.data, encoded.length(), d);
+            report("cnsa mixed slot", d.valid && d.get<cnsa_feature>().tls_if() != nullptr);
+            auto &c = *d.get<cnsa_feature>().tls_if();
+            report("cnsa mixed cs_count == 2", c.cs_not_allowed_count() == 2);
+            if (c.cs_not_allowed_count() >= 2) {
+                report("cnsa mixed cs[0] textual", !c.cs_not_allowed_is_hex(0));
+                report("cnsa mixed cs[0] name",
+                       c.cs_not_allowed_at(0).value().match("TLS_RSA_WITH_RC4_128_SHA"));
+                report("cnsa mixed cs[1] numeric", c.cs_not_allowed_is_hex(1));
+                report("cnsa mixed cs[1] == 0xc02c", c.cs_not_allowed_code_at(1) == 0xc02c);
             }
         }
         // 2c: forward-compat unknown field in the target map is skipped; decode still valid
@@ -340,25 +377,24 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
                && !d.get<crypto_nist_message>().is_valid() && d.unknown.empty());
     }
 
-    // Test 7: cbor_metadata_context has_data gating — no feature written, feature written,
+    // Test 7: cbor_metadata_buffer has_data gating — no feature written, feature written,
     // and reset clears the flag (producer-side plumbing used by the packet path).
     {
         // 7a: no feature written -> no data
         {
-            cbor_metadata_context ctx{true};   // enable -> allocate default (4096) buffer
+            cbor_metadata_buffer ctx{};   // default (4096) buffer
             ctx.reset();
             writeable& w = ctx.get_writer();
             cbor_object cbor_outer{w};
             cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
             outer.close();
             cbor_outer.close();
-            ctx.end_encode();
             report("no-feature has_data == false", !ctx.has_data());
             report("no-feature length == 0", ctx.get_length() == 0);
         }
         // 7b: feature written -> data present and decodable (as an unknown on the shipped type)
         {
-            cbor_metadata_context ctx{true};   // enable -> allocate default (4096) buffer
+            cbor_metadata_buffer ctx{};   // default (4096) buffer
             ctx.reset();
             writeable& w = ctx.get_writer();
             cbor_object cbor_outer{w};
@@ -368,7 +404,6 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
             ctx.set_feature_written();
             outer.close();
             cbor_outer.close();
-            ctx.end_encode();
             report("with-feature has_data == true", ctx.has_data());
             report("with-feature length > 0", ctx.get_length() > 0);
 
@@ -381,7 +416,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         }
         // 7c: reset clears the flag
         {
-            cbor_metadata_context ctx{true};   // enable -> allocate default (4096) buffer
+            cbor_metadata_buffer ctx{};   // default (4096) buffer
             ctx.reset();
             writeable& w = ctx.get_writer();
             cbor_object cbor_outer{w};
@@ -389,7 +424,6 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
             ctx.set_feature_written();
             outer.close();
             cbor_outer.close();
-            ctx.end_encode();
             report("before reset has_data == true", ctx.has_data());
 
             ctx.reset();
@@ -398,42 +432,43 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
             cbor_object outer2{cbor_outer2, CBOR_METADATA_VERSION_KEY};
             outer2.close();
             cbor_outer2.close();
-            ctx.end_encode();
             report("after reset has_data == false", !ctx.has_data());
         }
         // 7d: truncation status key — a reserved packet-level status, NOT a feature. Mirrors
-        // the producer: write a feature + set_feature_written, then emit "truncation" WITHOUT
-        // set_feature_written. The decoder must capture it in decoded.truncation (its own
-        // member), NOT in a feature slot and NOT in the unknown vector; a truncation-only
-        // buffer (no feature) is still dropped.
+        // the producer: emit "truncation" as part of the header WITHOUT set_feature_written,
+        // then write a feature + set_feature_written. dispatch() must route it into
+        // decoded.truncation (its own truncation_message member), NOT into a feature slot and
+        // NOT into the unknown vector; a truncation-only buffer (no feature) is still dropped.
         {
             // feature + truncation -> buffer delivered; truncation captured separately
-            cbor_metadata_context ctx{true};   // enable -> allocate default (4096) buffer
+            cbor_metadata_buffer ctx{};   // default (4096) buffer
             ctx.reset();
             writeable& w = ctx.get_writer();
             cbor_object cbor_outer{w};
             cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
+            outer.print_key_string(CBOR_METADATA_TRUNCATION_KEY, "truncated"); // not a feature
             exposed_creds_message::construct(exposed_creds_message::KEY_PLAINTEXT,
                 datum{"http"}, datum{"basic"}, datum{"admin"}).template write<cbor_object>(outer);
             ctx.set_feature_written();
-            outer.print_key_string(CBOR_METADATA_TRUNCATION_KEY, "truncated"); // not a feature
             outer.close();
             cbor_outer.close();
-            ctx.end_encode();
             report("truncation: has_data with feature", ctx.has_data());
 
             cbor_decoded_metadata decoded;
             decode_cbor_metadata(ctx.get_buffer(), ctx.get_length(), decoded);
             report("truncation: decode valid", decoded.valid);
             report("truncation: captured in decoded.truncation",
-                   decoded.truncation.value().match("truncated"));
-            // the feature is still present, and truncation did NOT leak into the unknown vector
+                   decoded.truncation.is_valid()
+                   && decoded.truncation.status().match("truncated"));
+            // The feature is still present, and truncation did NOT leak into the unknown
+            // vector.
             report("truncation: feature intact, not in unknown",
                    decoded.unknown.size() == 1
-                   && decoded.unknown[0].key().match("exposed_credentials_plaintext"));
+                   && decoded.unknown[0].key().match("exposed_credentials_plaintext")
+                   && !decoded.unknown[0].key().match(truncation_message::KEY));
 
-            // truncation-only buffer (no feature written) -> dropped by the end_encode gate
-            cbor_metadata_context ctx2{true};
+            // truncation-only buffer (no feature written) -> dropped by the feature-written gate
+            cbor_metadata_buffer ctx2{};
             ctx2.reset();
             writeable& w2 = ctx2.get_writer();
             cbor_object cbor_outer2{w2};
@@ -441,7 +476,6 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
             outer2.print_key_string(CBOR_METADATA_TRUNCATION_KEY, "none");     // no set_feature_written
             outer2.close();
             cbor_outer2.close();
-            ctx2.end_encode();
             report("truncation-only: has_data == false (dropped)", !ctx2.has_data());
             report("truncation-only: length == 0", ctx2.get_length() == 0);
         }
@@ -665,12 +699,12 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
 
     // Test 15: buffer exhaustion during encode. A cnsa written into a tiny context
     // overruns the buffer; the writeable goes null. Asserts is_truncated() true,
-    // get_length() == 0 (end_encode's is_null() branch), and that the point-14
+    // get_length() == 0 (the is_null() gate), and that the point-14
     // growth check is overflow-safe: bytes_written() reports 0 after the overrun,
     // so (bytes_written() > before_features) is false and set_feature_written()
     // is NOT called (mirrors the orchestrator).
     {
-        cbor_metadata_context ctx{true, 64};   // tiny buffer, forces overrun
+        cbor_metadata_buffer ctx{64};   // tiny buffer, forces overrun
         ctx.reset();
         writeable& w = ctx.get_writer();
         cbor_object cbor_outer{w};
@@ -694,7 +728,6 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
 
         outer.close();
         cbor_outer.close();
-        ctx.end_encode();
         report("exhaust: is_truncated() true", ctx.is_truncated());
         report("exhaust: has_data() false", !ctx.has_data());
         report("exhaust: get_length() == 0", ctx.get_length() == 0);
@@ -702,12 +735,12 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
 
     // Test 16: custom buffer size codepath. The SAME payload truncates at a small
     // configured size and fits at a larger one (8192) -- exercising the
-    // resolve_capacity(size) path on both sides of the boundary.
+    // constructor's size path on both sides of the boundary.
     {
         // encode a moderate cnsa (10 ciphersuites) into a context of the given
-        // capacity; return the finalized context so the caller can inspect it.
-        auto encode_cnsa = [](size_t cap) -> cbor_metadata_context {
-            cbor_metadata_context ctx{true, cap};
+        // capacity; return it so the caller can inspect it.
+        auto encode_cnsa = [](size_t cap) -> cbor_metadata_buffer {
+            cbor_metadata_buffer ctx{cap};
             ctx.reset();
             writeable& w = ctx.get_writer();
             cbor_object cbor_outer{w};
@@ -725,15 +758,14 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
             if (ctx.bytes_written() > before) { ctx.set_feature_written(); }
             outer.close();
             cbor_outer.close();
-            ctx.end_encode();
             return ctx;
         };
 
-        cbor_metadata_context small = encode_cnsa(256);    // too small -> truncates
+        cbor_metadata_buffer small = encode_cnsa(256);    // too small -> truncates
         report("custom-size: small (256) truncated", small.is_truncated());
         report("custom-size: small (256) no data", !small.has_data());
 
-        cbor_metadata_context large = encode_cnsa(8192);   // fits
+        cbor_metadata_buffer large = encode_cnsa(8192);   // fits
         report("custom-size: large (8192) not truncated", !large.is_truncated());
         report("custom-size: large (8192) has data", large.has_data());
 

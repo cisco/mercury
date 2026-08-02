@@ -11,10 +11,24 @@
 
 inline constexpr const char* CBOR_METADATA_VERSION_KEY = "v1";
 
-// Reserved top-level (inner v1 map) key for the packet/handshake truncation status. This
-// is a packet-level status string, NOT a feature: producer emits it, and the decoder
-// captures it into typed_decoder::truncation rather than routing it as a feature.
+// Reserved key for the packet/handshake truncation status. It is a
+// packet-level status and the
+// decoder captures it into typed_decoder::truncation.
 inline constexpr const char* CBOR_METADATA_TRUNCATION_KEY = "truncation";
+
+/// Reserved packet-level status: the truncation state of the packet/handshake.
+class truncation_message {
+    cbor::text_string status_;
+
+public:
+    static constexpr const char* KEY = CBOR_METADATA_TRUNCATION_KEY;
+
+    static bool matches(datum key) { return key.match(KEY); }
+    void decode_into(datum /*key*/, datum &d) { status_ = cbor::text_string::decode(d); }
+
+    bool  is_valid() const { return status_.is_valid(); }
+    datum status()   const { return status_.value(); }
+};
 
 /// Exposed credentials message — runtime KEY distinguishes plaintext/token/derived.
 class exposed_creds_message {
@@ -196,7 +210,7 @@ public:
             Array cs_arr{tgt, "ciphersuites_not_allowed"};
             for (size_t i = 0; i < cs_not_allowed_count_; i++) {
                 if (cs_not_allowed_is_hex_[i]) {
-                    cs_arr.print_uint16_hex(cs_not_allowed_hex_[i]);
+                    cs_arr.print_uint(cs_not_allowed_hex_[i]);
                 }
                 else {
                     cs_arr.print_string(cs_not_allowed_[i].value());
@@ -211,7 +225,7 @@ public:
             Array grp_arr{tgt, "groups_not_allowed"};
             for (size_t i = 0; i < grp_not_allowed_count_; i++) {
                 if (grp_not_allowed_is_hex_[i]) {
-                    grp_arr.print_uint16_hex(grp_not_allowed_hex_[i]);
+                    grp_arr.print_uint(grp_not_allowed_hex_[i]);
                 }
                 else {
                     grp_arr.print_string(grp_not_allowed_[i].value());
@@ -254,7 +268,16 @@ public:
                         cbor::array arr{d};
                         while (d.is_not_empty() && !cbor::is_break(d)) {
                             if (msg.cs_not_allowed_count_ < MAX_ITEMS) {
-                                msg.cs_not_allowed_[msg.cs_not_allowed_count_++] = cbor::text_string::decode(d);
+                                lookahead<cbor::initial_byte> ib{d};
+                                if (ib && ib.value.major_type() == cbor::unsigned_integer_type) {
+                                    msg.cs_not_allowed_hex_[msg.cs_not_allowed_count_]    = (uint16_t)cbor::uint64::decode_max(d, 0xffff).value();
+                                    msg.cs_not_allowed_is_hex_[msg.cs_not_allowed_count_] = true;
+                                }
+                                else {
+                                    msg.cs_not_allowed_[msg.cs_not_allowed_count_]        = cbor::text_string::decode(d);
+                                    msg.cs_not_allowed_is_hex_[msg.cs_not_allowed_count_] = false;
+                                }
+                                msg.cs_not_allowed_count_++;
                             }
                             else { cbor::skip_cbor_value(d); }
                         }
@@ -267,7 +290,16 @@ public:
                         cbor::array arr{d};
                         while (d.is_not_empty() && !cbor::is_break(d)) {
                             if (msg.grp_not_allowed_count_ < MAX_ITEMS) {
-                                msg.grp_not_allowed_[msg.grp_not_allowed_count_++] = cbor::text_string::decode(d);
+                                lookahead<cbor::initial_byte> ib{d};
+                                if (ib && ib.value.major_type() == cbor::unsigned_integer_type) {
+                                    msg.grp_not_allowed_hex_[msg.grp_not_allowed_count_]    = (uint16_t)cbor::uint64::decode_max(d, 0xffff).value();
+                                    msg.grp_not_allowed_is_hex_[msg.grp_not_allowed_count_] = true;
+                                }
+                                else {
+                                    msg.grp_not_allowed_[msg.grp_not_allowed_count_]        = cbor::text_string::decode(d);
+                                    msg.grp_not_allowed_is_hex_[msg.grp_not_allowed_count_] = false;
+                                }
+                                msg.grp_not_allowed_count_++;
                             }
                             else { cbor::skip_cbor_value(d); }
                         }
@@ -306,10 +338,14 @@ public:
 
     size_t cs_not_allowed_count() const { return cs_not_allowed_count_; }
     cbor::text_string cs_not_allowed_at(size_t i) const { return cs_not_allowed_[i]; }
+    bool cs_not_allowed_is_hex(size_t i) const { return cs_not_allowed_is_hex_[i]; }
+    uint16_t cs_not_allowed_code_at(size_t i) const { return cs_not_allowed_hex_[i]; }
     bool cs_allowed_valid() const { return cs_allowed_.is_valid(); }
     cbor::text_string cs_allowed_value() const { return cs_allowed_; }
     size_t grp_not_allowed_count() const { return grp_not_allowed_count_; }
     cbor::text_string grp_not_allowed_at(size_t i) const { return grp_not_allowed_[i]; }
+    bool grp_not_allowed_is_hex(size_t i) const { return grp_not_allowed_is_hex_[i]; }
+    uint16_t grp_not_allowed_code_at(size_t i) const { return grp_not_allowed_hex_[i]; }
     bool grp_allowed_valid() const { return grp_allowed_.is_valid(); }
     cbor::text_string grp_allowed_value() const { return grp_allowed_; }
     bool psk_mode() const { return psk_mode_; }

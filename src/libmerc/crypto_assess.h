@@ -44,43 +44,73 @@ inline const char* tls_version_to_string(tls_version v) {
 
 namespace crypto_policy {
 
-    // Default verdicts for one message type T, defined once and reused for every type:
-    //  - assess (const): compliance-only. "Compliant" (true) is the default so a policy only
-    //    overrides the types it assesses; unhandled types are treated as not-applicable.
-    //  - assess_and_fill (non-const): FILL path. No owned message to populate for this
-    //    policy/type by default, so defer to assess() — real verdict, no metadata.
-    // this->assess(m) in assess_and_fill is a sibling virtual in the same subobject, so it
-    // dispatches to the policy's own assess override.
-    template <typename T>
-    struct assess_slot {
-        virtual bool assess(const T &) const { return true; }
-        virtual bool assess_and_fill(const T &m) { return this->assess(m); }
-    protected:
-        ~assess_slot() = default;   // destroy only via assessor, which owns the virtual dtor
-    };
-
-    // Base for assessor: one assess_slot<T> per message type, with every inherited assess() and
-    // assess_and_fill() pulled into one scope so overload resolution picks the right one by
-    // argument type. (C++17 using-pack, P0195R2. Bases are empty -> no size cost.)
-    template <typename... Ts>
-    struct assess_slots : assess_slot<Ts>... {
-        using assess_slot<Ts>::assess...;
-        using assess_slot<Ts>::assess_and_fill...;
-    };
-
-    // assessor is the base class representing a particular crypto assessment policy. The
-    // compliance-only assess() and default assess_and_fill() overloads for each message type come
-    // from assess_slots; add a message type to the list below to give every policy defaults for it.
+    // assessor is the base class representing a particular crypto assessment policy.
     //
-    class assessor : public assess_slots<tls_client_hello,
-                                         tls_server_hello,
-                                         tls_server_hello_and_certificate,
-                                         dtls_client_hello,
-                                         dtls_server_hello,
-                                         ssh_kex_init> {
+    // Each message type has two virtuals, and the caller selects between them through the
+    // constness of the pointer it holds, so no runtime mode flag is needed:
+    //
+    //  - assess(const T &) const : compliance-only. Returns a verdict and writes nothing.
+    //    Defaults to true ("compliant", i.e. not-applicable) so a policy overrides only the
+    //    message types it actually assesses.
+    //  - assess(const T &)       : the FILL path, non-const because it populates the policy's
+    //    owned feature message. The default forwards to the const overload, which yields a
+    //    real verdict with no metadata -- correct for a policy/type pair with nothing to fill.
+    //
+    // To give every policy defaults for an additional message type, add one const and one
+    // non-const overload below.
+    //
+    class assessor {
         public:
 
         virtual size_t get_result_idx() const = 0;
+
+        virtual bool assess(const tls_client_hello &) const {
+            return true;
+        }
+
+        virtual bool assess(const tls_server_hello &) const {
+            return true;
+        }
+
+        virtual bool assess(const tls_server_hello_and_certificate &) const {
+            return true;
+        }
+
+        virtual bool assess(const dtls_client_hello &) const {
+            return true;
+        }
+
+        virtual bool assess(const dtls_server_hello &) const {
+            return true;
+        }
+
+        virtual bool assess(const ssh_kex_init &) const {
+            return true;
+        }
+
+        virtual bool assess(const tls_client_hello &m) {
+            return static_cast<const assessor&>(*this).assess(m);
+        }
+
+        virtual bool assess(const tls_server_hello &m) {
+            return static_cast<const assessor&>(*this).assess(m);
+        }
+
+        virtual bool assess(const tls_server_hello_and_certificate &m) {
+            return static_cast<const assessor&>(*this).assess(m);
+        }
+
+        virtual bool assess(const dtls_client_hello &m) {
+            return static_cast<const assessor&>(*this).assess(m);
+        }
+
+        virtual bool assess(const dtls_server_hello &m) {
+            return static_cast<const assessor&>(*this).assess(m);
+        }
+
+        virtual bool assess(const ssh_kex_init &m) {
+            return static_cast<const assessor&>(*this).assess(m);
+        }
 
         // Clear any owned feature message(s) so a subsequent assessment of a
         // message type this policy does not fill cannot emit a stale finding.
@@ -130,16 +160,13 @@ namespace crypto_policy {
     class quantum_safe : public assessor {
         bool readable_output;
 
-        // Owned feature messages; filled by assess_and_fill(), read by emit(). One TLS-family
-        // and one SSH message; only one is valid per packet. Cleared by reset_output(),
-        // which the orchestrator calls before every emitting assessment.
+        // Owned feature messages; filled by the non-const assess(), read by emit(). One
+        // TLS-family and one SSH message; only one is valid per packet. Cleared by
+        // reset_output(), which the orchestrator calls before every emitting assessment.
         crypto_cnsa_message     cnsa_tls_msg_;
         crypto_cnsa_ssh_message cnsa_ssh_msg_;
 
         public:
-
-        using assessor::assess;           // un-hide inherited assess() defaults for direct calls
-        using assessor::assess_and_fill;  // ditto for assess_and_fill()
 
         void reset_output() override { cnsa_tls_msg_ = {}; cnsa_ssh_msg_ = {}; }
 
@@ -653,7 +680,7 @@ namespace crypto_policy {
             return all_allowed;
         }
 
-        // --- compliance-only (NO_OUTPUT) path: unchanged, const, fills nothing ---
+        // --- compliance-only (NO_OUTPUT) path: const, fills nothing ---
 
         bool assess(const tls_client_hello &ch) const override {
             return assess_tls_ciphersuites(ch.ciphersuite_vector) &&
@@ -690,9 +717,10 @@ namespace crypto_policy {
                    assess_tls_extensions(sh.extensions);
         }
 
-        // --- FILL path: populate the owned message, return the compliance bit ---
+        // --- FILL path: non-const, populates the owned message, returns the compliance bit.
+        //     The non-constness is what selects these overloads; never add const here. ---
 
-        bool assess_and_fill(const tls_client_hello &ch) override {
+        bool assess(const tls_client_hello &ch) override {
             cnsa_tls_msg_.set_policy("quantum_safe");
             cnsa_tls_msg_.set_target("client");
             bool suites = assess_tls_ciphersuites(ch.ciphersuite_vector, cnsa_tls_msg_);
@@ -702,7 +730,7 @@ namespace crypto_policy {
             return suites && exts;
         }
 
-        bool assess_and_fill(const tls_server_hello &ch) override {
+        bool assess(const tls_server_hello &ch) override {
             cnsa_tls_msg_.set_policy("quantum_safe");
             cnsa_tls_msg_.set_target("session");
             bool suites = assess_tls_ciphersuites(ch.ciphersuite_vector, cnsa_tls_msg_);
@@ -712,14 +740,14 @@ namespace crypto_policy {
             return suites && exts;
         }
 
-        bool assess_and_fill(const tls_server_hello_and_certificate &hello_and_cert) override {
+        bool assess(const tls_server_hello_and_certificate &hello_and_cert) override {
             if (hello_and_cert.is_not_empty()) {
-                return assess_and_fill(hello_and_cert.get_server_hello());
+                return assess(hello_and_cert.get_server_hello());
             }
             return true;
         }
 
-        bool assess_and_fill(const ssh_kex_init &ssh_kex) override {
+        bool assess(const ssh_kex_init &ssh_kex) override {
             cnsa_ssh_msg_.set_policy("quantum_safe");
             bool kex_compliant = assess_ssh_kex_methods_impl(ssh_kex.kex_algorithms, &cnsa_ssh_msg_);
             bool c2s_compliant = assess_ssh_ciphers_impl(ssh_kex.encryption_algorithms_client_to_server, &cnsa_ssh_msg_,
@@ -731,12 +759,12 @@ namespace crypto_policy {
             return kex_compliant && c2s_compliant && s2c_compliant;
         }
 
-        bool assess_and_fill(const dtls_client_hello &dtls_ch) override {
-            return assess_and_fill(dtls_ch.get_tls_client_hello());
+        bool assess(const dtls_client_hello &dtls_ch) override {
+            return assess(dtls_ch.get_tls_client_hello());
         }
 
-        bool assess_and_fill(const dtls_server_hello &dtls_sh) override {
-            return assess_and_fill(dtls_sh.get_tls_server_hello());
+        bool assess(const dtls_server_hello &dtls_sh) override {
+            return assess(dtls_sh.get_tls_server_hello());
         }
 
         // --- emit the owned message in the requested format ---
@@ -773,14 +801,11 @@ namespace crypto_policy {
 
     const bool verbose_output = false;
 
-    // Owned feature message; filled by assess_and_fill(), read by emit(). Cleared by
+    // Owned feature message; filled by the non-const assess(), read by emit(). Cleared by
     // reset_output(), which the orchestrator calls before every emitting assessment.
     crypto_nist_message nist_msg_;
 
     public:
-        using assessor::assess;           // un-hide inherited assess() defaults for direct calls
-        using assessor::assess_and_fill;  // ditto for assess_and_fill()
-
         void reset_output() override { nist_msg_ = {}; }
 
         const static size_t result_idx = 1; // bitset index for nist assessment
@@ -939,14 +964,15 @@ namespace crypto_policy {
             return true;
         }
 
-        // FILL path: populate the owned message via assess_impl(&msg), return the compliance bit.
-        bool assess_and_fill(const tls_server_hello &sh) override {
+        // FILL path: non-const, populates the owned message via assess_impl(&msg), returns the
+        // compliance bit. The non-constness selects these overloads; never add const here.
+        bool assess(const tls_server_hello &sh) override {
             return assess_impl(sh, &nist_msg_);
         }
 
-        bool assess_and_fill(const tls_server_hello_and_certificate &hello_and_cert) override {
+        bool assess(const tls_server_hello_and_certificate &hello_and_cert) override {
             if (hello_and_cert.is_not_empty()) {
-                return assess_and_fill(hello_and_cert.get_server_hello());
+                return assess(hello_and_cert.get_server_hello());
             }
             return true;
         }
@@ -1648,7 +1674,7 @@ namespace crypto_policy {
         // TEST-NIST-STALE: a reused nist_sp_800_52 must not emit a stale
         // ServerHello finding on a later ClientHello it does not assess.
         // Drives the real policy objects through the same emitting loop the
-        // orchestrator uses (reset_output -> assess_and_fill -> emit). Fails
+        // orchestrator uses (reset_output -> non-const assess -> emit). Fails
         // until reset_output() clears the owned message before each fill.
         {
             std::vector<crypto_policy::assessor *> policies;
@@ -1663,7 +1689,7 @@ namespace crypto_policy {
                 const ssize_t before = buf.readable_length();
                 for (auto *p : policies) {
                     p->reset_output();            // the fix under test
-                    p->assess_and_fill(hello);
+                    p->assess(hello);
                 }
                 for (auto *p : policies) { p->emit(v1); }
                 const ssize_t after_features = buf.readable_length();
@@ -1700,6 +1726,58 @@ namespace crypto_policy {
             // assessed by NIST) must NOT emit. bytes_B > 0 is the bug.
             if (bytes_A <= 0) { return false; }   // sanity: A really emitted
             if (bytes_B  > 0) { return false; }   // THE BUG: stale NIST feature on B
+        }
+
+        // TEST-FILL-DISPATCH: the emitting loop must reach each policy's non-const
+        // assess() override. The two overloads differ only by const-ness, so a fill
+        // override accidentally written const compiles clean and silently emits
+        // nothing; this catches that.
+        {
+            std::vector<crypto_policy::assessor *> policies;
+            policies.push_back(new quantum_safe{true});
+            policies.push_back(new nist_sp_800_52{true});
+
+            // one emitting pass through a non-const assessor*, as the orchestrator does
+            auto emitted_bytes = [&](auto &&hello) -> ssize_t {
+                data_buffer<1024> buf;
+                cbor_object outer{buf};
+                cbor_object v1{outer, CBOR_METADATA_VERSION_KEY};
+                const ssize_t before = buf.readable_length();
+                for (auto *p : policies) {
+                    p->reset_output();
+                    p->assess(hello);       // must select the non-const overload
+                }
+                for (auto *p : policies) { p->emit(v1); }
+                const ssize_t after_features = buf.readable_length();
+                v1.close();
+                outer.close();
+                return after_features - before;
+            };
+
+            // non-compliant TLS ServerHello: quantum_safe and nist both fill and emit
+            uint8_t ver[]  = { 0x03, 0x03 };   // TLS 1.2
+            uint8_t cs[]   = { 0x00, 0x3d };   // TLS_RSA_WITH_AES_256_CBC_SHA256
+            uint8_t comp[] = { 0x01 };         // non-zero compression -> non-compliant
+            tls_server_hello sh;
+            sh.protocol_version   = datum{ver,  ver  + sizeof(ver)};
+            sh.ciphersuite_vector = datum{cs,   cs   + sizeof(cs)};
+            sh.compression_method = datum{comp, comp + sizeof(comp)};
+            ssize_t sh_bytes = emitted_bytes(sh);
+
+            // non-compliant TLS ClientHello: quantum_safe fills; nist has no
+            // ClientHello override and correctly emits nothing
+            uint8_t ccomp[] = { 0x00 };
+            tls_client_hello ch;
+            ch.protocol_version    = datum{ver,   ver   + sizeof(ver)};
+            ch.ciphersuite_vector  = datum{cs,    cs    + sizeof(cs)};
+            ch.compression_methods = datum{ccomp, ccomp + sizeof(ccomp)};
+            ssize_t ch_bytes = emitted_bytes(ch);
+
+            for (auto *p : policies) { delete p; }
+
+            // zero bytes means the non-const override was never reached
+            if (sh_bytes <= 0) { return false; }
+            if (ch_bytes <= 0) { return false; }
         }
 
         return true;
