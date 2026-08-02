@@ -737,10 +737,9 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
     // configured size and fits at a larger one (8192) -- exercising the
     // constructor's size path on both sides of the boundary.
     {
-        // encode a moderate cnsa (10 ciphersuites) into a context of the given
-        // capacity; return it so the caller can inspect it.
-        auto encode_cnsa = [](size_t cap) -> cbor_metadata_buffer {
-            cbor_metadata_buffer ctx{cap};
+        // encode a moderate cnsa (10 ciphersuites) into the caller's context, whose
+        // capacity decides whether the payload fits
+        auto encode_cnsa = [](cbor_metadata_buffer &ctx) {
             ctx.reset();
             writeable& w = ctx.get_writer();
             cbor_object cbor_outer{w};
@@ -758,14 +757,15 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
             if (ctx.bytes_written() > before) { ctx.set_feature_written(); }
             outer.close();
             cbor_outer.close();
-            return ctx;
         };
 
-        cbor_metadata_buffer small = encode_cnsa(256);    // too small -> truncates
+        cbor_metadata_buffer small{256};    // too small -> truncates
+        encode_cnsa(small);
         report("custom-size: small (256) truncated", small.is_truncated());
         report("custom-size: small (256) no data", !small.has_data());
 
-        cbor_metadata_buffer large = encode_cnsa(8192);   // fits
+        cbor_metadata_buffer large{8192};   // fits
+        encode_cnsa(large);
         report("custom-size: large (8192) not truncated", !large.is_truncated());
         report("custom-size: large (8192) has data", large.has_data());
 

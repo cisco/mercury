@@ -28,14 +28,16 @@ public:
     explicit cbor_metadata_buffer(size_t size = DEFAULT_CBOR_METADATA_LEN)
         : buf_{size}, enabled_{size != 0} {}
 
-    // delete assignment operator to prevent unintended copies; buf_ holds
-    // pointers into its own vector, and a copy would leave them pointing into
-    // the original's vector instead
+    // Disallow copy/move: dynamic_buffer (via its writeable base) caches pointers into its
+    // internal vector; copying/moving would leave those pointers stale.
     //
+    cbor_metadata_buffer(const cbor_metadata_buffer&) = delete;
     cbor_metadata_buffer& operator=(const cbor_metadata_buffer&) = delete;
+    cbor_metadata_buffer(cbor_metadata_buffer&&) = delete;
+    cbor_metadata_buffer& operator=(cbor_metadata_buffer&&) = delete;
 
-    /// rewinds this buffer for a new packet
-    ///
+    /// rewinds this buffer for a new packet; call once, before any writes for that
+    /// packet, or the accessors report the previous packet's bytes as current
     void reset() {
         if (!enabled_) { return; }
         buf_.reset();
