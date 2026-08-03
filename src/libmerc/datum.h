@@ -2955,12 +2955,12 @@ private:
     datum tmp;
 public:
 
-    /// construct a lookahead<T, Parser> object by parsing the datum d.
+    /// construct a `lookahead<T>` or `lookahead<T, Parser>` object by parsing the datum \p d.
     ///
     lookahead(datum d) : value{Parser(d)}, tmp{d} { }
 
-    /// construct a lookahead<T> object by parsing the datum held by
-    /// another lookahead<> object.
+    /// construct a `lookahead<T>` or `lookahead<T,Parser>` object by parsing the datum held by
+    /// another `lookahead<>` object.
     ///
     template <typename T2, auto Parser2>
     lookahead(lookahead<T2, Parser2> &l) : value{Parser(l.tmp)}, tmp{l.tmp} { }
@@ -3114,6 +3114,9 @@ class sequence {
     static_assert(is_datum_parser<T, decltype(Parser)>::value,
                   "Parser must be a function pointer with type T (*)(datum &)");
 
+    static_assert(std::is_move_assignable_v<T>,
+                  "sequence<T> reassigns its stored value on each iteration, so T must be move-assignable");
+
     struct iterator {
         sequence *seq;
 
@@ -3134,6 +3137,51 @@ public:
     iterator end() { return { nullptr }; }
 
 };
+
+#ifndef NDEBUG
+// LCOV_EXCL_START
+namespace datum_parser_helper_unit_test {
+
+    using named_constructor_octet = datum_parser_trait_unit_test::named_constructor_octet;
+
+    inline bool unit_test() {
+        uint8_t data[] = {0x01, 0x02, 0x03};
+        bool result = true;
+
+        datum accepted{data, data + sizeof(data)};
+        acceptor<named_constructor_octet, named_constructor_octet::decode> accept{accepted};
+        result &= static_cast<bool>(accept);
+        result &= accept.value.value() == 0x01;
+        result &= accepted.length() == 2;
+
+        datum optional_input{data, data + sizeof(data)};
+        optional<named_constructor_octet, named_constructor_octet::decode> maybe{optional_input};
+        result &= static_cast<bool>(maybe);
+        result &= maybe.value.value() == 0x01;
+        result &= optional_input.length() == 2;
+
+        datum ignored{data, data + sizeof(data)};
+        ignore<named_constructor_octet, named_constructor_octet::decode> ignored_octet{ignored};
+        (void)ignored_octet;
+        result &= ignored.length() == 2;
+
+        datum sequenced{data, data + sizeof(data)};
+        size_t count = 0;
+        uint8_t expected = 0x01;
+        for (const auto &octet : sequence<named_constructor_octet, named_constructor_octet::decode>{sequenced}) {
+            result &= octet.value() == expected;
+            ++expected;
+            ++count;
+        }
+        result &= count == sizeof(data);
+        result &= sequenced.length() == static_cast<ssize_t>(sizeof(data));
+
+        return result;
+    }
+
+}
+// LCOV_EXCL_STOP
+#endif
 
 namespace {
 

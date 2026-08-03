@@ -256,6 +256,10 @@ int main(int, char *[]) {
             &datum_unit_test::unit_test
         },
         {
+            "datum_parser_helpers",
+            &datum_parser_helper_unit_test::unit_test
+        },
+        {
             "analysis",
             &analysis_unit_test::unit_test
         },
