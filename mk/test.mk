@@ -491,18 +491,20 @@ endif
 #   make test-coverage
 #
 # Output:
-#   build/Coverage/coverage/           .info trace files
+#   build/Coverage/coverage_data/      .info trace files
 #   build/Coverage/coverage_report/    HTML report
 
-_cov_dir := build/Coverage/coverage
+_cov_dir := build/Coverage/coverage_data
 _cov_rpt := build/Coverage/coverage_report
 _cov_make = $(MAKE) BUILD_TYPE=Coverage
 
-_cov_capture_flags := --rc geninfo_unexecuted_blocks=1 --ignore-errors mismatch,mismatch
-_cov_merge_flags := --ignore-errors mismatch,mismatch
-_cov_filter_flags := --ignore-errors unused,unused
-_cov_genhtml_flags := --function-coverage --demangle-cpp --legend --sort \
-  --show-navigation --hierarchical --highlight --missed --num-spaces 4 --precision 1
+_cov_capture_flags := --rc geninfo_unexecuted_blocks=1 \
+  --ignore-errors mismatch,mismatch,inconsistent,inconsistent
+_cov_merge_flags := --ignore-errors mismatch,mismatch,inconsistent,inconsistent
+_cov_filter_flags := --ignore-errors unused,unused,inconsistent,inconsistent
+_cov_genhtml_flags := --function-coverage --demangle-cpp --legend \
+  --show-navigation --hierarchical --missed --num-spaces 4 --precision 1 \
+  --ignore-errors inconsistent,inconsistent
 
 # Internal target: runs inside the Coverage variant.
 .PHONY: _run-coverage
@@ -554,7 +556,7 @@ _run-coverage: $(BIN)/unit_test $(BIN)/mercury $(LIB)/libmerc.so
 	@printf '\n$(COLOR_GREEN)  ══════════════════════════════════════════$(COLOR_OFF)\n'
 	@printf '$(COLOR_GREEN)  Coverage report: %s/index.html$(COLOR_OFF)\n' $(_cov_rpt)
 	@printf '$(COLOR_GREEN)  ══════════════════════════════════════════$(COLOR_OFF)\n'
-	@lcov --summary $(_cov_dir)/filtered.info 2>&1 | \
+	@lcov --ignore-errors inconsistent,inconsistent --summary $(_cov_dir)/filtered.info 2>&1 | \
 	  sed 's/^/  /' | grep -E 'lines|functions'
 	@printf '$(COLOR_GREEN)  ══════════════════════════════════════════$(COLOR_OFF)\n'
 
@@ -636,7 +638,7 @@ _run-coverage-fuzz: $(BIN)/unit_test $(BIN)/mercury $(LIB)/libmerc.so
 	@printf '\n$(COLOR_GREEN)  ══════════════════════════════════════════$(COLOR_OFF)\n'
 	@printf '$(COLOR_GREEN)  Coverage report: %s/index.html$(COLOR_OFF)\n' $(_cov_fuzz_rpt)
 	@printf '$(COLOR_GREEN)  ══════════════════════════════════════════$(COLOR_OFF)\n'
-	@lcov --summary $(_cov_fuzz_dir)/filtered.info 2>&1 | \
+	@lcov --ignore-errors inconsistent,inconsistent --summary $(_cov_fuzz_dir)/filtered.info 2>&1 | \
 	  sed 's/^/  /' | grep -E 'lines|functions'
 	@printf '$(COLOR_GREEN)  ══════════════════════════════════════════$(COLOR_OFF)\n'
 
