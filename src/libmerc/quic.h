@@ -1754,11 +1754,33 @@ public:
 
 namespace {
 
+    /// \brief Adapter that lets json_output_fuzzer exercise quic_init.
+    ///
+    /// quic_init needs a quic_crypto_engine reference in addition to the
+    /// fuzzed datum, while json_output_fuzzer<T> constructs T from only a
+    /// datum &.  This wrapper owns the crypto engine for the lifetime of the
+    /// quic_init instance and forwards JSON output to the real parser.
+    ///
+    class quic_init_json_output {
+        quic_crypto_engine quic_crypto;
+        quic_init quic_pkt;
+
+    public:
+
+        quic_init_json_output(datum &d) :
+            quic_crypto{},
+            quic_pkt{d, quic_crypto}
+        { }
+
+        void write_json(struct json_object &record, bool metadata_output) {
+            if (quic_pkt.is_not_empty()) {
+                quic_pkt.write_json(record, metadata_output);
+            }
+        }
+    };
+
     [[maybe_unused]] inline int quic_init_fuzz_test(const uint8_t *data, size_t size) {
-        datum pkt_data{data, data+size};
-        quic_crypto_engine quic_crypto{};
-        quic_init quic_pkt{pkt_data, quic_crypto};
-        return 0;
+        return json_output_fuzzer<quic_init_json_output>(data, size);
     }
 
 }; //end of namespace

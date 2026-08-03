@@ -916,6 +916,42 @@ struct tlv {
 
 };
 
+namespace {
+
+    /// \brief Adapter that lets json_output_fuzzer exercise ASN.1 TLV output.
+    ///
+    /// The ASN.1 TLV parser is named tlv and exposes print_as_json() instead
+    /// of the write_json(json_object &, bool) interface expected by
+    /// json_output_fuzzer<T>.  This wrapper keeps the fuzz target on the
+    /// shared JSON fuzzer path without changing the production parser API.
+    class asn1_tlv_json_output {
+        tlv element;
+
+    public:
+
+        asn1_tlv_json_output(datum &d) :
+            element{d}
+        { }
+
+        void write_json(json_object &record, bool) const {
+            if (!element.is_not_null()) {
+                return;
+            }
+            json_object asn1{record, "asn1"};
+            asn1.print_key_string("tag_class", element.get_class());
+            asn1.print_key_bool("constructed", element.is_constructed());
+            element.print_tag_as_json_hex(asn1, "tag");
+            element.print_as_json(asn1, "value");
+            asn1.close();
+        }
+    };
+
+    [[maybe_unused]] inline int asn1_tlv_fuzz_test(const uint8_t *data, size_t size) {
+        return json_output_fuzzer<asn1_tlv_json_output>(data, size);
+    }
+
+}
+
 namespace asn1 {
 
 /// tlv parser carrying an expected inner ASN.1 tag.

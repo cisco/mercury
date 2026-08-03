@@ -14,6 +14,8 @@
 #ifndef PKT_PROC_UTIL_HPP
 #define PKT_PROC_UTIL_HPP
 
+#include "global_config.h"
+#include "proto_identify.h"
 #include "protocol.h"
 #include "flow_key.h"
 #include "dns.h"
@@ -29,6 +31,7 @@
 #include "gre.h"
 #include "geneve.hpp"
 #include "ip.h"
+#include "json_object.h"
 #include "vxlan.hpp"
 #include "telnet.hpp"
 #include "snmp.hpp"
@@ -235,6 +238,18 @@ public:
     bool is_not_empty() { return udp_data_field.is_not_empty(); }
 
 };
+
+namespace {
+
+    [[maybe_unused]] inline int unknown_initial_packet_fuzz_test(const uint8_t *data, size_t size) {
+        return json_output_fuzzer<unknown_initial_packet>(data, size);
+    }
+
+    [[maybe_unused]] inline int unknown_udp_initial_packet_fuzz_test(const uint8_t *data, size_t size) {
+        return json_output_fuzzer<unknown_udp_initial_packet>(data, size);
+    }
+
+}
 
 // function objects that are applied to the protocol std::variant (and
 // any other variant that can hold a subset of its protocol data
