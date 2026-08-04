@@ -295,7 +295,20 @@ struct datum {
     bool is_empty() const { return is_not_null() && data == data_end; }
     void set_empty() { data = data_end; }
     void set_null() { data = data_end = nullptr; }
-    ssize_t length() const { return data_end - data; }
+
+    void assert_invariant() const {
+        if (is_not_null()) {
+            assert(data <= data_end);
+        }
+    }
+
+    ssize_t length() const {
+        assert_invariant();
+        if (is_null()) {
+            return 0;
+        }
+        return data_end - data;
+    }
 
     /// returns true iff this datum has at least \p length bytes available
     ///
@@ -303,10 +316,10 @@ struct datum {
     /// before advancing `data` by \p length bytes.
     ///
     bool has_bytes(size_t length) const {
+        assert_invariant();
         if (is_null()) {
             return false;
         }
-        assert(data <= data_end);
         return length <= static_cast<size_t>(data_end - data);
     }
 
@@ -2057,6 +2070,7 @@ namespace datum_unit_test {
         datum null_d{nullptr, nullptr};
         if (!null_d.is_null()) return false;
         if (null_d.is_not_null()) return false;
+        if (null_d.length() != 0) return false;
 
         datum missing_end{data, nullptr};
         if (!missing_end.is_null()) return false;
