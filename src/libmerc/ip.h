@@ -10,6 +10,7 @@
 #include "tcp.h"
 #include "json_object.h"
 #include "flow_key.h"
+#include <array>
 #include <variant>
 #include <utility>
 
@@ -818,5 +819,51 @@ public:
     }
     return 0;
 }
+
+#ifndef NDEBUG
+// LCOV_EXCL_START
+namespace ip_packet_safety_unit_test {
+
+    inline bool malformed_ipv4_total_length_unit_test() {
+        static constexpr std::array<uint8_t, 20> ipv4_total_length_smaller_than_header = {
+            0x45, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
+            0x40, 0x06, 0x00, 0x00, 0xc0, 0x00, 0x02, 0x01,
+            0xc0, 0x00, 0x02, 0x02
+        };
+
+        datum d{ipv4_total_length_smaller_than_header.data(),
+                ipv4_total_length_smaller_than_header.data() + ipv4_total_length_smaller_than_header.size()};
+        key k{};
+        ip pkt{d, k};
+        (void)pkt;
+        return true;
+    }
+
+    inline bool truncated_ipv6_extension_unit_test() {
+        static constexpr std::array<uint8_t, 41> ipv6_truncated_hop_by_hop_to_tcp = {
+            0x60, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x40,
+            0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+            0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02,
+            0x06
+        };
+
+        datum d{ipv6_truncated_hop_by_hop_to_tcp.data(),
+                ipv6_truncated_hop_by_hop_to_tcp.data() + ipv6_truncated_hop_by_hop_to_tcp.size()};
+        key k{};
+        ip pkt{d, k};
+        (void)pkt;
+        return true;
+    }
+
+    inline bool unit_test() {
+        return malformed_ipv4_total_length_unit_test()
+            && truncated_ipv6_extension_unit_test();
+    }
+
+} // namespace ip_packet_safety_unit_test
+// LCOV_EXCL_STOP
+#endif // NDEBUG
 
 #endif // MERC_IP_H

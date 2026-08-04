@@ -13,6 +13,8 @@
 #ifndef QUIC_H
 #define QUIC_H
 
+#include <array>
+#include <cstdint>
 #include <string>
 #include <tuple>
 #include <unordered_map>
@@ -1812,5 +1814,87 @@ inline const char *quic_trial_decrypt_get_salt(const uint8_t *data, size_t len) 
     }
     return nullptr;
 }
+
+#ifndef NDEBUG
+// LCOV_EXCL_START
+namespace quic_packet_safety_unit_test {
+
+    static constexpr size_t quic_initial_packet_len = static_cast<size_t>(quic_initial_packet::min_len_pdu);
+
+    inline bool is_aligned_to(const void *ptr, size_t alignment) {
+        return reinterpret_cast<std::uintptr_t>(ptr) % alignment == 0;
+    }
+
+    template <size_t StorageSize, size_t PacketSize>
+    inline const uint8_t *copy_with_unaligned_field(std::array<uint8_t, StorageSize> &storage,
+                                                    const std::array<uint8_t, PacketSize> &packet,
+                                                    size_t field_offset,
+                                                    size_t alignment) {
+        if (alignment <= 1 || field_offset >= packet.size() || packet.size() + alignment > storage.size()) {
+            return nullptr;
+        }
+
+        for (size_t offset = 1; offset <= alignment; offset++) {
+            uint8_t *candidate = storage.data() + offset;
+            if (!is_aligned_to(candidate + field_offset, alignment)) {
+                storage.fill(0);
+                for (size_t i = 0; i < packet.size(); i++) {
+                    candidate[i] = packet[i];
+                }
+                return candidate;
+            }
+        }
+        return nullptr;
+    }
+
+    inline std::array<uint8_t, quic_initial_packet_len> make_quic_initial() {
+        std::array<uint8_t, quic_initial_packet_len> packet{};
+
+        packet[0] = 0xc0;      // long-header Initial
+        packet[4] = 0x01;      // version 1
+        packet[5] = 0x08;      // DCID length
+        for (size_t i = 0; i < 8; i++) {
+            packet[6 + i] = static_cast<uint8_t>(i + 1);
+        }
+        packet[14] = 0x00;     // SCID length
+        packet[15] = 0x00;     // token length
+        packet[16] = 0x40;     // protected payload length 64
+        packet[17] = 0x40;
+
+        return packet;
+    }
+
+    inline bool initial_version_decode_unit_test() {
+        static constexpr size_t version_offset = 1;
+        auto packet = make_quic_initial();
+        std::array<uint8_t, quic_initial_packet_len + alignof(uint32_t)> storage{};
+
+        const uint8_t *data = copy_with_unaligned_field(storage,
+                                                        packet,
+                                                        version_offset,
+                                                        alignof(uint32_t));
+        if (data == nullptr) {
+            return false;
+        }
+
+        datum d{data, data + packet.size()};
+        quic_initial_packet initial{d};
+        if (!initial.is_not_empty()) {
+            return false;
+        }
+
+        quic_crypto_engine crypto{};
+        datum plaintext = crypto.decrypt(initial);
+        (void)plaintext;
+        return true;
+    }
+
+    inline bool unit_test() {
+        return initial_version_decode_unit_test();
+    }
+
+} // namespace quic_packet_safety_unit_test
+// LCOV_EXCL_STOP
+#endif // NDEBUG
 
 #endif /* QUIC_H */

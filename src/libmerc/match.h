@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <array>
+#include <cstdint>
 
 inline unsigned int uint16_match(uint16_t x,
                                  const uint16_t *ulist,
@@ -134,5 +135,59 @@ public:
     }
 
 };
+
+#ifndef NDEBUG
+// LCOV_EXCL_START
+namespace match_packet_safety_unit_test {
+
+    inline bool is_aligned_to(const void *ptr, size_t alignment) {
+        return reinterpret_cast<std::uintptr_t>(ptr) % alignment == 0;
+    }
+
+    template <size_t StorageSize, size_t PacketSize>
+    inline const uint8_t *copy_with_unaligned_field(std::array<uint8_t, StorageSize> &storage,
+                                                    const std::array<uint8_t, PacketSize> &packet,
+                                                    size_t field_offset,
+                                                    size_t alignment) {
+        if (alignment <= 1 || field_offset >= packet.size() || packet.size() + alignment > storage.size()) {
+            return nullptr;
+        }
+
+        for (size_t offset = 1; offset <= alignment; offset++) {
+            uint8_t *candidate = storage.data() + offset;
+            if (!is_aligned_to(candidate + field_offset, alignment)) {
+                storage.fill(0);
+                for (size_t i = 0; i < packet.size(); i++) {
+                    candidate[i] = packet[i];
+                }
+                return candidate;
+            }
+        }
+        return nullptr;
+    }
+
+    inline bool unit_test() {
+        static constexpr mask_and_value<8> tls_client_hello_matcher{
+            { 0xff, 0xff, 0xfc, 0x00, 0x00, 0xff, 0x00, 0x00 },
+            { 0x16, 0x03, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00 }
+        };
+        static constexpr std::array<uint8_t, 8> tls_record_prefix = {
+            0x16, 0x03, 0x01, 0x00, 0x2d, 0x01, 0x00, 0x00
+        };
+        std::array<uint8_t, tls_record_prefix.size() + alignof(uint32_t)> storage{};
+
+        const uint8_t *data = copy_with_unaligned_field(storage,
+                                                        tls_record_prefix,
+                                                        0,
+                                                        alignof(uint32_t));
+        if (data == nullptr) {
+            return false;
+        }
+        return tls_client_hello_matcher.matches(data, tls_record_prefix.size());
+    }
+
+} // namespace match_packet_safety_unit_test
+// LCOV_EXCL_STOP
+#endif // NDEBUG
 
 #endif /* MATCH_H */

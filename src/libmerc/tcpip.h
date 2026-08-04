@@ -15,6 +15,7 @@
 #include "json_object.h"
 #include "fingerprint.h"
 #include "flow_key.h"
+#include <array>
 
 /*
  * TCP fingerprinting
@@ -298,5 +299,38 @@ namespace {
     }
 
 };
+
+#ifndef NDEBUG
+// LCOV_EXCL_START
+namespace tcpip_packet_safety_unit_test {
+
+    inline bool truncated_ipv6_extension_tcp_dispatch_unit_test() {
+        static constexpr std::array<uint8_t, 41> ipv6_truncated_hop_by_hop_to_tcp = {
+            0x60, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x40,
+            0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+            0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02,
+            0x06
+        };
+
+        datum d{ipv6_truncated_hop_by_hop_to_tcp.data(),
+                ipv6_truncated_hop_by_hop_to_tcp.data() + ipv6_truncated_hop_by_hop_to_tcp.size()};
+        key k{};
+        ip ip_pkt{d, k};
+        if (ip_pkt.transport_protocol() == ip::protocol::tcp) {
+            tcp_packet tcp{d, &ip_pkt};
+            (void)tcp;
+        }
+        return true;
+    }
+
+    inline bool unit_test() {
+        return truncated_ipv6_extension_tcp_dispatch_unit_test();
+    }
+
+} // namespace tcpip_packet_safety_unit_test
+// LCOV_EXCL_STOP
+#endif // NDEBUG
 
 #endif /* TCPIP_H */
