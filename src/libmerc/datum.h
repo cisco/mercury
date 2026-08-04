@@ -368,6 +368,9 @@ struct datum {
         return 0;
     }
     bool skip(size_t length) {
+        if (data == nullptr) {
+            return false;
+        }
         data += length;
         if (data > data_end) {
             data = data_end;
@@ -1181,7 +1184,7 @@ public:
     /// there is room; otherwise, sets it to the null state.
     ///
     void copy(uint8_t x) {
-        if (data + 1 > data_end) {
+        if (is_null() || data + 1 > data_end) {
             set_null();
             return;  // not enough room
         }
@@ -2048,6 +2051,10 @@ namespace datum_unit_test {
         if (!d2.skip(5)) return false;
         if (d2.length() != 0) return false;
         if (d2.skip(1)) return false;
+
+        datum null_skip{nullptr, nullptr};
+        if (null_skip.skip(1)) return false;
+        if (!null_skip.is_null()) return false;
 
         datum d3{data, data + 8};
         d3.trim(2);
