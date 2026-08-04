@@ -51,11 +51,11 @@ struct cdp_tlv : public datum {
                 // a.print_key_hex("protocol", protocol);
                 // a.print_key_uint("addr_length", addr_length);
                 if (protocol.is_not_empty()) {
-                    if (protocol.data[0] == 0xcc && addr_length == 4) {
-                        a.print_key_ipv4_addr("ipv4_addr", addr.data);
+                    if (protocol.data[0] == 0xcc) {
+                        a.print_key_ipv4_addr("ipv4_addr", addr);
 
-                    } else if (protocol.data[0] == 0xAA && addr_length == 16) {
-                        a.print_key_ipv6_addr("ipv6_addr", addr.data);
+                    } else if (protocol.data[0] == 0xAA) {
+                        a.print_key_ipv6_addr("ipv6_addr", addr);
                     }
                 }
                 //o.print_key_hex("remainder", tmp);
@@ -244,7 +244,8 @@ namespace cdp_unit_test {
         json_object json{&buf};
         pkt.write_json(json, false);
         json.close();
-        return true;
+        buf.write_char('\0');
+        return strstr(buffer, "malformed") != nullptr;
     }
 
     inline bool unit_test() {
@@ -293,11 +294,7 @@ namespace cdp_packet_safety_unit_test {
 
 #ifndef NDEBUG
     inline bool unit_test() {
-#ifdef MERCURY_PACKET_SAFETY_FATAL_TESTS
         return cdp_unit_test::malformed_address_tlv_unit_test();
-#else
-        return true;
-#endif
     }
 #endif
 
