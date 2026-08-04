@@ -127,7 +127,13 @@ class ipv4_packet {
         if (header == nullptr) {
             return;  // too short
         }
-        p.trim_to_length(ntoh(header->len) - sizeof(ipv4_header));
+        size_t total_length_including_header = ntoh(header->len);
+        if (total_length_including_header < sizeof(ipv4_header)) {
+            header = nullptr;
+            p.set_null();
+            return;
+        }
+        p.trim_to_length(total_length_including_header - sizeof(ipv4_header));
 
         k.addr.ipv4.src = header->src_addr;
         k.addr.ipv4.dst = header->dst_addr;
@@ -834,9 +840,8 @@ namespace ip_packet_safety_unit_test {
         datum d{ipv4_total_length_smaller_than_header.data(),
                 ipv4_total_length_smaller_than_header.data() + ipv4_total_length_smaller_than_header.size()};
         key k{};
-        ip pkt{d, k};
-        (void)pkt;
-        return true;
+        ipv4_packet pkt{d, k};
+        return !pkt.is_not_empty() && d.is_null() && k.ip_vers == 0;
     }
 
     inline bool truncated_ipv6_extension_unit_test() {
