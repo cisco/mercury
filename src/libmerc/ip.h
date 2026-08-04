@@ -473,11 +473,16 @@ public:
                 break;
             }
             class ipv6_extension_header ext_hdr{p, next_header};
+            if (p.is_null()) {
+                next_header = ipv6_extension_header::type::reserved; // failure: absence of actual next protocol
+                break;
+            }
             next_header = ext_hdr.get_next_header();
         }
         k.protocol = transport_protocol = next_header;
 
-        extension_headers.data_end = p.data; // set end of extension headers
+        // Set end of extension headers; keep the datum empty on parse failure.
+        extension_headers.data_end = p.is_null() ? extension_headers.data : p.data;
     }
 
     // fingerprinting
@@ -858,8 +863,9 @@ namespace ip_packet_safety_unit_test {
                 ipv6_truncated_hop_by_hop_to_tcp.data() + ipv6_truncated_hop_by_hop_to_tcp.size()};
         key k{};
         ip pkt{d, k};
-        (void)pkt;
-        return true;
+        return pkt.transport_protocol() == ip::protocol::reserved
+            && d.is_null()
+            && k.protocol == ip::protocol::reserved;
     }
 
     inline bool unit_test() {
