@@ -74,6 +74,7 @@
 #include "krb5.hpp"
 #include "tftp.hpp"
 #include "pgsql.hpp"
+#include "dcerpc.hpp"
 
 enum tcp_msg_type {
     tcp_msg_type_unknown = 0,
@@ -113,6 +114,8 @@ enum tcp_msg_type {
     tcp_msg_type_redis_response,
     tcp_msg_type_imap_request,
     tcp_msg_type_imap_response,
+    tcp_msg_type_dcerpc_client,
+    tcp_msg_type_dcerpc_server,
 };
 
 // Template-based stack-allocated structure to replace std::vector<T>
@@ -739,6 +742,14 @@ public:
         }
         if (protocols["telnet"] || protocols["all"]) {
             select_telnet = true;
+        }
+        if (protocols["dcerpc"] || protocols["dcerpc.client"] || protocols["all"]) {
+            tcp.add_protocol(dcerpc::low_ptype_matcher, tcp_msg_type_dcerpc_client);
+            tcp.add_protocol(dcerpc::high_ptype_matcher, tcp_msg_type_dcerpc_client);
+        }
+        if (protocols["dcerpc"] || protocols["dcerpc.server"] || protocols["all"]) {
+            tcp.add_protocol(dcerpc::low_ptype_matcher, tcp_msg_type_dcerpc_server);
+            tcp.add_protocol(dcerpc::high_ptype_matcher, tcp_msg_type_dcerpc_server);
         }
         if (protocols["rfb"] || protocols["all"]) {
             select_rfb = true;

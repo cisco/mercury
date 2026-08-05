@@ -23,6 +23,7 @@
 #include "mem_utils.hpp"
 #include "crypto_engine.h"
 #include "http.h"
+#include "dcerpc.hpp"
 
 #include <string>
 
@@ -45,6 +46,7 @@ TEST_CASE("Testing unit_test() defined in class") {
     CHECK(ftp::unit_test()==true);
     CHECK(fixed_fifo_allocator<uint8_t,4>::unit_test()==true);
     CHECK(crypto_engine::unit_test() == true);
+    CHECK(dcerpc::unit_test() == true);
 }
 
 // Helper: render `data` as the lowercase hex string that mercury emits for

@@ -551,6 +551,42 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test pgsql with analysis")
     deinitialize();
 }
 
+TEST_CASE_FIXTURE(LibmercTestFixture, "test dcerpc")
+{
+    libmerc_config config{.packet_filter_cfg = (char *)"dcerpc"};
+    initialize(config);
+
+    set_pcap("dcerpc-fault-stub-data-02.pcap");
+    CHECK(11 == counter());
+
+    set_pcap("top_100_fingerprints.pcap");
+    CHECK(0 == counter());
+
+    deinitialize();
+}
+
+TEST_CASE_FIXTURE(LibmercTestFixture, "test dcerpc client selector")
+{
+    libmerc_config config{.packet_filter_cfg = (char *)"dcerpc.client"};
+    initialize(config);
+
+    set_pcap("dcerpc-fault-stub-data-02.pcap");
+    CHECK(6 == counter());
+
+    deinitialize();
+}
+
+TEST_CASE_FIXTURE(LibmercTestFixture, "test dcerpc server selector")
+{
+    libmerc_config config{.packet_filter_cfg = (char *)"dcerpc.server"};
+    initialize(config);
+
+    set_pcap("dcerpc-fault-stub-data-02.pcap");
+    CHECK(5 == counter());
+
+    deinitialize();
+}
+
 TEST_CASE_FIXTURE(LibmercTestFixture, "test iec with analysis")
 {
     libmerc_config config{.do_analysis = true,
