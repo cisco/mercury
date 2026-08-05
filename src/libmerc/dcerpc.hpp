@@ -380,7 +380,7 @@ namespace dcerpc
             {
                 return {};
             }
-            return datum{d, length};
+            return datum{d, static_cast<ssize_t>(length)};
         }
 
         static size_t padding_length(uint16_t address_length)
@@ -860,10 +860,11 @@ namespace dcerpc
     }
     // LCOV_EXCL_STOP
 
-    [[maybe_unused]] inline int message_fuzz_test(const uint8_t *data, size_t size)
-    {
-        return json_output_fuzzer<message>(data, size);
-    }
+}
+
+[[maybe_unused]] inline int dcerpc_message_fuzz_test(const uint8_t *data, size_t size)
+{
+    return json_output_fuzzer<dcerpc::message>(data, size);
 }
 
 #endif
