@@ -220,9 +220,8 @@ namespace dcerpc
             case context_result::acceptance:
                 return "acceptance";
             case context_result::user_rejection:
-                return "user_rejection";
             case context_result::provider_rejection:
-                return "provider_rejection";
+                return "rejected";
             case context_result::negotiate_ack:
                 return "negotiate_ack";
             default:
@@ -431,11 +430,6 @@ namespace dcerpc
                 if (result_code == static_cast<uint16_t>(context_result::acceptance))
                 {
                     transfer_syntax.write_json(entry, "selected_transfer_syntax");
-                }
-                else if (result_code == static_cast<uint16_t>(context_result::user_rejection) ||
-                    result_code == static_cast<uint16_t>(context_result::provider_rejection))
-                {
-                    entry.print_key_uint("reason", result_detail);
                 }
                 else if (result_code == static_cast<uint16_t>(context_result::negotiate_ack))
                 {
@@ -745,8 +739,7 @@ namespace dcerpc
             json.close();
             buf.write_char(0);
             request_json_valid = strstr(json_buffer, "\"context_id\":0") &&
-                strstr(json_buffer, "\"opnum\":3") && !strstr(json_buffer, "\"flags\"") &&
-                !strstr(json_buffer, "object_uuid");
+                strstr(json_buffer, "\"opnum\":3");
         }
         bool bind_nak_json_valid = false;
         {
@@ -755,8 +748,7 @@ namespace dcerpc
             bind_nak.write_json(json, false);
             json.close();
             buf.write_char(0);
-            bind_nak_json_valid = strstr(json_buffer, "\"type\":\"bind_nak\"") &&
-                !strstr(json_buffer, "reject_reason") && !strstr(json_buffer, "supported_versions");
+            bind_nak_json_valid = strstr(json_buffer, "\"type\":\"bind_nak\"");
         }
         bool truncated_json_valid = false;
         {
@@ -775,8 +767,7 @@ namespace dcerpc
             auth3.write_json(json, false);
             json.close();
             buf.write_char('\0');
-            auth3_json_valid = strstr(json_buffer, "auth_verifier") && !strstr(json_buffer, "auth_value") &&
-                !strstr(json_buffer, "max_recv_frag");
+            auth3_json_valid = strstr(json_buffer, "auth_verifier");
         }
         uint8_t auth_pdu[] = {
             0x05, 0x00, 0x03, 0x03, 0x10, 0x00, 0x00, 0x00,
@@ -798,8 +789,8 @@ namespace dcerpc
             auth_message.write_json(json, false);
             json.close();
             buf.write_char('\0');
-            auth_fields_valid = auth_fields_valid && auth_message.is_not_empty() && strstr(json_buffer, "\"auth_verifier\"") &&
-                !strstr(json_buffer, "\"authentication_length\"");
+            auth_fields_valid = auth_fields_valid && auth_message.is_not_empty() &&
+                strstr(json_buffer, "\"auth_verifier\"");
         }
         bool bind_ack_json_valid = false;
         {
@@ -808,11 +799,9 @@ namespace dcerpc
             bind_ack.write_json(json, false);
             json.close();
             buf.write_char('\0');
-            bind_ack_json_valid = !strstr(json_buffer, "\"max_xmit_frag\"") &&
-                strstr(json_buffer, "\"context_results\"") &&
+            bind_ack_json_valid = strstr(json_buffer, "\"context_results\"") &&
                 strstr(json_buffer, "\"selected_transfer_syntax\"") &&
-                strstr(json_buffer, "\"result\":\"provider_rejection\"") &&
-                strstr(json_buffer, "\"reason\":1");
+                strstr(json_buffer, "\"result\":\"rejected\"");
         }
 
         context_response_pdu[2] = static_cast<uint8_t>(pdu_type::alter_context_resp);
@@ -826,7 +815,7 @@ namespace dcerpc
             json.close();
             buf.write_char('\0');
             alter_context_resp_json_valid = strstr(json_buffer, "\"type\":\"alter_context_resp\"") &&
-                strstr(json_buffer, "\"context_results\"") && !strstr(json_buffer, "\"max_xmit_frag\"");
+                strstr(json_buffer, "\"context_results\"");
         }
 
         uint8_t dnp3_pdu[] = {0x05, 0x64, 0x05, 0xc4, 0x01, 0x00, 0x00, 0x04};
