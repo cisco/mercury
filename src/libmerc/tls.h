@@ -21,6 +21,8 @@
 #include "tls_extensions.h"
 #include "ech.hpp"
 #include "mem_utils.hpp"
+#include <array>
+#include <cstdint>
 
 
 // Forward declaration for crypto_policy::required_extensions
@@ -2250,6 +2252,82 @@ inline void tls_server_certificate::write_l7_metadata(cbor_array &a) const {
         certs.close();
     });
 }
+
+#ifndef NDEBUG
+// LCOV_EXCL_START
+namespace tls_packet_safety_unit_test {
+
+    inline bool is_aligned_to(const void *ptr, size_t alignment) {
+        return reinterpret_cast<std::uintptr_t>(ptr) % alignment == 0;
+    }
+
+    template <size_t StorageSize, size_t PacketSize>
+    inline const uint8_t *copy_with_unaligned_field(std::array<uint8_t, StorageSize> &storage,
+                                                    const std::array<uint8_t, PacketSize> &packet,
+                                                    size_t field_offset,
+                                                    size_t alignment) {
+        if (alignment <= 1 || field_offset >= packet.size() || packet.size() + alignment > storage.size()) {
+            return nullptr;
+        }
+
+        for (size_t offset = 1; offset <= alignment; offset++) {
+            uint8_t *candidate = storage.data() + offset;
+            if (!is_aligned_to(candidate + field_offset, alignment)) {
+                storage.fill(0);
+                for (size_t i = 0; i < packet.size(); i++) {
+                    candidate[i] = packet[i];
+                }
+                return candidate;
+            }
+        }
+        return nullptr;
+    }
+
+    inline bool client_hello_ciphersuite_fingerprint_unit_test() {
+        static constexpr size_t client_hello_body_length = 45;
+        static constexpr size_t ciphersuite_vector_offset = 37;
+        std::array<uint8_t, client_hello_body_length> client_hello_body{};
+        client_hello_body[0] = 0x03;
+        client_hello_body[1] = 0x03;
+        client_hello_body[35] = 0x00;
+        client_hello_body[36] = 0x04;
+        client_hello_body[37] = 0x13;
+        client_hello_body[38] = 0x01;
+        client_hello_body[39] = 0x13;
+        client_hello_body[40] = 0x02;
+        client_hello_body[41] = 0x01;
+        client_hello_body[42] = 0x00;
+        client_hello_body[43] = 0x00;
+        client_hello_body[44] = 0x00;
+
+        std::array<uint8_t, client_hello_body_length + alignof(uint16_t)> storage{};
+        const uint8_t *data = copy_with_unaligned_field(storage,
+                                                        client_hello_body,
+                                                        ciphersuite_vector_offset,
+                                                        alignof(uint16_t));
+        if (data == nullptr) {
+            return false;
+        }
+
+        datum d{data, data + client_hello_body.size()};
+        tls_client_hello hello{d};
+        if (!hello.is_not_empty()) {
+            return false;
+        }
+
+        char buffer[1024];
+        buffer_stream buf{buffer, sizeof(buffer)};
+        hello.fingerprint(buf);
+        return buf.length() > 0;
+    }
+
+    inline bool unit_test() {
+        return client_hello_ciphersuite_fingerprint_unit_test();
+    }
+
+} // namespace tls_packet_safety_unit_test
+// LCOV_EXCL_STOP
+#endif // NDEBUG
 
 
 #endif /* TLS_H */

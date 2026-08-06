@@ -15,6 +15,8 @@
 #include <algorithm>
 #include <stdexcept>
 #include <optional>
+#include <array>
+#include <cstdint>
 
 #include "datum.h"
 
@@ -313,5 +315,58 @@ public:
 };
 
 using perfect_hash_set = perfect_hash<void>;
+
+#ifndef NDEBUG
+// LCOV_EXCL_START
+namespace perfect_hash_packet_safety_unit_test {
+
+    inline bool is_aligned_to(const void *ptr, size_t alignment) {
+        return reinterpret_cast<std::uintptr_t>(ptr) % alignment == 0;
+    }
+
+    template <size_t StorageSize, size_t PacketSize>
+    inline const uint8_t *copy_with_unaligned_field(std::array<uint8_t, StorageSize> &storage,
+                                                    const std::array<uint8_t, PacketSize> &packet,
+                                                    size_t field_offset,
+                                                    size_t alignment) {
+        if (alignment <= 1 || field_offset >= packet.size() || packet.size() + alignment > storage.size()) {
+            return nullptr;
+        }
+
+        for (size_t offset = 1; offset <= alignment; offset++) {
+            uint8_t *candidate = storage.data() + offset;
+            if (!is_aligned_to(candidate + field_offset, alignment)) {
+                storage.fill(0);
+                for (size_t i = 0; i < packet.size(); i++) {
+                    candidate[i] = packet[i];
+                }
+                return candidate;
+            }
+        }
+        return nullptr;
+    }
+
+    inline bool unit_test() {
+        static constexpr std::array<uint8_t, 9> key = {
+            '0', '0', '1', ' ', 'L', 'O', 'G', 'I', 'N'
+        };
+        std::array<uint8_t, key.size() + alignof(uint32_t)> storage{};
+
+        const uint8_t *data = copy_with_unaligned_field(storage,
+                                                        key,
+                                                        0,
+                                                        alignof(uint32_t));
+        if (data == nullptr) {
+            return false;
+        }
+
+        uint32_t hash_value = murmur2_hash{}(reinterpret_cast<const char *>(data), key.size(), 0);
+        (void)hash_value;
+        return true;
+    }
+
+} // namespace perfect_hash_packet_safety_unit_test
+// LCOV_EXCL_STOP
+#endif // NDEBUG
 
 #endif

@@ -53,7 +53,12 @@
 #include "libmerc/gre.h"
 #include "libmerc/mdns.h"
 #include "libmerc/ssh.h"
+#include "libmerc/ip.h"
+#include "libmerc/match.h"
+#include "libmerc/perfect_hash.h"
 #include "libmerc/tls.h"
+#include "libmerc/tcpip.h"
+#include "libmerc/quic.h"
 #include "libmerc/analysis.h"
 #include "libmerc/proto_identify.h"
 #include "libmerc/pgsql.hpp"
@@ -246,6 +251,34 @@ int main(int, char *[]) {
         {
             "ssh",
             &ssh_unit_test::unit_test
+        },
+        {
+            "ip_packet_safety",
+            &ip_packet_safety_unit_test::unit_test
+        },
+        {
+            "tcpip_packet_safety",
+            &tcpip_packet_safety_unit_test::unit_test
+        },
+        {
+            "match_packet_safety",
+            &match_packet_safety_unit_test::unit_test
+        },
+        {
+            "perfect_hash_packet_safety",
+            &perfect_hash_packet_safety_unit_test::unit_test
+        },
+        {
+            "tls_packet_safety",
+            &tls_packet_safety_unit_test::unit_test
+        },
+        {
+            "quic_packet_safety",
+            &quic_packet_safety_unit_test::unit_test
+        },
+        {
+            "cdp_packet_safety",
+            &cdp_packet_safety_unit_test::unit_test
         },
         {
             "tls_extensions",

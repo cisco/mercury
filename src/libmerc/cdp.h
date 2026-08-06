@@ -9,6 +9,9 @@
 
 #include "datum.h"
 #include "json_object.h"
+#include <array>
+#include <cstdint>
+#include <cstring>
 
 struct cdp_tlv : public datum {
     uint16_t type;
@@ -157,6 +160,93 @@ struct cdp {
 namespace cdp_unit_test {
 
 #ifndef NDEBUG
+    inline bool is_aligned_to(const void *ptr, size_t alignment) {
+        return reinterpret_cast<std::uintptr_t>(ptr) % alignment == 0;
+    }
+
+    template <size_t StorageSize, size_t PacketSize>
+    inline const uint8_t *copy_with_unaligned_field(std::array<uint8_t, StorageSize> &storage,
+                                                    const std::array<uint8_t, PacketSize> &packet,
+                                                    size_t field_offset,
+                                                    size_t alignment) {
+        if (alignment <= 1 || field_offset >= packet.size() || packet.size() + alignment > storage.size()) {
+            return nullptr;
+        }
+
+        for (size_t offset = 1; offset <= alignment; offset++) {
+            uint8_t *candidate = storage.data() + offset;
+            if (!is_aligned_to(candidate + field_offset, alignment)) {
+                storage.fill(0);
+                for (size_t i = 0; i < packet.size(); i++) {
+                    candidate[i] = packet[i];
+                }
+                return candidate;
+            }
+        }
+        return nullptr;
+    }
+
+    inline bool ipv6_address_tlv_unit_test() {
+        static constexpr size_t cdp_ipv6_address_offset = 25;
+        static constexpr std::array<uint8_t, 41> cdp_ipv6_address_tlv = {
+            0xaa, 0xaa, 0x03, 0x00, 0x00, 0x0c, 0x20, 0x00,
+            0x02, 0xb4, 0x00, 0x00,
+            0x00, 0x02, 0x00, 0x1d,
+            0x00, 0x00, 0x00, 0x01,
+            0x01, 0x01, 0xaa, 0x00, 0x10,
+            0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
+        };
+        std::array<uint8_t, cdp_ipv6_address_tlv.size() + alignof(uint16_t)> storage{};
+
+        const uint8_t *payload = copy_with_unaligned_field(storage,
+                                                           cdp_ipv6_address_tlv,
+                                                           cdp_ipv6_address_offset,
+                                                           alignof(uint16_t));
+        if (payload == nullptr) {
+            return false;
+        }
+
+        datum d{payload, payload + cdp_ipv6_address_tlv.size()};
+        cdp pkt{d};
+        if (!pkt.is_not_empty()) {
+            return false;
+        }
+
+        char buffer[2048];
+        buffer_stream buf{buffer, sizeof(buffer)};
+        json_object json{&buf};
+        pkt.write_json(json, false);
+        json.close();
+        buf.write_char('\0');
+
+        return strstr(buffer, "ipv6_addr") != nullptr;
+    }
+
+    inline bool malformed_address_tlv_unit_test() {
+        static constexpr std::array<uint8_t, 25> cdp_truncated_address_tlv = {
+            0xaa, 0xaa, 0x03, 0x00, 0x00, 0x0c, 0x20, 0x00,
+            0x02, 0xb4, 0x00, 0x00,
+            0x00, 0x02, 0x00, 0x0d,
+            0x00, 0x00, 0x00, 0x01,
+            0x01, 0x01, 0xcc, 0x00, 0x04
+        };
+
+        datum d{cdp_truncated_address_tlv.data(),
+                cdp_truncated_address_tlv.data() + cdp_truncated_address_tlv.size()};
+        cdp pkt{d};
+        if (!pkt.is_not_empty()) {
+            return false;
+        }
+
+        char buffer[2048];
+        buffer_stream buf{buffer, sizeof(buffer)};
+        json_object json{&buf};
+        pkt.write_json(json, false);
+        json.close();
+        return true;
+    }
+
     inline bool unit_test() {
         char buffer[2048];
 
@@ -191,11 +281,27 @@ namespace cdp_unit_test {
         cdp pkt2{d2};
         if (!pkt2.is_not_empty()) return false;
 
+        if (!ipv6_address_tlv_unit_test()) return false;
+
         return true;
     }
 #endif
 
 } // namespace cdp_unit_test
+
+namespace cdp_packet_safety_unit_test {
+
+#ifndef NDEBUG
+    inline bool unit_test() {
+#ifdef MERCURY_PACKET_SAFETY_FATAL_TESTS
+        return cdp_unit_test::malformed_address_tlv_unit_test();
+#else
+        return true;
+#endif
+    }
+#endif
+
+} // namespace cdp_packet_safety_unit_test
 // LCOV_EXCL_STOP
 
 #endif // CDP_H
