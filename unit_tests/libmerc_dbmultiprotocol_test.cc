@@ -573,6 +573,10 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test dcerpc client selector")
     set_pcap("dcerpc-fault-stub-data-02.pcap");
     CHECK(5 == counter());
 
+    set_pcap("dcerpc-fault-stub-data-02.pcap");
+    const std::string json = get_first_json();
+    CHECK(json.find("\"dcerpc\":{\"client\":") != std::string::npos);
+
     deinitialize();
 }
 
@@ -583,6 +587,10 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test dcerpc server selector")
 
     set_pcap("dcerpc-fault-stub-data-02.pcap");
     CHECK(5 == counter());
+
+    set_pcap("dcerpc-fault-stub-data-02.pcap");
+    const std::string json = get_first_json();
+    CHECK(json.find("\"dcerpc\":{\"server\":") != std::string::npos);
 
     deinitialize();
 }

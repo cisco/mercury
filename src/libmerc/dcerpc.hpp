@@ -553,7 +553,8 @@ namespace dcerpc
                 return;
             }
             const pdu_type pdu = type();
-            json_object o{record, is_client() ? "dcerpc_client" : "dcerpc_server"};
+            json_object dcerpc{record, "dcerpc"};
+            json_object o{dcerpc, is_client() ? "client" : "server"};
             o.print_key_string("type", pdu_type_name(pdu));
             o.print_key_uint("call_id", call_id);
             if (pdu == pdu_type::bind || pdu == pdu_type::alter_context)
@@ -579,12 +580,13 @@ namespace dcerpc
                 write_auth_verifier(o);
             }
             o.close();
+            dcerpc.close();
         }
 
         void write_l7_metadata(cbor_object &o, bool)
         {
             cbor_array protocols{o, "protocols"};
-            protocols.print_string(is_client() ? "dcerpc_client" : "dcerpc_server");
+            protocols.print_string("dcerpc");
             protocols.close();
         }
     };
