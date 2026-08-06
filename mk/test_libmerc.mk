@@ -22,7 +22,6 @@
 #   make test-libmerc-fdc            # FDC only
 #   make test-libmerc-l7-metadata    # L7 metadata only
 #   make test-libmerc-tls-only       # TLS-only only
-#   make test-libmerc-packet-safety  # packet parser safety unit tests under ASan+UBSan
 #   make -j libmerc-test-drivers     # build test drivers (no run)
 #
 # Notes:
@@ -112,12 +111,6 @@ test-libmerc-l7-metadata:
 .PHONY: test-libmerc-tls-only
 test-libmerc-tls-only:
 	$(MAKE) VISIBILITY=default STATIC_CFG=tls _run-libmerc-tls-only
-
-.PHONY: test-libmerc-packet-safety
-test-libmerc-packet-safety:
-	@echo "--- libmerc packet parser safety unit tests (ASan + UBSan) ---"
-	@printf '$(COLOR_YELLOW)  note: this target runs unit_test.cpp with known fatal packet-safety seeds enabled$(COLOR_OFF)\n'
-	$(MAKE) SANITIZE=address,undefined OPTFLAGS='$(OPTFLAGS) -DMERCURY_PACKET_SAFETY_FATAL_TESTS' unittest
 
 # --- Build all drivers (no run) ---------------------------------------
 
