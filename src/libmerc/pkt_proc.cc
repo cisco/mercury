@@ -601,10 +601,16 @@ bool stateful_pkt_proc::try_parse_tcp_type(protocol &x,
             return false;   // src_port unavailable; let fallback continue
         }
         return emplace_protocol_if_not_empty<pgsql_msg>(x, pkt, tcp_pkt->header->src_port);
-    case tcp_msg_type_dcerpc_client:
-        return emplace_protocol_if_not_empty<dcerpc::client>(x, pkt);
-    case tcp_msg_type_dcerpc_server:
-        return emplace_protocol_if_not_empty<dcerpc::server>(x, pkt);
+    case tcp_msg_type_dcerpc:
+        {
+            dcerpc::message &proto = x.emplace<dcerpc::message>(pkt);
+            if (!proto.is_not_empty() || !(selector.dcerpc_direction() &
+                  (proto.is_client() ? flow_direction::client : flow_direction::server))) {
+                x.emplace<std::monostate>();
+                return false;
+            }
+            return true;
+        }
     default:
         return false;
     }

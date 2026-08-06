@@ -160,8 +160,7 @@ using protocol = std::variant<std::monostate,
                               snmp::packet,
                               class syslog,
                               pgsql_msg,
-                              dcerpc::client,
-                              dcerpc::server
+                              dcerpc::message
                               >;
 
 using encapsulation = std::variant<std::monostate,

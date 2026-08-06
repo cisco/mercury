@@ -591,25 +591,6 @@ namespace dcerpc
         }
     };
 
-    class client : public message
-    {
-    public:
-
-        client(datum &d) : message{d} {}
-
-        bool is_not_empty() const { return message::is_not_empty() && is_client(); }
-    };
-
-    class server : public message
-    {
-    public:
-
-        server(datum &d) : message{d} {}
-
-        bool is_not_empty() const { return message::is_not_empty() && is_server(); }
-    };
-
-
     // LCOV_EXCL_START
     [[maybe_unused]] inline bool unit_test()
     {

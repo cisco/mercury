@@ -114,8 +114,7 @@ enum tcp_msg_type {
     tcp_msg_type_redis_response,
     tcp_msg_type_imap_request,
     tcp_msg_type_imap_response,
-    tcp_msg_type_dcerpc_client,
-    tcp_msg_type_dcerpc_server,
+    tcp_msg_type_dcerpc,
 };
 
 // Template-based stack-allocated structure to replace std::vector<T>
@@ -551,6 +550,7 @@ class traffic_selector {
     bool select_smtp{false};
     bool select_tofsee{false};
     flow_direction_selector select_ssh_direction{flow_direction_selector::none};
+    flow_direction_selector select_dcerpc_direction{flow_direction_selector::none};
     bool select_dhcp{false};
     bool select_syslog{false};
     bool select_redis_request{false};
@@ -628,6 +628,8 @@ public:
 
     flow_direction_selector ssh_direction() const { return select_ssh_direction; }
 
+    flow_direction_selector dcerpc_direction() const { return select_dcerpc_direction; }
+
     bool dhcp() const { return select_dhcp; }
 
     bool syslog() const { return select_syslog; }
@@ -682,6 +684,7 @@ public:
         select_smtp = false;
         select_tofsee = false;
         select_ssh_direction = flow_direction_selector::none;
+        select_dcerpc_direction = flow_direction_selector::none;
         select_dhcp = false;
         select_syslog = false;
         select_redis_request = false;
@@ -743,13 +746,21 @@ public:
         if (protocols["telnet"] || protocols["all"]) {
             select_telnet = true;
         }
-        if (protocols["dcerpc"] || protocols["dcerpc.client"] || protocols["all"]) {
-            tcp.add_protocol(dcerpc::low_ptype_matcher, tcp_msg_type_dcerpc_client);
-            tcp.add_protocol(dcerpc::high_ptype_matcher, tcp_msg_type_dcerpc_client);
+        if (protocols["dcerpc"] || protocols["all"]) {
+            select_dcerpc_direction = flow_direction_selector::any;
+        } else {
+            uint8_t dcerpc_dir_bits = 0;
+            if (protocols["dcerpc.client"]) {
+                dcerpc_dir_bits |= static_cast<uint8_t>(flow_direction_selector::client);
+            }
+            if (protocols["dcerpc.server"]) {
+                dcerpc_dir_bits |= static_cast<uint8_t>(flow_direction_selector::server);
+            }
+            select_dcerpc_direction = static_cast<flow_direction_selector>(dcerpc_dir_bits);
         }
-        if (protocols["dcerpc"] || protocols["dcerpc.server"] || protocols["all"]) {
-            tcp.add_protocol(dcerpc::low_ptype_matcher, tcp_msg_type_dcerpc_server);
-            tcp.add_protocol(dcerpc::high_ptype_matcher, tcp_msg_type_dcerpc_server);
+        if (select_dcerpc_direction != flow_direction_selector::none) {
+            tcp.add_protocol(dcerpc::low_ptype_matcher, tcp_msg_type_dcerpc);
+            tcp.add_protocol(dcerpc::high_ptype_matcher, tcp_msg_type_dcerpc);
         }
         if (protocols["rfb"] || protocols["all"]) {
             select_rfb = true;
@@ -1034,7 +1045,8 @@ public:
                 }
             }
         }
-        return true;
+        traffic_selector dcerpc_only{ { {"dcerpc", true} } };
+        return dcerpc_only.tcp.size() == 2;
     }
 
     tcp_msg_type get_tcp_msg_type_preference_from_port(const tcp_msg_types& protos,
