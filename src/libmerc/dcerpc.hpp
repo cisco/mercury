@@ -134,23 +134,102 @@ namespace dcerpc
     ///
     class syntax_id
     {
-        datum uuid;
+        encoded<uint32_t> time_low;
+        encoded<uint16_t> time_mid;
+        encoded<uint16_t> time_hi_and_version;
+        datum clock_seq_and_node;
         encoded<uint32_t> version;
         bool valid;
 
+        static datum parse_clock_seq_and_node(datum &d)
+        {
+            return d.is_null() ? datum{} : datum{d, 8};
+        }
+
+        const char *known_name() const
+        {
+            struct named_uuid
+            {
+                uint32_t time_low;
+                uint16_t time_mid;
+                uint16_t time_hi_and_version;
+                std::array<uint8_t, 8> clock_seq_and_node;
+                const char *name;
+            };
+            static constexpr named_uuid known_uuids[] = {
+                {0xe1af8308, 0x5d1f, 0x11c9, {0x91, 0xa4, 0x08, 0x00, 0x2b, 0x14, 0xa0, 0xfa}, "epm"},
+                {0x12345778, 0x1234, 0xabcd, {0xef, 0x00, 0x01, 0x23, 0x45, 0x67, 0x89, 0xac}, "samr"},
+                {0x12345778, 0x1234, 0xabcd, {0xef, 0x00, 0x01, 0x23, 0x45, 0x67, 0x89, 0xab}, "lsarpc"},
+                {0x12345678, 0x1234, 0xabcd, {0xef, 0x00, 0x01, 0x23, 0x45, 0x67, 0xcf, 0xfb}, "netlogon"},
+                {0xe3514235, 0x4b06, 0x11d1, {0xab, 0x04, 0x00, 0xc0, 0x4f, 0xc2, 0xdc, 0xd2}, "drsuapi"},
+                {0x4b324fc8, 0x1670, 0x01d3, {0x12, 0x78, 0x5a, 0x47, 0xbf, 0x6e, 0xe1, 0x88}, "srvsvc"},
+                {0x6bffd098, 0xa112, 0x3610, {0x98, 0x33, 0x46, 0xc3, 0xf8, 0x7e, 0x34, 0x5a}, "wkssvc"},
+                {0x367abb81, 0x9844, 0x35f1, {0xad, 0x32, 0x98, 0xf0, 0x38, 0x00, 0x10, 0x03}, "svcctl"},
+                {0x338cd001, 0x2244, 0x31f1, {0xaa, 0xaa, 0x90, 0x00, 0x38, 0x00, 0x10, 0x03}, "winreg"},
+                {0x12345678, 0x1234, 0xabcd, {0xef, 0x00, 0x01, 0x23, 0x45, 0x67, 0x89, 0xab}, "rprn"},
+                {0x000001a0, 0x0000, 0x0000, {0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}, "dcomscm"},
+                {0xa8e0653c, 0x2744, 0x4389, {0xa6, 0x1d, 0x73, 0x73, 0xdf, 0x8b, 0x22, 0x92}, "fsrvp"},
+                {0x3dde7c30, 0x165d, 0x11d1, {0xab, 0x8f, 0x00, 0x80, 0x5f, 0x14, 0xdb, 0x40}, "bkrp"},
+                {0x82273fdc, 0xe32a, 0x18c3, {0x3f, 0x78, 0x82, 0x79, 0x29, 0xdc, 0x23, 0xea}, "eventlog"},
+                {0x1ff70682, 0x0a51, 0x30e8, {0x07, 0x6d, 0x74, 0x0b, 0xe8, 0xce, 0xe9, 0x8b}, "atsvc"},
+                {0x51c82175, 0x844e, 0x4750, {0xb0, 0xd8, 0xec, 0x25, 0x55, 0x55, 0xbc, 0x06}, "kms"},
+            };
+
+            for (const auto &known_uuid : known_uuids)
+            {
+                if (time_low == known_uuid.time_low && time_mid == known_uuid.time_mid &&
+                    time_hi_and_version == known_uuid.time_hi_and_version &&
+                    clock_seq_and_node == datum{known_uuid.clock_seq_and_node})
+                {
+                    return known_uuid.name;
+                }
+            }
+            return nullptr;
+        }
+
     public:
 
-        syntax_id(datum &d, bool little_endian) : uuid{d, 16},
+        syntax_id(datum &d, bool little_endian) : time_low{d, little_endian},
+                                                  time_mid{d, little_endian},
+                                                  time_hi_and_version{d, little_endian},
+                                                  clock_seq_and_node{parse_clock_seq_and_node(d)},
                                                   version{d, little_endian},
                                                   valid{!d.is_null()}
         {
+        }
+
+        void write(buffer_stream &b) const
+        {
+            if (!valid)
+            {
+                return;
+            }
+            b.write_hex_uint(time_low);
+            b.write_char('-');
+            b.write_hex_uint(time_mid);
+            b.write_char('-');
+            b.write_hex_uint(time_hi_and_version);
+            b.write_char('-');
+            size_t i = 0;
+            for (uint8_t byte : clock_seq_and_node)
+            {
+                if (i++ == 2)
+                {
+                    b.write_char('-');
+                }
+                b.write_hex_uint(byte);
+            }
         }
 
         bool is_not_empty() const { return valid; }
 
         void write_json(json_object &o) const
         {
-            o.print_key_hex("uuid", uuid);
+            o.print_key_value("uuid", *this);
+            if (const char *name = known_name())
+            {
+                o.print_key_string("name", name);
+            }
             o.print_key_uint("version", version);
         }
 
@@ -600,9 +679,9 @@ namespace dcerpc
             0xb8, 0x10, 0xb8, 0x10, 0x00, 0x00, 0x00, 0x00,
             0x01, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x01, 0x00,
-            0xe1, 0xaf, 0x83, 0x08, 0x5d, 0x1c, 0xc9, 0x11,
-            0x9f, 0xe8, 0x08, 0x00, 0x2b, 0x10, 0x48, 0x60,
-            0x02, 0x00, 0x00, 0x00,
+            0x08, 0x83, 0xaf, 0xe1, 0x1f, 0x5d, 0xc9, 0x11,
+            0x91, 0xa4, 0x08, 0x00, 0x2b, 0x14, 0xa0, 0xfa,
+            0x03, 0x00, 0x00, 0x00,
             0x04, 0x5d, 0x88, 0x8a, 0xeb, 0x1c, 0xc9, 0x11,
             0x9f, 0xe8, 0x08, 0x00, 0x2b, 0x10, 0x48, 0x60,
             0x02, 0x00, 0x00, 0x00};
@@ -701,7 +780,37 @@ namespace dcerpc
         message bind_ack_with_incomplete_results{bind_ack_with_incomplete_results_data};
         context_response_pdu[8] = 0x54;
         char json_buffer[2048];
+        buffer_stream incomplete_syntax_buffer{json_buffer, sizeof(json_buffer)};
+        incomplete_syntax.write(incomplete_syntax_buffer);
+        bool incomplete_syntax_write_empty = incomplete_syntax_buffer.length() == 0;
         bool request_json_valid = false;
+        bool bind_json_valid = false;
+        {
+            buffer_stream buf{json_buffer, sizeof(json_buffer)};
+            json_object json{&buf};
+            bind.write_json(json, false);
+            json.close();
+            buf.write_char(0);
+            bind_json_valid = strstr(json_buffer, "\"uuid\":\"e1af8308-5d1f-11c9-91a4-08002b14a0fa\"") &&
+                strstr(json_buffer, "\"name\":\"epm\"") &&
+                strstr(json_buffer, "\"uuid\":\"8a885d04-1ceb-11c9-9fe8-08002b104860\"");
+        }
+        uint8_t fsrvp_syntax_bytes[] = {
+            0x3c, 0x65, 0xe0, 0xa8, 0x44, 0x27, 0x89, 0x43,
+            0xa6, 0x1d, 0x73, 0x73, 0xdf, 0x8b, 0x22, 0x92,
+            0x01, 0x00, 0x00, 0x00};
+        datum fsrvp_syntax_data{fsrvp_syntax_bytes};
+        syntax_id fsrvp_syntax{fsrvp_syntax_data, true};
+        bool fsrvp_syntax_json_valid = false;
+        {
+            buffer_stream buf{json_buffer, sizeof(json_buffer)};
+            json_object json{&buf};
+            fsrvp_syntax.write_json(json);
+            json.close();
+            buf.write_char(0);
+            fsrvp_syntax_json_valid = strstr(json_buffer, "\"uuid\":\"a8e0653c-2744-4389-a61d-7373df8b2292\"") &&
+                strstr(json_buffer, "\"name\":\"fsrvp\"");
+        }
         {
             buffer_stream buf{json_buffer, sizeof(json_buffer)};
             json_object json{&buf};
@@ -790,7 +899,7 @@ namespace dcerpc
         uint8_t dnp3_pdu[] = {0x05, 0x64, 0x05, 0xc4, 0x01, 0x00, 0x00, 0x04};
         uint8_t socks5_pdu[] = {0x05, 0x01, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01};
 
-        return bind.is_not_empty() && request.is_not_empty() && request_json_valid && auth3.is_not_empty() && auth3_json_valid &&
+        return bind.is_not_empty() && bind_json_valid && fsrvp_syntax_json_valid && incomplete_syntax_write_empty && request.is_not_empty() && request_json_valid && auth3.is_not_empty() && auth3_json_valid &&
             bind_with_incomplete_context.is_not_empty() && bind_with_incomplete_context_data.is_not_empty() &&
             response_with_short_body.is_not_empty() && response_with_short_body_data.is_not_empty() &&
             fault_with_short_body.is_not_empty() && fault_with_short_body_data.is_empty() &&
