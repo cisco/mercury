@@ -746,7 +746,7 @@ namespace dcerpc
             partial_request.write_json(json, false);
             json.close();
             buf.write_char(0);
-            incomplete_json_empty = !strstr(json_buffer, "dcerpc_");
+            incomplete_json_empty = strcmp(json_buffer, "{}") == 0;
         }
         bool auth3_json_valid = false;
         {
