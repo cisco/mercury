@@ -557,7 +557,7 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test dcerpc")
     initialize(config);
 
     set_pcap("dcerpc-fault-stub-data-02.pcap");
-    CHECK(11 == counter());
+    CHECK(10 == counter());
 
     set_pcap("top_100_fingerprints.pcap");
     CHECK(0 == counter());
@@ -571,7 +571,7 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test dcerpc client selector")
     initialize(config);
 
     set_pcap("dcerpc-fault-stub-data-02.pcap");
-    CHECK(6 == counter());
+    CHECK(5 == counter());
 
     deinitialize();
 }

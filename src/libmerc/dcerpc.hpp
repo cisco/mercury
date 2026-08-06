@@ -460,7 +460,6 @@ namespace dcerpc
         datum body;
         datum authentication_trailer;
         bool valid;
-        bool truncated;
 
         pdu_type type() const
         {
@@ -510,8 +509,7 @@ namespace dcerpc
                             call_id{d, little_endian},
                             body{},
                             authentication_trailer{},
-                            valid{false},
-                            truncated{false}
+                            valid{false}
         {
             if (d.is_null() || !common_header_is_valid())
             {
@@ -520,12 +518,9 @@ namespace dcerpc
             }
 
             const size_t body_length = static_cast<size_t>(fragment_length) - 16;
-            // Retain valid headers for incomplete TCP fragments; parse bodies only when complete.
-            body.parse_soft_fail(d, body_length);
-            if (static_cast<size_t>(body.length()) < body_length)
+            body.parse(d, body_length);
+            if (d.is_null())
             {
-                valid = true;
-                truncated = true;
                 return;
             }
             if (authentication_length)
@@ -547,8 +542,6 @@ namespace dcerpc
 
         bool is_not_empty() const { return valid; }
 
-        bool is_truncated() const { return truncated; }
-
         bool is_client() const { return is_client_pdu_type(type()); }
 
         bool is_server() const { return !is_client(); }
@@ -563,12 +556,6 @@ namespace dcerpc
             json_object o{record, is_client() ? "dcerpc_client" : "dcerpc_server"};
             o.print_key_string("type", pdu_type_name(pdu));
             o.print_key_uint("call_id", call_id);
-            if (truncated)
-            {
-                o.print_key_bool("truncated", true);
-                o.close();
-                return;
-            }
             if (pdu == pdu_type::bind || pdu == pdu_type::alter_context)
             {
                 datum d{body};
@@ -750,15 +737,14 @@ namespace dcerpc
             buf.write_char(0);
             bind_nak_json_valid = strstr(json_buffer, "\"type\":\"bind_nak\"");
         }
-        bool truncated_json_valid = false;
+        bool incomplete_json_empty = false;
         {
             buffer_stream buf{json_buffer, sizeof(json_buffer)};
             json_object json{&buf};
             partial_request.write_json(json, false);
             json.close();
             buf.write_char(0);
-            truncated_json_valid = strstr(json_buffer, "truncated") &&
-                !strstr(json_buffer, "context_id") && !strstr(json_buffer, "opnum");
+            incomplete_json_empty = !strstr(json_buffer, "dcerpc_");
         }
         bool auth3_json_valid = false;
         {
@@ -830,12 +816,12 @@ namespace dcerpc
             auth3_without_auth.is_not_empty() && auth3_without_auth_data.is_empty() &&
             !auth3_bad_padding.is_not_empty() && auth3_bad_padding_data.is_null() &&
             !incomplete_syntax.is_not_empty() && incomplete_syntax_data.is_null() && !bad.is_not_empty() &&
-            truncated_json_valid &&
+            incomplete_json_empty &&
             bind_ack.is_not_empty() && bind_ack_json_valid &&
             auth_fields_valid &&
             alter_context_resp.is_not_empty() && alter_context_resp_json_valid &&
             !truncated_header.is_not_empty() && truncated_header_data.is_null() &&
-            partial_request.is_not_empty() && partial_request.is_truncated() && partial_request_data.is_empty() &&
+            !partial_request.is_not_empty() && partial_request_data.is_null() &&
             strcmp(authentication_level_name(authentication_level::default_level), "default") == 0 &&
             strcmp(authentication_level_name(authentication_level::none), "none") == 0 &&
             strcmp(authentication_level_name(authentication_level::connect), "connect") == 0 &&
