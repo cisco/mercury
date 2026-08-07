@@ -1,15 +1,13 @@
 // cbor_decoded_metadata_test.hpp
 //
 // Unit tests for the CBOR metadata decode interface.
-// This file is NOT copied to the inspector — tests only run in the mercury build.
 //
 // Two decoder shapes are exercised:
 //   - full_decoder = typed_decoder<exposed_creds_message, cnsa_feature, crypto_nist_message>
 //     is what a consumer that wants typed, fine-grained field access instantiates. Group A
 //     tests feature-decode correctness through it (matches / decode_into / typed fields).
-//   - cbor_decoded_metadata = typed_decoder<> is the SHIPPED container (library + inspector).
-//     Nothing is registered, so every feature — known or future — flows through the `unknown`
-//     vector and is harvested uniformly by key + CBOR span. Group B tests that path's edge cases.
+//   - cbor_decoded_metadata = typed_decoder<> registers no feature, so every key
+//     arrives as an unknown entry. Group B tests this path's edge cases.
 
 #ifndef CBOR_DECODED_METADATA_TEST_HPP
 #define CBOR_DECODED_METADATA_TEST_HPP
@@ -33,7 +31,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
     // Group A uses this to verify per-feature decode correctness.
     using full_decoder = typed_decoder<exposed_creds_message, cnsa_feature, crypto_nist_message>;
 
-    // Renders a decoded CBOR span to a JSON object string (the inspector's harvest step).
+    // Renders a decoded CBOR span to a JSON object string
     auto render_json = [](datum span) -> std::string {
         output_buffer<4096> buf;
         if (decode_cbor_map_to_json(span, buf, nullptr)) {
@@ -487,8 +485,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
     // ================================================================
 
     // Test 8: a known feature (cnsa) with an EMPTY registration is NOT dropped — it is captured
-    // in the unknown vector with its key and a CBOR span that renders back to JSON (the exact
-    // path the inspector's harvest_cbor_metadata relies on).
+    // in the unknown vector with its key and a CBOR span that renders back to JSON
     {
         data_buffer<1024> buf;
         cbor_object cbor_outer{buf};

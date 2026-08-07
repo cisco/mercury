@@ -12,17 +12,12 @@
 
 /*
  * Shared helpers for feature visitors that serialize metadata through a
- * templated writer (json_object / cbor_object).  Library-only: these types are
- * used by the feature visitors in pkt_proc.cc and are NOT part of the CBOR
- * decoder that is mirrored into the mercury inspector.
+ * templated writer (json_object / cbor_object).  These types belong to the
+ * encode side only; the decoder does not use them.
  */
 
 /// null_object is a "no-op" metadata writer that emits nothing.  It lets a
-/// feature visitor run its assessment logic without producing any output,
-/// while still being a concrete type (so it is deducible by CTAD and
-/// selectable by `if constexpr`).  This replaces the older convention of
-/// signalling "do not emit" with a null output pointer.
-///
+/// feature visitor run its assessment logic without producing any output.
 struct null_array { };
 struct null_object { using array_type = null_array; };
 

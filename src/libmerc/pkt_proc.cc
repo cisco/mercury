@@ -182,8 +182,8 @@ struct check_exposed_creds {
 
     void write_feature(exposed_creds_type type, datum protocol,
                        datum auth_method, datum username) {
-        // no null check: output_ is a reference. The assess-only path uses the
-        // null_object sentinel, so gate emission on the writer type instead.
+        // The assess-only path binds output_ to the null_object sentinel, so emission is
+        // gated on the writer type.
         if constexpr (is_emitting_writer_v<Object>) {
             const char* key = nullptr;
             switch (type) {
@@ -1894,14 +1894,12 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
                 cbor_object cbor_outer{cbor_w};
                 cbor_object cbor_output{cbor_outer, CBOR_METADATA_VERSION_KEY};
 
-                // Emit the packet/handshake truncation status (string form) as a top-level
-                // key. A packet-level status, not a feature, so it is written as part of the
-                // header, ahead of the mark below, and never counts toward the gate.
+                // The truncation status is a packet-level field rather than a feature, so it
+                // is written with the header and does not count toward the growth check.
                 cbor_output.print_key_string(CBOR_METADATA_TRUNCATION_KEY,
                     get_truncation_str(compute_truncation_status(reassembler_ptr, truncated_tcp || truncated_udp)));
 
-                // header is written; record the size so feature writes below can
-                // be detected as growth
+                // Record the header size; a feature write shows up as growth past it.
                 const size_t before_features = cbor_buf.bytes_written();
 
                 if (!crypto_policies.empty() && !truncated_crypto_handshake) {
@@ -1917,8 +1915,8 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
 
                 // add future feature visitors here (before the growth check)
 
-                // grew past the header => a feature was written (an overrun
-                // reports 0 bytes, so this stays false and the buffer is dropped)
+                // Growth past the header means a feature was written. An overrun reports
+                // zero bytes, leaving this false so the buffer is dropped.
                 if (cbor_buf.bytes_written() > before_features) {
                     cbor_buf.set_feature_written();
                 }

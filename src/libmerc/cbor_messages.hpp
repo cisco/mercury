@@ -1,7 +1,7 @@
 // cbor_messages.hpp
 //
 // Non-owning feature classes for the CBOR metadata interface.
-// Each class is used for both encoding (libmerc) and decoding (inspector).
+// Each class both encodes and decodes its feature
 
 #ifndef CBOR_MESSAGES_HPP
 #define CBOR_MESSAGES_HPP

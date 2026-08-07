@@ -717,8 +717,9 @@ namespace crypto_policy {
                    assess_tls_extensions(sh.extensions);
         }
 
-        // --- FILL path: non-const, populates the owned message, returns the compliance bit.
-        //     The non-constness is what selects these overloads; never add const here. ---
+        // Fill path: populates the owned message and returns the compliance bit.
+        // These overloads are selected by being non-const; adding const here would
+        // silently route callers to the compliance-only version.
 
         bool assess(const tls_client_hello &ch) override {
             cnsa_tls_msg_.set_policy("quantum_safe");
@@ -1671,11 +1672,9 @@ namespace crypto_policy {
             }
         }
 
-        // TEST-NIST-STALE: a reused nist_sp_800_52 must not emit a stale
-        // ServerHello finding on a later ClientHello it does not assess.
-        // Drives the real policy objects through the same emitting loop the
-        // orchestrator uses (reset_output -> non-const assess -> emit). Fails
-        // until reset_output() clears the owned message before each fill.
+        // A reused nist_sp_800_52 must not emit a ServerHello finding on a later
+        // ClientHello it does not assess. Drives the policy objects through the same
+        // reset_output -> assess -> emit sequence as an emitting assessment pass.
         {
             std::vector<crypto_policy::assessor *> policies;
             policies.push_back(new nist_sp_800_52{true});
@@ -1688,7 +1687,7 @@ namespace crypto_policy {
                 cbor_object v1{outer, CBOR_METADATA_VERSION_KEY};
                 const ssize_t before = buf.readable_length();
                 for (auto *p : policies) {
-                    p->reset_output();            // the fix under test
+                    p->reset_output();
                     p->assess(hello);
                 }
                 for (auto *p : policies) { p->emit(v1); }
@@ -1724,14 +1723,13 @@ namespace crypto_policy {
 
             // A (non-compliant ServerHello) must emit; B (ClientHello, not
             // assessed by NIST) must NOT emit. bytes_B > 0 is the bug.
-            if (bytes_A <= 0) { return false; }   // sanity: A really emitted
-            if (bytes_B  > 0) { return false; }   // THE BUG: stale NIST feature on B
+            if (bytes_A <= 0) { return false; }   // the ServerHello must emit
+            if (bytes_B  > 0) { return false; }   // the ClientHello must not emit
         }
 
-        // TEST-FILL-DISPATCH: the emitting loop must reach each policy's non-const
-        // assess() override. The two overloads differ only by const-ness, so a fill
-        // override accidentally written const compiles clean and silently emits
-        // nothing; this catches that.
+        // The emitting loop must reach each policy's non-const assess() override.
+        // The overloads differ only in const-ness, so one written const by mistake
+        // compiles cleanly and emits nothing.
         {
             std::vector<crypto_policy::assessor *> policies;
             policies.push_back(new quantum_safe{true});

@@ -1,7 +1,6 @@
 // cbor_decoded_metadata.hpp
 //
 // Decode container for the CBOR metadata interface.
-// Used by the inspector to decode the buffer from get_cbor_metadata().
 
 #ifndef CBOR_DECODED_METADATA_HPP
 #define CBOR_DECODED_METADATA_HPP
@@ -12,7 +11,8 @@
 #include "cbor_object.hpp"
 #include "cbor_messages.hpp"
 
-/// Forwards unknown CBOR keys to the enrichment string unchanged.
+
+/// Stores the key and CBOR span of a feature that the decoder does not recognize
 class unknown_feature {
     datum key_;
     datum cbor_span_;
@@ -76,13 +76,8 @@ struct typed_decoder {
     template<class F> const F& get() const { return std::get<F>(slots); }
 };
 
-/// cbor_decoded_metadata is the shipped decode container: a concrete, forward-declarable
-/// struct (matching the `struct cbor_decoded_metadata;` forward declaration in the inspector's
-/// mercury_config.h) deriving from an EMPTY typed_decoder<>. No feature is registered, so
-/// every feature — known or future — flows through the `unknown` vector and is harvested
-/// uniformly by key + CBOR span; the shipped path needs no typed field access. A consumer that
-/// wants typed, fine-grained access to specific features instantiates
-/// typed_decoder<Features...> with those features directly (see the unit tests).
+/// A typed_decoder that registers no feature, so every key is returned through
+/// unknown() as a key and CBOR span.
 struct cbor_decoded_metadata : typed_decoder<> {};
 
 // Decode the inner v1 map: read each key and hand it to the decoder.
@@ -96,10 +91,9 @@ inline void decode_v1(datum &d, Decoder& out) {
     }
 }
 
-/// Decode a CBOR metadata buffer into `out`. All datum-valued results (feature slots'
-/// key()/cbor_span(), the unknown vector's spans, and truncation.status()) are NON-OWNING
-/// views into `buf` — they stay valid only while `buf` does. Copy or consume them before
-/// `buf` is freed or reused (the mercury path reuses one buffer per packet).
+/// Decodes a CBOR metadata buffer into out. Every datum this yields, whether from a
+/// feature slot, an unknown entry, or the truncation status, points into buf rather
+/// than owning a copy. Consume or copy them before buf is freed or overwritten.
 template<class Decoder>
 inline void decode_cbor_metadata(const uint8_t* buf, size_t len,
                                   Decoder& out) {
@@ -136,10 +130,6 @@ inline void decode_cbor_metadata(const uint8_t* buf, size_t len,
 
 namespace {
 
-    // Fuzz target for the shipped decoder: feed arbitrary bytes to
-    // decode_cbor_metadata() and confirm it never crashes / reads out of bounds.
-    // The generator script discovers this by its name suffix and drives it with
-    // the seed corpus under test/fuzz/cbor_decoded_metadata/.
     [[maybe_unused]] int cbor_decoded_metadata_fuzz_test(const uint8_t *data, size_t size) {
         cbor_decoded_metadata decoded;
         decode_cbor_metadata(data, size, decoded);

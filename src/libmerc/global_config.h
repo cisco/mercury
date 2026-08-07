@@ -5,7 +5,7 @@
 #include "printf_err.hpp"
 #include "config_generator.h"
 #include "decimal_int.hpp"
-#include "cbor_metadata.hpp"   // for cbor_metadata_buffer::DEFAULT_CBOR_METADATA_LEN
+#include "cbor_metadata.hpp"
 #include <map>
 #include <string>
 #include <algorithm>
@@ -139,7 +139,7 @@ public:
     bool minimize_ram = false;
     bool quic_trial_decryption = false; /* trial decrypt QUIC initial packets */
     bool exposed_creds = false;      /* detect and report exposed credentials in enabled plaintext protocols */
-    bool cbor_metadata = false;         /* encode CBOR metadata for inspector */
+    bool cbor_metadata = false;        /* encode metadata in CBOR alongside the analysis */
     size_t cbor_metadata_buffer_size = cbor_metadata_buffer::DEFAULT_CBOR_METADATA_LEN;
                                        /* overridden by --cbor-metadata-buffer-size */
 
