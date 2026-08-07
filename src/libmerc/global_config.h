@@ -173,8 +173,6 @@ public:
             { "dhcp",                   false },
             { "dnp3",                   false },
             { "dcerpc",                 false },
-            { "dcerpc.client",          false },
-            { "dcerpc.server",          false },
             { "dns",                    false },
             { "dtls",                   false },
             { "gre",                    false },

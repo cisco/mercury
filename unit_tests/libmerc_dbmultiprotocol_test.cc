@@ -565,36 +565,6 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test dcerpc")
     deinitialize();
 }
 
-TEST_CASE_FIXTURE(LibmercTestFixture, "test dcerpc client selector")
-{
-    libmerc_config config{.packet_filter_cfg = (char *)"dcerpc.client"};
-    initialize(config);
-
-    set_pcap("dcerpc-fault-stub-data-02.pcap");
-    CHECK(5 == counter());
-
-    set_pcap("dcerpc-fault-stub-data-02.pcap");
-    const std::string json = get_first_json();
-    CHECK(json.find("\"dcerpc\":{\"client\":") != std::string::npos);
-
-    deinitialize();
-}
-
-TEST_CASE_FIXTURE(LibmercTestFixture, "test dcerpc server selector")
-{
-    libmerc_config config{.packet_filter_cfg = (char *)"dcerpc.server"};
-    initialize(config);
-
-    set_pcap("dcerpc-fault-stub-data-02.pcap");
-    CHECK(5 == counter());
-
-    set_pcap("dcerpc-fault-stub-data-02.pcap");
-    const std::string json = get_first_json();
-    CHECK(json.find("\"dcerpc\":{\"server\":") != std::string::npos);
-
-    deinitialize();
-}
-
 TEST_CASE_FIXTURE(LibmercTestFixture, "test iec with analysis")
 {
     libmerc_config config{.do_analysis = true,

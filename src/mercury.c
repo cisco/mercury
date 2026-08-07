@@ -113,8 +113,6 @@ char mercury_extended_help[] =
     "      dhcp              DHCP discover message\n"
     "      dnp3              DNP3 industrial control message\n"
     "      dcerpc            DCE/RPC message\n"
-    "      dcerpc.client     DCE/RPC client message\n"
-    "      dcerpc.server     DCE/RPC server message\n"
     "      dns               DNS messages\n"
     "      dtls              DTLS clientHello, serverHello, and certificates\n"
     "      ftp               FTP request and response\n"

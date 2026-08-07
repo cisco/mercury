@@ -221,8 +221,6 @@ DETAILS
       dhcp              DHCP discover message
       dnp3              DNP3 industrial control message
       dcerpc            DCE/RPC message
-      dcerpc.client     DCE/RPC client message
-      dcerpc.server     DCE/RPC server message
       dns               DNS messages
       dtls              DTLS clientHello, serverHello, and certificates
       ftp               FTP request and response

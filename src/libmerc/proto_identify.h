@@ -550,7 +550,6 @@ class traffic_selector {
     bool select_smtp{false};
     bool select_tofsee{false};
     flow_direction_selector select_ssh_direction{flow_direction_selector::none};
-    flow_direction_selector select_dcerpc_direction{flow_direction_selector::none};
     bool select_dhcp{false};
     bool select_syslog{false};
     bool select_redis_request{false};
@@ -628,8 +627,6 @@ public:
 
     flow_direction_selector ssh_direction() const { return select_ssh_direction; }
 
-    flow_direction_selector dcerpc_direction() const { return select_dcerpc_direction; }
-
     bool dhcp() const { return select_dhcp; }
 
     bool syslog() const { return select_syslog; }
@@ -684,7 +681,6 @@ public:
         select_smtp = false;
         select_tofsee = false;
         select_ssh_direction = flow_direction_selector::none;
-        select_dcerpc_direction = flow_direction_selector::none;
         select_dhcp = false;
         select_syslog = false;
         select_redis_request = false;
@@ -747,18 +743,6 @@ public:
             select_telnet = true;
         }
         if (protocols["dcerpc"] || protocols["all"]) {
-            select_dcerpc_direction = flow_direction_selector::any;
-        } else {
-            uint8_t dcerpc_dir_bits = 0;
-            if (protocols["dcerpc.client"]) {
-                dcerpc_dir_bits |= static_cast<uint8_t>(flow_direction_selector::client);
-            }
-            if (protocols["dcerpc.server"]) {
-                dcerpc_dir_bits |= static_cast<uint8_t>(flow_direction_selector::server);
-            }
-            select_dcerpc_direction = static_cast<flow_direction_selector>(dcerpc_dir_bits);
-        }
-        if (select_dcerpc_direction != flow_direction_selector::none) {
             tcp.add_protocol(dcerpc::low_ptype_matcher, tcp_msg_type_dcerpc);
             tcp.add_protocol(dcerpc::high_ptype_matcher, tcp_msg_type_dcerpc);
         }
