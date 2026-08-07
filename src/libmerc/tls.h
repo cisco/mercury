@@ -440,9 +440,9 @@ struct tls_client_hello : public base_protocol {
 
     tls_client_hello() { }
 
-    tls_client_hello(datum &p) { parse(p); }
+    tls_client_hello(datum &p, bool is_dtls = false) { parse(p, is_dtls); }
 
-    void parse(datum &p);
+    void parse(datum &p, bool is_dtls = false);
 
     bool is_not_empty() const { return compression_methods.is_not_empty(); };
 
@@ -1842,8 +1842,16 @@ inline void tls_extensions::print_ech_client_hello(struct json_object &o) const 
 
 #define L_DTLSCookieLength             1
 
-inline void tls_client_hello::parse(struct datum &p) {
+inline void tls_client_hello::parse(struct datum &p, bool is_dtls) {
     uint64_t tmp_len;
+
+    // whether this hello is carried over DTLS is committed by the caller
+    // (the record/transport layer), not derived from the untrusted
+    // legacy_version in the clientHello body: for a nested carrier such as
+    // quic, a crafted legacy_version[0] == 0xfe must not be able to switch on
+    // DTLS cookie parsing (which would corrupt the fingerprint) and use wrong
+    // keys in json output.
+    dtls = is_dtls;
 
     mercury_debug("%s: processing packet\n", __func__);
 
@@ -1851,11 +1859,6 @@ inline void tls_client_hello::parse(struct datum &p) {
     protocol_version.parse(p, L_ProtocolVersion);
     if (protocol_version.is_not_readable()) {
         return;
-    }
-
-    // determine if this is DTLS or plain old TLS
-    if (protocol_version.data[0] == 0xfe) {
-        dtls = true;
     }
 
     // parse clientHello.Random
