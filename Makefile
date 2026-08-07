@@ -202,6 +202,7 @@ help:
 	@echo '  Test:'
 	@echo '    unittest             Build and run fast built-in unit tests'
 	@echo '    test                 Main test suite (needs Python)'
+	@echo '    test-safe-parsing    Safe-parsing tests under ASan+UBSan (temporary)'
 	@echo '    test-fuzz            Fuzz tests (needs clang++, Linux)'
 	@echo '    test-batch-gcd       Batch GCD tests (needs libgmp)'
 	@echo '    test-coverage        Build Coverage variant + generate lcov HTML report'

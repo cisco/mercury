@@ -271,6 +271,26 @@ endif
 # They require special environments (e.g., root, clang, AFL, GMP) or
 # are intended for manual / CI-only invocation.
 
+# --- Safe parsing tests -----------------------------------------------
+#
+# Runs unit_test under ASan+UBSan with MERCURY_PACKET_SAFETY_FATAL_TESTS,
+# which enables the seeds that still crash.  Temporary: once the defects it
+# exercises are fixed, drop this target and the compile-time flag, and have
+# CI run 'unittest' under ASan+UBSan instead.
+
+.PHONY: test-safe-parsing
+test-safe-parsing:
+	@echo "--- safe parsing tests ---"
+	@printf '$(COLOR_YELLOW)  note: forcing Debug+ASan+UBSan; expected to fail until defects are fixed$(COLOR_OFF)\n'
+	$(MAKE) BUILD_TYPE=Debug SANITIZE=address,undefined \
+	  OPTFLAGS='$(OPTFLAGS) -DMERCURY_PACKET_SAFETY_FATAL_TESTS' _run-safe-parsing
+
+# To make UBSan reports fatal, prefix with UBSAN_OPTIONS=halt_on_error=1
+.PHONY: _run-safe-parsing
+_run-safe-parsing: $(BIN)/unit_test
+	$(abspath $(BIN)/unit_test)
+	@printf '$(COLOR_GREEN)  passed safe parsing tests$(COLOR_OFF)\n'
+
 # --- Batch GCD test (declarative) -------------------------------------
 #
 # Same declarative pattern as test-comp above (see "How it works" there).
