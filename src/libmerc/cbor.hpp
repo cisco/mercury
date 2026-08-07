@@ -1373,11 +1373,17 @@ namespace cbor {
             cbor::byte_string bs = cbor::byte_string::decode(d);
             datum expected{tc.second.data(), tc.second.data() + tc.second.size()};
             bool decoding_passed = (bs.value().cmp(expected) == 0);
+            d = {tc.first.data(), tc.first.data() + tc.first.size()};
+            lookahead<cbor::byte_string, cbor::byte_string::decode> bs_peek{d};
+            bool lookahead_passed = bs_peek &&
+                                    bs_peek.value.value().cmp(expected) == 0 &&
+                                    d.length() == (ssize_t)tc.first.size() &&
+                                    bs_peek.advance().is_empty();
             data_buffer<64> dbuf;
             bs.write(dbuf);
             d = {tc.first.data(), tc.first.data() + tc.first.size()};
             bool encoding_passed = (dbuf.contents().cmp(d) == 0);
-            bool passed = decoding_passed and encoding_passed;
+            bool passed = decoding_passed and lookahead_passed and encoding_passed;
             no_tests_failed &= passed;
 
             if (f) {
@@ -1402,9 +1408,12 @@ namespace cbor {
         };
         if (f) { fprintf(f, "cbor::byte_string negative test cases:\n"); }
         for (const auto & tc : negative_test_cases) {
+            datum lookahead_input{tc.data(), tc.data() + tc.size()};
+            lookahead<cbor::byte_string, cbor::byte_string::decode> bs_peek{lookahead_input};
+            bool lookahead_rejected = !bs_peek && lookahead_input.length() == (ssize_t)tc.size();
             datum d{tc.data(), tc.data() + tc.size()};
             byte_string::decode(d);
-            bool passed = d.is_null();
+            bool passed = d.is_null() and lookahead_rejected;
             no_tests_failed &= passed;
             if (f) {
                 fprintf(f, "encoded: ");
@@ -1441,11 +1450,17 @@ namespace cbor {
             cbor::text_string bs = cbor::text_string::decode(d);
             datum expected{tc.second.data(), tc.second.data() + tc.second.size()};
             bool decoding_passed = (bs.value().cmp(expected) == 0);
+            d = {tc.first.data(), tc.first.data() + tc.first.size()};
+            lookahead<cbor::text_string, cbor::text_string::decode> bs_peek{d};
+            bool lookahead_passed = bs_peek &&
+                                    bs_peek.value.value().cmp(expected) == 0 &&
+                                    d.length() == (ssize_t)tc.first.size() &&
+                                    bs_peek.advance().is_empty();
             data_buffer<64> dbuf;
             bs.write(dbuf);
             d = {tc.first.data(), tc.first.data() + tc.first.size()};
             bool encoding_passed = (dbuf.contents().cmp(d) == 0);
-            bool passed = decoding_passed and encoding_passed;
+            bool passed = decoding_passed and lookahead_passed and encoding_passed;
             no_tests_failed &= passed;
 
             if (f) {
@@ -1470,9 +1485,12 @@ namespace cbor {
         };
         if (f) { fprintf(f, "cbor::text_string negative test cases:\n"); }
         for (const auto & tc : negative_test_cases) {
+            datum lookahead_input{tc.data(), tc.data() + tc.size()};
+            lookahead<cbor::text_string, cbor::text_string::decode> bs_peek{lookahead_input};
+            bool lookahead_rejected = !bs_peek && lookahead_input.length() == (ssize_t)tc.size();
             datum d{tc.data(), tc.data() + tc.size()};
             text_string::decode(d);
-            bool passed = d.is_null();
+            bool passed = d.is_null() and lookahead_rejected;
             no_tests_failed &= passed;
             if (f) {
                 fprintf(f, "encoded: ");

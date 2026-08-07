@@ -277,4 +277,4 @@ endef
 # --- Auto-dependency inclusion ----------------------------------------
 # Covers .d files under build/ (per-variant compilation outputs) and
 # under src/ (in-source table generator builds; see mk/tables.mk).
--include $(shell find $(OBJ) src -name '*.d' 2>/dev/null)
+-include $(shell find $(OBJ) src -type f -name '*.d' 2>/dev/null)

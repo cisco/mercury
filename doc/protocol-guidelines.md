@@ -52,10 +52,14 @@ Mercury protocol implementations must follow these guidelines.
    - the template class skip_bytes<N>, to ignore the next N bytes,
 
    - the template class lookahead<T>, to check whether the input
-     can be parsed as an object of type T,
+     can be parsed as an object of type T; for classes that use a
+     named constructor, use `lookahead<T, Parser>`, where `Parser`
+     has type `T (*)(datum &)`,
 
    - the template class sequence<T>, to parse a sequence of objects of
-     type T from the input,
+     type T from the input; `sequence<T, Parser>` supports the same
+     named-constructor parser function pointer pattern as
+     `lookahead<T, Parser>`,
 
    - the classes one_or_more, ignore_char_class, exactly_n,
      up_to_required_byte, alpha_numeric, digits, or hex_digits, for
@@ -114,7 +118,9 @@ Mercury uses a selective, lazy, non-owning data parsing strategy:
    * If necessary, the member initializer can invoke a static member
      function that accepts a `datum &` and returns an object of the
      appropriate class, in which case the function should enable
-     Return Value Optimization (RVO) to avoid an unneeded copy.
+     Return Value Optimization (RVO) to avoid an unneeded copy.  Parser
+     helper classes that accept a parser function pointer, such as
+     `lookahead<T, Parser>`, can use these named constructors directly.
 
 These conventions facilitate composability by ensuring that conforming
 classes can be used as data members of other conforming classes.

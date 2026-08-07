@@ -177,8 +177,11 @@ inline uint8_t lowercase(uint8_t x) {
 ///
 /// To read an unsigned type `T` from a datum, use \ref encoded<T>.
 ///
-/// To lookahead an unsigned type `T` from a datum, use \ref
-/// lookahead<T>.
+/// To check whether a type `T` can be parsed from a datum without
+/// advancing it, use \ref lookahead<T>.  For parser types that use a
+/// named constructor instead of a public `datum &` constructor, use
+/// `lookahead<T, Parser>`, where `Parser` is a function pointer that
+/// accepts `datum &` and returns `T`.
 ///
 /// A datum is *non-owning* in the sense that it holds pointers to the
 /// start and end of a region in memory, but does not own the memory
@@ -2890,21 +2893,93 @@ struct is_datum_initializable : std::false_type {};
 template <typename T>
 struct is_datum_initializable<T, std::void_t<decltype(T{std::declval<datum &>()})>> : std::true_type {};
 
-/// `class lookahead<T>` attempts to read an element of type `T` from
-/// a datum, without modifying that datum.  If the read succeeded,
-/// then casting the lookahead object to a `bool` returns `true`;
-/// otherwise, it returns `false`.  On success, the value of the
-/// element can be accessed through the public `value` member.  To
-/// advance the datum forward (e.g. to accept the lookahead object),
-/// set its value to that returned by the `advance()` function.
+/// \brief Default parser function for types that support `T{datum &}`.
+///
+/// \tparam T The object type to parse.
+/// \param[in,out] d The datum from which `T` is parsed.
+/// \return An object of type `T`.
+///
+template <typename T>
+T parse_from_datum(datum &d) {
+    static_assert(is_datum_initializable<T>::value,
+                  "parse_from_datum<T>() requires T to be initializable from datum&");
+    return T{d};
+}
+
+/// \brief Type trait that indicates whether `Parser` parses a `T` from `datum &`.
+///
+/// Parser types accepted by the parser helper classes must be function
+/// pointers with type `T (*)(datum &)`.
+///
+template <typename T, typename Parser, typename = void>
+struct is_datum_parser : std::false_type {};
+
+/// \brief Specialization for parser function pointers with type `T (*)(datum &)`.
+///
+template <typename T, typename Parser>
+struct is_datum_parser<T, Parser, std::enable_if_t<std::is_same<Parser, T (*)(datum &)>::value>> :
+    std::true_type {};
+
+#ifndef NDEBUG
+// LCOV_EXCL_START
+namespace datum_parser_trait_unit_test {
+
+    class named_constructor_octet {
+        uint8_t octet;
+
+        explicit named_constructor_octet(uint8_t value) : octet{value} { }
+
+    public:
+
+        static named_constructor_octet decode(datum &d) {
+            encoded<uint8_t> value{d};
+            return named_constructor_octet{value.value()};
+        }
+
+        uint8_t value() const { return octet; }
+    };
+
+    static_assert(!is_datum_initializable<named_constructor_octet>::value,
+                  "test helper should require its named constructor");
+    static_assert(is_datum_parser<encoded<uint8_t>,
+                                  decltype(&parse_from_datum<encoded<uint8_t>>)>::value,
+                  "default parser function should satisfy datum parser trait");
+    static_assert(is_datum_parser<named_constructor_octet,
+                                  decltype(&named_constructor_octet::decode)>::value,
+                  "named constructor should satisfy datum parser trait");
+    static_assert(!is_datum_parser<encoded<uint8_t>,
+                                   decltype(&named_constructor_octet::decode)>::value,
+                  "datum parser trait should reject parsers with the wrong return type");
+
+}
+// LCOV_EXCL_STOP
+#endif
+
+/// `class lookahead<T, Parser>` attempts to parse an element of type
+/// `T` from a datum, without modifying that datum.  By default,
+/// `Parser` is \ref parse_from_datum<T>, which supports the usual
+/// `T{datum &}` parser constructor convention.  For a type that uses
+/// the named-constructor idiom, supply a public function pointer such
+/// as `lookahead<T, T::decode>`, where `T::decode(datum &)` parses
+/// and returns `T`.
+///
+/// If the read succeeded, then casting the lookahead object to a
+/// `bool` returns `true`; otherwise, it returns `false`.  On success,
+/// the value of the element can be accessed through the public
+/// `value` member.  To advance the datum forward (e.g. to accept the
+/// lookahead object), set its value to that returned by the
+/// `advance()` function.
 ///
 /// NOTE: `advance()` will return a null datum if the read did not
 /// succeed.
 ///
-template <typename T>
+template <typename T, auto Parser = parse_from_datum<T>>
 class lookahead {
-    static_assert(is_datum_initializable<T>::value,
-                  "T must be initializable from datum&");
+    static_assert(is_datum_parser<T, decltype(Parser)>::value,
+                  "Parser must be a function pointer with type T (*)(datum &)");
+
+    template <typename, auto>
+    friend class lookahead;
 
 public:
     T value;
@@ -2912,22 +2987,22 @@ private:
     datum tmp;
 public:
 
-    /// construct a lookahead<T> object by parsing the datum d.
+    /// construct a `lookahead<T>` or `lookahead<T, Parser>` object by parsing the datum \p d.
     ///
-    lookahead(datum d) : value{d}, tmp{d} { }
+    lookahead(datum d) : value{Parser(d)}, tmp{d} { }
 
-    /// construct a lookahead<T> object by parsing the datum held by
-    /// another lookahead<> object.
+    /// construct a `lookahead<T>` or `lookahead<T,Parser>` object by parsing the datum held by
+    /// another `lookahead<>` object.
     ///
-    template <typename T2>
-    lookahead(lookahead<T2> &l) : value{l.tmp}, tmp{l.tmp} { }
+    template <typename T2, auto Parser2>
+    lookahead(lookahead<T2, Parser2> &l) : value{Parser(l.tmp)}, tmp{l.tmp} { }
 
     /// construct a lookahead<T> object by parsing the datum d while
     /// passing the parameter p of type P to the constructor of the T
     /// object.
     ///
     template <typename P>
-    lookahead(datum d, P p) : value{d}, tmp{d, p} { }
+    lookahead(datum d, P p) : value{d, p}, tmp{d} { }
 
     explicit operator bool() const { return tmp.is_not_null(); }
 
@@ -2946,17 +3021,18 @@ public:
 
 };
 
-/// class `acceptor<T>` attempts to read an element of type `T` from a
-/// datum reference.  If the read succeeded, the datum is advanced
+/// class `acceptor<T, Parser>` attempts to parse an element of type
+/// `T` from a datum reference.  By default, `Parser` is \ref
+/// parse_from_datum<T>.  If the read succeeded, the datum is advanced
 /// forward, and casting the `acceptor<T>` object to a `bool` returns
 /// `true`; otherwise, that cast returns `false`.  On success, the
 /// value of the element can be accessed through the public \ref value
 /// member.
 ///
-template <typename T>
+template <typename T, auto Parser = parse_from_datum<T>>
 class acceptor {
-    static_assert(is_datum_initializable<T>::value,
-                  "T must be initializable from datum&");
+    static_assert(is_datum_parser<T, decltype(Parser)>::value,
+                  "Parser must be a function pointer with type T (*)(datum &)");
 
 public:
     T value;       ///< the accepted value, if `valid == true`
@@ -2967,7 +3043,7 @@ public:
     /// construct an `acceptor<T>` object by parsing an object of type
     /// `T` from the `datum d`.
     ///
-    acceptor(datum &d) : value{d}, valid{d.is_not_null()} { }
+    acceptor(datum &d) : value{Parser(d)}, valid{d.is_not_null()} { }
 
     /// cast an `acceptor<T>` object to bool to determine if an object
     /// of type `T` was successfully parsed (accepted), in which case
@@ -2976,18 +3052,19 @@ public:
     operator bool() const { return valid; }
 };
 
-/// class optional<T> attempts to read an element of type T from a
-/// datum reference.  If the read succeeds, the datum is advanced
+/// class optional<T, Parser> attempts to parse an element of type T
+/// from a datum reference.  By default, `Parser` is \ref
+/// parse_from_datum<T>.  If the read succeeds, the datum is advanced
 /// forward, and casting the optional<T> object to a bool returns true;
 /// otherwise, that cast returns false.  On success, the value of the
 /// element can be accessed through the public value member.  If the
 /// read fails, the datum is left unchanged (it is neither advanced nor
 /// set to null).
 ///
-template <typename T>
+template <typename T, auto Parser = parse_from_datum<T>>
 class optional {
-    static_assert(is_datum_initializable<T>::value,
-                  "T must be initializable from datum&");
+    static_assert(is_datum_parser<T, decltype(Parser)>::value,
+                  "Parser must be a function pointer with type T (*)(datum &)");
 
     datum tmp;
 public:
@@ -2998,7 +3075,7 @@ public:
 
     optional(datum &d) :
         tmp{d},
-        value{tmp},
+        value{Parser(tmp)},
         valid{tmp.is_not_null()}
     {
         if (valid) {
@@ -3011,23 +3088,24 @@ public:
 };
 
 /// parses a data element of type `T`, but then ignores (does not
-/// store) its value.  It can be used to check the format of data that
-/// need not be stored, or to create an object that will write out `T`
-/// null (0x00) bytes to a \ref writeable..
+/// store) its value.  By default, parsing is performed by \ref
+/// parse_from_datum<T>.  It can be used to check the format of data
+/// that need not be stored, or to create an object that will write out
+/// `T` null (0x00) bytes to a \ref writeable..
 ///
 // TODO: the parameter T should be able to accept any class, not just
 // unsigned integer types
 //
-template <typename T>
+template <typename T, auto Parser = parse_from_datum<T>>
 class ignore {
-    static_assert(is_datum_initializable<T>::value,
-                  "T must be initializable from datum&");
+    static_assert(is_datum_parser<T, decltype(Parser)>::value,
+                  "Parser must be a function pointer with type T (*)(datum &)");
 
 public:
 
     ignore(datum &d, bool little_endian=false) {
         (void)little_endian;
-        T{d};
+        Parser(d);
     }
 
     ignore() { }
@@ -3041,9 +3119,11 @@ public:
 };
 
 /// parses a sequence of objects of type `T` from a datum, when used in
-/// a range-based for loop.
+/// a range-based for loop.  By default, objects are parsed with \ref
+/// parse_from_datum<T>.
 ///
-/// \note Objects of type `T` must be initializable from `datum &`.
+/// \note Objects of type `T` must be parseable by `Parser`, which must
+/// have type `T (*)(datum &)`.
 ///
 /// The following example shows how to read four \ref
 /// encoded<uint16_t> objects from a buffer.
@@ -3058,18 +3138,21 @@ public:
 ///     }
 /// \endcode
 ///
-template <typename T>
+template <typename T, auto Parser = parse_from_datum<T>>
 class sequence {
     datum tmp;
     T value;
 
-    static_assert(is_datum_initializable<T>::value,
-                  "T must be initializable from datum&");
+    static_assert(is_datum_parser<T, decltype(Parser)>::value,
+                  "Parser must be a function pointer with type T (*)(datum &)");
+
+    static_assert(std::is_move_assignable_v<T>,
+                  "sequence<T> reassigns its stored value on each iteration, so T must be move-assignable");
 
     struct iterator {
         sequence *seq;
 
-        void operator++() { seq->value = T{seq->tmp}; }
+        void operator++() { seq->value = Parser(seq->tmp); }
 
         T& operator* () { return seq->value; }
 
@@ -3079,13 +3162,58 @@ class sequence {
 
 public:
 
-    sequence(const datum &d) : tmp{d}, value{tmp} { }
+    sequence(const datum &d) : tmp{d}, value{Parser(tmp)} { }
 
     iterator begin() { return { this }; }
 
     iterator end() { return { nullptr }; }
 
 };
+
+#ifndef NDEBUG
+// LCOV_EXCL_START
+namespace datum_parser_helper_unit_test {
+
+    using named_constructor_octet = datum_parser_trait_unit_test::named_constructor_octet;
+
+    inline bool unit_test() {
+        uint8_t data[] = {0x01, 0x02, 0x03};
+        bool result = true;
+
+        datum accepted{data, data + sizeof(data)};
+        acceptor<named_constructor_octet, named_constructor_octet::decode> accept{accepted};
+        result &= static_cast<bool>(accept);
+        result &= accept.value.value() == 0x01;
+        result &= accepted.length() == 2;
+
+        datum optional_input{data, data + sizeof(data)};
+        optional<named_constructor_octet, named_constructor_octet::decode> maybe{optional_input};
+        result &= static_cast<bool>(maybe);
+        result &= maybe.value.value() == 0x01;
+        result &= optional_input.length() == 2;
+
+        datum ignored{data, data + sizeof(data)};
+        ignore<named_constructor_octet, named_constructor_octet::decode> ignored_octet{ignored};
+        (void)ignored_octet;
+        result &= ignored.length() == 2;
+
+        datum sequenced{data, data + sizeof(data)};
+        size_t count = 0;
+        uint8_t expected = 0x01;
+        for (const auto &octet : sequence<named_constructor_octet, named_constructor_octet::decode>{sequenced}) {
+            result &= octet.value() == expected;
+            ++expected;
+            ++count;
+        }
+        result &= count == sizeof(data);
+        result &= sequenced.length() == static_cast<ssize_t>(sizeof(data));
+
+        return result;
+    }
+
+}
+// LCOV_EXCL_STOP
+#endif
 
 namespace {
 
