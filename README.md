@@ -218,9 +218,9 @@ DETAILS
       arp               ARP message
       bittorrent        Bittorrent Handshake Message, LSD message, DHT message
       cdp               CDP message
+      dcerpc            DCE/RPC message
       dhcp              DHCP discover message
       dnp3              DNP3 industrial control message
-      dcerpc            DCE/RPC message
       dns               DNS messages
       dtls              DTLS clientHello, serverHello, and certificates
       ftp               FTP request and response

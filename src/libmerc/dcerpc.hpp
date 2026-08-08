@@ -17,8 +17,7 @@
 #include "protocol.h"
 #include "match.h"
 
-namespace dcerpc
-{
+namespace dcerpc {
 
     static constexpr uint8_t connection_oriented_version = 5;
     static constexpr uint8_t pfc_object_uuid = 0x80;
@@ -26,8 +25,7 @@ namespace dcerpc
     ///
     /// \brief Connection-oriented DCE/RPC PDU types supported by this parser.
     ///
-    enum class pdu_type : uint8_t
-    {
+    enum class pdu_type : uint8_t {
         request = 0,
         // Connectionless PDU types are intentionally unsupported.
         // ping = 1,
@@ -62,10 +60,8 @@ namespace dcerpc
     ///
     /// \brief Returns the JSON name for a supported PDU type.
     ///
-    static const char *pdu_type_name(pdu_type type)
-    {
-        switch (type)
-        {
+    static const char *pdu_type_name(pdu_type type) {
+        switch (type) {
             case pdu_type::request:
                 return "request";
             // case pdu_type::ping:
@@ -114,10 +110,8 @@ namespace dcerpc
     ///
     /// \brief Returns whether a PDU type is sent by a client.
     ///
-    static bool is_client_pdu_type(pdu_type type)
-    {
-        switch (type)
-        {
+    static bool is_client_pdu_type(pdu_type type) {
+        switch (type) {
             case pdu_type::request:
             case pdu_type::bind:
             case pdu_type::alter_context:
@@ -133,8 +127,7 @@ namespace dcerpc
     ///
     /// \brief Parses an interface or transfer-syntax identifier.
     ///
-    class syntax_id
-    {
+    class syntax_id {
         encoded<uint32_t> time_low;
         encoded<uint16_t> time_mid;
         encoded<uint16_t> time_hi_and_version;
@@ -142,15 +135,12 @@ namespace dcerpc
         encoded<uint32_t> version;
         bool valid;
 
-        static datum parse_clock_seq_and_node(datum &d)
-        {
+        static datum parse_clock_seq_and_node(datum &d) {
             return d.is_null() ? datum{} : datum{d, 8};
         }
 
-        const char *known_name() const
-        {
-            struct named_uuid
-            {
+        const char *known_name() const {
+            struct named_uuid {
                 uint32_t time_low;
                 uint16_t time_mid;
                 uint16_t time_hi_and_version;
@@ -176,12 +166,10 @@ namespace dcerpc
                 {0x51c82175, 0x844e, 0x4750, {0xb0, 0xd8, 0xec, 0x25, 0x55, 0x55, 0xbc, 0x06}, "kms"},
             };
 
-            for (const auto &known_uuid : known_uuids)
-            {
+            for (const auto &known_uuid : known_uuids) {
                 if (time_low == known_uuid.time_low && time_mid == known_uuid.time_mid &&
                     time_hi_and_version == known_uuid.time_hi_and_version &&
-                    clock_seq_and_node == datum{known_uuid.clock_seq_and_node})
-                {
+                    clock_seq_and_node == datum{known_uuid.clock_seq_and_node}) {
                     return known_uuid.name;
                 }
             }
@@ -195,14 +183,11 @@ namespace dcerpc
                                                   time_hi_and_version{d, little_endian},
                                                   clock_seq_and_node{parse_clock_seq_and_node(d)},
                                                   version{d, little_endian},
-                                                  valid{!d.is_null()}
-        {
+                                                  valid{!d.is_null()} {
         }
 
-        void write(buffer_stream &b) const
-        {
-            if (!valid)
-            {
+        void write(buffer_stream &b) const {
+            if (!valid) {
                 return;
             }
             b.write_hex_uint(time_low);
@@ -212,10 +197,8 @@ namespace dcerpc
             b.write_hex_uint(time_hi_and_version);
             b.write_char('-');
             size_t i = 0;
-            for (uint8_t byte : clock_seq_and_node)
-            {
-                if (i++ == 2)
-                {
+            for (uint8_t byte : clock_seq_and_node) {
+                if (i++ == 2) {
                     b.write_char('-');
                 }
                 b.write_hex_uint(byte);
@@ -224,19 +207,16 @@ namespace dcerpc
 
         bool is_not_empty() const { return valid; }
 
-        void write_json(json_object &o) const
-        {
+        void write_json(json_object &o) const {
             o.print_key_value("uuid", *this);
-            if (const char *name = known_name())
-            {
+            if (const char *name = known_name()) {
                 o.print_key_string("name", name);
             }
             o.print_key_uint("version_major", version.value() & 0xffff);
             o.print_key_uint("version_minor", version.value() >> 16);
         }
 
-        void write_json(json_object &o, const char *name) const
-        {
+        void write_json(json_object &o, const char *name) const {
             json_object s{o, name};
             write_json(s);
             s.close();
@@ -246,8 +226,7 @@ namespace dcerpc
     ///
     /// \brief Authentication service identifiers used by security trailers.
     ///
-    enum class authentication_type : uint8_t
-    {
+    enum class authentication_type : uint8_t {
         none = 0,
         dce_private = 1,
         dce_public = 2,
@@ -258,10 +237,8 @@ namespace dcerpc
         netlogon = 68
     };
 
-    static const char *authentication_type_name(authentication_type type)
-    {
-        switch (type)
-        {
+    static const char *authentication_type_name(authentication_type type) {
+        switch (type) {
             case authentication_type::none:
                 return "none";
             case authentication_type::dce_private:
@@ -286,18 +263,15 @@ namespace dcerpc
     ///
     /// \brief Results of presentation-context negotiation.
     ///
-    enum class context_result : uint16_t
-    {
+    enum class context_result : uint16_t {
         acceptance = 0,
         user_rejection = 1,
         provider_rejection = 2,
         negotiate_ack = 3
     };
 
-    static const char *context_result_name(context_result result)
-    {
-        switch (result)
-        {
+    static const char *context_result_name(context_result result) {
+        switch (result) {
             case context_result::acceptance:
                 return "acceptance";
             case context_result::user_rejection:
@@ -314,18 +288,15 @@ namespace dcerpc
     ///
     /// \brief Reasons for rejecting a presentation context.
     ///
-    enum class context_rejection_reason : uint16_t
-    {
+    enum class context_rejection_reason : uint16_t {
         reason_not_specified = 0,
         abstract_syntax_not_supported = 1,
         proposed_transfer_syntaxes_not_supported = 2,
         local_limit_exceeded = 3
     };
 
-    static const char *context_rejection_reason_name(context_rejection_reason reason)
-    {
-        switch (reason)
-        {
+    static const char *context_rejection_reason_name(context_rejection_reason reason) {
+        switch (reason) {
             case context_rejection_reason::reason_not_specified:
                 return "reason_not_specified";
             case context_rejection_reason::abstract_syntax_not_supported:
@@ -342,8 +313,7 @@ namespace dcerpc
     ///
     /// \brief Protection levels used by security trailers.
     ///
-    enum class authentication_level : uint8_t
-    {
+    enum class authentication_level : uint8_t {
         default_level = 0,
         none = 1,
         connect = 2,
@@ -353,10 +323,8 @@ namespace dcerpc
         packet_privacy = 6
     };
 
-    static const char *authentication_level_name(authentication_level level)
-    {
-        switch (level)
-        {
+    static const char *authentication_level_name(authentication_level level) {
+        switch (level) {
             case authentication_level::default_level:
                 return "default";
             case authentication_level::none:
@@ -376,8 +344,7 @@ namespace dcerpc
         }
     }
 
-    class request_body
-    {
+    class request_body {
         skip_bytes<4> ignored_alloc_hint;
         encoded<uint16_t> context_id;
         encoded<uint16_t> opnum;
@@ -389,14 +356,11 @@ namespace dcerpc
             ignored_alloc_hint{d},
             context_id{d, little_endian},
             opnum{d, little_endian},
-            valid{!d.is_null()}
-        {
+            valid{!d.is_null()} {
         }
 
-        void write_json(json_object &o) const
-        {
-            if (!valid)
-            {
+        void write_json(json_object &o) const {
+            if (!valid) {
                 return;
             }
             o.print_key_uint("context_id", context_id);
@@ -404,14 +368,34 @@ namespace dcerpc
         }
     };
 
-    class bind_body
-    {
+    class bind_body {
         skip_bytes<8> ignored_fragment_sizes_and_group;
         encoded<uint8_t> context_count;
         literal_byte<0, 0, 0> required_reserved;
         datum contexts;
         bool little_endian;
         bool valid;
+
+        static bool contexts_are_valid(datum d, uint8_t count, bool little_endian) {
+            for (uint8_t i = 0; i < count; ++i) {
+                skip_bytes<2> ignored_context_id{d};
+                encoded<uint8_t> transfer_syntax_count{d};
+                literal_byte<0> required_reserved{d};
+                syntax_id abstract_syntax{d, little_endian};
+                (void)ignored_context_id;
+                (void)required_reserved;
+                if (!abstract_syntax.is_not_empty()) {
+                    return false;
+                }
+                for (uint8_t j = 0; j < transfer_syntax_count; ++j) {
+                    syntax_id transfer_syntax{d, little_endian};
+                    if (!transfer_syntax.is_not_empty()) {
+                        return false;
+                    }
+                }
+            }
+            return d.is_empty();
+        }
 
     public:
 
@@ -421,32 +405,27 @@ namespace dcerpc
             required_reserved{d},
             contexts{d},
             little_endian{little_endian_},
-            valid{!d.is_null()}
-        {
-            if (valid)
-            {
+            valid{!d.is_null() && contexts_are_valid(contexts, context_count.value(), little_endian)} {
+            if (valid) {
                 d.set_empty();
+            } else {
+                d.set_null();
             }
         }
 
-        void write_json(json_object &o) const
-        {
-            if (!valid)
-            {
+        bool is_not_empty() const { return valid; }
+
+        void write_json(json_object &o) const {
+            if (!valid) {
                 return;
             }
             datum d{contexts};
             json_array proposed_contexts{o, "proposed_contexts", true};
-            for (uint8_t i = 0; i < context_count; i++)
-            {
+            for (uint8_t i = 0; i < context_count; i++) {
                 encoded<uint16_t> context_id{d, little_endian};
                 encoded<uint8_t> transfer_syntax_count{d};
                 literal_byte<0> required_reserved{d};
                 syntax_id abstract_syntax{d, little_endian};
-                if (!abstract_syntax.is_not_empty())
-                {
-                    break;
-                }
                 (void)required_reserved;
 
                 json_object context{proposed_contexts};
@@ -454,13 +433,8 @@ namespace dcerpc
                 abstract_syntax.write_json(context, "abstract_syntax");
 
                 json_array transfer_syntaxes{context, "transfer_syntaxes", true};
-                for (uint8_t j = 0; j < transfer_syntax_count; ++j)
-                {
+                for (uint8_t j = 0; j < transfer_syntax_count; ++j) {
                     syntax_id transfer_syntax{d, little_endian};
-                    if (!transfer_syntax.is_not_empty())
-                    {
-                        break;
-                    }
                     json_object syntax{transfer_syntaxes};
                     transfer_syntax.write_json(syntax);
                     syntax.close();
@@ -472,8 +446,7 @@ namespace dcerpc
         }
     };
 
-    class context_response_body
-    {
+    class context_response_body {
         skip_bytes<8> ignored_fragment_sizes_and_group;
         encoded<uint16_t> secondary_address_length;
         datum ignored_secondary_address;
@@ -484,17 +457,16 @@ namespace dcerpc
         bool little_endian;
         bool valid;
 
-        static datum parse_bytes(datum &d, size_t length)
-        {
-            if (d.is_null())
-            {
+        static constexpr size_t result_length = 24;
+
+        static datum parse_bytes(datum &d, size_t length) {
+            if (d.is_null()) {
                 return {};
             }
             return datum{d, static_cast<ssize_t>(length)};
         }
 
-        static size_t padding_length(uint16_t address_length)
-        {
+        static size_t padding_length(uint16_t address_length) {
             return (4 - ((2 + static_cast<size_t>(address_length)) % 4)) % 4;
         }
 
@@ -509,45 +481,34 @@ namespace dcerpc
             required_reserved{d},
             results{d},
             little_endian{little_endian_},
-            valid{!d.is_null()}
-        {
-            if (valid)
-            {
+            valid{!d.is_null() && results.length() == static_cast<ssize_t>(result_count.value() * result_length)} {
+            if (valid) {
                 d.set_empty();
+            } else {
+                d.set_null();
             }
         }
 
-        void write_json(json_object &o) const
-        {
-            if (!valid)
-            {
+        bool is_not_empty() const { return valid; }
+
+        void write_json(json_object &o) const {
+            if (!valid) {
                 return;
             }
             datum d{results};
             json_array context_results{o, "context_results", true};
-            for (uint8_t i = 0; i < result_count; ++i)
-            {
+            for (uint8_t i = 0; i < result_count; ++i) {
                 encoded<uint16_t> result_code{d, little_endian};
                 encoded<uint16_t> result_detail{d, little_endian};
                 syntax_id transfer_syntax{d, little_endian};
-                if (!transfer_syntax.is_not_empty())
-                {
-                    break;
-                }
-
                 json_object entry{context_results};
                 entry.print_key_string_or_unknown_code("result", context_result_name(static_cast<context_result>(result_code.value())), result_code.value());
-                if (result_code == static_cast<uint16_t>(context_result::acceptance))
-                {
+                if (result_code == static_cast<uint16_t>(context_result::acceptance)) {
                     transfer_syntax.write_json(entry, "selected_transfer_syntax");
-                }
-                else if (result_code == static_cast<uint16_t>(context_result::negotiate_ack))
-                {
+                } else if (result_code == static_cast<uint16_t>(context_result::negotiate_ack)) {
                     entry.print_key_uint("features", result_detail);
-                }
-                else if (result_code == static_cast<uint16_t>(context_result::user_rejection) ||
-                         result_code == static_cast<uint16_t>(context_result::provider_rejection))
-                {
+                } else if (result_code == static_cast<uint16_t>(context_result::user_rejection) ||
+                         result_code == static_cast<uint16_t>(context_result::provider_rejection)) {
                     entry.print_key_string_or_unknown_code("reason", context_rejection_reason_name(static_cast<context_rejection_reason>(result_detail.value())), result_detail.value());
                 }
                 entry.close();
@@ -559,8 +520,7 @@ namespace dcerpc
     ///
     /// \brief Parses a connection-oriented DCE/RPC PDU.
     ///
-    class message : public base_protocol
-    {
+    class message : public base_protocol {
         literal_byte<connection_oriented_version> required_version;
         encoded<uint8_t> minor_version;
         encoded<uint8_t> packet_type;
@@ -576,18 +536,15 @@ namespace dcerpc
         datum authentication_trailer;
         bool valid;
 
-        pdu_type type() const
-        {
+        pdu_type type() const {
             return static_cast<pdu_type>(packet_type.value());
         }
 
         ///
         /// \brief Returns the minimum body size for this PDU type.
         ///
-        size_t minimum_body_length() const
-        {
-            switch (type())
-            {
+        size_t minimum_body_length() const {
+            switch (type()) {
                 case pdu_type::request:
                     return 8 + ((flags.value() & pfc_object_uuid) ? 16 : 0);
                 case pdu_type::response:
@@ -613,16 +570,28 @@ namespace dcerpc
         // (MS-RPCE 2.2.2.11), so it sits in addition to these 8 bytes.
         static constexpr size_t security_trailer_header_length = 8;
 
-        bool common_header_is_valid() const
-        {
+        bool common_header_is_valid() const {
             return (minor_version == 0 || minor_version == 1) && pdu_type_name(type()) != nullptr &&
                 (integer_representation == 0x10 || integer_representation == 0x00) && floating_point_representation <= 3 &&
                 fragment_length >= 16 &&
                 (authentication_length == 0 || static_cast<size_t>(authentication_length) + security_trailer_header_length <= static_cast<size_t>(fragment_length) - 16);
         }
 
-        void write_auth_verifier(json_object &o) const
-        {
+        bool body_is_valid() const {
+            datum d{body};
+            switch (type()) {
+                case pdu_type::bind:
+                case pdu_type::alter_context:
+                    return bind_body{d, little_endian}.is_not_empty();
+                case pdu_type::bind_ack:
+                case pdu_type::alter_context_resp:
+                    return context_response_body{d, little_endian}.is_not_empty();
+                default:
+                    return true;
+            }
+        }
+
+        void write_auth_verifier(json_object &o) const {
             datum d{authentication_trailer};
             encoded<uint8_t> auth_type{d};
             encoded<uint8_t> auth_level{d};
@@ -651,36 +620,30 @@ namespace dcerpc
                             call_id{d, little_endian},
                             body{},
                             authentication_trailer{},
-                            valid{false}
-        {
-            if (d.is_null() || !common_header_is_valid())
-            {
+                            valid{false} {
+            if (d.is_null() || !common_header_is_valid()) {
                 d.set_null();
                 return;
             }
 
             const size_t body_length = static_cast<size_t>(fragment_length) - 16;
             body.parse(d, body_length);
-            if (d.is_null())
-            {
+            if (d.is_null()) {
                 return;
             }
-            if (authentication_length)
-            {
+            if (authentication_length) {
                 const size_t trailer_length = authentication_length + security_trailer_header_length;
                 authentication_trailer = body;
                 authentication_trailer.skip(body.length() - trailer_length);
                 const auto authentication_padding_length = authentication_trailer[2];
                 const size_t pdu_body_length = body.length() - trailer_length;
-                if (*authentication_padding_length > pdu_body_length)
-                {
+                if (*authentication_padding_length > pdu_body_length) {
                     d.set_null();
                     return;
                 }
                 body.trim(trailer_length + *authentication_padding_length);
             }
-            if (body.length() < static_cast<ssize_t>(minimum_body_length()))
-            {
+            if (body.length() < static_cast<ssize_t>(minimum_body_length()) || !body_is_valid()) {
                 d.set_null();
                 return;
             }
@@ -693,10 +656,8 @@ namespace dcerpc
 
         bool is_server() const { return !is_client(); }
 
-        void write_json(json_object &record, bool) const
-        {
-            if (!valid)
-            {
+        void write_json(json_object &record, bool) const {
+            if (!valid) {
                 return;
             }
             const pdu_type pdu = type();
@@ -704,34 +665,27 @@ namespace dcerpc
             json_object o{dcerpc, is_client() ? "client" : "server"};
             o.print_key_string("type", pdu_type_name(pdu));
             o.print_key_uint("call_id", call_id);
-            if (pdu == pdu_type::bind || pdu == pdu_type::alter_context)
-            {
+            if (pdu == pdu_type::bind || pdu == pdu_type::alter_context) {
                 datum d{body};
                 bind_body parsed_body{d, little_endian};
                 parsed_body.write_json(o);
-            }
-            else if (pdu == pdu_type::bind_ack || pdu == pdu_type::alter_context_resp)
-            {
+            } else if (pdu == pdu_type::bind_ack || pdu == pdu_type::alter_context_resp) {
                 datum d{body};
                 context_response_body parsed_body{d, little_endian};
                 parsed_body.write_json(o);
-            }
-            else if (pdu == pdu_type::request)
-            {
+            } else if (pdu == pdu_type::request) {
                 datum d{body};
                 request_body parsed_body{d, little_endian};
                 parsed_body.write_json(o);
             }
-            if (authentication_length)
-            {
+            if (authentication_length) {
                 write_auth_verifier(o);
             }
             o.close();
             dcerpc.close();
         }
 
-        void write_l7_metadata(cbor_object &o, bool)
-        {
+        void write_l7_metadata(cbor_object &o, bool) {
             cbor_array protocols{o, "protocols"};
             protocols.print_string("dcerpc");
             protocols.close();
@@ -739,8 +693,7 @@ namespace dcerpc
     };
 
     // LCOV_EXCL_START
-    [[maybe_unused]] inline bool unit_test()
-    {
+    [[maybe_unused]] inline bool unit_test() {
         uint8_t bind_pdu[] = {
             0x05, 0x00, 0x0b, 0x03, 0x10, 0x00, 0x00, 0x00,
             0x48, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
@@ -791,8 +744,7 @@ namespace dcerpc
             pdu_type::bind, pdu_type::bind_ack, pdu_type::bind_nak,
             pdu_type::alter_context, pdu_type::alter_context_resp, pdu_type::auth_3};
         bool body_required_pdus_rejected = true;
-        for (const auto body_required_type : body_required_types)
-        {
+        for (const auto body_required_type : body_required_types) {
             header_only_pdu[2] = static_cast<uint8_t>(body_required_type);
             datum header_only_data{header_only_pdu};
             message header_only{header_only_data};
@@ -962,8 +914,7 @@ namespace dcerpc
         const pdu_type authenticated_ptypes[] = {
             pdu_type::fault, pdu_type::bind_nak, pdu_type::shutdown, pdu_type::co_cancel, pdu_type::orphaned};
         bool auth_fields_valid = true;
-        for (const auto authenticated_ptype : authenticated_ptypes)
-        {
+        for (const auto authenticated_ptype : authenticated_ptypes) {
             auth_pdu[2] = static_cast<uint8_t>(authenticated_ptype);
             datum auth_data{auth_pdu};
             message auth_message{auth_data};
@@ -1034,13 +985,13 @@ namespace dcerpc
         uint8_t socks5_pdu[] = {0x05, 0x01, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01};
 
         return bind.is_not_empty() && bind_json_valid && fsrvp_syntax_json_valid && split_version_json_valid && incomplete_syntax_write_empty && request.is_not_empty() && request_json_valid && auth3.is_not_empty() && auth3_json_valid &&
-            bind_with_incomplete_context.is_not_empty() && bind_with_incomplete_context_data.is_not_empty() &&
+            !bind_with_incomplete_context.is_not_empty() && bind_with_incomplete_context_data.is_null() &&
             !request_with_missing_object.is_not_empty() && request_with_missing_object_data.is_null() &&
             !response_with_short_body.is_not_empty() && response_with_short_body_data.is_null() &&
             !fault_with_short_body.is_not_empty() && fault_with_short_body_data.is_null() &&
             body_required_pdus_rejected &&
             bind_nak.is_not_empty() && bind_nak_data.is_empty() && bind_nak_json_valid &&
-            bind_ack_with_incomplete_results.is_not_empty() && bind_ack_with_incomplete_results_data.is_not_empty() &&
+            !bind_ack_with_incomplete_results.is_not_empty() && bind_ack_with_incomplete_results_data.is_null() &&
             auth3_without_auth.is_not_empty() && auth3_without_auth_data.is_empty() &&
             !auth3_bad_padding.is_not_empty() && auth3_bad_padding_data.is_null() &&
             !incomplete_syntax.is_not_empty() && incomplete_syntax_data.is_null() && !bad.is_not_empty() &&
@@ -1076,8 +1027,7 @@ namespace dcerpc
 
 }
 
-[[maybe_unused]] inline int dcerpc_message_fuzz_test(const uint8_t *data, size_t size)
-{
+[[maybe_unused]] inline int dcerpc_message_fuzz_test(const uint8_t *data, size_t size) {
     return json_output_fuzzer<dcerpc::message>(data, size);
 }
 
