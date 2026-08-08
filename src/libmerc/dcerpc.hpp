@@ -231,7 +231,8 @@ namespace dcerpc
             {
                 o.print_key_string("name", name);
             }
-            o.print_key_uint("version", version);
+            o.print_key_uint("version_major", version.value() & 0xffff);
+            o.print_key_uint("version_minor", version.value() >> 16);
         }
 
         void write_json(json_object &o, const char *name) const
@@ -506,7 +507,7 @@ namespace dcerpc
                 }
 
                 json_object entry{context_results};
-                entry.print_key_string_or_unknown_code("result", context_result_name(static_cast<context_result>(result_code.value())), result_code);
+                entry.print_key_string_or_unknown_code("result", context_result_name(static_cast<context_result>(result_code.value())), result_code.value());
                 if (result_code == static_cast<uint16_t>(context_result::acceptance))
                 {
                     transfer_syntax.write_json(entry, "selected_transfer_syntax");
@@ -595,8 +596,8 @@ namespace dcerpc
             encoded<uint32_t> auth_context_id{d, little_endian};
             (void)ignored_padding_and_reserved;
             json_object verifier{o, "auth_verifier"};
-            verifier.print_key_string_or_unknown_code("auth_type", authentication_type_name(static_cast<authentication_type>(auth_type.value())), auth_type);
-            verifier.print_key_string_or_unknown_code("auth_level", authentication_level_name(static_cast<authentication_level>(auth_level.value())), auth_level);
+            verifier.print_key_string_or_unknown_code("auth_type", authentication_type_name(static_cast<authentication_type>(auth_type.value())), auth_type.value());
+            verifier.print_key_string_or_unknown_code("auth_level", authentication_level_name(static_cast<authentication_level>(auth_level.value())), auth_level.value());
             verifier.print_key_uint("auth_context_id", auth_context_id);
             verifier.close();
         }
@@ -863,7 +864,23 @@ namespace dcerpc
             json.close();
             buf.write_char(0);
             fsrvp_syntax_json_valid = strstr(json_buffer, "\"uuid\":\"a8e0653c-2744-4389-a61d-7373df8b2292\"") &&
-                strstr(json_buffer, "\"name\":\"fsrvp\"");
+                strstr(json_buffer, "\"name\":\"fsrvp\"") &&
+                strstr(json_buffer, "\"version_major\":1") &&
+                strstr(json_buffer, "\"version_minor\":0");
+        }
+        fsrvp_syntax_bytes[16] = 0x00;
+        fsrvp_syntax_bytes[18] = 0x51;
+        datum split_version_data{fsrvp_syntax_bytes};
+        syntax_id split_version{split_version_data, true};
+        bool split_version_json_valid = false;
+        {
+            buffer_stream buf{json_buffer, sizeof(json_buffer)};
+            json_object json{&buf};
+            split_version.write_json(json);
+            json.close();
+            buf.write_char(0);
+            split_version_json_valid = strstr(json_buffer, "\"version_major\":0") &&
+                strstr(json_buffer, "\"version_minor\":81");
         }
         {
             buffer_stream buf{json_buffer, sizeof(json_buffer)};
@@ -924,6 +941,20 @@ namespace dcerpc
             auth_fields_valid = auth_fields_valid && auth_message.is_not_empty() &&
                 strstr(json_buffer, "\"auth_verifier\"");
         }
+        auth_pdu[32] = 0xff;
+        auth_pdu[33] = 0xff;
+        datum unknown_auth_data{auth_pdu};
+        message unknown_auth{unknown_auth_data};
+        bool unknown_auth_fields_valid = false;
+        {
+            buffer_stream buf{json_buffer, sizeof(json_buffer)};
+            json_object json{&buf};
+            unknown_auth.write_json(json, false);
+            json.close();
+            buf.write_char('\0');
+            unknown_auth_fields_valid = strstr(json_buffer, "\"auth_type\":\"UNKNOWN (ff)\"") &&
+                strstr(json_buffer, "\"auth_level\":\"UNKNOWN (ff)\"");
+        }
         bool bind_ack_json_valid = false;
         {
             buffer_stream buf{json_buffer, sizeof(json_buffer)};
@@ -950,10 +981,24 @@ namespace dcerpc
                 strstr(json_buffer, "\"context_results\"");
         }
 
+        context_response_pdu[36] = 0xff;
+        context_response_pdu[37] = 0xff;
+        datum unknown_context_result_data{context_response_pdu};
+        message unknown_context_result{unknown_context_result_data};
+        bool unknown_context_result_valid = false;
+        {
+            buffer_stream buf{json_buffer, sizeof(json_buffer)};
+            json_object json{&buf};
+            unknown_context_result.write_json(json, false);
+            json.close();
+            buf.write_char('\0');
+            unknown_context_result_valid = strstr(json_buffer, "\"result\":\"UNKNOWN (ffff)\"");
+        }
+
         uint8_t dnp3_pdu[] = {0x05, 0x64, 0x05, 0xc4, 0x01, 0x00, 0x00, 0x04};
         uint8_t socks5_pdu[] = {0x05, 0x01, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01};
 
-        return bind.is_not_empty() && bind_json_valid && fsrvp_syntax_json_valid && incomplete_syntax_write_empty && request.is_not_empty() && request_json_valid && auth3.is_not_empty() && auth3_json_valid &&
+        return bind.is_not_empty() && bind_json_valid && fsrvp_syntax_json_valid && split_version_json_valid && incomplete_syntax_write_empty && request.is_not_empty() && request_json_valid && auth3.is_not_empty() && auth3_json_valid &&
             bind_with_incomplete_context.is_not_empty() && bind_with_incomplete_context_data.is_not_empty() &&
             !request_with_missing_object.is_not_empty() && request_with_missing_object_data.is_null() &&
             !response_with_short_body.is_not_empty() && response_with_short_body_data.is_null() &&
@@ -966,8 +1011,8 @@ namespace dcerpc
             !incomplete_syntax.is_not_empty() && incomplete_syntax_data.is_null() && !bad.is_not_empty() &&
             incomplete_json_empty &&
             bind_ack.is_not_empty() && bind_ack_json_valid &&
-            auth_fields_valid &&
-            alter_context_resp.is_not_empty() && alter_context_resp_json_valid &&
+            auth_fields_valid && unknown_auth_fields_valid &&
+            alter_context_resp.is_not_empty() && alter_context_resp_json_valid && unknown_context_result_valid &&
             !truncated_header.is_not_empty() && truncated_header_data.is_null() &&
             !partial_request.is_not_empty() && partial_request_data.is_null() &&
             strcmp(authentication_level_name(authentication_level::default_level), "default") == 0 &&
