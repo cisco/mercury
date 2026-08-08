@@ -301,10 +301,39 @@ namespace dcerpc
             case context_result::acceptance:
                 return "acceptance";
             case context_result::user_rejection:
+                return "user_rejection";
             case context_result::provider_rejection:
-                return "rejected";
+                return "provider_rejection";
             case context_result::negotiate_ack:
                 return "negotiate_ack";
+            default:
+                return nullptr;
+        }
+    }
+
+    ///
+    /// \brief Reasons for rejecting a presentation context.
+    ///
+    enum class context_rejection_reason : uint16_t
+    {
+        reason_not_specified = 0,
+        abstract_syntax_not_supported = 1,
+        proposed_transfer_syntaxes_not_supported = 2,
+        local_limit_exceeded = 3
+    };
+
+    static const char *context_rejection_reason_name(context_rejection_reason reason)
+    {
+        switch (reason)
+        {
+            case context_rejection_reason::reason_not_specified:
+                return "reason_not_specified";
+            case context_rejection_reason::abstract_syntax_not_supported:
+                return "abstract_syntax_not_supported";
+            case context_rejection_reason::proposed_transfer_syntaxes_not_supported:
+                return "proposed_transfer_syntaxes_not_supported";
+            case context_rejection_reason::local_limit_exceeded:
+                return "local_limit_exceeded";
             default:
                 return nullptr;
         }
@@ -515,6 +544,11 @@ namespace dcerpc
                 else if (result_code == static_cast<uint16_t>(context_result::negotiate_ack))
                 {
                     entry.print_key_uint("features", result_detail);
+                }
+                else if (result_code == static_cast<uint16_t>(context_result::user_rejection) ||
+                         result_code == static_cast<uint16_t>(context_result::provider_rejection))
+                {
+                    entry.print_key_string_or_unknown_code("reason", context_rejection_reason_name(static_cast<context_rejection_reason>(result_detail.value())), result_detail.value());
                 }
                 entry.close();
             }
@@ -964,7 +998,8 @@ namespace dcerpc
             buf.write_char('\0');
             bind_ack_json_valid = strstr(json_buffer, "\"context_results\"") &&
                 strstr(json_buffer, "\"selected_transfer_syntax\"") &&
-                strstr(json_buffer, "\"result\":\"rejected\"");
+                strstr(json_buffer, "\"result\":\"provider_rejection\"") &&
+                strstr(json_buffer, "\"reason\":\"abstract_syntax_not_supported\"");
         }
 
         context_response_pdu[2] = static_cast<uint8_t>(pdu_type::alter_context_resp);
