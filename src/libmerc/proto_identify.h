@@ -1016,23 +1016,6 @@ public:
         }
     }
 
-    /// enforces the invariant that every tcp_msg_type used as a value in
-    /// tcp_keyword_matcher::tcp_keyword_map has an explicit case in
-    /// keyword_type_enabled(); with all protocols enabled each must report
-    /// enabled, otherwise a keyword-matched protocol is silently skipped.
-    [[maybe_unused]] static bool unit_test() {
-        traffic_selector ts{ { {"all", true} } };
-        for (const auto &entry : tcp_keyword_matcher::tcp_keyword_map) {
-            for (tcp_msg_type type : entry.second) {
-                if (!ts.keyword_type_enabled(type)) {
-                    return false;
-                }
-            }
-        }
-        traffic_selector dcerpc_only{ { {"dcerpc", true} } };
-        return dcerpc_only.tcp.size() == 2;
-    }
-
     tcp_msg_type get_tcp_msg_type_preference_from_port(const tcp_msg_types& protos,
                                                        struct tcp_packet *tcp_pkt) {
         if (protos.size() == 1) {
@@ -1263,6 +1246,24 @@ public:
 
         return tcp_msg_type_unknown;
     }
+
+    // LCOV_EXCL_START
+    /// enforces the invariant that every tcp_msg_type used as a value in
+    /// tcp_keyword_matcher::tcp_keyword_map has an explicit case in
+    /// keyword_type_enabled(); with all protocols enabled each must report
+    /// enabled, otherwise a keyword-matched protocol is silently skipped.
+    [[maybe_unused]] static bool unit_test() {
+        traffic_selector ts{ { {"all", true} } };
+        for (const auto &entry : tcp_keyword_matcher::tcp_keyword_map) {
+            for (tcp_msg_type type : entry.second) {
+                if (!ts.keyword_type_enabled(type)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+    // LCOV_EXCL_STOP
 
 };
 

@@ -12,6 +12,7 @@
 #ifndef DCERPC_HPP
 #define DCERPC_HPP
 
+#include <cstdio>
 #include "datum.h"
 #include "json_object.h"
 #include "protocol.h"
@@ -693,7 +694,7 @@ namespace dcerpc {
     };
 
     // LCOV_EXCL_START
-    [[maybe_unused]] inline bool unit_test() {
+    [[maybe_unused]] inline bool unit_test(FILE *f = nullptr) {
         uint8_t bind_pdu[] = {
             0x05, 0x00, 0x0b, 0x03, 0x10, 0x00, 0x00, 0x00,
             0x48, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
@@ -748,7 +749,7 @@ namespace dcerpc {
             header_only_pdu[2] = static_cast<uint8_t>(body_required_type);
             datum header_only_data{header_only_pdu};
             message header_only{header_only_data};
-            body_required_pdus_rejected = body_required_pdus_rejected &&
+            body_required_pdus_rejected &=
                 !header_only.is_not_empty() && header_only_data.is_null();
         }
 
@@ -923,8 +924,11 @@ namespace dcerpc {
             auth_message.write_json(json, false);
             json.close();
             buf.write_char('\0');
-            auth_fields_valid = auth_fields_valid && auth_message.is_not_empty() &&
-                strstr(json_buffer, "\"auth_verifier\"");
+            const bool auth_message_valid = auth_message.is_not_empty() &&
+                strstr(json_buffer, "\"auth_type\":\"winnt\"") &&
+                strstr(json_buffer, "\"auth_level\":\"packet_privacy\"") &&
+                strstr(json_buffer, "\"auth_context_id\":1");
+            auth_fields_valid &= auth_message_valid;
         }
         auth_pdu[32] = 0xff;
         auth_pdu[33] = 0xff;
@@ -982,46 +986,62 @@ namespace dcerpc {
         }
 
         uint8_t dnp3_pdu[] = {0x05, 0x64, 0x05, 0xc4, 0x01, 0x00, 0x00, 0x04};
-        uint8_t socks5_pdu[] = {0x05, 0x01, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01};
+        // SOCKS5 CONNECT to 16.0.0.0:443 satisfies the 8-byte matcher; the
+        // 16-byte common header requirement in message() rejects it.
+        uint8_t socks5_collision[] = {0x05, 0x01, 0x00, 0x01, 0x10, 0x00, 0x00, 0x00, 0x01, 0xbb};
+        datum socks5_collision_data{socks5_collision};
+        message socks5_collision_message{socks5_collision_data};
 
-        return bind.is_not_empty() && bind_json_valid && fsrvp_syntax_json_valid && split_version_json_valid && incomplete_syntax_write_empty && request.is_not_empty() && request_json_valid && auth3.is_not_empty() && auth3_json_valid &&
-            !bind_with_incomplete_context.is_not_empty() && bind_with_incomplete_context_data.is_null() &&
-            !request_with_missing_object.is_not_empty() && request_with_missing_object_data.is_null() &&
-            !response_with_short_body.is_not_empty() && response_with_short_body_data.is_null() &&
-            !fault_with_short_body.is_not_empty() && fault_with_short_body_data.is_null() &&
-            body_required_pdus_rejected &&
-            bind_nak.is_not_empty() && bind_nak_data.is_empty() && bind_nak_json_valid &&
-            !bind_ack_with_incomplete_results.is_not_empty() && bind_ack_with_incomplete_results_data.is_null() &&
-            auth3_without_auth.is_not_empty() && auth3_without_auth_data.is_empty() &&
-            !auth3_bad_padding.is_not_empty() && auth3_bad_padding_data.is_null() &&
-            !incomplete_syntax.is_not_empty() && incomplete_syntax_data.is_null() && !bad.is_not_empty() &&
-            incomplete_json_empty &&
-            bind_ack.is_not_empty() && bind_ack_json_valid &&
-            auth_fields_valid && unknown_auth_fields_valid &&
-            alter_context_resp.is_not_empty() && alter_context_resp_json_valid && unknown_context_result_valid &&
-            !truncated_header.is_not_empty() && truncated_header_data.is_null() &&
-            !partial_request.is_not_empty() && partial_request_data.is_null() &&
-            strcmp(authentication_level_name(authentication_level::default_level), "default") == 0 &&
-            strcmp(authentication_level_name(authentication_level::none), "none") == 0 &&
-            strcmp(authentication_level_name(authentication_level::connect), "connect") == 0 &&
-            strcmp(authentication_level_name(authentication_level::call), "call") == 0 &&
-            strcmp(authentication_level_name(authentication_level::packet), "packet") == 0 &&
-            strcmp(authentication_level_name(authentication_level::packet_integrity), "packet_integrity") == 0 &&
-            strcmp(authentication_level_name(authentication_level::packet_privacy), "packet_privacy") == 0 &&
-            authentication_level_name(static_cast<authentication_level>(7)) == nullptr &&
-            is_client_pdu_type(pdu_type::bind) &&
-            is_client_pdu_type(pdu_type::request) &&
-            is_client_pdu_type(pdu_type::auth_3) &&
-            !is_client_pdu_type(pdu_type::response) &&
-            !is_client_pdu_type(pdu_type::fault) &&
-            !is_client_pdu_type(pdu_type::bind_ack) &&
-            low_ptype_matcher.matches(bind_pdu, sizeof(bind_pdu)) &&
-            low_ptype_matcher.matches(request_pdu, sizeof(request_pdu)) &&
-            high_ptype_matcher.matches(auth3_pdu, sizeof(auth3_pdu)) &&
-            !low_ptype_matcher.matches(dnp3_pdu, sizeof(dnp3_pdu)) &&
-            !high_ptype_matcher.matches(dnp3_pdu, sizeof(dnp3_pdu)) &&
-            !low_ptype_matcher.matches(socks5_pdu, sizeof(socks5_pdu)) &&
-            !high_ptype_matcher.matches(socks5_pdu, sizeof(socks5_pdu));
+        auto check = [f](const char *name, bool result) {
+            if (!result && f) {
+                fprintf(f, "dcerpc::unit_test(): %s failed\n", name);
+            }
+            return result;
+        };
+        bool passed = true;
+        passed &= check("bind", bind.is_not_empty() && bind_json_valid &&
+                        !bind_with_incomplete_context.is_not_empty() && bind_with_incomplete_context_data.is_null());
+        passed &= check("syntax_id", fsrvp_syntax_json_valid && split_version_json_valid &&
+                        incomplete_syntax_write_empty && !incomplete_syntax.is_not_empty() &&
+                        incomplete_syntax_data.is_null());
+        passed &= check("request", request.is_not_empty() && request_json_valid &&
+                        !request_with_missing_object.is_not_empty() && request_with_missing_object_data.is_null() &&
+                        !partial_request.is_not_empty() && partial_request_data.is_null() && incomplete_json_empty);
+        passed &= check("response_and_fault", !response_with_short_body.is_not_empty() &&
+                        response_with_short_body_data.is_null() && !fault_with_short_body.is_not_empty() &&
+                        fault_with_short_body_data.is_null());
+        passed &= check("minimum_body_lengths", body_required_pdus_rejected);
+        passed &= check("bind_nak", bind_nak.is_not_empty() && bind_nak_data.is_empty() && bind_nak_json_valid);
+        passed &= check("bind_ack", bind_ack.is_not_empty() && bind_ack_json_valid &&
+                        !bind_ack_with_incomplete_results.is_not_empty() &&
+                        bind_ack_with_incomplete_results_data.is_null() && unknown_context_result_valid);
+        passed &= check("alter_context_resp", alter_context_resp.is_not_empty() && alter_context_resp_json_valid);
+        passed &= check("auth_3", auth3.is_not_empty() && auth3_json_valid &&
+                        auth3_without_auth.is_not_empty() && auth3_without_auth_data.is_empty() &&
+                        !auth3_bad_padding.is_not_empty() && auth3_bad_padding_data.is_null());
+        passed &= check("authentication", auth_fields_valid && unknown_auth_fields_valid &&
+                        strcmp(authentication_level_name(authentication_level::default_level), "default") == 0 &&
+                        strcmp(authentication_level_name(authentication_level::none), "none") == 0 &&
+                        strcmp(authentication_level_name(authentication_level::connect), "connect") == 0 &&
+                        strcmp(authentication_level_name(authentication_level::call), "call") == 0 &&
+                        strcmp(authentication_level_name(authentication_level::packet), "packet") == 0 &&
+                        strcmp(authentication_level_name(authentication_level::packet_integrity), "packet_integrity") == 0 &&
+                        strcmp(authentication_level_name(authentication_level::packet_privacy), "packet_privacy") == 0 &&
+                        authentication_level_name(static_cast<authentication_level>(7)) == nullptr);
+        passed &= check("common_header", !bad.is_not_empty() && !truncated_header.is_not_empty() &&
+                        truncated_header_data.is_null());
+        passed &= check("direction", is_client_pdu_type(pdu_type::bind) &&
+                        is_client_pdu_type(pdu_type::request) && is_client_pdu_type(pdu_type::auth_3) &&
+                        !is_client_pdu_type(pdu_type::response) && !is_client_pdu_type(pdu_type::fault) &&
+                        !is_client_pdu_type(pdu_type::bind_ack));
+        passed &= check("matchers", low_ptype_matcher.matches(bind_pdu, sizeof(bind_pdu)) &&
+                        low_ptype_matcher.matches(request_pdu, sizeof(request_pdu)) &&
+                        high_ptype_matcher.matches(auth3_pdu, sizeof(auth3_pdu)) &&
+                        !low_ptype_matcher.matches(dnp3_pdu, sizeof(dnp3_pdu)) &&
+                        !high_ptype_matcher.matches(dnp3_pdu, sizeof(dnp3_pdu)) &&
+                        low_ptype_matcher.matches(socks5_collision, sizeof(socks5_collision)) &&
+                        !socks5_collision_message.is_not_empty());
+        return passed;
     }
     // LCOV_EXCL_STOP
 

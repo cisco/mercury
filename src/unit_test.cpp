@@ -402,6 +402,10 @@ int main(int, char *[]) {
             &fdc::unit_test
         },
         {
+            "dcerpc",
+            &dcerpc::unit_test
+        },
+        {
             "oid",
             &asn1::oid_unit_test
         },

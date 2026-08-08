@@ -57,6 +57,8 @@ protocol_counts count_protocols_in_l7_output(const std::string& l7_output_file) 
                         counts.protocol_map[protocol_name]++;
                     }
                 }
+            } else if (doc.HasMember("tcp") && doc["tcp"].IsObject()) {
+                counts.protocol_map["unknown_initial_packet"]++;
             }
         }
     }
@@ -124,6 +126,7 @@ TEST_CASE("emix.pcap") {
         {"bittorrent_dht", 5},
         {"bittorrent_lsd", 9},
         {"dcerpc", 83},
+        {"unknown_initial_packet", 137},
         {"dhcp", 11},
         {"dnp3", 15},
         {"dns", 240},
