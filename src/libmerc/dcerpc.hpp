@@ -21,6 +21,7 @@ namespace dcerpc
 {
 
     static constexpr uint8_t connection_oriented_version = 5;
+    static constexpr uint8_t pfc_object_uuid = 0x80;
 
     ///
     /// \brief Connection-oriented DCE/RPC PDU types supported by this parser.
@@ -528,7 +529,7 @@ namespace dcerpc
         literal_byte<connection_oriented_version> required_version;
         encoded<uint8_t> minor_version;
         encoded<uint8_t> packet_type;
-        skip_bytes<1> ignored_flags;
+        encoded<uint8_t> flags;
         encoded<uint8_t> integer_representation;
         encoded<uint8_t> floating_point_representation;
         literal_byte<0, 0> required_drep_reserved;
@@ -543,6 +544,33 @@ namespace dcerpc
         pdu_type type() const
         {
             return static_cast<pdu_type>(packet_type.value());
+        }
+
+        ///
+        /// \brief Returns the minimum body size for this PDU type.
+        ///
+        size_t minimum_body_length() const
+        {
+            switch (type())
+            {
+                case pdu_type::request:
+                    return 8 + ((flags.value() & pfc_object_uuid) ? 16 : 0);
+                case pdu_type::response:
+                    return 8;
+                case pdu_type::fault:
+                case pdu_type::bind_ack:
+                case pdu_type::alter_context_resp:
+                    return 16;
+                case pdu_type::bind:
+                case pdu_type::alter_context:
+                    return 12;
+                case pdu_type::bind_nak:
+                    return 3;
+                case pdu_type::auth_3:
+                    return 4;
+                default:
+                    return 0;
+            }
         }
 
         // sec_trailer header (auth_type, auth_level, authentication_padding_length, reserved,
@@ -578,7 +606,7 @@ namespace dcerpc
         message(datum &d) : required_version{d},
                             minor_version{d},
                             packet_type{d},
-                            ignored_flags{d},
+                            flags{d},
                             integer_representation{d},
                             floating_point_representation{d},
                             required_drep_reserved{d},
@@ -615,6 +643,11 @@ namespace dcerpc
                     return;
                 }
                 body.trim(trailer_length + *authentication_padding_length);
+            }
+            if (body.length() < static_cast<ssize_t>(minimum_body_length()))
+            {
+                d.set_null();
+                return;
             }
             valid = true;
         }
@@ -689,11 +722,16 @@ namespace dcerpc
         message bind{bind_data};
 
         uint8_t request_pdu[] = {
-            0x05, 0x00, 0x00, 0x83, 0x10, 0x00, 0x00, 0x00,
+            0x05, 0x00, 0x00, 0x03, 0x10, 0x00, 0x00, 0x00,
             0x18, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00,
             0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00};
         datum request_data{request_pdu};
         message request{request_data};
+
+        request_pdu[3] = 0x83;
+        datum request_with_missing_object_data{request_pdu};
+        message request_with_missing_object{request_with_missing_object_data};
+        request_pdu[3] = 0x03;
 
         bind_pdu[8] = 0x1c;
         datum bind_with_incomplete_context_data{bind_pdu};
@@ -710,6 +748,22 @@ namespace dcerpc
         short_call_pdu[8] = 0x18;
         datum fault_with_short_body_data{short_call_pdu};
         message fault_with_short_body{fault_with_short_body_data};
+
+        uint8_t header_only_pdu[] = {
+            0x05, 0x00, 0x00, 0x03, 0x10, 0x00, 0x00, 0x00,
+            0x10, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00};
+        const pdu_type body_required_types[] = {
+            pdu_type::bind, pdu_type::bind_ack, pdu_type::bind_nak,
+            pdu_type::alter_context, pdu_type::alter_context_resp, pdu_type::auth_3};
+        bool body_required_pdus_rejected = true;
+        for (const auto body_required_type : body_required_types)
+        {
+            header_only_pdu[2] = static_cast<uint8_t>(body_required_type);
+            datum header_only_data{header_only_pdu};
+            message header_only{header_only_data};
+            body_required_pdus_rejected = body_required_pdus_rejected &&
+                !header_only.is_not_empty() && header_only_data.is_null();
+        }
 
         uint8_t auth3_pdu[] = {
             0x05, 0x00, 0x10, 0x03, 0x10, 0x00, 0x00, 0x00,
@@ -901,8 +955,10 @@ namespace dcerpc
 
         return bind.is_not_empty() && bind_json_valid && fsrvp_syntax_json_valid && incomplete_syntax_write_empty && request.is_not_empty() && request_json_valid && auth3.is_not_empty() && auth3_json_valid &&
             bind_with_incomplete_context.is_not_empty() && bind_with_incomplete_context_data.is_not_empty() &&
-            response_with_short_body.is_not_empty() && response_with_short_body_data.is_not_empty() &&
-            fault_with_short_body.is_not_empty() && fault_with_short_body_data.is_empty() &&
+            !request_with_missing_object.is_not_empty() && request_with_missing_object_data.is_null() &&
+            !response_with_short_body.is_not_empty() && response_with_short_body_data.is_null() &&
+            !fault_with_short_body.is_not_empty() && fault_with_short_body_data.is_null() &&
+            body_required_pdus_rejected &&
             bind_nak.is_not_empty() && bind_nak_data.is_empty() && bind_nak_json_valid &&
             bind_ack_with_incomplete_results.is_not_empty() && bind_ack_with_incomplete_results_data.is_not_empty() &&
             auth3_without_auth.is_not_empty() && auth3_without_auth_data.is_empty() &&
