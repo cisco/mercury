@@ -1170,6 +1170,19 @@ namespace snmp {
             }, body);
         }
 
+        datum get_auth_method() const {
+            return std::visit([](auto &pdu) -> datum {
+                using T = std::decay_t<decltype(pdu)>;
+                if constexpr (std::is_same_v<T, v2_packet>) {
+                    return datum{"community"};
+                } else if constexpr (std::is_same_v<T, v3_packet>) {
+                    return datum{"auth"};
+                } else {
+                    return datum{};
+                }
+            }, body);
+        }
+
         /// apply the function `f` to each OID string in the `var_bind` list.  That function should have the
         /// signature `void f(const std::string &oid)`
         ///
@@ -1332,6 +1345,20 @@ namespace snmp {
         std::string_view v1_json{v1_json_buf, v1_json_bs.length()};
         if (v1_json.find("-9187201950435737472") == std::string_view::npos) { return false; }
         if (v1_json.find("9259542123273814144")  != std::string_view::npos) { return false; }
+
+        // Exposed creds accessor test — v2c with community "public"
+        {
+            const unsigned char v2c_get[] = {
+                0x30, 0x26, 0x02, 0x01, 0x01, 0x04, 0x06, 0x70, 0x75, 0x62, 0x6c, 0x69,
+                0x63, 0xa0, 0x19, 0x02, 0x04, 0x01, 0x02, 0x03, 0x04, 0x02, 0x01, 0x00,
+                0x02, 0x01, 0x00, 0x30, 0x0b, 0x30, 0x09, 0x06, 0x05, 0x2b, 0x06, 0x01,
+                0x02, 0x01, 0x05, 0x00
+            };
+            datum d{v2c_get, v2c_get + sizeof(v2c_get)};
+            snmp::packet pkt{d};
+            if (pkt.check_credential_exposure() != exposed_creds_type::plaintext_password) { return false; }
+            if (!pkt.get_auth_method().match("community")) { return false; }
+        }
 
         return true;
     }

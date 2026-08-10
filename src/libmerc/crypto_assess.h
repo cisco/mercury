@@ -9,6 +9,8 @@
 #include <memory>
 #include <optional>
 #include "json_object.h"
+#include "cbor_messages.hpp"
+#include "cbor_object.hpp"
 #include "tls_parameters.hpp"
 #include "tls_extensions.hpp"
 #include "tls.h"
@@ -20,7 +22,7 @@
 
 using crypto_assess_result = std::bitset<MAX_CRYPTO_ASSESSMENT_TYPES>;
 
-inline std::string tls_version_to_string(tls_version v) {
+inline const char* tls_version_to_string(tls_version v) {
     switch (v) {
         case tls_version::sslv2_0:
             return "SSLv2.0";
@@ -42,42 +44,39 @@ inline std::string tls_version_to_string(tls_version v) {
 
 namespace crypto_policy {
 
-    // assessor is the base class representing a particular crypto
-    // assessment policy
+    // assessor is the base class representing a particular crypto assessment policy.
+    //
+    // Each message type has two virtuals, and the caller selects between them through the
+    // constness of the pointer it holds, so no runtime mode flag is needed:
+    //
+    //  - assess(const T &) const : compliance-only. Returns a verdict and writes nothing.
+    //    Defaults to true ("compliant", i.e. not-applicable) so a policy overrides only the
+    //    message types it actually assesses.
+    //  - assess(const T &)       : the FILL path, non-const because it populates the policy's
+    //    owned feature message. The default forwards to the const overload, which yields a
+    //    real verdict with no metadata -- correct for a policy/type pair with nothing to fill.
+    //
+    // To give every policy defaults for an additional message type, add one const and one
+    // non-const overload below.
     //
     class assessor {
         public:
 
         virtual size_t get_result_idx() const = 0;
+
         virtual bool assess(const tls_client_hello &) const {
-            return true;
-        };
-
-        virtual bool assess(const tls_server_hello &) const {
-            return true;
-        };
-
-        virtual bool assess(const tls_client_hello &, json_array &) const {
-            return true;
-        };
-
-        virtual bool assess(const tls_server_hello &, json_array &) const {
-            return true;
-        };
-
-        virtual bool assess(const tls_server_hello_and_certificate &) const {
-            return true;
-        };
-
-        virtual bool assess(const tls_server_hello_and_certificate &, json_array &) const {
-            return true;
-        };
-
-        virtual bool assess(const dtls_client_hello &) const {
             return true;
         }
 
-        virtual bool assess(const dtls_client_hello &, json_array &) const {
+        virtual bool assess(const tls_server_hello &) const {
+            return true;
+        }
+
+        virtual bool assess(const tls_server_hello_and_certificate &) const {
+            return true;
+        }
+
+        virtual bool assess(const dtls_client_hello &) const {
             return true;
         }
 
@@ -85,21 +84,51 @@ namespace crypto_policy {
             return true;
         }
 
-        virtual bool assess(const dtls_server_hello &, json_array &) const {
-            return true;
-        }
-
         virtual bool assess(const ssh_kex_init &) const {
             return true;
         }
 
-        virtual bool assess(const ssh_kex_init &, json_array &) const {
-            return true;
+        virtual bool assess(const tls_client_hello &m) {
+            return static_cast<const assessor&>(*this).assess(m);
         }
+
+        virtual bool assess(const tls_server_hello &m) {
+            return static_cast<const assessor&>(*this).assess(m);
+        }
+
+        virtual bool assess(const tls_server_hello_and_certificate &m) {
+            return static_cast<const assessor&>(*this).assess(m);
+        }
+
+        virtual bool assess(const dtls_client_hello &m) {
+            return static_cast<const assessor&>(*this).assess(m);
+        }
+
+        virtual bool assess(const dtls_server_hello &m) {
+            return static_cast<const assessor&>(*this).assess(m);
+        }
+
+        virtual bool assess(const ssh_kex_init &m) {
+            return static_cast<const assessor&>(*this).assess(m);
+        }
+
+        // Clear any owned feature message(s) so a subsequent assessment of a
+        // message type this policy does not fill cannot emit a stale finding.
+        // Called by the orchestrator once per policy before each emitting
+        // assessment; every policy that owns output state must implement it.
+        virtual void reset_output() = 0;
+
+        // Render this policy's owned message (if any) into the caller-opened JSON assessment array.
+        virtual void emit(json_array &) { }
+
+        // Render this policy's non-compliant finding (if any) as a top-level CBOR
+        // feature: its KEY and body. Whether a feature was written is detected by
+        // the orchestrator (buffer growth); emit() has no metadata-context knowledge.
+        virtual void emit(cbor_object &) { }
 
         virtual ~assessor() { }
 
-        static void create(const std::string &policy, std::vector<const assessor*> &assessors);
+        static void create(const std::string &policy, std::vector<assessor*> &assessors);
     };
 
     static bool is_grease(uint16_t x) {
@@ -131,7 +160,15 @@ namespace crypto_policy {
     class quantum_safe : public assessor {
         bool readable_output;
 
+        // Owned feature messages; filled by the non-const assess(), read by emit(). One
+        // TLS-family and one SSH message; only one is valid per packet. Cleared by
+        // reset_output(), which the orchestrator calls before every emitting assessment.
+        crypto_cnsa_message     cnsa_tls_msg_;
+        crypto_cnsa_ssh_message cnsa_ssh_msg_;
+
         public:
+
+        void reset_output() override { cnsa_tls_msg_ = {}; cnsa_ssh_msg_ = {}; }
 
         quantum_safe(bool readable=false) :
             readable_output{readable}
@@ -199,21 +236,17 @@ namespace crypto_policy {
         *
         */
 
-        bool assess_tls_ciphersuites(datum ciphersuite_vector, json_object &a) const {
-            return assess_tls_ciphersuites_impl(ciphersuite_vector, &a);
+        bool assess_tls_ciphersuites(datum ciphersuite_vector, crypto_cnsa_message &msg) const {
+            return assess_tls_ciphersuites_impl(ciphersuite_vector, &msg);
         }
 
         bool assess_tls_ciphersuites(datum ciphersuite_vector) const {
             return assess_tls_ciphersuites_impl(ciphersuite_vector, nullptr);
         }
 
-        bool assess_tls_ciphersuites_impl(datum ciphersuite_vector, json_object *a) const {
+        bool assess_tls_ciphersuites_impl(datum ciphersuite_vector, crypto_cnsa_message *msg) const {
             bool all_allowed = true;
             bool some_allowed = false;
-
-            // Do not use this dummy object without checking for json_object a
-            //
-            std::optional<json_array> cs_array = std::nullopt;
 
             while (ciphersuite_vector.is_readable()) {
                 tls::cipher_suites cs{ciphersuite_vector};
@@ -225,19 +258,16 @@ namespace crypto_policy {
                 bool found = (allowed_ciphersuites.find(cs.value()) != allowed_ciphersuites.end());
                 if (!found) {
                     all_allowed = false;
-                    if (a != nullptr) {
-                        cs_array.emplace(*a, "ciphersuites_not_allowed");
-                    }
 
                     while (true) {
                         if (!is_grease(cs)) {
                             found = (allowed_ciphersuites.find(cs.value()) != allowed_ciphersuites.end());
                             if (!found) {
-                                if (a != nullptr) {
+                                if (msg) {
                                     if (readable_output) {
-                                        cs_array->print_string(cs.get_name());
+                                        msg->add_cs_not_allowed(cs.get_name());
                                     } else {
-                                        cs_array->print_uint16_hex(cs);
+                                        msg->add_cs_not_allowed_hex(cs.value());
                                     }
                                 }
                             } else {
@@ -249,9 +279,6 @@ namespace crypto_policy {
                         cs = tls::cipher_suites{ciphersuite_vector};
                     }
 
-                    if (a != nullptr) {
-                        cs_array->close();
-                    }
                     break;
                 } else {
                     some_allowed = true;
@@ -259,28 +286,28 @@ namespace crypto_policy {
 
             }
 
-            if (a != nullptr) {
+            if (msg) {
                 const char *quantifier = "none";
                 if (all_allowed) {
                     quantifier = "all";
                 } else if (some_allowed) {
                     quantifier = "some";
                 }
-                a->print_key_string("ciphersuites_allowed", quantifier);
+                msg->set_cs_allowed(quantifier);
             }
 
             return all_allowed;
         }
 
-        bool assess_tls_extensions(const tls_extensions &extensions, json_object &a) const {
-            return assess_tls_extensions_impl(extensions, &a);
+        bool assess_tls_extensions(const tls_extensions &extensions, crypto_cnsa_message &msg) const {
+            return assess_tls_extensions_impl(extensions, &msg);
         }
 
         bool assess_tls_extensions(const tls_extensions &extensions) const {
             return assess_tls_extensions_impl(extensions, nullptr);
         }
 
-        bool assess_tls_extensions_impl(const tls_extensions &extensions, json_object *a) const {
+        bool assess_tls_extensions_impl(const tls_extensions &extensions, crypto_cnsa_message *msg) const {
             bool all_allowed = true;
             bool some_allowed = false;
 
@@ -292,11 +319,6 @@ namespace crypto_policy {
                 return false; // not a valid named groups length
             }
 
-            // Do not use this dummy object without checking for json_object a
-            // buffer pointer is uninitialized in case of the default constructor
-            //
-            std::optional<json_array> ng_array = std::nullopt;
-
             while (named_groups_xtn.value.is_readable()) {
                 tls::supported_groups named_group{named_groups_xtn.value};
 
@@ -307,19 +329,16 @@ namespace crypto_policy {
                 bool found = (allowed_groups.find(named_group.value()) != allowed_groups.end());
                 if (!found) {
                     all_allowed = false;
-                    if (a != nullptr) {
-                        ng_array.emplace(*a, "groups_not_allowed");
-                    }
 
                     while (true) {
                         if (!is_grease(named_group)) {
                             found = (allowed_groups.find(named_group.value()) != allowed_groups.end());
                             if (!found) {
-                                if (a != nullptr) {
+                                if (msg) {
                                     if (readable_output) {
-                                        ng_array->print_string(named_group.get_name());
+                                        msg->add_grp_not_allowed(named_group.get_name());
                                     } else {
-                                        ng_array->print_uint16_hex(named_group);
+                                        msg->add_grp_not_allowed_hex(named_group.value());
                                     }
                                 }
                             } else {
@@ -331,9 +350,6 @@ namespace crypto_policy {
                         named_group = tls::supported_groups{named_groups_xtn.value};
                     }
 
-                    if (a != nullptr) {
-                        ng_array->close();
-                    }
                     break;
                 } else {
                     some_allowed = true;
@@ -486,30 +502,30 @@ namespace crypto_policy {
             bool psk_mlkem1024_compliant = !psk_mlkem1024_required ||
                                            (have_key_share && key_share_valid && key_share_has_mlkem1024);
 
-            if (a != nullptr) {
+            if (msg) {
                 const char *quantifier = "none";
                 if (all_allowed) {
                     quantifier = "all";
                 } else if (some_allowed) {
                     quantifier = "some";
                 }
-                a->print_key_string("groups_allowed", quantifier);
-                a->print_key_bool("tls_cert_with_extern_psk", have_tls_cert_with_extern_psk);
+                msg->set_grp_allowed(quantifier);
+                msg->set_psk_mode(have_tls_cert_with_extern_psk);
                 if (!external_psk_with_cert_compliant) {
-                    a->print_key_string("tls_cert_with_extern_psk_non_compliant",
-                                        "tls_cert_with_extern_psk requires pre_shared_key, psk_key_exchange_modes, and key_share");
+                    msg->set_psk_non_compliant("tls_cert_with_extern_psk_non_compliant",
+                                               "tls_cert_with_extern_psk requires pre_shared_key, psk_key_exchange_modes, and key_share");
                 }
                 if (!psk_modes_compliant) {
-                    a->print_key_string("psk_key_exchange_modes_non_compliant",
-                                        "psk_key_exchange_modes must include psk_dhe_ke and must not include psk_ke");
+                    msg->set_psk_non_compliant("psk_key_exchange_modes_non_compliant",
+                                               "psk_key_exchange_modes must include psk_dhe_ke and must not include psk_ke");
                 }
                 if (!psk_mlkem1024_compliant) {
-                    a->print_key_string("psk_key_exchange_mlkem1024_non_compliant",
-                                        "psk_dhe_ke requires key_share with MLKEM1024");
+                    msg->set_psk_non_compliant("psk_key_exchange_mlkem1024_non_compliant",
+                                               "psk_dhe_ke requires key_share with MLKEM1024");
                 }
                 if (!psk_binders_compliant) {
-                    a->print_key_string("pre_shared_key_non_compliant",
-                                        "pre_shared_key binders must be present and each binder must be at least 256 bits");
+                    msg->set_psk_non_compliant("pre_shared_key_non_compliant",
+                                               "pre_shared_key binders must be present and each binder must be at least 256 bits");
                 }
             }
 
@@ -547,19 +563,19 @@ namespace crypto_policy {
             "aes128-gcm"
         };
 
-        bool assess_ssh_kex_methods(const name_list &kex_list, json_object &a) const {
-            return assess_ssh_kex_methods_impl(kex_list, &a);
-        }
+        // Which SSH cipher direction a fill targets (selects the c2s vs s2c message field).
+        enum class ssh_cipher_dir { client_to_server, server_to_client };
 
         bool assess_ssh_kex_methods(const name_list &kex_list) const {
             return assess_ssh_kex_methods_impl(kex_list, nullptr);
         }
 
-        bool assess_ssh_kex_methods_impl(const name_list &kex_list, json_object *a) const {
+        // Classify SSH kex methods against the allow-list. If msg != nullptr, record each
+        // not-allowed method and the "allowed" quantifier into it; if nullptr, compliance-only.
+        bool assess_ssh_kex_methods_impl(const name_list &kex_list, crypto_cnsa_ssh_message *msg) const {
             bool all_allowed = true;
             bool some_allowed = false;
             name_list tmp_list = kex_list;
-            std::unique_ptr<json_array> kex_array;
 
             while (tmp_list.is_readable()) {
                 datum tmp{};
@@ -568,74 +584,54 @@ namespace crypto_policy {
                 if (tmp.end() == tmp_list.end()) {
                     tmp_list.set_null();
                 } else {
-                    tmp_list.skip(1); // skip ','
+                    tmp_list.skip(1);
                 }
-
                 bool found = (ssh_allowed_kex.find(tmp_sv) != ssh_allowed_kex.end());
                 if (!found) {
                     all_allowed = false;
-                    if (a != nullptr) {
-                        kex_array = std::make_unique<json_array>(*a, "kex_not_allowed");
-                    }
-
                     while (true) {
                         found = (ssh_allowed_kex.find(tmp_sv) != ssh_allowed_kex.end());
                         if (!found) {
-                            if (kex_array != nullptr) {
-                                kex_array->print_string(tmp_sv.data(), tmp_sv.length());
-                            }
+                            if (msg != nullptr) { msg->add_kex_not_allowed(tmp); }
                         } else {
                             some_allowed = true;
                         }
-
-                        if (!tmp_list.is_readable()) {
-                            break;
-                        }
-
+                        if (!tmp_list.is_readable()) { break; }
                         tmp.set_null();
                         tmp.parse_up_to_delim(tmp_list, ',');
                         tmp_sv = {(char*)tmp.data, (size_t)tmp.length()};
                         if (tmp.end() == tmp_list.end()) {
                             tmp_list.set_null();
                         } else {
-                            tmp_list.skip(1); // skip ','
+                            tmp_list.skip(1);
                         }
-                    }
-                    if (kex_array != nullptr) {
-                        kex_array->close();
                     }
                     break;
                 } else {
                     some_allowed = true;
                 }
             }
-
-            if (a != nullptr) {
+            if (msg != nullptr) {
                 const char *quantifier = "none";
-                if (all_allowed) {
-                    quantifier = "all";
-                } else if (some_allowed) {
-                    quantifier = "some";
-                }
-                a->print_key_string("kex_allowed", quantifier);
+                if (all_allowed) { quantifier = "all"; }
+                else if (some_allowed) { quantifier = "some"; }
+                msg->set_kex_allowed(quantifier);
             }
-
             return all_allowed;
         }
 
-        bool assess_ssh_ciphers(const name_list &ciphers, json_object &a) const {
-            return assess_ssh_ciphers_impl(ciphers, &a);
-        }
-
         bool assess_ssh_ciphers(const name_list &ciphers) const {
-            return assess_ssh_ciphers_impl(ciphers, nullptr);
+            return assess_ssh_ciphers_impl(ciphers, nullptr, ssh_cipher_dir::client_to_server);
         }
 
-        bool assess_ssh_ciphers_impl(const name_list &ciphers, json_object *a) const {
+        // Classify SSH ciphers against the allow-list. If msg != nullptr, record each
+        // not-allowed cipher and the "allowed" quantifier into the c2s or s2c field selected by
+        // dir; if nullptr, compliance-only (dir unused).
+        bool assess_ssh_ciphers_impl(const name_list &ciphers, crypto_cnsa_ssh_message *msg,
+                                     ssh_cipher_dir dir) const {
             bool all_allowed = true;
             bool some_allowed = false;
             name_list tmp_list = ciphers;
-            std::unique_ptr<json_array> cs_array;
 
             while (tmp_list.is_readable()) {
                 datum tmp{};
@@ -644,91 +640,51 @@ namespace crypto_policy {
                 if (tmp.end() == tmp_list.end()) {
                     tmp_list.set_null();
                 } else {
-                    tmp_list.skip(1); // skips ','
+                    tmp_list.skip(1);
                 }
-
                 bool found = ssh_allowed_ciphers.find(tmp_sv) != ssh_allowed_ciphers.end();
                 if (!found) {
                     all_allowed = false;
-                    if (a != nullptr) {
-                        cs_array = std::make_unique<json_array>(*a, "ciphersuites_not_allowed");
-                    }
-
                     while (true) {
                         found = ssh_allowed_ciphers.find(tmp_sv) != ssh_allowed_ciphers.end();
                         if (!found) {
-                            if (cs_array != nullptr) {
-                                cs_array->print_string(tmp_sv.data(), tmp_sv.length());
+                            if (msg != nullptr) {
+                                if (dir == ssh_cipher_dir::client_to_server) { msg->add_c2s_cs_not_allowed(tmp); }
+                                else                                         { msg->add_s2c_cs_not_allowed(tmp); }
                             }
                         } else {
                             some_allowed = true;
                         }
-
-                        if (!tmp_list.is_readable()) {
-                            break;
-                        }
-
+                        if (!tmp_list.is_readable()) { break; }
                         tmp.set_null();
                         tmp.parse_up_to_delim(tmp_list, ',');
                         tmp_sv = {(char*)tmp.data, (size_t)tmp.length()};
                         if (tmp.end() == tmp_list.end()) {
                             tmp_list.set_null();
                         } else {
-                            tmp_list.skip(1); // skips ','
+                            tmp_list.skip(1);
                         }
-
-                    }
-                    if (cs_array != nullptr) {
-                        cs_array->close();
                     }
                     break;
                 } else {
                     some_allowed = true;
                 }
             }
-
-            if (a != nullptr) {
+            if (msg != nullptr) {
                 const char *quantifier = "none";
-                if (all_allowed) {
-                    quantifier = "all";
-                } else if (some_allowed) {
-                    quantifier = "some";
-                }
-                a->print_key_string("ciphersuites_allowed", quantifier);
+                if (all_allowed) { quantifier = "all"; }
+                else if (some_allowed) { quantifier = "some"; }
+                if (dir == ssh_cipher_dir::client_to_server) { msg->set_c2s_cs_allowed(quantifier); }
+                else                                         { msg->set_s2c_cs_allowed(quantifier); }
             }
-
             return all_allowed;
         }
+
+        // --- compliance-only (NO_OUTPUT) path: const, fills nothing ---
 
         bool assess(const tls_client_hello &ch) const override {
             return assess_tls_ciphersuites(ch.ciphersuite_vector) &&
                    assess_tls_extensions(ch.extensions);
-        }
-
-        bool assess(const tls_client_hello &ch, json_array &a) const override {
-
-            json_object o{a};
-            o.print_key_string("policy", "quantum_safe");
-            json_object assessment{o, "client"};
-            bool suites_compliant = assess_tls_ciphersuites(ch.ciphersuite_vector, assessment);
-            bool extensions_compliant = assess_tls_extensions(ch.extensions, assessment);
-            assessment.close();
-            o.close();
-
-            return suites_compliant && extensions_compliant;
-        }
-
-        bool assess(const tls_server_hello &ch, json_array &a) const override {
-
-            json_object o{a};
-            o.print_key_string("policy", "quantum_safe");
-            json_object assessment{o, "session"};
-            bool suites_compliant = assess_tls_ciphersuites(ch.ciphersuite_vector, assessment);
-            bool extensions_compliant = assess_tls_extensions(ch.extensions, assessment);
-            assessment.close();
-            o.close();
-
-            return suites_compliant && extensions_compliant;
         }
 
         bool assess(const tls_server_hello &ch) const override {
@@ -736,40 +692,17 @@ namespace crypto_policy {
                    assess_tls_extensions(ch.extensions);
         }
 
-        bool assess(const tls_server_hello_and_certificate &hello_and_cert, json_array &a) const override {
-            if (hello_and_cert.is_not_empty()) {
-                return assess(hello_and_cert.get_server_hello(), a);
-            }
-            return true;
-        };
-
         bool assess(const tls_server_hello_and_certificate &hello_and_cert) const override {
             if (hello_and_cert.is_not_empty()) {
                 return assess(hello_and_cert.get_server_hello());
             }
             return true;
-        };
+        }
 
         bool assess(const ssh_kex_init &ssh_kex) const override {
             return assess_ssh_kex_methods(ssh_kex.kex_algorithms) &&
                    assess_ssh_ciphers(ssh_kex.encryption_algorithms_client_to_server) &&
                    assess_ssh_ciphers(ssh_kex.encryption_algorithms_server_to_client);
-        }
-
-        bool assess(const ssh_kex_init &ssh_kex, json_array &a) const override {
-            json_object o{a};
-            o.print_key_string("policy", "quantum_safe");
-            json_object assessment{o, "offered"};
-            bool kex_compliant = assess_ssh_kex_methods(ssh_kex.kex_algorithms, assessment);
-            json_object client_server{assessment, "client_to_server"};
-            bool c2s_compliant = assess_ssh_ciphers(ssh_kex.encryption_algorithms_client_to_server, client_server);
-            client_server.close();
-            json_object server_client{assessment, "server_to_client"};
-            bool s2c_compliant = assess_ssh_ciphers(ssh_kex.encryption_algorithms_server_to_client, server_client);
-            server_client.close();
-            assessment.close();
-            o.close();
-            return kex_compliant && c2s_compliant && s2c_compliant;
         }
 
         bool assess(const dtls_client_hello &dtls_ch) const override {
@@ -778,36 +711,78 @@ namespace crypto_policy {
                    assess_tls_extensions(ch.extensions);
         }
 
-        bool assess(const dtls_client_hello &dtls_ch, json_array &a) const override {
-
-            json_object o{a};
-            const tls_client_hello &ch = dtls_ch.get_tls_client_hello();
-            o.print_key_string("policy", "quantum_safe");
-            o.print_key_string("target", "client");
-            bool suites_compliant = assess_tls_ciphersuites(ch.ciphersuite_vector, o);
-            bool extensions_compliant = assess_tls_extensions(ch.extensions, o);
-            o.close();
-
-            return suites_compliant && extensions_compliant;
-        }
-
         bool assess(const dtls_server_hello &dtls_sh) const override {
             const tls_server_hello &sh = dtls_sh.get_tls_server_hello();
             return assess_tls_ciphersuites(sh.ciphersuite_vector) &&
                    assess_tls_extensions(sh.extensions);
         }
 
-        bool assess(const dtls_server_hello &dtls_sh, json_array &a) const override {
+        // Fill path: populates the owned message and returns the compliance bit.
+        // These overloads are selected by being non-const; adding const here would
+        // silently route callers to the compliance-only version.
 
-            const tls_server_hello &sh = dtls_sh.get_tls_server_hello();
-            json_object o{a};
-            o.print_key_string("policy", "quantum_safe");
-            o.print_key_string("target", "session");
-            bool suites_compliant = assess_tls_ciphersuites(sh.ciphersuite_vector, o);
-            bool extensions_compliant = assess_tls_extensions(sh.extensions, o);
-            o.close();
+        bool assess(const tls_client_hello &ch) override {
+            cnsa_tls_msg_.set_policy("quantum_safe");
+            cnsa_tls_msg_.set_target("client");
+            bool suites = assess_tls_ciphersuites(ch.ciphersuite_vector, cnsa_tls_msg_);
+            bool exts   = assess_tls_extensions(ch.extensions, cnsa_tls_msg_);
+            cnsa_tls_msg_.set_compliant(suites && exts);
+            cnsa_tls_msg_.set_valid();
+            return suites && exts;
+        }
 
-            return suites_compliant && extensions_compliant;
+        bool assess(const tls_server_hello &ch) override {
+            cnsa_tls_msg_.set_policy("quantum_safe");
+            cnsa_tls_msg_.set_target("session");
+            bool suites = assess_tls_ciphersuites(ch.ciphersuite_vector, cnsa_tls_msg_);
+            bool exts   = assess_tls_extensions(ch.extensions, cnsa_tls_msg_);
+            cnsa_tls_msg_.set_compliant(suites && exts);
+            cnsa_tls_msg_.set_valid();
+            return suites && exts;
+        }
+
+        bool assess(const tls_server_hello_and_certificate &hello_and_cert) override {
+            if (hello_and_cert.is_not_empty()) {
+                return assess(hello_and_cert.get_server_hello());
+            }
+            return true;
+        }
+
+        bool assess(const ssh_kex_init &ssh_kex) override {
+            cnsa_ssh_msg_.set_policy("quantum_safe");
+            bool kex_compliant = assess_ssh_kex_methods_impl(ssh_kex.kex_algorithms, &cnsa_ssh_msg_);
+            bool c2s_compliant = assess_ssh_ciphers_impl(ssh_kex.encryption_algorithms_client_to_server, &cnsa_ssh_msg_,
+                                                         ssh_cipher_dir::client_to_server);
+            bool s2c_compliant = assess_ssh_ciphers_impl(ssh_kex.encryption_algorithms_server_to_client, &cnsa_ssh_msg_,
+                                                         ssh_cipher_dir::server_to_client);
+            cnsa_ssh_msg_.set_compliant(kex_compliant && c2s_compliant && s2c_compliant);
+            cnsa_ssh_msg_.set_valid();
+            return kex_compliant && c2s_compliant && s2c_compliant;
+        }
+
+        bool assess(const dtls_client_hello &dtls_ch) override {
+            return assess(dtls_ch.get_tls_client_hello());
+        }
+
+        bool assess(const dtls_server_hello &dtls_sh) override {
+            return assess(dtls_sh.get_tls_server_hello());
+        }
+
+        // --- emit the owned message in the requested format ---
+
+        void emit(json_array &record) override {
+            if (cnsa_tls_msg_.is_valid())      { cnsa_tls_msg_.write<json_object>(record); }
+            else if (cnsa_ssh_msg_.is_valid()) { cnsa_ssh_msg_.write<json_object>(record); }
+        }
+
+        void emit(cbor_object &out) override {
+            if (cnsa_tls_msg_.is_valid() && !cnsa_tls_msg_.is_compliant()) {
+                cbor::text_string(crypto_cnsa_tls_message::KEY).write(out.get_writeable());
+                cnsa_tls_msg_.write<cbor_object>(out);
+            } else if (cnsa_ssh_msg_.is_valid() && !cnsa_ssh_msg_.is_compliant()) {
+                cbor::text_string(crypto_cnsa_ssh_message::KEY).write(out.get_writeable());
+                cnsa_ssh_msg_.write<cbor_object>(out);
+            }
         }
 
     };
@@ -827,7 +802,13 @@ namespace crypto_policy {
 
     const bool verbose_output = false;
 
+    // Owned feature message; filled by the non-const assess(), read by emit(). Cleared by
+    // reset_output(), which the orchestrator calls before every emitting assessment.
+    crypto_nist_message nist_msg_;
+
     public:
+        void reset_output() override { nist_msg_ = {}; }
+
         const static size_t result_idx = 1; // bitset index for nist assessment
 
         nist_sp_800_52() { }
@@ -847,163 +828,132 @@ namespace crypto_policy {
             return cs.value();
         }
 
-        bool assess_impl(const tls_server_hello &sh, json_array *cryptoAssessmentArray) const {
-
-            // dummy json object. Not to be used without checking for o != nullptr
-            //
-            std::optional<json_object> optional_json_obj = std::nullopt;
-            if (cryptoAssessmentArray != nullptr) {
-                optional_json_obj.emplace(*cryptoAssessmentArray);
-                optional_json_obj->print_key_string("policy", "nist_sp_800_52_2");
-            }
+        bool assess_impl(const tls_server_hello &sh, crypto_nist_message *msg) const {
 
             bool non_compliant = false;
             tls_version protocol_version = sh.get_version();
             required_extensions exts = sh.extensions.get_required_extensions();
             uint16_t ciphersuite = get_negotiated_cipher_suite(sh.ciphersuite_vector);
 
-            // negotiated parameters compliance checks based on NIST SP 800-52 Rev 2
-            //
-            if (verbose_output && cryptoAssessmentArray != nullptr) {
-                json_object params{*optional_json_obj, "negotiated_parameters"};
-                if (exts.supported_version != tls_version::none) {
-                    params.print_key_string("protocol_version", tls_version_to_string(exts.supported_version).c_str());
-                } else {
-                    params.print_key_string("protocol_version", tls_version_to_string(protocol_version).c_str());
-                }
+            if (msg) {
+                msg->set_policy("nist_sp_800_52_2");
 
-                json_array exts_array{params, "extensions"};
-                for (const auto &ext : exts.supported_extensions) {
-                    if (!is_grease(ext)) {
-                        tls::extensions<uint16_t> extn{ext};
-                        exts_array.print_string(extn.get_name());
+                if (verbose_output) {
+                    msg->set_has_negotiated_params();
+                    if (exts.supported_version != tls_version::none) {
+                        msg->set_protocol_version(tls_version_to_string(exts.supported_version));
+                    } else {
+                        msg->set_protocol_version(tls_version_to_string(protocol_version));
                     }
+
+                    for (const auto &ext : exts.supported_extensions) {
+                        if (!is_grease(ext)) {
+                            tls::extensions<uint16_t> extn{ext};
+                            msg->add_extension(extn.get_name());
+                        }
+                    }
+
+                    msg->set_cipher_suite(tls::cipher_suites{ciphersuite}.get_name());
+                    msg->set_supported_group(tls::supported_groups{exts.negotiated_supported_group}.get_name());
                 }
-                exts_array.close();
-
-                params.print_key_string("cipher_suite", tls::cipher_suites{ciphersuite}.get_name());
-
-                params.print_key_string("supported_group", tls::supported_groups{exts.negotiated_supported_group}.get_name());
-
-                params.close();
-            }
-
-            std::optional<json_object> compliance = std::nullopt;
-            if (cryptoAssessmentArray != nullptr) {
-                compliance.emplace(*optional_json_obj, "compliance_result");
             }
 
             // NIST SP 800-52 Rev 2 Compliance Rules
             //
             if (!non_compliant && protocol_version == tls_version::tlsv1_3 && exts.supported_version != tls_version::tlsv1_3) {
-                if (cryptoAssessmentArray != nullptr) {
-                    compliance->print_key_string("tls_version_non_compliant", "TLSv1.3 negotiated but supported_versions extension missing or invalid");
+                if (msg) {
+                    msg->set_non_compliant("tls_version_non_compliant", "TLSv1.3 negotiated but supported_versions extension missing or invalid");
                 }
                 non_compliant = true;
             }
 
             if (!non_compliant && sh.compression_method.is_readable() &&
-                sh.compression_method.is_not_empty() && sh.compression_method.data[0] != 0x00) {  // NIST SP-800-52-2 Section 3.7
-                if (cryptoAssessmentArray != nullptr) {
-                    compliance->print_key_string("compression_method_non_compliant", "non-zero compression method");
+                sh.compression_method.is_not_empty() && sh.compression_method.data[0] != 0x00) {
+                if (msg) {
+                    msg->set_non_compliant("compression_method_non_compliant", "non-zero compression method");
                 }
                 non_compliant = true;
             }
 
             if (!non_compliant && exts.supported_extensions.count(type_supported_versions)) {
                 if (exts.supported_version == tls_version::tlsv1_3) {
-                    // keyshare extension needs to be parsed for supported groups in tlsv1.3
-                    //
-                    // if (!non_compliant && !exts.supported_extensions.count(type_supported_groups)) {  // NIST SP-800-52-2 Section 3.4.2.1
-                    //     if (cryptoAssessmentArray != nullptr) {
-                    //         compliance->print_key_string("supported_groups_missing", "TLSv1.3 requires supported_groups extension");
-                    //     }
-                    //     non_compliant = true;
-                    // }
-
-                    if (!non_compliant && !v1_3_allowed_ciphersuites.count(ciphersuite)) {          // NIST SP-800-52-2 Section 3.3.1
-                        if (cryptoAssessmentArray != nullptr) {
-                            compliance->print_key_string("cipher_suite_non_compliant", "disallowed cipher suite for TLSv1.3");
+                    if (!non_compliant && !v1_3_allowed_ciphersuites.count(ciphersuite)) {
+                        if (msg) {
+                            msg->set_non_compliant("cipher_suite_non_compliant", "disallowed cipher suite for TLSv1.3");
                         }
                         non_compliant = true;
                     }
                 }
                 else {
-                    if (cryptoAssessmentArray != nullptr) {
-                        compliance->print_key_string("tls_version_non_compliant", "supported_versions extension invalid"); // invalid supported_versions extension for negotiated tls version
+                    if (msg) {
+                        msg->set_non_compliant("tls_version_non_compliant", "supported_versions extension invalid");
                     }
                     non_compliant = true;
                 }
             }
             else if (!non_compliant) {
-                if (ecdhe_ciphersuites.count(ciphersuite) && !exts.supported_extensions.count(type_supported_groups)) {    // NIST SP-800-52-2 Section 3.4.2.1
-                    if (cryptoAssessmentArray != nullptr) {
-                        compliance->print_key_string("supported_groups_missing", "supported_groups extension missing for ECDHE cipher suite");
+                if (ecdhe_ciphersuites.count(ciphersuite) && !exts.supported_extensions.count(type_supported_groups)) {
+                    if (msg) {
+                        msg->set_non_compliant("supported_groups_missing", "supported_groups extension missing for ECDHE cipher suite");
                     }
                     non_compliant = true;
                 }
 
                 if (!non_compliant && ec_ciphersuites.count(ciphersuite)) {
-                    if (!non_compliant && !exts.ec_points_format) {   // NIST SP-800-52-2 Section 3.4.2.4
-                        if (cryptoAssessmentArray != nullptr) {
-                            compliance->print_key_string("ec_points_format_non_compliant", "ec_points_format extension missing but EC cipher suite negotiated");
+                    if (!non_compliant && !exts.ec_points_format) {
+                        if (msg) {
+                            msg->set_non_compliant("ec_points_format_non_compliant", "ec_points_format extension missing but EC cipher suite negotiated");
                         }
                         non_compliant = true;
                     }
                     if (!non_compliant && !(exts.negotiated_supported_group == tls::supported_groups::code::secp256r1 ||
-                        exts.negotiated_supported_group == tls::supported_groups::code::secp384r1)) {  // NIST SP-800-52-2 Section 3.4.2.2
-                        if (cryptoAssessmentArray != nullptr) {
-                            compliance->print_key_string("supported_group_non_compliant", "disallowed supported group for EC cipher suite");
+                        exts.negotiated_supported_group == tls::supported_groups::code::secp384r1)) {
+                        if (msg) {
+                            msg->set_non_compliant("supported_group_non_compliant", "disallowed supported group for EC cipher suite");
                         }
                         non_compliant = true;
                     }
                 }
 
-                if (!non_compliant && cbc_ciphersuites.count(ciphersuite) && !exts.encrypt_then_mac) {   // NIST SP-800-52-2 Section 3.4.2.7
-                    if (cryptoAssessmentArray != nullptr) {
-                        compliance->print_key_string("encrypt_then_mac_non_compliant", "encrypt_then_mac extension missing for CBC cipher suite");
+                if (!non_compliant && cbc_ciphersuites.count(ciphersuite) && !exts.encrypt_then_mac) {
+                    if (msg) {
+                        msg->set_non_compliant("encrypt_then_mac_non_compliant", "encrypt_then_mac extension missing for CBC cipher suite");
                     }
                     non_compliant = true;
                 }
 
                 if (protocol_version == tls_version::tlsv1_2) {
-                    if (!non_compliant && !v1_2_allowed_ciphersuites.count(ciphersuite)) {          // NIST SP-800-52-2 Section 3.3.1
-                        if (cryptoAssessmentArray != nullptr) {
-                            compliance->print_key_string("cipher_suite_non_compliant", "disallowed cipher suite for TLSv1.2");
+                    if (!non_compliant && !v1_2_allowed_ciphersuites.count(ciphersuite)) {
+                        if (msg) {
+                            msg->set_non_compliant("cipher_suite_non_compliant", "disallowed cipher suite for TLSv1.2");
                         }
                         non_compliant = true;
                     }
                 }
                 else if (protocol_version == tls_version::tlsv1_1) {
-                    if (!non_compliant && !v1_1_allowed_ciphersuites.count(ciphersuite)) {          // NIST SP-800-52-2 Section 3.3.1
-                        if (cryptoAssessmentArray != nullptr) {
-                            compliance->print_key_string("cipher_suite_non_compliant", "disallowed cipher suite for TLSv1.1");
+                    if (!non_compliant && !v1_1_allowed_ciphersuites.count(ciphersuite)) {
+                        if (msg) {
+                            msg->set_non_compliant("cipher_suite_non_compliant", "disallowed cipher suite for TLSv1.1");
                         }
                         non_compliant = true;
                     }
                 }
                 else if (!non_compliant) {
-                    if (cryptoAssessmentArray != nullptr) {
-                        compliance->print_key_string("tls_version_non_compliant", tls_version_to_string(protocol_version).c_str());   // invalid/disallowed tls protocol version
+                    if (msg) {
+                        msg->set_non_compliant("tls_version_non_compliant", tls_version_to_string(protocol_version));
                     }
                     non_compliant = true;
                 }
             }
 
-            if (cryptoAssessmentArray != nullptr) {
-                if (!non_compliant) {
-                    compliance->print_key_bool("compliant", true);
-                }
-                else {
-                    compliance->print_key_bool("compliant", false);
-                }
-                compliance->close();
-                optional_json_obj->close();
+            if (msg) {
+                msg->set_valid();
             }
 
             return !non_compliant;
         }
 
+        // compliance-only (NO_OUTPUT) path: const, fills nothing.
         bool assess(const tls_server_hello& sh) const override {
             return assess_impl(sh, nullptr);
         }
@@ -1015,17 +965,29 @@ namespace crypto_policy {
             return true;
         }
 
-        bool assess(const tls_server_hello &sh, json_array &a) const override {
-        return assess_impl(sh, &a);
+        // FILL path: non-const, populates the owned message via assess_impl(&msg), returns the
+        // compliance bit. The non-constness selects these overloads; never add const here.
+        bool assess(const tls_server_hello &sh) override {
+            return assess_impl(sh, &nist_msg_);
         }
 
-        bool assess(const tls_server_hello_and_certificate &hello_and_cert, json_array &a) const override {
+        bool assess(const tls_server_hello_and_certificate &hello_and_cert) override {
             if (hello_and_cert.is_not_empty()) {
-                return assess(hello_and_cert.get_server_hello(), a);
+                return assess(hello_and_cert.get_server_hello());
             }
             return true;
         }
 
+        void emit(json_array &record) override {
+            if (nist_msg_.is_valid()) { nist_msg_.write<json_object>(record); }
+        }
+
+        void emit(cbor_object &out) override {
+            if (nist_msg_.is_valid() && !nist_msg_.is_compliant()) {
+                cbor::text_string(crypto_nist_message::KEY).write(out.get_writeable());
+                nist_msg_.write<cbor_object>(out);
+            }
+        }
 
         static inline std::unordered_set<uint16_t> cbc_ciphersuites = {
             tls::cipher_suites::code::TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
@@ -1244,7 +1206,7 @@ namespace crypto_policy {
 
     };
 
-    inline void assessor::create(const std::string &policy, std::vector<const assessor*> &assessors) {
+    inline void assessor::create(const std::string &policy, std::vector<assessor*> &assessors) {
 
         if (policy == "default") {
             assessors.push_back(new crypto_policy::quantum_safe{true});
@@ -1300,9 +1262,22 @@ namespace crypto_policy {
             0xC0, 0x06  // TLS_ECDHE_ECDSA_WITH_NULL_SHA (not allowed)
         };
         datum ciphersuites_vector{tls_ciphers, tls_ciphers + sizeof(tls_ciphers)};
+        crypto_cnsa_message cs_msg;
+        assessor.assess_tls_ciphersuites(ciphersuites_vector, cs_msg);
         buffer_stream tls_cphrs_buff_strm{buff, 1024};
         json_object c{&tls_cphrs_buff_strm};
-        assessor.assess_tls_ciphersuites(ciphersuites_vector, c);
+        if (cs_msg.cs_not_allowed_count() > 0 || cs_msg.cs_allowed_valid()) {
+            // write just the ciphersuite fields for comparison
+            if (cs_msg.cs_not_allowed_count() > 0) {
+                json_array cs_arr{c, "ciphersuites_not_allowed"};
+                for (size_t i = 0; i < cs_msg.cs_not_allowed_count(); i++)
+                    cs_arr.print_string(cs_msg.cs_not_allowed_at(i).value());
+                cs_arr.close();
+            }
+            if (cs_msg.cs_allowed_valid()) {
+                c.print_key_string("ciphersuites_allowed", cs_msg.cs_allowed_value().value());
+            }
+        }
         c.close();
 
         std::string tls_ciphers_output_str = "{\"ciphersuites_not_allowed\":[\"TLS_ECDHE_ECDSA_WITH_NULL_SHA\"],\"ciphersuites_allowed\":\"some\"}";
@@ -1319,9 +1294,13 @@ namespace crypto_policy {
             0x7A, 0x7A, // grease
         };
         datum ciphersuites_vector_all_allowed{tls_ciphers_all_allowed, tls_ciphers_all_allowed + sizeof(tls_ciphers_all_allowed)};
+        crypto_cnsa_message cs_msg_all;
+        assessor.assess_tls_ciphersuites(ciphersuites_vector_all_allowed, cs_msg_all);
         buffer_stream tls_cphrs_buff_strm_all_allowed{buff, 1024};
         json_object c_all_allowed{&tls_cphrs_buff_strm_all_allowed};
-        assessor.assess_tls_ciphersuites(ciphersuites_vector_all_allowed, c_all_allowed);
+        if (cs_msg_all.cs_allowed_valid()) {
+            c_all_allowed.print_key_string("ciphersuites_allowed", cs_msg_all.cs_allowed_value().value());
+        }
         c_all_allowed.close();
 
         std::string tls_ciphers_all_allowed_output_str = "{\"ciphersuites_allowed\":\"all\"}";
@@ -1337,9 +1316,19 @@ namespace crypto_policy {
             0xC0, 0x07  // TLS_ECDHE_ECDSA_WITH_RC4_128_SHA (not allowed)
         };
         datum ciphersuites_vector_none_allowed{tls_ciphers_none_allowed, tls_ciphers_none_allowed + sizeof(tls_ciphers_none_allowed)};
+        crypto_cnsa_message cs_msg_none;
+        assessor.assess_tls_ciphersuites(ciphersuites_vector_none_allowed, cs_msg_none);
         buffer_stream tls_cphrs_buff_strm_none_allowed{buff, 1024};
         json_object c_none_allowed{&tls_cphrs_buff_strm_none_allowed};
-        assessor.assess_tls_ciphersuites(ciphersuites_vector_none_allowed, c_none_allowed);
+        if (cs_msg_none.cs_not_allowed_count() > 0) {
+            json_array cs_arr{c_none_allowed, "ciphersuites_not_allowed"};
+            for (size_t i = 0; i < cs_msg_none.cs_not_allowed_count(); i++)
+                cs_arr.print_string(cs_msg_none.cs_not_allowed_at(i).value());
+            cs_arr.close();
+        }
+        if (cs_msg_none.cs_allowed_valid()) {
+            c_none_allowed.print_key_string("ciphersuites_allowed", cs_msg_none.cs_allowed_value().value());
+        }
         c_none_allowed.close();
 
         std::string tls_ciphers_none_allowed_output_str = "{\"ciphersuites_not_allowed\":[\"TLS_ECDHE_ECDSA_WITH_NULL_SHA\",\"TLS_ECDHE_ECDSA_WITH_RC4_128_SHA\"],\"ciphersuites_allowed\":\"none\"}";
@@ -1360,9 +1349,22 @@ namespace crypto_policy {
         };
 
         tls_extensions extensions{tls_extensions_data, tls_extensions_data + sizeof(tls_extensions_data)};
+        crypto_cnsa_message ext_msg;
+        assessor.assess_tls_extensions(extensions, ext_msg);
         buffer_stream tls_extn_buff_strm{buff, 1024};
         json_object d{&tls_extn_buff_strm};
-        assessor.assess_tls_extensions(extensions, d);
+        if (ext_msg.grp_not_allowed_count() > 0) {
+            json_array grp_arr{d, "groups_not_allowed"};
+            for (size_t i = 0; i < ext_msg.grp_not_allowed_count(); i++)
+                grp_arr.print_string(ext_msg.grp_not_allowed_at(i).value());
+            grp_arr.close();
+        }
+        if (ext_msg.grp_allowed_valid()) {
+            d.print_key_string("groups_allowed", ext_msg.grp_allowed_value().value());
+        }
+        d.print_key_bool("tls_cert_with_extern_psk", ext_msg.psk_mode());
+        for (size_t i = 0; i < ext_msg.psk_non_compliant_count(); i++)
+            d.print_key_string(ext_msg.psk_non_compliant_key_at(i).value(), ext_msg.psk_non_compliant_reason_at(i).value());
         d.close();
 
         std::string tls_extensions_output_str = "{\"groups_not_allowed\":[\"sect163k1\"],\"groups_allowed\":\"some\",\"tls_cert_with_extern_psk\":false}";
@@ -1383,15 +1385,8 @@ namespace crypto_policy {
         };
 
         tls_extensions extensions_invalid{tls_extensions_data_invalid, tls_extensions_data_invalid + sizeof(tls_extensions_data_invalid)};
-        buffer_stream tls_extn_buff_strm_invalid{buff, 1024};
-        json_object d_invalid{&tls_extn_buff_strm_invalid};
-        if (assessor.assess_tls_extensions(extensions_invalid, d_invalid)) {
-            return false;
-        }
-        d_invalid.close();
-
-        std::string tls_extensions_invalid_output_str = "{}";
-        if (tls_extensions_invalid_output_str.length() != d_invalid.b->length() || memcmp(tls_extensions_invalid_output_str.c_str(), d_invalid.b->dstr, tls_extensions_invalid_output_str.length()) != 0) {
+        crypto_cnsa_message ext_msg_invalid;
+        if (assessor.assess_tls_extensions(extensions_invalid, ext_msg_invalid)) {
             return false;
         }
 
@@ -1407,9 +1402,14 @@ namespace crypto_policy {
         };
 
         tls_extensions extensions_all_allowed{tls_extensions_data_all_allowed, tls_extensions_data_all_allowed + sizeof(tls_extensions_data_all_allowed)};
+        crypto_cnsa_message ext_msg_all;
+        assessor.assess_tls_extensions(extensions_all_allowed, ext_msg_all);
         buffer_stream tls_extn_buff_strm_all_allowed{buff, 1024};
         json_object d_all_allowed{&tls_extn_buff_strm_all_allowed};
-        assessor.assess_tls_extensions(extensions_all_allowed, d_all_allowed);
+        if (ext_msg_all.grp_allowed_valid()) {
+            d_all_allowed.print_key_string("groups_allowed", ext_msg_all.grp_allowed_value().value());
+        }
+        d_all_allowed.print_key_bool("tls_cert_with_extern_psk", ext_msg_all.psk_mode());
         d_all_allowed.close();
 
         std::string tls_extensions_all_allowed_output_str = "{\"groups_allowed\":\"all\",\"tls_cert_with_extern_psk\":false}";
@@ -1430,9 +1430,20 @@ namespace crypto_policy {
         };
 
         tls_extensions extensions_no_allowed{tls_extensions_data_no_allowed, tls_extensions_data_no_allowed + sizeof(tls_extensions_data_no_allowed)};
+        crypto_cnsa_message ext_msg_no;
+        assessor.assess_tls_extensions(extensions_no_allowed, ext_msg_no);
         buffer_stream tls_extn_buff_strm_no_allowed{buff, 1024};
         json_object d_no_allowed{&tls_extn_buff_strm_no_allowed};
-        assessor.assess_tls_extensions(extensions_no_allowed, d_no_allowed);
+        if (ext_msg_no.grp_not_allowed_count() > 0) {
+            json_array grp_arr{d_no_allowed, "groups_not_allowed"};
+            for (size_t i = 0; i < ext_msg_no.grp_not_allowed_count(); i++)
+                grp_arr.print_string(ext_msg_no.grp_not_allowed_at(i).value());
+            grp_arr.close();
+        }
+        if (ext_msg_no.grp_allowed_valid()) {
+            d_no_allowed.print_key_string("groups_allowed", ext_msg_no.grp_allowed_value().value());
+        }
+        d_no_allowed.print_key_bool("tls_cert_with_extern_psk", ext_msg_no.psk_mode());
         d_no_allowed.close();
 
         std::string tls_extensions_no_allowed_output_str = "{\"groups_not_allowed\":[\"sect163k1\",\"sect163r1\"],\"groups_allowed\":\"none\",\"tls_cert_with_extern_psk\":false}";
@@ -1457,16 +1468,22 @@ namespace crypto_policy {
         datum kex_algo_dtm{kex_algorithms, kex_algorithms + sizeof(kex_algorithms)};
         name_list kex_algorithms_data{};
         kex_algorithms_data.parse(kex_algo_dtm);
-        buffer_stream buff_strm{buff, 1024};
-        json_object a{&buff_strm};
 
-        assessor.assess_ssh_kex_methods(kex_algorithms_data, a);
-        a.close();
-
-        std::string kex_algorithms_output_str = "{\"kex_not_allowed\":[\"abc\",\"xyz\"],\"kex_allowed\":\"some\"}";
-
-        if (kex_algorithms_output_str.length() != a.b->length() || memcmp(kex_algorithms_output_str.c_str(), a.b->dstr, kex_algorithms_output_str.length()) != 0) {
-            return false;
+        // assess into a message via the fill path, then verify the rendered JSON contains the
+        // expected kex classification (nested under "offered").
+        {
+            crypto_cnsa_ssh_message kex_msg;
+            bool kex_compliant = assessor.assess_ssh_kex_methods_impl(kex_algorithms_data, &kex_msg);
+            buffer_stream kex_bs{buff, 1024};
+            json_object kex_jo{&kex_bs};
+            kex_msg.write<json_object>(kex_jo);
+            kex_jo.close();
+            std::string kex_out{kex_bs.dstr, (size_t)kex_bs.length()};
+            if (kex_compliant
+                || kex_out.find("\"kex_not_allowed\":[\"abc\",\"xyz\"]") == std::string::npos
+                || kex_out.find("\"kex_allowed\":\"some\"") == std::string::npos) {
+                return false;
+            }
         }
 
         // TEST-9
@@ -1483,16 +1500,20 @@ namespace crypto_policy {
         datum kex_algo_all_allowed_dtm{kex_algorithms_all_allowed, kex_algorithms_all_allowed + sizeof(kex_algorithms_all_allowed)};
         name_list kex_algorithms_all_allowed_data{};
         kex_algorithms_all_allowed_data.parse(kex_algo_all_allowed_dtm);
-        buffer_stream buff_strm_all_allowed{buff, 1024};
-        json_object a_all_allowed{&buff_strm_all_allowed};
 
-        assessor.assess_ssh_kex_methods(kex_algorithms_all_allowed_data, a_all_allowed);
-        a_all_allowed.close();
-
-        std::string kex_algorithms_all_allowed_output_str = "{\"kex_allowed\":\"all\"}";
-
-        if (kex_algorithms_all_allowed_output_str.length() != a_all_allowed.b->length() || memcmp(kex_algorithms_all_allowed_output_str.c_str(), a_all_allowed.b->dstr, kex_algorithms_all_allowed_output_str.length()) != 0) {
-            return false;
+        {
+            crypto_cnsa_ssh_message kex_msg;
+            bool kex_compliant = assessor.assess_ssh_kex_methods_impl(kex_algorithms_all_allowed_data, &kex_msg);
+            buffer_stream kex_bs{buff, 1024};
+            json_object kex_jo{&kex_bs};
+            kex_msg.write<json_object>(kex_jo);
+            kex_jo.close();
+            std::string kex_out{kex_bs.dstr, (size_t)kex_bs.length()};
+            if (!kex_compliant
+                || kex_out.find("\"kex_not_allowed\"") != std::string::npos
+                || kex_out.find("\"kex_allowed\":\"all\"") == std::string::npos) {
+                return false;
+            }
         }
 
         // TEST-10
@@ -1508,16 +1529,20 @@ namespace crypto_policy {
         datum kex_algo_none_allowed_dtm{kex_algorithms_none_allowed, kex_algorithms_none_allowed + sizeof(kex_algorithms_none_allowed)};
         name_list kex_algorithms_none_allowed_data{};
         kex_algorithms_none_allowed_data.parse(kex_algo_none_allowed_dtm);
-        buffer_stream buff_strm_none_allowed{buff, 1024};
-        json_object a_none_allowed{&buff_strm_none_allowed};
 
-        assessor.assess_ssh_kex_methods(kex_algorithms_none_allowed_data, a_none_allowed);
-        a_none_allowed.close();
-
-        std::string kex_algorithms_none_allowed_output_str = "{\"kex_not_allowed\":[\"abc\",\"xyz\",\"abc\",\"xyz\"],\"kex_allowed\":\"none\"}";
-
-        if (kex_algorithms_none_allowed_output_str.length() != a_none_allowed.b->length() || memcmp(kex_algorithms_none_allowed_output_str.c_str(), a_none_allowed.b->dstr, kex_algorithms_none_allowed_output_str.length()) != 0) {
-            return false;
+        {
+            crypto_cnsa_ssh_message kex_msg;
+            bool kex_compliant = assessor.assess_ssh_kex_methods_impl(kex_algorithms_none_allowed_data, &kex_msg);
+            buffer_stream kex_bs{buff, 1024};
+            json_object kex_jo{&kex_bs};
+            kex_msg.write<json_object>(kex_jo);
+            kex_jo.close();
+            std::string kex_out{kex_bs.dstr, (size_t)kex_bs.length()};
+            if (kex_compliant
+                || kex_out.find("\"kex_not_allowed\":[\"abc\",\"xyz\",\"abc\",\"xyz\"]") == std::string::npos
+                || kex_out.find("\"kex_allowed\":\"none\"") == std::string::npos) {
+                return false;
+            }
         }
 
         // TEST-11
@@ -1534,16 +1559,21 @@ namespace crypto_policy {
         datum ssh_ciphers_dtm{ssh_ciphers, ssh_ciphers + sizeof(ssh_ciphers)};
         name_list ssh_ciphers_data{};
         ssh_ciphers_data.parse(ssh_ciphers_dtm);
-        buffer_stream ssh_buff_strm{buff, 1024};
-        json_object b{&ssh_buff_strm};
 
-        assessor.assess_ssh_ciphers(ssh_ciphers_data, b);
-        b.close();
-
-        std::string ssh_ciphers_output_str = "{\"ciphersuites_not_allowed\":[\"abc\",\"xyz\"],\"ciphersuites_allowed\":\"some\"}";
-
-        if (ssh_ciphers_output_str.length() != b.b->length() || memcmp(ssh_ciphers_output_str.c_str(), b.b->dstr, ssh_ciphers_output_str.length()) != 0) {
-            return false;
+        {
+            crypto_cnsa_ssh_message cs_msg;
+            bool cs_compliant = assessor.assess_ssh_ciphers_impl(ssh_ciphers_data, &cs_msg,
+                                                                 quantum_safe::ssh_cipher_dir::client_to_server);
+            buffer_stream cs_bs{buff, 1024};
+            json_object cs_jo{&cs_bs};
+            cs_msg.write<json_object>(cs_jo);
+            cs_jo.close();
+            std::string cs_out{cs_bs.dstr, (size_t)cs_bs.length()};
+            if (cs_compliant
+                || cs_out.find("\"ciphersuites_not_allowed\":[\"abc\",\"xyz\"]") == std::string::npos
+                || cs_out.find("\"ciphersuites_allowed\":\"some\"") == std::string::npos) {
+                return false;
+            }
         }
 
         // TEST-12
@@ -1559,16 +1589,21 @@ namespace crypto_policy {
         datum ssh_ciphers_all_allowed_dtm{ssh_ciphers_all_allowed, ssh_ciphers_all_allowed + sizeof(ssh_ciphers_all_allowed)};
         name_list ssh_ciphers_all_allowed_data{};
         ssh_ciphers_all_allowed_data.parse(ssh_ciphers_all_allowed_dtm);
-        buffer_stream ssh_buff_strm_all_allowed{buff, 1024};
-        json_object b_all_allowed{&ssh_buff_strm_all_allowed};
 
-        assessor.assess_ssh_ciphers(ssh_ciphers_all_allowed_data, b_all_allowed);
-        b_all_allowed.close();
-
-        std::string ssh_ciphers_all_allowed_output_str = "{\"ciphersuites_allowed\":\"all\"}";
-
-        if (ssh_ciphers_all_allowed_output_str.length() != b_all_allowed.b->length() || memcmp(ssh_ciphers_all_allowed_output_str.c_str(), b_all_allowed.b->dstr, ssh_ciphers_all_allowed_output_str.length()) != 0) {
-            return false;
+        {
+            crypto_cnsa_ssh_message cs_msg;
+            bool cs_compliant = assessor.assess_ssh_ciphers_impl(ssh_ciphers_all_allowed_data, &cs_msg,
+                                                                 quantum_safe::ssh_cipher_dir::client_to_server);
+            buffer_stream cs_bs{buff, 1024};
+            json_object cs_jo{&cs_bs};
+            cs_msg.write<json_object>(cs_jo);
+            cs_jo.close();
+            std::string cs_out{cs_bs.dstr, (size_t)cs_bs.length()};
+            if (!cs_compliant
+                || cs_out.find("\"ciphersuites_not_allowed\"") != std::string::npos
+                || cs_out.find("\"ciphersuites_allowed\":\"all\"") == std::string::npos) {
+                return false;
+            }
         }
 
         // TEST-13
@@ -1584,16 +1619,21 @@ namespace crypto_policy {
         datum ssh_ciphers_none_allowed_dtm{ssh_ciphers_none_allowed, ssh_ciphers_none_allowed + sizeof(ssh_ciphers_none_allowed)};
         name_list ssh_ciphers_none_allowed_data{};
         ssh_ciphers_none_allowed_data.parse(ssh_ciphers_none_allowed_dtm);
-        buffer_stream ssh_buff_strm_none_allowed{buff, 1024};
-        json_object b_none_allowed{&ssh_buff_strm_none_allowed};
 
-        assessor.assess_ssh_ciphers(ssh_ciphers_none_allowed_data, b_none_allowed);
-        b_none_allowed.close();
-
-        std::string ssh_ciphers_none_allowed_output_str = "{\"ciphersuites_not_allowed\":[\"abc\",\"xyz\",\"abc\",\"xyz\"],\"ciphersuites_allowed\":\"none\"}";
-
-        if (ssh_ciphers_none_allowed_output_str.length() != b_none_allowed.b->length() || memcmp(ssh_ciphers_none_allowed_output_str.c_str(), b_none_allowed.b->dstr, ssh_ciphers_none_allowed_output_str.length()) != 0) {
-            return false;
+        {
+            crypto_cnsa_ssh_message cs_msg;
+            bool cs_compliant = assessor.assess_ssh_ciphers_impl(ssh_ciphers_none_allowed_data, &cs_msg,
+                                                                 quantum_safe::ssh_cipher_dir::client_to_server);
+            buffer_stream cs_bs{buff, 1024};
+            json_object cs_jo{&cs_bs};
+            cs_msg.write<json_object>(cs_jo);
+            cs_jo.close();
+            std::string cs_out{cs_bs.dstr, (size_t)cs_bs.length()};
+            if (cs_compliant
+                || cs_out.find("\"ciphersuites_not_allowed\":[\"abc\",\"xyz\",\"abc\",\"xyz\"]") == std::string::npos
+                || cs_out.find("\"ciphersuites_allowed\":\"none\"") == std::string::npos) {
+                return false;
+            }
         }
 
         // TEST-14
@@ -1613,16 +1653,129 @@ namespace crypto_policy {
         datum ssh_ciphers_malformed_dtm{ssh_ciphers_malformed, ssh_ciphers_malformed + sizeof(ssh_ciphers_malformed)};
         name_list ssh_ciphers_malformed_data{};
         ssh_ciphers_malformed_data.parse(ssh_ciphers_malformed_dtm);
-        buffer_stream ssh_buff_strm_malformed{buff, 1024};
-        json_object b_malformed{&ssh_buff_strm_malformed};
 
-        assessor.assess_ssh_ciphers(ssh_ciphers_malformed_data, b_malformed);
-        b_malformed.close();
+        {
+            crypto_cnsa_ssh_message cs_msg;
+            bool cs_compliant = assessor.assess_ssh_ciphers_impl(ssh_ciphers_malformed_data, &cs_msg,
+                                                                 quantum_safe::ssh_cipher_dir::client_to_server);
+            buffer_stream cs_bs{buff, 1024};
+            json_object cs_jo{&cs_bs};
+            cs_msg.write<json_object>(cs_jo);
+            cs_jo.close();
+            std::string cs_out{cs_bs.dstr, (size_t)cs_bs.length()};
+            // malformed input: none allowed; the not-allowed list records the non-empty parsed
+            // tokens verbatim (embedded quotes/backslashes included).
+            if (cs_compliant
+                || cs_out.find("\"ciphersuites_not_allowed\":[\"abc-abc(abc)@xyz.com\",\"a\\\"bc\\\"xyz@abc.com\",\"abc\\\\-/xyz@domain.org\"]") == std::string::npos
+                || cs_out.find("\"ciphersuites_allowed\":\"none\"") == std::string::npos) {
+                return false;
+            }
+        }
 
-        std::string ssh_ciphers_malformed_output_str = "{\"ciphersuites_not_allowed\":[\"\",\"\",\"abc-abc(abc)@xyz.com\",\"\",\"a\"bc\"xyz@abc.com\",\"abc\\-/xyz@domain.org\"],\"ciphersuites_allowed\":\"none\"}";
+        // A reused nist_sp_800_52 must not emit a ServerHello finding on a later
+        // ClientHello it does not assess. Drives the policy objects through the same
+        // reset_output -> assess -> emit sequence as an emitting assessment pass.
+        {
+            std::vector<crypto_policy::assessor *> policies;
+            policies.push_back(new nist_sp_800_52{true});
 
-        if (ssh_ciphers_malformed_output_str.length() != b_malformed.b->length() || memcmp(ssh_ciphers_malformed_output_str.c_str(), b_malformed.b->dstr, ssh_ciphers_malformed_output_str.length()) != 0) {
-            return false;
+            // one emitting crypto-assessment pass, mirroring the pkt_proc.cc
+            // CBOR block; returns the number of bytes emitted into the v1 map.
+            auto emitted_bytes = [&](auto &&hello) -> ssize_t {
+                data_buffer<1024> buf;
+                cbor_object outer{buf};
+                cbor_object v1{outer, CBOR_METADATA_VERSION_KEY};
+                const ssize_t before = buf.readable_length();
+                for (auto *p : policies) {
+                    p->reset_output();
+                    p->assess(hello);
+                }
+                for (auto *p : policies) { p->emit(v1); }
+                const ssize_t after_features = buf.readable_length();
+                v1.close();
+                outer.close();
+                return after_features - before;   // >0 iff a feature was emitted
+            };
+
+            // --- packet A: non-compliant TLS ServerHello ---
+            uint8_t verA[]  = { 0x03, 0x03 };   // TLS 1.2
+            uint8_t csA[]   = { 0x00, 0x3d };   // TLS_RSA_WITH_AES_256_CBC_SHA256
+            uint8_t compA[] = { 0x01 };         // non-zero compression -> non-compliant
+            tls_server_hello sh;
+            sh.protocol_version   = datum{verA,  verA  + sizeof(verA)};
+            sh.ciphersuite_vector = datum{csA,   csA   + sizeof(csA)};
+            sh.compression_method = datum{compA, compA + sizeof(compA)};
+
+            ssize_t bytes_A = emitted_bytes(sh);
+
+            // --- packet B: ClientHello (NIST inherits the default fill path) ---
+            uint8_t verB[]  = { 0x03, 0x03 };
+            uint8_t csB[]   = { 0x13, 0x01 };   // TLS_AES_128_GCM_SHA256
+            uint8_t compB[] = { 0x00 };
+            tls_client_hello ch;
+            ch.protocol_version    = datum{verB,  verB  + sizeof(verB)};
+            ch.ciphersuite_vector  = datum{csB,   csB   + sizeof(csB)};
+            ch.compression_methods = datum{compB, compB + sizeof(compB)};
+
+            ssize_t bytes_B = emitted_bytes(ch);
+
+            for (auto *p : policies) { delete p; }
+
+            // A (non-compliant ServerHello) must emit; B (ClientHello, not
+            // assessed by NIST) must NOT emit. bytes_B > 0 is the bug.
+            if (bytes_A <= 0) { return false; }   // the ServerHello must emit
+            if (bytes_B  > 0) { return false; }   // the ClientHello must not emit
+        }
+
+        // The emitting loop must reach each policy's non-const assess() override.
+        // The overloads differ only in const-ness, so one written const by mistake
+        // compiles cleanly and emits nothing.
+        {
+            std::vector<crypto_policy::assessor *> policies;
+            policies.push_back(new quantum_safe{true});
+            policies.push_back(new nist_sp_800_52{true});
+
+            // one emitting pass through a non-const assessor*, as the orchestrator does
+            auto emitted_bytes = [&](auto &&hello) -> ssize_t {
+                data_buffer<1024> buf;
+                cbor_object outer{buf};
+                cbor_object v1{outer, CBOR_METADATA_VERSION_KEY};
+                const ssize_t before = buf.readable_length();
+                for (auto *p : policies) {
+                    p->reset_output();
+                    p->assess(hello);       // must select the non-const overload
+                }
+                for (auto *p : policies) { p->emit(v1); }
+                const ssize_t after_features = buf.readable_length();
+                v1.close();
+                outer.close();
+                return after_features - before;
+            };
+
+            // non-compliant TLS ServerHello: quantum_safe and nist both fill and emit
+            uint8_t ver[]  = { 0x03, 0x03 };   // TLS 1.2
+            uint8_t cs[]   = { 0x00, 0x3d };   // TLS_RSA_WITH_AES_256_CBC_SHA256
+            uint8_t comp[] = { 0x01 };         // non-zero compression -> non-compliant
+            tls_server_hello sh;
+            sh.protocol_version   = datum{ver,  ver  + sizeof(ver)};
+            sh.ciphersuite_vector = datum{cs,   cs   + sizeof(cs)};
+            sh.compression_method = datum{comp, comp + sizeof(comp)};
+            ssize_t sh_bytes = emitted_bytes(sh);
+
+            // non-compliant TLS ClientHello: quantum_safe fills; nist has no
+            // ClientHello override and correctly emits nothing
+            uint8_t ccomp[] = { 0x00 };
+            tls_client_hello ch;
+            ch.protocol_version    = datum{ver,   ver   + sizeof(ver)};
+            ch.ciphersuite_vector  = datum{cs,    cs    + sizeof(cs)};
+            ch.compression_methods = datum{ccomp, ccomp + sizeof(ccomp)};
+            ssize_t ch_bytes = emitted_bytes(ch);
+
+            for (auto *p : policies) { delete p; }
+
+            // zero bytes means the non-const override was never reached
+            if (sh_bytes <= 0) { return false; }
+            if (ch_bytes <= 0) { return false; }
         }
 
         return true;

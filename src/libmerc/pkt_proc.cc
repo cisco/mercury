@@ -81,6 +81,8 @@
 #include "imap.hpp"
 #include "telnet.hpp"
 #include "pgsql.hpp"
+#include "cbor_messages.hpp"
+#include "metadata_writer.hpp"
 
 // double malware_prob_threshold = -1.0; // TODO: document hidden option
 
@@ -94,193 +96,179 @@ void write_flow_key(struct json_object &o, const struct key &k) {
     // o.b->snprintf(",\"flowhash\":\"%016lx\"", std::hash<struct key>{}(k));
 }
 
+// shared no-op writer for the assess-only path (no CBOR/JSON output requested).
+// A real object so the feature visitors can bind output_ by reference.
+static null_object no_output;
+
+template<typename Object>
 struct do_crypto_assessment {
-    const std::vector<const crypto_policy::assessor *>& ca;
-    json_object *record;
+    static_assert(has_array_type_v<Object>,
+                  "do_crypto_assessment Object must be a metadata writer "
+                  "(json_object / cbor_object / null_object)");
+    using Array = typename Object::array_type;
 
-    // json_object record is to be passed to the assess function only if it is passed to the visitor function
-    do_crypto_assessment(const std::vector<const crypto_policy::assessor *>& assessors, json_object &o) : ca{assessors}, record{&o} { }
-    do_crypto_assessment(const std::vector<const crypto_policy::assessor *>& assessors) : ca{assessors}, record{nullptr} { }
+    const std::vector<crypto_policy::assessor *>& ca;   // elements non-const: emit/fill mutate them
+    Object &output_;
 
+    do_crypto_assessment(const std::vector<crypto_policy::assessor *>& ca_,
+                         Object& output)
+        : ca{ca_}, output_{output} {}
 
-    crypto_assess_result operator()(const tls_client_hello &msg) {
-        crypto_assess_result assessment_result;
-        if (!record) {
-            for (const auto& crypto_assessor : ca) {
-                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg));
+    // One assessment pass, protocol-agnostic. Emitting modes (json_object / cbor_object) run the
+    // FILL path (each policy populates its own message) then emit; NO_OUTPUT (null_object) runs
+    // the compliance-only path and populates/writes nothing.
+    template<typename MsgType>
+    crypto_assess_result assess_impl(const MsgType &msg) {
+        crypto_assess_result result;
+        if constexpr (is_emitting_writer_v<Object>) {
+            for (auto* assessor : ca) {
+                assessor->reset_output();   // clear stale owned message before (maybe defaulted) fill
+                result.set(assessor->get_result_idx(), !assessor->assess(msg));
+            }
+            if constexpr (std::is_same_v<Object, json_object>) {
+                Array assessor_record{output_, "cryptographic_security_assessment"};
+                for (auto* assessor : ca) { assessor->emit(assessor_record); }
+                assessor_record.close();
+            } else {
+                for (auto* assessor : ca) { assessor->emit(output_); }
+            }
+        } else {
+            for (const auto* assessor : ca) {
+                result.set(assessor->get_result_idx(), !assessor->assess(msg));
             }
         }
-        else {  // write metadata to json record
-            json_array assessor_record{record, "cryptographic_security_assessment"};
-            for (const auto& crypto_assessor : ca)
-                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg, assessor_record));
-            assessor_record.close();
-        }
-        return assessment_result;
+        return result;
     }
 
-    crypto_assess_result operator()(const tls_server_hello &msg) {
-        crypto_assess_result assessment_result;
-        if (!record) {
-            for (const auto& crypto_assessor : ca) {
-                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg));
-            }
-        }
-        else {  // write metadata to json record
-            json_array assessor_record{record, "cryptographic_security_assessment"};
-            for (const auto& crypto_assessor : ca)
-                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg, assessor_record));
-            assessor_record.close();
-        }
-        return assessment_result;
-    }
-
-    crypto_assess_result operator()(const tls_server_hello_and_certificate &msg) {
-        crypto_assess_result assessment_result;
-        if (!record) {
-            for (const auto& crypto_assessor : ca) {
-                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg));
-            }
-        }
-        else {  // write metadata to json record
-            json_array assessor_record{record, "cryptographic_security_assessment"};
-            for (const auto& crypto_assessor : ca)
-                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg, assessor_record));
-            assessor_record.close();
-        }
-        return assessment_result;
-    }
-
-    crypto_assess_result operator()(const dtls_client_hello &msg) {
-        crypto_assess_result assessment_result;
-        if (!record) {
-            for (const auto& crypto_assessor : ca) {
-                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg));
-            }
-        }
-        else {  // write metadata to json record
-            json_array assessor_record{record, "cryptographic_security_assessment"};
-            for (const auto& crypto_assessor : ca)
-                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg, assessor_record));
-            assessor_record.close();
-        }
-        return assessment_result;
-    }
-
-    crypto_assess_result operator()(const dtls_server_hello &msg) {
-        crypto_assess_result assessment_result;
-        if (!record) {
-            for (const auto& crypto_assessor : ca) {
-                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg));
-            }
-        }
-        else {  // write metadata to json record
-            json_array assessor_record{record, "cryptographic_security_assessment"};
-            for (const auto& crypto_assessor : ca)
-                assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg, assessor_record));
-            assessor_record.close();
-        }
-        return assessment_result;
-    }
+    crypto_assess_result operator()(const tls_client_hello &msg) { return assess_impl(msg); }
+    crypto_assess_result operator()(const tls_server_hello &msg) { return assess_impl(msg); }
+    crypto_assess_result operator()(const tls_server_hello_and_certificate &msg) { return assess_impl(msg); }
+    crypto_assess_result operator()(const dtls_client_hello &msg) { return assess_impl(msg); }
+    crypto_assess_result operator()(const dtls_server_hello &msg) { return assess_impl(msg); }
 
     crypto_assess_result operator()(const quic_init &msg) {
-        crypto_assess_result assessment_result;
-        if (msg.has_tls()) {
-            if (!record) {
-                for (const auto& crypto_assessor : ca) {
-                    assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg.get_tls_client_hello()));
-                }
-            }
-            else {  // write metadata to json record
-                json_array assessor_record{record, "cryptographic_security_assessment"};
-                for (const auto& crypto_assessor : ca)
-                    assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg.get_tls_client_hello(), assessor_record));
-                assessor_record.close();
-            }
-        }
-        return assessment_result;
+        if (msg.has_tls()) { return assess_impl(msg.get_tls_client_hello()); }
+        return crypto_assess_result{};
     }
 
     crypto_assess_result operator()(const ssh_init_packet &msg) {
-        crypto_assess_result assessment_result;
-        if (msg.kex_pkt.is_not_empty()) {
-            if (!record) {
-                for (const auto& crypto_assessor : ca) {
-                    assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg.kex_pkt));
-                }
-            }
-            else {  // write metadata to json record
-                json_array assessor_record{record, "cryptographic_security_assessment"};
-                for (const auto& crypto_assessor : ca)
-                    assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg.kex_pkt, assessor_record));
-                assessor_record.close();
-
-            }
-        }
-        return assessment_result;
+        if (msg.kex_pkt.is_not_empty()) { return assess_impl(msg.kex_pkt); }
+        return crypto_assess_result{};
     }
 
     crypto_assess_result operator()(const ssh_kex_init &msg) {
-        crypto_assess_result assessment_result;
-        if (msg.is_not_empty()) {
-            if (!record) {
-                for (const auto& crypto_assessor : ca) {
-                    assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg));
-                }
-            }
-            else {  // write metadata to json record
-                json_array assessor_record{record, "cryptographic_security_assessment"};
-                for (const auto& crypto_assessor : ca)
-                    assessment_result.set(crypto_assessor->get_result_idx(), !crypto_assessor->assess(msg, assessor_record));
-                assessor_record.close();
-            }
-        }
-        return assessment_result;
+        if (msg.is_not_empty()) { return assess_impl(msg); }
+        return crypto_assess_result{};
     }
 
     template <typename T>
-    crypto_assess_result operator()(const T &) {
-        return crypto_assess_result{};   // no assessment performed for all other types
-    }
+    crypto_assess_result operator()(const T &) { return crypto_assess_result{}; }
 
     crypto_assess_result operator()(std::monostate &) { return crypto_assess_result{}; }
-
 };
 
+template<typename Object>
 struct check_exposed_creds {
+    static_assert(has_array_type_v<Object>,
+                  "check_exposed_creds Object must be a metadata writer");
+    Object &output_;
 
-    check_exposed_creds() { }
+    explicit check_exposed_creds(Object &out) : output_{out} {}
 
-    exposed_creds_type operator()(const http_request &msg) {
-        return exposed_creds_assessor::assess(msg);
+    // true only when output_ is a real writer. Gating each arm on this lets the
+    // arg evaluation (auth-method/username accessors, which parse) be skipped by
+    // short-circuit when no CBOR/JSON output is requested.
+    static constexpr bool emitting() { return is_emitting_writer_v<Object>; }
+
+    void write_feature(exposed_creds_type type, datum protocol,
+                       datum auth_method, datum username) {
+        // The assess-only path binds output_ to the null_object sentinel, so emission is
+        // gated on the writer type.
+        if constexpr (is_emitting_writer_v<Object>) {
+            const char* key = nullptr;
+            switch (type) {
+            case exposed_creds_type::plaintext_password:
+                key = exposed_creds_message::KEY_PLAINTEXT; break;
+            case exposed_creds_type::plaintext_token:
+                key = exposed_creds_message::KEY_TOKEN; break;
+            case exposed_creds_type::password_derived:
+                key = exposed_creds_message::KEY_DERIVED; break;
+            default:
+                return;
+            }
+            exposed_creds_message::construct(key, protocol, auth_method, username)
+                .template write<Object>(output_);
+        }
     }
 
     exposed_creds_type operator()(const imap::imap_requests &msg) {
-        return exposed_creds_assessor::assess(msg);
+        exposed_creds_type type = msg.check_credential_exposure();
+        if (type != exposed_creds_type::none && emitting()) {
+            write_feature(type, datum{"imap"}, msg.get_auth_method(), msg.get_username());
+        }
+        return type;
+    }
+
+    exposed_creds_type operator()(const http_request &msg) {
+        exposed_creds_type type = msg.check_credential_exposure();
+        if (type != exposed_creds_type::none && emitting()) {
+            datum auth_hdr = msg.get_header("authorization");
+            datum scheme_datum = authorization{auth_hdr}.get_scheme();
+            write_feature(type, datum{"http"}, scheme_datum, datum{});
+        }
+        return type;
     }
 
     exposed_creds_type operator()(const tacacs::packet &msg) {
-        return exposed_creds_assessor::assess(msg);
+        exposed_creds_type type = msg.check_credential_exposure();
+        if (type != exposed_creds_type::none && emitting()) {
+            write_feature(type, datum{"tacacs"}, msg.get_auth_method(), msg.get_username());
+        }
+        return type;
     }
 
     exposed_creds_type operator()(const ldap::message &msg) {
-        return exposed_creds_assessor::assess(msg);
+        exposed_creds_type type = msg.check_credential_exposure();
+        if (type != exposed_creds_type::none && emitting()) {
+            write_feature(type, datum{"ldap"}, msg.get_auth_method(), datum{});
+        }
+        return type;
     }
 
     exposed_creds_type operator()(const ftp::request &msg) {
-        return exposed_creds_assessor::assess(msg);
+        exposed_creds_type type = msg.check_credential_exposure();
+        if (type != exposed_creds_type::none && emitting()) {
+            write_feature(type, datum{"ftp"}, datum{"PASS"}, datum{});
+        }
+        return type;
     }
 
     exposed_creds_type operator()(const redis::request &msg) {
-        return exposed_creds_assessor::assess(msg);
+        exposed_creds_type type = msg.check_credential_exposure();
+        if (type != exposed_creds_type::none && emitting()) {
+            write_feature(type, datum{"redis"}, datum{"AUTH"}, msg.get_username());
+        }
+        return type;
     }
 
     exposed_creds_type operator()(const snmp::packet &msg) {
-        return exposed_creds_assessor::assess(msg);
+        exposed_creds_type type = msg.check_credential_exposure();
+        if (type != exposed_creds_type::none && emitting()) {
+            write_feature(type, datum{"snmp"}, msg.get_auth_method(), datum{});
+        }
+        return type;
     }
 
     exposed_creds_type operator()(const pgsql_msg &msg) {
-        return exposed_creds_assessor::assess(msg);
+        exposed_creds_type type = msg.check_credential_exposure();
+        if (type != exposed_creds_type::none && emitting()) {
+            // pgsql PasswordMessage carries no username (it is in the earlier
+            // StartupMessage); the auth method is implied by the detection type.
+            datum auth_method = (type == exposed_creds_type::password_derived)
+                                    ? datum{"md5"} : datum{"password"};
+            write_feature(type, datum{"pgsql"}, auth_method, datum{});
+        }
+        return type;
     }
 
     template <typename T>
@@ -1332,7 +1320,7 @@ size_t stateful_pkt_proc::ip_write_json(void *buffer,
         }
 
         if (exposed_creds) {
-            exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
+            exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{record}, x);
             output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
         }
 
@@ -1736,6 +1724,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
     uint8_t transport_proto = ip_pkt.transport_protocol();
 
     analysis.reinit();
+    cbor_buf.reset();
     if (reassembler) {
         reassembler->dump_pkt = false;
         reassembler_ptr->clean_curr_flow();
@@ -1808,6 +1797,7 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             std::visit(do_snmp_oid_observation{k, mq}, x);
         }
         std::visit(compute_fingerprint{analysis.fp, global_vars.fp_format}, x);
+
         if (global_vars.do_analysis && analysis.fp.get_type() != fingerprint_type_unknown) {
 
             bool output_analysis = std::visit(do_analysis{k, analysis, c}, x);
@@ -1816,14 +1806,54 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             //
             output_attr = (c && c->check_additional_attributes(analysis)) ? true : output_attr;
 
-            if (exposed_creds) {
-                exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
-                output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
-            }
+            if (global_vars.cbor_metadata) {
+                writeable& cbor_w = cbor_buf.get_writer();
+                cbor_object cbor_outer{cbor_w};
+                cbor_object cbor_output{cbor_outer, CBOR_METADATA_VERSION_KEY};
 
-            if (!crypto_policies.empty() && !truncated_crypto_handshake) {
-                crypto_assess_result assessment_result = std::visit(do_crypto_assessment{crypto_policies}, x);
-                output_attr = set_crypto_assessment_attr(assessment_result) ? true : output_attr;
+                // Emit the packet/handshake truncation status (string form) as a top-level
+                // key. A packet-level status, not a feature, so it is written as part of the
+                // header, ahead of the mark below, and never counts toward the gate.
+                cbor_output.print_key_string(CBOR_METADATA_TRUNCATION_KEY,
+                    get_truncation_str(compute_truncation_status(reassembler_ptr, truncated_tcp || truncated_udp)));
+
+                // header is written; record the size so feature writes below can
+                // be detected as growth
+                const size_t before_features = cbor_buf.bytes_written();
+
+                if (exposed_creds) {
+                    auto creds_visitor = check_exposed_creds{cbor_output};
+                    exposed_creds_type exposed_creds_ret = std::visit(creds_visitor, x);
+                    output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
+                }
+
+                if (!crypto_policies.empty() && !truncated_crypto_handshake) {
+                    auto crypto_visitor = do_crypto_assessment{crypto_policies, cbor_output};
+                    crypto_assess_result assessment_result = std::visit(crypto_visitor, x);
+                    output_attr = set_crypto_assessment_attr(assessment_result) ? true : output_attr;
+                }
+
+                // add future feature visitors here (before the growth check)
+
+                // grew past the header => a feature was written (an overrun
+                // reports 0 bytes, so this stays false and the buffer is dropped)
+                if (cbor_buf.bytes_written() > before_features) {
+                    cbor_buf.set_feature_written();
+                }
+
+                cbor_output.close();
+                cbor_outer.close();
+            } else {
+                if (exposed_creds) {
+                    auto creds_visitor = check_exposed_creds{no_output};
+                    exposed_creds_type exposed_creds_ret = std::visit(creds_visitor, x);
+                    output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
+                }
+                if (!crypto_policies.empty() && !truncated_crypto_handshake) {
+                    auto crypto_visitor = do_crypto_assessment{crypto_policies, no_output};
+                    crypto_assess_result assessment_result = std::visit(crypto_visitor, x);
+                    output_attr = set_crypto_assessment_attr(assessment_result) ? true : output_attr;
+                }
             }
 
             bool output_nbd = false;
@@ -1858,14 +1888,54 @@ bool stateful_pkt_proc::analyze_ip_packet(const uint8_t *packet,
             if (global_vars.network_behavioral_detections) {
                 output_nbd = std::visit(do_network_behavioral_detections{k, analysis, c, attribute_common_data}, x);
             }
-            if (!crypto_policies.empty() && !truncated_crypto_handshake) {
-                crypto_assess_result crypto_result = std::visit(do_crypto_assessment{crypto_policies}, x);
-                output_attr = set_crypto_assessment_attr(crypto_result) ? true : output_attr;
+
+            if (global_vars.cbor_metadata) {
+                writeable& cbor_w = cbor_buf.get_writer();
+                cbor_object cbor_outer{cbor_w};
+                cbor_object cbor_output{cbor_outer, CBOR_METADATA_VERSION_KEY};
+
+                // The truncation status is a packet-level field rather than a feature, so it
+                // is written with the header and does not count toward the growth check.
+                cbor_output.print_key_string(CBOR_METADATA_TRUNCATION_KEY,
+                    get_truncation_str(compute_truncation_status(reassembler_ptr, truncated_tcp || truncated_udp)));
+
+                // Record the header size; a feature write shows up as growth past it.
+                const size_t before_features = cbor_buf.bytes_written();
+
+                if (!crypto_policies.empty() && !truncated_crypto_handshake) {
+                    auto crypto_visitor = do_crypto_assessment{crypto_policies, cbor_output};
+                    crypto_assess_result crypto_result = std::visit(crypto_visitor, x);
+                    output_attr = set_crypto_assessment_attr(crypto_result) ? true : output_attr;
+                }
+                if (exposed_creds) {
+                    auto creds_visitor = check_exposed_creds{cbor_output};
+                    exposed_creds_type exposed_creds_ret = std::visit(creds_visitor, x);
+                    output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
+                }
+
+                // add future feature visitors here (before the growth check)
+
+                // Growth past the header means a feature was written. An overrun reports
+                // zero bytes, leaving this false so the buffer is dropped.
+                if (cbor_buf.bytes_written() > before_features) {
+                    cbor_buf.set_feature_written();
+                }
+
+                cbor_output.close();
+                cbor_outer.close();
+            } else {
+                if (!crypto_policies.empty() && !truncated_crypto_handshake) {
+                    auto crypto_visitor = do_crypto_assessment{crypto_policies, no_output};
+                    crypto_assess_result crypto_result = std::visit(crypto_visitor, x);
+                    output_attr = set_crypto_assessment_attr(crypto_result) ? true : output_attr;
+                }
+                if (exposed_creds) {
+                    auto creds_visitor = check_exposed_creds{no_output};
+                    exposed_creds_type exposed_creds_ret = std::visit(creds_visitor, x);
+                    output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
+                }
             }
-            if (exposed_creds) {
-                exposed_creds_type exposed_creds_ret = std::visit(check_exposed_creds{}, x);
-                output_attr = set_exposed_creds_attr(exposed_creds_ret) ? true : output_attr;
-            }
+
             finalize_reassembly_flow(reassembler, analysis.flow_state_pkts_needed);
             return output_nbd || output_attr;
         }

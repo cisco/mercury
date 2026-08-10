@@ -410,6 +410,47 @@ const struct attribute_context *mercury_packet_processor_get_attributes(mercury_
 
 }
 
+int mercury_packet_processor_get_cbor_metadata(
+    mercury_packet_processor processor,
+    const uint8_t **buffer,
+    size_t *length
+) {
+    try {
+        if (!processor || !buffer || !length) {
+            if (buffer) {
+                *buffer = nullptr;
+            }
+            if (length) {
+                *length = 0;
+            }
+            return CBOR_WRITE_FAILURE;
+        }
+        if (processor->cbor_buf.is_truncated()) {
+            *buffer = nullptr;
+            *length = 0;
+            return CBOR_WRITE_INSUFFICIENT_SPACE;
+        }
+        if (!processor->cbor_buf.has_data()) {
+            *buffer = nullptr;
+            *length = 0;
+            return CBOR_NO_DATA;
+        }
+        *buffer = processor->cbor_buf.get_buffer();
+        *length = processor->cbor_buf.get_length();
+        return CBOR_OK;
+    }
+    catch (std::exception &e) {
+        printf_err(log_err, "%s\n", e.what());
+    }
+    if (buffer) {
+        *buffer = nullptr;
+    }
+    if (length) {
+        *length = 0;
+    }
+    return CBOR_WRITE_FAILURE;
+}
+
 const char license_string[] =
     "Copyright (c) 2019-2020 Cisco Systems, Inc.\n"
     "All rights reserved.\n"
