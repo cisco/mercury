@@ -38,6 +38,8 @@ template <typename T>
 constexpr bool has_write_v = has_write<T>::value;
 
 
+struct json_array;   // forward decl so json_object can name its companion array type
+
 /// \brief serializes a JSON object into a \ref buffer_stream.
 ///
 /// Key/value pairs are added with the `print_key_*` members and the
@@ -61,6 +63,7 @@ constexpr bool has_write_v = has_write<T>::value;
 ///     o.close();
 ///
 struct json_object {
+    using array_type = json_array;   // companion array type (enables 1-param write<>)
     buffer_stream *b;      // output buffer this object is written to
     bool comma = false;    // whether a separator is needed before the next member
 
@@ -98,6 +101,13 @@ struct json_object {
     json_object(struct json_object *object) : b{object->b} {
         write_comma(object->comma);
         b->write_char('{');
+    }
+    json_object(struct json_object &object, datum key) : b{object.b} {
+        write_comma(object.comma);
+        b->write_char('\"');
+        utf8_string key_str{key};
+        key_str.write(*b);
+        b->puts("\":{");
     }
 
     // copy constructor for std::optional compatibility
@@ -146,6 +156,21 @@ struct json_object {
         b->puts("\":\"");
         b->puts(v);
         b->write_char('\"');
+    }
+    void print_key_string(const char *k, datum d) {
+        print_key_json_string(k, d);
+    }
+    void print_key_string(datum k, datum d) {
+        if (k.is_readable() && d.is_readable()) {
+            write_comma(comma);
+            b->write_char('\"');
+            utf8_string key_str{k};
+            key_str.write(*b);
+            b->puts("\":\"");
+            utf8_string val_str{d};
+            val_str.write(*b);
+            b->write_char('\"');
+        }
     }
     void print_key_bool(const char *k, bool x) {
         write_comma(comma);
@@ -560,6 +585,15 @@ struct json_array {
         b->write_char('\"');
         b->memcpy(s, len);
         b->write_char('\"');
+    }
+    void print_string(datum d) {
+        if (d.is_readable()) {
+            begin_element();
+            b->write_char('\"');
+            utf8_string s{d};
+            s.write(*b);
+            b->write_char('\"');
+        }
     }
 
     template <typename T>

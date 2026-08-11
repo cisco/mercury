@@ -28,6 +28,7 @@
 #include "perfect_hash.h"
 #include "crypto_assess.h"
 #include "exposed_creds.h"
+#include "cbor_metadata.hpp"
 #include "pkt_proc_util.h"
 #include "reassembly.hpp"
 #include "protocol_config.h"
@@ -139,8 +140,9 @@ struct stateful_pkt_proc {
     class traffic_selector &selector;
     quic_crypto_engine quic_crypto;
     struct tcp_reassembler *reassembler_ptr = nullptr;
-    std::vector<const crypto_policy::assessor *> crypto_policies;
+    std::vector<crypto_policy::assessor *> crypto_policies;
     const bool exposed_creds = false;
+    cbor_metadata_buffer cbor_buf;
 
     explicit stateful_pkt_proc(mercury_context mc, size_t prealloc_size=0) :
         ip_flow_table{(unsigned int)prealloc_size},
@@ -156,7 +158,8 @@ struct stateful_pkt_proc {
         selector{mc->selector},
         quic_crypto{global_vars.quic_trial_decryption},
         reassembler_ptr{(global_vars.reassembly) ? (new tcp_reassembler(global_vars.minimize_ram)) : nullptr},
-        exposed_creds{global_vars.exposed_creds}
+        exposed_creds{global_vars.exposed_creds},
+        cbor_buf{global_vars.cbor_metadata ? global_vars.cbor_metadata_buffer_size : 0}
     {
 
         if (global_vars.crypto_assess_policy.length() > 0) {

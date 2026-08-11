@@ -314,6 +314,7 @@ namespace imap {
 
         field_type get_type() const { return type; }
         const literal_parser& get_literal() const { return literal; }
+        datum get_content() const { return content; }
 
         void write_json(json_object &o, const char *key) const {
             if (!is_valid()) {
@@ -383,6 +384,10 @@ namespace imap {
 
         bool is_not_empty() const {
             return isValid;
+        }
+
+        datum get_username_datum() const {
+            return username.get_content();
         }
     };
 
@@ -742,6 +747,8 @@ namespace imap {
     // Multi-line IMAP request parser
     class imap_requests : public base_protocol {
         datum requests;
+        datum command_;      
+        datum arguments_;   
         bool valid = false;
         bool is_tagged_request = false;
 
@@ -765,6 +772,8 @@ namespace imap {
                 datum req_copy = logical_req;
                 request req{req_copy};
                 if (req.is_not_empty()) {
+                    command_ = req.get_command();
+                    arguments_ = req.get_arguments();
                     valid = true;
                     is_tagged_request = true;
                 }
@@ -834,40 +843,24 @@ namespace imap {
         }
 
         // Check for exposed credentials in IMAP request
-        // Per RFC 3501, LOGIN/AUTHENTICATE commands are single commands
-        // that require server response before client can send more
         exposed_creds_type check_credential_exposure() const {
             if (!valid || !is_tagged_request) {
                 return exposed_creds_type::none;
             }
 
-            // Parse first tagged request (already validated by parse())
-            datum temp = requests;
-            imap_logical_request logical_req{temp};
-            request req{logical_req};
-
-            // Get command from the request
-            datum cmd = req.get_command();
-
-            // LOGIN command always exposes plaintext credentials
-            if (cmd.case_insensitive_match("login")) {
+            if (command_.case_insensitive_match("login")) {
                 return exposed_creds_type::plaintext_password;
             }
 
-            // AUTHENTICATE command - depends on SASL mechanism
-            if (cmd.case_insensitive_match("authenticate")) {
-                datum args = req.get_arguments();
+            if (command_.case_insensitive_match("authenticate")) {
+                datum args = arguments_;
                 if (args.is_not_empty()) {
-                    // Extract auth mechanism (first token)
                     imap_token auth_mechanism{args};
 
-                    // Plaintext mechanisms
                     if (auth_mechanism.case_insensitive_match("plain") ||
                         auth_mechanism.case_insensitive_match("login")) {
                         return exposed_creds_type::plaintext_password;
                     }
-
-                    // Derived/hashed mechanisms (challenge-response)
                     if (auth_mechanism.case_insensitive_match("cram-md5") ||
                         auth_mechanism.case_insensitive_match("digest-md5") ||
                         auth_mechanism.case_insensitive_match("scram-sha-1") ||
@@ -875,8 +868,6 @@ namespace imap {
                         auth_mechanism.case_insensitive_match("ntlm")) {
                         return exposed_creds_type::password_derived;
                     }
-
-                    // Token-based mechanisms
                     if (auth_mechanism.case_insensitive_match("oauth") ||
                         auth_mechanism.case_insensitive_match("oauthbearer") ||
                         auth_mechanism.case_insensitive_match("xoauth2") ||
@@ -887,6 +878,31 @@ namespace imap {
             }
 
             return exposed_creds_type::none;
+        }
+
+        /// Auth method: command name for LOGIN, SASL mechanism for AUTHENTICATE.
+        datum get_auth_method() const {
+            if (command_.case_insensitive_match("authenticate")) {
+                datum args = arguments_;
+                if (args.is_not_empty()) {
+                    return imap_token{args};
+                }
+            }
+            return command_;
+        }
+
+        /// Username: from LOGIN arguments, not available for AUTHENTICATE.
+        datum get_username() const {
+            if (command_.case_insensitive_match("login")) {
+                datum args = arguments_;
+                if (args.is_not_empty()) {
+                    login_arguments login_args{args};
+                    if (login_args.is_not_empty()) {
+                        return login_args.get_username_datum();
+                    }
+                }
+            }
+            return datum{};
         }
     };
 
@@ -1208,6 +1224,22 @@ namespace imap {
             datum{"{}"}
         )) {
             return false;
+        }
+
+        // Exposed creds accessor tests
+        {
+            datum d{"a001 LOGIN username password\r\n"};
+            imap_requests req{d};
+            if (req.check_credential_exposure() != exposed_creds_type::plaintext_password) { return false; }
+            if (!req.get_auth_method().match("LOGIN")) { return false; }
+            if (!req.get_username().match("username")) { return false; }
+        }
+        {
+            datum d{"a001 AUTHENTICATE CRAM-MD5\r\n"};
+            imap_requests req{d};
+            if (req.check_credential_exposure() != exposed_creds_type::password_derived) { return false; }
+            if (!req.get_auth_method().match("CRAM-MD5")) { return false; }
+            if (req.get_username().is_readable()) { return false; }  // no username for AUTHENTICATE
         }
 
         return true;

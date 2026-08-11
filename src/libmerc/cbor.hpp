@@ -66,10 +66,14 @@ namespace cbor {
 
     public:
 
-        // read an initial byte from `d`
+        // read an initial byte from `d`; if the read fails, the
+        // object will have a state of `undefined` and `d` will be
+        // `null`
         //
         initial_byte(datum &d) : value__{d} {
-            if (d.is_not_null()) {
+            if (d.is_null()) {
+                value__ = initial_byte{simple_or_float_type,initial_byte::undefined}.value();
+            } else {
                 // printf("major_type: %u\n", major_type());
                 // printf("additional_info: %u\n", additional_info());
             }
@@ -107,7 +111,7 @@ namespace cbor {
             buf << value__;
         }
 
-        uint8_t value() const { return value__; }
+        constexpr uint8_t value() const { return value__; }
 
         // "simple values" associated with major_type simple_or_float
         //
@@ -119,6 +123,42 @@ namespace cbor {
         static constexpr uint8_t float32 = 26;      // IEEE 754 Single-Precision Float (32 bits)
         static constexpr uint8_t float64 = 27;      // IEEE 754 Double-Precision Float (64 bits)
         static constexpr uint8_t break_code = 31;
+
+    };
+
+    /// \brief represents a True or False (simple value)
+    ///
+    /// \note This definition follows RFC 8610, which defines a `bool`
+    ///       as a "simple value" of either `true` or `false`.  The
+    ///       capital letter distinguishes from the C++ datatype.
+    ///
+    class Bool : public initial_byte {
+    public:
+
+        /// construct a Bool object by parsing \p d
+        ///
+        Bool(datum &d) : initial_byte{d} {
+            if (major_type() != simple_or_float_type
+                or (additional_info() != True and additional_info() != False)) {
+                d.set_null();  // could not read d, or wrong type
+            }
+        }
+
+        /// construct a Bool object from a boolean
+        ///
+        Bool(bool t) : initial_byte{simple_or_float_type, t ? True : False} { }
+
+        /// returns `true` if this object is true
+        ///
+        bool is_true() const {
+            return value() == initial_byte{simple_or_float_type,True}.value();
+        }
+
+        /// returns `false` if this object is false
+        ///
+        bool is_false() const {
+            return value() == initial_byte{simple_or_float_type,False}.value();
+        }
 
     };
 
@@ -136,8 +176,12 @@ namespace cbor {
     class uint64 {
         initial_byte ib;
         uint64_t value__{0};
+        bool valid_{false};
 
     public:
+
+        /// default constructor — creates an invalid uint64
+        uint64() : ib{0, 0}, value__{0}, valid_{false} {}
 
         /// construct a uint64 object by decoding it from the \ref
         /// datum \param d
@@ -165,7 +209,7 @@ namespace cbor {
             if (ai == 27) {
                 value__ = encoded<uint64_t>{d}.value();
             }
-
+            valid_ = true;
         }
 
         /// construct a uint64 object, suitable for encoding, with the
@@ -175,8 +219,11 @@ namespace cbor {
         ///
         uint64(uint64_t x, uint8_t type=unsigned_integer_type) :
             ib{type, additional_info(x)},
-            value__{x}
+            value__{x},
+            valid_{true}
         { }
+
+        bool is_valid() const { return valid_; }
 
         /// decode a uint64 object, accepting only values that are no
         /// greater than \param value_max.
@@ -426,6 +473,9 @@ namespace cbor {
 
     public:
 
+        /// default constructor — creates an invalid text_string
+        text_string() : length{0, text_string_type}, value__{nullptr, nullptr} {}
+
         /// construct and return a \ref text_string object by decoding
         /// it from the \ref datum \param d
         ///
@@ -439,6 +489,7 @@ namespace cbor {
         /// bytes in the \ref datum \param d
         ///
         static text_string construct(const datum &d) {
+            if (!d.is_readable()) { return text_string{}; }
             uint64 len{(uint64_t)d.length(), text_string_type};
             datum val{d};
             return text_string{len, val};
@@ -605,6 +656,122 @@ namespace cbor {
         compact_map(const std::array<const char *, N> &a [[maybe_unused]], datum &d) : map{d} { }
     };
 
+    /// Check if next byte is the CBOR break code (0xFF) without consuming it.
+    static inline bool is_break(datum &d) {
+        if (lookahead<initial_byte> ib{d}) {
+            return ib.value.is_break();
+        }
+        return false;
+    }
+
+    /// Advance \param d past exactly one CBOR value without output.
+    static inline void skip_cbor_value(datum &d, size_t depth=0) {
+        constexpr size_t max_recursion_depth = 256;
+        if (depth > max_recursion_depth) {
+            d.set_null();   // reject excessively nested input
+            return;
+        }
+        if (lookahead<initial_byte> ib{d}) {
+            switch (ib.value.major_type()) {
+            case unsigned_integer_type:
+                { uint64 tmp{d}; }
+                break;
+            case negative_integer_type:
+                { uint64 tmp{d, negative_integer_type}; }
+                break;
+            case byte_string_type:
+                { byte_string::decode(d); }
+                break;
+            case text_string_type:
+                { text_string::decode(d); }
+                break;
+            case array_type:
+                {
+                    initial_byte arr_ib{d};
+                    uint8_t ai = arr_ib.additional_info();
+                    if (ai == 31) {
+                        while (d.is_not_empty() && !is_break(d)) {
+                            skip_cbor_value(d, depth + 1);
+                            if (d.is_null()) { return; }
+                        }
+                        read_break(d);
+                    } else {
+                        uint64_t count = 0;
+                        if (ai < 24)       { count = ai; }
+                        else if (ai == 24) { count = encoded<uint8_t>{d}.value(); }
+                        else if (ai == 25) { count = encoded<uint16_t>{d}.value(); }
+                        else if (ai == 26) { count = encoded<uint32_t>{d}.value(); }
+                        else if (ai == 27) { count = encoded<uint64_t>{d}.value(); }
+                        if (d.is_null()) { return; }
+                        // each element is at least one byte, so a count larger than
+                        // the remaining input cannot be satisfied
+                        if (count > (uint64_t)d.length()) { d.set_null(); return; }
+                        for (uint64_t i = 0; i < count; i++) {
+                            const uint8_t *before = d.data;
+                            skip_cbor_value(d, depth + 1);
+                            if (d.is_null() || d.data == before) { d.set_null(); return; }
+                        }
+                    }
+                }
+                break;
+            case map_type:
+                {
+                    initial_byte map_ib{d};
+                    uint8_t ai = map_ib.additional_info();
+                    if (ai == 31) {
+                        while (d.is_not_empty() && !is_break(d)) {
+                            skip_cbor_value(d, depth + 1);  // key
+                            if (d.is_null()) { return; }
+                            skip_cbor_value(d, depth + 1);  // value
+                            if (d.is_null()) { return; }
+                        }
+                        read_break(d);
+                    } else {
+                        uint64_t count = 0;
+                        if (ai < 24)       { count = ai; }
+                        else if (ai == 24) { count = encoded<uint8_t>{d}.value(); }
+                        else if (ai == 25) { count = encoded<uint16_t>{d}.value(); }
+                        else if (ai == 26) { count = encoded<uint32_t>{d}.value(); }
+                        else if (ai == 27) { count = encoded<uint64_t>{d}.value(); }
+                        if (d.is_null()) { return; }
+                        // each pair is at least two bytes; compare against length/2
+                        // to avoid overflowing count*2 for very large declared counts
+                        if (count > (uint64_t)d.length() / 2) { d.set_null(); return; }
+                        for (uint64_t i = 0; i < count; i++) {
+                            const uint8_t *before_key = d.data;
+                            skip_cbor_value(d, depth + 1);  // key
+                            if (d.is_null() || d.data == before_key) { d.set_null(); return; }
+                            const uint8_t *before_val = d.data;
+                            skip_cbor_value(d, depth + 1);  // value
+                            if (d.is_null() || d.data == before_val) { d.set_null(); return; }
+                        }
+                    }
+                }
+                break;
+            case tagged_item_type:
+                {
+                    tag tmp{d};
+                    if (d.is_null()) { return; }
+                    skip_cbor_value(d, depth + 1);  // tagged content
+                }
+                break;
+            case simple_or_float_type:
+                {
+                    initial_byte consumed{d};
+                    uint8_t ai = consumed.additional_info();
+                    if (ai == 24)      { if (!d.skip(1)) { d.set_null(); } }  // 1-byte simple value
+                    else if (ai == 25) { if (!d.skip(2)) { d.set_null(); } }  // float16
+                    else if (ai == 26) { if (!d.skip(4)) { d.set_null(); } }  // float32
+                    else if (ai == 27) { if (!d.skip(8)) { d.set_null(); } }  // float64
+                }
+                break;
+            default:
+                d.set_null();
+                break;
+            }
+        }
+    }
+
     static inline bool decode_data(datum &d, FILE *f, int r=0) {
         char tabs[] = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t";
         if (r > (int)sizeof(tabs)) {
@@ -768,6 +935,8 @@ namespace cbor::output {
             w << initial_byte{map_type, 31};  // 0xbf
         }
 
+        operator writeable &() { return w; }
+
         void close() {
             w << initial_byte{simple_or_float_type, 31}; // 0xff
         }
@@ -779,8 +948,6 @@ namespace cbor::output {
             k.write(w);
             v.write(w);
         }
-
-        operator writeable & () { return w; }
     };
 
 };
@@ -1001,8 +1168,117 @@ namespace cbor {
     /// otherwise.  If \param f == `nullptr`, then no outupt is
     /// written; otherwise, output is written to \param f.
     ///
+    static inline bool primitives_unit_test(FILE *f=nullptr) {
+        (void)f;
+        bool passed = true;
+
+        // cbor::Bool tests
+        {
+            uint8_t true_byte[] = {0xf5};
+            datum d{true_byte, true_byte + 1};
+            if (!cbor::Bool{d}.is_true() || d.is_null()) { passed = false; }
+        }
+        {
+            uint8_t false_byte[] = {0xf4};
+            datum d{false_byte, false_byte + 1};
+            if (!cbor::Bool{d}.is_false() || d.is_null()) { passed = false; }
+        }
+        {
+            uint8_t not_bool[] = {0xf6};  // null, not a bool
+            datum d{not_bool, not_bool + 1};
+            cbor::Bool not_a_bool{d};
+            if (!d.is_null() || not_a_bool.is_true() || not_a_bool.is_false()) { passed = false; }  // should set d to null
+        }
+
+        // uint64::is_valid tests
+        {
+            cbor::uint64 default_val;
+            if (default_val.is_valid()) { passed = false; }
+        }
+        {
+            uint8_t valid_uint[] = {0x18, 0x2a};  // uint 42
+            datum d{valid_uint, valid_uint + 2};
+            cbor::uint64 val{d};
+            if (!val.is_valid() || val.value() != 42) { passed = false; }
+        }
+        {
+            uint8_t wrong_type[] = {0x61, 0x41};  // text string "A"
+            datum d{wrong_type, wrong_type + 2};
+            cbor::uint64 val{d};
+            if (val.is_valid()) { passed = false; }
+        }
+
+        // skip_cbor_value tests
+        {
+            // uint
+            uint8_t data[] = {0x18, 0x2a, 0xf5};  // uint 42, then true
+            datum d{data, data + 3};
+            skip_cbor_value(d);
+            if (d.length() != 1 || *d.data != 0xf5) { passed = false; }
+        }
+        {
+            // text string
+            uint8_t data[] = {0x63, 'f', 'o', 'o', 0x18, 0x01};  // "foo", then uint 1
+            datum d{data, data + 6};
+            skip_cbor_value(d);
+            if (d.length() != 2) { passed = false; }
+        }
+        {
+            // indefinite map
+            uint8_t data[] = {0xbf, 0x61, 'a', 0x01, 0xff, 0xf5};  // {"a":1}, then true
+            datum d{data, data + 6};
+            skip_cbor_value(d);
+            if (d.length() != 1 || *d.data != 0xf5) { passed = false; }
+        }
+        {
+            // indefinite array
+            uint8_t data[] = {0x9f, 0x01, 0x02, 0xff, 0xf4};  // [1,2], then false
+            datum d{data, data + 5};
+            skip_cbor_value(d);
+            if (d.length() != 1 || *d.data != 0xf4) { passed = false; }
+        }
+        {
+            // definite-length array: 0x83 = 3-item array, items: 0x01,0x02,0x03
+            uint8_t data[] = {0x83, 0x01, 0x02, 0x03, 0xf5};
+            datum d{data, data + 5};
+            skip_cbor_value(d);
+            if (d.length() != 1 || *d.data != 0xf5) { passed = false; }
+        }
+        {
+            // definite-length map: 0xa1 = 1-pair map, key: "a" (0x61,0x61), value: 1
+            uint8_t data[] = {0xa1, 0x61, 0x61, 0x01, 0xf4};
+            datum d{data, data + 5};
+            skip_cbor_value(d);
+            if (d.length() != 1 || *d.data != 0xf4) { passed = false; }
+        }
+        {
+            // negative integer: 0x38 0x63 = -100 (1-byte payload), then true
+            uint8_t data[] = {0x38, 0x63, 0xf5};
+            datum d{data, data + 3};
+            skip_cbor_value(d);
+            if (d.length() != 1 || *d.data != 0xf5) { passed = false; }
+        }
+        {
+            // float32: 0xfa + 4 bytes payload, then true
+            uint8_t data[] = {0xfa, 0x47, 0xc3, 0x50, 0x00, 0xf5};
+            datum d{data, data + 6};
+            skip_cbor_value(d);
+            if (d.length() != 1 || *d.data != 0xf5) { passed = false; }
+        }
+        {
+            // float16: 0xf9 + 2 bytes payload, then false
+            uint8_t data[] = {0xf9, 0x3c, 0x00, 0xf4};
+            datum d{data, data + 4};
+            skip_cbor_value(d);
+            if (d.length() != 1 || *d.data != 0xf4) { passed = false; }
+        }
+
+        return passed;
+    }
+
     static inline bool unit_test(FILE *f=nullptr) {
-        return uint64::unit_test(f)
+        return primitives_unit_test(f)
+            and uint64::unit_test(f)
             and byte_string::unit_test(f)
             and text_string::unit_test(f)
             and reencode_unit_test(f);

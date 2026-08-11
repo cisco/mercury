@@ -452,6 +452,8 @@ namespace redis{
             return is_auth_command && password_data.is_not_empty();
         }
 
+        datum get_username() const { return username_data; }
+
         void write_json(struct json_object &redis_request) const {
             redis_request.print_key_json_string("command", command_data);
             if (is_auth_command) {
@@ -513,6 +515,8 @@ namespace redis{
         bool has_exposed_password() const {
             return is_auth_command && password_data.is_not_empty();
         }
+
+        datum get_username() const { return username_data; }
 
         void write_json(struct json_object &redis_request) const {
             redis_request.print_key_json_string("command", command_data);
@@ -598,6 +602,13 @@ namespace redis{
                 [](const inline_command &r) { return r.has_exposed_password() ? exposed_creds_type::plaintext_password : exposed_creds_type::none; }
             }, packet);
         }
+
+        datum get_username() const {
+            return std::visit(overloaded{
+                [](const std::monostate &) { return datum{}; },
+                [](const auto &r) { return r.get_username(); }
+            }, packet);
+        }
     };
 
 #ifndef NDEBUG
@@ -672,6 +683,14 @@ namespace redis{
             datum{"{\"redis\":{\"response\":{\"type\":\"bulk_string\",\"data\":\"\"}}}"})
         ){
             return false;
+        }
+
+        // Exposed creds accessor test
+        {
+            datum d{"*3\r\n$4\r\nAUTH\r\n$5\r\nadmin\r\n$8\r\npassword\r\n"};
+            redis::request req{d};
+            if (req.check_credential_exposure() != exposed_creds_type::plaintext_password) { return false; }
+            if (!req.get_username().match("admin")) { return false; }
         }
 
         return true;
