@@ -2,7 +2,7 @@
 # Report libmerc coverage in 3 ways (but do not gate pass/fail):
 #
 #   1. Human-readable summary of absolute coverage ($GITHUB_STEP_SUMMARY)
-#   2. Export percentages + baseline id for coverage-gate ($GITHUB_OUTPUT)
+#   2. Export percentages, patch counts, baseline id for coverage-gate ($GITHUB_OUTPUT)
 #   3. Differential coverage, when a distinct baseline exists:
 #      a. Human-readable summary ($GITHUB_STEP_SUMMARY)
 #      b. build/Coverage/coverage_report_diff/   differential HTML (genhtml)
@@ -27,7 +27,7 @@ GITHUB_OUTPUT=${GITHUB_OUTPUT:-/dev/stdout}
 
 # Computes precise line-coverage %: sum(LH)/sum(LF) from the .info tracefile.
 # LH="lines hit" and LF="lines found".  Better than lcov's 1-decimal %-summary.
-line_pct() { awk -F: '/^LH:/{h+=$2} /^LF:/{f+=$2} END{print f?100*h/f:0}' "$1"; }
+line_pct() { awk -F: '/^LH:/{h+=$2} /^LF:/{f+=$2} END{printf "%.3f\n", f?100*h/f:0}' "$1"; }
 
 # Absolute coverage, human-readable summary
 CUR_PCT=$(line_pct "$cur_info")
@@ -41,6 +41,7 @@ if [ "$BASE_SHA" = "$HEAD_SHA" ]; then
     echo "**SKIPPED**: baseline is HEAD or no baseline to compare";
   } >> "$GITHUB_STEP_SUMMARY"
   BASE_PCT=""   # empty string explicitly signals na
+  { echo "gnc=0"; echo "unc=0"; echo "lbc=0"; } >> "$GITHUB_OUTPUT"
 else
   [ -f "$base_info" ] || { echo "missing $base_info (baseline expected)" >&2; exit 1; }
   git diff --src-prefix="$GITHUB_WORKSPACE/" --dst-prefix="$GITHUB_WORKSPACE/" \
@@ -59,10 +60,11 @@ else
     -o build/Coverage/coverage_report_diff \
     "$cur_info"
 
-  [ -f "$tla" ] || echo '{}' > "$tla"   # genhtml may emit no criteria JSON
+  [ -s "$tla" ] || { echo "genhtml produced no criteria data in $tla" >&2; exit 1; }
   python3 "$here/cov_diff_report.py" "$tla" \
     --cur-pct "$CUR_PCT" --base-pct "$BASE_PCT" \
-    --base-sha "$BASE_SHA" --base-ref "$BASE_REF" >> "$GITHUB_STEP_SUMMARY"
+    --base-sha "$BASE_SHA" --base-ref "$BASE_REF" \
+    --github-output "$GITHUB_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
 fi
 
 { echo "cur_pct=$CUR_PCT"; echo "base_pct=$BASE_PCT";

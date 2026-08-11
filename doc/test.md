@@ -25,7 +25,8 @@ There are two targets for generating coverage reports:
     make test-coverage
     ```
 
-The generated report can be found in the `coverage_html_report` or `coverage_html_report_fuzz` directory depending on the target.
+The generated report can be found in `build/Coverage/coverage_report/` or
+`build/Coverage/coverage_report_fuzz/` depending on the target.
 
 ### Viewing the Report
-To view the report, you can take the `coverage_html_report` folder to a web server and open that in a web browser.
+To view the report, you can take the `build/Coverage/coverage_report` folder to a web server and open that in a web browser.
