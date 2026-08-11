@@ -482,13 +482,8 @@ struct tls_client_hello : public base_protocol {
         additional_bytes_needed = 0;
     }
 
-    // emits the detail object under a key named by the
-    // caller's committed transport: "dtls" when is_dtls is set, "tls"
-    // otherwise. The key is chosen by the caller (which owns protocols[0]) and
-    // is deliberately NOT derived from the parsed legacy_version, which is
-    // untrusted and can be crafted to disagree with the carrier.
-    void write_l7_metadata_detail(cbor_object &o, bool is_dtls = false) {
-        const char *proto = is_dtls ? "dtls" : "tls";
+    void write_l7_metadata_detail(cbor_object &o) {
+        const char *proto = dtls ? "dtls" : "tls";
         cbor_object proto_obj{o, proto};
         cbor_object client{proto_obj, "client"};
         client.print_key_hex("random", random);
@@ -1845,12 +1840,8 @@ inline void tls_extensions::print_ech_client_hello(struct json_object &o) const 
 inline void tls_client_hello::parse(struct datum &p, bool is_dtls) {
     uint64_t tmp_len;
 
-    // whether this hello is carried over DTLS is committed by the caller
-    // (the record/transport layer), not derived from the untrusted
-    // legacy_version in the clientHello body: for a nested carrier such as
-    // quic, a crafted legacy_version[0] == 0xfe must not be able to switch on
-    // DTLS cookie parsing (which would corrupt the fingerprint) and use wrong
-    // keys in json output.
+    // the carrier is committed by the caller (the record layer); the
+    // legacy_version in the body is untrusted for nested carriers such as quic
     dtls = is_dtls;
 
     mercury_debug("%s: processing packet\n", __func__);

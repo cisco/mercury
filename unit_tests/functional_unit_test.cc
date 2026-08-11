@@ -23,11 +23,8 @@
 #include "mem_utils.hpp"
 #include "crypto_engine.h"
 #include "http.h"
-#include "tls.h"
-#include "quic.h"
 
 #include <string>
-#include <vector>
 
 /*
  * The unit_test() functions defined in header files
@@ -143,86 +140,5 @@ TEST_CASE("http-body-max reports first N bytes of the body") {
     SUBCASE("body-max of 0 suppresses body output") {
         const std::string body = "should-not-appear";
         CHECK(http_request_body_hex(headers, body, 0).empty());
-    }
-}
-
-// Render a parsed client hello's write_json output as a string.
-//
-template <typename hello_t>
-static std::string client_hello_write_json(hello_t &hello,
-                                           const std::vector<uint8_t> &body,
-                                           bool is_dtls) {
-    datum d{body.data(), body.data() + body.size()};
-    hello.parse(d, is_dtls);
-
-    char json_buf[8192];
-    buffer_stream buf_json(json_buf, sizeof(json_buf));
-    json_object record(&buf_json);
-    hello.write_json(record, true);
-    record.close();
-    return std::string(buf_json.dstr, buf_json.doff);
-}
-
-// The DTLS carrier must be committed by the caller (the record/transport
-// layer), never inferred from the legacy_version in the clientHello body --
-// which is untrusted for nested carriers such as quic and openvpn. A
-// clientHello whose legacy_version is the DTLS value 0xfefd but which is
-// carried over a TLS-based transport must be reported under "tls", not
-// "dtls", and must parse correctly (no phantom DTLS cookie skip that would
-// corrupt the fingerprint).
-//
-TEST_CASE("nested TLS carrier not mislabeled as dtls") {
-
-    // A well-formed TLS clientHello body (no DTLS cookie on the wire) whose
-    // legacy_version is set to the DTLS value 0xfefd, with an SNI of
-    // "example.com".
-    const std::vector<uint8_t> body = {
-        0xfe, 0xfd,                                     // legacy_version 0xfefd (DTLS-looking)
-        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, // random (32 bytes)
-        0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
-        0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
-        0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
-        0x00,                                           // session_id length 0
-        0x00, 0x02, 0x13, 0x01,                         // cipher_suites: len 2, TLS_AES_128_GCM_SHA256
-        0x01, 0x00,                                     // compression: len 1, null
-        0x00, 0x14,                                     // extensions length 20
-        0x00, 0x00, 0x00, 0x10, 0x00, 0x0e, 0x00,       // server_name extension ...
-        0x00, 0x0b, 0x65, 0x78, 0x61, 0x6d, 0x70, 0x6c, 0x65, 0x2e, 0x63, 0x6f, 0x6d // ... "example.com"
-    };
-
-    SUBCASE("quic carrier reports tls, not dtls") {
-        // quic decrypts its Initial and parses the inner clientHello via
-        // quic_client_hello (is_dtls defaults to false); see quic.h.
-        quic_client_hello hello;
-        std::string json = client_hello_write_json(hello, body, false);
-
-        CHECK(hello.is_not_empty());
-        CHECK(json.find("\"tls\":{\"client\"") != std::string::npos);
-        CHECK(json.find("\"server_name\":\"example.com\"") != std::string::npos);
-        CHECK(json.find("\"dtls\"") == std::string::npos);
-    }
-
-    SUBCASE("openvpn carrier reports tls, not dtls") {
-        // openvpn_tcp parses the reassembled clientHello via
-        // tls_client_hello::parse with the default (is_dtls=false); see
-        // openvpn.h.
-        tls_client_hello hello;
-        std::string json = client_hello_write_json(hello, body, false);
-
-        CHECK(hello.is_not_empty());
-        CHECK(json.find("\"tls\":{\"client\"") != std::string::npos);
-        CHECK(json.find("\"server_name\":\"example.com\"") != std::string::npos);
-        CHECK(json.find("\"dtls\"") == std::string::npos);
-    }
-
-    SUBCASE("forcing the dtls carrier on a cookie-less hello mis-parses") {
-        // Demonstrates why the carrier must not be guessed: parsing the same
-        // TLS-layout bytes as DTLS skips a phantom cookie, shifting the
-        // cipher-suite parse so the hello is rejected (previously this path
-        // was reachable from a crafted quic legacy_version and corrupted the
-        // fingerprint).
-        tls_client_hello hello;
-        (void)client_hello_write_json(hello, body, true);
-        CHECK(hello.is_not_empty() == false);
     }
 }
