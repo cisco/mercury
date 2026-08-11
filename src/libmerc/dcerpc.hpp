@@ -133,7 +133,8 @@ namespace dcerpc {
         encoded<uint16_t> time_mid;
         encoded<uint16_t> time_hi_and_version;
         datum clock_seq_and_node;
-        encoded<uint32_t> version;
+        encoded<uint16_t> version_major;
+        encoded<uint16_t> version_minor;
         bool valid;
 
         static datum parse_clock_seq_and_node(datum &d) {
@@ -183,7 +184,8 @@ namespace dcerpc {
                                                   time_mid{d, little_endian},
                                                   time_hi_and_version{d, little_endian},
                                                   clock_seq_and_node{parse_clock_seq_and_node(d)},
-                                                  version{d, little_endian},
+                                                  version_major{d, little_endian},
+                                                  version_minor{d, little_endian},
                                                   valid{!d.is_null()} {
         }
 
@@ -213,8 +215,8 @@ namespace dcerpc {
             if (const char *name = known_name()) {
                 o.print_key_string("name", name);
             }
-            o.print_key_uint("version_major", version.value() & 0xffff);
-            o.print_key_uint("version_minor", version.value() >> 16);
+            o.print_key_uint("version_major", version_major);
+            o.print_key_uint("version_minor", version_minor);
         }
 
         void write_json(json_object &o, const char *name) const {
@@ -869,6 +871,21 @@ namespace dcerpc {
             split_version_json_valid = strstr(json_buffer, "\"version_major\":0") &&
                 strstr(json_buffer, "\"version_minor\":81");
         }
+        uint8_t big_endian_syntax_bytes[20] = {};
+        big_endian_syntax_bytes[17] = 1;
+        big_endian_syntax_bytes[19] = 2;
+        datum big_endian_syntax_data{big_endian_syntax_bytes};
+        syntax_id big_endian_syntax{big_endian_syntax_data, false};
+        bool big_endian_syntax_json_valid = false;
+        {
+            buffer_stream buf{json_buffer, sizeof(json_buffer)};
+            json_object json{&buf};
+            big_endian_syntax.write_json(json);
+            json.close();
+            buf.write_char(0);
+            big_endian_syntax_json_valid = strstr(json_buffer, "\"version_major\":1") &&
+                strstr(json_buffer, "\"version_minor\":2");
+        }
         {
             buffer_stream buf{json_buffer, sizeof(json_buffer)};
             json_object json{&buf};
@@ -1002,6 +1019,7 @@ namespace dcerpc {
         passed &= check("bind", bind.is_not_empty() && bind_json_valid &&
                         !bind_with_incomplete_context.is_not_empty() && bind_with_incomplete_context_data.is_null());
         passed &= check("syntax_id", fsrvp_syntax_json_valid && split_version_json_valid &&
+                        big_endian_syntax_json_valid &&
                         incomplete_syntax_write_empty && !incomplete_syntax.is_not_empty() &&
                         incomplete_syntax_data.is_null());
         passed &= check("request", request.is_not_empty() && request_json_valid &&
