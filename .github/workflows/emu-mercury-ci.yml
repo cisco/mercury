@@ -173,6 +173,7 @@ jobs:
       gnc:      ${{ steps.report.outputs.gnc }}
       unc:      ${{ steps.report.outputs.unc }}
       lbc:      ${{ steps.report.outputs.lbc }}
+      report_url: ${{ steps.upload.outputs.artifact-url }}   # empty if upload failed
     steps:
       - name: Echo OS version
         run: cat /etc/os-release
@@ -244,6 +245,7 @@ jobs:
         id: report
         run: test/coverage/cov_report.sh
       - name: Upload coverage report(s)
+        id: upload
         if: always()
         uses: actions/upload-artifact@v6
         with:
@@ -273,16 +275,18 @@ jobs:
           GNC:      ${{ needs.linux-coverage.outputs.gnc }}
           UNC:      ${{ needs.linux-coverage.outputs.unc }}
           LBC:      ${{ needs.linux-coverage.outputs.lbc }}
+          REPORT_URL: ${{ needs.linux-coverage.outputs.report_url }}
           T: 90   # min % of new/changed libmerc lines that must be covered
           K: 2    # uncovered new lines always forgiven, whatever the percentage
         run: |
           set -o pipefail
+          rc=0
           {
             echo "ℹ️ Advisory only — not a required check. Coverage regressions are reported, not enforced."
             echo
             if [ "$RESULT" != success ] && [ "$RESULT" != skipped ]; then
               echo "🔴 **ERROR**: coverage unverified — linux-coverage $RESULT"
-              false    # producer broken
+              rc=1    # producer broken
             elif [ "$RESULT" = skipped ]; then
               echo "ℹ️ **SKIPPED**: linux-coverage did not run"
             elif [ -z "$BASE_PCT" ]; then
@@ -301,9 +305,14 @@ jobs:
                 echo "🟢 **PASS**: patch coverage ${GNC}/${new} new libmerc lines covered"
               else
                 echo "🔴 **FAIL**: patch coverage ${GNC}/${new} new libmerc lines covered — needs ≥ ${T}%, or ≤ ${K} uncovered"
-                false
+                rc=1
               fi
             fi
+            if [ -n "$REPORT_URL" ]; then
+              echo
+              echo "📊 [Coverage report artifact]($REPORT_URL) — unzip, then open \`coverage_report_diff/index.html\`"
+            fi
+            exit $rc
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
   # ========== macOS Build and Test ==========
