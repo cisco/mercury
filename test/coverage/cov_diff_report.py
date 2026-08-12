@@ -2,7 +2,7 @@
 """Render the libmerc differential-coverage summary in markdown to stdout.
 
 Input is the top-level per-line TLA counts that genhtml's --criteria-script
-dumps as JSON, e.g., {"line": {"GNC": 3, "UNC": 1, "CBC": 10}}.
+dumps as JSON, e.g., {"line": {"found": 14, "GNC": 3, "UNC": 1, "CBC": 10}}.
 """
 import argparse
 import json
@@ -25,34 +25,73 @@ CATEGORIES = [
 ]
 
 
-def patch_line(line):
-    """Patch-coverage headline from the TLA counts, or None when no TLA data.
+def parse_tla(text):
+    """Validate genhtml's criteria JSON and return the per-line TLA counts.
 
-    >>> patch_line({})  # no data, say nothing
+    Absent categories are legitimate and default to 0.  A "line" map with no
+    "found" is not: every count would read as 0, which can be confused with a
+    patch with nothing to cover.
+
+    >>> parse_tla('{"line": {"found": 7, "GNC": 3, "UNC": 1}}')
+    {'found': 7, 'GNC': 3, 'UNC': 1}
+    >>> parse_tla('{"line": {}}')
+    Traceback (most recent call last):
+        ...
+    ValueError: unusable criteria JSON: '{"line": {}}'
+    >>> parse_tla('{"line": {"found": 7, "UNC": true}}')
+    Traceback (most recent call last):
+        ...
+    ValueError: unusable criteria JSON: '{"line": {"found": 7, "UNC": true}}'
+    """
+    try:
+        line = json.loads(text)["line"]
+        counts = (line.get(abbr, 0) for abbr in ("GNC", "UNC", "LBC"))
+        # a bool is an int, and reaches bash as `True`, which reads as 0 there
+        ok = "found" in line and all(type(v) is int and v >= 0 for v in counts)
+    except (AttributeError, KeyError, TypeError, ValueError):
+        ok = False   # JSONDecodeError is a ValueError
+    if not ok:
+        raise ValueError(f"unusable criteria JSON: {text!r}")
+    return line
+
+
+def github_output(line):
+    """The counts coverage-gate needs, as `k=v` lines for $GITHUB_OUTPUT.
+
+    >>> print(github_output({"found": 7, "GNC": 3, "UNC": 1}))
+    gnc=3
+    unc=1
+    lbc=0
+    """
+    # LBC counts unchanged lines, so it is not patch coverage and is not gated.
+    return "\n".join(f"{abbr.lower()}={line.get(abbr, 0)}"
+                     for abbr in ("GNC", "UNC", "LBC"))
+
+
+def patch_line(line):
+    """Patch-coverage headline from the TLA counts.
+
     >>> patch_line({"GNC": 3, "UNC": 1})
-    'Patch coverage: 3/4 new lines covered (75.0%)'
-    >>> patch_line({"CBC": 10})  # data, but no new/changed coverable lines
+    'Patch coverage: 3/4 new lines covered (75.000%)'
+    >>> patch_line({"CBC": 10})  # no new/changed coverable lines
     'Patch coverage: no new/changed coverable libmerc lines'
     """
-    if not line:
-        return None
     gnc, unc = line.get("GNC", 0), line.get("UNC", 0)
     new_total = gnc + unc
     if new_total == 0:
         return "Patch coverage: no new/changed coverable libmerc lines"
-    return f"Patch coverage: {gnc}/{new_total} new lines covered ({100.0 * gnc / new_total:.1f}%)"
+    return f"Patch coverage: {gnc}/{new_total} new lines covered ({100.0 * gnc / new_total:.3f}%)"
 
 
 def status_line(base_pct, cur_pct, desc):
     """Neutral one-line total-% status.
 
     >>> status_line(88.0, 90.0, "dev @ abc123")
-    'libmerc coverage held/improved: 88.0% → 90.0% vs dev @ abc123'
-    >>> status_line(90.0, 88.0, "dev @ abc123")
-    'libmerc coverage decreased: 90.0% → 88.0% vs dev @ abc123'
+    'libmerc line coverage: 88.000% → 90.000% vs dev @ abc123'
+    >>> status_line(88.1234, 88.129, "dev @ abc123")
+    'libmerc line coverage: 88.123% → 88.129% vs dev @ abc123'
     """
-    direction = "decreased" if cur_pct < base_pct else "held/improved"
-    return f"libmerc coverage {direction}: {base_pct:.1f}% → {cur_pct:.1f}% vs {desc}"
+    return f"libmerc line coverage: {base_pct:.3f}% → {cur_pct:.3f}% vs {desc}"
 
 
 def category_table(line):
@@ -106,24 +145,26 @@ def main(argv=None):
                     help="baseline libmerc line-coverage percent")
     ap.add_argument("--base-sha", required=True, help="merge-base commit of the baseline")
     ap.add_argument("--base-ref", required=True, help="branch the baseline tracks")
+    ap.add_argument("--github-output", metavar="PATH",
+                    help="append gnc/unc/lbc counts to PATH as k=v lines")
     args = ap.parse_args(argv)
 
-    # File is guaranteed present by cov_report.sh; its line map may be empty ({}).
+    # File is guaranteed present by cov_report.sh.  Bad content is fatal here.
     with open(args.tla_file) as f:
-        text = f.read().strip()
-    line = (json.loads(text) if text else {}).get("line", {})
+        line = parse_tla(f.read().strip())
+
+    if args.github_output:
+        with open(args.github_output, "a") as f:
+            f.write(github_output(line) + "\n")
 
     desc = f"{args.base_ref} @ {args.base_sha}"
-    out = [f"### libmerc differential coverage (vs {desc})", ""]
-    patch = patch_line(line)
-    if patch:
-        out += [patch, ""]
-    out.append(status_line(args.base_pct, args.cur_pct, desc))
+    out = [f"### libmerc differential coverage (vs {desc})", "",
+           patch_line(line), "",
+           status_line(args.base_pct, args.cur_pct, desc)]
     table = category_table(line)
     if table:
         out += ["", table]
-    if line:
-        out += ["", legend()]
+    out += ["", legend()]
 
     print("\n".join(out))
     return 0
