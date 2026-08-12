@@ -212,7 +212,11 @@ jobs:
       - name: Baseline — run test-coverage
         if: steps.mergebase.outputs.base_sha != steps.mergebase.outputs.head_sha
         working-directory: base
-        run: make -j$(nproc) V=1 test-coverage
+        run: |
+          make -j$(nproc) V=1 test-coverage
+          # baselines predating the coverage_data/ rename emit coverage/
+          cov=build/Coverage
+          [ -d "$cov/coverage_data" ] || mv "$cov/coverage" "$cov/coverage_data"
       - name: Baseline — extract libmerc coverage
         if: steps.mergebase.outputs.base_sha != steps.mergebase.outputs.head_sha
         run: >-
@@ -240,6 +244,14 @@ jobs:
       - name: Summarize libmerc coverage (+ differential if baseline)
         id: report
         run: test/coverage/cov_report.sh
+      - name: Stage derived coverage files for upload
+        if: always()
+        run: |
+          cov=build/Coverage
+          mkdir -p "$cov/coverage_data"
+          for f in base.libmerc.info cur.libmerc.info patch.diff cov-tla.json; do
+            if [ -f "$cov/$f" ]; then cp "$cov/$f" "$cov/coverage_data/"; fi
+          done
       - name: Upload coverage report(s)
         if: always()
         uses: actions/upload-artifact@v6
