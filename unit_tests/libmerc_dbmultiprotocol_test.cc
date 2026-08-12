@@ -606,7 +606,7 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test redis")
     initialize(config);
 
     set_pcap("redis.pcap");
-    CHECK(9 == counter());
+    CHECK(10 == counter());
 
     set_pcap("top_100_fingerprints.pcap");
     CHECK(0 == counter());

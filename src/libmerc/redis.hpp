@@ -193,6 +193,8 @@ namespace redis{
             isValid{false}
         {
             if constexpr (!enable_array_parsing) {
+                isValid = !d.is_null();
+                truncated = true;
                 return;
             }
 
@@ -683,6 +685,24 @@ namespace redis{
             datum{"{\"redis\":{\"response\":{\"type\":\"bulk_string\",\"data\":\"\"}}}"})
         ){
             return false;
+        }
+
+        // Array response parsing stops after a valid header.
+        {
+            datum d{"*2\r\n$3\r\nfoo\r\n$3\r\nbar\r\n"};
+            redis::response response{d};
+            if (!response.is_not_empty()) { return false; }
+
+            datum array_d{"*2\r\n$3\r\nfoo\r\n$3\r\nbar\r\n"};
+            redis::array array{array_d};
+            if (!array.truncated) { return false; }
+        }
+
+        // A truncated array header is not a valid response.
+        {
+            datum d{"*2\r"};
+            redis::response response{d};
+            if (response.is_not_empty()) { return false; }
         }
 
         // Exposed creds accessor test
