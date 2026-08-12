@@ -170,6 +170,10 @@ jobs:
       base_pct: ${{ steps.report.outputs.base_pct }}
       base_sha: ${{ steps.report.outputs.base_sha }}
       base_ref: ${{ steps.report.outputs.base_ref }}
+      gnc:      ${{ steps.report.outputs.gnc }}
+      unc:      ${{ steps.report.outputs.unc }}
+      lbc:      ${{ steps.report.outputs.lbc }}
+      report_url: ${{ steps.upload.outputs.artifact-url }}   # empty if upload failed
     steps:
       - name: Echo OS version
         run: cat /etc/os-release
@@ -241,6 +245,7 @@ jobs:
         id: report
         run: test/coverage/cov_report.sh
       - name: Upload coverage report(s)
+        id: upload
         if: always()
         uses: actions/upload-artifact@v6
         with:
@@ -260,31 +265,54 @@ jobs:
     if: ${{ always() && !cancelled() }}
     runs-on: ubuntu-latest
     steps:
-      - name: Gate on libmerc coverage delta
+      - name: Gate on libmerc patch coverage
         env:
           RESULT:   ${{ needs.linux-coverage.result }}
           CUR_PCT:  ${{ needs.linux-coverage.outputs.cur_pct }}
           BASE_PCT: ${{ needs.linux-coverage.outputs.base_pct }}
           BASE_SHA: ${{ needs.linux-coverage.outputs.base_sha }}
           BASE_REF: ${{ needs.linux-coverage.outputs.base_ref }}
+          GNC:      ${{ needs.linux-coverage.outputs.gnc }}
+          UNC:      ${{ needs.linux-coverage.outputs.unc }}
+          LBC:      ${{ needs.linux-coverage.outputs.lbc }}
+          REPORT_URL: ${{ needs.linux-coverage.outputs.report_url }}
+          T: 90   # min % of new/changed libmerc lines that must be covered
+          K: 2    # uncovered new lines always forgiven, whatever the percentage
         run: |
           set -o pipefail
+          rc=0
           {
             echo "ℹ️ Advisory only — not a required check. Coverage regressions are reported, not enforced."
             echo
             if [ "$RESULT" != success ] && [ "$RESULT" != skipped ]; then
               echo "🔴 **ERROR**: coverage unverified — linux-coverage $RESULT"
-              false    # producer broken
+              rc=1    # producer broken
             elif [ "$RESULT" = skipped ]; then
               echo "ℹ️ **SKIPPED**: linux-coverage did not run"
             elif [ -z "$BASE_PCT" ]; then
               echo "ℹ️ **SKIPPED**: baseline is HEAD or no baseline to compare"
-            elif awk -v c="$CUR_PCT" -v b="$BASE_PCT" 'BEGIN{exit !(c<b)}'; then
-              echo "🔴 **FAIL**: libmerc coverage decreased ${BASE_PCT}% → ${CUR_PCT}% vs ${BASE_REF} @ ${BASE_SHA}"
-              false
             else
-              echo "🟢 **PASS**: libmerc coverage held/improved ${BASE_PCT}% → ${CUR_PCT}%"
+              new=$((GNC + UNC))
+              echo "libmerc line coverage ${BASE_PCT}% → ${CUR_PCT}% vs ${BASE_REF} @ ${BASE_SHA}"
+              if [ "$LBC" -gt 0 ]; then
+                echo
+                echo "⚠️ ${LBC} previously covered libmerc line(s) lost coverage"
+              fi
+              echo
+              if [ "$new" -eq 0 ]; then
+                echo "🟢 **PASS**: no new or changed coverable libmerc lines"
+              elif [ "$UNC" -le "$K" ] || [ $((100 * GNC)) -ge $((T * new)) ]; then
+                echo "🟢 **PASS**: patch coverage ${GNC}/${new} new libmerc lines covered"
+              else
+                echo "🔴 **FAIL**: patch coverage ${GNC}/${new} new libmerc lines covered — needs ≥ ${T}%, or ≤ ${K} uncovered"
+                rc=1
+              fi
             fi
+            if [ -n "$REPORT_URL" ]; then
+              echo
+              echo "📊 [Coverage report artifact]($REPORT_URL) — unzip, then open \`coverage_report_diff/index.html\`"
+            fi
+            exit $rc
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
   # ========== macOS Build and Test ==========
