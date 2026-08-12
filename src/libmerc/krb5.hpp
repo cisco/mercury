@@ -70,7 +70,7 @@ namespace krb5 {
             bit_string.parse(&p, tlv::BIT_STRING);
         }
 
-        void print_as_json(struct json_object &o, const char *name) const {
+        void print_as_json(struct json_object &o, null_terminated_string name) const {
             var_int<uint32_t> flags{bit_string.value, var_int<uint32_t>::asn1_bitstring};
             json_array_bitflags<uint32_t> f{o, name, flags.value()};
             f.flag<1>("forwardable");
@@ -146,7 +146,7 @@ namespace krb5 {
             name_sequence{sequence.value, 0, "name_sequence"}
         { }
 
-        void write_json(json_object &o, const char *object_name) {
+        void write_json(json_object &o, null_terminated_string object_name) {
             json_object pn{o, object_name};
             tlv type_int{name_type.value, tlv::INTEGER, "type"};
             const int64_t name_type_value = asn1::to_int64(type_int.value);
@@ -188,7 +188,7 @@ namespace krb5 {
 
         bool is_valid() const { return valid; }
 
-        void write_json(json_object &o, const char *name, bool metadata=false) const {
+        void write_json(json_object &o, null_terminated_string name, bool metadata=false) const {
             (void)metadata;
             if (!valid) {
                 return;
@@ -375,7 +375,7 @@ namespace krb5 {
             valid{seq.is_not_null()}
         { }
 
-        void write_json(json_object &o, const char *name) const {
+        void write_json(json_object &o, null_terminated_string name) const {
             if (!valid) {
                 return;
             }
@@ -408,7 +408,7 @@ namespace krb5 {
             bit_string.parse(&p, tlv::BIT_STRING);
         }
 
-        void print_as_json(struct json_object &o, const char *name) const {
+        void print_as_json(struct json_object &o, null_terminated_string name) const {
             var_int<uint32_t> flags{bit_string.value, var_int<uint32_t>::asn1_bitstring};
             json_array_bitflags<uint32_t> f{o, name, flags.value()};
             f.flag<0>("reserved");
@@ -530,7 +530,7 @@ namespace krb5 {
 
         bool is_valid() const { return valid; }
 
-        void write_json(json_object &o, const char *name="ap_rep") const {
+        void write_json(json_object &o, null_terminated_string name="ap_rep") const {
             if (!valid) {
                 return;
             }
@@ -781,6 +781,7 @@ namespace krb5 {
             const uint64_t pa_type_code = asn1::to_uint64(tlv{tmp});
             pa_data_type<uint32_t> pa_type{pa_type_code};
             const char *pa_type_name = pa_type.get_name();
+            null_terminated_string pa_type_key = null_terminated_string::assume(pa_type_name);
             pad.print_key_string_or_unknown_code("pa_data_type", pa_type_name, pa_type_code);
 
             datum octets_data = pa_data_value.value;
@@ -792,7 +793,7 @@ namespace krb5 {
                     tlv app_req_tlv{app_data, KRB5_APP_AP_REQ, "pa_tgs_req.ap_req"};
                     ap_req req{app_req_tlv.value};
                     if (req.is_valid()) {
-                        json_object value{pad, pa_type_name};
+                        json_object value{pad, pa_type_key};
                         req.write_json(value);
                         value.close();
                         handled = true;
@@ -801,7 +802,7 @@ namespace krb5 {
                     datum seq_data = octets.value;
                     tlv seq{seq_data, tlv::SEQUENCE, "pa_etype_info2.sequence"};
                     if (seq.is_valid()) {
-                        json_array value{pad, pa_type_name, /*omit_if_empty=*/true};
+                        json_array value{pad, pa_type_key, /*omit_if_empty=*/true};
                         datum entries = seq.value;
                         bool wrote_entry = false;
                         while (entries.is_not_empty()) {
@@ -825,7 +826,7 @@ namespace krb5 {
                     tlv enc_tlv{enc_data, tlv::SEQUENCE, "pa_enc_timestamp.encrypted_data"};
                     encrypted_data enc{enc_tlv};
                     if (enc.is_valid()) {
-                        json_object value{pad, pa_type_name};
+                        json_object value{pad, pa_type_key};
                         enc.write_json(value, "enc_timestamp");
                         value.close();
                         handled = true;
@@ -856,7 +857,7 @@ namespace krb5 {
 
         bool is_valid() const { return valid; }
 
-        void write_json(json_object &o, const char *name) const {
+        void write_json(json_object &o, null_terminated_string name) const {
             if (!valid) {
                 return;
             }
@@ -924,7 +925,7 @@ namespace krb5 {
             return asn1::to_uint64(msg_type.value);
         }
 
-        void write_json(json_object &o, const char *name) const {
+        void write_json(json_object &o, null_terminated_string name) const {
             if (!valid) {
                 return;
             }
@@ -948,7 +949,7 @@ namespace krb5 {
 
     };
 
-    static void print_key_error_code(json_object &o, const char *key, int64_t code) {
+    static void print_key_error_code(json_object &o, null_terminated_string key, int64_t code) {
         const char * description[] = {
             "KDC_ERR_NONE",                          //  0
             "KDC_ERR_NAME_EXP",                      //  1
@@ -1335,7 +1336,7 @@ namespace krb5 {
             return asn1::to_uint64(msg_type.value);
         }
 
-        void write_json(json_object &o, const char *name) const {
+        void write_json(json_object &o, null_terminated_string name) const {
             if (!valid) {
                 return;
             }

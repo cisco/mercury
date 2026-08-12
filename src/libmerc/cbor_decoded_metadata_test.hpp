@@ -592,8 +592,9 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
         for (int i = 0; i < 6; i++) {
             char key_name[32];
-            snprintf(key_name, sizeof(key_name), "future_feature_%d", i);
-            cbor_object feat{outer, key_name};
+            int key_len = snprintf(key_name, sizeof(key_name), "future_feature_%d", i);
+            if (key_len < 0) { return false; }
+            cbor_object feat{outer, null_terminated_string::checked(key_name, static_cast<size_t>(key_len))};
             feat.print_key_string("data", "value");
             feat.close();
         }

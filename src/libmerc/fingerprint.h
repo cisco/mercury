@@ -43,7 +43,7 @@ public:
 
     void set_type(fingerprint_type fp_type, size_t format_version=0) {
         type = fp_type;
-        fp_buf.puts(get_type_name(fp_type));
+        fp_buf.puts(get_type_name(fp_type).c_str());
         fp_buf.write_char('/');
         if (format_version) {
             fp_buf.write_uint8(format_version);
@@ -156,13 +156,13 @@ public:
 
     enum fingerprint_type get_type() const { return type; }
 
-    static const char *get_type_name(fingerprint_type fp_type) {
+    static null_terminated_string get_type_name(fingerprint_type fp_type) {
 
         // note: the array name[] corresponds to the enumeration
         // values in fingerprint_type in libmerc.h; if you change one,
         // you *must* change the other, to keep them in sync
         //
-        static const char *name[] = {
+        static constexpr null_terminated_string name[] = {
             "unknown",
             "tls",
             "tls_server",
@@ -185,7 +185,7 @@ public:
             "ssh_kex_server",
             "ssh_init_server"
         };
-        if (fp_type > (sizeof(name)/sizeof(const char *)) - 1) {
+        if (fp_type > (sizeof(name)/sizeof(name[0])) - 1) {
             return name[0];  // error: unknown type
         }
         return name[fp_type];

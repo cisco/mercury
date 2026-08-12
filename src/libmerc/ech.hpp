@@ -24,7 +24,7 @@ public:
 
     opaque(datum &d) : length{d}, elements{d, length} { }
 
-    void write_json(json_object &o, const char *name) const {
+    void write_json(json_object &o, null_terminated_string name) const {
         o.print_key_hex(name, elements);
     }
 

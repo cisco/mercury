@@ -287,14 +287,14 @@ namespace tacacs {
                     //
                     // message body is unencrypted
                     //
-                    const char *message_type = direction() == msg_type::request ? "unencrypted_request" : "unencrypted_reply";
+                    null_terminated_string message_type = direction() == msg_type::request ? null_terminated_string{"unencrypted_request"} : null_terminated_string{"unencrypted_reply"};
                     tacacs_json.print_key_hex(message_type, body);
                 }
             } else {
                 //
                 // message body is encrypted
                 //
-                const char *message_type = direction() == msg_type::request ? "encrypted_request" : "encrypted_reply";
+                null_terminated_string message_type = direction() == msg_type::request ? null_terminated_string{"encrypted_request"} : null_terminated_string{"encrypted_reply"};
                 tacacs_json.print_key_hex(message_type, body);
 
                 data_buffer<128> password_recovery_string = get_password_recovery_string(session_id, version, seq_no, body);

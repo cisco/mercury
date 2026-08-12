@@ -93,7 +93,7 @@ enum class reassembly_flags : uint8_t {
     truncated = 6
 };
 
-static const char* reassembly_flag_str[] = {
+static constexpr null_terminated_string reassembly_flag_str[] = {
     "missing_segment",
     "timeout",
     "out_of_order",
@@ -111,7 +111,7 @@ enum class reassembly_overlaps : uint8_t {
     front_superset_overlap = 3
 };
 
-static const char* reassembly_overlaps_str[] = {
+static constexpr null_terminated_string reassembly_overlaps_str[] = {
     "back_partial_overlap",
     "back_subset_overlap",
     "front_partial_overlap",

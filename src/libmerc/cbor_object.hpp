@@ -23,8 +23,8 @@ template <size_t N> class cbor_object_compact;
 class cbor_object {
     cbor::output::map m;
 
-    static writeable &create_named_map(const char *key, cbor_object &o) {
-        cbor::text_string{key}.write(o.m);
+    static writeable &create_named_map(null_terminated_string key, cbor_object &o) {
+        cbor::text_string{key.c_str()}.write(o.m);
         return o.m;
     }
 
@@ -52,7 +52,7 @@ public:
 
     cbor_object(writeable &w) : m{w} { }
 
-    cbor_object(cbor_object &o, const char *key) : m{create_named_map(key, o)} { }
+    cbor_object(cbor_object &o, null_terminated_string key) : m{create_named_map(key, o)} { }
 
     cbor_object(cbor_object &o, uint64_t k) : m{create_named_map(k, o)} { }
 
@@ -61,23 +61,23 @@ public:
     cbor_object(cbor_object &o) : m{o.get_writeable()} { }
 
     template <size_t N>
-    cbor_object(cbor_object_compact<N> &o, const char *key);
+    cbor_object(cbor_object_compact<N> &o, null_terminated_string key);
 
     cbor_object(cbor_array &a);
 
-    void print_key_uint(const char *key, uint64_t value) {
-        cbor::text_string{key}.write(m);
+    void print_key_uint(null_terminated_string key, uint64_t value) {
+        cbor::text_string{key.c_str()}.write(m);
         cbor::uint64{value}.write(m);
     }
 
-    void print_key_string(const char *key, const char *str) {
-        cbor::text_string{key}.write(m);
+    void print_key_string(null_terminated_string key, const char *str) {
+        cbor::text_string{key.c_str()}.write(m);
         cbor::text_string{str}.write(m);
     }
 
-    void print_key_string(const char *key, datum d) {
+    void print_key_string(null_terminated_string key, datum d) {
         if (d.is_readable()) {
-            cbor::text_string{key}.write(m);
+            cbor::text_string{key.c_str()}.write(m);
             cbor::text_string::construct(d).write(m);
         }
     }
@@ -89,20 +89,20 @@ public:
         }
     }
 
-    void print_key_hex(const char *key, datum bytes) {
+    void print_key_hex(null_terminated_string key, datum bytes) {
         if (bytes.is_readable()) {
-            cbor::text_string{key}.write(m);
+            cbor::text_string{key.c_str()}.write(m);
             cbor::byte_string::construct(bytes).write(m);
         }
     }
 
-    void print_key_bool(const char *key, bool b) {
-        cbor::text_string{key}.write(m);
+    void print_key_bool(null_terminated_string key, bool b) {
+        cbor::text_string{key.c_str()}.write(m);
         cbor::initial_byte{cbor::simple_or_float_type, b ? cbor::initial_byte::True : cbor::initial_byte::False}.write(m);
     }
 
-    void print_key_null(const char *key) {
-        cbor::text_string{key}.write(m);
+    void print_key_null(null_terminated_string key) {
+        cbor::text_string{key.c_str()}.write(m);
         cbor::initial_byte{cbor::simple_or_float_type, cbor::initial_byte::null}.write(m);
     }
 
@@ -115,8 +115,8 @@ public:
 class cbor_array {
     cbor::output::array a;
 
-    static writeable &create_named_array(const char *key, cbor_object &o) {
-        cbor::text_string{key}.write(o.m);
+    static writeable &create_named_array(null_terminated_string key, cbor_object &o) {
+        cbor::text_string{key.c_str()}.write(o.m);
         return o.m;
     }
 
@@ -124,7 +124,7 @@ class cbor_array {
 
 public:
 
-    cbor_array(cbor_object &o, const char *key) : a{create_named_array(key, o)} { }
+    cbor_array(cbor_object &o, null_terminated_string key) : a{create_named_array(key, o)} { }
 
 
     /// create a nested CBOR array
@@ -178,17 +178,17 @@ public:
     cbor_object_compact(writeable &w, const static_dictionary<N> &d) : cbor_object{w}, dict{d} {}
 
     template <size_t M>
-    cbor_object_compact(cbor_object_compact<M> &o, const char *key, const static_dictionary<N> &d) : cbor_object{o,key}, dict{d} {}
+    cbor_object_compact(cbor_object_compact<M> &o, null_terminated_string key, const static_dictionary<N> &d) : cbor_object{o,key}, dict{d} {}
 
     // ~cbor_object_compact() { close(); }
 
-    void print_key_uint(const char *key, uint64_t value) {
-        cbor::uint64{dict.index(key)}.write(m);
+    void print_key_uint(null_terminated_string key, uint64_t value) {
+        cbor::uint64{dict.index(key.c_str())}.write(m);
         cbor::uint64{value}.write(m);
     }
 
-    void print_key_string(const char *key, const char *str) {
-        cbor::uint64{dict.index(key)}.write(m);
+    void print_key_string(null_terminated_string key, const char *str) {
+        cbor::uint64{dict.index(key.c_str())}.write(m);
         cbor::text_string{str}.write(m);
     }
 
@@ -197,30 +197,30 @@ public:
         cbor::text_string{str}.write(m);
     }
 
-    void print_key_hex(const char *key, datum bytes) {
-        cbor::uint64{dict.index(key)}.write(m);
+    void print_key_hex(null_terminated_string key, datum bytes) {
+        cbor::uint64{dict.index(key.c_str())}.write(m);
         cbor::byte_string::construct(bytes).write(m);
     }
 
-    void print_key_float(const char *key, datum bytes) {
-        cbor::uint64{dict.index(key)}.write(m);
+    void print_key_float(null_terminated_string key, datum bytes) {
+        cbor::uint64{dict.index(key.c_str())}.write(m);
         cbor::byte_string::construct(bytes).write(m);
     }
 
-    void print_key_bool(const char *key, bool b) {
-        cbor::uint64{dict.index(key)}.write(m);
+    void print_key_bool(null_terminated_string key, bool b) {
+        cbor::uint64{dict.index(key.c_str())}.write(m);
         cbor::initial_byte{cbor::simple_or_float_type, b ? cbor::initial_byte::True : cbor::initial_byte::False}.write(m);
     }
 
-    void print_key_null(const char *key) {
-        cbor::uint64{dict.index(key)}.write(m);
+    void print_key_null(null_terminated_string key) {
+        cbor::uint64{dict.index(key.c_str())}.write(m);
         cbor::initial_byte{cbor::simple_or_float_type, cbor::initial_byte::null}.write(m);
     }
 
 };
 
 template <size_t N>
-cbor_object::cbor_object(cbor_object_compact<N> &o, const char *key) : m{create_named_map(o.dict.index(key), o)} { }
+cbor_object::cbor_object(cbor_object_compact<N> &o, null_terminated_string key) : m{create_named_map(o.dict.index(key.c_str()), o)} { }
 
 
 
@@ -354,33 +354,34 @@ public:
 
                 } else if (expected_type == type::value) {
 
+                    null_terminated_string json_key = null_terminated_string::assume(key);
                     switch (ib.value.major_type()) {
                     case cbor::unsigned_integer_type:
                         {
                             cbor::uint64 tmp{d};
                             if (d.is_null()) { return false; }
-                            o.print_key_uint(key, tmp.value());
+                            o.print_key_uint(json_key, tmp.value());
                         }
                         break;
                     case cbor::byte_string_type:
                         {
                             cbor::byte_string tmp = cbor::byte_string::decode(d);
                             if (d.is_null()) { return false; }
-                            o.print_key_hex(key, tmp.value());
+                            o.print_key_hex(json_key, tmp.value());
                         }
                         break;
                     case cbor::text_string_type:
                         {
                             cbor::text_string tmp = cbor::text_string::decode(d);
                             if (d.is_null()) { return false; }
-                            o.print_key_json_string(key, tmp.value());
+                            o.print_key_json_string(json_key, tmp.value());
                         }
                         break;
                     case cbor::array_type:
                         {
                             cbor::array tmp{d};
                             if (d.is_null()) { return false; }
-                            json_array a{o, key};
+                            json_array a{o, json_key};
                             bool success = decode_cbor_array_to_json(d, a);
                             a.close();
                             if (!success) { return false; }
@@ -391,7 +392,7 @@ public:
                             cbor::map tmp{d};
                             if (d.is_null()) { return false; }
                             d = ib.advance();
-                            json_object map{o, key};
+                            json_object map{o, json_key};
                             bool success = decode_cbor_map_to_json(d, map);
                             map.close();
                             if (!success) { return false; }
@@ -409,15 +410,15 @@ public:
                             fprintf(stderr, "cbor_object missing value\n");
                             return false;
                         } else if (ib.value.additional_info() == cbor::initial_byte::True) {
-                            o.print_key_bool(key, true);
+                            o.print_key_bool(json_key, true);
                             d = ib.advance();
                             break;
                         } else if (ib.value.additional_info() == cbor::initial_byte::False) {
-                            o.print_key_bool(key, false);
+                            o.print_key_bool(json_key, false);
                             d = ib.advance();
                             break;
                         } else if (ib.value.additional_info() == cbor::initial_byte::null) {
-                            o.print_key_null(key);
+                            o.print_key_null(json_key);
                             d = ib.advance();
                             break;
                         }

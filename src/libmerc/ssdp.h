@@ -30,7 +30,7 @@ class ssdp : public base_protocol {
         max_msg_type    = 3
     };
 
-    static constexpr const char* msg_str[max_msg_type] = {"notify", "m_search", "response"};
+    static constexpr null_terminated_string msg_str[max_msg_type] = {"notify", "m_search", "response"};
 
     struct datum method;
     struct http_headers headers;

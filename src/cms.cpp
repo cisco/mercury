@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
             char buffer[4096];
             buffer_stream buf(buffer, sizeof(buffer));
             json_object record{&buf};
-            json_object o{record, label_string};
+            json_object o{record, null_terminated_string::assume(label_string)};
             priv.write_json(o);
             o.close();
             if (pemdata.length() != 0) {
@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
             char buffer[4096];
             buffer_stream buf(buffer, sizeof(buffer));
             json_object record{&buf};
-            json_object o{record, label_string};
+            json_object o{record, null_terminated_string::assume(label_string)};
             // pkinfo.write_json(o);  // TODO
             o.close();
             record.close();

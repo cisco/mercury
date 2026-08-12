@@ -188,7 +188,7 @@ namespace imap {
         bool get_is_synchronizing() const { return is_synchronizing; }
         const datum& get_literal_data() const { return literal_data; }
 
-        void write_json(json_object &o, const char *key) const {
+        void write_json(json_object &o, null_terminated_string key) const {
             if (this->is_null()) {
                 return;
             }
@@ -316,7 +316,7 @@ namespace imap {
         const literal_parser& get_literal() const { return literal; }
         datum get_content() const { return content; }
 
-        void write_json(json_object &o, const char *key) const {
+        void write_json(json_object &o, null_terminated_string key) const {
             if (!is_valid()) {
                 return;
             }

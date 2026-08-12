@@ -301,17 +301,17 @@ struct write_metadata {
     }
 
     void operator()(dns_packet &r) {
-        std::string name{"dns"};
+        null_terminated_string name = "dns";
         if (r.netbios()) {
             name = "nbns";
         }
 
         if (dns_json_output_) {
-            struct json_object json_dns{record, name.c_str()};
+            struct json_object json_dns{record, name};
             r.write_json(json_dns);
             json_dns.close();
         } else {
-            struct json_object json_dns{record, name.c_str()};
+            struct json_object json_dns{record, name};
             struct datum pkt = r.get_datum();  // get complete packet
             json_dns.print_key_base64("base64", pkt);
             json_dns.close();

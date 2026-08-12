@@ -204,7 +204,7 @@ public:
         strncpy(max_proc, proc, max_proc_len-1);
     }
 
-    void write_json(struct json_object &o, const char *key) {
+    void write_json(struct json_object &o, null_terminated_string key) {
         struct json_object analysis{o, key};
         if (status == fingerprint_status_labeled) {
             analysis.print_key_string("process", max_proc);
@@ -216,7 +216,7 @@ public:
             if ((os_info != NULL) && (os_info_len > 0)) { /* print operating system info */
                 struct json_object os_json{analysis, "os_info"};
                 for (uint16_t i = 0; i < os_info_len; i++) {
-                    os_json.print_key_uint(os_info[i].os_name, os_info[i].os_prevalence);
+                    os_json.print_key_uint(null_terminated_string::assume(os_info[i].os_name), os_info[i].os_prevalence);
                 }
                 os_json.close();
             }
@@ -234,7 +234,7 @@ public:
                 if ((os_info != NULL) && (os_info_len > 0)) { /* print operating system info */
                     struct json_object os_json{analysis, "os_info"};
                     for (uint16_t i = 0; i < os_info_len; i++) {
-                        os_json.print_key_uint(os_info[i].os_name, os_info[i].os_prevalence);
+                        os_json.print_key_uint(null_terminated_string::assume(os_info[i].os_name), os_info[i].os_prevalence);
                     }
                     os_json.close();
                 }

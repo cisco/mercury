@@ -274,7 +274,7 @@ namespace ldap {
             GSS_SPNEGO,
         };
 
-        static const char *mechanism_type_get_name(mechanism_type t) {
+        static null_terminated_string mechanism_type_get_name(mechanism_type t) {
             switch(t) {
             case mechanism_type::GSSAPI: return "gssapi";
             case mechanism_type::GSS_SPNEGO: return "gss_spnego";

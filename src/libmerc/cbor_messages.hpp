@@ -8,20 +8,21 @@
 
 #include <variant>
 #include "cbor.hpp"
+#include "null_terminated_string.hpp"
 
-inline constexpr const char* CBOR_METADATA_VERSION_KEY = "v1";
+inline constexpr null_terminated_string CBOR_METADATA_VERSION_KEY = "v1";
 
 // Reserved key for the packet/handshake truncation status. It is a
 // packet-level status and the
 // decoder captures it into typed_decoder::truncation.
-inline constexpr const char* CBOR_METADATA_TRUNCATION_KEY = "truncation";
+inline constexpr null_terminated_string CBOR_METADATA_TRUNCATION_KEY = "truncation";
 
 /// Reserved packet-level status: the truncation state of the packet/handshake.
 class truncation_message {
     cbor::text_string status_;
 
 public:
-    static constexpr const char* KEY = CBOR_METADATA_TRUNCATION_KEY;
+    static constexpr const char* KEY = "truncation";
 
     static bool matches(datum key) { return key.match(KEY); }
     void decode_into(datum /*key*/, datum &d) { status_ = cbor::text_string::decode(d); }
@@ -95,7 +96,7 @@ public:
 
     template<typename Object>
     void write(Object &parent) const {
-        Object o{parent, key_};
+        Object o{parent, null_terminated_string::assume(key_)};
         if (protocol_.is_valid()) {
             o.print_key_string("protocol", protocol_.value());
         }

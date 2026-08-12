@@ -52,6 +52,7 @@ breathe_projects_source = {
         "src/libmerc/datum.h",
         "src/libmerc/watchlist.hpp",
         "src/libmerc/ip_address.hpp",
+        "src/libmerc/null_terminated_string.hpp",
         "src/libmerc/hex.hpp",
         "src/libmerc/diagnostic.hpp",
         "src/libmerc/alternative.hpp",

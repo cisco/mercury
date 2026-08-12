@@ -28,7 +28,7 @@ public:
         bearer,
     };
 
-    static const char *type_get_name(enum type t) {
+    static null_terminated_string type_get_name(enum type t) {
         switch(t) {
         case basic: return "basic";
         case digest: return "digest";
