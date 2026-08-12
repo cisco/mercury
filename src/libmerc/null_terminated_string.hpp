@@ -94,6 +94,59 @@ public:
     /// \return the non-null, null-terminated string pointer.
     ///
     constexpr const char *c_str() const noexcept { return s; }
+
+    // LCOV_EXCL_START
+    /// \brief Runs unit tests for null_terminated_string.
+    ///
+    /// \return true if all tests pass, and false otherwise.
+    ///
+    static bool unit_test() {
+        constexpr null_terminated_string literal{"literal"};
+        static_assert(literal.c_str()[0] == 'l', "constexpr literal construction failed");
+        if (literal.c_str()[7] != '\0') {
+            return false;
+        }
+
+        const char const_array[] = "const_array";
+        null_terminated_string checked_array{const_array};
+        if (checked_array.c_str() != const_array) {
+            return false;
+        }
+
+        const char runtime[] = "runtime";
+        null_terminated_string checked_runtime = null_terminated_string::checked(runtime, sizeof(runtime) - 1);
+        if (checked_runtime.c_str() != runtime) {
+            return false;
+        }
+
+        null_terminated_string assumed_runtime = null_terminated_string::assume(runtime);
+        if (assumed_runtime.c_str() != runtime) {
+            return false;
+        }
+
+        bool threw = false;
+        try {
+            (void)null_terminated_string::checked(nullptr, 0);
+        } catch (const std::invalid_argument &) {
+            threw = true;
+        } catch (...) {
+            return false;
+        }
+        if (!threw) {
+            return false;
+        }
+
+        const char unterminated[] = { 'b', 'a', 'd' };
+        try {
+            (void)null_terminated_string::checked(unterminated, sizeof(unterminated) - 1);
+        } catch (const std::invalid_argument &) {
+            return true;
+        } catch (...) {
+            return false;
+        }
+        return false;
+    }
+    // LCOV_EXCL_STOP
 };
 
 #endif // NULL_TERMINATED_STRING_HPP
