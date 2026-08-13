@@ -45,6 +45,11 @@ static inline void append_null(char *dstr, int *doff, int dlen, int *trunc) {
     /* Check to make sure the offset isn't already longer than the length */
     if (*doff >= dlen) {
         *trunc = 1;
+        if (dlen <= 0) {
+            return;       /* zero-length buffer; nothing can be written */
+        }
+        dstr[dlen - 1] = '\0';  /* clamp the terminator into the buffer */
+        return;
     }
 
     dstr[*doff] = '\0';
@@ -85,7 +90,9 @@ static inline int append_snprintf(char *dstr, int *doff, int dlen, int *trunc,
             r = 0;
         }
 
-        *doff = dlen;
+        /* vsnprintf wrote its terminating null at dlen - 1; leave the
+         * offset on that terminator so later stores stay in bounds */
+        *doff = dlen - 1;
         *trunc = 1;
     } else {
         *doff = *doff + r;
@@ -1040,7 +1047,9 @@ struct buffer_stream {
                 r = 0;
             }
 
-            doff = dlen;
+            /* vsnprintf wrote its terminating null at dlen - 1; leave the
+             * offset on that terminator so later stores stay in bounds */
+            doff = dlen - 1;
             trunc = 1;
         } else {
             doff = doff + r;
