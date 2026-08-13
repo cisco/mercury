@@ -42,9 +42,17 @@ struct uint20_t {
  */
 static inline void append_null(char *dstr, int *doff, int dlen, int *trunc) {
 
-    /* Check to make sure the offset isn't already longer than the length */
-    if (*doff >= dlen) {
+    if (dstr == nullptr || dlen <= 0) {
         *trunc = 1;
+        return;
+    }
+
+    if (*doff < 0) {
+        *trunc = 1;
+        *doff = 0;
+    } else if (*doff >= dlen) {
+        *trunc = 1;
+        *doff = dlen - 1;
     }
 
     dstr[*doff] = '\0';
@@ -64,9 +72,16 @@ static inline int append_snprintf(char *dstr, int *doff, int dlen, int *trunc,
         return 0;
     }
 
+    if (dstr == nullptr || dlen <= 0 || *doff < 0) {
+        *trunc = 1;
+        return 0;
+    }
+
     /* Check to make sure the offset isn't already longer than the length */
     if (*doff >= dlen) {
         *trunc = 1;
+        *doff = dlen - 1;
+        dstr[*doff] = '\0';
         return 0;
     }
 
@@ -74,6 +89,12 @@ static inline int append_snprintf(char *dstr, int *doff, int dlen, int *trunc,
     va_start(args, fmt);
     int r = vsnprintf(&(dstr[*doff]), dlen - *doff, fmt, args);
     va_end(args);
+
+    if (r < 0) {
+        dstr[*doff] = '\0';
+        *trunc = 1;
+        return 0;
+    }
 
     /* Check for truncation */
     if (r >= dlen - *doff) {
@@ -85,7 +106,7 @@ static inline int append_snprintf(char *dstr, int *doff, int dlen, int *trunc,
             r = 0;
         }
 
-        *doff = dlen;
+        *doff = *doff + r;
         *trunc = 1;
     } else {
         *doff = *doff + r;
@@ -161,13 +182,17 @@ static inline int append_memcpy(char *dstr, int *doff, int dlen, int *trunc, con
         return 0;
     }
 
-    /* Check to make sure the offset isn't already longer than the length */
-    if (*doff >= dlen) {
+    if (length <= 0) {
+        return 0;
+    }
+
+    if (dstr == nullptr || src == nullptr || dlen <= 0 || *doff < 0 || *doff >= dlen) {
         *trunc = 1;
         return 0;
     }
 
-    if (*doff < (dlen - 1) - length) {   // TBD: over/under flow?
+    int remaining = (dlen - 1) - *doff;
+    if (remaining >= 0 && length <= remaining) {
         memcpy(dstr + *doff, src, length);
         *doff = *doff + length;
         return length;
@@ -983,15 +1008,54 @@ static inline int append_raw_as_base64(char *dstr, int *doff, int dlen, int *tru
 }
 
 
-/*
- * struct buffer_stream
- */
-
+///  \brief Bounded append-only writer for caller-owned character buffers.
+///
+///  `buffer_stream` writes formatted text and raw bytes into the memory range
+///  `[dstr, dstr + dlen)`.  The stream maintains a logical write offset rather
+///  than treating the buffer as a C string at all times.  Most write methods
+///  leave one byte available for a terminating NUL and set the truncation flag
+///  instead of writing past the end of the buffer.
+///
+///  Public state:
+///
+///  - `dstr`: pointer to the first byte of the caller-owned destination buffer.
+///  - `doff`: logical length of the stream and offset of the next payload byte.
+///  - `dlen`: total number of bytes available in `dstr`.
+///  - `trunc`: nonzero once a write could not be represented completely.
+///
+///  Null termination is explicit.  Use add_null() before passing `dstr` to APIs
+///  that expect a C string.  add_null() writes `'\0'` at `dstr[doff]` without
+///  increasing `doff`, so length() excludes the terminator.  A later write will
+///  overwrite that terminator; call add_null() again after the final write if a
+///  C string is needed.  is_null_terminated() checks whether the byte at the
+///  current logical end is `'\0'`.
+///
+///  It is acceptable, but not recommended, for strings written to a
+///  `buffer_stream` to contain embedded NUL bytes.  Such bytes are payload and
+///  count toward length(); they are not terminators.  Prefer add_null() over
+///  write_char('\0') when the intent is to terminate the buffer.
+///
+///  Example:
+///
+///  \code{.cpp}
+///  char storage[128];
+///  buffer_stream out{storage, sizeof(storage)};
+///
+///  out.snprintf("name=%s", name);
+///  out.write_char(',');
+///  out.snprintf("id=%u", id);
+///  out.add_null();
+///
+///  if (!out.is_truncated()) {
+///      puts(out.dstr);
+///  }
+///  \endcode
+///
 struct buffer_stream {
-    char *dstr;
-    int doff;
-    int dlen;
-    int trunc;
+    char *dstr;  ///< Caller-owned destination buffer.
+    int doff;    ///< Logical length and offset of the next payload byte.
+    int dlen;    ///< Total number of bytes available in dstr.
+    int trunc;   ///< Nonzero after truncation or another stream error.
 
     buffer_stream(char *dstr, int dlen) : dstr{dstr}, doff{0}, dlen{dlen}, trunc{0} {};
 
@@ -1003,8 +1067,13 @@ struct buffer_stream {
         return write(f);
     }
 
+    /// Return the number of logical bytes written to the stream. This
+    /// length does not include a terminating NUL written by add_null().
+    ///
     size_t length() const { return doff; }
 
+    /// Write a terminating NUL at the logical end without changing length().
+    ///
     void add_null() {
         append_null(dstr, &doff, dlen, &trunc);
     }
@@ -1013,15 +1082,32 @@ struct buffer_stream {
 
     bool is_truncated() const { return trunc == 1; }
 
+    /// Return true when the byte at the current logical end is NUL.
+    ///
+    bool is_null_terminated() const {
+        return dstr != nullptr
+            && dlen > 0
+            && doff >= 0
+            && doff < dlen
+            && dstr[doff] == '\0';
+    }
+
     int snprintf(const char *fmt, ...) {
 
         if (trunc == 1) {
             return 0;
         }
 
+        if (dstr == nullptr || dlen <= 0 || doff < 0) {
+            trunc = 1;
+            return 0;
+        }
+
         /* Check to make sure the offset isn't already longer than the length */
         if (doff >= dlen) {
             trunc = 1;
+            doff = dlen - 1;
+            dstr[doff] = '\0';
             return 0;
         }
 
@@ -1029,6 +1115,12 @@ struct buffer_stream {
         va_start(args, fmt);
         int r = vsnprintf(&(dstr[doff]), dlen - doff, fmt, args);
         va_end(args);
+
+        if (r < 0) {
+            dstr[doff] = '\0';
+            trunc = 1;
+            return 0;
+        }
 
         /* Check for truncation */
         if (r >= dlen - doff) {
@@ -1040,7 +1132,7 @@ struct buffer_stream {
                 r = 0;
             }
 
-            doff = dlen;
+            doff = doff + r;
             trunc = 1;
         } else {
             doff = doff + r;
@@ -1142,15 +1234,13 @@ struct buffer_stream {
     }
 
     /// returns a std::string containing the current contents
-    /// of this buffer_stream.
-    /// Caution: the buffer needs to be null-terminated for this to work.
+    /// of this buffer_stream, without requiring a terminating NUL.
     ///
-    std::string get_string() {
-        if (doff >=0 ) {
-            return std::string((const char*)dstr);
-        }
-        else
+    std::string get_string() const {
+        if (dstr == nullptr || doff < 0 || doff > dlen) {
             return std::string{};
+        }
+        return std::string{dstr, (size_t)doff};
     }
 
     /// returns the number of writeable bytes remaining in this
@@ -1162,6 +1252,182 @@ struct buffer_stream {
         }
         return dlen - doff;
     }
+
+    // unit tests for buffer_stream
+    //
+    // LCOV_EXCL_START
+    //
+    static bool unit_test() {
+        bool passed = true;
+
+        {
+            char storage[4] = {'x', 'x', 'x', 'x'};
+            buffer_stream buf{storage, sizeof(storage)};
+
+            passed &= !buf.is_null_terminated();
+            buf.write_char('a');
+            passed &= buf.length() == 1;
+            passed &= !buf.is_null_terminated();
+
+            buf.add_null();
+            passed &= buf.length() == 1;
+            passed &= buf.is_null_terminated();
+            passed &= storage[1] == '\0';
+
+            buf.write_char('b');
+            passed &= buf.length() == 2;
+            passed &= !buf.is_null_terminated();
+            buf.add_null();
+            passed &= buf.is_null_terminated();
+            passed &= buf.get_string() == "ab";
+        }
+
+        {
+            char storage[8] = {'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x'};
+            buffer_stream buf{storage, sizeof(storage)};
+            int r = buf.snprintf("%s", "abc");
+
+            passed &= r == 3;
+            passed &= buf.length() == 3;
+            passed &= !buf.is_truncated();
+            passed &= buf.is_null_terminated();
+            passed &= buf.get_string() == "abc";
+        }
+
+        {
+            // snprintf() truncation must preserve an in-bounds terminator.
+            char storage[3] = {'x', 'x', 'g'};
+            buffer_stream buf{storage, 2};
+            int r = buf.snprintf("%s", "xy");
+
+            passed &= r == 1;
+            passed &= buf.is_truncated();
+            passed &= buf.writeable_length() == 0;
+            passed &= buf.length() == 1;
+            passed &= buf.is_null_terminated();
+            passed &= storage[1] == '\0';
+            passed &= storage[2] == 'g';
+            passed &= buf.get_string() == "x";
+
+            buf.add_null();
+            passed &= buf.length() == 1;
+            passed &= buf.is_null_terminated();
+            passed &= storage[1] == '\0';
+            passed &= storage[2] == 'g';
+        }
+
+        {
+            // append_snprintf() must keep the same truncation invariant as
+            // buffer_stream::snprintf().
+            char storage[3] = {'x', 'x', 'g'};
+            int off = 0;
+            int trunc = 0;
+            int r = append_snprintf(storage, &off, 2, &trunc, "%s", "xy");
+
+            passed &= r == 1;
+            passed &= trunc == 1;
+            passed &= off == 1;
+            passed &= storage[1] == '\0';
+            passed &= storage[2] == 'g';
+
+            append_null(storage, &off, 2, &trunc);
+            passed &= off == 1;
+            passed &= storage[1] == '\0';
+            passed &= storage[2] == 'g';
+        }
+
+        {
+            // get_string() is bounded by the logical length and does not
+            // require a terminating NUL.
+            char storage[4] = {'x', 'x', 'z', 'g'};
+            buffer_stream buf{storage, 2};
+            buf.write_char('a');
+
+            passed &= !buf.is_null_terminated();
+            passed &= buf.get_string() == "a";
+            passed &= storage[1] == 'x';
+        }
+
+        {
+            // A NUL written as content is part of the logical string; it is
+            // distinct from a terminator written at dstr[doff].
+            char storage[5] = {'x', 'x', 'x', 'x', 'x'};
+            buffer_stream buf{storage, sizeof(storage)};
+            buf.write_char('a');
+            buf.write_char('\0');
+            buf.write_char('b');
+
+            std::string output = buf.get_string();
+            passed &= output.size() == 3;
+            passed &= output[0] == 'a';
+            passed &= output[1] == '\0';
+            passed &= output[2] == 'b';
+            passed &= !buf.is_null_terminated();
+        }
+
+        {
+            // A memcpy that exactly fills dlen - 1 bytes should be accepted,
+            // leaving the final byte available for add_null().
+            char storage[5] = {'x', 'x', 'x', 'x', 'g'};
+            buffer_stream buf{storage, 4};
+            const char input[] = {'a', 'b', 'c'};
+            buf.memcpy(input, sizeof(input));
+            buf.add_null();
+
+            passed &= buf.trunc == 0;
+            passed &= buf.doff == 3;
+            passed &= storage[0] == 'a';
+            passed &= storage[1] == 'b';
+            passed &= storage[2] == 'c';
+            passed &= storage[3] == '\0';
+            passed &= storage[4] == 'g';
+        }
+
+        {
+            // append_null() on a zero-length logical buffer should only set
+            // truncation; there is no in-bounds byte available for a NUL.
+            char guard = 'g';
+            buffer_stream buf{&guard, 0};
+            buf.add_null();
+
+            passed &= buf.is_truncated();
+            passed &= !buf.is_null_terminated();
+            passed &= buf.get_string().empty();
+            passed &= guard == 'g';
+        }
+
+        {
+            char storage[2] = {'g', 'x'};
+            buffer_stream buf{storage, 1};
+
+            buf.add_null();
+            passed &= !buf.is_truncated();
+            passed &= buf.is_null_terminated();
+            passed &= buf.length() == 0;
+            passed &= storage[0] == '\0';
+            passed &= storage[1] == 'x';
+        }
+
+        {
+            char storage[2] = {'g', 'x'};
+            buffer_stream buf{storage, 1};
+
+            buf.write_char('a');
+            passed &= buf.is_truncated();
+            passed &= buf.writeable_length() == 0;
+            passed &= !buf.is_null_terminated();
+
+            buf.add_null();
+            passed &= buf.is_null_terminated();
+            passed &= storage[0] == '\0';
+            passed &= storage[1] == 'x';
+        }
+
+        return passed;
+    }
+    //
+    // LCOV_EXCL_STOP
+
 
 };
 

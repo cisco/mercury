@@ -1158,7 +1158,7 @@ namespace stun_unit_test {
             json_object json{&buf};
             msg1.write_json(json, false);
             json.close();
-            buf.write_char('\0');
+            buf.add_null();
             if (!strstr(buffer, "stun")) return false;
         }
 
@@ -1243,7 +1243,7 @@ namespace stun_unit_test {
             json_object json{&buf};
             msg7.write_json(json, false);
             json.close();
-            buf.write_char('\0');
+            buf.add_null();
             if (!strstr(buffer, "2001:db8::1")) return false;
         }
 
@@ -1265,7 +1265,7 @@ namespace stun_unit_test {
             json_object json{&buf};
             msg8.write_json(json, false);
             json.close();
-            buf.write_char('\0');
+            buf.add_null();
             if (!strstr(buffer, "\"family\":\"ipv6\"")) return false;
         }
 

@@ -105,7 +105,7 @@ namespace wireguard_unit_test {
             json_object json{&buf};
             msg1.write_json(json, false);
             json.close();
-            buf.write_char('\0');
+            buf.add_null();
             if (!strstr(buffer, "wireguard")) return false;
             if (!strstr(buffer, "sender_index")) return false;
         }

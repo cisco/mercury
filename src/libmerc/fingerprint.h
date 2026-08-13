@@ -146,7 +146,11 @@ public:
             init();
             return;
         }
-        fp_buf.write_char('\0'); // null-terminate
+        fp_buf.add_null(); // null-terminate
+        if (fp_buf.is_truncated()) {
+            init();
+            return;
+        }
         assert(fingerprint_is_well_formed());
     }
 
