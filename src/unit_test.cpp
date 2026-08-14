@@ -63,6 +63,7 @@
 #include "libmerc/proto_identify.h"
 #include "libmerc/pgsql.hpp"
 #include "libmerc/cbor_decoded_metadata_test.hpp"
+#include "libmerc/dcerpc.hpp"
 
 // Macros to colorize output
 //
@@ -400,6 +401,10 @@ int main(int, char *[]) {
         {
             "fdc",
             &fdc::unit_test
+        },
+        {
+            "dcerpc",
+            &dcerpc::unit_test
         },
         {
             "oid",

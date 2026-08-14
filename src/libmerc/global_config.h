@@ -170,6 +170,7 @@ public:
             { "arp",                    false },
             { "bittorrent",             false },
             { "cdp",                    false },
+            { "dcerpc",                 false },
             { "dhcp",                   false },
             { "dnp3",                   false },
             { "dns",                    false },
