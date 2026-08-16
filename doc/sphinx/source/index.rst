@@ -12,6 +12,8 @@ Mercury Library Documentation
    alternative
    identifiers
    hex
+   random
+   flow_hashing
    examples
    diagnostic
    python

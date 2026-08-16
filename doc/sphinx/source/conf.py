@@ -55,6 +55,8 @@ breathe_projects_source = {
         "src/libmerc/hex.hpp",
         "src/libmerc/diagnostic.hpp",
         "src/libmerc/alternative.hpp",
+        "src/libmerc/random.hpp",
+        "src/libmerc/universal61.hpp",
         "src/examples.cpp",
     ] )
 }

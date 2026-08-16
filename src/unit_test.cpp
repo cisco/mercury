@@ -64,6 +64,7 @@
 #include "libmerc/pgsql.hpp"
 #include "libmerc/cbor_decoded_metadata_test.hpp"
 #include "libmerc/dcerpc.hpp"
+#include "libmerc/universal61.hpp"
 
 // Macros to colorize output
 //
@@ -313,6 +314,10 @@ int main(int, char *[]) {
         {
             "traffic_selector",
             &traffic_selector::unit_test
+        },
+        {
+            "universal61",
+            &universal61::unit_test
         },
         {
             "krb5_no_empty_arrays",
