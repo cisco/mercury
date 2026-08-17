@@ -33,7 +33,7 @@ struct cdp_tlv : public datum {
             // o.print_key_uint("num_addrs", number_of_addrs);
 
             json_array address_array{o, "addresses"};
-            for (unsigned int i = 0; i < number_of_addrs; i++) {
+            for (unsigned int i = 0; i < number_of_addrs && tmp.is_not_empty(); i++) {
                 uint8_t pt;
                 tmp.read_uint8(&pt);
                 uint8_t pt_length;

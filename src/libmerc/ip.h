@@ -479,6 +479,9 @@ public:
             }
             next_header = ext_hdr.get_next_header();
         }
+        if (ipv6_extension_header::is_extension(next_header)) {
+            next_header = ipv6_extension_header::type::reserved;    // failure: only extensions were found
+        }
         k.protocol = transport_protocol = next_header;
 
         // Set end of extension headers; keep the datum empty on parse failure.

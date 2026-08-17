@@ -297,9 +297,7 @@ struct datum {
     void set_null() { data = data_end = nullptr; }
 
     void assert_invariant() const {
-        if (is_not_null()) {
-            assert(data <= data_end);
-        }
+        assert(is_null() || data <= data_end);
     }
 
     ssize_t length() const {
@@ -1223,7 +1221,7 @@ public:
     /// there is room; otherwise, sets it to the null state.
     ///
     void copy(uint8_t x) {
-        if (is_null() || data + 1 > data_end) {
+        if (is_null() || data > data_end) {
             set_null();
             return;  // not enough room
         }
