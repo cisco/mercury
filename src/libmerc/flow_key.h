@@ -254,10 +254,6 @@ struct key {
     }
 
 
-    // hash() returns a size_t, and returns a keyed hash of this flow key.
-    //
-    std::size_t hash() const noexcept;
-
     void write_ip_address(struct json_object &o) const {
         if (ip_vers == 6) {
             const uint8_t *s = (const uint8_t *)&addr.ipv6.src;
@@ -278,23 +274,5 @@ struct key {
 
     }
 };
-
-#include "universal61.hpp"
-
-inline std::size_t key::hash() const noexcept {
-    return universal61::hash_flow_key(*this);
-}
-
-namespace std {
-
-    // define a hash<key> object suitable for use in STL containers
-    //
-    template <>  struct hash<key>  {
-        std::size_t operator()(const key& k) const noexcept {
-            return k.hash();
-        }
-    };
-}
-
 
 #endif // FLOW_KEY_H

@@ -78,6 +78,7 @@
 #ifndef UNIVERSAL61_HPP
 #define UNIVERSAL61_HPP
 
+#include "flow_key.h"
 #include "random.hpp"
 
 #include <array>
@@ -96,8 +97,6 @@
 #endif
 #endif
 
-struct key;
-
 namespace universal61 {
 
 /// \namespace universal61
@@ -105,23 +104,7 @@ namespace universal61 {
 ///
 /// \details
 /// The public interface exposes the field modulus, packed limb representation,
-/// explicit hash secret, stateful hasher, and source-compatible default hash
-/// entry point used by `key::hash()`.
-
-/// \brief Hash a flow key with the process-wide default hasher.
-///
-/// \param flow_key The flow key to hash.
-/// \return The keyed hash value as a `std::size_t`.
-///
-std::size_t hash_flow_key(const key &flow_key) noexcept;
-
-} // namespace universal61
-
-#ifndef FLOW_KEY_H
-#include "flow_key.h"
-#endif
-
-namespace universal61 {
+/// explicit hash secret, and stateful hasher.
 
 /// \brief The Mersenne prime used as the universal-hash field modulus.
 ///
@@ -398,10 +381,10 @@ inline limb_array flow_key_to_limbs(const key &flow_key) noexcept {
 /// \brief Keyed pairwise-universal hash over flow keys.
 ///
 /// \details
-/// A hasher owns the secret coefficients for one hash table or default hash
-/// context.  The default constructor obtains a fresh secret, while the explicit
-/// constructor is intended for tests and benchmarks that need a known key.  Once
-/// constructed, all hashing operations are `noexcept` and perform only packing,
+/// A hasher owns the secret coefficients for one hash table.  The default
+/// constructor obtains a fresh secret, while the explicit constructor is
+/// intended for tests and benchmarks that need a known key.  Once constructed,
+/// all hashing operations are `noexcept` and perform only packing,
 /// multiplication, addition, and Mersenne-prime reduction.
 ///
 class flow_key_hasher {
@@ -604,31 +587,6 @@ inline bool unit_test() noexcept {
     }
 
     return true;
-}
-
-/// \brief Return the process-wide default hasher used by key::hash().
-///
-/// \details
-/// This function preserves the existing `key::hash()` and `std::hash<key>` API
-/// surface for callers that do not provide their own table-owned hasher.  Hot
-/// packet-path tables should prefer storing a \ref flow_key_hasher directly in
-/// the `std::unordered_map` so the table owns a stable secret and avoids the
-/// function-local-static guard on each hash call.
-///
-/// \return The process-wide default flow-key hasher.
-///
-inline const flow_key_hasher &default_flow_key_hasher() noexcept {
-    static const flow_key_hasher hasher{};
-    return hasher;
-}
-
-/// \brief Hash a flow key with the process-wide default hasher.
-///
-/// \param flow_key The flow key to hash.
-/// \return The default keyed hash value as a `std::size_t`.
-///
-inline std::size_t hash_flow_key(const key &flow_key) noexcept {
-    return default_flow_key_hasher()(flow_key);
 }
 
 } // namespace universal61

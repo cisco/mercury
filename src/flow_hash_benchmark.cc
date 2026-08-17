@@ -11,6 +11,7 @@
 ///
 
 #include "libmerc/flow_key.h"
+#include "libmerc/universal61.hpp"
 
 #include <algorithm>
 #include <array>
@@ -21,7 +22,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <functional>
 #include <limits>
 #include <string>
 #include <vector>
@@ -79,7 +79,6 @@ universal61::flow_key_hash_secret deterministic_secret(uint64_t seed) {
 
 MERCURY_NOINLINE uint64_t baseline_read(const benchmark_key &item);
 MERCURY_NOINLINE uint64_t mercury_legacy_hash(const benchmark_key &item);
-MERCURY_NOINLINE uint64_t mercury_default_hash(const benchmark_key &item);
 
 std::size_t mercury_legacy_flow_hash(const key &flow_key) {
     constexpr size_t multiplier = 2862933555777941757ULL;
@@ -121,10 +120,6 @@ MERCURY_NOINLINE uint64_t mercury_legacy_hash(const benchmark_key &item) {
     return mercury_legacy_flow_hash(item.flow_key);
 }
 
-MERCURY_NOINLINE uint64_t mercury_default_hash(const benchmark_key &item) {
-    return item.flow_key.hash();
-}
-
 MERCURY_NOINLINE uint64_t universal_flow_hash_from_limbs(const benchmark_key &item,
                                                          const universal61::flow_key_hasher &hasher) {
     return hasher.hash_limbs_reduce_each(item.limbs);
@@ -143,11 +138,6 @@ MERCURY_NOINLINE uint64_t universal_flow_hash_from_key(const benchmark_key &item
 MERCURY_NOINLINE uint64_t universal_flow_hash_from_key_fused(const benchmark_key &item,
                                                             const universal61::flow_key_hasher &hasher) {
     return hasher.hash64(item.flow_key);
-}
-
-MERCURY_NOINLINE uint64_t std_flow_hash(const benchmark_key &item,
-                                        const std::hash<key> &hasher) {
-    return hasher(item.flow_key);
 }
 
 uint16_t nonzero_u16(uint64_t value) {
@@ -393,7 +383,6 @@ int main(int argc, char **argv) {
     }
 
     const universal61::flow_key_hasher universal_hasher{deterministic_secret(seed)};
-    const std::hash<key> std_hasher{};
     const std::array<std::string, 4> datasets{
         "ipv4-random",
         "ipv6-random",
@@ -455,20 +444,6 @@ int main(int argc, char **argv) {
             [&universal_hasher](const benchmark_key &item) {
                 return universal_flow_hash_from_key_fused(item, universal_hasher);
             });
-        const latency_result mercury_default_latency = measure_latency(
-            "key.hash-default",
-            keys,
-            repeats,
-            trials,
-            [](const benchmark_key &item) { return mercury_default_hash(item); });
-        const latency_result std_hash_latency = measure_latency(
-            "std::hash<key>",
-            keys,
-            repeats,
-            trials,
-            [&std_hasher](const benchmark_key &item) {
-                return std_flow_hash(item, std_hasher);
-            });
 
         if (universal_prepacked_reduce_latency.checksum != universal_prepacked_accum_latency.checksum
             || universal_prepacked_reduce_latency.checksum != universal_from_key_pack_latency.checksum
@@ -514,14 +489,6 @@ int main(int argc, char **argv) {
                     universal_from_key_fused_latency.name,
                     universal_from_key_fused_latency.ns_per_hash,
                     universal_from_key_fused_latency.checksum);
-        std::printf("    %-24s %9.3f  checksum=0x%016" PRIx64 "\n",
-                    mercury_default_latency.name,
-                    mercury_default_latency.ns_per_hash,
-                    mercury_default_latency.checksum);
-        std::printf("    %-24s %9.3f  checksum=0x%016" PRIx64 "\n",
-                    std_hash_latency.name,
-                    std_hash_latency.ns_per_hash,
-                    std_hash_latency.checksum);
 
         std::printf("  bucket distribution:\n");
         std::printf("    %-16s chi2=%10.2f reduced_chi2=%7.3f stddev=%7.3f max=%" PRIu64
