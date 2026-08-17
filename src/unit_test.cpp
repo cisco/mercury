@@ -62,6 +62,8 @@
 #include "libmerc/analysis.h"
 #include "libmerc/proto_identify.h"
 #include "libmerc/pgsql.hpp"
+#include "libmerc/cbor_decoded_metadata_test.hpp"
+#include "libmerc/dcerpc.hpp"
 
 // Macros to colorize output
 //
@@ -88,6 +90,10 @@ int main(int, char *[]) {
         unit_test_func func;
     };
     test_case test_cases[] = {
+        {
+            "datum_match",
+            &datum_match_unit_test
+        },
         {
             "encoded<uint8_t>",
             &encoded<uint8_t>::unit_test
@@ -397,12 +403,20 @@ int main(int, char *[]) {
             &fdc::unit_test
         },
         {
+            "dcerpc",
+            &dcerpc::unit_test
+        },
+        {
             "oid",
             &asn1::oid_unit_test
         },
         {
             "asn1",
             &asn1::unit_test
+        },
+        {
+            "cbor_metadata",
+            &cbor_metadata_unit_test
         },
     };
     for (const auto &tc : test_cases_verbose) {

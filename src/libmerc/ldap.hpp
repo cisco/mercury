@@ -230,6 +230,7 @@ namespace ldap {
         }
 
         bool is_not_empty() const { return valid; }
+        datum get_mechanism() const { return mechanism.value; }
 
         exposed_creds_type check_credential_exposure() const {
             if (!valid || credentials.value.is_not_empty() == false) {
@@ -355,6 +356,12 @@ namespace ldap {
             return exposed_creds;
         }
 
+        datum get_auth_method() const {
+            if (auth.tag == 0x80) { return datum{"simple"}; }
+            if (has_sasl_credentials) { return sasl_cred.get_mechanism(); }
+            return datum{};
+        }
+
     };
 
     // LDAPMessage ::= SEQUENCE {
@@ -469,6 +476,10 @@ namespace ldap {
 
         exposed_creds_type check_credential_exposure() const {
             return exposed_creds;
+        }
+
+        datum get_auth_method() const {
+            return bind_req.get_auth_method();
         }
 
     };

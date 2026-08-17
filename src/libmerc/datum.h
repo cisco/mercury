@@ -473,6 +473,30 @@ struct datum {
         return false;            // no matches found
     }
 
+    /// performs a case-sensitive comparison between this datum and the
+    /// null-terminated string \p name.
+    ///
+    /// \return true if this datum is exactly as long as `name` and each
+    /// of its bytes equals the corresponding character of `name`, and
+    /// false otherwise.  If this datum is `null`, or `name` is
+    /// `nullptr`, then false is returned.
+    ///
+    bool match(const char *name) const {
+        if (name == nullptr || is_null()) {
+            return false;
+        }
+        const uint8_t *d = data;
+        const char *k = name;
+        while (d < data_end) {
+            if (*d != (uint8_t)*k || *k == '\0') { // mismatch
+                return false;
+            }
+            d++;
+            k++;
+        }
+        return *k == '\0';       // true if both ended together
+    }
+
     /// Compares this \ref datum to `p` lexicographically, and returns
     /// an integer less than, equal to, or greater than zero if this
     /// is found to be less than, to match, or to be greater than `p`,
@@ -2563,11 +2587,9 @@ public:
         d.data += sizeof(T);
     }
 
-    encoded(const T& rhs) {
-        val = rhs;
-    }
+    constexpr encoded(const T& rhs) : val{rhs} { }
 
-    operator T() const { return val; }
+    constexpr operator T() const { return val; }
 
     T value() const { return val; }
 
@@ -2911,6 +2933,16 @@ inline bool encoded<uint64_t>::unit_test() {
 // LCOV_EXCL_STOP
 
 // @}
+
+inline bool datum_match_unit_test() {
+    return datum{"hello"}.match("hello")
+        && !datum{"hello"}.match("hell")
+        && !datum{"hello"}.match("hello!")
+        && !datum{"Hello"}.match("hello")  // case-sensitive
+        && !datum{"hello"}.match("")
+        && !datum{}.match("hello")         // null datum
+        && !datum{"hello"}.match(nullptr);
+}
 
 #endif // NDEBUG
 

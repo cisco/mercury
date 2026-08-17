@@ -33,17 +33,32 @@ class cbor_object {
         return o.m;
     }
 
+    static writeable &create_named_map(datum key, cbor_object &o) {
+        writeable &w = o.m;
+        if (!key.is_readable()) {
+            w.set_null();
+            return w;
+        }
+        cbor::text_string::construct(key).write(o.m);
+        return w;
+    }
+
     friend class cbor_array;
 
     template <size_t N> friend class cbor_object_compact;
 
 public:
+    using array_type = cbor_array;   // companion array type (enables 1-param write<>)
 
     cbor_object(writeable &w) : m{w} { }
 
     cbor_object(cbor_object &o, const char *key) : m{create_named_map(key, o)} { }
 
     cbor_object(cbor_object &o, uint64_t k) : m{create_named_map(k, o)} { }
+
+    cbor_object(cbor_object &o, datum key) : m{create_named_map(key, o)} { }
+
+    cbor_object(cbor_object &o) : m{o.get_writeable()} { }
 
     template <size_t N>
     cbor_object(cbor_object_compact<N> &o, const char *key);
@@ -67,6 +82,13 @@ public:
         }
     }
 
+    void print_key_string(datum key, datum value) {
+        if (key.is_readable() && value.is_readable()) {
+            cbor::text_string::construct(key).write(m);
+            cbor::text_string::construct(value).write(m);
+        }
+    }
+
     void print_key_hex(const char *key, datum bytes) {
         if (bytes.is_readable()) {
             cbor::text_string{key}.write(m);
@@ -85,6 +107,8 @@ public:
     }
 
     void close() { m.close(); }
+
+    writeable &get_writeable() { return m; }
 
 };
 
@@ -119,6 +143,20 @@ public:
         if (s.is_readable()) {
             cbor::text_string::construct(s).write(a);
         }
+    }
+
+    void print_uint16_hex(uint16_t value) {
+        char buf[4];
+        buf[0] = hex_table[(value & 0xf000) >> 12];
+        buf[1] = hex_table[(value & 0x0f00) >> 8];
+        buf[2] = hex_table[(value & 0x00f0) >> 4];
+        buf[3] = hex_table[value & 0x000f];
+        datum d{(const uint8_t *)buf, (const uint8_t *)buf + 4};
+        cbor::text_string::construct(d).write(a);
+    }
+
+    void print_uint(uint64_t value) {
+        cbor::uint64{value}.write(a);
     }
 
     void close() { a.close(); }
