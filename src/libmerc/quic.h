@@ -347,13 +347,22 @@ public:
 // }
 //
 class connection_close {
-    variable_length_integer error_code;
-    variable_length_integer frame_type;
-    variable_length_integer reason_phrase_length;
+    variable_length_integer error_code{0};
+    variable_length_integer frame_type{0};
+    variable_length_integer reason_phrase_length{0};
     datum reason_phrase;
+    bool application_variant{false};   // type 0x1d omits the Frame Type field
 
 public:
-    connection_close(datum &p) : error_code{p}, frame_type{p}, reason_phrase_length{p}, reason_phrase{p, (ssize_t)reason_phrase_length.value()} { }
+    // is_application selects the 0x1d layout (no Frame Type field).
+    connection_close(datum &p, bool is_application = false) : application_variant{is_application} {
+        error_code = variable_length_integer{p};
+        if (!application_variant) {
+            frame_type = variable_length_integer{p};
+        }
+        reason_phrase_length = variable_length_integer{p};
+        reason_phrase.parse(p, (ssize_t)reason_phrase_length.value());
+    }
 
     bool is_valid() const { return reason_phrase.is_not_empty(); }
 
@@ -361,7 +370,9 @@ public:
         if (is_valid()) {
             json_object cc{o, "connection_close"};
             cc.print_key_uint("error_code", error_code.value());
-            cc.print_key_uint("frame_type", frame_type.value());
+            if (!application_variant) {
+                cc.print_key_uint("frame_type", frame_type.value());
+            }
             cc.print_key_json_string("reason_phrase", reason_phrase);
             cc.close();
         }
@@ -370,7 +381,9 @@ public:
 	void write(FILE *f) {
     	if (is_valid()) {
         	fprintf(f, "connection_close.error_code: %" PRIu64 "\n", error_code.value());
-        	fprintf(f, "connection_close.frame_type: %" PRIu64 "\n", frame_type.value());
+            if (!application_variant) {
+                fprintf(f, "connection_close.frame_type: %" PRIu64 "\n", frame_type.value());
+            }
         	fprintf(f, "connection_close.reason_phrase_length: %" PRIu64 "\n", reason_phrase_length.value());
         	fprintf(f, "connection_close.reason_phrase: %s\n", reason_phrase.get_string().c_str());
         } else {
@@ -1139,7 +1152,9 @@ public:
         } else if (type.value() == 0x06) {
             frame.emplace<crypto>(d);
         } else if (type.value() == 0x1c) {
-            frame.emplace<connection_close>(d);
+            frame.emplace<connection_close>(d, false);   // transport (has Frame Type)
+        } else if (type.value() == 0x1d) {
+            frame.emplace<connection_close>(d, true);    // application (no Frame Type)
         } else if (type.value() == 0x00) {
             frame.emplace<padding>(d);
         } else if (type.value() == 0x01) {
@@ -1940,6 +1955,26 @@ namespace quic_packet_safety_unit_test {
             datum d{ping_2b, ping_2b + sizeof(ping_2b)};
             quic_frame f{d};
             if (!f.is_valid() || !f.has_type<ping>()) {
+                return false;
+            }
+        }
+
+        // CONNECTION_CLOSE transport 0x1c: Error Code, Frame Type, Reason.
+        {
+            static const uint8_t cc_1c[] = {0x1c, 0x00, 0x00, 0x03, 0x61, 0x62, 0x63};
+            datum d{cc_1c, cc_1c + sizeof(cc_1c)};
+            quic_frame f{d};
+            if (!f.is_valid() || !f.has_type<connection_close>() || d.is_not_empty()) {
+                return false;
+            }
+        }
+
+        // CONNECTION_CLOSE application 0x1d: Error Code, Reason (no Frame Type).
+        {
+            static const uint8_t cc_1d[] = {0x1d, 0x00, 0x03, 0x61, 0x62, 0x63};
+            datum d{cc_1d, cc_1d + sizeof(cc_1d)};
+            quic_frame f{d};
+            if (!f.is_valid() || !f.has_type<connection_close>() || d.is_not_empty()) {
                 return false;
             }
         }
