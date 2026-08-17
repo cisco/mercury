@@ -1221,7 +1221,7 @@ public:
     /// there is room; otherwise, sets it to the null state.
     ///
     void copy(uint8_t x) {
-        if (is_null() || data > data_end) {
+        if (is_null() || data >= data_end) {
             set_null();
             return;  // not enough room
         }
