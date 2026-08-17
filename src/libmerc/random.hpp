@@ -29,20 +29,26 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <limits>
+#include <thread>
 
 #if defined(_WIN32)
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <windows.h>
-#include <bcrypt.h>
+#include <process.h>
 #if defined(_MSC_VER)
 #pragma comment(lib, "bcrypt.lib")
 #endif
+#if defined(_MSC_VER) || defined(__MINGW32__) || defined(__MINGW64__)
+#define OS_RANDOM_BCRYPT_IMPORT __declspec(dllimport)
+#define OS_RANDOM_BCRYPT_CALL __stdcall
+#else
+#define OS_RANDOM_BCRYPT_IMPORT
+#define OS_RANDOM_BCRYPT_CALL
+#endif
+extern "C" OS_RANDOM_BCRYPT_IMPORT long OS_RANDOM_BCRYPT_CALL
+BCryptGenRandom(void *algorithm, unsigned char *buffer, unsigned long length, unsigned long flags);
+#undef OS_RANDOM_BCRYPT_IMPORT
+#undef OS_RANDOM_BCRYPT_CALL
 #elif defined(__linux__)
 #include <cerrno>
 #include <sys/syscall.h>
@@ -63,6 +69,10 @@ namespace os_random {
 /// choose an explicit fallback policy.
 
 namespace detail {
+
+#if defined(_WIN32)
+static constexpr unsigned long bcrypt_use_system_preferred_rng = 0x00000002UL;
+#endif
 
 /// \brief Avalanche a 64-bit value.
 ///
@@ -120,10 +130,11 @@ inline uint64_t weak_entropy_seed(const void *buffer, size_t length) noexcept {
     mix_into(seed, static_cast<uint64_t>(reinterpret_cast<uintptr_t>(buffer)));
     mix_into(seed, static_cast<uint64_t>(length));
     mix_into(seed, counter.fetch_add(1, std::memory_order_relaxed));
+    mix_into(seed, static_cast<uint64_t>(
+        std::hash<std::thread::id>{}(std::this_thread::get_id())));
 
 #if defined(_WIN32)
-    mix_into(seed, static_cast<uint64_t>(GetCurrentProcessId()));
-    mix_into(seed, static_cast<uint64_t>(GetCurrentThreadId()));
+    mix_into(seed, static_cast<uint64_t>(_getpid()));
 #elif defined(__linux__) && defined(SYS_gettid)
     mix_into(seed, static_cast<uint64_t>(getpid()));
     mix_into(seed, static_cast<uint64_t>(syscall(SYS_gettid)));
@@ -176,13 +187,13 @@ inline void weak_fill_bytes(void *buffer, size_t length) noexcept {
 #if defined(_WIN32)
     auto *out = static_cast<unsigned char *>(buffer);
     while (length != 0) {
-        const size_t chunk = length > std::numeric_limits<ULONG>::max()
-            ? std::numeric_limits<ULONG>::max()
+        const size_t chunk = length > std::numeric_limits<unsigned long>::max()
+            ? std::numeric_limits<unsigned long>::max()
             : length;
-        const NTSTATUS result = BCryptGenRandom(nullptr,
-                                                out,
-                                                static_cast<ULONG>(chunk),
-                                                BCRYPT_USE_SYSTEM_PREFERRED_RNG);
+        const long result = BCryptGenRandom(nullptr,
+                                            out,
+                                            static_cast<unsigned long>(chunk),
+                                            detail::bcrypt_use_system_preferred_rng);
         if (result != 0) {
             return false;
         }
