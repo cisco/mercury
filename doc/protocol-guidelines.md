@@ -39,6 +39,12 @@ Mercury protocol implementations must follow these guidelines.
   sequence of bytes from which data can be read.  A datum object is in
   one of the states null, readable, or empty.
 
+- Parser code must not advance a datum's `data` pointer beyond
+  `data_end`, even temporarily as part of a bounds check.  Check that
+  the requested length is available before forming an advanced pointer;
+  use `datum::has_bytes(length)` when checking whether a datum contains
+  enough data.
+
 - Data parsers must not directly access pointers; instead, they should
   use a safe alternative:
 
