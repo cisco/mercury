@@ -542,17 +542,201 @@ private:
     }
 };
 
-/// \brief Unit test for deterministic universal61 flow-key hashing.
+namespace detail {
+
+/// \brief Create an accumulator from explicit low and high words for unit tests.
+///
+/// \param low Low 64 bits of the accumulator.
+/// \param high High 64 bits of the accumulator.
+/// \return The accumulator represented by `high * 2^64 + low`.
+///
+inline accumulator make_unit_test_accumulator(uint64_t low, uint64_t high) noexcept {
+#if defined(__SIZEOF_INT128__) && !defined(_MSC_VER)
+    return (static_cast<accumulator>(high) << 64) | static_cast<accumulator>(low);
+#else
+    return {low, high};
+#endif
+}
+
+/// \brief Return the low word of an accumulator for unit tests.
+///
+/// \param value The accumulator to inspect.
+/// \return Low 64 bits of \p value.
+///
+inline uint64_t unit_test_accumulator_low(accumulator value) noexcept {
+#if defined(__SIZEOF_INT128__) && !defined(_MSC_VER)
+    return static_cast<uint64_t>(value);
+#else
+    return value.low;
+#endif
+}
+
+/// \brief Return the high word of an accumulator for unit tests.
+///
+/// \param value The accumulator to inspect.
+/// \return High 64 bits of \p value.
+///
+inline uint64_t unit_test_accumulator_high(accumulator value) noexcept {
+#if defined(__SIZEOF_INT128__) && !defined(_MSC_VER)
+    return static_cast<uint64_t>(value >> 64);
+#else
+    return value.high;
+#endif
+}
+
+/// \brief Test universal61 arithmetic against independently computed constants.
 ///
 /// \details
-/// The test uses an explicit fixed secret so that it does not depend on the
-/// operating-system random source.  It checks that packed limbs are valid field
-/// elements and that the reference and fused hashing paths agree for IPv4,
-/// IPv6, and a zeroized IPv4 key.
+/// These checks exercise product decomposition, Mersenne-prime reduction,
+/// modular addition, and dot products over already-packed field elements.  They
+/// intentionally avoid flow-key packing so arithmetic regressions and packing
+/// regressions can be diagnosed separately.
+///
+/// \return True if all arithmetic known-answer vectors pass.
+///
+inline bool arithmetic_unit_test() noexcept {
+    struct multiply_vector {
+        uint64_t left;
+        uint64_t right;
+        uint64_t low;
+        uint64_t high;
+    };
+    const std::array<multiply_vector, 7> multiply_vectors{{
+        {0x0000000000000000ULL, 0x0000000000000000ULL, 0x0000000000000000ULL, 0x0000000000000000ULL},
+        {0x0000000000000001ULL, 0xffffffffffffffffULL, 0xffffffffffffffffULL, 0x0000000000000000ULL},
+        {0xffffffffffffffffULL, 0xffffffffffffffffULL, 0x0000000000000001ULL, 0xfffffffffffffffeULL},
+        {0x1ffffffffffffffeULL, 0x1ffffffffffffffeULL, 0x8000000000000004ULL, 0x03ffffffffffffffULL},
+        {0x0123456789abcdefULL, 0xfedcba9876543210ULL, 0x2236d88fe5618cf0ULL, 0x0121fa00ad77d742ULL},
+        {0x8000000000000000ULL, 0x0000000000000002ULL, 0x0000000000000000ULL, 0x0000000000000001ULL},
+        {0xffffffffffffffffULL, 0x0000000000000002ULL, 0xfffffffffffffffeULL, 0x0000000000000001ULL},
+    }};
+
+    for (const multiply_vector &vector : multiply_vectors) {
+        const accumulator product = multiply_64_to_128(vector.left, vector.right);
+        if (unit_test_accumulator_low(product) != vector.low
+            || unit_test_accumulator_high(product) != vector.high) {
+            return false;
+        }
+    }
+
+    struct reduction_vector {
+        uint64_t low;
+        uint64_t high;
+        uint64_t expected;
+    };
+    const std::array<reduction_vector, 9> reduction_vectors{{
+        {0x0000000000000000ULL, 0x0000000000000000ULL, 0x0000000000000000ULL},
+        {0x1fffffffffffffffULL, 0x0000000000000000ULL, 0x0000000000000000ULL},
+        {0x2000000000000000ULL, 0x0000000000000000ULL, 0x0000000000000001ULL},
+        {0x0000000000000000ULL, 0x0400000000000000ULL, 0x0000000000000001ULL},
+        {0x3ffffffffffffffeULL, 0x0400000000000000ULL, 0x0000000000000001ULL},
+        {0xffffffffffffffffULL, 0xffffffffffffffffULL, 0x000000000000003fULL},
+        {0x0123456789abcdefULL, 0xfedcba9876543210ULL, 0x18091a2b3c4d5eaeULL},
+        {0x0000000000000000ULL, 0x0200000000000000ULL, 0x1000000000000000ULL},
+        {0x0000000000000000ULL, 0x0800000000000000ULL, 0x0000000000000002ULL},
+    }};
+
+    for (const reduction_vector &vector : reduction_vectors) {
+        if (reduce_mersenne61(make_unit_test_accumulator(vector.low, vector.high)) != vector.expected) {
+            return false;
+        }
+    }
+
+    struct addition_vector {
+        uint64_t left;
+        uint64_t right;
+        uint64_t expected;
+    };
+    const std::array<addition_vector, 7> addition_vectors{{
+        {0x0000000000000000ULL, 0x0000000000000000ULL, 0x0000000000000000ULL},
+        {0x1ffffffffffffffeULL, 0x0000000000000000ULL, 0x1ffffffffffffffeULL},
+        {0x1ffffffffffffffeULL, 0x0000000000000001ULL, 0x0000000000000000ULL},
+        {0x1ffffffffffffffeULL, 0x1ffffffffffffffeULL, 0x1ffffffffffffffdULL},
+        {0x1000000000000000ULL, 0x1000000000000000ULL, 0x0000000000000001ULL},
+        {0x1ffffffffffffffdULL, 0x0000000000000003ULL, 0x0000000000000001ULL},
+        {0x0123456789abcdefULL, 0x0fedcba987654321ULL, 0x1111111111111110ULL},
+    }};
+
+    for (const addition_vector &vector : addition_vectors) {
+        if (add_mod_mersenne61(vector.left, vector.right) != vector.expected) {
+            return false;
+        }
+    }
+
+    struct dot_product_vector {
+        flow_key_hash_secret secret;
+        limb_array limbs;
+        uint64_t expected;
+    };
+    const std::array<dot_product_vector, 6> dot_product_vectors{{
+        {{{0x0123456789abcdefULL, 0x0fedcba987654321ULL, 0x13579bdf2468ace0ULL,
+           0x1a2b3c4d5e6f7890ULL, 0x0102030405060708ULL, 0x1020304050607080ULL},
+          0x0f0e0d0c0b0a0908ULL},
+         {0x0000000000000000ULL, 0x0000000000000000ULL, 0x0000000000000000ULL,
+          0x0000000000000000ULL, 0x0000000000000000ULL, 0x0000000000000000ULL},
+         0x0f0e0d0c0b0a0908ULL},
+        {{{0x0123456789abcdefULL, 0x0fedcba987654321ULL, 0x13579bdf2468ace0ULL,
+           0x1a2b3c4d5e6f7890ULL, 0x0102030405060708ULL, 0x1020304050607080ULL},
+          0x0f0e0d0c0b0a0908ULL},
+         {0x1ffffffffffffffeULL, 0x1ffffffffffffffeULL, 0x1ffffffffffffffeULL,
+          0x1ffffffffffffffeULL, 0x1ffffffffffffffeULL, 0x1ffffffffffffffeULL},
+         0x1f57f08a21ba5afdULL},
+        {{{0x0123456789abcdefULL, 0x0fedcba987654321ULL, 0x13579bdf2468ace0ULL,
+           0x1a2b3c4d5e6f7890ULL, 0x0102030405060708ULL, 0x1020304050607080ULL},
+          0x0f0e0d0c0b0a0908ULL},
+         {0x1ffffffffffffffeULL, 0x1000000000000000ULL, 0x0800000000000000ULL,
+          0x0400000000000000ULL, 0x0200000000000000ULL, 0x0100000000000000ULL},
+         0x1e8e1dacfccc5ae8ULL},
+        {{{0x0123456789abcdefULL, 0x0fedcba987654321ULL, 0x13579bdf2468ace0ULL,
+           0x1a2b3c4d5e6f7890ULL, 0x0102030405060708ULL, 0x1020304050607080ULL},
+          0x0f0e0d0c0b0a0908ULL},
+         {0x0123456789abcdefULL, 0x0fedcba987654321ULL, 0x1555555555555555ULL,
+          0x0aaaaaaaaaaaaaaaULL, 0x1111111111111111ULL, 0x1eeeeeeeeeeeeeeeULL},
+         0x1f4684f1afe0a91fULL},
+        {{{0x0000000000000000ULL, 0x1ffffffffffffffeULL, 0x0000000000000001ULL,
+           0x1000000000000000ULL, 0x1555555555555555ULL, 0x0aaaaaaaaaaaaaaaULL},
+          0x1ffffffffffffffeULL},
+         {0x1ffffffffffffffeULL, 0x1ffffffffffffffeULL, 0x1ffffffffffffffeULL,
+          0x1ffffffffffffffeULL, 0x1ffffffffffffffeULL, 0x1ffffffffffffffeULL},
+         0x0ffffffffffffffeULL},
+        {{{0x0000000000000000ULL, 0x1ffffffffffffffeULL, 0x0000000000000001ULL,
+           0x1000000000000000ULL, 0x1555555555555555ULL, 0x0aaaaaaaaaaaaaaaULL},
+          0x1ffffffffffffffeULL},
+         {0x0123456789abcdefULL, 0x0fedcba987654321ULL, 0x1555555555555555ULL,
+          0x0aaaaaaaaaaaaaaaULL, 0x1111111111111111ULL, 0x1eeeeeeeeeeeeeeeULL},
+         0x061d950c83fb72e9ULL},
+    }};
+
+    for (const dot_product_vector &vector : dot_product_vectors) {
+        const flow_key_hasher hasher{vector.secret};
+        if (hasher.hash_limbs_reduce_each(vector.limbs) != vector.expected
+            || hasher.hash_limbs_accumulate_once(vector.limbs) != vector.expected) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+} // namespace detail
+
+/// \brief Unit test for deterministic universal61 arithmetic and flow-key hashing.
+///
+/// \details
+/// The arithmetic phase checks independently computed known-answer vectors over
+/// raw accumulator words and already-packed limbs.  The flow-key phase uses an
+/// explicit fixed secret so that it does not depend on the operating-system
+/// random source, then checks that packed limbs are valid field elements and
+/// that the reference and fused hashing paths agree for IPv4, IPv6, and a
+/// zeroized IPv4 key.
 ///
 /// \return True if all universal61 self-checks pass.
 ///
 inline bool unit_test() noexcept {
+    if (!detail::arithmetic_unit_test()) {
+        return false;
+    }
+
     const flow_key_hash_secret test_secret{{
         0x0123456789abcdefULL,
         0x0fedcba987654321ULL,
