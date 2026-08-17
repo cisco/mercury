@@ -542,6 +542,7 @@ private:
     }
 };
 
+// LCOV_EXCL_START
 namespace detail {
 
 /// \brief Create an accumulator from explicit low and high words for unit tests.
@@ -772,6 +773,7 @@ inline bool unit_test() noexcept {
 
     return true;
 }
+// LCOV_EXCL_STOP
 
 } // namespace universal61
 
