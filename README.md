@@ -218,6 +218,7 @@ DETAILS
       arp               ARP message
       bittorrent        Bittorrent Handshake Message, LSD message, DHT message
       cdp               CDP message
+      dcerpc            DCE/RPC message
       dhcp              DHCP discover message
       dnp3              DNP3 industrial control message
       dns               DNS messages
