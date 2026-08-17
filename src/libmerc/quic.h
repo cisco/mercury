@@ -1131,20 +1131,22 @@ class quic_frame {
 public:
 
     quic_frame(datum &d) {
-        uint8_t type = 0;
-        if (d.read_uint8(&type) == false) {
-            frame.emplace<std::monostate>();   // invalid; no data to read
-        } else if (type == 0x06) {
+        // Frame Type is a varint (RFC 9000 S12.4/S16); decode it so
+        // non-minimal encodings of known types (e.g. 0x4006 CRYPTO) are kept.
+        variable_length_integer type{d};
+        if (d.is_null()) {
+            frame.emplace<std::monostate>();   // truncated type field
+        } else if (type.value() == 0x06) {
             frame.emplace<crypto>(d);
-        } else if (type == 0x1c) {
+        } else if (type.value() == 0x1c) {
             frame.emplace<connection_close>(d);
-        } else if (type == 0x00) {
+        } else if (type.value() == 0x00) {
             frame.emplace<padding>(d);
-        } else if (type == 0x01) {
+        } else if (type.value() == 0x01) {
             frame.emplace<ping>(d);
-        } else if (type == 0x02) {
+        } else if (type.value() == 0x02) {
             frame.emplace<ack>(d);
-        } else if (type == 0x03) {
+        } else if (type.value() == 0x03) {
             frame.emplace<ack_ecn>(d);
         }
         else {
@@ -1889,8 +1891,75 @@ namespace quic_packet_safety_unit_test {
         return true;
     }
 
+    // Known frame types with non-minimal varint encoding must still parse.
+    inline bool frame_type_varint_unit_test() {
+        static const uint8_t crypto_data[5] = {0xde, 0xad, 0xbe, 0xef, 0x01};
+
+        auto parse_crypto = [](const uint8_t *buf, size_t len) -> bool {
+            datum d{buf, buf + len};
+            quic_frame f{d};
+            if (!f.is_valid() || !f.has_type<crypto>()) {
+                return false;
+            }
+            crypto *c = f.get_if<crypto>();
+            if (c == nullptr || !c->is_valid()) {
+                return false;
+            }
+            if (c->offset() != 0 || c->length() != sizeof(crypto_data)) {
+                return false;
+            }
+            datum &cd = c->data();
+            if (cd.length() != (ssize_t)sizeof(crypto_data)) {
+                return false;
+            }
+            for (size_t i = 0; i < sizeof(crypto_data); i++) {
+                if (cd.data[i] != crypto_data[i]) {
+                    return false;
+                }
+            }
+            return true;
+        };
+
+        // CRYPTO body: type, Offset (0), Length (5), Data. Type in 1/2/4 bytes.
+        static const uint8_t crypto_1b[] = {0x06, 0x00, 0x05, 0xde, 0xad, 0xbe, 0xef, 0x01};
+        if (!parse_crypto(crypto_1b, sizeof(crypto_1b))) {
+            return false;
+        }
+        static const uint8_t crypto_2b[] = {0x40, 0x06, 0x00, 0x05, 0xde, 0xad, 0xbe, 0xef, 0x01};
+        if (!parse_crypto(crypto_2b, sizeof(crypto_2b))) {
+            return false;
+        }
+        static const uint8_t crypto_4b[] = {0x80, 0x00, 0x00, 0x06, 0x00, 0x05, 0xde, 0xad, 0xbe, 0xef, 0x01};
+        if (!parse_crypto(crypto_4b, sizeof(crypto_4b))) {
+            return false;
+        }
+
+        // non-minimal PING (0x4001)
+        {
+            static const uint8_t ping_2b[] = {0x40, 0x01};
+            datum d{ping_2b, ping_2b + sizeof(ping_2b)};
+            quic_frame f{d};
+            if (!f.is_valid() || !f.has_type<ping>()) {
+                return false;
+            }
+        }
+
+        // truncated type -> invalid
+        {
+            static const uint8_t trunc[] = {0x40};
+            datum d{trunc, trunc + sizeof(trunc)};
+            quic_frame f{d};
+            if (f.is_valid()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     inline bool unit_test() {
-        return initial_version_decode_unit_test();
+        return initial_version_decode_unit_test()
+            && frame_type_varint_unit_test();
     }
 
 } // namespace quic_packet_safety_unit_test

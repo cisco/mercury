@@ -201,6 +201,34 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test quic with analysis and trial decrypt
     deinitialize();
 }
 
+// Known-answer guard for the QUIC v2 salt: pcap is the RFC 9369 A.2
+// client Initial; a wrong salt breaks AEAD and loses fingerprint/SNI.
+TEST_CASE_FIXTURE(LibmercTestFixture, "test quic v2 rfc9369 known-answer decryption")
+{
+    auto rfc9369_check_callback = [](const analysis_context *ac)
+    {
+        CHECK(analysis_context_get_fingerprint_type(ac) == fingerprint_type_quic);
+
+        const char *fp = analysis_context_get_fingerprint_string(ac);
+        REQUIRE(fp != nullptr);
+        CHECK(std::string(fp).find("6b3343cf") != std::string::npos);
+
+        const char *sni = analysis_context_get_server_name(ac);
+        REQUIRE(sni != nullptr);
+        CHECK(std::string(sni) == "example.com");
+    };
+
+    libmerc_config config{.do_analysis = true,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"quic"};
+    initialize(config);
+
+    set_pcap("quic_v2_rfc9369.pcap");
+    CHECK(1 == counter(fingerprint_type_quic, rfc9369_check_callback));
+
+    deinitialize();
+}
+
 TEST_CASE_FIXTURE(LibmercTestFixture, "test quic with analysis and reassembly")
 {
     auto destination_check_callback = [](const analysis_context *ac)
