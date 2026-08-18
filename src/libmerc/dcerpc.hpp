@@ -219,7 +219,7 @@ namespace dcerpc {
             o.print_key_uint("version_minor", version_minor);
         }
 
-        void write_json(json_object &o, const char *name) const {
+        void write_json(json_object &o, null_terminated_string name) const {
             json_object s{o, name};
             write_json(s);
             s.close();

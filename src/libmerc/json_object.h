@@ -341,14 +341,6 @@ struct json_object {
         b->write_char('\"');
     }
 
-    void print_key_ipv4_addr(const char *k, const struct datum &a) {
-        if (a.is_not_empty() && a.length() == 4) {
-            print_key_ipv4_addr(k, a.data);
-        } else {
-            print_key_string(k, "malformed");
-        }
-    }
-
     void print_key_ipv6_addr(null_terminated_string k, const uint8_t *a) {
         write_comma(comma);
         b->write_char('\"');

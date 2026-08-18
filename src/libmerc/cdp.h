@@ -52,10 +52,10 @@ struct cdp_tlv : public datum {
                 // a.print_key_uint("addr_length", addr_length);
                 if (protocol.is_not_empty()) {
                     if (protocol.data[0] == 0xcc) {
-                        a.print_key_ipv4_addr("ipv4_addr", addr);
+                        a.print_key_ip_addr("ipv4_addr", addr);
 
                     } else if (protocol.data[0] == 0xAA) {
-                        a.print_key_ipv6_addr("ipv6_addr", addr);
+                        a.print_key_ip_addr("ipv6_addr", addr);
                     }
                 }
                 //o.print_key_hex("remainder", tmp);
