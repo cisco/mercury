@@ -228,7 +228,7 @@ struct datum {
 
     /// construct a null datum
     ///
-    datum() : data{NULL}, data_end{NULL} {}
+    datum() : data{nullptr}, data_end{nullptr} {}
 
     /// construct a datum representing the sequence between `first` and `last`
     ///
@@ -237,7 +237,7 @@ struct datum {
     /// construct a datum representing the null-terminated character
     /// string \param str
     ///
-    explicit datum(const char *str) : data{NULL}, data_end{NULL} {
+    explicit datum(const char *str) : data{nullptr}, data_end{nullptr} {
         if (str) {
             data = (uint8_t *)str;
             data_end = data + strlen(str);
@@ -287,29 +287,59 @@ struct datum {
     ///
     const std::basic_string<uint8_t> get_bytestring() const { std::basic_string<uint8_t> s((uint8_t *)data, (int) (data_end - data)); return s;  }
 
-    bool is_null() const { return data == NULL; }
-    bool is_not_null() const { return data != NULL; }
-    bool is_not_empty() const { return data != NULL && data < data_end; }
-    bool is_readable() const { return data != NULL && data < data_end; }
-    bool is_not_readable() const { return data == NULL || data == data_end; }
-    bool is_empty() const { return data != NULL && data == data_end; }
+    bool is_null() const { return data == nullptr || data_end == nullptr; }
+    bool is_not_null() const { return data != nullptr && data_end != nullptr; }
+    bool is_not_empty() const { return is_not_null() && data < data_end; }
+    bool is_readable() const { return is_not_null() && data < data_end; }
+    bool is_not_readable() const { return !is_readable(); }
+    bool is_empty() const { return is_not_null() && data == data_end; }
     void set_empty() { data = data_end; }
-    void set_null() { data = data_end = NULL; }
-    ssize_t length() const { return data_end - data; }
+    void set_null() { data = data_end = nullptr; }
+
+    void assert_invariant() const {
+        assert(is_null() || data <= data_end);
+    }
+
+    ssize_t length() const {
+        assert_invariant();
+        if (is_null()) {
+            return 0;
+        }
+        return data_end - data;
+    }
+
+    /// returns true iff this datum has at least \p length bytes available
+    ///
+    /// This check does not form an out-of-range pointer, and should be used
+    /// before advancing `data` by \p length bytes.
+    ///
+    bool has_bytes(size_t length) const {
+        assert_invariant();
+        if (is_null()) {
+            return false;
+        }
+        return length <= static_cast<size_t>(data_end - data);
+    }
+
     void parse(struct datum &r, ssize_t num_bytes) {
-        if (r.length() < num_bytes || num_bytes < 0) {
+        if (num_bytes < 0 || !r.has_bytes(static_cast<size_t>(num_bytes))) {
             r.set_null();
             set_null();
             //fprintf(stderr, "warning: not enough data in parse (need %zu, have %zd)\n", num_bytes, length());
             return;
         }
+        size_t length = static_cast<size_t>(num_bytes);
         data = r.data;
-        data_end = r.data + num_bytes;
-        r.data += num_bytes;
+        data_end = r.data + length;
+        r.data += length;
     }
     void parse_soft_fail(struct datum &r, size_t num_bytes) {
-        if (r.length() < (ssize_t)num_bytes) {
-            num_bytes = r.length();  // only parse bytes that are available
+        if (r.is_null()) {
+            set_null();
+            return;
+        }
+        if (!r.has_bytes(num_bytes)) {
+            num_bytes = static_cast<size_t>(r.data_end - r.data);  // only parse bytes that are available
         }
         data = r.data;
         data_end = r.data + num_bytes;
@@ -368,21 +398,26 @@ struct datum {
         return 0;
     }
     bool skip(size_t length) {
-        data += length;
-        if (data > data_end) {
-            data = data_end;
+        if (!has_bytes(length)) {
+            if (is_not_null()) {
+                data = data_end;
+            }
             return false;
         }
+        data += length;
         return true;
     }
     void trim(size_t length) {
-        data_end -= length;
-        if (data_end < data) {
-            data_end = data;
+        if (!has_bytes(length)) {
+            if (is_not_null()) {
+                data_end = data;
+            }
+            return;
         }
+        data_end -= length;
     }
     void trim_to_length(size_t length) {
-        if (data && (data + length <= data_end)) {
+        if (has_bytes(length)) {
             data_end = data + length;
         }
     }
@@ -544,10 +579,14 @@ struct datum {
      }
 
     std::optional<uint8_t> operator[](size_t i) const {
-        if (is_null() || data + i >= data_end) {
+        if (!has_bytes(i)) {
             return std::nullopt;
         }
-        return data[i];
+        const uint8_t *value = data + i;
+        if (value == data_end) {
+            return std::nullopt;
+        }
+        return *value;
     }
 
     unsigned int bits_in_data() const {                  // for use with (ASN1) integers
@@ -716,7 +755,7 @@ struct datum {
     ///
     template <size_t N>
     void accept(const std::array<uint8_t, N> &a) {
-        if (data and data + N <= data_end) {
+        if (has_bytes(N)) {
             if (memcmp(data, a.data(), N) == 0) {
                 data += N;
                 return;
@@ -740,12 +779,12 @@ struct datum {
     // [[nodiscard]]
     bool lookahead_uint(unsigned int num_bytes, uint64_t *output)
     {
-        if (data + num_bytes <= data_end)
+        if (has_bytes(num_bytes))
         {
             uint64_t tmp = 0;
-            const unsigned char *c;
+            const unsigned char *end = data + num_bytes;
 
-            for (c = data; c < data + num_bytes; c++)
+            for (const unsigned char *c = data; c < end; c++)
             {
                 tmp = (tmp << 8) + *c;
             }
@@ -765,7 +804,7 @@ struct datum {
     ///
     template <typename T>
     T* get_pointer() {
-        if (data + sizeof(T) <= data_end) {
+        if (has_bytes(sizeof(T))) {
             T *tmp = (T *)data;
             data += sizeof(T);
             return tmp;
@@ -791,7 +830,7 @@ struct datum {
     ///
     [[deprecated("Use encoded<uint16_t> instead.")]]
     bool read_uint16(uint16_t *output) {
-        if (length() >= (int)sizeof(uint16_t)) {
+        if (has_bytes(sizeof(uint16_t))) {
             uint16_t *tmp = (uint16_t *)data;
             *output = ntoh(*tmp);
             data += sizeof(uint16_t);
@@ -806,7 +845,7 @@ struct datum {
     ///
     [[deprecated("Use encoded<uint32_t> instead.")]]
     bool read_uint32(uint32_t *output) {
-        if (length() >= (int)sizeof(uint32_t)) {
+        if (has_bytes(sizeof(uint32_t))) {
             uint32_t *tmp = (uint32_t *)data;
             *output = ntoh(*tmp);
             data += sizeof(uint32_t);
@@ -823,15 +862,15 @@ struct datum {
     [[deprecated("Use encoded<> instead.")]]
     bool read_uint(uint64_t *output, unsigned int num_bytes) {
 
-        if (data && data + num_bytes <= data_end) {
+        if (has_bytes(num_bytes)) {
             uint64_t tmp = 0;
-            const unsigned char *c;
+            const unsigned char *end = data + num_bytes;
 
-            for (c = data; c < data + num_bytes; c++) {
+            for (const unsigned char *c = data; c < end; c++) {
                 tmp = (tmp << 8) + *c;
             }
             *output = tmp;
-            data = c;
+            data = end;
             return true;
         }
         set_null();
@@ -841,7 +880,7 @@ struct datum {
 
     template <size_t N>
     void read_array(std::array<uint8_t, N> a) {
-        if (data && data + N <= data_end) {
+        if (has_bytes(N)) {
             memcpy(a.data(), data, N);
             data += N;
             return;
@@ -856,10 +895,13 @@ struct datum {
         if (!outer->is_not_empty()) {
             return;
         }
-        const unsigned char *inner_data_end = outer->data + data_len;
+        size_t num_bytes = data_len;
+        if (!outer->has_bytes(num_bytes)) {
+            num_bytes = static_cast<size_t>(outer->data_end - outer->data);
+        }
 
         data = outer->data;
-        data_end = inner_data_end > outer->data_end ? outer->data_end : inner_data_end;
+        data_end = outer->data + num_bytes;
         outer->data = data_end;
     }
 
@@ -907,12 +949,11 @@ struct datum {
     }
 
     void fprint_hex(FILE *f, size_t length=0) const {
-        if (data == nullptr || f == nullptr) { return; }
+        if (is_null() || f == nullptr) { return; }
         const uint8_t *x = data;
         const uint8_t *end = data_end;
-        if (length) {
+        if (length && has_bytes(length)) {
             end = data + length;
-            end = end < data_end ? end : data_end;
         }
         while (x < end) {
             fprintf(f, "%02x", *x++);
@@ -937,12 +978,11 @@ struct datum {
     }
 
     void fprint(FILE *f, size_t length=0) const {
-        if (f == nullptr) { return; }
+        if (is_null() || f == nullptr) { return; }
         const uint8_t *x = data;
         const uint8_t *end = data_end;
-        if (length) {
+        if (length && has_bytes(length)) {
             end = data + length;
-            end = end < data_end ? end : data_end;
         }
         while (x < end) {
             if (isprint(*x)) {
@@ -1205,7 +1245,7 @@ public:
     /// there is room; otherwise, sets it to the null state.
     ///
     void copy(uint8_t x) {
-        if (data + 1 > data_end) {
+        if (is_null() || data >= data_end) {
             set_null();
             return;  // not enough room
         }
@@ -2052,6 +2092,25 @@ namespace datum_unit_test {
         datum null_d{nullptr, nullptr};
         if (!null_d.is_null()) return false;
         if (null_d.is_not_null()) return false;
+        if (null_d.length() != 0) return false;
+
+        datum missing_end{data, nullptr};
+        if (!missing_end.is_null()) return false;
+        if (missing_end.is_not_null()) return false;
+        if (missing_end.is_readable()) return false;
+        if (!missing_end.is_not_readable()) return false;
+        if (missing_end.is_empty()) return false;
+        if (missing_end.is_not_empty()) return false;
+        if (missing_end.has_bytes(0)) return false;
+
+        datum missing_data{nullptr, data};
+        if (!missing_data.is_null()) return false;
+        if (missing_data.is_not_null()) return false;
+        if (missing_data.is_readable()) return false;
+        if (!missing_data.is_not_readable()) return false;
+        if (missing_data.is_empty()) return false;
+        if (missing_data.is_not_empty()) return false;
+        if (missing_data.has_bytes(0)) return false;
 
         // constructors
         datum from_str{"test"};
@@ -2072,6 +2131,10 @@ namespace datum_unit_test {
         if (!d2.skip(5)) return false;
         if (d2.length() != 0) return false;
         if (d2.skip(1)) return false;
+
+        datum null_skip{nullptr, nullptr};
+        if (null_skip.skip(1)) return false;
+        if (!null_skip.is_null()) return false;
 
         datum d3{data, data + 8};
         d3.trim(2);

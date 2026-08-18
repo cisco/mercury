@@ -83,6 +83,7 @@
 #include "pgsql.hpp"
 #include "cbor_messages.hpp"
 #include "metadata_writer.hpp"
+#include "dcerpc.hpp"
 
 // double malware_prob_threshold = -1.0; // TODO: document hidden option
 
@@ -600,6 +601,8 @@ bool stateful_pkt_proc::try_parse_tcp_type(protocol &x,
             return false;   // src_port unavailable; let fallback continue
         }
         return emplace_protocol_if_not_empty<pgsql_msg>(x, pkt, tcp_pkt->header->src_port);
+    case tcp_msg_type_dcerpc:
+        return emplace_protocol_if_not_empty<dcerpc::message>(x, pkt);
     default:
         return false;
     }
