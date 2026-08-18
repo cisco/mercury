@@ -10,6 +10,7 @@
 #include "json_object.h"
 #include "utf8.hpp"
 #include <stdexcept>
+#include <string_view>
 
 constexpr uint64_t tag_npf_fingerprint = 0x4650; // application tag 18000, "FP"; NPF representation hint
 
@@ -278,6 +279,14 @@ public:
         return "UNKNOWN";  // note: could report unknown integer value as string
     }
 
+    std::string_view word_view(size_t idx) const {
+        if (idx < a.size()) {
+            const auto &word = a[idx];
+            return { word.c_str(), word.size() };
+        }
+        return { "UNKNOWN", sizeof("UNKNOWN") - 1 };
+    }
+
 };
 
 #include "json_object.h"
@@ -299,7 +308,7 @@ public:
     inline bool decode_cbor_map_to_json(datum &d, json_object &o) {
 
         type expected_type = key;
-        const char *key = nullptr;
+        std::string_view key_view{};
 
         output_buffer<128> key_buf;
 
@@ -316,10 +325,9 @@ public:
                             if (keys == nullptr) {
                                 key_buf.reset();
                                 key_buf.write_uint16(tmp.value());
-                                key_buf.add_null();
-                                key = key_buf.data();
+                                key_view = key_buf.null_terminated_view();
                             } else {
-                                key = keys->word(tmp.value());
+                                key_view = keys->word_view(tmp.value());
                             }
                         }
                         break;
@@ -329,8 +337,7 @@ public:
                             if (d.is_null()) { return false; }
                             key_buf.reset();
                             utf8_string::write(key_buf, tmp.value().data, tmp.value().length());
-                            key_buf.add_null();
-                            key = key_buf.data();
+                            key_view = key_buf.null_terminated_view();
                         }
                         break;
                     case cbor::simple_or_float_type:
@@ -346,7 +353,7 @@ public:
                         return false;
                     }
 
-                    if (key == nullptr) {
+                    if (key_view.data() == nullptr) {
                         fprintf(stderr, "error: null key\n");
                         return false;
                     }
@@ -354,7 +361,7 @@ public:
 
                 } else if (expected_type == type::value) {
 
-                    null_terminated_string json_key = null_terminated_string::assume(key);
+                    null_terminated_string json_key = null_terminated_string::checked(key_view.data(), key_view.length());
                     switch (ib.value.major_type()) {
                     case cbor::unsigned_integer_type:
                         {
@@ -428,7 +435,7 @@ public:
                         return false;
                     }
 
-                    key = nullptr;
+                    key_view = {};
                     expected_type = type::key;
                 }
 
@@ -561,6 +568,25 @@ static inline bool decode_fprint_json(datum d, FILE *f, vocabulary *v=nullptr) {
 
 // LCOV_EXCL_START
 static inline bool cbor_object_unit_test(FILE *f=nullptr) {
+
+    output_buffer<1> empty_buf;
+    std::string_view empty_view = empty_buf.null_terminated_view();
+    if (empty_view.data() == nullptr || empty_view.length() != 0) {
+        if (f) {
+            fprintf(f, "test null_terminated_view empty buffer failed\n");
+        }
+        return false;
+    }
+
+    output_buffer<4> truncated_buf;
+    truncated_buf.puts("abcd");
+    std::string_view truncated_view = truncated_buf.null_terminated_view();
+    if (truncated_view.data() != nullptr) {
+        if (f) {
+            fprintf(f, "test null_terminated_view truncated buffer failed\n");
+        }
+        return false;
+    }
 
     // first test
     //
