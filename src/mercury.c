@@ -110,6 +110,7 @@ char mercury_extended_help[] =
     "      arp               ARP message\n"
     "      bittorrent        Bittorrent Handshake Message, LSD message, DHT message\n"
     "      cdp               CDP message\n"
+    "      dcerpc            DCE/RPC message\n"
     "      dhcp              DHCP discover message\n"
     "      dnp3              DNP3 industrial control message\n"
     "      dns               DNS messages\n"

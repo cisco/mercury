@@ -89,6 +89,8 @@ The default file and directory locations are
    * __/etc/mercury/mercury.cfg__ for the configuration file
    * __/etc/systemd/system/mercury.service__ for the systemd unit file
 
+The deb and rpm packages install the unit into __/lib/systemd/system/__ and __/usr/lib/systemd/system/__ instead, and a unit in __/etc/systemd/system/__ overrides both; run `systemctl cat mercury` to see which one is in effect.
+
 The output file directory is owned by the user **mercury**; this user is created by the 'make install' target, which must be run as root.  The installation prefix **/usr/local/** can be changed by running ./configure with the --prefix argument, for instance `--prefix=$HOME'.  If you want to install the program somewhere in your home directory, you probably don't want to create the user mercury; you should use the 'make install-nonroot' target, which does not create a user, does not install anything into /etc, and does not install a systemd unit.
 
 The easiest way to run mercury in capture mode is using systemd; the OS automatically starts the mercury systemd unit after each boot, and halts it when the OS is shut down.  To check its status, run
@@ -112,6 +114,14 @@ To uninstall mercury, run
 sudo make uninstall
 ```
 which will remove the mercury program, resources directory, user, group, and systemd related files.  The directory containing capture files will be retained, but its owner will be changed to root, to avoid unintentional data loss.  All captured data files are retained across successive installs and uninstalls, and must be manually deleted.
+
+#### Privileges and confinement
+
+The systemd unit runs mercury as the unprivileged **mercury** user with the single capability that packet capture requires, `CAP_NET_RAW`.  That identity is applied before the program starts, so no part of startup runs as root, and the service is confined: the filesystem is read-only apart from the output directory, kernel tunables and modules are inaccessible, and the set of system calls it can make is restricted.  A `user` setting in __mercury.cfg__ must name the same account as the unit's `User=`.
+
+Customize the unit with a drop-in (`sudo systemctl edit mercury`) rather than by editing it, since the packages overwrite the shipped unit on upgrade.  A different output directory needs `WorkingDirectory=` and a matching `ReadWritePaths=`, preceded by an empty `ReadWritePaths=` to drop the packaged one, and a matching `directory` in __mercury.cfg__.
+
+The unit stops restarting mercury after five failed starts within thirty minutes, so a crash induced by hostile traffic cannot be retried indefinitely.  It then stays down until an operator clears the limit with `sudo systemctl reset-failed mercury` and starts it with `sudo systemctl start mercury`.
 
 ### Compile-time options
 To create a debugging version of mercury, build with **BUILD_TYPE=Debug** (and optionally a sanitizer), e.g. `make -j BUILD_TYPE=Debug SANITIZE=address`.  Each variant gets its own `build/<variant>/` tree, so there is no need to `make clean` between variants.  See `make help` for the full list of variant flags.
@@ -218,6 +228,7 @@ DETAILS
       arp               ARP message
       bittorrent        Bittorrent Handshake Message, LSD message, DHT message
       cdp               CDP message
+      dcerpc            DCE/RPC message
       dhcp              DHCP discover message
       dnp3              DNP3 industrial control message
       dns               DNS messages

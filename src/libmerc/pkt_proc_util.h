@@ -36,6 +36,7 @@
 #include "telnet.hpp"
 #include "snmp.hpp"
 #include "syslog.hpp"
+#include "dcerpc.hpp"
 
 // protocol is an alias for a std::variant that can hold any protocol
 // data element.  The default value of std::monostate indicates that
@@ -158,7 +159,8 @@ using protocol = std::variant<std::monostate,
                               tacacs::packet,
                               snmp::packet,
                               class syslog,
-                              pgsql_msg
+                              pgsql_msg,
+                              dcerpc::message
                               >;
 
 using encapsulation = std::variant<std::monostate,

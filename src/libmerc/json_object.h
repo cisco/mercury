@@ -340,6 +340,15 @@ struct json_object {
         b->write_ipv4_addr(a);
         b->write_char('\"');
     }
+
+    void print_key_ipv4_addr(const char *k, const struct datum &a) {
+        if (a.is_not_empty() && a.length() == 4) {
+            print_key_ipv4_addr(k, a.data);
+        } else {
+            print_key_string(k, "malformed");
+        }
+    }
+
     void print_key_ipv6_addr(null_terminated_string k, const uint8_t *a) {
         write_comma(comma);
         b->write_char('\"');
@@ -349,6 +358,7 @@ struct json_object {
         b->write_ipv6_addr(a);
         b->write_char('\"');
     }
+
     void print_key_ip_addr(null_terminated_string k, const struct datum &a) {
         switch(a.length()) {
         case 4:
@@ -356,11 +366,11 @@ struct json_object {
             break;
         case 16:
             print_key_ipv6_addr(k, a.data);
-            break;
-        default:
+          default:
             print_key_string(k, "malformed");
         }
     }
+
     void print_key_datum(null_terminated_string k, const struct datum &d) {
         write_comma(comma);
         b->write_char('\"');

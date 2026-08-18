@@ -349,8 +349,8 @@ struct destination_context {
         key.sprintf_dst_addr(dst_ip_str);
         dst_port = key.get_dst_port();
 
-        alpn.write_to_buffer(alpn_array, sizeof(alpn_array));
-        alpn_length = alpn.length();
+        ssize_t alpn_written = alpn.write_to_buffer(alpn_array, sizeof(alpn_array));
+        alpn_length = alpn_written > 0 ? (size_t)alpn_written : 0;
 
     }
 
@@ -364,8 +364,8 @@ struct destination_context {
         key.sprintf_dst_addr(dst_ip_str);
         dst_port = key.get_dst_port();
 
-        alpn.write_to_buffer(alpn_array, sizeof(alpn_array));
-        alpn_length = alpn.length();
+        ssize_t alpn_written = alpn.write_to_buffer(alpn_array, sizeof(alpn_array));
+        alpn_length = alpn_written > 0 ? (size_t)alpn_written : 0;
     }
 
     void reset() {
@@ -376,6 +376,57 @@ struct destination_context {
         alpn_length = 0;
         dst_port = 0;
     }
+
+#ifndef NDEBUG
+    // LCOV_EXCL_START
+    static bool unit_test() {
+
+        // verify that alpn_length never exceeds sizeof(alpn_array),
+        // whatever the length of the alpn datum.  A ClientHello can carry
+        // an ALPN protocol_name_list of up to 64KB, but alpn_array holds
+        // MAX_ALPN_STR_LEN bytes; reporting the full wire length to
+        // consumers of the analysis API caused them to read beyond the
+        // end of the array.
+        //
+        const key k{443, 443, 0x01010101, 0x02020202, 6};
+        const datum null_datum{nullptr, nullptr};
+
+        uint8_t alpn_buf[4 * MAX_ALPN_STR_LEN];
+        memset(alpn_buf, 'A', sizeof(alpn_buf));
+
+        const struct {
+            datum  alpn;
+            size_t expected_length;
+        } test_cases[] = {
+            { { alpn_buf, alpn_buf + sizeof(alpn_buf)     }, MAX_ALPN_STR_LEN     }, // far too long
+            { { alpn_buf, alpn_buf + MAX_ALPN_STR_LEN + 1 }, MAX_ALPN_STR_LEN     }, // one byte too long
+            { { alpn_buf, alpn_buf + MAX_ALPN_STR_LEN     }, MAX_ALPN_STR_LEN     }, // exactly full
+            { { alpn_buf, alpn_buf + MAX_ALPN_STR_LEN - 1 }, MAX_ALPN_STR_LEN - 1 }, // one byte short
+            { { alpn_buf, alpn_buf + 8                    }, 8                    }, // typical
+            { { alpn_buf, alpn_buf                        }, 0                    }, // empty
+            { null_datum,                                    0                    }, // absent
+        };
+
+        for (const auto &tc : test_cases) {
+            destination_context dc;
+            dc.reset();
+            dc.init(null_datum, null_datum, tc.alpn, k);
+            if (dc.alpn_length != tc.expected_length) {
+                fprintf(stdout, "destination_context: alpn_length is %zu, expected %zu\n",
+                        dc.alpn_length, tc.expected_length);
+                return false;
+            }
+            if (dc.alpn_length > sizeof(dc.alpn_array)) {
+                fprintf(stdout, "destination_context: alpn_length %zu exceeds alpn_array\n",
+                        dc.alpn_length);
+                return false;
+            }
+        }
+
+        return true;
+    }
+    // LCOV_EXCL_STOP
+#endif //NDEBUG
 
 };
 
