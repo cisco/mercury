@@ -32,18 +32,19 @@ public:
 
     /// \brief Constructs from a string literal or const character array.
     ///
-    /// The array must include its terminating null byte.  In constant
-    /// evaluation this constructor can be used to create constexpr keys;
-    /// in debug builds it also asserts that the last array element is
-    /// `'\0'`.
+    /// The array must include its terminating null byte.  The constructor
+    /// checks the final array element and throws if it is not `'\0'`; in
+    /// constant evaluation that failed check makes the expression ill-formed.
     ///
     /// \tparam N number of bytes in \p literal, including the terminator.
     /// \param literal character array whose final element is `'\0'`.
     ///
     template <std::size_t N>
-    constexpr null_terminated_string(const char (&literal)[N]) noexcept : s{literal} {
+    constexpr null_terminated_string(const char (&literal)[N]) : s{literal} {
         static_assert(N > 0, "null_terminated_string requires a char array");
-        assert(literal[N - 1] == '\0');
+        if (literal[N - 1] != '\0') {
+            throw std::invalid_argument{"invalid null_terminated_string"};
+        }
     }
 
     /// \brief Rejects mutable character arrays.
@@ -137,6 +138,18 @@ public:
         }
 
         const char unterminated[] = { 'b', 'a', 'd' };
+        threw = false;
+        try {
+            (void)null_terminated_string{unterminated};
+        } catch (const std::invalid_argument &) {
+            threw = true;
+        } catch (...) {
+            return false;
+        }
+        if (!threw) {
+            return false;
+        }
+
         try {
             (void)null_terminated_string::checked(unterminated, sizeof(unterminated) - 1);
         } catch (const std::invalid_argument &) {
