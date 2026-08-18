@@ -781,7 +781,6 @@ namespace krb5 {
             const uint64_t pa_type_code = asn1::to_uint64(tlv{tmp});
             pa_data_type<uint32_t> pa_type{pa_type_code};
             const char *pa_type_name = pa_type.get_name();
-            null_terminated_string pa_type_key = null_terminated_string::assume(pa_type_name);
             pad.print_key_string_or_unknown_code("pa_data_type", pa_type_name, pa_type_code);
 
             datum octets_data = pa_data_value.value;
@@ -793,7 +792,7 @@ namespace krb5 {
                     tlv app_req_tlv{app_data, KRB5_APP_AP_REQ, "pa_tgs_req.ap_req"};
                     ap_req req{app_req_tlv.value};
                     if (req.is_valid()) {
-                        json_object value{pad, pa_type_key};
+                        json_object value{pad, "pa_tgs_req"};
                         req.write_json(value);
                         value.close();
                         handled = true;
@@ -802,7 +801,7 @@ namespace krb5 {
                     datum seq_data = octets.value;
                     tlv seq{seq_data, tlv::SEQUENCE, "pa_etype_info2.sequence"};
                     if (seq.is_valid()) {
-                        json_array value{pad, pa_type_key, /*omit_if_empty=*/true};
+                        json_array value{pad, "pa_etype_info2", /*omit_if_empty=*/true};
                         datum entries = seq.value;
                         bool wrote_entry = false;
                         while (entries.is_not_empty()) {
@@ -826,7 +825,7 @@ namespace krb5 {
                     tlv enc_tlv{enc_data, tlv::SEQUENCE, "pa_enc_timestamp.encrypted_data"};
                     encrypted_data enc{enc_tlv};
                     if (enc.is_valid()) {
-                        json_object value{pad, pa_type_key};
+                        json_object value{pad, "pa_enc_timestamp"};
                         enc.write_json(value, "enc_timestamp");
                         value.close();
                         handled = true;
@@ -1699,6 +1698,25 @@ namespace krb5_unit_test {
         return observed == "{}";
     }
 
+    // pa_data with an unknown type still reports the type code and value.
+    //
+    // Wire: SEQUENCE { [1]{INTEGER 127} [2]{OCTET_STRING 0xabcd} }
+    //
+    [[maybe_unused]] static bool test_pa_data_unknown_type() {
+        uint8_t wire[] = {
+            0x30, 0x0b,              // PA-DATA SEQUENCE
+              0xa1, 0x03,            // [1] padata-type
+                0x02, 0x01, 0x7f,    //   INTEGER 127 (unknown)
+              0xa2, 0x04,            // [2] padata-value
+                0x04, 0x02, 0xab, 0xcd  // OCTET STRING
+        };
+        datum d{wire, wire + sizeof(wire)};
+        auto observed = run([&](json_object &o) {
+            krb5::pa_data_sequence{d}.write_json(o, "padata");
+        });
+        return observed == R"json({"padata":[{"pa_data_type":"UNKNOWN (000000000000007f)","value_hex":"abcd"}]})json";
+    }
+
     [[maybe_unused]] static bool unit_test() {
         bool passed = true;
         passed &= test_kdc_options_zero_flags();
@@ -1710,6 +1728,7 @@ namespace krb5_unit_test {
         passed &= test_principal_name_with_names();
         passed &= test_principal_name_unreadable_entry();
         passed &= test_pa_data_sequence_empty();
+        passed &= test_pa_data_unknown_type();
         return passed;
     }
 
