@@ -9,6 +9,7 @@
 #include <cassert>
 #include <cstddef>
 #include <stdexcept>
+#include <type_traits>
 
 /// \brief Non-owning wrapper for a non-null, null-terminated string.
 ///
@@ -102,11 +103,21 @@ public:
     /// \return true if all tests pass, and false otherwise.
     ///
     static bool unit_test() {
+        static_assert(!std::is_constructible<null_terminated_string, const char *>::value,
+                      "null_terminated_string rejects unchecked pointers");
+        static_assert(!std::is_constructible<null_terminated_string, std::nullptr_t>::value,
+                      "null_terminated_string rejects nullptr");
+        static_assert(!std::is_constructible<null_terminated_string, char (&)[4]>::value,
+                      "null_terminated_string rejects mutable arrays");
+
         constexpr null_terminated_string literal{"literal"};
         static_assert(literal.c_str()[0] == 'l', "constexpr literal construction failed");
         if (literal.c_str()[7] != '\0') {
             return false;
         }
+
+        constexpr null_terminated_string empty_literal{""};
+        static_assert(empty_literal.c_str()[0] == '\0', "constexpr empty literal construction failed");
 
         const char const_array[] = "const_array";
         null_terminated_string checked_array{const_array};
@@ -117,6 +128,18 @@ public:
         const char runtime[] = "runtime";
         null_terminated_string checked_runtime = null_terminated_string::checked(runtime, sizeof(runtime) - 1);
         if (checked_runtime.c_str() != runtime) {
+            return false;
+        }
+
+        const char empty_runtime[] = "";
+        null_terminated_string checked_empty = null_terminated_string::checked(empty_runtime, 0);
+        if (checked_empty.c_str() != empty_runtime) {
+            return false;
+        }
+
+        const char embedded_null[] = { 'a', '\0', 'b', '\0' };
+        null_terminated_string checked_prefix = null_terminated_string::checked(embedded_null, 1);
+        if (checked_prefix.c_str() != embedded_null) {
             return false;
         }
 
