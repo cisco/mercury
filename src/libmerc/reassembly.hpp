@@ -933,7 +933,7 @@ inline bool process_quic_reassembly(quic_init &qi,
         else {
             uint16_t frame_count = 0;
             uint16_t first_frame_idx = 0;
-            const crypto* frames = qi.get_crypto_frames(frame_count, first_frame_idx);
+            const crypto_frame_meta* frames = qi.get_crypto_frames(frame_count, first_frame_idx);
             uint64_t max_crypto_end = (uint64_t)crypto_offset + (uint64_t)crypto_len;
             if (frame_count == 0 || first_frame_idx == cryptographic_buffer::invalid_first_frame_index) {
                 return true;
@@ -990,7 +990,7 @@ inline bool process_quic_reassembly(quic_init &qi,
         else {
             uint16_t frame_count = 0;
             uint16_t first_frame_idx = 0;
-            const crypto* frames = qi.get_crypto_frames(frame_count, first_frame_idx);
+            const crypto_frame_meta* frames = qi.get_crypto_frames(frame_count, first_frame_idx);
             uint64_t max_crypto_end = (uint64_t)crypto_offset + (uint64_t)crypto_len;
             if (frame_count == 0) {
                 return true;

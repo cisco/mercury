@@ -180,6 +180,10 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test quic with analysis")
     set_pcap("quic_decry.pcap");
     CHECK(1 == counter(fingerprint_type_quic, destination_check_callback));
 
+    // forgery guard: cleartext Initial relabeled 0-RTT must yield no record
+    set_pcap("quic_decry_forged_0rtt.pcap");
+    CHECK(0 == counter(fingerprint_type_quic, destination_check_callback));
+
     deinitialize();
 }
 
@@ -246,6 +250,170 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test quic with analysis and reassembly")
 
     set_pcap("quic_reordered_frames.pcap");
     CHECK(4 == counter(fingerprint_type_quic, destination_check_callback));
+
+    deinitialize();
+}
+
+// Coalesced Initial packets (RFC 9000 S12.2): the datagram holds two Initials;
+// the first carries only PING/PADDING, the second (RFC 9001 A.2 client Initial)
+// carries the ClientHello. Reading only the first packet yields no fingerprint;
+// walking coalesced packets recovers it.
+TEST_CASE_FIXTURE(LibmercTestFixture, "test quic coalesced initial packets")
+{
+    auto quic_check_callback = [](const analysis_context *ac)
+    {
+        CHECK(analysis_context_get_fingerprint_type(ac) == fingerprint_type_quic);
+    };
+
+    // metadata_output enables the coalesced telemetry keys.
+    libmerc_config config{.metadata_output = true,
+                          .do_analysis = true,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"quic"};
+    initialize(config);
+
+    set_pcap("quic_coalesced_initial.pcap");
+    CHECK(1 == counter(fingerprint_type_quic, quic_check_callback));
+
+    // both Initials decrypt: the coalesced telemetry reports two decrypted
+    // packets, no decrypt failures, and the combined frame total.
+    set_pcap("quic_coalesced_initial.pcap");
+    const std::string json = get_first_json();
+    CHECK(json.find("\"decrypted_packets\":2") != std::string::npos);
+    CHECK(json.find("\"decrypt_failures\"") == std::string::npos);
+    CHECK(json.find("\"decrypted_frames\":2") != std::string::npos);   // PING + CRYPTO, no padding
+    CHECK(json.find("\"padding_frames\":966") != std::string::npos);   // padding counted separately
+
+    deinitialize();
+}
+
+// Coalesced datagram whose first Initial fails to decrypt (corrupted AEAD tag):
+// an empty first plaintext must not abort coalesced processing, so the second
+// Initial's ClientHello is still recovered and the failure is reported.
+TEST_CASE_FIXTURE(LibmercTestFixture, "test quic coalesced initial with decrypt failure")
+{
+    auto quic_check_callback = [](const analysis_context *ac)
+    {
+        CHECK(analysis_context_get_fingerprint_type(ac) == fingerprint_type_quic);
+
+        const char *sni = analysis_context_get_server_name(ac);
+        REQUIRE(sni != nullptr);
+        CHECK(std::string(sni) == "example.com");
+    };
+
+    // metadata_output enables the coalesced telemetry keys.
+    libmerc_config config{.metadata_output = true,
+                          .do_analysis = true,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"quic"};
+    initialize(config);
+
+    set_pcap("quic_coalesced_badfirst.pcap");
+    CHECK(1 == counter(fingerprint_type_quic, quic_check_callback));
+
+    // one packet decrypted (the second), one decrypt failure (the first).
+    set_pcap("quic_coalesced_badfirst.pcap");
+    const std::string json = get_first_json();
+    CHECK(json.find("\"decrypted_packets\":1") != std::string::npos);
+    CHECK(json.find("\"decrypt_failures\":1") != std::string::npos);
+    CHECK(json.find("\"decrypted_frames\":1") != std::string::npos);   // CRYPTO only, padding excluded
+    CHECK(json.find("\"padding_frames\":917") != std::string::npos);
+
+    deinitialize();
+}
+
+// Datagram with five coalesced Initials: the decrypt cap (max_decrypt_pkts = 3)
+// bounds work, so only three are decrypted and the remaining two are reported as
+// undecrypted. The ClientHello (within the cap) is still recovered.
+TEST_CASE_FIXTURE(LibmercTestFixture, "test quic coalesced initial decrypt cap")
+{
+    auto quic_check_callback = [](const analysis_context *ac)
+    {
+        CHECK(analysis_context_get_fingerprint_type(ac) == fingerprint_type_quic);
+    };
+
+    // metadata_output enables the coalesced telemetry keys.
+    libmerc_config config{.metadata_output = true,
+                          .do_analysis = true,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"quic"};
+    initialize(config);
+
+    set_pcap("quic_coalesced_dos_cap.pcap");
+    CHECK(1 == counter(fingerprint_type_quic, quic_check_callback));
+
+    // Datagram: [CRYPTO(OK)][PING+PAD(bad tag)][PING+PAD(OK)][skipped][skipped].
+    // Packets are small; only the datagram total clears the ~1184 minimum. The
+    // last in-cap decrypt succeeds, so the record dumps a small plaintext.
+    set_pcap("quic_coalesced_dos_cap.pcap");
+    const std::string json = get_first_json();
+    CHECK(json.find("\"decrypted_packets\":2") != std::string::npos);
+    CHECK(json.find("\"decrypt_failures\":1") != std::string::npos);
+    CHECK(json.find("\"undecrypted_packets\":2") != std::string::npos);
+    CHECK(json.find("\"decrypted_frames\":2") != std::string::npos);   // CRYPTO + PING
+    CHECK(json.find("\"padding_frames\":50") != std::string::npos);
+    CHECK(json.find("\"raw_packet_data\"") == std::string::npos);      // small plaintext, not raw dump
+
+    deinitialize();
+}
+
+// Coalesced telemetry is extra metadata: absent without the metadata flag,
+// though the fingerprint is still produced.
+TEST_CASE_FIXTURE(LibmercTestFixture, "test quic coalesced telemetry gated by metadata flag")
+{
+    auto quic_check_callback = [](const analysis_context *ac)
+    {
+        CHECK(analysis_context_get_fingerprint_type(ac) == fingerprint_type_quic);
+    };
+
+    // metadata_output defaults to false here.
+    libmerc_config config{.do_analysis = true,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"quic"};
+    initialize(config);
+
+    set_pcap("quic_coalesced_dos_cap.pcap");
+    CHECK(1 == counter(fingerprint_type_quic, quic_check_callback));
+
+    set_pcap("quic_coalesced_dos_cap.pcap");
+    const std::string json = get_first_json();
+    CHECK(json.find("\"decrypted_packets\"") == std::string::npos);
+    CHECK(json.find("\"decrypt_failures\"") == std::string::npos);
+    CHECK(json.find("\"undecrypted_packets\"") == std::string::npos);
+    CHECK(json.find("\"decrypted_frames\"") == std::string::npos);
+    CHECK(json.find("\"padding_frames\"") == std::string::npos);
+
+    deinitialize();
+}
+
+// Initial coalesced with a Handshake: the non-Initial type is rejected before
+// any decrypt, so the Initial's ClientHello is still recovered, its plaintext
+// dumped (not a raw dump), and no coalesced telemetry is emitted.
+TEST_CASE_FIXTURE(LibmercTestFixture, "test quic initial coalesced with handshake")
+{
+    auto quic_check_callback = [](const analysis_context *ac)
+    {
+        CHECK(analysis_context_get_fingerprint_type(ac) == fingerprint_type_quic);
+        const char *sni = analysis_context_get_server_name(ac);
+        REQUIRE(sni != nullptr);
+        CHECK(std::string(sni) == "example.com");
+    };
+
+    libmerc_config config{.metadata_output = true,
+                          .do_analysis = true,
+                          .resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"quic"};
+    initialize(config);
+
+    set_pcap("quic_coalesced_init_handshake.pcap");
+    CHECK(1 == counter(fingerprint_type_quic, quic_check_callback));
+
+    set_pcap("quic_coalesced_init_handshake.pcap");
+    const std::string json = get_first_json();
+    CHECK(json.find("\"plaintext\"") != std::string::npos);       // Initial's plaintext
+    CHECK(json.find("\"raw_packet_data\"") == std::string::npos); // not a raw dump
+    CHECK(json.find("\"decrypted_packets\"") == std::string::npos);   // single decrypt
+    CHECK(json.find("\"undecrypted_packets\"") == std::string::npos);
 
     deinitialize();
 }
