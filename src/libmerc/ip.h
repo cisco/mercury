@@ -11,6 +11,7 @@
 #include "json_object.h"
 #include "flow_key.h"
 #include <array>
+#include <cstring>
 #include <variant>
 #include <utility>
 
@@ -851,7 +852,7 @@ namespace ip_packet_safety_unit_test {
 
         for (const auto &test : tests) {
             ipv6_header header{};
-            memcpy(header.bytes, test.bytes.data(), test.bytes.size());
+            std::memcpy(header.bytes, test.bytes.data(), test.bytes.size());
             if (header.flow_label() != test.expected) {
                 return false;
             }
