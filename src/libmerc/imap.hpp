@@ -126,7 +126,7 @@ namespace imap {
     // Note: {size+} is non-synchronizing literal (RFC 2088 LITERAL+)
     class literal_parser : public datum {
         bool is_synchronizing = true;
-        int32_t literal_size = 0;
+        uint32_t literal_size = 0;
         datum literal_data;
 
     public:
@@ -167,7 +167,7 @@ namespace imap {
                     return;
                 }
 
-                if (d.length() >= literal_size) {
+                if (d.has_bytes(literal_size)) {
                     literal_data.data = d.data;
                     literal_data.data_end = d.data + literal_size;
                     d.skip(literal_size);
@@ -1049,6 +1049,30 @@ namespace imap {
             return false;
         }
 
+        // Synchronizing literal size at the 2^31 wrap point
+        if (!test_json_output<imap::imap_requests>(
+            datum{"a010 LOGIN {2147483648}\r\n"},
+            datum{R"xxx({"imap":{"requests":[{"is_tagged":true,"tag":"a010","command":"LOGIN","username":{"size":2147483648,"synchronizing":true}}]}})xxx"}
+        )) {
+            return false;
+        }
+
+        // Synchronizing literal size at UINT32_MAX
+        if (!test_json_output<imap::imap_requests>(
+            datum{"a011 LOGIN {4294967295}\r\n"},
+            datum{R"xxx({"imap":{"requests":[{"is_tagged":true,"tag":"a011","command":"LOGIN","username":{"size":4294967295,"synchronizing":true}}]}})xxx"}
+        )) {
+            return false;
+        }
+
+        // Synchronizing literal size above 65535, reported and not capped
+        if (!test_json_output<imap::imap_requests>(
+            datum{"a012 LOGIN {65536}\r\n"},
+            datum{R"xxx({"imap":{"requests":[{"is_tagged":true,"tag":"a012","command":"LOGIN","username":{"size":65536,"synchronizing":true}}]}})xxx"}
+        )) {
+            return false;
+        }
+
         // Case-insensitive LOGIN command
         if (!test_json_output<imap::imap_requests>(
             datum{"a001 LoGiN username password\r\n"},
@@ -1088,6 +1112,30 @@ namespace imap {
         // Invalid literal size (negative)
         if (!test_json_output<imap::imap_requests>(
             datum{"a009 LOGIN {-5}\r\n"},
+            datum{"{}"}
+        )) {
+            return false;
+        }
+
+        // Non-synchronizing literal size above 2^31, with too few octets
+        if (!test_json_output<imap::imap_requests>(
+            datum{"a013 LOGIN {3000000000+}\r\nX\r\n"},
+            datum{"{}"}
+        )) {
+            return false;
+        }
+
+        // Non-synchronizing literal size at UINT32_MAX, with too few octets
+        if (!test_json_output<imap::imap_requests>(
+            datum{"a014 LOGIN {4294967295+}\r\nX\r\n"},
+            datum{"{}"}
+        )) {
+            return false;
+        }
+
+        // Non-synchronizing literal size within range, with too few octets
+        if (!test_json_output<imap::imap_requests>(
+            datum{"a015 LOGIN {100+}\r\nshort\r\n"},
             datum{"{}"}
         )) {
             return false;
