@@ -389,7 +389,7 @@ struct ipv6_header {
     }
 
     uint32_t flow_label() const {
-        return (uint32_t)bytes[1] << 16 | (uint32_t)bytes[2] << 8 | bytes[3];
+        return ((uint32_t)bytes[1] << 16 | (uint32_t)bytes[2] << 8 | bytes[3]) & 0x000fffff;
     }
 
 };
@@ -414,7 +414,7 @@ struct ipv6_header {
     }
 
     uint20_t flow_label() const {
-        return uint20_t{(uint32_t)bytes[1] << 16 | (uint32_t)bytes[2] << 8 | bytes[3]};
+        return uint20_t{((uint32_t)bytes[1] << 16 | (uint32_t)bytes[2] << 8 | bytes[3]) & 0x000fffff};
     }
 
 } __attribute__((packed));
@@ -838,6 +838,27 @@ public:
 // LCOV_EXCL_START
 namespace ip_packet_safety_unit_test {
 
+    inline bool ipv6_flow_label_unit_test() {
+        struct test_case {
+            std::array<uint8_t, 4> bytes;
+            uint32_t expected;
+        };
+        static constexpr test_case tests[] = {
+            { { 0x60, 0x00, 0x00, 0x00 }, 0x00000 },
+            { { 0x60, 0x20, 0x00, 0x00 }, 0x00000 },
+            { { 0x60, 0xfa, 0xbc, 0xde }, 0xabcde },
+        };
+
+        for (const auto &test : tests) {
+            ipv6_header header{};
+            memcpy(header.bytes, test.bytes.data(), test.bytes.size());
+            if (header.flow_label() != test.expected) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     inline bool malformed_ipv4_total_length_unit_test() {
         static constexpr std::array<uint8_t, 20> ipv4_total_length_smaller_than_header = {
             0x45, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
@@ -872,7 +893,8 @@ namespace ip_packet_safety_unit_test {
     }
 
     inline bool unit_test() {
-        return malformed_ipv4_total_length_unit_test()
+        return ipv6_flow_label_unit_test()
+            && malformed_ipv4_total_length_unit_test()
             && truncated_ipv6_extension_unit_test();
     }
 
