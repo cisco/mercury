@@ -63,7 +63,9 @@ static inline void append_null(char *dstr, int *doff, int dlen, int *trunc) {
  * takes the base address of a string, the offset in the string, total length, and a truncation flag
  * and stores the desired snprintf() content at that offset.
  *
- * return: the amount stored (or needed to be stored in case of truncation)
+ * return: the number of payload bytes actually stored.  On truncation,
+ * return the number of bytes stored before the in-bounds terminating null,
+ * not the number of bytes that would have been written.
  */
 static inline int append_snprintf(char *dstr, int *doff, int dlen, int *trunc,
                                   const char *fmt, ...) {
