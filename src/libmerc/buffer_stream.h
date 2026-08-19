@@ -11,7 +11,6 @@
 #include <algorithm> // for std::min()
 #include <string.h>  /* for memcpy() */
 #include <string>
-#include <string_view>
 #include <stdarg.h>
 #include <time.h>
 #include <stdint.h>
@@ -1014,6 +1013,16 @@ struct buffer_stream {
 
     bool is_truncated() const { return trunc == 1; }
 
+    /// Return true when the byte at the current logical end is NUL.
+    ///
+    bool is_null_terminated() const {
+        return dstr != nullptr
+            && dlen > 0
+            && doff >= 0
+            && doff < dlen
+            && dstr[doff] == '\0';
+    }
+
     int snprintf(const char *fmt, ...) {
 
         if (trunc == 1) {
@@ -1190,23 +1199,6 @@ public:
     size_t content_size() const { return doff; }
 
     const char* data() const { return buffer; }
-
-    /// returns a view of the current contents after ensuring that the
-    /// buffer has a null byte immediately after those contents.
-    ///
-    /// \return a view of the current contents, or a null view if the
-    /// buffer is truncated or cannot be null-terminated.
-    ///
-    std::string_view null_terminated_view() {
-        if (is_truncated() || content_size() >= N) {
-            return {};
-        }
-        add_null();
-        if (is_truncated()) {
-            return {};
-        }
-        return { buffer, content_size() };
-    }
 
     /// compare the contents of this buffer with the \param n bytes
     /// starting at \param s.

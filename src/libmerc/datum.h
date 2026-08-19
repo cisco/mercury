@@ -31,6 +31,7 @@ typedef SSIZE_T ssize_t;
 #include "bytestring.h"
 #include "buffer_stream.h"
 #include <optional>
+#include <string_view>
 #include <utility>
 
 /// `mercury_debug` is a compile-time option that turns on debugging output
@@ -282,6 +283,27 @@ struct datum {
     /// returns a `std::string` that contains a copy of the data in this datum
     ///
     const std::string get_string() const { std::string s((char *)data, (int) (data_end - data)); return s;  }
+
+    /// returns a non-owning string view over the bytes in this datum
+    ///
+    /// This function does not copy data, and does not validate that the bytes
+    /// are UTF-8 or null-terminated.  A null datum returns a null/default
+    /// `std::string_view`; an empty, non-null datum returns a valid zero-length
+    /// view whose `data()` pointer is non-null; and a readable datum returns a
+    /// view spanning `[data, data_end)`.
+    ///
+    /// The returned view is valid only as long as the underlying bytes remain
+    /// valid.
+    ///
+    std::string_view get_string_view() const {
+        if (is_null()) {
+            return {};
+        }
+        return {
+            reinterpret_cast<const char *>(data),
+            static_cast<size_t>(length())
+        };
+    }
 
     /// returns a `std::basic_string<uint8_t>` that contains a copy of the data in this datum
     ///
@@ -2204,6 +2226,20 @@ namespace datum_unit_test {
         // get_string
         datum gs{lower, lower + 5};
         if (gs.get_string() != "hello") return false;
+
+        // get_string_view
+        std::string_view gs_view = gs.get_string_view();
+        if (gs_view.data() != reinterpret_cast<const char *>(lower)) return false;
+        if (gs_view.length() != 5) return false;
+        if (gs_view != "hello") return false;
+
+        std::string_view empty_view = empty.get_string_view();
+        if (empty_view.data() != reinterpret_cast<const char *>(data)) return false;
+        if (empty_view.length() != 0) return false;
+
+        std::string_view null_view = null_d.get_string_view();
+        if (null_view.data() != nullptr) return false;
+        if (null_view.length() != 0) return false;
 
         // operator[]
         datum idx{data, data + 4};
