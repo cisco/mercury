@@ -419,6 +419,11 @@ public:
 //     Packet Payload (8..),
 //   }
 //
+// QUIC v2 version numbers.  These must have V2 salt/mask/label entries in
+// quic_parameters and drive is_v2_version() (which renumbers Long Packet Type).
+static constexpr uint32_t quic_version_2       = 0x6b3343cf;   // RFC 9369
+static constexpr uint32_t quic_version_2_draft = 0x709a50c4;   // v2 draft1-7
+
 struct quic_initial_packet {
     uint8_t connection_info;
     struct datum version;  // TODO: encoded<uint32_t>
@@ -439,7 +444,7 @@ struct quic_initial_packet {
 
     // v2 renumbers the Long Packet Type; keep in sync with V2 entries in quic_parameters
     static bool is_v2_version(uint32_t v) {
-        return v == 0x6b3343cf || v == 0x709a50c4;
+        return v == quic_version_2 || v == quic_version_2_draft;
     }
 
     void parse(struct datum &d, bool require_min_datagram_len = true) {
@@ -520,14 +525,14 @@ struct quic_initial_packet {
             return;
         }
 
-        uint8_t dcid_length;
+        uint8_t dcid_length = 0;
         d.read_uint8(&dcid_length);
         if (dcid_length > 20) {
             return;  // dcid too long
         }
         dcid.parse(d, dcid_length);
 
-        uint8_t scid_length;
+        uint8_t scid_length = 0;
         d.read_uint8(&scid_length);
         if (scid_length > 20) {
             return;  // scid too long
@@ -754,8 +759,8 @@ public:
             {0xff000021, {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // draft-33
             {0xff000022, {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // draft-34
             {0x00000001, {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // version-1 (RFC 9000)
-            {0x709a50c4, {salt_enum::D1_D7_V2, init_pkt_mask_enum::V2, hkdf_label_enum::V2}},        // v2-draft1_draft7
-            {0x6b3343cf, {salt_enum::V2, init_pkt_mask_enum::V2, hkdf_label_enum::V2}},              // version-2 (RFC 9369)
+            {quic_version_2_draft, {salt_enum::D1_D7_V2, init_pkt_mask_enum::V2, hkdf_label_enum::V2}},  // v2-draft1_draft7
+            {quic_version_2, {salt_enum::V2, init_pkt_mask_enum::V2, hkdf_label_enum::V2}},              // version-2 (RFC 9369)
             {0xd4000400, {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // empirical - tencent?
         };
         quic_initial_params.reserve(MAX_QUIC_VERSIONS);
@@ -1081,11 +1086,11 @@ struct quic_version_negotiation {
         }
         d.skip(4);  // skip version, it's 00000000
 
-        uint8_t dcid_length;
+        uint8_t dcid_length = 0;
         d.read_uint8(&dcid_length);
         dcid.parse(d, dcid_length);
 
-        uint8_t scid_length;
+        uint8_t scid_length = 0;
         d.read_uint8(&scid_length);
         scid.parse(d, scid_length);
 
@@ -1593,6 +1598,9 @@ class quic_init : public base_protocol {
     // Coalesced-packet handling (RFC 9000 S12.2): cap decrypt attempts per
     // datagram to bound work (DoS); further Initials are counted, not decrypted.
     static constexpr uint32_t max_decrypt_pkts = 3;
+    // Hard cap on total coalesced packets examined per datagram (defense in
+    // depth); bounds the skip/count loop even if packets keep parsing.
+    static constexpr uint32_t max_coalesced_pkts = 8;
     uint32_t decrypt_attempts = 0;        // decrypt() calls made (bounds DoS)
     uint32_t decrypted_pkt_count = 0;     // decrypt() calls that produced plaintext
     uint32_t failed_decrypt_count = 0;    // decrypt() calls that returned empty
@@ -1679,12 +1687,15 @@ public:
 
         // Process coalesced Initial packets in the same datagram: decrypt up to
         // max_decrypt_pkts total, then count any remaining without decrypting.
+        // Cap total iterations (max_coalesced_pkts) for defense in depth.
         datum coalesced = d;   // d has advanced past the first Initial
-        while (coalesced.is_not_empty()) {
+        uint32_t examined = 1;
+        while (coalesced.is_not_empty() && examined < max_coalesced_pkts) {
             quic_initial_packet next{coalesced, false};   // coalesced packets may be < datagram min
             if (!next.is_not_empty() || !version_matches(next)) {
                 break;
             }
+            examined++;
             if (decrypt_attempts < max_decrypt_pkts) {
                 plaintext = quic_crypto.decrypt(next);
                 harvest_frames(plaintext);

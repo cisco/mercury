@@ -36,7 +36,7 @@ public:
     variable_length_integer(uint64_t i) : value_{i} {   }
 
     variable_length_integer(datum &d) : value_{0} {
-        uint8_t b;
+        uint8_t b = 0;
         d.read_uint8(&b);
         int len=0;
         switch (b & 0xc0) {
@@ -73,7 +73,7 @@ class variable_length_integer_datum : public datum {
 public:
 
     variable_length_integer_datum(datum &d) {
-        uint8_t b;
+        uint8_t b = 0;
         d.lookahead_uint8(&b);
         int len=0;
         switch (b & 0xc0) {
