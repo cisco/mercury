@@ -253,8 +253,9 @@ inline void ntoh(ipv6_addr_lct &addr) {
 }
 
 inline bool is_private_address(const ipv6_addr_lct &addr) {
-    uint8_t first_byte = ((const uint8_t *)&addr.a[0])[0];
-    return first_byte == 0xFC || first_byte == 0xFD;
+    // extract via shift to stay endian-safe
+    uint8_t first_byte = (uint8_t)(addr.a[0] >> 56);
+    return first_byte == 0xFC || first_byte == 0xFD;  // fc00::/7
 }
 
 // LCOV_EXCL_START
@@ -396,6 +397,55 @@ static inline bool ipv6_address_lct_unit_test(FILE *f = nullptr) {
         if (f) fprintf(f, "Test case 8: Left shift operator within 64 bits\n");
         if (shifted3.a[0] != 0x0000000000000010 || shifted3.a[1] != 0x0000000000000010) {
             if (f) fprintf(f, "Failed: Left shift operator did not shift within 64 bits correctly\n");
+            return false;
+        }
+    }
+
+    // Test case 9: is_private_address
+    {
+        if (f) fprintf(f, "Test case 9: is_private_address\n");
+
+        // genuine unique-local addresses
+        ipv6_addr_lct fc00;
+        fc00.a[0] = 0xfc00000000000000;
+        fc00.a[1] = 0x0000000000000000;
+        if (!is_private_address(fc00)) {
+            if (f) fprintf(f, "Failed: fc00:: was not classified as private\n");
+            return false;
+        }
+
+        ipv6_addr_lct fd00;
+        fd00.a[0] = 0xfd00000000000000;
+        fd00.a[1] = 0x0000000000000000;
+        if (!is_private_address(fd00)) {
+            if (f) fprintf(f, "Failed: fd00:: was not classified as private\n");
+            return false;
+        }
+
+        // public addresses with 0xFC/0xFD in the fourth hextet, not
+        // the first byte - must not be classified as private
+        ipv6_addr_lct fake_fc;
+        fake_fc.a[0] = 0x20010db8aaaa00fc;
+        fake_fc.a[1] = 0x0000000000000001;
+        if (is_private_address(fake_fc)) {
+            if (f) fprintf(f, "Failed: 2001:db8:aaaa:fc::1 was incorrectly classified as private\n");
+            return false;
+        }
+
+        ipv6_addr_lct fake_fd;
+        fake_fd.a[0] = 0x20010db8aaaa00fd;
+        fake_fd.a[1] = 0x0000000000000001;
+        if (is_private_address(fake_fd)) {
+            if (f) fprintf(f, "Failed: 2001:db8:aaaa:fd::1 was incorrectly classified as private\n");
+            return false;
+        }
+
+        // ordinary public address, no 0xFC/0xFD anywhere
+        ipv6_addr_lct pub;
+        pub.a[0] = 0x20010db800000000;
+        pub.a[1] = 0x0000000000000001;
+        if (is_private_address(pub)) {
+            if (f) fprintf(f, "Failed: 2001:db8::1 was incorrectly classified as private\n");
             return false;
         }
     }
