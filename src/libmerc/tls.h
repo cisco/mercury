@@ -440,9 +440,9 @@ struct tls_client_hello : public base_protocol {
 
     tls_client_hello() { }
 
-    tls_client_hello(datum &p) { parse(p); }
+    tls_client_hello(datum &p, bool is_dtls = false) { parse(p, is_dtls); }
 
-    void parse(datum &p);
+    void parse(datum &p, bool is_dtls = false);
 
     bool is_not_empty() const { return compression_methods.is_not_empty(); };
 
@@ -482,13 +482,8 @@ struct tls_client_hello : public base_protocol {
         additional_bytes_needed = 0;
     }
 
-    // emits the detail object under a key named by the
-    // caller's committed transport: "dtls" when is_dtls is set, "tls"
-    // otherwise. The key is chosen by the caller (which owns protocols[0]) and
-    // is deliberately NOT derived from the parsed legacy_version, which is
-    // untrusted and can be crafted to disagree with the carrier.
-    void write_l7_metadata_detail(cbor_object &o, bool is_dtls = false) {
-        const char *proto = is_dtls ? "dtls" : "tls";
+    void write_l7_metadata_detail(cbor_object &o) {
+        const char *proto = dtls ? "dtls" : "tls";
         cbor_object proto_obj{o, proto};
         cbor_object client{proto_obj, "client"};
         client.print_key_hex("random", random);
@@ -1842,8 +1837,12 @@ inline void tls_extensions::print_ech_client_hello(struct json_object &o) const 
 
 #define L_DTLSCookieLength             1
 
-inline void tls_client_hello::parse(struct datum &p) {
+inline void tls_client_hello::parse(struct datum &p, bool is_dtls) {
     uint64_t tmp_len;
+
+    // the carrier is committed by the caller (the record layer); the
+    // legacy_version in the body is untrusted for nested carriers such as quic
+    dtls = is_dtls;
 
     mercury_debug("%s: processing packet\n", __func__);
 
@@ -1851,11 +1850,6 @@ inline void tls_client_hello::parse(struct datum &p) {
     protocol_version.parse(p, L_ProtocolVersion);
     if (protocol_version.is_not_readable()) {
         return;
-    }
-
-    // determine if this is DTLS or plain old TLS
-    if (protocol_version.data[0] == 0xfe) {
-        dtls = true;
     }
 
     // parse clientHello.Random
