@@ -318,11 +318,15 @@ namespace tcpip_packet_safety_unit_test {
                 ipv6_truncated_hop_by_hop_to_tcp.data() + ipv6_truncated_hop_by_hop_to_tcp.size()};
         key k{};
         ip ip_pkt{d, k};
+        bool dispatched_tcp = false;
         if (ip_pkt.transport_protocol() == ip::protocol::tcp) {
+            dispatched_tcp = true;
             tcp_packet tcp{d, &ip_pkt};
             (void)tcp;
         }
-        return true;
+        return !dispatched_tcp
+            && ip_pkt.transport_protocol() == ip::protocol::reserved
+            && d.is_null();
     }
 
     inline bool unit_test() {

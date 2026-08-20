@@ -60,9 +60,11 @@
 #include "libmerc/tcpip.h"
 #include "libmerc/quic.h"
 #include "libmerc/analysis.h"
+#include "libmerc/result.h"
 #include "libmerc/proto_identify.h"
 #include "libmerc/pgsql.hpp"
 #include "libmerc/cbor_decoded_metadata_test.hpp"
+#include "libmerc/dcerpc.hpp"
 
 // Macros to colorize output
 //
@@ -320,6 +322,10 @@ int main(int, char *[]) {
         {
             "pgsql",
             &pgsql_msg::unit_test
+        },
+        {
+            "destination_context",
+            &destination_context::unit_test
         }
     };
     size_t num_tests = 0;
@@ -400,6 +406,10 @@ int main(int, char *[]) {
         {
             "fdc",
             &fdc::unit_test
+        },
+        {
+            "dcerpc",
+            &dcerpc::unit_test
         },
         {
             "oid",
