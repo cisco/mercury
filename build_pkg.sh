@@ -88,6 +88,7 @@ DESCRIPTION="Mercury: a tool for network metadata capture and analysis."
 FPM_LINUX_OPTIONS="-v $VERSION --iteration $ITERATION\
     -m mercury-interest@cisco.com --url https://github.com/cisco/mercury \
     --after-install ./install_mercury/postinstall \
+    --after-upgrade ./install_mercury/postinstall \
     --config-files /etc/mercury/mercury.cfg       \
     --license BSD"
 

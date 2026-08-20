@@ -62,6 +62,13 @@ size_t hex_to_raw(const void *output,
     return count;
 }
 
+
+/*
+ * LCOV_EXCL_START
+ *
+ * TODO: add privilege drop tests. Main idea is to use a forked child.
+ */
+
 /*
  * drop_root_privileges() returns 0 on success and -1 on failure
  */
@@ -143,19 +150,21 @@ enum status drop_root_privileges(const char *username, const char *directory) {
     }
 
     /*
-     * set gid, uid and groups
+     * set gid, uid and groups, unless already running as the requested user
      */
-    if (initgroups(new_username, gid)) {
-        printf_err(log_err, "could not set groups (%s)\n", strerror(errno));
-        return status_err;
-    }
-    if (setgid(gid)) {
-        printf_err(log_err, "could not set GID (%s)\n", strerror(errno));
-        return status_err;
-    }
-    if (setuid(uid)) {
-        printf_err(log_err, "could not set UID (%s)\n", strerror(errno));
-        return status_err;
+    if (uid != getuid()) {
+        if (initgroups(new_username, gid)) {
+            printf_err(log_err, "could not set groups (%s)\n", strerror(errno));
+            return status_err;
+        }
+        if (setgid(gid)) {
+            printf_err(log_err, "could not set GID (%s)\n", strerror(errno));
+            return status_err;
+        }
+        if (setuid(uid)) {
+            printf_err(log_err, "could not set UID (%s)\n", strerror(errno));
+            return status_err;
+        }
     }
 
     /*
@@ -187,6 +196,7 @@ enum status drop_root_privileges(const char *username, const char *directory) {
 
 
 }
+/* LCOV_EXCL_STOP */
 
 /*
  * copy_string_into_buffer(dst, dst_len, src, src_len)

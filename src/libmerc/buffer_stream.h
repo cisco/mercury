@@ -562,8 +562,8 @@ static inline int append_ipv6_addr(char *dstr, int *doff, int dlen, int *trunc,
                 if (longest_run_len < run_len) {
                     longest_run_len = run_len;
                     longest_run = run;
-                    run_len = 0;
                 }
+                run_len = 0;
             }
         }
         u++;
