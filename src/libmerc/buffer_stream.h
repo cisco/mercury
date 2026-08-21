@@ -1062,6 +1062,17 @@ static inline int append_raw_as_base64(char *dstr, int *doff, int dlen, int *tru
 ///  }
 ///  \endcode
 ///
+///  After add_null(), which writes the '\0' terminator:
+///
+///  dstr ┌───────────────┬────┬──────────┐
+///       │ payload       │ \0 │  unused  │
+///       └───────────────┴────┴──────────┘
+///         0      doff-1  doff     dlen-1   invariant: 0 <= doff <= dlen-1
+///
+///  length()      = doff                    never counts the terminator
+///  add_null()    writes dstr[doff]         does not advance doff
+///  get_string()  = [dstr, dstr+doff)       no strlen, no terminator needed
+///
 struct buffer_stream {
     char *dstr;  ///< Caller-owned destination buffer.
     int doff;    ///< Logical length and offset of the next payload byte.
