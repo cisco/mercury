@@ -267,8 +267,11 @@ struct reassembly_flow_context {
         seg_list.push_back({seg.seq - init_seq, seg.seq - init_seq + init_seg_len - 1});
         curr_seg_count = 1;
 
-        // copy cid
-        memcpy(cid,seg.cid.data,( seg.cid.length() > (ssize_t)max_cid_len ? max_cid_len : seg.cid.length()));  // copy max 20 byte cid
+        // copy cid (max 20 bytes); guard the empty-CID case: memcpy from a
+        // null pointer is UB even with length 0.
+        if (seg.cid.length() > 0) {
+            memcpy(cid, seg.cid.data, (seg.cid.length() > (ssize_t)max_cid_len ? max_cid_len : seg.cid.length()));
+        }
 
         // process the pkt
         memcpy(buffer, crypto_buf.data, init_seg_len);
@@ -935,8 +938,9 @@ inline bool process_quic_reassembly(quic_init &qi,
             uint16_t first_frame_idx = 0;
             const crypto_frame_meta* frames = qi.get_crypto_frames(frame_count, first_frame_idx);
             uint64_t max_crypto_end = (uint64_t)crypto_offset + (uint64_t)crypto_len;
-            if (frame_count == 0 || first_frame_idx == cryptographic_buffer::invalid_first_frame_index) {
-                return true;
+            if (frame_count == 0 || first_frame_idx == cryptographic_buffer::invalid_first_frame_index
+                || first_frame_idx >= frame_count) {
+                return true;   // no usable first frame; also guards frames[first_frame_idx] below
             }
 
             if (min_crypto_data) {

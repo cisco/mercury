@@ -828,7 +828,7 @@ class quic_crypto_engine {
     uint8_t pn_length = 0;
 
     unsigned char plaintext[pt_buf_len] = {0};
-    int16_t plaintext_len = 0;
+    int plaintext_len = 0;   // gcm_decrypt() returns int (<= pt_buf_len)
 
     const char *salt_str = nullptr;
     bool quic_trial_decryption = false;
@@ -856,7 +856,11 @@ public:
         }
 
         data_buffer<1024> aad;
-        uint32_t version = ntoh(*((uint32_t*)quic_pkt.version.data));
+        // Read the 4-byte version big-endian; avoids an unaligned, strict-
+        // aliasing uint32_t* load (version.data points mid-buffer at offset 1).
+        uint64_t version_be = 0;
+        quic_pkt.version.lookahead_uint(4, &version_be);
+        uint32_t version = (uint32_t)version_be;
         // NOTE: quic_params is a process-wide singleton (initialized on
         // first use); safe for concurrent reads, but NOT for concurrent
         // reads + writes.
@@ -1308,9 +1312,6 @@ struct cryptographic_buffer
     }
 
     void update_crypto_frames (crypto *c) {
-        if (c->offset() == 0) {
-            first_frame_index = crypto_frames_count;
-        }
         // update min
         if (c->offset() <= min_frame.first) {
             min_frame.first = c->offset();
@@ -1324,8 +1325,13 @@ struct cryptographic_buffer
         // update total
         total_data += c->length();
         // update frame array (store metadata only; the frame's datum would
-        // dangle once a later coalesced packet overwrites the decryption buffer)
+        // dangle once a later coalesced packet overwrites the decryption buffer).
+        // Record first_frame_index only for frames we actually store, so it
+        // never points past crypto_frames_count (avoids OOB in consumers).
         if (crypto_frames_count < max_frames) {
+            if (c->offset() == 0) {
+                first_frame_index = crypto_frames_count;
+            }
             crypto_frames[crypto_frames_count] = crypto_frame_meta{c->offset(), c->length(), (uint64_t)c->data().length()};
             crypto_frames_count++;
         }
@@ -1654,9 +1660,12 @@ class quic_init : public base_protocol {
 
     // true if other carries the same QUIC version as the first packet
     bool version_matches(const quic_initial_packet &other) const {
-        uint64_t a = 0, b = 0;
         datum va = initial_packet.version;
         datum vb = other.version;
+        if (va.is_null() || vb.is_null()) {
+            return false;   // avoid lookahead_uint pointer arithmetic on a null datum
+        }
+        uint64_t a = 0, b = 0;
         va.lookahead_uint(4, &a);
         vb.lookahead_uint(4, &b);
         return a == b;
@@ -1693,7 +1702,9 @@ public:
         // Cap total iterations (max_coalesced_pkts) for defense in depth.
         datum coalesced = d;   // d has advanced past the first Initial
         uint32_t examined = 1;
-        while (coalesced.is_not_empty() && examined < max_coalesced_pkts) {
+        // Only walk coalesced packets when the first Initial parsed; otherwise
+        // its version datum is null and version_matches has nothing to compare.
+        while (initial_packet.is_not_empty() && coalesced.is_not_empty() && examined < max_coalesced_pkts) {
             quic_initial_packet next{coalesced, false};   // coalesced packets may be < datagram min
             if (!next.is_not_empty() || !version_matches(next)) {
                 break;
@@ -2262,13 +2273,43 @@ namespace quic_packet_safety_unit_test {
         return parses(at_min) && !parses(below);
     }
 
+    // A late offset-0 CRYPTO frame (arriving after the crypto_frames array is
+    // full) must not set first_frame_index past crypto_frames_count; otherwise
+    // consumers index one past the array (OOB read).
+    inline bool crypto_frame_index_bounds_unit_test() {
+        cryptographic_buffer cb{};
+        auto feed = [&cb](uint8_t offset) {
+            uint8_t body[3] = {offset, 0x01, 0xab};   // offset(<64), length 1, 1 data byte
+            datum d{body, body + sizeof(body)};
+            crypto c{d};
+            if (!c.is_valid()) { return; }
+            if (cb.extend(c)) { cb.update_crypto_frames(&c); }
+        };
+        // Fill the array with nonzero-offset frames, then add an offset-0 frame.
+        for (uint8_t off = 1; off <= cryptographic_buffer::max_frames; off++) {
+            feed(off);
+        }
+        feed(0);   // would set first_frame_index = max_frames without the fix
+        // No stored offset-0 frame, so there is no usable first frame, and the
+        // index (if set) must stay within the populated range.
+        if (cb.has_first_frame()) {
+            return false;
+        }
+        if (cb.first_frame_index != cryptographic_buffer::invalid_first_frame_index &&
+            cb.first_frame_index >= cb.crypto_frames_count) {
+            return false;
+        }
+        return true;
+    }
+
     inline bool unit_test() {
         return initial_version_decode_unit_test()
             && frame_type_varint_unit_test()
             && initial_packet_type_gate_unit_test()
             && connection_close_validity_unit_test()
             && connection_close_frame_walk_unit_test()
-            && min_payload_length_unit_test();
+            && min_payload_length_unit_test()
+            && crypto_frame_index_bounds_unit_test();
     }
 
 } // namespace quic_packet_safety_unit_test
