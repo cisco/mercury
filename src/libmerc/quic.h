@@ -1322,7 +1322,7 @@ struct cryptographic_buffer
         total_data += c->length();
         // update frame array (store metadata only; the frame's datum would
         // dangle once a later coalesced packet overwrites the decryption buffer)
-        if (crypto_frames_count < 20) {
+        if (crypto_frames_count < max_frames) {
             crypto_frames[crypto_frames_count] = crypto_frame_meta{c->offset(), c->length(), (uint64_t)c->data().length()};
             crypto_frames_count++;
         }
