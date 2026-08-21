@@ -184,7 +184,12 @@ static inline int append_memcpy(char *dstr, int *doff, int dlen, int *trunc, con
         return 0;
     }
 
-    if (length <= 0) {
+    if (length == 0) {
+        return 0;
+    }
+
+    if (length < 0) {
+        *trunc = 1;
         return 0;
     }
 
@@ -1476,7 +1481,7 @@ struct buffer_stream {
         }
 
         {
-            // A memcpy() of no bytes is a no-op, not a truncation.
+            // A memcpy() of no bytes is a no-op; a negative length is an error.
             char storage[4] = {'x', 'x', 'x', 'g'};
             buffer_stream buf{storage, 3};
             const char input[] = {'a', 'b'};
@@ -1487,13 +1492,21 @@ struct buffer_stream {
 
             buf.memcpy(input, -1);
             passed &= buf.length() == 0;
-            passed &= !buf.is_truncated();
+            passed &= buf.is_truncated();
 
             int off = 0;
             int trunc = 0;
             passed &= append_memcpy(storage, &off, 3, &trunc, input, 0) == 0;
             passed &= off == 0;
             passed &= trunc == 0;
+            passed &= storage[0] == 'x';
+            passed &= storage[3] == 'g';
+
+            off = 0;
+            trunc = 0;
+            passed &= append_memcpy(storage, &off, 3, &trunc, input, -1) == 0;
+            passed &= off == 0;
+            passed &= trunc == 1;
             passed &= storage[0] == 'x';
             passed &= storage[3] == 'g';
         }
