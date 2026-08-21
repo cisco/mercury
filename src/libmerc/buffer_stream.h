@@ -1029,8 +1029,7 @@ static inline int append_raw_as_base64(char *dstr, int *doff, int dlen, int *tru
 ///  that expect a C string.  add_null() writes `'\0'` at `dstr[doff]` without
 ///  increasing `doff`, so length() excludes the terminator.  A later write will
 ///  overwrite that terminator; call add_null() again after the final write if a
-///  C string is needed.  is_null_terminated() checks whether the byte at the
-///  current logical end is `'\0'`.
+///  C string is needed.
 ///
 ///  It is acceptable, but not recommended, for strings written to a
 ///  `buffer_stream` to contain embedded NUL bytes.  Such bytes are payload and
@@ -1083,16 +1082,6 @@ struct buffer_stream {
     void set_truncated() { trunc = 1; }
 
     bool is_truncated() const { return trunc == 1; }
-
-    /// Return true when the byte at the current logical end is NUL.
-    ///
-    bool is_null_terminated() const {
-        return dstr != nullptr
-            && dlen > 0
-            && doff >= 0
-            && doff < dlen
-            && dstr[doff] == '\0';
-    }
 
     int snprintf(const char *fmt, ...) {
 
@@ -1266,21 +1255,20 @@ struct buffer_stream {
             char storage[4] = {'x', 'x', 'x', 'x'};
             buffer_stream buf{storage, sizeof(storage)};
 
-            passed &= !buf.is_null_terminated();
+            passed &= storage[0] != '\0';
             buf.write_char('a');
             passed &= buf.length() == 1;
-            passed &= !buf.is_null_terminated();
+            passed &= storage[1] != '\0';
 
             buf.add_null();
             passed &= buf.length() == 1;
-            passed &= buf.is_null_terminated();
             passed &= storage[1] == '\0';
 
             buf.write_char('b');
             passed &= buf.length() == 2;
-            passed &= !buf.is_null_terminated();
+            passed &= storage[2] != '\0';
             buf.add_null();
-            passed &= buf.is_null_terminated();
+            passed &= storage[2] == '\0';
             passed &= buf.get_string() == "ab";
         }
 
@@ -1292,7 +1280,7 @@ struct buffer_stream {
             passed &= r == 3;
             passed &= buf.length() == 3;
             passed &= !buf.is_truncated();
-            passed &= buf.is_null_terminated();
+            passed &= storage[3] == '\0';
             passed &= buf.get_string() == "abc";
         }
 
@@ -1306,14 +1294,12 @@ struct buffer_stream {
             passed &= buf.is_truncated();
             passed &= buf.writeable_length() == 0;
             passed &= buf.length() == 1;
-            passed &= buf.is_null_terminated();
             passed &= storage[1] == '\0';
             passed &= storage[2] == 'g';
             passed &= buf.get_string() == "x";
 
             buf.add_null();
             passed &= buf.length() == 1;
-            passed &= buf.is_null_terminated();
             passed &= storage[1] == '\0';
             passed &= storage[2] == 'g';
         }
@@ -1325,7 +1311,6 @@ struct buffer_stream {
             buffer_stream null_buf{nullptr, 8};
             passed &= null_buf.snprintf("%s", "abc") == 0;
             passed &= null_buf.is_truncated();
-            passed &= !null_buf.is_null_terminated();
             passed &= null_buf.get_string().empty();
 
             char storage[2] = {'g', 'g'};
@@ -1351,7 +1336,6 @@ struct buffer_stream {
             passed &= buf.snprintf("%s", "abc") == 0;
             passed &= buf.is_truncated();
             passed &= buf.length() == 1;
-            passed &= buf.is_null_terminated();
             passed &= storage[1] == '\0';
             passed &= storage[2] == 'g';
         }
@@ -1372,7 +1356,6 @@ struct buffer_stream {
                 passed &= buf.snprintf("%ls", wide) == 0;
                 passed &= buf.is_truncated();
                 passed &= buf.length() == 1;
-                passed &= buf.is_null_terminated();
                 passed &= storage[0] == 'a';
                 passed &= storage[1] == '\0';
                 passed &= storage[3] == 'g';
@@ -1454,7 +1437,6 @@ struct buffer_stream {
             buffer_stream buf{storage, 2};
             buf.write_char('a');
 
-            passed &= !buf.is_null_terminated();
             passed &= buf.get_string() == "a";
             passed &= storage[1] == 'x';
         }
@@ -1473,7 +1455,7 @@ struct buffer_stream {
             passed &= output[0] == 'a';
             passed &= output[1] == '\0';
             passed &= output[2] == 'b';
-            passed &= !buf.is_null_terminated();
+            passed &= storage[3] != '\0';
         }
 
         {
@@ -1525,7 +1507,6 @@ struct buffer_stream {
             buf.add_null();
 
             passed &= buf.is_truncated();
-            passed &= !buf.is_null_terminated();
             passed &= buf.get_string().empty();
             passed &= guard == 'g';
         }
@@ -1560,7 +1541,6 @@ struct buffer_stream {
 
             buf.add_null();
             passed &= !buf.is_truncated();
-            passed &= buf.is_null_terminated();
             passed &= buf.length() == 0;
             passed &= storage[0] == '\0';
             passed &= storage[1] == 'x';
@@ -1573,10 +1553,9 @@ struct buffer_stream {
             buf.write_char('a');
             passed &= buf.is_truncated();
             passed &= buf.writeable_length() == 0;
-            passed &= !buf.is_null_terminated();
+            passed &= storage[0] == 'g';
 
             buf.add_null();
-            passed &= buf.is_null_terminated();
             passed &= storage[0] == '\0';
             passed &= storage[1] == 'x';
         }
