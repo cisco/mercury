@@ -1029,6 +1029,12 @@ static inline int append_raw_as_base64(char *dstr, int *doff, int dlen, int *tru
 ///  - `dlen`: total number of bytes available in `dstr`.
 ///  - `trunc`: nonzero once a write could not be represented completely.
 ///
+///  If a write helper observes an invalid destination buffer, size, or offset,
+///  it sets `trunc` and avoids out-of-bounds access.  Helpers that can restore
+///  an in-bounds terminator may clamp `doff` to the nearest valid terminator
+///  position before writing `'\0'`; helpers that cannot safely repair the
+///  requested operation reject it without writing payload bytes.
+///
 ///  Null termination is explicit.  Use add_null() before passing `dstr` to APIs
 ///  that expect a C string.  add_null() writes `'\0'` at `dstr[doff]` without
 ///  increasing `doff`, so length() excludes the terminator.  A later write will
