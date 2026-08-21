@@ -2302,6 +2302,52 @@ namespace quic_packet_safety_unit_test {
         return true;
     }
 
+    // A long header cut off before its 4-byte version must not parse (guards a
+    // null-datum lookahead); the datagram-min-length check is disabled so the
+    // truncation, not the length gate, is what rejects it.
+    inline bool truncated_version_unit_test() {
+        static const uint8_t buf[] = {0xc0, 0x00, 0x01};   // conn_info + only 2 version bytes
+        datum d{buf, buf + sizeof(buf)};
+        quic_initial_packet ip{d, false};
+        return !ip.is_not_empty();
+    }
+
+    // Gapped CRYPTO frames (offset-0 frame present, but a later frame leaves a
+    // hole) set missing_crypto_frames and drive the reassembly-fallback
+    // ClientHello extraction. Two cases: first frame captures < 10 bytes and
+    // >= 10 bytes, exercising both fallback branches.
+    inline bool missing_crypto_frame_fallback_unit_test() {
+        auto run = [](const uint8_t *frames, size_t flen, bool &missing, bool &first) -> bool {
+            auto packet = make_quic_initial();
+            const size_t off = 19;   // payload at 18, plus 1-byte packet number
+            if (off + flen > packet.size()) { return false; }
+            for (size_t i = 0; i < flen; i++) { packet[off + i] = frames[i]; }
+            datum d{packet.data(), packet.data() + packet.size()};
+            quic_initial_packet ip{d};
+            if (!ip.is_not_empty()) { return false; }
+            cryptographic_buffer cb{};
+            quic_init_decry decry{ip, cb};
+            decry.parse();
+            missing = cb.missing_crypto_frames;
+            first = cb.has_first_frame();
+            return true;
+        };
+        // CRYPTO off 0 len 5, then CRYPTO off 100 len 5 (gap): first captures 5 (< 10)
+        static const uint8_t small_first[] = {
+            0x06, 0x00, 0x05, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5,
+            0x06, 0x40, 0x64, 0x05, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5,
+        };
+        // CRYPTO off 0 len 12, then CRYPTO off 100 len 5 (gap): first captures 12 (>= 10)
+        static const uint8_t large_first[] = {
+            0x06, 0x00, 0x0c, 0x16, 0x03, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x06, 0x40, 0x64, 0x05, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5,
+        };
+        bool m1 = false, f1 = false, m2 = false, f2 = false;
+        if (!run(small_first, sizeof(small_first), m1, f1)) { return false; }
+        if (!run(large_first, sizeof(large_first), m2, f2)) { return false; }
+        return m1 && f1 && m2 && f2;
+    }
+
     inline bool unit_test() {
         return initial_version_decode_unit_test()
             && frame_type_varint_unit_test()
@@ -2309,7 +2355,9 @@ namespace quic_packet_safety_unit_test {
             && connection_close_validity_unit_test()
             && connection_close_frame_walk_unit_test()
             && min_payload_length_unit_test()
-            && crypto_frame_index_bounds_unit_test();
+            && crypto_frame_index_bounds_unit_test()
+            && truncated_version_unit_test()
+            && missing_crypto_frame_fallback_unit_test();
     }
 
 } // namespace quic_packet_safety_unit_test
