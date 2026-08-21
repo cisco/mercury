@@ -1319,6 +1319,68 @@ struct buffer_stream {
         }
 
         {
+            // A stream that cannot be written to at all -- no buffer, no
+            // room, or an offset before the start of the buffer -- must
+            // report truncation from snprintf() without writing anything.
+            buffer_stream null_buf{nullptr, 8};
+            passed &= null_buf.snprintf("%s", "abc") == 0;
+            passed &= null_buf.is_truncated();
+            passed &= !null_buf.is_null_terminated();
+            passed &= null_buf.get_string().empty();
+
+            char storage[2] = {'g', 'g'};
+            buffer_stream empty_buf{storage, 0};
+            passed &= empty_buf.snprintf("%s", "abc") == 0;
+            passed &= empty_buf.is_truncated();
+            passed &= storage[0] == 'g';
+
+            buffer_stream negative_buf{storage, 1};
+            negative_buf.doff = -1;
+            passed &= negative_buf.snprintf("%s", "abc") == 0;
+            passed &= negative_buf.is_truncated();
+            passed &= storage[0] == 'g';
+        }
+
+        {
+            // An offset already at or past the end must be clamped back into
+            // the buffer, and terminated there, rather than written through.
+            char storage[3] = {'x', 'x', 'g'};
+            buffer_stream buf{storage, 2};
+            buf.doff = 2;
+
+            passed &= buf.snprintf("%s", "abc") == 0;
+            passed &= buf.is_truncated();
+            passed &= buf.length() == 1;
+            passed &= buf.is_null_terminated();
+            passed &= storage[1] == '\0';
+            passed &= storage[2] == 'g';
+        }
+
+        {
+            // A vsnprintf() encoding error must be reported as truncation,
+            // with a terminator left at the current logical end.  Whether a
+            // wide character is convertible depends on the locale and on the
+            // C library, so the conversion is probed before it is relied on.
+            const wchar_t wide[] = { (wchar_t)0x1f600, (wchar_t)0 };
+            char probe[8];
+
+            if (::snprintf(probe, sizeof(probe), "%ls", wide) < 0) {
+                char storage[4] = {'x', 'x', 'x', 'g'};
+                buffer_stream buf{storage, 3};
+                buf.write_char('a');
+
+                passed &= buf.snprintf("%ls", wide) == 0;
+                passed &= buf.is_truncated();
+                passed &= buf.length() == 1;
+                passed &= buf.is_null_terminated();
+                passed &= storage[0] == 'a';
+                passed &= storage[1] == '\0';
+                passed &= storage[3] == 'g';
+                passed &= buf.get_string() == "a";
+            }
+        }
+
+        {
             // append_snprintf() must keep the same truncation invariant as
             // buffer_stream::snprintf().
             char storage[3] = {'x', 'x', 'g'};
@@ -1336,6 +1398,53 @@ struct buffer_stream {
             passed &= off == 1;
             passed &= storage[1] == '\0';
             passed &= storage[2] == 'g';
+        }
+
+        {
+            // append_snprintf() rejects an unusable buffer, an out-of-range
+            // offset, and an encoding error the same way that
+            // buffer_stream::snprintf() does.
+            char storage[3] = {'x', 'x', 'g'};
+            int off = 0;
+            int trunc = 0;
+
+            passed &= append_snprintf(nullptr, &off, 2, &trunc, "%s", "xy") == 0;
+            passed &= trunc == 1;
+
+            off = 0;
+            trunc = 0;
+            passed &= append_snprintf(storage, &off, 0, &trunc, "%s", "xy") == 0;
+            passed &= trunc == 1;
+            passed &= storage[0] == 'x';
+
+            off = -1;
+            trunc = 0;
+            passed &= append_snprintf(storage, &off, 2, &trunc, "%s", "xy") == 0;
+            passed &= trunc == 1;
+            passed &= storage[0] == 'x';
+
+            off = 2;
+            trunc = 0;
+            passed &= append_snprintf(storage, &off, 2, &trunc, "%s", "xy") == 0;
+            passed &= trunc == 1;
+            passed &= off == 1;
+            passed &= storage[1] == '\0';
+            passed &= storage[2] == 'g';
+
+            const wchar_t wide[] = { (wchar_t)0x1f600, (wchar_t)0 };
+            char probe[8];
+
+            if (::snprintf(probe, sizeof(probe), "%ls", wide) < 0) {
+                storage[0] = 'x';
+                storage[1] = 'x';
+                off = 0;
+                trunc = 0;
+                passed &= append_snprintf(storage, &off, 2, &trunc, "%ls", wide) == 0;
+                passed &= trunc == 1;
+                passed &= off == 0;
+                passed &= storage[0] == '\0';
+                passed &= storage[2] == 'g';
+            }
         }
 
         {
@@ -1386,6 +1495,29 @@ struct buffer_stream {
         }
 
         {
+            // A memcpy() of no bytes is a no-op, not a truncation.
+            char storage[4] = {'x', 'x', 'x', 'g'};
+            buffer_stream buf{storage, 3};
+            const char input[] = {'a', 'b'};
+
+            buf.memcpy(input, 0);
+            passed &= buf.length() == 0;
+            passed &= !buf.is_truncated();
+
+            buf.memcpy(input, -1);
+            passed &= buf.length() == 0;
+            passed &= !buf.is_truncated();
+
+            int off = 0;
+            int trunc = 0;
+            passed &= append_memcpy(storage, &off, 3, &trunc, input, 0) == 0;
+            passed &= off == 0;
+            passed &= trunc == 0;
+            passed &= storage[0] == 'x';
+            passed &= storage[3] == 'g';
+        }
+
+        {
             // append_null() on a zero-length logical buffer should only set
             // truncation; there is no in-bounds byte available for a NUL.
             char guard = 'g';
@@ -1396,6 +1528,30 @@ struct buffer_stream {
             passed &= !buf.is_null_terminated();
             passed &= buf.get_string().empty();
             passed &= guard == 'g';
+        }
+
+        {
+            // append_null() clamps an out-of-range offset into the buffer
+            // before writing the terminator, and reports truncation.
+            char storage[3] = {'x', 'x', 'g'};
+            int off = -1;
+            int trunc = 0;
+
+            append_null(storage, &off, 2, &trunc);
+            passed &= trunc == 1;
+            passed &= off == 0;
+            passed &= storage[0] == '\0';
+            passed &= storage[2] == 'g';
+
+            storage[0] = 'x';
+            off = 7;
+            trunc = 0;
+            append_null(storage, &off, 2, &trunc);
+            passed &= trunc == 1;
+            passed &= off == 1;
+            passed &= storage[0] == 'x';
+            passed &= storage[1] == '\0';
+            passed &= storage[2] == 'g';
         }
 
         {

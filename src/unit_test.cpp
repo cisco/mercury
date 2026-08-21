@@ -9,6 +9,7 @@
 #include "libmerc/cbor.hpp"
 #include "libmerc/cbor_object.hpp"
 #include "libmerc/buffer_stream.h"
+#include "libmerc/fingerprint.h"
 #include "libmerc/base64.h"
 #include "libmerc/tofsee.hpp"
 #include "libmerc/snmp.hpp"
@@ -95,6 +96,10 @@ int main(int, char *[]) {
         {
             "buffer_stream",
             &buffer_stream::unit_test
+        },
+        {
+            "fingerprint",
+            &fingerprint_unit_test::unit_test
         },
         {
             "datum_match",

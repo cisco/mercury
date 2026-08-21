@@ -204,4 +204,67 @@ public:
     static size_t max_length() { return MAX_FP_STR_LEN; }
 };
 
+// LCOV_EXCL_START
+namespace fingerprint_unit_test {
+
+#ifndef NDEBUG
+
+    // a message that writes a well-formed fingerprint body
+    //
+    struct well_formed_message {
+        void fingerprint(buffer_stream &b) const { b.puts("(0301)(002f)"); }
+    };
+
+    // a message that fills every payload byte using normal stream writes
+    //
+    struct max_length_message {
+        void fingerprint(buffer_stream &b) const {
+            b.write_char('(');
+            while (b.doff < b.dlen - 2) {
+                b.write_char('a');
+            }
+            b.write_char(')');
+        }
+    };
+
+    inline bool unit_test() {
+        bool passed = true;
+
+        {
+            // final() accepts a fingerprint that leaves room for the
+            // terminator.
+            fingerprint fp;
+            fp.init();
+            fp.set_type(fingerprint_type_tls);
+            well_formed_message msg;
+            fp.add(msg);
+            fp.final();
+
+            passed &= !fp.is_null();
+            passed &= fp.get_type() == fingerprint_type_tls;
+            passed &= strcmp(fp.string(), "tls/(0301)(002f)") == 0;
+        }
+
+        {
+            // final() terminates a maximum-length fingerprint without
+            // dropping it.
+            fingerprint fp;
+            fp.init();
+            fp.set_type(fingerprint_type_tls);
+            max_length_message msg;
+            fp.add(msg);
+            fp.final();
+
+            passed &= !fp.is_null();
+            passed &= fp.get_type() == fingerprint_type_tls;
+            passed &= strlen(fp.string()) == fingerprint::max_length() - 1;
+        }
+
+        return passed;
+    }
+#endif
+
+} // namespace fingerprint_unit_test
+// LCOV_EXCL_STOP
+
 #endif // FINGERPRINT_H
