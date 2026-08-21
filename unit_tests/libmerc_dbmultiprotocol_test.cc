@@ -1483,3 +1483,24 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test raw-features write_json output for t
         deinitialize();
     }
 }
+
+// A real QUIC Initial (RFC 9001 v1) whose decrypted inner ClientHello carries
+// a crafted legacy_version of 0xfefd (the DTLS value). Because the DTLS
+// carrier is committed by the transport (QUIC over UDP), not inferred from the
+// clientHello body, the inner hello must be reported under "tls" -- never
+// "dtls" -- with its SNI parsed correctly. The pcap decrypts with the standard
+// Initial salt, so no key material is required.
+TEST_CASE_FIXTURE(LibmercTestFixture, "quic inner clientHello with dtls-looking legacy_version reports tls")
+{
+    libmerc_config config{.packet_filter_cfg = (char *)"quic"};
+    initialize(config);
+
+    set_pcap("dtls-legacy-version-quic-initial.pcap");
+    const std::string json = get_first_json();
+
+    CHECK(json.find("\"dtls\"") == std::string::npos);   // never mislabeled as dtls
+    CHECK(json.find("\"tls\"")  != std::string::npos);   // inner hello reported under tls
+    CHECK(json.find("\"server_name\":\"example.com\"") != std::string::npos);
+
+    deinitialize();
+}

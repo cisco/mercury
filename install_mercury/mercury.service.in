@@ -2,15 +2,46 @@
 Description=mercury packet metadata capture and analysis
 Documentation=man:mercury(1)
 After=network.target
+StartLimitIntervalSec=30min
+StartLimitBurst=5
 
 [Service]
 Type=simple
-WorkingDirectory=@prefix@/var/mercury/
 ExecStart=@prefix@/bin/mercury --config /etc/mercury/mercury.cfg
+WorkingDirectory=@prefix@/var/mercury
+ReadWritePaths=@prefix@/var/mercury
+User=mercury
+Group=mercury
 SyslogIdentifier=mercury
 StandardOutput=journal
 StandardError=journal
 Restart=always
+RestartSec=30s
+LimitMEMLOCK=infinity
+AmbientCapabilities=CAP_NET_RAW
+CapabilityBoundingSet=CAP_NET_RAW
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectProc=invisible
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RemoveIPC=yes
+RestrictAddressFamilies=AF_PACKET AF_NETLINK AF_UNIX AF_INET AF_INET6
+IPAddressDeny=any
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
 
 [Install]
 WantedBy=multi-user.target
