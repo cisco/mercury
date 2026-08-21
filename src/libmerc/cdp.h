@@ -244,7 +244,7 @@ namespace cdp_unit_test {
         json_object json{&buf};
         pkt.write_json(json, false);
         json.close();
-        buf.write_char('\0');
+        buf.add_null();
         return strstr(buffer, "malformed") != nullptr;
     }
 
