@@ -472,6 +472,9 @@ struct quic_initial_packet {
         d.read_uint8(&connection_info);
 
         version.parse(d, 4);
+        if (!version.is_not_empty()) {
+            return;  // truncated packet: no version; avoid null-datum lookahead
+        }
 
         // process non-standard QUIC versions, unless compile-time
         // configuration says not to do so
