@@ -1462,10 +1462,7 @@ struct buffer_stream {
             buf.write_char('b');
 
             std::string output = buf.get_string();
-            passed &= output.size() == 3;
-            passed &= output[0] == 'a';
-            passed &= output[1] == '\0';
-            passed &= output[2] == 'b';
+            passed &= output == std::string("a\0b", 3);
             passed &= storage[3] != '\0';
         }
 
