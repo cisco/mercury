@@ -1254,6 +1254,7 @@ struct buffer_stream {
         return dlen - doff;
     }
 
+#ifndef NDEBUG
     // unit tests for buffer_stream
     //
     // LCOV_EXCL_START
@@ -1583,6 +1584,7 @@ struct buffer_stream {
     //
     // LCOV_EXCL_STOP
 
+#endif
 
 };
 
