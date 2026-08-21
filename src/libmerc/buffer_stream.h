@@ -1346,25 +1346,25 @@ struct buffer_stream {
 
         {
             // A vsnprintf() encoding error must be reported as truncation,
-            // with a terminator left at the current logical end.  Whether a
-            // wide character is convertible depends on the locale and on the
-            // C library, so the conversion is probed before it is relied on.
+            // with a terminator left at the current logical end.  Unit tests
+            // run in the default C locale, where U+1F600 cannot be converted
+            // by %ls.
             const wchar_t wide[] = { (wchar_t)0x1f600, (wchar_t)0 };
             char probe[8];
 
-            if (::snprintf(probe, sizeof(probe), "%ls", wide) < 0) {
-                char storage[4] = {'x', 'x', 'x', 'g'};
-                buffer_stream buf{storage, 3};
-                buf.write_char('a');
+            passed &= ::snprintf(probe, sizeof(probe), "%ls", wide) < 0;
 
-                passed &= buf.snprintf("%ls", wide) == 0;
-                passed &= buf.is_truncated();
-                passed &= buf.length() == 1;
-                passed &= storage[0] == 'a';
-                passed &= storage[1] == '\0';
-                passed &= storage[3] == 'g';
-                passed &= buf.get_string() == "a";
-            }
+            char storage[4] = {'x', 'x', 'x', 'g'};
+            buffer_stream buf{storage, 3};
+            buf.write_char('a');
+
+            passed &= buf.snprintf("%ls", wide) == 0;
+            passed &= buf.is_truncated();
+            passed &= buf.length() == 1;
+            passed &= storage[0] == 'a';
+            passed &= storage[1] == '\0';
+            passed &= storage[3] == 'g';
+            passed &= buf.get_string() == "a";
         }
 
         {
@@ -1421,17 +1421,17 @@ struct buffer_stream {
             const wchar_t wide[] = { (wchar_t)0x1f600, (wchar_t)0 };
             char probe[8];
 
-            if (::snprintf(probe, sizeof(probe), "%ls", wide) < 0) {
-                storage[0] = 'x';
-                storage[1] = 'x';
-                off = 0;
-                trunc = 0;
-                passed &= append_snprintf(storage, &off, 2, &trunc, "%ls", wide) == 0;
-                passed &= trunc == 1;
-                passed &= off == 0;
-                passed &= storage[0] == '\0';
-                passed &= storage[2] == 'g';
-            }
+            passed &= ::snprintf(probe, sizeof(probe), "%ls", wide) < 0;
+
+            storage[0] = 'x';
+            storage[1] = 'x';
+            off = 0;
+            trunc = 0;
+            passed &= append_snprintf(storage, &off, 2, &trunc, "%ls", wide) == 0;
+            passed &= trunc == 1;
+            passed &= off == 0;
+            passed &= storage[0] == '\0';
+            passed &= storage[2] == 'g';
         }
 
         {
