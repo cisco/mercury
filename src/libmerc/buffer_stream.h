@@ -193,8 +193,7 @@ static inline int append_memcpy(char *dstr, int *doff, int dlen, int *trunc, con
         return 0;
     }
 
-    int remaining = (dlen - 1) - *doff;
-    if (remaining >= 0 && length <= remaining) {
+    if (length <= (dlen - 1) - *doff) {
         memcpy(dstr + *doff, src, length);
         *doff = *doff + length;
         return length;
