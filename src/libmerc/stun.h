@@ -1005,6 +1005,7 @@ namespace stun {
                     }
 
                 } else {
+                    buf.set_truncated();
                     break;
                 }
             }
@@ -1121,6 +1122,9 @@ namespace stun_unit_test {
         datum tp2{modern_binding_request, modern_binding_request + sizeof(modern_binding_request)};
         stun::message tp_msg2{tp2};
         if (!tp_msg2.is_not_empty()) return false;  // must be accepted
+        fingerprint valid_fp;
+        tp_msg2.compute_fingerprint(valid_fp);
+        if (valid_fp.is_null()) return false;
 
         // true positive: classic STUN Binding Request with a valid
         // MAPPED_ADDRESS attribute in the body
@@ -1141,6 +1145,33 @@ namespace stun_unit_test {
         if (!tp_msg3.is_not_empty()) return false;  // must be accepted
 
         // JSON output and attribute parsing tests
+
+        // A malformed final attribute must not alias a minimal Binding fingerprint.
+        const uint8_t malformed_final_attribute[] = {
+            0x00, 0x01, 0x00, 0x05,
+            0x21, 0x12, 0xa4, 0x42,
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+            0x09, 0x0a, 0x0b, 0x0c, 0x80, 0x22, 0x00, 0x01, 'x'
+        };
+        datum malformed_data{malformed_final_attribute, malformed_final_attribute + sizeof(malformed_final_attribute)};
+        stun::message malformed_msg{malformed_data};
+        if (!malformed_msg.is_not_empty()) return false;
+        fingerprint malformed_fp;
+        malformed_msg.compute_fingerprint(malformed_fp);
+        if (!malformed_fp.is_null()) return false;
+
+        const uint8_t oversized_final_attribute[] = {
+            0x00, 0x01, 0x00, 0x04,
+            0x21, 0x12, 0xa4, 0x42,
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+            0x09, 0x0a, 0x0b, 0x0c, 0x80, 0x22, 0x04, 0x00
+        };
+        datum oversized_data{oversized_final_attribute, oversized_final_attribute + sizeof(oversized_final_attribute)};
+        stun::message oversized_msg{oversized_data};
+        if (!oversized_msg.is_not_empty()) return false;
+        fingerprint oversized_fp;
+        oversized_msg.compute_fingerprint(oversized_fp);
+        if (!oversized_fp.is_null()) return false;
 
         uint8_t binding_req[] = {
             0x00, 0x01, 0x00, 0x08,
