@@ -52,10 +52,18 @@ struct cdp_tlv : public datum {
                 // a.print_key_uint("addr_length", addr_length);
                 if (protocol.is_not_empty()) {
                     if (protocol.data[0] == 0xcc) {
-                        a.print_key_ip_addr("ipv4_addr", addr);
+                        if (addr.length() == 4) {
+                            a.print_key_ipv4_addr("ipv4_addr", addr.data);
+                        } else {
+                            a.print_key_string("ipv4_addr", "malformed");
+                        }
 
                     } else if (protocol.data[0] == 0xAA) {
-                        a.print_key_ip_addr("ipv6_addr", addr);
+                        if (addr.length() == 16) {
+                            a.print_key_ipv6_addr("ipv6_addr", addr.data);
+                        } else {
+                            a.print_key_string("ipv6_addr", "malformed");
+                        }
                     }
                 }
                 //o.print_key_hex("remainder", tmp);
@@ -220,7 +228,8 @@ namespace cdp_unit_test {
         json.close();
         buf.write_char('\0');
 
-        return strstr(buffer, "ipv6_addr") != nullptr;
+        return strstr(buffer, "\"ipv6_addr\":\"2001:db8::1\"") != nullptr
+            && strstr(buffer, "\"ipv6_addr\":\"malformed\"") == nullptr;
     }
 
     inline bool malformed_address_tlv_unit_test() {
@@ -246,6 +255,34 @@ namespace cdp_unit_test {
         json.close();
         buf.write_char('\0');
         return strstr(buffer, "malformed") != nullptr;
+    }
+
+    inline bool ipv6_protocol_with_ipv4_length_unit_test() {
+        static constexpr std::array<uint8_t, 29> cdp_ipv6_protocol_ipv4_address_tlv = {
+            0xaa, 0xaa, 0x03, 0x00, 0x00, 0x0c, 0x20, 0x00,
+            0x02, 0xb4, 0x00, 0x00,
+            0x00, 0x02, 0x00, 0x11,
+            0x00, 0x00, 0x00, 0x01,
+            0x01, 0x01, 0xaa, 0x00, 0x04,
+            0x01, 0x02, 0x03, 0x04
+        };
+
+        datum d{cdp_ipv6_protocol_ipv4_address_tlv.data(),
+                cdp_ipv6_protocol_ipv4_address_tlv.data() + cdp_ipv6_protocol_ipv4_address_tlv.size()};
+        cdp pkt{d};
+        if (!pkt.is_not_empty()) {
+            return false;
+        }
+
+        char buffer[2048];
+        buffer_stream buf{buffer, sizeof(buffer)};
+        json_object json{&buf};
+        pkt.write_json(json, false);
+        json.close();
+        buf.write_char('\0');
+
+        return strstr(buffer, "\"ipv6_addr\":\"malformed\"") != nullptr
+            && strstr(buffer, "\"ipv6_addr\":\"1.2.3.4\"") == nullptr;
     }
 
     inline bool unit_test() {
@@ -283,6 +320,7 @@ namespace cdp_unit_test {
         if (!pkt2.is_not_empty()) return false;
 
         if (!ipv6_address_tlv_unit_test()) return false;
+        if (!ipv6_protocol_with_ipv4_length_unit_test()) return false;
 
         return true;
     }
@@ -294,7 +332,8 @@ namespace cdp_packet_safety_unit_test {
 
 #ifndef NDEBUG
     inline bool unit_test() {
-        return cdp_unit_test::malformed_address_tlv_unit_test();
+        return cdp_unit_test::malformed_address_tlv_unit_test()
+            && cdp_unit_test::ipv6_protocol_with_ipv4_length_unit_test();
     }
 #endif
 

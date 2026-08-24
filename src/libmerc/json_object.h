@@ -358,7 +358,8 @@ struct json_object {
             break;
         case 16:
             print_key_ipv6_addr(k, a.data);
-          default:
+            break;
+        default:
             print_key_string(k, "malformed");
         }
     }
