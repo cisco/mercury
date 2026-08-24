@@ -125,8 +125,9 @@ static inline int append_strncpy(char *dstr, int *doff, int dlen, int *trunc,
         return 0;
     }
 
-    /* Check to make sure the offset isn't already longer than the length */
-    if (*doff >= dlen) {
+    /* Reject unusable destinations and out-of-range offsets before indexing. */
+    if (dstr == nullptr || sstr == nullptr || dlen <= 0
+        || *doff < 0 || *doff >= dlen) {
         *trunc = 1;
         return 0;
     }
@@ -161,8 +162,9 @@ static inline int append_putc(char *dstr, int *doff, int dlen, int *trunc,
         return 0;
     }
 
-    /* Check to make sure the offset isn't already longer than the length */
-    if (*doff >= dlen) {
+    /* Reject unusable destinations and out-of-range offsets before indexing. */
+    if (dstr == nullptr || dlen <= 0 || *doff < 0
+        || *doff >= dlen) {
         *trunc = 1;
         return 0;
     }
@@ -1446,6 +1448,109 @@ struct buffer_stream {
             passed &= trunc == 1;
             passed &= off == 0;
             passed &= storage[0] == '\0';
+            passed &= storage[2] == 'g';
+        }
+
+        {
+            // append_putc() and append_strncpy() reject unusable buffers and
+            // out-of-range offsets without writing outside the destination.
+            char storage[3] = {'x', 'x', 'g'};
+            int off = 0;
+            int trunc = 0;
+
+            passed &= append_putc(nullptr, &off, 2, &trunc, 'a') == 0;
+            passed &= trunc == 1;
+            passed &= off == 0;
+
+            off = 0;
+            trunc = 0;
+            passed &= append_putc(storage, &off, 0, &trunc, 'a') == 0;
+            passed &= trunc == 1;
+            passed &= off == 0;
+            passed &= storage[0] == 'x';
+
+            off = -1;
+            trunc = 0;
+            passed &= append_putc(storage, &off, 2, &trunc, 'a') == 0;
+            passed &= trunc == 1;
+            passed &= off == -1;
+            passed &= storage[0] == 'x';
+            passed &= storage[2] == 'g';
+
+            off = 2;
+            trunc = 0;
+            passed &= append_putc(storage, &off, 2, &trunc, 'a') == 0;
+            passed &= trunc == 1;
+            passed &= off == 2;
+            passed &= storage[1] == 'x';
+            passed &= storage[2] == 'g';
+
+            off = 0;
+            trunc = 0;
+            passed &= append_strncpy(nullptr, &off, 2, &trunc, "ab") == 0;
+            passed &= trunc == 1;
+            passed &= off == 0;
+
+            off = 0;
+            trunc = 0;
+            passed &= append_strncpy(storage, &off, 0, &trunc, "ab") == 0;
+            passed &= trunc == 1;
+            passed &= off == 0;
+            passed &= storage[0] == 'x';
+
+            off = -1;
+            trunc = 0;
+            passed &= append_strncpy(storage, &off, 2, &trunc, "ab") == 0;
+            passed &= trunc == 1;
+            passed &= off == -1;
+            passed &= storage[0] == 'x';
+            passed &= storage[2] == 'g';
+
+            off = 2;
+            trunc = 0;
+            passed &= append_strncpy(storage, &off, 2, &trunc, "ab") == 0;
+            passed &= trunc == 1;
+            passed &= off == 2;
+            passed &= storage[1] == 'x';
+            passed &= storage[2] == 'g';
+
+            off = 0;
+            trunc = 0;
+            passed &= append_strncpy(storage, &off, 2, &trunc, nullptr) == 0;
+            passed &= trunc == 1;
+            passed &= off == 0;
+            passed &= storage[0] == 'x';
+            passed &= storage[2] == 'g';
+        }
+
+        {
+            // The public puts() and write_char() wrappers inherit the same
+            // invalid-destination guards from their append helpers.
+            char storage[3] = {'x', 'x', 'g'};
+            buffer_stream null_buf{nullptr, 2};
+            null_buf.write_char('a');
+            passed &= null_buf.is_truncated();
+            passed &= null_buf.length() == 0;
+
+            buffer_stream negative_char_buf{storage, 2};
+            negative_char_buf.doff = -1;
+            negative_char_buf.write_char('a');
+            passed &= negative_char_buf.is_truncated();
+            passed &= negative_char_buf.doff == -1;
+            passed &= storage[0] == 'x';
+            passed &= storage[2] == 'g';
+
+            buffer_stream null_puts_buf{nullptr, 2};
+            null_puts_buf.puts("ab");
+            passed &= null_puts_buf.is_truncated();
+            passed &= null_puts_buf.length() == 0;
+
+            buffer_stream negative_puts_buf{storage, 2};
+            negative_puts_buf.doff = -1;
+            negative_puts_buf.puts("ab");
+            passed &= negative_puts_buf.is_truncated();
+            passed &= negative_puts_buf.doff == -1;
+            passed &= storage[0] == 'x';
             passed &= storage[2] == 'g';
         }
 
