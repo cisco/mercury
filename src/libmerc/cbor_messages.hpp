@@ -22,7 +22,7 @@ class truncation_message {
     cbor::text_string status_;
 
 public:
-    static constexpr const char* KEY = "truncation";
+    static constexpr const char* KEY = CBOR_METADATA_TRUNCATION_KEY.c_str();
 
     static bool matches(datum key) { return key.match(KEY); }
     void decode_into(datum /*key*/, datum &d) { status_ = cbor::text_string::decode(d); }
