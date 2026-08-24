@@ -231,7 +231,7 @@ namespace sctp_unit_test {
             json_object json{&buf};
             msg1.write_json(json, false);
             json.close();
-            buf.write_char('\0');
+            buf.add_null();
             if (!strstr(buffer, "sctp")) return false;
             if (!strstr(buffer, "INIT")) return false;
             if (!strstr(buffer, "src_port")) return false;
