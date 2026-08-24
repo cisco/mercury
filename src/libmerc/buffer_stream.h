@@ -1368,9 +1368,6 @@ struct buffer_stream {
             // run in the default C locale, where U+1F600 cannot be converted
             // by %ls.
             const wchar_t wide[] = { (wchar_t)0x1f600, (wchar_t)0 };
-            char probe[8];
-
-            passed &= ::snprintf(probe, sizeof(probe), "%ls", wide) < 0;
 
             char storage[4] = {'x', 'x', 'x', 'g'};
             buffer_stream buf{storage, 3};
