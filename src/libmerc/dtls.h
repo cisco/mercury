@@ -147,7 +147,7 @@ public:
         protocols.print_string("dtls");
         protocols.close();
 
-        hello.write_l7_metadata_detail(o);   // hello.dtls == true (committed at construction)
+        hello.write_l7_metadata_detail(o, true /* is_dtls */);
     }
 
     bool is_not_empty() const { return hello.is_not_empty(); }
