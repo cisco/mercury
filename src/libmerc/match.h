@@ -151,7 +151,7 @@ namespace mask_value_and_offset_unit_test {
         };
         uint8_t buf[11] = {0};
 
-        // lengths 0..10 must all be rejected 
+        // lengths 0..10 must all be rejected
         for (size_t len = 0; len <= 10; len++) {
             if (matcher.matches_at_offset(buf, len) != false) {
                 return false;
