@@ -834,7 +834,7 @@ namespace dcerpc {
             json_object json{&buf};
             bind.write_json(json, false);
             json.close();
-            buf.write_char(0);
+            buf.add_null();
             bind_json_valid = strstr(json_buffer, "\"uuid\":\"e1af8308-5d1f-11c9-91a4-08002b14a0fa\"") &&
                 strstr(json_buffer, "\"name\":\"epm\"") &&
                 strstr(json_buffer, "\"uuid\":\"8a885d04-1ceb-11c9-9fe8-08002b104860\"");
@@ -851,7 +851,7 @@ namespace dcerpc {
             json_object json{&buf};
             fsrvp_syntax.write_json(json);
             json.close();
-            buf.write_char(0);
+            buf.add_null();
             fsrvp_syntax_json_valid = strstr(json_buffer, "\"uuid\":\"a8e0653c-2744-4389-a61d-7373df8b2292\"") &&
                 strstr(json_buffer, "\"name\":\"fsrvp\"") &&
                 strstr(json_buffer, "\"version_major\":1") &&
@@ -867,7 +867,7 @@ namespace dcerpc {
             json_object json{&buf};
             split_version.write_json(json);
             json.close();
-            buf.write_char(0);
+            buf.add_null();
             split_version_json_valid = strstr(json_buffer, "\"version_major\":0") &&
                 strstr(json_buffer, "\"version_minor\":81");
         }
@@ -882,7 +882,7 @@ namespace dcerpc {
             json_object json{&buf};
             big_endian_syntax.write_json(json);
             json.close();
-            buf.write_char(0);
+            buf.add_null();
             big_endian_syntax_json_valid = strstr(json_buffer, "\"version_major\":1") &&
                 strstr(json_buffer, "\"version_minor\":2");
         }
@@ -891,7 +891,7 @@ namespace dcerpc {
             json_object json{&buf};
             request.write_json(json, false);
             json.close();
-            buf.write_char(0);
+            buf.add_null();
             request_json_valid = strstr(json_buffer, "\"context_id\":0") &&
                 strstr(json_buffer, "\"opnum\":3");
         }
@@ -901,7 +901,7 @@ namespace dcerpc {
             json_object json{&buf};
             bind_nak.write_json(json, false);
             json.close();
-            buf.write_char(0);
+            buf.add_null();
             bind_nak_json_valid = strstr(json_buffer, "\"type\":\"bind_nak\"");
         }
         bool incomplete_json_empty = false;
@@ -910,7 +910,7 @@ namespace dcerpc {
             json_object json{&buf};
             partial_request.write_json(json, false);
             json.close();
-            buf.write_char(0);
+            buf.add_null();
             incomplete_json_empty = strcmp(json_buffer, "{}") == 0;
         }
         bool auth3_json_valid = false;
@@ -919,7 +919,7 @@ namespace dcerpc {
             json_object json{&buf};
             auth3.write_json(json, false);
             json.close();
-            buf.write_char('\0');
+            buf.add_null();
             auth3_json_valid = strstr(json_buffer, "auth_verifier");
         }
         uint8_t auth_pdu[] = {
@@ -940,7 +940,7 @@ namespace dcerpc {
             json_object json{&buf};
             auth_message.write_json(json, false);
             json.close();
-            buf.write_char('\0');
+            buf.add_null();
             const bool auth_message_valid = auth_message.is_not_empty() &&
                 strstr(json_buffer, "\"auth_type\":\"winnt\"") &&
                 strstr(json_buffer, "\"auth_level\":\"packet_privacy\"") &&
@@ -957,7 +957,7 @@ namespace dcerpc {
             json_object json{&buf};
             unknown_auth.write_json(json, false);
             json.close();
-            buf.write_char('\0');
+            buf.add_null();
             unknown_auth_fields_valid = strstr(json_buffer, "\"auth_type\":\"UNKNOWN (ff)\"") &&
                 strstr(json_buffer, "\"auth_level\":\"UNKNOWN (ff)\"");
         }
@@ -967,7 +967,7 @@ namespace dcerpc {
             json_object json{&buf};
             bind_ack.write_json(json, false);
             json.close();
-            buf.write_char('\0');
+            buf.add_null();
             bind_ack_json_valid = strstr(json_buffer, "\"context_results\"") &&
                 strstr(json_buffer, "\"selected_transfer_syntax\"") &&
                 strstr(json_buffer, "\"result\":\"provider_rejection\"") &&
@@ -983,7 +983,7 @@ namespace dcerpc {
             json_object json{&buf};
             alter_context_resp.write_json(json, false);
             json.close();
-            buf.write_char('\0');
+            buf.add_null();
             alter_context_resp_json_valid = strstr(json_buffer, "\"type\":\"alter_context_resp\"") &&
                 strstr(json_buffer, "\"context_results\"");
         }
@@ -998,7 +998,7 @@ namespace dcerpc {
             json_object json{&buf};
             unknown_context_result.write_json(json, false);
             json.close();
-            buf.write_char('\0');
+            buf.add_null();
             unknown_context_result_valid = strstr(json_buffer, "\"result\":\"UNKNOWN (ffff)\"");
         }
 

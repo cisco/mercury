@@ -135,7 +135,7 @@ namespace esp_unit_test {
             json_object json{&buf};
             pkt1.write_json(json, true);
             json.close();
-            buf.write_char('\0');
+            buf.add_null();
             if (!strstr(buffer, "12345678")) return false;
         }
 

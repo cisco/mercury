@@ -371,7 +371,7 @@ namespace netbios_unit_test {
             json_object json{&buf};
             p1.write_json(json, false);
             json.close();
-            buf.write_char('\0');
+            buf.add_null();
             if (!strstr(buffer, "nbss")) return false;
             if (!strstr(buffer, "session_message")) return false;
         }
@@ -420,7 +420,7 @@ namespace netbios_unit_test {
             json_object json{&buf};
             p7.write_json(json, false);
             json.close();
-            buf.write_char('\0');
+            buf.add_null();
             if (!strstr(buffer, "nbds")) return false;
             if (!strstr(buffer, "source_ip")) return false;
         }
@@ -439,7 +439,7 @@ namespace netbios_unit_test {
             json_object json{&buf};
             p8.write_json(json, false);
             json.close();
-            buf.write_char('\0');
+            buf.add_null();
             if (!strstr(buffer, "error_code")) return false;
         }
 

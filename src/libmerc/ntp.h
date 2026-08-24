@@ -149,7 +149,7 @@ namespace ntp_unit_test {
             json_object json{&buf};
             pkt1.write_json(json);
             json.close();
-            buf.write_char('\0');
+            buf.add_null();
             if (!strstr(buffer, "\"mode\":3")) return false;
         }
 

@@ -29,7 +29,7 @@
             return "";
         }
     }
-    buf_json.write_char('\0');
+    buf_json.add_null();
     return buf_json.get_string();
 }
 

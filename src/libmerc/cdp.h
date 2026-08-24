@@ -226,7 +226,7 @@ namespace cdp_unit_test {
         json_object json{&buf};
         pkt.write_json(json, false);
         json.close();
-        buf.write_char('\0');
+        buf.add_null();
 
         return strstr(buffer, "\"ipv6_addr\":\"2001:db8::1\"") != nullptr
             && strstr(buffer, "\"ipv6_addr\":\"malformed\"") == nullptr;
@@ -253,7 +253,7 @@ namespace cdp_unit_test {
         json_object json{&buf};
         pkt.write_json(json, false);
         json.close();
-        buf.write_char('\0');
+        buf.add_null();
         return strstr(buffer, "malformed") != nullptr;
     }
 
@@ -304,7 +304,7 @@ namespace cdp_unit_test {
         json_object json{&buf};
         pkt.write_json(json, false);
         json.close();
-        buf.write_char('\0');
+        buf.add_null();
         if (!strstr(buffer, "cdp")) return false;
         if (!strstr(buffer, "device_id")) return false;
         if (!strstr(buffer, "software_version")) return false;
