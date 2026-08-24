@@ -128,7 +128,7 @@ public:
    constexpr mask_value_and_offset (std::array<uint8_t, N> m, std::array<uint8_t, N> v, size_t off) : mask_and_value<N>(m,v), offset{off} {}
 
     bool matches_at_offset(const uint8_t *data, size_t length) const {
-        if (data == nullptr || (length + offset) < N) {
+        if (data == nullptr || length < (offset + N)) {
             return false;
         }
         return mask_and_value<N>::matches(data+offset);
@@ -138,6 +138,36 @@ public:
 
 #ifndef NDEBUG
 // LCOV_EXCL_START
+
+// Unit test for mask_value_and_offset bounds check.
+// The check must reject any length < (offset + N).
+namespace mask_value_and_offset_unit_test {
+
+    inline bool unit_test() {
+        static constexpr mask_value_and_offset<8> matcher{
+            {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+            {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+            3
+        };
+        uint8_t buf[11] = {0};
+
+        // lengths 0..10 must all be rejected 
+        for (size_t len = 0; len <= 10; len++) {
+            if (matcher.matches_at_offset(buf, len) != false) {
+                return false;
+            }
+        }
+
+        // 11 is the minimum valid length; should match (all zeros)
+        if (matcher.matches_at_offset(buf, 11) != true) {
+            return false;
+        }
+
+        return true;
+    }
+
+} // namespace mask_value_and_offset_unit_test
+
 namespace match_packet_safety_unit_test {
 
     inline bool is_aligned_to(const void *ptr, size_t alignment) {
