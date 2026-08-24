@@ -1106,16 +1106,6 @@ struct buffer_stream {
 
     bool is_truncated() const { return trunc == 1; }
 
-    /// Return true when the byte at the current logical end is NUL.
-    ///
-    bool is_null_terminated() const {
-        return dstr != nullptr
-            && dlen > 0
-            && doff >= 0
-            && doff < dlen
-            && dstr[doff] == '\0';
-    }
-
     int snprintf(const char *fmt, ...) {
 
         if (trunc == 1) {

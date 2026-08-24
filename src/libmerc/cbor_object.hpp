@@ -308,9 +308,6 @@ class cbor_to_json_translator {
             return {};
         }
         buf.add_null();
-        if (!buf.is_null_terminated()) {
-            return {};
-        }
         return buf.get_datum();
     }
 
