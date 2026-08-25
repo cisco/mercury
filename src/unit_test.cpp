@@ -282,6 +282,10 @@ int main(int, char *[]) {
             &match_packet_safety_unit_test::unit_test
         },
         {
+            "mask_value_and_offset_bounds",
+            &mask_value_and_offset_unit_test::unit_test
+        },
+        {
             "perfect_hash_packet_safety",
             &perfect_hash_packet_safety_unit_test::unit_test
         },
