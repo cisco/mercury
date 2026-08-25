@@ -149,7 +149,9 @@ namespace mask_value_and_offset_unit_test {
             {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
             3
         };
-        uint8_t buf[11] = {0};
+
+        // Non-zero prefix so matching at data (wrong) differs from data+offset (correct)
+        uint8_t buf[11] = {0xAA, 0xBB, 0xCC, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
         // lengths 0..10 must all be rejected
         for (size_t len = 0; len <= 10; len++) {
@@ -158,7 +160,7 @@ namespace mask_value_and_offset_unit_test {
             }
         }
 
-        // 11 is the minimum valid length; should match (all zeros)
+        // 11 is the minimum valid length; should match at offset 3 (all zeros there)
         if (matcher.matches_at_offset(buf, 11) != true) {
             return false;
         }
