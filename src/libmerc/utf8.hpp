@@ -26,7 +26,7 @@ public:
     // code sequences used to represent invalid byte sequences
     //
     static const constexpr char *replacement_character   = "\\ufffd";
-    static const constexpr size_t replacement_character_length = 6;
+    static const constexpr size_t replacement_character_length = sizeof("\\ufffd") - 1;
 
     /// write the \param len bytes at location \param data as a UTF-8
     /// string with the JSON special characters (quotation mark,
