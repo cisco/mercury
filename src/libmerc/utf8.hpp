@@ -26,6 +26,7 @@ public:
     // code sequences used to represent invalid byte sequences
     //
     static const constexpr char *replacement_character   = "\\ufffd";
+    static const constexpr size_t replacement_character_length = 6;
 
     /// write the \param len bytes at location \param data as a UTF-8
     /// string with the JSON special characters (quotation mark,
@@ -82,12 +83,49 @@ public:
     //
     static inline bool is_second_byte_valid(uint8_t byte1, uint8_t byte2);
 
+    // write a complete JSON string fragment, or nothing if it does not fit
+    //
+    static inline bool write_fragment(buffer_stream &b, const char *fragment, size_t length) {
+        if (b.writeable_length() <= length) {
+            b.set_truncated();
+            return false;
+        }
+        b.memcpy(fragment, length);
+        return true;
+    }
+
     // write the uint16_t value as a '\uXXXX'-encoded codepoint
     //
-    static inline void write_codepoint(buffer_stream &b, uint16_t codepoint) {
-        b.write_char('\\');
-        b.write_char('u');
-        b.write_hex_uint(codepoint);
+    static inline bool write_codepoint(buffer_stream &b, uint16_t codepoint) {
+        static constexpr char hex[] = "0123456789abcdef";
+        const char escaped[] = {
+            '\\',
+            'u',
+            hex[(codepoint & 0xf000) >> 12],
+            hex[(codepoint & 0x0f00) >> 8],
+            hex[(codepoint & 0x00f0) >> 4],
+            hex[codepoint & 0x000f]
+        };
+        return write_fragment(b, escaped, sizeof(escaped));
+    }
+
+    // write a complete UTF-16 surrogate pair, or nothing if it does not fit
+    //
+    static inline bool write_surrogate_pair(buffer_stream &b, uint16_t hi, uint16_t lo) {
+        if (b.writeable_length() <= 12) {
+            b.set_truncated();
+            return false;
+        }
+        return write_codepoint(b, hi) && write_codepoint(b, lo);
+    }
+
+    static inline bool write_replacement_character(buffer_stream &b) {
+        return write_fragment(b, replacement_character, replacement_character_length);
+    }
+
+    static inline bool write_escaped_ascii(buffer_stream &b, uint8_t x) {
+        const char escaped[] = { '\\', static_cast<char>(x) };
+        return write_fragment(b, escaped, sizeof(escaped));
     }
 
     /// runs the unit tests for \ref utf8_string and returns `true` if
@@ -214,7 +252,7 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
 
                     if (*x >= 0xf0 && *x <= 0xf4) {
                         if ((end - x) < 4) {
-                            b.puts(replacement_character); // invalid; sequence too short
+                            write_replacement_character(b); // invalid; sequence too short
                             valid = false;
                             x++;
                             continue;              // consume one byte and continue
@@ -235,7 +273,7 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
                         }
                     } else if (*x <= 0xef) {
                         if ((end - x) < 3) {
-                            b.puts(replacement_character); // invalid; sequence too short
+                            write_replacement_character(b); // invalid; sequence too short
                             valid = false;
                             x++;
                             continue;              // consume one byte and continue
@@ -254,7 +292,7 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
 
                 } else {
                     if ((end - x) < 2) {
-                        b.puts(replacement_character); // invalid; sequence too short
+                        write_replacement_character(b); // invalid; sequence too short
                         valid = false;
                         x++;
                         continue;              // consume one byte and continue
@@ -273,7 +311,7 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
                     // was decoded (e.g., invalid lead byte, invalid
                     // continuation byte, or overlong encoding)
                     //
-                    b.puts(replacement_character); // indicate error
+                    write_replacement_character(b); // indicate error
                     valid = false;
 
                 } else {
@@ -289,14 +327,14 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
                         //
                         // error: invalid or private codepoint
                         //
-                        b.puts(replacement_character); // indicate error
+                        write_replacement_character(b); // indicate error
                         valid = false;
 
                     } else if (codepoint >= 0xd800 && codepoint <= 0xdfff) {
                         //
                         // invalid surrogate half
                         //
-                        b.puts(replacement_character); // indicate error
+                        write_replacement_character(b); // indicate error
                         valid = false;
 
                     } else if (codepoint > 0xffff) {
@@ -306,8 +344,7 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
                         codepoint -= 0x10000;
                         uint32_t hi = (codepoint >> 10) + 0xd800;
                         uint32_t lo = (codepoint & 0x3ff) + 0xdc00;
-                        write_codepoint(b, hi);
-                        write_codepoint(b, lo);
+                        write_surrogate_pair(b, hi, lo);
 
                     } else {
                         //
@@ -322,7 +359,7 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
                 //
                 // error: invalid initial byte (0x80 - 0xc1)
                 //
-                b.puts(replacement_character); // indicate error
+                write_replacement_character(b); // indicate error
                 valid = false;
             }
 
@@ -333,9 +370,10 @@ inline bool utf8_string::write(buffer_stream &b, const uint8_t *data, unsigned i
 
             } else {
                 if (*x == '"' || *x == '\\') {   // escape json special characters
-                    b.write_char('\\');
+                    write_escaped_ascii(b, *x);
+                } else {
+                    b.write_char(*x);                // print out ascii character
                 }
-                b.write_char(*x);                // print out ascii character
             }
         }
         x++;
@@ -1051,6 +1089,40 @@ inline bool utf8_string::unit_test(FILE *output) {
             tc.fprint(output);
         }
     }
+
+    auto atomic_truncation_test = [](const std::vector<uint8_t> &input,
+                                     size_t expected_len,
+                                     bool expected_valid) {
+        datum input_datum{input.data(), input.data() + input.size()};
+        char data[4096];
+        buffer_stream buf{data, sizeof(data)};
+        bool status = utf8_string::write(buf, input_datum.data, input_datum.length());
+        buf.add_null();
+        return status == expected_valid
+            && buf.is_truncated()
+            && buf.get_string() == std::string(expected_len, 'a');
+    };
+
+    std::vector<uint8_t> escaped_quote(4094, 'a');
+    escaped_quote.push_back('"');
+    passed &= atomic_truncation_test(escaped_quote, 4094, true);
+    std::string escaped_quote_string(4094, 'a');
+    escaped_quote_string.push_back('"');
+    passed &= utf8_string::get_utf8_string(escaped_quote_string.c_str()) == std::string(4094, 'a');
+
+    std::vector<uint8_t> control_escape(4090, 'a');
+    control_escape.push_back('\n');
+    passed &= atomic_truncation_test(control_escape, 4090, true);
+
+    std::vector<uint8_t> replacement_escape(4090, 'a');
+    replacement_escape.push_back(0xff);
+    passed &= atomic_truncation_test(replacement_escape, 4090, false);
+
+    std::vector<uint8_t> surrogate_pair_escape(4084, 'a');
+    const uint8_t g_clef[] = { 0xf0, 0x9d, 0x84, 0x9e };
+    surrogate_pair_escape.insert(surrogate_pair_escape.end(), g_clef, g_clef + sizeof(g_clef));
+    passed &= atomic_truncation_test(surrogate_pair_escape, 4084, true);
+
     return passed;
 }
 // LCOV_EXCL_STOP
