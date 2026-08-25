@@ -9,6 +9,7 @@
 #include "static_dict.hpp"
 #include "json_object.h"
 #include "utf8.hpp"
+#include <optional>
 #include <stdexcept>
 
 constexpr uint64_t tag_npf_fingerprint = 0x4650; // application tag 18000, "FP"; NPF representation hint
@@ -271,20 +272,11 @@ public:
         }
     }
 
-    const char *word(size_t idx) const {
+    null_terminated_string word(size_t idx) const {
         if (idx < a.size()) {
-            return a[idx].c_str();
+            return null_terminated_string::assume(a[idx].c_str());
         }
         return "UNKNOWN";  // note: could report unknown integer value as string
-    }
-
-    datum word_view(size_t idx) const {
-        if (idx < a.size()) {
-            const auto &word = a[idx];
-            return datum{word};
-        }
-        static constexpr uint8_t unknown[] = { 'U', 'N', 'K', 'N', 'O', 'W', 'N', '\0' };
-        return { unknown, unknown + sizeof(unknown) - 1 };
     }
 
 };
@@ -297,18 +289,18 @@ class cbor_to_json_translator {
 
     enum type { key, value };
 
-    /// Null-terminate the buffer and return a datum over the logical contents.
+    /// Null-terminate the buffer and return a string wrapper over the contents.
     ///
-    /// The returned datum excludes the terminator.  A null datum indicates that
-    /// the buffer was truncated or could not be terminated in bounds.
+    /// A null optional indicates that the buffer was truncated or could not be
+    /// terminated in bounds.
     ///
     template <size_t N>
-    static datum null_terminate_and_get_datum(output_buffer<N> &buf) {
-        if (buf.is_truncated() || buf.content_size() >= N) {
-            return {};
+    static std::optional<null_terminated_string> null_terminate(output_buffer<N> &buf) {
+        datum terminated{buf.null_terminate_and_get_datum()};
+        if (terminated.is_null()) {
+            return std::nullopt;
         }
-        buf.add_null();
-        return buf.get_datum();
+        return null_terminated_string::assume(reinterpret_cast<const char *>(terminated.data));
     }
 
 public:
@@ -322,7 +314,7 @@ public:
     inline bool decode_cbor_map_to_json(datum &d, json_object &o) {
 
         type expected_type = key;
-        datum key;
+        std::optional<null_terminated_string> key;
 
         output_buffer<128> key_buf;
 
@@ -339,9 +331,9 @@ public:
                             if (keys == nullptr) {
                                 key_buf.reset();
                                 key_buf.write_uint16(tmp.value());
-                                key = null_terminate_and_get_datum(key_buf);
+                                key = null_terminate(key_buf);
                             } else {
-                                key = keys->word_view(tmp.value());
+                                key = keys->word(tmp.value());
                             }
                         }
                         break;
@@ -351,7 +343,7 @@ public:
                             if (d.is_null()) { return false; }
                             key_buf.reset();
                             utf8_string::write(key_buf, tmp.value().data, tmp.value().length());
-                            key = null_terminate_and_get_datum(key_buf);
+                            key = null_terminate(key_buf);
                         }
                         break;
                     case cbor::simple_or_float_type:
@@ -367,7 +359,7 @@ public:
                         return false;
                     }
 
-                    if (key.is_null()) {
+                    if (!key) {
                         fprintf(stderr, "error: null key\n");
                         return false;
                     }
@@ -375,8 +367,7 @@ public:
 
                 } else if (expected_type == type::value) {
 
-                    auto key_view = key.get_string_view();
-                    null_terminated_string json_key = null_terminated_string::checked(key_view.data(), key_view.length());
+                    null_terminated_string json_key = *key;
                     switch (ib.value.major_type()) {
                     case cbor::unsigned_integer_type:
                         {
@@ -450,7 +441,7 @@ public:
                         return false;
                     }
 
-                    key = {};
+                    key.reset();
                     expected_type = type::key;
                 }
 
@@ -592,7 +583,15 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
         }
         return false;
     }
-    empty_buf.add_null();
+    datum empty_datum_with_null{empty_buf.null_terminate_and_get_datum()};
+    if (empty_datum_with_null.is_null()
+        || empty_datum_with_null.length() != 1
+        || empty_datum_with_null.data[0] != '\0') {
+        if (f) {
+            fprintf(f, "test null_terminate_and_get_datum empty buffer failed\n");
+        }
+        return false;
+    }
     auto empty_view = empty_datum.get_string_view();
     if (empty_view.data() == nullptr || empty_view.length() != 0) {
         if (f) {

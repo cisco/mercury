@@ -1074,6 +1074,8 @@ static inline int append_raw_as_base64(char *dstr, int *doff, int dlen, int *tru
 ///  length()      = doff                    never counts the terminator
 ///  add_null()    writes dstr[doff]         does not advance doff
 ///  get_string()  = [dstr, dstr+doff)       no strlen, no terminator needed
+///  null_terminate_and_get_datum()
+///                = [dstr, dstr+doff+1)     includes a terminator it writes
 ///
 struct buffer_stream {
     char *dstr;  ///< Caller-owned destination buffer.
@@ -1257,6 +1259,26 @@ struct buffer_stream {
         return std::string{dstr, (size_t)doff};
     }
 
+    /// Null-terminate the buffer and return a datum over the written bytes and
+    /// the terminating NUL.
+    ///
+    /// If the stream is already truncated or there is no in-bounds byte
+    /// available for the terminator, return a null datum.  This function does
+    /// not inspect the terminator byte; it writes the terminator before
+    /// returning the span that includes it.
+    ///
+    std::pair<const uint8_t *, const uint8_t *> null_terminate_and_get_datum() {
+        if (trunc || dstr == nullptr || doff < 0 || doff >= dlen) {
+            trunc = 1;
+            return { nullptr, nullptr };
+        }
+        add_null();
+        return {
+            reinterpret_cast<const uint8_t *>(dstr),
+            reinterpret_cast<const uint8_t *>(dstr + doff + 1)
+        };
+    }
+
     /// returns the number of writeable bytes remaining in this
     /// buffer_stream
     ///
@@ -1294,6 +1316,10 @@ struct buffer_stream {
             buf.add_null();
             passed &= storage[2] == '\0';
             passed &= buf.get_string() == "ab";
+
+            auto with_null = buf.null_terminate_and_get_datum();
+            passed &= with_null.first == reinterpret_cast<const uint8_t *>(storage);
+            passed &= with_null.second == reinterpret_cast<const uint8_t *>(storage + 3);
         }
 
         {
