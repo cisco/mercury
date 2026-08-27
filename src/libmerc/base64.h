@@ -229,6 +229,7 @@ public:
     }
 
     // LCOV_EXCL_START
+#ifndef NDEBUG
     // class unit_test_case holds a single test case for
     // base64::decode()
     //
@@ -311,13 +312,12 @@ public:
         return true;
     }
 
-#ifndef NDEBUG
     //
     // automatically perform unit tests, and throw an exception on
     // failure
     //
     inline static const bool unit_tests_passed = unit_test();
-#endif
+#endif // NDEBUG
     // LCOV_EXCL_STOP
 
 };
