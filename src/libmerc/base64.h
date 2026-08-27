@@ -185,13 +185,20 @@ public:
     //
     static int decode(void *outbuf, const size_t outlen, const void* data, const size_t len) {
         unsigned char* p = (unsigned char*)data;
-        int pad = len > 0 && (len % 4 || p[len - 1] == '=');
-        const size_t L = ((len + 3) / 4 - pad) * 4;
-        uint8_t *str = (uint8_t *)outbuf;
-        size_t str_size = L / 4 * 3 + pad;
-
         if (len & 0x3) {
             return -1;  // not in base64 format
+        }
+        const bool pad = len > 0 && p[len - 1] == '=';
+        const size_t L = ((len + 3) / 4 - pad) * 4;
+        uint8_t *str = (uint8_t *)outbuf;
+        size_t str_size = L / 4 * 3;
+
+        if (pad) {
+            // The final padded quartet produces one or two bytes.
+            ++str_size;
+            if (p[L + 2] != '=') {
+                ++str_size;
+            }
         }
         if (outlen < str_size) {
             // printf_err(log_err, "base64 decode needs %zu bytes, only has room for %zu\n", str_size, outlen);
@@ -273,6 +280,17 @@ public:
                 }
                 return false;
             }
+        }
+
+        // A single-pad quartet decodes to two bytes, so one byte of output
+        // capacity must be rejected before either byte is written.
+        //
+        const char single_pad[] = "Zm8=";
+        uint8_t output[2] = { 0, };
+        if (decode(output, 1, single_pad, strlen(single_pad)) != 0 ||
+            decode(output, sizeof(output), single_pad, strlen(single_pad)) != 2 ||
+            memcmp(output, "fo", 2) != 0) {
+            return false;
         }
         return true;
     }
