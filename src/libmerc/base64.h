@@ -150,27 +150,26 @@ class base64 {
 
 public:
 
-    std::string b64decode(const void* data, const size_t len) {
-        unsigned char* p = (unsigned char*)data;
-        int pad = len > 0 && (len % 4 || p[len - 1] == '=');
-        const size_t L = ((len + 3) / 4 - pad) * 4;
-        std::string str(L / 4 * 3 + pad, '\0');
-
-        for (size_t i = 0, j = 0; i < L; i += 4)  {
-            int n = index[p[i]] << 18 | index[p[i + 1]] << 12 | index[p[i + 2]] << 6 | index[p[i + 3]];
-            str[j++] = n >> 16;
-            str[j++] = n >> 8 & 0xFF;
-            str[j++] = n & 0xFF;
+    static std::string decode_to_string(const void* data, const size_t len) {
+        if (len & 0x3) {
+            return std::string();  // invalid base64 length
         }
-        if (pad) {
-            int n = index[p[L]] << 18 | index[p[L + 1]] << 12;
-            str[str.size() - 1] = n >> 16;
 
-            if (len > L + 2 && p[L + 2] != '=') {
-                n |= index[p[L + 2]] << 6;
-                str.push_back(n >> 8 & 0xFF);
-            }
+        const unsigned char *p = (const unsigned char *)data;
+        size_t output_length = len / 4 * 3;
+        if (len > 0 && p[len - 1] == '=') {
+            --output_length;
         }
+        if (len > 1 && p[len - 2] == '=') {
+            --output_length;
+        }
+
+        std::string str(output_length, '\0');
+        int decoded_length = decode(str.data(), str.size(), data, len);
+        if (decoded_length < 0) {
+            return std::string();
+        }
+        str.resize(decoded_length);
         return str;
     }
 
@@ -290,6 +289,23 @@ public:
         if (decode(output, 1, single_pad, strlen(single_pad)) != 0 ||
             decode(output, sizeof(output), single_pad, strlen(single_pad)) != 2 ||
             memcmp(output, "fo", 2) != 0) {
+            return false;
+        }
+
+        // A length of one modulo four is invalid and must not cause the
+        // string decoder to read beyond the supplied input buffer.
+        const unsigned char invalid_length[] = { 'A', 0, };
+        if (!decode_to_string(invalid_length, 1).empty()) {
+            return false;
+        }
+
+        const char string_input[] = "Zm8=";
+        if (decode_to_string(string_input, strlen(string_input)) != "fo") {
+            return false;
+        }
+
+        const char invalid_input[] = "Z!9v";
+        if (!decode_to_string(invalid_input, strlen(invalid_input)).empty()) {
             return false;
         }
         return true;
