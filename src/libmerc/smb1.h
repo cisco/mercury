@@ -135,11 +135,69 @@ public:
                 datum dialect;
                 dialect.parse_up_to_delim(dialect_body, '\0');
                 a.print_json_string(dialect);
+                if (dialect.data_end == dialect_body.data_end) {
+                    // no delimiter found; dialect_body wasn't advanced,
+                    // so break out of the loop to avoid rescanning
+                    break;
+                }
                 dialect_body.skip(1); //skip the null byte
             }
         }
         a.close();
     }
+
+#ifndef NDEBUG
+    // LCOV_EXCL_START
+    static bool unit_test() {
+        // 0x02 is also the buffer-format literal; any other filler byte
+        // would end the loop on its own, independent of this fix
+        {
+            static constexpr unsigned char body[] = {
+                0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02,
+                0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02
+            };
+            datum d{body, body + sizeof(body)};
+            smb1_dialects dialects{d};
+            char buffer[8192];
+            buffer_stream buf(buffer, sizeof(buffer));
+            json_object o(&buf);
+            dialects.write_json(o);
+            o.close();
+            static constexpr char expected[] =
+                R"({"dialects":[")"
+                "\x5c" "u0002" "\x5c" "u0002" "\x5c" "u0002" "\x5c" "u0002" "\x5c" "u0002"
+                "\x5c" "u0002" "\x5c" "u0002" "\x5c" "u0002" "\x5c" "u0002" "\x5c" "u0002"
+                "\x5c" "u0002" "\x5c" "u0002" "\x5c" "u0002" "\x5c" "u0002" "\x5c" "u0002"
+                "\x5c" "u0002" "\x5c" "u0002" "\x5c" "u0002" "\x5c" "u0002"
+                R"("]})";
+            if (buf.length() != sizeof(expected) - 1
+                || memcmp(buffer, expected, sizeof(expected) - 1) != 0) {
+                return false;
+            }
+        }
+
+        {
+            static constexpr unsigned char body[] =
+                "\x02" "PC NETWORK PROGRAM 1.0" "\x00"
+                "\x02" "NT LM 0.12" "\x00";
+            datum d{body, body + sizeof(body) - 1};   // exclude the C-string NUL
+            smb1_dialects dialects{d};
+            char buffer[8192];
+            buffer_stream buf(buffer, sizeof(buffer));
+            json_object o(&buf);
+            dialects.write_json(o);
+            o.close();
+            const char expected[] = R"({"dialects":["PC NETWORK PROGRAM 1.0","NT LM 0.12"]})";
+            if (buf.length() != (int)sizeof(expected) - 1
+                || memcmp(buffer, expected, sizeof(expected) - 1) != 0) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+    // LCOV_EXCL_STOP
+#endif // NDEBUG
 };
 
 /*

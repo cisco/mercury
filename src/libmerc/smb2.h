@@ -94,7 +94,10 @@ public:
     bool valid;
 
     dialects (datum &d, uint16_t cnt, bool byte_swap = true) {
-        for (auto i = 0; i < cnt; i++) {
+        // cnt is attacker-controlled; is_not_empty() clamps the loop to
+        // the bytes actually present since each dialect always consumes
+        // exactly 2 bytes or exhausts/nulls d
+        for (auto i = 0; i < cnt and d.is_not_empty(); i++) {
             dialect id(d, byte_swap);
             dialects_list.push_back(id);
         }
@@ -129,6 +132,36 @@ public:
         }
         a.close();
     }
+
+#ifndef NDEBUG
+    // LCOV_EXCL_START
+    static bool unit_test() {
+        // 5 little-endian dialect codes: 0x0202, 0x0210, 0x0300, 0x0302, 0x0311
+        static constexpr unsigned char body_bytes[] = {
+            0x02, 0x02, 0x10, 0x02, 0x00, 0x03, 0x02, 0x03, 0x11, 0x03
+        };
+
+        // cnt overstates what's present: must clamp, not discard
+        {
+            datum d{body_bytes, body_bytes + sizeof(body_bytes)};
+            dialects dl(d, 0xFFFF, false);
+            if (!dl.valid or dl.dialects_list.size() != 5) {
+                return false;
+            }
+        }
+
+        {
+            datum d{body_bytes, body_bytes + sizeof(body_bytes)};
+            dialects dl(d, 5, false);
+            if (!dl.valid or dl.dialects_list.size() != 5) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+    // LCOV_EXCL_STOP
+#endif // NDEBUG
 };
 
 /*

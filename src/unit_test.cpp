@@ -55,6 +55,8 @@
 #include "libmerc/gre.h"
 #include "libmerc/mdns.h"
 #include "libmerc/ssh.h"
+#include "libmerc/smb1.h"
+#include "libmerc/smb2.h"
 #include "libmerc/ip.h"
 #include "libmerc/match.h"
 #include "libmerc/perfect_hash.h"
@@ -228,6 +230,14 @@ int main(int, char *[]) {
         {
             "netbios",
             &netbios_unit_test::unit_test
+        },
+        {
+            "smb1_dialects",
+            &smb1_dialects::unit_test
+        },
+        {
+            "smb2_dialects",
+            &dialects::unit_test
         },
         {
             "stun",
