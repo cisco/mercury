@@ -8,6 +8,8 @@
 #include "libmerc/lex.h"
 #include "libmerc/cbor.hpp"
 #include "libmerc/cbor_object.hpp"
+#include "libmerc/buffer_stream.h"
+#include "libmerc/fingerprint.h"
 #include "libmerc/base64.h"
 #include "libmerc/tofsee.hpp"
 #include "libmerc/snmp.hpp"
@@ -91,6 +93,14 @@ int main(int, char *[]) {
         unit_test_func func;
     };
     test_case test_cases[] = {
+        {
+            "buffer_stream",
+            &buffer_stream::unit_test
+        },
+        {
+            "fingerprint",
+            &fingerprint_unit_test::unit_test
+        },
         {
             "datum_match",
             &datum_match_unit_test
@@ -270,6 +280,10 @@ int main(int, char *[]) {
         {
             "match_packet_safety",
             &match_packet_safety_unit_test::unit_test
+        },
+        {
+            "mask_value_and_offset_bounds",
+            &mask_value_and_offset_unit_test::unit_test
         },
         {
             "perfect_hash_packet_safety",
