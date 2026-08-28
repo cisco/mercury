@@ -667,6 +667,9 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test attribute detection with analysis")
     set_pcap("ipv6-domain-faking.pcap");
     { std::string attr = "domain_faking"; CHECK(!check_attr(attr)); }
 
+    set_pcap("ipv6-domain-faking-public.pcap");
+    { std::string attr = "domain_faking"; CHECK(check_attr(attr)); }
+
     // check if faketls attribute is present in the attributes array
     set_pcap("faketls_potatovpn.pcap");
     { std::string attr = "faketls"; CHECK(check_attr(attr)); }
