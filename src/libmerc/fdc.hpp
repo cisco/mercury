@@ -302,6 +302,7 @@ namespace cbor_fingerprint {
                 cbor::uint64{idx}.write(m);
             }
         }
+        m.close();
     }
 
     inline void encode_cbor_fingerprint(datum d, writeable &w) {
@@ -458,6 +459,10 @@ namespace cbor_fingerprint {
             if (lookahead<cbor::uint64> label{m.value()}) {
                 if (label.value.value() == fp_labels.index("randomized")) {
                     w << datum{"randomized"};
+                    d = label.advance();    // accept the label
+                } else {
+                    d.set_null();           // an unrecognized label is not a
+                    w.set_null();           // fingerprint we can render
                 }
             } else {
                 cbor::array a{m.value()};
@@ -466,6 +471,9 @@ namespace cbor_fingerprint {
                 decode_cbor_list(m.value(), w); // headers
                 a.close();
             }
+        } else {
+            d.set_null();   // unknown format version: consume nothing and
+            w.set_null();   // report the failure through both outputs
         }
         m.close();
     }
@@ -480,6 +488,9 @@ namespace cbor_fingerprint {
             decode_cbor_data(m.value(), w); // status_reason
             decode_cbor_list(m.value(), w); // headers
             a.close();
+        } else {
+            d.set_null();   // unknown format version: consume nothing and
+            w.set_null();   // report the failure through both outputs
         }
         m.close();
     }
@@ -500,6 +511,10 @@ namespace cbor_fingerprint {
             if (lookahead<cbor::uint64> label{m.value()}) {
                 if (label.value.value() == fp_labels.index("randomized")) {
                     w << datum{"randomized"};
+                    d = label.advance();    // accept the label
+                } else {
+                    d.set_null();           // an unrecognized label is not a
+                    w.set_null();           // fingerprint we can render
                 }
             } else {
                 cbor::array a{m.value()};
@@ -508,6 +523,9 @@ namespace cbor_fingerprint {
                 decode_cbor_sorted_list(m.value(), w);  // extensions
                 a.close();
             }
+        } else {
+            d.set_null();   // unknown format version: consume nothing and
+            w.set_null();   // report the failure through both outputs
         }
         m.close();
     }
@@ -522,6 +540,9 @@ namespace cbor_fingerprint {
             decode_cbor_list(m.value(), w); // extensions
             a.close();
 
+        } else {
+            d.set_null();   // unknown format version: consume nothing and
+            w.set_null();   // report the failure through both outputs
         }
         m.close();
     }
@@ -533,6 +554,10 @@ namespace cbor_fingerprint {
             if (lookahead<cbor::uint64> label{m.value()}) {
                 if (label.value.value() == fp_labels.index("randomized")) {
                     w << datum{"randomized"};
+                    d = label.advance();    // accept the label
+                } else {
+                    d.set_null();           // an unrecognized label is not a
+                    w.set_null();           // fingerprint we can render
                 }
             } else {
                 cbor::array a{m.value()};
@@ -542,6 +567,9 @@ namespace cbor_fingerprint {
                 decode_cbor_sorted_list(m.value(), w); // extensions
                 a.close();
             }
+        } else {
+            d.set_null();   // unknown format version: consume nothing and
+            w.set_null();   // report the failure through both outputs
         }
         m.close();
     }
@@ -554,7 +582,13 @@ namespace cbor_fingerprint {
             w.copy('/');
             if (cbor::uint64{m.value()}.value() == fp_labels.index("generic")) {
                 w << datum{"generic"};
+            } else {
+                d.set_null();               // an unrecognized label is not a
+                w.set_null();               // fingerprint we can render
             }
+        } else {
+            d.set_null();   // unknown format version: consume nothing and
+            w.set_null();   // report the failure through both outputs
         }
         m.close();
     }
@@ -568,6 +602,10 @@ namespace cbor_fingerprint {
             if (lookahead<cbor::uint64> label{m.value()}) {
                 if (label.value.value() == fp_labels.index("randomized")) {
                     w << datum{"randomized"};
+                    d = label.advance();    // accept the label
+                } else {
+                    d.set_null();           // an unrecognized label is not a
+                    w.set_null();           // fingerprint we can render
                 }
             } else {
                 cbor::array a{m.value()};
@@ -577,6 +615,9 @@ namespace cbor_fingerprint {
                 decode_cbor_list(m.value(), w);         // attributes
                 a.close();
             }
+        } else {
+            d.set_null();   // unknown format version: consume nothing and
+            w.set_null();   // report the failure through both outputs
         }
         m.close();
     }
@@ -588,6 +629,10 @@ namespace cbor_fingerprint {
             if (lookahead<cbor::uint64> label{m.value()}) {
                 if (label.value.value() == fp_labels.index("randomized")) {
                     w << datum{"randomized"};
+                    d = label.advance();    // accept the label
+                } else {
+                    d.set_null();           // an unrecognized label is not a
+                    w.set_null();           // fingerprint we can render
                 }
             } else {
                 cbor::array a{m.value()};
@@ -603,6 +648,9 @@ namespace cbor_fingerprint {
                 decode_cbor_data(m.value(), w);   // languages_server_to_client
                 a.close();
             }
+        } else {
+            d.set_null();   // unknown format version: consume nothing and
+            w.set_null();   // report the failure through both outputs
         }
         m.close();
     }
@@ -646,7 +694,10 @@ namespace cbor_fingerprint {
             decode_tls_server_fp(d, w); // same format as tls_server fp
             break;
         default:
-            ;
+            // Error: Unknown fingerprint type
+            d.set_null();
+            w.set_null();
+            break;
         }
 
     }
@@ -677,6 +728,27 @@ namespace cbor_fingerprint {
         datum encoded_data{data_buf.contents()};
         cbor_fingerprint::decode_cbor_fingerprint(encoded_data, out_buf);
 
+        // after a correct decode the datum sits at data_end: not null, and with
+        // nothing left to read.  A decoder that renders the right string while
+        // leaving bytes unconsumed is still broken.
+        //
+        if (encoded_data.is_null() or encoded_data.is_readable()) {
+            if (f) {
+                fprintf(f, "ERROR: DECODER DID NOT CONSUME THE ENCODED FINGERPRINT\n");
+                fprintf(f, "fingerprint:              %s\n", fingerprint_string);
+                fprintf(f, "CBOR encoded fingerprint: ");
+                data_buf.contents().fprint_hex(f); fputc('\n', f);
+                fprintf(f, "unconsumed:               ");
+                if (encoded_data.is_null()) {
+                    fprintf(f, "<null datum>");
+                } else {
+                    encoded_data.fprint_hex(f);
+                }
+                fputc('\n', f);
+            }
+            return false;
+        }
+
         if (out_buf.contents().cmp(fp_data) != 0) {
             if (f) {
                 fprintf(f, "ERROR: MISMATCH\n");
@@ -691,6 +763,35 @@ namespace cbor_fingerprint {
         }
         return true;
     };
+
+    /// verify that decode_cbor_fingerprint() rejects the cbor fingerprint in
+    /// \param encoded, by leaving both of its outputs null.
+    ///
+    /// A fingerprint that cannot be decoded must report the failure through the
+    /// datum *and* the writeable: a caller that renders the partial string, or
+    /// one that goes on to read the unconsumed bytes, would both be wrong.
+    ///
+    /// \return `true` if both outputs were left null, and `false` otherwise
+    ///
+    static bool test_undecodable_fingerprint(const char *name, datum encoded, FILE *f=nullptr) {
+        data_buffer<2048> out_buf;
+        cbor_fingerprint::decode_cbor_fingerprint(encoded, out_buf);
+
+        if (encoded.is_not_null() or !out_buf.is_null()) {
+            if (f) {
+                fprintf(f, "ERROR: UNDECODABLE FINGERPRINT WAS NOT REJECTED (%s)\n", name);
+                fprintf(f, "datum:     %s\n", encoded.is_not_null() ? "not null" : "null");
+                fprintf(f, "writeable: ");
+                if (out_buf.is_null()) {
+                    fprintf(f, "null\n");
+                } else {
+                    out_buf.contents().fprint(f); fputc('\n', f);
+                }
+            }
+            return false;
+        }
+        return true;
+    }
 
     // cbor_fingerprint::unit_test() returns `true` if all unit tests
     // pass, `false` otherwise
@@ -710,6 +811,8 @@ namespace cbor_fingerprint {
             "tls/1/randomized",
             "quic/randomized",
             "stun/1/randomized",
+            "ssh/randomized",
+            "tofsee/1/generic",
             "stun/1/(00)(0001)(01)((8022)(0006)(0020)(0008)(8028))",
             "ssh/(656364682d736861322d6e697374703235362c656364682d736861322d6e697374703338342c656364682d736861322d6e697374703532312c6469666669652d68656c6c6d616e2d67726f757031342d736861312c6469666669652d68656c6c6d616e2d67726f75702d65786368616e67652d7368613235362c6469666669652d68656c6c6d616e2d67726f75702d65786368616e67652d736861312c6469666669652d68656c6c6d616e2d67726f7570312d73686131)(7373682d7273612c7373682d6473732c65636473612d736861322d6e697374703235362c65636473612d736861322d6e697374703338342c65636473612d736861322d6e69737470353231)(6165733132382d6374722c6165733132382d6362632c336465732d6374722c336465732d6362632c626c6f77666973682d6362632c6165733139322d6374722c6165733139322d6362632c6165733235362d6374722c6165733235362d636263)(6165733132382d6374722c6165733132382d6362632c336465732d6374722c336465732d6362632c626c6f77666973682d6362632c6165733139322d6374722c6165733139322d6362632c6165733235362d6374722c6165733235362d636263)(686d61632d6d64352c686d61632d736861312c686d61632d736861322d3235362c686d61632d736861312d39362c686d61632d6d64352d3936)(686d61632d6d64352c686d61632d736861312c686d61632d736861322d3235362c686d61632d736861312d39362c686d61632d6d64352d3936)(6e6f6e65)(6e6f6e65)()()",
             "dtls/1/(fefd)(c02c)[(000a000c000a001d0017001e00190018)(000b000403000102)(000d0030002e040305030603080708080809080a080b080408050806040105010601030302030301020103020202040205020602)(0016)]",
@@ -720,6 +823,53 @@ namespace cbor_fingerprint {
         for (const auto & fp_str : fps) {
             all_tests_passed &= test_fingerprint(fp_str, f);
         }
+
+        // fingerprints that cannot be decoded, which must be rejected through
+        // both outputs rather than reported as a partial success
+        //
+        // an unknown fingerprint type, and an unknown format version with and
+        // without a value after the version key.  The third form is the one
+        // that read_break() cannot catch, because both of the break bytes that
+        // it reads are really there.
+        //
+        std::array<uint8_t,25> unknown_type{
+            0xbf, 0x18, 0x63, 0xbf, 0x01,                       // {99: {1:
+              0x9f, 0x42, 0x03, 0x03, 0x42, 0x13, 0x01,         //   [0303, 1301,
+                0xd8, 0xfb,                                     //     tag(251)
+                  0x9f, 0x42, 0x00, 0x00, 0x42, 0x00, 0x0a,     //       [0000, 000a
+                  0xff,                                         //       ]
+              0xff,                                             //   ]
+            0xff, 0xff                                          // }}
+        };
+        std::array<uint8_t,24> unknown_version{
+            0xbf, 0x01, 0xbf, 0x07,                             // {1: {7:
+              0x9f, 0x42, 0x03, 0x03, 0x42, 0x13, 0x01,         //   [0303, 1301,
+                0xd8, 0xfb,                                     //     tag(251)
+                  0x9f, 0x42, 0x00, 0x00, 0x42, 0x00, 0x0a,     //       [0000, 000a
+                  0xff,                                         //       ]
+              0xff,                                             //   ]
+            0xff, 0xff                                          // }}
+        };
+        std::array<uint8_t,6> unknown_version_no_value{
+            0xbf, 0x01, 0xbf, 0x07, 0xff, 0xff                  // {1: {7: }}
+        };
+        all_tests_passed &= test_undecodable_fingerprint("unknown fingerprint type", datum{unknown_type}, f);
+        all_tests_passed &= test_undecodable_fingerprint("unknown format version", datum{unknown_version}, f);
+        all_tests_passed &= test_undecodable_fingerprint("unknown format version, no value", datum{unknown_version_no_value}, f);
+
+        // an unrecognized label in place of `randomized` or `generic`.  The
+        // second form is a silent success without the label check: every break
+        // byte is present, so nothing else notices.
+        //
+        std::array<uint8_t,7> unknown_tls_label{
+            0xbf, 0x01, 0xbf, 0x01, 0x07, 0xff, 0xff            // {1: {1: 7}}
+        };
+        std::array<uint8_t,7> unknown_tofsee_label{
+            0xbf, 0x0f, 0xbf, 0x01, 0x07, 0xff, 0xff            // {15: {1: 7}}
+        };
+        all_tests_passed &= test_undecodable_fingerprint("unrecognized tls label", datum{unknown_tls_label}, f);
+        all_tests_passed &= test_undecodable_fingerprint("unrecognized tofsee label", datum{unknown_tofsee_label}, f);
+
         return all_tests_passed;
     }
     // LCOV_EXCL_STOP
