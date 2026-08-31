@@ -132,12 +132,14 @@ public:
         while(dialect_body.is_not_empty()) {
             literal<0x02> buffer_format{dialect_body};
             if (dialect_body.is_not_empty()) {
+                ssize_t length_before = dialect_body.length();
                 datum dialect;
                 dialect.parse_up_to_delim(dialect_body, '\0');
                 a.print_json_string(dialect);
-                if (dialect.data_end == dialect_body.data_end) {
-                    // no delimiter found; dialect_body wasn't advanced,
-                    // so break out of the loop to avoid rescanning
+                if (dialect.length() == length_before) {
+                    // no delimiter found; dialect spans the entire
+                    // remaining body, so break out of the loop to
+                    // avoid rescanning
                     break;
                 }
                 dialect_body.skip(1); //skip the null byte
@@ -187,8 +189,47 @@ public:
             json_object o(&buf);
             dialects.write_json(o);
             o.close();
-            const char expected[] = R"({"dialects":["PC NETWORK PROGRAM 1.0","NT LM 0.12"]})";
-            if (buf.length() != (int)sizeof(expected) - 1
+            static constexpr char expected[] = R"({"dialects":["PC NETWORK PROGRAM 1.0","NT LM 0.12"]})";
+            if (buf.length() != sizeof(expected) - 1
+                || memcmp(buffer, expected, sizeof(expected) - 1) != 0) {
+                return false;
+            }
+        }
+
+        // a terminated entry followed by an unterminated fragment
+        {
+            static constexpr unsigned char body[] =
+                "\x02" "NT LM 0.12" "\x00"
+                "\x02" "GARBAGE";
+            datum d{body, body + sizeof(body) - 1};   // exclude the C-string NUL
+            smb1_dialects dialects{d};
+            char buffer[8192];
+            buffer_stream buf(buffer, sizeof(buffer));
+            json_object o(&buf);
+            dialects.write_json(o);
+            o.close();
+            static constexpr char expected[] = R"({"dialects":["NT LM 0.12","GARBAGE"]})";
+            if (buf.length() != sizeof(expected) - 1
+                || memcmp(buffer, expected, sizeof(expected) - 1) != 0) {
+                return false;
+            }
+        }
+
+        // a zero-length entry (delimiter as the very first byte) must not
+        // be mistaken for "no delimiter found"
+        {
+            static constexpr unsigned char body[] =
+                "\x02" "\x00"
+                "\x02" "NT LM 0.12" "\x00";
+            datum d{body, body + sizeof(body) - 1};   // exclude the C-string NUL
+            smb1_dialects dialects{d};
+            char buffer[8192];
+            buffer_stream buf(buffer, sizeof(buffer));
+            json_object o(&buf);
+            dialects.write_json(o);
+            o.close();
+            static constexpr char expected[] = R"({"dialects":["NT LM 0.12"]})";
+            if (buf.length() != sizeof(expected) - 1
                 || memcmp(buffer, expected, sizeof(expected) - 1) != 0) {
                 return false;
             }
