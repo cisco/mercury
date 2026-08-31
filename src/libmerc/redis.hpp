@@ -194,7 +194,7 @@ namespace redis{
         {
             if constexpr (!enable_array_parsing) {
                 isValid = !d.is_null();
-                truncated = true;
+                truncated = isValid && length_int.get_value() > 0;
                 return;
             }
 
@@ -688,6 +688,16 @@ namespace redis{
         if (!test_json_output<redis::response>(
             datum{"*2\r\n$3\r\nfoo\r\n$3\r\nbar\r\n"},
             datum{"{\"redis\":{\"response\":{\"type\":\"array\",\"truncated\":true}}}"})
+        ){
+            return false;
+        }
+
+        if (!test_json_output<redis::response>(
+            datum{"*0\r\n"},
+            datum{"{\"redis\":{\"response\":{\"type\":\"array\"}}}"}) ||
+            !test_json_output<redis::response>(
+            datum{"*-1\r\n"},
+            datum{"{\"redis\":{\"response\":{\"type\":\"array\"}}}"})
         ){
             return false;
         }
