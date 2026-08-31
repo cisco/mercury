@@ -177,7 +177,7 @@ namespace redis{
         static constexpr bool enable_array_parsing = false;
 
         literal_byte<'*'> marker;
-        decimal_integer<int32_t> length_int;
+        up_to_required_byte<'\r'> length_text;
         crlf terminator;
         datum parsed_data;
         bool isValid;
@@ -187,22 +187,40 @@ namespace redis{
 
         array(datum &d) :
             marker{d},
-            length_int{d},
+            length_text{d},
             terminator{d},
             parsed_data{},
             isValid{false}
         {
-            if constexpr (!enable_array_parsing) {
-                isValid = !d.is_null();
-                truncated = isValid && length_int.get_value() > 0;
-                return;
-            }
-
             if (d.is_null()) {
                 return;
             }
 
+            datum parsed_length{length_text};
+            decimal_integer<int32_t> length_int{parsed_length};
+            if (!parsed_length.is_empty()) {
+                d.set_null();
+                return;
+            }
+
             int len = length_int.get_value();
+            datum first_char_input{length_text};
+            encoded<uint8_t> first_char{first_char_input};
+            if (len < -1 ||
+                (len == -1 && !length_text.match("-1")) ||
+                (len >= 0 && (first_char.value() == '+' || first_char.value() == '-' ||
+                              (first_char.value() == '0' && first_char_input.is_readable())))) {
+                d.set_null();
+                return;
+            }
+
+            if constexpr (!enable_array_parsing) {
+                isValid = true;
+                // Here, truncated means the array contents were intentionally
+                // not parsed; it does not imply that capture bytes are missing.
+                truncated = len > 0;
+                return;
+            }
 
             if (len == -1) { // Null array: *-1\r\n
                 isValid = true;
@@ -631,13 +649,72 @@ namespace redis{
             return false;
         }
 
-        // Invalid request: non-ASCII command
-        datum get_datum{"0xC30xA0bcrn\0"};
-        redis::request invalid_req{get_datum};
-        if (invalid_req.is_not_empty()){
+        // AUTH requests in array and inline formats.
+        if (!test_json_output<redis::request>(
+            datum{"*2\r\n$4\r\nAUTH\r\n$6\r\nsecret\r\n"},
+            datum{"{\"redis\":{\"request\":{\"command\":\"AUTH\",\"auth\":{\"password\":\"secret\"}}}}"}) ||
+            !test_json_output<redis::request>(
+            datum{"*3\r\n$4\r\nAUTH\r\n$5\r\nalice\r\n$6\r\nsecret\r\n"},
+            datum{"{\"redis\":{\"request\":{\"command\":\"AUTH\",\"auth\":{\"username\":\"alice\",\"password\":\"secret\"}}}}"}) ||
+            !test_json_output<redis::request>(
+            datum{"AUTH secret\r\n"},
+            datum{"{\"redis\":{\"request\":{\"command\":\"AUTH\",\"auth\":{\"password\":\"secret\"}}}}"}) ||
+            !test_json_output<redis::request>(
+            datum{"AUTH alice secret\r\n"},
+            datum{"{\"redis\":{\"request\":{\"command\":\"AUTH\",\"auth\":{\"username\":\"alice\",\"password\":\"secret\"}}}}"})
+        ) {
             return false;
         }
 
+        // Invalid and empty requests are not emitted.
+        for (const char *input : {
+                 "", "BAD!\r\n", "*0\r\n", "*1\r\n$-2\r\n",
+                 "*1\r\n$4\r\nBAD!\r\n", "*2\r\n$4\r\nAUTH\r\n",
+                 "*3\r\n$4\r\nAUTH\r\n", "*3\r\n$4\r\nAUTH\r\n$5\r\nadmin\r\n"
+             }) {
+            datum d{input};
+            redis::request request{d};
+            if (request.is_not_empty()) { return false; }
+        }
+
+        if (!test_json_output<redis::request>(datum{""}, datum{"{}"})) {
+            return false;
+        }
+
+        auto credentials_match = [](const char *input, const char *expected_username) {
+            datum d{input};
+            redis::request request{d};
+            if (request.check_credential_exposure() != exposed_creds_type::plaintext_password) {
+                return false;
+            }
+            datum username = request.get_username();
+            return expected_username ? username.match(expected_username) : username.is_null();
+        };
+
+        if (!credentials_match("*2\r\n$4\r\nAUTH\r\n$6\r\nsecret\r\n", nullptr) ||
+            !credentials_match("*3\r\n$4\r\nAUTH\r\n$5\r\nalice\r\n$6\r\nsecret\r\n", "alice") ||
+            !credentials_match("AUTH secret\r\n", nullptr) ||
+            !credentials_match("AUTH alice secret\r\n", "alice")) {
+            return false;
+        }
+
+        for (const char *input : {"PING\r\n", "*1\r\n$3\r\nGET\r\n"}) {
+            datum d{input};
+            redis::request request{d};
+            if (request.check_credential_exposure() != exposed_creds_type::none ||
+                !request.get_username().is_null()) {
+                return false;
+            }
+        }
+
+        {
+            datum d{""};
+            redis::request request{d};
+            if (request.check_credential_exposure() != exposed_creds_type::none ||
+                !request.get_username().is_null()) {
+                return false;
+            }
+        }
         if (!test_json_output<redis::response>(
             datum{"+OK\r\n"},
             datum{"{\"redis\":{\"response\":{\"type\":\"simple_string\",\"data\":\"OK\"}}}"})
@@ -685,6 +762,29 @@ namespace redis{
             return false;
         }
 
+        // Truncated bulk strings are retained for reassembly.
+        if (!test_json_output<redis::response>(
+            datum{"$5\r\nhel"},
+            datum{"{\"redis\":{\"response\":{\"type\":\"bulk_string\",\"data\":\"hel\",\"truncated\":true}}}"})
+        ) {
+            return false;
+        }
+
+        // Empty, malformed, and unsupported responses are not emitted.
+        for (const char *input : {
+                 "+\r\n", "-\r\n", ":\r\n", "$x\r\n",
+                 "$-2\r\n", "$0\r\n", "$3\r\nabcXX", "?x\r\n"
+             }) {
+            datum d{input};
+            redis::response response{d};
+            if (response.is_not_empty()) { return false; }
+        }
+
+        if (!test_json_output<redis::response>(datum{""}, datum{"{}"}) ||
+            !test_json_output<redis::response>(datum{"?x\r\n"}, datum{"{}"})
+        ) {
+            return false;
+        }
         if (!test_json_output<redis::response>(
             datum{"*2\r\n$3\r\nfoo\r\n$3\r\nbar\r\n"},
             datum{"{\"redis\":{\"response\":{\"type\":\"array\",\"truncated\":true}}}"})
@@ -702,19 +802,14 @@ namespace redis{
             return false;
         }
 
-        // A truncated array header is not a valid response.
-        {
-            datum d{"*2\r"};
+        // Truncated and malformed array lengths are not valid responses.
+        for (const char *input : {
+                 "*2\r", "*\r\n", "*x\r\n", "*2147483648\r\n",
+                 "*-5\r\n", "*-01\r\n", "*-0\r\n", "*+2\r\n", "*007\r\n"
+             }) {
+            datum d{input};
             redis::response response{d};
-            if (response.is_not_empty()) { return false; }
-        }
-
-        // Exposed creds accessor test
-        {
-            datum d{"*3\r\n$4\r\nAUTH\r\n$5\r\nadmin\r\n$8\r\npassword\r\n"};
-            redis::request req{d};
-            if (req.check_credential_exposure() != exposed_creds_type::plaintext_password) { return false; }
-            if (!req.get_username().match("admin")) { return false; }
+            if (response.is_not_empty() || !d.is_null()) { return false; }
         }
 
         return true;
