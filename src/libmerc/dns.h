@@ -1208,7 +1208,7 @@ namespace dns_unit_test {
         json_object json{&buf};
         pkt.write_json(json, false);
         json.close();
-        buf.write_char('\0');
+        buf.add_null();
         if (!strstr(buffer, "query")) return false;
 
         return true;

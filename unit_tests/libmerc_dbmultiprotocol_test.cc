@@ -551,6 +551,20 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test pgsql with analysis")
     deinitialize();
 }
 
+TEST_CASE_FIXTURE(LibmercTestFixture, "test dcerpc")
+{
+    libmerc_config config{.packet_filter_cfg = (char *)"dcerpc"};
+    initialize(config);
+
+    set_pcap("dcerpc-fault-stub-data-02.pcap");
+    CHECK(10 == counter());
+
+    set_pcap("top_100_fingerprints.pcap");
+    CHECK(0 == counter());
+
+    deinitialize();
+}
+
 TEST_CASE_FIXTURE(LibmercTestFixture, "test iec with analysis")
 {
     libmerc_config config{.do_analysis = true,
@@ -648,8 +662,12 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test attribute detection with analysis")
     set_pcap("malware_tls.pcap");
     CHECK(counter(2, attribute_check_callback));
 
-    // domain_faking attribute in modified ipv6 curl pcap
+    // destination is a unique-local (fd00::/8) address, so it must be
+    // exempt from domain_faking regardless of the faked SNI
     set_pcap("ipv6-domain-faking.pcap");
+    { std::string attr = "domain_faking"; CHECK(!check_attr(attr)); }
+
+    set_pcap("ipv6-domain-faking-public.pcap");
     { std::string attr = "domain_faking"; CHECK(check_attr(attr)); }
 
     // check if faketls attribute is present in the attributes array
@@ -1272,4 +1290,25 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test raw-features write_json output for t
         CHECK(json.find(expected_features_prefix) != std::string::npos);
         deinitialize();
     }
+}
+
+// A real QUIC Initial (RFC 9001 v1) whose decrypted inner ClientHello carries
+// a crafted legacy_version of 0xfefd (the DTLS value). Because the DTLS
+// carrier is committed by the transport (QUIC over UDP), not inferred from the
+// clientHello body, the inner hello must be reported under "tls" -- never
+// "dtls" -- with its SNI parsed correctly. The pcap decrypts with the standard
+// Initial salt, so no key material is required.
+TEST_CASE_FIXTURE(LibmercTestFixture, "quic inner clientHello with dtls-looking legacy_version reports tls")
+{
+    libmerc_config config{.packet_filter_cfg = (char *)"quic"};
+    initialize(config);
+
+    set_pcap("dtls-legacy-version-quic-initial.pcap");
+    const std::string json = get_first_json();
+
+    CHECK(json.find("\"dtls\"") == std::string::npos);   // never mislabeled as dtls
+    CHECK(json.find("\"tls\"")  != std::string::npos);   // inner hello reported under tls
+    CHECK(json.find("\"server_name\":\"example.com\"") != std::string::npos);
+
+    deinitialize();
 }

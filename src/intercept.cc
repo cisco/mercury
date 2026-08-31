@@ -467,7 +467,7 @@ struct syslog_output : public output {
     }
     void write_buffer(struct buffer_stream &buf) {
         // buf.write_char('\n');
-        buf.write_char('\0');
+        buf.add_null();
         syslog(LOG_INFO, "%s", buf.dstr);
     };
 
@@ -496,8 +496,11 @@ struct daemon_output : public output {
     }
     void write_buffer(struct buffer_stream &buf) {
 
-        buf.write_char('\0');
-        if (sendto(sock, buf.dstr, buf.length(), 0,
+        buf.add_null();
+        if (buf.is_truncated()) {
+            return;
+        }
+        if (sendto(sock, buf.dstr, buf.length() + 1, 0,
                    (const sockaddr *)&name, sizeof(struct sockaddr_un)) < 0) {
             perror("sending datagram message");
         }

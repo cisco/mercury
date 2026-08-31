@@ -122,7 +122,7 @@ public:
         rec{pkt},
         handshake{rec.fragment},
         raw_fragment{handshake.body},   // captured before hello{} consumes handshake.body
-        hello{handshake.body},
+        hello{handshake.body, true /* is_dtls */},
         cid_buf{static_cast<uint8_t>(handshake.message_seq >> 8),
                 static_cast<uint8_t>(handshake.message_seq & 0xff)} {}
 
@@ -147,7 +147,7 @@ public:
         protocols.print_string("dtls");
         protocols.close();
 
-        hello.write_l7_metadata_detail(o, true /* is_dtls */);
+        hello.write_l7_metadata_detail(o);   // hello.dtls == true (committed at construction)
     }
 
     bool is_not_empty() const { return hello.is_not_empty(); }
@@ -184,7 +184,7 @@ public:
 
     void reparse_from_buf(datum buf) {
         raw_fragment = buf;
-        hello = tls_client_hello{buf};
+        hello = tls_client_hello{buf, true /* is_dtls */};
     }
 
     bool supports_udp_offset_reassembly() const { return true; }

@@ -144,7 +144,7 @@ namespace ospf_unit_test {
             json_object json{&buf};
             msg1.write_json(json, false);
             json.close();
-            buf.write_char('\0');
+            buf.add_null();
             if (!strstr(buffer, "ospf")) return false;
             if (!strstr(buffer, "hello")) return false;
             if (!strstr(buffer, "router_id")) return false;
@@ -166,7 +166,7 @@ namespace ospf_unit_test {
             json_object json{&buf};
             msg2.write_json(json, false);
             json.close();
-            buf.write_char('\0');
+            buf.add_null();
             if (!strstr(buffer, "database_description")) return false;
         }
 

@@ -33,7 +33,7 @@ struct cdp_tlv : public datum {
             // o.print_key_uint("num_addrs", number_of_addrs);
 
             json_array address_array{o, "addresses"};
-            for (unsigned int i = 0; i < number_of_addrs; i++) {
+            for (unsigned int i = 0; i < number_of_addrs && tmp.is_not_empty(); i++) {
                 uint8_t pt;
                 tmp.read_uint8(&pt);
                 uint8_t pt_length;
@@ -51,11 +51,11 @@ struct cdp_tlv : public datum {
                 // a.print_key_hex("protocol", protocol);
                 // a.print_key_uint("addr_length", addr_length);
                 if (protocol.is_not_empty()) {
-                    if (protocol.data[0] == 0xcc && addr_length == 4) {
-                        a.print_key_ipv4_addr("ipv4_addr", addr.data);
+                    if (protocol.data[0] == 0xcc) {
+                        a.print_key_ipv4_addr("ipv4_addr", addr);
 
-                    } else if (protocol.data[0] == 0xAA && addr_length == 16) {
-                        a.print_key_ipv6_addr("ipv6_addr", addr.data);
+                    } else if (protocol.data[0] == 0xAA) {
+                        a.print_key_ipv6_addr("ipv6_addr", addr);
                     }
                 }
                 //o.print_key_hex("remainder", tmp);
@@ -218,7 +218,7 @@ namespace cdp_unit_test {
         json_object json{&buf};
         pkt.write_json(json, false);
         json.close();
-        buf.write_char('\0');
+        buf.add_null();
 
         return strstr(buffer, "ipv6_addr") != nullptr;
     }
@@ -244,7 +244,8 @@ namespace cdp_unit_test {
         json_object json{&buf};
         pkt.write_json(json, false);
         json.close();
-        return true;
+        buf.add_null();
+        return strstr(buffer, "malformed") != nullptr;
     }
 
     inline bool unit_test() {
@@ -266,7 +267,7 @@ namespace cdp_unit_test {
         json_object json{&buf};
         pkt.write_json(json, false);
         json.close();
-        buf.write_char('\0');
+        buf.add_null();
         if (!strstr(buffer, "cdp")) return false;
         if (!strstr(buffer, "device_id")) return false;
         if (!strstr(buffer, "software_version")) return false;
@@ -293,11 +294,7 @@ namespace cdp_packet_safety_unit_test {
 
 #ifndef NDEBUG
     inline bool unit_test() {
-#ifdef MERCURY_PACKET_SAFETY_FATAL_TESTS
         return cdp_unit_test::malformed_address_tlv_unit_test();
-#else
-        return true;
-#endif
     }
 #endif
 

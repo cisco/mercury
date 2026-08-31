@@ -440,9 +440,9 @@ struct tls_client_hello : public base_protocol {
 
     tls_client_hello() { }
 
-    tls_client_hello(datum &p) { parse(p); }
+    tls_client_hello(datum &p, bool is_dtls = false) { parse(p, is_dtls); }
 
-    void parse(datum &p);
+    void parse(datum &p, bool is_dtls = false);
 
     bool is_not_empty() const { return compression_methods.is_not_empty(); };
 
@@ -482,13 +482,8 @@ struct tls_client_hello : public base_protocol {
         additional_bytes_needed = 0;
     }
 
-    // emits the detail object under a key named by the
-    // caller's committed transport: "dtls" when is_dtls is set, "tls"
-    // otherwise. The key is chosen by the caller (which owns protocols[0]) and
-    // is deliberately NOT derived from the parsed legacy_version, which is
-    // untrusted and can be crafted to disagree with the carrier.
-    void write_l7_metadata_detail(cbor_object &o, bool is_dtls = false) {
-        const char *proto = is_dtls ? "dtls" : "tls";
+    void write_l7_metadata_detail(cbor_object &o) {
+        const char *proto = dtls ? "dtls" : "tls";
         cbor_object proto_obj{o, proto};
         cbor_object client{proto_obj, "client"};
         client.print_key_hex("random", random);
@@ -1842,8 +1837,12 @@ inline void tls_extensions::print_ech_client_hello(struct json_object &o) const 
 
 #define L_DTLSCookieLength             1
 
-inline void tls_client_hello::parse(struct datum &p) {
+inline void tls_client_hello::parse(struct datum &p, bool is_dtls) {
     uint64_t tmp_len;
+
+    // the carrier is committed by the caller (the record layer); the
+    // legacy_version in the body is untrusted for nested carriers such as quic
+    dtls = is_dtls;
 
     mercury_debug("%s: processing packet\n", __func__);
 
@@ -1851,11 +1850,6 @@ inline void tls_client_hello::parse(struct datum &p) {
     protocol_version.parse(p, L_ProtocolVersion);
     if (protocol_version.is_not_readable()) {
         return;
-    }
-
-    // determine if this is DTLS or plain old TLS
-    if (protocol_version.data[0] == 0xfe) {
-        dtls = true;
     }
 
     // parse clientHello.Random
@@ -2152,7 +2146,7 @@ inline enum status tls_server_hello::parse_tls_server_hello(struct datum &record
     if (record.read_uint(&tmp_len, L_ExtensionsVectorLength) == false) {
         return status_ok;  // could differentiate between err/ok
     }
-    extensions.parse(record, tmp_len);
+    extensions.parse_soft_fail(record, tmp_len);
 
     return status_ok;
 
@@ -2321,8 +2315,72 @@ namespace tls_packet_safety_unit_test {
         return buf.length() > 0;
     }
 
+    inline bool server_hello_overdeclared_extensions_unit_test() {
+        static constexpr size_t extensions_length = 18;
+        static constexpr size_t extensions_length_offset = 38;
+        static constexpr size_t extensions_offset = 40;
+        static constexpr std::array<uint8_t, extensions_offset + extensions_length> valid_body = {
+            0x03, 0x03,                                           // legacy_version: TLS 1.2
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,       // random[0..7]
+            0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,       // random[8..15]
+            0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,       // random[16..23]
+            0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,       // random[24..31]
+            0x00,                                                 // session_id length: 0
+            0xc0, 0x2f,                                           // selected cipher suite: TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+            0x00,                                                 // compression method: null
+            0x00, 0x12,                                           // extensions vector length: 18 bytes
+            0xff, 0x01, 0x00, 0x01, 0x00,                         // renegotiation_info: empty renegotiated_connection
+            0x00, 0x10, 0x00, 0x05, 0x00, 0x03, 0x02, 0x68, 0x32, // ALPN: protocol list containing "h2"
+            0x00, 0x23, 0x00, 0x00                                // empty session_ticket
+        };
+
+        // Keep every on-wire byte unchanged except for the declared extensions
+        // length, which is increased from 18 (0x0012) to 19 (0x0013).
+        std::array<uint8_t, valid_body.size()> overdeclared_body = valid_body;
+        overdeclared_body[extensions_length_offset + 1]++;
+
+        datum valid_data{valid_body};
+        datum overdeclared_data{overdeclared_body};
+        tls_server_hello valid_hello{valid_data};
+        tls_server_hello overdeclared_hello{overdeclared_data};
+        if (!valid_hello.is_not_empty() || !overdeclared_hello.is_not_empty()) {
+            return false;
+        }
+        if (valid_hello.extensions.is_null() || overdeclared_hello.extensions.is_null()) {
+            return false;
+        }
+        if (valid_hello.extensions.length() != extensions_length
+            || valid_hello.extensions.cmp(overdeclared_hello.extensions) != 0) {
+            return false;
+        }
+
+        static constexpr char expected_fingerprint[] =
+            "(0303)(c02f)((ff01)(001000050003026832)(0023))";
+        char valid_buffer[sizeof(expected_fingerprint)]{};
+        char overdeclared_buffer[sizeof(expected_fingerprint)]{};
+        buffer_stream valid_fingerprint{valid_buffer, sizeof(valid_buffer)};
+        buffer_stream overdeclared_fingerprint{overdeclared_buffer, sizeof(overdeclared_buffer)};
+        valid_hello.fingerprint(valid_fingerprint);
+        overdeclared_hello.fingerprint(overdeclared_fingerprint);
+
+        datum expected_fingerprint_data{expected_fingerprint};
+        datum valid_fingerprint_data{
+            reinterpret_cast<const uint8_t *>(valid_buffer),
+            reinterpret_cast<const uint8_t *>(valid_buffer) + valid_fingerprint.length()
+        };
+        datum overdeclared_fingerprint_data{
+            reinterpret_cast<const uint8_t *>(overdeclared_buffer),
+            reinterpret_cast<const uint8_t *>(overdeclared_buffer) + overdeclared_fingerprint.length()
+        };
+        return valid_fingerprint.length() == sizeof(expected_fingerprint) - 1
+            && overdeclared_fingerprint.length() == valid_fingerprint.length()
+            && valid_fingerprint_data.cmp(expected_fingerprint_data) == 0
+            && overdeclared_fingerprint_data.cmp(valid_fingerprint_data) == 0;
+    }
+
     inline bool unit_test() {
-        return client_hello_ciphersuite_fingerprint_unit_test();
+        return client_hello_ciphersuite_fingerprint_unit_test()
+            && server_hello_overdeclared_extensions_unit_test();
     }
 
 } // namespace tls_packet_safety_unit_test

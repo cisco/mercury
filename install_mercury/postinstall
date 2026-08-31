@@ -1,4 +1,11 @@
 #!/bin/sh
-useradd --system --no-create-home --user-group mercury
+# This runs on install and on upgrade, so everything here is idempotent.
+id mercury >/dev/null 2>&1 || useradd --system --no-create-home --user-group mercury
 mkdir -p /usr/local/var/mercury
 chown -R mercury:mercury /usr/local/var/mercury
+
+# Always put the new unit into effect, since neither packaging does so in every case.
+if [ -d /run/systemd/system ] && command -v systemctl >/dev/null 2>&1; then
+    systemctl daemon-reload >/dev/null 2>&1 || true
+    systemctl try-restart mercury.service >/dev/null 2>&1 || true
+fi
