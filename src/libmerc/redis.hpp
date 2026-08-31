@@ -439,12 +439,12 @@ namespace redis{
             }
 
             bulk_string cmd{d};
-            if (!cmd.is_not_empty()) {
+            if (!cmd.is_not_empty() || cmd.truncated) {
                 return;
             }
 
             command_data = cmd.get_data();
-            if (!command_data.is_alnum()) {
+            if (!command_data.is_not_empty() || !command_data.is_alnum()) {
                 return;
             }
 
@@ -456,20 +456,20 @@ namespace redis{
                 //     or: *3\r\n$4\r\nAUTH\r\n$8\r\nusername\r\n$8\r\npassword\r\n
                 if (len == 2) {
                     bulk_string pwd{d};
-                    if (!pwd.is_not_empty()) {
+                    if (!pwd.is_not_empty() || pwd.truncated) {
                         return;
                     }
                     password_data = pwd.get_data();
                 }
                 else if (len == 3) {
                     bulk_string user{d};
-                    if (!user.is_not_empty()) {
+                    if (!user.is_not_empty() || user.truncated) {
                         return;
                     }
                     username_data = user.get_data();
 
                     bulk_string pwd{d};
-                    if (!pwd.is_not_empty()) {
+                    if (!pwd.is_not_empty() || pwd.truncated) {
                         return;
                     }
                     password_data = pwd.get_data();
@@ -684,6 +684,10 @@ namespace redis{
         for (const char *input : {
                  "", "BAD!\r\n", "*0\r\n", "*1\r\n$-2\r\n",
                  "*1\r\n$4\r\nBAD!\r\n", "*2\r\n$4\r\nAUTH\r\n",
+                 "*1\r\n$0\r\n\r\n", "*2\r\n$-1\r\n$3\r\nfoo\r\n",
+                 "*2\r\n$6\r\nGET",
+                 "*2\r\n$4\r\nAUTH\r\n$6\r\nsec",
+                 "*3\r\n$4\r\nAUTH\r\n$5\r\nalice\r\n$6\r\nsec",
                  "*3\r\n$4\r\nAUTH\r\n", "*3\r\n$4\r\nAUTH\r\n$5\r\nadmin\r\n",
                  "*+2\r\n$4\r\nAUTH\r\n$6\r\nsecret\r\n",
                  "*2\r\n$+4\r\nAUTH\r\n$6\r\nsecret\r\n",
