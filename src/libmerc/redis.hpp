@@ -91,10 +91,45 @@ namespace redis{
         }
     };
 
+    /// \brief Parses a canonical RESP2 length: a nonnegative integer or exactly -1.
+    class resp_length {
+        up_to_required_byte<'\r'> text;
+        crlf terminator;
+        int32_t value;
+
+    public:
+        resp_length(datum &d) :
+            text{d},
+            terminator{d},
+            value{0}
+        {
+            if (d.is_null()) {
+                return;
+            }
+
+            datum parsed{text};
+            decimal_integer<int32_t> integer{parsed};
+            if (!parsed.is_empty()) {
+                d.set_null();
+                return;
+            }
+
+            value = integer.get_value();
+            datum first_char_input{text};
+            encoded<uint8_t> first_char{first_char_input};
+            if (value < -1 || (value == -1 && !text.match("-1")) ||
+                (value >= 0 && (first_char.value() == '+' || first_char.value() == '-' ||
+                (first_char.value() == '0' && first_char_input.is_readable())))) {
+                d.set_null();
+            }
+        }
+
+        int32_t get_value() const { return value; }
+    };
+
     class bulk_string {
         literal_byte<'$'> marker;
-        decimal_integer<int32_t> length;
-        crlf terminator1;
+        resp_length length;
         datum parsed_data;
         bool isValid;
 
@@ -104,7 +139,6 @@ namespace redis{
         bulk_string(datum &d) :
             marker{d},
             length{d},
-            terminator1{d},
             parsed_data{},
             isValid{false}
         {
@@ -122,7 +156,7 @@ namespace redis{
                 return; // Invalid length
             }
 
-            if (d.length() >= len + 2) { //$5\r\nhello\r\n
+            if (d.has_bytes(static_cast<size_t>(len) + 2)) { //$5\r\nhello\r\n
                 parsed_data.parse(d, len);
                 crlf terminator2{d};
                 isValid = !d.is_null();
@@ -177,8 +211,7 @@ namespace redis{
         static constexpr bool enable_array_parsing = false;
 
         literal_byte<'*'> marker;
-        up_to_required_byte<'\r'> length_text;
-        crlf terminator;
+        resp_length length;
         datum parsed_data;
         bool isValid;
 
@@ -187,8 +220,7 @@ namespace redis{
 
         array(datum &d) :
             marker{d},
-            length_text{d},
-            terminator{d},
+            length{d},
             parsed_data{},
             isValid{false}
         {
@@ -196,23 +228,7 @@ namespace redis{
                 return;
             }
 
-            datum parsed_length{length_text};
-            decimal_integer<int32_t> length_int{parsed_length};
-            if (!parsed_length.is_empty()) {
-                d.set_null();
-                return;
-            }
-
-            int len = length_int.get_value();
-            datum first_char_input{length_text};
-            encoded<uint8_t> first_char{first_char_input};
-            if (len < -1 ||
-                (len == -1 && !length_text.match("-1")) ||
-                (len >= 0 && (first_char.value() == '+' || first_char.value() == '-' ||
-                              (first_char.value() == '0' && first_char_input.is_readable())))) {
-                d.set_null();
-                return;
-            }
+            int len = length.get_value();
 
             if constexpr (!enable_array_parsing) {
                 isValid = true;
@@ -396,8 +412,7 @@ namespace redis{
     // RESP array format command: *<count>\r\n$<len>\r\n<data>\r\n...
     class array_command {
         literal_byte<'*'> marker;
-        decimal_integer<int> array_length;
-        crlf array_term;
+        resp_length array_length;
         datum command_data;
         datum username_data;
         datum password_data;
@@ -408,7 +423,6 @@ namespace redis{
         array_command(datum &d) :
             marker{d},
             array_length{d},
-            array_term{d},
             command_data{},
             username_data{},
             password_data{},
@@ -670,7 +684,10 @@ namespace redis{
         for (const char *input : {
                  "", "BAD!\r\n", "*0\r\n", "*1\r\n$-2\r\n",
                  "*1\r\n$4\r\nBAD!\r\n", "*2\r\n$4\r\nAUTH\r\n",
-                 "*3\r\n$4\r\nAUTH\r\n", "*3\r\n$4\r\nAUTH\r\n$5\r\nadmin\r\n"
+                 "*3\r\n$4\r\nAUTH\r\n", "*3\r\n$4\r\nAUTH\r\n$5\r\nadmin\r\n",
+                 "*+2\r\n$4\r\nAUTH\r\n$6\r\nsecret\r\n",
+                 "*2\r\n$+4\r\nAUTH\r\n$6\r\nsecret\r\n",
+                 "*2\r\n$4\r\nAUTH\r\n$06\r\nsecret\r\n"
              }) {
             datum d{input};
             redis::request request{d};
@@ -770,10 +787,19 @@ namespace redis{
             return false;
         }
 
+        // Maximum-length bulk strings must not overflow the bounds check.
+        if (!test_json_output<redis::response>(
+            datum{"$2147483647\r\nx"},
+            datum{"{\"redis\":{\"response\":{\"type\":\"bulk_string\",\"data\":\"x\",\"truncated\":true}}}"})
+        ) {
+            return false;
+        }
+
         // Empty, malformed, and unsupported responses are not emitted.
         for (const char *input : {
                  "+\r\n", "-\r\n", ":\r\n", "$x\r\n",
-                 "$-2\r\n", "$0\r\n", "$3\r\nabcXX", "?x\r\n"
+                 "$-2\r\n", "$-0\r\n\r\n", "$+2\r\nxy\r\n", "$02\r\nxy\r\n",
+                 "$0\r\n", "$3\r\nabcXX", "?x\r\n"
              }) {
             datum d{input};
             redis::response response{d};
