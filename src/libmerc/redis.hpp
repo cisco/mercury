@@ -279,14 +279,12 @@ namespace redis{
         bool is_not_empty() const { return isValid; }
 
         void write_json(struct json_object &redis_response) const {
-            if constexpr (enable_array_parsing) {
-                redis_response.print_key_string("type", "array");
-                if (parsed_data.is_not_empty()) {
-                    redis_response.print_key_json_string("data", parsed_data);
-                }
-                if (truncated) {
-                    redis_response.print_key_bool("truncated", true);
-                }
+            redis_response.print_key_string("type", "array");
+            if (parsed_data.is_not_empty()) {
+                redis_response.print_key_json_string("data", parsed_data);
+            }
+            if (truncated) {
+                redis_response.print_key_bool("truncated", true);
             }
         }
     };
@@ -687,15 +685,11 @@ namespace redis{
             return false;
         }
 
-        // Array response parsing stops after a valid header.
-        {
-            datum d{"*2\r\n$3\r\nfoo\r\n$3\r\nbar\r\n"};
-            redis::response response{d};
-            if (!response.is_not_empty()) { return false; }
-
-            datum array_d{"*2\r\n$3\r\nfoo\r\n$3\r\nbar\r\n"};
-            redis::array array{array_d};
-            if (!array.truncated) { return false; }
+        if (!test_json_output<redis::response>(
+            datum{"*2\r\n$3\r\nfoo\r\n$3\r\nbar\r\n"},
+            datum{"{\"redis\":{\"response\":{\"type\":\"array\",\"truncated\":true}}}"})
+        ){
+            return false;
         }
 
         // A truncated array header is not a valid response.
