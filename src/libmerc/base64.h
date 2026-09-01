@@ -276,8 +276,9 @@ public:
         // capacity must be rejected before either byte is written.
         //
         const char single_pad[] = "Zm8=";
-        uint8_t output[2] = { 0, };
+        uint8_t output[2] = { 0xa5, 0xa5 };
         if (decode(output, 1, single_pad, strlen(single_pad)) != 0 ||
+            output[0] != 0xa5 || output[1] != 0xa5 ||
             decode(output, sizeof(output), single_pad, strlen(single_pad)) != 2 ||
             memcmp(output, "fo", 2) != 0) {
             return false;
@@ -300,13 +301,14 @@ public:
             return false;
         }
 
-        // Invalid padding must return an error even when no bytes were
-        // decoded before the invalid final quartet.
+        // Invalid input in the final quartet must return an error even when
+        // no bytes were decoded before it.
         //
-        const char invalid_padding[] = "A===";
+        const char invalid_final_quartet[] = "!A==";
         uint8_t malformed_output[3] = { 0, };
         if (decode(malformed_output, sizeof(malformed_output),
-                   invalid_padding, strlen(invalid_padding)) >= 0) {
+                   invalid_final_quartet,
+                   strlen(invalid_final_quartet)) >= 0) {
             return false;
         }
         return true;
