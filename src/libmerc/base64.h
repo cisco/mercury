@@ -151,25 +151,15 @@ class base64 {
 public:
 
     static std::string decode_to_string(const void* data, const size_t len) {
-        if (len & 0x3) {
-            return std::string();  // invalid base64 length
-        }
+        std::string str(len / 4 * 3, '\0');
+        const int decoded_length = decode(
+            str.data(), str.size(), data, len);
 
-        const unsigned char *p = (const unsigned char *)data;
-        size_t output_length = len / 4 * 3;
-        if (len > 0 && p[len - 1] == '=') {
-            --output_length;
-        }
-        if (len > 1 && p[len - 2] == '=') {
-            --output_length;
-        }
-
-        std::string str(output_length, '\0');
-        int decoded_length = decode(str.data(), str.size(), data, len);
         if (decoded_length < 0) {
             return std::string();
         }
-        str.resize(decoded_length);
+
+        str.resize(static_cast<size_t>(decoded_length));
         return str;
     }
 
@@ -215,7 +205,7 @@ public:
         }
         if (pad) {
             if (invalid[p[L]] | (len > L + 1 && invalid[p[L + 1]]) | (len > L + 2 && invalid[p[L + 2]])) {
-                return -j;
+                return j == 0 ? -1 : -j;
             }
             int n = index[p[L]] << 18 | index[p[L + 1]] << 12;
             str[j++] = n >> 16;
@@ -307,6 +297,16 @@ public:
 
         const char invalid_input[] = "Z!9v";
         if (!decode_to_string(invalid_input, strlen(invalid_input)).empty()) {
+            return false;
+        }
+
+        // Invalid padding must return an error even when no bytes were
+        // decoded before the invalid final quartet.
+        //
+        const char invalid_padding[] = "A===";
+        uint8_t malformed_output[3] = { 0, };
+        if (decode(malformed_output, sizeof(malformed_output),
+                   invalid_padding, strlen(invalid_padding)) >= 0) {
             return false;
         }
         return true;
