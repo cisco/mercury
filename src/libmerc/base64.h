@@ -286,7 +286,7 @@ public:
 
         // A length of one modulo four is invalid and must not cause the
         // string decoder to read beyond the supplied input buffer.
-        const unsigned char invalid_length[] = { 'A', 0, };
+        const unsigned char invalid_length[] = { 'A' };
         if (!decode_to_string(invalid_length, 1).empty()) {
             return false;
         }
