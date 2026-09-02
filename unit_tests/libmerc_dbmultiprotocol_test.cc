@@ -674,8 +674,12 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test attribute detection with analysis")
     set_pcap("malware_tls.pcap");
     CHECK(counter(2, attribute_check_callback));
 
-    // domain_faking attribute in modified ipv6 curl pcap
+    // destination is a unique-local (fd00::/8) address, so it must be
+    // exempt from domain_faking regardless of the faked SNI
     set_pcap("ipv6-domain-faking.pcap");
+    { std::string attr = "domain_faking"; CHECK(!check_attr(attr)); }
+
+    set_pcap("ipv6-domain-faking-public.pcap");
     { std::string attr = "domain_faking"; CHECK(check_attr(attr)); }
 
     // check if faketls attribute is present in the attributes array
