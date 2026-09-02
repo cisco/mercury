@@ -187,6 +187,7 @@ namespace event_string {
 /// member.
 ///
 class event_encoder {
+    dict_memory_budget dictionary_budget;
     dict addr_dict;
     dict fp_dict;
     dict ua_dict;
@@ -194,7 +195,19 @@ class event_encoder {
 
 public:
 
-    event_encoder() : addr_dict{}, fp_dict{}, ua_dict{}, ctx_dict{} {}
+    /// Default bound for memory retained by the four event dictionaries.
+    static constexpr size_t default_max_dictionary_bytes = 16 * 1024 * 1024;
+
+    explicit event_encoder(size_t max_dictionary_bytes=default_max_dictionary_bytes) :
+        dictionary_budget{max_dictionary_bytes},
+        addr_dict{},
+        fp_dict{},
+        ua_dict{},
+        ctx_dict{} {}
+
+    size_t dictionary_bytes() const {
+        return dictionary_budget.used_bytes;
+    }
 
     bool compute_inverse_map() {
         return addr_dict.compute_inverse_map() &&
@@ -209,10 +222,10 @@ public:
         const std::string &ua    = event[2];
         const std::string &ctx   = event[3];
 
-        size_t compressed_saddr_num = strtoull(saddr.c_str(), NULL, 16);
-        size_t compressed_fp_num    = strtoull(fngr.c_str(), NULL, 16);
-        size_t compressed_ua_num    = strtoull(ua.c_str(), NULL, 16);
-        size_t compressed_ctx_num   = strtoull(ctx.c_str(), NULL, 16);
+        uint64_t compressed_saddr_num = strtoull(saddr.c_str(), NULL, 16);
+        uint64_t compressed_fp_num    = strtoull(fngr.c_str(), NULL, 16);
+        uint64_t compressed_ua_num    = strtoull(ua.c_str(), NULL, 16);
+        uint64_t compressed_ctx_num   = strtoull(ctx.c_str(), NULL, 16);
 
         event[0] = addr_dict.get_inverse(compressed_saddr_num);
         event[1] = fp_dict.get_inverse(compressed_fp_num);
@@ -228,6 +241,8 @@ public:
     /// be allowed to create new entries, and thus the function will
     /// only succeed if the dictionary already contains the relevant
     /// entry.
+    /// When the shared dictionary budget is exhausted, new values are
+    /// encoded using dict::unknown_index so the event can still be counted.
     ///
     bool compress_event_string(event_msg& event, bool no_new_entries=false) {
 
@@ -238,25 +253,25 @@ public:
 
         // compress source address string
         char src_addr_buf[dict::index_length];
-        if (addr_dict.compress(addr, src_addr_buf, no_new_entries) == false) {
+        if (addr_dict.compress(addr, src_addr_buf, no_new_entries, &dictionary_budget) == false) {
             return false;  // error: can't compress this event string
         }
 
         // compress fingerprint string
         char compressed_fp_buf[dict::index_length];
-        if (fp_dict.compress(fngr, compressed_fp_buf, no_new_entries) == false) {
+        if (fp_dict.compress(fngr, compressed_fp_buf, no_new_entries, &dictionary_budget) == false) {
             return false;  // error: can't compress this event string
         }
 
         // compress User-Agent
         char compressed_ua_buf[dict::index_length];
-        if (ua_dict.compress(ua, compressed_ua_buf, no_new_entries) == false) {
+        if (ua_dict.compress(ua, compressed_ua_buf, no_new_entries, &dictionary_budget) == false) {
             return false;  // error: can't compress this event string
         }
 
         // compress context
         char compressed_ctx_buf[dict::index_length];
-        if (ctx_dict.compress(ctx, compressed_ctx_buf, no_new_entries) == false) {
+        if (ctx_dict.compress(ctx, compressed_ctx_buf, no_new_entries, &dictionary_budget) == false) {
             return false;  // error: can't compress this event string
         }
 
@@ -276,6 +291,7 @@ public:
         fp_dict.clear();
         ua_dict.clear();
         ctx_dict.clear();
+        dictionary_budget.used_bytes = 0;
     }
 
 };

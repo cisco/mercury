@@ -67,12 +67,42 @@
 #include "libmerc/pgsql.hpp"
 #include "libmerc/cbor_decoded_metadata_test.hpp"
 #include "libmerc/dcerpc.hpp"
+#include "libmerc/stats.h"
 
 // Macros to colorize output
 //
 #define RED_ON     "\033[31m"
 #define GREEN_ON   "\033[32m"
 #define COLOR_OFF  "\033[39m"
+
+static bool stats_dictionary_budget_unit_test() {
+    event_encoder encoder{512};
+    event_msg event{"192.0.2.1", "tls/1/fingerprint", std::string(2048, 'u'), "(example.com)(192.0.2.2)(443)"};
+
+    if (!encoder.compress_event_string(event)) {
+        return false;
+    }
+    if (encoder.dictionary_bytes() > 512) {
+        return false;
+    }
+    if (!encoder.compute_inverse_map()) {
+        return false;
+    }
+    encoder.get_inverse(event);
+    if (event[2] != dict::unknown_fp_string) {
+        return false;
+    }
+
+    encoder.clear();
+    if (encoder.dictionary_bytes() != 0) {
+        return false;
+    }
+
+    stats_aggregator aggregator{1, 512};
+    event_msg stats_event{"192.0.2.3", "tls/1/another", std::string(2048, 'a'), "(example.net)(192.0.2.4)(443)"};
+    aggregator.observe_event_string(stats_event);
+    return aggregator.get_num_entries() == 1;
+}
 
 int main(int, char *[]) {
 
@@ -340,6 +370,10 @@ int main(int, char *[]) {
         {
             "destination_context",
             &destination_context::unit_test
+        },
+        {
+            "stats_dictionary_budget",
+            &stats_dictionary_budget_unit_test
         }
     };
     size_t num_tests = 0;

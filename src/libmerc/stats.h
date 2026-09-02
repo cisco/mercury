@@ -46,7 +46,13 @@ class stats_aggregator {
 
 public:
 
-    stats_aggregator(size_t size_limit) : event_table{}, encoder{}, observation{}, num_entries{0}, max_entries{size_limit} { }
+    stats_aggregator(size_t size_limit,
+                     size_t dictionary_size_limit=event_encoder::default_max_dictionary_bytes) :
+        event_table{},
+        encoder{dictionary_size_limit},
+        observation{},
+        num_entries{0},
+        max_entries{size_limit} { }
 
     ~stats_aggregator() {  }
 

@@ -17,8 +17,37 @@
 #include <algorithm>
 #include <limits>
 #include <cinttypes>
+#include <utility>
 
 #include "bytestring.h"
+
+/// A byte budget shared by a group of dictionaries.
+///
+/// The accounting is deliberately conservative.  It includes the string
+/// capacity, the unordered-map node, and an allowance for hash-table bucket
+/// storage.  It is therefore suitable for enforcing an upper bound, even
+/// though allocator bookkeeping is implementation-dependent.
+struct dict_memory_budget {
+    size_t max_bytes;
+    size_t used_bytes;
+
+    explicit dict_memory_budget(size_t limit) : max_bytes{limit}, used_bytes{0} { }
+
+    bool reserve(size_t bytes) {
+        if (max_bytes == 0) {
+            return true;
+        }
+        if (bytes > max_bytes - used_bytes) {
+            return false;
+        }
+        used_bytes += bytes;
+        return true;
+    }
+
+    void release(size_t bytes) {
+        used_bytes = bytes >= used_bytes ? 0 : used_bytes - bytes;
+    }
+};
 
 /// class dict is a dictionary (substitution) coder that maps an
 /// arbitrary-length string to a short numeric value
@@ -35,13 +64,29 @@
 class dict {
 
 public:
+    static constexpr size_t index_length = 17;
+    static constexpr uint64_t unknown_index = std::numeric_limits<uint64_t>::max();
+
+private:
+    static size_t memory_cost(const std::string &value) {
+        constexpr size_t overhead = sizeof(std::pair<const std::string, uint64_t>)
+                                   + 8 * sizeof(void *);
+        if (value.capacity() > std::numeric_limits<size_t>::max() - overhead - 1) {
+            return std::numeric_limits<size_t>::max();
+        }
+        return overhead + value.capacity() + 1;
+    }
+
+    static void write_unknown(char index_string[index_length]) {
+        snprintf(index_string, index_length, "%" PRIx64, unknown_index);
+    }
+
+public:
     std::unordered_map<std::string,uint64_t> d;
     uint64_t count;
     std::vector<const char *> inverse;
 
     dict() : d{}, count{0}, inverse{} { }
-
-    static constexpr size_t index_length = 17;
 
     uint64_t get(const std::string &value) {
         auto x = d.find(value);
@@ -59,17 +104,45 @@ public:
     /// \p no_new_entries is `true`, then no new dictionary entries will
     /// be created, and the function will only succeed if `value` is
     /// already present in the dictionary.
+    /// When a budget is supplied and exhausted, the value is encoded as the
+    /// unknown sentinel and no dictionary entry is created.
     ///
     bool compress(const std::string &value,
                   char index_string[index_length],
-                  bool no_new_entries=false)
+                  bool no_new_entries=false,
+                  dict_memory_budget *budget=nullptr)
     {
         auto x = d.find(value);
         if (x == d.end()) {
-            if (no_new_entries or count == std::numeric_limits<uint64_t>::max()) {
+            if (no_new_entries) {
                 return false;
             }
-            d.emplace(value, count);
+            if (count == unknown_index) {
+                write_unknown(index_string);
+                return true;
+            }
+            const size_t charge = memory_cost(value);
+            if (budget != nullptr && !budget->reserve(charge)) {
+                write_unknown(index_string);
+                return true;
+            }
+            try {
+                auto inserted = d.emplace(value, count);
+                if (!inserted.second) {
+                    if (budget != nullptr) {
+                        budget->release(charge);
+                    }
+                    snprintf(index_string, index_length, "%" PRIx64, inserted.first->second);
+                    return true;
+                }
+            }
+            catch (...) {
+                if (budget != nullptr) {
+                    budget->release(charge);
+                }
+                write_unknown(index_string);
+                return true;
+            }
             snprintf(index_string, index_length, "%" PRIx64, count);
             count++;
             return true;
@@ -95,6 +168,9 @@ public:
     }
 
     const char *get_inverse(uint64_t index) const {
+        if (index == unknown_index) {
+            return unknown_fp_string;
+        }
         if (index < inverse.size()) {
             return inverse[index];
         }
@@ -105,6 +181,7 @@ public:
 
     void clear() {
         d.clear();
+        d.rehash(0);
         inverse.clear();
         count = 0;
     }
