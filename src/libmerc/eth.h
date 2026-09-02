@@ -152,7 +152,7 @@ class eth {
             }
         }
 
-        for(uint8_t depth = 0; depth < ETH_MAX_ENCAP_DEPTH; depth++) {
+        for (uint8_t depth = 0; depth < ETH_MAX_ENCAP_DEPTH; depth++) {
             if (ethertype == ETH_TYPE_VLAN ||
                    ethertype == ETH_TYPE_1AD) {
                 p.skip(sizeof(uint16_t));  // TCI
@@ -171,6 +171,13 @@ class eth {
             else {
                 break;
             }
+        }
+
+        if (ethertype == ETH_TYPE_VLAN ||
+            ethertype == ETH_TYPE_1AD  ||
+            ethertype == ETH_TYPE_CMD) {
+            ethertype = ETH_TYPE_NONE;   // encapsulation depth limit exceeded
+            return;
         }
 
         if (ethertype == ETH_TYPE_MPLS) {
