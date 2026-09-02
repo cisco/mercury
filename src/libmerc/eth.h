@@ -74,6 +74,7 @@ struct eth_dot1ad_tag {
 
 #define MPLS_HDR_LEN 4
 #define MPLS_BOTTOM_OF_STACK 0x100
+#define ETH_MAX_ENCAP_DEPTH 5
 
 /*
  * big-endian ETHERTYPE definitions
@@ -143,26 +144,33 @@ class eth {
             ethertype = ETH_TYPE_NONE;
             return;
         }
+
         if (ethertype < ETH_TYPE_MIN) {
             if (p.matches(cdp::prefix)) {
                 ethertype = ETH_TYPE_CDP;
                 return;
             }
         }
-        if (ethertype == ETH_TYPE_1AD) {
-            p.skip(sizeof(uint16_t));  // TCI
-            if (!p.read_uint16(&ethertype)) {
-                ethertype = ETH_TYPE_NONE;
-                return;
+
+        for(uint8_t depth = 0; depth < ETH_MAX_ENCAP_DEPTH; depth++) {
+            if (ethertype == ETH_TYPE_VLAN ||
+                   ethertype == ETH_TYPE_1AD) {
+                p.skip(sizeof(uint16_t));  // TCI
+                if (!p.read_uint16(&ethertype)) {
+                    ethertype = ETH_TYPE_NONE;
+                    return;
+                }
             }
-        }
-        while (ethertype == ETH_TYPE_VLAN) {
-            p.skip(sizeof(uint16_t));  // TCI
-            if (!p.read_uint16(&ethertype)) {
-                ethertype = ETH_TYPE_NONE;
-                return;
+            else if (ethertype == ETH_TYPE_CMD) {
+                p.skip(6);  // Cisco MetaData
+                if (!p.read_uint16(&ethertype)) {
+                    ethertype = ETH_TYPE_NONE;
+                    return;
+                }
             }
+            else break;
         }
+
         if (ethertype == ETH_TYPE_MPLS) {
             uint32_t mpls_label = 0;
 
@@ -173,13 +181,6 @@ class eth {
                 }
             }
             ethertype = ETH_TYPE_IP;   // assume caller will check IP version field
-        }
-        if (ethertype == ETH_TYPE_CMD) {
-            p.skip(6);  // Cisco MetaData
-            if (!p.read_uint16(&ethertype)) {
-                ethertype = ETH_TYPE_NONE;
-                return;
-            }
         }
 
         return;
