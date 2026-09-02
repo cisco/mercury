@@ -168,7 +168,9 @@ class eth {
                     return;
                 }
             }
-            else break;
+            else {
+                break;
+            }
         }
 
         if (ethertype == ETH_TYPE_MPLS) {
