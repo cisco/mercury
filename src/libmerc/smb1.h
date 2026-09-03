@@ -372,7 +372,7 @@ public:
 class smb1_packet : public base_protocol {
     encoded<uint32_t> nbss_layer;
     smb1_header hdr;
-    datum& body;
+    datum body;
 
 public:
     smb1_packet(datum &d) :

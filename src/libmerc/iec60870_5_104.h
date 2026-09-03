@@ -90,9 +90,9 @@ class asdu {
     uint8_t cot;
     encoded<uint8_t> originator_address;
     encoded<uint16_t> asdu_address;
-    datum& inf_objs;
+    datum inf_objs;
     bool valid;
-    mutable bool function_indicator=false;
+    bool function_indicator=false;
 
     const char * get_type_string() const {
         switch (type_id) {
@@ -230,7 +230,7 @@ public:
 
     bool is_not_empty() { return valid; }
 
-    void write_json(struct json_object &o) const {
+    void write_json(struct json_object &o) {
         if (!valid) {
             return;
         }
@@ -356,7 +356,7 @@ public:
 
     bool is_not_empty() { return asdu_obj.is_not_empty(); }
 
-    void write_json(struct json_object &o) const {
+    void write_json(struct json_object &o) {
         struct json_object r{o, "i_frame"};
         r.print_key_uint("send_sequence_number", send_seq_number.seq_number);
         r.print_key_uint("receive_sequence_number", recv_seq_number.seq_number);

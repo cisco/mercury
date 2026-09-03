@@ -46,7 +46,7 @@ class nbss_packet : public base_protocol {
     encoded<uint8_t> type;
     encoded<uint8_t> flags;
     encoded<uint16_t> length;
-    datum &body;
+    datum body;
     bool valid;
 
 public:
@@ -236,7 +236,7 @@ class nbds_packet : public base_protocol {
     encoded<uint16_t> datagram_id;
     ipv4_addr source_ip;
     encoded<uint16_t> source_port;
-    datum &body;
+    datum body;
     bool valid;
 
 public:
@@ -366,6 +366,7 @@ namespace netbios_unit_test {
         nbss_packet p1{d1};
         if (!p1.is_not_empty()) return false;
         if (p1.get_code() != 0x00) return false;
+        d1.set_null();    // the body must outlive the input datum
         {
             buffer_stream buf{buffer, sizeof(buffer)};
             json_object json{&buf};
@@ -374,6 +375,7 @@ namespace netbios_unit_test {
             buf.add_null();
             if (!strstr(buffer, "nbss")) return false;
             if (!strstr(buffer, "session_message")) return false;
+            if (!strstr(buffer, "deadbeef")) return false;
         }
 
         uint8_t session_req[] = { 0x81, 0x00, 0x00, 0x04, 0x01, 0x02, 0x03, 0x04 };

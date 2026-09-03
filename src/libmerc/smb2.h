@@ -830,7 +830,7 @@ public:
 class smb2_packet : public base_protocol {
     encoded<uint32_t> nbss_layer;
     smb2_header hdr;
-    datum& body;
+    datum body;
 
 public:
 
@@ -844,7 +844,7 @@ public:
 
     bool is_not_empty() const { return hdr.is_valid(); }
 
-    void write_json(struct json_object &o, bool) const {
+    void write_json(struct json_object &o, bool) {
         if (this->is_not_empty()) {
             struct json_object smb2{o, "smb2"};
             hdr.write_json(smb2);
