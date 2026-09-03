@@ -34,6 +34,7 @@
 #include "libmerc/krb5.hpp"
 #include "libmerc/json_object.h"
 #include "libmerc/icmp.h"
+#include "libmerc/udp.h"
 #include "libmerc/socks.h"
 #include "libmerc/dns.h"
 #include "libmerc/dhcp.h"
@@ -312,6 +313,10 @@ int main(int, char *[]) {
         {
             "datum_parser_helpers",
             &datum_parser_helper_unit_test::unit_test
+        },
+        {
+            "udp",
+            &udp_unit_test
         },
         {
             "analysis",

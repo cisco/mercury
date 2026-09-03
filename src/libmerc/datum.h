@@ -1089,7 +1089,6 @@ struct datum {
 //
 static_assert(sizeof(datum) == 2 * sizeof(uint8_t *));
 
-
 /// returns a datum that corresponds to the `std::string s`.
 ///
 /// \note A \ref datum indicates a sequence of bytes in memory, but
