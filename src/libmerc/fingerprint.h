@@ -6,6 +6,7 @@
 
 #include <cctype>
 #include <cassert>
+#include <cstring>
 #include <vector>
 #include "json_object.h"
 #include "libmerc.h"  // for fingerprint_type
@@ -62,8 +63,9 @@ public:
     }
 
     // the function fingerprint_is_well_formed() checks the
-    // fingerprint in fp_buf and verifies that it consists of balanced
-    // parenthesis and even-numbered hex strings
+    // fingerprint in fp_str and verifies that it consists of balanced
+    // parenthesis and hex strings.  A fingerprint with no data section,
+    // e.g., "smtp_server/", is accepted; discarding it is the producer's job.
     //
     bool fingerprint_is_well_formed() {
         std::vector<char> stack;
@@ -77,6 +79,9 @@ public:
             }
             c++;
         }
+        if (*c != '/') {
+            return false;  // missing '/' after fingerprint type
+        }
         c++;  // accept '/'
 
         //loop over version string if present
@@ -87,15 +92,14 @@ public:
                 }
                 c++;
             }
-            c++; //accept '/'
+            if (*c == '/') {   // not present if there is no data section
+                c++;
+            }
         }
 
-        // accept keyword "generic" and possibily trailing data as fingerprint string
-        if (*c == 'g') {
-            constexpr char generic_fp[] = {'g','e','n','e','r','i','c'};
-            if (memcmp(c,generic_fp,7) == 0) {
-                return true;
-            }
+        // accept keyword "generic" and possibly trailing data as fingerprint string
+        if (strncmp(c, "generic", 7) == 0) {
+            return true;
         }
 
         // loop over balanced parens / tree data
@@ -107,14 +111,14 @@ public:
                 stack.push_back(*c);
                 break;
             case ')':
-                if (stack.back() == '(') {
+                if (!stack.empty() && stack.back() == '(') {
                     stack.pop_back();
                 } else {
                     return false; // error
                 }
                 break;
             case ']':
-                if (stack.back() == '[') {
+                if (!stack.empty() && stack.back() == '[') {
                     stack.pop_back();
                 } else {
                     return false; // error
@@ -227,6 +231,13 @@ namespace fingerprint_unit_test {
         }
     };
 
+    // a message that writes a literal fingerprint body
+    //
+    struct literal_message {
+        const char *body;
+        void fingerprint(buffer_stream &b) const { b.puts(body); }
+    };
+
     inline bool unit_test() {
         bool passed = true;
 
@@ -258,6 +269,42 @@ namespace fingerprint_unit_test {
             passed &= !fp.is_null();
             passed &= fp.get_type() == fingerprint_type_tls;
             passed &= strlen(fp.string()) == fingerprint::max_length() - 1;
+        }
+
+        {
+            // final() keeps a fingerprint with no data section, and
+            // does not read the bytes that the previous fingerprint
+            // left in the same buffer
+            fingerprint fp;
+            fp.init();
+            fp.set_type(fingerprint_type_tls);
+            well_formed_message msg;
+            fp.add(msg);
+            fp.final();
+
+            fp.init();
+            fp.set_type(fingerprint_type_tls);
+            literal_message empty{""};
+            fp.add(empty);
+            fp.final();
+
+            passed &= strcmp(fp.string(), "tls/") == 0;
+
+            // a closing delimiter with nothing open is rejected, and
+            // does not read the empty stack; final() is not called
+            // here, because it asserts well-formedness
+            //
+            fp.init();
+            fp.set_type(fingerprint_type_tls);
+            literal_message unbalanced_paren{"1/)"};
+            fp.add(unbalanced_paren);
+            passed &= !fp.fingerprint_is_well_formed();
+
+            fp.init();
+            fp.set_type(fingerprint_type_tls);
+            literal_message unbalanced_bracket{"1/]"};
+            fp.add(unbalanced_bracket);
+            passed &= !fp.fingerprint_is_well_formed();
         }
 
         return passed;
