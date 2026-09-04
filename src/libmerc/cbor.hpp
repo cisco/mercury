@@ -664,6 +664,34 @@ namespace cbor {
         return false;
     }
 
+    /// Advance \param d past the chunks and terminating break stop code of an
+    /// indefinite-length byte or text string of major type \param mt, whose
+    /// initial byte has not yet been read.
+    ///
+    /// RFC 8949 Sec. 3.2.3: the chunks of an indefinite-length string are
+    /// definite-length strings of the same major type, and they are not data
+    /// items in their own right, so they are walked here rather than through
+    /// \ref skip_cbor_value().  Anything else nulls \param d, a nested
+    /// indefinite-length string included.
+    ///
+    static inline void skip_indefinite_string(datum &d, uint8_t mt) {
+        initial_byte{d};                    // consume the indefinite-length head
+        if (d.is_null()) { return; }
+        while (d.is_not_empty() and !is_break(d)) {
+            lookahead<initial_byte> chunk{d};
+            if (!chunk
+                or chunk.value.major_type() != mt
+                or chunk.value.additional_info() >= 28) {
+                d.set_null();
+                return;
+            }
+            if (mt == byte_string_type) { byte_string::decode(d); }
+            else                        { text_string::decode(d); }
+            if (d.is_null()) { return; }    // a chunk longer than the input
+        }
+        read_break(d);                      // nulls d if the break is missing
+    }
+
     /// Advance \param d past exactly one CBOR value without output.
     static inline void skip_cbor_value(datum &d, size_t depth=0) {
         constexpr size_t max_recursion_depth = 256;
@@ -672,7 +700,22 @@ namespace cbor {
             return;
         }
         if (lookahead<initial_byte> ib{d}) {
-            switch (ib.value.major_type()) {
+            uint8_t mt = ib.value.major_type();
+            uint8_t ai = ib.value.additional_info();
+
+            // RFC 8949 Sec. 3.3: additional info 28, 29, and 30 are reserved, and
+            // an item that uses one is not well formed.  Additional info 31
+            // selects the indefinite-length form, which is defined only for major
+            // types 2 through 5; for major type 7 it encodes the break stop code,
+            // which Sec. 3.2.1 says is not a data item at all, and for major types
+            // 0, 1, and 6 it is not well formed either.
+            //
+            if (ai >= 28 && (ai != 31 || mt < byte_string_type || mt > map_type)) {
+                d.set_null();
+                return;
+            }
+
+            switch (mt) {
             case unsigned_integer_type:
                 { uint64 tmp{d}; }
                 break;
@@ -680,10 +723,12 @@ namespace cbor {
                 { uint64 tmp{d, negative_integer_type}; }
                 break;
             case byte_string_type:
-                { byte_string::decode(d); }
+                if (ai == 31) { skip_indefinite_string(d, byte_string_type); }
+                else          { byte_string::decode(d); }
                 break;
             case text_string_type:
-                { text_string::decode(d); }
+                if (ai == 31) { skip_indefinite_string(d, text_string_type); }
+                else          { text_string::decode(d); }
                 break;
             case array_type:
                 {
@@ -769,6 +814,8 @@ namespace cbor {
                 d.set_null();
                 break;
             }
+        } else {
+            d.set_null();   // no initial byte: there is no item here to skip
         }
     }
 

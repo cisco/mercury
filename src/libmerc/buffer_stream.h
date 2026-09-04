@@ -916,7 +916,8 @@ static inline int append_json_string(char *dstr, int *doff, int dlen, int *trunc
 
 static inline int append_raw_as_base64(char *dstr, int *doff, int dlen, int *trunc,
                                        const unsigned char *data,
-                                       size_t input_length) {
+                                       size_t input_length,
+                                       bool quotes=true) {
 
     static constexpr char encoding_table[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
                                               'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
@@ -940,8 +941,10 @@ static inline int append_raw_as_base64(char *dstr, int *doff, int dlen, int *tru
     char outb[256]; /* A local buffer of up to 256 hex chars at a time */
     int oi = 0;    /* The index into the output buffer */
 
-    r += append_putc(dstr, doff, dlen, trunc,
-                '"');
+    if (quotes) {
+        r += append_putc(dstr, doff, dlen, trunc,
+                         '"');
+    }
     while ((i < len) && (*trunc == 0)) {
 
         oct_a = data[i++];
@@ -1008,8 +1011,10 @@ static inline int append_raw_as_base64(char *dstr, int *doff, int dlen, int *tru
                              '=');
         }
     }
-    r += append_putc(dstr, doff, dlen, trunc,
-                     '"');
+    if (quotes) {
+        r += append_putc(dstr, doff, dlen, trunc,
+                         '"');
+    }
 
     return r;
 }
@@ -1190,8 +1195,8 @@ struct buffer_stream {
         append_raw_as_hex(dstr, &doff, dlen, &trunc, data, len);
     }
 
-    void raw_as_base64(const unsigned char *data, size_t input_length) {
-        append_raw_as_base64(dstr, &doff, dlen, &trunc, data, input_length);
+    void raw_as_base64(const unsigned char *data, size_t input_length, bool quotes=true) {
+        append_raw_as_base64(dstr, &doff, dlen, &trunc, data, input_length, quotes);
     }
 
     void memcpy(const void *src, ssize_t length) {

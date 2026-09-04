@@ -15,6 +15,9 @@
 
 constexpr uint64_t tag_npf_fingerprint = 0x4650; // application tag 18000, "FP"; NPF representation hint
 
+/// marks a base64-encoded NPF fingerprint that is unknown to decoder
+static constexpr const char npf_prefix[] = "npf/";
+
 // forward declarations
 //
 class cbor_array;
@@ -285,6 +288,28 @@ public:
 #include "json_object.h"
 #include "utf8.hpp"
 
+/// writes \param content as a base64 string prefixed with npf_prefix, the form
+/// an NPF fingerprint takes when this build cannot decode it.
+static inline void print_unknown_npf_as_base64(json_object &o, const char *key, const datum &content) {
+    o.write_comma(o.comma);
+    o.b->write_char('\"');
+    o.b->puts(key);
+    o.b->puts("\":\"");
+    o.b->puts(npf_prefix);
+    o.b->raw_as_base64(content.data, content.data_end - content.data, false);
+    o.b->write_char('\"');
+}
+
+/// as above, in array element position
+///
+static inline void print_unknown_npf_as_base64(json_array &a, const datum &content) {
+    a.begin_element();
+    a.b->write_char('\"');
+    a.b->puts(npf_prefix);
+    a.b->raw_as_base64(content.data, content.data_end - content.data, false);
+    a.b->write_char('\"');
+}
+
 class cbor_to_json_translator {
     const vocabulary *keys;
 
@@ -312,21 +337,10 @@ public:
 
     inline bool decode_cbor_array_to_json(datum &d, json_array &a, size_t depth = 0);
 
-    /// writes the single cbor item at \param d into \param o under \param key,
-    /// consuming exactly that item, and returns false if it is malformed.
-    ///
-    inline bool decode_cbor_value_to_json(datum &d, json_object &o, const char *key, size_t depth = 0) {
-        return decode_cbor_map_to_json(d, o, key, depth);
-    }
-
     /// decodes an indefinite-length cbor map body into \param o, consuming the
     /// terminating break byte.
     ///
-    /// If \param single_key is non-null, consumes exactly one cbor item instead
-    /// and writes it under that key; there is no break byte in this form.
-    /// Use decode_cbor_value_to_json() alias for that case.
-    ///
-    inline bool decode_cbor_map_to_json(datum &d, json_object &o, const char *single_key = nullptr, size_t depth = 0) {
+    inline bool decode_cbor_map_to_json(datum &d, json_object &o, size_t depth = 0) {
 
         constexpr size_t max_recursion_depth = 256;
         if (depth > max_recursion_depth) {
@@ -334,11 +348,8 @@ public:
             return false;
         }
 
-        type expected_type = (single_key != nullptr) ? type::value : type::key;
+        type expected_type = type::key;
         std::optional<null_terminated_string> key;
-        if (single_key != nullptr) {
-            key = null_terminated_string::assume(single_key);
-        }
 
         // CBOR text keys are JSON-escaped into this fixed-size buffer.  An
         // escaped key that does not fit is rejected rather than truncated:
@@ -430,7 +441,7 @@ public:
                             if (d.is_null()) { return false; }
                             d = ib.advance();
                             json_object map{o, json_key};
-                            bool success = decode_cbor_map_to_json(d, map, nullptr, depth + 1);
+                            bool success = decode_cbor_map_to_json(d, map, depth + 1);
                             map.close();
                             if (!success) { return false; }
                         }
@@ -440,7 +451,7 @@ public:
                             cbor::tag tmp{d};
                             if (d.is_null()) { return false; }
                             if (tmp.value() == tag_npf_fingerprint) {
-                                datum trial{d};          
+                                datum trial{d};          // a copy, so d survives a failed decode
                                 data_buffer<fingerprint::MAX_FP_STR_LEN> fp_buf;
                                 cbor_fingerprint::decode_cbor_fingerprint(trial, fp_buf);
                                 if (trial.is_not_null() and !fp_buf.is_null()) {
@@ -449,11 +460,22 @@ public:
                                     break;
                                 }
                             }
-                            json_object t{o, key};       // unknown fingerprint or tag
-                            t.print_key_uint("tag", tmp.value());
-                            bool ok = decode_cbor_value_to_json(d, t, "value", depth + 1);
-                            t.close();
-                            if (!ok) { return false; }
+                            const uint8_t *start = d.data;
+                            cbor::skip_cbor_value(d, depth + 1);
+                            if (d.is_null()) { return false; }
+                            datum content{start, d.data};
+                            if (tmp.value() == tag_npf_fingerprint) {
+                                print_unknown_npf_as_base64(o, key, content);
+                            } else {
+                                // the tag number is the key and base64 of the
+                                // tag content is the value
+                                output_buffer<24> tag_buf;   // 2^64-1 is 20 digits
+                                tag_buf.snprintf("%" PRIu64, tmp.value());
+                                tag_buf.add_null();
+                                json_object t{o, key};
+                                t.print_key_base64(tag_buf.data(), content);
+                                t.close();
+                            }
                         }
                         break;
                     case cbor::simple_or_float_type:
@@ -477,9 +499,6 @@ public:
                         return false;
                     }
 
-                    if (single_key != nullptr) {
-                        return true;      // one item; no break byte to consume
-                    }
                     key.reset();
                     expected_type = type::key;
                 }
@@ -543,7 +562,7 @@ inline bool cbor_to_json_translator::decode_cbor_array_to_json(datum &d, json_ar
                     if (d.is_null()) { return false; }
                     d = ib.advance();
                     json_object map{a};
-                    bool success = decode_cbor_map_to_json(d, map, nullptr, depth + 1);
+                    bool success = decode_cbor_map_to_json(d, map, depth + 1);
                     map.close();
                     if (!success) { return false; }
                 }
@@ -553,7 +572,7 @@ inline bool cbor_to_json_translator::decode_cbor_array_to_json(datum &d, json_ar
                     cbor::tag tmp{d};
                     if (d.is_null()) { return false; }
                     if (tmp.value() == tag_npf_fingerprint) {
-                        datum trial{d};                  
+                        datum trial{d};                  // a copy, so d survives a failed decode
                         data_buffer<fingerprint::MAX_FP_STR_LEN> fp_buf;
                         cbor_fingerprint::decode_cbor_fingerprint(trial, fp_buf);
                         if (trial.is_not_null() and !fp_buf.is_null()) {
@@ -562,11 +581,20 @@ inline bool cbor_to_json_translator::decode_cbor_array_to_json(datum &d, json_ar
                             break;
                         }
                     }
-                    json_object t{a};                    // unknown fingerprint or tag
-                    t.print_key_uint("tag", tmp.value());
-                    bool ok = decode_cbor_value_to_json(d, t, "value", depth + 1);
-                    t.close();
-                    if (!ok) { return false; }
+                    const uint8_t *start = d.data;
+                    cbor::skip_cbor_value(d, depth + 1);
+                    if (d.is_null()) { return false; }
+                    datum content{start, d.data};
+                    if (tmp.value() == tag_npf_fingerprint) {
+                        print_unknown_npf_as_base64(a, content);
+                    } else {
+                        output_buffer<24> tag_buf;       // 2^64-1 is 20 digits
+                        tag_buf.snprintf("%" PRIu64, tmp.value());
+                        tag_buf.add_null();
+                        json_object t{a};
+                        t.print_key_base64(tag_buf.data(), content);
+                        t.close();
+                    }
                 }
                 break;
             case cbor::simple_or_float_type:
@@ -953,8 +981,10 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
     // Each case is one complete cbor item, the json that it must translate to,
     // the value that the translator must return, and the number of bytes that
     // it must leave unconsumed.  Tag 18000 (0xd94650) is the NPF fingerprint
-    // tag; tag 999 (0xd903e7) and tag 251 (0xd8fb) are not registered, and must
-    // be rendered as {"tag":N,"value":...} rather than dropped.
+    // tag; tag 999 (0xd903e7) and tag 251 (0xd8fb) are not registered.  An
+    // undecodable fingerprint is rendered as the string "npf/<base64>", and any
+    // other unrecognized tag as {"<tag number>":"<base64>"}, where the base64
+    // covers the tag's content bytes exactly -- rather than either being dropped.
     //
     // The 24 bytes 0xbf01bf019f420303421301d8fb9f42000042000affffffff, which
     // appear in three of the cases below, are the cbor encoding of the
@@ -1001,8 +1031,7 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
     translation_tests_passed &=
         test_cbor_array_to_json("unknown fingerprint type",
                           datum{unknown_fp_type},
-                          "[{\"tag\":18000,\"value\":{\"99\":{\"1\":[\"0303\",\"1301\","
-                          "{\"tag\":251,\"value\":[\"0000\",\"000a\"]}]}}}]", true, 0, f);
+                          "[\"npf/vxhjvwGfQgMDQhMB2PufQgAAQgAK/////w==\"]", true, 0, f);
 
     // an unknown format version (7 in place of 1) likewise falls back
     //
@@ -1021,8 +1050,7 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
     translation_tests_passed &=
         test_cbor_array_to_json("unknown fingerprint format version",
                           datum{unknown_fp_version},
-                          "[{\"tag\":18000,\"value\":{\"1\":{\"7\":[\"0303\",\"1301\","
-                          "{\"tag\":251,\"value\":[\"0000\",\"000a\"]}]}}}]", true, 0, f);
+                          "[\"npf/vwG/B59CAwNCEwHY+59CAABCAAr/////\"]", true, 0, f);
 
     // a randomized fingerprint, whose label the decoder must consume
     //
@@ -1050,7 +1078,7 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
     translation_tests_passed &=
         test_cbor_array_to_json("unknown tag in an array, with a following element",
                           datum{unknown_tag_in_array},
-                          "[{\"tag\":999,\"value\":[1]},2]", true, 0, f);
+                          "[{\"999\":\"nwH/\"},2]", true, 0, f);
 
     // an unknown tag in map value position, holding an unsigned integer, with a
     // key/value pair on either side of it
@@ -1065,7 +1093,7 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
     translation_tests_passed &=
         test_cbor_map_to_json("unknown tag as a map value, with siblings",
                           datum{unknown_tag_in_map},
-                          "{\"1\":1,\"2\":{\"tag\":999,\"value\":1},\"3\":3}", true, 0, f);
+                          "{\"1\":1,\"2\":{\"999\":\"AQ==\"},\"3\":3}", true, 0, f);
 
     // a registered fingerprint tag in map value position
     //
@@ -1088,8 +1116,10 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
                           datum{known_fp_in_map},
                           "{\"1\":\"tls/1/(0303)(1301)[(0000)(000a)]\",\"2\":2}", true, 0, f);
 
-    // a tag head with no content after it: the translation fails, and the break
-    // byte that ended the array is left unconsumed
+    // a tag head with no content after it.  skip_cbor_value() refuses the break
+    // byte that follows, because a break is not a data item (RFC 8949 Sec.
+    // 3.2.1), so the failure is detected before any json is opened and the datum
+    // is left null rather than partly consumed.
     //
     std::array<uint8_t,5> truncated_tag{
         0x9f,                                                   // [
@@ -1099,7 +1129,33 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
     translation_tests_passed &=
         test_cbor_array_to_json("tag head with no content",
                           datum{truncated_tag},
-                          "[{\"tag\":999}]", false, 1, f);
+                          "[]", false, -1, f);
+
+    // an unknown tag number above 2^16, which the committed code rendered as a
+    // json number and this code renders as a key
+    //
+    std::array<uint8_t,8> tag_above_16_bits{
+        0x9f,                                                   // [
+          0xda, 0x00, 0x01, 0x11, 0x70,                         //   tag(70000)
+            0x01,                                               //     1
+        0xff                                                    // ]
+    };
+    translation_tests_passed &=
+        test_cbor_array_to_json("unknown tag number above 2^16",
+                          datum{tag_above_16_bits},
+                          "[{\"70000\":\"AQ==\"}]", true, 0, f);
+
+    // an unknown tag holding a definite-length array.
+    std::array<uint8_t,8> tag_holding_definite_array{
+        0x9f,                                                   // [
+          0xd9, 0x03, 0xe7,                                     //   tag(999)
+            0x82, 0x01, 0x02,                                   //     [1, 2]
+        0xff                                                    // ]
+    };
+    translation_tests_passed &=
+        test_cbor_array_to_json("unknown tag holding a definite-length array",
+                          datum{tag_holding_definite_array},
+                          "[{\"999\":\"ggEC\"}]", true, 0, f);
 
     // null and false in array element position, followed by an unsigned integer
     //

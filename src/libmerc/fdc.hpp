@@ -655,10 +655,15 @@ namespace cbor_fingerprint {
         m.close();
     }
 
-    inline void decode_fp(unsigned int fp_type,
+    inline void decode_fp(uint64_t fp_type,
                    datum &d,
                    writeable &w) {
 
+        if (fp_type >= fingerprint_type_max) {
+            d.set_null();   // unknown fingerprint
+            w.set_null();
+            return;
+        }
         w << datum{fingerprint::get_type_name((fingerprint_type)fp_type).c_str()};
         w.copy('/');
         switch(fp_type) {
@@ -827,10 +832,11 @@ namespace cbor_fingerprint {
         // fingerprints that cannot be decoded, which must be rejected through
         // both outputs rather than reported as a partial success
         //
-        // an unknown fingerprint type, and an unknown format version with and
-        // without a value after the version key.  The third form is the one
-        // that read_break() cannot catch, because both of the break bytes that
-        // it reads are really there.
+        // an unknown fingerprint type, a 64-bit type whose low 32 bits alias a
+        // type we do decode, and an unknown format version with and without a
+        // value after the version key.  The last form is the one that
+        // read_break() cannot catch, because both of the break bytes that it
+        // reads are really there.
         //
         std::array<uint8_t,25> unknown_type{
             0xbf, 0x18, 0x63, 0xbf, 0x01,                       // {99: {1:
@@ -840,6 +846,17 @@ namespace cbor_fingerprint {
                   0xff,                                         //       ]
               0xff,                                             //   ]
             0xff, 0xff                                          // }}
+        };
+        std::array<uint8_t,32> aliased_type{
+            0xbf, 0x1b, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+                                                                //  {0x100000001:
+              0xbf, 0x01,                                       //   {1:
+                0x9f, 0x42, 0x03, 0x03, 0x42, 0x13, 0x01,       //   [0303, 1301,
+                  0xd8, 0xfb,                                   //     tag(251)
+                    0x9f, 0x42, 0x00, 0x00, 0x42, 0x00, 0x0a,   //       [0000, 000a
+                    0xff,                                       //       ]
+                0xff,                                           //   ]
+              0xff, 0xff                                        // }}
         };
         std::array<uint8_t,24> unknown_version{
             0xbf, 0x01, 0xbf, 0x07,                             // {1: {7:
@@ -854,6 +871,7 @@ namespace cbor_fingerprint {
             0xbf, 0x01, 0xbf, 0x07, 0xff, 0xff                  // {1: {7: }}
         };
         all_tests_passed &= test_undecodable_fingerprint("unknown fingerprint type", datum{unknown_type}, f);
+        all_tests_passed &= test_undecodable_fingerprint("fingerprint type aliased by truncation", datum{aliased_type}, f);
         all_tests_passed &= test_undecodable_fingerprint("unknown format version", datum{unknown_version}, f);
         all_tests_passed &= test_undecodable_fingerprint("unknown format version, no value", datum{unknown_version_no_value}, f);
 

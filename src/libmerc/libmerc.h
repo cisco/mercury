@@ -356,7 +356,8 @@ enum fingerprint_status analysis_context_get_fingerprint_status(const struct ana
  *    *must* change the other, to keep them in sync
  *
  */
-enum fingerprint_type {
+enum fingerprint_type : uint32_t {   // fixed underlying type: makes converting
+                                     // an out-of-range integer well defined
      fingerprint_type_unknown = 0,     /**< The fingerprint type is not known. */
      fingerprint_type_tls = 1,         /**< TLS client fingerprint             */
      fingerprint_type_tls_server = 2,  /**< TLS server fingerprint             */
