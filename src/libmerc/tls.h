@@ -1766,6 +1766,9 @@ inline void tls_extensions::write_raw_features(writeable &buf) const {
     bool first_extension = true;
     while (ext_parser.length() > 0) {
         tls_extension x{ext_parser};
+        if (x.value.data == NULL) {
+            break;  // parse failed: truncated header or overclaimed length
+        }
         x.write_raw_features(buf, first_extension);
     }
     buf.copy(']');
@@ -2378,9 +2381,37 @@ namespace tls_packet_safety_unit_test {
             && overdeclared_fingerprint_data.cmp(valid_fingerprint_data) == 0;
     }
 
+    // one complete extension followed by a malformed one: a header
+    // truncated after its first type byte, or an intact header whose
+    // declared length overclaims the bytes remaining.  Neither
+    // malformed extension may appear in the raw features.
+    //
+    inline bool malformed_extension_raw_features_unit_test() {
+        static constexpr uint8_t truncated_header[] = {
+            0xff, 0x01, 0x00, 0x01, 0x00,  // renegotiation_info, length 1, value 0x00
+            0xab                           // 1 byte of the next extension's type field
+        };
+        static constexpr uint8_t overclaimed_length[] = {
+            0xff, 0x01, 0x00, 0x01, 0x00,  // renegotiation_info, length 1, value 0x00
+            0x00, 0x33, 0x00, 0xff         // key_share, length 255, but 0 bytes follow
+        };
+        const datum ext_data[] = { datum{truncated_header}, datum{overclaimed_length} };
+
+        for (const datum &ext : ext_data) {
+            tls_extensions extensions{ext.data, ext.data_end};
+            data_buffer<64> buf;
+            extensions.write_raw_features(buf);
+            if (buf.contents().cmp(datum{"[[\"ff01\",\"00\"]]"}) != 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     inline bool unit_test() {
         return client_hello_ciphersuite_fingerprint_unit_test()
-            && server_hello_overdeclared_extensions_unit_test();
+            && server_hello_overdeclared_extensions_unit_test()
+            && malformed_extension_raw_features_unit_test();
     }
 
 } // namespace tls_packet_safety_unit_test
