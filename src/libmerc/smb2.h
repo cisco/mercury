@@ -844,7 +844,7 @@ public:
 
     bool is_not_empty() const { return hdr.is_valid(); }
 
-    void write_json(struct json_object &o, bool) {
+    void write_json(struct json_object &o, bool) const {
         if (this->is_not_empty()) {
             struct json_object smb2{o, "smb2"};
             hdr.write_json(smb2);
@@ -852,7 +852,8 @@ public:
             switch (hdr.get_packet_type()) {
                 case smb2_header::packet_type::NEGOTIATE_REQUEST:
                 {
-                    smb2_negotiate_request neg_req(body);
+                    datum tmp{body};   // parse a copy, to leave body intact
+                    smb2_negotiate_request neg_req(tmp);
                     neg_req.write_json(smb2);
                     if (output_raw_features) {
                         data_buffer<2048> buf;
@@ -866,7 +867,8 @@ public:
                     break;
                 case smb2_header::packet_type::NEGOTIATE_RESPONSE:
                 {
-                    smb2_negotiate_response neg_resp(body);
+                    datum tmp{body};   // parse a copy, to leave body intact
+                    smb2_negotiate_response neg_resp(tmp);
                     neg_resp.write_json(smb2);
                     if (output_raw_features) {
                         data_buffer<2048> buf;
