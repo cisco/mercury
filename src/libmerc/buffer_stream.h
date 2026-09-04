@@ -100,9 +100,8 @@ static inline int append_snprintf(char *dstr, int *doff, int dlen, int *trunc,
 
     /* Check for truncation */
     if (r >= dlen - *doff) {
-        printf_err(log_warning, "Truncation occurred in substr_snprintf(). Space available: %d; needed: %d\n",
-                dlen - *doff, r);
-
+        // Truncation is reported via *trunc; do not log it here, since the
+        // rate is determined by input data and is therefore unbounded.
         r = (dlen - *doff) - 1;
         if (r < 0) {
             r = 0;
@@ -1138,9 +1137,7 @@ struct buffer_stream {
 
         /* Check for truncation */
         if (r >= dlen - doff) {
-            printf_err(log_warning, "Truncation occurred in substr_snprintf(...). Space available: %d; needed: %d\n",
-                    dlen - doff, r);
-
+            // Truncation is reported via trunc; do not log it (see append_snprintf).
             r = (dlen - doff) - 1;
             if (r < 0) {
                 r = 0;
