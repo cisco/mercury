@@ -39,6 +39,7 @@
 #include "libmerc/dhcp.h"
 #include "libmerc/lldp.h"
 #include "libmerc/cdp.h"
+#include "libmerc/eth.h"
 #include "libmerc/ospf.h"
 #include "libmerc/sctp.h"
 #include "libmerc/loopback.hpp"
@@ -204,6 +205,10 @@ int main(int, char *[]) {
         {
             "cdp",
             &cdp_unit_test::unit_test
+        },
+        {
+            "eth",
+            &eth_unit_test::unit_test
         },
         {
             "ospf",
