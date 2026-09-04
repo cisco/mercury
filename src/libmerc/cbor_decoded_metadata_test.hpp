@@ -8,6 +8,8 @@
 //     tests feature-decode correctness through it (matches / decode_into / typed fields).
 //   - cbor_decoded_metadata = typed_decoder<> registers no feature, so every key
 //     arrives as an unknown entry. Group B tests this path's edge cases.
+// Group C puts both shapes against duplicate keys, a buffer that runs out of room while
+// encoding, a non-default buffer size, and truncated input.
 
 #ifndef CBOR_DECODED_METADATA_TEST_HPP
 #define CBOR_DECODED_METADATA_TEST_HPP
@@ -124,8 +126,9 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         }
     }
 
-    // Test 2: crypto_cnsa TLS — string fields + PSK, hex cipher/group values, and a
-    // forward-compat unknown field inside the target map (must be skipped, decode still valid).
+    // Test 2: crypto_cnsa TLS — string fields + PSK, numeric cipher/group codes, an array
+    // mixing names and codes, and a forward-compat unknown field inside the target map
+    // (must be skipped, decode still valid).
     {
         // 2a: string values + multiple PSK non-compliant entries
         {
@@ -204,8 +207,8 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
                 report("cnsa code grp[0] == 0x001d", c.grp_not_allowed_code_at(0) == 0x001d);
             }
         }
-        // 2b': mixed array — one name, one numeric code. Exercises the decode peek
-        // branch routing each element by its major type.
+        // 2b': mixed array — one name, one numeric code. Exercises the lookahead in
+        // the decoder that routes each element by its major type.
         {
             data_buffer<1024> buf;
             cbor_object cbor_outer{buf};
@@ -390,7 +393,8 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
     }
 
     // Test 7: cbor_metadata_buffer has_data gating — no feature written, feature written,
-    // and reset clears the flag (producer-side plumbing used by the packet path).
+    // reset clears the flag, and the reserved truncation key does not count as a feature
+    // (producer-side plumbing used by the packet path).
     {
         // 7a: no feature written -> no data
         {
@@ -576,8 +580,9 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         report("shipped empty: unknown empty", decoded.unknown.empty());
     }
 
-    // Test 11: unrecognized outer version wrapper -> early bail, not valid, nothing captured
-    // (forward-compat: an old decoder must reject a future schema wrapper rather than mis-decode).
+    // Test 11: an outer version wrapper this decoder does not implement is skipped whole, so
+    // nothing is captured and the decode is not valid. Forward-compat: an old decoder must not
+    // mis-decode a future schema, and here there is no v1 beside it to fall back on.
     {
         data_buffer<256> buf;
         cbor_object cbor_outer{buf};
@@ -713,10 +718,10 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
 
     // Test 15: buffer exhaustion during encode. A cnsa written into a tiny context
     // overruns the buffer; the writeable goes null. Asserts is_truncated() true,
-    // get_length() == 0 (the is_null() gate), and that the point-14
-    // growth check is overflow-safe: bytes_written() reports 0 after the overrun,
-    // so (bytes_written() > before_features) is false and set_feature_written()
-    // is NOT called (mirrors the orchestrator).
+    // get_length() == 0 (the is_null() gate), and that the growth check is
+    // overflow-safe: bytes_written() reports 0 after the overrun, so
+    // (bytes_written() > before_features) is false and set_feature_written() is
+    // NOT called (mirrors analyze_ip_packet).
     {
         cbor_metadata_buffer ctx{64};   // tiny buffer, forces overrun
         ctx.reset();
@@ -793,9 +798,10 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
     }
 
     // Test 17: decode-side robustness -- a short/truncated buffer handed to
-    // decode_cbor_metadata() must fail cleanly (valid == false, nothing captured,
-    // no crash / no out-of-bounds read). Two flavors: cut mid-stream, and a
-    // 2-byte stub.
+    // decode_cbor_metadata() must fail cleanly (valid == false, no crash, no
+    // out-of-bounds read). Two flavors: a mid-stream cut, which still appends the
+    // feature it had started on with is_valid() false, and a 2-byte stub, which
+    // cannot get past the outer map and captures nothing.
     {
         // build a valid single-feature buffer, then feed a reduced length.
         data_buffer<512> buf;
@@ -807,7 +813,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         cbor_outer.close();
         datum encoded = buf.contents();
 
-        // cut 6 bytes off the end -> chops the final value / break
+        // cut 6 bytes off the end -> three breaks plus part of the feature's last value
         cbor_decoded_metadata cut;
         decode_cbor_metadata(encoded.data, encoded.length() - 6, cut);
         report("trunc-decode: mid-stream cut -> valid false", !cut.valid);
