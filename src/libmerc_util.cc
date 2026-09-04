@@ -362,6 +362,7 @@ int main(int argc, char *argv[]) {
         { argument::required,   "--resources", "use resource file <arg>" },
         { argument::none,       "--stats",     "generate stats.json.gz file" },
         { argument::none,       "--fdc",       "output FDC" },
+        { argument::none,       "--cbor-metadata", "output CBOR metadata" },
         { argument::optional,   "--l7-output", "redirect L7 metadata JSON output to file <arg>" },
         { argument::none,       "--verbose",   "turn on verbose output" },
         { argument::none,       "--help",      "print out help message" },
@@ -382,6 +383,7 @@ int main(int argc, char *argv[]) {
     bool verbose = opt.is_set("--verbose");
     bool do_stats = opt.is_set("--stats");
     bool do_fdc = opt.is_set("--fdc");
+    bool do_cbor_metadata = opt.is_set("--cbor-metadata");
     bool print_help = opt.is_set("--help");
     bool crypto_assess = opt.is_set("--crypto-assess");
     bool exposed_creds = opt.is_set("--exposed-creds");
@@ -414,6 +416,9 @@ int main(int argc, char *argv[]) {
         // load libmerc.so from location provided through --libmerc option
         //
         libmerc_printer mercury(libmerc_file.c_str());
+        if (do_cbor_metadata && mercury.get_cbor_metadata == nullptr) {
+            throw std::runtime_error("libmerc does not provide CBOR metadata API");
+        }
 
         // set libmerc configuration
         //
@@ -436,6 +441,9 @@ int main(int argc, char *argv[]) {
         }
         if (http_body_is_set) {
             packet_filter_cfg += ";http-body-max=" + http_body_value;
+        }
+        if (do_cbor_metadata) {
+            packet_filter_cfg += ";cbor-metadata";
         }
         config.packet_filter_cfg = (char *)packet_filter_cfg.c_str();
 
@@ -535,6 +543,23 @@ int main(int argc, char *argv[]) {
                 const struct analysis_context *ctx = mercury.get_analysis_context(mpp, (uint8_t *)pkt_data.data, pkt_data.length(), &ts);
                 const struct attribute_context *attr_ctx = mercury.get_attributes(mpp);
                 mercury.fprint_json_analysis_context(stdout, ctx, attr_ctx);
+                if (do_cbor_metadata) {
+                    const uint8_t *cbor_buffer = nullptr;
+                    size_t cbor_length = 0;
+                    int cbor_status = mercury.get_cbor_metadata(mpp, &cbor_buffer, &cbor_length);
+                    if (cbor_status == CBOR_OK) {
+                        char json_buffer[16384];
+                        buffer_stream json{json_buffer, sizeof(json_buffer)};
+                        json.puts("{\"cbor_metadata\":");
+                        datum cbor_data{cbor_buffer, cbor_buffer + cbor_length};
+                        if (decode_cbor_map_to_json(cbor_data, json, nullptr)) {
+                            json.write_char('}');
+                            json.write_line(stdout);
+                        }
+                    } else if (cbor_status < 0) {
+                        fprintf(stderr, "get_cbor_metadata status: %d\n", cbor_status);
+                    }
+                }
                 bool need_more_pkts = mercury.more_pkts_needed(mpp);
                 fprintf(stdout, "{more_pkts_needed:%s}\n", need_more_pkts ? "true" : "false");
             }
