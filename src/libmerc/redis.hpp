@@ -545,7 +545,7 @@ namespace redis{
         bool is_not_empty() const { return isValid; }
 
         bool has_exposed_password() const {
-            return is_auth_command && password_data.is_not_empty();
+            return isValid && is_auth_command && password_data.is_not_empty();
         }
 
         datum get_username() const { return username_data; }
@@ -719,7 +719,7 @@ namespace redis{
             return false;
         }
 
-        for (const char *input : {"PING\r\n", "*1\r\n$3\r\nGET\r\n"}) {
+        for (const char *input : {"PING\r\n", "*1\r\n$3\r\nGET\r\n", "AUTH secr"}) {
             datum d{input};
             redis::request request{d};
             if (request.check_credential_exposure() != exposed_creds_type::none ||
