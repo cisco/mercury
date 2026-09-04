@@ -518,7 +518,7 @@ inline bool cbor_to_json_translator::decode_cbor_array_to_json(datum &d, json_ar
 
     constexpr size_t max_recursion_depth = 256;
     if (depth > max_recursion_depth) {
-        d.set_null();       
+        d.set_null();
         return false;
     }
 
