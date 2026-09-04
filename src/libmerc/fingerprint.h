@@ -307,6 +307,25 @@ namespace fingerprint_unit_test {
             passed &= !fp.fingerprint_is_well_formed();
         }
 
+        {
+            // the "generic" keyword is accepted as the whole data
+            // section, and is read no further than the terminator
+            fingerprint fp;
+            fp.init();
+            fp.set_type(fingerprint_type_tls, 1);
+            literal_message generic{"generic"};
+            fp.add(generic);
+
+            passed &= fp.fingerprint_is_well_formed();
+            fp.final();
+            passed &= strcmp(fp.string(), "tls/1/generic") == 0;
+
+            // a buffer holding no type name and no '/' is rejected
+            // instead of read past
+            fp.init();
+            passed &= !fp.fingerprint_is_well_formed();
+        }
+
         return passed;
     }
 #endif
