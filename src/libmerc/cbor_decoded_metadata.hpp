@@ -100,32 +100,27 @@ inline void decode_cbor_metadata(const uint8_t* buf, size_t len,
     out.reset();
     if (!buf || len == 0) { return; }
 
-    bool recognized_version = false;
-
     datum d{buf, buf + len};
-    cbor::map outer{d};
+    cbor::map outer{d};        // head is checked here; the break is not required
     if (d.is_null()) { return; }
 
-    if (d.is_not_empty() && !cbor::is_break(d)) {
+    while (d.is_not_empty() && !cbor::is_break(d)) {
         cbor::text_string ver_key = cbor::text_string::decode(d);
         if (d.is_null()) { return; }
 
-        datum k = ver_key.value();
-        if (k.match(CBOR_METADATA_VERSION_KEY.c_str())) {
-            recognized_version = true;
+        if (ver_key.value().match(CBOR_METADATA_VERSION_KEY.c_str())) {
             cbor::map inner{d};
             if (d.is_null()) { return; }
             decode_v1(d, out);
+            if (d.is_null()) { return; }
             inner.close();
+            if (d.is_null()) { return; }
+            out.valid = true;          // this version decoded and terminated cleanly
         } else {
-            // Early bail out on unrecognized version key
-            return;
+            cbor::skip_cbor_value(d);  // a version this decoder does not implement
+            if (d.is_null()) { return; }
         }
     }
-
-    outer.close();
-
-    out.valid = recognized_version && !d.is_null();
 }
 
 namespace {

@@ -17,6 +17,15 @@ inline constexpr null_terminated_string CBOR_METADATA_VERSION_KEY = "v1";
 // decoder captures it into typed_decoder::truncation.
 inline constexpr null_terminated_string CBOR_METADATA_TRUNCATION_KEY = "truncation";
 
+// Guideline for Features written into the CBOR Interface
+// 1. Every Feature's value must be an indefinite-length CBOR map.
+// 2. Only those CBOR primitives must be used that the consumers of this
+//    interface understand. Currently the allowed CBOR primitives are unsigned
+//    integers, byte strings, text strings, true, false, null, tagged items,
+//    indefinite-length maps and indefinite-length arrays.
+// 3. An unsigned integer used as a key should be less than 65536.
+// 4. A text key should be less than 128 bytes once JSON-escaped.
+
 /// Reserved packet-level status: the truncation state of the packet/handshake.
 class truncation_message {
     cbor::text_string status_;
