@@ -556,12 +556,19 @@ struct tcp_reassembler {
     reassembly_map_iterator curr_flow; // iterator pointing to the current flow in reassembly
     bool dump_pkt;  // used by pkt_filter to dump pkts involved in reassembly
 
+    // cursor over curr_flow's reassembled bytes
+    // - owned here, so it outlives the frame that hands it to a parser
+    // - parsers keeping a datum& (smb1, smb2, nbss, iec104) deref it at output
+    // - cleared in clean_curr_flow(), with the buffer it points into
+    datum reassembled_data;
+
     // ctor does not allocated memory for the table entries
     // call init to reserve entries
     tcp_reassembler(bool minimize_ram = false) :
         max_reassembly_entries{minimize_ram ? min_entries: max_entries},
         table{},
-        dump_pkt{false} {
+        dump_pkt{false},
+        reassembled_data{nullptr, nullptr} {
         table.reserve(max_reassembly_entries);
         reap_it = table.end();
         curr_flow = table.end();
@@ -578,6 +585,13 @@ struct tcp_reassembler {
     // true if any truncation flag is set (persists past set_completed)
     bool was_flow_truncated(reassembly_map_iterator it) const;
     datum get_reassembled_data(reassembly_map_iterator it);
+
+    // point reassembled_data at the flow's bytes; ref valid until clean_curr_flow()
+    // - use instead of get_reassembled_data() when handing off to a parser,
+    //   which may deref after the calling frame is gone
+    // - the consuming parser advances the cursor, as it would the packet datum
+    datum &reassembled_data_cursor(reassembly_map_iterator it);
+
     void set_completed(reassembly_map_iterator it);
     void write_json(json_object &record);
     void clean_curr_flow();
@@ -822,6 +836,11 @@ inline datum tcp_reassembler::get_reassembled_data(reassembly_map_iterator it) {
         return datum{nullptr,nullptr};
 }
 
+inline datum &tcp_reassembler::reassembled_data_cursor(reassembly_map_iterator it) {
+    reassembled_data = get_reassembled_data(it);
+    return reassembled_data;
+}
+
 inline void tcp_reassembler::set_completed(reassembly_map_iterator it) {
     if (it != table.end())
         it->second.state = reassembly_state::reassembly_consumed;
@@ -832,6 +851,7 @@ inline void tcp_reassembler::clean_curr_flow() {
         reap_it = table.erase(curr_flow);
     }
     curr_flow = table.end();
+    reassembled_data = datum{nullptr, nullptr};  // buffer it points into is gone
 }
 
 inline void tcp_reassembler::write_json(json_object &record) {
@@ -858,6 +878,7 @@ inline void tcp_reassembler::write_json(json_object &record) {
 
 inline void tcp_reassembler::clear_all() {
     table.clear();
+    reassembled_data = datum{nullptr, nullptr};  // buffer it points into is gone
 }
 
 // CID-mismatch behaviour in process_quic_reassembly() and
@@ -1246,5 +1267,70 @@ inline void write_reassembly_properties(json_object &record,
         flags.close();
     }
 }
+
+// LCOV_EXCL_START
+namespace reassembly_unit_test {
+#ifndef NDEBUG
+
+    // mirrors the hand-off in process_tcp_data(): take the cursor, then return
+    // - parsers deref it from the caller's frame, so it must outlive this one
+    inline datum *hand_off_cursor(tcp_reassembler &r) {
+        return &r.reassembled_data_cursor(r.get_current_flow());
+    }
+
+    // the cursor must be reassembler-owned, readable after the hand-off frame
+    // returns, and cleared with the flow buffer
+    inline bool unit_test() {
+        constexpr uint32_t half = 8;
+        constexpr uint32_t whole = half + half;
+        constexpr uint32_t init_seq = 1000;
+        const uint8_t seg1[half] = { 0, 1, 2, 3, 4, 5, 6, 7 };
+        const uint8_t seg2[half] = { 8, 9, 10, 11, 12, 13, 14, 15 };
+
+        tcp_reassembler r;
+        key k{1001, 2002, 0x0a010101, 0x0a010102, 6};  // ip_vers must be set, or find() never matches
+
+        if (r.reassembled_data.is_not_null()) { return false; }  // nothing handed off yet
+
+        // first segment declares half its bytes as still to come
+        datum d1{seg1, seg1 + half};
+        tcp_segment s1{true, half, init_seq, half, 1};
+        r.process_tcp_data_pkt(k, 1, s1, d1);
+        if (!r.in_progress(r.get_current_flow())) { return false; }
+        if (r.is_ready(r.get_current_flow())) { return false; }   // still incomplete
+
+        // second segment completes the byte count
+        datum d2{seg2, seg2 + half};
+        tcp_segment s2{false, half, init_seq + half, 0, 1};
+        r.process_tcp_data_pkt(k, 1, s2, d2);
+
+        reassembly_map_iterator it = r.get_current_flow();
+        if (!r.is_ready(it)) { return false; }
+        const uint8_t *flow_buffer = it->second.buffer;
+
+        datum *cursor = hand_off_cursor(r);
+
+        // hand_off_cursor() has returned: still the member, still the flow buffer
+        if (cursor != &r.reassembled_data) { return false; }
+        if (cursor->data != flow_buffer) { return false; }
+        if (cursor->length() != (ssize_t)whole) { return false; }
+        for (uint32_t i = 0; i < whole; i++) {
+            if (cursor->data[i] != (uint8_t)i) { return false; }
+        }
+
+        // releasing the flow must clear the cursor along with the buffer
+        r.set_completed(it);
+        r.clean_curr_flow();
+        if (r.reassembled_data.is_not_null()) { return false; }
+
+        // with no current flow the cursor stays null
+        if (r.reassembled_data_cursor(r.get_current_flow()).is_not_null()) { return false; }
+
+        return true;
+    }
+
+#endif // NDEBUG
+} // namespace reassembly_unit_test
+// LCOV_EXCL_STOP
 
 #endif /* REASSEMBLY_HPP */

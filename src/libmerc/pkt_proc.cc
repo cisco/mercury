@@ -987,8 +987,10 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
         // reassmbly done
         // process reassembled data
         //
-        struct datum reassembled_data = reassembler->get_reassembled_data(it);
-        set_tcp_protocol(x, reassembled_data, true, &tcp_pkt);
+        // reassembler-owned datum, not a local: a parser in x may keep a
+        // reference and deref it at output, after this frame is gone
+        //
+        set_tcp_protocol(x, reassembler->reassembled_data_cursor(it), true, &tcp_pkt);
 
         // mark flow as completed
         reassembler->set_completed(it);
