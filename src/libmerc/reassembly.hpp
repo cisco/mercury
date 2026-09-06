@@ -1288,7 +1288,9 @@ namespace reassembly_unit_test {
         const uint8_t seg2[half] = { 8, 9, 10, 11, 12, 13, 14, 15 };
 
         tcp_reassembler r;
-        key k{1001, 2002, 0x0a010101, 0x0a010102, 6};  // ip_vers must be set, or find() never matches
+        // concrete key: a default-constructed one has ip_vers 0, which never
+        // compares equal, so each segment would start its own flow
+        key k{1001, 2002, 0x0a010101, 0x0a010102, 6};
 
         if (r.reassembled_data.is_not_null()) { return false; }  // nothing handed off yet
 
