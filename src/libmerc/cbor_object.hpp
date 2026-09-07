@@ -313,7 +313,7 @@ static inline void print_unknown_npf_as_base64(json_array &a, const datum &conte
 class cbor_to_json_translator {
     const vocabulary *keys;
 
-    enum type { key, value };
+    enum class type { key, value };
 
     /// Null-terminate the buffer and return a string wrapper over the contents.
     ///
