@@ -76,6 +76,7 @@ struct eth_dot1ad_tag {
 
 #define MPLS_HDR_LEN 4
 #define MPLS_BOTTOM_OF_STACK 0x100
+#define CMD_SGT_HDR_LEN 6 
 #define ETH_MAX_ENCAP_DEPTH 5
 
 /*
@@ -164,7 +165,7 @@ class eth {
                 }
             }
             else if (ethertype == ETH_TYPE_CMD) {
-                p.skip(6);  // Cisco MetaData
+                p.skip(CMD_SGT_HDR_LEN);  // Cisco MetaData
                 if (!p.read_uint16(&ethertype)) {
                     ethertype = ETH_TYPE_NONE;
                     return;
