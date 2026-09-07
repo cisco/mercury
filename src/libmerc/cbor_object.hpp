@@ -1171,6 +1171,94 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
                           datum{simple_values},
                           "[null,false,1]", true, 0, f);
 
+    // true in array element position, before another simple value and an
+    // unsigned integer
+    //
+    std::array<uint8_t,5> true_in_array{
+        0x9f,                                                   // [
+          0xf5,                                                 //   true,
+          0xf6,                                                 //   null,
+          0x02,                                                 //   2
+        0xff                                                    // ]
+    };
+    translation_tests_passed &=
+        test_cbor_array_to_json("true as an array element",
+                          datum{true_in_array},
+                          "[true,null,2]", true, 0, f);
+
+    // an array nested inside an array
+    //
+    std::array<uint8_t,6> nested_array{
+        0x9f,                                                   // [
+          0x9f, 0x01, 0x02, 0xff,                               //   [1, 2]
+        0xff                                                    // ]
+    };
+    translation_tests_passed &=
+        test_cbor_array_to_json("an array nested in an array",
+                          datum{nested_array},
+                          "[[1,2]]", true, 0, f);
+
+    // an npf tag in map value position whose content this build cannot decode
+    // as a fingerprint: the format version is 7.  The tag and its content are
+    // rendered as base64 under the map key, with a sibling after them.
+    //
+    std::array<uint8_t,32> unknown_fp_in_map{
+        0xbf,                                                   // {
+          0x01,                                                 //   1:
+          0xd9, 0x46, 0x50,                                     //   tag(18000)
+            0xbf, 0x01, 0xbf, 0x07,                             //     {1: {7:
+              0x9f, 0x42, 0x03, 0x03, 0x42, 0x13, 0x01,         //       [0303, 1301,
+                0xd8, 0xfb,                                     //         tag(251)
+                  0x9f, 0x42, 0x00, 0x00, 0x42, 0x00, 0x0a,     //           [0000, 000a
+                  0xff,                                         //           ]
+              0xff,                                             //       ]
+            0xff, 0xff,                                         //     }}
+          0x02, 0x02,                                           //   2: 2
+        0xff                                                    // }
+    };
+    translation_tests_passed &=
+        test_cbor_map_to_json("undecodable fingerprint as a map value, with a sibling",
+                          datum{unknown_fp_in_map},
+                          "{\"1\":\"npf/vwG/B59CAwNCEwHY+59CAABCAAr/////\",\"2\":2}", true, 0, f);
+
+    // input nested deeper than max_recursion_depth, which the depth guard must
+    // reject rather than recurse to exhaustion.  The json in the buffer is one
+    // bracket per level entered before the guard fired, so only the return
+    // value and the nulled datum are checked here.
+    //
+    {
+        std::array<uint8_t,260> deep_arrays;
+        deep_arrays.fill(0x9f);                 // 260 nested arrays, never closed
+        datum input{deep_arrays};
+        output_buffer<2048> buf;
+        cbor_to_json_translator translator{nullptr};
+        cbor::array top{input};                 // consumes the initial byte
+        json_array a{&buf};
+        bool result = translator.decode_cbor_array_to_json(input, a);
+        a.close();
+        if (result or input.is_not_null()) {
+            if (f) {
+                fprintf(f, "ERROR: array nested past the recursion limit was not rejected\n");
+            }
+            translation_tests_passed = false;
+        }
+    }
+    {
+        std::array<uint8_t,600> deep_maps;
+        for (size_t i = 0; i < deep_maps.size(); i += 2) {
+            deep_maps[i] = 0xbf;                // 300 nested maps, never closed,
+            deep_maps[i+1] = 0x01;              // each keyed on 1
+        }
+        datum input{deep_maps};
+        output_buffer<2048> buf;
+        if (decode_cbor_map_to_json(input, buf, nullptr) or input.is_not_null()) {
+            if (f) {
+                fprintf(f, "ERROR: map nested past the recursion limit was not rejected\n");
+            }
+            translation_tests_passed = false;
+        }
+    }
+
     if (!translation_tests_passed) {
         return false;
     }

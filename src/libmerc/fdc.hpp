@@ -888,6 +888,71 @@ namespace cbor_fingerprint {
         all_tests_passed &= test_undecodable_fingerprint("unrecognized tls label", datum{unknown_tls_label}, f);
         all_tests_passed &= test_undecodable_fingerprint("unrecognized tofsee label", datum{unknown_tofsee_label}, f);
 
+        // every decoder checks the format version for itself, so each one needs
+        // its own envelope.  Version 7 is implemented by none of them; the tls
+        // case is unknown_version above.
+        //
+        std::array<uint8_t,6> http_unknown_version{
+            0xbf, 0x03, 0xbf, 0x07, 0xff, 0xff                  // {3: {7: }}
+        };
+        std::array<uint8_t,6> http_server_unknown_version{
+            0xbf, 0x04, 0xbf, 0x07, 0xff, 0xff                  // {4: {7: }}
+        };
+        std::array<uint8_t,6> tls_server_unknown_version{
+            0xbf, 0x02, 0xbf, 0x07, 0xff, 0xff                  // {2: {7: }}
+        };
+        std::array<uint8_t,6> quic_unknown_version{
+            0xbf, 0x0c, 0xbf, 0x07, 0xff, 0xff                  // {12: {7: }}
+        };
+        std::array<uint8_t,6> tofsee_unknown_version{
+            0xbf, 0x0f, 0xbf, 0x07, 0xff, 0xff                  // {15: {7: }}
+        };
+        std::array<uint8_t,6> stun_unknown_version{
+            0xbf, 0x10, 0xbf, 0x07, 0xff, 0xff                  // {16: {7: }}
+        };
+        std::array<uint8_t,6> ssh_unknown_version{
+            0xbf, 0x05, 0xbf, 0x07, 0xff, 0xff                  // {5: {7: }}
+        };
+        all_tests_passed &= test_undecodable_fingerprint("http, unknown format version", datum{http_unknown_version}, f);
+        all_tests_passed &= test_undecodable_fingerprint("http_server, unknown format version", datum{http_server_unknown_version}, f);
+        all_tests_passed &= test_undecodable_fingerprint("tls_server, unknown format version", datum{tls_server_unknown_version}, f);
+        all_tests_passed &= test_undecodable_fingerprint("quic, unknown format version", datum{quic_unknown_version}, f);
+        all_tests_passed &= test_undecodable_fingerprint("tofsee, unknown format version", datum{tofsee_unknown_version}, f);
+        all_tests_passed &= test_undecodable_fingerprint("stun, unknown format version", datum{stun_unknown_version}, f);
+        all_tests_passed &= test_undecodable_fingerprint("ssh, unknown format version", datum{ssh_unknown_version}, f);
+
+        // an unrecognized label in each of the other decoders that accept one.
+        // A label is an index into fp_labels, which holds three entries, so 7
+        // is not a label any build of this decoder knows.
+        //
+        std::array<uint8_t,7> unknown_http_label{
+            0xbf, 0x03, 0xbf, 0x00, 0x07, 0xff, 0xff            // {3: {0: 7}}
+        };
+        std::array<uint8_t,7> unknown_quic_label{
+            0xbf, 0x0c, 0xbf, 0x00, 0x07, 0xff, 0xff            // {12: {0: 7}}
+        };
+        std::array<uint8_t,7> unknown_stun_label{
+            0xbf, 0x10, 0xbf, 0x01, 0x07, 0xff, 0xff            // {16: {1: 7}}
+        };
+        std::array<uint8_t,7> unknown_ssh_label{
+            0xbf, 0x05, 0xbf, 0x00, 0x07, 0xff, 0xff            // {5: {0: 7}}
+        };
+        all_tests_passed &= test_undecodable_fingerprint("unrecognized http label", datum{unknown_http_label}, f);
+        all_tests_passed &= test_undecodable_fingerprint("unrecognized quic label", datum{unknown_quic_label}, f);
+        all_tests_passed &= test_undecodable_fingerprint("unrecognized stun label", datum{unknown_stun_label}, f);
+        all_tests_passed &= test_undecodable_fingerprint("unrecognized ssh label", datum{unknown_ssh_label}, f);
+
+        // a fingerprint type that is in range but has no decoder.  decode_fp()
+        // handles eleven of the twenty-one enumerators, so tcp (7) reaches the
+        // switch and falls through to its default label.  That is a different
+        // path from unknown_type above, which the range check rejects before
+        // the switch is entered.
+        //
+        std::array<uint8_t,7> unhandled_type{
+            0xbf, 0x07, 0xbf, 0x00, 0x01, 0xff, 0xff            // {7: {0: 1}}
+        };
+        all_tests_passed &= test_undecodable_fingerprint("fingerprint type with no decoder", datum{unhandled_type}, f);
+
         return all_tests_passed;
     }
     // LCOV_EXCL_STOP

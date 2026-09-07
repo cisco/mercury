@@ -1319,6 +1319,56 @@ namespace cbor {
             skip_cbor_value(d);
             if (d.length() != 1 || *d.data != 0xf4) { passed = false; }
         }
+        {
+            // indefinite-length byte string of two chunks, then true
+            uint8_t data[] = {0x5f, 0x42, 0xaa, 0xbb, 0x41, 0xcc, 0xff, 0xf5};
+            datum d{data, data + 8};
+            skip_cbor_value(d);
+            if (d.length() != 1 || *d.data != 0xf5) { passed = false; }
+        }
+        {
+            // indefinite-length text string of one chunk, then false
+            uint8_t data[] = {0x7f, 0x62, 'h', 'i', 0xff, 0xf4};
+            datum d{data, data + 6};
+            skip_cbor_value(d);
+            if (d.length() != 1 || *d.data != 0xf4) { passed = false; }
+        }
+        {
+            // a chunk of the wrong major type: RFC 8949 Sec. 3.2.3 requires
+            // every chunk to be a definite-length string of the enclosing type
+            uint8_t data[] = {0x5f, 0x62, 'h', 'i', 0xff};
+            datum d{data, data + 5};
+            skip_cbor_value(d);
+            if (!d.is_null()) { passed = false; }
+        }
+        {
+            // a nested indefinite-length chunk, which the same rule forbids
+            uint8_t data[] = {0x5f, 0x5f, 0xff, 0xff};
+            datum d{data, data + 4};
+            skip_cbor_value(d);
+            if (!d.is_null()) { passed = false; }
+        }
+        {
+            // a chunk that declares more bytes than the input holds
+            uint8_t data[] = {0x5f, 0x43, 0xaa};
+            datum d{data, data + 3};
+            skip_cbor_value(d);
+            if (!d.is_null()) { passed = false; }
+        }
+        {
+            // chunks with no terminating break
+            uint8_t data[] = {0x5f, 0x42, 0xaa, 0xbb};
+            datum d{data, data + 4};
+            skip_cbor_value(d);
+            if (!d.is_null()) { passed = false; }
+        }
+        {
+            // an empty datum: there is no item here to skip
+            uint8_t data[] = {0xf5};
+            datum d{data, data};
+            skip_cbor_value(d);
+            if (!d.is_null()) { passed = false; }
+        }
 
         return passed;
     }
