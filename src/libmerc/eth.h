@@ -76,7 +76,7 @@ struct eth_dot1ad_tag {
 
 #define MPLS_HDR_LEN 4
 #define MPLS_BOTTOM_OF_STACK 0x100
-#define CMD_SGT_HDR_LEN 6 
+#define CMD_SGT_HDR_LEN 6
 #define ETH_MAX_ENCAP_DEPTH 5
 
 /*
