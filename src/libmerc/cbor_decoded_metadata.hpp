@@ -115,12 +115,22 @@ inline void decode_cbor_metadata(const uint8_t* buf, size_t len,
             if (d.is_null()) { return; }
             inner.close();
             if (d.is_null()) { return; }
-            out.valid = true;          // this version decoded and terminated cleanly
+            // Only CBOR_METADATA_VERSION_KEY is decoded, which today is v1; the
+            // loop walks d so that other versions can be skipped.  If a schema
+            // change brings a v2, the library may emit both so that consumers
+            // built against v1 keep working.
+            //
+            // valid is set here rather than after outer.close() because
+            // inner.close() has already consumed v1's break: v1 is complete at
+            // this point, and a truncated or malformed sibling version cannot
+            // take that away.
+            out.valid = true;
         } else {
             cbor::skip_cbor_value(d);  // a version this decoder does not implement
             if (d.is_null()) { return; }
         }
     }
+    outer.close();   // completes the envelope; validity does not depend on it
 }
 
 namespace {
