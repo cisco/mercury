@@ -1,6 +1,11 @@
-// cbor_fingerprint.hpp
-//
-// CBOR encoding and decoding of Network Protocol Fingerprints (NPF)
+///
+/// \file cbor_fingerprint.hpp
+///
+/// CBOR encoding and decoding of Network Protocol Fingerprints (NPF)
+///
+/// Copyright (c) 2026 Cisco Systems, Inc. All rights reserved.
+/// License at https://github.com/cisco/mercury/blob/master/LICENSE
+///
 
 #ifndef CBOR_FINGERPRINT_HPP
 #define CBOR_FINGERPRINT_HPP
@@ -9,7 +14,7 @@
 #include "datum.h"
 #include "cbor.hpp"
 #include "static_dict.hpp"
-#include "fingerprint.h"      // for fingerprint_type and fingerprint::get_type_name()
+#include "fingerprint.h"      // for fingerprint::get_type_name()
 
 // cbor_fingerprint decodes a CBOR representation of a Network
 // Protocol Fingerprint (NPF), which is defined by this correspondence
@@ -39,14 +44,14 @@ namespace cbor_fingerprint {
         while (lookahead<cbor::initial_byte> ib{d}) {
             if (ib.value.is_byte_string()) {
                 cbor::byte_string bs = cbor::byte_string::decode(d);
-                fputc('(', stdout);
-                bs.value().fprint_hex(stdout);
-                fputc(')', stdout);
+                fputc('(', f);
+                bs.value().fprint_hex(f);
+                fputc(')', f);
             } else if (ib.value.is_array_indefinite_length()) {
                 d = ib.advance();
-                fputc('[', stdout);
+                fputc('[', f);
                 fprint(f, d);          // recursion
-                fputc(']', stdout);
+                fputc(']', f);
             } else if (ib.value.is_break()) {
                 d = ib.advance();
                 break;
@@ -272,25 +277,6 @@ namespace cbor_fingerprint {
         }
 
         m.close();
-    }
-
-    constexpr uint64_t randomized = 0;
-    constexpr uint64_t generic = 1;
-
-    constexpr std::array<const char *, 3> fingerprint_labels = {
-        "unknown",
-        "randomized",
-        "generic"
-    };
-
-    template <size_t N>
-    size_t constexpr get_index(const std::array<const char *, N> &a, const char *s) {
-        for (const auto & x : a) {
-            if (strcmp(x, s) == 0) {
-                return std::distance(&x, a.begin());
-            }
-        }
-        return 0;
     }
 
     inline void encode_cbor_tofsee_fingerprint(datum d, writeable &w) {
