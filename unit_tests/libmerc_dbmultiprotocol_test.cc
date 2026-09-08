@@ -35,6 +35,18 @@ SCENARIO("test packet_processor_get_analysis_context with http encapsulated in P
     }
 }
 
+TEST_CASE_FIXTURE(LibmercTestFixture, "test VLAN/CMD encapsulations in any order")
+{
+    libmerc_config config{.packet_filter_cfg = (char *)"all"};
+
+    initialize(config);
+
+    set_pcap("vlan_cmd_ordering_tls_client_hello.pcap");
+    CHECK(7 == counter(fingerprint_type_tls));
+
+    deinitialize();
+}
+
 TEST_CASE_FIXTURE(LibmercTestFixture, "test linux sll2")
 {
     libmerc_config config{.packet_filter_cfg = (char *)"all"};
