@@ -5,7 +5,7 @@
 
 #include "datum.h"
 #include "cbor.hpp"
-#include "fdc.hpp"                // for cbor_fingerprint::encode_fingerprint()
+#include "cbor_fingerprint.hpp"   // for cbor_fingerprint::decode_cbor_fingerprint()
 #include "static_dict.hpp"
 #include "json_object.h"
 #include "null_terminated_string.hpp"

@@ -794,8 +794,7 @@ inline void json_object::print_key_bitstring_flags(null_terminated_string name, 
     if (value.is_not_empty()) {
         struct datum p = value;
         char *const *tmp = flags;
-        uint8_t number_of_unused_bits = 0;
-        p.read_uint8(&number_of_unused_bits);
+        encoded<uint8_t> number_of_unused_bits{p};
         while (p.data < p.data_end-1) {
             for (uint8_t x = 0x80; x > 0; x=x>>1) {
                 if (x & *p.data) {
