@@ -122,8 +122,11 @@ Mercury uses a selective, lazy, non-owning data parsing strategy:
      constructor.
 
    * a data member that retains part of the input must hold a `datum`
-     by value, not a `datum &`; the caller's `input` may not outlive the
-     object, and copying the `{data,data_end}` pair is cheap.
+     by value, not a `datum &`; the caller's `input` might not outlive
+     the object, and copying the `{data,data_end}` pair is cheap.  A
+     `datum &` member is admissible only in a helper confined to its
+     caller's frame, and only for write-back to that caller, e.g.,
+     advancing its cursor.
 
    * If necessary, the member initializer can invoke a static member
      function that accepts a `datum &` and returns an object of the
