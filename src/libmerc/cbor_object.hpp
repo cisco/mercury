@@ -509,6 +509,7 @@ public:
 
         }
 
+        d.set_null();   // the map was not terminated by a break byte
         return false;
     }
 
@@ -620,7 +621,8 @@ inline bool cbor_to_json_translator::decode_cbor_array_to_json(datum &d, json_ar
             }
         }
     }
-    return true;
+    d.set_null();   // an indefinite-length array must be terminated by a break
+    return false;   // byte; reaching here means the input ended before one
 }
 
 
@@ -1197,6 +1199,52 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
         test_cbor_array_to_json("an array nested in an array",
                           datum{nested_array},
                           "[[1,2]]", true, 0, f);
+
+    // an array whose elements are well formed but whose break byte is missing.
+    // Only indefinite-length arrays are supported, so a break is required (RFC
+    // 8949 Sec. 3.2.1) and running out of input is a truncation, not an end.
+    //
+    std::array<uint8_t,3> array_without_break{
+        0x9f,                                                   // [
+          0x01, 0x02                                            //   1, 2
+    };
+    translation_tests_passed &=
+        test_cbor_array_to_json("array truncated before the break",
+                          datum{array_without_break},
+                          "[1,2]", false, -1, f);
+
+    // an array head with nothing at all after it
+    //
+    std::array<uint8_t,1> empty_array_without_break{
+        0x9f                                                    // [
+    };
+    translation_tests_passed &=
+        test_cbor_array_to_json("empty array truncated before the break",
+                          datum{empty_array_without_break},
+                          "[]", false, -1, f);
+
+    // a nested array in which neither the inner nor the outer break is present,
+    // so the failure has to propagate out of the recursive call
+    //
+    std::array<uint8_t,4> nested_array_without_break{
+        0x9f,                                                   // [
+          0x9f, 0x01, 0x02                                      //   [1, 2
+    };
+    translation_tests_passed &=
+        test_cbor_array_to_json("nested array truncated before the break",
+                          datum{nested_array_without_break},
+                          "[[1,2]]", false, -1, f);
+
+    // a map holding one complete key/value pair but no break byte
+    //
+    std::array<uint8_t,3> map_without_break{
+        0xbf,                                                   // {
+          0x01, 0x01                                            //   1: 1
+    };
+    translation_tests_passed &=
+        test_cbor_map_to_json("map truncated before the break",
+                          datum{map_without_break},
+                          "{\"1\":1}", false, -1, f);
 
     // an npf tag in map value position whose content this build cannot decode
     // as a fingerprint: the format version is 7.  The tag and its content are
