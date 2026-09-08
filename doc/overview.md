@@ -17,7 +17,6 @@ Mercury is an open source package for network metadata capture and analysis.   I
 - [tls_scanner](../src/tls_scanner.cc) implements TLS scanning, certificate fetching for v1.3, DoH, and Domain Fronting detection.
 - [cert_analyze](../src/cert_analyze.cc) reads and analyzes PKIX/X.509 certificates; it can write JSON, identify security issues with certificates, including common keys.
 - [batch_gcd](../src/batch_gcd.cc) identifies common factors of RSA moduli; it can be used with cert_analyze to [find weak keys in certificates](./batch-gcd.md).
-- [os_identifier](../src/os_identifier.cc) implements a multiprotocol, multisession OS fingerprinter, using a bag-of-fingerprints model.   It is not (yet) integrated into libmerc/mercury.
 - [lsif](../src/lsif.cc) lists interfaces that can be monitored.  It is not (yet?) integrated into mercury.
 
 

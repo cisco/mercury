@@ -193,7 +193,6 @@ help:
 	@echo '    intercept            intercept_server + intercept.so'
 	@echo '    intercept_server     TLS interception server'
 	@echo '    libmerc_util         PCAP analysis tool using libmerc.so'
-	@echo '    os_identifier        OS identification'
 	@echo '    pcap                 PCAP file reader and packet dumper'
 	@echo '    pcap_filter          PCAP filtering using libmerc.a'
 	@echo '    string               String utilities'
