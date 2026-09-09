@@ -33,7 +33,24 @@ public:
 
 /// Exposed credentials message — runtime KEY distinguishes plaintext/token/derived.
 class exposed_creds_message {
-    const char* key_ = nullptr;
+public:
+    enum class message_type { plaintext, token, derived };
+
+private:
+    inline static constexpr null_terminated_string plaintext_key_ = "exposed_credentials_plaintext";
+    inline static constexpr null_terminated_string token_key_ = "exposed_credentials_token";
+    inline static constexpr null_terminated_string derived_key_ = "exposed_credentials_derived";
+
+    static constexpr const null_terminated_string *key_for(message_type type) {
+        switch (type) {
+        case message_type::plaintext: return &plaintext_key_;
+        case message_type::token:     return &token_key_;
+        case message_type::derived:   return &derived_key_;
+        }
+        return nullptr;
+    }
+
+    const null_terminated_string* key_ = nullptr;
     cbor::text_string protocol_;
     cbor::text_string auth_method_;
     cbor::text_string username_;
@@ -41,26 +58,22 @@ class exposed_creds_message {
     bool valid_ = false;
 
 public:
-    static constexpr const char* KEY_PLAINTEXT = "exposed_credentials_plaintext";
-    static constexpr const char* KEY_TOKEN     = "exposed_credentials_token";
-    static constexpr const char* KEY_DERIVED   = "exposed_credentials_derived";
-
-    static exposed_creds_message construct(const char* key,
+    static exposed_creds_message construct(message_type type,
                                            datum protocol,
                                            datum auth_method,
                                            datum username) {
         exposed_creds_message msg;
-        msg.key_ = key;
+        msg.key_ = key_for(type);
         msg.protocol_ = cbor::text_string::construct(protocol);
         msg.auth_method_ = cbor::text_string::construct(auth_method);
         msg.username_ = cbor::text_string::construct(username);
-        msg.valid_ = msg.protocol_.is_valid() && msg.auth_method_.is_valid();
+        msg.valid_ = msg.key_ != nullptr && msg.protocol_.is_valid() && msg.auth_method_.is_valid();
         return msg;
     }
 
-    static exposed_creds_message decode(datum &d, const char* key) {
+    static exposed_creds_message decode(datum &d, message_type type) {
         exposed_creds_message msg;
-        msg.key_ = key;
+        msg.key_ = key_for(type);
         const uint8_t* begin = d.data;
         cbor::map m{d};
         while (d.is_not_empty() && !cbor::is_break(d)) {
@@ -78,25 +91,30 @@ public:
         }
         m.close();
         msg.cbor_span_ = datum{begin, d.data};
-        msg.valid_ = !d.is_null() && msg.protocol_.is_valid() && msg.auth_method_.is_valid();
+        msg.valid_ = msg.key_ != nullptr && !d.is_null() && msg.protocol_.is_valid() && msg.auth_method_.is_valid();
         return msg;
     }
 
     // typed_decoder contract: recognize this feature's key(s), and decode in place.
     static bool matches(datum key) {
-        return key.match(KEY_PLAINTEXT) || key.match(KEY_TOKEN) || key.match(KEY_DERIVED);
+        return key.match(plaintext_key_.c_str()) || key.match(token_key_.c_str()) || key.match(derived_key_.c_str());
     }
     void decode_into(datum key, datum &d) {
-        const char* k = nullptr;
-        if      (key.match(KEY_PLAINTEXT)) { k = KEY_PLAINTEXT; }
-        else if (key.match(KEY_TOKEN))     { k = KEY_TOKEN; }
-        else if (key.match(KEY_DERIVED))   { k = KEY_DERIVED; }
-        if (k) { *this = decode(d, k); }
+        if (key.match(plaintext_key_.c_str())) {
+            *this = decode(d, message_type::plaintext);
+        } else if (key.match(token_key_.c_str())) {
+            *this = decode(d, message_type::token);
+        } else if (key.match(derived_key_.c_str())) {
+            *this = decode(d, message_type::derived);
+        }
     }
 
     template<typename Object>
     void write(Object &parent) const {
-        Object o{parent, null_terminated_string::assume(key_)};
+        if (key_ == nullptr) {
+            return;
+        }
+        Object o{parent, *key_};
         if (protocol_.is_valid()) {
             o.print_key_string("protocol", protocol_.value());
         }
@@ -110,7 +128,7 @@ public:
     }
 
     bool is_valid() const { return valid_; }
-    datum key() const { return datum{key_}; }
+    datum key() const { return datum{key_ == nullptr ? nullptr : key_->c_str()}; }
     datum protocol() const { return protocol_.value(); }
     datum auth_method() const { return auth_method_.value(); }
     datum username() const { return username_.value(); }
