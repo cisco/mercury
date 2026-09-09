@@ -64,8 +64,9 @@ public:
 
     // the function fingerprint_is_well_formed() checks the
     // fingerprint in fp_str and verifies that it consists of balanced
-    // parentheses and hex strings.  A fingerprint with no data section,
-    // e.g., "smtp_server/", is accepted; discarding it is the producer's job.
+    // parentheses, balanced brackets and hex strings.  A fingerprint
+    // with no data section, e.g., "smtp_server/", is accepted;
+    // discarding it is the producer's job.
     //
     bool fingerprint_is_well_formed() {
         std::vector<char> stack;
