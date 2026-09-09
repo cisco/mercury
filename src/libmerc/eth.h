@@ -9,6 +9,8 @@
 #define ETH_H
 
 #include <stdint.h>
+#include <algorithm>
+#include <array>
 #include "datum.h"
 #include "cdp.h"
 #include "ppp.h"
@@ -74,6 +76,8 @@ struct eth_dot1ad_tag {
 
 #define MPLS_HDR_LEN 4
 #define MPLS_BOTTOM_OF_STACK 0x100
+#define CMD_SGT_HDR_LEN 6
+#define ETH_MAX_ENCAP_DEPTH 5
 
 /*
  * big-endian ETHERTYPE definitions
@@ -143,26 +147,43 @@ class eth {
             ethertype = ETH_TYPE_NONE;
             return;
         }
+
         if (ethertype < ETH_TYPE_MIN) {
             if (p.matches(cdp::prefix)) {
                 ethertype = ETH_TYPE_CDP;
                 return;
             }
         }
-        if (ethertype == ETH_TYPE_1AD) {
-            p.skip(sizeof(uint16_t));  // TCI
-            if (!p.read_uint16(&ethertype)) {
-                ethertype = ETH_TYPE_NONE;
-                return;
+
+        for (uint8_t depth = 0; depth < ETH_MAX_ENCAP_DEPTH; depth++) {
+            if (ethertype == ETH_TYPE_VLAN ||
+                   ethertype == ETH_TYPE_1AD) {
+                p.skip(sizeof(uint16_t));  // TCI
+                if (!p.read_uint16(&ethertype)) {
+                    ethertype = ETH_TYPE_NONE;
+                    return;
+                }
+            }
+            else if (ethertype == ETH_TYPE_CMD) {
+                p.skip(CMD_SGT_HDR_LEN);  // Cisco MetaData
+                if (!p.read_uint16(&ethertype)) {
+                    ethertype = ETH_TYPE_NONE;
+                    return;
+                }
+            }
+            else {
+                break;
             }
         }
-        while (ethertype == ETH_TYPE_VLAN) {
-            p.skip(sizeof(uint16_t));  // TCI
-            if (!p.read_uint16(&ethertype)) {
-                ethertype = ETH_TYPE_NONE;
-                return;
-            }
+
+        if (ethertype == ETH_TYPE_VLAN ||
+            ethertype == ETH_TYPE_1AD  ||
+            ethertype == ETH_TYPE_CMD) {
+            ethertype = ETH_TYPE_NONE;   // encapsulation depth limit exceeded
+            p.set_null();
+            return;
         }
+
         if (ethertype == ETH_TYPE_MPLS) {
             uint32_t mpls_label = 0;
 
@@ -174,18 +195,141 @@ class eth {
             }
             ethertype = ETH_TYPE_IP;   // assume caller will check IP version field
         }
-        if (ethertype == ETH_TYPE_CMD) {
-            p.skip(6);  // Cisco MetaData
-            if (!p.read_uint16(&ethertype)) {
-                ethertype = ETH_TYPE_NONE;
-                return;
-            }
-        }
 
         return;
     }
 
 };
 
+// LCOV_EXCL_START
+namespace eth_unit_test {
+
+#ifndef NDEBUG
+
+    // each test frame starts with destination and source addresses
+    //
+    static constexpr uint8_t addrs[] = {
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05,
+        0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b
+    };
+
+    template <size_t N>
+    inline uint16_t ethertype_of(const std::array<uint8_t, N> &tail) {
+        std::array<uint8_t, sizeof(addrs) + N> frame{};
+        std::copy(std::begin(addrs), std::end(addrs), frame.begin());
+        std::copy(tail.begin(), tail.end(), frame.begin() + sizeof(addrs));
+
+        datum d{frame};
+        eth ethernet_frame{d};
+        return ethernet_frame.get_ethertype();
+    }
+
+    inline bool unit_test() {
+
+        // untagged
+        //
+        if (ethertype_of(std::array<uint8_t, 2>{ 0x08, 0x00 }) != ETH_TYPE_IP) {
+            return false;
+        }
+
+        // 802.1ad S-tag followed by 802.1Q C-tag
+        //
+        if (ethertype_of(std::array<uint8_t, 10>{
+                    0x88, 0xa8, 0x00, 0x64,
+                    0x81, 0x00, 0x00, 0xc8,
+                    0x86, 0xdd }) != ETH_TYPE_IPV6) {
+            return false;
+        }
+
+        // Cisco MetaData followed by 802.1Q tag
+        //
+        if (ethertype_of(std::array<uint8_t, 14>{
+                    0x89, 0x09, 0x01, 0x01, 0x00, 0x01, 0x00, 0x64,
+                    0x81, 0x00, 0x00, 0x64,
+                    0x08, 0x00 }) != ETH_TYPE_IP) {
+            return false;
+        }
+
+        // 802.1Q tag followed by Cisco MetaData
+        //
+        if (ethertype_of(std::array<uint8_t, 14>{
+                    0x81, 0x00, 0x00, 0x64,
+                    0x89, 0x09, 0x01, 0x01, 0x00, 0x01, 0x00, 0x64,
+                    0x08, 0x00 }) != ETH_TYPE_IP) {
+            return false;
+        }
+
+        // one tag beyond ETH_MAX_ENCAP_DEPTH is rejected
+        //
+        if (ethertype_of(std::array<uint8_t, 26>{
+                    0x81, 0x00, 0x00, 0x64,
+                    0x81, 0x00, 0x00, 0x64,
+                    0x81, 0x00, 0x00, 0x64,
+                    0x81, 0x00, 0x00, 0x64,
+                    0x81, 0x00, 0x00, 0x64,
+                    0x81, 0x00, 0x00, 0x64,
+                    0x08, 0x00 }) != ETH_TYPE_NONE) {
+            return false;
+        }
+
+        // truncated ethertype
+        //
+        if (ethertype_of(std::array<uint8_t, 1>{ 0x08 }) != ETH_TYPE_NONE) {
+            return false;
+        }
+
+        // 802.1Q tag with no inner ethertype
+        //
+        if (ethertype_of(std::array<uint8_t, 4>{
+                    0x81, 0x00, 0x00, 0x64 }) != ETH_TYPE_NONE) {
+            return false;
+        }
+
+        // Cisco MetaData with no inner ethertype
+        //
+        if (ethertype_of(std::array<uint8_t, 8>{
+                    0x89, 0x09, 0x01, 0x01, 0x00, 0x01, 0x00, 0x64 }) != ETH_TYPE_NONE) {
+            return false;
+        }
+
+        // 802.3 length field followed by the CDP prefix
+        //
+        if (ethertype_of(std::array<uint8_t, 10>{
+                    0x01, 0x30,
+                    0xaa, 0xaa, 0x03, 0x00, 0x00, 0x0c, 0x20, 0x00 }) != ETH_TYPE_CDP) {
+            return false;
+        }
+
+        // 802.3 length field without the CDP prefix
+        //
+        if (ethertype_of(std::array<uint8_t, 10>{
+                    0x01, 0x30,
+                    0xaa, 0xaa, 0x03, 0x00, 0x00, 0x0c, 0x21, 0x00 }) == ETH_TYPE_CDP) {
+            return false;
+        }
+
+        // MPLS label with the bottom of stack bit set
+        //
+        if (ethertype_of(std::array<uint8_t, 6>{
+                    0x88, 0x47,
+                    0x00, 0x01, 0x01, 0xff }) != ETH_TYPE_IP) {
+            return false;
+        }
+
+        // MPLS label stack that never reaches the bottom of stack
+        //
+        if (ethertype_of(std::array<uint8_t, 6>{
+                    0x88, 0x47,
+                    0x00, 0x01, 0x00, 0xff }) != ETH_TYPE_NONE) {
+            return false;
+        }
+
+        return true;
+    }
+
+#endif // NDEBUG
+
+} // namespace eth_unit_test
+// LCOV_EXCL_STOP
 
 #endif  /* ETH_H */

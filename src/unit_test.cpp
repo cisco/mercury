@@ -40,6 +40,7 @@
 #include "libmerc/dhcp.h"
 #include "libmerc/lldp.h"
 #include "libmerc/cdp.h"
+#include "libmerc/eth.h"
 #include "libmerc/ospf.h"
 #include "libmerc/sctp.h"
 #include "libmerc/loopback.hpp"
@@ -56,6 +57,8 @@
 #include "libmerc/gre.h"
 #include "libmerc/mdns.h"
 #include "libmerc/ssh.h"
+#include "libmerc/smb1.h"
+#include "libmerc/smb2.h"
 #include "libmerc/ip.h"
 #include "libmerc/match.h"
 #include "libmerc/perfect_hash.h"
@@ -211,6 +214,10 @@ int main(int, char *[]) {
             &cdp_unit_test::unit_test
         },
         {
+            "eth",
+            &eth_unit_test::unit_test
+        },
+        {
             "ospf",
             &ospf_unit_test::unit_test
         },
@@ -233,6 +240,14 @@ int main(int, char *[]) {
         {
             "netbios",
             &netbios_unit_test::unit_test
+        },
+        {
+            "smb1_dialects",
+            &smb1_dialects::unit_test
+        },
+        {
+            "smb2_dialects",
+            &dialects::unit_test
         },
         {
             "stun",
@@ -285,6 +300,10 @@ int main(int, char *[]) {
         {
             "match_packet_safety",
             &match_packet_safety_unit_test::unit_test
+        },
+        {
+            "mask_value_and_offset_bounds",
+            &mask_value_and_offset_unit_test::unit_test
         },
         {
             "perfect_hash_packet_safety",

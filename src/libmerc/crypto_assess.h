@@ -1778,6 +1778,78 @@ namespace crypto_policy {
             if (ch_bytes <= 0) { return false; }
         }
 
+        // Unregistered ServerHello extension types must render as "UNKNOWN".
+        // GREASE types are omitted, so they cannot be the source of that name.
+        {
+            if (tls::extensions<uint16_t>{0x4444}.get_name() != tls::extensions<uint16_t>::UNKNOWN) {
+                return false;
+            }
+
+            nist_sp_800_52 nist{true};
+            uint8_t ver[]  = { 0x03, 0x03 };   // TLS 1.2
+            uint8_t cs[]   = { 0x00, 0x3d };   // TLS_RSA_WITH_AES_256_CBC_SHA256
+            uint8_t comp[] = { 0x00 };
+
+            auto render_exts = [&](const uint8_t *ext, size_t ext_len) -> std::optional<std::string> {
+                tls_server_hello sh;
+                sh.protocol_version   = datum{ver,  ver  + sizeof(ver)};
+                sh.ciphersuite_vector = datum{cs,   cs   + sizeof(cs)};
+                sh.compression_method = datum{comp, comp + sizeof(comp)};
+                sh.extensions         = tls_extensions{ext, ext + ext_len};
+
+                crypto_nist_message nist_msg;
+                nist.assess_impl(sh, &nist_msg);
+
+                buffer_stream nist_bs{buff, 1024};
+                json_object nist_jo{&nist_bs};
+                nist_msg.write<json_object>(nist_jo);
+                nist_jo.close();
+                std::string nist_out{nist_bs.dstr, (size_t)nist_bs.length()};
+
+                auto ext_pos = nist_out.find("\"extensions\":[");
+                if (ext_pos == std::string::npos) {
+                    return std::nullopt;
+                }
+                auto ext_end = nist_out.find(']', ext_pos);
+                if (ext_end == std::string::npos) {
+                    return std::nullopt;
+                }
+                return nist_out.substr(ext_pos, ext_end - ext_pos + 1);
+            };
+
+            uint8_t grease_only[] = { 0x0a, 0x0a, 0x00, 0x00 };
+            auto grease_arr = render_exts(grease_only, sizeof(grease_only));
+            if (!grease_arr || *grease_arr != "\"extensions\":[]") {
+                return false;
+            }
+
+            uint8_t ext[] = {
+                0x00, 0x00, 0x00, 0x00,   // server_name
+                0x0a, 0x0a, 0x00, 0x00,   // GREASE (omitted from output)
+                0x44, 0x44, 0x00, 0x00    // unregistered type
+            };
+            auto ext_arr = render_exts(ext, sizeof(ext));
+            if (!ext_arr) {
+                return false;
+            }
+            auto unknown_pos = ext_arr->find("\"UNKNOWN\"");
+            if (ext_arr->find("\"server_name\"") == std::string::npos
+                || unknown_pos == std::string::npos
+                || ext_arr->find("\"UNKNOWN\"", unknown_pos + 1) != std::string::npos) {
+                return false;
+            }
+
+            char wbuf[64];
+            buffer_stream wbs{wbuf, sizeof(wbuf)};
+            json_object wo{&wbs};
+            tls::extensions<uint16_t>{0x4444}.write_json(wo);
+            wo.close();
+            std::string wout{wbs.dstr, (size_t)wbs.length()};
+            if (wout.find("UNKNOWN (4444)") == std::string::npos) {
+                return false;
+            }
+        }
+
         return true;
     }
     // LCOV_EXCL_STOP
