@@ -40,7 +40,7 @@ public:
     /// \tparam N number of bytes in \p literal, including the terminator.
     /// \param literal character array whose final element is `'\0'`.
     ///
-    template <std::size_t N>
+    template <size_t N>
     constexpr null_terminated_string(const char (&literal)[N]) : s{literal} {
         if (literal[N - 1] != '\0') {
             throw std::invalid_argument{"invalid null_terminated_string"};
@@ -52,7 +52,7 @@ public:
     /// Mutable arrays are commonly runtime buffers.  Use \ref checked
     /// with the known string length after populating such a buffer.
     ///
-    template <std::size_t N>
+    template <size_t N>
     null_terminated_string(char (&)[N]) = delete;
 
     /// \brief Rejects construction from `nullptr`.
@@ -69,7 +69,7 @@ public:
     /// \return a wrapper around \p p.
     /// \throws std::invalid_argument if \p p is null or `p[len] != '\0'`.
     ///
-    static null_terminated_string checked(const char *p, std::size_t len) {
+    static null_terminated_string checked(const char *p, size_t len) {
         if (p == nullptr || p[len] != '\0') {
             throw std::invalid_argument{"invalid null_terminated_string"};
         }
