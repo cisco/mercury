@@ -858,6 +858,8 @@ inline void tcp_reassembler::write_json(json_object &record) {
 
 inline void tcp_reassembler::clear_all() {
     table.clear();
+    reap_it = table.end();
+    curr_flow = table.end();
 }
 
 // CID-mismatch behaviour in process_quic_reassembly() and
