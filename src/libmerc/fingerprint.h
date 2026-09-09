@@ -64,7 +64,7 @@ public:
 
     // the function fingerprint_is_well_formed() checks the
     // fingerprint in fp_str and verifies that it consists of balanced
-    // parenthesis and hex strings.  A fingerprint with no data section,
+    // parentheses and hex strings.  A fingerprint with no data section,
     // e.g., "smtp_server/", is accepted; discarding it is the producer's job.
     //
     bool fingerprint_is_well_formed() {
@@ -74,7 +74,8 @@ public:
         // loop over fingerprint type
         //
         while (*c != '\0' && *c != '/') {
-            if (!(isalpha(*c) && islower(*c)) && (*c != '_')) {
+            // the ctype functions are undefined for negative char values
+            if (!(isalpha((unsigned char)*c) && islower((unsigned char)*c)) && (*c != '_')) {
                 return false;  // ill-formed fingerprint type string
             }
             c++;
@@ -87,7 +88,7 @@ public:
         //loop over version string if present
         if (*c != '(') {
             while (*c != '\0' && *c != '/') {
-                if (!isdigit(*c)) {
+                if (!isdigit((unsigned char)*c)) {
                     return false;
                 }
                 c++;
@@ -125,7 +126,7 @@ public:
                 }
                 break;
             default:
-                if (!isxdigit(*c) || isupper(*c)) {
+                if (!isxdigit((unsigned char)*c) || isupper((unsigned char)*c)) {
                     return false;  // non hex digit in string
                 }
             }
@@ -324,6 +325,19 @@ namespace fingerprint_unit_test {
             // instead of read past
             fp.init();
             passed &= !fp.fingerprint_is_well_formed();
+        }
+
+        {
+            // a byte above 0x7f is rejected in the type name, the
+            // version and the data section, and is not passed as a
+            // negative int to the ctype functions
+            fingerprint fp;
+            for (const char *body : { "\x80/1/(01)", "tls/1\x80/(01)", "tls/1/(\x80)" }) {
+                fp.init();
+                literal_message high_byte{body};
+                fp.add(high_byte);
+                passed &= !fp.fingerprint_is_well_formed();
+            }
         }
 
         return passed;
