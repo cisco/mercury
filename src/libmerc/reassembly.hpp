@@ -562,7 +562,7 @@ struct tcp_reassembler {
     // - cleared before any reap and in clean_curr_flow(), with its buffer
     datum reassembled_data;
 
-    // ctor does not allocated memory for the table entries
+    // ctor does not allocate memory for the table entries
     // call init to reserve entries
     tcp_reassembler(bool minimize_ram = false) :
         max_reassembly_entries{minimize_ram ? min_entries: max_entries},
