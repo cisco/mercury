@@ -42,7 +42,6 @@ public:
     ///
     template <std::size_t N>
     constexpr null_terminated_string(const char (&literal)[N]) : s{literal} {
-        static_assert(N > 0, "null_terminated_string requires a char array");
         if (literal[N - 1] != '\0') {
             throw std::invalid_argument{"invalid null_terminated_string"};
         }
