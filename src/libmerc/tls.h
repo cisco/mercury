@@ -483,14 +483,13 @@ struct tls_client_hello : public base_protocol {
         additional_bytes_needed = 0;
     }
 
-    // emits the detail object under a key named by the
-    // caller's committed transport: "dtls" when is_dtls is set, "tls"
-    // otherwise. The key is chosen by the caller (which owns protocols[0]) and
-    // is deliberately NOT derived from the parsed legacy_version, which is
+    // emits the detail object under a key named by the committed transport:
+    // "dtls" when the carrier is DTLS, "tls" otherwise. The key is
+    // deliberately NOT derived from the parsed legacy_version, which is
     // untrusted and can be crafted to disagree with the carrier.
     //
-    void write_l7_metadata_detail(cbor_object &o, bool is_dtls = false) {
-        null_terminated_string proto = is_dtls ? null_terminated_string{"dtls"} : null_terminated_string{"tls"};
+    void write_l7_metadata_detail(cbor_object &o) {
+        null_terminated_string proto = dtls ? null_terminated_string{"dtls"} : null_terminated_string{"tls"};
         cbor_object proto_obj{o, proto};
         cbor_object client{proto_obj, "client"};
         client.print_key_hex("random", random);
