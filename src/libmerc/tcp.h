@@ -605,6 +605,7 @@ struct flow_table_tcp {
 
     void count_all() {
         table.clear();
+        reap_it = table.end();
     }
 
 
