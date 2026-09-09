@@ -301,7 +301,7 @@ struct datum {
         }
         return {
             reinterpret_cast<const char *>(data),
-            static_cast<size_t>(length())
+            static_cast<size_t>(length() >= 0 ? length() : 0)
         };
     }
 
