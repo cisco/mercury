@@ -558,8 +558,8 @@ struct tcp_reassembler {
 
     // cursor over curr_flow's reassembled bytes
     // - owned here, so it outlives the frame that hands it to a parser
-    // - parsers keeping a datum& (smb1, smb2, nbss, iec104) deref it at output
-    // - cleared in clean_curr_flow(), with the buffer it points into
+    // - a parser may hold a datum& to it and deref it at output
+    // - cleared before any reap and in clean_curr_flow(), with its buffer
     datum reassembled_data;
 
     // ctor does not allocated memory for the table entries
@@ -620,6 +620,7 @@ inline void tcp_reassembler::increment_reap_iterator() {
 // best case - 2 entries, worst case - 0 entries cleared
 //
 inline void tcp_reassembler::passive_reap(uint64_t sec) {
+    reassembled_data = datum{nullptr, nullptr};  // an erase below frees its buffer
     // check for expired flows
     increment_reap_iterator();
     if (reap_it != table.end() && reap_it->second.is_expired(sec)) {
@@ -640,6 +641,7 @@ inline reassembly_map_iterator tcp_reassembler::get_current_flow() { return curr
 // always clears 2 entries, may/may not be expired
 //
 inline void tcp_reassembler::active_reap() {
+    reassembled_data = datum{nullptr, nullptr};  // erases below are unconditional
     // aggressive : try to remove two entries
     increment_reap_iterator();
     if (reap_it != table.end()) {
