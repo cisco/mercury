@@ -607,7 +607,7 @@ struct tlv {
         "UniversalString",
         "CHARACTER STRING",
         "BMPString",
-        "DATE"
+        "LONG_FORM_TAG"
     };
 
     /// returns a null-terminated character string describing the type
