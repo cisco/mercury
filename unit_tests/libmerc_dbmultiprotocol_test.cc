@@ -35,6 +35,18 @@ SCENARIO("test packet_processor_get_analysis_context with http encapsulated in P
     }
 }
 
+TEST_CASE_FIXTURE(LibmercTestFixture, "test VLAN/CMD encapsulations in any order")
+{
+    libmerc_config config{.packet_filter_cfg = (char *)"all"};
+
+    initialize(config);
+
+    set_pcap("vlan_cmd_ordering_tls_client_hello.pcap");
+    CHECK(7 == counter(fingerprint_type_tls));
+
+    deinitialize();
+}
+
 TEST_CASE_FIXTURE(LibmercTestFixture, "test linux sll2")
 {
     libmerc_config config{.packet_filter_cfg = (char *)"all"};
@@ -620,7 +632,7 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test redis")
     initialize(config);
 
     set_pcap("redis.pcap");
-    CHECK(9 == counter());
+    CHECK(10 == counter());
 
     set_pcap("top_100_fingerprints.pcap");
     CHECK(0 == counter());
@@ -662,8 +674,12 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test attribute detection with analysis")
     set_pcap("malware_tls.pcap");
     CHECK(counter(2, attribute_check_callback));
 
-    // domain_faking attribute in modified ipv6 curl pcap
+    // destination is a unique-local (fd00::/8) address, so it must be
+    // exempt from domain_faking regardless of the faked SNI
     set_pcap("ipv6-domain-faking.pcap");
+    { std::string attr = "domain_faking"; CHECK(!check_attr(attr)); }
+
+    set_pcap("ipv6-domain-faking-public.pcap");
     { std::string attr = "domain_faking"; CHECK(check_attr(attr)); }
 
     // check if faketls attribute is present in the attributes array
