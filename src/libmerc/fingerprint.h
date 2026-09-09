@@ -232,11 +232,13 @@ namespace fingerprint_unit_test {
         }
     };
 
-    // a message that writes a literal fingerprint body
+    // a message that writes a literal fingerprint body, terminated so
+    // that the cases below can call fingerprint_is_well_formed()
+    // without going through final()
     //
     struct literal_message {
         const char *body;
-        void fingerprint(buffer_stream &b) const { b.puts(body); }
+        void fingerprint(buffer_stream &b) const { b.puts(body); b.add_null(); }
     };
 
     inline bool unit_test() {
