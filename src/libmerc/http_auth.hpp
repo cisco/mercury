@@ -8,6 +8,7 @@
 #include "datum.h"
 #include "base64.h"
 #include "json_object.h"
+#include "null_terminated_string.hpp"
 
 class scheme : public datum {
 public:

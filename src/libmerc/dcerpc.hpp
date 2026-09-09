@@ -15,6 +15,7 @@
 #include <cstdio>
 #include "datum.h"
 #include "json_object.h"
+#include "null_terminated_string.hpp"
 #include "protocol.h"
 #include "match.h"
 

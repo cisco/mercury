@@ -16,6 +16,7 @@
 
 #include "libmerc.h"
 #include "datum.h"
+#include "null_terminated_string.hpp"
 #include "asn1.h"
 #include "dict.h"
 #include "utf8.hpp"

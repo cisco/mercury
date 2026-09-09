@@ -15,6 +15,7 @@
 
 #include "datum.h"
 #include "json_object.h"
+#include "null_terminated_string.hpp"
 #include "utils.h"
 #include "asn1/oid.h"
 #include "time.hpp"

@@ -13,6 +13,7 @@
 #include "libmerc.h"
 #include "printf_err.hpp"
 #include "json_object.h"
+#include "null_terminated_string.hpp"
 #include "addr.h"
 #include "fingerprint.h"
 #include "flow_key.h"

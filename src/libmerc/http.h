@@ -13,6 +13,7 @@
 #include <unordered_map>
 
 #include "protocol.h"
+#include "null_terminated_string.hpp"
 #include "exposed_creds.hpp"
 #include "match.h"
 #include "analysis.h"

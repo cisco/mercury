@@ -28,6 +28,7 @@
 #include "ssh.h"
 #include "analysis.h"
 #include "buffer_stream.h"
+#include "null_terminated_string.hpp"
 #include "gre.h"
 #include "geneve.hpp"
 #include "ip.h"

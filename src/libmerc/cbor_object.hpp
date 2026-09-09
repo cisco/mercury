@@ -8,6 +8,7 @@
 #include "fdc.hpp"                // for cbor_fingerprint::encode_fingerprint()
 #include "static_dict.hpp"
 #include "json_object.h"
+#include "null_terminated_string.hpp"
 #include "utf8.hpp"
 #include <optional>
 #include <stdexcept>

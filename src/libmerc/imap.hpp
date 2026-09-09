@@ -16,6 +16,7 @@
 #include "decimal_int.hpp"
 #include "perfect_hash.h"
 #include "json_object.h"
+#include "null_terminated_string.hpp"
 
 namespace imap {
 

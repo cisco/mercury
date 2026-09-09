@@ -14,6 +14,7 @@
 
 #include "cbor_decoded_metadata.hpp"
 #include "cbor_metadata.hpp"
+#include "null_terminated_string.hpp"
 
 inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
     bool all_passed = true;

@@ -36,6 +36,7 @@
 #define PGSQL_HPP
 
 #include "json_object.h"
+#include "null_terminated_string.hpp"
 #include "protocol.h"
 #include "cbor_object.hpp"
 #include "lex.h"

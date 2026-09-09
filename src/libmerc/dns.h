@@ -15,6 +15,7 @@
 
 #include "protocol.h"
 #include "json_object.h"
+#include "null_terminated_string.hpp"
 #include "eth.h"
 #include "ip_address.hpp"
 #include "match.h"

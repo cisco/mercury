@@ -11,6 +11,7 @@
 #include "datum.h"
 #include "x509.h"
 #include "json_object.h"
+#include "null_terminated_string.hpp"
 #include "match.h"
 #include "protocol.h"
 

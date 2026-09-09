@@ -10,6 +10,7 @@
 #define SSDP_H
 
 #include "json_object.h"
+#include "null_terminated_string.hpp"
 #include "match.h"
 #include "http.h"
 

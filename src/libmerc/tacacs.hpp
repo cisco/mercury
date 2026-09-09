@@ -7,6 +7,7 @@
 #include "protocol.h"
 #include "exposed_creds.hpp"
 #include "json_object.h"
+#include "null_terminated_string.hpp"
 #include "match.h"
 
 namespace tacacs {

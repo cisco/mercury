@@ -8,6 +8,7 @@
 #include "datum.h"
 #include "hpke_params.h"
 #include "json_object.h"
+#include "null_terminated_string.hpp"
 #include "json_string.hpp"
 
 // An object of class opaque represents a TLS variable-length opaque

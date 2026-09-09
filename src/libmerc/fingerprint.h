@@ -8,6 +8,7 @@
 #include <cassert>
 #include <vector>
 #include "json_object.h"
+#include "null_terminated_string.hpp"
 #include "libmerc.h"  // for fingerprint_type
 
 class fingerprint {

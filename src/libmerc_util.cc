@@ -18,6 +18,7 @@
 #include "packet.h"
 #include "libmerc/datum.h"
 #include "libmerc/json_object.h"
+#include "libmerc/null_terminated_string.hpp"
 #include "libmerc/l7m.hpp"
 
 #include "libmerc/eth.h"

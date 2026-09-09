@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include "pkcs8.hpp"
 #include "pem.hpp"
+#include "libmerc/null_terminated_string.hpp"
 #include "libmerc/x509.h"
 
 bool compare(const datum &lhs, const datum &rhs, bool verbose=false) {

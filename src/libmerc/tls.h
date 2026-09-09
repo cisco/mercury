@@ -16,6 +16,7 @@
 #include "tls_parameters.hpp"
 #include "flow_key.h"
 #include "json_object.h"
+#include "null_terminated_string.hpp"
 #include "x509.h"
 #include "quic_vli.hpp"
 #include "tls_extensions.h"

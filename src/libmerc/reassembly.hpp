@@ -10,6 +10,7 @@
 
 #include "datum.h"
 #include "json_object.h"
+#include "null_terminated_string.hpp"
 #include "udp.h"
 #include "quic.h"
 #include "dtls.h"
