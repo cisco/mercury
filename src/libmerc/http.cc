@@ -146,10 +146,10 @@ void http_headers::print_matching_name(struct json_object &o, const char *key, n
             return;
         }
         keyword.data_end = p.data;
-        const char *header_name = NULL;
+        bool is_header_found = false;
 
         if (keyword.case_insensitive_match(key)) {
-            header_name = name.c_str();
+            is_header_found = true;
         }
 
         const uint8_t *value_start = p.data;
@@ -157,8 +157,8 @@ void http_headers::print_matching_name(struct json_object &o, const char *key, n
             return;
         }
         const uint8_t *value_end = p.data - 2;
-        if (header_name) {
-            o.print_key_json_string(null_terminated_string::assume(header_name), value_start, value_end - value_start);
+        if (is_header_found) {
+            o.print_key_json_string(name, value_start, value_end - value_start);
         }
     }
 }
