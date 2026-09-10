@@ -299,4 +299,49 @@ public:
     }
 };
 
+#ifndef NDEBUG
+// LCOV_EXCL_START
+namespace packed_view_unit_test {
+
+struct padding_prefix { };
+struct padding_suffix { };
+
+using padded_layout = packed_view<
+    packed_view_field<padding_prefix, uint8_t>,
+    packed_view_padding<2>,
+    packed_view_field<padding_suffix, uint16_t>>;
+
+inline bool unit_test() {
+    static_assert(padded_layout::extent == 5);
+
+    const uint8_t packet[] = {0xaa, 0x00, 0x00, 0x12, 0x34};
+    datum d{packet, packet + sizeof(packet)};
+    padded_layout view{d};
+
+    if (!view || d.length() != 0) return false;
+    if (view.field<padding_prefix>() != 0xaa) return false;
+    if (ntoh(view.field<padding_suffix>()) != 0x1234) return false;
+
+    struct unaligned_value { };
+    using unaligned_layout = packed_view<
+        packed_view_field<unaligned_value, uint32_t>>;
+    alignas(uint32_t) const uint8_t unaligned_storage[] = {
+        0x00, 0x12, 0x34, 0x56, 0x78
+    };
+    const uint8_t *unaligned_packet = unaligned_storage + 1;
+    if (reinterpret_cast<std::uintptr_t>(unaligned_packet) % alignof(uint32_t) == 0) {
+        return false;
+    }
+
+    datum unaligned_d{unaligned_packet,
+                      unaligned_packet + unaligned_layout::extent};
+    unaligned_layout unaligned_view{unaligned_d};
+    if (!unaligned_view || unaligned_d.length() != 0) return false;
+    return ntoh(unaligned_view.field<unaligned_value>()) == 0x12345678;
+}
+
+} // namespace packed_view_unit_test
+// LCOV_EXCL_STOP
+#endif // NDEBUG
+
 #endif  // PACKED_VIEW_HPP
