@@ -1027,7 +1027,7 @@ bool stateful_pkt_proc::process_udp_data (protocol &x,
         const bool is_dns = (dns != nullptr && !dns->netbios());
         // has_payload gate keeps empty UDP packets (e.g. scan traffic) from
         // flooding the flow table.
-        if (has_payload && !is_dns) {
+        if (has_payload && !pkt.is_null() && !is_dns) {
             is_new = ip_flow_table.flow_is_new(k, ts->tv_sec);
         }
         if (is_new && std::holds_alternative<std::monostate>(x)) {
