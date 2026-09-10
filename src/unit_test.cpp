@@ -58,6 +58,7 @@
 #include "libmerc/ssh.h"
 #include "libmerc/smb1.h"
 #include "libmerc/smb2.h"
+#include "libmerc/smtp.h"
 #include "libmerc/ip.h"
 #include "libmerc/match.h"
 #include "libmerc/perfect_hash.h"
@@ -284,6 +285,10 @@ int main(int, char *[]) {
         {
             "ssh",
             &ssh_unit_test::unit_test
+        },
+        {
+            "smtp",
+            &smtp_unit_test::unit_test
         },
         {
             "ip_packet_safety",
