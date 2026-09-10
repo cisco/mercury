@@ -139,10 +139,13 @@ Mercury uses a selective, lazy, non-owning data parsing strategy:
 These conventions facilitate composability by ensuring that conforming
 classes can be used as data members of other conforming classes.
 
-Composable safe parser classes should not have a default constructor.
-They may have a constructor that accepts a `datum &&` rvalue
-reference, to make it easy to construct and pass a temporary `datum`
-to a class.  A constructor that takes a datum rvalue reference should
+Composable safe parser classes should not have a default constructor.  The
+only exception is when a null or empty state is part of the class semantics;
+such classes must document the state and require callers to check
+`operator bool()` before accessing parsed data.  They may have a constructor
+that accepts a `datum &&` rvalue reference, to make it easy to construct and
+pass a temporary `datum` to a class.  A constructor that takes a datum rvalue
+reference should
 merely invoke the `datum &` constructor.
 
 
