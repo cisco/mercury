@@ -52,6 +52,14 @@ Mercury protocol implementations must follow these guidelines.
 
    - the template class encoded<T>, to decode an integer type T,
 
+   - the class template packed_view<Fields...>, to parse fixed-size
+     binary headers without packed structs or direct pointer access.
+     Declare fields with packed_view_field<Tag, T> in wire order and use
+     packed_view_padding<N> for unmodeled bytes.  The view's size is
+     available as packed_view<Fields...>::extent; field tags must be
+     unique.  Check the view's operator bool() before calling read() or
+     field(), and apply ntoh() when host byte order is required.
+
    - the template class literal<>, to accept a literal string of
      bytes (and reject any non-matching input data),
 
