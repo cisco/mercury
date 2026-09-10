@@ -159,6 +159,8 @@ public:
 
 };
 
+#ifndef NDEBUG
+// LCOV_EXCL_START
 inline bool udp_unit_test() {
     const uint8_t packet[] = {
         0x12, 0x34,
@@ -198,5 +200,7 @@ inline bool udp_unit_test() {
 
     return true;
 }
+// LCOV_EXCL_STOP
+#endif // NDEBUG
 
 #endif  // UDP_H
