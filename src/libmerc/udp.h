@@ -185,7 +185,7 @@ inline bool udp_unit_test() {
     datum d{packet, packet + sizeof(packet)};
     udp parsed{d};
     udp::ports ports = parsed.get_ports();
-    if (ports.src != 0x3412 || ports.dst != 0xcdab) return false;
+    if (ntoh(ports.src) != 0x1234 || ntoh(ports.dst) != 0xabcd) return false;
     if (parsed.get_len() != 8) return false;
 
     key k{};
