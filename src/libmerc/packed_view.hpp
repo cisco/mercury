@@ -77,6 +77,54 @@ struct packed_view_layout_size
     : std::integral_constant<size_t,
           (size_t{0} + ... + packed_view_element_size<Elements>::value)> { };
 
+/// Counts occurrences of a field tag in a packed-view layout.
+///
+/// \tparam WantedTag the field tag to count
+/// \tparam Elements the field and padding descriptors, in wire order
+///
+template <typename WantedTag, typename... Elements>
+struct packed_view_tag_count;
+
+template <typename WantedTag>
+struct packed_view_tag_count<WantedTag>
+    : std::integral_constant<size_t, 0> { };
+
+template <typename WantedTag, typename FieldTag, typename T,
+          typename... Rest>
+struct packed_view_tag_count<
+    WantedTag, packed_view_field<FieldTag, T>, Rest...>
+    : std::integral_constant<size_t,
+          (std::is_same_v<WantedTag, FieldTag> ? 1 : 0) +
+              packed_view_tag_count<WantedTag, Rest...>::value> { };
+
+template <typename WantedTag, size_t Padding, typename... Rest>
+struct packed_view_tag_count<
+    WantedTag, packed_view_padding<Padding>, Rest...>
+    : packed_view_tag_count<WantedTag, Rest...> { };
+
+/// Tests whether all field tags in a packed-view layout are unique.
+///
+/// Padding descriptors are ignored.  A layout with duplicate field tags is
+/// ambiguous because `field<Tag>()` would otherwise select the first match.
+///
+/// \tparam Elements the field and padding descriptors, in wire order
+///
+template <typename... Elements>
+struct packed_view_tags_unique;
+
+template <>
+struct packed_view_tags_unique<> : std::true_type { };
+
+template <typename FieldTag, typename T, typename... Rest>
+struct packed_view_tags_unique<packed_view_field<FieldTag, T>, Rest...>
+    : std::bool_constant<
+          packed_view_tag_count<FieldTag, Rest...>::value == 0 &&
+          packed_view_tags_unique<Rest...>::value> { };
+
+template <size_t Padding, typename... Rest>
+struct packed_view_tags_unique<packed_view_padding<Padding>, Rest...>
+    : packed_view_tags_unique<Rest...> { };
+
 template <typename>
 inline constexpr bool packed_view_dependent_false = false;
 
@@ -127,6 +175,7 @@ struct packed_view_field_info<
 /// When field descriptors are supplied, `field<Tag>()` provides access without
 /// repeating byte offsets in protocol code.  The descriptor list determines
 /// the view's extent at compile time, which is available as `extent`.
+/// Field tags must be unique; duplicate tags produce a compile-time error.
 ///
 /// Example:
 ///
@@ -162,6 +211,9 @@ struct packed_view_field_info<
 ///
 template <typename... Fields>
 class packed_view {
+    static_assert(packed_view_tags_unique<Fields...>::value,
+                  "packed_view field tags must be unique");
+
     const unsigned char *data = nullptr;
 
     template <typename T>
@@ -220,7 +272,7 @@ public:
     T read() const noexcept {
         static_assert(std::is_unsigned_v<T> && !std::is_same_v<std::remove_cv_t<T>, bool>
                       && !std::is_same_v<std::remove_cv_t<T>, char>,
-                      "fixed_datum fields must be unsigned integers (not char or bool)");
+                      "packed_view fields must be unsigned integers (not char or bool)");
         static_assert(Offset <= extent && sizeof(T) <= extent - Offset,
                       "packed_view read exceeds the view extent");
         assert(data != nullptr);
