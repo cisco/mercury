@@ -1,5 +1,5 @@
 ///
-/// \file fixed_datum.hpp
+/// \file packed_view.hpp
 ///
 /// Fixed-size, non-owning views for protocol headers.
 ///
@@ -7,8 +7,8 @@
 /// License at https://github.com/cisco/mercury/blob/master/LICENSE
 ///
 
-#ifndef FIXED_DATUM_HPP
-#define FIXED_DATUM_HPP
+#ifndef PACKED_VIEW_HPP
+#define PACKED_VIEW_HPP
 
 #include <cassert>
 #include <cstddef>
@@ -18,11 +18,11 @@
 
 #include "datum.h"
 
-/// \struct fixed_datum_field
+/// \struct packed_view_field
 ///
 /// Describes one field in a fixed-size, non-owning protocol-header view.
 ///
-/// The field's position is determined by its order in the `fixed_datum` field
+/// The field's position is determined by its order in the `packed_view` field
 /// list.  `Tag` is an empty type used to name the field at compile time, and
 /// `T` is the unsigned integer type used to read it.
 ///
@@ -32,18 +32,18 @@
 /// \code{.cpp}
 /// struct source_port {};
 /// struct destination_port {};
-/// using header = fixed_datum<4,
-///     fixed_datum_field<source_port, uint16_t>,
-///     fixed_datum_field<destination_port, uint16_t>>;
+/// using header = packed_view<
+///     packed_view_field<source_port, uint16_t>,
+///     packed_view_field<destination_port, uint16_t>>;
 /// \endcode
 ///
 template <typename Tag, typename T>
-struct fixed_datum_field {
+struct packed_view_field {
     using tag_type = Tag;
     using value_type = T;
 };
 
-/// Describes a sequence of bytes between fields in a fixed-datum layout.
+/// Describes a sequence of bytes between fields in a packed-view layout.
 ///
 /// Padding contributes to the layout's size and to the offsets of subsequent
 /// fields, but does not create a named accessor.
@@ -51,64 +51,70 @@ struct fixed_datum_field {
 /// \tparam N the number of padding bytes
 ///
 template <size_t N>
-struct fixed_datum_padding {
+struct packed_view_padding {
     static constexpr size_t size = N;
 };
 
 template <typename Element>
-struct fixed_datum_element_size;
+struct packed_view_element_size;
 
 template <typename Tag, typename T>
-struct fixed_datum_element_size<fixed_datum_field<Tag, T>>
+struct packed_view_element_size<packed_view_field<Tag, T>>
     : std::integral_constant<size_t, sizeof(T)> { };
 
 template <size_t N>
-struct fixed_datum_element_size<fixed_datum_padding<N>>
+struct packed_view_element_size<packed_view_padding<N>>
     : std::integral_constant<size_t, N> { };
 
+/// Computes the total wire extent of a packed-view field layout.
+///
+/// The result is the sum of the sizes of all field and padding descriptors.
+///
+/// \tparam Elements the field and padding descriptors, in wire order
+///
 template <typename... Elements>
-struct fixed_datum_layout_size
+struct packed_view_layout_size
     : std::integral_constant<size_t,
-          (size_t{0} + ... + fixed_datum_element_size<Elements>::value)> { };
+          (size_t{0} + ... + packed_view_element_size<Elements>::value)> { };
 
 template <typename>
-inline constexpr bool fixed_datum_dependent_false = false;
+inline constexpr bool packed_view_dependent_false = false;
 
 template <typename WantedTag, size_t Offset, typename... Elements>
-struct fixed_datum_field_info;
+struct packed_view_field_info;
 
 template <typename WantedTag, size_t Offset>
-struct fixed_datum_field_info<WantedTag, Offset> {
-    static_assert(fixed_datum_dependent_false<WantedTag>,
-                  "fixed_datum field tag was not found");
+struct packed_view_field_info<WantedTag, Offset> {
+    static_assert(packed_view_dependent_false<WantedTag>,
+                  "packed_view field tag was not found");
 };
 
 template <typename WantedTag, size_t Offset, typename FieldTag, typename T,
           typename... Rest>
-struct fixed_datum_field_info<
-    WantedTag, Offset, fixed_datum_field<FieldTag, T>, Rest...>
-    : fixed_datum_field_info<WantedTag, Offset + sizeof(T), Rest...> { };
+struct packed_view_field_info<
+    WantedTag, Offset, packed_view_field<FieldTag, T>, Rest...>
+    : packed_view_field_info<WantedTag, Offset + sizeof(T), Rest...> { };
 
 template <typename WantedTag, size_t Offset, typename T, typename... Rest>
-struct fixed_datum_field_info<
-    WantedTag, Offset, fixed_datum_field<WantedTag, T>, Rest...> {
+struct packed_view_field_info<
+    WantedTag, Offset, packed_view_field<WantedTag, T>, Rest...> {
     using value_type = T;
     static constexpr size_t offset = Offset;
 };
 
 template <typename WantedTag, size_t Offset, size_t Padding,
           typename... Rest>
-struct fixed_datum_field_info<
-    WantedTag, Offset, fixed_datum_padding<Padding>, Rest...>
-    : fixed_datum_field_info<WantedTag, Offset + Padding, Rest...> { };
+struct packed_view_field_info<
+    WantedTag, Offset, packed_view_padding<Padding>, Rest...>
+    : packed_view_field_info<WantedTag, Offset + Padding, Rest...> { };
 
-/// \class fixed_datum
+/// \class packed_view
 ///
 /// A nullable, fixed-size, non-owning view into a `datum`.
 ///
-/// Construction from a `datum` performs one bounds check and consumes `N`
-/// bytes on success.  If fewer than `N` bytes are available, both the view and
-/// the input datum are set to null.
+/// Construction from a `datum` performs one bounds check and consumes the
+/// layout's computed extent on success.  If fewer bytes are available, both
+/// the view and the input datum are set to null.
 ///
 /// Unlike `datum`, this class stores only the start pointer; its extent is part
 /// of its type.  A default-constructed view is null.  Test the view with its
@@ -119,8 +125,8 @@ struct fixed_datum_field_info<
 /// `ntoh()` when a host-order value is required.
 ///
 /// When field descriptors are supplied, `field<Tag>()` provides access without
-/// repeating byte offsets in protocol code.  The descriptor list is checked
-/// against `N` at compile time.
+/// repeating byte offsets in protocol code.  The descriptor list determines
+/// the view's extent at compile time, which is available as `extent`.
 ///
 /// Example:
 ///
@@ -131,10 +137,10 @@ struct fixed_datum_field_info<
 /// struct length {};
 /// }
 ///
-/// using udp_header = fixed_datum<6,
-///     fixed_datum_field<udp_fields::source_port, uint16_t>,
-///     fixed_datum_field<udp_fields::destination_port, uint16_t>,
-///     fixed_datum_field<udp_fields::length, uint16_t>>;
+/// using udp_header = packed_view<
+///     packed_view_field<udp_fields::source_port, uint16_t>,
+///     packed_view_field<udp_fields::destination_port, uint16_t>,
+///     packed_view_field<udp_fields::length, uint16_t>>;
 ///
 /// datum input{packet, packet + packet_length};
 /// udp_header header{input};
@@ -147,18 +153,15 @@ struct fixed_datum_field_info<
 /// \endcode
 ///
 /// The field list is ordered, so the example's fields occupy offsets 0, 2,
-/// and 4.  Use `fixed_datum_padding<N>` to represent unmodeled bytes.
+/// and 4, and the view's `extent` is 6.  Use `packed_view_padding<N>` to
+/// represent unmodeled bytes.  The computed extent can be used in a compile-
+/// time assertion, for example `static_assert(udp_header::extent == 6)`.
 ///
-/// \tparam N the fixed extent of the view in bytes
-/// \tparam Fields optional `fixed_datum_field` and `fixed_datum_padding`
+/// \tparam Fields optional `packed_view_field` and `packed_view_padding`
 /// descriptors, in wire order
 ///
-template <size_t N, typename... Fields>
-class fixed_datum {
-    static_assert(sizeof...(Fields) == 0 ||
-                  fixed_datum_layout_size<Fields...>::value == N,
-                  "fixed_datum field layout does not match its extent");
-
+template <typename... Fields>
+class packed_view {
     const unsigned char *data = nullptr;
 
     template <typename T>
@@ -171,26 +174,26 @@ class fixed_datum {
 public:
     /// The fixed extent of this view in bytes.
     ///
-    static constexpr size_t extent = N;
+    static constexpr size_t extent = packed_view_layout_size<Fields...>::value;
 
-    /// Construct a null fixed datum.
+    /// Construct a null packed view.
     ///
-    fixed_datum() = default;
+    packed_view() = default;
 
-    /// Construct a view by accepting exactly `N` bytes from `d`.
+    /// Construct a view by accepting exactly `extent` bytes from `d`.
     ///
-    /// If `d` does not contain `N` bytes, the view and `d` are set to null.
-    /// On success, `d` is advanced by `N` bytes.
+    /// If `d` does not contain `extent` bytes, the view and `d` are set to
+    /// null.  On success, `d` is advanced by `extent` bytes.
     ///
     /// \param d the input datum from which the fixed view is accepted
     ///
-    explicit fixed_datum(datum &d) {
-        if (!d.has_bytes(N)) {
+    explicit packed_view(datum &d) {
+        if (!d.has_bytes(extent)) {
             d.set_null();
             return;
         }
         data = d.data;
-        d.data += N;
+        d.data += extent;
     }
 
     /// Test whether the view contains a valid fixed-size field.
@@ -215,9 +218,9 @@ public:
     ///
     template <typename T, size_t Offset>
     T read() const noexcept {
-        static_assert(std::is_unsigned_v<T>, "fixed_datum fields must be unsigned");
-        static_assert(Offset <= N && sizeof(T) <= N - Offset,
-                      "fixed_datum read exceeds the view extent");
+        static_assert(std::is_unsigned_v<T>, "packed_view fields must be unsigned");
+        static_assert(Offset <= extent && sizeof(T) <= extent - Offset,
+                      "packed_view read exceeds the view extent");
         assert(data != nullptr);
         return read_unchecked<T>(Offset);
     }
@@ -228,18 +231,18 @@ public:
     /// protocol code does not need to repeat it.  The value is returned in
     /// wire/network byte order.  Use `ntoh()` if a host-order value is needed.
     ///
-    /// \tparam Tag the tag used by the corresponding `fixed_datum_field`
+    /// \tparam Tag the tag used by the corresponding `packed_view_field`
     ///
     /// \returns the named field value in wire/network byte order
     ///
     /// \pre `*this` is valid
     ///
     template <typename Tag>
-    typename fixed_datum_field_info<Tag, 0, Fields...>::value_type field() const noexcept {
-        using info = fixed_datum_field_info<Tag, 0, Fields...>;
+    typename packed_view_field_info<Tag, 0, Fields...>::value_type field() const noexcept {
+        using info = packed_view_field_info<Tag, 0, Fields...>;
         using T = typename info::value_type;
         return read<T, info::offset>();
     }
 };
 
-#endif  // FIXED_DATUM_HPP
+#endif  // PACKED_VIEW_HPP

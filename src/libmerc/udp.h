@@ -10,7 +10,7 @@
 #ifndef UDP_H
 #define UDP_H
 
-#include "fixed_datum.hpp"
+#include "packed_view.hpp"
 #include "flow_key.h"
 
 //    UDP header (from RFC 768)
@@ -48,13 +48,13 @@ struct udp_destination_port_field { };
 struct udp_length_field { };
 struct udp_checksum_field { };
 
-using udp_header_view = fixed_datum<
-    8,
-    fixed_datum_field<udp_source_port_field, uint16_t>,
-    fixed_datum_field<udp_destination_port_field, uint16_t>,
-    fixed_datum_field<udp_length_field, uint16_t>,
-    fixed_datum_field<udp_checksum_field, uint16_t>>;
+using udp_header_view = packed_view<
+    packed_view_field<udp_source_port_field, uint16_t>,
+    packed_view_field<udp_destination_port_field, uint16_t>,
+    packed_view_field<udp_length_field, uint16_t>,
+    packed_view_field<udp_checksum_field, uint16_t>>;
 
+static_assert(udp_header_view::extent == 8);
 static_assert(sizeof(udp_header_view) == sizeof(uint8_t *));
 
 class udp {
