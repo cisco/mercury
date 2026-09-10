@@ -70,6 +70,7 @@
 #include "libmerc/pgsql.hpp"
 #include "libmerc/cbor_decoded_metadata_test.hpp"
 #include "libmerc/dcerpc.hpp"
+#include "libmerc/reassembly.hpp"
 
 // Macros to colorize output
 //
@@ -355,6 +356,10 @@ int main(int, char *[]) {
         {
             "destination_context",
             &destination_context::unit_test
+        },
+        {
+            "reassembly",
+            &reassembly_unit_test::unit_test
         }
     };
     size_t num_tests = 0;
