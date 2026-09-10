@@ -10,6 +10,7 @@
 #ifndef UDP_H
 #define UDP_H
 
+#include "datum.h"
 #include "packed_view.hpp"
 #include "flow_key.h"
 
