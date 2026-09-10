@@ -44,16 +44,20 @@
 //    care).
 //
 
-struct udp_source_port_field { };
-struct udp_destination_port_field { };
-struct udp_length_field { };
-struct udp_checksum_field { };
+namespace udp_header {
+
+    struct source_port { };
+    struct destination_port { };
+    struct length { };
+    struct checksum { };
+
+} // namespace udp_header
 
 using udp_header_view = packed_view<
-    packed_view_field<udp_source_port_field, uint16_t>,
-    packed_view_field<udp_destination_port_field, uint16_t>,
-    packed_view_field<udp_length_field, uint16_t>,
-    packed_view_field<udp_checksum_field, uint16_t>>;
+    packed_view_field<udp_header::source_port, uint16_t>,
+    packed_view_field<udp_header::destination_port, uint16_t>,
+    packed_view_field<udp_header::length, uint16_t>,
+    packed_view_field<udp_header::checksum, uint16_t>>;
 
 static_assert(udp_header_view::extent == 8);
 static_assert(sizeof(udp_header_view) == sizeof(uint8_t *));
@@ -122,8 +126,8 @@ public:
     struct ports get_ports() const {
         if (header) {
             return {
-                header.field<udp_source_port_field>(),
-                header.field<udp_destination_port_field>()
+                header.field<udp_header::source_port>(),
+                header.field<udp_header::destination_port>()
             };
         }
         else if (src_port && dst_port) {
@@ -137,15 +141,15 @@ public:
     //
     void set_key(struct key &k) const {
         if (header) {
-            k.src_port = ntoh(header.field<udp_source_port_field>());
-            k.dst_port = ntoh(header.field<udp_destination_port_field>());
+            k.src_port = ntoh(header.field<udp_header::source_port>());
+            k.dst_port = ntoh(header.field<udp_header::destination_port>());
             k.protocol = 17; // udp
         }
     }
 
     uint16_t get_len() const {
         if (header) {
-            return ntoh(header.field<udp_length_field>());
+            return ntoh(header.field<udp_header::length>());
         }
         return 0;
     }
@@ -174,9 +178,9 @@ inline bool udp_unit_test() {
     datum header_data{packet, packet + sizeof(packet)};
     udp_header_view header{header_data};
     if (!header || header_data.length() != 1) return false;
-    if (ntoh(header.field<udp_source_port_field>()) != 0x1234) return false;
-    if (ntoh(header.field<udp_destination_port_field>()) != 0xabcd) return false;
-    if (ntoh(header.field<udp_length_field>()) != 8) return false;
+    if (ntoh(header.field<udp_header::source_port>()) != 0x1234) return false;
+    if (ntoh(header.field<udp_header::destination_port>()) != 0xabcd) return false;
+    if (ntoh(header.field<udp_header::length>()) != 8) return false;
     if (header.read<uint8_t, 7>() != 0xad) return false;
 
     datum truncated_header{packet, packet + 7};
