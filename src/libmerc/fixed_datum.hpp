@@ -202,15 +202,16 @@ public:
     /// The returned value has the wire/network byte-order representation.  Use
     /// `ntoh()` if a host-order value is needed.
     ///
-    /// The offset and field size are checked at compile time.  The view must be
-    /// valid before this function is called.
+    /// The offset and field size are checked at compile time.  This function
+    /// must only be called after `operator bool()` returns true.
     ///
     /// \tparam T the unsigned integer type to read
     /// \tparam Offset the byte offset within the view
     ///
     /// \returns the field value in wire/network byte order
     ///
-    /// \pre `*this` is valid
+    /// \pre `data != nullptr`; this precondition is not checked in release
+    /// builds.
     ///
     template <typename T, size_t Offset>
     T read() const noexcept {
