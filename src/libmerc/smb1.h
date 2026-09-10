@@ -372,7 +372,7 @@ public:
 class smb1_packet : public base_protocol {
     encoded<uint32_t> nbss_layer;
     smb1_header hdr;
-    datum& body;
+    datum body;
 
 public:
     smb1_packet(datum &d) :
@@ -390,7 +390,8 @@ public:
             switch (hdr.get_packet_type()) {
                 case smb1_header::packet_type::NEGOTIATE_REQUEST:
                 {
-                    smb1_negotiate_request neg_req(body);
+                    datum tmp{body};   // parse a copy, to leave body intact
+                    smb1_negotiate_request neg_req(tmp);
                     neg_req.write_json(smb1);
                     break;
                 }
