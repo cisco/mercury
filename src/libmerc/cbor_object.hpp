@@ -15,9 +15,6 @@
 
 constexpr uint64_t tag_npf_fingerprint = 0x4650; // application tag 18000, "FP"; NPF representation hint
 
-/// marks a base64-encoded NPF fingerprint that is unknown to decoder
-static constexpr const char npf_prefix[] = "npf/";
-
 // forward declarations
 //
 class cbor_array;
@@ -288,30 +285,21 @@ public:
 #include "json_object.h"
 #include "utf8.hpp"
 
-/// writes \param content as a base64 string prefixed with npf_prefix, the form
-/// an NPF fingerprint takes when this build cannot decode it.
-static inline void print_unknown_npf_as_base64(json_object &o, const char *key, const datum &content) {
-    o.write_comma(o.comma);
-    o.b->write_char('\"');
-    o.b->puts(key);
-    o.b->puts("\":\"");
-    o.b->puts(npf_prefix);
-    o.b->raw_as_base64(content.data, content.data_end - content.data, false);
-    o.b->write_char('\"');
-}
-
-/// as above, in array element position
+/// report to \param f a tag 18000 whose content this build could not decode as a
+/// fingerprint, and which the translator therefore dropped.  \param content is
+/// the tag's content bytes, without the three-byte tag head.
 ///
-static inline void print_unknown_npf_as_base64(json_array &a, const datum &content) {
-    a.begin_element();
-    a.b->write_char('\"');
-    a.b->puts(npf_prefix);
-    a.b->raw_as_base64(content.data, content.data_end - content.data, false);
-    a.b->write_char('\"');
+static inline void fprint_dropped_npf_tag(FILE *f, const datum &content) {
+    output_buffer<256> b;
+    b.raw_as_base64(content.data, content.data_end - content.data);
+    b.add_null();
+    fprintf(f, "warning: CBOR tag 18000 found, content dropped: %s%s\n",
+            b.data(), b.is_truncated() ? " (truncated)" : "");
 }
 
 class cbor_to_json_translator {
     const vocabulary *keys;
+    FILE *warn;      // where to report a dropped tag; nullptr is silent
 
     enum class type { key, value };
 
@@ -331,9 +319,9 @@ class cbor_to_json_translator {
 
 public:
 
-    cbor_to_json_translator() : keys{nullptr} { }
+    cbor_to_json_translator() : keys{nullptr}, warn{nullptr} { }
 
-    cbor_to_json_translator(const vocabulary *v) : keys{v} { }
+    cbor_to_json_translator(const vocabulary *v, FILE *w=nullptr) : keys{v}, warn{w} { }
 
     inline bool decode_cbor_array_to_json(datum &d, json_array &a, size_t depth = 0);
 
@@ -465,7 +453,8 @@ public:
                             if (d.is_null()) { return false; }
                             datum content{start, d.data};
                             if (tmp.value() == tag_npf_fingerprint) {
-                                print_unknown_npf_as_base64(o, key, content);
+                                // dropped: walked as opaque bytes, nothing written
+                                if (warn) { fprint_dropped_npf_tag(warn, content); }
                             } else {
                                 // the tag number is the key and base64 of the
                                 // tag content is the value
@@ -587,7 +576,8 @@ inline bool cbor_to_json_translator::decode_cbor_array_to_json(datum &d, json_ar
                     if (d.is_null()) { return false; }
                     datum content{start, d.data};
                     if (tmp.value() == tag_npf_fingerprint) {
-                        print_unknown_npf_as_base64(a, content);
+                        // dropped: walked as opaque bytes, nothing written
+                        if (warn) { fprint_dropped_npf_tag(warn, content); }
                     } else {
                         output_buffer<24> tag_buf;       // 2^64-1 is 20 digits
                         tag_buf.snprintf("%" PRIu64, tmp.value());
@@ -626,8 +616,9 @@ inline bool cbor_to_json_translator::decode_cbor_array_to_json(datum &d, json_ar
 }
 
 
-static inline bool decode_cbor_map_to_json(datum &d, buffer_stream &buf, vocabulary *v) {
-    cbor_to_json_translator tr{v};
+static inline bool decode_cbor_map_to_json(datum &d, buffer_stream &buf, vocabulary *v,
+                                           FILE *warn=nullptr) {
+    cbor_to_json_translator tr{v, warn};
 
     if (lookahead<cbor::initial_byte> ib{d}) {
         switch (ib.value.major_type()) {
@@ -984,9 +975,10 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
     // the value that the translator must return, and the number of bytes that
     // it must leave unconsumed.  Tag 18000 (0xd94650) is the NPF fingerprint
     // tag; tag 999 (0xd903e7) and tag 251 (0xd8fb) are not registered.  An
-    // undecodable fingerprint is rendered as the string "npf/<base64>", and any
-    // other unrecognized tag as {"<tag number>":"<base64>"}, where the base64
-    // covers the tag's content bytes exactly -- rather than either being dropped.
+    // undecodable fingerprint is dropped: the tag content is walked as opaque
+    // bytes and nothing is written for it.  Any other unrecognized tag is
+    // rendered as {"<tag number>":"<base64>"}, where the base64 covers the tag's
+    // content bytes exactly.
     //
     // The 24 bytes 0xbf01bf019f420303421301d8fb9f42000042000affffffff, which
     // appear in three of the cases below, are the cbor encoding of the
@@ -1016,7 +1008,8 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
                           "[\"tls/1/(0303)(1301)[(0000)(000a)]\",1]", true, 0, f);
 
     // an unknown fingerprint type (0x1863 is 99) is not decodable as a
-    // fingerprint, so the tag and its content are rendered as they are
+    // fingerprint, so the tag and its content are dropped, leaving the array
+    // empty
     //
     std::array<uint8_t,30> unknown_fp_type{
         0x9f,                                                   // [
@@ -1033,7 +1026,7 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
     translation_tests_passed &=
         test_cbor_array_to_json("unknown fingerprint type",
                           datum{unknown_fp_type},
-                          "[\"npf/vxhjvwGfQgMDQhMB2PufQgAAQgAK/////w==\"]", true, 0, f);
+                          "[]", true, 0, f);
 
     // an unknown format version (7 in place of 1) likewise falls back
     //
@@ -1052,7 +1045,7 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
     translation_tests_passed &=
         test_cbor_array_to_json("unknown fingerprint format version",
                           datum{unknown_fp_version},
-                          "[\"npf/vwG/B59CAwNCEwHY+59CAABCAAr/////\"]", true, 0, f);
+                          "[]", true, 0, f);
 
     // a randomized fingerprint, whose label the decoder must consume
     //
@@ -1247,8 +1240,8 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
                           "{\"1\":1}", false, -1, f);
 
     // an npf tag in map value position whose content this build cannot decode
-    // as a fingerprint: the format version is 7.  The tag and its content are
-    // rendered as base64 under the map key, with a sibling after them.
+    // as a fingerprint: the format version is 7.  The tag, its content and the
+    // key that holds them are dropped, and the sibling after them survives.
     //
     std::array<uint8_t,32> unknown_fp_in_map{
         0xbf,                                                   // {
@@ -1267,7 +1260,42 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
     translation_tests_passed &=
         test_cbor_map_to_json("undecodable fingerprint as a map value, with a sibling",
                           datum{unknown_fp_in_map},
-                          "{\"1\":\"npf/vwG/B59CAwNCEwHY+59CAABCAAr/////\",\"2\":2}", true, 0, f);
+                          "{\"2\":2}", true, 0, f);
+
+    // the same input with a warning sink attached.  The json must be identical:
+    // the sink only adds a diagnostic, which is how one consumer of this header
+    // reports a dropped tag while another stays silent.
+    //
+    {
+        output_buffer<2048> buf;
+        datum input{unknown_fp_in_map};
+        FILE *sink = tmpfile();
+        bool result = decode_cbor_map_to_json(input, buf, nullptr, sink);
+        ssize_t leftover = input.is_null() ? -1 : (ssize_t)input.length();
+
+        char line[256] = { '\0' };
+        if (sink != nullptr) {
+            rewind(sink);
+            if (fgets(line, sizeof(line), sink) == nullptr) { line[0] = '\0'; }
+            fclose(sink);
+        }
+        const char *expected_line =
+            "warning: CBOR tag 18000 found, content dropped: "
+            "\"vwG/B59CAwNCEwHY+59CAABCAAr/////\"\n";
+
+        translation_tests_passed &=
+            check_translation("undecodable fingerprint, with a warning sink",
+                              buf, result, leftover, "{\"2\":2}", true, 0, f);
+
+        if (strcmp(line, expected_line) != 0) {
+            if (f) {
+                fprintf(f, "ERROR: the warning sink did not receive the dropped tag\n");
+                fprintf(f, "written:  %s", line);
+                fprintf(f, "expected: %s", expected_line);
+            }
+            translation_tests_passed = false;
+        }
+    }
 
     // input nested deeper than max_recursion_depth, which the depth guard must
     // reject rather than recurse to exhaustion.  The json in the buffer is one
