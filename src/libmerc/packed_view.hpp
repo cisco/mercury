@@ -218,7 +218,9 @@ public:
     ///
     template <typename T, size_t Offset>
     T read() const noexcept {
-        static_assert(std::is_unsigned_v<T>, "packed_view fields must be unsigned");
+        static_assert(std::is_unsigned_v<T> && !std::is_same_v<std::remove_cv_t<T>, bool>
+                      && !std::is_same_v<std::remove_cv_t<T>, char>,
+                      "fixed_datum fields must be unsigned integers (not char or bool)");
         static_assert(Offset <= extent && sizeof(T) <= extent - Offset,
                       "packed_view read exceeds the view extent");
         assert(data != nullptr);
