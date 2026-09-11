@@ -1412,7 +1412,12 @@ public:
             set_null();
             return;
         }
-        if (!r.has_bytes(num_bytes)) {
+        // `r.data > r.data_end` is rejected here because has_bytes() only
+        // catches it through assert_invariant(), which is a no-op in release
+        // builds; its unsigned comparison would read the negative difference
+        // as a very large count
+        //
+        if (r.data > r.data_end or !r.has_bytes(num_bytes)) {
             r.set_null();
             return;
         }
@@ -2091,10 +2096,12 @@ namespace writeable_unit_test {
         return result;
     }
 
-    // verifies that a writeable whose `data` is past `data_end` is rejected,
-    // instead of its negative pointer difference being read as a huge count
+    // verifies that a range whose begin is past its end is rejected, on both
+    // the writeable and the source datum, instead of its negative pointer
+    // difference being read as a huge count.  These paths are only guarded by
+    // assert_invariant(), which is a no-op in release builds.
     //
-    inline bool test_invalid_writeable(FILE *f=nullptr) {
+    inline bool test_inverted_range(FILE *f=nullptr) {
         std::array<uint8_t, 8> region{};
         std::array<uint8_t, 2> raw{ 0xab, 0xcd };
 
@@ -2104,10 +2111,17 @@ namespace writeable_unit_test {
         inverted.copy(raw.data(), raw.size());
         bool copy_rejected = inverted.is_null();
 
-        bool result = room_rejected and copy_rejected;
+        // an inverted source datum handed to writeable::parse
+        //
+        datum inverted_src{raw.data() + raw.size(), raw.data()};
+        data_buffer<8> buf;
+        buf.parse(inverted_src, raw.size());
+        bool parse_rejected = buf.is_null() or inverted_src.is_null();
+
+        bool result = room_rejected and copy_rejected and parse_rejected;
         if (f and !result) {
-            fprintf(f, "%s error: has_room=%d copy=%d, expected 1 1\n",
-                    __func__, room_rejected, copy_rejected);
+            fprintf(f, "%s error: has_room=%d copy=%d parse=%d, expected 1 1 1\n",
+                    __func__, room_rejected, copy_rejected, parse_rejected);
         }
         return result;
     }
@@ -2143,7 +2157,7 @@ namespace writeable_unit_test {
         result &= test_parse(data_buf_2, verbose_output);
         result &= test_underflowed_length(data_buf_2, verbose_output);
 
-        result &= test_invalid_writeable(verbose_output);
+        result &= test_inverted_range(verbose_output);
 
         return result;
     }
