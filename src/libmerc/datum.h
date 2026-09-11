@@ -1224,9 +1224,11 @@ public:
     ///
     /// The comparison is unsigned, so that a \p num_bytes that resulted from
     /// an integer underflow is rejected instead of being read as negative.
+    /// An invalid writeable is rejected first, since its negative pointer
+    /// difference would convert to a very large `size_t`.
     ///
     bool has_room(size_t num_bytes) const {
-        if (is_null()) {
+        if (is_null() or is_invalid()) {
             return false;
         }
         return num_bytes <= static_cast<size_t>(data_end - data);
@@ -2089,6 +2091,27 @@ namespace writeable_unit_test {
         return result;
     }
 
+    // verifies that a writeable whose `data` is past `data_end` is rejected,
+    // instead of its negative pointer difference being read as a huge count
+    //
+    inline bool test_invalid_writeable(FILE *f=nullptr) {
+        std::array<uint8_t, 8> region{};
+        std::array<uint8_t, 2> raw{ 0xab, 0xcd };
+
+        writeable inverted{region.data() + region.size(), region.data()};
+        bool room_rejected = !inverted.has_room(raw.size());
+
+        inverted.copy(raw.data(), raw.size());
+        bool copy_rejected = inverted.is_null();
+
+        bool result = room_rejected and copy_rejected;
+        if (f and !result) {
+            fprintf(f, "%s error: has_room=%d copy=%d, expected 1 1\n",
+                    __func__, room_rejected, copy_rejected);
+        }
+        return result;
+    }
+
 
     /// Run unit tests on `class writeable` and returns `true` if all
     /// succeeded and `false` otherwise
@@ -2119,6 +2142,8 @@ namespace writeable_unit_test {
         result &= test_copy_from_hex(data_buf_2, verbose_output);
         result &= test_parse(data_buf_2, verbose_output);
         result &= test_underflowed_length(data_buf_2, verbose_output);
+
+        result &= test_invalid_writeable(verbose_output);
 
         return result;
     }
