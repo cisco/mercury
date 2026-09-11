@@ -1357,7 +1357,7 @@ public:
         // check for writeable room; output length is twice the input
         // length
         //
-        if (is_null() or data_end - data < ((ssize_t)num_digits/2) or (num_digits&1) == 1 ) {
+        if ((num_digits & 1) or !has_room(num_digits / 2)) {
             set_null();
             return;
         }
@@ -2064,21 +2064,29 @@ namespace writeable_unit_test {
         volatile size_t empty_length = 0;
         const size_t underflowed = empty_length - 1;
 
+        // an even underflowed count, which a count&1 test does not catch
+        //
+        const size_t underflowed_even = empty_length - 2;
+
         buf.reset();  buf.copy(raw.data(), underflowed);
         bool copy_rejected = buf.is_null();
 
         buf.reset();  buf.write_hex(raw.data(), underflowed);
         bool hex_rejected = buf.is_null();
 
+        buf.reset();  buf.copy_from_hex(raw.data(), underflowed_even);
+        bool from_hex_rejected = buf.is_null();
+
         datum tmp{raw};
         buf.reset();  buf.parse(tmp, underflowed);
         bool parse_rejected = buf.is_null();
 
-        if (f and !(copy_rejected and hex_rejected and parse_rejected)) {
-            fprintf(f, "%s error: copy=%d write_hex=%d parse=%d, expected 1 1 1\n",
-                    __func__, copy_rejected, hex_rejected, parse_rejected);
+        bool result = copy_rejected and hex_rejected and from_hex_rejected and parse_rejected;
+        if (f and !result) {
+            fprintf(f, "%s error: copy=%d write_hex=%d copy_from_hex=%d parse=%d, expected 1 1 1 1\n",
+                    __func__, copy_rejected, hex_rejected, from_hex_rejected, parse_rejected);
         }
-        return copy_rejected and hex_rejected and parse_rejected;
+        return result;
     }
 
 
