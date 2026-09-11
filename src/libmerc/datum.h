@@ -1220,6 +1220,18 @@ public:
     ///
     ssize_t writeable_length() const { return data_end - data; }
 
+    /// returns true iff this writeable has room for \p num_bytes more bytes
+    ///
+    /// The comparison is unsigned, so that a \p num_bytes that resulted from
+    /// an integer underflow is rejected instead of being read as negative.
+    ///
+    bool has_room(size_t num_bytes) const {
+        if (is_null()) {
+            return false;
+        }
+        return num_bytes <= static_cast<size_t>(data_end - data);
+    }
+
     /// consumes `length` bytes of the writeable region, if `length <=
     /// this->writeable_length()`; otherwise, this writeable is set to
     /// the null state
@@ -1258,7 +1270,7 @@ public:
     /// null state.
     ///
     void copy(const uint8_t *rdata, size_t num_bytes) {
-        if (rdata == nullptr or writeable_length() < (ssize_t)num_bytes) {
+        if (rdata == nullptr or !has_room(num_bytes)) {
             set_null();
             return;
         }
@@ -1285,7 +1297,7 @@ public:
         // check for writeable room; output length is twice the input
         // length
         //
-        if (is_null() or writeable_length() < 2 * (ssize_t)num_bytes) {
+        if (num_bytes > SIZE_MAX / 2 or !has_room(2 * num_bytes)) {
             set_null();
             return;
         }
@@ -1394,11 +1406,11 @@ public:
     /// this `writeable` is set to null.
     ///
     void parse(struct datum &r, size_t num_bytes) {
-        if (r.is_null() or writeable_length() < (ssize_t)num_bytes) {
+        if (r.is_null() or !has_room(num_bytes)) {
             set_null();
             return;
         }
-        if (r.length() < (ssize_t)num_bytes) {
+        if (!r.has_bytes(num_bytes)) {
             r.set_null();
             return;
         }
@@ -2035,6 +2047,40 @@ namespace writeable_unit_test {
         return result;
     }
 
+    // B must be data_buffer or dynamic_buffer
+    //
+    // verifies that a byte count that underflowed, as `d.length()-1`
+    // does for an empty datum `d`, is rejected instead of being read as
+    // a negative length
+    //
+    template <typename B>
+    inline bool test_underflowed_length(B &buf, FILE *f=nullptr) {
+        std::array<uint8_t,2> raw{ 0xab, 0xcd };
+
+        // `volatile` keeps the compiler from constant-folding the
+        // underflowed length into a memcpy bound, which draws a
+        // -Wstringop-overflow warning even on the rejected path
+        //
+        volatile size_t empty_length = 0;
+        const size_t underflowed = empty_length - 1;
+
+        buf.reset();  buf.copy(raw.data(), underflowed);
+        bool copy_rejected = buf.is_null();
+
+        buf.reset();  buf.write_hex(raw.data(), underflowed);
+        bool hex_rejected = buf.is_null();
+
+        datum tmp{raw};
+        buf.reset();  buf.parse(tmp, underflowed);
+        bool parse_rejected = buf.is_null();
+
+        if (f and !(copy_rejected and hex_rejected and parse_rejected)) {
+            fprintf(f, "%s error: copy=%d write_hex=%d parse=%d, expected 1 1 1\n",
+                    __func__, copy_rejected, hex_rejected, parse_rejected);
+        }
+        return copy_rejected and hex_rejected and parse_rejected;
+    }
+
 
     /// Run unit tests on `class writeable` and returns `true` if all
     /// succeeded and `false` otherwise
@@ -2054,6 +2100,7 @@ namespace writeable_unit_test {
         result &= test_write_hex(dynamic_buf_2, verbose_output);
         result &= test_copy_from_hex(dynamic_buf_2, verbose_output);
         result &= test_parse(dynamic_buf_2, verbose_output);
+        result &= test_underflowed_length(dynamic_buf_2, verbose_output);
 
         data_buffer<1> data_buf;
         result &= test_copy_uint8(data_buf, verbose_output);
@@ -2063,6 +2110,7 @@ namespace writeable_unit_test {
         result &= test_write_hex(data_buf_2, verbose_output);
         result &= test_copy_from_hex(data_buf_2, verbose_output);
         result &= test_parse(data_buf_2, verbose_output);
+        result &= test_underflowed_length(data_buf_2, verbose_output);
 
         return result;
     }
