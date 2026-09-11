@@ -1222,10 +1222,8 @@ public:
 
     /// returns true iff this writeable has room for \p num_bytes more bytes
     ///
-    /// The comparison is unsigned, so that a \p num_bytes that resulted from
-    /// an integer underflow is rejected instead of being read as negative.
-    /// An invalid writeable is rejected first, since its negative pointer
-    /// difference would convert to a very large `size_t`.
+    /// The comparison is unsigned, so a count that underflowed is rejected
+    /// rather than read as negative.
     ///
     bool has_room(size_t num_bytes) const {
         if (is_null() or is_invalid()) {
@@ -1412,11 +1410,8 @@ public:
             set_null();
             return;
         }
-        // `r.data > r.data_end` is rejected here because has_bytes() only
-        // catches it through assert_invariant(), which is a no-op in release
-        // builds; its unsigned comparison would read the negative difference
-        // as a very large count
-        //
+        // has_bytes() only catches an inverted datum via assert(), which
+        // release builds drop
         if (r.data > r.data_end or !r.has_bytes(num_bytes)) {
             r.set_null();
             return;
@@ -2051,29 +2046,34 @@ namespace writeable_unit_test {
             result &= false;
         }
 
+        // test writeable::parse() with an inverted source datum
+        buf.reset();
+        datum inverted{raw_data.data() + raw_data.size(), raw_data.data()};
+        buf.parse(inverted, raw_data.size());
+        if (inverted.is_null() != true) {
+            if (f) {
+                fprintf(f, "%s error: parse() accepted an inverted source datum\n", __func__);
+            }
+            result &= false;
+        }
+
         return result;
     }
 
     // B must be data_buffer or dynamic_buffer
     //
-    // verifies that a byte count that underflowed, as `d.length()-1`
-    // does for an empty datum `d`, is rejected instead of being read as
-    // a negative length
+    // verifies that an underflowed byte count is rejected
     //
     template <typename B>
     inline bool test_underflowed_length(B &buf, FILE *f=nullptr) {
         std::array<uint8_t,2> raw{ 0xab, 0xcd };
 
-        // `volatile` keeps the compiler from constant-folding the
-        // underflowed length into a memcpy bound, which draws a
-        // -Wstringop-overflow warning even on the rejected path
-        //
+        // `volatile` keeps the compiler from constant-folding the underflowed
+        // length into a memcpy bound, which draws a -Wstringop-overflow
+        // warning even on the rejected path
         volatile size_t empty_length = 0;
         const size_t underflowed = empty_length - 1;
-
-        // an even underflowed count, which a count&1 test does not catch
-        //
-        const size_t underflowed_even = empty_length - 2;
+        const size_t underflowed_even = empty_length - 2;  // an odd-length test would miss this
 
         buf.reset();  buf.copy(raw.data(), underflowed);
         bool copy_rejected = buf.is_null();
@@ -2096,12 +2096,9 @@ namespace writeable_unit_test {
         return result;
     }
 
-    // verifies that a range whose begin is past its end is rejected, on both
-    // the writeable and the source datum, instead of its negative pointer
-    // difference being read as a huge count.  These paths are only guarded by
-    // assert_invariant(), which is a no-op in release builds.
+    // verifies that a writeable whose begin is past its end is rejected
     //
-    inline bool test_inverted_range(FILE *f=nullptr) {
+    inline bool test_invalid_writeable(FILE *f=nullptr) {
         std::array<uint8_t, 8> region{};
         std::array<uint8_t, 2> raw{ 0xab, 0xcd };
 
@@ -2111,17 +2108,10 @@ namespace writeable_unit_test {
         inverted.copy(raw.data(), raw.size());
         bool copy_rejected = inverted.is_null();
 
-        // an inverted source datum handed to writeable::parse
-        //
-        datum inverted_src{raw.data() + raw.size(), raw.data()};
-        data_buffer<8> buf;
-        buf.parse(inverted_src, raw.size());
-        bool parse_rejected = buf.is_null() or inverted_src.is_null();
-
-        bool result = room_rejected and copy_rejected and parse_rejected;
+        bool result = room_rejected and copy_rejected;
         if (f and !result) {
-            fprintf(f, "%s error: has_room=%d copy=%d parse=%d, expected 1 1 1\n",
-                    __func__, room_rejected, copy_rejected, parse_rejected);
+            fprintf(f, "%s error: has_room=%d copy=%d, expected 1 1\n",
+                    __func__, room_rejected, copy_rejected);
         }
         return result;
     }
@@ -2157,7 +2147,7 @@ namespace writeable_unit_test {
         result &= test_parse(data_buf_2, verbose_output);
         result &= test_underflowed_length(data_buf_2, verbose_output);
 
-        result &= test_inverted_range(verbose_output);
+        result &= test_invalid_writeable(verbose_output);
 
         return result;
     }
