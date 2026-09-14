@@ -1547,12 +1547,13 @@ struct tls_extension {
     uint16_t cnt; //No.of extensions of the same type
     uint16_t encoded_type;
 
-    tls_extension() : type{0}, length{0}, value{NULL, NULL}, type_ptr{NULL}, length_ptr{NULL}, cnt{0} { }
+    tls_extension() : type{0}, length{0}, value{NULL, NULL}, type_ptr{NULL}, length_ptr{NULL}, cnt{0}, encoded_type{0} { }
 
-    tls_extension(struct datum &p) : type{0}, length{0}, value{NULL, NULL}, type_ptr{NULL}, length_ptr{NULL}, cnt{0} {
+    tls_extension(struct datum &p) : type{0}, length{0}, value{NULL, NULL}, type_ptr{NULL}, length_ptr{NULL}, cnt{0}, encoded_type{0} {
 
         type_ptr = p.data;
         if (p.read_uint16(&type) == false) { return; }
+        encoded_type = degrease_uint16(type);
         length_ptr = p.data;
         if (p.read_uint16(&length) == false) { return; }
         if (length <= p.length()) {
@@ -1560,9 +1561,6 @@ struct tls_extension {
             value.data_end = value.data + length;
             p.data += length;
         }
-
-        // Initialize with degreased extension
-        encoded_type = degrease_uint16(type);
     }
 
     bool is_not_empty() { return value.is_not_empty(); }
