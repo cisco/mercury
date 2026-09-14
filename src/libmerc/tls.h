@@ -24,6 +24,8 @@
 #include "variable_length_vector.hpp"
 #include <array>
 #include <cstdint>
+#include <cstring>
+#include <type_traits>
 
 
 // Forward declaration for crypto_policy::required_extensions
@@ -337,6 +339,42 @@ enum class tls_role { client, server };
 inline bool tls_extension_length_unit_test();
 #endif // NDEBUG
 
+/// \brief Test whether a 16-bit TLS value is a GREASE value.
+///
+/// \param x value to test
+/// \return true if \p x is a TLS GREASE value
+///
+static constexpr bool is_grease_uint16(uint16_t x) {
+    return (x & 0x0f) == 0x0a && (x >> 8) == (x & 0xff);
+}
+
+/// \brief Normalize a 16-bit TLS GREASE value.
+///
+/// \param x value to normalize
+/// \return 0x0a0a for GREASE values, otherwise \p x
+///
+static constexpr uint16_t degrease_uint16(uint16_t x) {
+    return is_grease_uint16(x) ? 0x0a0a : x;
+}
+
+/// \brief Test whether an 8-bit TLS value is a GREASE value.
+///
+/// \param x value to test
+/// \return true if \p x is a TLS GREASE value
+///
+static constexpr bool is_grease_uint8(uint8_t x) {
+    return x % 31 == 11;
+}
+
+/// \brief Normalize an 8-bit TLS GREASE value.
+///
+/// \param x value to normalize
+/// \return 0x0b for GREASE values, otherwise \p x
+///
+static constexpr uint8_t degrease_uint8(uint8_t x) {
+    return is_grease_uint8(x) ? 0x0b : x;
+}
+
 
 struct tls_extensions : public datum {
 
@@ -447,11 +485,11 @@ struct tls_extensions : public datum {
         // Test supported_groups duplicate extensions.  The GREASE value is
         // smaller after normalization, even though its wire value is larger.
         static constexpr uint8_t duplicate_supported_groups[] = {
-            0x00, 0x0a, 0x00, 0x04, 0x00, 0x04, 0x1a, 0x1a,
-            0x00, 0x0a, 0x00, 0x04, 0x00, 0x04, 0x10, 0x00
+            0x00, 0x0a, 0x00, 0x06, 0x00, 0x04, 0x1a, 0x1a, 0x00, 0x1d,
+            0x00, 0x0a, 0x00, 0x06, 0x00, 0x04, 0x10, 0x00, 0x00, 0x1d
         };
         static constexpr char expected_supported_groups[] =
-            "[(000a000400040a0a)(000a000400041000)]";
+            "[(000a000600040a0a001d)(000a000600041000001d)]";
         datum supported_groups_data{duplicate_supported_groups,
                                     duplicate_supported_groups + sizeof(duplicate_supported_groups)};
         tls_extensions supported_groups{supported_groups_data.data,
@@ -489,11 +527,11 @@ struct tls_extensions : public datum {
         // Test supported_versions in a ClientHello, where the extension data
         // contains a one-byte length followed by a version list.
         static constexpr uint8_t duplicate_client_supported_versions[] = {
-            0x00, 0x2b, 0x00, 0x04, 0x00, 0x02, 0x1a, 0x1a,
-            0x00, 0x2b, 0x00, 0x04, 0x00, 0x02, 0x10, 0x00
+            0x00, 0x2b, 0x00, 0x03, 0x02, 0x1a, 0x1a,
+            0x00, 0x2b, 0x00, 0x03, 0x02, 0x10, 0x00
         };
         static constexpr char expected_client_supported_versions[] =
-            "[(002b000400020a0a)(002b000400021000)]";
+            "[(002b0003020a0a)(002b0003021000)]";
         datum client_supported_versions_data{
             duplicate_client_supported_versions,
             duplicate_client_supported_versions + sizeof(duplicate_client_supported_versions)};
@@ -538,7 +576,7 @@ struct tls_extensions : public datum {
             0x00, 0x2b, 0x00, 0x02, 0x10, 0x00
         };
         static constexpr char expected_server_supported_versions[] =
-            "[(002b0002000a0a)(002b0002001000)]";
+            "[(002b00020a0a)(002b00021000)]";
         datum server_supported_versions_data{
             duplicate_server_supported_versions,
             duplicate_server_supported_versions + sizeof(duplicate_server_supported_versions)};
@@ -573,6 +611,82 @@ struct tls_extensions : public datum {
                    server_supported_versions_format2_output.dstr,
                    sizeof(expected_server_supported_versions) - 1)) {
             fprintf(stdout, "Test for server supported_versions Format 2 sorting failed\n");
+            return false;
+        }
+
+        // Test the typed normalization rules for signature_algorithms,
+        // signature_algorithms_cert, psk_key_exchange_modes, and ALPN.
+        alignas(2) static constexpr uint8_t typed_extensions[] = {
+            0xff,
+            0x00, 0x0d, 0x00, 0x06, 0x00, 0x04, 0x1a, 0x1a, 0x04, 0x03,
+            0x00, 0x32, 0x00, 0x06, 0x00, 0x04, 0x2a, 0x2a, 0x05, 0x03,
+            0x00, 0x2d, 0x00, 0x03, 0x02, 0x2a, 0x01,
+            0x00, 0x10, 0x00, 0x07, 0x00, 0x05, 0x02, 0x1a, 0x1a, 0x01, 0x68
+        };
+        static constexpr char expected_typed_format1[] =
+            "[(000d000600040a0a0403)(001000070005020a0a0168)"
+            "(002d0003020b01)(0032000600040a0a0503)]";
+        static constexpr char expected_typed_legacy[] =
+            "((000d000600040a0a0403)(0032000600040a0a0503)"
+            "(002d0003020b01)(001000070005020a0a0168))";
+        datum typed_extensions_data{typed_extensions + 1,
+                                    typed_extensions + sizeof(typed_extensions)};
+        tls_extensions typed{typed_extensions_data.data,
+                             typed_extensions_data.data_end};
+
+        char typed_format1_buffer[300];
+        buffer_stream typed_format1_output{typed_format1_buffer,
+                                           sizeof(typed_format1_buffer)};
+        // Verify Format 1 sorts the extensions and normalizes their typed data.
+        typed.fingerprint_quic_tls(typed_format1_output, tls_role::client);
+        if (typed_format1_output.length() != sizeof(expected_typed_format1) - 1 ||
+            memcmp(expected_typed_format1,
+                   typed_format1_output.dstr,
+                   sizeof(expected_typed_format1) - 1)) {
+            fprintf(stdout, "Test for typed extension Format 1 normalization failed\n");
+            return false;
+        }
+
+        char typed_legacy_buffer[300];
+        buffer_stream typed_legacy_output{typed_legacy_buffer,
+                                          sizeof(typed_legacy_buffer)};
+        // Verify the legacy emitter preserves extension order while applying
+        // the same typed value normalization.
+        typed.fingerprint(typed_legacy_output, tls_role::client);
+        if (typed_legacy_output.length() != sizeof(expected_typed_legacy) - 1 ||
+            memcmp(expected_typed_legacy,
+                   typed_legacy_output.dstr,
+                   sizeof(expected_typed_legacy) - 1)) {
+            fprintf(stdout, "Test for typed extension legacy normalization failed\n");
+            return false;
+        }
+
+        // Test duplicate signature_algorithms and psk_key_exchange_modes
+        // values whose normalized order differs from their wire order.
+        static constexpr uint8_t duplicate_typed_extensions[] = {
+            0x00, 0x0d, 0x00, 0x04, 0x00, 0x02, 0x1a, 0x1a,
+            0x00, 0x0d, 0x00, 0x04, 0x00, 0x02, 0x10, 0x00,
+            0x00, 0x2d, 0x00, 0x03, 0x02, 0x2a, 0x10,
+            0x00, 0x2d, 0x00, 0x03, 0x02, 0x10, 0x00
+        };
+        static constexpr char expected_duplicate_typed[] =
+            "[(000d000400020a0a)(000d000400021000)"
+            "(002d0003020b10)(002d0003021000)]";
+        datum duplicate_typed_data{duplicate_typed_extensions,
+                                   duplicate_typed_extensions + sizeof(duplicate_typed_extensions)};
+        tls_extensions duplicate_typed{duplicate_typed_data.data,
+                                       duplicate_typed_data.data_end};
+        char duplicate_typed_buffer[300];
+        buffer_stream duplicate_typed_output{duplicate_typed_buffer,
+                                             sizeof(duplicate_typed_buffer)};
+        // Verify duplicate fixed-width typed values sort by normalized data.
+        duplicate_typed.fingerprint_quic_tls(duplicate_typed_output,
+                                              tls_role::client);
+        if (duplicate_typed_output.length() != sizeof(expected_duplicate_typed) - 1 ||
+            memcmp(expected_duplicate_typed,
+                   duplicate_typed_output.dstr,
+                   sizeof(expected_duplicate_typed) - 1)) {
+            fprintf(stdout, "Test for duplicate typed extension sorting failed\n");
             return false;
         }
 
@@ -946,36 +1060,17 @@ public:
 };
 
 
-/// \brief Test whether a 16-bit TLS value is a GREASE value.
-///
-/// \param x value to test
-/// \return true if \p x is a TLS GREASE value
-///
-static constexpr bool is_grease_uint16(uint16_t x) {
-    return (x & 0x0f) == 0x0a && (x >> 8) == (x & 0xff);
-}
-
-/// \brief Normalize a 16-bit TLS GREASE value.
-///
-/// \param x value to normalize
-/// \return 0x0a0a for GREASE values, otherwise \p x
-///
-static constexpr uint16_t degrease_uint16(uint16_t x) {
-    return is_grease_uint16(x) ? 0x0a0a : x;
-}
-
 static void raw_as_hex_degrease(struct buffer_stream &buf, const void *data, size_t len) {
     if (len % 2) {
         len--;   // force len to be a multiple of two
     }
-    uint16_t *x = (uint16_t *)data;
-    uint16_t *x_end = x + (len/2);
-
-    while (x < x_end) {
-        uint16_t tmp = degrease_uint16(*x++);
+    const uint8_t *x = static_cast<const uint8_t *>(data);
+    for (size_t i = 0; i < len; i += sizeof(uint16_t)) {
+        uint16_t tmp;
+        std::memcpy(&tmp, x + i, sizeof(tmp));
+        tmp = degrease_uint16(tmp);
         buf.raw_as_hex((const uint8_t *)&tmp, sizeof(tmp));
     }
-
 }
 
 
@@ -1167,8 +1262,11 @@ inline bool is_faketls_util(const datum ciphersuite_vector) {
  */
 #define type_sni                             0x0000
 #define type_supported_groups                0x000a
+#define type_signature_algorithms            0x000d
 #define type_alpn                            0x0010
 #define type_supported_versions              0x002b
+#define type_psk_key_exchange_modes          0x002d
+#define type_signature_algorithms_cert       0x0032
 #define type_session_ticket                  0x0023
 #define type_quic_transport_parameters       0x0039
 #define type_quic_transport_parameters_draft 0xffa5
@@ -1176,6 +1274,12 @@ inline bool is_faketls_util(const datum ciphersuite_vector) {
 #define type_encrypt_then_mac                0x0016
 
 #define type_ech_client_hello                0xfe0d
+
+using supported_groups_vector          = variable_length_vector<uint16_t, uint16_t>;
+using client_supported_versions_vector = variable_length_vector<uint16_t, uint8_t>;
+using server_supported_versions_vector = variable_length_vector<uint16_t, no_length>;
+using signature_algorithm_vector       = variable_length_vector<uint16_t, uint16_t>;
+using psk_key_exchange_modes_vector    = variable_length_vector<uint8_t, uint8_t>;
 
 inline constexpr uint16_t static_extension_types[num_static_extension_types] = {
         1,         /* max fragment length                    */
@@ -1615,8 +1719,8 @@ struct tls_extension {
         if (type == type_supported_groups) {
             datum a_data{value};
             datum b_data{other.value};
-            variable_length_vector<uint16_t, uint16_t> a_values{a_data};
-            variable_length_vector<uint16_t, uint16_t> b_values{b_data};
+            supported_groups_vector a_values{a_data};
+            supported_groups_vector b_values{b_data};
             if (a_values.is_not_null() && b_values.is_not_null()) {
                 return a_values.compare_degreased(b_values, degrease_uint16);
             }
@@ -1624,17 +1728,34 @@ struct tls_extension {
             datum a_data{value};
             datum b_data{other.value};
             if (role == tls_role::client) {
-                variable_length_vector<uint16_t, uint8_t> a_values{a_data};
-                variable_length_vector<uint16_t, uint8_t> b_values{b_data};
+                client_supported_versions_vector a_values{a_data};
+                client_supported_versions_vector b_values{b_data};
                 if (a_values.is_not_null() && b_values.is_not_null()) {
                     return a_values.compare_degreased(b_values, degrease_uint16);
                 }
             } else {
-                variable_length_vector<uint16_t, no_length> a_values{a_data};
-                variable_length_vector<uint16_t, no_length> b_values{b_data};
+                server_supported_versions_vector a_values{a_data};
+                server_supported_versions_vector b_values{b_data};
                 if (a_values.is_not_null() && b_values.is_not_null()) {
                     return a_values.compare_degreased(b_values, degrease_uint16);
                 }
+            }
+        } else if (type == type_signature_algorithms ||
+                   type == type_signature_algorithms_cert) {
+            datum a_data{value};
+            datum b_data{other.value};
+            signature_algorithm_vector a_values{a_data};
+            signature_algorithm_vector b_values{b_data};
+            if (a_values.is_not_null() && b_values.is_not_null()) {
+                return a_values.compare_degreased(b_values, degrease_uint16);
+            }
+        } else if (type == type_psk_key_exchange_modes) {
+            datum a_data{value};
+            datum b_data{other.value};
+            psk_key_exchange_modes_vector a_values{a_data};
+            psk_key_exchange_modes_vector b_values{b_data};
+            if (a_values.is_not_null() && b_values.is_not_null()) {
+                return a_values.compare_degreased(b_values, degrease_uint8);
             }
         }
 
@@ -1649,7 +1770,7 @@ struct tls_extension {
                 b.write_char('(');
                 b.write_hex_uint(encoded_type);
                 write_length(b);
-                write_degreased_value(b, L_NamedGroupListLen);
+                write_normalized_vector<uint16_t, uint16_t>(b, degrease_uint16);
                 b.write_char(')');
 
             } else if (type == type_supported_versions) {
@@ -1658,10 +1779,32 @@ struct tls_extension {
                 b.write_hex_uint(encoded_type);
                 write_length(b);
                 if (role == tls_role::client) {
-                    write_degreased_value(b, L_ProtocolVersionListLen);
+                    write_normalized_vector<uint16_t, uint8_t>(b, degrease_uint16);
                 } else {
-                    write_degreased_value(b, 0);
+                    write_normalized_vector<uint16_t, no_length>(b, degrease_uint16);
                 }
+                b.write_char(')');
+
+            } else if (type == type_signature_algorithms ||
+                       type == type_signature_algorithms_cert) {
+                b.write_char('(');
+                b.write_hex_uint(encoded_type);
+                write_length(b);
+                write_normalized_vector<uint16_t, uint16_t>(b, degrease_uint16);
+                b.write_char(')');
+
+            } else if (type == type_psk_key_exchange_modes) {
+                b.write_char('(');
+                b.write_hex_uint(encoded_type);
+                write_length(b);
+                write_normalized_vector<uint8_t, uint8_t>(b, degrease_uint8);
+                b.write_char(')');
+
+            } else if (type == type_alpn) {
+                b.write_char('(');
+                b.write_hex_uint(encoded_type);
+                write_length(b);
+                write_degreased_alpn_value(b);
                 b.write_char(')');
 
             } else if (type == type_quic_transport_parameters || type == type_quic_transport_parameters_draft) {
@@ -1736,21 +1879,83 @@ struct tls_extension {
             b.raw_as_hex(length_ptr, sizeof(uint16_t));
         }
     }
-    void write_degreased_value(struct buffer_stream &b, ssize_t ungreased_len) const {
-        if (value.is_not_empty()) {
-            size_t skip_len;
-            size_t greased_len;
-            if (ungreased_len < value.length()) {
-                skip_len = ungreased_len;
-                greased_len = value.length() - ungreased_len;
-            } else {
-                skip_len = value.length();
-                greased_len = 0;
+
+    /// \brief Write a fixed-width vector with normalized elements.
+    ///
+    /// The length prefix, when present, is copied unchanged.  Elements are
+    /// read and written in network byte order, so unaligned packet data is
+    /// handled safely by variable_length_vector.
+    ///
+    /// \param b output buffer
+    /// \param normalize element normalization function
+    ///
+    template <typename T, typename LengthT, typename Normalize>
+    void write_normalized_vector(struct buffer_stream &b, Normalize normalize) const {
+        constexpr size_t prefix_length =
+            std::is_same_v<LengthT, no_length> ? 0 : sizeof(LengthT);
+        const size_t value_length = static_cast<size_t>(value.length());
+        const size_t output_prefix_length =
+            prefix_length < value_length ? prefix_length : value_length;
+
+        if (!value.is_not_empty()) {
+            return;
+        }
+        b.raw_as_hex(value.data, output_prefix_length);
+
+        datum input{value};
+        variable_length_vector<T, LengthT> values{input};
+        if (values) {
+            for (size_t i = 0; i < values.size(); ++i) {
+                T element = static_cast<T>(normalize(values[i]));
+                b.raw_as_hex(reinterpret_cast<const uint8_t *>(&element),
+                             sizeof(element));
             }
-            b.raw_as_hex(value.data, skip_len);
-            raw_as_hex_degrease(b, value.data + skip_len, greased_len);
+            return;
+        }
+
+        // Preserve the previous behavior for malformed vectors: normalize
+        // complete elements that are actually present after the prefix.
+        const size_t remaining_length = value_length - output_prefix_length;
+        const size_t complete_length = remaining_length -
+            (remaining_length % sizeof(T));
+        const uint8_t *elements = value.data + output_prefix_length;
+        for (size_t i = 0; i < complete_length; i += sizeof(T)) {
+            T element;
+            std::memcpy(&element, elements + i, sizeof(element));
+            element = static_cast<T>(normalize(element));
+            b.raw_as_hex(reinterpret_cast<const uint8_t *>(&element),
+                         sizeof(element));
         }
     }
+
+    void write_degreased_alpn_value(struct buffer_stream &b) const {
+        if (value.is_not_empty()) {
+            datum names = value;
+            if (names.length() < 2) {
+                b.raw_as_hex(names.data, names.length());
+                return;
+            }
+
+            b.raw_as_hex(names.data, 2);
+            names.skip(2);
+            while (names.is_not_empty()) {
+                datum before_name = names;
+                protocol_name name{names};
+                if (name.is_not_empty()) {
+                    b.write_hex_uint(static_cast<uint8_t>(name.length()));
+                    if (name.is_grease()) {
+                        b.write_hex_uint(static_cast<uint16_t>(0x0a0a));
+                    } else {
+                        b.raw_as_hex(name.data, name.length());
+                    }
+                } else {
+                    b.raw_as_hex(before_name.data, before_name.length());
+                    break;
+                }
+            }
+        }
+    }
+
     void write_value(struct buffer_stream &b) const {
         if (value.is_not_empty()) {
             b.raw_as_hex(value.data, value.length());
@@ -1813,7 +2018,7 @@ inline void tls_extensions::fingerprint(struct buffer_stream &b, enum tls_role r
                 b.write_char('(');
                 x.write_degreased_type(b);
                 x.write_length(b);
-                x.write_degreased_value(b, L_NamedGroupListLen);
+                x.write_normalized_vector<uint16_t, uint16_t>(b, degrease_uint16);
                 b.write_char(')');
 
             } else if (x.type == type_supported_versions) {
@@ -1822,10 +2027,32 @@ inline void tls_extensions::fingerprint(struct buffer_stream &b, enum tls_role r
                 x.write_degreased_type(b);
                 x.write_length(b);
                 if (role == tls_role::client) {
-                    x.write_degreased_value(b, L_ProtocolVersionListLen);
+                    x.write_normalized_vector<uint16_t, uint8_t>(b, degrease_uint16);
                 } else {
-                    x.write_degreased_value(b, 0);
+                    x.write_normalized_vector<uint16_t, no_length>(b, degrease_uint16);
                 }
+                b.write_char(')');
+
+            } else if (x.type == type_signature_algorithms ||
+                       x.type == type_signature_algorithms_cert) {
+                b.write_char('(');
+                x.write_degreased_type(b);
+                x.write_length(b);
+                x.write_normalized_vector<uint16_t, uint16_t>(b, degrease_uint16);
+                b.write_char(')');
+
+            } else if (x.type == type_psk_key_exchange_modes) {
+                b.write_char('(');
+                x.write_degreased_type(b);
+                x.write_length(b);
+                x.write_normalized_vector<uint8_t, uint8_t>(b, degrease_uint8);
+                b.write_char(')');
+
+            } else if (x.type == type_alpn) {
+                b.write_char('(');
+                x.write_degreased_type(b);
+                x.write_length(b);
+                x.write_degreased_alpn_value(b);
                 b.write_char(')');
 
             } else if (x.type == type_quic_transport_parameters || x.type == type_quic_transport_parameters_draft) {
