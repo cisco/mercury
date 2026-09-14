@@ -333,6 +333,10 @@ struct tls_server_certificate {
 
 enum class tls_role { client, server };
 
+#ifndef NDEBUG
+inline bool tls_extension_length_unit_test();
+#endif // NDEBUG
+
 
 struct tls_extensions : public datum {
 
@@ -387,6 +391,11 @@ struct tls_extensions : public datum {
             is_grease_uint16(0x1a0a) || degrease_uint16(0x1234) != 0x1234 ||
             degrease_uint16(0x7a7a) != 0x0a0a) {
             fprintf(stdout, "Test for shared TLS GREASE predicate failed\n");
+            return false;
+        }
+
+        // Verify that extension lengths are emitted without de-GREASEing.
+        if (!tls_extension_length_unit_test()) {
             return false;
         }
 
@@ -1724,7 +1733,7 @@ struct tls_extension {
 
     void write_length(struct buffer_stream &b) const {
         if (length_ptr) {
-            raw_as_hex_degrease(b, length_ptr, sizeof(uint16_t));
+            b.raw_as_hex(length_ptr, sizeof(uint16_t));
         }
     }
     void write_degreased_value(struct buffer_stream &b, ssize_t ungreased_len) const {
@@ -1763,6 +1772,30 @@ struct tls_extension {
     }
 
 };
+
+#ifndef NDEBUG
+
+// LCOV_EXCL_START
+/// \brief Verify that TLS extension lengths are not de-GREASEd.
+///
+/// \return true if the wire-format length is emitted unchanged
+///
+inline bool tls_extension_length_unit_test() {
+    static constexpr uint8_t wire_length[] = { 0x1a, 0x1a };
+    static constexpr char expected_length[] = "1a1a";
+
+    tls_extension extension;
+    extension.length_ptr = wire_length;
+
+    char output_buffer[sizeof(expected_length)];
+    buffer_stream output{output_buffer, sizeof(output_buffer)};
+    extension.write_length(output);
+
+    return output.length() == sizeof(expected_length) - 1 &&
+           memcmp(output.dstr, expected_length, sizeof(expected_length) - 1) == 0;
+}
+// LCOV_EXCL_STOP
+#endif // NDEBUG
 
 inline void tls_extensions::fingerprint(struct buffer_stream &b, enum tls_role role) const {
 
