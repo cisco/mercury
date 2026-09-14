@@ -25,6 +25,7 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <optional>
 #include <type_traits>
 
 
@@ -687,6 +688,34 @@ struct tls_extensions : public datum {
                    duplicate_typed_output.dstr,
                    sizeof(expected_duplicate_typed) - 1)) {
             fprintf(stdout, "Test for duplicate typed extension sorting failed\n");
+            return false;
+        }
+
+        // Test duplicate ALPN values whose normalized order differs from
+        // their wire order.  Each list contains a GREASE protocol name and
+        // an ordinary protocol name, so the ALPN comparator must normalize
+        // the GREASE name before sorting the extensions.
+        static constexpr uint8_t duplicate_alpn_extensions[] = {
+            0x00, 0x10, 0x00, 0x07, 0x00, 0x05, 0x02, 0x1a, 0x1a, 0x01, 0x68,
+            0x00, 0x10, 0x00, 0x07, 0x00, 0x05, 0x02, 0x10, 0x00, 0x01, 0x68
+        };
+        static constexpr char expected_duplicate_alpn[] =
+            "[(001000070005020a0a0168)(0010000700050210000168)]";
+        datum duplicate_alpn_data{duplicate_alpn_extensions,
+                                  duplicate_alpn_extensions + sizeof(duplicate_alpn_extensions)};
+        tls_extensions duplicate_alpn{duplicate_alpn_data.data,
+                                      duplicate_alpn_data.data_end};
+        char duplicate_alpn_buffer[300];
+        buffer_stream duplicate_alpn_output{duplicate_alpn_buffer,
+                                            sizeof(duplicate_alpn_buffer)};
+        // Verify duplicate ALPN values sort by their normalized protocol names.
+        duplicate_alpn.fingerprint_quic_tls(duplicate_alpn_output,
+                                            tls_role::client);
+        if (duplicate_alpn_output.length() != sizeof(expected_duplicate_alpn) - 1 ||
+            memcmp(expected_duplicate_alpn,
+                   duplicate_alpn_output.dstr,
+                   sizeof(expected_duplicate_alpn) - 1)) {
+            fprintf(stdout, "Test for duplicate ALPN extension sorting failed\n");
             return false;
         }
 
@@ -1423,9 +1452,8 @@ inline datum tls_extensions::get_supported_groups() const {
 class protocol_name : public datum {
 public:
     protocol_name(datum &d) {
-        uint8_t length = 0;
-        d.read_uint8(&length);
-        parse(d, length);
+        encoded<uint8_t> length{d};
+        parse(d, length.value());
     }
 
     bool is_grease() const {
@@ -1434,6 +1462,27 @@ public:
         }
         uint16_t value = (static_cast<uint16_t>(data[0]) << 8) | data[1];
         return is_grease_uint16(value);
+    }
+
+    /// \brief Compare protocol names after normalizing their GREASE values.
+    ///
+    /// The protocol-name length is compared before the protocol-name bytes,
+    /// matching the encoded ALPN representation.
+    ///
+    /// \param other protocol name to compare
+    /// \return a negative, zero, or positive comparison result
+    ///
+    int compare_degreased(const protocol_name &other) const {
+        if (length() != other.length()) {
+            return length() < other.length() ? -1 : 1;
+        }
+
+        static constexpr uint8_t grease_value[] = { 0x0a, 0x0a };
+        datum normalized_grease{grease_value};
+        if (is_grease()) {
+            return other.is_grease() ? 0 : normalized_grease.cmp(other);
+        }
+        return other.is_grease() ? cmp(normalized_grease) : cmp(other);
     }
 
     void write_json(json_array &a) const {
@@ -1449,16 +1498,69 @@ public:
 class protocol_name_list {
     datum data;
 
+    /// \brief Check that \p names contains only non-empty protocol names.
+    ///
+    /// \param names encoded protocol-name list data
+    /// \return true if all names can be parsed
+    ///
+    static bool is_valid(datum names) {
+        while (names.is_not_empty()) {
+            protocol_name name{names};
+            if (!name.is_not_null() || name.is_empty()) {
+                return false;
+            }
+        }
+        return names.is_not_null();
+    }
+
 public:
 
     protocol_name_list(datum &d) {
-        uint16_t length;
-        d.read_uint16(&length);
-        data.parse(d, length);
+        encoded<uint16_t> length{d};
+        data.parse(d, length.value());
     }
 
     datum get_data() const {
         return data;
+    }
+
+    /// \brief Compare protocol-name lists after normalizing GREASE names.
+    ///
+    /// The outer list length and each encoded protocol name are compared in
+    /// wire order.  A null result indicates malformed input and allows the
+    /// caller to use a raw-value comparison instead.
+    ///
+    /// \param other protocol-name list to compare
+    /// \return a comparison result, or nullopt for malformed input
+    ///
+    std::optional<int> compare_degreased(const protocol_name_list &other) const {
+        if (!data.is_not_null() || !other.data.is_not_null() ||
+            !is_valid(data) || !is_valid(other.data)) {
+            return std::nullopt;
+        }
+
+        if (data.length() != other.data.length()) {
+            return data.length() < other.data.length() ? -1 : 1;
+        }
+
+        datum a_data{data};
+        datum b_data{other.data};
+        int result = 0;
+        while (a_data.is_not_empty() && b_data.is_not_empty()) {
+            protocol_name a_name{a_data};
+            protocol_name b_name{b_data};
+            if (result == 0) {
+                result = a_name.compare_degreased(b_name);
+            }
+        }
+
+        if (result != 0) {
+            return result;
+        }
+        if (a_data.is_not_empty() != b_data.is_not_empty()) {
+            return a_data.is_not_empty() ? 1 : -1;
+        }
+        return result;
     }
 
 
@@ -1693,8 +1795,8 @@ struct tls_extension {
     /// \brief Compare extensions by normalized type, length, and value.
     ///
     /// Typed extension values are compared after normalizing their vector
-    /// elements.  Raw value comparison is used for unsupported or malformed
-    /// typed values.
+    /// elements or ALPN protocol names.  Raw value comparison is used for
+    /// unsupported or malformed typed values.
     ///
     /// \param other extension to compare
     /// \param role TLS endpoint role, used for supported_versions
@@ -1756,6 +1858,14 @@ struct tls_extension {
             psk_key_exchange_modes_vector b_values{b_data};
             if (a_values.is_not_null() && b_values.is_not_null()) {
                 return a_values.compare_degreased(b_values, degrease_uint8);
+            }
+        } else if (type == type_alpn) {
+            datum a_data{value};
+            datum b_data{other.value};
+            protocol_name_list a_names{a_data};
+            protocol_name_list b_names{b_data};
+            if (auto result = a_names.compare_degreased(b_names)) {
+                return *result;
             }
         }
 
