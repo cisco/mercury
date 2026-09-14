@@ -150,27 +150,16 @@ class base64 {
 
 public:
 
-    std::string b64decode(const void* data, const size_t len) {
-        unsigned char* p = (unsigned char*)data;
-        int pad = len > 0 && (len % 4 || p[len - 1] == '=');
-        const size_t L = ((len + 3) / 4 - pad) * 4;
-        std::string str(L / 4 * 3 + pad, '\0');
+    static std::string decode_to_string(const void* data, const size_t len) {
+        std::string str(len / 4 * 3, '\0');
+        const int decoded_length = decode(
+            str.data(), str.size(), data, len);
 
-        for (size_t i = 0, j = 0; i < L; i += 4)  {
-            int n = index[p[i]] << 18 | index[p[i + 1]] << 12 | index[p[i + 2]] << 6 | index[p[i + 3]];
-            str[j++] = n >> 16;
-            str[j++] = n >> 8 & 0xFF;
-            str[j++] = n & 0xFF;
+        if (decoded_length < 0) {
+            return std::string();
         }
-        if (pad) {
-            int n = index[p[L]] << 18 | index[p[L + 1]] << 12;
-            str[str.size() - 1] = n >> 16;
 
-            if (len > L + 2 && p[L + 2] != '=') {
-                n |= index[p[L + 2]] << 6;
-                str.push_back(n >> 8 & 0xFF);
-            }
-        }
+        str.resize(static_cast<size_t>(decoded_length));
         return str;
     }
 
@@ -185,13 +174,20 @@ public:
     //
     static int decode(void *outbuf, const size_t outlen, const void* data, const size_t len) {
         unsigned char* p = (unsigned char*)data;
-        int pad = len > 0 && (len % 4 || p[len - 1] == '=');
-        const size_t L = ((len + 3) / 4 - pad) * 4;
-        uint8_t *str = (uint8_t *)outbuf;
-        size_t str_size = L / 4 * 3 + pad;
-
         if (len & 0x3) {
             return -1;  // not in base64 format
+        }
+        const bool pad = len > 0 && p[len - 1] == '=';
+        const size_t L = ((len + 3) / 4 - pad) * 4;
+        uint8_t *str = (uint8_t *)outbuf;
+        size_t str_size = L / 4 * 3;
+
+        if (pad) {
+            // The final padded quartet produces one or two bytes.
+            ++str_size;
+            if (p[L + 2] != '=') {
+                ++str_size;
+            }
         }
         if (outlen < str_size) {
             // printf_err(log_err, "base64 decode needs %zu bytes, only has room for %zu\n", str_size, outlen);
@@ -209,7 +205,7 @@ public:
         }
         if (pad) {
             if (invalid[p[L]] | (len > L + 1 && invalid[p[L + 1]]) | (len > L + 2 && invalid[p[L + 2]])) {
-                return -j;
+                return j == 0 ? -1 : -j;
             }
             int n = index[p[L]] << 18 | index[p[L + 1]] << 12;
             str[j++] = n >> 16;
@@ -223,6 +219,7 @@ public:
     }
 
     // LCOV_EXCL_START
+#ifndef NDEBUG
     // class unit_test_case holds a single test case for
     // base64::decode()
     //
@@ -274,16 +271,55 @@ public:
                 return false;
             }
         }
+
+        // A single-pad quartet decodes to two bytes, so one byte of output
+        // capacity must be rejected before either byte is written.
+        //
+        const char single_pad[] = "Zm8=";
+        uint8_t output[2] = { 0xa5, 0xa5 };
+        if (decode(output, 1, single_pad, strlen(single_pad)) != 0 ||
+            output[0] != 0xa5 || output[1] != 0xa5 ||
+            decode(output, sizeof(output), single_pad, strlen(single_pad)) != 2 ||
+            memcmp(output, "fo", 2) != 0) {
+            return false;
+        }
+
+        // A length of one modulo four is invalid and must not cause the
+        // string decoder to read beyond the supplied input buffer.
+        const unsigned char invalid_length[] = { 'A' };
+        if (!decode_to_string(invalid_length, 1).empty()) {
+            return false;
+        }
+
+        const char string_input[] = "Zm8=";
+        if (decode_to_string(string_input, strlen(string_input)) != "fo") {
+            return false;
+        }
+
+        const char invalid_input[] = "Z!9v";
+        if (!decode_to_string(invalid_input, strlen(invalid_input)).empty()) {
+            return false;
+        }
+
+        // Invalid input in the final quartet must return an error even when
+        // no bytes were decoded before it.
+        //
+        const char invalid_final_quartet[] = "!A==";
+        uint8_t malformed_output[3] = { 0, };
+        if (decode(malformed_output, sizeof(malformed_output),
+                   invalid_final_quartet,
+                   strlen(invalid_final_quartet)) >= 0) {
+            return false;
+        }
         return true;
     }
 
-#ifndef NDEBUG
     //
     // automatically perform unit tests, and throw an exception on
     // failure
     //
     inline static const bool unit_tests_passed = unit_test();
-#endif
+#endif // NDEBUG
     // LCOV_EXCL_STOP
 
 };

@@ -20,7 +20,6 @@ TOOL_TARGETS := \
   $(BIN)/decode \
   $(BIN)/intercept_server \
   $(BIN)/libmerc_util \
-  $(BIN)/os_identifier \
   $(BIN)/pcap \
   $(BIN)/pcap_filter \
   $(BIN)/string
@@ -114,12 +113,6 @@ $(LIB)/intercept.so: $(LIB)/libmerc.a
 # libmerc_util — PCAP analysis tool using libmerc.so (via dlopen)
 $(BIN)/libmerc_util: LDLIBS := -pthread -lcrypto -ldl -lz
 $(BIN)/libmerc_util: $(call objects,src/libmerc_util.cc)
-	$(LINK)
-
-# os_identifier — OS identification from network traffic
-$(OBJ)/src/os_identifier.o: CXXFLAGS += -Isrc/libmerc
-$(BIN)/os_identifier: LDLIBS := -lz
-$(BIN)/os_identifier: $(call objects,src/os_identifier.cc)
 	$(LINK)
 
 # pcap — PCAP file reader and packet dumper
