@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <cstdio>
 #include "libmerc/datum.h"
+#include "libmerc/variable_length_vector.hpp"
 #include "libmerc/lex.h"
 #include "libmerc/cbor.hpp"
 #include "libmerc/cbor_object.hpp"
@@ -125,6 +126,10 @@ int main(int, char *[]) {
         {
             "encoded<uint64_t>",
             &encoded<uint64_t>::unit_test
+        },
+        {
+            "variable_length_vector",
+            &variable_length_vector_unit_test
         },
         {
             "tofsee_initial_message",

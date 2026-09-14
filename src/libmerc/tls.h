@@ -21,6 +21,7 @@
 #include "tls_extensions.h"
 #include "ech.hpp"
 #include "mem_utils.hpp"
+#include "variable_length_vector.hpp"
 #include <array>
 #include <cstdint>
 
@@ -379,19 +380,34 @@ struct tls_extensions : public datum {
 #ifndef NDEBUG
     // LCOV_EXCL_START
     static bool unit_test() {
+        // Verify the shared TLS 16-bit GREASE predicate accepts all GREASE
+        // encodings, rejects near-miss values, and normalizes only GREASE.
+        if (!is_grease_uint16(0x0a0a) || !is_grease_uint16(0x7a7a) ||
+            !is_grease_uint16(0xfafa) || is_grease_uint16(0x0a1a) ||
+            is_grease_uint16(0x1a0a) || degrease_uint16(0x1234) != 0x1234 ||
+            degrease_uint16(0x7a7a) != 0x0a0a) {
+            fprintf(stdout, "Test for shared TLS GREASE predicate failed\n");
+            return false;
+        }
+
+        // Test Format 1 and Format 2 handling of unassigned, private, GREASE,
+        // and repeated extensions.
         uint8_t extensions[] = {
-        0x00, 0x3f, 0x00, 0x01, 0x01,   //check if unassigned extension is encoded correctly
-        0xff, 0x2b, 0x00, 0x01, 0x01,   //check if private extensions is encoded correctly
-        0x1a, 0x1a, 0x00, 0x00,         //Grease extension 1
-        0x2a, 0x2a, 0x00, 0x00,         //Grease extension 2
-        0xff, 0x2b, 0x00, 0x01, 0x02,   // Private extension repeated second time
-        0xff, 0x2b, 0x00, 0x01, 0x02,   // Private extension repeated third time
-        0xff, 0x2b, 0x00, 0x01, 0x02    // Private extension repeated fourth time
+        0x00, 0x3f, 0x00, 0x01, 0x01,
+        0xff, 0x2b, 0x00, 0x01, 0x01,
+        0x1a, 0x1a, 0x00, 0x00,
+        0x2a, 0x2a, 0x00, 0x00,
+        0xff, 0x2b, 0x00, 0x01, 0x02,
+        0xff, 0x2b, 0x00, 0x01, 0x02,
+        0xff, 0x2b, 0x00, 0x01, 0x02
         };
 
-        /* In Format 1, extensions are degreased and no other encoding happens */
+        // Format 1 preserves assigned and private extension types while
+        // normalizing GREASE extension types.
         unsigned char expected_json_format1[] = "[(003f)(0a0a)(0a0a)(ff2b)(ff2b)(ff2b)(ff2b)]";
 
+        // Format 2 maps unassigned and private extension types to their
+        // canonical values and limits repeated extensions.
         unsigned char expected_json_format2[] = "[(003e)(0a0a)(0a0a)(ff00)(ff00)(ff00)]";
 
         datum exts_data{extensions, extensions + sizeof(extensions)};
@@ -401,6 +417,7 @@ struct tls_extensions : public datum {
         char buffer1[200];
         struct buffer_stream buf1(buffer1, sizeof(buffer1));
 
+        // Verify the Format 1 fingerprint.
         exts.fingerprint_quic_tls(buf1, tls_role::client);
 
         if (memcmp(expected_json_format1, buf1.dstr, sizeof(expected_json_format1) - 1)) {
@@ -411,9 +428,142 @@ struct tls_extensions : public datum {
         char buffer2[200];
         struct buffer_stream buf2(buffer2, sizeof(buffer2));
 
+        // Verify the Format 2 fingerprint.
         exts.fingerprint_format2(buf2, tls_role::client);
         if (memcmp(expected_json_format2, buf2.dstr, sizeof(expected_json_format2) - 1)) {
             fprintf(stdout, "Test for Fingerprint format 2 failed\n");
+            return false;
+        }
+
+        // Test supported_groups duplicate extensions.  The GREASE value is
+        // smaller after normalization, even though its wire value is larger.
+        static constexpr uint8_t duplicate_supported_groups[] = {
+            0x00, 0x0a, 0x00, 0x04, 0x00, 0x04, 0x1a, 0x1a,
+            0x00, 0x0a, 0x00, 0x04, 0x00, 0x04, 0x10, 0x00
+        };
+        static constexpr char expected_supported_groups[] =
+            "[(000a000400040a0a)(000a000400041000)]";
+        datum supported_groups_data{duplicate_supported_groups,
+                                    duplicate_supported_groups + sizeof(duplicate_supported_groups)};
+        tls_extensions supported_groups{supported_groups_data.data,
+                                       supported_groups_data.data_end};
+
+        char supported_groups_buffer[200];
+        buffer_stream supported_groups_output{supported_groups_buffer,
+                                              sizeof(supported_groups_buffer)};
+        // Verify Format 1 sorts duplicate supported_groups values by their
+        // normalized list elements.
+        supported_groups.fingerprint_quic_tls(supported_groups_output,
+                                              tls_role::client);
+        if (supported_groups_output.length() != sizeof(expected_supported_groups) - 1 ||
+            memcmp(expected_supported_groups,
+                   supported_groups_output.dstr,
+                   sizeof(expected_supported_groups) - 1)) {
+            fprintf(stdout, "Test for supported_groups Format 1 sorting failed\n");
+            return false;
+        }
+
+        char supported_groups_format2_buffer[200];
+        buffer_stream supported_groups_format2_output{supported_groups_format2_buffer,
+                                                       sizeof(supported_groups_format2_buffer)};
+        // Verify Format 2 uses the same normalized supported_groups ordering.
+        supported_groups.fingerprint_format2(supported_groups_format2_output,
+                                             tls_role::client);
+        if (supported_groups_format2_output.length() != sizeof(expected_supported_groups) - 1 ||
+            memcmp(expected_supported_groups,
+                   supported_groups_format2_output.dstr,
+                   sizeof(expected_supported_groups) - 1)) {
+            fprintf(stdout, "Test for supported_groups Format 2 sorting failed\n");
+            return false;
+        }
+
+        // Test supported_versions in a ClientHello, where the extension data
+        // contains a one-byte length followed by a version list.
+        static constexpr uint8_t duplicate_client_supported_versions[] = {
+            0x00, 0x2b, 0x00, 0x04, 0x00, 0x02, 0x1a, 0x1a,
+            0x00, 0x2b, 0x00, 0x04, 0x00, 0x02, 0x10, 0x00
+        };
+        static constexpr char expected_client_supported_versions[] =
+            "[(002b000400020a0a)(002b000400021000)]";
+        datum client_supported_versions_data{
+            duplicate_client_supported_versions,
+            duplicate_client_supported_versions + sizeof(duplicate_client_supported_versions)};
+        tls_extensions client_supported_versions{
+            client_supported_versions_data.data,
+            client_supported_versions_data.data_end};
+        char client_supported_versions_buffer[200];
+        buffer_stream client_supported_versions_output{
+            client_supported_versions_buffer, sizeof(client_supported_versions_buffer)};
+        // Verify the ClientHello supported_versions ordering in Format 1.
+        client_supported_versions.fingerprint_quic_tls(
+            client_supported_versions_output, tls_role::client);
+        if (client_supported_versions_output.length() !=
+                sizeof(expected_client_supported_versions) - 1 ||
+            memcmp(expected_client_supported_versions,
+                   client_supported_versions_output.dstr,
+                   sizeof(expected_client_supported_versions) - 1)) {
+            fprintf(stdout, "Test for client supported_versions Format 1 sorting failed\n");
+            return false;
+        }
+
+        char client_supported_versions_format2_buffer[200];
+        buffer_stream client_supported_versions_format2_output{
+            client_supported_versions_format2_buffer,
+            sizeof(client_supported_versions_format2_buffer)};
+        // Verify Format 2 uses the same ClientHello supported_versions ordering.
+        client_supported_versions.fingerprint_format2(
+            client_supported_versions_format2_output, tls_role::client);
+        if (client_supported_versions_format2_output.length() !=
+                sizeof(expected_client_supported_versions) - 1 ||
+            memcmp(expected_client_supported_versions,
+                   client_supported_versions_format2_output.dstr,
+                   sizeof(expected_client_supported_versions) - 1)) {
+            fprintf(stdout, "Test for client supported_versions Format 2 sorting failed\n");
+            return false;
+        }
+
+        // Test supported_versions in a ServerHello, where the extension data
+        // is the selected version and has no inner length field.
+        static constexpr uint8_t duplicate_server_supported_versions[] = {
+            0x00, 0x2b, 0x00, 0x02, 0x1a, 0x1a,
+            0x00, 0x2b, 0x00, 0x02, 0x10, 0x00
+        };
+        static constexpr char expected_server_supported_versions[] =
+            "[(002b0002000a0a)(002b0002001000)]";
+        datum server_supported_versions_data{
+            duplicate_server_supported_versions,
+            duplicate_server_supported_versions + sizeof(duplicate_server_supported_versions)};
+        tls_extensions server_supported_versions{
+            server_supported_versions_data.data,
+            server_supported_versions_data.data_end};
+        char server_supported_versions_buffer[200];
+        buffer_stream server_supported_versions_output{
+            server_supported_versions_buffer, sizeof(server_supported_versions_buffer)};
+        // Verify the ServerHello supported_versions ordering in Format 1.
+        server_supported_versions.fingerprint_quic_tls(
+            server_supported_versions_output, tls_role::server);
+        if (server_supported_versions_output.length() !=
+                sizeof(expected_server_supported_versions) - 1 ||
+            memcmp(expected_server_supported_versions,
+                   server_supported_versions_output.dstr,
+                   sizeof(expected_server_supported_versions) - 1)) {
+            fprintf(stdout, "Test for server supported_versions Format 1 sorting failed\n");
+            return false;
+        }
+
+        char server_supported_versions_format2_buffer[200];
+        buffer_stream server_supported_versions_format2_output{
+            server_supported_versions_format2_buffer,
+            sizeof(server_supported_versions_format2_buffer)};
+        // Verify Format 2 uses the same ServerHello supported_versions ordering.
+        server_supported_versions.fingerprint_format2(
+            server_supported_versions_format2_output, tls_role::server);
+        if (server_supported_versions_format2_output.length() !=
+                sizeof(expected_server_supported_versions) - 1 ||
+            memcmp(expected_server_supported_versions,
+                   server_supported_versions_format2_output.dstr,
+                   sizeof(expected_server_supported_versions) - 1)) {
+            fprintf(stdout, "Test for server supported_versions Format 2 sorting failed\n");
             return false;
         }
 
@@ -787,30 +937,22 @@ public:
 };
 
 
-static uint16_t degrease_uint16(uint16_t x) {
-    switch(x) {
-    case 0x0a0a:
-    case 0x1a1a:
-    case 0x2a2a:
-    case 0x3a3a:
-    case 0x4a4a:
-    case 0x5a5a:
-    case 0x6a6a:
-    case 0x7a7a:
-    case 0x8a8a:
-    case 0x9a9a:
-    case 0xaaaa:
-    case 0xbaba:
-    case 0xcaca:
-    case 0xdada:
-    case 0xeaea:
-    case 0xfafa:
-        return 0x0a0a;
-        break;
-    default:
-        return x;
-    }
-    return x;
+/// \brief Test whether a 16-bit TLS value is a GREASE value.
+///
+/// \param x value to test
+/// \return true if \p x is a TLS GREASE value
+///
+static constexpr bool is_grease_uint16(uint16_t x) {
+    return (x & 0x0f) == 0x0a && (x >> 8) == (x & 0xff);
+}
+
+/// \brief Normalize a 16-bit TLS GREASE value.
+///
+/// \param x value to normalize
+/// \return 0x0a0a for GREASE values, otherwise \p x
+///
+static constexpr uint16_t degrease_uint16(uint16_t x) {
+    return is_grease_uint16(x) ? 0x0a0a : x;
 }
 
 static void raw_as_hex_degrease(struct buffer_stream &buf, const void *data, size_t len) {
@@ -1177,10 +1319,8 @@ public:
         if (length() != 2) {
             return false;
         }
-        if (data[0] == data[1] and (data[0] & 0x0f) == 0x0a) {
-            return true;
-        }
-        return false;
+        uint16_t value = (static_cast<uint16_t>(data[0]) << 8) | data[1];
+        return is_grease_uint16(value);
     }
 
     void write_json(json_array &a) const {
@@ -1422,17 +1562,13 @@ struct tls_extension {
         }
 
         // Initialize with degreased extension
-        if (is_grease()) {
-            encoded_type = 0x0a0a;
-        } else {
-            encoded_type = type;
-        }
+        encoded_type = degrease_uint16(type);
     }
 
     bool is_not_empty() { return value.is_not_empty(); }
 
     bool is_grease() const {
-        return ((type & 0x0f0f) == 0x0a0a);
+        return is_grease_uint16(type);
     }
 
     bool is_private_extension() const {
@@ -1441,6 +1577,61 @@ struct tls_extension {
 
     bool is_unassigned_extension() const {
         return (type >=62 && type <= 65279 && !is_grease());
+    }
+
+    /// \brief Compare extensions by normalized type, length, and value.
+    ///
+    /// Typed extension values are compared after normalizing their vector
+    /// elements.  Raw value comparison is used for unsupported or malformed
+    /// typed values.
+    ///
+    /// \param other extension to compare
+    /// \param role TLS endpoint role, used for supported_versions
+    /// \return a negative, zero, or positive comparison result
+    ///
+    int compare(const tls_extension &other, enum tls_role role) const {
+        if (is_grease()) {
+            if (other.is_grease()) {
+                return 0;
+            }
+            return 0x0a0a < other.type ? -1 : 1;
+        } else if (other.is_grease()) {
+            return type < 0x0a0a ? -1 : 1;
+        } else if (type != other.type) {
+            return type < other.type ? -1 : 1;
+        }
+
+        if (length != other.length) {
+            return length < other.length ? -1 : 1;
+        }
+
+        if (type == type_supported_groups) {
+            datum a_data{value};
+            datum b_data{other.value};
+            variable_length_vector<uint16_t, uint16_t> a_values{a_data};
+            variable_length_vector<uint16_t, uint16_t> b_values{b_data};
+            if (a_values.is_not_null() && b_values.is_not_null()) {
+                return a_values.compare_degreased(b_values, degrease_uint16);
+            }
+        } else if (type == type_supported_versions) {
+            datum a_data{value};
+            datum b_data{other.value};
+            if (role == tls_role::client) {
+                variable_length_vector<uint16_t, uint8_t> a_values{a_data};
+                variable_length_vector<uint16_t, uint8_t> b_values{b_data};
+                if (a_values.is_not_null() && b_values.is_not_null()) {
+                    return a_values.compare_degreased(b_values, degrease_uint16);
+                }
+            } else {
+                variable_length_vector<uint16_t, no_length> a_values{a_data};
+                variable_length_vector<uint16_t, no_length> b_values{b_data};
+                if (a_values.is_not_null() && b_values.is_not_null()) {
+                    return a_values.compare_degreased(b_values, degrease_uint16);
+                }
+            }
+        }
+
+        return value.cmp(other.value);
     }
 
 
@@ -1662,24 +1853,10 @@ inline void tls_extensions::fingerprint_quic_tls(struct buffer_stream &b, enum t
         tls_ext_vec.push_back(x);
     }
 
-    //sort extensions based on type and memcmp in case of same type
+    //sort extensions based on normalized type and value
     std::sort(tls_ext_vec.begin(),tls_ext_vec.end(),
-              [](const tls_extension &a, const tls_extension &b) {
-                  if (a.is_grease()) {
-                      if (b.is_grease()) {
-                          return false;
-                      }
-                      return 0x0a0a < b.type;
-                      } else if (b.is_grease()) {
-                          return a.type < 0x0a0a;
-                      }
-                  if (a.type != b.type) {
-                      return a.type < b.type;
-                  }
-                  if (a.length != b.length) {
-                      return a.length < b.length;
-                  }
-                  return a.value.cmp(b.value) < 0;
+              [role](const tls_extension &a, const tls_extension &b) {
+                  return a.compare(b, role) < 0;
               }
               );
 
@@ -1736,19 +1913,8 @@ inline void tls_extensions::fingerprint_format2(struct buffer_stream &b, enum tl
         uint8_t extn_cnt = extensions_list[extn][0].cnt;
         if (extn_cnt > 1) {
             std::sort(extensions_list[extn].begin(), extensions_list[extn].begin() + extensions_list[extn][0].cnt,
-              [](const tls_extension &a, const tls_extension &b) {
-                if (a.is_grease()) {
-                    if (b.is_grease()) {
-                        return false;
-                    }
-                    return 0x0a0a < b.type;
-                } else if (b.is_grease()) {
-                    return a.type < 0x0a0a;
-                }
-                if (a.length != b.length) {
-                    return a.length < b.length;
-                }
-                return a.value.cmp(b.value) < 0;
+              [role](const tls_extension &a, const tls_extension &b) {
+                return a.compare(b, role) < 0;
             }
             );
         }
