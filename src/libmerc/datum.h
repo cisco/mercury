@@ -1219,9 +1219,14 @@ public:
     bool is_not_full() const { return data < data_end; }
 
     /// returns the number of bytes in the writeable region to which
-    /// data can be written, or zero if this writeable is invalid
+    /// data can be written, or zero if this writeable is null or invalid
     ///
-    ssize_t writeable_length() const { return is_invalid() ? 0 : data_end - data; }
+    ssize_t writeable_length() const {
+        if (is_null() or is_invalid()) {
+            return 0;
+        }
+        return data_end - data;
+    }
 
     /// returns true iff this writeable has room for \p num_bytes more bytes
     ///
@@ -2140,10 +2145,15 @@ namespace writeable_unit_test {
         inverted_2.update(0);
         bool update_rejected = inverted_2.is_null();
 
-        bool result = room_rejected and length_zeroed and copy_rejected and update_rejected;
+        // one null pointer makes data_end - data undefined, not merely negative
+        writeable half_null{nullptr, region.data()};
+        bool half_null_zeroed = half_null.writeable_length() == 0;
+
+        bool result = room_rejected and length_zeroed and copy_rejected
+            and update_rejected and half_null_zeroed;
         if (f and !result) {
-            fprintf(f, "%s error: has_room=%d writeable_length=%d copy=%d update=%d, expected 1 1 1 1\n",
-                    __func__, room_rejected, length_zeroed, copy_rejected, update_rejected);
+            fprintf(f, "%s error: has_room=%d writeable_length=%d copy=%d update=%d half_null=%d, expected 1 1 1 1 1\n",
+                    __func__, room_rejected, length_zeroed, copy_rejected, update_rejected, half_null_zeroed);
         }
         return result;
     }
