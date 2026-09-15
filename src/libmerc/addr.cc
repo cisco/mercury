@@ -88,6 +88,11 @@ subnet_data::~subnet_data() {
         free(ipv4_domain_array);
     }
     if (domains_prefix) {
+        for (int i = 0; i < domains_prefix_num; i++) {
+            free(domains_prefix[i].info.domain.domain_idx_arr);
+            domains_prefix[i].info.domain.domain_idx_arr = nullptr;
+            domains_prefix[i].info.domain.domain_idx_arr_len = 0;
+        }
         free(domains_prefix);
     }
 
@@ -108,6 +113,11 @@ subnet_data::~subnet_data() {
         delete[] ipv6_domain_array;
     }
     if (domains_prefix_v6) {
+        for (int i = 0; i < domains_prefix_v6_num; i++) {
+            free(domains_prefix_v6[i].info.domain.domain_idx_arr);
+            domains_prefix_v6[i].info.domain.domain_idx_arr = nullptr;
+            domains_prefix_v6[i].info.domain.domain_idx_arr_len = 0;
+        }
         delete[] domains_prefix_v6;
     }
 }
@@ -116,7 +126,7 @@ uint32_t subnet_data::get_asn_info(const char* dst_ip) const {
 
     uint32_t ipv4_addr;
     if (char_string_to_ipv4_addr(dst_ip, ipv4_addr)) {
-        if (!ipv4_subnet_array) {
+        if (!ipv4_subnet_array || !ipv4_subnet_trie.root) {
             return 0;
         }
         lct_subnet_t *subnet = lct_find(&ipv4_subnet_trie, ntoh(ipv4_addr));
@@ -454,7 +464,9 @@ void subnet_data::process_final() {
 
     // actually build the trie and get the trie node count for statistics printing
     memset(&ipv4_subnet_trie, 0, sizeof(lct<ipv4_addr_t>));
-    lct_build(&ipv4_subnet_trie, prefix, num);
+    if (lct_build(&ipv4_subnet_trie, prefix, num) != 0) {
+        return;
+    }
 
     // set subnet array to actual value; after this, the subnet_data
     // object is ready for use
@@ -518,7 +530,9 @@ void subnet_data::process_final_v6() {
 
     // actually build the trie and get the trie node count for statistics printing
     memset(&ipv6_subnet_trie, 0, sizeof(lct<ipv6_addr_lct>));
-    lct_build(&ipv6_subnet_trie, prefix_v6, num_v6);
+    if (lct_build(&ipv6_subnet_trie, prefix_v6, num_v6) != 0) {
+        return;
+    }
 
     // set subnet array to actual value; after this, the subnet_data
     // object is ready for use
@@ -578,7 +592,9 @@ void subnet_data::process_domain_mappings_final() {
 
     // actually build the trie and get the trie node count for statistics printing
     memset(&ipv4_domain_trie, 0, sizeof(lct<ipv4_addr_t>));
-    lct_build(&ipv4_domain_trie, domains_prefix, domains_prefix_num);
+    if (lct_build(&ipv4_domain_trie, domains_prefix, domains_prefix_num) != 0) {
+        return;
+    }
 
     // set subnet array to actual value; after this, the subnet_data
     // object is ready for use
@@ -641,7 +657,9 @@ void subnet_data::process_domain_mappings_final_v6() {
 
     // actually build the trie and get the trie node count for statistics printing
     memset(&ipv6_domain_trie, 0, sizeof(lct<ipv6_addr_lct>));
-    lct_build(&ipv6_domain_trie, domains_prefix_v6, domains_prefix_v6_num);
+    if (lct_build(&ipv6_domain_trie, domains_prefix_v6, domains_prefix_v6_num) != 0) {
+        return;
+    }
 
     // set subnet array to actual value; after this, the subnet_data
     // object is ready for use
@@ -674,7 +692,7 @@ bool subnet_data::is_domain_faking(const char *domain_name_, const char* dst_ip)
 
     uint32_t ipv4_addr;
     if (char_string_to_ipv4_addr(dst_ip, ipv4_addr)) {
-        if (!ipv4_domain_array) {
+        if (!ipv4_domain_array || !ipv4_domain_trie.root) {
             return false;
         }
 

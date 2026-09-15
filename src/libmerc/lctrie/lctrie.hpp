@@ -276,6 +276,7 @@ int lct_build(lct<T> *trie, lct_subnet<T> *subnets, uint32_t size) {
   // allocate and count the bases
   trie->bcount = 0;
   if (!trie->bases) {
+    trie->nets = NULL;
     fprintf(stderr, "ERROR: failed to allocate trie bases index buffer\n");
     return -1;
   }
@@ -292,13 +293,31 @@ int lct_build(lct<T> *trie, lct_subnet<T> *subnets, uint32_t size) {
     }
   }
 
+  if (!trie->bcount) {
+    free(trie->bases);
+    trie->bases = NULL;
+    trie->nets = NULL;
+    return -1;
+  }
+
   // reallocate the base index buffer back down to the actual size.
-  trie->bases = (uint32_t *) realloc(trie->bases, trie->bcount * sizeof(uint32_t));
+  uint32_t *bases = (uint32_t *) realloc(trie->bases, trie->bcount * sizeof(uint32_t));
+  if (!bases) {
+    free(trie->bases);
+    trie->bases = NULL;
+    trie->nets = NULL;
+    trie->bcount = 0;
+    return -1;
+  }
+  trie->bases = bases;
 
   // give a 2MB buffer, and we'll shrink it down once we've built the trie
   trie->root = (lct_node_t *) malloc((size + 2000000) * sizeof(lct_node_t));
   if (!trie->root) {
     free(trie->bases);
+    trie->bases = NULL;
+    trie->nets = NULL;
+    trie->bcount = 0;
     fprintf(stderr, "ERROR: failed to allocate trie node buffer\n");
     return -1;
   }
