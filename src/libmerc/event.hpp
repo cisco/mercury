@@ -7,6 +7,7 @@
 #include "dict.h"
 #include "flow_key.h"  // for MAX_PORT_STR_LEN and MAX_ADDR_STR_LEN
 #include "result.h"    // for MAX_USER_AGENT_LEN
+#include "universal61_bytes.hpp"
 #include <zlib.h>
 #include <cstring>
 
@@ -81,6 +82,35 @@ struct event_msg {
         return static_cast<uint8_t>(type) < static_cast<uint8_t>(r.type);
     }
 };
+
+namespace universal61 {
+
+/// \brief Stateful universal61 hash for event messages.
+///
+/// \details
+/// The event type and all four fields are appended in order. Each field is
+/// length-prefixed so distinct field tuples cannot share a byte concatenation.
+///
+struct event_msg_hasher {
+    byte_hasher hasher;
+
+    /// \brief Hash an event message using ordered, length-prefixed fields.
+    ///
+    /// \param event The event message to hash.
+    /// \return The hash value converted to `std::size_t`.
+    ///
+    std::size_t operator()(const ::event_msg &event) const noexcept {
+        byte_hash_state state = hasher.begin();
+        state.append(static_cast<uint64_t>(event.type));
+        for (const std::string &field : event.fields) {
+            state.append_length(field.size());
+            state.append_bytes(field);
+        }
+        return static_cast<std::size_t>(state.finish());
+    }
+};
+
+} // namespace universal61
 
 namespace std {
 

@@ -13,6 +13,7 @@ Mercury Library Documentation
    identifiers
    hex
    flow_hashing
+   byte_hashing
    examples
    diagnostic
    python

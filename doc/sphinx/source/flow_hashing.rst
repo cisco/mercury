@@ -17,4 +17,3 @@ Flow-Key Hashing
 .. doxygenclass:: universal61::flow_key_hasher
    :project: mercury
    :members:
-

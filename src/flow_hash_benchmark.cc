@@ -12,6 +12,7 @@
 
 #include "libmerc/flow_key.h"
 #include "libmerc/universal61.hpp"
+#include "libmerc/universal61_bytes.hpp"
 
 #include <algorithm>
 #include <array>
@@ -22,8 +23,10 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <limits>
 #include <string>
+#include <utility>
 #include <vector>
 
 #if defined(__GNUC__) || defined(__clang__)
@@ -54,6 +57,10 @@ struct benchmark_key {
     universal61::limb_array limbs;
 };
 
+struct benchmark_string {
+    std::string value;
+};
+
 uint64_t random_field_element(splitmix64 &rng) {
     const uint64_t limit = std::numeric_limits<uint64_t>::max()
         - (std::numeric_limits<uint64_t>::max() % universal61::prime);
@@ -75,6 +82,15 @@ universal61::flow_key_hash_secret deterministic_secret(uint64_t seed) {
     }
     secret.offset = random_field_element(rng);
     return secret;
+}
+
+universal61::byte_hash_secret deterministic_byte_secret(uint64_t seed) {
+    splitmix64 rng{seed};
+    uint64_t multiplier = 0;
+    while (multiplier == 0) {
+        multiplier = random_field_element(rng);
+    }
+    return {multiplier, random_field_element(rng)};
 }
 
 MERCURY_NOINLINE uint64_t baseline_read(const benchmark_key &item);
@@ -138,6 +154,11 @@ MERCURY_NOINLINE uint64_t universal_flow_hash_from_key(const benchmark_key &item
 MERCURY_NOINLINE uint64_t universal_flow_hash_from_key_fused(const benchmark_key &item,
                                                             const universal61::flow_key_hasher &hasher) {
     return hasher.hash64(item.flow_key);
+}
+
+MERCURY_NOINLINE uint64_t universal_byte_hash(const benchmark_string &item,
+                                              const universal61::byte_hasher &hasher) {
+    return hasher(item.value);
 }
 
 uint16_t nonzero_u16(uint64_t value) {
@@ -207,15 +228,31 @@ std::vector<benchmark_key> make_dataset(const std::string &name, size_t count, u
     return keys;
 }
 
+std::vector<benchmark_string> make_string_dataset(size_t length, size_t count, uint64_t seed) {
+    std::vector<benchmark_string> strings;
+    strings.reserve(count);
+
+    splitmix64 rng{seed};
+    for (size_t i = 0; i < count; i++) {
+        std::string value(length, '\0');
+        for (char &byte : value) {
+            byte = static_cast<char>(rng.next());
+        }
+        strings.push_back({std::move(value)});
+    }
+
+    return strings;
+}
+
 struct latency_result {
     const char *name;
     double ns_per_hash;
     uint64_t checksum;
 };
 
-template <typename HashFunction>
+template <typename Item, typename HashFunction>
 latency_result measure_latency(const char *name,
-                               const std::vector<benchmark_key> &keys,
+                               const std::vector<Item> &keys,
                                size_t repeats,
                                size_t trials,
                                HashFunction hash_function) {
@@ -224,7 +261,7 @@ latency_result measure_latency(const char *name,
 
     for (size_t trial = 0; trial < trials; trial++) {
         uint64_t warmup = 0;
-        for (const benchmark_key &item : keys) {
+        for (const Item &item : keys) {
             warmup ^= hash_function(item);
         }
         hash_sink ^= warmup;
@@ -232,7 +269,7 @@ latency_result measure_latency(const char *name,
         uint64_t checksum = 0;
         const auto start = std::chrono::steady_clock::now();
         for (size_t repeat = 0; repeat < repeats; repeat++) {
-            for (const benchmark_key &item : keys) {
+            for (const Item &item : keys) {
                 checksum ^= hash_function(item) + 0x9e3779b97f4a7c15ULL + (checksum << 6) + (checksum >> 2);
             }
         }
@@ -306,9 +343,9 @@ distribution_result measure_distribution(const char *name,
 }
 
 void print_usage(const char *program) {
-    std::printf("usage: %s [--count N] [--repeats N] [--trials N] [--buckets N] [--seed HEX]\n", program);
+    std::printf("usage: %s [--count N] [--string-count N] [--repeats N] [--trials N] [--buckets N] [--seed HEX]\n", program);
     std::printf("\n");
-    std::printf("default: --count 262144 --repeats 40 --trials 3 --buckets 10273 --seed 0x123456789abcdef0\n");
+    std::printf("default: --count 262144 --string-count 4096 --repeats 40 --trials 3 --buckets 10273 --seed 0x123456789abcdef0\n");
     std::printf("\n");
     std::printf("datasets: ipv4-random, ipv6-random, ipv4-port-sweep, ipv6-port-sweep\n");
 }
@@ -337,6 +374,7 @@ bool parse_u64(const char *text, uint64_t &value) {
 
 int main(int argc, char **argv) {
     size_t count = 262144;
+    size_t string_count = 4096;
     size_t repeats = 40;
     size_t trials = 3;
     size_t bucket_count = 10273;
@@ -353,6 +391,10 @@ int main(int argc, char **argv) {
         }
         if (std::strcmp(argv[i], "--count") == 0) {
             if (!parse_size(argv[++i], count)) {
+                return 1;
+            }
+        } else if (std::strcmp(argv[i], "--string-count") == 0) {
+            if (!parse_size(argv[++i], string_count)) {
                 return 1;
             }
         } else if (std::strcmp(argv[i], "--repeats") == 0) {
@@ -377,12 +419,14 @@ int main(int argc, char **argv) {
         }
     }
 
-    if (count < 2 || repeats == 0 || trials == 0 || bucket_count < 2) {
+    if (count < 2 || string_count == 0 || repeats == 0 || trials == 0 || bucket_count < 2) {
         print_usage(argv[0]);
         return 1;
     }
 
     const universal61::flow_key_hasher universal_hasher{deterministic_secret(seed)};
+    const universal61::byte_hasher byte_hasher{
+        deterministic_byte_secret(seed ^ 0x6a09e667f3bcc909ULL)};
     const std::array<std::string, 4> datasets{
         "ipv4-random",
         "ipv6-random",
@@ -391,8 +435,8 @@ int main(int argc, char **argv) {
     };
 
     std::printf("flow hash benchmark\n");
-    std::printf("count=%zu repeats=%zu trials=%zu buckets=%zu seed=0x%016" PRIx64 "\n",
-                count, repeats, trials, bucket_count, seed);
+    std::printf("count=%zu string_count=%zu repeats=%zu trials=%zu buckets=%zu seed=0x%016" PRIx64 "\n",
+                count, string_count, repeats, trials, bucket_count, seed);
     std::printf("\n");
 
     size_t errors = 0;
@@ -510,6 +554,41 @@ int main(int argc, char **argv) {
                     universal_distribution.empty_buckets,
                     universal_distribution.collision_pair_ratio);
         std::printf("\n");
+    }
+
+    std::printf("byte-string hash benchmark\n");
+    std::printf("  count=%zu lengths=8,16,32,64,128,256,512,1024,2048\n", string_count);
+    std::printf("  latency best ns/hash:\n");
+    for (size_t length = 8; length <= 2048; length *= 2) {
+        const std::vector<benchmark_string> strings = make_string_dataset(
+            length, string_count, seed ^ length);
+        const latency_result standard_latency = measure_latency(
+            "std::hash<string>",
+            strings,
+            repeats,
+            trials,
+            [](const benchmark_string &item) {
+                return std::hash<std::string>{}(item.value);
+            });
+        const latency_result universal_latency = measure_latency(
+            "universal61::byte_hasher",
+            strings,
+            repeats,
+            trials,
+            [&byte_hasher](const benchmark_string &item) {
+                return universal_byte_hash(item, byte_hasher);
+            });
+
+        std::printf("    length=%4zu  %-27s %9.3f  checksum=0x%016" PRIx64 "\n",
+                    length,
+                    standard_latency.name,
+                    standard_latency.ns_per_hash,
+                    standard_latency.checksum);
+        std::printf("    length=%4zu  %-27s %9.3f  checksum=0x%016" PRIx64 "\n",
+                    length,
+                    universal_latency.name,
+                    universal_latency.ns_per_hash,
+                    universal_latency.checksum);
     }
 
     return errors != 0 || hash_sink == std::numeric_limits<uint64_t>::max() ? 2 : 0;

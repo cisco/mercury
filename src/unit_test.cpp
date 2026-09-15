@@ -4,6 +4,7 @@
 
 #include <unistd.h>
 #include <cstdio>
+#include <thread>
 #include "libmerc/datum.h"
 #include "libmerc/lex.h"
 #include "libmerc/cbor.hpp"
@@ -65,12 +66,33 @@
 #include "libmerc/cbor_decoded_metadata_test.hpp"
 #include "libmerc/dcerpc.hpp"
 #include "libmerc/universal61.hpp"
+#include "libmerc/universal61_bytes.hpp"
+#include "libmerc/event.hpp"
 
 // Macros to colorize output
 //
 #define RED_ON     "\033[31m"
 #define GREEN_ON   "\033[32m"
 #define COLOR_OFF  "\033[39m"
+
+bool event_msg_hasher_unit_test() {
+    const universal61::event_msg_hasher hasher{
+        universal61::byte_hasher{{
+            0x0123456789abcdefULL,
+            0x0f0e0d0c0b0a0908ULL,
+        }}
+    };
+    const event_msg split_fields{
+        "ab", "c", "", "", event_type::fingerprint};
+    const event_msg joined_fields{
+        "a", "bc", "", "", event_type::fingerprint};
+    const event_msg different_type{
+        "ab", "c", "", "", event_type::cert_label};
+
+    return hasher(split_fields) == 0x0d9b629e0898f741ULL
+        && hasher(joined_fields) == 0x06e7b80a9d21aa36ULL
+        && hasher(different_type) == 0x011398553a5ea73cULL;
+}
 
 int main(int, char *[]) {
 
@@ -318,6 +340,14 @@ int main(int, char *[]) {
         {
             "universal61",
             &universal61::unit_test
+        },
+        {
+            "universal61_bytes",
+            &universal61::byte_unit_test
+        },
+        {
+            "event_msg_hasher",
+            &event_msg_hasher_unit_test
         },
         {
             "krb5_no_empty_arrays",
