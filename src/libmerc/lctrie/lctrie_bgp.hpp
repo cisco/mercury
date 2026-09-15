@@ -130,6 +130,11 @@ static constexpr size_t lctrie_bgp_max_entries = 1024;
 
 // LCOV_EXCL_START
 static inline bool lctrie_v4_unit_test(FILE *f = nullptr) {
+    lct<uint32_t> empty_trie{};
+    if (lct_find(&empty_trie, 0u) != nullptr) {
+        return false;
+    }
+
     static const char ipv4_data[] =
         "1.0.0.0/24\t13335\n"
         "1.1.1.0/24\t13335\n"

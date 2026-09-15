@@ -116,6 +116,9 @@ uint32_t subnet_data::get_asn_info(const char* dst_ip) const {
 
     uint32_t ipv4_addr;
     if (char_string_to_ipv4_addr(dst_ip, ipv4_addr)) {
+        if (!ipv4_subnet_array) {
+            return 0;
+        }
         lct_subnet_t *subnet = lct_find(&ipv4_subnet_trie, ntoh(ipv4_addr));
         if (subnet == NULL) {
             return 0;
@@ -671,6 +674,9 @@ bool subnet_data::is_domain_faking(const char *domain_name_, const char* dst_ip)
 
     uint32_t ipv4_addr;
     if (char_string_to_ipv4_addr(dst_ip, ipv4_addr)) {
+        if (!ipv4_domain_array) {
+            return false;
+        }
 
         ipv4_address ip4(ipv4_addr);
         if (ip4.get_addr_type() == ipv4_address::addr_type::private_use) {

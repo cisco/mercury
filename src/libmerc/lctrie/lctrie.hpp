@@ -309,11 +309,9 @@ int lct_build(lct<T> *trie, lct_subnet<T> *subnets, uint32_t size) {
 
   // shrink down the trie node array to its actual size
   lct_node_t *tmp = (lct_node_t *) realloc(trie->root, trie->ncount * sizeof(lct_node_t));
-  if (tmp == NULL) {
-      free(trie->root);
-      return -1;   /* error: reallocation failed */
+  if (tmp != NULL) {
+      trie->root = tmp;
   }
-  trie->root = tmp;
 
   return 0;
 }
@@ -354,8 +352,9 @@ inline lct_subnet<T> *lct_find(const lct<T> *trie, T key) {
   zero_address = 0;
 
   // idiot check
-  if (!trie)
+  if (!trie || !trie->root) {
     return NULL;
+  }
 
   // Traverse the trie
   node = &trie->root[0];
