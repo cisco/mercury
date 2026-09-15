@@ -125,8 +125,8 @@ $(BIN)/libmerc_util: $(call objects,src/libmerc_util.cc)
 
 # flow_hash_benchmark — exploratory flow-key hash latency/distribution driver
 $(BIN)/flow_hash_benchmark: CXXFLAGS += -I src -I src/libmerc
-$(BIN)/flow_hash_benchmark: src/flow_hash_benchmark.cc
-	$(CXX_LINK)
+$(BIN)/flow_hash_benchmark: $(call objects,src/flow_hash_benchmark.cc)
+	$(LINK)
 
 # os_identifier — OS identification from network traffic
 $(OBJ)/src/os_identifier.o: CXXFLAGS += -Isrc/libmerc
