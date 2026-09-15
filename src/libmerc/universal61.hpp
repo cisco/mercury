@@ -711,9 +711,9 @@ inline bool arithmetic_unit_test() noexcept {
 /// The arithmetic phase checks independently computed known-answer vectors over
 /// raw accumulator words and already-packed limbs.  The flow-key phase uses an
 /// explicit fixed secret so that it does not depend on the operating-system
-/// random source, then checks that packed limbs are valid field elements and
-/// that the reference and fused hashing paths agree for IPv4, IPv6, and a
-/// zeroized IPv4 key.
+/// random source, checks an IPv6 packing known-answer vector, then checks that
+/// packed limbs are valid field elements and that the reference and fused
+/// hashing paths agree for IPv4, IPv6, and a zeroized IPv4 key.
 ///
 /// \return True if all universal61 self-checks pass.
 ///
@@ -736,6 +736,24 @@ inline bool unit_test() noexcept {
     const ipv6_address ipv6_src{{0x20010db8U, 0x00000000U, 0x00000000U, 0x00000001U}};
     const ipv6_address ipv6_dst{{0x20010db8U, 0x00000000U, 0x00000000U, 0x00000002U}};
     const key ipv6_key{12345, 443, ipv6_src, ipv6_dst, 6};
+
+    const ipv6_address known_answer_src{{
+        0x01234567U, 0x89abcdefU, 0xdeadbeefU, 0xfedcba98U}};
+    const ipv6_address known_answer_dst{{
+        0x13579bdfU, 0x2468ace0U, 0x0f1e2d3cU, 0x4b5a6978U}};
+    const key known_answer_key{12345, 443, known_answer_src, known_answer_dst, 6};
+    const limb_array expected_known_answer_limbs{{
+        0x000701bb30390606ULL,
+        0x000abcdef0123456ULL,
+        0x000a98deadbeef89ULL,
+        0x00013579bdffedcbULL,
+        0x000e2d3c2468ace0ULL,
+        0x000004b5a69780f1ULL,
+    }};
+    if (flow_key_to_limbs(known_answer_key) != expected_known_answer_limbs) {
+        return false;
+    }
+
     key zeroized_ipv4_key{12345, 443, 0x0a000001U, 0xc0000201U, 6};
     zeroized_ipv4_key.zeroize();
 
