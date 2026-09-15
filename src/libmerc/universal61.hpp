@@ -35,9 +35,7 @@
 /// effects.  Bar-Yosef and Wool studied such remote attacks against randomized
 /// hash tables and showed that small secrets can be recovered by interacting
 /// with a device.  Under normal OS-random keying, this implementation uses a
-/// much larger per-process secret and never exposes raw hash outputs.  If OS
-/// randomness is unavailable, the weak fallback is only a best-effort
-/// availability measure and should not be treated as equivalent protection.
+/// much larger per-process secret and never exposes raw hash outputs.
 ///
 /// Efficient modular arithmetic is the reason for the `2^61 - 1` modulus.  For
 /// a Mersenne prime `p = 2^k - 1`, `2^k == 1 (mod p)`.  A product can therefore
@@ -79,12 +77,11 @@
 #define UNIVERSAL61_HPP
 
 #include "flow_key.h"
-#include "random.hpp"
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <limits>
+#include <random>
 
 #if defined(_WIN32)
 #if defined(_MSC_VER)
@@ -231,24 +228,16 @@ inline void add_product(accumulator &accumulator_, uint64_t left, uint64_t right
 /// \brief Generate one field element for hash-key material.
 ///
 /// \details
-/// The function samples 64 random bits and rejects values in the high tail that
-/// would bias reduction modulo \ref prime.  Bytes are obtained from \ref
-/// os_random::fill_bytes_with_fallback, which uses the OS CSPRNG when available
-/// and weak process-local entropy only if that fails.
+/// The value is generated directly from the supplied operating-system-backed
+/// random device.  The distribution performs any rejection required to avoid
+/// modulo bias.
 ///
-/// \return A value uniformly distributed in `[0, prime)` when OS randomness is
-/// available; otherwise a best-effort weak fallback value in that range.
+/// \param random_device The source of operating-system randomness.
+/// \return A value uniformly distributed in `[0, prime)`.
 ///
-inline uint64_t random_field_element() noexcept {
-    const uint64_t limit = std::numeric_limits<uint64_t>::max()
-        - (std::numeric_limits<uint64_t>::max() % prime);
-
-    uint64_t value = 0;
-    do {
-        os_random::fill_bytes_with_fallback(&value, sizeof(value));
-    } while (value >= limit);
-
-    return value % prime;
+inline uint64_t random_field_element(std::random_device &random_device) {
+    std::uniform_int_distribution<uint64_t> distribution{0, prime - 1};
+    return distribution(random_device);
 }
 
 } // namespace detail
@@ -264,19 +253,19 @@ struct flow_key_hash_secret {
 
 /// \brief Return a randomly keyed hash secret.
 ///
-/// The normal path uses the operating system CSPRNG. If that is unavailable,
-/// construction falls back to weak process-local entropy so that initialization
-/// can continue without using a fixed public key.
+/// The coefficients are generated directly from std::random_device, without
+/// seeding or maintaining an additional pseudo-random number generator.
 ///
 /// \return A hash secret containing \ref limb_count coefficients and one offset.
 ///
-inline flow_key_hash_secret random_secret() noexcept {
+inline flow_key_hash_secret random_secret() {
+    std::random_device random_device;
     flow_key_hash_secret secret{{}, 0};
 
     for (uint64_t &value : secret.coefficient) {
-        value = detail::random_field_element();
+        value = detail::random_field_element(random_device);
     }
-    secret.offset = detail::random_field_element();
+    secret.offset = detail::random_field_element(random_device);
     return secret;
 }
 
@@ -398,14 +387,9 @@ public:
     /// \brief Construct a hasher with fresh process-local key material.
     ///
     /// \details
-    /// The normal path obtains the secret from the OS CSPRNG through \ref
-    /// os_random::fill_bytes.  If OS randomness is unavailable, initialization
-    /// falls back to weak process-local entropy through \ref
-    /// os_random::fill_bytes_with_fallback.  This preserves availability and
-    /// avoids a fixed public key, but the fallback does not provide the same
-    /// protection as OS-random keying.
+    /// The secret is generated directly from std::random_device.
     ///
-    flow_key_hasher() noexcept :
+    flow_key_hasher() :
         flow_key_hasher{random_secret()} {}
 
     /// \brief Construct a hasher from an explicit secret.
