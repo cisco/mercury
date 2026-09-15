@@ -1201,7 +1201,10 @@ public:
     /// constructs a writeable object that tracks data being written to the
     /// region between \param buf and `buf + len`.
     ///
-    constexpr writeable(uint8_t *buf, size_t len) : data{buf}, data_end{buf + len} { }
+    /// A \p len that would wrap `data_end` below `data` is treated as zero.
+    ///
+    constexpr writeable(uint8_t *buf, size_t len) :
+        data{buf}, data_end{len > PTRDIFF_MAX ? buf : buf + len} { }
 
     /// constructs a null writeable object
     ///
@@ -1216,9 +1219,9 @@ public:
     bool is_not_full() const { return data < data_end; }
 
     /// returns the number of bytes in the writeable region to which
-    /// data can be written
+    /// data can be written, or zero if this writeable is invalid
     ///
-    ssize_t writeable_length() const { return data_end - data; }
+    ssize_t writeable_length() const { return is_invalid() ? 0 : data_end - data; }
 
     /// returns true iff this writeable has room for \p num_bytes more bytes
     ///
@@ -1239,7 +1242,7 @@ public:
     void update(ssize_t length) {
         // a length less than zero is considered an error state
         //
-        if (length < 0 or length > writeable_length()) {
+        if (length < 0 or !has_room(static_cast<size_t>(length))) {
             set_null();
             return;
         }
@@ -1508,6 +1511,7 @@ template <size_t T> struct data_buffer : public writeable {
     /// null datum is returned
     ///
     datum contents() const {
+        assert(!is_invalid());
         if (writeable::is_null()) {
             return {nullptr, nullptr};
         } else {
@@ -1577,6 +1581,7 @@ public:
     /// otherwise, a null `datum` is returned
     ///
     datum contents() const {
+        assert(!is_invalid());
         if (writeable::is_null()) {
             return {nullptr, nullptr};
         } else {
@@ -2096,6 +2101,27 @@ namespace writeable_unit_test {
         return result;
     }
 
+    // verifies that a writeable constructed with an underflowed length is
+    // empty, rather than inverted
+    //
+    inline bool test_underflowed_constructor_length(FILE *f=nullptr) {
+        std::array<uint8_t, 8> region{};
+
+        writeable w{region.data(), SIZE_MAX};
+
+        // has_room(0), not writeable_length(), distinguishes empty from inverted
+        bool length_zeroed = w.writeable_length() == 0;
+        bool not_inverted = w.has_room(0);
+        bool room_rejected = !w.has_room(1);
+
+        bool result = length_zeroed and not_inverted and room_rejected;
+        if (f and !result) {
+            fprintf(f, "%s error: writeable_length=%d has_room(0)=%d has_room(1)=%d, expected 1 1 1\n",
+                    __func__, length_zeroed, not_inverted, room_rejected);
+        }
+        return result;
+    }
+
     // verifies that a writeable whose begin is past its end is rejected
     //
     inline bool test_invalid_writeable(FILE *f=nullptr) {
@@ -2104,14 +2130,20 @@ namespace writeable_unit_test {
 
         writeable inverted{region.data() + region.size(), region.data()};
         bool room_rejected = !inverted.has_room(raw.size());
+        bool length_zeroed = inverted.writeable_length() == 0;
 
         inverted.copy(raw.data(), raw.size());
         bool copy_rejected = inverted.is_null();
 
-        bool result = room_rejected and copy_rejected;
+        // zero is the only length an invalid writeable could still accept
+        writeable inverted_2{region.data() + region.size(), region.data()};
+        inverted_2.update(0);
+        bool update_rejected = inverted_2.is_null();
+
+        bool result = room_rejected and length_zeroed and copy_rejected and update_rejected;
         if (f and !result) {
-            fprintf(f, "%s error: has_room=%d copy=%d, expected 1 1\n",
-                    __func__, room_rejected, copy_rejected);
+            fprintf(f, "%s error: has_room=%d writeable_length=%d copy=%d update=%d, expected 1 1 1 1\n",
+                    __func__, room_rejected, length_zeroed, copy_rejected, update_rejected);
         }
         return result;
     }
@@ -2147,6 +2179,7 @@ namespace writeable_unit_test {
         result &= test_parse(data_buf_2, verbose_output);
         result &= test_underflowed_length(data_buf_2, verbose_output);
 
+        result &= test_underflowed_constructor_length(verbose_output);
         result &= test_invalid_writeable(verbose_output);
 
         return result;
