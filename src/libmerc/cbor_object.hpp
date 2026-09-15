@@ -317,6 +317,10 @@ public:
         type expected_type = key;
         std::optional<null_terminated_string> key;
 
+        // CBOR text keys are JSON-escaped into this fixed-size buffer.  An
+        // escaped key that does not fit is rejected rather than truncated:
+        // truncation can produce malformed JSON or collide with another key.
+        //
         output_buffer<128> key_buf;
 
         while (d.is_readable()) {
@@ -354,14 +358,10 @@ public:
                         }
                         [[fallthrough]];
                     default:
-                        fprintf(stderr, "unexpected initial byte in cbor map key: 0x%02x\n", ib.value.value());
-                        fprintf(stderr, "remaining bytes in cbor data: ");
-                        d.fprint_hex(stderr); fputc('\n', stderr);
                         return false;
                     }
 
                     if (!key) {
-                        fprintf(stderr, "error: null key\n");
                         return false;
                     }
                     expected_type = type::value;
@@ -421,7 +421,6 @@ public:
                         break;
                     case cbor::simple_or_float_type:
                         if (ib.value.value() == 0xff) {
-                            fprintf(stderr, "cbor_object missing value\n");
                             return false;
                         } else if (ib.value.additional_info() == cbor::initial_byte::True) {
                             o.print_key_bool(json_key, true);
@@ -438,7 +437,6 @@ public:
                         }
                         [[fallthrough]];
                     default:
-                        fprintf(stderr, "unexpected initial byte in cbor map value: 0x%02x\n", ib.value.value());
                         return false;
                     }
 
@@ -452,7 +450,6 @@ public:
 
         }
 
-        fprintf(stderr, "GOT TO END of %s\n", __func__);
         return false;
     }
 
@@ -524,7 +521,6 @@ inline bool cbor_to_json_translator::decode_cbor_array_to_json(datum &d, json_ar
                 }
                 [[fallthrough]];
             default:
-                fprintf(stderr, "unexpected initial byte in cbor array element: 0x%02x\n", ib.value.value());
                 return false;
             }
         }
@@ -761,6 +757,32 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
             data_buf.contents().fprint_hex(f); fputc('\n', f);
             decode_fprint_json(data_buf.contents(), f);
             data_buf.contents().fprint_c_array(f, "test2"); fputc('\n', f);
+        }
+        return false;
+    }
+
+    // An oversized text key must fail translation rather than be silently
+    // shortened to the 127 bytes available in the key buffer.  Silent
+    // truncation can produce malformed JSON or make distinct CBOR keys
+    // collide in the JSON object.
+    //
+    std::array<uint8_t,133> oversized_key_map;
+    oversized_key_map[0] = 0xbf;                                // {
+    oversized_key_map[1] = 0x78;                                //   text string,
+    oversized_key_map[2] = 128;                                 //   128 bytes
+    for (size_t i = 0; i < 128; i++) {
+        oversized_key_map[3 + i] = 'a';
+    }
+    oversized_key_map[131] = 0x01;                               //   1
+    oversized_key_map[132] = 0xff;                               // }
+
+    output_buffer<2048> translated;
+    datum oversized_key_input{oversized_key_map};
+    bool translated_ok = decode_cbor_map_to_json(oversized_key_input,
+                                                  translated, nullptr);
+    if (translated_ok || translated.get_string() != "{}") {
+        if (f) {
+            fprintf(f, "oversized CBOR key was not rejected\n");
         }
         return false;
     }
