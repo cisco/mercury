@@ -80,6 +80,12 @@ namespace {
             if (x > 9) {
                 break;
             }
+            constexpr T max = std::numeric_limits<T>::max();
+            if (value > max / 10 ||
+                (value == max / 10 && x > static_cast<unsigned>(max % 10))) {
+                d.set_null();
+                return;
+            }
             value = value * 10 + x;
             d.data++;
         }
@@ -100,6 +106,12 @@ namespace {
             unsigned x = *d.data - '0';
             if (x > 9) {
                 break;
+            }
+            constexpr T min = std::numeric_limits<T>::min();
+            if (value < min / 10 ||
+                (value == min / 10 && x > static_cast<unsigned>(-(min % 10)))) {
+                d.set_null();
+                return;
             }
             value = value * 10 - x;
             d.data++;
@@ -188,6 +200,10 @@ inline decimal_integer<T>::decimal_integer(datum &d) {
                 accumulate_digits<double_width_t>(value, d);
             }
         }
+    }
+
+    if (d.is_null()) {
+        return;
     }
 
     // if no non-zero digits seen, it's valid only when we saw leading zero(s)
@@ -320,6 +336,8 @@ inline bool decimal_integer_unit_test(FILE *f=nullptr) {
         { datum{"-0"}, true, 0 },
         { datum{"2147483648"}, false, 0 },
         { datum{"-2147483649"}, false, 0 },
+        { datum{"99999999999999999999"}, false, 0 },
+        { datum{"-99999999999999999999"}, false, 0 },
     };
     for (auto & tc : test_case_array_int32) {
         result &= tc.run_test(f);
@@ -331,6 +349,7 @@ inline bool decimal_integer_unit_test(FILE *f=nullptr) {
         { datum{"-0"}, false, 0 },
         { datum{"4294967296"}, false, 0 },
         { datum{"-1"}, false, 0 },
+        { datum{"99999999999999999999"}, false, 0 },
     };
 
     for (auto & tc : test_case_array_uint32) {

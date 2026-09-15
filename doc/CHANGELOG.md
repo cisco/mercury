@@ -1,5 +1,22 @@
 # CHANGELOG for Mercury
 
+## VERSION 2.20.0
+* Added DCE/RPC support.
+* Added PostgreSQL support, including exposed-credentials reporting.
+* Added multi-pass protocol fallback when a matched packet fails to parse.
+* Added a CBOR metadata interface, gated by the cbor-metadata selector.
+* Added DTLS ClientHello random and server_name to L7 metadata output.
+* Added protocol parsing safety unit tests run under ASan and UBSan.
+* Added fuzz tests for previously uncovered protocol messages.
+* Improved CBOR boolean decoding to distinguish parse failures from false.
+* Fixed a crash on malformed CDP address fields.
+* Fixed undefined behavior in IPv4 and IPv6 parsing of malformed packets.
+* Fixed divide by zero in weighted analysis when a resource weight is zero.
+* Fixed undefined behavior in the flow key hash.
+* Fixed linker errors in debug (-O0) builds.
+* CI: Added libmerc code coverage reporting and a Debug (-O0) build.
+* CI: Added support for building with the stock toolchain on RHEL 8 (GCC 8).
+
 ## VERSION 2.19.0
 * Added capture interface autodetection capability.
 * Added DTLS ClientHello telemetry.

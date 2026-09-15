@@ -7,6 +7,8 @@
 #include <unordered_map>
 #include "libmerc.h"
 #include "printf_err.hpp"
+#include "datum.h"
+#include "ip_address.hpp"
 
 typedef struct ipv6_addr_lct {
     uint64_t a[2];
@@ -222,39 +224,10 @@ namespace std {
     };
 };
 
-// ipv6_addr_lct ntoh() is suitable for IPv6 addresses
-//
-inline void ntoh(ipv6_addr_lct &addr) {
-    ipv6_addr_lct output;
-    output.a[0] = output.a[1] = 0;
-
-    uint8_t *in1 = (uint8_t *)&addr.a[0];
-    uint8_t *in2 = (uint8_t *)&addr.a[1];
-    uint8_t *out1 = (uint8_t *)&output.a[0];
-    uint8_t *out2 = (uint8_t *)&output.a[1];
-
-    out1[0] = in1[7];
-    out1[1] = in1[6];
-    out1[2] = in1[5];
-    out1[3] = in1[4];
-    out1[4] = in1[3];
-    out1[5] = in1[2];
-    out1[6] = in1[1];
-    out1[7] = in1[0];
-    out2[0] = in2[7];
-    out2[1] = in2[6];
-    out2[2] = in2[5];
-    out2[3] = in2[4];
-    out2[4] = in2[3];
-    out2[5] = in2[2];
-    out2[6] = in2[1];
-    out2[7] = in2[0];
-    addr = output;
-}
-
 inline bool is_private_address(const ipv6_addr_lct &addr) {
-    uint8_t first_byte = ((const uint8_t *)&addr.a[0])[0];
-    return first_byte == 0xFC || first_byte == 0xFD;
+    // extract via shift to stay endian-safe
+    uint8_t first_byte = (uint8_t)(addr.a[0] >> 56);
+    return first_byte == 0xFC || first_byte == 0xFD;  // fc00::/7
 }
 
 // LCOV_EXCL_START
@@ -397,6 +370,43 @@ static inline bool ipv6_address_lct_unit_test(FILE *f = nullptr) {
         if (shifted3.a[0] != 0x0000000000000010 || shifted3.a[1] != 0x0000000000000010) {
             if (f) fprintf(f, "Failed: Left shift operator did not shift within 64 bits correctly\n");
             return false;
+        }
+    }
+
+    // Test case 9: is_private_address
+    {
+        if (f) fprintf(f, "Test case 9: is_private_address\n");
+
+        struct { const char *addr_str; bool expect_private; } cases[] = {
+            { "fc00::",              true  },  // start of fc00::/7
+            { "fd00::",              true  },  // fd00::/8, inside fc00::/7
+            { "fdff::",              true  },  // end of fc00::/7
+            { "fbff::",              false },  // just below fc00::/7
+            { "fe00::",              false },  // just above fc00::/7
+            { "2001:db8:aaaa:fc::1", false },  // 0xFC in the 4th hextet, not byte 0
+            { "2001:db8:aaaa:fd::1", false },  // 0xFD in the 4th hextet, not byte 0
+            { "2001:db8::1",         false },  // ordinary public address
+        };
+
+        for (const auto &c : cases) {
+            datum addr_datum = get_datum(c.addr_str);
+            ipv6_address_string addr_parser{addr_datum};
+            if (!addr_parser.is_valid()) {
+                if (f) fprintf(f, "Failed: could not parse '%s'\n", c.addr_str);
+                return false;
+            }
+            std::tuple<uint64_t, uint64_t> addr_tuple = addr_parser.get_2tuple();
+            ipv6_addr_lct addr;
+            addr.a[0] = std::get<0>(addr_tuple);
+            addr.a[1] = std::get<1>(addr_tuple);
+
+            if (is_private_address(addr) != c.expect_private) {
+                if (f) {
+                    fprintf(f, "Failed: '%s' expected private=%d, got %d\n",
+                            c.addr_str, c.expect_private, !c.expect_private);
+                }
+                return false;
+            }
         }
     }
 

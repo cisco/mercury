@@ -8,6 +8,8 @@
 #include "libmerc/lex.h"
 #include "libmerc/cbor.hpp"
 #include "libmerc/cbor_object.hpp"
+#include "libmerc/buffer_stream.h"
+#include "libmerc/fingerprint.h"
 #include "libmerc/base64.h"
 #include "libmerc/tofsee.hpp"
 #include "libmerc/snmp.hpp"
@@ -37,6 +39,7 @@
 #include "libmerc/dhcp.h"
 #include "libmerc/lldp.h"
 #include "libmerc/cdp.h"
+#include "libmerc/eth.h"
 #include "libmerc/ospf.h"
 #include "libmerc/sctp.h"
 #include "libmerc/loopback.hpp"
@@ -53,6 +56,9 @@
 #include "libmerc/gre.h"
 #include "libmerc/mdns.h"
 #include "libmerc/ssh.h"
+#include "libmerc/smb1.h"
+#include "libmerc/smb2.h"
+#include "libmerc/smtp.h"
 #include "libmerc/ip.h"
 #include "libmerc/match.h"
 #include "libmerc/perfect_hash.h"
@@ -60,11 +66,13 @@
 #include "libmerc/tcpip.h"
 #include "libmerc/quic.h"
 #include "libmerc/analysis.h"
+#include "libmerc/result.h"
 #include "libmerc/proto_identify.h"
 #include "libmerc/pgsql.hpp"
 #include "libmerc/cbor_decoded_metadata_test.hpp"
 #include "libmerc/dcerpc.hpp"
 #include "libmerc/universal61.hpp"
+#include "libmerc/reassembly.hpp"
 
 // Macros to colorize output
 //
@@ -91,6 +99,14 @@ int main(int, char *[]) {
         unit_test_func func;
     };
     test_case test_cases[] = {
+        {
+            "buffer_stream",
+            &buffer_stream::unit_test
+        },
+        {
+            "fingerprint",
+            &fingerprint_unit_test::unit_test
+        },
         {
             "datum_match",
             &datum_match_unit_test
@@ -196,6 +212,10 @@ int main(int, char *[]) {
             &cdp_unit_test::unit_test
         },
         {
+            "eth",
+            &eth_unit_test::unit_test
+        },
+        {
             "ospf",
             &ospf_unit_test::unit_test
         },
@@ -218,6 +238,14 @@ int main(int, char *[]) {
         {
             "netbios",
             &netbios_unit_test::unit_test
+        },
+        {
+            "smb1_dialects",
+            &smb1_dialects::unit_test
+        },
+        {
+            "smb2_dialects",
+            &dialects::unit_test
         },
         {
             "stun",
@@ -260,6 +288,10 @@ int main(int, char *[]) {
             &ssh_unit_test::unit_test
         },
         {
+            "smtp",
+            &smtp_unit_test::unit_test
+        },
+        {
             "ip_packet_safety",
             &ip_packet_safety_unit_test::unit_test
         },
@@ -270,6 +302,10 @@ int main(int, char *[]) {
         {
             "match_packet_safety",
             &match_packet_safety_unit_test::unit_test
+        },
+        {
+            "mask_value_and_offset_bounds",
+            &mask_value_and_offset_unit_test::unit_test
         },
         {
             "perfect_hash_packet_safety",
@@ -326,6 +362,14 @@ int main(int, char *[]) {
         {
             "pgsql",
             &pgsql_msg::unit_test
+        },
+        {
+            "destination_context",
+            &destination_context::unit_test
+        },
+        {
+            "reassembly",
+            &reassembly_unit_test::unit_test
         }
     };
     size_t num_tests = 0;
