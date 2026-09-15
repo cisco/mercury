@@ -249,6 +249,22 @@ struct flow_key_hash_secret {
     limb_array coefficient;
     /// Affine offset selected in `F_p`.
     uint64_t offset;
+
+    /// \brief Generate a hash secret from an operating-system random device.
+    ///
+    /// \param random_device The source of operating-system randomness.
+    /// \return A hash secret containing \ref limb_count coefficients and one
+    /// offset, all in `[0, prime)`.
+    ///
+    static flow_key_hash_secret from_random(std::random_device &random_device) {
+        flow_key_hash_secret secret{{}, 0};
+
+        for (uint64_t &value : secret.coefficient) {
+            value = detail::random_field_element(random_device);
+        }
+        secret.offset = detail::random_field_element(random_device);
+        return secret;
+    }
 };
 
 /// \brief Return a randomly keyed hash secret.
@@ -260,13 +276,7 @@ struct flow_key_hash_secret {
 ///
 inline flow_key_hash_secret random_secret() {
     std::random_device random_device;
-    flow_key_hash_secret secret{{}, 0};
-
-    for (uint64_t &value : secret.coefficient) {
-        value = detail::random_field_element(random_device);
-    }
-    secret.offset = detail::random_field_element(random_device);
-    return secret;
+    return flow_key_hash_secret::from_random(random_device);
 }
 
 /// \brief Reduce an accumulator modulo `2^61 - 1`.
@@ -367,6 +377,23 @@ inline limb_array flow_key_to_limbs(const key &flow_key) noexcept {
     };
 }
 
+namespace detail {
+
+/// \brief Normalize an array of field elements.
+///
+/// \param values The values to reduce modulo \ref prime.
+/// \return The values reduced into `[0, prime)`.
+///
+inline limb_array normalize_field_elements(const limb_array &values) noexcept {
+    limb_array normalized{};
+    for (size_t i = 0; i < normalized.size(); i++) {
+        normalized[i] = values[i] % prime;
+    }
+    return normalized;
+}
+
+} // namespace detail
+
 /// \brief Keyed pairwise-universal hash over flow keys.
 ///
 /// \details
@@ -397,8 +424,8 @@ public:
     /// \param secret The coefficients and offset to copy into this hasher.
     ///
     explicit flow_key_hasher(const flow_key_hash_secret &secret) noexcept :
-        coefficient{secret.coefficient},
-        offset{secret.offset} {}
+        coefficient{detail::normalize_field_elements(secret.coefficient)},
+        offset{secret.offset % prime} {}
 
     /// \brief Hash already-packed limbs with reduction after each product.
     ///
@@ -731,6 +758,21 @@ inline bool unit_test() noexcept {
         0x1020304050607080ULL,
     }, 0x0f0e0d0c0b0a0908ULL};
     const flow_key_hasher hasher{test_secret};
+
+    const flow_key_hash_secret noncanonical_secret{{
+        prime + 1,
+        0,
+        0,
+        0,
+        0,
+        0,
+    }, ~uint64_t{0}};
+    const flow_key_hasher normalized_hasher{noncanonical_secret};
+    const limb_array normalization_test_limbs{{1, 0, 0, 0, 0, 0}};
+    if (normalized_hasher.hash_limbs_reduce_each(normalization_test_limbs) != 8
+        || normalized_hasher.hash_limbs_accumulate_once(normalization_test_limbs) != 8) {
+        return false;
+    }
 
     const key ipv4_key{12345, 443, 0x0a000001U, 0xc0000201U, 6};
     const ipv6_address ipv6_src{{0x20010db8U, 0x00000000U, 0x00000000U, 0x00000001U}};
