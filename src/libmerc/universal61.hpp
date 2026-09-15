@@ -470,7 +470,9 @@ public:
     /// \details
     /// This is the primary hot-path implementation.  It packs IPv4 and IPv6
     /// fields directly into limbs and accumulates products without materializing
-    /// a temporary \ref limb_array.
+    /// a temporary \ref limb_array.  The packing expressions in the fused IPv4
+    /// and IPv6 helpers intentionally mirror \ref flow_key_to_limbs; the unit
+    /// tests exercise both paths with known-answer and full-word flow keys.
     ///
     /// \param flow_key The flow key to hash.
     /// \return The field hash value in `[0, prime)`.
@@ -510,6 +512,10 @@ private:
     /// \param dst IPv4 destination address in network byte order.
     /// \return The field hash value in `[0, prime)`.
     ///
+    /// The packing expressions intentionally mirror the IPv4 branch of
+    /// \ref flow_key_to_limbs so this hot path does not materialize a temporary
+    /// limb array. Keep both implementations synchronized.
+    ///
     uint64_t hash_ipv4(uint64_t header, uint32_t src, uint32_t dst) const noexcept {
         const uint64_t limb0 = header | (static_cast<uint64_t>(src & 0x000000ffU) << 48);
         const uint64_t limb1 = (static_cast<uint64_t>(src) >> 8)
@@ -527,6 +533,10 @@ private:
     /// \param src IPv6 source address words in network byte order.
     /// \param dst IPv6 destination address words in network byte order.
     /// \return The field hash value in `[0, prime)`.
+    ///
+    /// The packing expressions intentionally mirror the IPv6 branch of
+    /// \ref flow_key_to_limbs so this hot path does not materialize a temporary
+    /// limb array. Keep both implementations synchronized.
     ///
     uint64_t hash_ipv6(uint64_t header, const uint32_t src[4], const uint32_t dst[4]) const noexcept {
         const uint64_t limb0 = header | (static_cast<uint64_t>(src[0] & 0x0000000fU) << 48);
@@ -740,7 +750,8 @@ inline bool arithmetic_unit_test() noexcept {
 /// explicit fixed secret so that it does not depend on the operating-system
 /// random source, checks an IPv6 packing known-answer vector, then checks that
 /// packed limbs are valid field elements and that the reference and fused
-/// hashing paths agree for IPv4, IPv6, and a zeroized IPv4 key.
+/// hashing paths agree for IPv4, sparse and full-word IPv6, and a zeroized
+/// IPv4 key.
 ///
 /// \return True if all universal61 self-checks pass.
 ///
@@ -799,7 +810,12 @@ inline bool unit_test() noexcept {
     key zeroized_ipv4_key{12345, 443, 0x0a000001U, 0xc0000201U, 6};
     zeroized_ipv4_key.zeroize();
 
-    const std::array<key, 3> test_keys{{ipv4_key, ipv6_key, zeroized_ipv4_key}};
+    const std::array<key, 4> test_keys{{
+        ipv4_key,
+        ipv6_key,
+        known_answer_key,
+        zeroized_ipv4_key,
+    }};
     for (const key &test_key : test_keys) {
         const limb_array limbs = flow_key_to_limbs(test_key);
         for (uint64_t limb : limbs) {
