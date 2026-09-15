@@ -15,6 +15,9 @@ namespace bencoding {
 
         if (lookahead<list_or_dict_end> is_end{body}) {
             body = is_end.advance();
+            w.copy('[');    // empty list -> "[]" (avoids a dangling comma in the parent)
+            w.copy(']');
+            tmp = body;     // propagate consumed position so siblings are not dropped
             return;
         }
 
@@ -26,6 +29,14 @@ namespace bencoding {
                 w.copy(',');
             } else {
                 first = false;
+            }
+
+            // depth limit: emit remaining bytes as unparsed hex (like write_json), then
+            // consume them so parents don't re-parse the leftovers
+            if (nesting_level > MAX_DEPTH) {
+                w.write_quote_enclosed_hex(body);
+                body.skip(body.length());
+                break;
             }
 
             bencoded_data value{body, static_cast<uint8_t>(nesting_level + 1)};
@@ -57,6 +68,8 @@ namespace bencoding {
             struct json_object items(a);
             if (nesting_level > MAX_DEPTH) {
                 items.print_key_hex("unparsed_value_hex", tmp);
+                tmp.skip(tmp.length());   // consume tail so the parent does not re-hex it
+                items.close();            // close the object so the JSON stays balanced
                 break;
             }
             bencoded_data value{tmp, static_cast<uint8_t>(nesting_level + 1)};
@@ -79,6 +92,9 @@ namespace bencoding {
 
         if (lookahead<list_or_dict_end> is_end{body}) {
             body = is_end.advance();
+            w.copy('[');    // empty dict -> "[]" (avoids a dangling comma in the parent)
+            w.copy(']');
+            tmp = body;     // propagate consumed position so siblings are not dropped
             return;
         }
 
@@ -96,6 +112,15 @@ namespace bencoding {
             key.write_raw_features(w);
 
             w.copy(',');
+
+            // depth limit: emit remaining bytes as unparsed hex (like write_json), then
+            // consume them so parents don't re-parse the leftovers
+            if (nesting_level > MAX_DEPTH) {
+                w.write_quote_enclosed_hex(body);
+                body.skip(body.length());
+                w.copy(']');
+                break;
+            }
 
             bencoded_data value{body, static_cast<uint8_t>(nesting_level + 1)};
             value.write_raw_features(w);
@@ -134,6 +159,7 @@ namespace bencoding {
             if (nesting_level > MAX_DEPTH) {
                 items.print_key_hex("unparsed_value_hex", tmp);
                 tmp.skip(tmp.length());
+                items.close();            // close the object so the JSON stays balanced
                 break;
             }
 
@@ -150,7 +176,10 @@ namespace bencoding {
     }
 
     void bencoded_data::write_raw_features(writeable &w) {
+        // this dispatcher always emits exactly one value so a parent's separator
+        // never dangles, even on unparsable input
         if (!valid) {
+            w.copy('"'); w.copy('"');
             return;
         }
 
@@ -169,8 +198,11 @@ namespace bencoding {
                 list.write_raw_features(w);
             } else {
                 // Not a bencoded data
+                w.copy('"'); w.copy('"');
                 body.set_null();
             }
+        } else {
+            w.copy('"'); w.copy('"');
         }
     }
 

@@ -35,6 +35,18 @@ SCENARIO("test packet_processor_get_analysis_context with http encapsulated in P
     }
 }
 
+TEST_CASE_FIXTURE(LibmercTestFixture, "test VLAN/CMD encapsulations in any order")
+{
+    libmerc_config config{.packet_filter_cfg = (char *)"all"};
+
+    initialize(config);
+
+    set_pcap("vlan_cmd_ordering_tls_client_hello.pcap");
+    CHECK(7 == counter(fingerprint_type_tls));
+
+    deinitialize();
+}
+
 TEST_CASE_FIXTURE(LibmercTestFixture, "test linux sll2")
 {
     libmerc_config config{.packet_filter_cfg = (char *)"all"};
@@ -353,6 +365,37 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test dtls interleaved client hellos with 
     deinitialize();
 }
 
+TEST_CASE_FIXTURE(LibmercTestFixture, "test reassembly hand-off to a parser holding a datum&")
+{
+    // tcp_reassembly_smb2_morph.pcap is 4 client-to-server TCP segments:
+    //   - pkt1: 80-byte truncated TLS ClientHello, declaring 40 more bytes, so
+    //     tls_handshake::parse puts the flow into reassembly
+    //   - pkt2/pkt3: overlapping 3-byte segments, below every matcher's minimum
+    //     length, that rewrite buffer bytes [4..7] to "\xfeSMB"
+    //   - pkt4: 40 filler 'A's completing the byte count, so the reassembled
+    //     buffer matches the SMB2 matcher and is handed to smb2_packet
+    //
+    // smb2_packet keeps a datum& to what it was constructed from and only
+    // derefs it later, in write_json().  The reassembled datum must therefore
+    // outlive process_tcp_data(); when it was a local there, this parsed
+    // expired stack.
+    libmerc_config config{.resources = resources_minimal_path,
+                          .packet_filter_cfg = (char *)"all;reassembly"};
+    initialize(config);
+    set_pcap("tcp_reassembly_smb2_morph.pcap");
+    const std::string json = get_first_json();
+
+    // reached via reassembly, not a single segment
+    CHECK(json.find("\"reassembly_properties\":{\"reassembled\":true") != std::string::npos);
+    // header at offset 4 parsed, so the morph landed
+    CHECK(json.find("\"command\":\"smb2_negotiate\"") != std::string::npos);
+    // guid comes from buffer offsets 80..95, i.e. pkt4's filler, read through
+    // the datum& that used to dangle; garbage here means expired stack
+    CHECK(json.find("\"guid\":\"41414141-4141-4141-4141-414141414141\"") != std::string::npos);
+
+    deinitialize();
+}
+
 TEST_CASE_FIXTURE(LibmercTestFixture, "test SGT encapsulated TLS with analysis")
 {
     auto destination_check_callback = [](const analysis_context *ac)
@@ -620,7 +663,7 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test redis")
     initialize(config);
 
     set_pcap("redis.pcap");
-    CHECK(9 == counter());
+    CHECK(10 == counter());
 
     set_pcap("top_100_fingerprints.pcap");
     CHECK(0 == counter());
@@ -662,8 +705,12 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test attribute detection with analysis")
     set_pcap("malware_tls.pcap");
     CHECK(counter(2, attribute_check_callback));
 
-    // domain_faking attribute in modified ipv6 curl pcap
+    // destination is a unique-local (fd00::/8) address, so it must be
+    // exempt from domain_faking regardless of the faked SNI
     set_pcap("ipv6-domain-faking.pcap");
+    { std::string attr = "domain_faking"; CHECK(!check_attr(attr)); }
+
+    set_pcap("ipv6-domain-faking-public.pcap");
     { std::string attr = "domain_faking"; CHECK(check_attr(attr)); }
 
     // check if faketls attribute is present in the attributes array
@@ -1286,4 +1333,25 @@ TEST_CASE_FIXTURE(LibmercTestFixture, "test raw-features write_json output for t
         CHECK(json.find(expected_features_prefix) != std::string::npos);
         deinitialize();
     }
+}
+
+// A real QUIC Initial (RFC 9001 v1) whose decrypted inner ClientHello carries
+// a crafted legacy_version of 0xfefd (the DTLS value). Because the DTLS
+// carrier is committed by the transport (QUIC over UDP), not inferred from the
+// clientHello body, the inner hello must be reported under "tls" -- never
+// "dtls" -- with its SNI parsed correctly. The pcap decrypts with the standard
+// Initial salt, so no key material is required.
+TEST_CASE_FIXTURE(LibmercTestFixture, "quic inner clientHello with dtls-looking legacy_version reports tls")
+{
+    libmerc_config config{.packet_filter_cfg = (char *)"quic"};
+    initialize(config);
+
+    set_pcap("dtls-legacy-version-quic-initial.pcap");
+    const std::string json = get_first_json();
+
+    CHECK(json.find("\"dtls\"") == std::string::npos);   // never mislabeled as dtls
+    CHECK(json.find("\"tls\"")  != std::string::npos);   // inner hello reported under tls
+    CHECK(json.find("\"server_name\":\"example.com\"") != std::string::npos);
+
+    deinitialize();
 }

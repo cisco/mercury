@@ -9,6 +9,7 @@
 #define BENCODE_H
 
 #include <stdint.h>
+#include <vector>   // unit tests only
 #include "datum.h"
 #include "json_object.h"
 #include "lex.h"
@@ -159,6 +160,75 @@ namespace bencoding {
         void write_raw_features(writeable &w);
 
         void write_json(struct json_object &o);
+
+#ifndef NDEBUG
+
+        // LCOV_EXCL_START
+        static bool unit_test() {
+            // one level past MAX_DEPTH: the whole output fits, so assert it exactly
+            std::vector<uint8_t> deep(MAX_DEPTH + 2, 'l');
+            datum d{deep.data(), deep.data() + deep.size()};
+            blist list{d};
+            data_buffer<2048> buf;
+            list.write_raw_features(buf);
+
+            const char expected[] = "[[[[[[[[[[[\"6c\"]]]]]]]]]]]";   // MAX_DEPTH+1 openers
+            if (buf.readable_length() != sizeof(expected) - 1
+                || memcmp(buf.buffer, expected, sizeof(expected) - 1) != 0) {
+                return false;
+            }
+
+            // an empty child must emit "[]" without dropping the sibling after it
+            unsigned char nested[] = "lle3:abce";
+            unsigned char nested_expected[] = "[[],\"616263\"]";
+            datum dn{nested, nested + sizeof(nested) - 1};
+            blist listn{dn};
+            data_buffer<2048> bufn;
+            listn.write_raw_features(bufn);
+            if (bufn.readable_length() != sizeof(nested_expected) - 1
+                || memcmp(bufn.buffer, nested_expected, sizeof(nested_expected) - 1) != 0) {
+                return false;
+            }
+
+            // an unparsable value must still emit one value (no dangling comma)
+            unsigned char bad[] = "lli1eex";
+            unsigned char bad_expected[] = "[[\"31\"],\"\"]";
+            datum db{bad, bad + sizeof(bad) - 1};
+            blist listb{db};
+            data_buffer<2048> bufb;
+            listb.write_raw_features(bufb);
+            if (bufb.readable_length() != sizeof(bad_expected) - 1
+                || memcmp(bufb.buffer, bad_expected, sizeof(bad_expected) - 1) != 0) {
+                return false;
+            }
+
+            // depth-limited list: write_json cutoff must close the object and
+            // consume the tail (covers items.close() + tmp.skip on the list path)
+            std::vector<uint8_t> deepj(MAX_DEPTH + 2, 'l');
+            datum dj{deepj.data(), deepj.data() + deepj.size()};
+            blist listj{dj};
+            char jbuf[512];
+            buffer_stream bsj(jbuf, sizeof(jbuf));
+            json_object recj(&bsj);
+            listj.write_json(recj);
+            unsigned char expected_json[] = "{\"attributes\":[{\"attributes\":[{\"attributes\":[{\"attributes\":[{\"attributes\":[{\"attributes\":[{\"attributes\":[{\"attributes\":[{\"attributes\":[{\"attributes\":[{\"attributes\":[{\"unparsed_value_hex\":\"6c\"}]}]}]}]}]}]}]}]}]}]}]";
+            if (recj.b->length() != sizeof(expected_json) - 1
+                || memcmp(expected_json, recj.b->dstr, sizeof(expected_json) - 1)) {
+                return false;
+            }
+
+            // pre-fix this recursed to the input depth and overflowed the stack;
+            // the hex overflows the buffer, so only assert it returns
+            std::vector<uint8_t> flood(100000, 'l');
+            datum d2{flood.data(), flood.data() + flood.size()};
+            blist list2{d2};
+            data_buffer<2048> buf2;
+            list2.write_raw_features(buf2);
+
+            return true;
+        }
+        // LCOV_EXCL_STOP
+#endif //NDEBUG
     };
 
     // Dictionaries are encoded as follows:
@@ -198,11 +268,12 @@ namespace bencoding {
         // LCOV_EXCL_START
         static bool unit_test() {
             unsigned char data[] = "d1:ad2:idd2:idd2:idd2:idd2:idd2:idd2:idd2:idd2:idd2:id4:testeeeeeeeeeee";
-            unsigned char expected_json[] = "{\"attributes\":[{\"key\":\"a\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"unparsed_value_hex\":\"343a74657374656565656565656565656500\"]}]}]}]}]}]}]}]}]}]}]";
+            unsigned char expected_json[] = "{\"attributes\":[{\"key\":\"a\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"attributes\":[{\"key\":\"id\",\"unparsed_value_hex\":\"343a746573746565656565656565656565\"}]}]}]}]}]}]}]}]}]}]}]";
 
-            unsigned char expected_raw_features[] = "[[\"61\",[[\"6964\",[[\"6964\",[[\"6964\",[[\"6964\",[[\"6964\",[[\"6964\",[[\"6964\",[[\"6964\",[[\"6964\",[[\"6964\",\"74657374\"";
+            // full depth-limited output: balanced brackets, no dangling comma
+            unsigned char expected_raw_features[] = "[[\"61\",[[\"6964\",[[\"6964\",[[\"6964\",[[\"6964\",[[\"6964\",[[\"6964\",[[\"6964\",[[\"6964\",[[\"6964\",[[\"6964\",\"343a746573746565656565656565656565\"]]]]]]]]]]]]]]]]]]]]]]";
 
-            struct datum request_data{data, data + sizeof(data)};
+            struct datum request_data{data, data + sizeof(data) - 1};   // exclude the C-string NUL
             char buffer[8192];
             struct buffer_stream buf_json(buffer, sizeof(buffer));
             struct json_object record(&buf_json);
@@ -212,11 +283,37 @@ namespace bencoding {
             dict.write_json(record);
             dict.write_raw_features(buf);
 
-            if (memcmp(expected_json, record.b->dstr, sizeof(expected_json) - 1)) {
+            if (record.b->length() != sizeof(expected_json) - 1
+                || memcmp(expected_json, record.b->dstr, sizeof(expected_json) - 1)) {
                 return false;
             }
 
-            if (memcmp(expected_raw_features, buf.buffer, sizeof(expected_raw_features) - 1)) {
+            if (buf.readable_length() != sizeof(expected_raw_features) - 1
+                || memcmp(expected_raw_features, buf.buffer, sizeof(expected_raw_features) - 1)) {
+                return false;
+            }
+
+            // empty nested container must emit "[]" (no dangling comma)
+            unsigned char nested[] = "d1:adee";
+            unsigned char nested_expected[] = "[[\"61\",[]]]";
+            struct datum nested_data{nested, nested + sizeof(nested) - 1};
+            data_buffer<2048> nbuf;
+            dictionary ndict{nested_data};
+            ndict.write_raw_features(nbuf);
+            if (nbuf.readable_length() != sizeof(nested_expected) - 1
+                || memcmp(nested_expected, nbuf.buffer, sizeof(nested_expected) - 1)) {
+                return false;
+            }
+
+            // a value that cannot be parsed must still emit one value (no dangling comma)
+            unsigned char bad[] = "dxe";
+            unsigned char bad_expected[] = "[[\"\",\"\"]]";
+            struct datum bad_data{bad, bad + sizeof(bad) - 1};
+            data_buffer<2048> bbuf;
+            dictionary bdict{bad_data};
+            bdict.write_raw_features(bbuf);
+            if (bbuf.readable_length() != sizeof(bad_expected) - 1
+                || memcmp(bad_expected, bbuf.buffer, sizeof(bad_expected) - 1)) {
                 return false;
             }
 

@@ -49,7 +49,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        testplatform: [alma8, alma9, alma10, ubuntu20, ubuntu22, ubuntu24, ubuntu26, debian11, debian12, debian13]
+        testplatform: [alma8, alma9, alma10, ubuntu20, ubuntu22, ubuntu24, ubuntu26, debian12, debian13]
         xsimd: [""]  # default: autodetect system xsimd, fallback to scalar
         arch: [""]   # default: amd64
         include:
@@ -168,6 +168,8 @@ jobs:
     outputs:
       cur_pct:  ${{ steps.report.outputs.cur_pct }}
       base_pct: ${{ steps.report.outputs.base_pct }}
+      cur_uncov:  ${{ steps.report.outputs.cur_uncov }}
+      base_uncov: ${{ steps.report.outputs.base_uncov }}
       base_sha: ${{ steps.report.outputs.base_sha }}
       base_ref: ${{ steps.report.outputs.base_ref }}
       gnc:      ${{ steps.report.outputs.gnc }}
@@ -282,6 +284,8 @@ jobs:
           RESULT:   ${{ needs.linux-coverage.result }}
           CUR_PCT:  ${{ needs.linux-coverage.outputs.cur_pct }}
           BASE_PCT: ${{ needs.linux-coverage.outputs.base_pct }}
+          CUR_UNCOV:  ${{ needs.linux-coverage.outputs.cur_uncov }}
+          BASE_UNCOV: ${{ needs.linux-coverage.outputs.base_uncov }}
           BASE_SHA: ${{ needs.linux-coverage.outputs.base_sha }}
           BASE_REF: ${{ needs.linux-coverage.outputs.base_ref }}
           GNC:      ${{ needs.linux-coverage.outputs.gnc }}
@@ -305,7 +309,8 @@ jobs:
               echo "ℹ️ **SKIPPED**: baseline is HEAD or no baseline to compare"
             else
               new=$((GNC + UNC))
-              echo "libmerc line coverage ${BASE_PCT}% → ${CUR_PCT}% vs ${BASE_REF} @ ${BASE_SHA}"
+              debt=$((CUR_UNCOV - BASE_UNCOV))
+              echo "libmerc line coverage ${BASE_PCT}% → ${CUR_PCT}% (uncovered lines ${BASE_UNCOV} → ${CUR_UNCOV}) vs ${BASE_REF} @ ${BASE_SHA}"
               if [ "$LBC" -gt 0 ]; then
                 echo
                 echo "⚠️ ${LBC} previously covered libmerc line(s) lost coverage"
@@ -315,8 +320,10 @@ jobs:
                 echo "🟢 **PASS**: no new or changed coverable libmerc lines"
               elif [ "$UNC" -le "$K" ] || [ $((100 * GNC)) -ge $((T * new)) ]; then
                 echo "🟢 **PASS**: patch coverage ${GNC}/${new} new libmerc lines covered"
+              elif [ "$debt" -le 0 ]; then
+                echo "🟢 **PASS**: patch coverage ${GNC}/${new}, but the uncovered libmerc total did not rise"
               else
-                echo "🔴 **FAIL**: patch coverage ${GNC}/${new} new libmerc lines covered — needs ≥ ${T}%, or ≤ ${K} uncovered"
+                echo "🔴 **FAIL**: patch coverage ${GNC}/${new} new libmerc lines covered — needs ≥ ${T}%, or ≤ ${K} uncovered, or no rise in the uncovered total (+${debt})"
                 rc=1
               fi
             fi

@@ -576,7 +576,7 @@ namespace dhcp_unit_test {
         json_object json{&buf};
         msg2.write_json(json, false);
         json.close();
-        buf.write_char('\0');
+        buf.add_null();
         if (!strstr(buffer, "dhcp")) return false;
 
         return true;

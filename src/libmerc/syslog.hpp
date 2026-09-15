@@ -254,7 +254,7 @@ namespace syslog_unit_test {
             json_object json{&buf};
             s1.write_json(json, false);
             json.close();
-            buf.write_char('\0');
+            buf.add_null();
             if (!strstr(buffer, "syslog")) return false;
             if (!strstr(buffer, "informational")) return false;
             if (!strstr(buffer, "user-level")) return false;
@@ -269,7 +269,7 @@ namespace syslog_unit_test {
             json_object json{&buf};
             s2.write_json(json, false);
             json.close();
-            buf.write_char('\0');
+            buf.add_null();
             if (!strstr(buffer, "error")) return false;
         }
 

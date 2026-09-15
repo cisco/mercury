@@ -90,7 +90,7 @@ class asdu {
     uint8_t cot;
     encoded<uint8_t> originator_address;
     encoded<uint16_t> asdu_address;
-    datum& inf_objs;
+    datum inf_objs;
     bool valid;
     mutable bool function_indicator=false;
 
@@ -253,6 +253,7 @@ public:
         if (!num_objects or inf_objs.length() < 4) {
             return;
         }
+        datum objs{inf_objs};   // parse a copy, to leave inf_objs intact
 
         uint8_t info_elem_size;
         if (sq) {
@@ -267,14 +268,14 @@ public:
             struct json_object info_obj{o, "information_object"};
 
             datum ioa;
-            ioa.parse(inf_objs, 3);
+            ioa.parse(objs, 3);
             info_obj.print_key_hex("information_object_address", ioa);
 
             struct json_array info_elem{info_obj, "information_elements"};
             uint8_t cnt = 0;
             datum data;
-            while (cnt < num_objects and inf_objs.is_not_empty()) {
-                data.parse(inf_objs, info_elem_size);
+            while (cnt < num_objects and objs.is_not_empty()) {
+                data.parse(objs, info_elem_size);
                 info_elem.print_hex(data);
                 cnt++;
             }
@@ -289,14 +290,14 @@ public:
             info_elem_size = ((apdu_length - 10) / num_objects) - 3;
             struct json_array info_objs{o, "info_objs"};
             uint8_t cnt = 0;
-            while (cnt < num_objects and inf_objs.is_not_empty()) {
+            while (cnt < num_objects and objs.is_not_empty()) {
                 struct json_object info_obj(info_objs);
                 datum ioa;
-                ioa.parse(inf_objs, 3);
+                ioa.parse(objs, 3);
                 info_obj.print_key_hex("information_object_address", ioa);
 
                 datum info_elem;
-                info_elem.parse(inf_objs, info_elem_size);
+                info_elem.parse(objs, info_elem_size);
                 info_obj.print_key_hex("information_element", info_elem);
                 info_obj.close();
             }

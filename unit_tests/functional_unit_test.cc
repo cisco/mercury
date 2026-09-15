@@ -34,6 +34,7 @@
  */
 TEST_CASE("Testing unit_test() defined in class") {
     CHECK(bencoding::dictionary::unit_test() == true);
+    CHECK(bencoding::blist::unit_test() == true);
     CHECK(snmp::unit_test() == true);
     CHECK(tofsee_initial_message::unit_test() == true);
     CHECK(tls_extensions::unit_test() == true);

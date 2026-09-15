@@ -39,6 +39,12 @@ Mercury protocol implementations must follow these guidelines.
   sequence of bytes from which data can be read.  A datum object is in
   one of the states null, readable, or empty.
 
+- Parser code must not advance a datum's `data` pointer beyond
+  `data_end`, even temporarily as part of a bounds check.  Check that
+  the requested length is available before forming an advanced pointer;
+  use `datum::has_bytes(length)` when checking whether a datum contains
+  enough data.
+
 - Data parsers must not directly access pointers; instead, they should
   use a safe alternative:
 
@@ -114,6 +120,13 @@ Mercury uses a selective, lazy, non-owning data parsing strategy:
    * the constructor must initialize all data members using a member
      initializer list, except for those that use a default
      constructor.
+
+   * a data member that retains part of the input must hold a `datum`
+     by value, not a `datum &`; the caller's `input` might not outlive
+     the object, and copying the `{data,data_end}` pair is cheap.  A
+     `datum &` member is admissible only in a helper confined to its
+     caller's frame, and only for write-back to that caller, e.g.,
+     advancing its cursor.
 
    * If necessary, the member initializer can invoke a static member
      function that accepts a `datum &` and returns an object of the

@@ -183,7 +183,7 @@ namespace icmp_unit_test {
             json_object json{&buf};
             pkt1.write_json(json, false);
             json.close();
-            buf.write_char('\0');
+            buf.add_null();
             if (!strstr(buffer, "echo")) return false;
         }
 
@@ -196,7 +196,7 @@ namespace icmp_unit_test {
             json_object json{&buf};
             pkt2.write_json(json, false);
             json.close();
-            buf.write_char('\0');
+            buf.add_null();
             if (!strstr(buffer, "destination_unreachable")) return false;
         }
 
@@ -209,7 +209,7 @@ namespace icmp_unit_test {
             json_object json{&buf};
             pkt3.write_json(json, false);
             json.close();
-            buf.write_char('\0');
+            buf.add_null();
             if (!strstr(buffer, "packet_too_big")) return false;
         }
 
@@ -222,7 +222,7 @@ namespace icmp_unit_test {
             json_object json{&buf};
             pkt4.write_json(json, false);
             json.close();
-            buf.write_char('\0');
+            buf.add_null();
             if (!strstr(buffer, "body")) return false;
         }
 

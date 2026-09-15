@@ -102,7 +102,7 @@ namespace gre_unit_test {
             json_array arr{&buf};
             pkt1.write_json(arr);
             arr.close();
-            buf.write_char('\0');
+            buf.add_null();
             if (!strstr(buffer, "gre")) return false;
         }
 

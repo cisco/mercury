@@ -273,17 +273,13 @@ endif
 
 # --- Safe parsing tests -----------------------------------------------
 #
-# Runs unit_test under ASan+UBSan with MERCURY_PACKET_SAFETY_FATAL_TESTS,
-# which enables the seeds that still crash.  Temporary: once the defects it
-# exercises are fixed, drop this target and the compile-time flag, and have
-# CI run 'unittest' under ASan+UBSan instead.
+# Runs unit_test under ASan+UBSan
 
 .PHONY: test-safe-parsing
 test-safe-parsing:
 	@echo "--- safe parsing tests ---"
 	@printf '$(COLOR_YELLOW)  note: forcing Debug+ASan+UBSan; expected to fail until defects are fixed$(COLOR_OFF)\n'
-	$(MAKE) BUILD_TYPE=Debug SANITIZE=address,undefined \
-	  OPTFLAGS='$(OPTFLAGS) -DMERCURY_PACKET_SAFETY_FATAL_TESTS' _run-safe-parsing
+	$(MAKE) BUILD_TYPE=Debug SANITIZE=address,undefined _run-safe-parsing
 
 # To make UBSan reports fatal, prefix with UBSAN_OPTIONS=halt_on_error=1
 .PHONY: _run-safe-parsing

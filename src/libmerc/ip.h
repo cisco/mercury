@@ -11,6 +11,7 @@
 #include "json_object.h"
 #include "flow_key.h"
 #include <array>
+#include <cstring>
 #include <variant>
 #include <utility>
 
@@ -127,7 +128,13 @@ class ipv4_packet {
         if (header == nullptr) {
             return;  // too short
         }
-        p.trim_to_length(ntoh(header->len) - sizeof(ipv4_header));
+        size_t total_length_including_header = ntoh(header->len);
+        if (total_length_including_header < sizeof(ipv4_header)) {
+            header = nullptr;
+            p.set_null();
+            return;
+        }
+        p.trim_to_length(total_length_including_header - sizeof(ipv4_header));
 
         k.addr.ipv4.src = header->src_addr;
         k.addr.ipv4.dst = header->dst_addr;
@@ -383,7 +390,7 @@ struct ipv6_header {
     }
 
     uint32_t flow_label() const {
-        return (uint32_t)bytes[1] << 16 | (uint32_t)bytes[2] << 8 | bytes[3];
+        return ((uint32_t)bytes[1] << 16 | (uint32_t)bytes[2] << 8 | bytes[3]) & 0x000fffff;
     }
 
 };
@@ -408,7 +415,7 @@ struct ipv6_header {
     }
 
     uint20_t flow_label() const {
-        return uint20_t{(uint32_t)bytes[1] << 16 | (uint32_t)bytes[2] << 8 | bytes[3]};
+        return uint20_t{((uint32_t)bytes[1] << 16 | (uint32_t)bytes[2] << 8 | bytes[3]) & 0x000fffff};
     }
 
 } __attribute__((packed));
@@ -467,11 +474,19 @@ public:
                 break;
             }
             class ipv6_extension_header ext_hdr{p, next_header};
+            if (p.is_null()) {
+                next_header = ipv6_extension_header::type::reserved; // failure: absence of actual next protocol
+                break;
+            }
             next_header = ext_hdr.get_next_header();
+        }
+        if (ipv6_extension_header::is_extension(next_header)) {
+            next_header = ipv6_extension_header::type::reserved;    // failure: only extensions were found
         }
         k.protocol = transport_protocol = next_header;
 
-        extension_headers.data_end = p.data; // set end of extension headers
+        // Set end of extension headers; keep the datum empty on parse failure.
+        extension_headers.data_end = p.is_null() ? extension_headers.data : p.data;
     }
 
     // fingerprinting
@@ -824,6 +839,27 @@ public:
 // LCOV_EXCL_START
 namespace ip_packet_safety_unit_test {
 
+    inline bool ipv6_flow_label_unit_test() {
+        struct test_case {
+            std::array<uint8_t, 4> bytes;
+            uint32_t expected;
+        };
+        static constexpr test_case tests[] = {
+            { { 0x60, 0x00, 0x00, 0x00 }, 0x00000 },
+            { { 0x60, 0x20, 0x00, 0x00 }, 0x00000 },
+            { { 0x60, 0xfa, 0xbc, 0xde }, 0xabcde },
+        };
+
+        for (const auto &test : tests) {
+            ipv6_header header{};
+            std::memcpy(header.bytes, test.bytes.data(), test.bytes.size());
+            if (header.flow_label() != test.expected) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     inline bool malformed_ipv4_total_length_unit_test() {
         static constexpr std::array<uint8_t, 20> ipv4_total_length_smaller_than_header = {
             0x45, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
@@ -834,9 +870,8 @@ namespace ip_packet_safety_unit_test {
         datum d{ipv4_total_length_smaller_than_header.data(),
                 ipv4_total_length_smaller_than_header.data() + ipv4_total_length_smaller_than_header.size()};
         key k{};
-        ip pkt{d, k};
-        (void)pkt;
-        return true;
+        ipv4_packet pkt{d, k};
+        return !pkt.is_not_empty() && d.is_null() && k.ip_vers == 0;
     }
 
     inline bool truncated_ipv6_extension_unit_test() {
@@ -853,12 +888,14 @@ namespace ip_packet_safety_unit_test {
                 ipv6_truncated_hop_by_hop_to_tcp.data() + ipv6_truncated_hop_by_hop_to_tcp.size()};
         key k{};
         ip pkt{d, k};
-        (void)pkt;
-        return true;
+        return pkt.transport_protocol() == ip::protocol::reserved
+            && d.is_null()
+            && k.protocol == ip::protocol::reserved;
     }
 
     inline bool unit_test() {
-        return malformed_ipv4_total_length_unit_test()
+        return ipv6_flow_label_unit_test()
+            && malformed_ipv4_total_length_unit_test()
             && truncated_ipv6_extension_unit_test();
     }
 

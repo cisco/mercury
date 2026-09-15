@@ -20,7 +20,6 @@ TOOL_TARGETS := \
   $(BIN)/decode \
   $(BIN)/intercept_server \
   $(BIN)/libmerc_util \
-  $(BIN)/os_identifier \
   $(BIN)/pcap \
   $(BIN)/pcap_filter \
   $(BIN)/string
@@ -126,12 +125,6 @@ $(BIN)/libmerc_util: $(call objects,src/libmerc_util.cc)
 # flow_hash_benchmark — exploratory flow-key hash latency/distribution driver
 $(BIN)/flow_hash_benchmark: CXXFLAGS += -I src -I src/libmerc
 $(BIN)/flow_hash_benchmark: $(call objects,src/flow_hash_benchmark.cc)
-	$(LINK)
-
-# os_identifier — OS identification from network traffic
-$(OBJ)/src/os_identifier.o: CXXFLAGS += -Isrc/libmerc
-$(BIN)/os_identifier: LDLIBS := -lz
-$(BIN)/os_identifier: $(call objects,src/os_identifier.cc)
 	$(LINK)
 
 # pcap — PCAP file reader and packet dumper
