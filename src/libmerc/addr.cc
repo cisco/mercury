@@ -90,8 +90,6 @@ subnet_data::~subnet_data() {
     if (domains_prefix) {
         for (int i = 0; i < domains_prefix_num; i++) {
             free(domains_prefix[i].info.domain.domain_idx_arr);
-            domains_prefix[i].info.domain.domain_idx_arr = nullptr;
-            domains_prefix[i].info.domain.domain_idx_arr_len = 0;
         }
         free(domains_prefix);
     }
@@ -115,8 +113,6 @@ subnet_data::~subnet_data() {
     if (domains_prefix_v6) {
         for (int i = 0; i < domains_prefix_v6_num; i++) {
             free(domains_prefix_v6[i].info.domain.domain_idx_arr);
-            domains_prefix_v6[i].info.domain.domain_idx_arr = nullptr;
-            domains_prefix_v6[i].info.domain.domain_idx_arr_len = 0;
         }
         delete[] domains_prefix_v6;
     }

@@ -302,14 +302,9 @@ int lct_build(lct<T> *trie, lct_subnet<T> *subnets, uint32_t size) {
 
   // reallocate the base index buffer back down to the actual size.
   uint32_t *bases = (uint32_t *) realloc(trie->bases, trie->bcount * sizeof(uint32_t));
-  if (!bases) {
-    free(trie->bases);
-    trie->bases = NULL;
-    trie->nets = NULL;
-    trie->bcount = 0;
-    return -1;
+  if (bases != NULL) {
+    trie->bases = bases;
   }
-  trie->bases = bases;
 
   // give a 2MB buffer, and we'll shrink it down once we've built the trie
   trie->root = (lct_node_t *) malloc((size + 2000000) * sizeof(lct_node_t));
