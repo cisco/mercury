@@ -423,7 +423,13 @@ namespace cbor_fingerprint {
         a.close();
     }
 
-    inline void decode_cbor_sorted_list(datum &d, writeable &w) {
+    inline void decode_cbor_sorted_list(datum &d, writeable &w, size_t depth = 0) {
+        constexpr size_t max_recursion_depth = 256;
+        if (depth > max_recursion_depth) {
+            d.set_null();   // reject excessively nested input
+            w.set_null();
+            return;
+        }
         char open = '(';
         char close = ')';
         if (lookahead<cbor::tag> tag{d}) {
@@ -441,7 +447,7 @@ namespace cbor_fingerprint {
                     break;
                 } else if (ib.value.major_type() == cbor::array_type
                            or ib.value.major_type() == cbor::tagged_item_type) {
-                    decode_cbor_sorted_list(a.value(), w);
+                    decode_cbor_sorted_list(a.value(), w, depth + 1);
                 } else {
                     decode_cbor_data(a.value(), w);
                 }
@@ -714,11 +720,12 @@ namespace cbor_fingerprint {
             cbor::uint64 fp_type{m.value()};
             // fprintf(stderr, "decoded fingerprint type %zu\n", fp_type.value());
             decode_fp(fp_type.value(), m.value(), w);
-            if (m.value().is_null()) {
-                ; // error
-            }
         }
         m.close();
+
+        if (d.is_null()) {
+            w.set_null();
+        }
     }
 
     // test cbor fingerprint encoding and decoding
@@ -875,6 +882,18 @@ namespace cbor_fingerprint {
         all_tests_passed &= test_undecodable_fingerprint("unknown format version", datum{unknown_version}, f);
         all_tests_passed &= test_undecodable_fingerprint("unknown format version, no value", datum{unknown_version_no_value}, f);
 
+        // an extension list nested deeper than decode_cbor_sorted_list()'s
+        // recursion limit, which must be rejected through both outputs rather
+        // than rendered as the partial string the descent built on the way down
+        //
+        std::array<uint8_t,306> deep_extensions{
+            0xbf, 0x01, 0xbf, 0x01, 0x9f, 0x40, 0x40            // {1: {1: [h'', h'',
+        };
+        for (size_t i = 7; i < deep_extensions.size(); i++) {
+            deep_extensions[i] = 0x9f;                          // 299 nested arrays, never closed
+        }
+        all_tests_passed &= test_undecodable_fingerprint("extension list nested past the limit", datum{deep_extensions}, f);
+
         // an unrecognized label in place of `randomized` or `generic`.  The
         // second form is a silent success without the label check: every break
         // byte is present, so nothing else notices.
@@ -952,6 +971,25 @@ namespace cbor_fingerprint {
             0xbf, 0x07, 0xbf, 0x00, 0x01, 0xff, 0xff            // {7: {0: 1}}
         };
         all_tests_passed &= test_undecodable_fingerprint("fingerprint type with no decoder", datum{unhandled_type}, f);
+
+        // a tls fingerprint cut off inside its ciphersuite array.  This decoder
+        // writes each field as it reads it, so by the time the input runs out the
+        // writeable already holds "tls/1/(0303)()()" -- well formed npf for a
+        // fingerprint that was never sent, and the reason the failure has to be
+        // reported through the writeable and not just the datum.
+        //
+        std::array<uint8_t,8> truncated_tls{
+            0xbf, 0x01, 0xbf, 0x01, 0x9f, 0x42, 0x03, 0x03      // {1: {1: [0303
+        };
+        all_tests_passed &= test_undecodable_fingerprint("tls fingerprint truncated mid-ciphersuites", datum{truncated_tls}, f);
+
+        // an input that is not a map at all, which cbor::map nulls on its way in,
+        // before a fingerprint type has been read or a decoder chosen
+        //
+        std::array<uint8_t,1> not_a_map{
+            0x01                                                // 1
+        };
+        all_tests_passed &= test_undecodable_fingerprint("not a cbor map", datum{not_a_map}, f);
 
         return all_tests_passed;
     }

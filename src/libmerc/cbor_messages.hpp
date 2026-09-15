@@ -28,7 +28,7 @@ inline constexpr null_terminated_string CBOR_METADATA_TRUNCATION_KEY = "truncati
 // 5. A fingerprint must be written as a text string in NPF form. Do not use the
 //    NPF presentation-hint tag 18000 here, a consumer of this interface treats a
 //    tagged value as opaque bytes, so a fingerprint sent that way does not get
-//    picked.
+//    picked up.
 
 /// Reserved packet-level status: the truncation state of the packet/handshake.
 class truncation_message {

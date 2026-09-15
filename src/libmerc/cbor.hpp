@@ -194,11 +194,30 @@ namespace cbor {
             }
 
             uint8_t ai = ib.additional_info();
+
+            // RFC 8949 Sec. 3.3: additional info 28, 29 and 30 are reserved, and
+            // an item that uses one is not well formed.  Additional info 31
+            // selects the indefinite-length form, whose head carries no argument
+            // at all.  This class exists to hold that argument, so in both cases
+            // there is no value to report and the datum must go null.  A caller
+            // that supports the indefinite-length form must detect additional
+            // info 31 on the initial byte and route it before constructing this
+            // class.
+            //
+            if (ai >= 28) {
+                d.set_null();
+                return;
+            }
             if (ai < 24) {
                 value__ = ai;
             }
             if (ai == 24) {
                 value__ = encoded<uint8_t>{d}.value();
+                // RFC 8949 Sec. 3.3: for major type 7, a one-byte argument below 0x20 is not well formed
+                if (type == simple_or_float_type and value__ < 0x20) {
+                    d.set_null();
+                    return;
+                }
             }
             if (ai == 25) {
                 value__ = encoded<uint16_t>{d}.value();
@@ -703,18 +722,12 @@ namespace cbor {
             uint8_t mt = ib.value.major_type();
             uint8_t ai = ib.value.additional_info();
 
-            // RFC 8949 Sec. 3.3: additional info 28, 29, and 30 are reserved, and
-            // an item that uses one is not well formed.  Additional info 31
-            // selects the indefinite-length form, which is defined only for major
-            // types 2 through 5; for major type 7 it encodes the break stop code,
-            // which Sec. 3.2.1 says is not a data item at all, and for major types
-            // 0, 1, and 6 it is not well formed either.
+            // every head below is read through cbor::uint64, which rejects the
+            // reserved additional info 28, 29 and 30, the argument-less additional
+            // info 31, and a major type 7 one-byte argument below 0x20.  The three
+            // legal indefinite-length forms are routed off the lookahead above,
+            // before a head reader could see them.
             //
-            if (ai >= 28 && (ai != 31 || mt < byte_string_type || mt > map_type)) {
-                d.set_null();
-                return;
-            }
-
             switch (mt) {
             case unsigned_integer_type:
                 { uint64 tmp{d}; }
@@ -732,26 +745,20 @@ namespace cbor {
                 break;
             case array_type:
                 {
-                    initial_byte arr_ib{d};
-                    uint8_t ai = arr_ib.additional_info();
                     if (ai == 31) {
+                        initial_byte{d};                // consume the head
                         while (d.is_not_empty() && !is_break(d)) {
                             skip_cbor_value(d, depth + 1);
                             if (d.is_null()) { return; }
                         }
                         read_break(d);
                     } else {
-                        uint64_t count = 0;
-                        if (ai < 24)       { count = ai; }
-                        else if (ai == 24) { count = encoded<uint8_t>{d}.value(); }
-                        else if (ai == 25) { count = encoded<uint16_t>{d}.value(); }
-                        else if (ai == 26) { count = encoded<uint32_t>{d}.value(); }
-                        else if (ai == 27) { count = encoded<uint64_t>{d}.value(); }
+                        uint64 count{d, array_type};    // the head's argument is the count
                         if (d.is_null()) { return; }
                         // each element is at least one byte, so a count larger than
                         // the remaining input cannot be satisfied
-                        if (count > (uint64_t)d.length()) { d.set_null(); return; }
-                        for (uint64_t i = 0; i < count; i++) {
+                        if (count.value() > (uint64_t)d.length()) { d.set_null(); return; }
+                        for (uint64_t i = 0; i < count.value(); i++) {
                             const uint8_t *before = d.data;
                             skip_cbor_value(d, depth + 1);
                             if (d.is_null() || d.data == before) { d.set_null(); return; }
@@ -761,9 +768,8 @@ namespace cbor {
                 break;
             case map_type:
                 {
-                    initial_byte map_ib{d};
-                    uint8_t ai = map_ib.additional_info();
                     if (ai == 31) {
+                        initial_byte{d};                // consume the head
                         while (d.is_not_empty() && !is_break(d)) {
                             skip_cbor_value(d, depth + 1);  // key
                             if (d.is_null()) { return; }
@@ -772,13 +778,9 @@ namespace cbor {
                         }
                         read_break(d);
                     } else {
-                        uint64_t count = 0;
-                        if (ai < 24)       { count = ai; }
-                        else if (ai == 24) { count = encoded<uint8_t>{d}.value(); }
-                        else if (ai == 25) { count = encoded<uint16_t>{d}.value(); }
-                        else if (ai == 26) { count = encoded<uint32_t>{d}.value(); }
-                        else if (ai == 27) { count = encoded<uint64_t>{d}.value(); }
+                        uint64 pairs{d, map_type};      // the head's argument is the pair count
                         if (d.is_null()) { return; }
+                        uint64_t count = pairs.value();
                         // each pair is at least two bytes; compare against length/2
                         // to avoid overflowing count*2 for very large declared counts
                         if (count > (uint64_t)d.length() / 2) { d.set_null(); return; }
@@ -801,14 +803,9 @@ namespace cbor {
                 }
                 break;
             case simple_or_float_type:
-                {
-                    initial_byte consumed{d};
-                    uint8_t ai = consumed.additional_info();
-                    if (ai == 24)      { if (!d.skip(1)) { d.set_null(); } }  // 1-byte simple value
-                    else if (ai == 25) { if (!d.skip(2)) { d.set_null(); } }  // float16
-                    else if (ai == 26) { if (!d.skip(4)) { d.set_null(); } }  // float32
-                    else if (ai == 27) { if (!d.skip(8)) { d.set_null(); } }  // float64
-                }
+                // the head grammar is uniform (RFC 8949 Sec. 3), so uint64 consumes
+                // exactly the one-byte simple value or the float payload.
+                { uint64 tmp{d, simple_or_float_type}; }
                 break;
             default:
                 d.set_null();
@@ -1433,6 +1430,10 @@ namespace cbor {
             {
                 { 0x64, 0x49, 0x45, 0x54, 0x46 },   // text string "IETF"
                 { 0x44, 0x01, 0x02, 0x03, 0x04  },  // byte string 0x01020304
+                { 0x1c },                           // reserved additional info 28
+                { 0x1d },                           // reserved additional info 29
+                { 0x1e },                           // reserved additional info 30
+                { 0x1f },                           // indefinite length, no argument
             }
         };
         if (f) { fprintf(f, "cbor::uint64 negative test cases:\n"); }

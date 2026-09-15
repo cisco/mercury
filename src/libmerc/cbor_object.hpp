@@ -10,6 +10,7 @@
 #include "json_object.h"
 #include "null_terminated_string.hpp"
 #include "utf8.hpp"
+#include <limits>
 #include <optional>
 #include <stdexcept>
 
@@ -300,6 +301,7 @@ static inline void fprint_dropped_npf_tag(FILE *f, const datum &content) {
 class cbor_to_json_translator {
     const vocabulary *keys;
     FILE *warn;      // where to report a dropped tag; nullptr is silent
+    data_buffer<fingerprint::MAX_FP_STR_LEN> fp_buf;
 
     enum class type { key, value };
 
@@ -355,6 +357,10 @@ public:
                         {
                             cbor::uint64 tmp{d};
                             if (d.is_null()) { return false; }
+                            if (tmp.value() > std::numeric_limits<uint16_t>::max()) {
+                                d.set_null();
+                                return false;
+                            }
                             if (keys == nullptr) {
                                 key_buf.reset();
                                 key_buf.write_uint16(tmp.value());
@@ -384,6 +390,7 @@ public:
                     }
 
                     if (!key) {
+                        d.set_null();   // an unusable key makes the whole map undecodable
                         return false;
                     }
                     expected_type = type::value;
@@ -440,7 +447,7 @@ public:
                             if (d.is_null()) { return false; }
                             if (tmp.value() == tag_npf_fingerprint) {
                                 datum trial{d};          // a copy, so d survives a failed decode
-                                data_buffer<fingerprint::MAX_FP_STR_LEN> fp_buf;
+                                fp_buf.reset();
                                 cbor_fingerprint::decode_cbor_fingerprint(trial, fp_buf);
                                 if (trial.is_not_null() and !fp_buf.is_null()) {
                                     d = trial;
@@ -563,7 +570,7 @@ inline bool cbor_to_json_translator::decode_cbor_array_to_json(datum &d, json_ar
                     if (d.is_null()) { return false; }
                     if (tmp.value() == tag_npf_fingerprint) {
                         datum trial{d};                  // a copy, so d survives a failed decode
-                        data_buffer<fingerprint::MAX_FP_STR_LEN> fp_buf;
+                        fp_buf.reset();
                         cbor_fingerprint::decode_cbor_fingerprint(trial, fp_buf);
                         if (trial.is_not_null() and !fp_buf.is_null()) {
                             d = trial;
@@ -1152,6 +1159,114 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
                           datum{tag_holding_definite_array},
                           "[{\"999\":\"ggEC\"}]", true, 0, f);
 
+    // a tag head that uses the indefinite-length additional info, which carries
+    // no argument at all, so there is no tag number to read (RFC 8949 Sec. 3.3)
+    //
+    std::array<uint8_t,4> tag_head_ai_31{
+        0x9f,                                                   // [
+          0xdf,                                                 //   tag(-)
+            0x01,                                               //     1
+        0xff                                                    // ]
+    };
+    translation_tests_passed &=
+        test_cbor_array_to_json("tag head with indefinite-length additional info",
+                          datum{tag_head_ai_31},
+                          "[]", false, -1, f);
+
+    // a tag head that uses a reserved additional info, which makes the item
+    // ill formed rather than a tag numbered zero
+    //
+    std::array<uint8_t,4> tag_head_ai_28{
+        0x9f,                                                   // [
+          0xdc,                                                 //   tag(-)
+            0x01,                                               //     1
+        0xff                                                    // ]
+    };
+    translation_tests_passed &=
+        test_cbor_array_to_json("tag head with reserved additional info",
+                          datum{tag_head_ai_28},
+                          "[]", false, -1, f);
+
+    // an indefinite-length text string, which this interface does not produce.
+    // Its head carries no length, so it is rejected rather than read as a
+    // zero-length string whose chunk becomes the next element.
+    //
+    std::array<uint8_t,6> indefinite_text_string{
+        0x9f,                                                   // [
+          0x7f, 0x61, 0x61, 0xff,                               //   (_ "a")
+        0xff                                                    // ]
+    };
+    translation_tests_passed &=
+        test_cbor_array_to_json("indefinite-length text string",
+                          datum{indefinite_text_string},
+                          "[]", false, -1, f);
+
+    // reserved additional info on the head of an unknown tag's content, which
+    // skip_cbor_value() has to reject for the major types that carry a count or
+    // no argument at all.  A definite-length array or map head with a reserved
+    // additional info declares no count, and a major type 7 head with one
+    // declares no payload, so none of the three can be advanced past.
+    //
+    std::array<uint8_t,6> reserved_array_head{
+        0x9f,                                                   // [
+          0xd9, 0x03, 0xe7,                                     //   tag(999)
+            0x9c,                                               //     array(-)
+        0xff                                                    // ]
+    };
+    translation_tests_passed &=
+        test_cbor_array_to_json("reserved additional info on an array head",
+                          datum{reserved_array_head},
+                          "[]", false, -1, f);
+
+    std::array<uint8_t,6> reserved_map_head{
+        0x9f,                                                   // [
+          0xd9, 0x03, 0xe7,                                     //   tag(999)
+            0xbc,                                               //     map(-)
+        0xff                                                    // ]
+    };
+    translation_tests_passed &=
+        test_cbor_array_to_json("reserved additional info on a map head",
+                          datum{reserved_map_head},
+                          "[]", false, -1, f);
+
+    std::array<uint8_t,6> reserved_simple_head{
+        0x9f,                                                   // [
+          0xd9, 0x03, 0xe7,                                     //   tag(999)
+            0xfc,                                               //     simple(-)
+        0xff                                                    // ]
+    };
+    translation_tests_passed &=
+        test_cbor_array_to_json("reserved additional info on a simple value head",
+                          datum{reserved_simple_head},
+                          "[]", false, -1, f);
+
+    // a one-byte simple value below 0x20, which is the long spelling of a value
+    // that has to use the immediate form: f8 14 says what f4 already says.
+    //
+    std::array<uint8_t,7> simple_value_below_20{
+        0x9f,                                                   // [
+          0xd9, 0x03, 0xe7,                                     //   tag(999)
+            0xf8, 0x14,                                         //     simple(20)
+        0xff                                                    // ]
+    };
+    translation_tests_passed &=
+        test_cbor_array_to_json("one-byte simple value below 0x20",
+                          datum{simple_value_below_20},
+                          "[]", false, -1, f);
+
+    // 0x20 is the lowest simple value the one-byte form is allowed to carry
+    //
+    std::array<uint8_t,7> simple_value_at_20{
+        0x9f,                                                   // [
+          0xd9, 0x03, 0xe7,                                     //   tag(999)
+            0xf8, 0x20,                                         //     simple(32)
+        0xff                                                    // ]
+    };
+    translation_tests_passed &=
+        test_cbor_array_to_json("one-byte simple value at 0x20",
+                          datum{simple_value_at_20},
+                          "[{\"999\":\"+CA=\"}]", true, 0, f);
+
     // null and false in array element position, followed by an unsigned integer
     //
     std::array<uint8_t,5> simple_values{
@@ -1238,6 +1353,74 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
         test_cbor_map_to_json("map truncated before the break",
                           datum{map_without_break},
                           "{\"1\":1}", false, -1, f);
+
+    // a text key whose JSON-escaped form does not fit key_buf.  64 backslashes
+    // double to 128 bytes, one more than the buffer holds with its null, and the
+    // surviving key would end in a lone backslash that escapes the closing quote.
+    //
+    {
+        std::array<uint8_t,69> escaped_key_too_long;
+        escaped_key_too_long[0] = 0xbf;                         // {
+        escaped_key_too_long[1] = 0x78;                         //   text string,
+        escaped_key_too_long[2] = 64;                           //   64 bytes
+        for (size_t i = 0; i < 64; i++) {
+            escaped_key_too_long[3 + i] = '\\';                 //   all backslashes
+        }
+        escaped_key_too_long[67] = 0x01;                        //   1
+        escaped_key_too_long[68] = 0xff;                        // }
+        translation_tests_passed &=
+            test_cbor_map_to_json("text key too long once escaped",
+                              datum{escaped_key_too_long},
+                              "{}", false, -1, f);
+    }
+
+    // a text key that needs no escaping and still does not fit: 128 bytes into a
+    // buffer that holds 127.  This is the flavor that yields parseable json with a
+    // silently shortened key, so two long keys sharing a prefix collide.
+    //
+    {
+        std::array<uint8_t,133> key_too_long;
+        key_too_long[0] = 0xbf;                                 // {
+        key_too_long[1] = 0x78;                                 //   text string,
+        key_too_long[2] = 128;                                  //   128 bytes
+        for (size_t i = 0; i < 128; i++) {
+            key_too_long[3 + i] = 'a';
+        }
+        key_too_long[131] = 0x01;                               //   1
+        key_too_long[132] = 0xff;                               // }
+        translation_tests_passed &=
+            test_cbor_map_to_json("text key too long unescaped",
+                              datum{key_too_long},
+                              "{}", false, -1, f);
+    }
+
+    // an unsigned key above the 65535 that guideline 3 allows.  Rendering it
+    // through write_uint16() would reduce it mod 65536, so 65536 would print as
+    // "0" and collide with a sibling key of 0.
+    //
+    std::array<uint8_t,8> unsigned_key_out_of_range{
+        0xbf,                                                   // {
+          0x1a, 0x00, 0x01, 0x00, 0x00,                         //   65536:
+          0x01,                                                 //   1
+        0xff                                                    // }
+    };
+    translation_tests_passed &=
+        test_cbor_map_to_json("unsigned key above 65535",
+                          datum{unsigned_key_out_of_range},
+                          "{}", false, -1, f);
+
+    // the largest unsigned key guideline 3 allows, which has to keep working
+    //
+    std::array<uint8_t,6> unsigned_key_at_limit{
+        0xbf,                                                   // {
+          0x19, 0xff, 0xff,                                     //   65535:
+          0x01,                                                 //   1
+        0xff                                                    // }
+    };
+    translation_tests_passed &=
+        test_cbor_map_to_json("unsigned key at 65535",
+                          datum{unsigned_key_at_limit},
+                          "{\"65535\":1}", true, 0, f);
 
     // an npf tag in map value position whose content this build cannot decode
     // as a fingerprint: the format version is 7.  The tag, its content and the

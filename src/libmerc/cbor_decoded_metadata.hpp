@@ -120,9 +120,9 @@ inline void decode_cbor_metadata(const uint8_t* buf, size_t len,
             // change brings a v2, the library may emit both so that consumers
             // built against v1 keep working.
             //
-            // valid is set here rather than after outer.close() because
-            // inner.close() has already consumed v1's break: v1 is complete at
-            // this point, and a truncated or malformed sibling version cannot
+            // valid is set here, inside the loop, because inner.close() has
+            // already consumed v1's break: v1 is complete at this point, and
+            // neither a malformed sibling version nor a missing outer break can
             // take that away.
             out.valid = true;
         } else {
@@ -130,7 +130,6 @@ inline void decode_cbor_metadata(const uint8_t* buf, size_t len,
             if (d.is_null()) { return; }
         }
     }
-    outer.close();   // completes the envelope; validity does not depend on it
 }
 
 namespace {

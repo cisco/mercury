@@ -801,7 +801,8 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
     // decode_cbor_metadata() must fail cleanly (valid == false, no crash, no
     // out-of-bounds read). Two flavors: a mid-stream cut, which still appends the
     // feature it had started on with is_valid() false, and a 2-byte stub, which
-    // cannot get past the outer map and captures nothing.
+    // cannot get past the outer map and captures nothing. A third flavor cuts only
+    // the envelope's final break, which is not a failure: v1 self-terminates.
     {
         // build a valid single-feature buffer, then feed a reduced length.
         data_buffer<512> buf;
@@ -823,6 +824,13 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         decode_cbor_metadata(encoded.data, 2, stub);
         report("trunc-decode: 2-byte stub -> valid false", !stub.valid);
         report("trunc-decode: stub unknown empty", stub.unknown.empty());
+
+        // drop only the outer break: v1's own break has already been consumed, so
+        // the version is complete and a lost trailing byte cannot retract it
+        full_decoder no_break;
+        decode_cbor_metadata(encoded.data, encoded.length() - 1, no_break);
+        report("trunc-decode: missing outer break -> still valid",
+               no_break.valid && no_break.get<exposed_creds_message>().is_valid());
     }
 
     return all_passed;
