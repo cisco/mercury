@@ -140,13 +140,18 @@ public:
 
 class lsd_header {
     std::vector<header> headers;
-    static constexpr uint8_t max_headers = 10;
+
+    // an announce of BEP-14's recommended 1400 bytes holds at most 25
+    // Infohash headers, plus Host, Port, and cookie -- 28, rounded up
+    //
+    static constexpr uint8_t max_headers = 32;
     bool valid = false;
 
 public:
     lsd_header(datum &d) {
         headers.reserve(max_headers);
-        while(d.is_not_empty()) {
+        // a non-conformant announce is still reported, truncated to the bound
+        while (d.is_not_empty() and headers.size() < max_headers) {
             if (lookahead<newhttp::crlf> at_end{d}) {
                 break;
             }
@@ -531,6 +536,26 @@ namespace bittorrent_unit_test {
         datum d2{handshake, handshake + sizeof(handshake)};
         bittorrent_handshake hs{d2};
         if (!hs.is_not_empty()) return false;
+
+        // 33 headers, pinning max_headers at 32 from both sides: the 32nd
+        // is reported and the 33rd is not.  The count is literal so that
+        // moving max_headers in either direction fails this test.
+        //
+        std::string announce{"BT-SEARCH * HTTP/1.1\r\n"};
+        for (unsigned i = 0; i < 31; i++) {
+            announce += "Infohash: 3f9aac158c7de8dfcab171ea58a17aabdf7fbc93\r\n";
+        }
+        announce += "last: reported\r\nover: dropped\r\n\r\n";
+        datum d3{(const uint8_t*)announce.data(), (const uint8_t*)announce.data() + announce.size()};
+        bittorrent_lsd lsd{d3};
+        char buffer[4096];
+        buffer_stream buf{buffer, sizeof(buffer)};
+        json_object json{&buf};
+        lsd.write_json(json, false);
+        json.close();
+        buf.add_null();
+        if (!strstr(buffer, "\"key\":\"last:\"")) return false;  // 32nd header kept
+        if (strstr(buffer, "\"key\":\"over:\"")) return false;   // 33rd header dropped
 
         return true;
     }
