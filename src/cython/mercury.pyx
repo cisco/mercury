@@ -897,8 +897,8 @@ def parse_dns(str dns_data, bool is_hex=False):
     :type dns_data: str
     :param is_hex: If true, decode dns_data as hex; otherwise decode as base64.
     :type is_hex: bool
-    :return: JSON-encoded DNS packet.
-    :rtype: dict
+    :return: JSON-encoded DNS packet, or None if parsing fails.
+    :rtype: dict or None
     """
     cdef bytes dns_req = _decode_str_data(dns_data, is_hex)
     cdef unsigned int len_ = len(dns_req)
@@ -916,8 +916,8 @@ def decode_fdc(bytes fdc_blob):
 
     :param fdc_blob: Hex bytes of mercury FDC object.
     :type fdc_blob: bytes
-    :return: JSON-encoded mercury decoded FDC.
-    :rtype: dict
+    :return: JSON-encoded mercury decoded FDC, or None if decoding fails.
+    :rtype: dict or None
     """
     cdef unsigned int len_ = len(fdc_blob)
 
@@ -932,8 +932,8 @@ def decode_mercury_fdc(str b64_fdc):
 
     :param b64_fdc: Base64-encoded mercury FDC object.
     :type b64_fdc: str
-    :return: JSON-encoded mercury decoded FDC.
-    :rtype: dict
+    :return: JSON-encoded mercury decoded FDC, or None if decoding fails.
+    :rtype: dict or None
     """
     cdef bytes fdc_blob = b64decode(b64_fdc)
 
@@ -958,8 +958,8 @@ def parse_cert(str cert_data, bool is_hex=False):
     :type cert_data: str
     :param is_hex: If true, decode cert_data as hex; otherwise decode as base64.
     :type is_hex: bool
-    :return: JSON-encoded certificate.
-    :rtype: dict
+    :return: JSON-encoded certificate, or None if parsing fails.
+    :rtype: dict or None
     """
     cdef bytes cert = _decode_str_data(cert_data, is_hex)
     cdef unsigned int len_ = len(cert)
