@@ -232,6 +232,34 @@ namespace cdp_unit_test {
             && strstr(buffer, "\"ipv6_addr\":\"malformed\"") == nullptr;
     }
 
+    inline bool ipv4_address_tlv_unit_test() {
+        static constexpr std::array<uint8_t, 29> cdp_ipv4_address_tlv = {
+            0xaa, 0xaa, 0x03, 0x00, 0x00, 0x0c, 0x20, 0x00,
+            0x02, 0xb4, 0x00, 0x00,
+            0x00, 0x02, 0x00, 0x11,
+            0x00, 0x00, 0x00, 0x01,
+            0x01, 0x01, 0xcc, 0x00, 0x04,
+            0x01, 0x02, 0x03, 0x04
+        };
+
+        datum d{cdp_ipv4_address_tlv.data(),
+                cdp_ipv4_address_tlv.data() + cdp_ipv4_address_tlv.size()};
+        cdp pkt{d};
+        if (!pkt.is_not_empty()) {
+            return false;
+        }
+
+        char buffer[2048];
+        buffer_stream buf{buffer, sizeof(buffer)};
+        json_object json{&buf};
+        pkt.write_json(json, false);
+        json.close();
+        buf.add_null();
+
+        return strstr(buffer, "\"ipv4_addr\":\"1.2.3.4\"") != nullptr
+            && strstr(buffer, "\"ipv4_addr\":\"malformed\"") == nullptr;
+    }
+
     inline bool malformed_address_tlv_unit_test() {
         static constexpr std::array<uint8_t, 25> cdp_truncated_address_tlv = {
             0xaa, 0xaa, 0x03, 0x00, 0x00, 0x0c, 0x20, 0x00,
@@ -320,6 +348,7 @@ namespace cdp_unit_test {
         if (!pkt2.is_not_empty()) return false;
 
         if (!ipv6_address_tlv_unit_test()) return false;
+        if (!ipv4_address_tlv_unit_test()) return false;
         if (!ipv6_protocol_with_ipv4_length_unit_test()) return false;
 
         return true;
