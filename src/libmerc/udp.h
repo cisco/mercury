@@ -51,20 +51,21 @@ namespace udp_header {
     struct length { };
     struct checksum { };
 
+    using view = packed_view<
+        packed_view_field<source_port, uint16_t>,
+        packed_view_field<destination_port, uint16_t>,
+        packed_view_field<length, uint16_t>,
+        packed_view_field<checksum, uint16_t>>;
+
 } // namespace udp_header
 
-using udp_header_view = packed_view<
-    packed_view_field<udp_header::source_port, uint16_t>,
-    packed_view_field<udp_header::destination_port, uint16_t>,
-    packed_view_field<udp_header::length, uint16_t>,
-    packed_view_field<udp_header::checksum, uint16_t>>;
 
-static_assert(udp_header_view::extent == 8);
-static_assert(sizeof(udp_header_view) == sizeof(uint8_t *));
+static_assert(udp_header::view::extent == 8);
+static_assert(sizeof(udp_header::view) == sizeof(uint8_t *));
 
 class udp {
 
-    udp_header_view header;
+    udp_header::view header;
     uint32_t more_bytes_needed;
     // ports if header is null
     uint16_t src_port = 0;
@@ -91,7 +92,7 @@ public:
     { }
 
     void parse(struct datum &d) {
-        header = udp_header_view{d};
+        header = udp_header::view{d};
     }
 
     // struct ports is a simple public helper used to return port info
@@ -176,7 +177,7 @@ inline bool udp_unit_test() {
     };
 
     datum header_data{packet, packet + sizeof(packet)};
-    udp_header_view header{header_data};
+    udp_header::view header{header_data};
     if (!header || header_data.length() != 1) return false;
     if (ntoh(header.field<udp_header::source_port>()) != 0x1234) return false;
     if (ntoh(header.field<udp_header::destination_port>()) != 0xabcd) return false;
@@ -184,7 +185,7 @@ inline bool udp_unit_test() {
     if (header.read<uint8_t, 7>() != 0xad) return false;
 
     datum truncated_header{packet, packet + 7};
-    udp_header_view missing{truncated_header};
+    udp_header::view missing{truncated_header};
     if (missing || !truncated_header.is_null()) return false;
 
     datum d{packet, packet + sizeof(packet)};
