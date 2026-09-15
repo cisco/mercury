@@ -160,6 +160,9 @@ cdef class server_identifier_py:
     def __cinit__(self, s):
         self.thisptr = new server_identifier(s.encode('utf-8'))
 
+    def __dealloc__(self):
+        del self.thisptr
+
     def get_normalized_domain_name(self, bool detailed_output=True):
         self.detailed_output = <server_identifier.detail>detailed_output
         try:
@@ -224,6 +227,10 @@ fp_type_dict = {
     10: 'dtls',
     11: 'dtls_server',
     12: 'quic',
+    13: 'tcp_server',
+    14: 'openvpn',
+    15: 'tofsee',
+    16: 'stun',
     17: 'ssh_init',
     18: 'ssh_server',
     19: 'ssh_kex_server',
@@ -751,7 +758,7 @@ cdef class Mercury:
         cdef const char* server_name = analysis_context_get_server_name(ac)
         if server_name == NULL:
             return None
-        return server_name.decode('UTF-8')
+        return server_name.decode('UTF-8', errors='replace')
 
 
     cdef tuple get_fingerprint_info(self, const analysis_context* ac):
@@ -875,6 +882,13 @@ def _decode_str_data(str data_str, bool is_hex):
             raise ValueError("Invalid base64 input") from e
 
 
+cdef object _load_json(string data):
+    try:
+        return json.loads(data.decode())
+    except ValueError:
+        return None
+
+
 def parse_dns(str dns_data, bool is_hex=False):
     """
     Return a JSON representation of a DNS packet supplied as hex or base64.
@@ -893,7 +907,7 @@ def parse_dns(str dns_data, bool is_hex=False):
     cdef char* c_string_ref = dns_req
 
     # use mercury's dns parser to parse the DNS request
-    return json.loads(dns_get_json_string(c_string_ref, len_).decode())
+    return _load_json(dns_get_json_string(c_string_ref, len_))
 
 
 def decode_fdc(bytes fdc_blob):
@@ -909,7 +923,7 @@ def decode_fdc(bytes fdc_blob):
 
     # create reference to fdc_blob so that it doesn't get garbage collected
     cdef char* c_string_ref = fdc_blob
-    return json.loads(get_json_decoded_fdc(c_string_ref, len_).decode())
+    return _load_json(get_json_decoded_fdc(c_string_ref, len_))
 
 
 def decode_mercury_fdc(str b64_fdc):
@@ -958,7 +972,7 @@ def parse_cert(str cert_data, bool is_hex=False):
     x.parse(<const void*>c_string_ref, len_)
 
     # get JSON string and return JSON object
-    return json.loads(x.get_json_string().decode())
+    return _load_json(x.get_json_string())
 
 
 def get_cert_prefix(str b64_cert):
@@ -1001,15 +1015,20 @@ cdef extern from "json_string.hpp":
 
 cdef class ECHConfig:
     cdef ech_config* ech_obj
+    cdef bytes ech_config_str
 
     def __init__(self, bytes ech_config_str):
         cdef unsigned int len_ = len(ech_config_str)
 
         # create reference to ech_config so that it doesn't get garbage collected
+        self.ech_config_str = ech_config_str
         cdef const unsigned char* c_string_ref = ech_config_str
 
         cdef datum ech_datum = datum(c_string_ref, c_string_ref + len_)
         self.ech_obj = new ech_config(ech_datum)
+
+    def __dealloc__(self):
+        del self.ech_obj
 
     def get_json_string(self):
         json_str = get_json_string(dereference(self.ech_obj), 1024).decode()
