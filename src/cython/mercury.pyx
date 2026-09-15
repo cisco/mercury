@@ -402,8 +402,8 @@ cdef class Mercury:
 
         result = {}
         result['status']   = fp_status_dict[fp_status]
-        result['type']     = fp_type_dict[fp_type]
-        result['str_repr'] = fp_string.decode('UTF-8')
+        result['type']     = fp_type_dict.get(fp_type, 'unknown')
+        result['str_repr'] = fp_string.decode('UTF-8', errors='replace')
 
         return result
 
@@ -515,7 +515,7 @@ cdef class Mercury:
         result['fingerprint_info']           = {}
         result['fingerprint_info']['status'] = fp_status
         result['analysis']                   = {}
-        result['analysis']['process']        = ar.max_proc.decode('UTF-8')
+        result['analysis']['process']        = ar.max_proc.decode('UTF-8', errors='replace')
         result['analysis']['score']          = ar.max_score
         result['analysis']['malware']        = ar.max_mal
         result['analysis']['p_malware']      = ar.malware_prob
@@ -584,7 +584,7 @@ cdef class Mercury:
         result['analysis']['process_details'] = []
         for i in range(len(ar.process_names)):
             process_entry = {
-                "process": ar.process_names[i].decode("UTF-8"),
+                "process": ar.process_names[i].decode("UTF-8", errors='replace'),
                 "score": float(ar.normalized_process_scores[i])
             }
             result['analysis']['process_details'].append(process_entry)
@@ -766,7 +766,7 @@ cdef class Mercury:
         cdef fingerprint_type fp_type = analysis_context_get_fingerprint_type(ac)
         cdef const char* fp_string = analysis_context_get_fingerprint_string(ac)
 
-        return fp_status_dict[fp_status], fp_type_dict[fp_type], fp_string.decode('UTF-8')
+        return fp_status_dict[fp_status], fp_type_dict.get(fp_type, 'unknown'), fp_string.decode('UTF-8', errors='replace')
 
 
     cpdef dict get_correlation_object(self, bytes pkt_data, double ts=0.0):
@@ -846,9 +846,9 @@ cdef class Mercury:
         cdef bool p = analysis_context_get_process_info(ac, &process_name, &score)
         cdef bool m = analysis_context_get_malware_info(ac, &is_malware, &m_score)
         if p and m:
-            return process_name.decode('UTF-8'), score, is_malware, m_score
+            return process_name.decode('UTF-8', errors='replace'), score, is_malware, m_score
         elif p:
-            return process_name.decode('UTF-8'), score, None, None
+            return process_name.decode('UTF-8', errors='replace'), score, None, None
         else:
             return None, None, None, None
 
@@ -903,7 +903,7 @@ def parse_dns(str dns_data, bool is_hex=False):
     cdef bytes dns_req = _decode_str_data(dns_data, is_hex)
     cdef unsigned int len_ = len(dns_req)
 
-    # create reference to dns so that it doesn't get garbage collected
+    # keep a reference to the input so that C++ datum views into it stay valid
     cdef char* c_string_ref = dns_req
 
     # use mercury's dns parser to parse the DNS request
@@ -914,14 +914,14 @@ def decode_fdc(bytes fdc_blob):
     """
     Return a JSON representation of a decoded mercury FDC object.
 
-    :param fdc_blob: Hex bytes of mercury FDC object.
+    :param fdc_blob: Raw bytes of a mercury FDC object.
     :type fdc_blob: bytes
     :return: JSON-encoded mercury decoded FDC, or None if decoding fails.
     :rtype: dict or None
     """
     cdef unsigned int len_ = len(fdc_blob)
 
-    # create reference to fdc_blob so that it doesn't get garbage collected
+    # keep a reference to the input so that C++ datum views into it stay valid
     cdef char* c_string_ref = fdc_blob
     return _load_json(get_json_decoded_fdc(c_string_ref, len_))
 
@@ -965,7 +965,7 @@ def parse_cert(str cert_data, bool is_hex=False):
     cdef unsigned int len_ = len(cert)
     cdef x509_cert x
 
-    # create reference to cert so that it doesn't get garbage collected
+    # keep a reference to the input so that C++ datum views into it stay valid
     cdef char* c_string_ref = cert
 
     # use mercury's asn1 parser to parse certificate data
@@ -988,7 +988,7 @@ def get_cert_prefix(str b64_cert):
     cdef unsigned int len_ = len(cert)
     cdef x509_cert_prefix x
 
-    # create reference to cert so that it doesn't get garbage collected
+    # keep a reference to the input so that C++ datum views into it stay valid
     cdef char* c_string_ref = cert
 
     # use mercury's asn1 parser to parse certificate data
@@ -1020,7 +1020,7 @@ cdef class ECHConfig:
     def __cinit__(self, bytes ech_config_str):
         cdef unsigned int len_ = len(ech_config_str)
 
-        # create reference to ech_config so that it doesn't get garbage collected
+	# keep a reference to the input so that C++ datum views into it stay valid
         self.ech_config_str = ech_config_str
         cdef const unsigned char* c_string_ref = ech_config_str
 
