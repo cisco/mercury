@@ -1017,7 +1017,7 @@ cdef class ECHConfig:
     cdef ech_config* ech_obj
     cdef bytes ech_config_str
 
-    def __init__(self, bytes ech_config_str):
+    def __cinit__(self, bytes ech_config_str):
         cdef unsigned int len_ = len(ech_config_str)
 
         # create reference to ech_config so that it doesn't get garbage collected
