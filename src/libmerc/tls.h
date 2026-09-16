@@ -1262,9 +1262,6 @@ inline bool is_faketls_util(const datum ciphersuite_vector) {
 #define L_ExtensionType            2
 #define L_ExtensionLength          2
 
-#define L_NamedGroupListLen        2
-#define L_ProtocolVersionListLen   1
-
 /*
  * field lengths used in serverHello parsing
  */
