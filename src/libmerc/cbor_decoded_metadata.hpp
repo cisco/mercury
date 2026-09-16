@@ -111,7 +111,7 @@ inline void decode_cbor_metadata(const uint8_t* buf, size_t len,
         if (d.is_null()) { return; }
 
         datum k = ver_key.value();
-        if (k.match(CBOR_METADATA_VERSION_KEY)) {
+        if (k.match(CBOR_METADATA_VERSION_KEY.c_str())) {
             recognized_version = true;
             cbor::map inner{d};
             if (d.is_null()) { return; }

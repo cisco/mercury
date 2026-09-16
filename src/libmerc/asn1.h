@@ -15,6 +15,7 @@
 
 #include "datum.h"
 #include "json_object.h"
+#include "null_terminated_string.hpp"
 #include "utils.h"
 #include "asn1/oid.h"
 #include "time.hpp"
@@ -575,7 +576,7 @@ struct tlv {
      * RELATIVE-OID-IRI		   36	24 *** LONG FORM TAG NUMBER ***
      */
 
-    static constexpr const char *type[32] = {
+    static constexpr null_terminated_string type[32] = {
         "End-of-Content",
         "BOOLEAN",
         "INTEGER",
@@ -606,13 +607,14 @@ struct tlv {
         "GeneralString",
         "UniversalString",
         "CHARACTER STRING",
-        "BMPString"
+        "BMPString",
+        "LONG_FORM_TAG"
     };
 
     /// returns a null-terminated character string describing the type
     /// associated with this \ref tlv object
     ///
-    const char *get_type() const {
+    null_terminated_string get_type() const {
         return type[tag & 31];
     }
 
@@ -661,7 +663,7 @@ struct tlv {
                 // tag is context-specific
                 fprintf(f, "T:%02x (%u:%u:%u, explicit tag %u)\tL:%08" PRIu64 "\tV:", tag, tag_class, constructed, tag_number, tag_number, length);
             } else {
-                fprintf(f, "T:%02x (%u:%u:%u, %s)\tL:%08" PRIu64 "\tV:", tag, tag_class, constructed, tag_number, type[tag_number], length);
+                fprintf(f, "T:%02x (%u:%u:%u, %s)\tL:%08" PRIu64 "\tV:", tag, tag_class, constructed, tag_number, type[tag_number].c_str(), length);
             }
             value.fprint_hex(f);
             if (tlv_name) {
@@ -741,55 +743,54 @@ struct tlv {
     /*
      * functions for json_object serialization
      */
-    void print_as_json_hex(struct json_object &o, const char *name) const {
+    void print_as_json_hex(struct json_object &o, null_terminated_string name) const {
         if (!is_valid()) {
             return;
         }
         o.print_key_hex(name, value);
-        if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
+        if ((unsigned)value.length() != length) { o.print_key_string("truncated", name.c_str()); }
     }
 
-    void print_as_json_oid(struct json_object &o, const char *name) const {
+    void print_as_json_oid(struct json_object &o, null_terminated_string name) const {
         if (!is_valid()) {
             return;
         }
         o.print_key_value(name, raw_oid{value});
-        if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
+        if ((unsigned)value.length() != length) { o.print_key_string("truncated", name.c_str()); }
     }
 
-    void print_as_json_escaped_string(struct json_object &o, const char *name) const {
+    void print_as_json_escaped_string(struct json_object &o, null_terminated_string name) const {
         if (!is_valid()) {
             return;
         }
         o.print_key_json_string(name, value);
-        if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
+        if ((unsigned)value.length() != length) { o.print_key_string("truncated", name.c_str()); }
     }
 
-    void print_as_json_utctime(struct json_object &o, const char *name) const {
+    void print_as_json_utctime(struct json_object &o, null_terminated_string name) const {
         if (!is_valid()) {
             return;
         }
         o.print_key_value(name, utc_time{value});
-        if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
+        if ((unsigned)value.length() != length) { o.print_key_string("truncated", name.c_str()); }
     }
 
-    void print_as_json_generalized_time(struct json_object &o, const char *name) const {
+    void print_as_json_generalized_time(struct json_object &o, null_terminated_string name) const {
         if (!is_valid()) {
             return;
         }
         o.print_key_value(name, generalized_time{value});
-        if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
+        if ((unsigned)value.length() != length) { o.print_key_string("truncated", name.c_str()); }
     }
 
-    void print_as_json_bitstring(struct json_object &o, const char *name, bool comma=false) const {
+    void print_as_json_bitstring(struct json_object &o, null_terminated_string name) const {
         if (!is_valid()) {
             return;
         }
-        const char *format_string = "\"%s\":[";
-        if (comma) {
-            format_string = ",\"%s\":[";
-        }
-        o.b->snprintf(format_string, name);
+        o.write_comma(o.comma);
+        o.b->write_char('"');
+        o.b->puts(name.c_str());
+        o.b->puts("\":[");
         if (value.data && value.length() > 1) {
             struct datum p = value;
             uint8_t number_of_unused_bits = 0;
@@ -813,18 +814,18 @@ struct tlv {
 
         }
         o.b->write_char(']');
-        if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
+        if ((unsigned)value.length() != length) { o.print_key_string("truncated", name.c_str()); }
     }
 
-    void print_as_json_bitstring_flags(struct json_object &o, const char *name, char * const *flags) const {
+    void print_as_json_bitstring_flags(struct json_object &o, null_terminated_string name, char * const *flags) const {
         if (!is_valid()) {
             return;
         }
         o.print_key_bitstring_flags(name, value, flags);
-        if ((unsigned)value.length() != length) { o.print_key_string("truncated", name); }
+        if ((unsigned)value.length() != length) { o.print_key_string("truncated", name.c_str()); }
     }
 
-    void print_as_json(struct json_object &o, const char *name) const {
+    void print_as_json(struct json_object &o, null_terminated_string name) const {
         if (!is_valid()) {
             return;
         }
@@ -854,7 +855,7 @@ struct tlv {
         }
     }
 
-    void print_tag_as_json_hex(struct json_object &o, const char *name) const {
+    void print_tag_as_json_hex(struct json_object &o, null_terminated_string name) const {
         struct datum p{&tag, &tag+1};
         o.print_key_hex(name, p);
     }
@@ -1359,6 +1360,30 @@ inline bool unit_test(FILE *f = nullptr) {
         if (to_uint64(null_d) != 0) {
             passed = false;
             if (f) { fprintf(f, "asn1::to_uint64(null datum) expected 0\n"); }
+        }
+    }
+
+    // BIT STRING JSON output must share json_object's comma state.
+    {
+        const uint8_t bit_string_value[] = { 0x00, 0x80 };
+        datum bit_string_d{bit_string_value, bit_string_value + sizeof(bit_string_value)};
+        tlv bit_string;
+        bit_string.set(tlv::BIT_STRING, bit_string_d);
+
+        char buffer[128];
+        buffer_stream buf{buffer, sizeof(buffer)};
+        json_object obj{&buf};
+        obj.print_key_uint("before", 1);
+        bit_string.print_as_json(obj, "bits");
+        obj.print_key_uint("after", 2);
+        obj.close();
+
+        datum result{reinterpret_cast<const uint8_t *>(buffer),
+                     reinterpret_cast<const uint8_t *>(buffer) + buf.length()};
+        datum expected{R"({"before":1,"bits":[1,0,0,0,0,0,0,0],"after":2})"};
+        if (result.cmp(expected) != 0) {
+            passed = false;
+            if (f) { fprintf(f, "BIT STRING JSON comma-state regression failed\n"); }
         }
     }
 
