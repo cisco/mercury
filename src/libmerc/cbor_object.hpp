@@ -288,14 +288,15 @@ public:
 
 /// report to \param f a tag 18000 whose content this build could not decode as a
 /// fingerprint, and which the translator therefore dropped.  \param content is
-/// the tag's content bytes, without the three-byte tag head.
+/// the tag's content bytes, without the three-byte tag head. \param content past 189 bytes
+/// is cut at the buffer and marked "(truncated)".
 ///
 static inline void fprint_dropped_npf_tag(FILE *f, const datum &content) {
     output_buffer<256> b;
     b.raw_as_base64(content.data, content.data_end - content.data);
     b.add_null();
     fprintf(f, "warning: CBOR tag 18000 found, content dropped: %s%s\n",
-            b.data(), b.is_truncated() ? " (truncated)" : "");
+            b.data(), b.is_truncated() ? "\" (truncated)" : "");
 }
 
 class cbor_to_json_translator {
@@ -449,7 +450,7 @@ public:
                                 datum trial{d};          // a copy, so d survives a failed decode
                                 fp_buf.reset();
                                 cbor_fingerprint::decode_cbor_fingerprint(trial, fp_buf);
-                                if (trial.is_not_null() and !fp_buf.is_null()) {
+                                if (trial.is_not_null() and fp_buf.is_not_empty()) {
                                     d = trial;
                                     o.print_key_json_string(key, fp_buf.contents());
                                     break;
@@ -572,7 +573,7 @@ inline bool cbor_to_json_translator::decode_cbor_array_to_json(datum &d, json_ar
                         datum trial{d};                  // a copy, so d survives a failed decode
                         fp_buf.reset();
                         cbor_fingerprint::decode_cbor_fingerprint(trial, fp_buf);
-                        if (trial.is_not_null() and !fp_buf.is_null()) {
+                        if (trial.is_not_null() and fp_buf.is_not_empty()) {
                             d = trial;
                             a.print_json_string(fp_buf.contents());
                             break;
