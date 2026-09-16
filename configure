@@ -5683,8 +5683,10 @@ case $host_os in
 
         case "$host_cpu" in
             arm* | aarch64)
-                CFLAGS="$CFLAGS -I/opt/homebrew/include -I/opt/local/include"
-                CXXFLAGS="$CXXFLAGS -I/opt/homebrew/include -I/opt/local/include"
+                # Vendor/package-manager headers are system headers for
+                # diagnostics; keep Mercury's own include paths as -I.
+                CFLAGS="$CFLAGS -isystem /opt/homebrew/include -isystem /opt/local/include"
+                CXXFLAGS="$CXXFLAGS -isystem /opt/homebrew/include -isystem /opt/local/include"
                 LDFLAGS="$LDFLAGS -L/opt/homebrew/lib -L/opt/local/lib"
                 { printf '%s\n' "$as_me:${as_lineno-$LINENO}: WARNING: Configuring for Apple Silicon" >&5
 printf '%s\n' "$as_me: WARNING: Configuring for Apple Silicon" >&2;}
@@ -6261,7 +6263,7 @@ esac
 fi
 
 
-# Canonicalize to an absolute path so that -I works from any sub-directory
+# Canonicalize to an absolute path so that -isystem works from any sub-directory
 # Makefile (e.g., compilation inside src/libmerc/, not the project root).
 if test -n "$xsimd_include_dir"
 then :
@@ -6282,11 +6284,13 @@ then :
   { printf '%s\n' "$as_me:${as_lineno-$LINENO}: xsimd support disabled by --disable-xsimd" >&5
 printf '%s\n' "$as_me: xsimd support disabled by --disable-xsimd" >&6;}
 else case e in #(
-  e) # If user gave --with-xsimd-include=DIR, prepend it to CPPFLAGS
+  e) # If user gave --with-xsimd-include=DIR, prepend it to CPPFLAGS.
+   # xsimd is a third-party header-only library, so suppress diagnostics
+   # originating in its headers without suppressing Mercury diagnostics.
    _xsimd_saved_CPPFLAGS="$CPPFLAGS"
    if test -n "$xsimd_include_dir"
 then :
-  CPPFLAGS="-I${xsimd_include_dir} $CPPFLAGS"
+  CPPFLAGS="-isystem ${xsimd_include_dir} $CPPFLAGS"
 fi
    ac_ext=cpp
 ac_cpp='$CXXCPP $CPPFLAGS'

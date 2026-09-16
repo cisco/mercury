@@ -78,7 +78,10 @@ if(IS_MAC_ARM)
     if(IS_DIRECTORY "/opt/homebrew")
         message(STATUS "Homebrew detected: adding /opt/homebrew to search paths")
         link_directories("/opt/homebrew/lib")
-        include_directories("/opt/homebrew/include")
+        # Homebrew contains third-party headers.  Treat this include root as
+        # SYSTEM so dependency diagnostics do not become Mercury warnings;
+        # Mercury source/include directories remain normal below.
+        include_directories(SYSTEM "/opt/homebrew/include")
         if(NOT DEFINED OPENSSL_ROOT_DIR)
             message(STATUS "Using /opt/homebrew to find OpenSSL")
             set(OPENSSL_ROOT_DIR "/opt/homebrew")
@@ -492,7 +495,11 @@ endif()
 ## TARGET : libmerc (shared) {
 add_library(libmerc SHARED ${libmerc_src})
 target_link_directories(libmerc PUBLIC lctrie ${CMAKE_CURRENT_SOURCE_DIR})
-target_include_directories(libmerc PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${ZLIB_INCLUDE_DIRS})
+# Keep Mercury's headers normal so their diagnostics remain visible.  Explicit
+# dependency include roots are SYSTEM for the same reason as the Homebrew
+# include root above (zlib/OpenSSL are third-party headers).
+target_include_directories(libmerc PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(libmerc SYSTEM PUBLIC ${ZLIB_INCLUDE_DIRS} ${OPENSSL_INCLUDE_DIR})
 target_link_libraries(libmerc PUBLIC lctrie ZLIB::ZLIB)
 if(DEFINED OPENSSL_CUSTOM_LIB_DIR)
     target_link_libraries(libmerc PUBLIC crypto)
@@ -510,7 +517,8 @@ set_target_properties(libmerc PROPERTIES PREFIX "")
 ## TARGET : libmerc_static (static) {
 add_library(libmerc_static STATIC ${libmerc_src})
 target_link_directories(libmerc_static PUBLIC lctrie ${CMAKE_CURRENT_SOURCE_DIR})
-target_include_directories(libmerc_static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${ZLIB_INCLUDE_DIRS})
+target_include_directories(libmerc_static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(libmerc_static SYSTEM PUBLIC ${ZLIB_INCLUDE_DIRS} ${OPENSSL_INCLUDE_DIR})
 target_link_libraries(libmerc_static PUBLIC lctrie ZLIB::ZLIB)
 if(DEFINED OPENSSL_CUSTOM_LIB_DIR)
     target_link_libraries(libmerc_static PUBLIC crypto)
@@ -529,15 +537,27 @@ if(MERCURY_HAVE_XSIMD)
     target_compile_definitions(libmerc PRIVATE HAVE_XSIMD=1)
     target_compile_definitions(libmerc_static PRIVATE HAVE_XSIMD=1)
 
-    if(xsimd_FOUND AND TARGET xsimd::xsimd)
-        target_link_libraries(libmerc PRIVATE xsimd::xsimd)
-        target_link_libraries(libmerc_static PRIVATE xsimd::xsimd)
-    elseif(xsimd_FOUND AND TARGET xsimd)
-        target_link_libraries(libmerc PRIVATE xsimd)
-        target_link_libraries(libmerc_static PRIVATE xsimd)
+    # xsimd is header-only.  Obtain its include root from a package target
+    # when available, but add it through SYSTEM explicitly: imported target
+    # include properties are not consistently system-marked across the CMake
+    # versions supported by this project.
+    if(xsimd_FOUND)
+        if(DEFINED xsimd_INCLUDE_DIRS AND NOT xsimd_INCLUDE_DIRS STREQUAL "")
+            set(_xsimd_system_include_dirs ${xsimd_INCLUDE_DIRS})
+        elseif(TARGET xsimd::xsimd)
+            get_target_property(_xsimd_system_include_dirs xsimd::xsimd INTERFACE_INCLUDE_DIRECTORIES)
+        elseif(TARGET xsimd)
+            get_target_property(_xsimd_system_include_dirs xsimd INTERFACE_INCLUDE_DIRECTORIES)
+        endif()
     elseif(XSIMD_INCLUDE_DIR)
-        target_include_directories(libmerc PRIVATE ${XSIMD_INCLUDE_DIR})
-        target_include_directories(libmerc_static PRIVATE ${XSIMD_INCLUDE_DIR})
+        set(_xsimd_system_include_dirs ${XSIMD_INCLUDE_DIR})
+    endif()
+
+    if(_xsimd_system_include_dirs)
+        # BEFORE preserves the documented preference for an explicitly
+        # supplied xsimd path over a system-installed copy.
+        target_include_directories(libmerc SYSTEM BEFORE PRIVATE ${_xsimd_system_include_dirs})
+        target_include_directories(libmerc_static SYSTEM BEFORE PRIVATE ${_xsimd_system_include_dirs})
     endif()
 endif()
 
