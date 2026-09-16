@@ -543,8 +543,12 @@ public:
             }
             else {
                 data_buffer<32> salt;
-                salt.copy(salt_1.data,salt_1.length()-1);
-                salt.copy(salt_2.data,salt_2.length()-1);
+                datum part_1{salt_1};
+                datum part_2{salt_2};
+                part_1.trim(1);          // drop the null terminator
+                part_2.trim(1);
+                salt.copy(part_1);
+                salt.copy(part_2);
                 mysql_json.print_key_json_string("salt",salt.contents());
             }
             cap.write_json(mysql_json,output_metadata);

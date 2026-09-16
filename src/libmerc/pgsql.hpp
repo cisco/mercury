@@ -36,6 +36,7 @@
 #define PGSQL_HPP
 
 #include "json_object.h"
+#include "null_terminated_string.hpp"
 #include "protocol.h"
 #include "cbor_object.hpp"
 #include "lex.h"
@@ -87,7 +88,7 @@ class pgsql_msg : public base_protocol {
         return kAuthTypeNames[idx];
     }
 
-    static const char *get_auth_data_type(auth_codes code) {
+    static null_terminated_string get_auth_data_type(auth_codes code) {
         // TODO: identify what type of content the other auth types have
         switch (code) {
         case auth_codes::md5_pass:
@@ -103,7 +104,7 @@ class pgsql_msg : public base_protocol {
     static constexpr uint32_t cancel_request_code = 80877102;   // {1234}{5678}
     static constexpr uint32_t gss_encrypt_code = 80877104;  // {1234}{5680}
 
-    static const char *get_special_msg_type (uint32_t type) {
+    static null_terminated_string get_special_msg_type (uint32_t type) {
         switch (type) {
         case ssl_request_code:
             return "ssl_request";
@@ -117,7 +118,7 @@ class pgsql_msg : public base_protocol {
         };
     }
 
-    static const char *get_client_message_code (const char &c) {
+    static null_terminated_string get_client_message_code (const char &c) {
         switch (c) {
         case 'p':
             return "authentication_msg";
@@ -153,7 +154,7 @@ class pgsql_msg : public base_protocol {
         };
     }
 
-    static const char *get_server_message_code (const char &c) {
+    static null_terminated_string get_server_message_code (const char &c) {
         switch (c) {
         case 'R':
             return "authentication_request";

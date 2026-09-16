@@ -8,7 +8,9 @@
 #include "fdc.hpp"                // for cbor_fingerprint::encode_fingerprint()
 #include "static_dict.hpp"
 #include "json_object.h"
+#include "null_terminated_string.hpp"
 #include "utf8.hpp"
+#include <optional>
 #include <stdexcept>
 
 constexpr uint64_t tag_npf_fingerprint = 0x4650; // application tag 18000, "FP"; NPF representation hint
@@ -23,8 +25,8 @@ template <size_t N> class cbor_object_compact;
 class cbor_object {
     cbor::output::map m;
 
-    static writeable &create_named_map(const char *key, cbor_object &o) {
-        cbor::text_string{key}.write(o.m);
+    static writeable &create_named_map(null_terminated_string key, cbor_object &o) {
+        cbor::text_string{key.c_str()}.write(o.m);
         return o.m;
     }
 
@@ -52,7 +54,7 @@ public:
 
     cbor_object(writeable &w) : m{w} { }
 
-    cbor_object(cbor_object &o, const char *key) : m{create_named_map(key, o)} { }
+    cbor_object(cbor_object &o, null_terminated_string key) : m{create_named_map(key, o)} { }
 
     cbor_object(cbor_object &o, uint64_t k) : m{create_named_map(k, o)} { }
 
@@ -61,23 +63,23 @@ public:
     cbor_object(cbor_object &o) : m{o.get_writeable()} { }
 
     template <size_t N>
-    cbor_object(cbor_object_compact<N> &o, const char *key);
+    cbor_object(cbor_object_compact<N> &o, null_terminated_string key);
 
     cbor_object(cbor_array &a);
 
-    void print_key_uint(const char *key, uint64_t value) {
-        cbor::text_string{key}.write(m);
+    void print_key_uint(null_terminated_string key, uint64_t value) {
+        cbor::text_string{key.c_str()}.write(m);
         cbor::uint64{value}.write(m);
     }
 
-    void print_key_string(const char *key, const char *str) {
-        cbor::text_string{key}.write(m);
+    void print_key_string(null_terminated_string key, const char *str) {
+        cbor::text_string{key.c_str()}.write(m);
         cbor::text_string{str}.write(m);
     }
 
-    void print_key_string(const char *key, datum d) {
+    void print_key_string(null_terminated_string key, datum d) {
         if (d.is_readable()) {
-            cbor::text_string{key}.write(m);
+            cbor::text_string{key.c_str()}.write(m);
             cbor::text_string::construct(d).write(m);
         }
     }
@@ -89,20 +91,20 @@ public:
         }
     }
 
-    void print_key_hex(const char *key, datum bytes) {
+    void print_key_hex(null_terminated_string key, datum bytes) {
         if (bytes.is_readable()) {
-            cbor::text_string{key}.write(m);
+            cbor::text_string{key.c_str()}.write(m);
             cbor::byte_string::construct(bytes).write(m);
         }
     }
 
-    void print_key_bool(const char *key, bool b) {
-        cbor::text_string{key}.write(m);
+    void print_key_bool(null_terminated_string key, bool b) {
+        cbor::text_string{key.c_str()}.write(m);
         cbor::initial_byte{cbor::simple_or_float_type, b ? cbor::initial_byte::True : cbor::initial_byte::False}.write(m);
     }
 
-    void print_key_null(const char *key) {
-        cbor::text_string{key}.write(m);
+    void print_key_null(null_terminated_string key) {
+        cbor::text_string{key.c_str()}.write(m);
         cbor::initial_byte{cbor::simple_or_float_type, cbor::initial_byte::null}.write(m);
     }
 
@@ -115,8 +117,8 @@ public:
 class cbor_array {
     cbor::output::array a;
 
-    static writeable &create_named_array(const char *key, cbor_object &o) {
-        cbor::text_string{key}.write(o.m);
+    static writeable &create_named_array(null_terminated_string key, cbor_object &o) {
+        cbor::text_string{key.c_str()}.write(o.m);
         return o.m;
     }
 
@@ -124,7 +126,7 @@ class cbor_array {
 
 public:
 
-    cbor_array(cbor_object &o, const char *key) : a{create_named_array(key, o)} { }
+    cbor_array(cbor_object &o, null_terminated_string key) : a{create_named_array(key, o)} { }
 
 
     /// create a nested CBOR array
@@ -178,17 +180,17 @@ public:
     cbor_object_compact(writeable &w, const static_dictionary<N> &d) : cbor_object{w}, dict{d} {}
 
     template <size_t M>
-    cbor_object_compact(cbor_object_compact<M> &o, const char *key, const static_dictionary<N> &d) : cbor_object{o,key}, dict{d} {}
+    cbor_object_compact(cbor_object_compact<M> &o, null_terminated_string key, const static_dictionary<N> &d) : cbor_object{o,key}, dict{d} {}
 
     // ~cbor_object_compact() { close(); }
 
-    void print_key_uint(const char *key, uint64_t value) {
-        cbor::uint64{dict.index(key)}.write(m);
+    void print_key_uint(null_terminated_string key, uint64_t value) {
+        cbor::uint64{dict.index(key.c_str())}.write(m);
         cbor::uint64{value}.write(m);
     }
 
-    void print_key_string(const char *key, const char *str) {
-        cbor::uint64{dict.index(key)}.write(m);
+    void print_key_string(null_terminated_string key, const char *str) {
+        cbor::uint64{dict.index(key.c_str())}.write(m);
         cbor::text_string{str}.write(m);
     }
 
@@ -197,30 +199,30 @@ public:
         cbor::text_string{str}.write(m);
     }
 
-    void print_key_hex(const char *key, datum bytes) {
-        cbor::uint64{dict.index(key)}.write(m);
+    void print_key_hex(null_terminated_string key, datum bytes) {
+        cbor::uint64{dict.index(key.c_str())}.write(m);
         cbor::byte_string::construct(bytes).write(m);
     }
 
-    void print_key_float(const char *key, datum bytes) {
-        cbor::uint64{dict.index(key)}.write(m);
+    void print_key_float(null_terminated_string key, datum bytes) {
+        cbor::uint64{dict.index(key.c_str())}.write(m);
         cbor::byte_string::construct(bytes).write(m);
     }
 
-    void print_key_bool(const char *key, bool b) {
-        cbor::uint64{dict.index(key)}.write(m);
+    void print_key_bool(null_terminated_string key, bool b) {
+        cbor::uint64{dict.index(key.c_str())}.write(m);
         cbor::initial_byte{cbor::simple_or_float_type, b ? cbor::initial_byte::True : cbor::initial_byte::False}.write(m);
     }
 
-    void print_key_null(const char *key) {
-        cbor::uint64{dict.index(key)}.write(m);
+    void print_key_null(null_terminated_string key) {
+        cbor::uint64{dict.index(key.c_str())}.write(m);
         cbor::initial_byte{cbor::simple_or_float_type, cbor::initial_byte::null}.write(m);
     }
 
 };
 
 template <size_t N>
-cbor_object::cbor_object(cbor_object_compact<N> &o, const char *key) : m{create_named_map(o.dict.index(key), o)} { }
+cbor_object::cbor_object(cbor_object_compact<N> &o, null_terminated_string key) : m{create_named_map(o.dict.index(key.c_str()), o)} { }
 
 
 
@@ -271,9 +273,9 @@ public:
         }
     }
 
-    const char *word(size_t idx) const {
+    null_terminated_string word(size_t idx) const {
         if (idx < a.size()) {
-            return a[idx].c_str();
+            return null_terminated_string::assume(a[idx].c_str());
         }
         return "UNKNOWN";  // note: could report unknown integer value as string
     }
@@ -288,6 +290,20 @@ class cbor_to_json_translator {
 
     enum type { key, value };
 
+    /// Null-terminate the buffer and return a string wrapper over the contents.
+    ///
+    /// A null optional indicates that the buffer was truncated or could not be
+    /// terminated in bounds.
+    ///
+    template <size_t N>
+    static std::optional<null_terminated_string> null_terminate(output_buffer<N> &buf) {
+        datum terminated{buf.null_terminate_and_get_datum()};
+        if (terminated.is_null()) {
+            return std::nullopt;
+        }
+        return null_terminated_string::assume(reinterpret_cast<const char *>(terminated.data));
+    }
+
 public:
 
     cbor_to_json_translator() : keys{nullptr} { }
@@ -299,8 +315,12 @@ public:
     inline bool decode_cbor_map_to_json(datum &d, json_object &o) {
 
         type expected_type = key;
-        const char *key = nullptr;
+        std::optional<null_terminated_string> key;
 
+        // CBOR text keys are JSON-escaped into this fixed-size buffer.  An
+        // escaped key that does not fit is rejected rather than truncated:
+        // truncation can produce malformed JSON or collide with another key.
+        //
         output_buffer<128> key_buf;
 
         while (d.is_readable()) {
@@ -316,8 +336,7 @@ public:
                             if (keys == nullptr) {
                                 key_buf.reset();
                                 key_buf.write_uint16(tmp.value());
-                                key_buf.add_null();
-                                key = key_buf.data();
+                                key = null_terminate(key_buf);
                             } else {
                                 key = keys->word(tmp.value());
                             }
@@ -329,8 +348,7 @@ public:
                             if (d.is_null()) { return false; }
                             key_buf.reset();
                             utf8_string::write(key_buf, tmp.value().data, tmp.value().length());
-                            key_buf.add_null();
-                            key = key_buf.data();
+                            key = null_terminate(key_buf);
                         }
                         break;
                     case cbor::simple_or_float_type:
@@ -340,47 +358,44 @@ public:
                         }
                         [[fallthrough]];
                     default:
-                        fprintf(stderr, "unexpected initial byte in cbor map key: 0x%02x\n", ib.value.value());
-                        fprintf(stderr, "remaining bytes in cbor data: ");
-                        d.fprint_hex(stderr); fputc('\n', stderr);
                         return false;
                     }
 
-                    if (key == nullptr) {
-                        fprintf(stderr, "error: null key\n");
+                    if (!key) {
                         return false;
                     }
                     expected_type = type::value;
 
                 } else if (expected_type == type::value) {
 
+                    null_terminated_string json_key = *key;
                     switch (ib.value.major_type()) {
                     case cbor::unsigned_integer_type:
                         {
                             cbor::uint64 tmp{d};
                             if (d.is_null()) { return false; }
-                            o.print_key_uint(key, tmp.value());
+                            o.print_key_uint(json_key, tmp.value());
                         }
                         break;
                     case cbor::byte_string_type:
                         {
                             cbor::byte_string tmp = cbor::byte_string::decode(d);
                             if (d.is_null()) { return false; }
-                            o.print_key_hex(key, tmp.value());
+                            o.print_key_hex(json_key, tmp.value());
                         }
                         break;
                     case cbor::text_string_type:
                         {
                             cbor::text_string tmp = cbor::text_string::decode(d);
                             if (d.is_null()) { return false; }
-                            o.print_key_json_string(key, tmp.value());
+                            o.print_key_json_string(json_key, tmp.value());
                         }
                         break;
                     case cbor::array_type:
                         {
                             cbor::array tmp{d};
                             if (d.is_null()) { return false; }
-                            json_array a{o, key};
+                            json_array a{o, json_key};
                             bool success = decode_cbor_array_to_json(d, a);
                             a.close();
                             if (!success) { return false; }
@@ -391,7 +406,7 @@ public:
                             cbor::map tmp{d};
                             if (d.is_null()) { return false; }
                             d = ib.advance();
-                            json_object map{o, key};
+                            json_object map{o, json_key};
                             bool success = decode_cbor_map_to_json(d, map);
                             map.close();
                             if (!success) { return false; }
@@ -406,28 +421,26 @@ public:
                         break;
                     case cbor::simple_or_float_type:
                         if (ib.value.value() == 0xff) {
-                            fprintf(stderr, "cbor_object missing value\n");
                             return false;
                         } else if (ib.value.additional_info() == cbor::initial_byte::True) {
-                            o.print_key_bool(key, true);
+                            o.print_key_bool(json_key, true);
                             d = ib.advance();
                             break;
                         } else if (ib.value.additional_info() == cbor::initial_byte::False) {
-                            o.print_key_bool(key, false);
+                            o.print_key_bool(json_key, false);
                             d = ib.advance();
                             break;
                         } else if (ib.value.additional_info() == cbor::initial_byte::null) {
-                            o.print_key_null(key);
+                            o.print_key_null(json_key);
                             d = ib.advance();
                             break;
                         }
                         [[fallthrough]];
                     default:
-                        fprintf(stderr, "unexpected initial byte in cbor map value: 0x%02x\n", ib.value.value());
                         return false;
                     }
 
-                    key = nullptr;
+                    key.reset();
                     expected_type = type::key;
                 }
 
@@ -437,7 +450,6 @@ public:
 
         }
 
-        fprintf(stderr, "GOT TO END of %s\n", __func__);
         return false;
     }
 
@@ -509,7 +521,6 @@ inline bool cbor_to_json_translator::decode_cbor_array_to_json(datum &d, json_ar
                 }
                 [[fallthrough]];
             default:
-                fprintf(stderr, "unexpected initial byte in cbor array element: 0x%02x\n", ib.value.value());
                 return false;
             }
         }
@@ -560,6 +571,41 @@ static inline bool decode_fprint_json(datum d, FILE *f, vocabulary *v=nullptr) {
 
 // LCOV_EXCL_START
 static inline bool cbor_object_unit_test(FILE *f=nullptr) {
+
+    output_buffer<1> empty_buf;
+    datum empty_datum{empty_buf.get_datum()};
+    if (empty_datum.is_null()) {
+        if (f) {
+            fprintf(f, "test get_datum empty buffer failed\n");
+        }
+        return false;
+    }
+    datum empty_datum_with_null{empty_buf.null_terminate_and_get_datum()};
+    if (empty_datum_with_null.is_null()
+        || empty_datum_with_null.length() != 1
+        || empty_datum_with_null.data[0] != '\0') {
+        if (f) {
+            fprintf(f, "test null_terminate_and_get_datum empty buffer failed\n");
+        }
+        return false;
+    }
+    auto empty_view = empty_datum.get_string_view();
+    if (empty_view.data() == nullptr || empty_view.length() != 0) {
+        if (f) {
+            fprintf(f, "test get_string_view empty buffer failed\n");
+        }
+        return false;
+    }
+
+    output_buffer<4> truncated_buf;
+    truncated_buf.puts("abcd");
+    datum truncated_datum{truncated_buf.get_datum()};
+    if (truncated_datum.is_not_null()) {
+        if (f) {
+            fprintf(f, "test get_datum truncated buffer failed\n");
+        }
+        return false;
+    }
 
     // first test
     //
@@ -711,6 +757,32 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
             data_buf.contents().fprint_hex(f); fputc('\n', f);
             decode_fprint_json(data_buf.contents(), f);
             data_buf.contents().fprint_c_array(f, "test2"); fputc('\n', f);
+        }
+        return false;
+    }
+
+    // An oversized text key must fail translation rather than be silently
+    // shortened to the 127 bytes available in the key buffer.  Silent
+    // truncation can produce malformed JSON or make distinct CBOR keys
+    // collide in the JSON object.
+    //
+    std::array<uint8_t,133> oversized_key_map;
+    oversized_key_map[0] = 0xbf;                                // {
+    oversized_key_map[1] = 0x78;                                //   text string,
+    oversized_key_map[2] = 128;                                 //   128 bytes
+    for (size_t i = 0; i < 128; i++) {
+        oversized_key_map[3 + i] = 'a';
+    }
+    oversized_key_map[131] = 0x01;                               //   1
+    oversized_key_map[132] = 0xff;                               // }
+
+    output_buffer<2048> translated;
+    datum oversized_key_input{oversized_key_map};
+    bool translated_ok = decode_cbor_map_to_json(oversized_key_input,
+                                                  translated, nullptr);
+    if (translated_ok || translated.get_string() != "{}") {
+        if (f) {
+            fprintf(f, "oversized CBOR key was not rejected\n");
         }
         return false;
     }
