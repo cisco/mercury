@@ -1268,6 +1268,36 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
                           datum{simple_value_at_20},
                           "[{\"999\":\"+CA=\"}]", true, 0, f);
 
+    // a map with an odd number of items, so its last key has no value.  The break
+    // lands where a value belongs, and if a value reader accepted it the map would
+    // swallow the array's break as well and the whole input would look well formed.
+    //
+    std::array<uint8_t,10> map_with_orphan_key{
+        0x9f,                                                   // [
+          0xd9, 0x03, 0xe7,                                     //   tag(999)
+            0xbf, 0x01, 0x02, 0x03,                             //     {1: 2, 3:
+            0xff,                                               //     }
+        0xff                                                    // ]
+    };
+    translation_tests_passed &=
+        test_cbor_array_to_json("map with an orphan key",
+                          datum{map_with_orphan_key},
+                          "[]", false, -1, f);
+
+    // the same map with the value its last key was missing, which has to keep working
+    //
+    std::array<uint8_t,11> map_with_paired_keys{
+        0x9f,                                                   // [
+          0xd9, 0x03, 0xe7,                                     //   tag(999)
+            0xbf, 0x01, 0x02, 0x03, 0x04,                       //     {1: 2, 3: 4
+            0xff,                                               //     }
+        0xff                                                    // ]
+    };
+    translation_tests_passed &=
+        test_cbor_array_to_json("map with an even number of items",
+                          datum{map_with_paired_keys},
+                          "[{\"999\":\"vwECAwT/\"}]", true, 0, f);
+
     // null and false in array element position, followed by an unsigned integer
     //
     std::array<uint8_t,5> simple_values{
