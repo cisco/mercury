@@ -97,9 +97,9 @@ bool event_msg_hasher_unit_test() {
     const event_msg different_type{
         "ab", "c", "", "", event_type::cert_label};
 
-    return hasher(split_fields) == 0x0d9b629e0898f741ULL
-        && hasher(joined_fields) == 0x06e7b80a9d21aa36ULL
-        && hasher(different_type) == 0x011398553a5ea73cULL;
+    return hasher(split_fields) == 0x13c2139e56ab8d09ULL
+        && hasher(joined_fields) == 0x04f02f35dcb67425ULL
+        && hasher(different_type) == 0x07d85db31e93bdc5ULL;
 }
 
 int main(int, char *[]) {

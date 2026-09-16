@@ -557,9 +557,10 @@ int main(int argc, char **argv) {
     }
 
     std::printf("byte-string hash benchmark\n");
-    std::printf("  count=%zu lengths=8,16,32,64,128,256,512,1024,2048\n", string_count);
+    std::printf("  count=%zu lengths=0,1,7,8,16,32,64,128,256,512,1024,2048\n", string_count);
     std::printf("  latency best ns/hash:\n");
-    for (size_t length = 8; length <= 2048; length *= 2) {
+    const std::array<size_t, 12> string_lengths{{0, 1, 7, 8, 16, 32, 64, 128, 256, 512, 1024, 2048}};
+    for (size_t length : string_lengths) {
         const std::vector<benchmark_string> strings = make_string_dataset(
             length, string_count, seed ^ length);
         const latency_result standard_latency = measure_latency(

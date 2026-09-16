@@ -11,15 +11,36 @@ general-purpose cryptography.
 The implementation uses the Mersenne-prime field
 ``p = 2^61 - 1``.  It encodes the input length followed by little-endian
 seven-byte field elements and evaluates the resulting sequence with Horner's
-method.  The multiplier and offset are generated once when the hasher is
-constructed; hashing itself performs no random-device access or allocation.
+method.  More precisely, if ``L`` is the byte-string length, the encoded
+sequence starts with ``L mod p``, followed by ``floor(L / p)`` when ``L >= p``,
+and then contains seven-byte little-endian blocks, with zero-extension only in
+the final partial block.  If that sequence is ``e[0], ..., e[n-1]``, the
+returned hash is:
 
-For two distinct encodings, the difference of the corresponding hash
-polynomials is nonzero.  If the larger encoding contains ``d`` field elements,
-there are at most ``d - 1`` possible nonzero multipliers that produce a
-collision, giving a bound of ``(d - 1) / (p - 1)`` for a uniformly selected
-multiplier from the nonzero field elements.  The offset randomizes individual
-outputs but does not change that collision bound.
+::
+
+   H(e) = b * a^(n+1) + sum(i = 0 .. n-1, e[i] * a^(n-i)) mod p
+
+where ``a`` is the nonzero secret multiplier and ``b`` is the secret offset.
+For a block containing bytes ``b[0], ..., b[r-1]``,
+``e[i] = sum(j = 0 .. r-1, b[j] * 2^(8*j))``.  Therefore each byte has the
+secret-dependent coefficient ``2^(8*j) * a^(n-i)`` in the expanded polynomial.
+The final multiplication is deferred until ``finish()``, so each byte is
+keyed without adding work to the append and batching paths.  The multiplier
+and offset are generated once when the hasher is constructed; hashing itself
+performs no random-device access or allocation.
+
+The encoding is injective because it includes the byte length and uses a
+fixed seven-byte representation, including zero-padding only in the final
+partial block.  Consequently, for two distinct equal-length encodings with
+``d`` elements, the offset cancels and the difference polynomial has degree at
+most ``d - 1``.  For different encoded lengths, a conservative bound is
+degree ``d``, where ``d`` is the larger length.  A nonzero polynomial of degree
+``r`` over a field has at most ``r`` roots, so a uniformly selected nonzero
+multiplier collides with probability at most ``r / (p - 1)``.  The final
+multiplication adds only the root ``a = 0``, which is excluded from the key
+space, and therefore preserves the bound.  The offset randomizes individual
+outputs but does not change the collision bound.
 
 The eight-element batching in the implementation is an algebraic
 optimization.  It evaluates eight Horner steps as one polynomial expression

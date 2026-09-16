@@ -16,15 +16,36 @@
 /// This header implements a keyed polynomial hash for byte strings over the
 /// Mersenne-prime field `F_p`, where `p = 2^61 - 1`.  A byte string is encoded
 /// as its length followed by little-endian seven-byte field elements.  The
-/// hash evaluates that sequence with Horner's method:
+/// hash evaluates that sequence with Horner's method and multiplies the final
+/// field value by the multiplier:
 ///
 ///     h_0 = offset
 ///     h_{i+1} = h_i * multiplier + element_i (mod p)
+///     H(bytes) = h_n * multiplier (mod p)
 ///
 /// The multiplier is selected from the nonzero field elements and the offset
 /// is selected from the whole field.  Hashing is not cryptographic; the key is
 /// intended to prevent an attacker from constructing a collision set for an
 /// internal hash table without first learning the process-local secret.
+///
+/// More formally, let `L` be the byte-string length. The encoded input starts
+/// with `L mod p`, followed by `floor(L / p)` when `L >= p`, and then consists
+/// of seven-byte little-endian blocks. The final block is zero-extended when
+/// it contains fewer than seven bytes. If this encoded input is the sequence
+/// `e[0], ..., e[n-1]`, then the returned value is the polynomial
+///
+///     H(bytes) = offset * multiplier^(n+1)
+///              + sum(i = 0 .. n-1, e[i] * multiplier^(n-i)) (mod p).
+///
+/// For a block containing bytes `b[0], ..., b[r-1]`, its field element is
+/// `e[i] = sum(j = 0 .. r-1, b[j] * 2^(8*j))`. Consequently, each byte has a
+/// secret-dependent coefficient `2^(8*j) * multiplier^(n-i)` in the expanded
+/// polynomial.
+///
+/// Thus every encoded field element, including the final partial byte block,
+/// has a coefficient containing the secret multiplier. Every input byte
+/// contributes to exactly one such field element. The final multiplication is
+/// a single field multiplication; it does not add a per-byte operation.
 ///
 /// Eight Horner steps are evaluated as one expression and reduced once.  For
 /// eight elements `x[0] ... x[7]`, the batched expression is
@@ -36,11 +57,16 @@
 /// powers of the multiplier when the hasher is constructed.
 ///
 /// For two distinct encoded strings, the difference of their hash polynomials
-/// is nonzero.  If the larger encoding contains `d` field elements, that
-/// polynomial has at most `d - 1` roots, so a uniformly selected nonzero
-/// multiplier gives collision probability at most `(d - 1) / (p - 1)`.
-/// The random offset does not change this collision bound, but makes each
-/// individual field output secret-dependent.
+/// is nonzero because the length-prefixed encoding is injective. For equal
+/// length encodings containing `d` field elements, the offset terms cancel and
+/// the difference has degree at most `d - 1`. For different lengths, the
+/// conservative degree bound is `d`, where `d` is the larger encoded length.
+/// A nonzero polynomial of degree `r` over a field has at most `r` roots, so a
+/// uniformly selected nonzero multiplier gives collision probability at most
+/// `r / (p - 1)`. The final multiplication only adds a root at multiplier zero,
+/// which is excluded from the key space, and therefore does not weaken this
+/// bound. The random offset makes each individual field output
+/// secret-dependent.
 ///
 /// The construction follows the universal-hashing literature, especially the
 /// polynomial hashing approach described by Carter and Wegman and the
@@ -325,10 +351,17 @@ public:
 
     /// \brief Return the current field hash value.
     ///
+    /// \details
+    /// The final multiplication ensures that the last encoded field element
+    /// is keyed just like all preceding elements. It is deliberately deferred
+    /// until finalization so the incremental and batched append paths require
+    /// no additional work.
+    ///
     /// \return The hash value in `[0, prime)`.
     ///
     uint64_t finish() const noexcept {
-        return value;
+        return reduce_mersenne61(
+            detail::multiply_64_to_128(value, multiplier));
     }
 };
 
@@ -411,17 +444,17 @@ inline bool byte_unit_test() noexcept {
     }};
 
     const std::array<uint64_t, 11> expected{{
-        0x019e64444f972c1fULL,
-        0x0e897cdc88086e39ULL,
-        0x1646e1e93c6471d3ULL,
-        0x069d73298289e943ULL,
-        0x13abaa48af503b72ULL,
-        0x109fb0a9a4056ddbULL,
-        0x1cf03127e77b64a3ULL,
-        0x08be8f5a7253c9b9ULL,
-        0x1fca010363675982ULL,
-        0x1a79455b0a6c5f14ULL,
-        0x1dab1944a10cad68ULL,
+        0x0d663774fe5ca03fULL,
+        0x03dc932dd4faaedaULL,
+        0x09ed35ea0ff78eadULL,
+        0x1e8de05a22594abeULL,
+        0x1595e942f3fb6bf7ULL,
+        0x04f8c87cb371d831ULL,
+        0x1739547dee27790fULL,
+        0x0dfc163762ec5c9dULL,
+        0x0778c4ec8ff5afd2ULL,
+        0x1c0d39e2935b7006ULL,
+        0x061cc16cb31bd4f5ULL,
     }};
     std::array<char, 128> data{};
     for (size_t i = 0; i < data.size(); i++) {
