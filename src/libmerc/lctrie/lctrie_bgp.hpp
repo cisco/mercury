@@ -140,6 +140,22 @@ static inline bool lctrie_v4_unit_test(FILE *f = nullptr) {
         return false;
     }
 
+    lct_subnet<uint32_t> duplicate_nets[2]{};
+    for (auto &net : duplicate_nets) {
+        net.info.type = IP_DOMAIN_MAPPING;
+        net.info.domain.domain_idx_arr = (uint8_t *)malloc(1);
+        if (net.info.domain.domain_idx_arr == nullptr) {
+            free(duplicate_nets[0].info.domain.domain_idx_arr);
+            return false;
+        }
+    }
+    if (subnet_dedup(duplicate_nets, 2) != 1) {
+        free(duplicate_nets[0].info.domain.domain_idx_arr);
+        free(duplicate_nets[1].info.domain.domain_idx_arr);
+        return false;
+    }
+    free(duplicate_nets[0].info.domain.domain_idx_arr);
+
     static const char ipv4_data[] =
         "1.0.0.0/24\t13335\n"
         "1.1.1.0/24\t13335\n"
