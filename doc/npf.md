@@ -162,8 +162,8 @@ where
 
 
 ```
-  TLS_Extension = NORMALIZE_TLS_EXTENSION(extension) if DEGREASE16(extension[0:2]) is in TLS_EXT_FIXED, and
-                  DEGREASE16(extension[0:2])           otherwise.
+  TLS_Extension = NORM_TLS_XTN(extension, ClientHello) if DEGREASE16(extension[0:2]) is in TLS_EXT_FIXED, and
+                  DEGREASE16(extension[0:2])             otherwise.
 ```
 
 
@@ -185,23 +185,68 @@ The function DEGREASE8 takes as input a one-byte value and returns a one-byte va
 
 This function normalizes the eight values reserved by [RFC 8701](https://www.rfc-editor.org/rfc/rfc8701) for `PskKeyExchangeMode`: `0x0b`, `0x2a`, `0x49`, `0x68`, `0x87`, `0xa6`, `0xc5`, and `0xe4`.
 
-`NORMALIZE_TLS_EXTENSION` preserves the extension type, length, and value encoding, except for the typed GREASE-bearing fields listed below. Extension lengths and list lengths are not GREASE values and are copied unchanged.
+`NORM_TLS_XTN` preserves the extension type, length, and value encoding, except for the typed GREASE-bearing fields listed below. Extension lengths and list lengths are not GREASE values and are copied unchanged.
 
 ```
-NORMALIZE_TLS_EXTENSION(extension) = (DEGREASE16(type), length, NORMALIZE_EXTENSION_DATA(type, extension_data))
+NORM_TLS_XTN(extension, ClientHello) =
+    (DEGREASE16(type), length, NORM_CLIENT_XTN_DATA(type, extension_data))
+
+NORM_TLS_XTN(extension, ServerHello) =
+    (DEGREASE16(type), length, NORM_SERVER_XTN_DATA(type, extension_data))
 ```
 
-For the following extension types, `NORMALIZE_EXTENSION_DATA` is defined as:
+For the following extension types, the ClientHello normalization functions are
+defined as:
 
 ```
-NORMALIZE_EXTENSION_DATA(0x000a, value) = value[0:2] || MAP(value[2:], 2, DEGREASE16)  // supported_groups
-NORMALIZE_EXTENSION_DATA(0x002b, value) = value[0:1] || MAP(value[1:], 2, DEGREASE16)  // supported_versions
-NORMALIZE_EXTENSION_DATA(0x000d, value) = value[0:2] || MAP(value[2:], 2, DEGREASE16)  // signature_algorithms
-NORMALIZE_EXTENSION_DATA(0x0032, value) = value[0:2] || MAP(value[2:], 2, DEGREASE16)  // signature_algorithms_cert
-NORMALIZE_EXTENSION_DATA(0x002d, value) = value[0:1] || MAP(value[1:], 1, DEGREASE8)   // psk_key_exchange_modes
+NORM_CLIENT_XTN_DATA(0x000a, value) = value[0:2] || MAP(value[2:], 2, DEGREASE16)  // supported_groups
+NORM_CLIENT_XTN_DATA(0x002b, value) = value[0:1] || MAP(value[1:], 2, DEGREASE16)  // supported_versions
+NORM_CLIENT_XTN_DATA(0x000d, value) = value[0:2] || MAP(value[2:], 2, DEGREASE16)  // signature_algorithms
+NORM_CLIENT_XTN_DATA(0x0032, value) = value[0:2] || MAP(value[2:], 2, DEGREASE16)  // signature_algorithms_cert
+NORM_CLIENT_XTN_DATA(0x002d, value) = value[0:1] || MAP(value[1:], 1, DEGREASE8)   // psk_key_exchange_modes
+NORM_CLIENT_XTN_DATA(0x0010, value) = NORM_ALPN(value)                              // application_layer_protocol_negotiation
+
+NORM_SERVER_XTN_DATA(0x000a, value) = NORM_CLIENT_XTN_DATA(0x000a, value)
+NORM_SERVER_XTN_DATA(0x002b, value) = DEGREASE16(value)                              // selected version
+NORM_SERVER_XTN_DATA(0x000d, value) = NORM_CLIENT_XTN_DATA(0x000d, value)
+NORM_SERVER_XTN_DATA(0x0032, value) = NORM_CLIENT_XTN_DATA(0x0032, value)
+NORM_SERVER_XTN_DATA(0x002d, value) = NORM_CLIENT_XTN_DATA(0x002d, value)
+NORM_SERVER_XTN_DATA(0x0010, value) = NORM_CLIENT_XTN_DATA(0x0010, value)
 ```
 
-For `application_layer_protocol_negotiation` (`0x0010`), preserve the two-byte protocol-name-list length and each one-byte protocol-name length. Apply `DEGREASE16` to a protocol name only when its length is two bytes; preserve all other protocol names unchanged. All other extension values are copied unchanged.
+For `NORM_ALPN(value)`, preserve the two-byte protocol-name-list length and
+each one-byte protocol-name length. Apply `DEGREASE16` to a protocol name only
+when its length is two bytes; preserve all other protocol names unchanged. All
+other extension values are copied unchanged.
+
+Malformed-data handling for `tls/1` is defined as follows. TLS extensions are
+parsed one at a time. If an extension header is incomplete, or if its declared
+value length exceeds the remaining input, parsing stops; that extension and
+all subsequent bytes are omitted from the fingerprint.
+
+If the extension framing is valid but the value of a fixed, typed extension is
+malformed, the extension is retained. Its type and wire-format length are
+emitted normally, but its complete value is copied byte-for-byte without
+typed normalization.
+
+For extensions with the same normalized type and wire-format length, comparison
+is performed in the following order:
+
+| Comparison stage | Ordering |
+|---|---|
+| Parse status | A value whose typed parse fails sorts before a successfully parsed value. |
+| Both parses fail | The complete raw values are compared lexicographically. |
+| Valid parsed data | Normalized valid tokens are compared in protocol order. |
+| Parsed data equal | The raw trailing data is compared lexicographically. |
+| ALPN malformed token | Within an otherwise valid ALPN list, valid protocol names sort before a malformed raw remainder. |
+
+Trailing data is therefore a tie-breaker, not an independently ordered token:
+it is considered only after the valid parsed portions compare equal. If a typed
+value parses successfully but leaves trailing bytes, the parsed portion is
+normalized and the trailing bytes are copied unchanged. For ALPN, a malformed
+protocol name and all remaining bytes beginning with that name are treated as
+raw data, emitted unchanged, and compared after the preceding valid protocol
+names.
 
 The set TLS_EXT_FIXED and the selected-extension rules below use DEGREASE16 for extension types.
 
@@ -218,8 +263,8 @@ TLS_EXT_FIXED = {
 selected_TLS_Extension chooses only a subset of extensions from TLS_extension as defined below,
 
 ```
-  selected_TLS_Extension = NORMALIZE_TLS_EXTENSION(extension) if DEGREASE16(extension[0:2]) is in TLS_EXT_FIXED,
-                           ENCODE(extension[0:2])   if ENCODE(extension[0:2]) is in TLS_EXT_INCLUDE,
+  selected_TLS_Extension = NORM_TLS_XTN(extension, ClientHello) if DEGREASE16(extension[0:2]) is in TLS_EXT_FIXED,
+                           ENCODE(extension[0:2])               if ENCODE(extension[0:2]) is in TLS_EXT_INCLUDE,
 ```
 
 The function ENCODE is defined as below
@@ -289,9 +334,9 @@ The older format "quic" is
 - `QUIC_Extension` (sequence, variable length) elements represent TLS Extension fields as defined in RFC 8446, Section 4.2.  Let `extension` denote the byte string consisting of a TLS Extension in the Client Hello reassembled from the CRYPTO frames.  Then the corresponding `QUIC_Extension` element in the fingerprint is defined as
 
 ```
-QUIC_Extension = NORMALIZE_TLS_EXTENSION(extension) if DEGREASE16(extension[0:2]) is in TLS_EXT_FIXED,
-                 QTP(extension)            if extension[0:2] is in { 0x0039, 0xffa5 },
-                 DEGREASE16(extension[0:2]) otherwise.
+QUIC_Extension = NORM_TLS_XTN(extension, ClientHello) if DEGREASE16(extension[0:2]) is in TLS_EXT_FIXED,
+                 QTP(extension)                      if extension[0:2] is in { 0x0039, 0xffa5 },
+                 DEGREASE16(extension[0:2])            otherwise.
 ```
 
 The function `QTP` computes a sorted list of elements from the QUIC Transport Parameters Extension,  as below:
@@ -310,9 +355,9 @@ quic/(ff00001d)(0303)(0a0a130113021303)[(0a0a)(0a0a)(0000)(000500050100000000)(0
 - `Selected_QUIC_Extension` chooses only a subset of Quic Extensions and is defined as below
 
 ```
-Selected_QUIC_Extension = NORMALIZE_TLS_EXTENSION(extension) if DEGREASE16(extension[0:2]) is in TLS_EXT_FIXED,
-                          QTP(extension)          if extension[0:2] is in { 0x0039, 0xffa5 },
-                          ENCODE(extension[0:2])  if ENCODE(extension[0:2]) is in TLS_EXT_INCLUDE,
+Selected_QUIC_Extension = NORM_TLS_XTN(extension, ClientHello) if DEGREASE16(extension[0:2]) is in TLS_EXT_FIXED,
+                          QTP(extension)                       if extension[0:2] is in { 0x0039, 0xffa5 },
+                          ENCODE(extension[0:2])               if ENCODE(extension[0:2]) is in TLS_EXT_INCLUDE,
 ```
 
 
