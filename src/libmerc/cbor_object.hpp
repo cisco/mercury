@@ -465,7 +465,12 @@ public:
                                 if (warn) { fprint_dropped_npf_tag(warn, content); }
                             } else {
                                 // the tag number is the key and base64 of the
-                                // tag content is the value
+                                // tag content is the value.  Tag numbers are
+                                // allocated identifiers, not free-form text,
+                                // for example we have defined 18000 for an NPF
+                                // fingerprint and 251 for a sorted list, and
+                                // they render as digits, so the key space here
+                                // is the tag registry, not arbitrary input.
                                 output_buffer<24> tag_buf;   // 2^64-1 is 20 digits
                                 tag_buf.snprintf("%" PRIu64, tmp.value());
                                 std::optional<null_terminated_string> tag_key = null_terminate(tag_buf);
@@ -588,6 +593,8 @@ inline bool cbor_to_json_translator::decode_cbor_array_to_json(datum &d, json_ar
                         // dropped: walked as opaque bytes, nothing written
                         if (warn) { fprint_dropped_npf_tag(warn, content); }
                     } else {
+                        // the tag number is the key, on the same terms as
+                        // the map case
                         output_buffer<24> tag_buf;       // 2^64-1 is 20 digits
                         tag_buf.snprintf("%" PRIu64, tmp.value());
                         std::optional<null_terminated_string> tag_key = null_terminate(tag_buf);
