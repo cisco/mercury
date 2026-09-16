@@ -8,6 +8,8 @@
 #define VARIABLE_LENGTH_VECTOR_HPP
 
 #include "datum.h"
+#include "grease.hpp"
+#include "parsed_extent.hpp"
 
 #include <cstdint>
 #include <cstring>
@@ -198,32 +200,27 @@ public:
         return (*this)[index];
     }
 
-    /// \brief Compare vectors after applying \p normalize to each element.
+    /// \brief Compare vectors after normalizing each element.
     ///
     /// Elements retain their network-byte-order representation, and the
-    /// normalized elements are compared bytewise.  The normalizer must accept
-    /// and return values in that representation.  The explicit byte length is
-    /// compared before the normalized elements.
-    /// The caller should use raw comparison when either vector is null.
+    /// normalized elements are compared bytewise.  The explicit byte length
+    /// is compared before the normalized elements.
+    ///
+    /// The caller must use parsed_extent when invalid values or trailing input
+    /// must participate in comparison.
     ///
     /// \param other vector to compare
-    /// \param normalize element normalization function
+    /// \pre both vectors were constructed successfully
     /// \return a negative, zero, or positive comparison result
     ///
-    template <typename Normalize>
-    int compare_degreased(const variable_length_vector &other,
-                          Normalize normalize) const {
-        if (!is_not_null() || !other.is_not_null()) {
-            return 0;
-        }
-
+    int compare_degreased(const variable_length_vector &other) const {
         if (length_value != other.length_value) {
             return length_value < other.length_value ? -1 : 1;
         }
 
         for (size_t i = 0; i < size(); ++i) {
-            T a_value = static_cast<T>(normalize((*this)[i]));
-            T b_value = static_cast<T>(normalize(other[i]));
+            T a_value = grease::normalize<T>((*this)[i]);
+            T b_value = grease::normalize<T>(other[i]);
             int comparison = std::memcmp(&a_value, &b_value, sizeof(T));
             if (comparison != 0) {
                 return comparison < 0 ? -1 : 1;
@@ -285,13 +282,10 @@ inline bool variable_length_vector_unit_test() {
     datum greater_input{greater_data, greater_data + sizeof(greater_data)};
     variable_length_vector<uint16_t, uint16_t> greater_values{greater_input};
 
-    auto normalize = [](uint16_t value) {
-        return value == 0x1a1a ? 0x0a0a : value;
-    };
     if (!normalized_values || !greased_values || !greater_values ||
-        greased_values.compare_degreased(normalized_values, normalize) != 0 ||
-        greased_values.compare_degreased(greater_values, normalize) >= 0 ||
-        greater_values.compare_degreased(greased_values, normalize) <= 0) {
+        greased_values.compare_degreased(normalized_values) != 0 ||
+        greased_values.compare_degreased(greater_values) >= 0 ||
+        greater_values.compare_degreased(greased_values) <= 0) {
         return false;
     }
 
@@ -334,6 +328,58 @@ inline bool variable_length_vector_unit_test() {
     variable_length_vector<uint16_t, uint16_t> non_integral_values{non_integral_input};
     if (non_integral_values || non_integral_values.is_not_null() ||
         !non_integral_input.is_null()) {
+        return false;
+    }
+
+    // Equal normalized elements compare their remaining raw trailers.
+    static constexpr uint8_t trailer_a_data[] = {
+        0x00, 0x02, 0x1a, 0x1a, 0xee
+    };
+    static constexpr uint8_t trailer_b_data[] = {
+        0x00, 0x02, 0x0a, 0x0a, 0xef
+    };
+    datum trailer_a_input{trailer_a_data};
+    datum trailer_b_input{trailer_b_data};
+    parsed_extent<variable_length_vector<uint16_t, uint16_t>> trailer_a{
+        trailer_a_input
+    };
+    parsed_extent<variable_length_vector<uint16_t, uint16_t>> trailer_b{
+        trailer_b_input
+    };
+    if (trailer_a.get_trailer().cmp(datum{trailer_a_data + 4,
+                                          trailer_a_data + 5}) != 0 ||
+        trailer_a.get_raw().cmp(datum{trailer_a_data}) != 0 ||
+        trailer_a.get_parsed_data().cmp(datum{trailer_a_data,
+                                              trailer_a_data + 4}) != 0 ||
+        trailer_a.compare(trailer_b) >= 0 ||
+        trailer_b.compare(trailer_a) <= 0) {
+        return false;
+    }
+
+    // Invalid vectors sort before valid vectors.
+    datum truncated_compare_input{truncated_data};
+    datum normalized_compare_input{normalized_data};
+    parsed_extent<variable_length_vector<uint16_t, uint16_t>> truncated_value{
+        truncated_compare_input
+    };
+    parsed_extent<variable_length_vector<uint16_t, uint16_t>> normalized_value{
+        normalized_compare_input
+    };
+    if (truncated_value.compare(normalized_value) >= 0 ||
+        normalized_value.compare(truncated_value) <= 0) {
+        return false;
+    }
+
+    // Two invalid vectors retain raw-byte ordering.
+    static constexpr uint8_t other_truncated_data[] = {
+        0x00, 0x04, 0x1b
+    };
+    datum other_truncated_input{other_truncated_data};
+    parsed_extent<variable_length_vector<uint16_t, uint16_t>> other_truncated_value{
+        other_truncated_input
+    };
+    if (truncated_value.compare(other_truncated_value) >= 0 ||
+        other_truncated_value.compare(truncated_value) <= 0) {
         return false;
     }
 

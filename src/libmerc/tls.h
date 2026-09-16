@@ -20,12 +20,13 @@
 #include "quic_vli.hpp"
 #include "tls_extensions.h"
 #include "ech.hpp"
+#include "grease.hpp"
 #include "mem_utils.hpp"
+#include "parsed_extent.hpp"
 #include "variable_length_vector.hpp"
 #include <array>
 #include <cstdint>
 #include <cstring>
-#include <optional>
 #include <type_traits>
 
 
@@ -338,43 +339,13 @@ enum class tls_role { client, server };
 
 #ifndef NDEBUG
 inline bool tls_extension_length_unit_test();
+inline bool protocol_name_list_unit_test();
 #endif // NDEBUG
 
-/// \brief Test whether a 16-bit TLS value is a GREASE value.
-///
-/// \param x value to test
-/// \return true if \p x is a TLS GREASE value
-///
-static constexpr bool is_grease_uint16(uint16_t x) {
-    return (x & 0x0f) == 0x0a && (x >> 8) == (x & 0xff);
-}
-
-/// \brief Normalize a 16-bit TLS GREASE value.
-///
-/// \param x value to normalize
-/// \return 0x0a0a for GREASE values, otherwise \p x
-///
-static constexpr uint16_t degrease_uint16(uint16_t x) {
-    return is_grease_uint16(x) ? 0x0a0a : x;
-}
-
-/// \brief Test whether an 8-bit TLS value is a GREASE value.
-///
-/// \param x value to test
-/// \return true if \p x is a TLS GREASE value
-///
-static constexpr bool is_grease_uint8(uint8_t x) {
-    return x % 31 == 11;
-}
-
-/// \brief Normalize an 8-bit TLS GREASE value.
-///
-/// \param x value to normalize
-/// \return 0x0b for GREASE values, otherwise \p x
-///
-static constexpr uint8_t degrease_uint8(uint8_t x) {
-    return is_grease_uint8(x) ? 0x0b : x;
-}
+using grease::is_grease_uint16;
+using grease::degrease_uint16;
+using grease::is_grease_uint8;
+using grease::degrease_uint8;
 
 
 struct tls_extensions : public datum {
@@ -423,18 +394,11 @@ struct tls_extensions : public datum {
 #ifndef NDEBUG
     // LCOV_EXCL_START
     static bool unit_test() {
-        // Verify the shared TLS 16-bit GREASE predicate accepts all GREASE
-        // encodings, rejects near-miss values, and normalizes only GREASE.
-        if (!is_grease_uint16(0x0a0a) || !is_grease_uint16(0x7a7a) ||
-            !is_grease_uint16(0xfafa) || is_grease_uint16(0x0a1a) ||
-            is_grease_uint16(0x1a0a) || degrease_uint16(0x1234) != 0x1234 ||
-            degrease_uint16(0x7a7a) != 0x0a0a) {
-            fprintf(stdout, "Test for shared TLS GREASE predicate failed\n");
-            return false;
-        }
-
         // Verify that extension lengths are emitted without de-GREASEing.
         if (!tls_extension_length_unit_test()) {
+            return false;
+        }
+        if (!protocol_name_list_unit_test()) {
             return false;
         }
 
@@ -716,6 +680,34 @@ struct tls_extensions : public datum {
                    duplicate_alpn_output.dstr,
                    sizeof(expected_duplicate_alpn) - 1)) {
             fprintf(stdout, "Test for duplicate ALPN extension sorting failed\n");
+            return false;
+        }
+
+        // Verify that bytes after the declared ProtocolNameList are copied
+        // unchanged and participate in duplicate-extension ordering.
+        static constexpr uint8_t alpn_trailer_extensions[] = {
+            0x00, 0x10, 0x00, 0x08,
+            0x00, 0x03, 0x02, 0x1a, 0x1a, 0x02, 0x1a, 0x1b,
+            0x00, 0x10, 0x00, 0x08,
+            0x00, 0x03, 0x02, 0x1a, 0x1a, 0x02, 0x1a, 0x1a
+        };
+        static constexpr char expected_alpn_trailer[] =
+            "[(001000080003020a0a021a1a)(001000080003020a0a021a1b)]";
+        datum alpn_trailer_data{alpn_trailer_extensions,
+                                alpn_trailer_extensions +
+                                    sizeof(alpn_trailer_extensions)};
+        tls_extensions alpn_trailer{alpn_trailer_data.data,
+                                     alpn_trailer_data.data_end};
+        char alpn_trailer_buffer[300];
+        buffer_stream alpn_trailer_output{alpn_trailer_buffer,
+                                          sizeof(alpn_trailer_buffer)};
+        alpn_trailer.fingerprint_quic_tls(alpn_trailer_output,
+                                          tls_role::client);
+        if (alpn_trailer_output.length() != sizeof(expected_alpn_trailer) - 1 ||
+            memcmp(expected_alpn_trailer,
+                   alpn_trailer_output.dstr,
+                   sizeof(expected_alpn_trailer) - 1)) {
+            fprintf(stdout, "Test for ALPN trailer handling failed\n");
             return false;
         }
 
@@ -1496,71 +1488,88 @@ public:
 };
 
 class protocol_name_list {
-    datum data;
+    encoded<uint16_t> length;
+    datum names;
 
-    /// \brief Check that \p names contains only non-empty protocol names.
-    ///
-    /// \param names encoded protocol-name list data
-    /// \return true if all names can be parsed
-    ///
-    static bool is_valid(datum names) {
-        while (names.is_not_empty()) {
-            protocol_name name{names};
-            if (!name.is_not_null() || name.is_empty()) {
-                return false;
+    static bool valid_name(const protocol_name &name) {
+        return name.is_not_empty();
+    }
+
+    static int compare_name(const protocol_name &left,
+                            const protocol_name &right) {
+        return left.compare_degreased(right);
+    }
+
+    static int compare_name_sequence(datum left, datum right) {
+        while (true) {
+            const bool left_empty = left.is_empty();
+            const bool right_empty = right.is_empty();
+
+            if (left_empty || right_empty) {
+                if (left_empty && right_empty) {
+                    return 0;
+                }
+                return left_empty ? -1 : 1;
             }
+
+            parsed_extent<protocol_name> left_name{left};
+            parsed_extent<protocol_name> right_name{right};
+
+            const bool left_is_name =
+                left_name.is_not_null() &&
+                valid_name(left_name.get_value());
+            const bool right_is_name =
+                right_name.is_not_null() &&
+                valid_name(right_name.get_value());
+
+            if (left_is_name && right_is_name) {
+                int result = compare_name(left_name.get_value(),
+                                          right_name.get_value());
+                if (result != 0) {
+                    return result;
+                }
+                continue;
+            }
+
+            if (left_is_name != right_is_name) {
+                return left_is_name ? -1 : 1;
+            }
+
+            return left_name.get_raw().cmp(right_name.get_raw());
         }
-        return names.is_not_null();
     }
 
 public:
 
-    protocol_name_list(datum &d) {
-        encoded<uint16_t> length{d};
-        data.parse(d, length.value());
+    protocol_name_list(datum &d)
+        : length{d},
+          names{d, static_cast<ssize_t>(length.value())} { }
+
+    bool is_not_null() const {
+        return names.is_not_null();
     }
 
     datum get_data() const {
-        return data;
+        return names;
     }
 
     /// \brief Compare protocol-name lists after normalizing GREASE names.
     ///
     /// The outer list length and each encoded protocol name are compared in
-    /// wire order.  A null result indicates malformed input and allows the
-    /// caller to use a raw-value comparison instead.
+    /// wire order. Protocol names are normalized for GREASE before
+    /// comparison. The caller must use parsed_extent when invalid input or
+    /// trailing data must participate in comparison.
     ///
     /// \param other protocol-name list to compare
-    /// \return a comparison result, or nullopt for malformed input
+    /// \pre both lists were constructed successfully
+    /// \return a negative, zero, or positive comparison result
     ///
-    std::optional<int> compare_degreased(const protocol_name_list &other) const {
-        if (!data.is_not_null() || !other.data.is_not_null() ||
-            !is_valid(data) || !is_valid(other.data)) {
-            return std::nullopt;
+    int compare_degreased(const protocol_name_list &other) const {
+        if (length.value() != other.length.value()) {
+            return length.value() < other.length.value() ? -1 : 1;
         }
 
-        if (data.length() != other.data.length()) {
-            return data.length() < other.data.length() ? -1 : 1;
-        }
-
-        datum a_data{data};
-        datum b_data{other.data};
-        int result = 0;
-        while (a_data.is_not_empty() && b_data.is_not_empty()) {
-            protocol_name a_name{a_data};
-            protocol_name b_name{b_data};
-            if (result == 0) {
-                result = a_name.compare_degreased(b_name);
-            }
-        }
-
-        if (result != 0) {
-            return result;
-        }
-        if (a_data.is_not_empty() != b_data.is_not_empty()) {
-            return a_data.is_not_empty() ? 1 : -1;
-        }
-        return result;
+        return compare_name_sequence(names, other.names);
     }
 
 
@@ -1569,6 +1578,7 @@ public:
     //
     void write_json(json_object &o, const char *key) {
         json_array alpn_array{o, key};
+        datum data = names;
         while (data.is_not_empty()) {
             protocol_name name{data};
             name.write_json(alpn_array);
@@ -1576,6 +1586,79 @@ public:
         alpn_array.close();
     }
 };
+
+#ifndef NDEBUG
+
+// LCOV_EXCL_START
+/// \brief Test token-sequence comparison for ALPN protocol-name lists.
+///
+/// \return true if all protocol-name list comparison tests pass
+///
+inline bool protocol_name_list_unit_test() {
+    static constexpr uint8_t grease_a[] = {
+        0x00, 0x03, 0x02, 0x1a, 0x1a
+    };
+    static constexpr uint8_t grease_b[] = {
+        0x00, 0x03, 0x02, 0x0a, 0x0a
+    };
+    datum grease_a_data{grease_a};
+    datum grease_b_data{grease_b};
+    parsed_extent<protocol_name_list> grease_a_list{grease_a_data};
+    parsed_extent<protocol_name_list> grease_b_list{grease_b_data};
+    if (grease_a_list.compare(grease_b_list) != 0) {
+        return false;
+    }
+
+    // A malformed protocol name becomes a raw token, which sorts after a
+    // successfully parsed protocol name.
+    static constexpr uint8_t valid_names[] = {
+        0x00, 0x04, 0x01, 0x68, 0x01, 0x69
+    };
+    static constexpr uint8_t malformed_names[] = {
+        0x00, 0x04, 0x01, 0x68, 0x02, 0x69
+    };
+    datum valid_names_data{valid_names};
+    datum malformed_names_data{malformed_names};
+    parsed_extent<protocol_name_list> valid_names_list{valid_names_data};
+    parsed_extent<protocol_name_list> malformed_names_list{malformed_names_data};
+    if (valid_names_list.compare(malformed_names_list) >= 0 ||
+        malformed_names_list.compare(valid_names_list) <= 0) {
+        return false;
+    }
+
+    // Equal normalized protocol-name sequences compare their raw trailers.
+    static constexpr uint8_t trailer_a[] = {
+        0x00, 0x03, 0x02, 0x1a, 0x1a, 0x02, 0x1a, 0x1a
+    };
+    static constexpr uint8_t trailer_b[] = {
+        0x00, 0x03, 0x02, 0x0a, 0x0a, 0x02, 0x1a, 0x1b
+    };
+    datum trailer_a_data{trailer_a};
+    datum trailer_b_data{trailer_b};
+    parsed_extent<protocol_name_list> trailer_a_list{trailer_a_data};
+    parsed_extent<protocol_name_list> trailer_b_list{trailer_b_data};
+    if (trailer_a_list.compare(trailer_b_list) >= 0 ||
+        trailer_b_list.compare(trailer_a_list) <= 0) {
+        return false;
+    }
+
+    // A list whose declared length exceeds the available bytes is ordered
+    // before a structurally valid list.
+    static constexpr uint8_t invalid_list[] = {
+        0x00, 0x04, 0x02, 0x1a, 0x1a
+    };
+    static constexpr uint8_t valid_list[] = {
+        0x00, 0x03, 0x02, 0x1a, 0x1a
+    };
+    datum invalid_list_data{invalid_list};
+    datum valid_list_data{valid_list};
+    parsed_extent<protocol_name_list> invalid_list_value{invalid_list_data};
+    parsed_extent<protocol_name_list> valid_list_value{valid_list_data};
+    return invalid_list_value.compare(valid_list_value) < 0 &&
+           valid_list_value.compare(invalid_list_value) > 0;
+}
+// LCOV_EXCL_STOP
+#endif // NDEBUG
 
 inline void tls_extensions::print_alpn(struct json_object &o, const char *key) const {
 
@@ -1821,52 +1904,40 @@ struct tls_extension {
         if (type == type_supported_groups) {
             datum a_data{value};
             datum b_data{other.value};
-            supported_groups_vector a_values{a_data};
-            supported_groups_vector b_values{b_data};
-            if (a_values.is_not_null() && b_values.is_not_null()) {
-                return a_values.compare_degreased(b_values, degrease_uint16);
-            }
+            parsed_extent<supported_groups_vector> a_values{a_data};
+            parsed_extent<supported_groups_vector> b_values{b_data};
+            return a_values.compare(b_values);
         } else if (type == type_supported_versions) {
             datum a_data{value};
             datum b_data{other.value};
             if (role == tls_role::client) {
-                client_supported_versions_vector a_values{a_data};
-                client_supported_versions_vector b_values{b_data};
-                if (a_values.is_not_null() && b_values.is_not_null()) {
-                    return a_values.compare_degreased(b_values, degrease_uint16);
-                }
+                parsed_extent<client_supported_versions_vector> a_values{a_data};
+                parsed_extent<client_supported_versions_vector> b_values{b_data};
+                return a_values.compare(b_values);
             } else {
-                server_supported_versions_vector a_values{a_data};
-                server_supported_versions_vector b_values{b_data};
-                if (a_values.is_not_null() && b_values.is_not_null()) {
-                    return a_values.compare_degreased(b_values, degrease_uint16);
-                }
+                parsed_extent<server_supported_versions_vector> a_values{a_data};
+                parsed_extent<server_supported_versions_vector> b_values{b_data};
+                return a_values.compare(b_values);
             }
         } else if (type == type_signature_algorithms ||
                    type == type_signature_algorithms_cert) {
             datum a_data{value};
             datum b_data{other.value};
-            signature_algorithm_vector a_values{a_data};
-            signature_algorithm_vector b_values{b_data};
-            if (a_values.is_not_null() && b_values.is_not_null()) {
-                return a_values.compare_degreased(b_values, degrease_uint16);
-            }
+            parsed_extent<signature_algorithm_vector> a_values{a_data};
+            parsed_extent<signature_algorithm_vector> b_values{b_data};
+            return a_values.compare(b_values);
         } else if (type == type_psk_key_exchange_modes) {
             datum a_data{value};
             datum b_data{other.value};
-            psk_key_exchange_modes_vector a_values{a_data};
-            psk_key_exchange_modes_vector b_values{b_data};
-            if (a_values.is_not_null() && b_values.is_not_null()) {
-                return a_values.compare_degreased(b_values, degrease_uint8);
-            }
+            parsed_extent<psk_key_exchange_modes_vector> a_values{a_data};
+            parsed_extent<psk_key_exchange_modes_vector> b_values{b_data};
+            return a_values.compare(b_values);
         } else if (type == type_alpn) {
             datum a_data{value};
             datum b_data{other.value};
-            protocol_name_list a_names{a_data};
-            protocol_name_list b_names{b_data};
-            if (auto result = a_names.compare_degreased(b_names)) {
-                return *result;
-            }
+            parsed_extent<protocol_name_list> a_names{a_data};
+            parsed_extent<protocol_name_list> b_names{b_data};
+            return a_names.compare(b_names);
         }
 
         return value.cmp(other.value);
@@ -2001,69 +2072,54 @@ struct tls_extension {
     ///
     template <typename T, typename LengthT, typename Normalize>
     void write_normalized_vector(struct buffer_stream &b, Normalize normalize) const {
-        constexpr size_t prefix_length =
-            std::is_same_v<LengthT, no_length> ? 0 : sizeof(LengthT);
-        const size_t value_length = static_cast<size_t>(value.length());
-        const size_t output_prefix_length =
-            prefix_length < value_length ? prefix_length : value_length;
-
-        if (!value.is_not_empty()) {
-            return;
-        }
-        b.raw_as_hex(value.data, output_prefix_length);
-
         datum input{value};
-        variable_length_vector<T, LengthT> values{input};
-        if (values) {
-            for (size_t i = 0; i < values.size(); ++i) {
-                T element = static_cast<T>(normalize(values[i]));
-                b.raw_as_hex(reinterpret_cast<const uint8_t *>(&element),
-                             sizeof(element));
-            }
-            return;
-        }
+        parsed_extent<variable_length_vector<T, LengthT>> values{input};
+        values.write(b,
+            [normalize](buffer_stream &output,
+                        const auto &vector,
+                        datum parsed_data) {
+                constexpr size_t prefix_length =
+                    std::is_same_v<LengthT, no_length> ? 0 : sizeof(LengthT);
+                output.raw_as_hex(parsed_data.data, prefix_length);
 
-        // Preserve the previous behavior for malformed vectors: normalize
-        // complete elements that are actually present after the prefix.
-        const size_t remaining_length = value_length - output_prefix_length;
-        const size_t complete_length = remaining_length -
-            (remaining_length % sizeof(T));
-        const uint8_t *elements = value.data + output_prefix_length;
-        for (size_t i = 0; i < complete_length; i += sizeof(T)) {
-            T element;
-            std::memcpy(&element, elements + i, sizeof(element));
-            element = static_cast<T>(normalize(element));
-            b.raw_as_hex(reinterpret_cast<const uint8_t *>(&element),
-                         sizeof(element));
-        }
+                for (size_t i = 0; i < vector.size(); ++i) {
+                    T element = static_cast<T>(normalize(vector[i]));
+                    output.raw_as_hex(
+                        reinterpret_cast<const uint8_t *>(&element),
+                        sizeof(element));
+                }
+            });
     }
 
     void write_degreased_alpn_value(struct buffer_stream &b) const {
-        if (value.is_not_empty()) {
-            datum names = value;
-            if (names.length() < 2) {
-                b.raw_as_hex(names.data, names.length());
-                return;
-            }
+        datum names = value;
+        parsed_extent<protocol_name_list> protocol_names{names};
+        protocol_names.write(b,
+            [](buffer_stream &output,
+               const protocol_name_list &list,
+               datum parsed_data) {
+                output.raw_as_hex(parsed_data.data, sizeof(uint16_t));
+                datum list_data = list.get_data();
 
-            b.raw_as_hex(names.data, 2);
-            names.skip(2);
-            while (names.is_not_empty()) {
-                datum before_name = names;
-                protocol_name name{names};
-                if (name.is_not_empty()) {
-                    b.write_hex_uint(static_cast<uint8_t>(name.length()));
-                    if (name.is_grease()) {
-                        b.write_hex_uint(static_cast<uint16_t>(0x0a0a));
+                while (list_data.is_not_empty()) {
+                    datum before_name = list_data;
+                    protocol_name name{list_data};
+                    if (name.is_not_empty()) {
+                        output.write_hex_uint(
+                            static_cast<uint8_t>(name.length()));
+                        if (name.is_grease()) {
+                            output.write_hex_uint(
+                                static_cast<uint16_t>(0x0a0a));
+                        } else {
+                            output.raw_as_hex(name.data, name.length());
+                        }
                     } else {
-                        b.raw_as_hex(name.data, name.length());
+                        output.raw_as_hex(before_name.data,
+                                          before_name.length());
+                        break;
                     }
-                } else {
-                    b.raw_as_hex(before_name.data, before_name.length());
-                    break;
                 }
-            }
-        }
+            });
     }
 
     void write_value(struct buffer_stream &b) const {
