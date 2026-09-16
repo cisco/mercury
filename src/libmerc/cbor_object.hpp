@@ -452,7 +452,7 @@ public:
                                 cbor_fingerprint::decode_cbor_fingerprint(trial, fp_buf);
                                 if (trial.is_not_null() and fp_buf.is_not_empty()) {
                                     d = trial;
-                                    o.print_key_json_string(key, fp_buf.contents());
+                                    o.print_key_json_string(json_key, fp_buf.contents());
                                     break;
                                 }
                             }
@@ -468,9 +468,10 @@ public:
                                 // tag content is the value
                                 output_buffer<24> tag_buf;   // 2^64-1 is 20 digits
                                 tag_buf.snprintf("%" PRIu64, tmp.value());
-                                tag_buf.add_null();
-                                json_object t{o, key};
-                                t.print_key_base64(tag_buf.data(), content);
+                                std::optional<null_terminated_string> tag_key = null_terminate(tag_buf);
+                                if (!tag_key) { d.set_null(); return false; }
+                                json_object t{o, json_key};
+                                t.print_key_base64(*tag_key, content);
                                 t.close();
                             }
                         }
@@ -589,9 +590,10 @@ inline bool cbor_to_json_translator::decode_cbor_array_to_json(datum &d, json_ar
                     } else {
                         output_buffer<24> tag_buf;       // 2^64-1 is 20 digits
                         tag_buf.snprintf("%" PRIu64, tmp.value());
-                        tag_buf.add_null();
+                        std::optional<null_terminated_string> tag_key = null_terminate(tag_buf);
+                        if (!tag_key) { d.set_null(); return false; }
                         json_object t{a};
-                        t.print_key_base64(tag_buf.data(), content);
+                        t.print_key_base64(*tag_key, content);
                         t.close();
                     }
                 }
