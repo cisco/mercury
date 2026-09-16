@@ -130,8 +130,13 @@ static constexpr size_t lctrie_bgp_max_entries = 1024;
 
 // LCOV_EXCL_START
 static inline bool lctrie_v4_unit_test(FILE *f = nullptr) {
-    lct<uint32_t> empty_trie{};
-    if (lct_find(&empty_trie, 0u) != nullptr) {
+    lct<uint32_t> failed_trie{};
+    lct_subnet<uint32_t> failed_nets[1]{};
+    failed_nets[0].type = IP_PREFIX;
+    if (lct_build(&failed_trie, failed_nets, 1) == 0
+        || failed_trie.bases != nullptr
+        || failed_trie.nets != nullptr
+        || lct_find(&failed_trie, 0u) != nullptr) {
         return false;
     }
 

@@ -125,4 +125,22 @@ public:
     bool is_domain_faking(const char *server_name, const char *dst_ip) const;
 };
 
+#ifndef NDEBUG
+// LCOV_EXCL_START
+inline bool subnet_data_unit_test() {
+    subnet_data data;
+    std::vector<std::pair<std::string, std::string>> subnets = {
+        {"2001:db8:1::/48", "facebook.com"}
+    };
+
+    if (data.process_domain_mapping_subnets_v6(subnets) != 0) {
+        return false;
+    }
+    data.process_domain_mappings_final();
+    data.process_domain_mappings_final_v6();
+    return !data.is_domain_faking("facebook.com", "93.184.216.34");
+}
+// LCOV_EXCL_STOP
+#endif
+
 #endif // ADDR_H

@@ -122,9 +122,6 @@ uint32_t subnet_data::get_asn_info(const char* dst_ip) const {
 
     uint32_t ipv4_addr;
     if (char_string_to_ipv4_addr(dst_ip, ipv4_addr)) {
-        if (!ipv4_subnet_array || !ipv4_subnet_trie.root) {
-            return 0;
-        }
         lct_subnet_t *subnet = lct_find(&ipv4_subnet_trie, ntoh(ipv4_addr));
         if (subnet == NULL) {
             return 0;
@@ -589,6 +586,7 @@ void subnet_data::process_domain_mappings_final() {
     // actually build the trie and get the trie node count for statistics printing
     memset(&ipv4_domain_trie, 0, sizeof(lct<ipv4_addr_t>));
     if (lct_build(&ipv4_domain_trie, domains_prefix, domains_prefix_num) != 0) {
+        printf_err(log_err, "could not build IPv4 domain-mapping trie\n");
         return;
     }
 
@@ -654,6 +652,7 @@ void subnet_data::process_domain_mappings_final_v6() {
     // actually build the trie and get the trie node count for statistics printing
     memset(&ipv6_domain_trie, 0, sizeof(lct<ipv6_addr_lct>));
     if (lct_build(&ipv6_domain_trie, domains_prefix_v6, domains_prefix_v6_num) != 0) {
+        printf_err(log_err, "could not build IPv6 domain-mapping trie\n");
         return;
     }
 
