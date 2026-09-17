@@ -531,5 +531,5 @@ int main(int argc, char **argv) {
         std::printf("\n");
     }
 
-    return errors != 0 || hash_sink == std::numeric_limits<uint64_t>::max() ? 2 : 0;
+    return errors != 0 ? 2 : 0;
 }
