@@ -13,6 +13,7 @@ Mercury Library Documentation
    identifiers
    null_terminated_string
    hex
+   flow_hashing
    examples
    diagnostic
    python

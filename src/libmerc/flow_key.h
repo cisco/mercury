@@ -166,7 +166,10 @@ struct key {
                 && addr.ipv6.src == k.addr.ipv6.src
                 && addr.ipv6.dst == k.addr.ipv6.dst;
         default:
-            return 0;
+            return src_port == k.src_port
+                && dst_port == k.dst_port
+                && protocol == k.protocol
+                && ip_vers == k.ip_vers;
         }
     }
 
@@ -254,43 +257,6 @@ struct key {
     }
 
 
-    // hash() returns a size_t, and returns a hash of this flow key,
-    // suitable for use in STL containers
-    //
-    std::size_t hash() const {
-
-        size_t multiplier = 2862933555777941757;  // source: https://nuclear.llnl.gov/CNP/rng/rngman/node3.html
-
-        std::size_t x;
-        if (ip_vers == 4) {
-            uint32_t sa = addr.ipv4.src;
-            uint32_t da = addr.ipv4.dst;
-            uint16_t sp = src_port;
-            uint16_t dp = dst_port;
-            uint8_t  pr = protocol;
-            x = ((uint64_t) sp * da) + ((uint64_t) dp * sa);
-            x *= multiplier;
-            x += sa + da + sp + dp + pr;
-            x *= multiplier;
-        } else {
-            // memcpy avoids the strict-aliasing/alignment UB of a (uint64_t *)
-            // cast; at -O3 it compiles away to the same two 64-bit loads.
-            uint64_t sa[2], da[2];
-            memcpy(sa, &addr.ipv6.src, sizeof(sa));
-            memcpy(da, &addr.ipv6.dst, sizeof(da));
-            uint16_t sp = src_port;
-            uint16_t dp = dst_port;
-            uint8_t  pr = protocol;
-            x = ((uint64_t) sp * da[0] * da[1]) + ((uint64_t) dp * sa[0] * sa[1]);
-            x *= multiplier;
-            x += sa[0] + sa[1] + da[0] + da[1] + sp + dp + pr;
-            x *= multiplier;
-        }
-
-        return x;
-
-    }
-
     void write_ip_address(struct json_object &o) const {
         if (ip_vers == 6) {
             const uint8_t *s = (const uint8_t *)&addr.ipv6.src;
@@ -311,17 +277,5 @@ struct key {
 
     }
 };
-
-namespace std {
-
-    // define a hash<key> object suitable for use in STL containers
-    //
-    template <>  struct hash<key>  {
-        std::size_t operator()(const key& k) const {
-            return k.hash();
-        }
-    };
-}
-
 
 #endif // FLOW_KEY_H

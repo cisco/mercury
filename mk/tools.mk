@@ -50,6 +50,13 @@ tools: $(TOOL_TARGETS)
 .PHONY: certtools
 certtools: $(CERTTOOLS)
 
+.PHONY: flow_hash_benchmark
+flow_hash_benchmark: $(BIN)/flow_hash_benchmark
+
+.PHONY: run-flow-hash-benchmark
+run-flow-hash-benchmark: $(BIN)/flow_hash_benchmark
+	$(abspath $(BIN)/flow_hash_benchmark)
+
 # Auto-generate short-name aliases (e.g. 'make cert_analyze') from TOOL_TARGETS.
 _TOOL_NAMES := $(notdir $(TOOL_TARGETS))
 .PHONY: $(_TOOL_NAMES)
@@ -113,6 +120,11 @@ $(LIB)/intercept.so: $(LIB)/libmerc.a
 # libmerc_util — PCAP analysis tool using libmerc.so (via dlopen)
 $(BIN)/libmerc_util: LDLIBS := -pthread -lcrypto -ldl -lz
 $(BIN)/libmerc_util: $(call objects,src/libmerc_util.cc)
+	$(LINK)
+
+# flow_hash_benchmark — exploratory flow-key hash latency/distribution driver
+$(BIN)/flow_hash_benchmark: CXXFLAGS += -I src -I src/libmerc
+$(BIN)/flow_hash_benchmark: $(call objects,src/flow_hash_benchmark.cc)
 	$(LINK)
 
 # pcap — PCAP file reader and packet dumper
