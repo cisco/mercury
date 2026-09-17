@@ -415,7 +415,7 @@ endif()
 #     CMAKE_CXX_FLAGS_MINSIZEREL: -Os -DNDEBUG (optimize for size)
 
 if(IS_WIN)
-    add_compile_options(/W3 /permissive- ${OPTFLAGS})
+    add_compile_options(/W3 /permissive- /bigobj ${OPTFLAGS})
 else()
     add_compile_options(
         -Wall -Wextra -Wno-deprecated
