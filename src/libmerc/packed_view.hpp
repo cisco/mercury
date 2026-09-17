@@ -205,14 +205,18 @@ struct packed_view_field_info<
 /// and 4, and the view's `extent` is 6.  Use `packed_view_padding<N>` to
 /// represent unmodeled bytes.  The computed extent can be used in a compile-
 /// time assertion, for example `static_assert(udp_header::extent == 6)`.
+/// A layout must have a non-zero extent so that successful parsing always
+/// advances its input datum.
 ///
-/// \tparam Fields optional `packed_view_field` and `packed_view_padding`
-/// descriptors, in wire order
+/// \tparam Fields one or more `packed_view_field` and
+/// `packed_view_padding` descriptors, in wire order
 ///
 template <typename... Fields>
 class packed_view {
     static_assert(packed_view_tags_unique<Fields...>::value,
                   "packed_view field tags must be unique");
+    static_assert(packed_view_layout_size<Fields...>::value > 0,
+                  "packed_view layout must have non-zero extent");
 
     const unsigned char *data = nullptr;
 
