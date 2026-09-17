@@ -11,6 +11,7 @@ Mercury Library Documentation
    datum
    alternative
    identifiers
+   null_terminated_string
    hex
    flow_hashing
    examples
