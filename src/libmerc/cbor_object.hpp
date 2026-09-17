@@ -987,8 +987,8 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
     // tag; tag 999 (0xd903e7) and tag 251 (0xd8fb) are not registered.  An
     // undecodable fingerprint is dropped: the tag content is walked as opaque
     // bytes and nothing is written for it.  Any other unrecognized tag is
-    // rendered as {"<tag number>":"<base64>"}, where the base64 covers the tag's
-    // content bytes exactly.
+    // rendered as {"tag":<number>,"content_base64":"<base64>"}, where the base64
+    // covers the tag's content bytes exactly.
     //
     // The 24 bytes 0xbf01bf019f420303421301d8fb9f42000042000affffffff, which
     // appear in three of the cases below, are the cbor encoding of the
