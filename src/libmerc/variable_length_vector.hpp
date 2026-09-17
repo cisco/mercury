@@ -206,14 +206,25 @@ public:
     /// normalized elements are compared bytewise.  The explicit byte length
     /// is compared before the normalized elements.
     ///
-    /// The caller must use parsed_extent when invalid values or trailing input
-    /// must participate in comparison.
+    /// An invalid vector sorts before a valid vector. Two invalid vectors
+    /// compare equal. Use parsed_extent when invalid values or trailing input
+    /// must participate in raw-byte comparison.
     ///
     /// \param other vector to compare
-    /// \pre both vectors were constructed successfully
     /// \return a negative, zero, or positive comparison result
     ///
     int compare_degreased(const variable_length_vector &other) const {
+        const bool left_valid = is_not_null();
+        const bool right_valid = other.is_not_null();
+
+        if (left_valid != right_valid) {
+            return left_valid ? 1 : -1;
+        }
+
+        if (!left_valid) {
+            return 0;
+        }
+
         if (length_value != other.length_value) {
             return length_value < other.length_value ? -1 : 1;
         }
@@ -328,6 +339,25 @@ inline bool variable_length_vector_unit_test() {
     variable_length_vector<uint16_t, uint16_t> non_integral_values{non_integral_input};
     if (non_integral_values || non_integral_values.is_not_null() ||
         !non_integral_input.is_null()) {
+        return false;
+    }
+
+    // Direct vector comparison must safely order an invalid vector and a
+    // valid vector even when both retain the same declared length.
+    static constexpr uint8_t valid_compare_data[] = {
+        0x00, 0x04, 0x1a, 0x1a, 0x12, 0x34
+    };
+    datum invalid_compare_input{truncated_data};
+    datum valid_compare_input{valid_compare_data};
+    variable_length_vector<uint16_t, uint16_t> invalid_compare{
+        invalid_compare_input
+    };
+    variable_length_vector<uint16_t, uint16_t> valid_compare{
+        valid_compare_input
+    };
+    if (invalid_compare.compare_degreased(valid_compare) >= 0 ||
+        valid_compare.compare_degreased(invalid_compare) <= 0 ||
+        invalid_compare.compare_degreased(invalid_compare) != 0) {
         return false;
     }
 
