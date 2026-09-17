@@ -156,11 +156,10 @@ public:
 
     /// \brief Return the vector length in bytes.
     ///
-    /// \pre the vector was constructed successfully
-    /// \return vector length in bytes
+    /// \return vector length in bytes, or zero if construction failed
     ///
     size_t length() const {
-        return length_value;
+        return is_not_null() ? length_value : 0;
     }
 
     /// \brief Return the number of elements in the vector.
@@ -327,6 +326,7 @@ inline bool variable_length_vector_unit_test() {
                           truncated_data + sizeof(truncated_data)};
     variable_length_vector<uint16_t, uint16_t> truncated_values{truncated_input};
     if (truncated_values || truncated_values.is_not_null() ||
+        truncated_values.length() != 0 ||
         !truncated_input.is_null()) {
         return false;
     }
