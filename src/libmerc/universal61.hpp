@@ -14,7 +14,7 @@
 ///
 /// This header implements an affine multilinear hash family over the field
 /// `F_p`, where `p = 2^61 - 1`.  A flow key is first packed into field elements
-/// `x[0] ... x[n-1]`, each less than `p`.  A process-local secret contains
+/// `x[0] ... x[n-1]`, each less than `p`.  A secret contains
 /// independently selected coefficients `a[0] ... a[n-1]` and offset `b`, and the
 /// hash is
 ///
@@ -35,7 +35,7 @@
 /// effects.  Bar-Yosef and Wool studied such remote attacks against randomized
 /// hash tables and showed that small secrets can be recovered by interacting
 /// with a device.  Under normal OS-random keying, this implementation uses a
-/// much larger per-process secret and never exposes raw hash outputs.
+/// much larger secret and never exposes raw hash outputs.
 ///
 /// Efficient modular arithmetic is the reason for the `2^61 - 1` modulus.  For
 /// a Mersenne prime `p = 2^k - 1`, `2^k == 1 (mod p)`.  A product can therefore
@@ -411,7 +411,7 @@ class flow_key_hasher {
 
 public:
 
-    /// \brief Construct a hasher with fresh process-local key material.
+    /// \brief Construct a hasher with fresh key material.
     ///
     /// \details
     /// The secret is generated directly from std::random_device.
