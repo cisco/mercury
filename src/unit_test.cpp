@@ -17,6 +17,7 @@
 #include "libmerc/tofsee.hpp"
 #include "libmerc/snmp.hpp"
 #include "libmerc/ip_address.hpp"
+#include "libmerc/addr.h"
 #include "libmerc/lctrie/lctrie_bgp.hpp"
 #include "libmerc/watchlist.hpp"
 #include "libmerc/rdp.hpp"
@@ -376,6 +377,10 @@ int main(int, char *[]) {
         {
             "destination_context",
             &destination_context::unit_test
+        },
+        {
+            "subnet_data",
+            &subnet_data_unit_test
         },
         {
             "reassembly",
