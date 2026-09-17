@@ -16,6 +16,7 @@
 #include "tls_parameters.hpp"
 #include "flow_key.h"
 #include "json_object.h"
+#include "null_terminated_string.hpp"
 #include "x509.h"
 #include "quic_vli.hpp"
 #include "tls_extensions.h"
@@ -359,17 +360,17 @@ struct tls_extensions : public datum {
 
     tls_extensions(const uint8_t *data, const uint8_t *data_end) : datum{data, data_end} {}
 
-    void print(struct json_object &o, const char *key) const;
+    void print(struct json_object &o, null_terminated_string key) const;
 
     datum get_server_name() const;
 
-    void print_server_name(struct json_object &o, const char *key) const;
+    void print_server_name(struct json_object &o, null_terminated_string key) const;
 
-    void print_quic_transport_parameters(struct json_object &o, const char *key) const;
+    void print_quic_transport_parameters(struct json_object &o, null_terminated_string key) const;
 
-    void print_alpn(struct json_object &o, const char *key) const;
+    void print_alpn(struct json_object &o, null_terminated_string key) const;
 
-    void print_session_ticket(struct json_object &o, const char *key) const;
+    void print_session_ticket(struct json_object &o, null_terminated_string key) const;
 
     void print_ech_client_hello(struct json_object &o) const;
 
@@ -846,8 +847,13 @@ struct tls_client_hello : public base_protocol {
         additional_bytes_needed = 0;
     }
 
+    // emits the detail object under a key named by the committed transport:
+    // "dtls" when the carrier is DTLS, "tls" otherwise. The key is
+    // deliberately NOT derived from the parsed legacy_version, which is
+    // untrusted and can be crafted to disagree with the carrier.
+    //
     void write_l7_metadata_detail(cbor_object &o) {
-        const char *proto = dtls ? "dtls" : "tls";
+        null_terminated_string proto = dtls ? null_terminated_string{"dtls"} : null_terminated_string{"tls"};
         cbor_object proto_obj{o, proto};
         cbor_object client{proto_obj, "client"};
         client.print_key_hex("random", random);
@@ -1127,7 +1133,7 @@ public:
 
             // output certificate
             //
-            const char *role = "undetermined";
+            null_terminated_string role = "undetermined";
             if (entity == client) {
                 role = "client";
             } else if (entity == server) {
@@ -1392,7 +1398,7 @@ inline constexpr uint16_t static_extension_types[num_static_extension_types] = {
         type_quic_transport_parameters_draft
     };
 
-inline void tls_extensions::print(struct json_object &o, const char *key) const {
+inline void tls_extensions::print(struct json_object &o, null_terminated_string key) const {
 
     struct datum ext_parser{this->data, this->data_end};
 
@@ -1451,7 +1457,7 @@ inline datum tls_extensions::get_server_name() const {
 
 }
 
-inline void tls_extensions::print_server_name(struct json_object &o, const char *key) const {
+inline void tls_extensions::print_server_name(struct json_object &o, null_terminated_string key) const {
     datum server_name = get_server_name();
     o.print_key_json_string(key, server_name);
 }
@@ -1643,7 +1649,7 @@ public:
     // write ALPN strings into an array inside the json_object \param
     // o, normalizing all GREASE values to hexadecimal 0a0a ("\n\n")
     //
-    void write_json(json_object &o, const char *key) {
+    void write_json(json_object &o, null_terminated_string key) {
         json_array alpn_array{o, key};
         datum data = names;
         while (data.is_not_empty()) {
@@ -1727,7 +1733,7 @@ inline bool protocol_name_list_unit_test() {
 // LCOV_EXCL_STOP
 #endif // NDEBUG
 
-inline void tls_extensions::print_alpn(struct json_object &o, const char *key) const {
+inline void tls_extensions::print_alpn(struct json_object &o, null_terminated_string key) const {
 
     struct datum ext_parser{this->data, this->data_end};
 
@@ -1795,7 +1801,7 @@ public:
 
 };
 
-inline void tls_extensions::print_quic_transport_parameters(struct json_object &o, const char *key) const {
+inline void tls_extensions::print_quic_transport_parameters(struct json_object &o, null_terminated_string key) const {
 
     struct datum ext_parser{this->data, this->data_end};
 
@@ -2452,7 +2458,7 @@ inline void tls_extensions::write_raw_features(writeable &buf) const {
     buf.copy(']');
 }
 
-inline void tls_extensions::print_session_ticket(struct json_object &o, const char *key) const {
+inline void tls_extensions::print_session_ticket(struct json_object &o, null_terminated_string key) const {
 
     struct datum ext_parser{this->data, this->data_end};
 
@@ -2592,7 +2598,7 @@ inline void tls_client_hello::write_json(struct json_object &record, bool output
     if (ciphersuite_vector.is_not_readable()) {
         return;
     }
-    const char *label = "tls";
+    null_terminated_string label = "tls";
     if (dtls) {
         label = "dtls";
     }
