@@ -611,7 +611,7 @@ namespace cbor_fingerprint {
                    datum &d,
                    writeable &w) {
 
-        w << datum{fingerprint::get_type_name((fingerprint_type)fp_type)};
+        w << datum{fingerprint::get_type_name((fingerprint_type)fp_type).c_str()};
         w.copy('/');
         switch(fp_type) {
         case fingerprint_type_http:

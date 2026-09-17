@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <cstdio>
 #include "libmerc/datum.h"
+#include "libmerc/null_terminated_string.hpp"
 #include "libmerc/lex.h"
 #include "libmerc/cbor.hpp"
 #include "libmerc/cbor_object.hpp"
@@ -110,6 +111,10 @@ int main(int, char *[]) {
         {
             "datum_match",
             &datum_match_unit_test
+        },
+        {
+            "null_terminated_string",
+            &null_terminated_string::unit_test
         },
         {
             "encoded<uint8_t>",
