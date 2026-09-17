@@ -338,8 +338,11 @@ struct tls_server_certificate {
 enum class tls_role { client, server };
 
 #ifndef NDEBUG
+// LCOV_EXCL_START
 inline bool tls_extension_length_unit_test();
+inline bool tls_extension_malformed_server_supported_versions_unit_test();
 inline bool protocol_name_list_unit_test();
+// LCOV_EXCL_STOP
 #endif // NDEBUG
 
 using grease::is_grease_uint16;
@@ -576,6 +579,73 @@ struct tls_extensions : public datum {
                    server_supported_versions_format2_output.dstr,
                    sizeof(expected_server_supported_versions) - 1)) {
             fprintf(stdout, "Test for server supported_versions Format 2 sorting failed\n");
+            return false;
+        }
+
+        // Malformed ServerHello supported_versions values must be compared
+        // and emitted as raw bytes. The ServerHello form contains exactly one
+        // two-byte ProtocolVersion, so this four-byte value must not be
+        // normalized as a two-element vector.
+        static constexpr uint8_t malformed_server_supported_versions[] = {
+            0x00, 0x2b, 0x00, 0x04, 0x1a, 0x1a, 0x10, 0x00,
+            0x00, 0x2b, 0x00, 0x04, 0x0a, 0x0a, 0x10, 0x01
+        };
+        if (!tls_extension_malformed_server_supported_versions_unit_test()) {
+            fprintf(stdout, "Test for malformed server supported_versions comparison failed\n");
+            return false;
+        }
+
+        static constexpr char expected_malformed_server_format1[] =
+            "[(002b00040a0a1001)(002b00041a1a1000)]";
+        static constexpr char expected_malformed_server_legacy[] =
+            "((002b00041a1a1000)(002b00040a0a1001))";
+        datum malformed_server_data{malformed_server_supported_versions};
+        tls_extensions malformed_server_supported_versions_extensions{
+            malformed_server_data.data,
+            malformed_server_data.data_end};
+
+        char malformed_server_format1_buffer[200];
+        buffer_stream malformed_server_format1_output{
+            malformed_server_format1_buffer,
+            sizeof(malformed_server_format1_buffer)};
+        malformed_server_supported_versions_extensions.fingerprint_quic_tls(
+            malformed_server_format1_output, tls_role::server);
+        if (malformed_server_format1_output.length() !=
+                sizeof(expected_malformed_server_format1) - 1 ||
+            memcmp(expected_malformed_server_format1,
+                   malformed_server_format1_output.dstr,
+                   sizeof(expected_malformed_server_format1) - 1)) {
+            fprintf(stdout, "Test for malformed server supported_versions Format 1 failed\n");
+            return false;
+        }
+
+        char malformed_server_legacy_buffer[200];
+        buffer_stream malformed_server_legacy_output{
+            malformed_server_legacy_buffer,
+            sizeof(malformed_server_legacy_buffer)};
+        malformed_server_supported_versions_extensions.fingerprint(
+            malformed_server_legacy_output, tls_role::server);
+        if (malformed_server_legacy_output.length() !=
+                sizeof(expected_malformed_server_legacy) - 1 ||
+            memcmp(expected_malformed_server_legacy,
+                   malformed_server_legacy_output.dstr,
+                   sizeof(expected_malformed_server_legacy) - 1)) {
+            fprintf(stdout, "Test for malformed server supported_versions legacy output failed\n");
+            return false;
+        }
+
+        char malformed_server_format2_buffer[200];
+        buffer_stream malformed_server_format2_output{
+            malformed_server_format2_buffer,
+            sizeof(malformed_server_format2_buffer)};
+        malformed_server_supported_versions_extensions.fingerprint_format2(
+            malformed_server_format2_output, tls_role::server);
+        if (malformed_server_format2_output.length() !=
+                sizeof(expected_malformed_server_format1) - 1 ||
+            memcmp(expected_malformed_server_format1,
+                   malformed_server_format2_output.dstr,
+                   sizeof(expected_malformed_server_format1) - 1)) {
+            fprintf(stdout, "Test for malformed server supported_versions Format 2 failed\n");
             return false;
         }
 
@@ -2144,6 +2214,27 @@ struct tls_extension {
 #ifndef NDEBUG
 
 // LCOV_EXCL_START
+/// \brief Verify malformed ServerHello supported_versions values compare raw.
+///
+/// \return true if malformed values use raw-byte ordering
+///
+inline bool tls_extension_malformed_server_supported_versions_unit_test() {
+    static constexpr uint8_t malformed_a[] = {
+        0x00, 0x2b, 0x00, 0x04, 0x1a, 0x1a, 0x10, 0x00
+    };
+    static constexpr uint8_t malformed_b[] = {
+        0x00, 0x2b, 0x00, 0x04, 0x0a, 0x0a, 0x10, 0x01
+    };
+
+    datum a_data{malformed_a};
+    datum b_data{malformed_b};
+    tls_extension a{a_data};
+    tls_extension b{b_data};
+
+    return a.compare(b, tls_role::server) > 0 &&
+           b.compare(a, tls_role::server) < 0;
+}
+
 /// \brief Verify that TLS extension lengths are not de-GREASEd.
 ///
 /// \return true if the wire-format length is emitted unchanged

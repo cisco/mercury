@@ -63,10 +63,10 @@ public:
     ///
     explicit length_field(datum &) { }
 
-    /// \brief Return the number of bytes remaining in \p d.
+    /// \brief Return the number of bytes available for the vector.
     ///
     /// \param d input datum
-    /// \return remaining length in bytes
+    /// \return available length in bytes
     ///
     size_t length(const datum &d) const {
         return static_cast<size_t>(d.length());
@@ -78,7 +78,8 @@ public:
 /// \brief A non-owning, composable parser for a vector of encoded values.
 ///
 /// The vector is either preceded by a fixed-width byte length field, or, when
-/// LengthT is no_length, consumes all bytes remaining in the input datum.
+/// LengthT is no_length, contains exactly one T-sized element without a
+/// length prefix.
 /// Values retain their network-byte-order representation and may be accessed
 /// safely even when the input address is not aligned for T.
 ///
@@ -98,6 +99,13 @@ class variable_length_vector {
     /// \return pointer to the elements, or nullptr if invalid
     ///
     static const uint8_t *parse_elements(datum &d, size_t length) {
+        if constexpr (std::is_same_v<LengthT, no_length>) {
+            if (length != sizeof(T)) {
+                d.set_null();
+                return nullptr;
+            }
+        }
+
         if (length % sizeof(T) != 0 || !d.has_bytes(length)) {
             d.set_null();
             return nullptr;
@@ -299,15 +307,40 @@ inline bool variable_length_vector_unit_test() {
         return false;
     }
 
-    static constexpr uint8_t no_length_data[] = {
-        0x1a, 0x1a, 0x12, 0x34
-    };
+    static constexpr uint8_t no_length_data[] = { 0x1a, 0x1a };
     datum no_length_input{no_length_data,
                           no_length_data + sizeof(no_length_data)};
     variable_length_vector<uint16_t, no_length> no_length_values{no_length_input};
     if (!no_length_values || !no_length_values.is_not_null() ||
-        no_length_values.is_empty() || no_length_values.length() != 4 ||
-        no_length_values.size() != 2 || !no_length_input.is_empty()) {
+        no_length_values.is_empty() || no_length_values.length() != 2 ||
+        no_length_values.size() != 1 || !no_length_input.is_empty()) {
+        return false;
+    }
+
+    // A no-length vector must contain exactly one element. This matches the
+    // ServerHello supported_versions field, which contains one ProtocolVersion.
+    static constexpr uint8_t no_length_overlong_data[] = {
+        0x1a, 0x1a, 0x12, 0x34
+    };
+    datum no_length_overlong_input{no_length_overlong_data};
+    variable_length_vector<uint16_t, no_length> no_length_overlong_values{
+        no_length_overlong_input
+    };
+    if (no_length_overlong_values ||
+        no_length_overlong_values.is_not_null() ||
+        no_length_overlong_values.length() != 0 ||
+        !no_length_overlong_input.is_null()) {
+        return false;
+    }
+
+    static constexpr uint8_t no_length_short_data[] = { 0x1a };
+    datum no_length_short_input{no_length_short_data};
+    variable_length_vector<uint16_t, no_length> no_length_short_values{
+        no_length_short_input
+    };
+    if (no_length_short_values || no_length_short_values.is_not_null() ||
+        no_length_short_values.length() != 0 ||
+        !no_length_short_input.is_null()) {
         return false;
     }
 
