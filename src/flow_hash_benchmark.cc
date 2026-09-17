@@ -18,6 +18,7 @@
 #include <chrono>
 #include <cmath>
 #include <cinttypes>
+#include <cerrno>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -313,22 +314,40 @@ void print_usage(const char *program) {
     std::printf("datasets: ipv4-random, ipv6-random, ipv4-port-sweep, ipv6-port-sweep\n");
 }
 
-bool parse_size(const char *text, size_t &value) {
-    char *end = nullptr;
-    const unsigned long long parsed = std::strtoull(text, &end, 0);
-    if (end == text || *end != '\0') {
+bool parse_unsigned(const char *text, unsigned long long &value) {
+    if (text == nullptr || *text == '-') {
         return false;
     }
+
+    char *end = nullptr;
+    errno = 0;
+    const unsigned long long parsed = std::strtoull(text, &end, 0);
+    if (end == text || *end != '\0' || errno == ERANGE) {
+        return false;
+    }
+
+    value = parsed;
+    return true;
+}
+
+bool parse_size(const char *text, size_t &value) {
+    unsigned long long parsed = 0;
+    if (!parse_unsigned(text, parsed)
+        || parsed > std::numeric_limits<size_t>::max()) {
+        return false;
+    }
+
     value = static_cast<size_t>(parsed);
     return true;
 }
 
 bool parse_u64(const char *text, uint64_t &value) {
-    char *end = nullptr;
-    const unsigned long long parsed = std::strtoull(text, &end, 0);
-    if (end == text || *end != '\0') {
+    unsigned long long parsed = 0;
+    if (!parse_unsigned(text, parsed)
+        || parsed > std::numeric_limits<uint64_t>::max()) {
         return false;
     }
+
     value = static_cast<uint64_t>(parsed);
     return true;
 }
