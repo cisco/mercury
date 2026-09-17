@@ -138,26 +138,34 @@ then the parsing routine can check for readability and return early if
 need be, leaving the data elements corresponding to unparsed data in
 their `NULL` state.
 
-Often a data format starts with a short, fixed length header.  It is
-often convenient and efficient to handle these headers by using a
-packed structure.  The datum class accommodates this with the
-`get_pointer<typename T>()` member function, which returns a pointer
-to type T and advances the `data` pointer, if there are `sizeof(T)`
-bytes available, and otherwise returns `nullptr`.  A simple example:
+Often a data format starts with a short, fixed-length header. The
+packed_view class template safely represents these headers without
+packed structures or direct pointer access. Its constructor verifies
+that the entire header is available. On success, it advances the input
+datum by the view's extent; otherwise, it sets both the view and the
+input datum to null. A simple example:
 
 ```c++
-uint16_t get_udp_header_length(datum packet) {
-    struct udp_header {
-        uint16_t src_port;
-        uint16_t dst_port;
-        uint16_t length;
-        uint16_t checksum;
-    } __attribute__ ((__packed__));
+namespace udp_header {
 
-    udp_header *header = packet.get_pointer<udp_header>();
-    if (header == nullptr) {
+    struct source_port { };
+    struct destination_port { };
+    struct length { };
+    struct checksum { };
+
+    using view = packed_view<
+        packed_view_field<source_port, uint16_t>,
+        packed_view_field<destination_port, uint16_t>,
+        packed_view_field<length, uint16_t>,
+        packed_view_field<checksum, uint16_t>>;
+
+} // namespace udp_header
+
+uint16_t get_udp_header_length(datum packet) {
+    udp_header::view header{packet};
+    if (!header) {
         return 0;  // too short
     }
-    return ntohs(header->length);
+    return ntoh(header.field<udp_header::length>());
 }
 ```
