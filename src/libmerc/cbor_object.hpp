@@ -464,19 +464,16 @@ public:
                                 // dropped: walked as opaque bytes, nothing written
                                 if (warn) { fprint_dropped_npf_tag(warn, content); }
                             } else {
-                                // the tag number is the key and base64 of the
-                                // tag content is the value.  Tag numbers are
-                                // allocated identifiers, not free-form text,
-                                // for example we have defined 18000 for an NPF
-                                // fingerprint and 251 for a sorted list, and
-                                // they render as digits, so the key space here
-                                // is the tag registry, not arbitrary input.
-                                output_buffer<24> tag_buf;   // 2^64-1 is 20 digits
-                                tag_buf.snprintf("%" PRIu64, tmp.value());
-                                std::optional<null_terminated_string> tag_key = null_terminate(tag_buf);
-                                if (!tag_key) { d.set_null(); return false; }
+                                // an unrecognized tag renders as its number
+                                // and its content as base64, under fixed keys.
+                                // Tag numbers are allocated identifiers, not
+                                // free-form text, for example we have defined
+                                // 18000 for an NPF fingerprint and 251 for a
+                                // sorted list, so the number identifies the tag
+                                // rather than being arbitrary input.
                                 json_object t{o, json_key};
-                                t.print_key_base64(*tag_key, content);
+                                t.print_key_uint("tag", tmp.value());
+                                t.print_key_base64("content_base64", content);
                                 t.close();
                             }
                         }
@@ -593,14 +590,10 @@ inline bool cbor_to_json_translator::decode_cbor_array_to_json(datum &d, json_ar
                         // dropped: walked as opaque bytes, nothing written
                         if (warn) { fprint_dropped_npf_tag(warn, content); }
                     } else {
-                        // the tag number is the key, on the same terms as
-                        // the map case
-                        output_buffer<24> tag_buf;       // 2^64-1 is 20 digits
-                        tag_buf.snprintf("%" PRIu64, tmp.value());
-                        std::optional<null_terminated_string> tag_key = null_terminate(tag_buf);
-                        if (!tag_key) { d.set_null(); return false; }
+                        // fixed keys, on the same terms as the map case
                         json_object t{a};
-                        t.print_key_base64(*tag_key, content);
+                        t.print_key_uint("tag", tmp.value());
+                        t.print_key_base64("content_base64", content);
                         t.close();
                     }
                 }
@@ -1090,7 +1083,7 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
     translation_tests_passed &=
         test_cbor_array_to_json("unknown tag in an array, with a following element",
                           datum{unknown_tag_in_array},
-                          "[{\"999\":\"nwH/\"},2]", true, 0, f);
+                          "[{\"tag\":999,\"content_base64\":\"nwH/\"},2]", true, 0, f);
 
     // an unknown tag in map value position, holding an unsigned integer, with a
     // key/value pair on either side of it
@@ -1105,7 +1098,7 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
     translation_tests_passed &=
         test_cbor_map_to_json("unknown tag as a map value, with siblings",
                           datum{unknown_tag_in_map},
-                          "{\"1\":1,\"2\":{\"999\":\"AQ==\"},\"3\":3}", true, 0, f);
+                          "{\"1\":1,\"2\":{\"tag\":999,\"content_base64\":\"AQ==\"},\"3\":3}", true, 0, f);
 
     // a registered fingerprint tag in map value position
     //
@@ -1143,8 +1136,8 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
                           datum{truncated_tag},
                           "[]", false, -1, f);
 
-    // an unknown tag number above 2^16, which the committed code rendered as a
-    // json number and this code renders as a key
+    // an unknown tag number above 2^16, rendered as-is: unlike a map key it is
+    // not narrowed to sixteen bits
     //
     std::array<uint8_t,8> tag_above_16_bits{
         0x9f,                                                   // [
@@ -1155,7 +1148,7 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
     translation_tests_passed &=
         test_cbor_array_to_json("unknown tag number above 2^16",
                           datum{tag_above_16_bits},
-                          "[{\"70000\":\"AQ==\"}]", true, 0, f);
+                          "[{\"tag\":70000,\"content_base64\":\"AQ==\"}]", true, 0, f);
 
     // an unknown tag holding a definite-length array.
     std::array<uint8_t,8> tag_holding_definite_array{
@@ -1167,7 +1160,7 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
     translation_tests_passed &=
         test_cbor_array_to_json("unknown tag holding a definite-length array",
                           datum{tag_holding_definite_array},
-                          "[{\"999\":\"ggEC\"}]", true, 0, f);
+                          "[{\"tag\":999,\"content_base64\":\"ggEC\"}]", true, 0, f);
 
     // a tag head that uses the indefinite-length additional info, which carries
     // no argument at all, so there is no tag number to read (RFC 8949 Sec. 3.3)
@@ -1275,7 +1268,7 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
     translation_tests_passed &=
         test_cbor_array_to_json("one-byte simple value at 0x20",
                           datum{simple_value_at_20},
-                          "[{\"999\":\"+CA=\"}]", true, 0, f);
+                          "[{\"tag\":999,\"content_base64\":\"+CA=\"}]", true, 0, f);
 
     // a map with an odd number of items, so its last key has no value.  The break
     // lands where a value belongs, and if a value reader accepted it the map would
@@ -1305,7 +1298,7 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
     translation_tests_passed &=
         test_cbor_array_to_json("map with an even number of items",
                           datum{map_with_paired_keys},
-                          "[{\"999\":\"vwECAwT/\"}]", true, 0, f);
+                          "[{\"tag\":999,\"content_base64\":\"vwECAwT/\"}]", true, 0, f);
 
     // null and false in array element position, followed by an unsigned integer
     //
