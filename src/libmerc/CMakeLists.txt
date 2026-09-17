@@ -258,10 +258,6 @@ endif()
 ###############################################################################
 
 
-## recursive subdirectories
-add_subdirectory(asn1)
-add_subdirectory(lctrie)
-
 ###############################################################################
 ## xsimd SIMD library detection (header-only, version 9+ required)
 ##
@@ -488,6 +484,10 @@ else()
     message(STATUS "CMAKE_BUILD_TYPE not set (using compiler defaults)")
     message(STATUS "CMAKE_CXX_FLAGS (base) = ${CMAKE_CXX_FLAGS}")
 endif()
+
+## Recursive subdirectories, which inherit the options above
+add_subdirectory(asn1)
+add_subdirectory(lctrie)
 
 ## TARGET : libmerc (shared) {
 add_library(libmerc SHARED ${libmerc_src})
