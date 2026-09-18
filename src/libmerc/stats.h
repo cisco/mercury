@@ -21,6 +21,7 @@ typedef uint32_t useconds_t;
 #include <string>
 #include <unordered_map>
 #include <algorithm>
+#include <limits>
 #include <thread>
 #include <chrono>
 #include "printf_err.hpp"
@@ -43,24 +44,63 @@ class stats_aggregator {
     std::string observation;  // used as preallocated temporary variable
     size_t num_entries;
     size_t max_entries;
+    size_t estimated_memory_bytes;
+    size_t event_table_memory_bytes;
+    size_t max_memory_bytes;
+
+    static size_t add_memory(size_t current, size_t amount) {
+        if (amount > std::numeric_limits<size_t>::max() - current) {
+            return std::numeric_limits<size_t>::max();
+        }
+        return current + amount;
+    }
+
+    static size_t event_memory_cost(const event_msg &event) {
+        size_t total = sizeof(std::pair<const event_msg, uint64_t>)
+                     + 8 * sizeof(void *);
+        for (const auto &field : event.fields) {
+            total = add_memory(total, field.capacity());
+            if (total == std::numeric_limits<size_t>::max()) {
+                return std::numeric_limits<size_t>::max();
+            }
+            total = add_memory(total, 1);
+        }
+        return total;
+    }
+
+    void update_estimated_memory() {
+        const size_t dictionary_bytes = encoder.dictionary_bytes();
+        if (event_table_memory_bytes > std::numeric_limits<size_t>::max() - dictionary_bytes) {
+            estimated_memory_bytes = std::numeric_limits<size_t>::max();
+        } else {
+            estimated_memory_bytes = dictionary_bytes + event_table_memory_bytes;
+        }
+    }
 
 public:
 
+    static constexpr size_t default_max_memory_bytes = 16 * 1024 * 1024;
+
     stats_aggregator(size_t size_limit,
-                     size_t dictionary_size_limit=event_encoder::default_max_dictionary_bytes) :
+                     size_t memory_limit=default_max_memory_bytes) :
         event_table{},
-        encoder{dictionary_size_limit},
+        encoder{},
         observation{},
         num_entries{0},
-        max_entries{size_limit} { }
+        max_entries{size_limit},
+        estimated_memory_bytes{0},
+        event_table_memory_bytes{0},
+        max_memory_bytes{memory_limit} { }
 
     ~stats_aggregator() {  }
 
     void observe_event_string(event_msg &obs) {
 
-        bool no_new_entries = max_entries && num_entries >= max_entries;
+        bool no_new_entries = (max_entries && num_entries >= max_entries) ||
+                              (max_memory_bytes && estimated_memory_bytes >= max_memory_bytes);
 
         if (encoder.compress_event_string(obs, no_new_entries) == false) {
+            update_estimated_memory();
             return;  // error: can't observe this event
         }
 
@@ -69,11 +109,18 @@ public:
             entry->second = entry->second + 1;
         } else {
             if (no_new_entries) {
-                return;  // don't go over the max_entries limit
+                return;  // don't create another stats entry
             }
-            event_table.emplace(obs, 1);  // TODO: check return value for allocation failure
+            auto inserted = event_table.emplace(obs, 1);
+            if (!inserted.second) {
+                update_estimated_memory();
+                return;
+            }
             ++num_entries;
+            event_table_memory_bytes = add_memory(event_table_memory_bytes,
+                                                  event_memory_cost(obs));
         }
+        update_estimated_memory();
     }
 
     bool is_empty() const { return event_table.size() == 0; }
@@ -98,7 +145,10 @@ public:
 
         std::vector<std::pair<event_msg, uint64_t>> v(event_table.begin(), event_table.end());
         event_table.clear();
+        event_table.rehash(0);
         num_entries = 0;
+        event_table_memory_bytes = 0;
+        update_estimated_memory();
         std::sort(v.begin(), v.end(), [&interrupt](auto &l, auto &r){
             if (interrupt.load() == true) {
                 throw std::runtime_error("error: stats dump interrupted");
@@ -143,6 +193,7 @@ public:
         ep.process_final();
 
         encoder.clear();
+        update_estimated_memory();
 
         // if (fp_dict.unit_test(stderr)) {
         //     fprintf(stderr, "passed fp_dict.unit_test()\n");
@@ -239,7 +290,16 @@ class data_aggregator {
 
 public:
 
-    data_aggregator(size_t size_limit=0, bool blocking=false) : q{}, ag1{size_limit}, ag2{size_limit}, ag{&ag1}, shutdown_requested{false}, blocking{blocking}, consumer_sleep{1} {
+    data_aggregator(size_t size_limit=0,
+                    bool blocking=false,
+                    size_t memory_limit=stats_aggregator::default_max_memory_bytes) :
+        q{},
+        ag1{size_limit, memory_limit},
+        ag2{size_limit, memory_limit},
+        ag{&ag1},
+        shutdown_requested{false},
+        blocking{blocking},
+        consumer_sleep{1} {
         mercury_get_version_string(version, MAX_VERSION_STRING);
         start_processing();
         //fprintf(stderr, "note: constructing data_aggregator %p\n", (void *)this);

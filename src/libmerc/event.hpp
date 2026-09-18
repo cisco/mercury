@@ -187,26 +187,23 @@ namespace event_string {
 /// member.
 ///
 class event_encoder {
-    dict_memory_budget dictionary_budget;
     dict addr_dict;
     dict fp_dict;
     dict ua_dict;
     dict ctx_dict;
 
 public:
-
-    /// Default bound for memory retained by the four event dictionaries.
-    static constexpr size_t default_max_dictionary_bytes = 16 * 1024 * 1024;
-
-    explicit event_encoder(size_t max_dictionary_bytes=default_max_dictionary_bytes) :
-        dictionary_budget{max_dictionary_bytes},
+    event_encoder() :
         addr_dict{},
         fp_dict{},
         ua_dict{},
         ctx_dict{} {}
 
     size_t dictionary_bytes() const {
-        return dictionary_budget.used_bytes;
+        return addr_dict.memory_bytes() +
+               fp_dict.memory_bytes() +
+               ua_dict.memory_bytes() +
+               ctx_dict.memory_bytes();
     }
 
     bool compute_inverse_map() {
@@ -241,8 +238,6 @@ public:
     /// be allowed to create new entries, and thus the function will
     /// only succeed if the dictionary already contains the relevant
     /// entry.
-    /// When the shared dictionary budget is exhausted, new values are
-    /// encoded using dict::unknown_index so the event can still be counted.
     ///
     bool compress_event_string(event_msg& event, bool no_new_entries=false) {
 
@@ -253,25 +248,25 @@ public:
 
         // compress source address string
         char src_addr_buf[dict::index_length];
-        if (addr_dict.compress(addr, src_addr_buf, no_new_entries, &dictionary_budget) == false) {
+        if (addr_dict.compress(addr, src_addr_buf, no_new_entries) == false) {
             return false;  // error: can't compress this event string
         }
 
         // compress fingerprint string
         char compressed_fp_buf[dict::index_length];
-        if (fp_dict.compress(fngr, compressed_fp_buf, no_new_entries, &dictionary_budget) == false) {
+        if (fp_dict.compress(fngr, compressed_fp_buf, no_new_entries) == false) {
             return false;  // error: can't compress this event string
         }
 
         // compress User-Agent
         char compressed_ua_buf[dict::index_length];
-        if (ua_dict.compress(ua, compressed_ua_buf, no_new_entries, &dictionary_budget) == false) {
+        if (ua_dict.compress(ua, compressed_ua_buf, no_new_entries) == false) {
             return false;  // error: can't compress this event string
         }
 
         // compress context
         char compressed_ctx_buf[dict::index_length];
-        if (ctx_dict.compress(ctx, compressed_ctx_buf, no_new_entries, &dictionary_budget) == false) {
+        if (ctx_dict.compress(ctx, compressed_ctx_buf, no_new_entries) == false) {
             return false;  // error: can't compress this event string
         }
 
@@ -291,7 +286,6 @@ public:
         fp_dict.clear();
         ua_dict.clear();
         ctx_dict.clear();
-        dictionary_budget.used_bytes = 0;
     }
 
 };
