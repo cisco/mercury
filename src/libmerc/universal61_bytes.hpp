@@ -433,15 +433,55 @@ public:
 };
 
 // LCOV_EXCL_START
+/// \brief Reference byte hash using one Horner step per encoded element.
+///
+/// \param secret The byte-hash secret.
+/// \param bytes The byte string to hash.
+/// \return The reference hash value converted to `std::size_t`.
+///
+inline std::size_t byte_hash_reference(const byte_hash_secret &secret,
+                                       std::string_view bytes) noexcept {
+    uint64_t multiplier = secret.multiplier % prime;
+    if (multiplier == 0) {
+        multiplier = 1;
+    }
+    uint64_t value = secret.offset % prime;
+
+    const auto step = [multiplier](uint64_t accumulated,
+                                   uint64_t element) noexcept {
+        detail::accumulator product = detail::make_accumulator(element);
+        detail::add_product(product, accumulated, multiplier);
+        return reduce_mersenne61(product);
+    };
+
+    const uint64_t length = static_cast<uint64_t>(bytes.size());
+    value = step(value, length % prime);
+    if (length >= prime) {
+        value = step(value, length / prime);
+    }
+    for (size_t offset = 0; offset < bytes.size(); offset += 7) {
+        const size_t remaining = bytes.size() - offset;
+        const size_t span = remaining < 7 ? remaining : 7;
+        uint64_t block = 0;
+        std::memcpy(&block, bytes.data() + offset, span);
+        value = step(value, block);
+    }
+
+    const detail::accumulator scaled =
+        detail::multiply_64_to_128(value, multiplier);
+    return static_cast<std::size_t>(reduce_mersenne61(scaled));
+}
+
 /// \brief Test byte hashing against deterministic known-answer vectors.
 ///
 /// \return True if all byte-hash checks pass.
 ///
 inline bool byte_unit_test() noexcept {
-    const byte_hasher hasher{{
+    const byte_hash_secret secret{
         0x0123456789abcdefULL,
         0x0f0e0d0c0b0a0908ULL,
-    }};
+    };
+    const byte_hasher hasher{secret};
 
     const std::array<uint64_t, 11> expected{{
         0x0d663774fe5ca03fULL,
@@ -468,6 +508,17 @@ inline bool byte_unit_test() noexcept {
         }
     }
 
+    std::array<char, 600> sweep{};
+    for (size_t i = 0; i < sweep.size(); i++) {
+        sweep[i] = static_cast<char>(i * 61 + 7);
+    }
+    for (size_t length = 0; length <= sweep.size(); length++) {
+        const std::string_view input{sweep.data(), length};
+        if (hasher.hash(input) != byte_hash_reference(secret, input)) {
+            return false;
+        }
+    }
+
     const char embedded_nul[] = {'a', '\0', 'b'};
     if (hasher.hash({embedded_nul, sizeof(embedded_nul)})
         == hasher.hash(std::string_view{"a"})) {
@@ -476,7 +527,8 @@ inline bool byte_unit_test() noexcept {
 
     byte_hash_state state = hasher.begin();
     state.append_length(15);
-    state.append_bytes({data.data(), 15});
+    state.append_bytes({data.data(), 7});
+    state.append_bytes({data.data() + 7, 8});
     if (state.finish() != expected[5]) {
         return false;
     }
