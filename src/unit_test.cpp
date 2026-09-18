@@ -74,6 +74,8 @@
 #include "libmerc/cbor_decoded_metadata_test.hpp"
 #include "libmerc/dcerpc.hpp"
 #include "libmerc/universal61.hpp"
+#include "libmerc/universal61_bytes.hpp"
+#include "libmerc/event.hpp"
 #include "libmerc/reassembly.hpp"
 
 // Macros to colorize output
@@ -360,6 +362,14 @@ int main(int, char *[]) {
         {
             "universal61",
             &universal61::unit_test
+        },
+        {
+            "universal61_bytes",
+            &universal61::byte_unit_test
+        },
+        {
+            "event_msg_hasher",
+            &universal61::event_msg_hasher_unit_test
         },
         {
             "krb5_no_empty_arrays",

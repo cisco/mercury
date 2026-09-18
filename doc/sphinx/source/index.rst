@@ -14,6 +14,7 @@ Mercury Library Documentation
    null_terminated_string
    hex
    flow_hashing
+   byte_hashing
    examples
    diagnostic
    python
