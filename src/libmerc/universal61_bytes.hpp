@@ -56,11 +56,15 @@
 /// implementation also uses smaller batches for short tails and precomputes
 /// powers of the multiplier when the hasher is constructed.
 ///
-/// For two distinct encoded strings, the difference of their hash polynomials
-/// is nonzero because the length-prefixed encoding is injective. For equal
-/// length encodings containing `d` field elements, the offset terms cancel and
-/// the difference has degree at most `d - 1`. For different lengths, the
-/// conservative degree bound is `d`, where `d` is the larger encoded length.
+/// For two distinct inputs whose encodings are injective, the difference of
+/// their hash polynomials is nonzero. This includes standalone byte strings
+/// with length below `p`, and compound encodings whose component fields each
+/// have length below `p`. For equal-length encodings containing `d` field
+/// elements, the offset terms cancel and the difference has degree at most
+/// `d - 1`. For different lengths, the conservative degree bound is `d`,
+/// where `d` is the larger encoded length. Compound encodings with fields of
+/// length at least `p` require an explicit delimiter or an unconditionally
+/// encoded second length limb to preserve injectivity.
 /// A nonzero polynomial of degree `r` over a field has at most `r` roots, so a
 /// uniformly selected nonzero multiplier gives collision probability at most
 /// `r / (p - 1)`. The final multiplication only adds a root at multiplier zero,

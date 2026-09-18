@@ -30,9 +30,12 @@ keyed without adding work to the append and batching paths.  The multiplier
 and offset are generated once when the hasher is constructed; hashing itself
 performs no random-device access or allocation.
 
-The encoding is injective because it includes the byte length and uses a
-fixed seven-byte representation, including zero-padding only in the final
-partial block.  Consequently, for two distinct equal-length encodings with
+For standalone byte strings with length below ``p``, the encoding is
+injective: it includes the byte length and uses a fixed seven-byte
+representation, including zero-padding only in the final partial block.  The
+same guarantee applies to compound encodings only when every component field
+has length below ``p``; otherwise, the conditional quotient limb is not
+self-delimiting.  Consequently, for two distinct equal-length encodings with
 ``d`` elements, the offset cancels and the difference polynomial has degree at
 most ``d - 1``.  For different encoded lengths, a conservative bound is
 degree ``d``, where ``d`` is the larger length.  A nonzero polynomial of degree
