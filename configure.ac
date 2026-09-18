@@ -183,7 +183,7 @@ AC_ARG_WITH([xsimd-include],
   [xsimd_include_dir="$withval"],
   [xsimd_include_dir=""])
 
-# Canonicalize to an absolute path so that -isystem works from any sub-directory
+# Canonicalize to an absolute path so that -I works from any sub-directory
 # Makefile (e.g., compilation inside src/libmerc/, not the project root).
 AS_IF([test -n "$xsimd_include_dir"],
   [case "$xsimd_include_dir" in
@@ -199,11 +199,11 @@ AC_SUBST([XSIMD_INCLUDE],[])
 AS_IF([test "x$enable_xsimd" = xno],
   [AC_MSG_NOTICE([xsimd support disabled by --disable-xsimd])],
   [# If user gave --with-xsimd-include=DIR, prepend it to CPPFLAGS.
-   # xsimd is a third-party header-only library, so suppress diagnostics
-   # originating in its headers without suppressing Mercury diagnostics.
+   # Keep -I, not -isystem: -I outranks every -isystem directory, so the probe
+   # must check the same headers the build will compile.
    _xsimd_saved_CPPFLAGS="$CPPFLAGS"
    AS_IF([test -n "$xsimd_include_dir"],
-     [CPPFLAGS="-isystem ${xsimd_include_dir} $CPPFLAGS"])
+     [CPPFLAGS="-I${xsimd_include_dir} $CPPFLAGS"])
    AC_LANG_PUSH([C++])
    AC_CHECK_HEADERS([xsimd/xsimd.hpp],
      [# Header found; verify version >= 9
