@@ -160,6 +160,9 @@ cdef class server_identifier_py:
     def __cinit__(self, s):
         self.thisptr = new server_identifier(s.encode('utf-8'))
 
+    def __dealloc__(self):
+        del self.thisptr
+
     def get_normalized_domain_name(self, bool detailed_output=True):
         self.detailed_output = <server_identifier.detail>detailed_output
         try:
@@ -224,6 +227,10 @@ fp_type_dict = {
     10: 'dtls',
     11: 'dtls_server',
     12: 'quic',
+    13: 'tcp_server',
+    14: 'openvpn',
+    15: 'tofsee',
+    16: 'stun',
     17: 'ssh_init',
     18: 'ssh_server',
     19: 'ssh_kex_server',
@@ -395,8 +402,8 @@ cdef class Mercury:
 
         result = {}
         result['status']   = fp_status_dict[fp_status]
-        result['type']     = fp_type_dict[fp_type]
-        result['str_repr'] = fp_string.decode('UTF-8')
+        result['type']     = fp_type_dict.get(fp_type, 'unknown')
+        result['str_repr'] = fp_string.decode('UTF-8', errors='replace')
 
         return result
 
@@ -508,7 +515,7 @@ cdef class Mercury:
         result['fingerprint_info']           = {}
         result['fingerprint_info']['status'] = fp_status
         result['analysis']                   = {}
-        result['analysis']['process']        = ar.max_proc.decode('UTF-8')
+        result['analysis']['process']        = ar.max_proc.decode('UTF-8', errors='replace')
         result['analysis']['score']          = ar.max_score
         result['analysis']['malware']        = ar.max_mal
         result['analysis']['p_malware']      = ar.malware_prob
@@ -577,7 +584,7 @@ cdef class Mercury:
         result['analysis']['process_details'] = []
         for i in range(len(ar.process_names)):
             process_entry = {
-                "process": ar.process_names[i].decode("UTF-8"),
+                "process": ar.process_names[i].decode("UTF-8", errors='replace'),
                 "score": float(ar.normalized_process_scores[i])
             }
             result['analysis']['process_details'].append(process_entry)
@@ -751,7 +758,7 @@ cdef class Mercury:
         cdef const char* server_name = analysis_context_get_server_name(ac)
         if server_name == NULL:
             return None
-        return server_name.decode('UTF-8')
+        return server_name.decode('UTF-8', errors='replace')
 
 
     cdef tuple get_fingerprint_info(self, const analysis_context* ac):
@@ -759,7 +766,7 @@ cdef class Mercury:
         cdef fingerprint_type fp_type = analysis_context_get_fingerprint_type(ac)
         cdef const char* fp_string = analysis_context_get_fingerprint_string(ac)
 
-        return fp_status_dict[fp_status], fp_type_dict[fp_type], fp_string.decode('UTF-8')
+        return fp_status_dict[fp_status], fp_type_dict.get(fp_type, 'unknown'), fp_string.decode('UTF-8', errors='replace')
 
 
     cpdef dict get_correlation_object(self, bytes pkt_data, double ts=0.0):
@@ -839,9 +846,9 @@ cdef class Mercury:
         cdef bool p = analysis_context_get_process_info(ac, &process_name, &score)
         cdef bool m = analysis_context_get_malware_info(ac, &is_malware, &m_score)
         if p and m:
-            return process_name.decode('UTF-8'), score, is_malware, m_score
+            return process_name.decode('UTF-8', errors='replace'), score, is_malware, m_score
         elif p:
-            return process_name.decode('UTF-8'), score, None, None
+            return process_name.decode('UTF-8', errors='replace'), score, None, None
         else:
             return None, None, None, None
 
@@ -875,6 +882,13 @@ def _decode_str_data(str data_str, bool is_hex):
             raise ValueError("Invalid base64 input") from e
 
 
+cdef object _load_json(string data):
+    try:
+        return json.loads(data.decode())
+    except ValueError:
+        return None
+
+
 def parse_dns(str dns_data, bool is_hex=False):
     """
     Return a JSON representation of a DNS packet supplied as hex or base64.
@@ -883,33 +897,33 @@ def parse_dns(str dns_data, bool is_hex=False):
     :type dns_data: str
     :param is_hex: If true, decode dns_data as hex; otherwise decode as base64.
     :type is_hex: bool
-    :return: JSON-encoded DNS packet.
-    :rtype: dict
+    :return: JSON-encoded DNS packet, or None if parsing fails.
+    :rtype: dict or None
     """
     cdef bytes dns_req = _decode_str_data(dns_data, is_hex)
     cdef unsigned int len_ = len(dns_req)
 
-    # create reference to dns so that it doesn't get garbage collected
+    # keep a reference to the input so that C++ datum views into it stay valid
     cdef char* c_string_ref = dns_req
 
     # use mercury's dns parser to parse the DNS request
-    return json.loads(dns_get_json_string(c_string_ref, len_).decode())
+    return _load_json(dns_get_json_string(c_string_ref, len_))
 
 
 def decode_fdc(bytes fdc_blob):
     """
     Return a JSON representation of a decoded mercury FDC object.
 
-    :param fdc_blob: Hex bytes of mercury FDC object.
+    :param fdc_blob: Raw bytes of a mercury FDC object.
     :type fdc_blob: bytes
-    :return: JSON-encoded mercury decoded FDC.
-    :rtype: dict
+    :return: JSON-encoded mercury decoded FDC, or None if decoding fails.
+    :rtype: dict or None
     """
     cdef unsigned int len_ = len(fdc_blob)
 
-    # create reference to fdc_blob so that it doesn't get garbage collected
+    # keep a reference to the input so that C++ datum views into it stay valid
     cdef char* c_string_ref = fdc_blob
-    return json.loads(get_json_decoded_fdc(c_string_ref, len_).decode())
+    return _load_json(get_json_decoded_fdc(c_string_ref, len_))
 
 
 def decode_mercury_fdc(str b64_fdc):
@@ -918,8 +932,8 @@ def decode_mercury_fdc(str b64_fdc):
 
     :param b64_fdc: Base64-encoded mercury FDC object.
     :type b64_fdc: str
-    :return: JSON-encoded mercury decoded FDC.
-    :rtype: dict
+    :return: JSON-encoded mercury decoded FDC, or None if decoding fails.
+    :rtype: dict or None
     """
     cdef bytes fdc_blob = b64decode(b64_fdc)
 
@@ -944,21 +958,21 @@ def parse_cert(str cert_data, bool is_hex=False):
     :type cert_data: str
     :param is_hex: If true, decode cert_data as hex; otherwise decode as base64.
     :type is_hex: bool
-    :return: JSON-encoded certificate.
-    :rtype: dict
+    :return: JSON-encoded certificate, or None if parsing fails.
+    :rtype: dict or None
     """
     cdef bytes cert = _decode_str_data(cert_data, is_hex)
     cdef unsigned int len_ = len(cert)
     cdef x509_cert x
 
-    # create reference to cert so that it doesn't get garbage collected
+    # keep a reference to the input so that C++ datum views into it stay valid
     cdef char* c_string_ref = cert
 
     # use mercury's asn1 parser to parse certificate data
     x.parse(<const void*>c_string_ref, len_)
 
     # get JSON string and return JSON object
-    return json.loads(x.get_json_string().decode())
+    return _load_json(x.get_json_string())
 
 
 def get_cert_prefix(str b64_cert):
@@ -974,7 +988,7 @@ def get_cert_prefix(str b64_cert):
     cdef unsigned int len_ = len(cert)
     cdef x509_cert_prefix x
 
-    # create reference to cert so that it doesn't get garbage collected
+    # keep a reference to the input so that C++ datum views into it stay valid
     cdef char* c_string_ref = cert
 
     # use mercury's asn1 parser to parse certificate data
@@ -1001,15 +1015,20 @@ cdef extern from "json_string.hpp":
 
 cdef class ECHConfig:
     cdef ech_config* ech_obj
+    cdef bytes ech_config_str
 
-    def __init__(self, bytes ech_config_str):
+    def __cinit__(self, bytes ech_config_str):
         cdef unsigned int len_ = len(ech_config_str)
 
-        # create reference to ech_config so that it doesn't get garbage collected
+	# keep a reference to the input so that C++ datum views into it stay valid
+        self.ech_config_str = ech_config_str
         cdef const unsigned char* c_string_ref = ech_config_str
 
         cdef datum ech_datum = datum(c_string_ref, c_string_ref + len_)
         self.ech_obj = new ech_config(ech_datum)
+
+    def __dealloc__(self):
+        del self.ech_obj
 
     def get_json_string(self):
         json_str = get_json_string(dereference(self.ech_obj), 1024).decode()

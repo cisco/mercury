@@ -4,6 +4,16 @@ This note documents the data format used in the Mercury CBOR metadata interface.
 
 The format is encoded using [CBOR](https://datatracker.ietf.org/doc/html/rfc8949) (Concise Binary Object Representation).
 
+## JSON Translation
+
+When a CBOR map is translated to JSON, text keys are UTF-8 encoded and JSON
+escaped into a fixed-size scratch buffer. A key whose escaped representation
+exceeds 127 bytes is rejected rather than truncated. Truncation could create
+malformed JSON or cause distinct CBOR keys to collide in the JSON object. The
+translator returns failure for that map; it does not emit a shortened key or
+write diagnostics to `stderr`; decoding failures are reported through its
+return value.
+
 ## Outer Buffer Format
 
 The outer buffer is an indefinite-length CBOR map containing a version key (currently `"v1"`) whose value is an inner indefinite-length map of feature entries. Each inner key-value pair is a feature entry, keyed by feature key name.

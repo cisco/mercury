@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <cstdio>
 #include "libmerc/datum.h"
+#include "libmerc/null_terminated_string.hpp"
 #include "libmerc/lex.h"
 #include "libmerc/cbor.hpp"
 #include "libmerc/cbor_object.hpp"
@@ -14,6 +15,7 @@
 #include "libmerc/tofsee.hpp"
 #include "libmerc/snmp.hpp"
 #include "libmerc/ip_address.hpp"
+#include "libmerc/addr.h"
 #include "libmerc/lctrie/lctrie_bgp.hpp"
 #include "libmerc/watchlist.hpp"
 #include "libmerc/rdp.hpp"
@@ -72,6 +74,9 @@
 #include "libmerc/cbor_decoded_metadata_test.hpp"
 #include "libmerc/dcerpc.hpp"
 #include "libmerc/stats.h"
+#include "libmerc/universal61.hpp"
+#include "libmerc/universal61_bytes.hpp"
+#include "libmerc/event.hpp"
 #include "libmerc/reassembly.hpp"
 
 // Macros to colorize output
@@ -141,6 +146,10 @@ int main(int, char *[]) {
         {
             "datum_match",
             &datum_match_unit_test
+        },
+        {
+            "null_terminated_string",
+            &null_terminated_string::unit_test
         },
         {
             "encoded<uint8_t>",
@@ -383,6 +392,18 @@ int main(int, char *[]) {
             &traffic_selector::unit_test
         },
         {
+            "universal61",
+            &universal61::unit_test
+        },
+        {
+            "universal61_bytes",
+            &universal61::byte_unit_test
+        },
+        {
+            "event_msg_hasher",
+            &universal61::event_msg_hasher_unit_test
+        },
+        {
             "krb5_no_empty_arrays",
             &krb5_unit_test::unit_test
         },
@@ -397,6 +418,10 @@ int main(int, char *[]) {
         {
             "stats_memory_budget",
             &stats_memory_budget_unit_test
+        },
+        {
+            "subnet_data",
+            &subnet_data_unit_test
         },
         {
             "reassembly",

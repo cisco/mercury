@@ -186,14 +186,14 @@ struct check_exposed_creds {
         // The assess-only path binds output_ to the null_object sentinel, so emission is
         // gated on the writer type.
         if constexpr (is_emitting_writer_v<Object>) {
-            const char* key = nullptr;
+            auto key = exposed_creds_message::message_type::plaintext;
             switch (type) {
             case exposed_creds_type::plaintext_password:
-                key = exposed_creds_message::KEY_PLAINTEXT; break;
+                key = exposed_creds_message::message_type::plaintext; break;
             case exposed_creds_type::plaintext_token:
-                key = exposed_creds_message::KEY_TOKEN; break;
+                key = exposed_creds_message::message_type::token; break;
             case exposed_creds_type::password_derived:
-                key = exposed_creds_message::KEY_DERIVED; break;
+                key = exposed_creds_message::message_type::derived; break;
             default:
                 return;
             }

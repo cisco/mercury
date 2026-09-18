@@ -18,6 +18,7 @@
 #include "packet.h"
 #include "libmerc/datum.h"
 #include "libmerc/json_object.h"
+#include "libmerc/null_terminated_string.hpp"
 #include "libmerc/l7m.hpp"
 
 #include "libmerc/eth.h"
@@ -311,7 +312,7 @@ struct libmerc_printer : public libmerc_api {
             json_object attr_json{json, "attributes"};
             for (size_t j = 0; j < attr_ctx->attributes_len; j++) {
                 if (attr_ctx->prob_scores[j] > 0.0) {
-                    attr_json.print_key_float(attr_ctx->tag_names[j], attr_ctx->prob_scores[j]);
+                    attr_json.print_key_float(null_terminated_string::assume(attr_ctx->tag_names[j]), attr_ctx->prob_scores[j]);
                 }
             }
             attr_json.close();

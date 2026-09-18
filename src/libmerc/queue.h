@@ -8,15 +8,16 @@
 #ifndef QUEUE_H
 #define QUEUE_H
 
-#include <string.h>
+#include <cstddef>
+#include <cstdio>
 #ifdef _WIN32
 #include <io.h>
 #else
 #include <unistd.h>
 #endif
 #include <mutex>
-#include <tuple>
 #include <chrono>
+#include <thread>
 
 #define EVENT_BUF_SIZE 512
 

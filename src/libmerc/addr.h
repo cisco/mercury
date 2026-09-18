@@ -125,4 +125,40 @@ public:
     bool is_domain_faking(const char *server_name, const char *dst_ip) const;
 };
 
+#ifndef NDEBUG
+// LCOV_EXCL_START
+inline bool subnet_data_unit_test() {
+    {
+        subnet_data data;
+        std::vector<std::string> asn_subnets = {"2001:db8::/32\t64512"};
+        std::vector<std::pair<std::string, std::string>> domain_subnets = {
+            {"2001:db8:1::/48", "facebook.com"}
+        };
+
+        if (data.process_asn_subnets_v6(asn_subnets) != 0
+            || data.process_domain_mapping_subnets_v6(domain_subnets) != 0) {
+            return false;
+        }
+        data.process_final_v6();
+        data.process_domain_mappings_final();
+        data.process_domain_mappings_final_v6();
+        if (data.get_asn_info("2001:db8:1::1") != 64512
+            || data.is_domain_faking("facebook.com", "93.184.216.34")) {
+            return false;
+        }
+    }
+
+    subnet_data temporary_data;
+    std::vector<std::pair<std::string, std::string>> ipv4_subnets = {
+        {"192.0.2.0/24", "example.com"}
+    };
+    std::vector<std::pair<std::string, std::string>> ipv6_subnets = {
+        {"2001:db8:2::/48", "example.net"}
+    };
+    return temporary_data.process_domain_mapping_subnets(ipv4_subnets) == 0
+        && temporary_data.process_domain_mapping_subnets_v6(ipv6_subnets) == 0;
+}
+// LCOV_EXCL_STOP
+#endif
+
 #endif // ADDR_H
