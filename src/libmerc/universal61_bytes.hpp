@@ -290,10 +290,10 @@ public:
     /// \param length The byte length to append.
     ///
     void append_length(size_t length) noexcept {
-        const uint64_t value = static_cast<uint64_t>(length);
-        append(value % prime);
-        if (value >= prime) {
-            append(value / prime);
+        const uint64_t encoded_length = static_cast<uint64_t>(length);
+        append(encoded_length % prime);
+        if (encoded_length >= prime) {
+            append(encoded_length / prime);
         }
     }
 
