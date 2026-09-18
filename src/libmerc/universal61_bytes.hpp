@@ -146,6 +146,12 @@ inline byte_hash_secret random_byte_hash_secret() {
 /// which Mercury runs.
 ///
 class byte_hash_state {
+
+    // only little-endian host byte order is supported at present
+    //
+    static_assert(host_little_endian,
+                  "universal61 byte blocks assume a little-endian host");
+
     uint64_t value;
     uint64_t multiplier;
     std::array<uint64_t, 8> powers;
