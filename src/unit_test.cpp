@@ -4,7 +4,6 @@
 
 #include <unistd.h>
 #include <cstdio>
-#include <thread>
 #include "libmerc/datum.h"
 #include "libmerc/lex.h"
 #include "libmerc/cbor.hpp"
