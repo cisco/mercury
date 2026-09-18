@@ -258,10 +258,6 @@ endif()
 ###############################################################################
 
 
-## recursive subdirectories
-add_subdirectory(asn1)
-add_subdirectory(lctrie)
-
 ###############################################################################
 ## xsimd SIMD library detection (header-only, version 9+ required)
 ##
@@ -419,7 +415,7 @@ endif()
 #     CMAKE_CXX_FLAGS_MINSIZEREL: -Os -DNDEBUG (optimize for size)
 
 if(IS_WIN)
-    add_compile_options(/W3 /permissive- ${OPTFLAGS})
+    add_compile_options(/W3 /permissive- /bigobj ${OPTFLAGS})
 else()
     add_compile_options(
         -Wall -Wextra -Wno-deprecated
@@ -489,6 +485,10 @@ else()
     message(STATUS "CMAKE_CXX_FLAGS (base) = ${CMAKE_CXX_FLAGS}")
 endif()
 
+## Recursive subdirectories, which inherit the options above
+add_subdirectory(asn1)
+add_subdirectory(lctrie)
+
 ## TARGET : libmerc (shared) {
 add_library(libmerc SHARED ${libmerc_src})
 target_link_directories(libmerc PUBLIC lctrie ${CMAKE_CURRENT_SOURCE_DIR})
@@ -498,9 +498,6 @@ if(DEFINED OPENSSL_CUSTOM_LIB_DIR)
     target_link_libraries(libmerc PUBLIC crypto)
 else()
     target_link_libraries(libmerc PUBLIC OpenSSL::Crypto)
-endif()
-if(IS_WIN)
-    target_link_libraries(libmerc PUBLIC bcrypt)
 endif()
 add_dependencies(libmerc lctrie)
 add_dependencies(libmerc asn1)
@@ -519,9 +516,6 @@ if(DEFINED OPENSSL_CUSTOM_LIB_DIR)
     target_link_libraries(libmerc_static PUBLIC crypto)
 else()
     target_link_libraries(libmerc_static PUBLIC OpenSSL::Crypto)
-endif()
-if(IS_WIN)
-    target_link_libraries(libmerc_static PUBLIC bcrypt)
 endif()
 add_dependencies(libmerc_static lctrie)
 add_dependencies(libmerc_static asn1)

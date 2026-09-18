@@ -166,7 +166,10 @@ struct key {
                 && addr.ipv6.src == k.addr.ipv6.src
                 && addr.ipv6.dst == k.addr.ipv6.dst;
         default:
-            return 0;
+            return src_port == k.src_port
+                && dst_port == k.dst_port
+                && protocol == k.protocol
+                && ip_vers == k.ip_vers;
         }
     }
 

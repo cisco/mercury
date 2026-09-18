@@ -10,6 +10,7 @@
 #include "bytestring.h"
 #include "http.h"
 #include "json_object.h"
+#include "null_terminated_string.hpp"
 #include "match.h"
 #include "http_auth.hpp"
 
@@ -127,7 +128,7 @@ void http_request::parse(struct datum &p) {
     return;
 }
 
-void http_headers::print_matching_name(struct json_object &o, const char *key, const char *name) const {
+void http_headers::print_matching_name(struct json_object &o, const char *key, null_terminated_string name) const {
     unsigned char crlf[2] = { '\r', '\n' };
     unsigned char csp[2] = { ':', ' ' };
 
@@ -146,10 +147,10 @@ void http_headers::print_matching_name(struct json_object &o, const char *key, c
             return;
         }
         keyword.data_end = p.data;
-        const char *header_name = NULL;
+        bool is_header_found = false;
 
         if (keyword.case_insensitive_match(key)) {
-            header_name = name;
+            is_header_found = true;
         }
 
         const uint8_t *value_start = p.data;
@@ -157,8 +158,8 @@ void http_headers::print_matching_name(struct json_object &o, const char *key, c
             return;
         }
         const uint8_t *value_end = p.data - 2;
-        if (header_name) {
-            o.print_key_json_string(header_name, value_start, value_end - value_start);
+        if (is_header_found) {
+            o.print_key_json_string(name, value_start, value_end - value_start);
         }
     }
 }
@@ -195,7 +196,7 @@ void http_headers::print_matching_names(struct json_object &o, perfect_hash<cons
         }
         const uint8_t *value_end = p.data - 2;
         if (header_name) {
-            o.print_key_json_string(header_name, value_start, value_end - value_start);
+            o.print_key_json_string(null_terminated_string::assume(header_name), value_start, value_end - value_start);
         }
     }
 }
@@ -268,7 +269,7 @@ void http_headers::print_ssdp_names_and_feature_string(struct json_object &o, da
         // check type of delimiter '\r\n' or '\n'
         const uint8_t *value_end = *(p.data-2) == cr ? p.data-2 : p.data-1;
         if (header_name && (header_name->second || metadata)) {
-            o.print_key_json_string(header_name->first, value_start, value_end - value_start);
+            o.print_key_json_string(null_terminated_string::assume(header_name->first), value_start, value_end - value_start);
             if(!first_header){
                 feature_buf.copy(',');
             }

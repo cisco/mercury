@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 import unittest
 from base64 import b64decode
 from binascii import unhexlify
@@ -81,6 +82,23 @@ class TestMercuryPython(unittest.TestCase):
                          f"DNS authority name should be {dns_data['response']['authority'][0]['name']}")
 
 
+    def test_malformed_helper_output_fdc(self):
+        self.assertIsNone(mercury.decode_fdc(b''),
+                          f"decode_fdc() should return None for empty fdc")
+
+
+    def test_malformed_helper_output_cert(self):
+        bad_cert = b'\x30\x82\x80\x00\x30\x82\x7f\xfc\x02\x82\x7f\xf8' + b'A' * 32760
+        self.assertIsNone(mercury.parse_cert(bad_cert.hex(), True),
+                          f"parse_cert() should return None for malformed cert")
+
+
+    def test_malformed_helper_output_dns(self):
+        bad_dns = b'\0\0\x80\0\0\0\0\1\0\0\0\0\1a\0\x12\x34\0\1\0\0\0\0\x9c\x40' + b'a' * 40000
+        self.assertIsNone(mercury.parse_dns(bad_dns.hex(), True),
+                          f"parse_dns() should return None for malformed dns data")
+
+
     def test_analysis(self):
         analysis_data = {
             'analysis': {
@@ -93,6 +111,13 @@ class TestMercuryPython(unittest.TestCase):
                          f"analysis process name should be {analysis_data['analysis']['process']}")
         self.assertEqual(merc_analysis_data['analysis']['score'], analysis_data['analysis']['score'],
                          f"analysis process score should be {analysis_data['analysis']['score']}")
+
+
+    def test_malformed_server_name(self):
+        name = b'content-signature-2.cdn.mozilla.net'
+        pkt = unhexlify(firefox_pkt).replace(name, b'\xff' + name[1:], 1)
+        self.assertEqual(self.libmerc.analyze_packet(pkt)['tls']['client']['server_name'],
+                         '\ufffdontent-signature-2.cdn.mozilla.net')
 
 
     def test_tls_fingerprint(self):
@@ -135,6 +160,14 @@ class TestMercuryPython(unittest.TestCase):
                          f"ECH kem should be {ech_config['hpke_key_config']['kem']}")
         self.assertEqual(ech_config_json['ech_config']['public_name'], ech_config['public_name'],
                          f"ECH public_name should be {ech_config['public_name']}")
+
+
+    def test_ech_config_retains_input(self):
+        ech_config_bytes = b64decode(ech_cfg_b64)
+        refs = sys.getrefcount(ech_config_bytes)
+        ech = mercury.ECHConfig(ech_config_bytes)
+        self.assertGreater(sys.getrefcount(ech_config_bytes), refs,
+                           "ECHConfig must hold a reference to its input")
 
 
     def test_unlabeled_analysis_result(self):

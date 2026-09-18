@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <cstdio>
 #include "libmerc/datum.h"
+#include "libmerc/null_terminated_string.hpp"
 #include "libmerc/lex.h"
 #include "libmerc/cbor.hpp"
 #include "libmerc/cbor_object.hpp"
@@ -14,6 +15,7 @@
 #include "libmerc/tofsee.hpp"
 #include "libmerc/snmp.hpp"
 #include "libmerc/ip_address.hpp"
+#include "libmerc/addr.h"
 #include "libmerc/lctrie/lctrie_bgp.hpp"
 #include "libmerc/watchlist.hpp"
 #include "libmerc/rdp.hpp"
@@ -112,6 +114,10 @@ int main(int, char *[]) {
         {
             "datum_match",
             &datum_match_unit_test
+        },
+        {
+            "null_terminated_string",
+            &null_terminated_string::unit_test
         },
         {
             "encoded<uint8_t>",
@@ -376,6 +382,10 @@ int main(int, char *[]) {
         {
             "destination_context",
             &destination_context::unit_test
+        },
+        {
+            "subnet_data",
+            &subnet_data_unit_test
         },
         {
             "reassembly",
