@@ -495,11 +495,9 @@ endif()
 ## TARGET : libmerc (shared) {
 add_library(libmerc SHARED ${libmerc_src})
 target_link_directories(libmerc PUBLIC lctrie ${CMAKE_CURRENT_SOURCE_DIR})
-# Keep Mercury's headers normal so their diagnostics remain visible.  Explicit
-# dependency include roots are SYSTEM for the same reason as the Homebrew
-# include root above (zlib/OpenSSL are third-party headers).
-target_include_directories(libmerc PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_include_directories(libmerc SYSTEM PUBLIC ${ZLIB_INCLUDE_DIRS} ${OPENSSL_INCLUDE_DIR})
+# Keep Mercury's headers normal. Dependency targets below provide the
+# third-party include roots as SYSTEM directories.
+target_include_directories(libmerc PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${ZLIB_INCLUDE_DIRS})
 target_link_libraries(libmerc PUBLIC lctrie ZLIB::ZLIB)
 if(DEFINED OPENSSL_CUSTOM_LIB_DIR)
     target_link_libraries(libmerc PUBLIC crypto)
@@ -517,8 +515,7 @@ set_target_properties(libmerc PROPERTIES PREFIX "")
 ## TARGET : libmerc_static (static) {
 add_library(libmerc_static STATIC ${libmerc_src})
 target_link_directories(libmerc_static PUBLIC lctrie ${CMAKE_CURRENT_SOURCE_DIR})
-target_include_directories(libmerc_static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_include_directories(libmerc_static SYSTEM PUBLIC ${ZLIB_INCLUDE_DIRS} ${OPENSSL_INCLUDE_DIR})
+target_include_directories(libmerc_static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${ZLIB_INCLUDE_DIRS})
 target_link_libraries(libmerc_static PUBLIC lctrie ZLIB::ZLIB)
 if(DEFINED OPENSSL_CUSTOM_LIB_DIR)
     target_link_libraries(libmerc_static PUBLIC crypto)
