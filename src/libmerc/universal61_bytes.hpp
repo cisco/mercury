@@ -385,8 +385,11 @@ public:
 
     /// \brief Construct a hasher from explicit secret material.
     ///
-    /// \param secret The multiplier and offset to use.  Values are normalized
-    ///                 into the field; a zero multiplier is replaced by one.
+    /// \param secret The multiplier and offset to use, normalized into the
+    ///                 field. Callers should supply a nonzero multiplier;
+    ///                 zero falls back to one, which is not suitable for
+    ///                 adversarial inputs because it reduces the hash to an
+    ///                 order-insensitive sum plus the offset.
     ///
     explicit byte_hasher(const byte_hash_secret &secret) noexcept :
         multiplier{secret.multiplier % prime},
