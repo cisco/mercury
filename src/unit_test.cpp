@@ -82,25 +82,6 @@
 #define GREEN_ON   "\033[32m"
 #define COLOR_OFF  "\033[39m"
 
-bool event_msg_hasher_unit_test() {
-    const universal61::event_msg_hasher hasher{
-        universal61::byte_hasher{{
-            0x0123456789abcdefULL,
-            0x0f0e0d0c0b0a0908ULL,
-        }}
-    };
-    const event_msg split_fields{
-        "ab", "c", "", "", event_type::fingerprint};
-    const event_msg joined_fields{
-        "a", "bc", "", "", event_type::fingerprint};
-    const event_msg different_type{
-        "ab", "c", "", "", event_type::cert_label};
-
-    return hasher(split_fields) == 0x13c2139e56ab8d09ULL
-        && hasher(joined_fields) == 0x04f02f35dcb67425ULL
-        && hasher(different_type) == 0x07d85db31e93bdc5ULL;
-}
-
 int main(int, char *[]) {
 
     assert(printf("DEBUG enabled\n") == 14);
@@ -382,7 +363,7 @@ int main(int, char *[]) {
         },
         {
             "event_msg_hasher",
-            &event_msg_hasher_unit_test
+            &universal61::event_msg_hasher_unit_test
         },
         {
             "krb5_no_empty_arrays",

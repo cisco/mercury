@@ -110,6 +110,36 @@ struct event_msg_hasher {
     }
 };
 
+#ifndef NDEBUG
+// LCOV_EXCL_START
+/// \brief Test event-message hashing and field-boundary preservation.
+///
+/// \return True if all event-message hash checks pass.
+///
+inline bool event_msg_hasher_unit_test() {
+    const event_msg_hasher hasher{
+        byte_hasher{{
+            0x0123456789abcdefULL,
+            0x0f0e0d0c0b0a0908ULL,
+        }}
+    };
+    const ::event_msg split_fields{
+        "ab", "c", "", "", event_type::fingerprint};
+    const ::event_msg joined_fields{
+        "a", "bc", "", "", event_type::fingerprint};
+    const ::event_msg shifted_fields{
+        "ab", "", "c", "", event_type::fingerprint};
+    const ::event_msg different_type{
+        "ab", "c", "", "", event_type::cert_label};
+
+    return hasher(split_fields) == 0x13c2139e56ab8d09ULL
+        && hasher(joined_fields) == 0x04f02f35dcb67425ULL
+        && hasher(different_type) == 0x07d85db31e93bdc5ULL
+        && hasher(split_fields) != hasher(shifted_fields);
+}
+// LCOV_EXCL_STOP
+#endif
+
 } // namespace universal61
 
 namespace std {
