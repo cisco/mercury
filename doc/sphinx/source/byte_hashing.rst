@@ -74,10 +74,6 @@ The design is informed by the following literature:
 .. doxygenfile:: universal61_bytes.hpp
    :project: mercury
 
-.. doxygennamespace:: universal61
-   :project: mercury
-   :members:
-
 .. doxygenstruct:: universal61::byte_hash_secret
    :project: mercury
    :members:
