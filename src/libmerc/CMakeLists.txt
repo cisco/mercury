@@ -537,27 +537,23 @@ if(MERCURY_HAVE_XSIMD)
     target_compile_definitions(libmerc PRIVATE HAVE_XSIMD=1)
     target_compile_definitions(libmerc_static PRIVATE HAVE_XSIMD=1)
 
-    # xsimd is header-only.  Obtain its include root from a package target
-    # when available, but add it through SYSTEM explicitly: imported target
-    # include properties are not consistently system-marked across the CMake
-    # versions supported by this project.
-    if(xsimd_FOUND)
-        if(DEFINED xsimd_INCLUDE_DIRS AND NOT xsimd_INCLUDE_DIRS STREQUAL "")
-            set(_xsimd_system_include_dirs ${xsimd_INCLUDE_DIRS})
-        elseif(TARGET xsimd::xsimd)
-            get_target_property(_xsimd_system_include_dirs xsimd::xsimd INTERFACE_INCLUDE_DIRECTORIES)
-        elseif(TARGET xsimd)
-            get_target_property(_xsimd_system_include_dirs xsimd INTERFACE_INCLUDE_DIRECTORIES)
-        endif()
+    # xsimd is header-only.  Preserve all usage requirements when a package
+    # target is available; raw include-directory fallbacks are third-party
+    # headers and should be treated as SYSTEM.
+    if(xsimd_FOUND AND TARGET xsimd::xsimd)
+        target_link_libraries(libmerc PRIVATE xsimd::xsimd)
+        target_link_libraries(libmerc_static PRIVATE xsimd::xsimd)
+    elseif(xsimd_FOUND AND TARGET xsimd)
+        target_link_libraries(libmerc PRIVATE xsimd)
+        target_link_libraries(libmerc_static PRIVATE xsimd)
+    elseif(xsimd_FOUND AND xsimd_INCLUDE_DIRS)
+        target_include_directories(libmerc SYSTEM BEFORE PRIVATE ${xsimd_INCLUDE_DIRS})
+        target_include_directories(libmerc_static SYSTEM BEFORE PRIVATE ${xsimd_INCLUDE_DIRS})
     elseif(XSIMD_INCLUDE_DIR)
-        set(_xsimd_system_include_dirs ${XSIMD_INCLUDE_DIR})
-    endif()
-
-    if(_xsimd_system_include_dirs)
         # BEFORE preserves the documented preference for an explicitly
         # supplied xsimd path over a system-installed copy.
-        target_include_directories(libmerc SYSTEM BEFORE PRIVATE ${_xsimd_system_include_dirs})
-        target_include_directories(libmerc_static SYSTEM BEFORE PRIVATE ${_xsimd_system_include_dirs})
+        target_include_directories(libmerc SYSTEM BEFORE PRIVATE ${XSIMD_INCLUDE_DIR})
+        target_include_directories(libmerc_static SYSTEM BEFORE PRIVATE ${XSIMD_INCLUDE_DIR})
     endif()
 endif()
 
