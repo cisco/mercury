@@ -843,6 +843,66 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
                && shipped.unknown[0].key().match("exposed_credentials_plaintext"));
     }
 
+    // Test 14b: a registered feature whose key is present but whose value does not satisfy the
+    // feature's own is_valid() -- here exposed_creds_message with protocol missing.  The two
+    // decoders are meant to disagree: registering states that the consumer needs those fields,
+    // so the buffer is failed for it, while a decoder that registers nothing keeps the entry as
+    // it stands.  Both readings are correct for their consumer; see try_one() in
+    // cbor_decoded_metadata.hpp.
+    {
+        // written by hand, because construct() cannot leave protocol out
+        data_buffer<1024> buf;
+        cbor_object cbor_outer{buf};
+        cbor_object v1{cbor_outer, CBOR_METADATA_VERSION_KEY};
+        cbor_object ec_obj{v1, "exposed_credentials_plaintext"};
+        ec_obj.print_key_string("authentication_method", "basic");
+        ec_obj.print_key_string("username", "alice");
+        ec_obj.close();
+        v1.close();
+        cbor_outer.close();
+        datum encoded = buf.contents();
+
+        full_decoder d;
+        decode_cbor_metadata(encoded.data, encoded.length(), d);
+        report("incomplete feature, typed: buffer failed", !d.valid);
+        report("incomplete feature, typed: the slot reports invalid",
+               !d.get<exposed_creds_message>().is_valid());
+
+        cbor_decoded_metadata shipped;                 // registers nothing
+        decode_cbor_metadata(encoded.data, encoded.length(), shipped);
+        report("incomplete feature, shipped: unaffected",
+               shipped.valid && shipped.unknown.size() == 1
+               && shipped.unknown[0].key().match("exposed_credentials_plaintext"));
+        datum span = shipped.unknown.size() == 1 ? shipped.unknown[0].cbor_span()
+                                                 : datum{nullptr, nullptr};
+        report("incomplete feature, shipped: the entry is captured as it stands",
+               span.is_not_empty());
+
+        // the same incomplete entry followed by a complete feature: the registered path loses
+        // that one too, which is the cost this rule accepts and so is pinned here
+        data_buffer<1024> buf2;
+        cbor_object cbor_outer2{buf2};
+        cbor_object v1b{cbor_outer2, CBOR_METADATA_VERSION_KEY};
+        cbor_object ec_obj2{v1b, "exposed_credentials_plaintext"};
+        ec_obj2.print_key_string("authentication_method", "basic");
+        ec_obj2.close();
+        v1b.print_key_string(CBOR_METADATA_TRUNCATION_KEY, "none");
+        v1b.close();
+        cbor_outer2.close();
+        datum encoded2 = buf2.contents();
+
+        full_decoder d2;
+        decode_cbor_metadata(encoded2.data, encoded2.length(), d2);
+        report("incomplete feature, typed: the sibling status is lost with the buffer",
+               !d2.valid && !d2.truncation.is_valid());
+
+        cbor_decoded_metadata shipped2;
+        decode_cbor_metadata(encoded2.data, encoded2.length(), shipped2);
+        report("incomplete feature, shipped: the sibling status survives",
+               shipped2.valid && shipped2.truncation.is_valid()
+               && shipped2.truncation.status().match("none"));
+    }
+
     // Test 15: buffer exhaustion during encode. A cnsa written into a tiny context
     // overruns the buffer; the writeable goes null. Asserts is_truncated() true,
     // get_length() == 0 (the is_null() gate), and that the growth check is

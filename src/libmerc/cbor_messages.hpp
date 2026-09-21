@@ -38,6 +38,12 @@ inline constexpr null_terminated_string CBOR_METADATA_TRUNCATION_KEY = "truncati
 //    Feature's own responsibility: its write() must not emit the same key twice.
 // 9. A Feature that fires more than once per packet, or that has several entries in
 //    one packet, combines them inside its class and is written once.
+// 10. Every field a Feature treats as fixed must be present in every occurrence of that
+//    Feature. Fixed means whatever that Feature's own decode requires in order to report
+//    is_valid(): each class defines its own set, so that is where to look rather than here.
+//    A consumer that registers the Feature reads a missing fixed field as an error and
+//    discards the whole buffer, so omitting one costs the other Features in that packet
+//    too. Adding fields is always safe: a consumer skips the ones it does not know.
 
 /// Reserved packet-level status: the truncation state of the packet/handshake.
 class truncation_message {
