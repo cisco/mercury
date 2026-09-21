@@ -422,7 +422,8 @@ int main(int argc, char *argv[]) {
         //
         libmerc_printer mercury(libmerc_file.c_str());
         if (do_cbor_metadata && mercury.get_cbor_metadata == nullptr) {
-            throw std::runtime_error("libmerc does not provide CBOR metadata API");
+            fprintf(stderr, "error: %s does not provide the CBOR metadata API\n", libmerc_file.c_str());
+            return EXIT_FAILURE;
         }
 
         // set libmerc configuration
