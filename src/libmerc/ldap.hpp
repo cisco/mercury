@@ -13,6 +13,7 @@
 #include "datum.h"
 #include "x509.h"
 #include "json_object.h"
+#include "null_terminated_string.hpp"
 #include "match.h"
 #include "protocol.h"
 #include "exposed_creds.hpp"
@@ -274,7 +275,7 @@ namespace ldap {
             GSS_SPNEGO,
         };
 
-        static const char *mechanism_type_get_name(mechanism_type t) {
+        static null_terminated_string mechanism_type_get_name(mechanism_type t) {
             switch(t) {
             case mechanism_type::GSSAPI: return "gssapi";
             case mechanism_type::GSS_SPNEGO: return "gss_spnego";

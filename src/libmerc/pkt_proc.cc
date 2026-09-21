@@ -186,14 +186,14 @@ struct check_exposed_creds {
         // The assess-only path binds output_ to the null_object sentinel, so emission is
         // gated on the writer type.
         if constexpr (is_emitting_writer_v<Object>) {
-            const char* key = nullptr;
+            auto key = exposed_creds_message::message_type::plaintext;
             switch (type) {
             case exposed_creds_type::plaintext_password:
-                key = exposed_creds_message::KEY_PLAINTEXT; break;
+                key = exposed_creds_message::message_type::plaintext; break;
             case exposed_creds_type::plaintext_token:
-                key = exposed_creds_message::KEY_TOKEN; break;
+                key = exposed_creds_message::message_type::token; break;
             case exposed_creds_type::password_derived:
-                key = exposed_creds_message::KEY_DERIVED; break;
+                key = exposed_creds_message::message_type::derived; break;
             default:
                 return;
             }
@@ -984,11 +984,13 @@ bool stateful_pkt_proc::process_tcp_data (protocol &x,
     // after processing this pkt, check for states again
     reassembly_map_iterator it = reassembler->get_current_flow();
     if (reassembler->is_ready(it)) {
-        // reassmbly done
+        // reassembly done
         // process reassembled data
         //
-        struct datum reassembled_data = reassembler->get_reassembled_data(it);
-        set_tcp_protocol(x, reassembled_data, true, &tcp_pkt);
+        // reassembler-owned datum, not a local: a parser in x may keep a
+        // reference and deref it at output, after this frame is gone
+        //
+        set_tcp_protocol(x, reassembler->reassembled_data_cursor(it), true, &tcp_pkt);
 
         // mark flow as completed
         reassembler->set_completed(it);

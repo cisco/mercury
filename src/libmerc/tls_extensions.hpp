@@ -18,9 +18,11 @@ template <typename T>
 class extensions : public encoded<T> {
     static_assert(std::is_unsigned_v<T>, "T must be an unsigned integer");
 public:
+    static constexpr char UNKNOWN[] = "UNKNOWN";
+
     void write_json(json_object &o) const {
         const char *name = get_name();
-        if (name == nullptr) {
+        if (name == UNKNOWN) {
             o.print_key_unknown_code("extensions", encoded<T>::value());
         } else {
             o.print_key_string("extensions", name);
@@ -159,7 +161,7 @@ public:
         default:
             ;
         }
-        return nullptr;
+        return UNKNOWN;
     }
 };
 

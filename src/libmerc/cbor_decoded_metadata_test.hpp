@@ -14,6 +14,7 @@
 
 #include "cbor_decoded_metadata.hpp"
 #include "cbor_metadata.hpp"
+#include "null_terminated_string.hpp"
 
 inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
     bool all_passed = true;
@@ -40,6 +41,19 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         return std::string();
     };
 
+    // A default decoder slot has no message type and must not emit a map.
+    {
+        data_buffer<256> buf;
+        cbor_object outer{buf};
+        const size_t before = static_cast<size_t>(buf.contents().length());
+        exposed_creds_message empty;
+        empty.template write<cbor_object>(outer);
+        report("default exposed_creds is invalid", !empty.is_valid());
+        report("default exposed_creds emits no output",
+               static_cast<size_t>(buf.contents().length()) == before);
+        outer.close();
+    }
+
     // ================================================================
     // Group A — feature-decode correctness via full_decoder (typed slots)
     // ================================================================
@@ -52,7 +66,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
             data_buffer<512> buf;
             cbor_object cbor_outer{buf};
             cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
-            exposed_creds_message::construct(exposed_creds_message::KEY_PLAINTEXT,
+            exposed_creds_message::construct(exposed_creds_message::message_type::plaintext,
                 datum{"imap"}, datum{"LOGIN"}, datum{"alice"}).template write<cbor_object>(outer);
             outer.close();
             cbor_outer.close();
@@ -77,7 +91,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
             data_buffer<512> buf;
             cbor_object cbor_outer{buf};
             cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
-            exposed_creds_message::construct(exposed_creds_message::KEY_TOKEN,
+            exposed_creds_message::construct(exposed_creds_message::message_type::token,
                 datum{"imap"}, datum{"OAUTHBEARER"}, datum{}).template write<cbor_object>(outer);
             outer.close();
             cbor_outer.close();
@@ -95,7 +109,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
             data_buffer<512> buf;
             cbor_object cbor_outer{buf};
             cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
-            exposed_creds_message::construct(exposed_creds_message::KEY_DERIVED,
+            exposed_creds_message::construct(exposed_creds_message::message_type::derived,
                 datum{"ldap"}, datum{"DIGEST-MD5"}, datum{}).template write<cbor_object>(outer);
             outer.close();
             cbor_outer.close();
@@ -350,7 +364,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         data_buffer<2048> buf;
         cbor_object cbor_outer{buf};
         cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
-        exposed_creds_message::construct(exposed_creds_message::KEY_PLAINTEXT,
+        exposed_creds_message::construct(exposed_creds_message::message_type::plaintext,
             datum{"http"}, datum{"basic"}, datum{"admin"}).template write<cbor_object>(outer);
         crypto_cnsa_tls_message cnsa;
         cnsa.set_policy("quantum_safe");
@@ -397,7 +411,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
             writeable& w = ctx.get_writer();
             cbor_object cbor_outer{w};
             cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
-            exposed_creds_message::construct(exposed_creds_message::KEY_PLAINTEXT,
+            exposed_creds_message::construct(exposed_creds_message::message_type::plaintext,
                 datum{"http"}, datum{"basic"}, datum{"admin"}).template write<cbor_object>(outer);
             ctx.set_feature_written();
             outer.close();
@@ -445,7 +459,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
             cbor_object cbor_outer{w};
             cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
             outer.print_key_string(CBOR_METADATA_TRUNCATION_KEY, "truncated"); // not a feature
-            exposed_creds_message::construct(exposed_creds_message::KEY_PLAINTEXT,
+            exposed_creds_message::construct(exposed_creds_message::message_type::plaintext,
                 datum{"http"}, datum{"basic"}, datum{"admin"}).template write<cbor_object>(outer);
             ctx.set_feature_written();
             outer.close();
@@ -523,7 +537,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         cbor_object cbor_outer{buf};
         cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
         // known: exposed_creds
-        exposed_creds_message::construct(exposed_creds_message::KEY_PLAINTEXT,
+        exposed_creds_message::construct(exposed_creds_message::message_type::plaintext,
             datum{"http"}, datum{"basic"}, datum{"admin"}).template write<cbor_object>(outer);
         // known: nist
         crypto_nist_message nist;
@@ -592,8 +606,11 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
         for (int i = 0; i < 6; i++) {
             char key_name[32];
-            snprintf(key_name, sizeof(key_name), "future_feature_%d", i);
-            cbor_object feat{outer, key_name};
+            int key_len = snprintf(key_name, sizeof(key_name), "future_feature_%d", i);
+            if (key_len < 0 || static_cast<size_t>(key_len) >= sizeof(key_name)) {
+                return false;
+            }
+            cbor_object feat{outer, null_terminated_string::checked(key_name, static_cast<size_t>(key_len))};
             feat.print_key_string("data", "value");
             feat.close();
         }
@@ -611,7 +628,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         data_buffer<256> buf2;
         cbor_object cbor_outer2{buf2};
         cbor_object outer2{cbor_outer2, CBOR_METADATA_VERSION_KEY};
-        exposed_creds_message::construct(exposed_creds_message::KEY_PLAINTEXT,
+        exposed_creds_message::construct(exposed_creds_message::message_type::plaintext,
             datum{"http"}, datum{"basic"}, datum{"admin"}).template write<cbor_object>(outer2);
         outer2.close();
         cbor_outer2.close();
@@ -670,9 +687,9 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         data_buffer<1024> buf;
         cbor_object cbor_outer{buf};
         cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
-        exposed_creds_message::construct(exposed_creds_message::KEY_PLAINTEXT,
+        exposed_creds_message::construct(exposed_creds_message::message_type::plaintext,
             datum{"http"}, datum{"basic"}, datum{"alice"}).template write<cbor_object>(outer);
-        exposed_creds_message::construct(exposed_creds_message::KEY_PLAINTEXT,
+        exposed_creds_message::construct(exposed_creds_message::message_type::plaintext,
             datum{"http"}, datum{"basic"}, datum{"bob"}).template write<cbor_object>(outer);
         outer.close();
         cbor_outer.close();
@@ -784,7 +801,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         data_buffer<512> buf;
         cbor_object cbor_outer{buf};
         cbor_object outer{cbor_outer, CBOR_METADATA_VERSION_KEY};
-        exposed_creds_message::construct(exposed_creds_message::KEY_PLAINTEXT,
+        exposed_creds_message::construct(exposed_creds_message::message_type::plaintext,
             datum{"http"}, datum{"basic"}, datum{"alice"}).template write<cbor_object>(outer);
         outer.close();
         cbor_outer.close();

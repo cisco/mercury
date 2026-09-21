@@ -78,7 +78,10 @@ if(IS_MAC_ARM)
     if(IS_DIRECTORY "/opt/homebrew")
         message(STATUS "Homebrew detected: adding /opt/homebrew to search paths")
         link_directories("/opt/homebrew/lib")
-        include_directories("/opt/homebrew/include")
+        # Homebrew contains third-party headers.  Treat this include root as
+        # SYSTEM so dependency diagnostics do not become Mercury warnings;
+        # Mercury source/include directories remain normal below.
+        include_directories(SYSTEM "/opt/homebrew/include")
         if(NOT DEFINED OPENSSL_ROOT_DIR)
             message(STATUS "Using /opt/homebrew to find OpenSSL")
             set(OPENSSL_ROOT_DIR "/opt/homebrew")
@@ -258,10 +261,6 @@ endif()
 ###############################################################################
 
 
-## recursive subdirectories
-add_subdirectory(asn1)
-add_subdirectory(lctrie)
-
 ###############################################################################
 ## xsimd SIMD library detection (header-only, version 9+ required)
 ##
@@ -419,7 +418,7 @@ endif()
 #     CMAKE_CXX_FLAGS_MINSIZEREL: -Os -DNDEBUG (optimize for size)
 
 if(IS_WIN)
-    add_compile_options(/W3 /permissive- ${OPTFLAGS})
+    add_compile_options(/W3 /permissive- /bigobj ${OPTFLAGS})
 else()
     add_compile_options(
         -Wall -Wextra -Wno-deprecated
@@ -489,9 +488,15 @@ else()
     message(STATUS "CMAKE_CXX_FLAGS (base) = ${CMAKE_CXX_FLAGS}")
 endif()
 
+## Recursive subdirectories, which inherit the options above
+add_subdirectory(asn1)
+add_subdirectory(lctrie)
+
 ## TARGET : libmerc (shared) {
 add_library(libmerc SHARED ${libmerc_src})
 target_link_directories(libmerc PUBLIC lctrie ${CMAKE_CURRENT_SOURCE_DIR})
+# Keep Mercury's headers normal. Dependency targets below provide the
+# third-party include roots as SYSTEM directories.
 target_include_directories(libmerc PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${ZLIB_INCLUDE_DIRS})
 target_link_libraries(libmerc PUBLIC lctrie ZLIB::ZLIB)
 if(DEFINED OPENSSL_CUSTOM_LIB_DIR)
@@ -529,15 +534,23 @@ if(MERCURY_HAVE_XSIMD)
     target_compile_definitions(libmerc PRIVATE HAVE_XSIMD=1)
     target_compile_definitions(libmerc_static PRIVATE HAVE_XSIMD=1)
 
+    # xsimd is header-only.  Preserve all usage requirements when a package
+    # target is available; raw include-directory fallbacks are third-party
+    # headers and should be treated as SYSTEM.
     if(xsimd_FOUND AND TARGET xsimd::xsimd)
         target_link_libraries(libmerc PRIVATE xsimd::xsimd)
         target_link_libraries(libmerc_static PRIVATE xsimd::xsimd)
     elseif(xsimd_FOUND AND TARGET xsimd)
         target_link_libraries(libmerc PRIVATE xsimd)
         target_link_libraries(libmerc_static PRIVATE xsimd)
+    elseif(xsimd_FOUND AND xsimd_INCLUDE_DIRS)
+        target_include_directories(libmerc SYSTEM BEFORE PRIVATE ${xsimd_INCLUDE_DIRS})
+        target_include_directories(libmerc_static SYSTEM BEFORE PRIVATE ${xsimd_INCLUDE_DIRS})
     elseif(XSIMD_INCLUDE_DIR)
-        target_include_directories(libmerc PRIVATE ${XSIMD_INCLUDE_DIR})
-        target_include_directories(libmerc_static PRIVATE ${XSIMD_INCLUDE_DIR})
+        # BEFORE preserves the documented preference for an explicitly
+        # supplied xsimd path over a system-installed copy.
+        target_include_directories(libmerc SYSTEM BEFORE PRIVATE ${XSIMD_INCLUDE_DIR})
+        target_include_directories(libmerc_static SYSTEM BEFORE PRIVATE ${XSIMD_INCLUDE_DIR})
     endif()
 endif()
 

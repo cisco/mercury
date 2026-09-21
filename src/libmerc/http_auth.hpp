@@ -8,6 +8,7 @@
 #include "datum.h"
 #include "base64.h"
 #include "json_object.h"
+#include "null_terminated_string.hpp"
 
 class scheme : public datum {
 public:
@@ -28,7 +29,7 @@ public:
         bearer,
     };
 
-    static const char *type_get_name(enum type t) {
+    static null_terminated_string type_get_name(enum type t) {
         switch(t) {
         case basic: return "basic";
         case digest: return "digest";

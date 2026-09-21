@@ -15,6 +15,7 @@
 #include "json_object.h"
 #include "flow_key.h"
 #include "printf_err.hpp"
+#include "universal61.hpp"
 
 #ifdef _WIN32
 
@@ -69,6 +70,9 @@ struct tcp_state {
 };
 
 #define tcp_state_init = { 0, 0, 0, 0, 0, talking };
+
+template <typename T>
+using tcp_flow_key_map = std::unordered_map<struct key, T, universal61::flow_key_hasher>;
 
 #define BYTE_BINARY_FORMAT "%c%c%c%c%c%c%c%c"
 #define UINT8_BINARY(x)                         \
@@ -137,7 +141,7 @@ void fprintf_tcp_hdr_info(FILE *f, const struct key *k, const struct tcp_header 
 #define DROP_PACKET     0
 
 struct tcp_initial_message_filter {
-    std::unordered_map<struct key, struct tcp_state> tcp_flow_table;
+    tcp_flow_key_map<struct tcp_state> tcp_flow_table;
 
     tcp_initial_message_filter(void) : tcp_flow_table{} {}
 
@@ -358,8 +362,8 @@ struct prune_table {
 End comment reassembly pruning logic */
 
 struct flow_table {
-    std::unordered_map<struct key, unsigned int> table;
-    std::unordered_map<struct key, unsigned int>::iterator reap_it;
+    tcp_flow_key_map<unsigned int> table;
+    tcp_flow_key_map<unsigned int>::iterator reap_it;
     static constexpr uint32_t max_entries = 1'000'000;
 
     flow_table(unsigned int size) : table{}, reap_it{table.end()} {
@@ -424,7 +428,7 @@ struct flow_table {
         }
     }
 
-    void update_reap_iterator(std::unordered_map<struct key, unsigned int>::iterator x) {
+    void update_reap_iterator(tcp_flow_key_map<unsigned int>::iterator x) {
         if (x != table.end()) {
             reap_it = x;
         }
@@ -473,8 +477,8 @@ private:
 };
 
 struct flow_table_tcp {
-    std::unordered_map<struct key, struct tcp_context> table;
-    std::unordered_map<struct key, struct tcp_context>::iterator reap_it;
+    tcp_flow_key_map<struct tcp_context> table;
+    tcp_flow_key_map<struct tcp_context>::iterator reap_it;
     static constexpr uint32_t max_entries = 20000;
 
 
@@ -597,7 +601,7 @@ struct flow_table_tcp {
         }
     }
 
-    void update_reap_iterator(std::unordered_map<struct key, struct tcp_context>::iterator x) {
+    void update_reap_iterator(tcp_flow_key_map<struct tcp_context>::iterator x) {
         if (x != table.end()) {
             reap_it = x;
         }
@@ -605,6 +609,7 @@ struct flow_table_tcp {
 
     void count_all() {
         table.clear();
+        reap_it = table.end();
     }
 
 

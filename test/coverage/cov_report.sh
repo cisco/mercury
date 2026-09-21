@@ -2,7 +2,7 @@
 # Report libmerc coverage in 3 ways (but do not gate pass/fail):
 #
 #   1. Human-readable summary of absolute coverage ($GITHUB_STEP_SUMMARY)
-#   2. Export percentages, patch counts, baseline id for coverage-gate ($GITHUB_OUTPUT)
+#   2. Export percentages, line counts, baseline id for coverage-gate ($GITHUB_OUTPUT)
 #   3. Differential coverage, when a distinct baseline exists:
 #      a. Human-readable summary ($GITHUB_STEP_SUMMARY)
 #      b. build/Coverage/coverage_report_diff/   differential HTML (genhtml)
@@ -29,8 +29,13 @@ GITHUB_OUTPUT=${GITHUB_OUTPUT:-/dev/stdout}
 # LH="lines hit" and LF="lines found".  Better than lcov's 1-decimal %-summary.
 line_pct() { awk -F: '/^LH:/{h+=$2} /^LF:/{f+=$2} END{printf "%.3f\n", f?100*h/f:0}' "$1"; }
 
+# Lines not exercised: sum(LF)-sum(LH).  Unlike patch coverage, this total is
+# unmoved when a line that was already untested is merely touched by the patch.
+uncov() { awk -F: '/^LH:/{h+=$2} /^LF:/{f+=$2} END{print f-h}' "$1"; }
+
 # Absolute coverage, human-readable summary
 CUR_PCT=$(line_pct "$cur_info")
+CUR_UNCOV=$(uncov "$cur_info")
 { echo "### libmerc coverage"; echo '```';
   lcov --ignore-errors inconsistent,inconsistent --summary "$cur_info" 2>&1 | grep -E '(lines|functions)\.\.'; echo '```';
 } >> "$GITHUB_STEP_SUMMARY"
@@ -41,12 +46,14 @@ if [ "$BASE_SHA" = "$HEAD_SHA" ]; then
     echo "**SKIPPED**: baseline is HEAD or no baseline to compare";
   } >> "$GITHUB_STEP_SUMMARY"
   BASE_PCT=""   # empty string explicitly signals na
+  BASE_UNCOV=""
   { echo "gnc=0"; echo "unc=0"; echo "lbc=0"; } >> "$GITHUB_OUTPUT"
 else
   [ -f "$base_info" ] || { echo "missing $base_info (baseline expected)" >&2; exit 1; }
   git diff --src-prefix="$GITHUB_WORKSPACE/" --dst-prefix="$GITHUB_WORKSPACE/" \
     "$BASE_SHA..$HEAD_SHA" -- 'src/libmerc/*' > build/Coverage/patch.diff
   BASE_PCT=$(line_pct "$base_info")
+  BASE_UNCOV=$(uncov "$base_info")
 
   # Export so child cov_criteria.sh (invoked by genhtml) writes where we read.
   export COV_TLA_OUT
@@ -68,5 +75,6 @@ else
 fi
 
 { echo "cur_pct=$CUR_PCT"; echo "base_pct=$BASE_PCT";
+  echo "cur_uncov=$CUR_UNCOV"; echo "base_uncov=$BASE_UNCOV";
   echo "base_sha=$BASE_SHA"; echo "base_ref=$BASE_REF";
 } >> "$GITHUB_OUTPUT"

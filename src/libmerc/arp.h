@@ -84,10 +84,10 @@ public:
             return;
         }
         //hdr->fprint(stderr);
-        if (hdr->expected_length() > p.length()) {
-            fprintf(stderr, "ARP frame too short (need %zu, have %zd)\n", hdr->expected_length(), p.length());
-        }
-        addresses = p;
+
+        // a body shorter than the declared address lengths leaves
+        // addresses null, which write_json() reports as no addresses
+        addresses.parse(p, hdr->expected_length());
     }
 
     void write_json(json_object &o, bool metadata=false) {
@@ -152,12 +152,13 @@ namespace arp_unit_test {
         datum d1{arp_request, arp_request + sizeof(arp_request)};
         arp_packet pkt1{d1};
         if (!pkt1.is_valid()) return false;
+        if (d1.is_not_empty()) return false;   // the address bytes are consumed
         {
             buffer_stream buf{buffer, sizeof(buffer)};
             json_object json{&buf};
             pkt1.write_json(json);
             json.close();
-            buf.write_char('\0');
+            buf.add_null();
             if (!strstr(buffer, "REQUEST")) return false;
         }
 

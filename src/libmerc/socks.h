@@ -621,7 +621,7 @@ namespace socks_unit_test {
             json_object json{&buf};
             s4_req.write_json(json, true);
             json.close();
-            buf.write_char('\0');
+            buf.add_null();
             if (!strstr(buffer, "socks4")) return false;
         }
 
@@ -647,7 +647,7 @@ namespace socks_unit_test {
             json_object json{&buf};
             req_v4.write_json(json, true);
             json.close();
-            buf.write_char('\0');
+            buf.add_null();
             if (!strstr(buffer, "ipv4")) return false;
         }
 
@@ -663,7 +663,7 @@ namespace socks_unit_test {
             json_object json{&buf};
             req_v6.write_json(json, true);
             json.close();
-            buf.write_char('\0');
+            buf.add_null();
             if (!strstr(buffer, "ipv6")) return false;
         }
 
@@ -677,7 +677,7 @@ namespace socks_unit_test {
             json_object json{&buf};
             req_dom.write_json(json, true);
             json.close();
-            buf.write_char('\0');
+            buf.add_null();
             if (!strstr(buffer, "domain")) return false;
         }
 

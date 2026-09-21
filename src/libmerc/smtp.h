@@ -10,6 +10,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 #include "match.h"
 #include "protocol.h"
 #include "datum.h"
@@ -239,10 +240,11 @@ public:
         parameters{pkt} { }
 
     void fingerprint(buffer_stream &buf) const {
-        if (is_not_empty() == false) {
-            return;
-        }
+        size_t initial_length = buf.length();
         parameters.fingerprint(buf);
+        if (buf.length() == initial_length) {
+            buf.set_truncated();  // reply is invalid, or has no fingerprintable parameters
+        }
     }
 
     void write_json(json_object &record, bool output_metadata) {
@@ -293,5 +295,52 @@ public:
 [[maybe_unused]] inline int smtp_server_packet_fuzz_test(const uint8_t *data, size_t size) {
     return json_output_fuzzer<smtp_server>(data, size);
 }
+
+// LCOV_EXCL_START
+namespace smtp_unit_test {
+
+#ifndef NDEBUG
+
+    inline void server_fingerprint(fingerprint &fp, const char *reply) {
+        datum d{(const uint8_t *)reply, (const uint8_t *)reply + strlen(reply)};
+        smtp_server msg{d};
+        fp.init();
+        msg.compute_fingerprint(fp);
+    }
+
+    inline bool unit_test() {
+        bool passed = true;
+        fingerprint fp;
+
+        // service extensions are fingerprinted, the domain line is not
+        //
+        server_fingerprint(fp, "250-mail.example.com\r\n250-STARTTLS\r\n250 8BITMIME\r\n");
+        passed &= fp.get_type() == fingerprint_type_smtp_server;
+        passed &= strcmp(fp.string(),
+                         "smtp_server/(3235302d5354415254544c53)(32353020384249544d494d45)") == 0;
+
+        // a reply whose every line is a domain parameter yields no
+        // fingerprint, not a degenerate "smtp_server/" one; the same
+        // buffer still holds the previous fingerprint's bytes
+        //
+        server_fingerprint(fp, "250-mail.example.com\r\n250 smtp.example.com\r\n");
+        passed &= fp.is_null();
+
+        // an EHLO greeting is a domain parameter, too
+        //
+        server_fingerprint(fp, "250-mail.example.com Hello there\r\n250 Hello there\r\n");
+        passed &= fp.is_null();
+
+        // a reply that does not end with CRLF yields no fingerprint
+        //
+        server_fingerprint(fp, "250-STARTTLS");
+        passed &= fp.is_null();
+
+        return passed;
+    }
+#endif
+
+} // namespace smtp_unit_test
+// LCOV_EXCL_STOP
 
 #endif // SMTP_H

@@ -6,8 +6,10 @@
 
 #include <cctype>
 #include <cassert>
+#include <cstring>
 #include <vector>
 #include "json_object.h"
+#include "null_terminated_string.hpp"
 #include "libmerc.h"  // for fingerprint_type
 
 class fingerprint {
@@ -43,7 +45,7 @@ public:
 
     void set_type(fingerprint_type fp_type, size_t format_version=0) {
         type = fp_type;
-        fp_buf.puts(get_type_name(fp_type));
+        fp_buf.puts(get_type_name(fp_type).c_str());
         fp_buf.write_char('/');
         if (format_version) {
             fp_buf.write_uint8(format_version);
@@ -62,8 +64,10 @@ public:
     }
 
     // the function fingerprint_is_well_formed() checks the
-    // fingerprint in fp_buf and verifies that it consists of balanced
-    // parenthesis and even-numbered hex strings
+    // fingerprint in fp_str and verifies that it consists of balanced
+    // parentheses, balanced brackets and hex strings.  A fingerprint
+    // with no data section, e.g., "smtp_server/", is accepted;
+    // discarding it is the producer's job.
     //
     bool fingerprint_is_well_formed() {
         std::vector<char> stack;
@@ -72,30 +76,33 @@ public:
         // loop over fingerprint type
         //
         while (*c != '\0' && *c != '/') {
-            if (!(isalpha(*c) && islower(*c)) && (*c != '_')) {
+            // the ctype functions are undefined for negative char values
+            if (!(isalpha((unsigned char)*c) && islower((unsigned char)*c)) && (*c != '_')) {
                 return false;  // ill-formed fingerprint type string
             }
             c++;
+        }
+        if (*c != '/') {
+            return false;  // missing '/' after fingerprint type
         }
         c++;  // accept '/'
 
         //loop over version string if present
         if (*c != '(') {
             while (*c != '\0' && *c != '/') {
-                if (!isdigit(*c)) {
+                if (!isdigit((unsigned char)*c)) {
                     return false;
                 }
                 c++;
             }
-            c++; //accept '/'
+            if (*c == '/') {   // not present if there is no data section
+                c++;
+            }
         }
 
-        // accept keyword "generic" and possibily trailing data as fingerprint string
-        if (*c == 'g') {
-            constexpr char generic_fp[] = {'g','e','n','e','r','i','c'};
-            if (memcmp(c,generic_fp,7) == 0) {
-                return true;
-            }
+        // accept keyword "generic" and possibly trailing data as fingerprint string
+        if (strncmp(c, "generic", 7) == 0) {
+            return true;
         }
 
         // loop over balanced parens / tree data
@@ -107,21 +114,21 @@ public:
                 stack.push_back(*c);
                 break;
             case ')':
-                if (stack.back() == '(') {
+                if (!stack.empty() && stack.back() == '(') {
                     stack.pop_back();
                 } else {
                     return false; // error
                 }
                 break;
             case ']':
-                if (stack.back() == '[') {
+                if (!stack.empty() && stack.back() == '[') {
                     stack.pop_back();
                 } else {
                     return false; // error
                 }
                 break;
             default:
-                if (!isxdigit(*c) || isupper(*c)) {
+                if (!isxdigit((unsigned char)*c) || isupper((unsigned char)*c)) {
                     return false;  // non hex digit in string
                 }
             }
@@ -146,7 +153,11 @@ public:
             init();
             return;
         }
-        fp_buf.write_char('\0'); // null-terminate
+        fp_buf.add_null(); // null-terminate
+        if (fp_buf.is_truncated()) {
+            init();
+            return;
+        }
         assert(fingerprint_is_well_formed());
     }
 
@@ -156,13 +167,13 @@ public:
 
     enum fingerprint_type get_type() const { return type; }
 
-    static const char *get_type_name(fingerprint_type fp_type) {
+    static null_terminated_string get_type_name(fingerprint_type fp_type) {
 
         // note: the array name[] corresponds to the enumeration
         // values in fingerprint_type in libmerc.h; if you change one,
         // you *must* change the other, to keep them in sync
         //
-        static const char *name[] = {
+        static constexpr null_terminated_string name[] = {
             "unknown",
             "tls",
             "tls_server",
@@ -185,7 +196,7 @@ public:
             "ssh_kex_server",
             "ssh_init_server"
         };
-        if (fp_type > (sizeof(name)/sizeof(const char *)) - 1) {
+        if (fp_type > (sizeof(name)/sizeof(name[0])) - 1) {
             return name[0];  // error: unknown type
         }
         return name[fp_type];
@@ -199,5 +210,145 @@ public:
 
     static size_t max_length() { return MAX_FP_STR_LEN; }
 };
+
+// LCOV_EXCL_START
+namespace fingerprint_unit_test {
+
+#ifndef NDEBUG
+
+    // a message that writes a well-formed fingerprint body
+    //
+    struct well_formed_message {
+        void fingerprint(buffer_stream &b) const { b.puts("(0301)(002f)"); }
+    };
+
+    // a message that fills every payload byte using normal stream writes
+    //
+    struct max_length_message {
+        void fingerprint(buffer_stream &b) const {
+            b.write_char('(');
+            while (b.doff < b.dlen - 2) {
+                b.write_char('a');
+            }
+            b.write_char(')');
+        }
+    };
+
+    // a message that writes a literal fingerprint body, terminated so
+    // that the cases below can call fingerprint_is_well_formed()
+    // without going through final()
+    //
+    struct literal_message {
+        const char *body;
+        void fingerprint(buffer_stream &b) const { b.puts(body); b.add_null(); }
+    };
+
+    inline bool unit_test() {
+        bool passed = true;
+
+        {
+            // final() accepts a fingerprint that leaves room for the
+            // terminator.
+            fingerprint fp;
+            fp.init();
+            fp.set_type(fingerprint_type_tls);
+            well_formed_message msg;
+            fp.add(msg);
+            fp.final();
+
+            passed &= !fp.is_null();
+            passed &= fp.get_type() == fingerprint_type_tls;
+            passed &= strcmp(fp.string(), "tls/(0301)(002f)") == 0;
+        }
+
+        {
+            // final() terminates a maximum-length fingerprint without
+            // dropping it.
+            fingerprint fp;
+            fp.init();
+            fp.set_type(fingerprint_type_tls);
+            max_length_message msg;
+            fp.add(msg);
+            fp.final();
+
+            passed &= !fp.is_null();
+            passed &= fp.get_type() == fingerprint_type_tls;
+            passed &= strlen(fp.string()) == fingerprint::max_length() - 1;
+        }
+
+        {
+            // final() keeps a fingerprint with no data section, and
+            // does not read the bytes that the previous fingerprint
+            // left in the same buffer
+            fingerprint fp;
+            fp.init();
+            fp.set_type(fingerprint_type_tls);
+            well_formed_message msg;
+            fp.add(msg);
+            fp.final();
+
+            fp.init();
+            fp.set_type(fingerprint_type_tls);
+            literal_message empty{""};
+            fp.add(empty);
+            fp.final();
+
+            passed &= strcmp(fp.string(), "tls/") == 0;
+
+            // a closing delimiter with nothing open is rejected, and
+            // does not read the empty stack; final() is not called
+            // here, because it asserts well-formedness
+            //
+            fp.init();
+            fp.set_type(fingerprint_type_tls);
+            literal_message unbalanced_paren{"1/)"};
+            fp.add(unbalanced_paren);
+            passed &= !fp.fingerprint_is_well_formed();
+
+            fp.init();
+            fp.set_type(fingerprint_type_tls);
+            literal_message unbalanced_bracket{"1/]"};
+            fp.add(unbalanced_bracket);
+            passed &= !fp.fingerprint_is_well_formed();
+        }
+
+        {
+            // the "generic" keyword is accepted as the whole data
+            // section, and is read no further than the terminator
+            fingerprint fp;
+            fp.init();
+            fp.set_type(fingerprint_type_tls, 1);
+            literal_message generic{"generic"};
+            fp.add(generic);
+
+            passed &= fp.fingerprint_is_well_formed();
+            fp.final();
+            passed &= strcmp(fp.string(), "tls/1/generic") == 0;
+
+            // a buffer holding no type name and no '/' is rejected
+            // instead of read past
+            fp.init();
+            passed &= !fp.fingerprint_is_well_formed();
+        }
+
+        {
+            // a byte above 0x7f is rejected in the type name, the
+            // version and the data section, and is not passed as a
+            // negative int to the ctype functions
+            fingerprint fp;
+            for (const char *body : { "\x80/1/(01)", "tls/1\x80/(01)", "tls/1/(\x80)" }) {
+                fp.init();
+                literal_message high_byte{body};
+                fp.add(high_byte);
+                passed &= !fp.fingerprint_is_well_formed();
+            }
+        }
+
+        return passed;
+    }
+#endif
+
+} // namespace fingerprint_unit_test
+// LCOV_EXCL_STOP
 
 #endif // FINGERPRINT_H

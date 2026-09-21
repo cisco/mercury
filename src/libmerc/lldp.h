@@ -304,7 +304,7 @@ namespace lldp_unit_test {
         json_object json{&buf};
         pkt.write_json(json, false);
         json.close();
-        buf.write_char('\0');
+        buf.add_null();
         if (!strstr(buffer, "lldp")) return false;
         if (!strstr(buffer, "chassis_id")) return false;
         if (!strstr(buffer, "port_id")) return false;

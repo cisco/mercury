@@ -15,6 +15,7 @@
 
 #include "protocol.h"
 #include "json_object.h"
+#include "null_terminated_string.hpp"
 #include "eth.h"
 #include "ip_address.hpp"
 #include "match.h"
@@ -306,7 +307,7 @@ struct dns_label_header {
 };
 
 #define MAX_NETBIOS_NAME 16
-struct dns_name : public data_buffer<256> {
+struct dns_name : public data_buffer<256> {  // 256 > 254, the length of the longest RFC 1035 name as written here
 
     static const unsigned int recursion_threshold = 16;  // prevents stack overflow
     bool is_netbios_name;
@@ -337,6 +338,10 @@ struct dns_name : public data_buffer<256> {
             if (type == dns_label_type::char_string) {
                 data_buffer<256>::parse(d, h.char_string_length());
                 copy('.');
+                if (is_null()) {
+                    d.set_empty();  // error: name too long for the buffer, hence for RFC 1035
+                    return;         // stop scanning, to bound decompression work
+                }
             }
             if (type == dns_label_type::offset) {
                 uint8_t tmp;
@@ -705,7 +710,7 @@ struct dns_question_record {
         }
     }
 
-    void write_json(struct json_object &o, const char *key) const {
+    void write_json(struct json_object &o, null_terminated_string key) const {
         if (name.is_not_empty()) {
             struct json_object rr{o, key};
             if (name.is_netbios()) {
@@ -1054,7 +1059,7 @@ struct dns_packet : public base_protocol {
         if (header == NULL) {
             return;
         }
-        const char *key = encoded<uint16_t>{ntoh(header->flags)}.bit<0>() ?  "response" : "query";
+        null_terminated_string key = encoded<uint16_t>{ntoh(header->flags)}.bit<0>() ? null_terminated_string{"response"} : null_terminated_string{"query"};
         struct json_object dns_json{o, key};
         //dns_json.print_key_uint("qdcount", qdcount);
         //dns_json.print_key_uint("ancount", ancount);
@@ -1117,7 +1122,7 @@ struct dns_packet : public base_protocol {
             protocols.print_string("dns");
         }
         protocols.close();
-        cbor_object dns{o, is_netbios ? "nbns" : "dns"};
+        cbor_object dns{o, is_netbios ? null_terminated_string{"nbns"} : null_terminated_string{"dns"}};
         dns.print_key_hex("data", get_datum());
         dns.close();
     }
@@ -1194,6 +1199,74 @@ namespace {
 namespace dns_unit_test {
 
 #ifndef NDEBUG
+
+    // decompression_bound_test() verifies that dns_name accepts a name
+    // of the maximum length allowed by RFC 1035 section 2.3.4 (255
+    // octets), and rejects a longer one instead of continuing to scan
+    // the message.  Rejecting an over-long name is what bounds the
+    // work that a chain of compression pointers can cause.
+    //
+    inline bool decompression_bound_test() {
+        data_buffer<1024> msg;
+        auto label = [&msg](int len, uint8_t c) {
+            msg.copy((uint8_t)len);
+            for (int i=0; i < len; i++) { msg.copy(c); }
+        };
+        auto pointer_to = [&msg](size_t offset) {
+            msg.copy((uint8_t)(0xc0 | (offset >> 8)));
+            msg.copy((uint8_t)offset);
+        };
+
+        for (size_t i=0; i < sizeof(dns_hdr); i++) { msg.copy(0); }
+
+        // a name of exactly 255 octets, the RFC 1035 maximum
+        //
+        const size_t max_length_name = msg.readable_length();
+        label(63, 'a'); label(63, 'a'); label(63, 'a'); label(61, 'a'); msg.copy(0);
+
+        const size_t compressed = msg.readable_length();
+        pointer_to(max_length_name);
+
+        // a name of 321 octets; its label content is below 0x40 so that a
+        // parser that keeps scanning after the name overflows reads the
+        // remaining content bytes as further labels
+        //
+        const size_t over_long = msg.readable_length();
+        for (int i=0; i < 5; i++) { label(63, 1); }
+        msg.copy(0);
+
+        const size_t compressed_over_long = msg.readable_length();
+        pointer_to(over_long);
+
+        msg.copy(0);   // trailing octet, so that `readable` below is meaningful
+
+        datum dns_body = msg.contents();
+        if (!dns_body.skip(sizeof(dns_hdr))) { return false; }
+
+        // each case gives the offset of a name within msg, whether
+        // dns_name must reject that name, its decompressed length, and
+        // whether the input datum is left readable afterwards
+        //
+        struct testcase { size_t offset; bool rejected; ssize_t length; bool readable; };
+        for (const testcase &tc : { testcase{max_length_name, false, 254, true},
+                                    testcase{compressed,      false, 254, true},
+                                    // readable==false is what fails without the fix
+                                    testcase{over_long,       true,    0, false},
+                                    // reached through a pointer, the rejection empties
+                                    // the recursive call's own datum, not this one
+                                    testcase{compressed_over_long, true, 0, true} }) {
+            datum d = msg.contents();
+            if (!d.skip(tc.offset)) { return false; }
+            dns_name name{d, dns_body};
+            if (name.is_null() != tc.rejected
+                or name.readable_length() != tc.length
+                or d.is_not_empty() != tc.readable) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     inline bool unit_test() {
         uint8_t query[] = {
             0x12, 0x34, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -1208,8 +1281,10 @@ namespace dns_unit_test {
         json_object json{&buf};
         pkt.write_json(json, false);
         json.close();
-        buf.write_char('\0');
+        buf.add_null();
         if (!strstr(buffer, "query")) return false;
+
+        if (!decompression_bound_test()) return false;
 
         return true;
     }

@@ -784,7 +784,7 @@ WARN_LOGFILE           =
 # spaces. See also FILE_PATTERNS and EXTENSION_MAPPING
 # Note: If this tag is empty the current directory is searched.
 
-INPUT                  = ../../src/libmerc/datum.h ../../src/libmerc/watchlist.hpp ../../src/libmerc/ip_address.hpp ../../src/libmerc/hex.hpp ../../src/libmerc/diagnostic.hpp ../../src/libmerc/alternative.hpp ../../src/examples.cpp
+INPUT                  = ../../src/libmerc/datum.h ../../src/libmerc/watchlist.hpp ../../src/libmerc/ip_address.hpp ../../src/libmerc/null_terminated_string.hpp ../../src/libmerc/hex.hpp ../../src/libmerc/diagnostic.hpp ../../src/libmerc/alternative.hpp ../../src/libmerc/universal61.hpp ../../src/libmerc/universal61_bytes.hpp ../../src/examples.cpp
 
 # This tag can be used to specify the character encoding of the source files
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding. Doxygen uses

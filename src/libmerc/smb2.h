@@ -94,9 +94,19 @@ public:
     bool valid;
 
     dialects (datum &d, uint16_t cnt, bool byte_swap = true) {
-        for (auto i = 0; i < cnt; i++) {
+        // cnt is attacker-controlled; has_bytes() clamps to complete
+        // 2-byte entries so a truncated tail is left alone rather than
+        // read as a bogus entry
+        for (auto i = 0; i < cnt and d.has_bytes(sizeof(uint16_t)); i++) {
             dialect id(d, byte_swap);
             dialects_list.push_back(id);
+        }
+        if (dialects_list.size() != cnt) {
+            // DialectCount didn't match what's actually present; the
+            // message is malformed, and letting d stay non-null here
+            // would leave every downstream field (padding, negotiate
+            // contexts) parsing from a position DialectCount lied about
+            d.set_null();
         }
         valid = d.is_not_null();
     }
@@ -129,6 +139,36 @@ public:
         }
         a.close();
     }
+
+#ifndef NDEBUG
+    // LCOV_EXCL_START
+    static bool unit_test() {
+        // dialect codes 0x0202, 0x0210, 0x0300, 0x0302 and 0x0311, little-endian
+        static constexpr unsigned char body_bytes[] = {
+            0x02, 0x02, 0x10, 0x02, 0x00, 0x03, 0x02, 0x03, 0x11, 0x03
+        };
+
+        // cnt overstates what's present; the message is malformed
+        {
+            datum d{body_bytes, body_bytes + sizeof(body_bytes)};
+            dialects dl(d, 0xFFFF);
+            if (dl.valid or dl.dialects_list.size() != 5) {
+                return false;
+            }
+        }
+
+        {
+            datum d{body_bytes, body_bytes + sizeof(body_bytes)};
+            dialects dl(d, 5);
+            if (!dl.valid or dl.dialects_list.size() != 5) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+    // LCOV_EXCL_STOP
+#endif // NDEBUG
 };
 
 /*
@@ -790,7 +830,7 @@ public:
 class smb2_packet : public base_protocol {
     encoded<uint32_t> nbss_layer;
     smb2_header hdr;
-    datum& body;
+    datum body;
 
 public:
 
@@ -812,7 +852,8 @@ public:
             switch (hdr.get_packet_type()) {
                 case smb2_header::packet_type::NEGOTIATE_REQUEST:
                 {
-                    smb2_negotiate_request neg_req(body);
+                    datum tmp{body};   // parse a copy, to leave body intact
+                    smb2_negotiate_request neg_req(tmp);
                     neg_req.write_json(smb2);
                     if (output_raw_features) {
                         data_buffer<2048> buf;
@@ -826,7 +867,8 @@ public:
                     break;
                 case smb2_header::packet_type::NEGOTIATE_RESPONSE:
                 {
-                    smb2_negotiate_response neg_resp(body);
+                    datum tmp{body};   // parse a copy, to leave body intact
+                    smb2_negotiate_response neg_resp(tmp);
                     neg_resp.write_json(smb2);
                     if (output_raw_features) {
                         data_buffer<2048> buf;

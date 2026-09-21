@@ -439,6 +439,9 @@ size_t subnet_dedup(lct_subnet<T> *subnets, size_t size) {
           //
           // slide the rest of the array over the second value.  if we're at the
           // end of the array, just let it drop off.
+          if (subnets[j].info.type == IP_DOMAIN_MAPPING) {
+              free(subnets[j].info.domain.domain_idx_arr);
+          }
           if ((j + 1) < size) {
               for (size_t k = j; k < size - 1; ++k) {
                   subnets[k] = subnets[k + 1];
