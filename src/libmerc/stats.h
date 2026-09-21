@@ -39,10 +39,8 @@ typedef uint32_t useconds_t;
 // events
 //
 class stats_aggregator {
-    std::unordered_map<event_msg, uint64_t> event_table;
+    std::unordered_map<event_key, uint64_t> event_table;
     event_encoder encoder;
-    std::string observation;  // used as preallocated temporary variable
-    size_t num_entries;
     size_t max_entries;
     size_t estimated_memory_bytes;
     size_t event_table_memory_bytes;
@@ -55,17 +53,9 @@ class stats_aggregator {
         return current + amount;
     }
 
-    static size_t event_memory_cost(const event_msg &event) {
-        size_t total = sizeof(std::pair<const event_msg, uint64_t>)
-                     + 8 * sizeof(void *);
-        for (const auto &field : event.fields) {
-            total = add_memory(total, field.capacity());
-            if (total == std::numeric_limits<size_t>::max()) {
-                return std::numeric_limits<size_t>::max();
-            }
-            total = add_memory(total, 1);
-        }
-        return total;
+    static size_t event_memory_cost() {
+        return sizeof(std::pair<const event_key, uint64_t>)
+             + 8 * sizeof(void *);
     }
 
     void update_estimated_memory() {
@@ -85,45 +75,41 @@ public:
                      size_t memory_limit=default_max_memory_bytes) :
         event_table{},
         encoder{},
-        observation{},
-        num_entries{0},
         max_entries{size_limit},
         estimated_memory_bytes{0},
         event_table_memory_bytes{0},
         max_memory_bytes{memory_limit} { }
 
-    ~stats_aggregator() {  }
+    void observe_event_string(const event_msg &obs) {
 
-    void observe_event_string(event_msg &obs) {
-
-        bool no_new_entries = (max_entries && num_entries >= max_entries) ||
+        bool no_new_entries = (max_entries && event_table.size() >= max_entries) ||
                               (max_memory_bytes && estimated_memory_bytes >= max_memory_bytes);
 
-        if (encoder.compress_event_string(obs, no_new_entries) == false) {
+        event_key key{};
+        if (encoder.compress_event(key, obs, no_new_entries) == false) {
             update_estimated_memory();
             return;  // error: can't observe this event
         }
 
-        const auto entry = event_table.find(obs);
+        const auto entry = event_table.find(key);
         if (entry != event_table.end()) {
             entry->second = entry->second + 1;
         } else {
             if (no_new_entries) {
                 return;  // don't create another stats entry
             }
-            auto inserted = event_table.emplace(obs, 1);
+            auto inserted = event_table.emplace(key, 1);
             if (!inserted.second) {
                 update_estimated_memory();
                 return;
             }
-            ++num_entries;
             event_table_memory_bytes = add_memory(event_table_memory_bytes,
-                                                  event_memory_cost(obs));
+                                                  event_memory_cost());
         }
         update_estimated_memory();
     }
 
-    bool is_empty() const { return event_table.size() == 0; }
+    bool is_empty() const { return event_table.empty(); }
 
     void gzprint(gzFile f, const char *version,
                  const char *resource_version,
@@ -132,7 +118,7 @@ public:
                  const char *init_time,
                  std::atomic<bool> &interrupt ) {
 
-        if (event_table.size() == 0) {
+        if (event_table.empty()) {
             return;  // nothing to report
         }
 
@@ -143,10 +129,15 @@ public:
             return;  // error; unable to compute fingerprint decompression map
         }
 
-        std::vector<std::pair<event_msg, uint64_t>> v(event_table.begin(), event_table.end());
+        std::vector<std::pair<event_msg, uint64_t>> v;
+        v.reserve(event_table.size());
+        for (const auto &entry : event_table) {
+            event_msg event;
+            encoder.get_inverse(event, entry.first);
+            v.emplace_back(std::move(event), entry.second);
+        }
         event_table.clear();
         event_table.rehash(0);
-        num_entries = 0;
         event_table_memory_bytes = 0;
         update_estimated_memory();
         std::sort(v.begin(), v.end(), [&interrupt](auto &l, auto &r){
@@ -187,7 +178,6 @@ public:
                 ep.process_final();
                 throw std::runtime_error("error: stats dump interrupted");
             }
-            encoder.get_inverse(entry.first);
             ep.process_update(entry.first, entry.second, version, resource_version, git_commit_id, git_count, init_time);
         }
         ep.process_final();
@@ -204,7 +194,7 @@ public:
 
     size_t get_num_entries() const
     {
-        return num_entries;
+        return event_table.size();
     }
 };
 

@@ -19,6 +19,18 @@ enum class event_type : uint8_t {
     snmp_oid    = 2,
 };
 
+/// event_key contains the dictionary-compressed representation of an event.
+///
+/// Dictionary indices that do not fit in 32 bits are not accepted.
+struct event_key {
+    std::array<uint32_t, 4> fields{};
+    event_type type{event_type::fingerprint};
+
+    bool operator==(const event_key &r) const {
+        return fields == r.fields && type == r.type;
+    }
+};
+
 /// event_msg holds an observable network event with a 4-tuple of string
 /// fields and an event type discriminator.
 ///
@@ -84,17 +96,16 @@ struct event_msg {
 
 namespace std {
 
-    /// specialize `std::hash` for `event_msg`, for use in
+    /// specialize `std::hash` for `event_key`, for use in
     /// `std::unordered_map` and friends
     ///
     template <>
-    struct hash<event_msg> {
-        size_t operator()(const event_msg & x) const {
-            std::hash<std::string> hasher;
-            return hasher(x[0])
-                ^ hasher(x[1])
-                ^ hasher(x[2])
-                ^ hasher(x[3])
+    struct hash<event_key> {
+        size_t operator()(const event_key &x) const {
+            return std::hash<uint32_t>{}(x.fields[0])
+                ^ std::hash<uint32_t>{}(x.fields[1])
+                ^ std::hash<uint32_t>{}(x.fields[2])
+                ^ std::hash<uint32_t>{}(x.fields[3])
                 ^ std::hash<uint8_t>{}(static_cast<uint8_t>(x.type));
         }
     };
@@ -182,7 +193,7 @@ namespace event_string {
 
 };
 
-/// class event_encoder provides methods to compress/decompress event string.
+/// class event_encoder provides methods to compress and decompress events.
 /// Its member functions are not const because they may update the dict
 /// member.
 ///
@@ -192,12 +203,24 @@ class event_encoder {
     dict ua_dict;
     dict ctx_dict;
 
+    static bool compress_field(dict &dictionary,
+                               const std::string &value,
+                               uint32_t &index,
+                               bool no_new_entries)
+    {
+        uint64_t wide_index;
+        bool prohibit_new_entries = no_new_entries ||
+                                    dictionary.count > std::numeric_limits<uint32_t>::max();
+        if (dictionary.compress(value, wide_index, prohibit_new_entries) == false ||
+            wide_index > std::numeric_limits<uint32_t>::max()) {
+            return false;
+        }
+        index = static_cast<uint32_t>(wide_index);
+        return true;
+    }
+
 public:
-    event_encoder() :
-        addr_dict{},
-        fp_dict{},
-        ua_dict{},
-        ctx_dict{} {}
+    event_encoder() = default;
 
     size_t dictionary_bytes() const {
         return addr_dict.memory_bytes() +
@@ -213,68 +236,28 @@ public:
                ctx_dict.compute_inverse_map();
     }
 
-    void get_inverse(event_msg &event) {
-        const std::string &saddr = event[0];
-        const std::string &fngr  = event[1];
-        const std::string &ua    = event[2];
-        const std::string &ctx   = event[3];
-
-        uint64_t compressed_saddr_num = strtoull(saddr.c_str(), NULL, 16);
-        uint64_t compressed_fp_num    = strtoull(fngr.c_str(), NULL, 16);
-        uint64_t compressed_ua_num    = strtoull(ua.c_str(), NULL, 16);
-        uint64_t compressed_ctx_num   = strtoull(ctx.c_str(), NULL, 16);
-
-        event[0] = addr_dict.get_inverse(compressed_saddr_num);
-        event[1] = fp_dict.get_inverse(compressed_fp_num);
-        event[2] = ua_dict.get_inverse(compressed_ua_num);
-        event[3] = ctx_dict.get_inverse(compressed_ctx_num);
+    void get_inverse(event_msg &event, const event_key &key) {
+        event.type = key.type;
+        event[0] = addr_dict.get_inverse(key.fields[0]);
+        event[1] = fp_dict.get_inverse(key.fields[1]);
+        event[2] = ua_dict.get_inverse(key.fields[2]);
+        event[3] = ctx_dict.get_inverse(key.fields[3]);
     }
 
-    /// compresses the `event_msg` \p event by applying dictionary
-    /// compression to each of its elements, and returns `true` on
-    /// success; otherwise, `false` is returned and the contents of
-    /// `event` are in an undefined state and must be ignored.  If
-    /// \p no_new_entries is `true`, the dictionary compressor will not
-    /// be allowed to create new entries, and thus the function will
-    /// only succeed if the dictionary already contains the relevant
-    /// entry.
-    ///
-    bool compress_event_string(event_msg& event, bool no_new_entries=false) {
-
-        const std::string &addr = event[0];
-        const std::string &fngr = event[1];
-        const std::string &ua   = event[2];
-        const std::string &ctx  = event[3];
-
-        // compress source address string
-        char src_addr_buf[dict::index_length];
-        if (addr_dict.compress(addr, src_addr_buf, no_new_entries) == false) {
-            return false;  // error: can't compress this event string
+    /// compresses the event \p event into the compact \p key representation.
+    /// If \p no_new_entries is true, this succeeds only when all dictionary
+    /// values are already present.
+    bool compress_event(event_key &key,
+                        const event_msg &event,
+                        bool no_new_entries=false)
+    {
+        if (compress_field(addr_dict, event[0], key.fields[0], no_new_entries) == false ||
+            compress_field(fp_dict, event[1], key.fields[1], no_new_entries) == false ||
+            compress_field(ua_dict, event[2], key.fields[2], no_new_entries) == false ||
+            compress_field(ctx_dict, event[3], key.fields[3], no_new_entries) == false) {
+            return false;
         }
-
-        // compress fingerprint string
-        char compressed_fp_buf[dict::index_length];
-        if (fp_dict.compress(fngr, compressed_fp_buf, no_new_entries) == false) {
-            return false;  // error: can't compress this event string
-        }
-
-        // compress User-Agent
-        char compressed_ua_buf[dict::index_length];
-        if (ua_dict.compress(ua, compressed_ua_buf, no_new_entries) == false) {
-            return false;  // error: can't compress this event string
-        }
-
-        // compress context
-        char compressed_ctx_buf[dict::index_length];
-        if (ctx_dict.compress(ctx, compressed_ctx_buf, no_new_entries) == false) {
-            return false;  // error: can't compress this event string
-        }
-
-        event[0] = src_addr_buf;
-        event[1] = compressed_fp_buf;
-        event[2] = compressed_ua_buf;
-        event[3] = compressed_ctx_buf;
-
+        key.type = event.type;
         return true;
     }
 

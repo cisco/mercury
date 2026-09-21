@@ -83,8 +83,9 @@
 static bool stats_memory_budget_unit_test() {
     event_encoder encoder{};
     event_msg event{"192.0.2.1", "tls/1/fingerprint", std::string(2048, 'u'), "(example.com)(192.0.2.2)(443)"};
+    event_key key;
 
-    if (!encoder.compress_event_string(event)) {
+    if (!encoder.compress_event(key, event)) {
         return false;
     }
     if (encoder.dictionary_bytes() == 0) {
@@ -93,8 +94,9 @@ static bool stats_memory_budget_unit_test() {
     if (!encoder.compute_inverse_map()) {
         return false;
     }
-    encoder.get_inverse(event);
-    if (event[2] != std::string(2048, 'u')) {
+    event_msg decoded_event;
+    encoder.get_inverse(decoded_event, key);
+    if (!(decoded_event == event)) {
         return false;
     }
 

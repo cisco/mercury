@@ -36,8 +36,6 @@
 class dict {
 
 public:
-    static constexpr size_t index_length = 17;
-
 private:
     static size_t memory_cost(const std::string &value) {
         constexpr size_t overhead = sizeof(std::pair<const std::string, uint64_t>)
@@ -84,42 +82,34 @@ public:
         return estimated_bytes;
     }
 
-    /// compresses the string \p value and write the result into
-    /// \p index_string and return `true` if successful; otherwise,
-    /// return `false`, in which case the contents of
-    /// `index_string` are undefined and must be ignored.  If
-    /// \p no_new_entries is `true`, then no new dictionary entries will
-    /// be created, and the function will only succeed if `value` is
-    /// already present in the dictionary.
+    /// compresses the string \p value and writes the dictionary index to
+    /// \p index.  If \p no_new_entries is `true`, this succeeds only when
+    /// \p value is already present in the dictionary.
     ///
     bool compress(const std::string &value,
-                  char index_string[index_length],
+                  uint64_t &index,
                   bool no_new_entries=false)
     {
         auto x = d.find(value);
-        if (x == d.end()) {
-            if (no_new_entries) {
-                return false;
-            }
-            if (count == std::numeric_limits<uint64_t>::max()) {
-                return false;
-            }
-            try {
-                auto inserted = d.emplace(value, count);
-                if (!inserted.second) {
-                    snprintf(index_string, index_length, "%" PRIx64, inserted.first->second);
-                    return true;
-                }
-            }
-            catch (...) {
-                return false;
-            }
-            estimated_bytes = add_memory(estimated_bytes, memory_cost(value));
-            snprintf(index_string, index_length, "%" PRIx64, count);
-            count++;
+        if (x != d.end()) {
+            index = x->second;
             return true;
         }
-        snprintf(index_string, index_length, "%" PRIx64, x->second);
+        if (no_new_entries || count == std::numeric_limits<uint64_t>::max()) {
+            return false;
+        }
+        try {
+            auto inserted = d.emplace(value, count);
+            if (!inserted.second) {
+                index = inserted.first->second;
+                return true;
+            }
+        }
+        catch (...) {
+            return false;
+        }
+        estimated_bytes = add_memory(estimated_bytes, memory_cost(value));
+        index = count++;
         return true;
     }
 
