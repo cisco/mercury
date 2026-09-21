@@ -73,7 +73,8 @@ public:
         if (x == d.end()) {
             auto inserted = d.emplace(value, count);
             if (inserted.second) {
-                estimated_bytes = add_memory(estimated_bytes, memory_cost(value));
+                estimated_bytes = add_memory(estimated_bytes,
+                                             memory_cost(inserted.first->first));
                 return count++;
             }
             return inserted.first->second;
@@ -111,11 +112,12 @@ public:
                     snprintf(index_string, index_length, "%" PRIx64, inserted.first->second);
                     return true;
                 }
+                estimated_bytes = add_memory(estimated_bytes,
+                                             memory_cost(inserted.first->first));
             }
             catch (...) {
                 return false;
             }
-            estimated_bytes = add_memory(estimated_bytes, memory_cost(value));
             snprintf(index_string, index_length, "%" PRIx64, count);
             count++;
             return true;

@@ -118,7 +118,7 @@ public:
             }
             ++num_entries;
             event_table_memory_bytes = add_memory(event_table_memory_bytes,
-                                                  event_memory_cost(obs));
+                                                  event_memory_cost(inserted.first->first));
         }
         update_estimated_memory();
     }
