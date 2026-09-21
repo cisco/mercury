@@ -173,24 +173,6 @@ inline bool event_msg_hasher_unit_test() {
 
 } // namespace universal61
 
-namespace std {
-
-    /// specialize `std::hash` for `event_key`, for use in
-    /// `std::unordered_map` and friends
-    ///
-    template <>
-    struct hash<event_key> {
-        size_t operator()(const event_key &x) const {
-            return std::hash<uint32_t>{}(x.fields[0])
-                ^ std::hash<uint32_t>{}(x.fields[1])
-                ^ std::hash<uint32_t>{}(x.fields[2])
-                ^ std::hash<uint32_t>{}(x.fields[3])
-                ^ std::hash<uint8_t>{}(static_cast<uint8_t>(x.type));
-        }
-    };
-
-}
-
 namespace event_string {
 
     inline event_msg construct_event_string_tofsee(const struct key &k,
