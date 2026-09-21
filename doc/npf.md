@@ -234,11 +234,14 @@ is performed in the following order:
 
 | Comparison stage | Ordering |
 |---|---|
-| Parse status | A value whose typed parse fails sorts before a successfully parsed value. |
-| Both parses fail | The complete raw values are compared lexicographically. |
+| Either parse fails | The complete raw values are compared lexicographically. |
 | Valid parsed data | Normalized valid tokens are compared in protocol order. |
 | Parsed data equal | The raw trailing data is compared lexicographically. |
-| ALPN malformed token | Within an otherwise valid ALPN list, valid protocol names sort before a malformed raw remainder. |
+| ALPN malformed token | Within an otherwise valid ALPN list, a malformed protocol name and every byte after it are compared as raw data. |
+
+A malformed value is ordered by the bytes that it emits. Because the
+wire-format lengths are equal, this procedure yields the same order as sorting
+the emitted extensions lexicographically.
 
 Trailing data is therefore a tie-breaker, not an independently ordered token:
 it is considered only after the valid parsed portions compare equal. If a typed

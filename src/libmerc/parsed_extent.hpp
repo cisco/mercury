@@ -9,6 +9,8 @@
 
 #include "datum.h"
 
+#include <cassert>
+
 /// \brief A parsed value together with its original extent and trailer.
 ///
 /// This class provides a common boundary for comparing and emitting parsed
@@ -20,11 +22,10 @@
 ///
 /// Comparison delegates normalization and parsed-token ordering to Parser's
 /// compare_degreased() member. If both normalized parsed values compare equal,
-/// their trailers are compared as raw bytes. Invalid values are ordered
-/// consistently using their original input. Output uses the same boundaries:
+/// their trailers are compared as raw bytes. Output uses the same boundaries:
 /// the caller emits the parsed value, including any normalization, and this
-/// class emits the original trailer unchanged. A failed parse is emitted as
-/// its original input.
+/// class emits the original trailer unchanged. A failed parse is both ordered
+/// and emitted as its original input.
 ///
 /// Parser must be constructible from datum& and provide is_not_null() and
 /// compare_degreased(const Parser &). The parser is given the input datum
@@ -100,23 +101,17 @@ public:
 
     /// \brief Compare two parsed values and their trailers.
     ///
-    /// Parser must provide compare_degreased(const Parser &). Invalid values
-    /// sort before valid values; two invalid values are compared using their
-    /// original input. If the parsed values compare equal, their trailers are
-    /// compared as raw bytes.
+    /// Raw ordering agrees with the emitted bytes only when Parser preserves
+    /// the bytes that decide its own validity and compares them first.
     ///
     /// \param other parsed value to compare
+    /// \pre the inputs have equal length when either parse fails
     /// \return a negative, zero, or positive comparison result
     ///
     int compare(const parsed_extent &other) const {
-        const bool left_valid = is_not_null();
-        const bool right_valid = other.is_not_null();
-
-        if (!left_valid || !right_valid) {
-            if (!left_valid && !right_valid) {
-                return raw.cmp(other.raw);
-            }
-            return left_valid ? 1 : -1;
+        if (!is_not_null() || !other.is_not_null()) {
+            assert(raw.length() == other.raw.length());
+            return raw.cmp(other.raw);
         }
 
         int result = value.compare_degreased(other.value);

@@ -782,6 +782,45 @@ struct tls_extensions : public datum {
             return false;
         }
 
+        // A malformed value and a valid value of the same wire length sort by
+        // the bytes that they emit, decided by the inner length field.
+        static constexpr uint8_t mixed_validity_extensions[] = {
+            0x00, 0x0a, 0x00, 0x04, 0x00, 0x03, 0xff, 0xff,
+            0x00, 0x0a, 0x00, 0x04, 0x00, 0x02, 0xff, 0xff
+        };
+        static constexpr char expected_mixed_validity[] =
+            "[(000a00040002ffff)(000a00040003ffff)]";
+        datum mixed_validity_data{mixed_validity_extensions};
+        tls_extensions mixed_validity{mixed_validity_data.data,
+                                      mixed_validity_data.data_end};
+        char mixed_validity_buffer[200];
+        buffer_stream mixed_validity_output{mixed_validity_buffer,
+                                            sizeof(mixed_validity_buffer)};
+        mixed_validity.fingerprint_quic_tls(mixed_validity_output,
+                                            tls_role::client);
+        if (mixed_validity_output.length() != sizeof(expected_mixed_validity) - 1 ||
+            memcmp(expected_mixed_validity,
+                   mixed_validity_output.dstr,
+                   sizeof(expected_mixed_validity) - 1)) {
+            fprintf(stdout, "Test for mixed validity Format 1 sorting failed\n");
+            return false;
+        }
+
+        char mixed_validity_format2_buffer[200];
+        buffer_stream mixed_validity_format2_output{
+            mixed_validity_format2_buffer,
+            sizeof(mixed_validity_format2_buffer)};
+        mixed_validity.fingerprint_format2(mixed_validity_format2_output,
+                                           tls_role::client);
+        if (mixed_validity_format2_output.length() !=
+                sizeof(expected_mixed_validity) - 1 ||
+            memcmp(expected_mixed_validity,
+                   mixed_validity_format2_output.dstr,
+                   sizeof(expected_mixed_validity) - 1)) {
+            fprintf(stdout, "Test for mixed validity Format 2 sorting failed\n");
+            return false;
+        }
+
         return true;
 
     }
@@ -1604,10 +1643,8 @@ class protocol_name_list {
                 continue;
             }
 
-            if (left_is_name != right_is_name) {
-                return left_is_name ? -1 : 1;
-            }
-
+            // A malformed name and every byte after it are emitted raw, so
+            // the remainders are ordered by those bytes.
             return left_name.get_raw().cmp(right_name.get_raw());
         }
     }
@@ -1638,6 +1675,8 @@ public:
     /// \return a negative, zero, or positive comparison result
     ///
     int compare_degreased(const protocol_name_list &other) const {
+        assert(is_not_null() && other.is_not_null());
+
         if (length.value() != other.length.value()) {
             return length.value() < other.length.value() ? -1 : 1;
         }
@@ -1682,8 +1721,8 @@ inline bool protocol_name_list_unit_test() {
         return false;
     }
 
-    // A malformed protocol name becomes a raw token, which sorts after a
-    // successfully parsed protocol name.
+    // A malformed protocol name and the bytes after it are emitted raw, so
+    // they are ordered by those bytes.
     static constexpr uint8_t valid_names[] = {
         0x00, 0x04, 0x01, 0x68, 0x01, 0x69
     };
@@ -1696,6 +1735,23 @@ inline bool protocol_name_list_unit_test() {
     parsed_extent<protocol_name_list> malformed_names_list{malformed_names_data};
     if (valid_names_list.compare(malformed_names_list) >= 0 ||
         malformed_names_list.compare(valid_names_list) <= 0) {
+        return false;
+    }
+
+    // A zero-length protocol name is malformed, and its raw ordering can put
+    // it before a valid name.
+    static constexpr uint8_t zero_length_name[] = {
+        0x00, 0x02, 0x00, 0x00
+    };
+    static constexpr uint8_t one_byte_name[] = {
+        0x00, 0x02, 0x01, 0x00
+    };
+    datum zero_length_name_data{zero_length_name};
+    datum one_byte_name_data{one_byte_name};
+    parsed_extent<protocol_name_list> zero_length_name_list{zero_length_name_data};
+    parsed_extent<protocol_name_list> one_byte_name_list{one_byte_name_data};
+    if (zero_length_name_list.compare(one_byte_name_list) >= 0 ||
+        one_byte_name_list.compare(zero_length_name_list) <= 0) {
         return false;
     }
 
@@ -1715,8 +1771,8 @@ inline bool protocol_name_list_unit_test() {
         return false;
     }
 
-    // A list whose declared length exceeds the available bytes is ordered
-    // before a structurally valid list.
+    // A list whose declared length exceeds the available bytes is ordered by
+    // its raw bytes, which is also what it emits.
     static constexpr uint8_t invalid_list[] = {
         0x00, 0x04, 0x02, 0x1a, 0x1a
     };
@@ -1727,8 +1783,8 @@ inline bool protocol_name_list_unit_test() {
     datum valid_list_data{valid_list};
     parsed_extent<protocol_name_list> invalid_list_value{invalid_list_data};
     parsed_extent<protocol_name_list> valid_list_value{valid_list_data};
-    return invalid_list_value.compare(valid_list_value) < 0 &&
-           valid_list_value.compare(invalid_list_value) > 0;
+    return invalid_list_value.compare(valid_list_value) > 0 &&
+           valid_list_value.compare(invalid_list_value) < 0;
 }
 // LCOV_EXCL_STOP
 #endif // NDEBUG

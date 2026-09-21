@@ -11,6 +11,7 @@
 #include "grease.hpp"
 #include "parsed_extent.hpp"
 
+#include <cassert>
 #include <cstdint>
 #include <cstring>
 #include <optional>
@@ -213,22 +214,20 @@ public:
     /// normalized elements are compared bytewise.  The explicit byte length
     /// is compared before the normalized elements.
     ///
-    /// An invalid vector sorts before a valid vector. Two invalid vectors
-    /// compare equal. Use parsed_extent when invalid values or trailing input
-    /// must participate in raw-byte comparison.
+    /// Use parsed_extent when invalid values or trailing input must
+    /// participate in raw-byte comparison.
     ///
     /// \param other vector to compare
+    /// \pre both vectors were constructed successfully; a violation compares
+    /// equal
     /// \return a negative, zero, or positive comparison result
     ///
     int compare_degreased(const variable_length_vector &other) const {
-        const bool left_valid = is_not_null();
-        const bool right_valid = other.is_not_null();
+        assert(is_not_null() && other.is_not_null());
 
-        if (left_valid != right_valid) {
-            return left_valid ? 1 : -1;
-        }
-
-        if (!left_valid) {
+        // A failed parse retains its declared length_value but has no
+        // elements to index.
+        if (!is_not_null() || !other.is_not_null()) {
             return 0;
         }
 
@@ -375,25 +374,6 @@ inline bool variable_length_vector_unit_test() {
         return false;
     }
 
-    // Direct vector comparison must safely order an invalid vector and a
-    // valid vector even when both retain the same declared length.
-    static constexpr uint8_t valid_compare_data[] = {
-        0x00, 0x04, 0x1a, 0x1a, 0x12, 0x34
-    };
-    datum invalid_compare_input{truncated_data};
-    datum valid_compare_input{valid_compare_data};
-    variable_length_vector<uint16_t, uint16_t> invalid_compare{
-        invalid_compare_input
-    };
-    variable_length_vector<uint16_t, uint16_t> valid_compare{
-        valid_compare_input
-    };
-    if (invalid_compare.compare_degreased(valid_compare) >= 0 ||
-        valid_compare.compare_degreased(invalid_compare) <= 0 ||
-        invalid_compare.compare_degreased(invalid_compare) != 0) {
-        return false;
-    }
-
     // Equal normalized elements compare their remaining raw trailers.
     static constexpr uint8_t trailer_a_data[] = {
         0x00, 0x02, 0x1a, 0x1a, 0xee
@@ -419,17 +399,21 @@ inline bool variable_length_vector_unit_test() {
         return false;
     }
 
-    // Invalid vectors sort before valid vectors.
-    datum truncated_compare_input{truncated_data};
+    // An invalid vector is ordered by its raw input, which for inputs of
+    // equal length matches the order of the bytes that each one emits.
+    static constexpr uint8_t invalid_extent_data[] = {
+        0x00, 0x03, 0x1a, 0x1a
+    };
+    datum invalid_extent_input{invalid_extent_data};
     datum normalized_compare_input{normalized_data};
-    parsed_extent<variable_length_vector<uint16_t, uint16_t>> truncated_value{
-        truncated_compare_input
+    parsed_extent<variable_length_vector<uint16_t, uint16_t>> invalid_extent{
+        invalid_extent_input
     };
     parsed_extent<variable_length_vector<uint16_t, uint16_t>> normalized_value{
         normalized_compare_input
     };
-    if (truncated_value.compare(normalized_value) >= 0 ||
-        normalized_value.compare(truncated_value) <= 0) {
+    if (invalid_extent.compare(normalized_value) <= 0 ||
+        normalized_value.compare(invalid_extent) >= 0) {
         return false;
     }
 
@@ -437,7 +421,11 @@ inline bool variable_length_vector_unit_test() {
     static constexpr uint8_t other_truncated_data[] = {
         0x00, 0x04, 0x1b
     };
+    datum truncated_compare_input{truncated_data};
     datum other_truncated_input{other_truncated_data};
+    parsed_extent<variable_length_vector<uint16_t, uint16_t>> truncated_value{
+        truncated_compare_input
+    };
     parsed_extent<variable_length_vector<uint16_t, uint16_t>> other_truncated_value{
         other_truncated_input
     };
