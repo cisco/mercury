@@ -406,6 +406,11 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
+    if (do_fdc && do_cbor_metadata) {
+        fprintf(stderr, "error: --cbor-metadata is not supported with --fdc\n");
+        return EXIT_FAILURE;
+    }
+
     char *resources_path = (char *)"../resources/resources.tgz";
     if (resources_is_set) {
         resources_path = (char *)resources_file.c_str();
