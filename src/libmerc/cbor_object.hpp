@@ -288,15 +288,18 @@ public:
 
 /// report to \param f a tag 18000 whose content this build could not decode as a
 /// fingerprint, and which the translator therefore dropped.  \param content is
-/// the tag's content bytes, without the three-byte tag head. \param content past 189 bytes
-/// is cut at the buffer and marked "(truncated)".
+/// the tag's content bytes, without the three-byte tag head.  Only the first
+/// max_reported_tag_bytes are printed, and a longer content is marked "(truncated)".
 ///
+static constexpr size_t max_reported_tag_bytes = 189;   // 4*ceil(189/3) + 2 quotes == 254 < 256
+
 static inline void fprint_dropped_npf_tag(FILE *f, const datum &content) {
     output_buffer<256> b;
-    b.raw_as_base64(content.data, content.data_end - content.data);
+    bool cut = content.has_bytes(max_reported_tag_bytes + 1);
+    b.raw_as_base64(content.data, cut ? max_reported_tag_bytes : (size_t)content.length());
     b.add_null();
     fprintf(f, "warning: CBOR tag 18000 found, content dropped: %s%s\n",
-            b.data(), b.is_truncated() ? "\" (truncated)" : "");
+            b.data(), cut ? " (truncated)" : "");
 }
 
 class cbor_to_json_translator {
@@ -760,6 +763,31 @@ static inline bool test_cbor_map_to_json(const char *name,
     ssize_t leftover = input.is_null() ? -1 : (ssize_t)input.length();
     return check_translation(name, buf, result, leftover,
                              expected_json, expected_result, expected_leftover, f);
+}
+
+/// \return \param D nested indefinite-length arrays holding a single 0 as the
+/// innermost element, with every break byte present, so the nesting depth is
+/// the only thing a decoder can object to.
+///
+template <size_t D>
+static inline std::array<uint8_t, 2 * D + 1> nested_arrays() {
+    std::array<uint8_t, 2 * D + 1> a;
+    a.fill(0xff);                               // the closing breaks
+    for (size_t i = 0; i < D; i++) { a[i] = 0x9f; }
+    a[D] = 0x00;                                // the innermost element
+    return a;
+}
+
+/// \return \param D nested indefinite-length maps, each keyed on 1, holding a
+/// single 0 as the innermost value, with every break byte present.
+///
+template <size_t D>
+static inline std::array<uint8_t, 3 * D + 1> nested_maps() {
+    std::array<uint8_t, 3 * D + 1> a;
+    a.fill(0xff);                               // the closing breaks
+    for (size_t i = 0; i < D; i++) { a[2*i] = 0xbf; a[2*i+1] = 0x01; }
+    a[2*D] = 0x00;                              // the innermost value
+    return a;
 }
 
 static inline bool cbor_object_unit_test(FILE *f=nullptr) {
@@ -1513,42 +1541,54 @@ static inline bool cbor_object_unit_test(FILE *f=nullptr) {
         }
     }
 
-    // input nested deeper than max_recursion_depth, which the depth guard must
-    // reject rather than recurse to exhaustion.  The json in the buffer is one
-    // bracket per level entered before the guard fired, so only the return
-    // value and the nulled datum are checked here.
+    // well-formed nesting either side of the depth guard.  Every break byte is
+    // present, so depth is the only thing either input can be rejected for: an
+    // unclosed nest is rejected by the end of the input whether the guard fires
+    // or not, and would pass with the guard deleted.  max_recursion_depth is
+    // compared with >, and the outermost container is depth 0, so 257 is the
+    // deepest nesting allowed and 258 the shallowest that must fail.
     //
     {
-        std::array<uint8_t,260> deep_arrays;
-        deep_arrays.fill(0x9f);                 // 260 nested arrays, never closed
-        datum input{deep_arrays};
-        output_buffer<2048> buf;
-        cbor_to_json_translator translator{nullptr};
-        cbor::array top{input};                 // consumes the initial byte
-        json_array a{&buf};
-        bool result = translator.decode_cbor_array_to_json(input, a);
-        a.close();
-        if (result or input.is_not_null()) {
-            if (f) {
-                fprintf(f, "ERROR: array nested past the recursion limit was not rejected\n");
+        constexpr size_t allowed  = 257;
+        constexpr size_t too_deep = 258;
+
+        // a rejected input must be nulled, and an accepted one must not be
+        //
+        auto check = [&](const char *name, bool result, bool nulled, bool expect_accept) {
+            if (result != expect_accept or nulled == expect_accept) {
+                if (f) {
+                    fprintf(f, "ERROR: %s (result %s, datum %s)\n", name,
+                            result ? "true" : "false", nulled ? "null" : "not null");
+                }
+                translation_tests_passed = false;
             }
-            translation_tests_passed = false;
-        }
-    }
-    {
-        std::array<uint8_t,600> deep_maps;
-        for (size_t i = 0; i < deep_maps.size(); i += 2) {
-            deep_maps[i] = 0xbf;                // 300 nested maps, never closed,
-            deep_maps[i+1] = 0x01;              // each keyed on 1
-        }
-        datum input{deep_maps};
-        output_buffer<2048> buf;
-        if (decode_cbor_map_to_json(input, buf, nullptr) or input.is_not_null()) {
-            if (f) {
-                fprintf(f, "ERROR: map nested past the recursion limit was not rejected\n");
-            }
-            translation_tests_passed = false;
-        }
+        };
+
+        auto arrays_at = [&](const char *name, datum input, bool expect_accept) {
+            output_buffer<2048> buf;
+            cbor_to_json_translator translator{nullptr};
+            cbor::array top{input};             // consumes the initial byte
+            json_array a{&buf};
+            bool result = translator.decode_cbor_array_to_json(input, a);
+            a.close();
+            check(name, result, input.is_null(), expect_accept);
+        };
+
+        auto maps_at = [&](const char *name, datum input, bool expect_accept) {
+            output_buffer<2048> buf;
+            bool result = decode_cbor_map_to_json(input, buf, nullptr);
+            check(name, result, input.is_null(), expect_accept);
+        };
+
+        auto arrays_to_limit   = nested_arrays<allowed>();
+        auto arrays_past_limit = nested_arrays<too_deep>();
+        auto maps_to_limit     = nested_maps<allowed>();
+        auto maps_past_limit   = nested_maps<too_deep>();
+
+        arrays_at("arrays nested to the limit", datum{arrays_to_limit}, true);
+        arrays_at("arrays nested past the limit", datum{arrays_past_limit}, false);
+        maps_at("maps nested to the limit", datum{maps_to_limit}, true);
+        maps_at("maps nested past the limit", datum{maps_past_limit}, false);
     }
 
     if (!translation_tests_passed) {

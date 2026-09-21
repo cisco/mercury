@@ -805,6 +805,22 @@ namespace cbor_fingerprint {
         return true;
     }
 
+    /// \return a tls/1 fingerprint whose extension list nests \param D arrays
+    /// deep, with every break byte present: {1: {1: [h'', h'', <D nested
+    /// arrays>]}}.  Everything after the opening arrays is a break, so filling
+    /// with 0xff writes the D inner breaks and the three that close the list
+    /// and the two maps.
+    ///
+    template <size_t D>
+    static inline std::array<uint8_t, 7 + 2 * D + 3> nested_extensions() {
+        std::array<uint8_t, 7 + 2 * D + 3> a;
+        a.fill(0xff);
+        const uint8_t head[] = { 0xbf, 0x01, 0xbf, 0x01, 0x9f, 0x40, 0x40 };
+        for (size_t i = 0; i < sizeof(head); i++) { a[i] = head[i]; }
+        for (size_t i = 0; i < D; i++) { a[sizeof(head) + i] = 0x9f; }
+        return a;
+    }
+
     // cbor_fingerprint::unit_test() returns `true` if all unit tests
     // pass, `false` otherwise
     //
@@ -882,17 +898,48 @@ namespace cbor_fingerprint {
         all_tests_passed &= test_undecodable_fingerprint("unknown format version", datum{unknown_version}, f);
         all_tests_passed &= test_undecodable_fingerprint("unknown format version, no value", datum{unknown_version_no_value}, f);
 
-        // an extension list nested deeper than decode_cbor_sorted_list()'s
-        // recursion limit, which must be rejected through both outputs rather
-        // than rendered as the partial string the descent built on the way down
+        // an extension list nested either side of decode_cbor_sorted_list()'s
+        // recursion limit, with every break byte present so that depth is the
+        // only thing the deeper one can be rejected for.  A list left unclosed
+        // is rejected by the end of the input whether the limit is enforced or
+        // not.  257 is the deepest nesting allowed, 258 the shallowest that
+        // must fail, and the deeper one must be rejected through both outputs
+        // rather than rendered as the partial string the descent built on the
+        // way down.
         //
-        std::array<uint8_t,306> deep_extensions{
-            0xbf, 0x01, 0xbf, 0x01, 0x9f, 0x40, 0x40            // {1: {1: [h'', h'',
-        };
-        for (size_t i = 7; i < deep_extensions.size(); i++) {
-            deep_extensions[i] = 0x9f;                          // 299 nested arrays, never closed
+        auto extensions_to_limit   = nested_extensions<257>();
+        auto extensions_past_limit = nested_extensions<258>();
+
+        all_tests_passed &=
+            test_undecodable_fingerprint("extension list nested past the limit",
+                                         datum{extensions_past_limit}, f);
+
+        // the control: the same shape at the deepest nesting the limit allows
+        // must decode, so a decoder that rejected every nested list could not
+        // pass the case above
+        //
+        {
+            datum encoded{extensions_to_limit};
+            data_buffer<2048> out_buf;
+            cbor_fingerprint::decode_cbor_fingerprint(encoded, out_buf);
+            if (encoded.is_null() or out_buf.is_null()) {
+                if (f) {
+                    fprintf(f, "ERROR: FINGERPRINT NESTED TO THE LIMIT WAS REJECTED\n");
+                }
+                all_tests_passed = false;
+            }
         }
-        all_tests_passed &= test_undecodable_fingerprint("extension list nested past the limit", datum{deep_extensions}, f);
+
+        // an extension list that runs out before its breaks.  Depth has nothing
+        // to do with this one, so it is as small as it can be.
+        //
+        std::array<uint8_t,10> unterminated_extensions{
+            0xbf, 0x01, 0xbf, 0x01, 0x9f, 0x40, 0x40,           // {1: {1: [h'', h'',
+              0x9f, 0x9f, 0x9f                                  //   [[[
+        };
+        all_tests_passed &=
+            test_undecodable_fingerprint("extension list truncated before its breaks",
+                                         datum{unterminated_extensions}, f);
 
         // an unrecognized label in place of `randomized` or `generic`.  The
         // second form is a silent success without the label check: every break

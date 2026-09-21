@@ -29,6 +29,15 @@ inline constexpr null_terminated_string CBOR_METADATA_TRUNCATION_KEY = "truncati
 //    NPF presentation-hint tag 18000 here, a consumer of this interface treats a
 //    tagged value as opaque bytes, so a fingerprint sent that way does not get
 //    picked up.
+// 6. A key should not be repeated at any level: as a version key, as a Feature key
+//    inside a version, or as a key inside a Feature's own value map.
+// 7. A repeated version key or Feature key loses to its first occurrence: a consumer
+//    decodes the first and skips the rest, so the repeat is silently lost rather than
+//    merged.
+// 8. A Feature's value map is opaque to this interface, so rule 6 inside it is that
+//    Feature's own responsibility: its write() must not emit the same key twice.
+// 9. A Feature that fires more than once per packet, or that has several entries in
+//    one packet, combines them inside its class and is written once.
 
 /// Reserved packet-level status: the truncation state of the packet/handshake.
 class truncation_message {
