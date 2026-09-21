@@ -41,6 +41,10 @@ public:
 
 private:
     static size_t memory_cost(const std::string &value) {
+
+        // Approximate per-entry overhead for unordered_map buckets, nodes,
+        // and allocator bookkeeping.
+        //
         constexpr size_t overhead = sizeof(std::pair<const std::string, uint64_t>)
                                    + 8 * sizeof(void *);
         if (value.capacity() > std::numeric_limits<size_t>::max() - overhead - 1) {
