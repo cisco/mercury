@@ -906,6 +906,9 @@ enum cbor_metadata_return {
  *   - `mercury_packet_processor_ip_get_analysis_context()`
  *   - `mercury_packet_processor_get_analysis_context_linktype()`
  *
+ * A frame that carries no IP packet, or one with an unsupported linktype,
+ * leaves the buffer empty and reports CBOR_NO_DATA.
+ *
  * @param processor (input) is a mercury_packet_processor.
  * @param buffer (output) is set to point to the CBOR buffer.
  * @param length (output) is set to the length of the CBOR data.
