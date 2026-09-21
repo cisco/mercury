@@ -323,6 +323,60 @@ public:
         event[3] = ctx_dict.get_inverse(key.fields[3]);
     }
 
+    // Compare event keys using their decoded values without constructing
+    // owning event messages.
+    //
+    bool event_key_less(const event_key &left, const event_key &right) const {
+        const char *left_fields[4] = {
+            addr_dict.get_inverse(left.fields[0]),
+            fp_dict.get_inverse(left.fields[1]),
+            ua_dict.get_inverse(left.fields[2]),
+            ctx_dict.get_inverse(left.fields[3])
+        };
+        const char *right_fields[4] = {
+            addr_dict.get_inverse(right.fields[0]),
+            fp_dict.get_inverse(right.fields[1]),
+            ua_dict.get_inverse(right.fields[2]),
+            ctx_dict.get_inverse(right.fields[3])
+        };
+
+        int comparison = std::strcmp(left_fields[0], right_fields[0]);
+        if (comparison != 0) {
+            return comparison < 0;
+        }
+
+        auto type_rank = [](event_type type) {
+            switch (type) {
+            case event_type::cert_label:
+                return 0;
+            case event_type::snmp_oid:
+                return 1;
+            case event_type::fingerprint:
+            default:
+                return 2;
+            }
+        };
+
+        const int left_rank = type_rank(left.type);
+        const int right_rank = type_rank(right.type);
+        if (left_rank != right_rank) {
+            return left_rank < right_rank;
+        }
+
+        if (left.type == event_type::cert_label ||
+            left.type == event_type::snmp_oid) {
+            return std::strcmp(left_fields[3], right_fields[3]) < 0;
+        }
+
+        for (size_t i = 1; i < 4; ++i) {
+            comparison = std::strcmp(left_fields[i], right_fields[i]);
+            if (comparison != 0) {
+                return comparison < 0;
+            }
+        }
+        return false;
+    }
+
     /// compresses the event \p event into the compact \p key representation.
     /// If \p no_new_entries is true, this succeeds only when all dictionary
     /// values are already present.

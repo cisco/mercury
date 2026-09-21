@@ -40,6 +40,7 @@ typedef uint32_t useconds_t;
 //
 class stats_aggregator {
 
+    using event_table_entry = std::pair<const event_key, uint64_t>;
     std::unordered_map<event_key, uint64_t, universal61::event_key_hasher> event_table;
     event_encoder encoder;
     size_t max_entries;
@@ -130,59 +131,40 @@ public:
             return;  // error; unable to compute fingerprint decompression map
         }
 
-        std::vector<std::pair<event_msg, uint64_t>> v;
-        v.reserve(event_table.size());
+        // Sort pointers to compact table entries, then decode one event at a
+        // time during emission.
+        //
+        std::vector<const event_table_entry *> sorted_entries;
+        sorted_entries.reserve(event_table.size());
         for (const auto &entry : event_table) {
-            event_msg event;
-            encoder.get_inverse(event, entry.first);
-            v.emplace_back(std::move(event), entry.second);
+            sorted_entries.push_back(&entry);
         }
-        event_table.clear();
-        event_table.rehash(0);
-        event_table_memory_bytes = 0;
-        update_estimated_memory();
-        std::sort(v.begin(), v.end(), [&interrupt](auto &l, auto &r){
+
+        std::sort(sorted_entries.begin(), sorted_entries.end(),
+                  [this, &interrupt](const auto *left, const auto *right) {
             if (interrupt.load() == true) {
                 throw std::runtime_error("error: stats dump interrupted");
             }
-            const auto &le = l.first;
-            const auto &re = r.first;
-            if (le[0] != re[0]) {
-                return le[0] < re[0];
-            }
-            auto type_rank = [](event_type t) {
-                switch (t) {
-                case event_type::cert_label:
-                    return 0;
-                case event_type::snmp_oid:
-                    return 1;
-                case event_type::fingerprint:
-                default:
-                    return 2;
-                }
-            };
-            int l_rank = type_rank(le.type);
-            int r_rank = type_rank(re.type);
-            if (l_rank != r_rank) {
-                return l_rank < r_rank;
-            }
-            if (le.type == event_type::cert_label || le.type == event_type::snmp_oid) {
-                return le[3] < re[3];
-            }
-            return le < re;
-        } );
+            return encoder.event_key_less(left->first, right->first);
+        });
 
         event_processor_gz ep(f);
         ep.process_init();
-        for (auto &entry : v) {
+        event_msg event;
+        for (const auto *entry : sorted_entries) {
             if (interrupt.load() == true) {
                 ep.process_final();
                 throw std::runtime_error("error: stats dump interrupted");
             }
-            ep.process_update(entry.first, entry.second, version, resource_version, git_commit_id, git_count, init_time);
+            encoder.get_inverse(event, entry->first);
+            ep.process_update(event, entry->second, version, resource_version,
+                              git_commit_id, git_count, init_time);
         }
         ep.process_final();
 
+        event_table.clear();
+        event_table.rehash(0);
+        event_table_memory_bytes = 0;
         encoder.clear();
         update_estimated_memory();
 
