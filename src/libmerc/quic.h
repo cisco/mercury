@@ -557,6 +557,15 @@ struct quic_initial_packet {
             //fprintf(stderr, "invalid\n");
             return;  // invalid or incomplete packet
         }
+
+        // Now that the packet's extent is known, bound raw_packet to it.  It
+        // was set to the whole remaining datagram on entry, because the length
+        // is not known until the header has been parsed; leaving it that way
+        // would make the raw_packet_data fallback dump any coalesced packets
+        // that follow, rather than the one packet this record describes.
+        //
+        raw_packet = datum{aad_start, d.data};
+
         // fprintf(stderr, "VALID\n");
         valid = true;
     }
@@ -1629,12 +1638,25 @@ class quic_init : public base_protocol {
     uint32_t total_padding_count = 0;     // PADDING frames (one per padding byte)
 
     // Harvest one decrypted packet: merge CRYPTO into crypto_buffer, count
-    // frames, capture the first CONNECTION_CLOSE and ACK. close/ack are reset
-    // each call so they reflect only the last packet (whose plaintext is still
-    // valid at write_json); CRYPTO bytes are copied into crypto_buffer as we go.
+    // frames, and capture the first CONNECTION_CLOSE and ACK.  CRYPTO bytes
+    // are copied into crypto_buffer as we go, so they outlive the packet.
+    //
+    // close and ack_frame have different lifetimes:
+    //
+    //   - connection_close holds a datum for the reason phrase, pointing into
+    //     the engine's decryption buffer.  Every decrypt attempt overwrites
+    //     that buffer, including a failed one: gcm_decrypt() writes the
+    //     unauthenticated plaintext with EVP_DecryptUpdate() before
+    //     EVP_DecryptFinal_ex() checks the tag.  We therefore reset close on
+    //     every call and report only the packet whose plaintext is still live
+    //     at write_json, rather than a reason phrase that has been clobbered.
+    //
+    //   - ack / ack_ecn decode into variable-length integers held by value,
+    //     so they stay valid across buffer reuse.  ack_frame is not reset:
+    //     the first ACK seen anywhere in the datagram is reported.
+    //
     void harvest_frames(datum pt) {
         close = quic_frame{};
-        ack_frame = quic_frame{};
         datum plaintext_copy = pt;
         while (plaintext_copy.is_not_empty()) {
             quic_frame frame{plaintext_copy};
@@ -1924,7 +1946,11 @@ public:
         if (plaintext.is_not_empty()) {
             quic_crypto.write_json(quic_record);
             quic_record.print_key_hex("plaintext", plaintext);
-        } else {
+        } else if (decrypted_pkt_count == 0) {
+            // Report the undecrypted bytes only when nothing in the datagram
+            // decrypted.  plaintext tracks the most recent attempt, so a
+            // datagram whose trailing packet failed would otherwise claim
+            // that no packet was readable.
             quic_record.print_key_hex("raw_packet_data", initial_packet.raw_packet);
         }
         // json_object frame_dump{record, "frame_dump"};
@@ -2388,6 +2414,24 @@ namespace quic_packet_safety_unit_test {
         return true;
     }
 
+    // raw_packet must describe the one packet the record is about.  With
+    // coalescing the rest of the datagram can be several further packets, and
+    // dumping those as raw_packet_data both misattributes them and inflates
+    // the record.
+    //
+    inline bool raw_packet_extent_unit_test() {
+        std::array<uint8_t, quic_initial_packet_len> datagram{};
+        size_t off = write_initial(datagram.data(), 0x01);
+        write_initial(datagram.data() + off, 0x01);
+
+        datum d{datagram.data(), datagram.data() + datagram.size()};
+        quic_initial_packet ip{d};
+        if (!ip.is_not_empty()) {
+            return false;
+        }
+        return ip.raw_packet.length() == (ssize_t)initial_pkt_len;
+    }
+
     // The pre-decrypted fast path infers "already decrypted" from reserved
     // bits that are header-protected in a genuine Initial, so it runs on
     // attacker-influenced input.  It must not return before the coalesced
@@ -2519,6 +2563,7 @@ namespace quic_packet_safety_unit_test {
             && connection_close_frame_walk_unit_test()
             && min_payload_length_unit_test()
             && crypto_frame_index_bounds_unit_test()
+            && raw_packet_extent_unit_test()
             && pre_decrypted_coalesced_unit_test()
             && coalesced_dcid_gate_unit_test()
             && truncated_version_unit_test()
