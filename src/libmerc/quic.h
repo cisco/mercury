@@ -2524,7 +2524,13 @@ namespace quic_packet_safety_unit_test {
     // ClientHello extraction. Two cases: first frame captures < 10 bytes and
     // >= 10 bytes, exercising both fallback branches.
     inline bool missing_crypto_frame_fallback_unit_test() {
-        auto run = [](const uint8_t *frames, size_t flen, bool &missing, bool &first) -> bool {
+        struct result {
+            bool missing = false;
+            bool first = false;
+            bool min_crypto_data = false;
+            uint32_t more_bytes_needed = 0;
+        };
+        auto run = [](const uint8_t *frames, size_t flen, result &r) -> bool {
             auto packet = make_quic_initial();
             const size_t off = 19;   // payload at 18, plus 1-byte packet number
             if (off + flen > packet.size()) { return false; }
@@ -2535,24 +2541,45 @@ namespace quic_packet_safety_unit_test {
             cryptographic_buffer cb{};
             quic_init_decry decry{ip, cb};
             decry.parse();
-            missing = cb.missing_crypto_frames;
-            first = cb.has_first_frame();
+            r.missing = cb.missing_crypto_frames;
+            r.first = cb.has_first_frame();
+            // set inside the < 10 branch, so it identifies which branch ran
+            r.min_crypto_data = cb.min_crypto_data;
+            // produced by the tls_handshake parse each branch performs, so a
+            // branch whose body did nothing leaves this at zero
+            r.more_bytes_needed = decry.get_more_bytes_needed();
             return true;
         };
-        // CRYPTO off 0 len 5, then CRYPTO off 100 len 5 (gap): first captures 5 (< 10)
+
+        // CRYPTO off 0 len 5, then CRYPTO off 100 len 5 (gap): first captures
+        // 5 (< 10), so the fallback reads the buffer's first 10 bytes.  Those
+        // are a client_hello header declaring 80 body bytes followed by 6
+        // readable bytes (one from the frame, five never written), so the
+        // parse must ask for the remaining 74.
         static const uint8_t small_first[] = {
-            0x06, 0x00, 0x05, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5,
+            0x06, 0x00, 0x05, 0x01, 0x00, 0x00, 0x50, 0xaa,
             0x06, 0x40, 0x64, 0x05, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5,
         };
-        // CRYPTO off 0 len 12, then CRYPTO off 100 len 5 (gap): first captures 12 (>= 10)
+        // CRYPTO off 0 len 12, then CRYPTO off 100 len 5 (gap): first captures
+        // 12 (>= 10), so the fallback reads that frame's 12 bytes: a
+        // client_hello header declaring 100 body bytes with 8 present, which
+        // must ask for the remaining 92.
         static const uint8_t large_first[] = {
-            0x06, 0x00, 0x0c, 0x16, 0x03, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x06, 0x00, 0x0c, 0x01, 0x00, 0x00, 0x64, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7, 0xa8,
             0x06, 0x40, 0x64, 0x05, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5,
         };
-        bool m1 = false, f1 = false, m2 = false, f2 = false;
-        if (!run(small_first, sizeof(small_first), m1, f1)) { return false; }
-        if (!run(large_first, sizeof(large_first), m2, f2)) { return false; }
-        return m1 && f1 && m2 && f2;
+
+        result small{};
+        result large{};
+        if (!run(small_first, sizeof(small_first), small)) { return false; }
+        if (!run(large_first, sizeof(large_first), large)) { return false; }
+
+        return small.missing && small.first
+            && large.missing && large.first
+            && small.min_crypto_data          // the < 10 branch ran
+            && !large.min_crypto_data         // the >= 10 branch ran
+            && small.more_bytes_needed == 74
+            && large.more_bytes_needed == 92;
     }
 
     inline bool unit_test() {
