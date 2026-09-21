@@ -113,7 +113,36 @@ static bool stats_memory_budget_unit_test() {
     aggregator.observe_event_string(stats_event);
     event_msg second_event{"192.0.2.5", "tls/1/second", std::string(2048, 'b'), "(example.org)(192.0.2.6)(443)"};
     aggregator.observe_event_string(second_event);
-    return aggregator.get_num_entries() == 1;
+    if (aggregator.get_num_entries() != 1) {
+        return false;
+    }
+
+    stats_aggregator reused_aggregator{0, 16 * 1024};
+    event_msg reused_event{
+        "192.0.2.3",
+        "tls/1/large",
+        std::string(4096, 'x'),
+        "(large.example.net)(192.0.2.4)(443)"
+    };
+    reused_aggregator.observe_event_string(reused_event);
+
+    for (unsigned int i = 0; i < 32; ++i) {
+        char address[32];
+        char fingerprint[32];
+        char context[64];
+        snprintf(address, sizeof(address), "192.0.2.%u", i + 10);
+        snprintf(fingerprint, sizeof(fingerprint), "tls/1/short/%u", i);
+        snprintf(context, sizeof(context),
+                 "(example-%u.net)(192.0.2.%u)(443)", i, i + 10);
+
+        reused_event[0] = address;
+        reused_event[1] = fingerprint;
+        reused_event[2] = "x";
+        reused_event[3] = context;
+        reused_aggregator.observe_event_string(reused_event);
+    }
+
+    return reused_aggregator.get_num_entries() > 2;
 }
 
 int main(int, char *[]) {
