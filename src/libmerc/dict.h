@@ -36,7 +36,6 @@
 ///
 class dict {
 
-private:
     static size_t memory_cost(const std::string &value) {
         constexpr size_t overhead = sizeof(std::pair<const std::string, uint64_t>)
                                    + 8 * sizeof(void *);
@@ -85,6 +84,7 @@ public:
     /// compresses the string \p value and writes the dictionary index to
     /// \p index.  If \p no_new_entries is `true`, this succeeds only when
     /// \p value is already present in the dictionary.
+    /// On failure, \p index is left unchanged.
     ///
     bool compress(const std::string &value,
                   uint64_t &index,
