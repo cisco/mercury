@@ -113,6 +113,19 @@ public:
 
     bool is_empty() const { return event_table.empty(); }
 
+    /// Discard the current event snapshot and release its associated memory.
+    ///
+    /// A snapshot must be reset after a successful dump or a failed dump
+    /// before its stats_aggregator is returned to active collection.
+    ///
+    void reset() {
+        event_table.clear();
+        event_table.rehash(0);
+        event_table_memory_bytes = 0;
+        encoder.clear();
+        update_estimated_memory();
+    }
+
     void gzprint(gzFile f, const char *version,
                  const char *resource_version,
                  const char *git_commit_id,
@@ -127,7 +140,13 @@ public:
         // note: this function is not const because of compute_inverse_map()
 
         // compute decoding table for elements
+        //
         if (encoder.compute_inverse_map() == false) {
+            //
+            // Do not return a populated snapshot to the collection path after
+            // decoding setup fails; the next rotation must start empty.
+            //
+            reset();
             return;  // error; unable to compute fingerprint decompression map
         }
 
@@ -162,11 +181,9 @@ public:
         }
         ep.process_final();
 
-        event_table.clear();
-        event_table.rehash(0);
-        event_table_memory_bytes = 0;
-        encoder.clear();
-        update_estimated_memory();
+        // Release the completed snapshot before this aggregator is reused.
+        //
+        reset();
 
         // if (fp_dict.unit_test(stderr)) {
         //     fprintf(stderr, "passed fp_dict.unit_test()\n");
@@ -435,6 +452,11 @@ public:
             tmp->gzprint(f, version, resource_version, git_commit_id, git_count, init_time, std::ref(shutdown_requested));
         }
         catch (std::exception &e) {
+            //
+            // A failed snapshot will be active again after the next rotation;
+            // discard it now so it cannot block new distinct observations.
+            //
+            tmp->reset();
             printf_err(log_err, "%s\n", e.what());
         }
     }
