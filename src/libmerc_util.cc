@@ -363,6 +363,7 @@ int main(int argc, char *argv[]) {
         { argument::none,       "--stats",     "generate stats.json.gz file" },
         { argument::none,       "--fdc",       "output FDC" },
         { argument::none,       "--cbor-metadata", "output CBOR metadata" },
+        { argument::required,   "--cbor-metadata-buffer-size", "set CBOR metadata buffer size (64-65536)" },
         { argument::optional,   "--l7-output", "redirect L7 metadata JSON output to file <arg>" },
         { argument::none,       "--verbose",   "turn on verbose output" },
         { argument::none,       "--help",      "print out help message" },
@@ -389,6 +390,7 @@ int main(int argc, char *argv[]) {
     bool exposed_creds = opt.is_set("--exposed-creds");
     auto [ http_headers_is_set, http_headers_value ] = opt.get_value("--http-headers");
     auto [ http_body_is_set, http_body_value ] = opt.get_value("--http-body-max");
+    auto [ cbor_size_is_set, cbor_size_value ] = opt.get_value("--cbor-metadata-buffer-size");
 
     if (print_help) {
         opt.usage(stdout, argv[0], summary);
@@ -408,6 +410,10 @@ int main(int argc, char *argv[]) {
 
     if (do_fdc && do_cbor_metadata) {
         fprintf(stderr, "error: --cbor-metadata is not supported with --fdc\n");
+        return EXIT_FAILURE;
+    }
+    if (cbor_size_is_set && !do_cbor_metadata) {
+        fprintf(stderr, "error: --cbor-metadata-buffer-size requires --cbor-metadata\n");
         return EXIT_FAILURE;
     }
 
@@ -450,6 +456,9 @@ int main(int argc, char *argv[]) {
         }
         if (do_cbor_metadata) {
             packet_filter_cfg += ";cbor-metadata";
+            if (cbor_size_is_set) {
+                packet_filter_cfg += ";cbor-metadata-buffer-size=" + cbor_size_value;
+            }
         }
         config.packet_filter_cfg = (char *)packet_filter_cfg.c_str();
 
