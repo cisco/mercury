@@ -1658,17 +1658,30 @@ class quic_init : public base_protocol {
         }
     }
 
-    // true if other carries the same QUIC version as the first packet
-    bool version_matches(const quic_initial_packet &other) const {
+    // true if other belongs to the same connection as the first packet,
+    // that is, it carries the same QUIC version and the same Destination
+    // Connection ID.
+    //
+    // RFC 9000 Section 12.2 requires every packet coalesced into a datagram
+    // to carry the same DCID, and Initial keys are derived from the DCID of
+    // the packet itself.  Without the DCID check an appended Initial from a
+    // different connection decrypts successfully and its offset-0 CRYPTO
+    // frame overwrites the ClientHello of the first packet, while the record
+    // still reports the first packet's dcid.
+    //
+    bool same_connection(const quic_initial_packet &other) const {
         datum va = initial_packet.version;
         datum vb = other.version;
         if (va.is_null() || vb.is_null()) {
-            return false;   // avoid lookahead_uint pointer arithmetic on a null datum
+            return false;
         }
         uint64_t a = 0, b = 0;
         va.lookahead_uint(4, &a);
         vb.lookahead_uint(4, &b);
-        return a == b;
+        if (a != b) {
+            return false;
+        }
+        return initial_packet.dcid == other.dcid;
     }
 
 public:
@@ -1703,10 +1716,10 @@ public:
         datum coalesced = d;   // d has advanced past the first Initial
         uint32_t examined = 1;
         // Only walk coalesced packets when the first Initial parsed; otherwise
-        // its version datum is null and version_matches has nothing to compare.
+        // its version datum is null and same_connection has nothing to compare.
         while (initial_packet.is_not_empty() && coalesced.is_not_empty() && examined < max_coalesced_pkts) {
             quic_initial_packet next{coalesced, false};   // coalesced packets may be < datagram min
-            if (!next.is_not_empty() || !version_matches(next)) {
+            if (!next.is_not_empty() || !same_connection(next)) {
                 break;
             }
             examined++;
@@ -2056,6 +2069,32 @@ namespace quic_packet_safety_unit_test {
         return packet;
     }
 
+    // number of bytes a packet written by write_initial() occupies
+    static constexpr size_t initial_pkt_len = 18 + 64;   // header + payload
+
+    // Writes a minimal long-header Initial into buf: version 1, an 8-byte
+    // Destination Connection ID of repeated dcid_byte, and a 64-byte payload.
+    // conn_info selects the first octet, so callers can set the reserved bits
+    // to steer the packet away from the pre-decrypted fast path.  Returns the
+    // number of bytes written, so coalesced packets can be appended.
+    //
+    inline size_t write_initial(uint8_t *buf, uint8_t dcid_byte, uint8_t conn_info = 0xc8) {
+        buf[0] = conn_info;
+        buf[1] = 0x00;
+        buf[2] = 0x00;
+        buf[3] = 0x00;
+        buf[4] = 0x01;         // version 1
+        buf[5] = 0x08;         // DCID length
+        for (size_t i = 0; i < 8; i++) {
+            buf[6 + i] = dcid_byte;
+        }
+        buf[14] = 0x00;        // SCID length
+        buf[15] = 0x00;        // token length
+        buf[16] = 0x40;        // protected payload length 64 (2-byte varint)
+        buf[17] = 0x40;
+        return initial_pkt_len;
+    }
+
     inline bool initial_version_decode_unit_test() {
         static constexpr size_t version_offset = 1;
         auto packet = make_quic_initial();
@@ -2302,6 +2341,38 @@ namespace quic_packet_safety_unit_test {
         return true;
     }
 
+    // A coalesced Initial carrying a different Destination Connection ID must
+    // not be examined.  Initial keys derive from each packet's own DCID, so a
+    // foreign-DCID packet decrypts successfully and its offset-0 CRYPTO frame
+    // would overwrite the first packet's ClientHello while the record still
+    // reports the first packet's dcid (RFC 9000 Section 12.2).
+    //
+    // Coalesced telemetry is emitted only when more than one packet was
+    // examined, so its presence tells us whether the walk continued.
+    //
+    inline bool coalesced_dcid_gate_unit_test() {
+        auto examined_second_packet = [](uint8_t second_dcid_byte) {
+            std::array<uint8_t, quic_initial_packet_len> datagram{};
+            size_t off = write_initial(datagram.data(), 0x01);
+            write_initial(datagram.data() + off, second_dcid_byte);
+
+            datum d{datagram.data(), datagram.data() + datagram.size()};
+            quic_crypto_engine engine{};
+            quic_init quic{d, engine};
+
+            char buf[8192];
+            buffer_stream bs{buf, sizeof(buf)};
+            json_object record{&bs};
+            quic.write_json(record, true);   // metadata_output
+            record.close();
+            std::string out(buf, bs.doff > 0 ? (size_t)bs.doff : 0);
+            return out.find("decrypted_packets") != std::string::npos;
+        };
+
+        return examined_second_packet(0x01)       // same DCID: walk continues
+            && !examined_second_packet(0x02);     // foreign DCID: walk stops
+    }
+
     // A long header cut off before its 4-byte version must not parse (guards a
     // null-datum lookahead); the datagram-min-length check is disabled so the
     // truncation, not the length gate, is what rejects it.
@@ -2356,6 +2427,7 @@ namespace quic_packet_safety_unit_test {
             && connection_close_frame_walk_unit_test()
             && min_payload_length_unit_test()
             && crypto_frame_index_bounds_unit_test()
+            && coalesced_dcid_gate_unit_test()
             && truncated_version_unit_test()
             && missing_crypto_frame_fallback_unit_test();
     }
