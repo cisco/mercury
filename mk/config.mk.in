@@ -72,6 +72,10 @@ localstatedir = @localstatedir@/mercury
 PLATFORM_FLAGS :=
 PLATFORM_LDFLAGS  :=
 
+# Third-party include roots are passed as system directories.  This keeps
+# warnings from vendor headers (for example xsimd) out of the build while
+# leaving Mercury's own -I paths and diagnostics unchanged.
+
 # configure-time feature detection (from @DEFS@)
 CDEFS = $(filter -DHAVE_X86INTRIN_H=1 -DHAVE_GETTID=1, @DEFS@)
 
@@ -87,11 +91,11 @@ endif
 ifeq (@HAVE_XSIMD@,yes)
   PLATFORM_FLAGS += -DHAVE_XSIMD
   ifneq (@XSIMD_INCLUDE@,)
-    PLATFORM_FLAGS += -I@XSIMD_INCLUDE@
+    PLATFORM_FLAGS += -isystem @XSIMD_INCLUDE@
   endif
 endif
 ifeq (@IS_MACOS_ARM@,yes)
-  PLATFORM_FLAGS += -I/opt/homebrew/include
+  PLATFORM_FLAGS += -isystem /opt/homebrew/include
   PLATFORM_LDFLAGS  += -L/opt/homebrew/lib
 endif
 

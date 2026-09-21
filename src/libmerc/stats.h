@@ -39,7 +39,8 @@ typedef uint32_t useconds_t;
 // events
 //
 class stats_aggregator {
-    std::unordered_map<event_key, uint64_t> event_table;
+
+    std::unordered_map<event_key, uint64_t, universal61::event_msg_hasher> event_table;
     event_encoder encoder;
     size_t max_entries;
     size_t estimated_memory_bytes;

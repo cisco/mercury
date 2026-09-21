@@ -10,10 +10,12 @@
 
 #include "datum.h"
 #include "json_object.h"
+#include "null_terminated_string.hpp"
 #include "udp.h"
 #include "quic.h"
 #include "dtls.h"
 #include "fdc.hpp"     // for truncation_status
+#include "universal61.hpp"
 
 #include <bitset>
 #include <type_traits>
@@ -93,7 +95,7 @@ enum class reassembly_flags : uint8_t {
     truncated = 6
 };
 
-static const char* reassembly_flag_str[] = {
+static constexpr null_terminated_string reassembly_flag_str[] = {
     "missing_segment",
     "timeout",
     "out_of_order",
@@ -111,7 +113,7 @@ enum class reassembly_overlaps : uint8_t {
     front_superset_overlap = 3
 };
 
-static const char* reassembly_overlaps_str[] = {
+static constexpr null_terminated_string reassembly_overlaps_str[] = {
     "back_partial_overlap",
     "back_subset_overlap",
     "front_partial_overlap",
@@ -545,13 +547,16 @@ inline const datum reassembly_flow_context::get_cid_datum() const {
 // 2. if present, continue_reassembly
 // 3. else init_reassembly
 //
-typedef std::unordered_map<struct key, reassembly_flow_context>::iterator reassembly_map_iterator;
+using reassembly_map = std::unordered_map<struct key,
+                                          reassembly_flow_context,
+                                          universal61::flow_key_hasher>;
+using reassembly_map_iterator = reassembly_map::iterator;
 struct tcp_reassembler {
 
     size_t max_reassembly_entries;
     static constexpr size_t max_entries = 10000;
     static constexpr size_t min_entries = 2000;
-    std::unordered_map<struct key, reassembly_flow_context> table;
+    reassembly_map table;
     reassembly_map_iterator reap_it;  // iterator used for cleaning the table
     reassembly_map_iterator curr_flow; // iterator pointing to the current flow in reassembly
     bool dump_pkt;  // used by pkt_filter to dump pkts involved in reassembly

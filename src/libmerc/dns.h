@@ -15,6 +15,7 @@
 
 #include "protocol.h"
 #include "json_object.h"
+#include "null_terminated_string.hpp"
 #include "eth.h"
 #include "ip_address.hpp"
 #include "match.h"
@@ -709,7 +710,7 @@ struct dns_question_record {
         }
     }
 
-    void write_json(struct json_object &o, const char *key) const {
+    void write_json(struct json_object &o, null_terminated_string key) const {
         if (name.is_not_empty()) {
             struct json_object rr{o, key};
             if (name.is_netbios()) {
@@ -1058,7 +1059,7 @@ struct dns_packet : public base_protocol {
         if (header == NULL) {
             return;
         }
-        const char *key = encoded<uint16_t>{ntoh(header->flags)}.bit<0>() ?  "response" : "query";
+        null_terminated_string key = encoded<uint16_t>{ntoh(header->flags)}.bit<0>() ? null_terminated_string{"response"} : null_terminated_string{"query"};
         struct json_object dns_json{o, key};
         //dns_json.print_key_uint("qdcount", qdcount);
         //dns_json.print_key_uint("ancount", ancount);
@@ -1121,7 +1122,7 @@ struct dns_packet : public base_protocol {
             protocols.print_string("dns");
         }
         protocols.close();
-        cbor_object dns{o, is_netbios ? "nbns" : "dns"};
+        cbor_object dns{o, is_netbios ? null_terminated_string{"nbns"} : null_terminated_string{"dns"}};
         dns.print_key_hex("data", get_datum());
         dns.close();
     }

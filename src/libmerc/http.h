@@ -13,6 +13,7 @@
 #include <unordered_map>
 
 #include "protocol.h"
+#include "null_terminated_string.hpp"
 #include "exposed_creds.hpp"
 #include "match.h"
 #include "analysis.h"
@@ -66,7 +67,7 @@ struct http_headers : public datum {
 
     void print_host(struct json_object &o, const char *key) const;
     void print_matching_name(struct json_object &o, const char *key, struct datum &name) const;
-    void print_matching_name(struct json_object &o, const char *key, const char* name) const;
+    void print_matching_name(struct json_object &o, const char *key, null_terminated_string name) const;
     void print_matching_names(struct json_object &o, perfect_hash<const char*> &ph) const;
     void print_ssdp_names_and_feature_string(struct json_object &o, data_buffer<2048>& feature_buf, bool metadata) const;
 

@@ -20,6 +20,7 @@
 #include <utility>
 
 #include "bytestring.h"
+#include "universal61_bytes.hpp"
 
 /// class dict is a dictionary (substitution) coder that maps an
 /// arbitrary-length string to a short numeric value
@@ -54,7 +55,7 @@ private:
     }
 
 public:
-    std::unordered_map<std::string,uint64_t> d;
+    std::unordered_map<std::string, uint64_t, universal61::byte_hasher> d;
     uint64_t count;
     std::vector<const char *> inverse;
 

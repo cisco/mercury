@@ -36,8 +36,10 @@ case $host_os in
         AC_SUBST(IS_MACOS,yes)
         case "$host_cpu" in
             arm* | aarch64)
-                CFLAGS="$CFLAGS -I/opt/homebrew/include -I/opt/local/include"
-                CXXFLAGS="$CXXFLAGS -I/opt/homebrew/include -I/opt/local/include"
+                # Vendor/package-manager headers are system headers for
+                # diagnostics; keep Mercury's own include paths as -I.
+                CFLAGS="$CFLAGS -isystem /opt/homebrew/include -isystem /opt/local/include"
+                CXXFLAGS="$CXXFLAGS -isystem /opt/homebrew/include -isystem /opt/local/include"
                 LDFLAGS="$LDFLAGS -L/opt/homebrew/lib -L/opt/local/lib"
                 AC_MSG_WARN([Configuring for Apple Silicon])
                 AC_SUBST(IS_MACOS_ARM,yes)
@@ -196,7 +198,9 @@ AC_SUBST([HAVE_XSIMD],[no])
 AC_SUBST([XSIMD_INCLUDE],[])
 AS_IF([test "x$enable_xsimd" = xno],
   [AC_MSG_NOTICE([xsimd support disabled by --disable-xsimd])],
-  [# If user gave --with-xsimd-include=DIR, prepend it to CPPFLAGS
+  [# If user gave --with-xsimd-include=DIR, prepend it to CPPFLAGS.
+   # Keep -I, not -isystem: -I outranks every -isystem directory, so the probe
+   # must check the same headers the build will compile.
    _xsimd_saved_CPPFLAGS="$CPPFLAGS"
    AS_IF([test -n "$xsimd_include_dir"],
      [CPPFLAGS="-I${xsimd_include_dir} $CPPFLAGS"])

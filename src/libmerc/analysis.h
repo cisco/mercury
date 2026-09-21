@@ -17,6 +17,7 @@
 #include "addr.h"
 #include "result.h"
 #include "dict.h"
+#include "universal61_bytes.hpp"
 #include "printf_err.hpp"
 
 #include <mutex>
@@ -415,8 +416,10 @@ public:
 private:
     mutable std::shared_mutex mutex_;
     std::list<std::string> list_;
-    std::unordered_map<std::string, std::list<std::string>::iterator> set_;
-    std::unordered_set<std::string> known_set_;
+    std::unordered_map<std::string,
+                       std::list<std::string>::iterator,
+                       universal61::byte_hasher> set_;
+    std::unordered_set<std::string, universal61::byte_hasher> known_set_;
     uint32_t max_cache_size_;
 };
 
