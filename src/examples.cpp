@@ -6,10 +6,23 @@
 ///     `g++ -Wall -Ilibmerc/ examples.cpp -o examples`
 
 #include <datum.h>
+#include <packed_view.hpp>
 #include <lex.h>
 #include <alternative.hpp>
 #include <diagnostic.hpp>
 #include <ctype.h>
+
+/// Field tags and a packed-view layout for a small binary header.
+///
+namespace packed_view_example {
+    struct version_field { };
+    struct length_field { };
+
+    using header = packed_view<
+        packed_view_field<version_field, uint8_t>,
+        packed_view_padding<1>,
+        packed_view_field<length_field, uint16_t>>;
+}
 
 /// A parser example that uses the named-constructor idiom: callers
 /// parse it with \ref length_prefixed_value::parse(), not with a
@@ -96,6 +109,31 @@ int main(int argc, char *argv[]) {
     ///
     encoded<uint16_t> e{d};
     printf("1234: %04x\n", e.value());    // output: 1234
+
+    /// A packed_view describes a fixed-size binary header without using a
+    /// packed struct or direct pointer access.  The field tags name the
+    /// fields, the padding descriptor accounts for an unmodeled byte, and
+    /// the extent is inferred from the layout.
+    ///
+    static_assert(packed_view_example::header::extent == 4);
+    uint8_t packed_header_bytes[] = { 0x02, 0xff, 0x00, 0x10 };
+    datum packed_header_input{packed_header_bytes,
+                              packed_header_bytes + sizeof(packed_header_bytes)};
+    packed_view_example::header packed_header{packed_header_input};
+    if (packed_header) {
+        printf("packed header version: %u\n",
+               packed_header.field<packed_view_example::version_field>());
+        printf("packed header length: %u\n",
+               ntoh(packed_header.field<packed_view_example::length_field>()));
+    }
+
+    /// If a packed_view cannot accept its complete layout, it becomes null
+    /// and the input datum is also set to null.
+    ///
+    datum truncated_packed_header_input{packed_header_bytes,
+                                        packed_header_bytes + sizeof(packed_header_bytes) - 1};
+    packed_view_example::header truncated_packed_header{truncated_packed_header_input};
+    printf("truncated packed header valid: %u\n", !!truncated_packed_header); // output: 0
 
     /// After we have read `e` from `d`, that `datum` is now empty,
     /// because the data pointer was advanced two bytes, and now
