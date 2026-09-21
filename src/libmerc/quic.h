@@ -518,15 +518,10 @@ struct quic_initial_packet {
             }
         }
 
-        // reject non-Initial long-header types; only Initial has a Token
-        // field and carries the ClientHello (Initial is 0b01 for v2, else 0b00)
-        uint64_t version_value = 0;
-        version.lookahead_uint(4, &version_value);
-        uint8_t long_packet_type = (connection_info >> 4) & 0x03;
-        uint8_t initial_type = is_v2_version((uint32_t)version_value) ? 0x01 : 0x00;
-        if (long_packet_type != initial_type) {
-            return;
-        }
+        // Non-Initial long-header types are rejected by quic_init, which has
+        // access to the per-version Long Packet Type mapping in
+        // quic_parameters.  Gating here would have to hardcode one version's
+        // mapping and would drop unknown versions before trial decryption.
 
         uint8_t dcid_length = 0;
         d.read_uint8(&dcid_length);
@@ -803,6 +798,22 @@ public:
     }
 
     const std::unordered_map<uint32_t, const std::tuple<salt_enum, init_pkt_mask_enum, hkdf_label_enum> > &get_params_map() {return quic_initial_params;}
+
+    // Returns the (mask, value) pair that identifies an Initial packet for
+    // this version, or nullptr when the version is unknown.
+    //
+    // Long Packet Type bits are version-specific -- v2 renumbers Initial from
+    // 0b00 to 0b01 -- so a caller must not assume v1's mapping.  A null return
+    // means "layout unknown, do not gate", which leaves unknown and
+    // experimental versions free to reach trial decryption.
+    //
+    const std::pair<uint8_t,uint8_t> *get_initial_pkt_mask_value(uint32_t version) {
+        const std::tuple<salt_enum, init_pkt_mask_enum, hkdf_label_enum> *params = get_initial_params(version);
+        if (params == nullptr) {
+            return nullptr;
+        }
+        return get_init_pkt_mask_value(std::get<1>(*params))->get_mask_value();
+    }
 
     static quic_parameters &create() {
         static quic_parameters quic_params;
@@ -1688,11 +1699,41 @@ public:
 
     quic_init(struct datum &d, quic_crypto_engine &quic_crypto_) : initial_packet{d}, quic_crypto{quic_crypto_}, crypto_buffer{}, hello{}, plaintext{}, decry_pkt{initial_packet,crypto_buffer}, pre_decrypted{false}, more_bytes_needed{0}, min_crypto_offset{UINT32_MAX} {
 
+        // Reject non-Initial long-header packets: only an Initial carries a
+        // Token field and the ClientHello, so parsing a 0-RTT, Handshake or
+        // Retry packet Initial-style produces a forged record.
+        //
+        // The Long Packet Type encoding is version-specific, so take the
+        // mask from quic_parameters rather than assuming v1's mapping.  An
+        // unknown version yields no mask and is left ungated, so it still
+        // reaches trial decryption.  decrypt() applies the same mask, but
+        // only for packets that get that far -- the pre-decrypted path below
+        // returns first -- so the check is made here as well.
+        //
+        static quic_parameters &quic_params = quic_parameters::create();
+        uint64_t version_value = 0;
+        initial_packet.version.lookahead_uint(4, &version_value);
+        const std::pair<uint8_t,uint8_t> *mask_value =
+            quic_params.get_initial_pkt_mask_value((uint32_t)version_value);
+        if (mask_value != nullptr &&
+            (initial_packet.connection_info & mask_value->first) != mask_value->second) {
+            initial_packet.valid = false;
+            return;
+        }
+
         // check reserved bits, if 0, try for decrypted quic packet
+        //
+        // The reserved bits are header-protected in a genuine Initial, so
+        // this heuristic runs on attacker-influenced input: a malformed first
+        // packet whose protected bytes happen to parse as PADDING would be
+        // accepted as cleartext.  Require that nothing follows in the
+        // datagram, so a crafted first packet cannot suppress a valid
+        // coalesced Initial behind it.  Genuine pre-decrypted input is a
+        // single packet, so this does not narrow the intended use.
         //
         if ((initial_packet.connection_info & 0x0c) == 0) {
             decry_pkt.parse();
-            if (decry_pkt.is_valid()) {
+            if (decry_pkt.is_valid() && d.is_empty()) {
                 pre_decrypted = true;
                 return;
             }
@@ -2206,7 +2247,10 @@ namespace quic_packet_safety_unit_test {
         return true;
     }
 
-    // only Initial parses; other long-header types are rejected
+    // Only Initial packets are accepted; other long-header types are
+    // rejected.  The Long Packet Type mapping is taken from quic_parameters,
+    // so v2's renumbering is honoured and an unknown version -- whose header
+    // layout we cannot assume -- is left ungated for trial decryption.
     inline bool initial_packet_type_gate_unit_test() {
         auto build = [](uint8_t conn_info, uint32_t version) {
             auto packet = make_quic_initial();
@@ -2219,8 +2263,9 @@ namespace quic_packet_safety_unit_test {
         };
         auto parses = [](std::array<uint8_t, quic_initial_packet_len> &packet) {
             datum d{packet.data(), packet.data() + packet.size()};
-            quic_initial_packet ip{d};
-            return ip.is_not_empty();
+            quic_crypto_engine engine{};
+            quic_init quic{d, engine};
+            return quic.is_not_empty();
         };
 
         struct { uint8_t conn_info; uint32_t version; bool expect_initial; } cases[] = {
@@ -2230,6 +2275,8 @@ namespace quic_packet_safety_unit_test {
             {0xf0, 0x00000001, false},  // v1 Retry
             {0xd0, 0x6b3343cf, true},   // v2 Initial (type 0b01)
             {0xc0, 0x6b3343cf, false},  // v2 Retry (type 0b00)
+            {0xd0, 0xdeadbeef, true},   // unknown version: layout unknown, not gated
+            {0xe0, 0xdeadbeef, true},   // likewise; trial decryption decides
         };
         for (auto &c : cases) {
             auto p = build(c.conn_info, c.version);
@@ -2341,6 +2388,51 @@ namespace quic_packet_safety_unit_test {
         return true;
     }
 
+    // The pre-decrypted fast path infers "already decrypted" from reserved
+    // bits that are header-protected in a genuine Initial, so it runs on
+    // attacker-influenced input.  It must not return before the coalesced
+    // walk: otherwise a crafted first packet that happens to parse as PADDING
+    // suppresses a valid coalesced Initial behind it.
+    //
+    // A pre-decrypted record reports "plaintext" and no coalesced telemetry;
+    // taking the normal path on this input fails to decrypt and reports
+    // "raw_packet_data" plus telemetry, so the two are distinguishable.
+    //
+    inline bool pre_decrypted_coalesced_unit_test() {
+        auto record_for = [](const std::array<uint8_t, quic_initial_packet_len> &datagram) {
+            datum d{datagram.data(), datagram.data() + datagram.size()};
+            quic_crypto_engine engine{};
+            quic_init quic{d, engine};
+
+            char buf[16384];
+            buffer_stream bs{buf, sizeof(buf)};
+            json_object record{&bs};
+            quic.write_json(record, true);   // metadata_output
+            record.close();
+            return std::string(buf, bs.doff > 0 ? (size_t)bs.doff : 0);
+        };
+
+        // One cleartext-looking Initial that fills the datagram: the fast
+        // path still applies, since nothing follows it.
+        std::array<uint8_t, quic_initial_packet_len> single{};
+        write_initial(single.data(), 0x01, 0xc0);   // reserved bits 0
+        single[16] = 0x44;   // payload length 1166, so the packet fills the datagram
+        single[17] = 0x8e;
+        std::string single_out = record_for(single);
+        if (single_out.find("plaintext") == std::string::npos ||
+            single_out.find("decrypted_packets") != std::string::npos) {
+            return false;
+        }
+
+        // The same first packet with a coalesced Initial behind it must not
+        // short-circuit; the walk has to examine the second packet.
+        std::array<uint8_t, quic_initial_packet_len> coalesced{};
+        size_t off = write_initial(coalesced.data(), 0x01, 0xc0);
+        write_initial(coalesced.data() + off, 0x01, 0xc0);
+        std::string coalesced_out = record_for(coalesced);
+        return coalesced_out.find("decrypted_packets") != std::string::npos;
+    }
+
     // A coalesced Initial carrying a different Destination Connection ID must
     // not be examined.  Initial keys derive from each packet's own DCID, so a
     // foreign-DCID packet decrypts successfully and its offset-0 CRYPTO frame
@@ -2427,6 +2519,7 @@ namespace quic_packet_safety_unit_test {
             && connection_close_frame_walk_unit_test()
             && min_payload_length_unit_test()
             && crypto_frame_index_bounds_unit_test()
+            && pre_decrypted_coalesced_unit_test()
             && coalesced_dcid_gate_unit_test()
             && truncated_version_unit_test()
             && missing_crypto_frame_fallback_unit_test();
