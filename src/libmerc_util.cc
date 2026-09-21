@@ -554,7 +554,12 @@ int main(int argc, char *argv[]) {
                         datum cbor_data{cbor_buffer, cbor_buffer + cbor_length};
                         if (decode_cbor_map_to_json(cbor_data, json, nullptr)) {
                             json.write_char('}');
-                            json.write_line(stdout);
+                            json.write_char('\n');
+                            if (json.is_truncated()) {
+                                fprintf(stderr, "warning: cbor metadata JSON truncated\n");
+                            } else {
+                                json.write(stdout);
+                            }
                         }
                     } else if (cbor_status < 0) {
                         fprintf(stderr, "get_cbor_metadata status: %d\n", cbor_status);
