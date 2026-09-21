@@ -122,6 +122,25 @@ struct event_msg_hasher {
     }
 };
 
+/// Stateful universal61 hash for compressed event keys.
+///
+struct event_key_hasher {
+    byte_hasher hasher;
+
+    /// Hash an event key using its type and dictionary indices.
+    ///
+    /// \param key The compressed event key.
+    /// \return The hash value converted to `std::size_t`.
+    ///
+    std::size_t operator()(const ::event_key &key) const noexcept {
+        byte_hash_state state = hasher.begin();
+        state.append(static_cast<uint64_t>(key.type));
+        state.append_four(key.fields[0], key.fields[1],
+                          key.fields[2], key.fields[3]);
+        return static_cast<std::size_t>(state.finish());
+    }
+};
+
 #ifndef NDEBUG
 // LCOV_EXCL_START
 /// \brief Test event-message hashing and field-boundary preservation.
