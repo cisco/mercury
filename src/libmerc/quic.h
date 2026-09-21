@@ -1660,7 +1660,10 @@ class quic_init : public base_protocol {
         datum plaintext_copy = pt;
         while (plaintext_copy.is_not_empty()) {
             quic_frame frame{plaintext_copy};
-            if (!frame.is_valid()) {
+            // is_valid() only reports that the variant is not monostate; a
+            // truncated CLOSE/ACK/CRYPTO still emplaces its type but nulls the
+            // datum, so check both before counting or storing the frame.
+            if (!frame.is_valid() || plaintext_copy.is_null()) {
                 break;
             }
             // PADDING is one frame per 0x00 byte and dominates the count; track
