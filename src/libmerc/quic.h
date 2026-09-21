@@ -1691,6 +1691,23 @@ class quic_init : public base_protocol {
         }
     }
 
+    // true if pkt's Long Packet Type identifies an Initial.  The encoding is
+    // version-specific, so the mask comes from quic_parameters; an unknown
+    // version has no known mapping and is left for trial decryption.
+    //
+    static bool is_initial_type(const quic_initial_packet &pkt) {
+        static quic_parameters &quic_params = quic_parameters::create();
+        datum v = pkt.version;
+        uint64_t version_value = 0;
+        v.lookahead_uint(4, &version_value);
+        const std::pair<uint8_t,uint8_t> *mask_value =
+            quic_params.get_initial_pkt_mask_value((uint32_t)version_value);
+        if (mask_value == nullptr) {
+            return true;
+        }
+        return (pkt.connection_info & mask_value->first) == mask_value->second;
+    }
+
     // true if other carries the same version and DCID as the first packet.
     // RFC 9000 S12.2 requires the latter, and Initial keys derive from each
     // packet's own DCID, so without the check an Initial appended from
@@ -1716,18 +1733,10 @@ public:
     quic_init(struct datum &d, quic_crypto_engine &quic_crypto_) : initial_packet{d}, quic_crypto{quic_crypto_}, crypto_buffer{}, hello{}, plaintext{}, decry_pkt{initial_packet,crypto_buffer}, pre_decrypted{false}, more_bytes_needed{0}, min_crypto_offset{UINT32_MAX} {
 
         // Reject non-Initial long-header types, which would otherwise be
-        // parsed Initial-style into a forged record.  The Long Packet Type
-        // encoding is version-specific, so take the mask from quic_parameters;
-        // an unknown version yields none and is left for trial decryption.
-        // decrypt() applies the same mask, but only after the fast path below.
+        // parsed Initial-style into a forged record.  decrypt() applies the
+        // same mask, but only after the fast path below.
         //
-        static quic_parameters &quic_params = quic_parameters::create();
-        uint64_t version_value = 0;
-        initial_packet.version.lookahead_uint(4, &version_value);
-        const std::pair<uint8_t,uint8_t> *mask_value =
-            quic_params.get_initial_pkt_mask_value((uint32_t)version_value);
-        if (mask_value != nullptr &&
-            (initial_packet.connection_info & mask_value->first) != mask_value->second) {
+        if (!is_initial_type(initial_packet)) {
             initial_packet.valid = false;
             return;
         }
@@ -1767,7 +1776,12 @@ public:
         // its version datum is null and same_connection has nothing to compare.
         while (initial_packet.is_not_empty() && coalesced.is_not_empty() && examined < max_coalesced_pkts) {
             quic_initial_packet next{coalesced, false};   // coalesced packets may be < datagram min
-            if (!next.is_not_empty() || !same_connection(next)) {
+            // A non-Initial ends the walk rather than being skipped: it was
+            // parsed with the Initial field layout, so coalesced has been
+            // advanced wrongly and we cannot resynchronize.  Decrypting it
+            // would burn a decrypt attempt, and under trial decryption (which
+            // applies no type mask) it could be harvested as Initial data.
+            if (!next.is_not_empty() || !same_connection(next) || !is_initial_type(next)) {
                 break;
             }
             examined++;
@@ -2449,6 +2463,35 @@ namespace quic_packet_safety_unit_test {
         return coalesced_out.find("decrypted_packets") != std::string::npos;
     }
 
+    // A coalesced non-Initial must end the walk, not be parsed Initial-style:
+    // it would consume a decrypt attempt, and under trial decryption could be
+    // harvested as Initial data.
+    //
+    inline bool coalesced_type_gate_unit_test() {
+        auto examined_second = [](uint8_t second_conn_info) {
+            std::array<uint8_t, quic_initial_packet_len> datagram{};
+            size_t off = write_initial(datagram.data(), 0x01);
+            write_initial(datagram.data() + off, 0x01, second_conn_info);
+
+            datum d{datagram.data(), datagram.data() + datagram.size()};
+            quic_crypto_engine engine{};
+            quic_init quic{d, engine};
+
+            char buf[16384];
+            buffer_stream bs{buf, sizeof(buf)};
+            json_object record{&bs};
+            quic.write_json(record, true);   // metadata_output
+            record.close();
+            std::string out(buf, bs.doff > 0 ? (size_t)bs.doff : 0);
+            return out.find("decrypted_packets") != std::string::npos;
+        };
+
+        return examined_second(0xc8)        // Initial: walk continues
+            && !examined_second(0xd8)       // 0-RTT
+            && !examined_second(0xe8)       // Handshake
+            && !examined_second(0xf8);      // Retry
+    }
+
     // A coalesced Initial with a foreign DCID must not be examined: it would
     // decrypt under its own keys and overwrite the first packet's ClientHello
     // (RFC 9000 S12.2).  Coalesced telemetry appears only when more than one
@@ -2554,6 +2597,7 @@ namespace quic_packet_safety_unit_test {
             && crypto_frame_index_bounds_unit_test()
             && raw_packet_extent_unit_test()
             && pre_decrypted_coalesced_unit_test()
+            && coalesced_type_gate_unit_test()
             && coalesced_dcid_gate_unit_test()
             && truncated_version_unit_test()
             && missing_crypto_frame_fallback_unit_test();
