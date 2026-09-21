@@ -156,11 +156,11 @@ public:
     inline static const char *unknown_fp_string{"unknown"};
 
     void clear() {
-        d.clear();
-        d.rehash(0);
-        inverse.clear();
         count = 0;
         estimated_bytes = 0;
+        d.clear();
+        inverse.clear();
+        d.rehash(0);  // release excess bucket storage
     }
 
     // LCOV_EXCL_START
