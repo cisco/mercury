@@ -37,6 +37,10 @@
 class dict {
 
     static size_t memory_cost(const std::string &value) {
+
+        // Approximate per-entry overhead for unordered_map buckets, nodes,
+        // and allocator bookkeeping.
+        //
         constexpr size_t overhead = sizeof(std::pair<const std::string, uint64_t>)
                                    + 8 * sizeof(void *);
         if (value.capacity() > std::numeric_limits<size_t>::max() - overhead - 1) {
@@ -69,7 +73,8 @@ public:
         if (x == d.end()) {
             auto inserted = d.emplace(value, count);
             if (inserted.second) {
-                estimated_bytes = add_memory(estimated_bytes, memory_cost(value));
+                estimated_bytes = add_memory(estimated_bytes,
+                                             memory_cost(inserted.first->first));
                 return count++;
             }
             return inserted.first->second;
@@ -99,12 +104,16 @@ public:
             return false;
         }
         try {
-            d.emplace(value, count);
+            auto inserted = d.emplace(value, count);
+            if (!inserted.second) {
+                return false;
+            }
+            estimated_bytes = add_memory(estimated_bytes,
+                                         memory_cost(inserted.first->first));
         }
         catch (...) {
             return false;
         }
-        estimated_bytes = add_memory(estimated_bytes, memory_cost(value));
         index = count++;
         return true;
     }
@@ -135,11 +144,11 @@ public:
     inline static const char *unknown_fp_string{"unknown"};
 
     void clear() {
-        d.clear();
-        d.rehash(0);
-        inverse.clear();
         count = 0;
         estimated_bytes = 0;
+        d.clear();
+        inverse.clear();
+        d.rehash(0);  // release excess bucket storage
     }
 
 #ifndef NDEBUG
