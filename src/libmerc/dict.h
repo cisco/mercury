@@ -100,11 +100,7 @@ public:
             return false;
         }
         try {
-            auto inserted = d.emplace(value, count);
-            if (!inserted.second) {
-                index = inserted.first->second;
-                return true;
-            }
+            d.emplace(value, count);
         }
         catch (...) {
             return false;
