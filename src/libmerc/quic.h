@@ -473,12 +473,8 @@ struct quic_initial_packet {
 
         version.parse(d, 4);
         if (!version.is_not_empty()) {
-            // A header cut short before its 4-byte version yields no record.
-            // This is not a memory-safety guard: lookahead_uint() calls
-            // has_bytes(), which is false on a null datum, so it never reads
-            // through one.  Returning here keeps the version-keyed decisions
-            // below from running against a version that was never read.
-            //
+            // no version to key the decisions below on.  (Not a memory-safety
+            // guard: lookahead_uint() is a no-op on a null datum.)
             return;
         }
 
@@ -564,11 +560,8 @@ struct quic_initial_packet {
             return;  // invalid or incomplete packet
         }
 
-        // Now that the packet's extent is known, bound raw_packet to it.  It
-        // was set to the whole remaining datagram on entry, because the length
-        // is not known until the header has been parsed; leaving it that way
-        // would make the raw_packet_data fallback dump any coalesced packets
-        // that follow, rather than the one packet this record describes.
+        // bound raw_packet to this packet; on entry it was set to the whole
+        // remaining datagram, before the length field had been parsed
         //
         raw_packet = datum{aad_start, d.data};
 
@@ -1206,14 +1199,10 @@ class quic_frame {
 public:
 
     quic_frame(datum &d) {
-        // Frame Type is a varint (RFC 9000 S12.4/S16), so decode it as one
-        // rather than reading a single byte.
-        //
-        // RFC 9000 S12.4 requires the shortest possible encoding and lets an
-        // endpoint treat a longer one as PROTOCOL_VIOLATION, so a non-minimal
-        // type such as 0x4006 for CRYPTO is non-conformant rather than merely
-        // unusual.  A monitor still decodes it: refusing to would let a
-        // sender hide a ClientHello from us while the peer accepts it.
+        // Frame Type is a varint (RFC 9000 S12.4/S16).  Non-minimal encodings
+        // such as 0x4006 for CRYPTO are non-conformant -- S12.4 requires the
+        // shortest form -- but are decoded anyway, since refusing would hide a
+        // ClientHello that the peer accepts.
         variable_length_integer type{d};
         if (d.is_null()) {
             frame.emplace<std::monostate>();   // truncated type field
@@ -1222,11 +1211,9 @@ public:
         } else if (type.value() == 0x1c) {
             frame.emplace<connection_close>(d, false);   // transport (has Frame Type)
         } else if (type.value() == 0x1d) {
-            // Application CONNECTION_CLOSE omits the Frame Type field.  RFC
-            // 9000 Table 3 permits only 0x1c in an Initial, and S10.2.3
-            // requires a sender to convert 0x1d to 0x1c there, so this is
-            // non-conformant in the packets we parse -- accepted so that a
-            // close is still reported rather than aborting the frame walk.
+            // application variant; omits the Frame Type field.  RFC 9000
+            // Table 3 and S10.2.3 disallow it in an Initial, so this is
+            // non-conformant input we parse rather than abort the walk on.
             frame.emplace<connection_close>(d, true);
         } else if (type.value() == 0x00) {
             frame.emplace<padding>(d);
@@ -1298,18 +1285,14 @@ public:
 // are copied into cryptographic_buffer::buffer; consumers reconstruct data
 // from buffer + offset() using these lengths.
 //
-// bytes_captured equals frame_length for every frame that reaches us today:
-// crypto's constructor builds its data as datum{p, _length.value()}, and
-// datum::parse() takes exactly that many bytes or nulls both datums, while
-// crypto::is_valid() tests that the data is non-empty.  The field and the
-// bounds check in the reassembly fallback are kept deliberately -- that
-// invariant lives in another class and nothing enforces it, and one
-// comparison is cheap insurance on a path that indexes a raw 8 KB buffer.
+// bytes_captured always equals frame_length today: crypto's data is
+// datum{p, _length.value()} and datum::parse() is all-or-nothing.  It is kept,
+// with the bounds check in the fallback, because nothing enforces that here.
 //
 struct crypto_frame_meta {
     uint64_t frame_offset = 0;    // CRYPTO frame stream offset
     uint64_t frame_length = 0;    // declared CRYPTO Length field
-    uint64_t bytes_captured = 0;  // bytes copied into the buffer; == frame_length (see above)
+    uint64_t bytes_captured = 0;  // bytes copied into the buffer
 
     uint64_t offset() const { return frame_offset; }
     uint64_t length() const { return frame_length; }
@@ -1663,23 +1646,14 @@ class quic_init : public base_protocol {
     uint32_t total_frame_count = 0;       // non-PADDING frames across decrypted packets
     uint32_t total_padding_count = 0;     // PADDING frames (one per padding byte)
 
-    // Harvest one decrypted packet: merge CRYPTO into crypto_buffer, count
-    // frames, and capture the first CONNECTION_CLOSE and ACK.  CRYPTO bytes
-    // are copied into crypto_buffer as we go, so they outlive the packet.
+    // Harvest one decrypted packet: copy CRYPTO into crypto_buffer, count
+    // frames, capture the first CONNECTION_CLOSE and ACK.
     //
-    // close and ack_frame have different lifetimes:
-    //
-    //   - connection_close holds a datum for the reason phrase, pointing into
-    //     the engine's decryption buffer.  Every decrypt attempt overwrites
-    //     that buffer, including a failed one: gcm_decrypt() writes the
-    //     unauthenticated plaintext with EVP_DecryptUpdate() before
-    //     EVP_DecryptFinal_ex() checks the tag.  We therefore reset close on
-    //     every call and report only the packet whose plaintext is still live
-    //     at write_json, rather than a reason phrase that has been clobbered.
-    //
-    //   - ack / ack_ecn decode into variable-length integers held by value,
-    //     so they stay valid across buffer reuse.  ack_frame is not reset:
-    //     the first ACK seen anywhere in the datagram is reported.
+    // close is reset per call: its reason phrase points into the engine's
+    // decryption buffer, which every attempt overwrites -- gcm_decrypt()
+    // writes plaintext before the tag is checked, so failures clobber it too.
+    // ack/ack_ecn decode to integers by value, so ack_frame survives reuse
+    // and is not reset.
     //
     void harvest_frames(datum pt) {
         close = quic_frame{};
@@ -1717,16 +1691,10 @@ class quic_init : public base_protocol {
         }
     }
 
-    // true if other belongs to the same connection as the first packet,
-    // that is, it carries the same QUIC version and the same Destination
-    // Connection ID.
-    //
-    // RFC 9000 Section 12.2 requires every packet coalesced into a datagram
-    // to carry the same DCID, and Initial keys are derived from the DCID of
-    // the packet itself.  Without the DCID check an appended Initial from a
-    // different connection decrypts successfully and its offset-0 CRYPTO
-    // frame overwrites the ClientHello of the first packet, while the record
-    // still reports the first packet's dcid.
+    // true if other carries the same version and DCID as the first packet.
+    // RFC 9000 S12.2 requires the latter, and Initial keys derive from each
+    // packet's own DCID, so without the check an Initial appended from
+    // another connection decrypts and overwrites the real ClientHello.
     //
     bool same_connection(const quic_initial_packet &other) const {
         datum va = initial_packet.version;
@@ -1747,16 +1715,11 @@ public:
 
     quic_init(struct datum &d, quic_crypto_engine &quic_crypto_) : initial_packet{d}, quic_crypto{quic_crypto_}, crypto_buffer{}, hello{}, plaintext{}, decry_pkt{initial_packet,crypto_buffer}, pre_decrypted{false}, more_bytes_needed{0}, min_crypto_offset{UINT32_MAX} {
 
-        // Reject non-Initial long-header packets: only an Initial carries a
-        // Token field and the ClientHello, so parsing a 0-RTT, Handshake or
-        // Retry packet Initial-style produces a forged record.
-        //
-        // The Long Packet Type encoding is version-specific, so take the
-        // mask from quic_parameters rather than assuming v1's mapping.  An
-        // unknown version yields no mask and is left ungated, so it still
-        // reaches trial decryption.  decrypt() applies the same mask, but
-        // only for packets that get that far -- the pre-decrypted path below
-        // returns first -- so the check is made here as well.
+        // Reject non-Initial long-header types, which would otherwise be
+        // parsed Initial-style into a forged record.  The Long Packet Type
+        // encoding is version-specific, so take the mask from quic_parameters;
+        // an unknown version yields none and is left for trial decryption.
+        // decrypt() applies the same mask, but only after the fast path below.
         //
         static quic_parameters &quic_params = quic_parameters::create();
         uint64_t version_value = 0;
@@ -1771,13 +1734,9 @@ public:
 
         // check reserved bits, if 0, try for decrypted quic packet
         //
-        // The reserved bits are header-protected in a genuine Initial, so
-        // this heuristic runs on attacker-influenced input: a malformed first
-        // packet whose protected bytes happen to parse as PADDING would be
-        // accepted as cleartext.  Require that nothing follows in the
-        // datagram, so a crafted first packet cannot suppress a valid
-        // coalesced Initial behind it.  Genuine pre-decrypted input is a
-        // single packet, so this does not narrow the intended use.
+        // Those bits are header-protected in a genuine Initial, so require an
+        // empty remainder too: otherwise a crafted first packet that parses
+        // as PADDING suppresses a valid coalesced Initial behind it.
         //
         if ((initial_packet.connection_info & 0x0c) == 0) {
             decry_pkt.parse();
@@ -1973,10 +1932,8 @@ public:
             quic_crypto.write_json(quic_record);
             quic_record.print_key_hex("plaintext", plaintext);
         } else if (decrypted_pkt_count == 0) {
-            // Report the undecrypted bytes only when nothing in the datagram
-            // decrypted.  plaintext tracks the most recent attempt, so a
-            // datagram whose trailing packet failed would otherwise claim
-            // that no packet was readable.
+            // only when nothing in the datagram decrypted; plaintext tracks
+            // the last attempt, not the last success
             quic_record.print_key_hex("raw_packet_data", initial_packet.raw_packet);
         }
         // json_object frame_dump{record, "frame_dump"};
@@ -2162,14 +2119,12 @@ namespace quic_packet_safety_unit_test {
         return packet;
     }
 
-    // number of bytes a packet written by write_initial() occupies
     static constexpr size_t initial_pkt_len = 18 + 64;   // header + payload
 
-    // Writes a minimal long-header Initial into buf: version 1, an 8-byte
-    // Destination Connection ID of repeated dcid_byte, and a 64-byte payload.
-    // conn_info selects the first octet, so callers can set the reserved bits
-    // to steer the packet away from the pre-decrypted fast path.  Returns the
-    // number of bytes written, so coalesced packets can be appended.
+    // Writes a minimal v1 Initial: 8-byte DCID of repeated dcid_byte, 64-byte
+    // payload.  conn_info defaults to reserved bits set, which keeps the
+    // packet off the pre-decrypted fast path.  Returns bytes written, so
+    // coalesced packets can be appended.
     //
     inline size_t write_initial(uint8_t *buf, uint8_t dcid_byte, uint8_t conn_info = 0xc8) {
         buf[0] = conn_info;
@@ -2299,10 +2254,9 @@ namespace quic_packet_safety_unit_test {
         return true;
     }
 
-    // Only Initial packets are accepted; other long-header types are
-    // rejected.  The Long Packet Type mapping is taken from quic_parameters,
-    // so v2's renumbering is honoured and an unknown version -- whose header
-    // layout we cannot assume -- is left ungated for trial decryption.
+    // Only Initials are accepted.  The type mapping comes from
+    // quic_parameters, so v2's renumbering is honoured and an unknown version
+    // is left ungated for trial decryption.
     inline bool initial_packet_type_gate_unit_test() {
         auto build = [](uint8_t conn_info, uint32_t version) {
             auto packet = make_quic_initial();
@@ -2440,10 +2394,8 @@ namespace quic_packet_safety_unit_test {
         return true;
     }
 
-    // raw_packet must describe the one packet the record is about.  With
-    // coalescing the rest of the datagram can be several further packets, and
-    // dumping those as raw_packet_data both misattributes them and inflates
-    // the record.
+    // raw_packet must cover only the packet the record describes, not the
+    // coalesced packets behind it.
     //
     inline bool raw_packet_extent_unit_test() {
         std::array<uint8_t, quic_initial_packet_len> datagram{};
@@ -2458,15 +2410,11 @@ namespace quic_packet_safety_unit_test {
         return ip.raw_packet.length() == (ssize_t)initial_pkt_len;
     }
 
-    // The pre-decrypted fast path infers "already decrypted" from reserved
-    // bits that are header-protected in a genuine Initial, so it runs on
-    // attacker-influenced input.  It must not return before the coalesced
-    // walk: otherwise a crafted first packet that happens to parse as PADDING
-    // suppresses a valid coalesced Initial behind it.
-    //
-    // A pre-decrypted record reports "plaintext" and no coalesced telemetry;
-    // taking the normal path on this input fails to decrypt and reports
-    // "raw_packet_data" plus telemetry, so the two are distinguishable.
+    // The pre-decrypted fast path must not return before the coalesced walk,
+    // or a crafted first packet that parses as PADDING hides a valid Initial
+    // behind it.  A pre-decrypted record reports "plaintext" and no coalesced
+    // telemetry; the normal path here fails to decrypt and reports both
+    // "raw_packet_data" and telemetry, so the two are distinguishable.
     //
     inline bool pre_decrypted_coalesced_unit_test() {
         auto record_for = [](const std::array<uint8_t, quic_initial_packet_len> &datagram) {
@@ -2482,8 +2430,7 @@ namespace quic_packet_safety_unit_test {
             return std::string(buf, bs.doff > 0 ? (size_t)bs.doff : 0);
         };
 
-        // One cleartext-looking Initial that fills the datagram: the fast
-        // path still applies, since nothing follows it.
+        // one cleartext-looking Initial filling the datagram: fast path applies
         std::array<uint8_t, quic_initial_packet_len> single{};
         write_initial(single.data(), 0x01, 0xc0);   // reserved bits 0
         single[16] = 0x44;   // payload length 1166, so the packet fills the datagram
@@ -2494,8 +2441,7 @@ namespace quic_packet_safety_unit_test {
             return false;
         }
 
-        // The same first packet with a coalesced Initial behind it must not
-        // short-circuit; the walk has to examine the second packet.
+        // same packet with an Initial behind it: the walk must reach it
         std::array<uint8_t, quic_initial_packet_len> coalesced{};
         size_t off = write_initial(coalesced.data(), 0x01, 0xc0);
         write_initial(coalesced.data() + off, 0x01, 0xc0);
@@ -2503,14 +2449,10 @@ namespace quic_packet_safety_unit_test {
         return coalesced_out.find("decrypted_packets") != std::string::npos;
     }
 
-    // A coalesced Initial carrying a different Destination Connection ID must
-    // not be examined.  Initial keys derive from each packet's own DCID, so a
-    // foreign-DCID packet decrypts successfully and its offset-0 CRYPTO frame
-    // would overwrite the first packet's ClientHello while the record still
-    // reports the first packet's dcid (RFC 9000 Section 12.2).
-    //
-    // Coalesced telemetry is emitted only when more than one packet was
-    // examined, so its presence tells us whether the walk continued.
+    // A coalesced Initial with a foreign DCID must not be examined: it would
+    // decrypt under its own keys and overwrite the first packet's ClientHello
+    // (RFC 9000 S12.2).  Coalesced telemetry appears only when more than one
+    // packet was examined, so it shows whether the walk continued.
     //
     inline bool coalesced_dcid_gate_unit_test() {
         auto examined_second_packet = [](uint8_t second_dcid_byte) {
@@ -2570,27 +2512,20 @@ namespace quic_packet_safety_unit_test {
             decry.parse();
             r.missing = cb.missing_crypto_frames;
             r.first = cb.has_first_frame();
-            // set inside the < 10 branch, so it identifies which branch ran
-            r.min_crypto_data = cb.min_crypto_data;
-            // produced by the tls_handshake parse each branch performs, so a
-            // branch whose body did nothing leaves this at zero
-            r.more_bytes_needed = decry.get_more_bytes_needed();
+            r.min_crypto_data = cb.min_crypto_data;      // set only by the < 10 branch
+            r.more_bytes_needed = decry.get_more_bytes_needed();   // zero if a branch did nothing
             return true;
         };
 
-        // CRYPTO off 0 len 5, then CRYPTO off 100 len 5 (gap): first captures
-        // 5 (< 10), so the fallback reads the buffer's first 10 bytes.  Those
-        // are a client_hello header declaring 80 body bytes followed by 6
-        // readable bytes (one from the frame, five never written), so the
-        // parse must ask for the remaining 74.
+        // CRYPTO off 0 len 5, then off 100 len 5 (gap).  First captures 5
+        // (< 10), so the fallback reads 10 buffer bytes: a client_hello header
+        // declaring 80, with 6 readable, leaving 74 needed.
         static const uint8_t small_first[] = {
             0x06, 0x00, 0x05, 0x01, 0x00, 0x00, 0x50, 0xaa,
             0x06, 0x40, 0x64, 0x05, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5,
         };
-        // CRYPTO off 0 len 12, then CRYPTO off 100 len 5 (gap): first captures
-        // 12 (>= 10), so the fallback reads that frame's 12 bytes: a
-        // client_hello header declaring 100 body bytes with 8 present, which
-        // must ask for the remaining 92.
+        // Same, but first captures 12 (>= 10), so the fallback reads that
+        // frame: header declaring 100, with 8 readable, leaving 92 needed.
         static const uint8_t large_first[] = {
             0x06, 0x00, 0x0c, 0x01, 0x00, 0x00, 0x64, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7, 0xa8,
             0x06, 0x40, 0x64, 0x05, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5,
