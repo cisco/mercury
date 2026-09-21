@@ -97,31 +97,6 @@ struct event_msg {
 
 namespace universal61 {
 
-/// \brief Stateful universal61 hash for event messages.
-///
-/// \details
-/// The event type and all four fields are appended in order. Each field is
-/// length-prefixed so distinct field tuples cannot share a byte concatenation.
-///
-struct event_msg_hasher {
-    byte_hasher hasher;
-
-    /// \brief Hash an event message using ordered, length-prefixed fields.
-    ///
-    /// \param event The event message to hash.
-    /// \return The hash value converted to `std::size_t`.
-    ///
-    std::size_t operator()(const ::event_msg &event) const noexcept {
-        byte_hash_state state = hasher.begin();
-        state.append(static_cast<uint64_t>(event.type));
-        for (const std::string &field : event.fields) {
-            state.append_length(field.size());
-            state.append_bytes(field);
-        }
-        return static_cast<std::size_t>(state.finish());
-    }
-};
-
 /// Stateful universal61 hash for compressed event keys.
 ///
 struct event_key_hasher {
@@ -143,30 +118,24 @@ struct event_key_hasher {
 
 #ifndef NDEBUG
 // LCOV_EXCL_START
-/// \brief Test event-message hashing and field-boundary preservation.
+/// \brief Test event-key hashing with known-answer values.
 ///
-/// \return True if all event-message hash checks pass.
+/// \return True if all event-key hash checks pass.
 ///
-inline bool event_msg_hasher_unit_test() {
-    const event_msg_hasher hasher{
+inline bool event_key_hasher_unit_test() {
+    const event_key_hasher hasher{
         byte_hasher{{
             0x0123456789abcdefULL,
             0x0f0e0d0c0b0a0908ULL,
         }}
     };
-    const ::event_msg split_fields{
-        "ab", "c", "", "", event_type::fingerprint};
-    const ::event_msg joined_fields{
-        "a", "bc", "", "", event_type::fingerprint};
-    const ::event_msg shifted_fields{
-        "ab", "", "c", "", event_type::fingerprint};
-    const ::event_msg different_type{
-        "ab", "c", "", "", event_type::cert_label};
+    const event_key base{{1, 2, 3, 4}, event_type::fingerprint};
+    const event_key changed_field{{1, 2, 4, 3}, event_type::fingerprint};
+    const event_key changed_type{{1, 2, 3, 4}, event_type::cert_label};
 
-    return hasher(split_fields) == 0x13c2139e56ab8d09ULL
-        && hasher(joined_fields) == 0x04f02f35dcb67425ULL
-        && hasher(different_type) == 0x07d85db31e93bdc5ULL
-        && hasher(split_fields) != hasher(shifted_fields);
+    return hasher(base) == 0x1e7688e85c5a0251ULL
+        && hasher(changed_field) == 0x1a0380c045408eeaULL
+        && hasher(changed_type) == 0x09309928130495e9ULL;
 }
 // LCOV_EXCL_STOP
 #endif

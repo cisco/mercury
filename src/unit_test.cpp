@@ -402,8 +402,8 @@ int main(int, char *[]) {
             &universal61::byte_unit_test
         },
         {
-            "event_msg_hasher",
-            &universal61::event_msg_hasher_unit_test
+            "event_key_hasher",
+            &universal61::event_key_hasher_unit_test
         },
         {
             "krb5_no_empty_arrays",
