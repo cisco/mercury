@@ -36,7 +36,6 @@
 ///
 class dict {
 
-public:
 private:
     static size_t memory_cost(const std::string &value) {
         constexpr size_t overhead = sizeof(std::pair<const std::string, uint64_t>)
