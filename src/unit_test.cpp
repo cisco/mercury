@@ -85,39 +85,6 @@
 #define GREEN_ON   "\033[32m"
 #define COLOR_OFF  "\033[39m"
 
-static bool stats_memory_budget_unit_test() {
-    event_encoder encoder{};
-    event_msg event{"192.0.2.1", "tls/1/fingerprint", std::string(2048, 'u'), "(example.com)(192.0.2.2)(443)"};
-    event_key key;
-
-    if (!encoder.compress_event(key, event)) {
-        return false;
-    }
-    if (encoder.dictionary_bytes() == 0) {
-        return false;
-    }
-    if (!encoder.compute_inverse_map()) {
-        return false;
-    }
-    event_msg decoded_event;
-    encoder.get_inverse(decoded_event, key);
-    if (!(decoded_event == event)) {
-        return false;
-    }
-
-    encoder.clear();
-    if (encoder.dictionary_bytes() != 0) {
-        return false;
-    }
-
-    stats_aggregator aggregator{0, 512};
-    event_msg stats_event{"192.0.2.3", "tls/1/another", std::string(2048, 'a'), "(example.net)(192.0.2.4)(443)"};
-    aggregator.observe_event_string(stats_event);
-    event_msg second_event{"192.0.2.5", "tls/1/second", std::string(2048, 'b'), "(example.org)(192.0.2.6)(443)"};
-    aggregator.observe_event_string(second_event);
-    return aggregator.get_num_entries() == 1;
-}
-
 int main(int, char *[]) {
 
     assert(printf("DEBUG enabled\n") == 14);
@@ -418,8 +385,16 @@ int main(int, char *[]) {
             &destination_context::unit_test
         },
         {
-            "stats_memory_budget",
-            &stats_memory_budget_unit_test
+            "dict",
+            &dict::unit_test
+        },
+        {
+            "event_encoder",
+            &event_encoder::unit_test
+        },
+        {
+            "stats_aggregator",
+            &stats_aggregator::unit_test
         },
         {
             "subnet_data",

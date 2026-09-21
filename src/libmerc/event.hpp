@@ -328,6 +328,94 @@ public:
         return false;
     }
 
+#ifndef NDEBUG
+    // LCOV_EXCL_START
+    /// \brief Test event encoding, decoding, and ordering.
+    ///
+    /// \return True if all event encoder checks pass.
+    ///
+    static bool unit_test() {
+        event_encoder encoder{};
+        const event_msg event{
+            "192.0.2.1", "tls/1/fingerprint", std::string(2048, 'u'),
+            "(example.com)(192.0.2.2)(443)"};
+        event_key key;
+
+        if (!encoder.compress_event(key, event) ||
+            encoder.dictionary_bytes() == 0 ||
+            !encoder.compute_inverse_map()) {
+            return false;
+        }
+        event_msg decoded_event;
+        encoder.get_inverse(decoded_event, key);
+        if (!(decoded_event == event)) {
+            return false;
+        }
+        encoder.clear();
+        if (encoder.dictionary_bytes() != 0) {
+            return false;
+        }
+
+        event_key source_low;
+        event_key source_high;
+        event_key cert_low;
+        event_key cert_high;
+        event_key snmp_low;
+        event_key snmp_high;
+        event_key fingerprint;
+        event_key fingerprint_field1;
+        event_key fingerprint_field2;
+        event_key fingerprint_field3;
+
+        const event_msg source_low_event{
+            "192.0.2.1", "fp", "ua", "ctx", event_type::fingerprint};
+        const event_msg source_high_event{
+            "192.0.2.2", "fp", "ua", "ctx", event_type::fingerprint};
+        const event_msg cert_low_event{
+            "192.0.2.3", "", "", "a", event_type::cert_label};
+        const event_msg cert_high_event{
+            "192.0.2.3", "", "", "b", event_type::cert_label};
+        const event_msg snmp_low_event{
+            "192.0.2.3", "", "", "a", event_type::snmp_oid};
+        const event_msg snmp_high_event{
+            "192.0.2.3", "", "", "b", event_type::snmp_oid};
+        const event_msg fingerprint_event{
+            "192.0.2.3", "a", "a", "a", event_type::fingerprint};
+        const event_msg fingerprint_field1_event{
+            "192.0.2.3", "b", "a", "a", event_type::fingerprint};
+        const event_msg fingerprint_field2_event{
+            "192.0.2.3", "a", "b", "a", event_type::fingerprint};
+        const event_msg fingerprint_field3_event{
+            "192.0.2.3", "a", "a", "b", event_type::fingerprint};
+
+        if (!encoder.compress_event(source_low, source_low_event) ||
+            !encoder.compress_event(source_high, source_high_event) ||
+            !encoder.compress_event(cert_low, cert_low_event) ||
+            !encoder.compress_event(cert_high, cert_high_event) ||
+            !encoder.compress_event(snmp_low, snmp_low_event) ||
+            !encoder.compress_event(snmp_high, snmp_high_event) ||
+            !encoder.compress_event(fingerprint, fingerprint_event) ||
+            !encoder.compress_event(fingerprint_field1, fingerprint_field1_event) ||
+            !encoder.compress_event(fingerprint_field2, fingerprint_field2_event) ||
+            !encoder.compress_event(fingerprint_field3, fingerprint_field3_event) ||
+            !encoder.compute_inverse_map()) {
+            return false;
+        }
+
+        return encoder.event_key_less(source_low, source_high) &&
+               !encoder.event_key_less(source_high, source_low) &&
+               encoder.event_key_less(cert_low, cert_high) &&
+               encoder.event_key_less(snmp_low, snmp_high) &&
+               encoder.event_key_less(cert_low, snmp_low) &&
+               encoder.event_key_less(snmp_low, fingerprint) &&
+               encoder.event_key_less(fingerprint, fingerprint_field1) &&
+               encoder.event_key_less(fingerprint, fingerprint_field2) &&
+               encoder.event_key_less(fingerprint, fingerprint_field3) &&
+               !encoder.event_key_less(fingerprint, fingerprint);
+    }
+    // LCOV_EXCL_STOP
+#endif
+
     /// compresses the event \p event into the compact \p key representation.
     /// If \p no_new_entries is true, this succeeds only when all dictionary
     /// values are already present.

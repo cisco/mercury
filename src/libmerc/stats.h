@@ -175,6 +175,62 @@ public:
         return;
     }
 
+#ifndef NDEBUG
+    // LCOV_EXCL_START
+    /// \brief Test stats aggregation, memory limits, and output.
+    ///
+    /// \return True if all stats aggregator checks pass.
+    ///
+    static bool unit_test() {
+        stats_aggregator limited{0, 512};
+        const event_msg first_event{
+            "192.0.2.3", "tls/1/another", std::string(2048, 'a'),
+            "(example.net)(192.0.2.4)(443)"};
+        const event_msg second_event{
+            "192.0.2.5", "tls/1/second", std::string(2048, 'b'),
+            "(example.org)(192.0.2.6)(443)"};
+        limited.observe_event_string(first_event);
+        limited.observe_event_string(second_event);
+        if (limited.get_num_entries() != 1) {
+            return false;
+        }
+
+        stats_aggregator aggregator{0, 0};
+        const event_msg fingerprint{
+            "192.0.2.2", "fp", "ua", "ctx", event_type::fingerprint};
+        const event_msg cert_label{
+            "192.0.2.1", "", "", "device", event_type::cert_label};
+        const event_msg snmp_oid{
+            "192.0.2.1", "", "", "1.3.6.1", event_type::snmp_oid};
+        aggregator.observe_event_string(fingerprint);
+        aggregator.observe_event_string(cert_label);
+        aggregator.observe_event_string(snmp_oid);
+
+#ifdef _WIN32
+        const char *path = "NUL";
+#else
+        const char *path = "/dev/null";
+#endif
+        gzFile file = gzopen(path, "wb");
+        if (file == nullptr) {
+            return false;
+        }
+
+        std::atomic<bool> interrupt{false};
+        bool succeeded = true;
+        try {
+            aggregator.gzprint(file, "version", "resource", "commit", 1,
+                               "time", interrupt);
+        }
+        catch (...) {
+            succeeded = false;
+        }
+        const int close_result = gzclose(file);
+        return succeeded && close_result == Z_OK && aggregator.is_empty();
+    }
+    // LCOV_EXCL_STOP
+#endif
+
     size_t get_num_entries() const
     {
         return event_table.size();
