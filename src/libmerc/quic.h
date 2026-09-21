@@ -473,7 +473,13 @@ struct quic_initial_packet {
 
         version.parse(d, 4);
         if (!version.is_not_empty()) {
-            return;  // truncated packet: no version; avoid null-datum lookahead
+            // A header cut short before its 4-byte version yields no record.
+            // This is not a memory-safety guard: lookahead_uint() calls
+            // has_bytes(), which is false on a null datum, so it never reads
+            // through one.  Returning here keeps the version-keyed decisions
+            // below from running against a version that was never read.
+            //
+            return;
         }
 
         // process non-standard QUIC versions, unless compile-time
@@ -1200,8 +1206,14 @@ class quic_frame {
 public:
 
     quic_frame(datum &d) {
-        // Frame Type is a varint (RFC 9000 S12.4/S16); decode it so
-        // non-minimal encodings of known types (e.g. 0x4006 CRYPTO) are kept.
+        // Frame Type is a varint (RFC 9000 S12.4/S16), so decode it as one
+        // rather than reading a single byte.
+        //
+        // RFC 9000 S12.4 requires the shortest possible encoding and lets an
+        // endpoint treat a longer one as PROTOCOL_VIOLATION, so a non-minimal
+        // type such as 0x4006 for CRYPTO is non-conformant rather than merely
+        // unusual.  A monitor still decodes it: refusing to would let a
+        // sender hide a ClientHello from us while the peer accepts it.
         variable_length_integer type{d};
         if (d.is_null()) {
             frame.emplace<std::monostate>();   // truncated type field
@@ -1210,7 +1222,12 @@ public:
         } else if (type.value() == 0x1c) {
             frame.emplace<connection_close>(d, false);   // transport (has Frame Type)
         } else if (type.value() == 0x1d) {
-            frame.emplace<connection_close>(d, true);    // application (no Frame Type)
+            // Application CONNECTION_CLOSE omits the Frame Type field.  RFC
+            // 9000 Table 3 permits only 0x1c in an Initial, and S10.2.3
+            // requires a sender to convert 0x1d to 0x1c there, so this is
+            // non-conformant in the packets we parse -- accepted so that a
+            // close is still reported rather than aborting the frame walk.
+            frame.emplace<connection_close>(d, true);
         } else if (type.value() == 0x00) {
             frame.emplace<padding>(d);
         } else if (type.value() == 0x01) {
@@ -1280,10 +1297,19 @@ public:
 // (coalesced) packets overwrite, so a retained datum would dangle. The bytes
 // are copied into cryptographic_buffer::buffer; consumers reconstruct data
 // from buffer + offset() using these lengths.
+//
+// bytes_captured equals frame_length for every frame that reaches us today:
+// crypto's constructor builds its data as datum{p, _length.value()}, and
+// datum::parse() takes exactly that many bytes or nulls both datums, while
+// crypto::is_valid() tests that the data is non-empty.  The field and the
+// bounds check in the reassembly fallback are kept deliberately -- that
+// invariant lives in another class and nothing enforces it, and one
+// comparison is cheap insurance on a path that indexes a raw 8 KB buffer.
+//
 struct crypto_frame_meta {
     uint64_t frame_offset = 0;    // CRYPTO frame stream offset
     uint64_t frame_length = 0;    // declared CRYPTO Length field
-    uint64_t bytes_captured = 0;  // bytes actually copied into the buffer
+    uint64_t bytes_captured = 0;  // bytes copied into the buffer; == frame_length (see above)
 
     uint64_t offset() const { return frame_offset; }
     uint64_t length() const { return frame_length; }
@@ -2509,9 +2535,10 @@ namespace quic_packet_safety_unit_test {
             && !examined_second_packet(0x02);     // foreign DCID: walk stops
     }
 
-    // A long header cut off before its 4-byte version must not parse (guards a
-    // null-datum lookahead); the datagram-min-length check is disabled so the
-    // truncation, not the length gate, is what rejects it.
+    // A long header cut off before its 4-byte version must not parse, so no
+    // record is produced from a version that was never read.  The
+    // datagram-min-length check is disabled, so the truncation rather than
+    // the length gate is what rejects it.
     inline bool truncated_version_unit_test() {
         static const uint8_t buf[] = {0xc0, 0x00, 0x01};   // conn_info + only 2 version bytes
         datum d{buf, buf + sizeof(buf)};
