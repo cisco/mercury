@@ -59,7 +59,7 @@ class stats_aggregator {
         size_t total = sizeof(std::pair<const event_msg, uint64_t>)
                      + 8 * sizeof(void *);
         for (const auto &field : event.fields) {
-            total = add_memory(total, field.capacity());
+            total = add_memory(total, field.size());
             if (total == std::numeric_limits<size_t>::max()) {
                 return std::numeric_limits<size_t>::max();
             }
