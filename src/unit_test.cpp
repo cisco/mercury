@@ -77,6 +77,7 @@
 #include "libmerc/pgsql.hpp"
 #include "libmerc/cbor_decoded_metadata_test.hpp"
 #include "libmerc/dcerpc.hpp"
+#include "libmerc/stats.h"
 #include "libmerc/universal61.hpp"
 #include "libmerc/universal61_bytes.hpp"
 #include "libmerc/event.hpp"
@@ -388,8 +389,8 @@ int main(int, char *[]) {
             &universal61::byte_unit_test
         },
         {
-            "event_msg_hasher",
-            &universal61::event_msg_hasher_unit_test
+            "event_key_hasher",
+            &universal61::event_key_hasher_unit_test
         },
         {
             "krb5_no_empty_arrays",
@@ -402,6 +403,18 @@ int main(int, char *[]) {
         {
             "destination_context",
             &destination_context::unit_test
+        },
+        {
+            "dict",
+            &dict::unit_test
+        },
+        {
+            "event_encoder",
+            &event_encoder::unit_test
+        },
+        {
+            "stats_aggregator",
+            &stats_aggregator::unit_test
         },
         {
             "subnet_data",

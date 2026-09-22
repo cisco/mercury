@@ -21,6 +21,7 @@ typedef uint32_t useconds_t;
 #include <string>
 #include <unordered_map>
 #include <algorithm>
+#include <limits>
 #include <thread>
 #include <chrono>
 #include "printf_err.hpp"
@@ -38,39 +39,92 @@ typedef uint32_t useconds_t;
 // events
 //
 class stats_aggregator {
-    std::unordered_map<event_msg, uint64_t, universal61::event_msg_hasher> event_table;
+
+    using event_table_entry = std::pair<const event_key, uint64_t>;
+    std::unordered_map<event_key, uint64_t, universal61::event_key_hasher> event_table;
     event_encoder encoder;
-    std::string observation;  // used as preallocated temporary variable
-    size_t num_entries;
     size_t max_entries;
+    size_t estimated_memory_bytes;
+    size_t event_table_memory_bytes;
+    size_t max_memory_bytes;
+
+    static size_t add_memory(size_t current, size_t amount) {
+        if (amount > std::numeric_limits<size_t>::max() - current) {
+            return std::numeric_limits<size_t>::max();
+        }
+        return current + amount;
+    }
+
+    static size_t event_memory_cost() {
+        return sizeof(std::pair<const event_key, uint64_t>)
+             + 8 * sizeof(void *);
+    }
+
+    void update_estimated_memory() {
+        const size_t dictionary_bytes = encoder.dictionary_bytes();
+        if (event_table_memory_bytes > std::numeric_limits<size_t>::max() - dictionary_bytes) {
+            estimated_memory_bytes = std::numeric_limits<size_t>::max();
+        } else {
+            estimated_memory_bytes = dictionary_bytes + event_table_memory_bytes;
+        }
+    }
 
 public:
 
-    stats_aggregator(size_t size_limit) : event_table{}, encoder{}, observation{}, num_entries{0}, max_entries{size_limit} { }
+    static constexpr size_t default_max_memory_bytes = 16 * 1024 * 1024;
 
-    ~stats_aggregator() {  }
+    stats_aggregator(size_t size_limit,
+                     size_t memory_limit=default_max_memory_bytes) :
+        event_table{},
+        encoder{},
+        max_entries{size_limit},
+        estimated_memory_bytes{0},
+        event_table_memory_bytes{0},
+        max_memory_bytes{memory_limit} { }
 
-    void observe_event_string(event_msg &obs) {
+    void observe_event_string(const event_msg &obs) {
 
-        bool no_new_entries = max_entries && num_entries >= max_entries;
+        bool no_new_entries = (max_entries && event_table.size() >= max_entries) ||
+                              (max_memory_bytes && estimated_memory_bytes >= max_memory_bytes);
 
-        if (encoder.compress_event_string(obs, no_new_entries) == false) {
+        event_key key{};
+        if (encoder.compress_event(key, obs, no_new_entries) == false) {
+            update_estimated_memory();
             return;  // error: can't observe this event
         }
 
-        const auto entry = event_table.find(obs);
+        const auto entry = event_table.find(key);
         if (entry != event_table.end()) {
             entry->second = entry->second + 1;
         } else {
             if (no_new_entries) {
-                return;  // don't go over the max_entries limit
+                return;  // don't create another stats entry
             }
-            event_table.emplace(obs, 1);  // TODO: check return value for allocation failure
-            ++num_entries;
+            auto inserted = event_table.emplace(key, 1);
+            if (!inserted.second) {
+                update_estimated_memory();
+                return;
+            }
+            event_table_memory_bytes = add_memory(event_table_memory_bytes,
+                                                  event_memory_cost());
         }
+        update_estimated_memory();
     }
 
-    bool is_empty() const { return event_table.size() == 0; }
+    bool is_empty() const { return event_table.empty(); }
+
+    /// Discard the current event snapshot and release its associated memory.
+    ///
+    /// A snapshot must be reset after a successful dump or a failed dump
+    /// before its stats_aggregator is returned to active collection.
+    ///
+    void reset() {
+        event_table.clear();
+        event_table.rehash(0);
+        event_table_memory_bytes = 0;
+        encoder.clear();
+        update_estimated_memory();
+    }
 
     void gzprint(gzFile f, const char *version,
                  const char *resource_version,
@@ -79,64 +133,57 @@ public:
                  const char *init_time,
                  std::atomic<bool> &interrupt ) {
 
-        if (event_table.size() == 0) {
+        if (event_table.empty()) {
             return;  // nothing to report
         }
 
         // note: this function is not const because of compute_inverse_map()
 
         // compute decoding table for elements
+        //
         if (encoder.compute_inverse_map() == false) {
+            //
+            // Do not return a populated snapshot to the collection path after
+            // decoding setup fails; the next rotation must start empty.
+            //
+            reset();
             return;  // error; unable to compute fingerprint decompression map
         }
 
-        std::vector<std::pair<event_msg, uint64_t>> v(event_table.begin(), event_table.end());
-        event_table.clear();
-        num_entries = 0;
-        std::sort(v.begin(), v.end(), [&interrupt](auto &l, auto &r){
+        // Sort pointers to compact table entries, then decode one event at a
+        // time during emission.
+        //
+        std::vector<const event_table_entry *> sorted_entries;
+        sorted_entries.reserve(event_table.size());
+        for (const auto &entry : event_table) {
+            sorted_entries.push_back(&entry);
+        }
+
+        std::sort(sorted_entries.begin(), sorted_entries.end(),
+                  [this, &interrupt](const auto *left, const auto *right) {
             if (interrupt.load() == true) {
                 throw std::runtime_error("error: stats dump interrupted");
             }
-            const auto &le = l.first;
-            const auto &re = r.first;
-            if (le[0] != re[0]) {
-                return le[0] < re[0];
-            }
-            auto type_rank = [](event_type t) {
-                switch (t) {
-                case event_type::cert_label:
-                    return 0;
-                case event_type::snmp_oid:
-                    return 1;
-                case event_type::fingerprint:
-                default:
-                    return 2;
-                }
-            };
-            int l_rank = type_rank(le.type);
-            int r_rank = type_rank(re.type);
-            if (l_rank != r_rank) {
-                return l_rank < r_rank;
-            }
-            if (le.type == event_type::cert_label || le.type == event_type::snmp_oid) {
-                return le[3] < re[3];
-            }
-            return le < re;
-        } );
+            return encoder.event_key_less(left->first, right->first);
+        });
 
         event_processor_gz ep(f);
         ep.process_init();
-        for (auto &entry : v) {
+        event_msg event;
+        for (const auto *entry : sorted_entries) {
             if (interrupt.load() == true) {
                 ep.process_final();
                 throw std::runtime_error("error: stats dump interrupted");
             }
-            encoder.get_inverse(entry.first);
-            ep.process_update(entry.first, entry.second, version, resource_version, git_commit_id, git_count, init_time);
+            encoder.get_inverse(event, entry->first);
+            ep.process_update(event, entry->second, version, resource_version,
+                              git_commit_id, git_count, init_time);
         }
         ep.process_final();
 
-        encoder.clear();
+        // Release the completed snapshot before this aggregator is reused.
+        //
+        reset();
 
         // if (fp_dict.unit_test(stderr)) {
         //     fprintf(stderr, "passed fp_dict.unit_test()\n");
@@ -145,9 +192,94 @@ public:
         return;
     }
 
+#ifndef NDEBUG
+    // LCOV_EXCL_START
+    /// \brief Test stats aggregation, memory limits, and output.
+    ///
+    /// \return True if all stats aggregator checks pass.
+    ///
+    static bool unit_test() {
+        stats_aggregator limited{0, 512};
+        const event_msg first_event{
+            "192.0.2.3", "tls/1/another", std::string(2048, 'a'),
+            "(example.net)(192.0.2.4)(443)"};
+        const event_msg second_event{
+            "192.0.2.5", "tls/1/second", std::string(2048, 'b'),
+            "(example.org)(192.0.2.6)(443)"};
+        limited.observe_event_string(first_event);
+        limited.observe_event_string(second_event);
+        if (limited.get_num_entries() != 1) {
+            return false;
+        }
+
+        stats_aggregator reused_aggregator{0, 16 * 1024};
+        event_msg reused_event{
+            "192.0.2.3",
+            "tls/1/large",
+            std::string(4096, 'x'),
+            "(large.example.net)(192.0.2.4)(443)"
+        };
+        reused_aggregator.observe_event_string(reused_event);
+
+        for (unsigned int i = 0; i < 32; ++i) {
+            char address[32];
+            char fingerprint[32];
+            char context[64];
+            snprintf(address, sizeof(address), "192.0.2.%u", i + 10);
+            snprintf(fingerprint, sizeof(fingerprint), "tls/1/short/%u", i);
+            snprintf(context, sizeof(context),
+                     "(example-%u.net)(192.0.2.%u)(443)", i, i + 10);
+
+            reused_event[0] = address;
+            reused_event[1] = fingerprint;
+            reused_event[2] = "x";
+            reused_event[3] = context;
+            reused_aggregator.observe_event_string(reused_event);
+        }
+
+        if (reused_aggregator.get_num_entries() <= 2) {
+            return false;
+        }
+
+        stats_aggregator aggregator{0, 0};
+        const event_msg fingerprint{
+            "192.0.2.2", "fp", "ua", "ctx", event_type::fingerprint};
+        const event_msg cert_label{
+            "192.0.2.1", "", "", "device", event_type::cert_label};
+        const event_msg snmp_oid{
+            "192.0.2.1", "", "", "1.3.6.1", event_type::snmp_oid};
+        aggregator.observe_event_string(fingerprint);
+        aggregator.observe_event_string(cert_label);
+        aggregator.observe_event_string(snmp_oid);
+
+#ifdef _WIN32
+        const char *path = "NUL";
+#else
+        const char *path = "/dev/null";
+#endif
+        gzFile file = gzopen(path, "wb");
+        if (file == nullptr) {
+            return false;
+        }
+
+        std::atomic<bool> interrupt{false};
+        bool succeeded = true;
+        try {
+            aggregator.gzprint(file, "version", "resource", "commit", 1,
+                               "time", interrupt);
+        }
+        catch (...) {
+            succeeded = false;
+        }
+        const int close_result = gzclose(file);
+        return succeeded && close_result == Z_OK && aggregator.is_empty();
+    }
+    // LCOV_EXCL_STOP
+#endif
+
     size_t get_num_entries() const
     {
-        return num_entries;
+        return event_table.size();
     }
 };
 
@@ -233,7 +365,16 @@ class data_aggregator {
 
 public:
 
-    data_aggregator(size_t size_limit=0, bool blocking=false) : q{}, ag1{size_limit}, ag2{size_limit}, ag{&ag1}, shutdown_requested{false}, blocking{blocking}, consumer_sleep{1} {
+    data_aggregator(size_t size_limit=0,
+                    bool blocking=false,
+                    size_t memory_limit=stats_aggregator::default_max_memory_bytes) :
+        q{},
+        ag1{size_limit, memory_limit},
+        ag2{size_limit, memory_limit},
+        ag{&ag1},
+        shutdown_requested{false},
+        blocking{blocking},
+        consumer_sleep{1} {
         mercury_get_version_string(version, MAX_VERSION_STRING);
         start_processing();
         //fprintf(stderr, "note: constructing data_aggregator %p\n", (void *)this);
@@ -311,6 +452,11 @@ public:
             tmp->gzprint(f, version, resource_version, git_commit_id, git_count, init_time, std::ref(shutdown_requested));
         }
         catch (std::exception &e) {
+            //
+            // A failed snapshot will be active again after the next rotation;
+            // discard it now so it cannot block new distinct observations.
+            //
+            tmp->reset();
             printf_err(log_err, "%s\n", e.what());
         }
     }
