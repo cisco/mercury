@@ -777,11 +777,15 @@ namespace cbor_fingerprint {
     };
 
     /// verify that decode_cbor_fingerprint() rejects the cbor fingerprint in
-    /// \param encoded, by leaving both of its outputs null.
+    /// \p encoded, by leaving both of its outputs null.
     ///
     /// A fingerprint that cannot be decoded must report the failure through the
     /// datum *and* the writeable: a caller that renders the partial string, or
     /// one that goes on to read the unconsumed bytes, would both be wrong.
+    ///
+    /// \param name     names the case in the report
+    /// \param encoded  the cbor fingerprint that must be rejected
+    /// \param f        where to report a failure, or nullptr to stay silent
     ///
     /// \return `true` if both outputs were left null, and `false` otherwise
     ///
@@ -805,9 +809,11 @@ namespace cbor_fingerprint {
         return true;
     }
 
-    /// \return a tls/1 fingerprint whose extension list nests \param D arrays
-    /// deep, with every break byte present: {1: {1: [h'', h'', <D nested
-    /// arrays>]}}.  Everything after the opening arrays is a break, so filling
+    /// \tparam D the nesting depth of the extension list.
+    ///
+    /// \return a tls/1 fingerprint whose extension list nests \p D arrays
+    /// deep, with every break byte present: {1: {1: [h'', h'', \<D nested
+    /// arrays\>]}}.  Everything after the opening arrays is a break, so filling
     /// with 0xff writes the D inner breaks and the three that close the list
     /// and the two maps.
     ///

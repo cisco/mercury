@@ -286,13 +286,13 @@ public:
 #include "json_object.h"
 #include "utf8.hpp"
 
-/// report to \param f a tag 18000 whose content this build could not decode as a
-/// fingerprint, and which the translator therefore dropped.  \param content is
+static constexpr size_t max_reported_tag_bytes = 189;   // 4*ceil(189/3) + 2 quotes == 254 < 256
+
+/// report to \p f a tag 18000 whose content this build could not decode as a
+/// fingerprint, and which the translator therefore dropped.  \p content is
 /// the tag's content bytes, without the three-byte tag head.  Only the first
 /// max_reported_tag_bytes are printed, and a longer content is marked "(truncated)".
 ///
-static constexpr size_t max_reported_tag_bytes = 189;   // 4*ceil(189/3) + 2 quotes == 254 < 256
-
 static inline void fprint_dropped_npf_tag(FILE *f, const datum &content) {
     output_buffer<256> b;
     bool cut = content.has_bytes(max_reported_tag_bytes + 1);
@@ -331,7 +331,7 @@ public:
 
     inline bool decode_cbor_array_to_json(datum &d, json_array &a, size_t depth = 0);
 
-    /// decodes an indefinite-length cbor map body into \param o, consuming the
+    /// decodes an indefinite-length cbor map body into \p o, consuming the
     /// terminating break byte.
     ///
     inline bool decode_cbor_map_to_json(datum &d, json_object &o, size_t depth = 0) {
@@ -673,12 +673,17 @@ static inline bool decode_fprint_json(datum d, FILE *f, vocabulary *v=nullptr) {
 // LCOV_EXCL_START
 
 /// compare the outcome of a cbor to json translation against what was expected,
-/// and report any difference to \param f.
+/// and report any difference to \p f.
 ///
-/// \param buf      holds the json that the translation produced
-/// \param result   the value that the translator returned
-/// \param leftover the number of bytes that it left unconsumed, or -1 if it
-///                 nulled the datum
+/// \param name              names the case in the report
+/// \param buf               holds the json that the translation produced
+/// \param result            the value that the translator returned
+/// \param leftover          the number of bytes that it left unconsumed, or -1
+///                          if it nulled the datum
+/// \param expected_json     the json the translation must produce
+/// \param expected_result   the value the translator must return
+/// \param expected_leftover the number of bytes it must leave unconsumed
+/// \param f                 where to report a difference, or nullptr to stay silent
 ///
 /// \return `true` if the translation matched in every respect, and `false`
 /// otherwise
@@ -709,11 +714,15 @@ static inline bool check_translation(const char *name,
     return true;
 }
 
-/// translate the body of the indefinite-length cbor array in \param input into
-/// json, and compare the result against \param expected_json.
+/// translate the body of the indefinite-length cbor array in \p input into
+/// json, and compare the result against \p expected_json.
 ///
+/// \param name              names the case in the report
+/// \param input             the cbor to translate
+/// \param expected_json     the json the translation must produce
 /// \param expected_result   the value that the translator must return
 /// \param expected_leftover the number of bytes that it must leave unconsumed
+/// \param f                 where to report a difference, or nullptr to stay silent
 ///
 /// \return `true` if the translation matched in every respect, and `false`
 /// otherwise
@@ -740,12 +749,16 @@ static inline bool test_cbor_array_to_json(const char *name,
                              expected_json, expected_result, expected_leftover, f);
 }
 
-/// translate the cbor map in \param input into json through the
+/// translate the cbor map in \p input into json through the
 /// decode_cbor_map_to_json() entry point, and compare the result against
-/// \param expected_json.
+/// \p expected_json.
 ///
+/// \param name              names the case in the report
+/// \param input             the cbor to translate
+/// \param expected_json     the json the translation must produce
 /// \param expected_result   the value that the translator must return
 /// \param expected_leftover the number of bytes that it must leave unconsumed
+/// \param f                 where to report a difference, or nullptr to stay silent
 ///
 /// \return `true` if the translation matched in every respect, and `false`
 /// otherwise
@@ -765,7 +778,9 @@ static inline bool test_cbor_map_to_json(const char *name,
                              expected_json, expected_result, expected_leftover, f);
 }
 
-/// \return \param D nested indefinite-length arrays holding a single 0 as the
+/// \tparam D the nesting depth.
+///
+/// \return \p D nested indefinite-length arrays holding a single 0 as the
 /// innermost element, with every break byte present, so the nesting depth is
 /// the only thing a decoder can object to.
 ///
@@ -778,7 +793,9 @@ static inline std::array<uint8_t, 2 * D + 1> nested_arrays() {
     return a;
 }
 
-/// \return \param D nested indefinite-length maps, each keyed on 1, holding a
+/// \tparam D the nesting depth.
+///
+/// \return \p D nested indefinite-length maps, each keyed on 1, holding a
 /// single 0 as the innermost value, with every break byte present.
 ///
 template <size_t D>

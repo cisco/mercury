@@ -683,14 +683,14 @@ namespace cbor {
         return false;
     }
 
-    /// Advance \param d past the chunks and terminating break stop code of an
-    /// indefinite-length byte or text string of major type \param mt, whose
+    /// Advance \p d past the chunks and terminating break stop code of an
+    /// indefinite-length byte or text string of major type \p mt, whose
     /// initial byte has not yet been read.
     ///
     /// RFC 8949 Sec. 3.2.3: the chunks of an indefinite-length string are
     /// definite-length strings of the same major type, and they are not data
     /// items in their own right, so they are walked here rather than through
-    /// \ref skip_cbor_value().  Anything else nulls \param d, a nested
+    /// \ref skip_cbor_value().  Anything else nulls \p d, a nested
     /// indefinite-length string included.
     ///
     static inline void skip_indefinite_string(datum &d, uint8_t mt) {
