@@ -105,9 +105,6 @@ public:
         }
         try {
             auto inserted = d.emplace(value, count);
-            if (!inserted.second) {
-                return false;
-            }
             estimated_bytes = add_memory(estimated_bytes,
                                          memory_cost(inserted.first->first));
         }
