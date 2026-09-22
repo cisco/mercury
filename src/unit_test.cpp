@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <cstdio>
 #include "libmerc/datum.h"
+#include "libmerc/grease.hpp"
+#include "libmerc/variable_length_vector.hpp"
 #include "libmerc/null_terminated_string.hpp"
 #include "libmerc/lex.h"
 #include "libmerc/cbor.hpp"
@@ -136,6 +138,14 @@ int main(int, char *[]) {
         {
             "encoded<uint64_t>",
             &encoded<uint64_t>::unit_test
+        },
+        {
+            "grease",
+            &grease::grease_unit_test
+        },
+        {
+            "variable_length_vector",
+            &variable_length_vector_unit_test
         },
         {
             "tofsee_initial_message",
