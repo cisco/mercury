@@ -8,6 +8,7 @@
 #include "datum.h"
 #include "cbor.hpp"
 #include "cbor_object.hpp"
+#include "fdc.hpp"        // for fdc::decode_version_one()
 
 [[maybe_unused]] inline std::string translate_l7_metadata_to_json_string(datum d) {
     char buffer[16384];

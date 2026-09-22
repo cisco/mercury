@@ -7,6 +7,8 @@
 
 #include <iterator>   // for std::distance()
 #include <array>
+#include <cassert>    // for assert()
+#include <stdio.h>    // for FILE, fprintf()
 
 static constexpr bool streq(const char *l, const char *r) {
     while (*l and *r) {
