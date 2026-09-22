@@ -36,10 +36,6 @@
 ///
 class dict {
 
-public:
-    static constexpr size_t index_length = 17;
-
-private:
     static size_t memory_cost(const std::string &value) {
 
         // Approximate per-entry overhead for unordered_map buckets, nodes,
@@ -90,43 +86,32 @@ public:
         return estimated_bytes;
     }
 
-    /// compresses the string \p value and write the result into
-    /// \p index_string and return `true` if successful; otherwise,
-    /// return `false`, in which case the contents of
-    /// `index_string` are undefined and must be ignored.  If
-    /// \p no_new_entries is `true`, then no new dictionary entries will
-    /// be created, and the function will only succeed if `value` is
-    /// already present in the dictionary.
+    /// compresses the string \p value and writes the dictionary index to
+    /// \p index.  If \p no_new_entries is `true`, this succeeds only when
+    /// \p value is already present in the dictionary.
+    /// On failure, \p index is left unchanged.
     ///
     bool compress(const std::string &value,
-                  char index_string[index_length],
+                  uint64_t &index,
                   bool no_new_entries=false)
     {
         auto x = d.find(value);
-        if (x == d.end()) {
-            if (no_new_entries) {
-                return false;
-            }
-            if (count == std::numeric_limits<uint64_t>::max()) {
-                return false;
-            }
-            try {
-                auto inserted = d.emplace(value, count);
-                if (!inserted.second) {
-                    snprintf(index_string, index_length, "%" PRIx64, inserted.first->second);
-                    return true;
-                }
-                estimated_bytes = add_memory(estimated_bytes,
-                                             memory_cost(inserted.first->first));
-            }
-            catch (...) {
-                return false;
-            }
-            snprintf(index_string, index_length, "%" PRIx64, count);
-            count++;
+        if (x != d.end()) {
+            index = x->second;
             return true;
         }
-        snprintf(index_string, index_length, "%" PRIx64, x->second);
+        if (no_new_entries || count == std::numeric_limits<uint64_t>::max()) {
+            return false;
+        }
+        try {
+            auto inserted = d.emplace(value, count);
+            estimated_bytes = add_memory(estimated_bytes,
+                                         memory_cost(inserted.first->first));
+        }
+        catch (...) {
+            return false;
+        }
+        index = count++;
         return true;
     }
 
@@ -163,34 +148,52 @@ public:
         d.rehash(0);  // release excess bucket storage
     }
 
+#ifndef NDEBUG
     // LCOV_EXCL_START
-    /// unit_test(f) verifies that the dictionary is the same in both
-    /// the forward and inverse directions; perform this test only after
-    /// the dictionary has been populated.  Returns true if the test passed,
-    /// and false otherwise.
+    /// \brief Test dictionary compression and inverse-map behavior.
     ///
-    bool unit_test(FILE *f) {
-        // sanity check: output forward and reverse mappings, to enable comparison
-        bool passed = true;
-        for (const auto &a : d) {
-            if (a.first.compare(get_inverse(a.second)) != 0) {
-                if (f) {
-                    fprintf(f, "dict unit test error: mismatch at dict table entry (%s: %" PRIx64 ")\n", a.first.c_str(), a.second);
-                }
-                passed = false;
+    /// \return True if all dictionary checks pass.
+    ///
+    static bool unit_test() {
+        dict dictionary;
+        uint64_t index = 0x1234;
+
+        if (dictionary.compress("new", index, true) || index != 0x1234) {
+            return false;
+        }
+        if (!dictionary.compress("new", index) || index != 0) {
+            return false;
+        }
+        index = 0x5678;
+        if (!dictionary.compress("new", index) || index != 0) {
+            return false;
+        }
+        if (!dictionary.compress("another", index) || index != 1) {
+            return false;
+        }
+        if (!dictionary.compute_inverse_map()) {
+            return false;
+        }
+        for (const auto &entry : dictionary.d) {
+            if (entry.first.compare(dictionary.get_inverse(entry.second)) != 0) {
+                return false;
             }
         }
-        for (unsigned int i = 0; i < inverse.size(); i++) {
-            if (get(inverse[i]) != i) {
-                if (f) {
-                    fprintf(f, "dict unit test error: mismatch at inverse table entry (%s: %u)\n", inverse[i], i);
-                }
-                passed = false;
+        for (size_t i = 0; i < dictionary.inverse.size(); ++i) {
+            if (dictionary.get(dictionary.inverse[i]) != i) {
+                return false;
             }
         }
-        return passed;
+
+        dict max_count_dictionary;
+        max_count_dictionary.count = std::numeric_limits<uint64_t>::max();
+        index = 0x9abc;
+        return !max_count_dictionary.compress("another", index) &&
+               index == 0x9abc;
     }
+
     // LCOV_EXCL_STOP
+#endif
 
 };
 

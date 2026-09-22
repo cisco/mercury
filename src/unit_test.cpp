@@ -85,66 +85,6 @@
 #define GREEN_ON   "\033[32m"
 #define COLOR_OFF  "\033[39m"
 
-static bool stats_memory_budget_unit_test() {
-    event_encoder encoder{};
-    event_msg event{"192.0.2.1", "tls/1/fingerprint", std::string(2048, 'u'), "(example.com)(192.0.2.2)(443)"};
-
-    if (!encoder.compress_event_string(event)) {
-        return false;
-    }
-    if (encoder.dictionary_bytes() == 0) {
-        return false;
-    }
-    if (!encoder.compute_inverse_map()) {
-        return false;
-    }
-    encoder.get_inverse(event);
-    if (event[2] != std::string(2048, 'u')) {
-        return false;
-    }
-
-    encoder.clear();
-    if (encoder.dictionary_bytes() != 0) {
-        return false;
-    }
-
-    stats_aggregator aggregator{0, 512};
-    event_msg stats_event{"192.0.2.3", "tls/1/another", std::string(2048, 'a'), "(example.net)(192.0.2.4)(443)"};
-    aggregator.observe_event_string(stats_event);
-    event_msg second_event{"192.0.2.5", "tls/1/second", std::string(2048, 'b'), "(example.org)(192.0.2.6)(443)"};
-    aggregator.observe_event_string(second_event);
-    if (aggregator.get_num_entries() != 1) {
-        return false;
-    }
-
-    stats_aggregator reused_aggregator{0, 16 * 1024};
-    event_msg reused_event{
-        "192.0.2.3",
-        "tls/1/large",
-        std::string(4096, 'x'),
-        "(large.example.net)(192.0.2.4)(443)"
-    };
-    reused_aggregator.observe_event_string(reused_event);
-
-    for (unsigned int i = 0; i < 32; ++i) {
-        char address[32];
-        char fingerprint[32];
-        char context[64];
-        snprintf(address, sizeof(address), "192.0.2.%u", i + 10);
-        snprintf(fingerprint, sizeof(fingerprint), "tls/1/short/%u", i);
-        snprintf(context, sizeof(context),
-                 "(example-%u.net)(192.0.2.%u)(443)", i, i + 10);
-
-        reused_event[0] = address;
-        reused_event[1] = fingerprint;
-        reused_event[2] = "x";
-        reused_event[3] = context;
-        reused_aggregator.observe_event_string(reused_event);
-    }
-
-    return reused_aggregator.get_num_entries() > 2;
-}
-
 int main(int, char *[]) {
 
     assert(printf("DEBUG enabled\n") == 14);
@@ -429,8 +369,8 @@ int main(int, char *[]) {
             &universal61::byte_unit_test
         },
         {
-            "event_msg_hasher",
-            &universal61::event_msg_hasher_unit_test
+            "event_key_hasher",
+            &universal61::event_key_hasher_unit_test
         },
         {
             "krb5_no_empty_arrays",
@@ -445,8 +385,16 @@ int main(int, char *[]) {
             &destination_context::unit_test
         },
         {
-            "stats_memory_budget",
-            &stats_memory_budget_unit_test
+            "dict",
+            &dict::unit_test
+        },
+        {
+            "event_encoder",
+            &event_encoder::unit_test
+        },
+        {
+            "stats_aggregator",
+            &stats_aggregator::unit_test
         },
         {
             "subnet_data",
