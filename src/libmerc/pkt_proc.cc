@@ -1958,6 +1958,7 @@ bool stateful_pkt_proc::analyze_eth_packet(const uint8_t *packet,
 
     struct datum pkt{packet, packet+length};
     if (!eth::get_ip(pkt)) {
+        cbor_buf.reset();
         return false;   // not an IP packet
     }
 
@@ -1971,6 +1972,7 @@ bool stateful_pkt_proc::analyze_ppp_packet(const uint8_t *packet,
 
     struct datum pkt{packet, packet+length};
     if (!ppp::is_ip(pkt)) {
+        cbor_buf.reset();
         return false;   // not an IP packet
     }
 
@@ -1994,6 +1996,7 @@ bool stateful_pkt_proc::analyze_sll_packet(const uint8_t *packet,
     struct datum pkt{packet, packet+length};
     linux_sll::skip_to_ip(pkt);
     if (pkt.is_null()) {
+        cbor_buf.reset();
         return false;   // not an IP packet
     }
 
@@ -2008,6 +2011,7 @@ bool stateful_pkt_proc::analyze_sll2_packet(const uint8_t *packet,
     struct datum pkt{packet, packet+length};
     linux_sll2::skip_to_ip(pkt);
     if (pkt.is_null()) {
+        cbor_buf.reset();
         return false;   // not an IP packet
     }
 
@@ -2039,7 +2043,8 @@ bool stateful_pkt_proc::analyze_packet(const uint8_t *eth_packet,
     default:
         break;
     }
-    return false;
+    cbor_buf.reset();
+    return false;   // unsupported linktype
 }
 
 bool stateful_pkt_proc::dump_pkt() {
