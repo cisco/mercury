@@ -5,10 +5,9 @@
 #ifndef FDC_HPP
 #define FDC_HPP
 
-#include "static_dict.hpp"
 #include "result.h"
 #include "cbor.hpp"
-#include "fingerprint.h"  // for fingerprint_type
+#include "fingerprint.h"  // for fingerprint::MAX_FP_STR_LEN
 #include "cbor_fingerprint.hpp"
 
 // define types of reassembly or truncation possible in the FDC object.
