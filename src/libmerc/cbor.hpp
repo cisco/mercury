@@ -194,11 +194,30 @@ namespace cbor {
             }
 
             uint8_t ai = ib.additional_info();
+
+            // RFC 8949 Sec. 3.3: additional info 28, 29 and 30 are reserved, and
+            // an item that uses one is not well formed.  Additional info 31
+            // selects the indefinite-length form, whose head carries no argument
+            // at all.  This class exists to hold that argument, so in both cases
+            // there is no value to report and the datum must go null.  A caller
+            // that supports the indefinite-length form must detect additional
+            // info 31 on the initial byte and route it before constructing this
+            // class.
+            //
+            if (ai >= 28) {
+                d.set_null();
+                return;
+            }
             if (ai < 24) {
                 value__ = ai;
             }
             if (ai == 24) {
                 value__ = encoded<uint8_t>{d}.value();
+                // RFC 8949 Sec. 3.3: for major type 7, a one-byte argument below 0x20 is not well formed
+                if (type == simple_or_float_type and value__ < 0x20) {
+                    d.set_null();
+                    return;
+                }
             }
             if (ai == 25) {
                 value__ = encoded<uint16_t>{d}.value();
@@ -664,6 +683,34 @@ namespace cbor {
         return false;
     }
 
+    /// Advance \p d past the chunks and terminating break stop code of an
+    /// indefinite-length byte or text string of major type \p mt, whose
+    /// initial byte has not yet been read.
+    ///
+    /// RFC 8949 Sec. 3.2.3: the chunks of an indefinite-length string are
+    /// definite-length strings of the same major type, and they are not data
+    /// items in their own right, so they are walked here rather than through
+    /// \ref skip_cbor_value().  Anything else nulls \p d, a nested
+    /// indefinite-length string included.
+    ///
+    static inline void skip_indefinite_string(datum &d, uint8_t mt) {
+        initial_byte{d};                    // consume the indefinite-length head
+        if (d.is_null()) { return; }
+        while (d.is_not_empty() and !is_break(d)) {
+            lookahead<initial_byte> chunk{d};
+            if (!chunk
+                or chunk.value.major_type() != mt
+                or chunk.value.additional_info() >= 28) {
+                d.set_null();
+                return;
+            }
+            if (mt == byte_string_type) { byte_string::decode(d); }
+            else                        { text_string::decode(d); }
+            if (d.is_null()) { return; }    // a chunk longer than the input
+        }
+        read_break(d);                      // nulls d if the break is missing
+    }
+
     /// Advance \param d past exactly one CBOR value without output.
     static inline void skip_cbor_value(datum &d, size_t depth=0) {
         constexpr size_t max_recursion_depth = 256;
@@ -672,7 +719,16 @@ namespace cbor {
             return;
         }
         if (lookahead<initial_byte> ib{d}) {
-            switch (ib.value.major_type()) {
+            uint8_t mt = ib.value.major_type();
+            uint8_t ai = ib.value.additional_info();
+
+            // every head below is read through cbor::uint64, which rejects the
+            // reserved additional info 28, 29 and 30, the argument-less additional
+            // info 31, and a major type 7 one-byte argument below 0x20.  The three
+            // legal indefinite-length forms are routed off the lookahead above,
+            // before a head reader could see them.
+            //
+            switch (mt) {
             case unsigned_integer_type:
                 { uint64 tmp{d}; }
                 break;
@@ -680,33 +736,29 @@ namespace cbor {
                 { uint64 tmp{d, negative_integer_type}; }
                 break;
             case byte_string_type:
-                { byte_string::decode(d); }
+                if (ai == 31) { skip_indefinite_string(d, byte_string_type); }
+                else          { byte_string::decode(d); }
                 break;
             case text_string_type:
-                { text_string::decode(d); }
+                if (ai == 31) { skip_indefinite_string(d, text_string_type); }
+                else          { text_string::decode(d); }
                 break;
             case array_type:
                 {
-                    initial_byte arr_ib{d};
-                    uint8_t ai = arr_ib.additional_info();
                     if (ai == 31) {
+                        initial_byte{d};                // consume the head
                         while (d.is_not_empty() && !is_break(d)) {
                             skip_cbor_value(d, depth + 1);
                             if (d.is_null()) { return; }
                         }
                         read_break(d);
                     } else {
-                        uint64_t count = 0;
-                        if (ai < 24)       { count = ai; }
-                        else if (ai == 24) { count = encoded<uint8_t>{d}.value(); }
-                        else if (ai == 25) { count = encoded<uint16_t>{d}.value(); }
-                        else if (ai == 26) { count = encoded<uint32_t>{d}.value(); }
-                        else if (ai == 27) { count = encoded<uint64_t>{d}.value(); }
+                        uint64 count{d, array_type};    // the head's argument is the count
                         if (d.is_null()) { return; }
                         // each element is at least one byte, so a count larger than
                         // the remaining input cannot be satisfied
-                        if (count > (uint64_t)d.length()) { d.set_null(); return; }
-                        for (uint64_t i = 0; i < count; i++) {
+                        if (count.value() > (uint64_t)d.length()) { d.set_null(); return; }
+                        for (uint64_t i = 0; i < count.value(); i++) {
                             const uint8_t *before = d.data;
                             skip_cbor_value(d, depth + 1);
                             if (d.is_null() || d.data == before) { d.set_null(); return; }
@@ -716,9 +768,8 @@ namespace cbor {
                 break;
             case map_type:
                 {
-                    initial_byte map_ib{d};
-                    uint8_t ai = map_ib.additional_info();
                     if (ai == 31) {
+                        initial_byte{d};                // consume the head
                         while (d.is_not_empty() && !is_break(d)) {
                             skip_cbor_value(d, depth + 1);  // key
                             if (d.is_null()) { return; }
@@ -727,13 +778,9 @@ namespace cbor {
                         }
                         read_break(d);
                     } else {
-                        uint64_t count = 0;
-                        if (ai < 24)       { count = ai; }
-                        else if (ai == 24) { count = encoded<uint8_t>{d}.value(); }
-                        else if (ai == 25) { count = encoded<uint16_t>{d}.value(); }
-                        else if (ai == 26) { count = encoded<uint32_t>{d}.value(); }
-                        else if (ai == 27) { count = encoded<uint64_t>{d}.value(); }
+                        uint64 pairs{d, map_type};      // the head's argument is the pair count
                         if (d.is_null()) { return; }
+                        uint64_t count = pairs.value();
                         // each pair is at least two bytes; compare against length/2
                         // to avoid overflowing count*2 for very large declared counts
                         if (count > (uint64_t)d.length() / 2) { d.set_null(); return; }
@@ -756,19 +803,16 @@ namespace cbor {
                 }
                 break;
             case simple_or_float_type:
-                {
-                    initial_byte consumed{d};
-                    uint8_t ai = consumed.additional_info();
-                    if (ai == 24)      { if (!d.skip(1)) { d.set_null(); } }  // 1-byte simple value
-                    else if (ai == 25) { if (!d.skip(2)) { d.set_null(); } }  // float16
-                    else if (ai == 26) { if (!d.skip(4)) { d.set_null(); } }  // float32
-                    else if (ai == 27) { if (!d.skip(8)) { d.set_null(); } }  // float64
-                }
+                // the head grammar is uniform (RFC 8949 Sec. 3), so uint64 consumes
+                // exactly the one-byte simple value or the float payload.
+                { uint64 tmp{d, simple_or_float_type}; }
                 break;
             default:
                 d.set_null();
                 break;
             }
+        } else {
+            d.set_null();   // no initial byte: there is no item here to skip
         }
     }
 
@@ -1272,6 +1316,56 @@ namespace cbor {
             skip_cbor_value(d);
             if (d.length() != 1 || *d.data != 0xf4) { passed = false; }
         }
+        {
+            // indefinite-length byte string of two chunks, then true
+            uint8_t data[] = {0x5f, 0x42, 0xaa, 0xbb, 0x41, 0xcc, 0xff, 0xf5};
+            datum d{data, data + 8};
+            skip_cbor_value(d);
+            if (d.length() != 1 || *d.data != 0xf5) { passed = false; }
+        }
+        {
+            // indefinite-length text string of one chunk, then false
+            uint8_t data[] = {0x7f, 0x62, 'h', 'i', 0xff, 0xf4};
+            datum d{data, data + 6};
+            skip_cbor_value(d);
+            if (d.length() != 1 || *d.data != 0xf4) { passed = false; }
+        }
+        {
+            // a chunk of the wrong major type: RFC 8949 Sec. 3.2.3 requires
+            // every chunk to be a definite-length string of the enclosing type
+            uint8_t data[] = {0x5f, 0x62, 'h', 'i', 0xff};
+            datum d{data, data + 5};
+            skip_cbor_value(d);
+            if (!d.is_null()) { passed = false; }
+        }
+        {
+            // a nested indefinite-length chunk, which the same rule forbids
+            uint8_t data[] = {0x5f, 0x5f, 0xff, 0xff};
+            datum d{data, data + 4};
+            skip_cbor_value(d);
+            if (!d.is_null()) { passed = false; }
+        }
+        {
+            // a chunk that declares more bytes than the input holds
+            uint8_t data[] = {0x5f, 0x43, 0xaa};
+            datum d{data, data + 3};
+            skip_cbor_value(d);
+            if (!d.is_null()) { passed = false; }
+        }
+        {
+            // chunks with no terminating break
+            uint8_t data[] = {0x5f, 0x42, 0xaa, 0xbb};
+            datum d{data, data + 4};
+            skip_cbor_value(d);
+            if (!d.is_null()) { passed = false; }
+        }
+        {
+            // an empty datum: there is no item here to skip
+            uint8_t data[] = {0xf5};
+            datum d{data, data};
+            skip_cbor_value(d);
+            if (!d.is_null()) { passed = false; }
+        }
 
         return passed;
     }
@@ -1336,6 +1430,10 @@ namespace cbor {
             {
                 { 0x64, 0x49, 0x45, 0x54, 0x46 },   // text string "IETF"
                 { 0x44, 0x01, 0x02, 0x03, 0x04  },  // byte string 0x01020304
+                { 0x1c },                           // reserved additional info 28
+                { 0x1d },                           // reserved additional info 29
+                { 0x1e },                           // reserved additional info 30
+                { 0x1f },                           // indefinite length, no argument
             }
         };
         if (f) { fprintf(f, "cbor::uint64 negative test cases:\n"); }

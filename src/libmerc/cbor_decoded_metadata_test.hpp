@@ -8,6 +8,8 @@
 //     tests feature-decode correctness through it (matches / decode_into / typed fields).
 //   - cbor_decoded_metadata = typed_decoder<> registers no feature, so every key
 //     arrives as an unknown entry. Group B tests this path's edge cases.
+// Group C puts both shapes against duplicate keys, a buffer that runs out of room while
+// encoding, a non-default buffer size, and truncated input.
 
 #ifndef CBOR_DECODED_METADATA_TEST_HPP
 #define CBOR_DECODED_METADATA_TEST_HPP
@@ -124,8 +126,9 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         }
     }
 
-    // Test 2: crypto_cnsa TLS — string fields + PSK, hex cipher/group values, and a
-    // forward-compat unknown field inside the target map (must be skipped, decode still valid).
+    // Test 2: crypto_cnsa TLS — string fields + PSK, numeric cipher/group codes, an array
+    // mixing names and codes, and a forward-compat unknown field inside the target map
+    // (must be skipped, decode still valid).
     {
         // 2a: string values + multiple PSK non-compliant entries
         {
@@ -204,8 +207,8 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
                 report("cnsa code grp[0] == 0x001d", c.grp_not_allowed_code_at(0) == 0x001d);
             }
         }
-        // 2b': mixed array — one name, one numeric code. Exercises the decode peek
-        // branch routing each element by its major type.
+        // 2b': mixed array — one name, one numeric code. Exercises the lookahead in
+        // the decoder that routes each element by its major type.
         {
             data_buffer<1024> buf;
             cbor_object cbor_outer{buf};
@@ -390,7 +393,8 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
     }
 
     // Test 7: cbor_metadata_buffer has_data gating — no feature written, feature written,
-    // and reset clears the flag (producer-side plumbing used by the packet path).
+    // reset clears the flag, and the reserved truncation key does not count as a feature
+    // (producer-side plumbing used by the packet path).
     {
         // 7a: no feature written -> no data
         {
@@ -576,8 +580,9 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         report("shipped empty: unknown empty", decoded.unknown.empty());
     }
 
-    // Test 11: unrecognized outer version wrapper -> early bail, not valid, nothing captured
-    // (forward-compat: an old decoder must reject a future schema wrapper rather than mis-decode).
+    // Test 11: an outer version wrapper this decoder does not implement is skipped whole, so
+    // nothing is captured and the decode is not valid. Forward-compat: an old decoder must not
+    // mis-decode a future schema, and here there is no v1 beside it to fall back on.
     {
         data_buffer<256> buf;
         cbor_object cbor_outer{buf};
@@ -591,6 +596,134 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         decode_cbor_metadata(encoded.data, encoded.length(), decoded);
         report("shipped bad-version: valid == false", !decoded.valid);
         report("shipped bad-version: unknown empty", decoded.unknown.empty());
+    }
+
+    // Test 11b: a version wrapper this decoder does not implement, beside one it does.
+    // The v99 map is skipped whole and v1 still decodes, in either order.  This is the
+    // shape the version loop exists for: a newer library may emit both so that a consumer
+    // built against v1 keeps working.
+    {
+        data_buffer<256> buf;
+        cbor_object cbor_outer{buf};
+        cbor_object fut{cbor_outer, "v99"};
+        fut.print_key_string("some_key", "some_value");
+        fut.close();
+        cbor_object v1{cbor_outer, CBOR_METADATA_VERSION_KEY};
+        v1.print_key_string(CBOR_METADATA_TRUNCATION_KEY, "none");
+        v1.close();
+        cbor_outer.close();
+
+        datum encoded = buf.contents();
+        cbor_decoded_metadata decoded;
+        decode_cbor_metadata(encoded.data, encoded.length(), decoded);
+        report("shipped sibling-version v99-first: valid", decoded.valid);
+        report("shipped sibling-version v99-first: v1 truncation decoded",
+               decoded.truncation.is_valid() && decoded.truncation.status().match("none"));
+        report("shipped sibling-version v99-first: v99 not captured", decoded.unknown.empty());
+    }
+
+    // Test 11c: the same two versions the other way round.  valid and the decoded status must
+    // agree in both orders, so a consumer reading truncation without checking valid, or the
+    // reverse, sees the same answer.
+    {
+        data_buffer<256> buf;
+        cbor_object cbor_outer{buf};
+        cbor_object v1{cbor_outer, CBOR_METADATA_VERSION_KEY};
+        v1.print_key_string(CBOR_METADATA_TRUNCATION_KEY, "none");
+        v1.close();
+        cbor_object fut{cbor_outer, "v99"};
+        fut.print_key_string("some_key", "some_value");
+        fut.close();
+        cbor_outer.close();
+
+        datum encoded = buf.contents();
+        cbor_decoded_metadata decoded;
+        decode_cbor_metadata(encoded.data, encoded.length(), decoded);
+        report("shipped sibling-version v1-first: valid", decoded.valid);
+        report("shipped sibling-version v1-first: v1 truncation decoded",
+               decoded.truncation.is_valid() && decoded.truncation.status().match("none"));
+        report("shipped sibling-version v1-first: v99 not captured", decoded.unknown.empty());
+    }
+
+    // Test 11d: a repeated version key.  The first v1 is decoded and the second is skipped
+    // whole, so appending a map cannot change a status the first one set.
+    {
+        data_buffer<256> buf;
+        cbor_object cbor_outer{buf};
+        cbor_object first{cbor_outer, CBOR_METADATA_VERSION_KEY};
+        first.print_key_string(CBOR_METADATA_TRUNCATION_KEY, "truncated");
+        first.close();
+        cbor_object second{cbor_outer, CBOR_METADATA_VERSION_KEY};
+        second.print_key_string(CBOR_METADATA_TRUNCATION_KEY, "none");
+        second.close();
+        cbor_outer.close();
+
+        datum encoded = buf.contents();
+        cbor_decoded_metadata decoded;
+        decode_cbor_metadata(encoded.data, encoded.length(), decoded);
+        report("shipped duplicate v1: valid", decoded.valid);
+        report("shipped duplicate v1: first occurrence kept",
+               decoded.truncation.is_valid() && decoded.truncation.status().match("truncated"));
+    }
+
+    // Test 11e: a repeated key inside one v1, on both paths.  The reserved truncation key
+    // keeps its first value, and the unrecognized key is captured once rather than twice, so
+    // one buffer means one thing whichever Features a consumer registered.
+    {
+        data_buffer<256> buf;
+        cbor_object cbor_outer{buf};
+        cbor_object v1{cbor_outer, CBOR_METADATA_VERSION_KEY};
+        v1.print_key_string(CBOR_METADATA_TRUNCATION_KEY, "truncated");
+        v1.print_key_string(CBOR_METADATA_TRUNCATION_KEY, "none");
+        v1.print_key_string("some_key", "first_value");
+        v1.print_key_string("some_key", "second_value");
+        v1.close();
+        cbor_outer.close();
+
+        datum encoded = buf.contents();
+        cbor_decoded_metadata decoded;
+        decode_cbor_metadata(encoded.data, encoded.length(), decoded);
+        report("shipped duplicate feature key: valid", decoded.valid);
+        report("shipped duplicate feature key: reserved key keeps the first value",
+               decoded.truncation.is_valid() && decoded.truncation.status().match("truncated"));
+        report("shipped duplicate feature key: unknown captured once",
+               decoded.unknown.size() == 1);
+        datum first_span = decoded.unknown.size() == 1 ? decoded.unknown[0].cbor_span()
+                                                      : datum{nullptr, nullptr};
+        cbor::text_string first_value = cbor::text_string::decode(first_span);
+        report("shipped duplicate feature key: unknown keeps the first value",
+               first_value.value().match("first_value"));
+    }
+
+    // Test 11f: a repeated version key whose second map carries a key the first one did not.
+    // The repeat is skipped whole, so a value that appears only inside it cannot reach a
+    // consumer: the sni read here is the one the first map published, not the one appended
+    // after it.
+    {
+        data_buffer<256> buf;
+        cbor_object cbor_outer{buf};
+        cbor_object first{cbor_outer, CBOR_METADATA_VERSION_KEY};
+        first.print_key_string(CBOR_METADATA_TRUNCATION_KEY, "none");
+        first.print_key_string("sni", "bank.example.com");
+        first.close();
+        cbor_object second{cbor_outer, CBOR_METADATA_VERSION_KEY};
+        second.print_key_string("sni", "evil.example");
+        second.close();
+        cbor_outer.close();
+
+        datum encoded = buf.contents();
+        cbor_decoded_metadata decoded;
+        decode_cbor_metadata(encoded.data, encoded.length(), decoded);
+        report("shipped duplicate v1 with a new key: valid", decoded.valid);
+        report("shipped duplicate v1 with a new key: status from the first map",
+               decoded.truncation.is_valid() && decoded.truncation.status().match("none"));
+        report("shipped duplicate v1 with a new key: captured once",
+               decoded.unknown.size() == 1);
+        datum sni_span = decoded.unknown.size() == 1 ? decoded.unknown[0].cbor_span()
+                                                     : datum{nullptr, nullptr};
+        cbor::text_string sni = cbor::text_string::decode(sni_span);
+        report("shipped duplicate v1 with a new key: the repeat's value is not adopted",
+               sni.value().match("bank.example.com"));
     }
 
     // Test 12: unknown vector reserve floor + grow-on-demand + capacity RETAINED across the
@@ -678,11 +811,11 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
     // and decode-side robustness against short/truncated input.
     // ================================================================
 
-    // Test 14: duplicate feature key.
-    //   - Typed slot (full_decoder): the second occurrence OVERWRITES the first
-    //     (decode_into does `*this = decode(...)`); unknown stays empty.
-    //   - Shipped typed_decoder<>: both occurrences are preserved in the unknown
-    //     vector (no overwrite) so harvest never silently drops a duplicate span.
+    // Test 14: duplicate feature key.  The first occurrence wins on both paths, so one
+    // buffer decodes to one thing whichever Features a consumer registered.
+    //   - Typed slot (full_decoder): the second occurrence is consumed and discarded,
+    //     leaving the slot as the first one decoded it; unknown stays empty.
+    //   - Shipped typed_decoder<>: the key is captured once, holding the first span.
     {
         data_buffer<1024> buf;
         cbor_object cbor_outer{buf};
@@ -699,24 +832,83 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         decode_cbor_metadata(encoded.data, encoded.length(), d);
         auto &ec = d.get<exposed_creds_message>();
         report("dup typed: valid + slot", d.valid && ec.is_valid());
-        report("dup typed: second overwrites first (username == bob)",
-               ec.username().match("bob"));
+        report("dup typed: first occurrence kept (username == alice)",
+               ec.username().match("alice"));
         report("dup typed: unknown empty", d.unknown.empty());
 
         cbor_decoded_metadata shipped;                 // typed_decoder<>
         decode_cbor_metadata(encoded.data, encoded.length(), shipped);
-        report("dup shipped: both preserved in unknown",
-               shipped.valid && shipped.unknown.size() == 2
-               && shipped.unknown[0].key().match("exposed_credentials_plaintext")
-               && shipped.unknown[1].key().match("exposed_credentials_plaintext"));
+        report("dup shipped: captured once, the first occurrence",
+               shipped.valid && shipped.unknown.size() == 1
+               && shipped.unknown[0].key().match("exposed_credentials_plaintext"));
+    }
+
+    // Test 14b: a registered feature whose key is present but whose value does not satisfy the
+    // feature's own is_valid() -- here exposed_creds_message with protocol missing.  The two
+    // decoders are meant to disagree: registering states that the consumer needs those fields,
+    // so the buffer is failed for it, while a decoder that registers nothing keeps the entry as
+    // it stands.  Both readings are correct for their consumer; see try_one() in
+    // cbor_decoded_metadata.hpp.
+    {
+        // written by hand, because construct() cannot leave protocol out
+        data_buffer<1024> buf;
+        cbor_object cbor_outer{buf};
+        cbor_object v1{cbor_outer, CBOR_METADATA_VERSION_KEY};
+        cbor_object ec_obj{v1, "exposed_credentials_plaintext"};
+        ec_obj.print_key_string("authentication_method", "basic");
+        ec_obj.print_key_string("username", "alice");
+        ec_obj.close();
+        v1.close();
+        cbor_outer.close();
+        datum encoded = buf.contents();
+
+        full_decoder d;
+        decode_cbor_metadata(encoded.data, encoded.length(), d);
+        report("incomplete feature, typed: buffer failed", !d.valid);
+        report("incomplete feature, typed: the slot reports invalid",
+               !d.get<exposed_creds_message>().is_valid());
+
+        cbor_decoded_metadata shipped;                 // registers nothing
+        decode_cbor_metadata(encoded.data, encoded.length(), shipped);
+        report("incomplete feature, shipped: unaffected",
+               shipped.valid && shipped.unknown.size() == 1
+               && shipped.unknown[0].key().match("exposed_credentials_plaintext"));
+        datum span = shipped.unknown.size() == 1 ? shipped.unknown[0].cbor_span()
+                                                 : datum{nullptr, nullptr};
+        report("incomplete feature, shipped: the entry is captured as it stands",
+               span.is_not_empty());
+
+        // the same incomplete entry followed by a complete feature: the registered path loses
+        // that one too, which is the cost this rule accepts and so is pinned here
+        data_buffer<1024> buf2;
+        cbor_object cbor_outer2{buf2};
+        cbor_object v1b{cbor_outer2, CBOR_METADATA_VERSION_KEY};
+        cbor_object ec_obj2{v1b, "exposed_credentials_plaintext"};
+        ec_obj2.print_key_string("authentication_method", "basic");
+        ec_obj2.close();
+        v1b.print_key_string(CBOR_METADATA_TRUNCATION_KEY, "none");
+        v1b.close();
+        cbor_outer2.close();
+        datum encoded2 = buf2.contents();
+
+        full_decoder d2;
+        decode_cbor_metadata(encoded2.data, encoded2.length(), d2);
+        report("incomplete feature, typed: the sibling status is lost with the buffer",
+               !d2.valid && !d2.truncation.is_valid());
+
+        cbor_decoded_metadata shipped2;
+        decode_cbor_metadata(encoded2.data, encoded2.length(), shipped2);
+        report("incomplete feature, shipped: the sibling status survives",
+               shipped2.valid && shipped2.truncation.is_valid()
+               && shipped2.truncation.status().match("none"));
     }
 
     // Test 15: buffer exhaustion during encode. A cnsa written into a tiny context
     // overruns the buffer; the writeable goes null. Asserts is_truncated() true,
-    // get_length() == 0 (the is_null() gate), and that the point-14
-    // growth check is overflow-safe: bytes_written() reports 0 after the overrun,
-    // so (bytes_written() > before_features) is false and set_feature_written()
-    // is NOT called (mirrors the orchestrator).
+    // get_length() == 0 (the is_null() gate), and that the growth check is
+    // overflow-safe: bytes_written() reports 0 after the overrun, so
+    // (bytes_written() > before_features) is false and set_feature_written() is
+    // NOT called (mirrors analyze_ip_packet).
     {
         cbor_metadata_buffer ctx{64};   // tiny buffer, forces overrun
         ctx.reset();
@@ -793,9 +985,11 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
     }
 
     // Test 17: decode-side robustness -- a short/truncated buffer handed to
-    // decode_cbor_metadata() must fail cleanly (valid == false, nothing captured,
-    // no crash / no out-of-bounds read). Two flavors: cut mid-stream, and a
-    // 2-byte stub.
+    // decode_cbor_metadata() must fail cleanly (valid == false, no crash, no
+    // out-of-bounds read). Two flavors: a mid-stream cut, which still appends the
+    // feature it had started on with is_valid() false, and a 2-byte stub, which
+    // cannot get past the outer map and captures nothing. A third flavor cuts only
+    // the envelope's final break, which is not a failure: v1 self-terminates.
     {
         // build a valid single-feature buffer, then feed a reduced length.
         data_buffer<512> buf;
@@ -807,7 +1001,7 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         cbor_outer.close();
         datum encoded = buf.contents();
 
-        // cut 6 bytes off the end -> chops the final value / break
+        // cut 6 bytes off the end -> three breaks plus part of the feature's last value
         cbor_decoded_metadata cut;
         decode_cbor_metadata(encoded.data, encoded.length() - 6, cut);
         report("trunc-decode: mid-stream cut -> valid false", !cut.valid);
@@ -817,6 +1011,13 @@ inline bool cbor_metadata_unit_test(FILE *f = nullptr) {
         decode_cbor_metadata(encoded.data, 2, stub);
         report("trunc-decode: 2-byte stub -> valid false", !stub.valid);
         report("trunc-decode: stub unknown empty", stub.unknown.empty());
+
+        // drop only the outer break: v1's own break has already been consumed, so
+        // the version is complete and a lost trailing byte cannot retract it
+        full_decoder no_break;
+        decode_cbor_metadata(encoded.data, encoded.length() - 1, no_break);
+        report("trunc-decode: missing outer break -> still valid",
+               no_break.valid && no_break.get<exposed_creds_message>().is_valid());
     }
 
     return all_passed;
