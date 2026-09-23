@@ -131,30 +131,8 @@ namespace crypto_policy {
         static void create(const std::string &policy, std::vector<assessor*> &assessors);
     };
 
-    static bool is_grease(uint16_t x) {
-        switch(x) {
-        case 0x0a0a:
-        case 0x1a1a:
-        case 0x2a2a:
-        case 0x3a3a:
-        case 0x4a4a:
-        case 0x5a5a:
-        case 0x6a6a:
-        case 0x7a7a:
-        case 0x8a8a:
-        case 0x9a9a:
-        case 0xaaaa:
-        case 0xbaba:
-        case 0xcaca:
-        case 0xdada:
-        case 0xeaea:
-        case 0xfafa:
-            return true;
-            break;
-        default:
-            ;
-        }
-        return false;
+    static constexpr bool is_grease(uint16_t x) {
+        return is_grease_uint16(x);
     }
 
     class quantum_safe : public assessor {
@@ -1249,6 +1227,12 @@ namespace crypto_policy {
 
     // LCOV_EXCL_START
     [[maybe_unused]] static bool unit_test() {
+        // Verify crypto-policy GREASE checks use the shared TLS 16-bit
+        // predicate, including rejection of a near-miss value.
+        if (!is_grease(0x7a7a) || is_grease(0x7a7b) || is_grease(0x7a0a)) {
+            return false;
+        }
+
         quantum_safe assessor{true};
         char buff[1024];
 

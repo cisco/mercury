@@ -17,6 +17,34 @@ inline constexpr null_terminated_string CBOR_METADATA_VERSION_KEY = "v1";
 // decoder captures it into typed_decoder::truncation.
 inline constexpr null_terminated_string CBOR_METADATA_TRUNCATION_KEY = "truncation";
 
+// Guideline for Features written into the CBOR Interface
+// 1. Every Feature's value must be an indefinite-length CBOR map.
+// 2. Only those CBOR primitives must be used that the consumers of this
+//    interface understand. Currently the allowed CBOR primitives are unsigned
+//    integers, byte strings, text strings, true, false, null, tagged items,
+//    indefinite-length maps and indefinite-length arrays.
+// 3. An unsigned integer used as a key should be less than 65536.
+// 4. A text key should be less than 128 bytes once JSON-escaped.
+// 5. A fingerprint must be written as a text string in NPF form. Do not use the
+//    NPF presentation-hint tag 18000 here, a consumer of this interface treats a
+//    tagged value as opaque bytes, so a fingerprint sent that way does not get
+//    picked up.
+// 6. A key should not be repeated at any level: as a version key, as a Feature key
+//    inside a version, or as a key inside a Feature's own value map.
+// 7. A repeated version key or Feature key loses to its first occurrence: a consumer
+//    decodes the first and skips the rest, so the repeat is silently lost rather than
+//    merged.
+// 8. A Feature's value map is opaque to this interface, so rule 6 inside it is that
+//    Feature's own responsibility: its write() must not emit the same key twice.
+// 9. A Feature that fires more than once per packet, or that has several entries in
+//    one packet, combines them inside its class and is written once.
+// 10. Every field a Feature treats as fixed must be present in every occurrence of that
+//    Feature. Fixed means whatever that Feature's own decode requires in order to report
+//    is_valid(): each class defines its own set, so that is where to look rather than here.
+//    A consumer that registers the Feature reads a missing fixed field as an error and
+//    discards the whole buffer, so omitting one costs the other Features in that packet
+//    too. Adding fields is always safe: a consumer skips the ones it does not know.
+
 /// Reserved packet-level status: the truncation state of the packet/handshake.
 class truncation_message {
     cbor::text_string status_;

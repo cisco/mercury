@@ -2720,7 +2720,7 @@ public:
     /// `little_endian=true` is provided.
     ///
     encoded(datum &d, bool little_endian=false) {
-        if (d.data == nullptr || d.data + sizeof(T) > d.data_end) {
+        if (!d.has_bytes(sizeof(T))) {
             d.set_null();
             val = 0;
             return;
@@ -3078,6 +3078,17 @@ inline bool encoded<uint32_t>::unit_test() {
 //
 template <>
 inline bool encoded<uint64_t>::unit_test() {
+
+    // a read the datum cannot satisfy is rejected, rather than reaching past its
+    // end.  The complete read beside it keeps this from passing on a reader that
+    // rejects everything.
+    //
+    uint8_t eight[] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 };
+    datum too_short{eight, eight + 2};
+    if (encoded<uint64_t>{too_short}.value() != 0 || !too_short.is_null()) { return false; }
+    datum exact{eight, eight + sizeof(eight)};
+    if (encoded<uint64_t>{exact}.value() != 0x0102030405060708 || !exact.is_empty()) { return false; }
+
     encoded<uint64_t> y = 0xa1b2c3dfaabbccdd;
     return
         ::slice<0,32>(y.value())  == 0xa1b2c3df &&

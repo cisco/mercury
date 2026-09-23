@@ -82,6 +82,7 @@ struct libmerc_api {
     decltype(register_printf_err_callback)                           *register_printf_err = nullptr;
     decltype(mercury_packet_processor_get_attributes)                *get_attributes = nullptr;
     decltype(mercury_packet_processor_get_analysis_context_fdc)      *get_analysis_context_fdc = nullptr;
+    decltype(mercury_packet_processor_get_cbor_metadata)             *get_cbor_metadata = nullptr;
 
     dll_type dl_handle = nullptr;
 
@@ -182,9 +183,6 @@ struct libmerc_api {
             libmerc_version = 6;
         }
 
-        fprintf(stderr, "libmerc api version %u found\n", libmerc_version);
-        fprintf(stderr, "mercury_bind() succeeded with handle %p\n", dl_handle);
-
         // libmerc v7 API
         get_analysis_context_fdc = (decltype(get_analysis_context_fdc)) dlsym(dl_handle, "mercury_packet_processor_get_analysis_context_fdc");
 
@@ -195,6 +193,18 @@ struct libmerc_api {
         } else {
             libmerc_version = 7;
         }
+
+        // libmerc v8 API
+        get_cbor_metadata = (decltype(get_cbor_metadata)) dlsym(dl_handle, "mercury_packet_processor_get_cbor_metadata");
+
+        if (get_cbor_metadata == nullptr) {
+            fprintf(stderr, "note: could not initialize one or more libmerc v8 function pointers\n");
+        } else {
+            libmerc_version = 8;
+        }
+
+        fprintf(stderr, "libmerc api version %u found\n", libmerc_version);
+        fprintf(stderr, "mercury_bind() succeeded with handle %p\n", dl_handle);
 
         return 0; // success
     }

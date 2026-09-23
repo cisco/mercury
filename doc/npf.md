@@ -15,6 +15,9 @@ Network protocol fingerprinting is a form of pattern recognition that aims to id
 
 A fingerprint is formally defined as an ordered, multi-way tree of byte strings; the tree structure is used to represent the strings yielded by parsing a protocol message.  Balanced parenthesis are used to represent the tree structure, and hexadecimal is used to represent the byte strings.  Whenever possible, the byte substrings in the fingerprint correspond directly to byte substrings of the packet, to preserve information, and to aid implementation and debugging.  While it is necessary to define fingerprints in terms of protocol specifications,  this note aims to minimize dependencies on externally defined data formats.
 
+This version of the note extends and clarifies GREASE handling for TLS and QUIC fingerprints, including typed extension data and length fields.
+
+
 ### Matching
 
 There are several ways that a protocol message can match a fingerprint:
@@ -153,32 +156,106 @@ where
 
 - TLS_Ciphersuite (string, variable length) is computed from the array of CipherSuites from the ClientHello.cipher_suites variable-length vector, not including the length field (RFC 8446, Section 4.1.2).  Let ciphersuite_array denote that field; then TLS_Ciphersuite is computed as
 
-      MAP(ciphersuite_array, 2, DEGREASE).
+      MAP(ciphersuite_array, 2, DEGREASE16).
 
 - TLS_Extension (sequence, variable length) elements represent TLS Extension fields as defined in RFC 8446, Section 4.2.  Let extension denote the byte string consisting of a TLS Extension in the packet.  Then the corresponding TLS_Extension element in the fingerprint is defined as
 
 
 ```
-  TLS_Extension = extension                if DEGREASE(extension[0:2]) is in TLS_EXT_FIXED, and
-                  DEGREASE(extension[0:2]) otherwise.
+  TLS_Extension = NORM_TLS_XTN(extension, ClientHello) if DEGREASE16(extension[0:2]) is in TLS_EXT_FIXED, and
+                  DEGREASE16(extension[0:2])             otherwise.
 ```
 
 
-The function DEGREASE takes as input a two-byte value and returns a two-byte value.
+The function DEGREASE16 takes as input a two-byte value and returns a two-byte value.
 
 ```
-   DEGREASE(x) = 0x0a0a if x is in TLS_GREASE, and
-                 x      otherwise.
+   DEGREASE16(x) = 0x0a0a if x = 0x0a0a + 0x1010n for an integer n with 0 <= n <= 15, and
+                   x      otherwise.
 ```
 
-The sets TLS_GREASE and TLS_EXT_FIXED are defined as
+This function normalizes the sixteen values reserved by [RFC 8701](https://www.rfc-editor.org/rfc/rfc8701) for cipher suites, extensions, named groups, signature algorithms, and versions.
+
+The function DEGREASE8 takes as input a one-byte value and returns a one-byte value.
 
 ```
-TLS_GREASE = {
-    0x0a0a, 0x1a1a, 0x2a2a, 0x3a3a, 0x4a4a, 0x5a5a, 0x6a6a, 0x7a7a,
-    0x8a8a, 0x9a9a, 0xaaaa, 0xbaba, 0xcaca, 0xdada, 0xeaea, 0xfafa
-}
+   DEGREASE8(x) = 0x0b if x % 31 == 11, and
+                  x    otherwise.
+```
 
+This function normalizes the eight values reserved by [RFC 8701](https://www.rfc-editor.org/rfc/rfc8701) for `PskKeyExchangeMode`: `0x0b`, `0x2a`, `0x49`, `0x68`, `0x87`, `0xa6`, `0xc5`, and `0xe4`.
+
+`NORM_TLS_XTN` preserves the extension type, length, and value encoding, except for the typed GREASE-bearing fields listed below. Extension lengths and list lengths are not GREASE values and are copied unchanged.
+
+```
+NORM_TLS_XTN(extension, ClientHello) =
+    (DEGREASE16(type), length, NORM_CLIENT_XTN_DATA(type, extension_data))
+
+NORM_TLS_XTN(extension, ServerHello) =
+    (DEGREASE16(type), length, NORM_SERVER_XTN_DATA(type, extension_data))
+```
+
+For the following extension types, the ClientHello normalization functions are
+defined as:
+
+```
+NORM_CLIENT_XTN_DATA(0x000a, value) = value[0:2] || MAP(value[2:], 2, DEGREASE16)  // supported_groups
+NORM_CLIENT_XTN_DATA(0x002b, value) = value[0:1] || MAP(value[1:], 2, DEGREASE16)  // supported_versions
+NORM_CLIENT_XTN_DATA(0x000d, value) = value[0:2] || MAP(value[2:], 2, DEGREASE16)  // signature_algorithms
+NORM_CLIENT_XTN_DATA(0x0032, value) = value[0:2] || MAP(value[2:], 2, DEGREASE16)  // signature_algorithms_cert
+NORM_CLIENT_XTN_DATA(0x002d, value) = value[0:1] || MAP(value[1:], 1, DEGREASE8)   // psk_key_exchange_modes
+NORM_CLIENT_XTN_DATA(0x0010, value) = NORM_ALPN(value)                              // application_layer_protocol_negotiation
+
+NORM_SERVER_XTN_DATA(0x000a, value) = NORM_CLIENT_XTN_DATA(0x000a, value)
+NORM_SERVER_XTN_DATA(0x002b, value) = DEGREASE16(value)                              // selected version
+NORM_SERVER_XTN_DATA(0x000d, value) = NORM_CLIENT_XTN_DATA(0x000d, value)
+NORM_SERVER_XTN_DATA(0x0032, value) = NORM_CLIENT_XTN_DATA(0x0032, value)
+NORM_SERVER_XTN_DATA(0x002d, value) = NORM_CLIENT_XTN_DATA(0x002d, value)
+NORM_SERVER_XTN_DATA(0x0010, value) = NORM_CLIENT_XTN_DATA(0x0010, value)
+```
+
+For `NORM_ALPN(value)`, preserve the two-byte protocol-name-list length and
+each one-byte protocol-name length. Apply `DEGREASE16` to a protocol name only
+when its length is two bytes; preserve all other protocol names unchanged. All
+other extension values are copied unchanged.
+
+Malformed-data handling for `tls/1` is defined as follows. TLS extensions are
+parsed one at a time. If an extension header is incomplete, or if its declared
+value length exceeds the remaining input, parsing stops; that extension and
+all subsequent bytes are omitted from the fingerprint.
+
+If the extension framing is valid but the value of a fixed, typed extension is
+malformed, the extension is retained. Its type and wire-format length are
+emitted normally, but its complete value is copied byte-for-byte without
+typed normalization.
+
+For extensions with the same normalized type and wire-format length, comparison
+is performed in the following order:
+
+| Comparison stage | Ordering |
+|---|---|
+| Either parse fails | The complete raw values are compared lexicographically. |
+| Valid parsed data | Normalized valid tokens are compared in protocol order. |
+| Parsed data equal | The raw trailing data is compared lexicographically. |
+| ALPN malformed token | Within an otherwise valid ALPN list, a malformed protocol name and every byte after it are compared as raw data. |
+
+A malformed value is ordered by the bytes that it emits. Because the
+wire-format lengths are equal, this procedure yields the same order as sorting
+the emitted extensions lexicographically.
+
+Trailing data is therefore a tie-breaker, not an independently ordered token:
+it is considered only after the valid parsed portions compare equal. If a typed
+value parses successfully but leaves trailing bytes, the parsed portion is
+normalized and the trailing bytes are copied unchanged. For ALPN, a malformed
+protocol name and all remaining bytes beginning with that name are treated as
+raw data, emitted unchanged, and compared after the preceding valid protocol
+names.
+
+The set TLS_EXT_FIXED and the selected-extension rules below use DEGREASE16 for extension types.
+
+The set TLS_EXT_FIXED is defined as
+
+```
 TLS_EXT_FIXED = {
     0x0001, 0x0005, 0x0007, 0x0008, 0x0009, 0x000a, 0x000b, 0x000d,
     0x000f, 0x0010, 0x0011, 0x0018, 0x001b, 0x001c, 0x002b, 0x002d,
@@ -189,13 +266,13 @@ TLS_EXT_FIXED = {
 selected_TLS_Extension chooses only a subset of extensions from TLS_extension as defined below,
 
 ```
-  selected_TLS_Extension = extension                if DEGREASE(extension[0:2]) is in TLS_EXT_FIXED,
-                           ENCODE(extension[0:2])   if ENCODE(extension[0:2]) is in TLS_EXT_INCLUDE,
+  selected_TLS_Extension = NORM_TLS_XTN(extension, ClientHello) if DEGREASE16(extension[0:2]) is in TLS_EXT_FIXED,
+                           ENCODE(extension[0:2])               if ENCODE(extension[0:2]) is in TLS_EXT_INCLUDE,
 ```
 
 The function ENCODE is defined as below
 ```
-ENCODE(x) = DEGREASE(x) if DEGREASE(x) is in TLS_EXT_INCLUDE
+ENCODE(x) = DEGREASE16(x) if DEGREASE16(x) is in TLS_EXT_INCLUDE
             ENCODE_UNASSIGNED(x) if x is in TLS_UNASSIGNED
             ENCODE_PRIVATE(x) if x is in TLS_PRIVATE
 
@@ -260,9 +337,9 @@ The older format "quic" is
 - `QUIC_Extension` (sequence, variable length) elements represent TLS Extension fields as defined in RFC 8446, Section 4.2.  Let `extension` denote the byte string consisting of a TLS Extension in the Client Hello reassembled from the CRYPTO frames.  Then the corresponding `QUIC_Extension` element in the fingerprint is defined as
 
 ```
-QUIC_Extension = extension                 if DEGREASE(extension[0:2]) is in TLS_EXT_FIXED,
-                 QTP(extension)            if extension[0:2] is in { 0x0039, 0xffa5 },
-                 DEGREASE(extension[0:2])  otherwise.
+QUIC_Extension = NORM_TLS_XTN(extension, ClientHello) if DEGREASE16(extension[0:2]) is in TLS_EXT_FIXED,
+                 QTP(extension)                      if extension[0:2] is in { 0x0039, 0xffa5 },
+                 DEGREASE16(extension[0:2])            otherwise.
 ```
 
 The function `QTP` computes a sorted list of elements from the QUIC Transport Parameters Extension,  as below:
@@ -281,9 +358,9 @@ quic/(ff00001d)(0303)(0a0a130113021303)[(0a0a)(0a0a)(0000)(000500050100000000)(0
 - `Selected_QUIC_Extension` chooses only a subset of Quic Extensions and is defined as below
 
 ```
-Selected_QUIC_Extension = extension               if DEGREASE(extension[0:2]) is in TLS_EXT_FIXED,
-                          QTP(extension)          if extension[0:2] is in { 0x0039, 0xffa5 },
-                          ENCODE(extension[0:2])  if ENCODE(extension[0:2]) is in TLS_EXT_INCLUDE,
+Selected_QUIC_Extension = NORM_TLS_XTN(extension, ClientHello) if DEGREASE16(extension[0:2]) is in TLS_EXT_FIXED,
+                          QTP(extension)                       if extension[0:2] is in { 0x0039, 0xffa5 },
+                          ENCODE(extension[0:2])               if ENCODE(extension[0:2]) is in TLS_EXT_INCLUDE,
 ```
 
 

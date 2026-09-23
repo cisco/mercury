@@ -46,6 +46,11 @@ struct typed_decoder {
     std::tuple<Features...>      slots;
     std::vector<unknown_feature> unknown;
     truncation_message           truncation;   // reserved packet-level status (see dispatch)
+
+    // True when v1 was decoded.  Note this is relative to the registration set: a registered
+    // feature whose value did not decode fails the buffer (see try_one), so the same bytes can
+    // be valid for a consumer that registers nothing and invalid for one that registers that
+    // feature.
     bool valid = false;
 
     typed_decoder() { unknown.reserve(unknown_reserve_count); }
@@ -58,16 +63,46 @@ struct typed_decoder {
     }
 
     // Offer one key to one destination object: if it owns the key, it decodes in place and
-    // consumes the value from d. Returns false without consuming if it does not.
+    // consumes the value from d. Returns false without consuming if it does not.  A key this
+    // object has already decoded is consumed and discarded, so the first occurrence is the one
+    // kept.
+    //
+    // A registered feature whose key is present but whose value does not decode into a valid
+    // feature is a hard error, and the buffer is failed rather than the entry dropped.
+    // Registering a feature states that the consumer needs those fields, so a value that does
+    // not carry them is not metadata this consumer can act on, and a later occurrence must not
+    // be allowed to stand in for it.  Nulling the datum ends the walk in decode_v1(), which
+    // returns before valid is set, so the packet's whole metadata is discarded -- deliberately,
+    // sibling features included.  A consumer that wants the looser reading is the one that
+    // registers nothing: on the unknown path the first occurrence of a key is captured as it
+    // stands and nothing is validated.
+    //
+    // This is also what makes is_valid() an adequate "already decoded" test: a matched key that
+    // decodes to an invalid feature stops the walk, so no second occurrence is ever reached.
     template<class F>
     static bool try_one(F &f, datum key, datum &d) {
-        if (F::matches(key)) { f.decode_into(key, d); return true; }
+        if (!F::matches(key)) { return false; }
+        if (f.is_valid()) { cbor::skip_cbor_value(d); return true; }
+        f.decode_into(key, d);
+        if (!f.is_valid()) { d.set_null(); }   // present, registered, not decodable: fail the buffer
+        return true;
+    }
+
+    // true if an unrecognized key of this name has already been captured
+    bool unknown_holds(datum key) const {
+        for (const auto &u : unknown) {
+            if (u.key().cmp(key) == 0) { return true; }
+        }
         return false;
     }
 
     void dispatch(datum key, datum &d) {
         // Reserved keys first, then registered features; anything left over is unknown.
         if (!(try_one(truncation, key, d) || ... || try_one(std::get<Features>(slots), key, d))) {
+            if (unknown_holds(key)) {   // first occurrence wins, as on the registered path
+                cbor::skip_cbor_value(d);
+                return;
+            }
             unknown.push_back(unknown_feature::decode(key, d));
         }
     }
@@ -100,32 +135,49 @@ inline void decode_cbor_metadata(const uint8_t* buf, size_t len,
     out.reset();
     if (!buf || len == 0) { return; }
 
-    bool recognized_version = false;
-
     datum d{buf, buf + len};
-    cbor::map outer{d};
+    cbor::map outer{d};        // head is checked here; the break is not required
     if (d.is_null()) { return; }
 
-    if (d.is_not_empty() && !cbor::is_break(d)) {
+    bool version_decoded = false;   // CBOR_METADATA_VERSION_KEY is decoded once
+
+    while (d.is_not_empty() && !cbor::is_break(d)) {
         cbor::text_string ver_key = cbor::text_string::decode(d);
         if (d.is_null()) { return; }
 
-        datum k = ver_key.value();
-        if (k.match(CBOR_METADATA_VERSION_KEY.c_str())) {
-            recognized_version = true;
+        if (!version_decoded && ver_key.value().match(CBOR_METADATA_VERSION_KEY.c_str())) {
+            version_decoded = true;
             cbor::map inner{d};
             if (d.is_null()) { return; }
             decode_v1(d, out);
+            if (d.is_null()) { return; }
             inner.close();
+            if (d.is_null()) { return; }
+            // Only CBOR_METADATA_VERSION_KEY is decoded, which today is v1; the
+            // loop walks d so that other versions can be skipped.  If a schema
+            // change brings a v2, the library may emit both so that consumers
+            // built against v1 keep working.
+            //
+            // valid is set here, inside the loop, because inner.close() has
+            // already consumed v1's break: v1 is complete at this point, and
+            // nothing later in the buffer takes that away -- neither a malformed
+            // sibling version nor a missing outer break.  valid means v1 was
+            // decoded, not that the buffer is well formed: a malformed sibling
+            // returns from the skip below, and a malformed v1 head or body returns
+            // from the checks above, so neither reaches this line.  Nor does a
+            // registered feature that failed to decode: try_one() nulls the datum
+            // and decode_v1 returns, which is how that case discards the whole
+            // buffer.
+            out.valid = true;
         } else {
-            // Early bail out on unrecognized version key
-            return;
+            // a version this decoder does not implement, or a repeat of the one it
+            // does.  Keys should not be repeated in this interface, and if a key is
+            // repeated anyway only the first occurrence is considered and the rest
+            // are skipped.
+            cbor::skip_cbor_value(d);
+            if (d.is_null()) { return; }
         }
     }
-
-    outer.close();
-
-    out.valid = recognized_version && !d.is_null();
 }
 
 namespace {

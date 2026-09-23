@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <cstdio>
 #include "libmerc/datum.h"
+#include "libmerc/grease.hpp"
+#include "libmerc/variable_length_vector.hpp"
 #include "libmerc/null_terminated_string.hpp"
 #include "libmerc/lex.h"
 #include "libmerc/cbor.hpp"
@@ -35,7 +37,9 @@
 #include "libmerc/oid.hpp"
 #include "libmerc/krb5.hpp"
 #include "libmerc/json_object.h"
+#include "libmerc/packed_view.hpp"
 #include "libmerc/icmp.h"
+#include "libmerc/udp.h"
 #include "libmerc/socks.h"
 #include "libmerc/dns.h"
 #include "libmerc/dhcp.h"
@@ -73,6 +77,7 @@
 #include "libmerc/pgsql.hpp"
 #include "libmerc/cbor_decoded_metadata_test.hpp"
 #include "libmerc/dcerpc.hpp"
+#include "libmerc/stats.h"
 #include "libmerc/universal61.hpp"
 #include "libmerc/universal61_bytes.hpp"
 #include "libmerc/event.hpp"
@@ -134,6 +139,14 @@ int main(int, char *[]) {
         {
             "encoded<uint64_t>",
             &encoded<uint64_t>::unit_test
+        },
+        {
+            "grease",
+            &grease::grease_unit_test
+        },
+        {
+            "variable_length_vector",
+            &variable_length_vector_unit_test
         },
         {
             "tofsee_initial_message",
@@ -344,6 +357,14 @@ int main(int, char *[]) {
             &datum_parser_helper_unit_test::unit_test
         },
         {
+            "packed_view",
+            &packed_view_unit_test::unit_test
+        },
+        {
+            "udp",
+            &udp_unit_test
+        },
+        {
             "analysis",
             &analysis_unit_test::unit_test
         },
@@ -368,8 +389,8 @@ int main(int, char *[]) {
             &universal61::byte_unit_test
         },
         {
-            "event_msg_hasher",
-            &universal61::event_msg_hasher_unit_test
+            "event_key_hasher",
+            &universal61::event_key_hasher_unit_test
         },
         {
             "krb5_no_empty_arrays",
@@ -382,6 +403,18 @@ int main(int, char *[]) {
         {
             "destination_context",
             &destination_context::unit_test
+        },
+        {
+            "dict",
+            &dict::unit_test
+        },
+        {
+            "event_encoder",
+            &event_encoder::unit_test
+        },
+        {
+            "stats_aggregator",
+            &stats_aggregator::unit_test
         },
         {
             "subnet_data",

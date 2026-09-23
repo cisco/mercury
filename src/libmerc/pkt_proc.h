@@ -65,7 +65,9 @@ struct mercury {
     mercury(const struct libmerc_config *vars, int verbosity) :
                 global_vars{*vars},
                 aggregator{ global_vars.do_stats
-                            ? (std::make_unique<data_aggregator>(global_vars.max_stats_entries, global_vars.stats_blocking))
+                            ? (std::make_unique<data_aggregator>(global_vars.max_stats_entries,
+                                                                  global_vars.stats_blocking,
+                                                                  global_vars.max_stats_memory))
                             : nullptr },
                 attribute_common_data{},
                 c{nullptr},

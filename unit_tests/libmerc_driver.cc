@@ -132,6 +132,42 @@ SCENARIO("test_packet_processor_construct") {
     }
 }
 
+TEST_CASE("truncated UDP headers do not create flow entries or output data") {
+    libmerc_config config = create_config();
+    config.output_udp_initial_data = true;
+    mercury_context mc = initialize_mercury(config);
+    REQUIRE(mc != nullptr);
+    mercury_packet_processor mpp = mercury_packet_processor_construct(mc);
+    REQUIRE(mpp != nullptr);
+
+    // An IPv4 packet with a UDP header shorter than its eight-byte minimum.
+    uint8_t packet[27] = {
+        0x45, 0x00, 0x00, 0x15, // version, IHL, and total length
+        0x00, 0x00, 0x00, 0x00, // identification and fragment offset
+        0x40, 0x11, 0x00, 0x00, // TTL, UDP protocol, and checksum
+        0x01, 0x01, 0x01, 0x01, // source address
+        0x02, 0x02, 0x02, 0x02, // destination address
+        0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa // UDP bytes
+    };
+    char output[4096] = {};
+    timespec time{0, 0};
+
+    for (size_t udp_length = 1; udp_length < 8; udp_length++) {
+        const uint16_t total_length = 20 + udp_length;
+        packet[2] = static_cast<uint8_t>(total_length >> 8);
+        packet[3] = static_cast<uint8_t>(total_length & 0xff);
+
+        const size_t output_length = mercury_packet_processor_write_json_linktype(
+            mpp, output, sizeof(output), packet, total_length, &time, LINKTYPE_RAW);
+
+        CHECK(output_length == 0);
+        CHECK(mpp->ip_flow_table.table.empty());
+    }
+
+    mercury_packet_processor_destruct(mpp);
+    mercury_finalize(mc);
+}
+
 SCENARIO("test_packet_processor_destruct") {
     GIVEN("packet processor") {
         libmerc_config config = create_config();
