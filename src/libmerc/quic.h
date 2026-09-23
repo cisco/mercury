@@ -1287,7 +1287,7 @@ public:
 //
 // bytes_captured always equals frame_length today: crypto's data is
 // datum{p, _length.value()} and datum::parse() is all-or-nothing.  It is kept,
-// with the bounds check in the fallback, because nothing enforces that here.
+// and consumers bound their reads by it, because nothing enforces that here.
 //
 struct crypto_frame_meta {
     uint64_t frame_offset = 0;    // CRYPTO frame stream offset

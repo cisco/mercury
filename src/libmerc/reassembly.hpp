@@ -988,7 +988,9 @@ inline bool process_quic_reassembly(quic_init &qi,
                 }
             }
             else {
-                uint64_t frame_len = frames[first_frame_idx].length();
+                // bound reads by the bytes copied into the buffer, not the
+                // length the frame declared
+                uint64_t frame_len = frames[first_frame_idx].captured_length();
                 uint64_t frame_offset = frames[first_frame_idx].offset();
                 if (frame_len &&
                     (frame_offset + frame_len <= max_crypto_end) &&
@@ -1001,7 +1003,7 @@ inline bool process_quic_reassembly(quic_init &qi,
 
             for (uint16_t i = 0; i < frame_count; i++) {
                 if (i != first_frame_idx) {
-                    uint64_t frame_len = frames[i].length();
+                    uint64_t frame_len = frames[i].captured_length();
                     uint64_t frame_offset = frames[i].offset();
                     if (frame_len &&
                         (frame_offset + frame_len <= max_crypto_end) &&
@@ -1030,7 +1032,7 @@ inline bool process_quic_reassembly(quic_init &qi,
                 return true;
             }
             for (uint16_t i = 0; i < frame_count; i++) {
-                uint64_t frame_len = frames[i].length();
+                uint64_t frame_len = frames[i].captured_length();
                 uint64_t frame_offset = frames[i].offset();
                 if (frame_len &&
                     (frame_offset + frame_len <= max_crypto_end) &&
