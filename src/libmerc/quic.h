@@ -151,17 +151,6 @@ public:
         }
     }
 
-	void write(FILE *f) {
-    	if (is_valid()) {
-        	fprintf(f, "ack.largest_acked: %" PRIu64 "\n", largest_acked.value());
-        	fprintf(f, "ack.ack_delay: %" PRIu64 "\n", ack_delay.value());
-        	fprintf(f, "ack.ack_range_count: %" PRIu64 "\n", ack_range_count.value());
-        	fprintf(f, "ack.first_ack_range: %" PRIu64 "\n", first_ack_range.value());
-        } else {
-        	fprintf(f, "ack.not valid\n");
-        }
-    }
-
 };
 class ack_ecn {
     ack ack_frame;
@@ -184,17 +173,6 @@ public:
             a.print_key_uint("ecn_ce", ecn_ce.value());
             ack_frame.write_json(a);
             a.close();
-        }
-    }
-
-    void write(FILE *f) {
-    	if (is_valid()) {
-            ack_frame.write(f);
-        	fprintf(f, "ack.ect0: %" PRIu64 "\n", ect0.value());
-            fprintf(f, "ack.ect1: %" PRIu64 "\n", ect1.value());
-            fprintf(f, "ack.ecn_ce: %" PRIu64 "\n", ecn_ce.value());
-        } else {
-        	fprintf(f, "ack_ecn.not valid\n");
         }
     }
 };
@@ -256,15 +234,6 @@ public:
     uint64_t length() const
     {
         return _length.value();
-    }
-
-    void write(FILE *f) {
-        if (is_valid()) {
-            fprintf(f, "crypto.offset: %" PRIu64 "\n", _offset.value());
-            fprintf(f, "crypto.length: %" PRIu64 "\n", _length.value());
-        } else {
-            fprintf(f, "crypto.not valid\n");
-        }
     }
 };
 
@@ -382,19 +351,6 @@ public:
             cc.close();
         }
     }
-
-	void write(FILE *f) {
-    	if (is_valid()) {
-        	fprintf(f, "connection_close.error_code: %" PRIu64 "\n", error_code.value());
-            if (!application_variant) {
-                fprintf(f, "connection_close.frame_type: %" PRIu64 "\n", frame_type.value());
-            }
-        	fprintf(f, "connection_close.reason_phrase_length: %" PRIu64 "\n", reason_phrase_length.value());
-        	fprintf(f, "connection_close.reason_phrase: %s\n", reason_phrase.get_string().c_str());
-        } else {
-        	fprintf(f, "connection_close.not valid\n");
-        }
-    }
 };
 
 
@@ -458,10 +414,15 @@ struct quic_initial_packet {
         //
         aad_start = d.data;
 
+        // each failure below nulls d, per doc/protocol-guidelines.md; the
+        // returns after a failed datum::parse() are already null.
+        //
+
         // The 1184-byte minimum is a datagram-level requirement (the client's
         // first flight). Coalesced packets after the first may be smaller, so
         // the caller disables this check for them.
         if (require_min_datagram_len && d.length() < min_len_pdu) {
+            d.set_null();
             return;  // packet too short to be valid
         }
 
@@ -519,6 +480,7 @@ struct quic_initial_packet {
                 ;              // note: could report gquic
                 break;
             default:
+                d.set_null();
                 return;
             }
         }
@@ -531,6 +493,7 @@ struct quic_initial_packet {
         uint8_t dcid_length = 0;
         d.read_uint8(&dcid_length);
         if (dcid_length > 20) {
+            d.set_null();
             return;  // dcid too long
         }
         dcid.parse(d, dcid_length);
@@ -538,6 +501,7 @@ struct quic_initial_packet {
         uint8_t scid_length = 0;
         d.read_uint8(&scid_length);
         if (scid_length > 20) {
+            d.set_null();
             return;  // scid too long
         }
         scid.parse(d, scid_length);
@@ -549,6 +513,7 @@ struct quic_initial_packet {
         //fprintf(stderr, "length: %08lu\td.length(): %08zu\tversion: %08lx\n", length.value(), d.length(), v);
         if (d.length() < (ssize_t)length.value() || length.value() < min_len_pn_and_payload) {
             //fprintf(stderr, "invalid\n");
+            d.set_null();
             return;
         }
 
@@ -1165,10 +1130,6 @@ public:
 	padding(datum &) {
     }
 
-	void write(FILE *f) {
-		fprintf(f, "padding\n");
-	}
-
 private:
 
     // the function parse_consecutive_padding() reads consecutive padding
@@ -1193,10 +1154,6 @@ private:
 class ping {
 public:
 	ping(datum &) {}
-
-	void write(FILE *f) {
-		fprintf(f, "ping\n");
-	}
 };
 
 class quic_frame {
@@ -1250,20 +1207,6 @@ public:
     template <typename T>
     T *get_if() {
         return std::get_if<T>(&frame);
-    }
-
-    class write_visitor {
-        FILE *f_;
-    public:
-        write_visitor(FILE *f) : f_{f} { }
-
-        template <typename T> void operator()(T &x) { x.write(f_); }
-
-        void operator()(std::monostate &) { }
-    };
-
-    void write(FILE *f) {
-        std::visit(write_visitor{f}, frame);
     }
 
     class write_json_visitor {
@@ -1488,7 +1431,6 @@ public:
         datum plaintext_copy = plaintext;
         while (plaintext_copy.is_not_empty()) {
             quic_frame frame{plaintext_copy};
-            //frame.write(stderr);
             if (!frame.is_valid() || plaintext_copy.is_null()) {
                 valid = false;
                 return;
