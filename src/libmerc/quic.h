@@ -560,10 +560,10 @@ struct quic_initial_packet {
             return;  // invalid or incomplete packet
         }
 
-        // bound raw_packet to this packet; on entry it was set to the whole
-        // remaining datagram, before the length field had been parsed
+        // on entry raw_packet was the whole remaining datagram, before the
+        // length field had been parsed; trim it to this packet
         //
-        raw_packet = datum{aad_start, d.data};
+        raw_packet.trim_to_length(raw_packet.length() - d.length());
 
         // fprintf(stderr, "VALID\n");
         valid = true;
@@ -1540,13 +1540,15 @@ public:
                     // it there); the engine's plaintext buffer may have been
                     // overwritten by a coalesced packet's decryption.
                     const crypto_frame_meta &f = crypto_buffer.crypto_frames[crypto_buffer.first_frame_index];
-                    uint64_t f_off = f.offset();
-                    uint64_t f_len = f.captured_length();   // bytes actually copied into the buffer
-                    if (f_off + f_len > crypto_buffer.buf_len) {
-                        return;   // inconsistent offsets; avoid reading past the buffer
+                    datum buf{crypto_buffer.buffer};
+                    buf.trim_to_length(crypto_buffer.buf_len);
+                    if (!buf.skip(f.offset())) {
+                        return;   // offset past the captured data
                     }
-                    struct datum d{crypto_buffer.buffer + f_off,
-                                   crypto_buffer.buffer + f_off + f_len};
+                    datum d{buf, (ssize_t)f.captured_length()};
+                    if (d.is_null()) {
+                        return;   // frame extends past the captured data
+                    }
                     tls_handshake tls{d};
                     more_bytes_needed = tls.additional_bytes_needed;
                     hello.parse(tls.body);
@@ -1844,13 +1846,15 @@ public:
                     // it there); the engine's plaintext buffer may have been
                     // overwritten by a coalesced packet's decryption.
                     const crypto_frame_meta &f = crypto_buffer.crypto_frames[crypto_buffer.first_frame_index];
-                    uint64_t f_off = f.offset();
-                    uint64_t f_len = f.captured_length();   // bytes actually copied into the buffer
-                    if (f_off + f_len > crypto_buffer.buf_len) {
-                        return;   // inconsistent offsets; avoid reading past the buffer
+                    datum buf{crypto_buffer.buffer};
+                    buf.trim_to_length(crypto_buffer.buf_len);
+                    if (!buf.skip(f.offset())) {
+                        return;   // offset past the captured data
                     }
-                    struct datum d{crypto_buffer.buffer + f_off,
-                                   crypto_buffer.buffer + f_off + f_len};
+                    datum d{buf, (ssize_t)f.captured_length()};
+                    if (d.is_null()) {
+                        return;   // frame extends past the captured data
+                    }
                     tls_handshake tls{d};
                     more_bytes_needed = tls.additional_bytes_needed;
                     hello.parse(tls.body);
