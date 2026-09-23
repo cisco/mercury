@@ -1757,6 +1757,7 @@ public:
         //
         if (!is_initial_type(initial_packet)) {
             initial_packet.valid = false;
+            d.set_null();   // parser contract: a failed construction nulls the input
             return;
         }
 
