@@ -142,7 +142,7 @@ public:
     bool cbor_metadata = false;        /* encode metadata in CBOR alongside the analysis */
     size_t cbor_metadata_buffer_size = cbor_metadata_buffer::DEFAULT_CBOR_METADATA_LEN;
                                        /* overridden by --cbor-metadata-buffer-size */
-    size_t max_stats_memory = 16 * 1024 * 1024; /* estimated stats memory per aggregator */
+    size_t max_stats_memory = 128 * 1024 * 1024; /* default maximum stats memory per aggregator */
 
     global_config() : libmerc_config(), reassembly{false}, network_behavioral_detections{false} {};
     global_config(const libmerc_config& c) : libmerc_config(c), reassembly{false}, network_behavioral_detections{false} {
