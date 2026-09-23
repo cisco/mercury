@@ -1384,6 +1384,14 @@ struct cryptographic_buffer
     }
 
     void reset() {
+        // Clear the bytes, not just the length.  A speculative
+        // quic_init_decry::parse() copies unauthenticated CRYPTO data here, and
+        // the < 10 fallback below reads a fixed 10-byte window, so bytes left
+        // past a short authenticated frame would be read as CRYPTO stream data.
+        // extend() bounds every write to sizeof(buffer), so buf_len is in range;
+        // clearing it keeps everything at or past buf_len zero for the next use.
+        //
+        memset(buffer, 0, buf_len);
         buf_len = 0;
         min_frame = {UINT64_MAX,UINT64_MAX};
         max_frame = {0,0};
@@ -2411,6 +2419,72 @@ namespace quic_packet_safety_unit_test {
         return true;
     }
 
+    // reset() must clear the buffer contents, not just the length: the bytes a
+    // speculative parse left behind are otherwise still readable.
+    //
+    inline bool crypto_buffer_reset_zeroes_unit_test() {
+        cryptographic_buffer cb{};
+        // CRYPTO frame: offset 0, length 8, eight 0xff bytes
+        uint8_t body[] = {0x00, 0x08, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+        datum d{body, body + sizeof(body)};
+        crypto c{d};
+        if (!c.is_valid() || !cb.extend(c) || cb.buf_len != 8) {
+            return false;
+        }
+        cb.reset();
+        for (size_t i = 0; i < 8; i++) {
+            if (cb.buffer[i] != 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Bytes written by a speculative (unauthenticated) parse must not reach the
+    // fallback's 10-byte window once an authenticated frame shorter than that
+    // lands at offset 0, or they are read as CRYPTO stream data.
+    //
+    inline bool speculative_crypto_contamination_unit_test() {
+        auto packet = make_quic_initial();
+        // CRYPTO off 0 len 5, then off 100 len 5, leaving a gap: the offset-0
+        // frame captures 5, so the fallback reads buffer[0..10).
+        static const uint8_t frames[] = {
+            0x06, 0x00, 0x05, 0x01, 0x00, 0x00, 0x50, 0xaa,
+            0x06, 0x40, 0x64, 0x05, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5,
+        };
+        const size_t off = 19;   // payload at 18, plus 1-byte packet number
+        if (off + sizeof(frames) > packet.size()) { return false; }
+        for (size_t i = 0; i < sizeof(frames); i++) { packet[off + i] = frames[i]; }
+
+        cryptographic_buffer cb{};
+        // stand in for the speculative parse: fill the window with 0xff
+        uint8_t spec[] = {0x00, 0x0a, 0xff, 0xff, 0xff, 0xff, 0xff,
+                          0xff, 0xff, 0xff, 0xff, 0xff};
+        datum sd{spec, spec + sizeof(spec)};
+        crypto sc{sd};
+        if (!sc.is_valid() || !cb.extend(sc) || cb.buf_len != 10) {
+            return false;
+        }
+        cb.reset();
+
+        datum d{packet.data(), packet.data() + packet.size()};
+        quic_initial_packet ip{d};
+        if (!ip.is_not_empty()) { return false; }
+        quic_init_decry decry{ip, cb};
+        decry.parse();
+
+        // the authenticated frame's 5 bytes survive
+        static const uint8_t expected[] = {0x01, 0x00, 0x00, 0x50, 0xaa};
+        for (size_t i = 0; i < sizeof(expected); i++) {
+            if (cb.buffer[i] != expected[i]) { return false; }
+        }
+        // the rest of the window carries nothing from the speculative parse
+        for (size_t i = sizeof(expected); i < 10; i++) {
+            if (cb.buffer[i] != 0) { return false; }
+        }
+        return true;
+    }
+
     // raw_packet must cover only the packet the record describes, not the
     // coalesced packets behind it.
     //
@@ -2598,6 +2672,8 @@ namespace quic_packet_safety_unit_test {
             && connection_close_frame_walk_unit_test()
             && min_payload_length_unit_test()
             && crypto_frame_index_bounds_unit_test()
+            && crypto_buffer_reset_zeroes_unit_test()
+            && speculative_crypto_contamination_unit_test()
             && raw_packet_extent_unit_test()
             && pre_decrypted_coalesced_unit_test()
             && coalesced_type_gate_unit_test()
