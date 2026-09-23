@@ -1795,6 +1795,12 @@ public:
             if (!next.is_not_empty() || !same_connection(next) || !is_initial_type(next)) {
                 break;
             }
+            // Commit the accepted packet to the caller's cursor, so a
+            // compositional caller does not reprocess the coalesced tail.  On
+            // the break above coalesced has advanced past a packet we reject,
+            // so d must not follow it.
+            //
+            d = coalesced;
             examined++;
             if (decrypt_attempts < max_decrypt_pkts) {
                 plaintext = quic_crypto.decrypt(next);
@@ -2485,6 +2491,26 @@ namespace quic_packet_safety_unit_test {
         return true;
     }
 
+    // The caller's cursor must cover every coalesced packet the walk accepted,
+    // and must not follow one the gates reject.
+    //
+    inline bool coalesced_cursor_advance_unit_test() {
+        auto consumed = [](uint8_t second_dcid_byte) -> size_t {
+            std::array<uint8_t, quic_initial_packet_len> datagram{};
+            size_t off = write_initial(datagram.data(), 0x01);
+            write_initial(datagram.data() + off, second_dcid_byte);
+
+            datum d{datagram.data(), datagram.data() + datagram.size()};
+            quic_crypto_engine engine{};
+            quic_init quic{d, engine};
+            if (!quic.is_not_empty()) { return 0; }
+            return (size_t)(d.data - datagram.data());
+        };
+
+        return consumed(0x01) == 2 * initial_pkt_len   // both Initials committed
+            && consumed(0x02) == initial_pkt_len;      // foreign DCID: first only
+    }
+
     // raw_packet must cover only the packet the record describes, not the
     // coalesced packets behind it.
     //
@@ -2674,6 +2700,7 @@ namespace quic_packet_safety_unit_test {
             && crypto_frame_index_bounds_unit_test()
             && crypto_buffer_reset_zeroes_unit_test()
             && speculative_crypto_contamination_unit_test()
+            && coalesced_cursor_advance_unit_test()
             && raw_packet_extent_unit_test()
             && pre_decrypted_coalesced_unit_test()
             && coalesced_type_gate_unit_test()
