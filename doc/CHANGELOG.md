@@ -1,5 +1,63 @@
 # CHANGELOG for Mercury
 
+## VERSION 2.21.0
+* Added parsing of coalesced QUIC Initial packets, closing a ClientHello
+  visibility gap, with frame and decryption counters.
+* Added CBOR metadata output to the libmerc API wrapper and utility.
+* Added a configurable soft limit on event stats memory, 128 MB per aggregator.
+* Reduced event stats memory use by about 80 MB per million entries.
+* Extended GREASE normalization to all values defined by RFC 8701.
+* Introduced typed string and packet header views with checked bounds.
+* Hardened flow key, fingerprint cache, and stats hashing against
+  collision-driven CPU exhaustion.
+* Hardened the packaged systemd unit: mercury runs as an unprivileged user with
+  only the capability it needs, restricted filesystem access and system calls,
+  and a bounded restart rate.
+* Hardened buffer null termination and UTF-8 escaping against out-of-bounds
+  writes and partial escape sequences.
+* Hardened buffer bounds checks against underflowed lengths.
+* Hardened the Python bindings against malformed input and object lifetime
+  errors, and added the missing fingerprint type mappings.
+* Fixed QUIC defects producing forged records, dropped frames, or stale reads.
+* Fixed QUIC and OpenVPN fingerprint corruption and mislabeled output caused by
+  an inner ClientHello claiming to be DTLS.
+* Fixed TLS extension lengths wrongly normalized as GREASE in fingerprints.
+* Fixed TLS ServerHello parsing to keep the extensions present on the wire when
+  the declared length overruns the message.
+* Fixed an out-of-bounds read in TLS raw-features output.
+* Fixed an out-of-bounds read in the ALPN list reported by the analysis API.
+* Fixed an out-of-bounds write in Base64 decoding of single-padded input.
+* Fixed an out-of-bounds read when matching short payloads against a protocol.
+* Fixed a use-after-return when TCP reassembly handed data to a parser.
+* Fixed dangling reassembly iterators after the flow table is cleared.
+* Fixed a crash on IPv4 ASN and domain lookups when the address trie is absent.
+* Fixed a crash on SMTP replies with no fingerprintable line, which no longer
+  produce a degenerate server fingerprint.
+* Fixed a stack overflow on deeply nested BitTorrent DHT raw-features output.
+* Fixed excessive CPU use in DNS name decompression.
+* Fixed excessive CPU use in SMB1 and SMB2 dialect list parsing, and rejected
+  an SMB2 negotiate whose dialect count exceeds the data present.
+* Bounded BitTorrent local service discovery reporting at 32 headers.
+* Fixed forged STUN client fingerprints from malformed attributes.
+* Fixed Redis array response recognition, and tightened RESP parsing.
+* Fixed an IMAP literal size that wrapped, reporting a bogus size and forming
+  an out-of-bounds parse pointer.
+* Fixed IPv6 address compression so separate zero runs cannot merge.
+* Fixed IPv6 flow label extraction in TCP fingerprints.
+* Fixed an endian-dependent byte read in the IPv6 private address check.
+* Fixed VLAN and CMD tag handling to accept the tags in any order.
+* Fixed CBOR decoding to report an unknown tag as an opaque value, and to drop
+  an undecodable fingerprint, instead of invalidating the record.
+* Fixed stale CBOR metadata being reported for frames that carry no IP packet.
+* Fixed crypto assessment to report unregistered TLS extensions as unknown.
+* Removed stderr diagnostics driven by malformed ARP and truncated writes.
+* Removed the os_identifier tool and implementation.
+* Reduced the header set needed to decode CBOR fingerprints outside libmerc.
+* Build: treated dependency include paths as system directories, suppressing
+  warnings from third-party headers.
+* Build: raised the MSVC object file section limit on Windows.
+* CI: removed Debian 11, which is end of life.
+
 ## VERSION 2.20.0
 * Added DCE/RPC support.
 * Added PostgreSQL support, including exposed-credentials reporting.
