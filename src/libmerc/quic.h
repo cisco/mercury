@@ -347,24 +347,27 @@ public:
 // }
 //
 class connection_close {
-    variable_length_integer error_code{0};
-    variable_length_integer frame_type{0};
-    variable_length_integer reason_phrase_length{0};
+    // application_variant is declared ahead of the wire fields because
+    // frame_type's initializer reads it, and members initialize in
+    // declaration order; the rest follow the order on the wire.
+    //
+    bool application_variant;   // type 0x1d omits the Frame Type field
+    variable_length_integer error_code;
+    variable_length_integer frame_type;
+    variable_length_integer reason_phrase_length;
     datum reason_phrase;
-    bool application_variant{false};   // type 0x1d omits the Frame Type field
-    bool valid{false};
+    bool valid;
 
 public:
     // is_application selects the 0x1d layout (no Frame Type field).
-    connection_close(datum &p, bool is_application = false) : application_variant{is_application} {
-        error_code = variable_length_integer{p};
-        if (!application_variant) {
-            frame_type = variable_length_integer{p};
-        }
-        reason_phrase_length = variable_length_integer{p};
-        reason_phrase.parse(p, (ssize_t)reason_phrase_length.value());
-        valid = p.is_not_null();   // fields parsed; a zero-length reason phrase is valid
-    }
+    connection_close(datum &p, bool is_application = false) :
+        application_variant{is_application},
+        error_code{p},
+        frame_type{is_application ? variable_length_integer{0} : variable_length_integer{p}},
+        reason_phrase_length{p},
+        reason_phrase{p, (ssize_t)reason_phrase_length.value()},
+        valid{p.is_not_null()}   // fields parsed; a zero-length reason phrase is valid
+    { }
 
     bool is_valid() const { return valid; }
 
@@ -1543,8 +1546,8 @@ public:
                     // it there); the engine's plaintext buffer may have been
                     // overwritten by a coalesced packet's decryption.
                     const crypto_frame_meta &f = crypto_buffer.crypto_frames[crypto_buffer.first_frame_index];
-                    datum buf{crypto_buffer.buffer};
-                    buf.trim_to_length(crypto_buffer.buf_len);
+                    datum owned{crypto_buffer.buffer};
+                    datum buf{owned, (ssize_t)crypto_buffer.buf_len};   // populated region
                     if (!buf.skip(f.offset())) {
                         return;   // offset past the captured data
                     }
@@ -1849,8 +1852,8 @@ public:
                     // it there); the engine's plaintext buffer may have been
                     // overwritten by a coalesced packet's decryption.
                     const crypto_frame_meta &f = crypto_buffer.crypto_frames[crypto_buffer.first_frame_index];
-                    datum buf{crypto_buffer.buffer};
-                    buf.trim_to_length(crypto_buffer.buf_len);
+                    datum owned{crypto_buffer.buffer};
+                    datum buf{owned, (ssize_t)crypto_buffer.buf_len};   // populated region
                     if (!buf.skip(f.offset())) {
                         return;   // offset past the captured data
                     }
@@ -1966,12 +1969,17 @@ public:
         if (ack_frame.is_valid()) {
             ack_frame.write_json(quic_record);
         }
+        // plaintext tracks the last decrypt attempt, not the last success:
+        // gcm_decrypt() writes the shared engine buffer before checking the
+        // tag, so a trailing failed decrypt in a coalesced datagram drops an
+        // earlier packet's plaintext.  Expected -- that packet's CRYPTO data
+        // is already harvested into crypto_buffer, so only the hex dump goes.
+        //
         if (plaintext.is_not_empty()) {
             quic_crypto.write_json(quic_record);
             quic_record.print_key_hex("plaintext", plaintext);
         } else if (decrypted_pkt_count == 0) {
-            // only when nothing in the datagram decrypted; plaintext tracks
-            // the last attempt, not the last success
+            // only when nothing in the datagram decrypted
             quic_record.print_key_hex("raw_packet_data", initial_packet.raw_packet);
         }
         // json_object frame_dump{record, "frame_dump"};
