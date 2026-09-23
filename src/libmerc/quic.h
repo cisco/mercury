@@ -151,17 +151,6 @@ public:
         }
     }
 
-	void write(FILE *f) {
-    	if (is_valid()) {
-        	fprintf(f, "ack.largest_acked: %" PRIu64 "\n", largest_acked.value());
-        	fprintf(f, "ack.ack_delay: %" PRIu64 "\n", ack_delay.value());
-        	fprintf(f, "ack.ack_range_count: %" PRIu64 "\n", ack_range_count.value());
-        	fprintf(f, "ack.first_ack_range: %" PRIu64 "\n", first_ack_range.value());
-        } else {
-        	fprintf(f, "ack.not valid\n");
-        }
-    }
-
 };
 class ack_ecn {
     ack ack_frame;
@@ -184,17 +173,6 @@ public:
             a.print_key_uint("ecn_ce", ecn_ce.value());
             ack_frame.write_json(a);
             a.close();
-        }
-    }
-
-    void write(FILE *f) {
-    	if (is_valid()) {
-            ack_frame.write(f);
-        	fprintf(f, "ack.ect0: %" PRIu64 "\n", ect0.value());
-            fprintf(f, "ack.ect1: %" PRIu64 "\n", ect1.value());
-            fprintf(f, "ack.ecn_ce: %" PRIu64 "\n", ecn_ce.value());
-        } else {
-        	fprintf(f, "ack_ecn.not valid\n");
         }
     }
 };
@@ -256,15 +234,6 @@ public:
     uint64_t length() const
     {
         return _length.value();
-    }
-
-    void write(FILE *f) {
-        if (is_valid()) {
-            fprintf(f, "crypto.offset: %" PRIu64 "\n", _offset.value());
-            fprintf(f, "crypto.length: %" PRIu64 "\n", _length.value());
-        } else {
-            fprintf(f, "crypto.not valid\n");
-        }
     }
 };
 
@@ -347,34 +316,39 @@ public:
 // }
 //
 class connection_close {
+    // application_variant is declared ahead of the wire fields because
+    // frame_type's initializer reads it, and members initialize in
+    // declaration order; the rest follow the order on the wire.
+    //
+    bool application_variant;   // type 0x1d omits the Frame Type field
     variable_length_integer error_code;
     variable_length_integer frame_type;
     variable_length_integer reason_phrase_length;
     datum reason_phrase;
+    bool valid;
 
 public:
-    connection_close(datum &p) : error_code{p}, frame_type{p}, reason_phrase_length{p}, reason_phrase{p, (ssize_t)reason_phrase_length.value()} { }
+    // is_application selects the 0x1d layout (no Frame Type field).
+    connection_close(datum &p, bool is_application = false) :
+        application_variant{is_application},
+        error_code{p},
+        frame_type{is_application ? variable_length_integer{0} : variable_length_integer{p}},
+        reason_phrase_length{p},
+        reason_phrase{p, (ssize_t)reason_phrase_length.value()},
+        valid{p.is_not_null()}   // fields parsed; a zero-length reason phrase is valid
+    { }
 
-    bool is_valid() const { return reason_phrase.is_not_empty(); }
+    bool is_valid() const { return valid; }
 
 	void write_json(json_object &o) {
         if (is_valid()) {
             json_object cc{o, "connection_close"};
             cc.print_key_uint("error_code", error_code.value());
-            cc.print_key_uint("frame_type", frame_type.value());
+            if (!application_variant) {
+                cc.print_key_uint("frame_type", frame_type.value());
+            }
             cc.print_key_json_string("reason_phrase", reason_phrase);
             cc.close();
-        }
-    }
-
-	void write(FILE *f) {
-    	if (is_valid()) {
-        	fprintf(f, "connection_close.error_code: %" PRIu64 "\n", error_code.value());
-        	fprintf(f, "connection_close.frame_type: %" PRIu64 "\n", frame_type.value());
-        	fprintf(f, "connection_close.reason_phrase_length: %" PRIu64 "\n", reason_phrase_length.value());
-        	fprintf(f, "connection_close.reason_phrase: %s\n", reason_phrase.get_string().c_str());
-        } else {
-        	fprintf(f, "connection_close.not valid\n");
         }
     }
 };
@@ -404,6 +378,11 @@ public:
 //     Packet Payload (8..),
 //   }
 //
+// QUIC v2 version numbers.  These must have V2 salt/mask/label entries in
+// quic_parameters and drive is_v2_version() (which renumbers Long Packet Type).
+static constexpr uint32_t quic_version_2       = 0x6b3343cf;   // RFC 9369
+static constexpr uint32_t quic_version_2_draft = 0x709a50c4;   // v2 draft1-7
+
 struct quic_initial_packet {
     uint8_t connection_info;
     struct datum version;  // TODO: encoded<uint32_t>
@@ -416,11 +395,18 @@ struct quic_initial_packet {
     const uint8_t *aad_end = nullptr;
     struct datum raw_packet;  // full packet for raw_packet_data output
 
-    quic_initial_packet(struct datum &d) : connection_info{0}, dcid{}, scid{}, token{}, payload{}, valid{false}, raw_packet{} {
-        parse(d);
+    // require_min_datagram_len enforces the datagram minimum length; set it
+    // false for coalesced packets after the first, which may be smaller.
+    quic_initial_packet(struct datum &d, bool require_min_datagram_len = true) : connection_info{0}, dcid{}, scid{}, token{}, payload{}, valid{false}, raw_packet{} {
+        parse(d, require_min_datagram_len);
     }
 
-    void parse(struct datum &d) {
+    // v2 renumbers the Long Packet Type; keep in sync with V2 entries in quic_parameters
+    static bool is_v2_version(uint32_t v) {
+        return v == quic_version_2 || v == quic_version_2_draft;
+    }
+
+    void parse(struct datum &d, bool require_min_datagram_len = true) {
 
         raw_packet = d;
 
@@ -428,7 +414,15 @@ struct quic_initial_packet {
         //
         aad_start = d.data;
 
-        if (d.length() < min_len_pdu) {
+        // each failure below nulls d, per doc/protocol-guidelines.md; the
+        // returns after a failed datum::parse() are already null.
+        //
+
+        // The 1184-byte minimum is a datagram-level requirement (the client's
+        // first flight). Coalesced packets after the first may be smaller, so
+        // the caller disables this check for them.
+        if (require_min_datagram_len && d.length() < min_len_pdu) {
+            d.set_null();
             return;  // packet too short to be valid
         }
 
@@ -442,6 +436,11 @@ struct quic_initial_packet {
         d.read_uint8(&connection_info);
 
         version.parse(d, 4);
+        if (!version.is_not_empty()) {
+            // no version to key the decisions below on.  (Not a memory-safety
+            // guard: lookahead_uint() is a no-op on a null datum.)
+            return;
+        }
 
         // process non-standard QUIC versions, unless compile-time
         // configuration says not to do so
@@ -481,20 +480,28 @@ struct quic_initial_packet {
                 ;              // note: could report gquic
                 break;
             default:
+                d.set_null();
                 return;
             }
         }
 
-        uint8_t dcid_length;
+        // Non-Initial long-header types are rejected by quic_init, which has
+        // access to the per-version Long Packet Type mapping in
+        // quic_parameters.  Gating here would have to hardcode one version's
+        // mapping and would drop unknown versions before trial decryption.
+
+        uint8_t dcid_length = 0;
         d.read_uint8(&dcid_length);
         if (dcid_length > 20) {
+            d.set_null();
             return;  // dcid too long
         }
         dcid.parse(d, dcid_length);
 
-        uint8_t scid_length;
+        uint8_t scid_length = 0;
         d.read_uint8(&scid_length);
         if (scid_length > 20) {
+            d.set_null();
             return;  // scid too long
         }
         scid.parse(d, scid_length);
@@ -506,6 +513,7 @@ struct quic_initial_packet {
         //fprintf(stderr, "length: %08lu\td.length(): %08zu\tversion: %08lx\n", length.value(), d.length(), v);
         if (d.length() < (ssize_t)length.value() || length.value() < min_len_pn_and_payload) {
             //fprintf(stderr, "invalid\n");
+            d.set_null();
             return;
         }
 
@@ -519,11 +527,22 @@ struct quic_initial_packet {
             //fprintf(stderr, "invalid\n");
             return;  // invalid or incomplete packet
         }
+
+        // on entry raw_packet was the whole remaining datagram, before the
+        // length field had been parsed; parse() trims it to this packet, and
+        // nulls it rather than silently leaving it untrimmed
+        //
+        datum pkt = raw_packet;
+        ssize_t pkt_len = pkt.length() - d.length();
+        raw_packet = datum{pkt, pkt_len};
+
         // fprintf(stderr, "VALID\n");
         valid = true;
     }
 
-	static constexpr size_t min_len_pn_and_payload = 64;  // TODO: determine best length bound
+	// Min Length: header-protection samples 16 bytes at payload offset 4
+	// (RFC 9001 S5.4.2), so payload >= 20; this also covers the AEAD tag.
+	static constexpr size_t min_len_pn_and_payload = 20;
 	static constexpr ssize_t min_len_pdu = 1184;          // TODO: determine best length bound
 
     bool is_not_empty() const {
@@ -717,8 +736,8 @@ public:
             {0xff000021, {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // draft-33
             {0xff000022, {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // draft-34
             {0x00000001, {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // version-1 (RFC 9000)
-            {0x709a50c4, {salt_enum::D1_D7_V2, init_pkt_mask_enum::V2, hkdf_label_enum::V2}},        // v2-draft1_draft7
-            {0x6b3343cf, {salt_enum::V2, init_pkt_mask_enum::V2, hkdf_label_enum::V2}},              // version-2 (RFC 9369)
+            {quic_version_2_draft, {salt_enum::D1_D7_V2, init_pkt_mask_enum::V2, hkdf_label_enum::V2}},  // v2-draft1_draft7
+            {quic_version_2, {salt_enum::V2, init_pkt_mask_enum::V2, hkdf_label_enum::V2}},              // version-2 (RFC 9369)
             {0xd4000400, {salt_enum::D33_V1, init_pkt_mask_enum::D22_V1, hkdf_label_enum::D22_V1}},  // empirical - tencent?
         };
         quic_initial_params.reserve(MAX_QUIC_VERSIONS);
@@ -759,6 +778,22 @@ public:
 
     const std::unordered_map<uint32_t, const std::tuple<salt_enum, init_pkt_mask_enum, hkdf_label_enum> > &get_params_map() {return quic_initial_params;}
 
+    // Returns the (mask, value) pair that identifies an Initial packet for
+    // this version, or nullptr when the version is unknown.
+    //
+    // Long Packet Type bits are version-specific -- v2 renumbers Initial from
+    // 0b00 to 0b01 -- so a caller must not assume v1's mapping.  A null return
+    // means "layout unknown, do not gate", which leaves unknown and
+    // experimental versions free to reach trial decryption.
+    //
+    const std::pair<uint8_t,uint8_t> *get_initial_pkt_mask_value(uint32_t version) {
+        const std::tuple<salt_enum, init_pkt_mask_enum, hkdf_label_enum> *params = get_initial_params(version);
+        if (params == nullptr) {
+            return nullptr;
+        }
+        return get_init_pkt_mask_value(std::get<1>(*params))->get_mask_value();
+    }
+
     static quic_parameters &create() {
         static quic_parameters quic_params;
         return quic_params;
@@ -783,7 +818,7 @@ class quic_crypto_engine {
     uint8_t pn_length = 0;
 
     unsigned char plaintext[pt_buf_len] = {0};
-    int16_t plaintext_len = 0;
+    int plaintext_len = 0;   // gcm_decrypt() returns int (<= pt_buf_len)
 
     const char *salt_str = nullptr;
     bool quic_trial_decryption = false;
@@ -811,7 +846,11 @@ public:
         }
 
         data_buffer<1024> aad;
-        uint32_t version = ntoh(*((uint32_t*)quic_pkt.version.data));
+        // Read the 4-byte version big-endian; avoids an unaligned, strict-
+        // aliasing uint32_t* load (version.data points mid-buffer at offset 1).
+        uint64_t version_be = 0;
+        quic_pkt.version.lookahead_uint(4, &version_be);
+        uint32_t version = (uint32_t)version_be;
         // NOTE: quic_params is a process-wide singleton (initialized on
         // first use); safe for concurrent reads, but NOT for concurrent
         // reads + writes.
@@ -1044,11 +1083,11 @@ struct quic_version_negotiation {
         }
         d.skip(4);  // skip version, it's 00000000
 
-        uint8_t dcid_length;
+        uint8_t dcid_length = 0;
         d.read_uint8(&dcid_length);
         dcid.parse(d, dcid_length);
 
-        uint8_t scid_length;
+        uint8_t scid_length = 0;
         d.read_uint8(&scid_length);
         scid.parse(d, scid_length);
 
@@ -1091,10 +1130,6 @@ public:
 	padding(datum &) {
     }
 
-	void write(FILE *f) {
-		fprintf(f, "padding\n");
-	}
-
 private:
 
     // the function parse_consecutive_padding() reads consecutive padding
@@ -1119,10 +1154,6 @@ private:
 class ping {
 public:
 	ping(datum &) {}
-
-	void write(FILE *f) {
-		fprintf(f, "ping\n");
-	}
 };
 
 class quic_frame {
@@ -1131,20 +1162,29 @@ class quic_frame {
 public:
 
     quic_frame(datum &d) {
-        uint8_t type = 0;
-        if (d.read_uint8(&type) == false) {
-            frame.emplace<std::monostate>();   // invalid; no data to read
-        } else if (type == 0x06) {
+        // Frame Type is a varint (RFC 9000 S12.4/S16).  Non-minimal encodings
+        // such as 0x4006 for CRYPTO are non-conformant -- S12.4 requires the
+        // shortest form -- but are decoded anyway, since refusing would hide a
+        // ClientHello that the peer accepts.
+        variable_length_integer type{d};
+        if (d.is_null()) {
+            frame.emplace<std::monostate>();   // truncated type field
+        } else if (type.value() == 0x06) {
             frame.emplace<crypto>(d);
-        } else if (type == 0x1c) {
-            frame.emplace<connection_close>(d);
-        } else if (type == 0x00) {
+        } else if (type.value() == 0x1c) {
+            frame.emplace<connection_close>(d, false);   // transport (has Frame Type)
+        } else if (type.value() == 0x1d) {
+            // application variant; omits the Frame Type field.  RFC 9000
+            // Table 3 and S10.2.3 disallow it in an Initial, so this is
+            // non-conformant input we parse rather than abort the walk on.
+            frame.emplace<connection_close>(d, true);
+        } else if (type.value() == 0x00) {
             frame.emplace<padding>(d);
-        } else if (type == 0x01) {
+        } else if (type.value() == 0x01) {
             frame.emplace<ping>(d);
-        } else if (type == 0x02) {
+        } else if (type.value() == 0x02) {
             frame.emplace<ack>(d);
-        } else if (type == 0x03) {
+        } else if (type.value() == 0x03) {
             frame.emplace<ack_ecn>(d);
         }
         else {
@@ -1169,20 +1209,6 @@ public:
         return std::get_if<T>(&frame);
     }
 
-    class write_visitor {
-        FILE *f_;
-    public:
-        write_visitor(FILE *f) : f_{f} { }
-
-        template <typename T> void operator()(T &x) { x.write(f_); }
-
-        void operator()(std::monostate &) { }
-    };
-
-    void write(FILE *f) {
-        std::visit(write_visitor{f}, frame);
-    }
-
     class write_json_visitor {
         json_object &o;
     public:
@@ -1202,6 +1228,26 @@ public:
 
 };
 
+// Per-frame metadata retained for CRYPTO reassembly. We deliberately do NOT
+// store the frame's datum: its bytes live in a decryption buffer that later
+// (coalesced) packets overwrite, so a retained datum would dangle. The bytes
+// are copied into cryptographic_buffer::buffer; consumers reconstruct data
+// from buffer + offset() using these lengths.
+//
+// bytes_captured always equals frame_length today: crypto's data is
+// datum{p, _length.value()} and datum::parse() is all-or-nothing.  It is kept,
+// and consumers bound their reads by it, because nothing enforces that here.
+//
+struct crypto_frame_meta {
+    uint64_t frame_offset = 0;    // CRYPTO frame stream offset
+    uint64_t frame_length = 0;    // declared CRYPTO Length field
+    uint64_t bytes_captured = 0;  // bytes copied into the buffer
+
+    uint64_t offset() const { return frame_offset; }
+    uint64_t length() const { return frame_length; }
+    uint64_t captured_length() const { return bytes_captured; }
+};
+
 struct cryptographic_buffer
 {
     uint64_t buf_len = 0;
@@ -1214,7 +1260,7 @@ struct cryptographic_buffer
     uint32_t total_data = 0;
     static constexpr uint16_t max_frames = 20;
     static constexpr uint16_t invalid_first_frame_index = UINT16_MAX;
-    crypto crypto_frames[max_frames];
+    crypto_frame_meta crypto_frames[max_frames];
     uint16_t crypto_frames_count = 0;
     uint16_t first_frame_index = invalid_first_frame_index;
     bool missing_crypto_frames = false;
@@ -1244,9 +1290,6 @@ struct cryptographic_buffer
     }
 
     void update_crypto_frames (crypto *c) {
-        if (c->offset() == 0) {
-            first_frame_index = crypto_frames_count;
-        }
         // update min
         if (c->offset() <= min_frame.first) {
             min_frame.first = c->offset();
@@ -1259,9 +1302,15 @@ struct cryptographic_buffer
         }
         // update total
         total_data += c->length();
-        // update frame array
-        if (crypto_frames_count < 20) {
-            crypto_frames[crypto_frames_count] = *c;
+        // update frame array (store metadata only; the frame's datum would
+        // dangle once a later coalesced packet overwrites the decryption buffer).
+        // Record first_frame_index only for frames we actually store, so it
+        // never points past crypto_frames_count (avoids OOB in consumers).
+        if (crypto_frames_count < max_frames) {
+            if (c->offset() == 0) {
+                first_frame_index = crypto_frames_count;
+            }
+            crypto_frames[crypto_frames_count] = crypto_frame_meta{c->offset(), c->length(), (uint64_t)c->data().length()};
             crypto_frames_count++;
         }
     }
@@ -1284,6 +1333,14 @@ struct cryptographic_buffer
     }
 
     void reset() {
+        // Clear the bytes, not just the length.  A speculative
+        // quic_init_decry::parse() copies unauthenticated CRYPTO data here, and
+        // the < 10 fallback below reads a fixed 10-byte window, so bytes left
+        // past a short authenticated frame would be read as CRYPTO stream data.
+        // extend() bounds every write to sizeof(buffer), so buf_len is in range;
+        // clearing it keeps everything at or past buf_len zero for the next use.
+        //
+        memset(buffer, 0, buf_len);
         buf_len = 0;
         min_frame = {UINT64_MAX,UINT64_MAX};
         max_frame = {0,0};
@@ -1350,13 +1407,16 @@ class quic_init_decry {
     quic_client_hello hello;
     datum plaintext;
     bool valid;
-    quic_frame cc;
+    // We report at most one ACK/ACK_ECN and one CONNECTION_CLOSE per packet,
+    // the first of each seen, under distinct JSON keys.
+    quic_frame ack_frame;   // first ACK / ACK_ECN frame
+    quic_frame close;       // first CONNECTION_CLOSE frame
     uint8_t pkt_num_len;
     uint32_t more_bytes_needed;
     uint32_t min_crypto_offset;
 
 public:
-    quic_init_decry (quic_initial_packet &pkt, cryptographic_buffer& buffer) : initial_packet{pkt}, crypto_buffer{buffer}, hello{}, plaintext{}, valid{false}, cc{}, pkt_num_len{0}, more_bytes_needed{0}, min_crypto_offset{UINT32_MAX} {}
+    quic_init_decry (quic_initial_packet &pkt, cryptographic_buffer& buffer) : initial_packet{pkt}, crypto_buffer{buffer}, hello{}, plaintext{}, valid{false}, ack_frame{}, close{}, pkt_num_len{0}, more_bytes_needed{0}, min_crypto_offset{UINT32_MAX} {}
 
     void parse() {
         if (!initial_packet.is_not_empty()) {
@@ -1371,7 +1431,6 @@ public:
         datum plaintext_copy = plaintext;
         while (plaintext_copy.is_not_empty()) {
             quic_frame frame{plaintext_copy};
-            //frame.write(stderr);
             if (!frame.is_valid() || plaintext_copy.is_null()) {
                 valid = false;
                 return;
@@ -1386,8 +1445,14 @@ public:
                         min_crypto_offset = (uint32_t)c->offset();
                 }
             }
-            if (frame.has_type<connection_close>() || frame.has_type<ack>()) {
-                cc = frame;
+            if (frame.has_type<connection_close>()) {
+                if (!close.is_valid()) {
+                    close = frame;   // keep first close
+                }
+            } else if (frame.has_type<ack>() || frame.has_type<ack_ecn>()) {
+                if (!ack_frame.is_valid()) {
+                    ack_frame = frame;   // keep first ack
+                }
             }
         }
         valid = true;
@@ -1409,7 +1474,7 @@ public:
                 if (!crypto_buffer.has_first_frame()) {
                     return;
                 }
-                if (crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().length() < 10) {
+                if (crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].captured_length() < 10) {
                     // directly pick first 10 bytes from buffer
                     crypto_buffer.min_crypto_data = true;
                     struct datum d{crypto_buffer.buffer, crypto_buffer.buffer + 10};
@@ -1419,9 +1484,19 @@ public:
                     hello.is_quic_hello = true;
                 }
                 else {
-                    struct datum d{crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().data,
-                                    crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().data +
-                                        crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().length()};
+                    // Read the frame from the owned crypto_buffer (extend copied
+                    // it there); the engine's plaintext buffer may have been
+                    // overwritten by a coalesced packet's decryption.
+                    const crypto_frame_meta &f = crypto_buffer.crypto_frames[crypto_buffer.first_frame_index];
+                    datum owned{crypto_buffer.buffer};
+                    datum buf{owned, (ssize_t)crypto_buffer.buf_len};   // populated region
+                    if (!buf.skip(f.offset())) {
+                        return;   // offset past the captured data
+                    }
+                    datum d{buf, (ssize_t)f.captured_length()};
+                    if (d.is_null()) {
+                        return;   // frame extends past the captured data
+                    }
                     tls_handshake tls{d};
                     more_bytes_needed = tls.additional_bytes_needed;
                     hello.parse(tls.body);
@@ -1443,8 +1518,11 @@ public:
         }
         json_object quic_record{record, "quic"};
         initial_packet.write_json(quic_record);
-        if (cc.is_valid()) {
-            cc.write_json(quic_record);
+        if (close.is_valid()) {
+            close.write_json(quic_record);
+        }
+        if (ack_frame.is_valid()) {
+            ack_frame.write_json(quic_record);
         }
         if (plaintext.is_not_empty()) {
             quic_record.print_key_hex("plaintext", plaintext);
@@ -1504,21 +1582,136 @@ class quic_init : public base_protocol {
     cryptographic_buffer crypto_buffer;
     quic_client_hello hello;
     datum plaintext;
-    quic_frame cc;
+    // We report at most one ACK/ACK_ECN and one CONNECTION_CLOSE, the first of
+    // each seen in the last decrypted packet, under distinct JSON keys.
+    quic_frame ack_frame;   // first ACK / ACK_ECN frame
+    quic_frame close;       // first CONNECTION_CLOSE frame
     quic_init_decry decry_pkt;
     bool pre_decrypted;
     uint32_t more_bytes_needed;
     uint32_t min_crypto_offset;
 
+    // Coalesced-packet handling (RFC 9000 S12.2): cap decrypt attempts per
+    // datagram to bound work (DoS); further Initials are counted, not decrypted.
+    static constexpr uint32_t max_decrypt_pkts = 3;
+    // Hard cap on total coalesced packets examined per datagram (defense in
+    // depth); bounds the skip/count loop even if packets keep parsing.
+    static constexpr uint32_t max_coalesced_pkts = 8;
+    uint32_t decrypt_attempts = 0;        // decrypt() calls made (bounds DoS)
+    uint32_t decrypted_pkt_count = 0;     // decrypt() calls that produced plaintext
+    uint32_t failed_decrypt_count = 0;    // decrypt() calls that returned empty
+    uint32_t undecrypted_pkt_count = 0;   // coalesced Initials skipped past the cap
+    uint32_t total_frame_count = 0;       // non-PADDING frames across decrypted packets
+    uint32_t total_padding_count = 0;     // PADDING frames (one per padding byte)
+
+    // Harvest one decrypted packet: copy CRYPTO into crypto_buffer, count
+    // frames, capture the first CONNECTION_CLOSE and ACK.
+    //
+    // close is reset per call: its reason phrase points into the engine's
+    // decryption buffer, which every attempt overwrites -- gcm_decrypt()
+    // writes plaintext before the tag is checked, so failures clobber it too.
+    // ack/ack_ecn decode to integers by value, so ack_frame survives reuse
+    // and is not reset.
+    //
+    void harvest_frames(datum pt) {
+        close = quic_frame{};
+        datum plaintext_copy = pt;
+        while (plaintext_copy.is_not_empty()) {
+            quic_frame frame{plaintext_copy};
+            // is_valid() only reports that the variant is not monostate; a
+            // truncated CLOSE/ACK/CRYPTO still emplaces its type but nulls the
+            // datum, so check both before counting or storing the frame.
+            if (!frame.is_valid() || plaintext_copy.is_null()) {
+                break;
+            }
+            // PADDING is one frame per 0x00 byte and dominates the count; track
+            // it separately so total_frame_count reflects meaningful frames.
+            if (frame.has_type<padding>()) {
+                total_padding_count++;
+            } else {
+                total_frame_count++;
+            }
+
+            crypto *c = frame.get_if<crypto>();
+            if (c && c->is_valid()) {
+                if (crypto_buffer.extend(*c)) {
+                    crypto_buffer.update_crypto_frames(c);
+                    if (c->offset() <= min_crypto_offset)
+                        min_crypto_offset = (uint32_t)c->offset();
+                }
+            }
+            if (frame.has_type<connection_close>()) {
+                if (!close.is_valid()) {
+                    close = frame;   // keep first close
+                }
+            } else if (frame.has_type<ack>() || frame.has_type<ack_ecn>()) {
+                if (!ack_frame.is_valid()) {
+                    ack_frame = frame;   // keep first ack
+                }
+            }
+        }
+    }
+
+    // true if pkt's Long Packet Type identifies an Initial.  The encoding is
+    // version-specific, so the mask comes from quic_parameters; an unknown
+    // version has no known mapping and is left for trial decryption.
+    //
+    static bool is_initial_type(const quic_initial_packet &pkt) {
+        static quic_parameters &quic_params = quic_parameters::create();
+        datum v = pkt.version;
+        uint64_t version_value = 0;
+        v.lookahead_uint(4, &version_value);
+        const std::pair<uint8_t,uint8_t> *mask_value =
+            quic_params.get_initial_pkt_mask_value((uint32_t)version_value);
+        if (mask_value == nullptr) {
+            return true;
+        }
+        return (pkt.connection_info & mask_value->first) == mask_value->second;
+    }
+
+    // true if other carries the same version and DCID as the first packet.
+    // RFC 9000 S12.2 requires the latter, and Initial keys derive from each
+    // packet's own DCID, so without the check an Initial appended from
+    // another connection decrypts and overwrites the real ClientHello.
+    //
+    bool same_connection(const quic_initial_packet &other) const {
+        datum va = initial_packet.version;
+        datum vb = other.version;
+        if (va.is_null() || vb.is_null()) {
+            return false;
+        }
+        uint64_t a = 0, b = 0;
+        va.lookahead_uint(4, &a);
+        vb.lookahead_uint(4, &b);
+        if (a != b) {
+            return false;
+        }
+        return initial_packet.dcid == other.dcid;
+    }
+
 public:
 
     quic_init(struct datum &d, quic_crypto_engine &quic_crypto_) : initial_packet{d}, quic_crypto{quic_crypto_}, crypto_buffer{}, hello{}, plaintext{}, decry_pkt{initial_packet,crypto_buffer}, pre_decrypted{false}, more_bytes_needed{0}, min_crypto_offset{UINT32_MAX} {
 
+        // Reject non-Initial long-header types, which would otherwise be
+        // parsed Initial-style into a forged record.  decrypt() applies the
+        // same mask, but only after the fast path below.
+        //
+        if (!is_initial_type(initial_packet)) {
+            initial_packet.valid = false;
+            d.set_null();   // parser contract: a failed construction nulls the input
+            return;
+        }
+
         // check reserved bits, if 0, try for decrypted quic packet
+        //
+        // Those bits are header-protected in a genuine Initial, so require an
+        // empty remainder too: otherwise a crafted first packet that parses
+        // as PADDING suppresses a valid coalesced Initial behind it.
         //
         if ((initial_packet.connection_info & 0x0c) == 0) {
             decry_pkt.parse();
-            if (decry_pkt.is_valid()) {
+            if (decry_pkt.is_valid() && d.is_empty()) {
                 pre_decrypted = true;
                 return;
             }
@@ -1527,31 +1720,49 @@ public:
         // reset crypto buffer
         //
         crypto_buffer.reset();
-        plaintext = quic_crypto.decrypt(initial_packet);
 
-        // parse plaintext as a sequence of frames
-        //
-        datum plaintext_copy = plaintext;
-        while (plaintext_copy.is_not_empty()) {
-            quic_frame frame{plaintext_copy};
-            //frame.write(stderr);
-            if (!frame.is_valid()) {
+        // Decrypt the first Initial. plaintext points at the engine buffer
+        // (holds the last decrypted packet, valid until write_json); a failed
+        // decrypt is a no-op in harvest and does not abort coalesced processing.
+        plaintext = quic_crypto.decrypt(initial_packet);
+        harvest_frames(plaintext);
+        decrypt_attempts = 1;
+        if (plaintext.is_not_empty()) { decrypted_pkt_count++; } else { failed_decrypt_count++; }
+
+        // Process coalesced Initial packets in the same datagram: decrypt up to
+        // max_decrypt_pkts total, then count any remaining without decrypting.
+        // Cap total iterations (max_coalesced_pkts) for defense in depth.
+        datum coalesced = d;   // d has advanced past the first Initial
+        uint32_t examined = 1;
+        // Only walk coalesced packets when the first Initial parsed; otherwise
+        // its version datum is null and same_connection has nothing to compare.
+        while (initial_packet.is_not_empty() && coalesced.is_not_empty() && examined < max_coalesced_pkts) {
+            quic_initial_packet next{coalesced, false};   // coalesced packets may be < datagram min
+            // A non-Initial ends the walk rather than being skipped: it was
+            // parsed with the Initial field layout, so coalesced has been
+            // advanced wrongly and we cannot resynchronize.  Decrypting it
+            // would burn a decrypt attempt, and under trial decryption (which
+            // applies no type mask) it could be harvested as Initial data.
+            if (!next.is_not_empty() || !same_connection(next) || !is_initial_type(next)) {
                 break;
             }
-
-            crypto *c = frame.get_if<crypto>();
-            if (c && c->is_valid()) {
-                if (crypto_buffer.extend(*c)) {
-                    crypto_buffer.update_crypto_frames(c);
-                    // update min offset
-                    if (c->offset() <= min_crypto_offset)
-                        min_crypto_offset = (uint32_t)c->offset();
-                }
-            }
-            if (frame.has_type<connection_close>() || frame.has_type<ack>() || frame.has_type<ack_ecn>()) {
-                cc = frame;
+            // Commit the accepted packet to the caller's cursor, so a
+            // compositional caller does not reprocess the coalesced tail.  On
+            // the break above coalesced has advanced past a packet we reject,
+            // so d must not follow it.
+            //
+            d = coalesced;
+            examined++;
+            if (decrypt_attempts < max_decrypt_pkts) {
+                plaintext = quic_crypto.decrypt(next);
+                harvest_frames(plaintext);
+                decrypt_attempts++;
+                if (plaintext.is_not_empty()) { decrypted_pkt_count++; } else { failed_decrypt_count++; }
+            } else {
+                undecrypted_pkt_count++;
             }
         }
+
         if(crypto_buffer.is_valid()){
             crypto_buffer.check_missing_crypto_frames();
 
@@ -1570,7 +1781,7 @@ public:
                 if (!crypto_buffer.has_first_frame()) {
                     return;
                 }
-                if (crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().length() < 10) {
+                if (crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].captured_length() < 10) {
                     // directly pick first 10 bytes from buffer
                     crypto_buffer.min_crypto_data = true;
                     struct datum d{crypto_buffer.buffer, crypto_buffer.buffer + 10};
@@ -1580,9 +1791,19 @@ public:
                     hello.is_quic_hello = true;
                 }
                 else {
-                    struct datum d{crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().data,
-                                    crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().data +
-                                        crypto_buffer.crypto_frames[crypto_buffer.first_frame_index].data().length()};
+                    // Read the frame from the owned crypto_buffer (extend copied
+                    // it there); the engine's plaintext buffer may have been
+                    // overwritten by a coalesced packet's decryption.
+                    const crypto_frame_meta &f = crypto_buffer.crypto_frames[crypto_buffer.first_frame_index];
+                    datum owned{crypto_buffer.buffer};
+                    datum buf{owned, (ssize_t)crypto_buffer.buf_len};   // populated region
+                    if (!buf.skip(f.offset())) {
+                        return;   // offset past the captured data
+                    }
+                    datum d{buf, (ssize_t)f.captured_length()};
+                    if (d.is_null()) {
+                        return;   // frame extends past the captured data
+                    }
                     tls_handshake tls{d};
                     more_bytes_needed = tls.additional_bytes_needed;
                     hello.parse(tls.body);
@@ -1635,7 +1856,7 @@ public:
         return crypto_buffer.missing_crypto_frames;
     }
 
-    const crypto *get_crypto_frames(uint16_t &frame_count, uint16_t &first_frame_idx) const {
+    const crypto_frame_meta *get_crypto_frames(uint16_t &frame_count, uint16_t &first_frame_idx) const {
         frame_count = crypto_buffer.crypto_frames_count;
         first_frame_idx = crypto_buffer.first_frame_index;
         return crypto_buffer.crypto_frames;
@@ -1672,13 +1893,36 @@ public:
         }
         json_object quic_record{record, "quic"};
         initial_packet.write_json(quic_record);
-        if (cc.is_valid()) {
-            cc.write_json(quic_record);
+        // Coalesced-datagram telemetry (RFC 9000 S12.2): extra metadata, emitted
+        // only under the metadata flag when the datagram held >1 QUIC packet.
+        if (metadata_output && (decrypt_attempts + undecrypted_pkt_count > 1)) {
+            quic_record.print_key_uint("decrypted_packets", decrypted_pkt_count);
+            if (failed_decrypt_count > 0) {
+                quic_record.print_key_uint("decrypt_failures", failed_decrypt_count);
+            }
+            if (undecrypted_pkt_count > 0) {
+                quic_record.print_key_uint("undecrypted_packets", undecrypted_pkt_count);
+            }
+            quic_record.print_key_uint("decrypted_frames", total_frame_count);
+            quic_record.print_key_uint("padding_frames", total_padding_count);
         }
+        if (close.is_valid()) {
+            close.write_json(quic_record);
+        }
+        if (ack_frame.is_valid()) {
+            ack_frame.write_json(quic_record);
+        }
+        // plaintext tracks the last decrypt attempt, not the last success:
+        // gcm_decrypt() writes the shared engine buffer before checking the
+        // tag, so a trailing failed decrypt in a coalesced datagram drops an
+        // earlier packet's plaintext.  Expected -- that packet's CRYPTO data
+        // is already harvested into crypto_buffer, so only the hex dump goes.
+        //
         if (plaintext.is_not_empty()) {
             quic_crypto.write_json(quic_record);
             quic_record.print_key_hex("plaintext", plaintext);
-        } else {
+        } else if (decrypted_pkt_count == 0) {
+            // only when nothing in the datagram decrypted
             quic_record.print_key_hex("raw_packet_data", initial_packet.raw_packet);
         }
         // json_object frame_dump{record, "frame_dump"};
@@ -1864,6 +2108,30 @@ namespace quic_packet_safety_unit_test {
         return packet;
     }
 
+    static constexpr size_t initial_pkt_len = 18 + 64;   // header + payload
+
+    // Writes a minimal v1 Initial: 8-byte DCID of repeated dcid_byte, 64-byte
+    // payload.  conn_info defaults to reserved bits set, which keeps the
+    // packet off the pre-decrypted fast path.  Returns bytes written, so
+    // coalesced packets can be appended.
+    //
+    inline size_t write_initial(uint8_t *buf, uint8_t dcid_byte, uint8_t conn_info = 0xc8) {
+        buf[0] = conn_info;
+        buf[1] = 0x00;
+        buf[2] = 0x00;
+        buf[3] = 0x00;
+        buf[4] = 0x01;         // version 1
+        buf[5] = 0x08;         // DCID length
+        for (size_t i = 0; i < 8; i++) {
+            buf[6 + i] = dcid_byte;
+        }
+        buf[14] = 0x00;        // SCID length
+        buf[15] = 0x00;        // token length
+        buf[16] = 0x40;        // protected payload length 64 (2-byte varint)
+        buf[17] = 0x40;
+        return initial_pkt_len;
+    }
+
     inline bool initial_version_decode_unit_test() {
         static constexpr size_t version_offset = 1;
         auto packet = make_quic_initial();
@@ -1889,8 +2157,514 @@ namespace quic_packet_safety_unit_test {
         return true;
     }
 
+    // Known frame types with non-minimal varint encoding must still parse.
+    inline bool frame_type_varint_unit_test() {
+        static const uint8_t crypto_data[5] = {0xde, 0xad, 0xbe, 0xef, 0x01};
+
+        auto parse_crypto = [](const uint8_t *buf, size_t len) -> bool {
+            datum d{buf, buf + len};
+            quic_frame f{d};
+            if (!f.is_valid() || !f.has_type<crypto>()) {
+                return false;
+            }
+            crypto *c = f.get_if<crypto>();
+            if (c == nullptr || !c->is_valid()) {
+                return false;
+            }
+            if (c->offset() != 0 || c->length() != sizeof(crypto_data)) {
+                return false;
+            }
+            datum &cd = c->data();
+            if (cd.length() != (ssize_t)sizeof(crypto_data)) {
+                return false;
+            }
+            for (size_t i = 0; i < sizeof(crypto_data); i++) {
+                if (cd.data[i] != crypto_data[i]) {
+                    return false;
+                }
+            }
+            return true;
+        };
+
+        // CRYPTO body: type, Offset (0), Length (5), Data. Type in 1/2/4 bytes.
+        static const uint8_t crypto_1b[] = {0x06, 0x00, 0x05, 0xde, 0xad, 0xbe, 0xef, 0x01};
+        if (!parse_crypto(crypto_1b, sizeof(crypto_1b))) {
+            return false;
+        }
+        static const uint8_t crypto_2b[] = {0x40, 0x06, 0x00, 0x05, 0xde, 0xad, 0xbe, 0xef, 0x01};
+        if (!parse_crypto(crypto_2b, sizeof(crypto_2b))) {
+            return false;
+        }
+        static const uint8_t crypto_4b[] = {0x80, 0x00, 0x00, 0x06, 0x00, 0x05, 0xde, 0xad, 0xbe, 0xef, 0x01};
+        if (!parse_crypto(crypto_4b, sizeof(crypto_4b))) {
+            return false;
+        }
+
+        // non-minimal PING (0x4001)
+        {
+            static const uint8_t ping_2b[] = {0x40, 0x01};
+            datum d{ping_2b, ping_2b + sizeof(ping_2b)};
+            quic_frame f{d};
+            if (!f.is_valid() || !f.has_type<ping>()) {
+                return false;
+            }
+        }
+
+        // CONNECTION_CLOSE transport 0x1c: Error Code, Frame Type, Reason.
+        {
+            static const uint8_t cc_1c[] = {0x1c, 0x00, 0x00, 0x03, 0x61, 0x62, 0x63};
+            datum d{cc_1c, cc_1c + sizeof(cc_1c)};
+            quic_frame f{d};
+            if (!f.is_valid() || !f.has_type<connection_close>() || d.is_not_empty()) {
+                return false;
+            }
+        }
+
+        // CONNECTION_CLOSE application 0x1d: Error Code, Reason (no Frame Type).
+        {
+            static const uint8_t cc_1d[] = {0x1d, 0x00, 0x03, 0x61, 0x62, 0x63};
+            datum d{cc_1d, cc_1d + sizeof(cc_1d)};
+            quic_frame f{d};
+            if (!f.is_valid() || !f.has_type<connection_close>() || d.is_not_empty()) {
+                return false;
+            }
+        }
+
+        // truncated type -> invalid
+        {
+            static const uint8_t trunc[] = {0x40};
+            datum d{trunc, trunc + sizeof(trunc)};
+            quic_frame f{d};
+            if (f.is_valid()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // Only Initials are accepted.  The type mapping comes from
+    // quic_parameters, so v2's renumbering is honoured and an unknown version
+    // is left ungated for trial decryption.
+    inline bool initial_packet_type_gate_unit_test() {
+        auto build = [](uint8_t conn_info, uint32_t version) {
+            auto packet = make_quic_initial();
+            packet[0] = conn_info;
+            packet[1] = (uint8_t)(version >> 24);
+            packet[2] = (uint8_t)(version >> 16);
+            packet[3] = (uint8_t)(version >> 8);
+            packet[4] = (uint8_t)version;
+            return packet;
+        };
+        auto parses = [](std::array<uint8_t, quic_initial_packet_len> &packet) {
+            datum d{packet.data(), packet.data() + packet.size()};
+            quic_crypto_engine engine{};
+            quic_init quic{d, engine};
+            return quic.is_not_empty();
+        };
+
+        struct { uint8_t conn_info; uint32_t version; bool expect_initial; } cases[] = {
+            {0xc0, 0x00000001, true},   // v1 Initial (type 0b00)
+            {0xd0, 0x00000001, false},  // v1 0-RTT
+            {0xe0, 0x00000001, false},  // v1 Handshake
+            {0xf0, 0x00000001, false},  // v1 Retry
+            {0xd0, 0x6b3343cf, true},   // v2 Initial (type 0b01)
+            {0xc0, 0x6b3343cf, false},  // v2 Retry (type 0b00)
+            {0xd0, 0xdeadbeef, true},   // unknown version: layout unknown, not gated
+            {0xe0, 0xdeadbeef, true},   // likewise; trial decryption decides
+        };
+        for (auto &c : cases) {
+            auto p = build(c.conn_info, c.version);
+            if (parses(p) != c.expect_initial) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // A CONNECTION_CLOSE with an empty reason phrase is spec-compliant and valid.
+    inline bool connection_close_validity_unit_test() {
+        auto check = [](const uint8_t *bytes, size_t len, bool expect_valid) {
+            datum d{bytes, bytes + len};
+            quic_frame f{d};
+            if (!f.has_type<connection_close>()) {
+                return false;
+            }
+            return f.get_if<connection_close>()->is_valid() == expect_valid;
+        };
+        static const uint8_t transport_empty[]  = {0x1c, 0x00, 0x00, 0x00};            // reason len 0
+        static const uint8_t transport_reason[] = {0x1c, 0x00, 0x00, 0x02, 'h', 'i'};
+        static const uint8_t application_empty[] = {0x1d, 0x00, 0x00};                 // 0x1d has no frame type
+        static const uint8_t truncated[]        = {0x1c, 0x00};                        // fields cut short
+        return check(transport_empty, sizeof(transport_empty), true)
+            && check(transport_reason, sizeof(transport_reason), true)
+            && check(application_empty, sizeof(application_empty), true)
+            && check(truncated, sizeof(truncated), false);
+    }
+
+    // A CONNECTION_CLOSE must survive a following ACK_ECN, and ACK_ECN must
+    // be captured on the pre-decrypted path.
+    inline bool connection_close_frame_walk_unit_test() {
+        auto packet = make_quic_initial();   // conn_info 0xc0 -> reserved bits 0 -> pre-decrypted path
+        static const uint8_t frames[] = {
+            0x1c, 0x00, 0x00, 0x03, 'a', 'b', 'c',            // CONNECTION_CLOSE, reason "abc"
+            0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,   // ACK_ECN, all-zero fields
+        };
+        const size_t off = 19;   // payload starts at 18, plus 1-byte packet number
+        for (size_t i = 0; i < sizeof(frames); i++) {
+            packet[off + i] = frames[i];
+        }
+
+        datum d{packet.data(), packet.data() + packet.size()};
+        quic_initial_packet ip{d};
+        if (!ip.is_not_empty()) {
+            return false;
+        }
+        cryptographic_buffer crypto_buffer{};
+        quic_init_decry decry{ip, crypto_buffer};
+        decry.parse();
+
+        char buf[8192];
+        buffer_stream bs{buf, sizeof(buf)};
+        json_object record{&bs};
+        decry.write_json(record);
+        record.close();
+        std::string out(buf, bs.doff > 0 ? (size_t)bs.doff : 0);
+
+        return out.find("connection_close") != std::string::npos   // close not clobbered by ACK
+            && out.find("abc") != std::string::npos
+            && out.find("ack_ecn") != std::string::npos;            // ack_ecn handled on this path
+    }
+
+    // Length at min_len_pn_and_payload is accepted; one byte below is rejected.
+    inline bool min_payload_length_unit_test() {
+        auto build = [](uint16_t length_field) {
+            auto packet = make_quic_initial();
+            packet[16] = 0x40 | ((length_field >> 8) & 0x3f);   // 2-byte varint
+            packet[17] = (uint8_t)(length_field & 0xff);
+            return packet;
+        };
+        auto parses = [](std::array<uint8_t, quic_initial_packet_len> &packet) {
+            datum d{packet.data(), packet.data() + packet.size()};
+            quic_initial_packet ip{d};
+            return ip.is_not_empty();
+        };
+        auto at_min = build(quic_initial_packet::min_len_pn_and_payload);
+        auto below  = build(quic_initial_packet::min_len_pn_and_payload - 1);
+        return parses(at_min) && !parses(below);
+    }
+
+    // A late offset-0 CRYPTO frame (arriving after the crypto_frames array is
+    // full) must not set first_frame_index past crypto_frames_count; otherwise
+    // consumers index one past the array (OOB read).
+    inline bool crypto_frame_index_bounds_unit_test() {
+        cryptographic_buffer cb{};
+        auto feed = [&cb](uint8_t offset) {
+            uint8_t body[3] = {offset, 0x01, 0xab};   // offset(<64), length 1, 1 data byte
+            datum d{body, body + sizeof(body)};
+            crypto c{d};
+            if (!c.is_valid()) { return; }
+            if (cb.extend(c)) { cb.update_crypto_frames(&c); }
+        };
+        // Fill the array with nonzero-offset frames, then add an offset-0 frame.
+        for (uint8_t off = 1; off <= cryptographic_buffer::max_frames; off++) {
+            feed(off);
+        }
+        feed(0);   // would set first_frame_index = max_frames without the fix
+        // No stored offset-0 frame, so there is no usable first frame, and the
+        // index (if set) must stay within the populated range.
+        if (cb.has_first_frame()) {
+            return false;
+        }
+        if (cb.first_frame_index != cryptographic_buffer::invalid_first_frame_index &&
+            cb.first_frame_index >= cb.crypto_frames_count) {
+            return false;
+        }
+        return true;
+    }
+
+    // reset() must clear the buffer contents, not just the length: the bytes a
+    // speculative parse left behind are otherwise still readable.
+    //
+    inline bool crypto_buffer_reset_zeroes_unit_test() {
+        cryptographic_buffer cb{};
+        // CRYPTO frame: offset 0, length 8, eight 0xff bytes
+        uint8_t body[] = {0x00, 0x08, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+        datum d{body, body + sizeof(body)};
+        crypto c{d};
+        if (!c.is_valid() || !cb.extend(c) || cb.buf_len != 8) {
+            return false;
+        }
+        cb.reset();
+        for (size_t i = 0; i < 8; i++) {
+            if (cb.buffer[i] != 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Bytes written by a speculative (unauthenticated) parse must not reach the
+    // fallback's 10-byte window once an authenticated frame shorter than that
+    // lands at offset 0, or they are read as CRYPTO stream data.
+    //
+    inline bool speculative_crypto_contamination_unit_test() {
+        auto packet = make_quic_initial();
+        // CRYPTO off 0 len 5, then off 100 len 5, leaving a gap: the offset-0
+        // frame captures 5, so the fallback reads buffer[0..10).
+        static const uint8_t frames[] = {
+            0x06, 0x00, 0x05, 0x01, 0x00, 0x00, 0x50, 0xaa,
+            0x06, 0x40, 0x64, 0x05, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5,
+        };
+        const size_t off = 19;   // payload at 18, plus 1-byte packet number
+        if (off + sizeof(frames) > packet.size()) { return false; }
+        for (size_t i = 0; i < sizeof(frames); i++) { packet[off + i] = frames[i]; }
+
+        cryptographic_buffer cb{};
+        // stand in for the speculative parse: fill the window with 0xff
+        uint8_t spec[] = {0x00, 0x0a, 0xff, 0xff, 0xff, 0xff, 0xff,
+                          0xff, 0xff, 0xff, 0xff, 0xff};
+        datum sd{spec, spec + sizeof(spec)};
+        crypto sc{sd};
+        if (!sc.is_valid() || !cb.extend(sc) || cb.buf_len != 10) {
+            return false;
+        }
+        cb.reset();
+
+        datum d{packet.data(), packet.data() + packet.size()};
+        quic_initial_packet ip{d};
+        if (!ip.is_not_empty()) { return false; }
+        quic_init_decry decry{ip, cb};
+        decry.parse();
+
+        // the authenticated frame's 5 bytes survive
+        static const uint8_t expected[] = {0x01, 0x00, 0x00, 0x50, 0xaa};
+        for (size_t i = 0; i < sizeof(expected); i++) {
+            if (cb.buffer[i] != expected[i]) { return false; }
+        }
+        // the rest of the window carries nothing from the speculative parse
+        for (size_t i = sizeof(expected); i < 10; i++) {
+            if (cb.buffer[i] != 0) { return false; }
+        }
+        return true;
+    }
+
+    // The caller's cursor must cover every coalesced packet the walk accepted,
+    // and must not follow one the gates reject.
+    //
+    inline bool coalesced_cursor_advance_unit_test() {
+        auto consumed = [](uint8_t second_dcid_byte) -> size_t {
+            std::array<uint8_t, quic_initial_packet_len> datagram{};
+            size_t off = write_initial(datagram.data(), 0x01);
+            write_initial(datagram.data() + off, second_dcid_byte);
+
+            datum d{datagram.data(), datagram.data() + datagram.size()};
+            quic_crypto_engine engine{};
+            quic_init quic{d, engine};
+            if (!quic.is_not_empty()) { return 0; }
+            return (size_t)(d.data - datagram.data());
+        };
+
+        return consumed(0x01) == 2 * initial_pkt_len   // both Initials committed
+            && consumed(0x02) == initial_pkt_len;      // foreign DCID: first only
+    }
+
+    // raw_packet must cover only the packet the record describes, not the
+    // coalesced packets behind it.
+    //
+    inline bool raw_packet_extent_unit_test() {
+        std::array<uint8_t, quic_initial_packet_len> datagram{};
+        size_t off = write_initial(datagram.data(), 0x01);
+        write_initial(datagram.data() + off, 0x01);
+
+        datum d{datagram.data(), datagram.data() + datagram.size()};
+        quic_initial_packet ip{d};
+        if (!ip.is_not_empty()) {
+            return false;
+        }
+        return ip.raw_packet.length() == (ssize_t)initial_pkt_len;
+    }
+
+    // The pre-decrypted fast path must not return before the coalesced walk,
+    // or a crafted first packet that parses as PADDING hides a valid Initial
+    // behind it.  A pre-decrypted record reports "plaintext" and no coalesced
+    // telemetry; the normal path here fails to decrypt and reports both
+    // "raw_packet_data" and telemetry, so the two are distinguishable.
+    //
+    inline bool pre_decrypted_coalesced_unit_test() {
+        auto record_for = [](const std::array<uint8_t, quic_initial_packet_len> &datagram) {
+            datum d{datagram.data(), datagram.data() + datagram.size()};
+            quic_crypto_engine engine{};
+            quic_init quic{d, engine};
+
+            char buf[16384];
+            buffer_stream bs{buf, sizeof(buf)};
+            json_object record{&bs};
+            quic.write_json(record, true);   // metadata_output
+            record.close();
+            return std::string(buf, bs.doff > 0 ? (size_t)bs.doff : 0);
+        };
+
+        // one cleartext-looking Initial filling the datagram: fast path applies
+        std::array<uint8_t, quic_initial_packet_len> single{};
+        write_initial(single.data(), 0x01, 0xc0);   // reserved bits 0
+        single[16] = 0x44;   // payload length 1166, so the packet fills the datagram
+        single[17] = 0x8e;
+        std::string single_out = record_for(single);
+        if (single_out.find("plaintext") == std::string::npos ||
+            single_out.find("decrypted_packets") != std::string::npos) {
+            return false;
+        }
+
+        // same packet with an Initial behind it: the walk must reach it
+        std::array<uint8_t, quic_initial_packet_len> coalesced{};
+        size_t off = write_initial(coalesced.data(), 0x01, 0xc0);
+        write_initial(coalesced.data() + off, 0x01, 0xc0);
+        std::string coalesced_out = record_for(coalesced);
+        return coalesced_out.find("decrypted_packets") != std::string::npos;
+    }
+
+    // A coalesced non-Initial must end the walk, not be parsed Initial-style:
+    // it would consume a decrypt attempt, and under trial decryption could be
+    // harvested as Initial data.
+    //
+    inline bool coalesced_type_gate_unit_test() {
+        auto examined_second = [](uint8_t second_conn_info) {
+            std::array<uint8_t, quic_initial_packet_len> datagram{};
+            size_t off = write_initial(datagram.data(), 0x01);
+            write_initial(datagram.data() + off, 0x01, second_conn_info);
+
+            datum d{datagram.data(), datagram.data() + datagram.size()};
+            quic_crypto_engine engine{};
+            quic_init quic{d, engine};
+
+            char buf[16384];
+            buffer_stream bs{buf, sizeof(buf)};
+            json_object record{&bs};
+            quic.write_json(record, true);   // metadata_output
+            record.close();
+            std::string out(buf, bs.doff > 0 ? (size_t)bs.doff : 0);
+            return out.find("decrypted_packets") != std::string::npos;
+        };
+
+        return examined_second(0xc8)        // Initial: walk continues
+            && !examined_second(0xd8)       // 0-RTT
+            && !examined_second(0xe8)       // Handshake
+            && !examined_second(0xf8);      // Retry
+    }
+
+    // A coalesced Initial with a foreign DCID must not be examined: it would
+    // decrypt under its own keys and overwrite the first packet's ClientHello
+    // (RFC 9000 S12.2).  Coalesced telemetry appears only when more than one
+    // packet was examined, so it shows whether the walk continued.
+    //
+    inline bool coalesced_dcid_gate_unit_test() {
+        auto examined_second_packet = [](uint8_t second_dcid_byte) {
+            std::array<uint8_t, quic_initial_packet_len> datagram{};
+            size_t off = write_initial(datagram.data(), 0x01);
+            write_initial(datagram.data() + off, second_dcid_byte);
+
+            datum d{datagram.data(), datagram.data() + datagram.size()};
+            quic_crypto_engine engine{};
+            quic_init quic{d, engine};
+
+            char buf[8192];
+            buffer_stream bs{buf, sizeof(buf)};
+            json_object record{&bs};
+            quic.write_json(record, true);   // metadata_output
+            record.close();
+            std::string out(buf, bs.doff > 0 ? (size_t)bs.doff : 0);
+            return out.find("decrypted_packets") != std::string::npos;
+        };
+
+        return examined_second_packet(0x01)       // same DCID: walk continues
+            && !examined_second_packet(0x02);     // foreign DCID: walk stops
+    }
+
+    // A long header cut off before its 4-byte version must not parse, so no
+    // record is produced from a version that was never read.  The
+    // datagram-min-length check is disabled, so the truncation rather than
+    // the length gate is what rejects it.
+    inline bool truncated_version_unit_test() {
+        static const uint8_t buf[] = {0xc0, 0x00, 0x01};   // conn_info + only 2 version bytes
+        datum d{buf, buf + sizeof(buf)};
+        quic_initial_packet ip{d, false};
+        return !ip.is_not_empty();
+    }
+
+    // Gapped CRYPTO frames (offset-0 frame present, but a later frame leaves a
+    // hole) set missing_crypto_frames and drive the reassembly-fallback
+    // ClientHello extraction. Two cases: first frame captures < 10 bytes and
+    // >= 10 bytes, exercising both fallback branches.
+    inline bool missing_crypto_frame_fallback_unit_test() {
+        struct result {
+            bool missing = false;
+            bool first = false;
+            bool min_crypto_data = false;
+            uint32_t more_bytes_needed = 0;
+        };
+        auto run = [](const uint8_t *frames, size_t flen, result &r) -> bool {
+            auto packet = make_quic_initial();
+            const size_t off = 19;   // payload at 18, plus 1-byte packet number
+            if (off + flen > packet.size()) { return false; }
+            for (size_t i = 0; i < flen; i++) { packet[off + i] = frames[i]; }
+            datum d{packet.data(), packet.data() + packet.size()};
+            quic_initial_packet ip{d};
+            if (!ip.is_not_empty()) { return false; }
+            cryptographic_buffer cb{};
+            quic_init_decry decry{ip, cb};
+            decry.parse();
+            r.missing = cb.missing_crypto_frames;
+            r.first = cb.has_first_frame();
+            r.min_crypto_data = cb.min_crypto_data;      // set only by the < 10 branch
+            r.more_bytes_needed = decry.get_more_bytes_needed();   // zero if a branch did nothing
+            return true;
+        };
+
+        // CRYPTO off 0 len 5, then off 100 len 5 (gap).  First captures 5
+        // (< 10), so the fallback reads 10 buffer bytes: a client_hello header
+        // declaring 80, with 6 readable, leaving 74 needed.
+        static const uint8_t small_first[] = {
+            0x06, 0x00, 0x05, 0x01, 0x00, 0x00, 0x50, 0xaa,
+            0x06, 0x40, 0x64, 0x05, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5,
+        };
+        // Same, but first captures 12 (>= 10), so the fallback reads that
+        // frame: header declaring 100, with 8 readable, leaving 92 needed.
+        static const uint8_t large_first[] = {
+            0x06, 0x00, 0x0c, 0x01, 0x00, 0x00, 0x64, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7, 0xa8,
+            0x06, 0x40, 0x64, 0x05, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5,
+        };
+
+        result small{};
+        result large{};
+        if (!run(small_first, sizeof(small_first), small)) { return false; }
+        if (!run(large_first, sizeof(large_first), large)) { return false; }
+
+        return small.missing && small.first
+            && large.missing && large.first
+            && small.min_crypto_data          // the < 10 branch ran
+            && !large.min_crypto_data         // the >= 10 branch ran
+            && small.more_bytes_needed == 74
+            && large.more_bytes_needed == 92;
+    }
+
     inline bool unit_test() {
-        return initial_version_decode_unit_test();
+        return initial_version_decode_unit_test()
+            && frame_type_varint_unit_test()
+            && initial_packet_type_gate_unit_test()
+            && connection_close_validity_unit_test()
+            && connection_close_frame_walk_unit_test()
+            && min_payload_length_unit_test()
+            && crypto_frame_index_bounds_unit_test()
+            && crypto_buffer_reset_zeroes_unit_test()
+            && speculative_crypto_contamination_unit_test()
+            && coalesced_cursor_advance_unit_test()
+            && raw_packet_extent_unit_test()
+            && pre_decrypted_coalesced_unit_test()
+            && coalesced_type_gate_unit_test()
+            && coalesced_dcid_gate_unit_test()
+            && truncated_version_unit_test()
+            && missing_crypto_frame_fallback_unit_test();
     }
 
 } // namespace quic_packet_safety_unit_test
