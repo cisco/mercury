@@ -561,9 +561,12 @@ struct quic_initial_packet {
         }
 
         // on entry raw_packet was the whole remaining datagram, before the
-        // length field had been parsed; trim it to this packet
+        // length field had been parsed; parse() trims it to this packet, and
+        // nulls it rather than silently leaving it untrimmed
         //
-        raw_packet.trim_to_length(raw_packet.length() - d.length());
+        datum pkt = raw_packet;
+        ssize_t pkt_len = pkt.length() - d.length();
+        raw_packet = datum{pkt, pkt_len};
 
         // fprintf(stderr, "VALID\n");
         valid = true;
